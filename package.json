@@ -1,0 +1,10 @@
+{
+  "name": "agentxm-oss",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo 'TODO'",
+    "test": "echo 'TODO'",
+    "typecheck": "echo 'TODO'"
+  }
+}

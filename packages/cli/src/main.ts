@@ -6,14 +6,14 @@ import { hideBin } from "yargs/helpers"
 const version = "0.0.1"
 
 const program = Effect.gen(function* () {
-  const argv = yield* Effect.promise(() =>
+  yield* Effect.promise(() =>
     yargs(hideBin(process.argv))
       .scriptName("axm")
       .version(version)
       .help()
       .strict()
       .demandCommand(0)
-      .parse()
+      .parseAsync()
   )
 
   yield* Console.log("AgentXM CLI ready")

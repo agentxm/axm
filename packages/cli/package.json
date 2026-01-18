@@ -18,6 +18,7 @@
     "yargs": "catalog:"
   },
   "devDependencies": {
+    "@types/bun": "catalog:",
     "@types/yargs": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

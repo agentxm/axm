@@ -1,0 +1,25 @@
+{
+  "name": "@agentxm/cli",
+  "version": "0.0.1",
+  "type": "module",
+  "bin": {
+    "axm": "./src/main.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "effect": "catalog:",
+    "yargs": "catalog:"
+  },
+  "devDependencies": {
+    "@types/yargs": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

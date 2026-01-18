@@ -3,8 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "echo 'TODO'",
-    "test": "echo 'TODO'",
-    "typecheck": "echo 'TODO'"
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "vitest": "catalog:"
   }
 }

@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
-import { Effect, Console } from "effect"
-import yargs from "yargs"
-import { hideBin } from "yargs/helpers"
+import { Console, Effect } from "effect";
+import yargs from "yargs";
+import { hideBin } from "yargs/helpers";
 
-const version = "0.0.1"
+const version = "0.0.1";
 
 const program = Effect.gen(function* () {
   yield* Effect.promise(() =>
@@ -13,13 +13,13 @@ const program = Effect.gen(function* () {
       .help()
       .strict()
       .demandCommand(0)
-      .parseAsync()
-  )
+      .parseAsync(),
+  );
 
-  yield* Console.log("AgentXM CLI ready")
-})
+  yield* Console.log("AgentXM CLI ready");
+});
 
 Effect.runPromise(program).catch((error) => {
-  console.error(error)
-  process.exit(1)
-})
+  console.error(error);
+  process.exit(1);
+});

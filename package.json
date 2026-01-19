@@ -11,10 +11,16 @@
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "check": "biome check --write .",
-    "check:ci": "biome check ."
+    "check:ci": "biome check .",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,ts,mjs,cjs}": "biome check --write --no-errors-on-unmatched"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "vitest": "catalog:"
   }
 }

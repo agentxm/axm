@@ -5,7 +5,7 @@ import { hideBin } from "yargs/helpers";
 
 const version = "0.0.1";
 
-const program = Effect.gen(function* () {
+export const program = Effect.gen(function* () {
   yield* Effect.promise(() =>
     yargs(hideBin(process.argv))
       .scriptName("axm")

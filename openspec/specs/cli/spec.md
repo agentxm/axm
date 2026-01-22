@@ -1,6 +1,6 @@
-## ADDED Requirements
+## Requirements
 
-### Requirement: Startup Message
+### Startup Message
 
 The CLI SHALL display "AgentXM CLI ready" when invoked.
 

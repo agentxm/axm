@@ -31,9 +31,19 @@ Apply these qualities to design, implementation, and verification:
      - Predictive - Passing means production-ready
      - Inspiring - Passing inspires confidence
 
-4. **Maintainable** - Easy to understand and change with confidence.
-   - [ ] Big changes have specs first
-   - [ ] Design decisions explicit, not buried in code
+4. **Maintainable** - Easy to understand, change with confidence, and contribute to.
+   - [ ] Consistent patterns across the codebase
+   - [ ] Specs:
+     - Organized hierarchically by capability
+     - Capability specified for every meaningful system component
+     - Just-enough specification, no duplication
+     - Reference automated test suites as executable specifications (where they exist and are helpful)
+     - Describe behavior and concepts from user's perspective, not implementation details
+
+5. **Lovable** - A joy to use.
+   - [ ] Intuitive interfaces, defaults, and minimal configuration
+   - [ ] Clear error messages that guide toward resolution
+   - [ ] Documentation matches reality
 
 ## Tech Stack
 
@@ -41,7 +51,7 @@ Apply these qualities to design, implementation, and verification:
 - **Language**: TypeScript (strict mode)
 - **Package manager**: pnpm (workspaces)
 - **CLI parsing**: yargs
-- **Business logic**: Effect
+- **Business logic**: Effect (prefer Effect capabilities where they exist)
 - **Testing**: Vitest
 - **Formatting/Linting**: Biome (code), Prettier (markdown)
 

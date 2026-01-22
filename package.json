@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "axm": "bun packages/cli/src/main.ts",
     "build": "pnpm -r build",
     "test": "vitest run",
     "typecheck": "pnpm -r typecheck",

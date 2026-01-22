@@ -17,6 +17,16 @@ src/
     <resource>/utils.ts             # Shared utilities for subcommands
 ```
 
+## Specs
+
+CLI specs live in `openspec/specs/` with the naming convention:
+
+```
+cli/                    # CLI root capability
+cli-<command>/          # Command capability
+cli-<command>-<action>/ # Subcommand capability
+```
+
 ## Key References
 
 - CLI design patterns: `docs/guides/cli-design-guidelines.md`

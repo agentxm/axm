@@ -73,6 +73,9 @@ packages/           # All packages live here
   cli/              # @agentxm/cli package
 openspec/           # Spec-driven development
   specs/            # Implemented capabilities
+    <capability>/
+    <capability>-<sub>/
+    <capability>-<sub>-<subsub>/
   changes/          # Proposed changes
 docs/guides/        # Reference documentation
 ```

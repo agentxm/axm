@@ -1,6 +1,6 @@
 # Project Instructions
 
-AgentXM OSS is a TypeScript monorepo for agent extension packages. Uses Bun runtime and PNPM workspaces.
+The `axm` CLI for managing extensions across AI coding agents.
 
 ## Quality Attributes
 
@@ -70,7 +70,8 @@ Apply these qualities to design, implementation, and verification:
 
 ```
 packages/           # All packages live here
-  cli/              # @agentxm/cli package
+  cli/              # @agentxm/cli - Thin CLI layer (yargs parsing, Effect handler wiring)
+  core/             # @agentxm/core - Domain logic, types, and utilities (no CLI concerns)
 openspec/           # Spec-driven development
   specs/            # Implemented capabilities
     <capability>/

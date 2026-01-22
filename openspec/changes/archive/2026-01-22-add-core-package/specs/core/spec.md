@@ -40,6 +40,21 @@ The core package SHALL include a Vitest configuration for unit testing.
 - **WHEN** `pnpm test` is run from the monorepo root
 - **THEN** core package tests are executed
 
+### Requirement: Experimental Subpath Export
+
+The core package SHALL expose experimental APIs via a separate `/experimental` subpath. Experimental code SHALL NOT be re-exported from the main entry point.
+
+#### Scenario: Importing experimental APIs
+
+- **WHEN** a consumer wants to use experimental APIs
+- **THEN** they MUST import from `@agentxm/core/experimental`
+- **AND** importing from `@agentxm/core` does NOT include experimental exports
+
+#### Scenario: JSDoc documentation
+
+- **WHEN** code is added to the experimental folder
+- **THEN** all exports MUST include `@experimental` JSDoc tag
+
 ### Requirement: CLI Separation
 
 The core package SHALL NOT depend on CLI-specific concerns (yargs, process arguments, terminal I/O). The CLI SHALL depend on core for domain logic.

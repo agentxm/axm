@@ -11,6 +11,7 @@ The CLI architecture separates argument parsing (yargs) from business logic (Eff
 ## What Changes
 
 - **NEW** `packages/core` directory with `@agentxm/core` package
+- **NEW** Experimental APIs exposed via `@agentxm/core/experimental` subpath
 - **NEW** Core package exports domain types, utilities, and Effect services
 - CLI depends on `@agentxm/core` for domain logic
 - CLI retains top-level Effect handler functions that wire services together

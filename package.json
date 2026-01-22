@@ -6,8 +6,8 @@
     "build": "pnpm -r build",
     "test": "vitest run",
     "typecheck": "pnpm -r typecheck",
-    "format": "biome format --write .",
-    "format:check": "biome format .",
+    "format": "biome format --write . && prettier --write \"**/*.md\"",
+    "format:check": "biome format . && prettier --check \"**/*.md\"",
     "lint": "biome lint .",
     "lint:fix": "biome lint --write .",
     "check": "biome check --write .",
@@ -15,12 +15,14 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "*.{js,ts,mjs,cjs}": "biome check --write --no-errors-on-unmatched"
+    "*.{js,ts,mjs,cjs}": "biome check --write --no-errors-on-unmatched",
+    "*.md": "prettier --write"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1",
     "vitest": "catalog:"
   }
 }

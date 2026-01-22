@@ -1,9 +1,12 @@
 {
-  "name": "@agentxm/cli",
+  "name": "@agentxm/core",
   "version": "0.0.1",
   "type": "module",
-  "bin": {
-    "axm": "./src/main.ts"
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
   },
   "scripts": {
     "build": "tsc",
@@ -14,13 +17,10 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "@agentxm/core": "workspace:*",
-    "effect": "catalog:",
-    "yargs": "catalog:"
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@types/bun": "catalog:",
-    "@types/yargs": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

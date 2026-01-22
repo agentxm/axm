@@ -2,7 +2,7 @@
 
 ## Why
 
-The CLI package (`@agentxm/cli`) needs a formal specification to define its expected behavior. Currently, running the `axm` command has no defined startup behavior.
+The CLI package (`@agentxm/cli`) needs a formal specification to define its expected behavior. The startup message exists but lacks a formal spec and proper test coverage.
 
 ## What Changes
 

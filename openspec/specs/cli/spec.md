@@ -1,3 +1,7 @@
+## Purpose
+
+The CLI provides the primary user interface for the axm tool.
+
 ## Requirements
 
 ### Startup Message

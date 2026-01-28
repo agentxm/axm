@@ -113,14 +113,42 @@ packages/cli/src/commands/
     add.handler.ts             # Add handler (Effect)
 
 packages/core/src/
-  skills/
-    source-parser.ts           # Parse source strings
-    skill-discovery.ts         # Find SKILL.md files
-    agent-detection.ts         # Detect installed agents
-    installer.ts               # Install skills to agents
-    settings.ts                # Read/write settings.json
-    lockfile.ts                # Read/write axm.lock
-    types.ts                   # Shared types
+  experimental/
+    skills/
+      index.ts                 # Public exports for @agentxm/core/experimental/skills
+      source-parser.ts         # Parse source strings
+      skill-discovery.ts       # Find SKILL.md files
+      agent-detection.ts       # Detect installed agents
+      installer.ts             # Install skills to agents
+      settings.ts              # Read/write settings.json
+      lockfile.ts              # Read/write axm.lock
+      types.ts                 # Shared types
+```
+
+### Export Pattern
+
+Skills functionality is exported via subpath:
+
+```typescript
+// CLI imports skills from dedicated subpath
+import {
+  parseSource,
+  detectAgents,
+  installSkill,
+} from "@agentxm/core/experimental/skills";
+```
+
+This requires adding the subpath export to `packages/core/package.json`:
+
+```json
+"exports": {
+  ".": { ... },
+  "./experimental": { ... },
+  "./experimental/skills": {
+    "types": "./dist/experimental/skills/index.d.ts",
+    "import": "./dist/experimental/skills/index.js"
+  }
+}
 ```
 
 ## Risks / Trade-offs

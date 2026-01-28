@@ -1,14 +1,15 @@
 ## 1. Core Domain Types and Services
 
-- [ ] 1.1 Create `packages/core/src/skills/types.ts` with Skill, AgentConfig, ParsedSource, Settings, LockEntry types
-- [ ] 1.2 Create `packages/core/src/skills/source-parser.ts` for parsing source strings (github, gitlab, git, local, direct-url, well-known)
-- [ ] 1.3 Create `packages/core/src/skills/agent-detection.ts` with agent configs and detection logic
-- [ ] 1.4 Create `packages/core/src/skills/skill-discovery.ts` for finding SKILL.md files in directories
-- [ ] 1.5 Create `packages/core/src/skills/installer.ts` for installing skills (symlink/copy)
-- [ ] 1.6 Create `packages/core/src/skills/settings.ts` for reading/writing .axm/settings.json
-- [ ] 1.7 Create `packages/core/src/skills/lockfile.ts` for reading/writing .axm/axm.lock (YAML)
-- [ ] 1.8 Create `packages/core/src/skills/git.ts` for cloning repositories
-- [ ] 1.9 Export skills module from `packages/core/src/experimental/index.ts`
+- [ ] 1.1 Create `packages/core/src/experimental/skills/types.ts` with Skill, AgentConfig, ParsedSource, Settings, LockEntry types
+- [ ] 1.2 Create `packages/core/src/experimental/skills/source-parser.ts` for parsing source strings (github, gitlab, git, local, direct-url, well-known)
+- [ ] 1.3 Create `packages/core/src/experimental/skills/agent-detection.ts` with agent configs and detection logic
+- [ ] 1.4 Create `packages/core/src/experimental/skills/skill-discovery.ts` for finding SKILL.md files in directories
+- [ ] 1.5 Create `packages/core/src/experimental/skills/installer.ts` for installing skills (symlink/copy)
+- [ ] 1.6 Create `packages/core/src/experimental/skills/settings.ts` for reading/writing .axm/settings.json
+- [ ] 1.7 Create `packages/core/src/experimental/skills/lockfile.ts` for reading/writing .axm/axm.lock (YAML)
+- [ ] 1.8 Create `packages/core/src/experimental/skills/git.ts` for cloning repositories
+- [ ] 1.9 Create `packages/core/src/experimental/skills/index.ts` with public exports
+- [ ] 1.10 Add `./experimental/skills` subpath export to `packages/core/package.json`
 
 ## 2. Unit Tests for Core Services
 

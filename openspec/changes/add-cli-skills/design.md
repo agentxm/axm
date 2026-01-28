@@ -54,10 +54,34 @@ Agent-specific symlinks are created in each agent's skills directory (e.g., `.cl
 
 ### Decision: Settings vs Lockfile Separation
 
-- `settings.json`: User preferences (target agents, last selections) - mutable, user-editable
-- `axm.lock`: Installed skill metadata (source, hash, timestamps) - generated, not user-edited
+- `settings.json`: User preferences and installed skills list - mutable, user-editable
+  - Target agents, last selections
+  - Installed skills with source and target agents (no version/hash info)
+- `axm.lock`: Resolved version metadata - generated, not user-edited
+  - Commit SHAs, content hashes
+  - Timestamps (installedAt, updatedAt)
+  - Exact source URLs for reproducibility
 
-**Rationale**: Separates concerns; settings are configuration, lockfile is derived state.
+Example `settings.json`:
+
+```json
+{
+  "version": 1,
+  "agents": ["claude-code", "cursor"],
+  "skills": {
+    "pr-review": {
+      "source": "example-org/agent-skills",
+      "agents": ["claude-code", "cursor"]
+    },
+    "commit": {
+      "source": "example-org/agent-skills",
+      "agents": ["claude-code"]
+    }
+  }
+}
+```
+
+**Rationale**: Settings track _what_ is installed and _where_, lockfile tracks _which version_. Users can edit settings.json to change agent targets; lockfile ensures reproducible installations.
 
 ### Decision: YAML Lockfile Format
 

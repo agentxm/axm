@@ -229,31 +229,46 @@ The CLI SHALL support non-interactive operation for automation.
 
 ### Requirement: Settings Persistence
 
-The CLI SHALL persist user preferences and installed skill metadata.
+The CLI SHALL persist user preferences and installed skills in `.axm/settings.json`.
 
 #### Scenario: Settings file creation
 
 - **WHEN** skills are installed for the first time
-- **THEN** the CLI creates `.axm/settings.json` with target agents and preferences
+- **THEN** the CLI creates `.axm/settings.json` with target agents, preferences, and installed skills
 
 #### Scenario: Remember last selected agents
 
 - **WHEN** the user selects agents during installation
 - **THEN** the selection is saved and offered as default for subsequent installations
 
+#### Scenario: Track installed skills in settings
+
+- **WHEN** a skill is installed
+- **THEN** the CLI records the skill name, source shorthand, and target agents in `settings.json`
+
+#### Scenario: Settings file format
+
+- **WHEN** viewing the settings file
+- **THEN** it is in JSON format with `version`, `agents`, and `skills` (mapping skill names to source and agents)
+
 ### Requirement: Lockfile Management
 
-The CLI SHALL maintain a lockfile tracking installed skill versions.
+The CLI SHALL maintain a lockfile tracking resolved versions for reproducibility.
 
 #### Scenario: Lockfile creation
 
 - **WHEN** skills are installed
-- **THEN** the CLI creates or updates `.axm/axm.lock` with skill source, hash, and timestamps
+- **THEN** the CLI creates or updates `.axm/axm.lock` with resolved version metadata
 
 #### Scenario: Lockfile format
 
 - **WHEN** viewing the lockfile
-- **THEN** it is in YAML format with skill entries containing source, sourceType, sourceUrl, hash, installedAt, and updatedAt
+- **THEN** it is in YAML format with skill entries containing sourceType, sourceUrl, skillPath, hash (commit SHA or content hash), installedAt, and updatedAt
+
+#### Scenario: Lockfile excludes user preferences
+
+- **WHEN** comparing settings.json and axm.lock
+- **THEN** the lockfile contains only version resolution data, not user preferences or agent selections
 
 ### Requirement: Error Handling
 

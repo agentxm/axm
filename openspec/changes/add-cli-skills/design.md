@@ -11,7 +11,7 @@ This feature enables axm to manage "skills"—reusable markdown instruction file
 ### Constraints
 
 - Must use yargs for CLI parsing (project convention)
-- Must use Effect for business logic (project convention)
+- Must use Effect for all business logic and I/O—no raw Promises or async/await (see CLAUDE.md Effect Guidelines)
 - Must support common source formats (GitHub, GitLab, local paths) for broad compatibility
 - Must be testable with unit tests at all layers
 
@@ -181,6 +181,8 @@ Structure the init and add commands as:
 // Handler returns Effect that can be tested with mock services
 export const addSkillsHandler = (args: AddArgs): Effect.Effect<void, AddError, AddServices> => ...
 ```
+
+**Effect-only rule**: All business logic returns `Effect<A, E, R>`, never `Promise<T>`. Use `Effect.tryPromise` only at boundaries to wrap external Promise-based libraries (e.g., execa, @clack/prompts). See CLAUDE.md Effect Guidelines for patterns.
 
 ### Decision: @clack/prompts for Interactive UI
 

@@ -129,9 +129,15 @@ openspec/           # Spec-driven development
 docs/guides/        # Reference documentation
 ```
 
-## Key References
+## Guides
 
-- OpenSpec workflow: `openspec/AGENTS.md`
+| Guide                                                        | When to Use                                                       |
+| ------------------------------------------------------------ | ----------------------------------------------------------------- |
+| `openspec/AGENTS.md`                                         | Planning new capabilities, writing specs, or applying changes     |
+| `docs/guides/effect-service-design.md`                       | Designing Effect services, error types, layers, or retry policies |
+| `docs/guides/cli-design-guidelines.md`                       | Adding CLI commands, flags, output formatting, or error messages  |
+| `docs/guides/markdown-task-plans.md`                         | Writing task plans with execution markers for AI-assisted work    |
+| `docs/guides/creating-beads-wbs-from-markdown-task-plans.md` | Executing task plans using beads for structured task tracking     |
 
 ## Task Management Workflow
 

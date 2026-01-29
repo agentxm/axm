@@ -3,6 +3,8 @@
 Patterns for typed errors, services, and async operations. This project uses
 Effect for all business logic and I/O.
 
+> [Effect](../../CLAUDE.md#effect) — critical guidance
+
 ## Skills
 
 - `/effect-basics` — Core patterns, when to use functions vs services
@@ -13,13 +15,19 @@ Effect for all business logic and I/O.
 
 ## Why Effect?
 
-Effect is a TypeScript library for building reliable, maintainable programs. It
-replaces Promises with composable operations that have:
+Effect serves as this project's standard library, replacing raw Promises and
+async/await with composable operations. The CLI architecture separates yargs
+parsing from Effect handlers—this enables testing business logic independently
+from CLI wiring.
 
-- **Typed errors** — Know exactly what can fail, not just `unknown`
-- **Dependency injection** — Declare what services code needs
-- **Resource safety** — Guaranteed cleanup even when things fail
-- **Unified syntax** — Sync and async code looks identical
+Key benefits for this codebase:
+
+- **Typed errors** — CLI commands surface specific failure modes (not just
+  `unknown`)
+- **Service layers** — Handlers declare dependencies; layers provide them at the
+  edge
+- **Testability** — Test layers replace real services without mocking
+- **Concurrency** — `Effect.all` and `Effect.forEach` parallelize I/O safely
 
 The type signature `Effect<A, E, R>` captures success type, error type, and
 dependencies. When you see `Effect<User, AuthError | DbError, Database>`, you

@@ -13,8 +13,8 @@ too detailed for README.md or CLAUDE.md, but not tactical enough for skills.
       → If minor, fold into existing guide; if directory-scoped, use README
 - [ ] **High-level** — Overview and context, not step-by-step instructions
       → If tactical patterns or checklists, use a skill
-- [ ] **References CLAUDE.md** — Links to relevant CLAUDE.md section for critical guidance
-      → Guides must not duplicate CLAUDE.md; assume reader understands linked guidance
+- [ ] **Links CLAUDE.md** — Links to relevant CLAUDE.md section (required if one exists)
+      → Don't duplicate CLAUDE.md; link to critical guidance instead
 - [ ] **Collects references** — Aggregates resources, skills, and background
       → If nothing to collect, content may belong inline or in CLAUDE.md
 - [ ] **Project-specific** — Contextualizes how the topic applies here
@@ -29,7 +29,7 @@ too detailed for README.md or CLAUDE.md, but not tactical enough for skills.
 
 Purpose statement explaining what this guide covers and why it matters.
 
-> **Critical guidance:** [Section Name](../../CLAUDE.md#section-anchor) <!-- required if CLAUDE.md covers this topic -->
+> [Section Name](../../CLAUDE.md#section-anchor) — critical guidance <!-- required if CLAUDE.md covers this topic -->
 
 ## Key Resources <!-- omit if none -->
 

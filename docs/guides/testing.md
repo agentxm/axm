@@ -1,7 +1,7 @@
 # Testing Guide
 
-Orientation for testing in this project: why we use three test levels, when to
-use each, and what makes tests valuable.
+Orientation for testing in this project: unit and e2e tests, when to use each,
+and what makes tests valuable.
 
 **Not covered:** Performance testing, load testing, or CI/CD pipeline
 configuration.
@@ -13,7 +13,7 @@ configuration.
 
 ## Skills
 
-- `/testing-basics` — Test quality principles and level overview
+- `/testing-basics` — Test quality principles
 - `/testing-unit` — Unit test patterns for pure functions
 - `/testing-e2e` — E2E test patterns for CLI commands
 - `/effect-testing` — Effect testing patterns (handlers typically need test layers)
@@ -21,16 +21,14 @@ configuration.
 
 ---
 
-## Test Levels
+## Unit and E2E Tests
 
-This project uses two test levels:
+| Test | Location                     | What it tests                             | Dependencies     |
+| ---- | ---------------------------- | ----------------------------------------- | ---------------- |
+| Unit | `packages/**/*.test.ts`      | Business logic (pure functions, handlers) | Test layers      |
+| E2E  | `packages/cli/e2e/*.test.ts` | Full CLI as subprocess                    | Built binary, fs |
 
-| Level | Location                     | What it tests                             | Dependencies     |
-| ----- | ---------------------------- | ----------------------------------------- | ---------------- |
-| Unit  | `packages/**/*.test.ts`      | Business logic (pure functions, handlers) | Test layers      |
-| E2E   | `packages/cli/e2e/*.test.ts` | Full CLI as subprocess                    | Built binary, fs |
-
-### When to Use Each Level
+### When to Use Each
 
 **Unit tests** for:
 

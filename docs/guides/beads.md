@@ -4,6 +4,8 @@ Standards for task planning in markdown and executing plans with beads for
 multi-session tracking. Covers task structure, execution types, human gates,
 dependency management, and the beads workflow for AI-assisted execution.
 
+> [Task Management Workflow](../../CLAUDE.md#task-management-workflow) — critical guidance
+
 **Not covered:** beads CLI installation, configuration, or internal
 implementation. For bd command usage, run `bd --help`.
 

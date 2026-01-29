@@ -6,11 +6,10 @@ user-invocable: false
 
 # Unit Testing Patterns
 
-Unit tests verify pure business logic without dependencies. Location:
-`packages/core/src/**/*.test.ts`
+Unit tests verify business logic. For pure functions, no dependencies are needed.
+For handlers, provide test layers—see `/effect-testing`.
 
-For Effect testing patterns (running effects, error assertions), see
-`/effect-testing`.
+Location: colocated with source (e.g., `packages/core/src/**/*.test.ts`).
 
 ---
 
@@ -51,7 +50,7 @@ describe("source-parser", () => {
 
 ## Checklist
 
-- [ ] **Pure functions only** — No I/O, no services, no side effects
 - [ ] **Single behavior per test** — One assertion per logical behavior
 - [ ] **Descriptive names** — Test name describes behavior being verified
 - [ ] **Edge cases covered** — Empty inputs, boundaries, error cases
+- [ ] **Provide layers for handlers** — Use test layers for service dependencies

@@ -14,38 +14,33 @@ configuration.
 ## Skills
 
 - `/testing-basics` — Test quality principles and level overview
-- `/testing-unit` — Unit test patterns for pure functions in `packages/core/`
-- `/testing-handler` — Handler test patterns with test layers
+- `/testing-unit` — Unit test patterns for pure functions
 - `/testing-e2e` — E2E test patterns for CLI commands
-- `/effect-testing` — Effect testing patterns (running effects, error assertions)
+- `/effect-testing` — Effect testing patterns (handlers typically need test layers)
 - `/effect-service` — Service patterns including test layer construction
 
 ---
 
 ## Test Levels
 
-This project uses three test levels, each with different scope and
-dependencies:
+This project uses two test levels:
 
-| Level   | Location                         | What it tests                    | Dependencies     |
-| ------- | -------------------------------- | -------------------------------- | ---------------- |
-| Unit    | `packages/core/src/**/*.test.ts` | Pure business logic, utilities   | None (pure)      |
-| Handler | `packages/cli/src/**/*.test.ts`  | Effect handlers with mock layers | Test layers      |
-| E2E     | `packages/cli/e2e/*.test.ts`     | Full CLI as subprocess           | Built binary, fs |
+| Level | Location                     | What it tests                             | Dependencies     |
+| ----- | ---------------------------- | ----------------------------------------- | ---------------- |
+| Unit  | `packages/**/*.test.ts`      | Business logic (pure functions, handlers) | Test layers      |
+| E2E   | `packages/cli/e2e/*.test.ts` | Full CLI as subprocess                    | Built binary, fs |
 
 ### When to Use Each Level
 
 **Unit tests** for:
 
-- Pure functions in `@agentxm/core`
-- Data transformations and validations
-- Utility functions
-
-**Handler tests** for:
-
-- Effect handler functions (e.g., `add.handler.ts`)
-- Business logic that depends on services
+- Pure functions and data transformations
+- Handlers (effectful entry points)
+- Business logic with service dependencies
 - Error handling paths
+
+Handlers are unit tests. They may need test layers for service dependencies—see
+`/effect-testing`.
 
 **E2E tests** for:
 

@@ -1,13 +1,14 @@
 ---
 name: testing-handler
-description: Handler test patterns with test layers. Use when writing tests in packages/cli/src/.
+description: Patterns for testing handlers that need test layers. Use when writing handler tests.
 user-invocable: false
 ---
 
 # Handler Testing Patterns
 
-Handler tests verify Effect handlers with test layers. Location:
-`packages/cli/src/**/*.test.ts` (colocated with handlers)
+Handlers are effectful entry points that require services provided via layers.
+This skill covers patterns for testing handlers. Location: colocated with source
+(e.g., `packages/cli/src/**/*.test.ts`).
 
 For Effect testing patterns (running effects, error assertions, providing
 layers), see `/effect-testing`.

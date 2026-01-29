@@ -44,6 +44,16 @@ Unit, handler, and e2e tests colocated with source.
 
 Effect for all business logic/I/O. No raw Promises or async/await.
 
+### Handlers
+
+Handlers are effectful entry points that wire together business logic:
+
+- Serve as program entry points (CLI commands, API routes)
+- Accept parsed input and return Effects
+- Require services provided via layers
+
+Example: `handleInit(args: InitArgs)` is the entry point for the `init` command, separate from yargs parsing.
+
 ## Project Structure
 
 ```

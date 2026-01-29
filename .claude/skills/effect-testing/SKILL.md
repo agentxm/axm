@@ -6,7 +6,8 @@ user-invocable: false
 
 # Effect Testing Patterns
 
-Patterns for testing Effect programs across all test levels.
+Patterns for testing Effect programs. Handlers (effectful entry points) typically
+need test layers to provide service dependencies.
 
 ---
 

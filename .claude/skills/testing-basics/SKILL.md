@@ -13,17 +13,17 @@ qualities regardless of level.
 
 ## Test Levels
 
-| Level   | Location                         | Tests                          |
-| ------- | -------------------------------- | ------------------------------ |
-| Unit    | `packages/core/src/**/*.test.ts` | Pure business logic, utilities |
-| Handler | `packages/cli/src/**/*.test.ts`  | Effect handlers with mocks     |
-| E2E     | `packages/cli/e2e/*.test.ts`     | Full CLI as subprocess         |
+| Level | Location                     | Tests                                     |
+| ----- | ---------------------------- | ----------------------------------------- |
+| Unit  | `packages/**/*.test.ts`      | Business logic (pure functions, handlers) |
+| E2E   | `packages/cli/e2e/*.test.ts` | Full CLI as subprocess                    |
 
 **When to use each:**
 
-- **Unit** — Pure functions in `@agentxm/core`, data transformations, utilities
-- **Handler** — Effect handlers, business logic with service dependencies, error paths
+- **Unit** — All meaningful business logic: pure functions, data transformations, handlers, error paths
 - **E2E** — CLI parsing/output, file system integration, user-facing behavior
+
+Handlers are unit tests. They may need test layers for service dependencies—see `/effect-testing`.
 
 ---
 
@@ -84,5 +84,5 @@ pnpm test -- --coverage                # With coverage
 ## Related Skills
 
 - `/testing-unit` — Patterns for pure function tests
-- `/testing-handler` — Patterns for Effect handler tests with mocks
 - `/testing-e2e` — Patterns for CLI subprocess tests
+- `/effect-testing` — Effect testing patterns (handlers typically need test layers)

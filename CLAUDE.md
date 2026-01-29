@@ -38,6 +38,8 @@ Open agent extension manager for skills and more
 - [ ] Write tests first to define desired behavior
 - [ ] Implement until tests pass
 - [ ] Bug fix → regression test first
+- [ ] **Unit tests** for pure functions, handlers, business logic, error paths
+- [ ] **E2E tests** for CLI parsing, file system integration, user-facing behavior
 
 ### Test Quality
 

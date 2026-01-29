@@ -6,6 +6,17 @@ dependency management, and the beads workflow for AI-assisted execution.
 
 > [Task Management Workflow](../../CLAUDE.md#task-management-workflow) — critical guidance
 
+## Skills
+
+| Skill                 | Purpose                                          |
+| --------------------- | ------------------------------------------------ |
+| `/beads-plan`         | Create beads WBS from a markdown task plan       |
+| `/beads-execute-plan` | Execute a plan scope by spawning sub-agents      |
+| `/beads-execute`      | Execute a single bead task (used by sub-agents)  |
+| `/beads-close-phase`  | Close a phase and update the markdown document   |
+| `/beads-cleanup`      | Clean up completed beads after verification      |
+| `/beads-task`         | Reference template for manual sub-agent spawning |
+
 **Not covered:** beads CLI installation, configuration, or internal
 implementation. For bd command usage, run `bd --help`.
 
@@ -385,16 +396,3 @@ For non-trivial plans, include a traceability matrix showing coverage:
 - [ ] **No orphans** — Every task traces back to a requirement
 - [ ] **Status tracked** — Matrix reflects current completion state
 - [ ] **DES-N linked** — Design decisions bridge requirements and tasks
-
----
-
-## Skills
-
-| Skill                 | Purpose                                          |
-| --------------------- | ------------------------------------------------ |
-| `/beads-plan`         | Create beads WBS from a markdown task plan       |
-| `/beads-execute-plan` | Execute a plan scope by spawning sub-agents      |
-| `/beads-execute`      | Execute a single bead task (used by sub-agents)  |
-| `/beads-close-phase`  | Close a phase and update the markdown document   |
-| `/beads-cleanup`      | Clean up completed beads after verification      |
-| `/beads-task`         | Reference template for manual sub-agent spawning |

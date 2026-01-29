@@ -6,6 +6,19 @@ formatting, and error handling.
 
 > [Handlers](../../CLAUDE.md#handlers) — critical guidance
 
+## Key Resources
+
+- [yargs GitHub](https://github.com/yargs/yargs) — Complete API documentation
+- [Command Line Interface Guidelines (clig.dev)](https://clig.dev/) — CLI design
+  philosophy
+- [Clack Documentation](https://bomb.sh/docs/clack/) — Interactive prompts and
+  output components
+
+## Skills
+
+- `/cli-conventions` — yargs + Effect patterns, command structure, testing
+- `/bombshell` — Effect wrappers for prompts, TTY detection, spinners
+
 **Not covered:** yargs API details (see
 [official docs](https://github.com/yargs/yargs/blob/main/docs/api.md)), shell
 autocompletion setup, or testing strategies. For testing CLI commands, see the
@@ -373,18 +386,3 @@ to another tool.
 - [ ] **Conflicts declared** — Mutually exclusive options use `.conflicts()`
 - [ ] **Implies for deps** — Dependent options use `.implies()`
 - [ ] **Strict mode enabled** — `strict()` or variant enabled
-
----
-
-## Skills
-
-- `/cli-conventions` — yargs + Effect patterns, command structure, testing
-- `/bombshell` — Effect wrappers for prompts, TTY detection, spinners
-
-## See Also
-
-- [yargs GitHub](https://github.com/yargs/yargs) — Complete API documentation
-- [Command Line Interface Guidelines (clig.dev)](https://clig.dev/) — CLI design
-  philosophy
-- [Clack Documentation](https://bomb.sh/docs/clack/) — Interactive prompts and
-  output components

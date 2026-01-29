@@ -5,6 +5,13 @@ Effect for all business logic and I/O.
 
 > [Effect](../../CLAUDE.md#effect) — critical guidance
 
+## Key Resources
+
+- [Effect Context](https://effect.website/docs/context-management/services-and-layers/) —
+  Official service and layer documentation
+- [Effect Error Management](https://effect.website/docs/error-management/two-error-types/) —
+  Official error handling patterns
+
 ## Skills
 
 - `/effect-basics` — Core patterns, when to use functions vs services
@@ -32,12 +39,3 @@ Key benefits for this codebase:
 The type signature `Effect<A, E, R>` captures success type, error type, and
 dependencies. When you see `Effect<User, AuthError | DbError, Database>`, you
 know exactly what it returns, what can go wrong, and what it needs to run.
-
----
-
-## See Also
-
-- [Effect Context](https://effect.website/docs/context-management/services-and-layers/) —
-  Official service and layer documentation
-- [Effect Error Management](https://effect.website/docs/error-management/two-error-types/) —
-  Official error handling patterns

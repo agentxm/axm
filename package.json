@@ -6,6 +6,7 @@
     "axm": "bun packages/cli/src/main.ts",
     "build": "pnpm -r build",
     "test": "vitest run",
+    "test:e2e": "vitest run --root packages/cli -c vitest.e2e.config.ts",
     "typecheck": "pnpm -r typecheck",
     "format": "biome format --write . && prettier --write \"**/*.md\"",
     "format:check": "biome format . && prettier --check \"**/*.md\"",

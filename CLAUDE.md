@@ -25,6 +25,7 @@ Open agent extension manager for skills and more
 | ---------------- | --------------------------- |
 | `pnpm build`     | Build all packages          |
 | `pnpm test`      | Run all tests (Vitest)      |
+| `pnpm test:e2e`  | Run E2E tests only          |
 | `pnpm typecheck` | Type check without emitting |
 | `pnpm format`    | Format code and markdown    |
 | `pnpm lint`      | Lint with Biome             |
@@ -32,22 +33,12 @@ Open agent extension manager for skills and more
 
 ## Testing
 
-Three test levels, each with different scope:
+Unit, handler, and e2e tests colocated with source.
 
-| Level   | Location                         | Tests                          |
-| ------- | -------------------------------- | ------------------------------ |
-| Unit    | `packages/core/src/**/*.test.ts` | Pure business logic, utilities |
-| Handler | `packages/cli/src/**/*.test.ts`  | Effect handlers with mocks     |
-| E2E     | `packages/cli/e2e/*.test.ts`     | Full CLI as subprocess         |
-
-```bash
-pnpm test                              # Run all tests
-pnpm test packages/cli/e2e/            # Run E2E tests only
-pnpm test packages/core/               # Run unit tests only
-pnpm test -- --watch                   # Watch mode
-```
-
-**Key principles:** Isolated (fresh state per test), deterministic (same result if nothing changes), behavioral (test what code does, not how it's structured).
+- [ ] Designs prescribe testing for key elements
+- [ ] Write tests first to define desired behavior
+- [ ] Implement until tests pass
+- [ ] Bug fix → regression test first
 
 ## Effect
 

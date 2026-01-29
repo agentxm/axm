@@ -8,7 +8,8 @@ Instructions for AI coding assistants using OpenSpec for spec-driven development
 - Decide scope: new capability vs modify existing capability
 - Pick a unique `change-id`: kebab-case, verb-led (`add-`, `update-`, `remove-`, `refactor-`)
 - Review skills for relevant conventions and patterns
-- Scaffold: `proposal.md`, `tasks.md`, `design.md` (only if needed), and delta specs per affected capability
+- **Read `docs/guides/beads.md`** for required tasks.md format (TASK-N.M structure)
+- Scaffold: `proposal.md`, `tasks.md`, `design.md`, and delta specs per affected capability
 - Write deltas: use `## ADDED|MODIFIED|REMOVED|RENAMED Requirements`; include at least one `#### Scenario:` per requirement
 - Validate: `openspec validate [change-id] --strict --no-interactive` and fix issues
 - Request approval: Do not start implementation until proposal is approved
@@ -50,7 +51,7 @@ Skip proposal for:
 
 1. Review `openspec/project.md`, `openspec list`, and `openspec list --specs` to understand current context.
 2. Choose a unique verb-led `change-id` and scaffold `proposal.md`, `tasks.md`, optional `design.md`, and spec deltas under `openspec/changes/<id>/`.
-3. Draft spec deltas using `## ADDED|MODIFIED|REMOVED Requirements` with at least one `#### Scenario:` per requirement.
+3. Draft spec deltas using `## ADDED|MODIFIED|REMOVED Requirements` with at least one `#### Scenario:` per requirement. **Note:** Spec deltas are optional for refactoring or implementation-only changes that don't affect user-facing behavior.
 4. Run `openspec validate <id> --strict --no-interactive` and resolve any issues before sharing the proposal.
 
 ### Stage 2: Implementing Changes
@@ -197,7 +198,7 @@ openspec/
 │   ├── [change-name]/
 │   │   ├── proposal.md     # Why, what, impact
 │   │   ├── tasks.md        # Implementation checklist
-│   │   ├── design.md       # Technical decisions (optional; see criteria)
+│   │   ├── design.md       # Technical decisions
 │   │   └── specs/          # Delta changes
 │   │       └── [capability]/
 │   │           └── spec.md # ADDED/MODIFIED/REMOVED
@@ -272,22 +273,38 @@ The system SHALL provide...
 
 If multiple capabilities are affected, create multiple delta files under `changes/[change-id]/specs/<capability>/spec.md`—one per capability.
 
-4. **Create tasks.md:** Follow the task plan format in `docs/guides/beads.md`. Key elements:
+4. **Create tasks.md:**
+
+   **REQUIRED:** Read `docs/guides/beads.md` before writing tasks.md. The format is strict and summaries are insufficient.
+
+   Required structure for each task:
+
+   ```markdown
+   ### TASK-N.M: Task Name [TYPE]
+
+   **Implements:** DES-N, REQ-N
+
+   **Description:** What this task accomplishes (1-2 sentences).
+
+   **Acceptance Criteria:**
+
+   - [ ] First verifiable criterion
+   - [ ] Second verifiable criterion
+
+   **Dependencies:** TASK-X.Y | Human Gate | None
+   ```
+
+   Key rules:
    - Use `TASK-N.M [TYPE]` identifiers (TYPE: AUTO, HUMAN, VERIFY, HYBRID)
-   - Include required fields: Implements, Description, Acceptance Criteria, Dependencies
+   - Include ALL required fields: Implements, Description, Acceptance Criteria, Dependencies
    - Group tasks into phases; front-load AUTO tasks before human gates
    - Write verifiable acceptance criteria (binary yes/no)
    - Include relevant context from `proposal.md`, `design.md` decisions, and `spec.md` requirements in task descriptions so sub-agents have sufficient context to execute independently
 
-5. **Create design.md when needed:**
-   Create `design.md` if any of the following apply; otherwise omit it:
+5. **Create design.md:**
+   Always create `design.md` for technical decisions and implementation guidance. Keep it minimal for simple changes.
 
-- Cross-cutting change (multiple services/modules) or a new architectural pattern
-- New external dependency or significant data model changes
-- Security, performance, or migration complexity
-- Ambiguity that benefits from technical decisions before coding
-
-Minimal `design.md` skeleton:
+`design.md` skeleton:
 
 ```markdown
 ## Context
@@ -424,7 +441,8 @@ openspec list
 CHANGE=add-two-factor-auth
 mkdir -p openspec/changes/$CHANGE/{specs/auth}
 printf "## Why\n...\n\n## What Changes\n- ...\n\n## Impact\n- ...\n" > openspec/changes/$CHANGE/proposal.md
-# Create tasks.md following docs/guides/beads.md format (TASK-N.M, execution types, acceptance criteria)
+# REQUIRED: Read docs/guides/beads.md BEFORE creating tasks.md
+# tasks.md must use TASK-N.M format with Implements, Description, Acceptance Criteria, Dependencies fields
 
 # 3) Add deltas (example)
 cat > openspec/changes/$CHANGE/specs/auth/spec.md << 'EOF'
@@ -553,7 +571,7 @@ Only add complexity with:
 ### File Purposes
 
 - `proposal.md` - Why and what
-- `tasks.md` - Implementation steps
+- `tasks.md` - Implementation steps (MUST use TASK-N.M format from `docs/guides/beads.md`)
 - `design.md` - Technical decisions
 - `spec.md` - Requirements and behavior
 

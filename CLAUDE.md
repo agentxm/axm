@@ -136,6 +136,16 @@ bd close <id> --reason "..."       # Close with context (not --comment)
 
 Do NOT use Claude Code's built-in task tools (TaskCreate, TaskUpdate, TaskList, etc.) for task management in this project.
 
+## Spec-Driven Development
+
+User/API behavior is specified before implementation. Specs define _what_, designs define _how_.
+
+- [ ] `specs.md` — User-facing behavior and API contracts only
+      → No technical details, architecture, or implementation guidance
+- [ ] `design.md` — Technical approach and implementation guidance
+      → Architecture decisions, data structures, algorithms, patterns
+- [ ] Always create both `specs.md` and `design.md` for proposals
+
 ## Git Workflow
 
 **NEVER commit without explicit user request.** This is a hard rule with no exceptions.

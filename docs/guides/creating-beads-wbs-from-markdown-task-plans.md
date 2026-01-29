@@ -457,7 +457,7 @@ _Illustrates: "Document annotated" pattern for new task plans_
 ## Beads Execution
 
 Multi-session tracking via beads. See
-[Executing Markdown Task Plans with Beads](../guides/executing-markdown-task-plans-with-beads.md).
+[Creating Beads WBS from Markdown Task Plans](creating-beads-wbs-from-markdown-task-plans.md).
 
 **After creating beads, annotate this document:**
 

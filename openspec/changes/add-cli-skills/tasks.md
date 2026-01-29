@@ -623,7 +623,7 @@
 ## Beads Execution
 
 Multi-session tracking via beads. See
-[Executing Markdown Task Plans with Beads](../../../docs/guides/executing-markdown-task-plans-with-beads.md).
+[Creating Beads WBS from Markdown Task Plans](../../../docs/guides/creating-beads-wbs-from-markdown-task-plans.md).
 
 **Plan Epic:** axm-1
 **Phase Epics:** axm-1.1 (P1), axm-1.2 (P2), axm-1.3 (P3), axm-1.4 (P4), axm-1.5 (P5), axm-1.6 (P6), axm-1.7 (P7), axm-1.8 (P8)

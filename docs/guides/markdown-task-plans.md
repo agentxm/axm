@@ -64,7 +64,7 @@ gate pattern"_
 The identifier chain (TASK-1.1 → TASK-1.2 → Human Gate → TASK-2.1) ensures
 sequential execution with clear handoff points. Execution markers ([AUTO])
 indicate autonomous completion. For multi-session work, see
-[Executing Markdown Task Plans with Beads](executing-markdown-task-plans-with-beads.md).
+[Creating Beads WBS from Markdown Task Plans](creating-beads-wbs-from-markdown-task-plans.md).
 
 ---
 
@@ -118,7 +118,7 @@ Each task includes these fields:
 ```
 
 For multi-session work, add bead IDs after creating issues. See
-[Executing Markdown Task Plans with Beads](executing-markdown-task-plans-with-beads.md).
+[Creating Beads WBS from Markdown Task Plans](creating-beads-wbs-from-markdown-task-plans.md).
 
 ### Task Structure Checklist
 
@@ -488,7 +488,7 @@ For non-trivial plans, include a traceability matrix showing coverage:
 ```
 
 For multi-session work with beads, add a Beads column. See
-[Executing Markdown Task Plans with Beads](executing-markdown-task-plans-with-beads.md#enhanced-traceability-matrix).
+[Creating Beads WBS from Markdown Task Plans](creating-beads-wbs-from-markdown-task-plans.md#enhanced-traceability-matrix).
 
 ### Traceability Checklist
 
@@ -530,4 +530,4 @@ Use this checklist to verify task plan completeness before execution.
 - [ ] **Matrix included** — Non-trivial plans have traceability matrix
 
 For multi-session work with beads, see the
-[Beads Execution Checklist](executing-markdown-task-plans-with-beads.md#beads-execution-checklist).
+[Beads Execution Checklist](creating-beads-wbs-from-markdown-task-plans.md#beads-execution-checklist).

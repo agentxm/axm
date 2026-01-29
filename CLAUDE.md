@@ -147,6 +147,15 @@ This project uses **beads (`bd`) CLI** for ALL task management:
 - **Editing tasks**: Use `bd` to update task details
 - **Progress tracking**: Use `bd` to track task status and completion
 
+**Common bd commands:**
+
+```bash
+bd list --status=open              # Find work to do
+bd show <id>                       # View task details and dependencies
+bd update <id> --status=in-progress  # Mark task started
+bd close <id> --reason "..."       # Close with context (not --comment)
+```
+
 **Sub-agent spawning**: Always spawn a sub-agent (using the Task tool) to work on each individual task. This ensures:
 
 - Fresh context window for each task

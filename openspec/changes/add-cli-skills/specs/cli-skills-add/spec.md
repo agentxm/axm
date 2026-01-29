@@ -455,15 +455,15 @@ The CLI SHALL normalize all source inputs to a canonical prefix notation for sto
 - **WHEN** the user provides `https://gitlab.com/owner/repo`
 - **THEN** it is stored as `gitlab:owner/repo`
 
-#### Scenario: Local path normalized
+#### Scenario: Local path stored as-is
 
 - **WHEN** the user provides `./path/to/skills` or `/absolute/path`
-- **THEN** it is stored as `local:./path/to/skills` or `local:/absolute/path`
+- **THEN** it is stored as `./path/to/skills` or `/absolute/path` (no prefix needed, already unambiguous)
 
-#### Scenario: Direct URL normalized
+#### Scenario: Direct URL stored as-is
 
 - **WHEN** the user provides `https://example.com/skill.md`
-- **THEN** it is stored as `url:https://example.com/skill.md`
+- **THEN** it is stored as `https://example.com/skill.md` (no prefix needed, already unambiguous)
 
 #### Scenario: Git ref preserved in canonical form
 
@@ -471,9 +471,9 @@ The CLI SHALL normalize all source inputs to a canonical prefix notation for sto
 - **THEN** it is stored as `github:owner/repo@v1.0.0`
 
 Unit tests SHALL verify:
-- Normalization from each input format to canonical form
-- Prefix extraction from canonical notation
-- Value extraction from canonical notation
+- Normalization from liberal input to canonical form
+- Shorthand sources get appropriate prefix (github:, gitlab:)
+- URLs and local paths stored without prefix
 - Round-trip: canonical form -> fetch URL reconstruction
 
 ### Requirement: Source Metadata Preservation

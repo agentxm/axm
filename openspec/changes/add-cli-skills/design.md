@@ -85,7 +85,7 @@ Example `settings.json`:
 
 ### Decision: Canonical Source Notation
 
-While the CLI accepts liberal input formats (e.g., `owner/repo` for GitHub), stored sources in `settings.json` and `axm.lock` use a canonical prefix notation:
+While the CLI accepts liberal input formats (e.g., `owner/repo` for GitHub), stored sources in `settings.json` and `axm.lock` use a canonical notation:
 
 | Input (liberal) | Stored (canonical) |
 |-----------------|-------------------|
@@ -93,14 +93,21 @@ While the CLI accepts liberal input formats (e.g., `owner/repo` for GitHub), sto
 | `https://github.com/owner/repo` | `github:owner/repo` |
 | `git@github.com:owner/repo.git` | `github:owner/repo` |
 | `https://gitlab.com/owner/repo` | `gitlab:owner/repo` |
-| `./local/path` | `local:./local/path` |
-| `https://example.com/skill.md` | `url:https://example.com/skill.md` |
+| `./local/path` | `./local/path` |
+| `/absolute/path` | `/absolute/path` |
+| `https://example.com/skill.md` | `https://example.com/skill.md` |
+
+Prefixes are only used for shorthand notations that would otherwise be ambiguous:
+- `github:owner/repo` - disambiguates from relative path `owner/repo`
+- `gitlab:owner/repo` - disambiguates from relative path
+
+URLs and local paths are stored as-is since they're already unambiguous.
 
 **Rationale**:
+- Minimal: Only add prefixes where needed for disambiguation
 - Unambiguous: No confusion between `foo/bar` (GitHub shorthand) and a local path
-- Self-documenting: Source type is explicit in stored data
 - Portable: Can reconstruct the fetch URL from the canonical form
-- Extensible: Easy to add new source types (e.g., `npm:`, `gist:`)
+- Extensible: Easy to add new shorthand types (e.g., `gist:`)
 
 ### Decision: YAML Lockfile Format
 

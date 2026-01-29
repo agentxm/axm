@@ -90,7 +90,7 @@ bd list --status=closed --limit=0 --json | jq -r '
   | reverse
   | .[].id
 ' | while read id; do
-  bd delete "$id" --force --reason "Pruning completed bead tree"
+  bd delete "$id" --hard --force
 done
 ```
 
@@ -129,9 +129,9 @@ bd list --status=closed --limit=0 --json | jq -r '
   count=$(echo "$to_delete" | wc -l | tr -d ' ')
   echo "✓ Eligible for pruning ($count beads)"
 
-  # Delete leaves first
+  # Delete leaves first (--hard for permanent deletion)
   echo "$to_delete" | while read id; do
-    bd delete "$id" --force --reason "Pruning completed bead tree"
+    bd delete "$id" --hard --force
   done
 
   echo "✓ Pruned $root ($count beads deleted)"
@@ -150,7 +150,7 @@ done
 - **Always verify first** - Check for open descendants before pruning
 - **Delete leaves first** - Prevents orphaning children
 - **Never prunes open beads** - Only closed roots with all closed descendants
-- **Tombstones preserved** - Default deletion creates tombstones for audit trail
+- **Permanent deletion** - Uses `--hard` flag to fully remove beads (no tombstones)
 
 ## Output
 

@@ -1,36 +1,12 @@
-# Project Instructions
+# axm
 
-The `axm` CLI for managing extensions across AI coding agents.
+Open agent extension manager for skills and more
 
-## Quality Attributes
+## Values
 
-Apply these qualities to design, implementation, and verification:
-
-1. **Simple** - Use the simplest mechanism that works. Clear code beats clever code.
-   - [ ] Minimize indirection
-   - [ ] No speculative code
-
-2. **Fast** - Minimize time waiting.
-   - [ ] Sub-second startup
-   - [ ] Independent I/O ops run concurrently
-
-3. **Testable** - Easy to test units in isolation, integrations at boundaries.
-   - [ ] Business logic pure and isolated from I/O
-   - [ ] Tests at all levels (unit, handler, E2E)
-
-4. **Maintainable** - Easy to understand, change with confidence, and contribute to.
-   - [ ] Consistent patterns across the codebase
-   - [ ] Specs:
-     - Organized hierarchically by capability
-     - Capability specified for every meaningful system component
-     - Just-enough specification, no duplication
-     - Reference automated test suites as executable specifications (where they exist and are helpful)
-     - Describe behavior and concepts from user's perspective, not implementation details
-
-5. **Lovable** - A joy to use.
-   - [ ] Intuitive interfaces, defaults, and minimal configuration
-   - [ ] Clear error messages that guide toward resolution
-   - [ ] Documentation matches reality
+1. **Simplicity** - Clear, minimal, obvious.
+2. **Reliability** - Trustworthy, resilient.
+3. **Delight** - Intuitive, helpful, honest, responsive.
 
 ## Tech Stack
 
@@ -42,10 +18,6 @@ Apply these qualities to design, implementation, and verification:
 - **Business logic**: Effect
 - **Testing**: Vitest
 - **Formatting/Linting**: Biome (code), Prettier (markdown)
-
-## Effect
-
-Effect for all business logic/I/O. No raw Promises or async/await.
 
 ## Commands
 
@@ -77,6 +49,10 @@ pnpm test -- --watch                   # Watch mode
 
 **Key principles:** Isolated (fresh state per test), deterministic (same result if nothing changes), behavioral (test what code does, not how it's structured).
 
+## Effect
+
+Effect for all business logic/I/O. No raw Promises or async/await.
+
 ## Project Structure
 
 ```
@@ -89,14 +65,7 @@ openspec/           # Spec-driven development
     <capability>-<sub>/
     <capability>-<sub>-<subsub>/
   changes/          # Proposed changes
-docs/guides/        # Reference documentation
 ```
-
-## Guides and Skills
-
-**Guides** (`docs/guides/`) = high-level rationale for humans. **Skills** = tactical patterns for agents (auto-load when relevant).
-
-**Auto-loading skills:** `effect-basics`, `effect-service`, `effect-testing`, `cli-conventions`, `bombshell`, `testing-basics`, `testing-unit`, `testing-handler`, `testing-e2e`, `documentation`, `agent-docs`.
 
 ## Task Management Workflow
 

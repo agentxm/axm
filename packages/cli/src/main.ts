@@ -5,6 +5,7 @@ import { hideBin } from "yargs/helpers";
 
 import { extensionsCommand } from "./commands/extensions.js";
 import { initCommand } from "./commands/init.js";
+import { skillsCommand } from "./commands/skills.js";
 
 const version = "0.0.1";
 
@@ -17,6 +18,7 @@ export const program = Effect.gen(function* () {
       .strict()
       .command(initCommand)
       .command(extensionsCommand)
+      .command(skillsCommand)
       .demandCommand(0)
       .parseAsync(),
   );

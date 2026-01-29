@@ -394,10 +394,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/cli/src/commands/skills.ts`
-- [ ] Registers as `axm skills` command
-- [ ] Shows available sub-commands when invoked without arguments
-- [ ] `axm skills --help` displays usage
+- [x] File exists at `packages/cli/src/commands/skills.ts`
+- [x] Registers as `axm skills` command
+- [x] Shows available sub-commands when invoked without arguments
+- [x] `axm skills --help` displays usage
 
 **Dependencies:** TASK-1.11
 

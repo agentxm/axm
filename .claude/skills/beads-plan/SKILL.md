@@ -116,7 +116,7 @@ After creating beads, execute them by spawning sub-agents:
 ### For each unblocked task
 
 1. Check dependencies are satisfied: `bd show <task-id>` (blockers show ✓)
-2. Invoke `/beads-execute <task-id>` for each task
+2. Invoke `/beads-execute-task <task-id>` for each task
 3. Spawn independent tasks in parallel for efficiency
 
 ### After a phase completes

@@ -1,5 +1,5 @@
 ---
-name: beads-execute
+name: beads-execute-task
 description: Implement a single bead task (used by sub-agents). Called by /beads-execute-plan, not directly by users.
 context: fork
 agent: general-purpose
@@ -14,15 +14,15 @@ Execute bead task `$ARGUMENTS`.
 
 ## Workflow
 
-### Step 1: Mark in-progress (REQUIRED - DO THIS FIRST)
+### Step 1: Claim the task (REQUIRED - DO THIS FIRST)
 
-**CRITICAL**: Before ANY other action, mark the task in-progress:
+**CRITICAL**: Before ANY other action, claim the task:
 
 ```bash
-bd update $ARGUMENTS --status=in-progress
+bd update $ARGUMENTS --claim
 ```
 
-This MUST be your first command. Do not read files, check dependencies, or do any work until this command succeeds. This signals to other agents that work has begun and prevents duplicate effort.
+This MUST be your first command. Do not read files, check dependencies, or do any work until this command succeeds. The `--claim` flag atomically sets you as assignee and status to `in_progress`, and fails if already claimed—preventing duplicate work by multiple agents.
 
 ### Step 2: Read the bead
 

@@ -1,7 +1,7 @@
 import { NodeFileSystem } from "@effect/platform-node";
 import { Effect } from "effect";
 import type { CommandModule } from "yargs";
-import { handleInit } from "./init.handler.js";
+import { handleInit } from "./handler.js";
 
 interface InitArgs {
   global: boolean;

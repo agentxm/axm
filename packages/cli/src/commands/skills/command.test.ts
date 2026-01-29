@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import yargs from "yargs";
-import { skillsCommand } from "./skills.js";
+import { skillsCommand } from "./command.js";
 
 describe("skills command", () => {
   const createParser = () => yargs().command(skillsCommand).exitProcess(false);

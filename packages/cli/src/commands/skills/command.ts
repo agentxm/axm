@@ -1,5 +1,5 @@
 import type { CommandModule } from "yargs";
-import { addCommand } from "./skills/add.js";
+import { addCommand } from "./add/command.js";
 
 export const skillsCommand: CommandModule = {
   command: "skills",

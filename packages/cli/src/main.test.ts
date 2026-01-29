@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import yargs from "yargs";
-import { initCommand } from "./commands/init.js";
-import { skillsCommand } from "./commands/skills.js";
+import { initCommand } from "./commands/init/command.js";
+import { skillsCommand } from "./commands/skills/command.js";
 
 describe("main CLI", () => {
   const createParser = () =>

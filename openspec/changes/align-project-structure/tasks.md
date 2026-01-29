@@ -1,9 +1,14 @@
 # Tasks: Align Project Structure
 
+**Plan Epic:** axm-1
+
 ## Phase 1: Reorganize CLI Commands
+
+**Epic:** axm-1.1
 
 ### TASK-1.1 [AUTO] Move init command files to init/ directory
 
+**Bead:** axm-1.1.1
 **Implements:** proposal.md - CLI commands reorganization
 
 **Description:**
@@ -28,6 +33,7 @@ Use `git mv` to preserve history. Update import paths within moved files.
 
 ### TASK-1.2 [AUTO] Move skills command files to proper structure
 
+**Bead:** axm-1.1.2
 **Implements:** proposal.md - CLI commands reorganization
 
 **Description:**
@@ -56,6 +62,7 @@ Use `git mv` to preserve history. Update import paths within moved files.
 
 ### TASK-1.3 [AUTO] Update imports in main.ts and other files
 
+**Bead:** axm-1.1.3
 **Implements:** proposal.md - CLI commands reorganization
 
 **Description:**
@@ -75,6 +82,7 @@ Update all import statements in files that reference the moved modules:
 
 ### TASK-1.4 [AUTO] Clean up empty directories
 
+**Bead:** axm-1.1.4
 **Implements:** proposal.md - Remove empty directories
 
 **Description:**
@@ -95,8 +103,11 @@ Remove any empty directories left after file moves:
 
 ## Phase 2: Verification
 
+**Epic:** axm-1.2
+
 ### TASK-2.1 [VERIFY] Build and test pass
 
+**Bead:** axm-1.2.1
 **Implements:** design.md - Migration Plan
 
 **Description:**

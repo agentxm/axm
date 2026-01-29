@@ -20,7 +20,7 @@ Your responsibilities:
 
 - Query bead status (`bd show`, `bd list`)
 - Identify ready tasks (no open dependencies)
-- Spawn sub-agents for ALL tasks via `/beads-execute`
+- Spawn sub-agents for ALL tasks via `/beads-execute-task`
 - Wait for sub-agents to complete
 - Check for newly unblocked tasks
 - Close epics when phases complete
@@ -84,12 +84,12 @@ Group all ready tasks and spawn them together:
 
 ```
 # In a SINGLE message, call the Skill tool multiple times:
-Skill(skill="beads-execute", args="axm-1.1")
-Skill(skill="beads-execute", args="axm-1.2")
-Skill(skill="beads-execute", args="axm-1.3")
+Skill(skill="beads-execute-task", args="axm-1.1")
+Skill(skill="beads-execute-task", args="axm-1.2")
+Skill(skill="beads-execute-task", args="axm-1.3")
 ```
 
-Each `/beads-execute` invocation will:
+Each `/beads-execute-task` invocation will:
 
 1. **Mark the task in-progress FIRST** (CRITICAL - before any other action)
 2. Read the bead details
@@ -162,27 +162,27 @@ If tasks `axm-1.1`, `axm-1.2`, and `axm-1.3` are all ready (no open dependencies
 I'll spawn all three ready tasks in parallel.
 
 [In ONE message, make THREE Skill tool calls:]
-- Skill(skill="beads-execute", args="axm-1.1")
-- Skill(skill="beads-execute", args="axm-1.2")
-- Skill(skill="beads-execute", args="axm-1.3")
+- Skill(skill="beads-execute-task", args="axm-1.1")
+- Skill(skill="beads-execute-task", args="axm-1.2")
+- Skill(skill="beads-execute-task", args="axm-1.3")
 ```
 
 ### Anti-Pattern: Sequential Spawning (WRONG)
 
 ```
 # DON'T DO THIS - defeats parallelization
-Message 1: Skill(skill="beads-execute", args="axm-1.1")
+Message 1: Skill(skill="beads-execute-task", args="axm-1.1")
 [wait for result]
-Message 2: Skill(skill="beads-execute", args="axm-1.2")
+Message 2: Skill(skill="beads-execute-task", args="axm-1.2")
 [wait for result]
-Message 3: Skill(skill="beads-execute", args="axm-1.3")
+Message 3: Skill(skill="beads-execute-task", args="axm-1.3")
 ```
 
 ### Anti-Pattern: Doing Work in Orchestrator (WRONG)
 
 ```
 # DON'T DO THIS - pollutes orchestrator context
-Skill(skill="beads-execute", args="axm-1.1")  # Spawns sub-agent
+Skill(skill="beads-execute-task", args="axm-1.1")  # Spawns sub-agent
 [sub-agent completes]
 # Then orchestrator starts implementing axm-1.2 directly:
 Read(file_path="src/foo.ts")  # WRONG - should spawn sub-agent!
@@ -196,7 +196,7 @@ Edit(file_path="src/foo.ts", ...)  # WRONG - orchestrator should not edit!
 - Inconsistent tracking (some tasks via beads, some ad-hoc)
 - Context window fills up with code instead of coordination
 
-**Correct approach:** Spawn `/beads-execute` for EVERY task, no exceptions.
+**Correct approach:** Spawn `/beads-execute-task` for EVERY task, no exceptions.
 
 ## Common bd Commands
 

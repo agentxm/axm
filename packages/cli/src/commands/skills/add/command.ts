@@ -2,7 +2,7 @@ import { FetchHttpClient } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
 import { Effect } from "effect";
 import type { CommandModule } from "yargs";
-import { handleAdd } from "./add.handler.js";
+import { handleAdd } from "./handler.js";
 
 interface AddArgs {
   source: string;

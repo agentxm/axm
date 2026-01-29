@@ -16,7 +16,7 @@ import { Effect, Layer } from "effect";
 const TestLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, FetchHttpClient.layer);
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type AddArgs, AddError, handleAdd } from "../add.handler.js";
+import { type AddArgs, AddError, handleAdd } from "./handler.js";
 
 describe("add.handler", () => {
   let tempDir: string;

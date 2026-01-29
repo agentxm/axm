@@ -1,13 +1,13 @@
 ---
 name: beads-task
-description: Reference template for manually spawning sub-agents to execute bead tasks. Prefer /beads-execute for automatic sub-agent execution.
+description: Reference template for manually spawning sub-agents to execute bead tasks. Prefer /beads-execute-task for automatic sub-agent execution.
 user-invocable: false
 ---
 
 # Bead Task Reference Template
 
 This skill provides the prompt template for manually spawning sub-agents with the
-Task tool. For automatic sub-agent execution, use `/beads-execute <bead-id>` instead.
+Task tool. For automatic sub-agent execution, use `/beads-execute-task <bead-id>` instead.
 
 ## Sub-Agent Prompt Template
 

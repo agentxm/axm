@@ -12,7 +12,7 @@ dependency management, and the beads workflow for AI-assisted execution.
 | --------------------- | ------------------------------------------------ |
 | `/beads-plan`         | Create beads WBS from a markdown task plan       |
 | `/beads-execute-plan` | Execute a plan scope by spawning sub-agents      |
-| `/beads-execute`      | Execute a single bead task (used by sub-agents)  |
+| `/beads-execute-task` | Execute a single bead task (used by sub-agents)  |
 | `/beads-close-phase`  | Close a phase and update the markdown document   |
 | `/beads-cleanup`      | Clean up completed beads after verification      |
 | `/beads-task`         | Reference template for manual sub-agent spawning |
@@ -330,9 +330,9 @@ Spawn independent tasks in ONE message for parallel execution:
 
 ```
 # In a SINGLE message, call Skill multiple times:
-Skill(skill="beads-execute", args="axm-1.1")
-Skill(skill="beads-execute", args="axm-1.2")
-Skill(skill="beads-execute", args="axm-1.3")
+Skill(skill="beads-execute-task", args="axm-1.1")
+Skill(skill="beads-execute-task", args="axm-1.2")
+Skill(skill="beads-execute-task", args="axm-1.3")
 ```
 
 ### Sub-Agent Execution Checklist

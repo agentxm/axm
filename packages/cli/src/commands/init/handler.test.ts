@@ -12,7 +12,7 @@ import type { FileSystem } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
 import { Effect } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { handleInit, type InitArgs, type InitError } from "../init.handler.js";
+import { handleInit, type InitArgs, type InitError } from "./handler.js";
 
 describe("init.handler", () => {
   let tempDir: string;

@@ -19,7 +19,7 @@ This feature enables axm to manage "skills"—reusable markdown instruction file
 
 ### Goals
 
-- Install skills from: GitHub shorthand, GitHub URLs, GitLab URLs, local paths, direct URLs
+- Install skills from: GitHub shorthand, GitHub URLs, GitLab URLs, local paths, direct URLs, well-known discovery endpoints
 - Support project-level (`.axm/`) and global (`~/.axm/`) installation scopes
 - Detect installed agents automatically (Claude Code, Cursor, Codex, etc.)
 - Provide interactive multi-select UI using @clack/prompts
@@ -194,6 +194,43 @@ Use @clack/prompts for the interactive CLI experience:
 
 **Rationale**: Well-tested library with polished terminal UI components.
 
+### Decision: Well-Known Skills Discovery
+
+Support the [Agent Skills Discovery RFC](https://github.com/cloudflare/agent-skills-discovery-rfc) for discovering skills from any HTTP(S) host.
+
+When a URL doesn't match GitHub, GitLab, or other recognized patterns:
+
+1. Fetch `{url}/.well-known/skills/index.json`
+2. Parse the index to discover available skills
+3. Fetch skills from `{url}/.well-known/skills/{skill-name}/SKILL.md`
+
+**Index format** (per RFC):
+
+```json
+{
+  "skills": [
+    {
+      "name": "skill-name",
+      "description": "What the skill does",
+      "files": ["SKILL.md", "references/commands.md"]
+    }
+  ]
+}
+```
+
+The `files` array lists all files in the skill directory. The CLI fetches all listed files, not just SKILL.md.
+
+**Skill selection behavior**:
+
+| Condition             | Behavior                       |
+| --------------------- | ------------------------------ |
+| Single skill in index | Auto-select                    |
+| `--skill name`        | Install only named skills      |
+| `--yes`               | Install all discovered skills  |
+| Multiple skills       | Interactive multiselect prompt |
+
+**Rationale**: Enables any organization to publish skills at a predictable location without requiring git hosting. Builds on RFC 8615 (Well-Known URIs).
+
 ## Architecture
 
 ```
@@ -217,6 +254,7 @@ packages/core/src/
       lockfile.ts              # Read/write axm.lock
       content-hash.ts          # Compute deterministic content hashes
       git.ts                   # Git operations (clone, checkout ref)
+      wellknown.ts             # Well-known skills discovery (RFC 8615)
       types.ts                 # Shared types
 
 packages/core/src/
@@ -228,6 +266,7 @@ packages/core/src/
         installer.test.ts      # Unit tests for installation logic
         lockfile.test.ts       # Unit tests for lockfile read/write
         settings.test.ts       # Unit tests for settings read/write
+        wellknown.test.ts      # Unit tests for well-known discovery
 ```
 
 ### Export Pattern
@@ -330,17 +369,18 @@ All business logic modules SHALL have unit tests. E2E tests cover CLI invocation
 
 ### Unit Test Coverage
 
-| Module               | Key Test Cases                                                                   |
-| -------------------- | -------------------------------------------------------------------------------- |
-| `source-parser.ts`   | GitHub shorthand, URLs with refs, subpaths, SSH URLs, local paths, Windows paths |
-| `content-hash.ts`    | Deterministic output, changes with content, ignores metadata                     |
-| `installer.ts`       | Symlink creation, copy fallback, path construction                               |
-| `lockfile.ts`        | YAML round-trip, version migration, partial updates                              |
-| `settings.ts`        | JSON round-trip, merge behavior, defaults, ensureInitialized logic               |
-| `agent-detection.ts` | Concurrent detection, config directory checks, caching                           |
-| `git.ts`             | Ref resolution, shallow clone options, error handling                            |
-| `init.handler.ts`    | First-time init, already initialized, non-interactive mode                       |
-| `add.handler.ts`     | Full flow with mock services, error handling, implicit init trigger              |
+| Module               | Key Test Cases                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| `source-parser.ts`   | GitHub shorthand, URLs with refs, subpaths, SSH URLs, local paths, Windows paths, well-known URLs |
+| `content-hash.ts`    | Deterministic output, changes with content, ignores metadata                                      |
+| `installer.ts`       | Symlink creation, copy fallback, path construction                                                |
+| `lockfile.ts`        | YAML round-trip, version migration, partial updates                                               |
+| `settings.ts`        | JSON round-trip, merge behavior, defaults, ensureInitialized logic                                |
+| `agent-detection.ts` | Concurrent detection, config directory checks, caching                                            |
+| `git.ts`             | Ref resolution, shallow clone options, error handling                                             |
+| `init.handler.ts`    | First-time init, already initialized, non-interactive mode                                        |
+| `add.handler.ts`     | Full flow with mock services, error handling, implicit init trigger                               |
+| `wellknown.ts`       | Index fetching, validation, skill fetching, multi-file handling                                   |
 
 ### E2E Test Coverage
 
@@ -358,6 +398,7 @@ E2E tests use Vitest + execa to spawn the CLI as a subprocess, asserting on exit
 | `axm skills add <invalid>`         | Shows error message, exits non-zero                          |
 | `axm skills add <source> --global` | Installs to `~/.axm/`, not project directory                 |
 | `axm skills add` (uninitialized)   | Triggers implicit init, then installs                        |
+| `axm skills add <well-known-url>`  | Fetches index.json, discovers skills, installs               |
 
 E2E tests live in `packages/cli/e2e/` and use:
 

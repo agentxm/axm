@@ -137,6 +137,22 @@
 
 **Dependencies:** TASK-1.1
 
+### TASK-1.9a: Create wellknown module [AUTO]
+
+**Implements:** cli-skills-add
+
+**Description:** Well-known skills discovery per RFC 8615.
+
+**Acceptance Criteria:**
+
+- [ ] File exists at `packages/core/src/experimental/skills/wellknown.ts`
+- [ ] Fetches `/.well-known/skills/index.json` from HTTP(S) hosts
+- [ ] Validates index structure (skills array with name, description, files)
+- [ ] Fetches all files listed in index entry, not just SKILL.md
+- [ ] Excludes GitHub/GitLab hosts (handled separately)
+
+**Dependencies:** TASK-1.1
+
 ### TASK-1.10: Create index module with exports [AUTO]
 
 **Implements:** cli-skills-add
@@ -148,7 +164,7 @@
 - [ ] File exists at `packages/core/src/experimental/skills/index.ts`
 - [ ] Exports all public functions and types from submodules
 
-**Dependencies:** TASK-1.2, TASK-1.3, TASK-1.4, TASK-1.5, TASK-1.6, TASK-1.7, TASK-1.8, TASK-1.9
+**Dependencies:** TASK-1.2, TASK-1.3, TASK-1.4, TASK-1.5, TASK-1.6, TASK-1.7, TASK-1.8, TASK-1.9, TASK-1.9a
 
 ### TASK-1.11: Add subpath export to package.json [AUTO]
 
@@ -292,6 +308,22 @@
 - [ ] `pnpm test git` passes
 
 **Dependencies:** TASK-1.9
+
+### TASK-2.9: Add wellknown tests [AUTO]
+
+**Implements:** cli-skills-add
+
+**Description:** Unit tests for well-known discovery (mock HTTP).
+
+**Acceptance Criteria:**
+
+- [ ] Test file exists at `packages/core/src/experimental/skills/__tests__/wellknown.test.ts`
+- [ ] Tests index fetching and validation
+- [ ] Tests multi-file skill fetching
+- [ ] Tests error handling (404, invalid index)
+- [ ] `pnpm test wellknown` passes
+
+**Dependencies:** TASK-1.9a
 
 ## Phase 3: CLI Init Command [AUTO]
 
@@ -521,6 +553,7 @@
 - [ ] Tests `axm skills add <local> --list` lists available skills
 - [ ] Tests `axm skills add <local> --all --yes` installs skills, creates `.axm/` structure
 - [ ] Tests `axm skills add <invalid>` shows error, exits non-zero
+- [ ] Tests `axm skills add <well-known-url> --list` discovers skills from index.json
 - [ ] Tests file system state after installation (settings.json, axm.lock, symlinks)
 - [ ] `pnpm test:e2e skills-add` passes
 

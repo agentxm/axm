@@ -95,28 +95,45 @@ bd delete --from-file /tmp/prune-ids.txt --dry-run
 bd delete --from-file /tmp/prune-ids.txt --hard --force
 ```
 
-### Step 5: Commit to git (critical!)
+### Step 5: Purge tombstones
 
-The deletion writes tombstones to `.beads/issues.jsonl`. Commit to prevent resurrection:
+After deleting beads, purge tombstones from the JSONL file:
+
+```bash
+# Try bd admin compact first
+bd admin compact --purge-tombstones --dry-run
+
+# If tombstones found, purge them
+bd admin compact --purge-tombstones
+```
+
+**If `bd admin compact` shows 0 tombstones but JSONL has tombstone entries:**
+
+This can happen when soft-delete tombstones (full data with `status: "tombstone"`) aren't detected by the compact command. Check and clear manually:
+
+```bash
+# Count tombstones in JSONL
+tombstone_count=$(grep -c '"status":"tombstone"' .beads/issues.jsonl 2>/dev/null || echo "0")
+live_count=$(bd list --status=open --limit=0 --json --no-auto-import 2>/dev/null | jq 'length')
+
+echo "Tombstones in JSONL: $tombstone_count"
+echo "Live beads: $live_count"
+
+# If all entries are tombstones and no live beads, clear the file
+if [ "$live_count" = "0" ] && [ "$tombstone_count" -gt 0 ]; then
+  echo "All entries are tombstones with no live beads. Clearing JSONL..."
+  echo "" > .beads/issues.jsonl
+  echo "Cleared .beads/issues.jsonl"
+fi
+```
+
+### Step 6: Commit to git (critical!)
+
+Commit the cleaned JSONL to prevent resurrection:
 
 ```bash
 git add .beads/issues.jsonl
 git commit -m "chore(beads): prune completed trees"
-```
-
-### Step 6: Purge tombstones (optional, later)
-
-After tombstones have been in git long enough (for sync safety), purge them:
-
-```bash
-# Preview what would be purged
-bd admin compact --purge-tombstones --dry-run
-
-# Purge tombstones that no open issues depend on
-bd admin compact --purge-tombstones
-
-# Or age-based pruning (default 30 days)
-bd admin compact --prune
 ```
 
 ## Complete Prune Script
@@ -193,9 +210,41 @@ for root in $roots; do
 done
 
 echo
+echo "=== Tombstone Cleanup ==="
+
+# Try bd admin compact first
+tombstones_found=$(bd admin compact --purge-tombstones --dry-run 2>&1 | grep "Safe to delete:" | grep -o '[0-9]*' || echo "0")
+
+if [ "$tombstones_found" -gt 0 ]; then
+  echo "Purging $tombstones_found tombstones via bd admin compact..."
+  bd admin compact --purge-tombstones
+else
+  # Check for soft-delete tombstones not detected by compact
+  tombstone_count=$(grep -c '"status":"tombstone"' .beads/issues.jsonl 2>/dev/null || echo "0")
+  live_count=$(bd list --status=open --limit=0 --json --no-auto-import 2>/dev/null | jq 'length' 2>/dev/null || echo "0")
+
+  if [ "$tombstone_count" -gt 0 ]; then
+    echo "Found $tombstone_count soft-delete tombstones in JSONL"
+    if [ "$live_count" = "0" ]; then
+      echo "No live beads - clearing JSONL file..."
+      echo "" > .beads/issues.jsonl
+      echo "Cleared .beads/issues.jsonl"
+      tombstones_cleared=$tombstone_count
+    else
+      echo "Warning: $live_count live beads exist - manual cleanup needed"
+      tombstones_cleared=0
+    fi
+  else
+    echo "No tombstones to clean"
+    tombstones_cleared=0
+  fi
+fi
+
+echo
 echo "=== Summary ==="
 echo "Root beads found: $root_count"
 echo "Total beads deleted: $total_deleted"
+echo "Tombstones cleared: ${tombstones_cleared:-$tombstones_found}"
 echo
 echo "IMPORTANT: Commit the changes to prevent resurrection:"
 echo "  git add .beads/issues.jsonl"
@@ -236,4 +285,5 @@ Summarize:
 - Number eligible for pruning (all descendants closed)
 - Number of beads deleted per root
 - Total beads deleted
+- Tombstones cleared
 - Reminder to commit changes

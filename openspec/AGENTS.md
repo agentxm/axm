@@ -7,6 +7,7 @@ Instructions for AI coding assistants using OpenSpec for spec-driven development
 - Search existing work: `openspec spec list --long`, `openspec list` (use `rg` only for full-text search)
 - Decide scope: new capability vs modify existing capability
 - Pick a unique `change-id`: kebab-case, verb-led (`add-`, `update-`, `remove-`, `refactor-`)
+- Review skills for relevant conventions and patterns
 - Scaffold: `proposal.md`, `tasks.md`, `design.md` (only if needed), and delta specs per affected capability
 - Write deltas: use `## ADDED|MODIFIED|REMOVED|RENAMED Requirements`; include at least one `#### Scenario:` per requirement
 - Validate: `openspec validate [change-id] --strict --no-interactive` and fix issues
@@ -82,6 +83,7 @@ After deployment, create separate PR to:
 - [ ] Read `openspec/project.md` for conventions
 - [ ] Run `openspec list` to see active changes
 - [ ] Run `openspec list --specs` to see existing capabilities
+- [ ] Review available skills for relevant patterns and conventions (see below)
 
 **Before Creating Specs:**
 
@@ -89,6 +91,10 @@ After deployment, create separate PR to:
 - Prefer modifying existing specs over creating duplicates
 - Use `openspec show [spec]` to review current state
 - If request is ambiguous, ask 1–2 clarifying questions before scaffolding
+
+### Skills During Early Phases
+
+Skills encode project conventions and patterns. Review available skills when writing proposals, designs, and task plans—not just during implementation. Skills inform architectural decisions, task decomposition, and acceptance criteria.
 
 ### Search Guidance
 

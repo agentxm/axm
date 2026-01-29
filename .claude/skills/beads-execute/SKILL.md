@@ -10,6 +10,8 @@ allowed-tools: Bash(bd *), Read, Write, Edit, Glob, Grep
 
 Execute bead task `$ARGUMENTS`.
 
+**CRITICAL: Do NOT use Claude Code's built-in task tools (TaskCreate, TaskUpdate, TaskList, TaskGet).** Use only `bd` CLI commands for task management.
+
 ## Workflow
 
 ### Step 1: Mark in-progress (REQUIRED - DO THIS FIRST)

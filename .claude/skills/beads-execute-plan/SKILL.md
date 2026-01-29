@@ -10,6 +10,8 @@ allowed-tools: Bash(bd *), Read, Glob, Task, Skill
 
 Execute the task plan scope specified in `$ARGUMENTS` by spawning sub-agents for each ready bead task.
 
+**CRITICAL: Do NOT use Claude Code's built-in task tools (TaskCreate, TaskUpdate, TaskList, TaskGet).** Use only `bd` CLI commands for task management.
+
 ## Orchestrator Role
 
 **CRITICAL: You are the ORCHESTRATOR. You coordinate work but NEVER implement tasks yourself.**

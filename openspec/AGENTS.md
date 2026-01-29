@@ -68,6 +68,8 @@ Skip proposal for:
 
 **MANDATORY: Use the beads workflow for ALL implementation work.**
 
+**CRITICAL: Do NOT use Claude Code's built-in task tools (TaskCreate, TaskUpdate, TaskList, TaskGet) for task management.** These native tools lack multi-session persistence and will lose progress. Always use the `bd` CLI and beads skills instead.
+
 Why beads are required:
 
 - **Multi-session persistence** — Progress survives context window limits

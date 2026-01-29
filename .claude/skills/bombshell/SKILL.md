@@ -8,6 +8,11 @@ user-invocable: false
 
 Apply these patterns when wrapping Bombshell prompt APIs with Effect.
 
+**Location:** `packages/core/src/experimental/clack-effect/`
+
+See CLAUDE.md "Library Wrappers" for the general Effect wrapping pattern. This skill
+covers clack-specific concerns: user cancellation, TTY detection, and spinners.
+
 ---
 
 ## Wrapping Pattern

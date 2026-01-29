@@ -66,6 +66,7 @@ Open agent extension manager for skills and more
 - [ ] Resources use acquire/release patterns
 - [ ] Layers provide dependencies at the edge
 - [ ] Use concurrency (Effect.all, Effect.forEach) where parallelization is possible
+- [ ] Wrap Promise-based APIs with Effect conventions (see /effect-wrapping skill)
 
 ### Handlers
 
@@ -98,6 +99,9 @@ packages/           # All packages live here
         <module>/
           parser.ts
           parser.test.ts
+        <external-lib>-effect/  # Effect-wrapped third-party libraries
+          index.ts
+          errors.ts
 openspec/           # Spec-driven development
   specs/            # Implemented capabilities
     <capability>/

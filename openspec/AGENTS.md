@@ -9,8 +9,9 @@ Instructions for AI coding assistants using OpenSpec for spec-driven development
 - Pick a unique `change-id`: kebab-case, verb-led (`add-`, `update-`, `remove-`, `refactor-`)
 - Review skills for relevant conventions and patterns
 - **Read `docs/guides/beads.md`** for required tasks.md format (TASK-N.M structure)
-- Scaffold: `proposal.md`, `tasks.md`, `design.md`, and delta specs per affected capability
-- Write deltas: use `## ADDED|MODIFIED|REMOVED|RENAMED Requirements`; include at least one `#### Scenario:` per requirement
+- Scaffold: `proposal.md`, `tasks.md`, `design.md`, and delta specs per affected capability (if any)
+- Write deltas (if behavior changes): use `## ADDED|MODIFIED|REMOVED|RENAMED Requirements`; include at least one `#### Scenario:` per requirement
+- No deltas needed for refactoring/implementation-only changes
 - Validate: `openspec validate [change-id] --strict --no-interactive` and fix issues
 - Request approval: Do not start implementation until proposal is approved
 
@@ -50,7 +51,7 @@ Skip proposal for:
 **Workflow**
 
 1. Review `openspec/project.md`, `openspec list`, and `openspec list --specs` to understand current context.
-2. Choose a unique verb-led `change-id` and scaffold `proposal.md`, `tasks.md`, optional `design.md`, and spec deltas under `openspec/changes/<id>/`.
+2. Choose a unique verb-led `change-id` and scaffold `proposal.md`, `tasks.md`, optional `design.md`, and spec deltas (if behavior changes) under `openspec/changes/<id>/`.
 3. Draft spec deltas using `## ADDED|MODIFIED|REMOVED Requirements` with at least one `#### Scenario:` per requirement. **Note:** Spec deltas are optional for refactoring or implementation-only changes that don't affect user-facing behavior.
 4. Run `openspec validate <id> --strict --no-interactive` and resolve any issues before sharing the proposal.
 
@@ -213,9 +214,10 @@ openspec/
 New request?
 ├─ Bug fix restoring spec behavior? → Fix directly
 ├─ Typo/format/comment? → Fix directly
-├─ New feature/capability? → Create proposal
-├─ Breaking change? → Create proposal
-├─ Architecture change? → Create proposal
+├─ New feature/capability? → Create proposal (with spec deltas)
+├─ Breaking change? → Create proposal (with spec deltas)
+├─ Architecture change? → Create proposal (with spec deltas)
+├─ Refactoring/implementation-only? → Create proposal (no spec deltas needed)
 └─ Unclear? → Create proposal (safer)
 ```
 
@@ -243,7 +245,15 @@ New request?
 - Affected code: [key files/systems]
 ```
 
-3. **Create spec deltas:** `specs/[capability]/spec.md`
+3. **Create spec deltas (when applicable):** `specs/[capability]/spec.md`
+
+   Spec deltas are required when user-facing behavior changes. They are **optional** for:
+   - Refactoring (code restructuring without behavior change)
+   - Internal implementation changes (tooling, build, infrastructure)
+   - Performance optimizations that don't change API or behavior
+   - Test-only changes
+
+   If your change has no spec deltas, skip this step and omit the `specs/` directory.
 
 ```markdown
 ## ADDED Requirements
@@ -401,7 +411,9 @@ Example for RENAMED:
 
 **"Change must have at least one delta"**
 
-- Check `changes/[name]/specs/` exists with .md files
+- This error only applies when your change affects user-facing behavior
+- For refactoring/implementation-only changes, use `openspec validate <change> --skip-deltas` or add an empty `specs/` directory with a `.gitkeep`
+- If specs should exist: check `changes/[name]/specs/` exists with .md files
 - Verify files have operation prefixes (## ADDED Requirements)
 
 **"Requirement must have at least one scenario"**
@@ -439,12 +451,12 @@ openspec list
 
 # 2) Choose change id and scaffold
 CHANGE=add-two-factor-auth
-mkdir -p openspec/changes/$CHANGE/{specs/auth}
+mkdir -p openspec/changes/$CHANGE  # Add /specs/<capability> only if behavior changes
 printf "## Why\n...\n\n## What Changes\n- ...\n\n## Impact\n- ...\n" > openspec/changes/$CHANGE/proposal.md
 # REQUIRED: Read docs/guides/beads.md BEFORE creating tasks.md
 # tasks.md must use TASK-N.M format with Implements, Description, Acceptance Criteria, Dependencies fields
 
-# 3) Add deltas (example)
+# 3) Add deltas (skip for refactoring/implementation-only changes)
 cat > openspec/changes/$CHANGE/specs/auth/spec.md << 'EOF'
 ## ADDED Requirements
 ### Requirement: Two-Factor Authentication

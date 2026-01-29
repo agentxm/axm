@@ -75,21 +75,9 @@ docs/guides/        # Reference documentation
 
 ## Guides and Skills
 
-**Guides** = high-level rationale, concepts, when-to-use. **Skills** = tactical patterns, checklists, how-to (standalone). Guides reference skills for tactics.
+**Guides** (`docs/guides/`) = high-level rationale for humans. **Skills** = tactical patterns for agents (auto-load when relevant).
 
-| Guide                                                        | When to Use                                                       |
-| ------------------------------------------------------------ | ----------------------------------------------------------------- |
-| `openspec/AGENTS.md`                                         | Planning new capabilities, writing specs, or applying changes     |
-| `docs/guides/effect-service-design.md`                       | Designing Effect services, error types, layers, or retry policies |
-| `docs/guides/cli-design-guidelines.md`                       | Adding CLI commands, flags, output formatting, or error messages  |
-| `docs/guides/bombshell-integration.md`                       | Wrapping Bombshell prompts with Effect, cancellation, spinners    |
-| `docs/guides/testing-guidelines.md`                          | Writing unit tests, handler tests, or E2E tests                   |
-| `docs/guides/markdown-task-plans.md`                         | Writing task plans with execution markers for AI-assisted work    |
-| `docs/guides/creating-beads-wbs-from-markdown-task-plans.md` | Executing task plans using beads for structured task tracking     |
-| `docs/guides/documentation-guidelines.md`                    | Creating or reviewing README.md, CLAUDE.md, guides, or specs      |
-| `docs/guides/guide-authoring.md`                             | Writing guides with checklists, structure, and cross-references   |
-
-**Auto-loading skills:** `effect-basics`, `effect-service`, `cli-conventions`, `bombshell`, `testing`, `documentation`, `agent-docs` load automatically when relevant.
+**Auto-loading skills:** `effect-basics`, `effect-service`, `cli-conventions`, `bombshell`, `testing`, `documentation`, `agent-docs`.
 
 ## Task Management Workflow
 

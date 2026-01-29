@@ -24,11 +24,12 @@ task plans, the same principles apply.
 
 This guide is also available as Claude Code skills for interactive use:
 
-| Skill                | Purpose                                        |
-| -------------------- | ---------------------------------------------- |
-| `/beads-plan`        | Create beads WBS from a markdown task plan     |
-| `/beads-task`        | Template for sub-agents executing bead tasks   |
-| `/beads-close-phase` | Close a phase and update the markdown document |
+| Skill                 | Purpose                                             |
+| --------------------- | --------------------------------------------------- |
+| `/beads-plan`         | Create beads WBS from a markdown task plan          |
+| `/beads-execute-plan` | Execute a plan by spawning sub-agents for each task |
+| `/beads-task`         | Template for sub-agents executing bead tasks        |
+| `/beads-close-phase`  | Close a phase and update the markdown document      |
 
 Skills are in `.claude/skills/` and can be invoked directly or used by Claude
 automatically when relevant.

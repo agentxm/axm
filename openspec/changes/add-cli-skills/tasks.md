@@ -413,9 +413,9 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/cli/src/commands/skills/add.ts`
-- [ ] Defines `source` positional argument
-- [ ] Defines `--global`, `--agent`, `--skill`, `--yes`, `--list`, `--all` flags
+- [x] File exists at `packages/cli/src/commands/skills/add.ts`
+- [x] Defines `source` positional argument
+- [x] Defines `--global`, `--agent`, `--skill`, `--yes`, `--list`, `--all` flags
 
 **Dependencies:** TASK-4.1
 
@@ -427,9 +427,9 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/cli/src/commands/skills/add.handler.ts`
-- [ ] Uses Effect services for all I/O
-- [ ] Implements full flow: parse source, detect agents, discover skills, prompt, install
+- [x] File exists at `packages/cli/src/commands/skills/add.handler.ts`
+- [x] Uses Effect services for all I/O
+- [x] Implements full flow: parse source, detect agents, discover skills, prompt, install
 
 **Dependencies:** TASK-5.1, TASK-1.11
 
@@ -441,10 +441,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Agent selection prompt when multiple agents detected
-- [ ] Skill selection prompt when multiple skills available
-- [ ] Spinner during async operations
-- [ ] Confirmation before installation
+- [x] Agent selection prompt when multiple agents detected
+- [x] Skill selection prompt when multiple skills available
+- [x] Spinner during async operations
+- [x] Confirmation before installation
 
 **Dependencies:** TASK-5.2, TASK-6.1
 
@@ -456,11 +456,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file exists at `packages/cli/src/commands/skills/__tests__/add.handler.test.ts`
-- [ ] Tests full flow with mock services (SourceParser, SkillDiscovery, AgentDetection, Installer, etc.)
-- [ ] Tests error handling scenarios (invalid source, no skills found, no agents detected)
-- [ ] Tests non-interactive mode (--yes, --all flags)
-- [ ] `pnpm test add.handler` passes
+- [x] Test file exists at `packages/cli/src/commands/skills/__tests__/add.handler.test.ts`
+- [x] Tests full flow with mock services (SourceParser, SkillDiscovery, AgentDetection, Installer, etc.)
+- [x] Tests error handling scenarios (invalid source, no skills found, no agents detected)
+- [x] Tests non-interactive mode (--yes, --all flags)
+- [x] `pnpm test add.handler` passes
 
 **Dependencies:** TASK-5.2
 
@@ -489,8 +489,8 @@
 
 **Acceptance Criteria:**
 
-- [ ] `picocolors` in `packages/cli/package.json` dependencies
-- [ ] `pnpm install` succeeds
+- [x] `picocolors` in `packages/cli/package.json` dependencies
+- [x] `pnpm install` succeeds
 
 **Dependencies:** None
 
@@ -502,8 +502,8 @@
 
 **Acceptance Criteria:**
 
-- [ ] `simple-git` in `packages/core/package.json` dependencies
-- [ ] `pnpm install` succeeds
+- [x] `simple-git` in `packages/core/package.json` dependencies
+- [x] `pnpm install` succeeds
 
 **Dependencies:** None
 
@@ -515,8 +515,8 @@
 
 **Acceptance Criteria:**
 
-- [ ] `yaml` in `packages/core/package.json` dependencies
-- [ ] `pnpm install` succeeds
+- [x] `yaml` in `packages/core/package.json` dependencies
+- [x] `pnpm install` succeeds
 
 **Dependencies:** None
 
@@ -532,11 +532,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] `execa` added to `packages/cli` devDependencies
-- [ ] `packages/cli/e2e/` directory created
-- [ ] Test utility for running CLI and capturing result
-- [ ] Test utility for creating/cleaning temp directories
-- [ ] Local path fixture with mock SKILL.md files
+- [x] `execa` added to `packages/cli` devDependencies
+- [x] `packages/cli/e2e/` directory created
+- [x] Test utility for running CLI and capturing result
+- [x] Test utility for creating/cleaning temp directories
+- [x] Local path fixture with mock SKILL.md files
 
 **Dependencies:** TASK-5.2
 
@@ -548,12 +548,12 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file exists at `packages/cli/e2e/init.test.ts`
-- [ ] Tests `axm init --yes` creates settings file
-- [ ] Test file exists at `packages/cli/e2e/skills.test.ts`
-- [ ] Tests `axm skills` shows help and available subcommands
-- [ ] Tests `axm skills --help` displays usage
-- [ ] `pnpm test:e2e init skills` passes
+- [x] Test file exists at `packages/cli/e2e/init.test.ts`
+- [x] Tests `axm init --yes` creates settings file
+- [x] Test file exists at `packages/cli/e2e/skills.test.ts`
+- [x] Tests `axm skills` shows help and available subcommands
+- [x] Tests `axm skills --help` displays usage
+- [x] `pnpm test:e2e init skills` passes
 
 **Dependencies:** TASK-7.1, TASK-3.2, TASK-4.1
 
@@ -565,13 +565,13 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file exists at `packages/cli/e2e/skills-add.test.ts`
-- [ ] Tests `axm skills add <local> --list` lists available skills
-- [ ] Tests `axm skills add <local> --all --yes` installs skills, creates `.axm/` structure
-- [ ] Tests `axm skills add <invalid>` shows error, exits non-zero
-- [ ] Tests `axm skills add <well-known-url> --list` discovers skills from index.json
-- [ ] Tests file system state after installation (settings.json, axm.lock, symlinks)
-- [ ] `pnpm test:e2e skills-add` passes
+- [x] Test file exists at `packages/cli/e2e/skills-add.test.ts`
+- [x] Tests `axm skills add <local> --list` lists available skills
+- [x] Tests `axm skills add <local> --all --yes` installs skills, creates `.axm/` structure
+- [x] Tests `axm skills add <invalid>` shows error, exits non-zero
+- [x] Tests `axm skills add <well-known-url> --list` discovers skills from index.json
+- [x] Tests file system state after installation (settings.json, axm.lock, symlinks)
+- [x] `pnpm test:e2e skills-add` passes
 
 **Dependencies:** TASK-7.1, TASK-5.3
 
@@ -587,10 +587,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] `axm init --help` shows clear descriptions
-- [ ] `axm skills --help` shows clear descriptions
-- [ ] `axm skills add --help` shows usage examples
-- [ ] Help text matches spec scenarios
+- [x] `axm init --help` shows clear descriptions
+- [x] `axm skills --help` shows clear descriptions
+- [x] `axm skills add --help` shows usage examples
+- [x] Help text matches spec scenarios
 
 **Dependencies:** TASK-4.1, TASK-5.1
 
@@ -612,11 +612,11 @@
 
 ## Traceability Matrix
 
-| Spec           | Tasks                                                                | Beads                                                                       | Status  |
-| -------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------- |
-| cli-init       | TASK-3.1, TASK-3.2, TASK-3.3, TASK-7.2, TASK-8.1                     | axm-2.3.1, axm-2.3.2, axm-2.3.3, axm-2.7.2, axm-2.8.1                       | Pending |
-| cli-skills     | TASK-4.1, TASK-7.2, TASK-8.1                                         | axm-2.4.1, axm-2.7.2, axm-2.8.1                                             | Pending |
-| cli-skills-add | TASK-1._, TASK-2._, TASK-5._, TASK-6._, TASK-7.1, TASK-7.3, TASK-8.1 | axm-2.1._, axm-2.2._, axm-2.5._, axm-2.6._, axm-2.7.1, axm-2.7.3, axm-2.8.1 | Pending |
+| Spec           | Tasks                                                                | Beads                                                                       | Status   |
+| -------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------- | -------- |
+| cli-init       | TASK-3.1, TASK-3.2, TASK-3.3, TASK-7.2, TASK-8.1                     | axm-2.3.1, axm-2.3.2, axm-2.3.3, axm-2.7.2, axm-2.8.1                       | Complete |
+| cli-skills     | TASK-4.1, TASK-7.2, TASK-8.1                                         | axm-2.4.1, axm-2.7.2, axm-2.8.1                                             | Complete |
+| cli-skills-add | TASK-1._, TASK-2._, TASK-5._, TASK-6._, TASK-7.1, TASK-7.3, TASK-8.1 | axm-2.1._, axm-2.2._, axm-2.5._, axm-2.6._, axm-2.7.1, axm-2.7.3, axm-2.8.1 | Complete |
 
 ---
 

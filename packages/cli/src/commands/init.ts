@@ -12,28 +12,29 @@ interface InitArgs {
 // biome-ignore lint/complexity/noBannedTypes: {} is the yargs convention for no parent args
 export const initCommand: CommandModule<{}, InitArgs> = {
   command: "init",
-  describe: "Initialize axm in the current directory",
+  describe: "Initialize axm by detecting installed agents and creating .axm/settings.json",
   builder: (yargs) =>
     yargs
       .option("global", {
         type: "boolean",
-        describe: "Initialize globally in ~/.axm/",
+        describe: "Initialize globally in ~/.axm/ instead of the current directory",
         default: false,
       })
       .option("agent", {
         type: "string",
         array: true,
-        describe: "Target agent(s) to configure",
+        describe: "Specify agent(s) to configure (skips auto-detection)",
         default: [],
       })
       .option("yes", {
         alias: "y",
         type: "boolean",
-        describe: "Skip confirmations",
+        describe: "Use all detected agents without prompting",
         default: false,
       })
-      .example("$0 init", "Initialize axm with auto-detected agents")
-      .example("$0 init --global", "Initialize axm globally")
+      .example("$0 init", "Detect installed agents and create .axm/settings.json")
+      .example("$0 init --yes", "Initialize with all detected agents (non-interactive)")
+      .example("$0 init --global", "Initialize in ~/.axm/ for user-wide configuration")
       .example("$0 init --agent claude-code --agent cursor", "Initialize with specific agents"),
   handler: async (argv) => {
     const program = handleInit({

@@ -11,7 +11,7 @@ import type { Settings } from "@agentxm/core/experimental/skills";
 import type { FileSystem } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
 import { Effect } from "effect";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { handleInit, type InitArgs, type InitError } from "../init.handler.js";
 
 describe("init.handler", () => {

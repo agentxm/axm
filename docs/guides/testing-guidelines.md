@@ -52,7 +52,7 @@ dependencies:
 ## Unit Tests
 
 Unit tests verify pure business logic without dependencies. For code patterns
-and examples, see the `/testing` skill.
+and examples, see the `/testing-unit` skill.
 
 ### Unit Test Checklist
 
@@ -66,7 +66,7 @@ and examples, see the `/testing` skill.
 ## Handler Tests
 
 Handler tests verify Effect handlers with mock service layers. For code patterns
-and examples, see the `/testing` skill.
+and examples, see the `/testing-handler` skill.
 
 ### Handler Test Checklist
 
@@ -79,8 +79,8 @@ and examples, see the `/testing` skill.
 
 ## E2E Tests
 
-E2E tests spawn the built CLI binary and verify end-to-end behavior. For code
-patterns and setup examples, see the `/testing` skill.
+E2E tests spawn the CLI as a subprocess and verify end-to-end behavior. For code
+patterns and setup examples, see the `/testing-e2e` skill.
 
 ### E2E Test Patterns
 
@@ -167,7 +167,9 @@ pnpm test -- --coverage
 
 ---
 
-## See Also
+## Skills
 
-- `/testing` skill — Ready-to-use test patterns for unit, handler, and E2E tests
-- `/effect-service` skill — Service patterns including test layer construction
+- `/testing-unit` — Unit test patterns for pure functions in `packages/core/`
+- `/testing-handler` — Handler test patterns with mock services
+- `/testing-e2e` — E2E test patterns for CLI commands
+- `/effect-service` — Service patterns including test layer construction

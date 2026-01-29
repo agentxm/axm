@@ -52,11 +52,30 @@ Effect for all business logic/I/O. No raw Promises or async/await.
 | Command          | Purpose                     |
 | ---------------- | --------------------------- |
 | `pnpm build`     | Build all packages          |
-| `pnpm test`      | Run tests (Vitest)          |
+| `pnpm test`      | Run all tests (Vitest)      |
 | `pnpm typecheck` | Type check without emitting |
 | `pnpm format`    | Format code and markdown    |
 | `pnpm lint`      | Lint with Biome             |
 | `pnpm lint:fix`  | Lint and auto-fix           |
+
+## Testing
+
+Three test layers, each with different scope:
+
+| Layer   | Location                             | Tests                          |
+| ------- | ------------------------------------ | ------------------------------ |
+| Unit    | `packages/core/src/**/*.test.ts`     | Pure business logic, utilities |
+| Handler | `packages/cli/src/**/__tests__/*.ts` | Effect handlers with mocks     |
+| E2E     | `packages/cli/e2e/*.test.ts`         | Full CLI as subprocess         |
+
+```bash
+pnpm test                              # Run all tests
+pnpm test packages/cli/e2e/            # Run E2E tests only
+pnpm test packages/core/               # Run unit tests only
+pnpm test -- --watch                   # Watch mode
+```
+
+**Key principles:** Isolated (fresh state per test), deterministic (same result if nothing changes), behavioral (test what code does, not how it's structured).
 
 ## Project Structure
 
@@ -77,7 +96,7 @@ docs/guides/        # Reference documentation
 
 **Guides** (`docs/guides/`) = high-level rationale for humans. **Skills** = tactical patterns for agents (auto-load when relevant).
 
-**Auto-loading skills:** `effect-basics`, `effect-service`, `cli-conventions`, `bombshell`, `testing`, `documentation`, `agent-docs`.
+**Auto-loading skills:** `effect-basics`, `effect-service`, `cli-conventions`, `bombshell`, `testing-unit`, `testing-handler`, `testing-e2e`, `documentation`, `agent-docs`.
 
 ## Task Management Workflow
 

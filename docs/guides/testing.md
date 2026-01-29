@@ -1,11 +1,3 @@
----
-status: active
-description:
-  Testing patterns for unit tests, handler tests, and E2E tests. Covers test
-  organization, isolation, mocking services, and CLI subprocess testing with
-  execa.
----
-
 # Testing Guide
 
 Patterns for writing tests at all layers: unit tests for business logic,

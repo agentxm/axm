@@ -1,11 +1,7 @@
----
-status: active
-description: Effect patterns for typed errors, services, and async operations.
----
-
 # Effect Guide
 
-This project uses Effect for all business logic and I/O.
+Patterns for typed errors, services, and async operations. This project uses
+Effect for all business logic and I/O.
 
 ## Skills
 

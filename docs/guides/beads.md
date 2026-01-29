@@ -1,10 +1,3 @@
----
-status: active
-description:
-  Task planning and execution with beads—markdown task plans, execution markers,
-  human gates, and multi-session tracking via the beads CLI.
----
-
 # Beads Guide
 
 Standards for task planning in markdown and executing plans with beads for

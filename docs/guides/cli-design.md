@@ -1,10 +1,3 @@
----
-status: active
-description:
-  CLI design conventions—command structure, flags, prompts, output, and error
-  handling for yargs-based CLI applications using Bombshell tooling with Effect.
----
-
 # CLI Design Guide
 
 Conventions for designing CLI commands in this project. Covers yargs + Effect

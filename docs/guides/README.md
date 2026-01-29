@@ -5,6 +5,15 @@ references to important resources, skills, and background that contextualizes
 the topic to this project. Use guides as topic-based entry points for subjects
 too detailed for README.md or CLAUDE.md, but not tactical enough for skills.
 
+## Structure
+
+Each guide is a single markdown file named after its topic:
+
+- `effect.md` — Effect library patterns and conventions
+- `testing.md` — Testing philosophy and test levels
+- `beads.md` — Task management with beads
+- `cli-design.md` — CLI architecture and conventions
+
 ---
 
 ## Quality Checklist

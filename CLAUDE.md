@@ -39,6 +39,23 @@ Open agent extension manager for skills and more
 - [ ] Implement until tests pass
 - [ ] Bug fix → regression test first
 
+### Test Quality
+
+- [ ] **Isolated** — Same results regardless of run order
+      → Use fresh state per test (temp dirs, mock resets)
+- [ ] **Deterministic** — Same result if nothing changes
+      → Remove shared mutable state between tests
+- [ ] **Behavioral** — Sensitive to behavior changes
+      → Test what the code does, not how it's structured
+- [ ] **Structure-insensitive** — Refactoring shouldn't break tests
+      → Avoid testing implementation details
+- [ ] **Specific** — Failure cause obvious
+      → One logical assertion per test
+- [ ] **Readable** — Comprehensible, motivation clear
+      → Use descriptive names and arrange/act/assert structure
+- [ ] **Predictive** — Passing means production-ready
+      → Test real scenarios, not just happy paths
+
 ## Effect
 
 - [ ] No raw Promises or async/await (use Effect.promise to wrap)

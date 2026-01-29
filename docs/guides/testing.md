@@ -3,7 +3,7 @@
 Orientation for testing in this project: unit and e2e tests, when to use each,
 and what makes tests valuable.
 
-> [Testing](../../CLAUDE.md#testing) — critical guidance
+> [Testing](../../CLAUDE.md#testing) — workflow and quality checklist
 
 **Not covered:** Performance testing, load testing, or CI/CD pipeline
 configuration.
@@ -39,55 +39,14 @@ configuration.
 - Business logic with service dependencies
 - Error handling paths
 
-Handlers are unit tests. They may need test layers for service dependencies—see
-`/effect-testing`.
+Handler tests are unit tests. They may need test layers for service
+dependencies—see `/effect-testing`.
 
 **E2E tests** for:
 
 - CLI command parsing and output
 - Integration between commands and file system
 - User-facing behavior verification
-
----
-
-## Test Quality Principles
-
-Tests should exhibit these qualities (adapted from Kent Beck's test desiderata):
-
-| Quality                   | Description                          |
-| ------------------------- | ------------------------------------ |
-| **Isolated**              | Same results regardless of run order |
-| **Composable**            | Test dimensions separately           |
-| **Deterministic**         | Same result if nothing changes       |
-| **Fast**                  | Run quickly                          |
-| **Writable**              | Cheap to write relative to code cost |
-| **Readable**              | Comprehensible, motivation clear     |
-| **Behavioral**            | Sensitive to behavior changes        |
-| **Structure-insensitive** | Insensitive to structure changes     |
-| **Automated**             | Run without human intervention       |
-| **Specific**              | Failure cause obvious                |
-| **Predictive**            | Passing means production-ready       |
-| **Inspiring**             | Passing inspires confidence          |
-
-### Applying Quality Principles
-
-**Isolated + Deterministic:**
-
-- Fresh state per test (temp dirs, mock resets)
-- No shared mutable state between tests
-- No dependency on test execution order
-
-**Behavioral + Structure-insensitive:**
-
-- Test what the code does, not how it's structured
-- Avoid testing implementation details
-- Refactoring shouldn't break tests
-
-**Specific + Readable:**
-
-- One logical assertion per test
-- Descriptive test names that explain the behavior
-- Clear arrange/act/assert structure
 
 ---
 

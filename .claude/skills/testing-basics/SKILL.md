@@ -23,7 +23,7 @@ qualities regardless of level.
 - **Unit** — All meaningful business logic: pure functions, data transformations, handlers, error paths
 - **E2E** — CLI parsing/output, file system integration, user-facing behavior
 
-Handlers are unit tests. They may need test layers for service dependencies—see `/effect-testing`.
+Handler tests are unit tests. They may need test layers for service dependencies—see `/effect-testing`.
 
 ---
 

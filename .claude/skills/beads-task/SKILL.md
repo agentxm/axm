@@ -1,12 +1,13 @@
 ---
 name: beads-task
-description: Execute a single bead task. Use when spawning a sub-agent to implement a specific bead.
+description: Reference template for manually spawning sub-agents to execute bead tasks. Prefer /beads-execute for automatic sub-agent execution.
 user-invocable: false
 ---
 
-# Execute Bead Task
+# Bead Task Reference Template
 
-This skill provides the template for sub-agents executing bead tasks.
+This skill provides the prompt template for manually spawning sub-agents with the
+Task tool. For automatic sub-agent execution, use `/beads-execute <bead-id>` instead.
 
 ## Sub-Agent Prompt Template
 
@@ -19,10 +20,10 @@ You are implementing bead task <bead-id>: <task-title>
 <paste from bd show output>
 
 **Instructions:**
-1. Mark task in-progress: `bd update <bead-id> --status=in-progress`
+1. FIRST mark task in-progress: `bd update <bead-id> --status=in-progress`
 2. <task-specific instructions>
 3. Verify acceptance criteria met
-4. Close task: `bd close <bead-id>`
+4. Close task: `bd close <bead-id> --reason "Acceptance criteria met"`
 ```
 
 ## Common bd Commands

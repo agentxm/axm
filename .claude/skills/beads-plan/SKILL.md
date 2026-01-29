@@ -106,3 +106,22 @@ Summarize what was created:
 - Task bead IDs
 - Dependencies set
 - Document annotations added
+
+---
+
+## Next: Execute the Plan
+
+After creating beads, execute them by spawning sub-agents:
+
+### For each unblocked task
+
+1. Check dependencies are satisfied: `bd show <task-id>` (blockers show ✓)
+2. Invoke `/beads-execute <task-id>` for each task
+3. Spawn independent tasks in parallel for efficiency
+
+### After a phase completes
+
+1. Invoke `/beads-close-phase <phase-epic-id>`
+2. This updates the markdown and closes the phase
+
+The parent agent coordinates; sub-agents do the implementation work.

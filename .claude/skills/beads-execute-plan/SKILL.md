@@ -50,9 +50,16 @@ From `bd show` output, note which tasks have no open dependencies.
 
 ### Step 4: Spawn sub-agents for ready tasks
 
-For each ready task, spawn a sub-agent using the Task tool. **Spawn multiple independent tasks in parallel for efficiency.**
+For each ready task, invoke `/beads-execute <bead-id>`. **Spawn multiple independent tasks in parallel for efficiency.**
 
-Use this prompt template:
+Each `/beads-execute` invocation will:
+
+1. Read the bead details
+2. **Mark the task in-progress** (CRITICAL)
+3. Implement per acceptance criteria
+4. Close the task when done
+
+For manual Task tool spawning, use this prompt template:
 
 ```
 You are implementing bead task <bead-id>: <task-title>
@@ -60,25 +67,11 @@ You are implementing bead task <bead-id>: <task-title>
 **Acceptance Criteria:**
 <paste from bd show output>
 
-**Context:**
-<any relevant context from task description>
-
 **Instructions:**
-1. Mark task in-progress: `bd update <bead-id> --status=in-progress`
+1. FIRST mark task in-progress: `bd update <bead-id> --status=in-progress`
 2. Implement the task per acceptance criteria
 3. Verify all criteria are met
 4. Close task: `bd close <bead-id> --reason "Acceptance criteria met"`
-```
-
-Example Task tool invocation:
-
-```json
-{
-  "subagent_type": "general-purpose",
-  "description": "Implement <task-title>",
-  "prompt": "<sub-agent prompt from template above>",
-  "allowed_tools": ["Bash(bd *)", "Read", "Write", "Edit", "Glob", "Grep"]
-}
 ```
 
 ### Step 5: Wait for sub-agents to complete

@@ -6,7 +6,7 @@ description:
   execa.
 ---
 
-# Testing Guidelines
+# Testing Guide
 
 Patterns for writing tests at all layers: unit tests for business logic,
 handler tests with mock services, and E2E tests for CLI commands.
@@ -169,6 +169,7 @@ pnpm test -- --coverage
 
 ## Skills
 
+- `/testing-basics` — Test quality principles and layer overview
 - `/testing-unit` — Unit test patterns for pure functions in `packages/core/`
 - `/testing-handler` — Handler test patterns with mock services
 - `/testing-e2e` — E2E test patterns for CLI commands

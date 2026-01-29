@@ -1,8 +1,3 @@
----
-status: active
-description: When creating or reviewing a guide in docs/guides/.
----
-
 # Guide Authoring
 
 Guides provide orientation for human readers on weighty topics—explaining the

@@ -1,19 +1,44 @@
 ---
 status: active
 description:
-  Patterns for designing Effect services—inferred interfaces, tagged errors,
-  layer construction, and retry policies. Does not cover Effect streams, runtime
-  configuration, or testing strategies.
+  Patterns for using Effect in this project—generator functions, error handling,
+  services, layers, and retry policies. Start here when writing Effect code.
 ---
 
-# Effect Service Design
+# Effect Guide
 
-Patterns for designing Effect services with type-safe interfaces. Covers service
-interface patterns, error type design, layer construction, and retry policies.
+This project uses Effect for all business logic and I/O. Effect provides typed
+errors, dependency injection, and composable async operations. This guide covers
+when and how to use Effect patterns in this codebase.
 
-**Not covered:** Effect streams, runtime configuration, concurrent patterns,
-resource management, or testing strategies. For testing Effect services, see
-project test examples.
+**Not covered:** Effect streams, runtime configuration, resource management, or
+testing strategies. For testing Effect services, see the testing guidelines.
+
+---
+
+## Core Principles
+
+Effect replaces Promises and async/await with typed, composable operations:
+
+- All async operations return `Effect<A, E, R>`, never `Promise<T>`
+- Use typed errors (`E`) instead of thrown exceptions
+- Use dependency injection via Effect services (`R`)
+
+The type signature `Effect<A, E, R>` means: an operation that succeeds with `A`,
+fails with `E`, and requires dependencies `R`. This makes error handling and
+dependencies explicit in the type system.
+
+For pattern mapping (async/await to Effect equivalents) and code examples, see
+the `/effect-basics` skill.
+
+### Core Principles Checklist
+
+- [ ] **No raw Promises** — All async operations use Effect
+- [ ] **No async/await** — Use `Effect.gen` with `yield*`
+- [ ] **Typed errors** — Use `Effect.tryPromise` with error mapping
+- [ ] **Concurrent when independent** — Use `Effect.all` with concurrency
+- [ ] **Services for I/O** — Use `@effect/platform` services
+- [ ] **No runPromise in logic** — Only at entry points
 
 ---
 
@@ -189,11 +214,32 @@ For retry policy patterns with code examples, see the `/effect-service` skill.
 
 ---
 
+## Running Effects
+
+Effects are values that describe computations. They must be "run" at entry
+points to execute.
+
+| Context         | Method                                      |
+| --------------- | ------------------------------------------- |
+| CLI entry point | `Effect.runPromise` or `BunRuntime.runMain` |
+| Tests           | `Effect.runPromise` within test functions   |
+| Business logic  | **Never** — compose Effects, don't run them |
+
+In business logic, compose Effects together and return them. Only at the
+application boundary (CLI handler, test runner) should you call `runPromise` to
+execute the composed Effect.
+
+---
+
+## Skills
+
+- `/effect-basics` — Core patterns: generators, wrapping promises, concurrency,
+  error handling
+- `/effect-service` — Service patterns: interfaces, error types, layers, retry
+  policies
+
 ## See Also
 
-- `/effect-service` skill — Ready-to-use code patterns for all sections above
-- `/effect-basics` skill — Foundational Effect patterns (generators, error
-  handling)
 - [Effect Context](https://effect.website/docs/context-management/services-and-layers/) —
   Official service and layer documentation
 - [Effect Error Management](https://effect.website/docs/error-management/two-error-types/) —

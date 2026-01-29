@@ -1,16 +1,20 @@
 ---
 status: active
 description:
-  Reference for designing and reviewing CLI features—command structure, flags,
-  prompts, output components, and shell autocompletions for yargs-based CLI
-  applications using bomb.sh tooling.
+  CLI design conventions—command structure, flags, prompts, output, and error
+  handling for yargs-based CLI applications using Bombshell tooling with Effect.
 ---
 
-# CLI Design Guidelines
+# CLI Design Guide
 
-Conventions for CLI design _beyond_ what yargs provides automatically. For yargs
-API patterns, see the
-[official documentation](https://github.com/yargs/yargs/blob/main/docs/api.md).
+Conventions for designing CLI commands in this project. Covers yargs + Effect
+architecture, command structure, interactive prompts with Bombshell, output
+formatting, and error handling.
+
+**Not covered:** yargs API details (see
+[official docs](https://github.com/yargs/yargs/blob/main/docs/api.md)), shell
+autocompletion setup, or testing strategies. For testing CLI commands, see the
+testing guidelines.
 
 ---
 
@@ -54,8 +58,9 @@ For TypeScript, install `@types/yargs` and see the
 
 Commands follow a noun-verb structure: `mycli <resource> <action> [flags]`. Use
 flags over positionals when multiple values are needed—flags are self-documenting
-while positionals rely on order. For code examples, see the `/cli-conventions`
-skill.
+while positionals rely on order.
+
+For code examples, see the `/cli-conventions` skill.
 
 ### Command Naming Checklist
 
@@ -83,41 +88,12 @@ src/commands/
 Parent commands compose subcommands via `.command()` and use
 `.demandCommand(1, "message")` to require a subcommand.
 
-### Command Utilities
-
-Place a `utils.ts` file inside subcommand folders when subcommands share common
-functionality. Scope utilities to that command group only—cross-cutting
-utilities belong in `src/lib/` or similar. Typical utilities include: resource
-managers, shared validation helpers, common output formatters, and
-domain-specific lookups.
-
 ### File Organization Checklist
 
 - [ ] **Parent alongside folder** — `extensions.ts` next to `extensions/` folder
 - [ ] **Tests colocated** — Test files alongside implementation
 - [ ] **CommandModule exports** — Each file exports a typed `CommandModule`
 - [ ] **Scoped utils** — Shared utilities in `utils.ts` within subcommand folder
-
----
-
-## Help Text Design
-
-yargs generates help automatically. Enhance with `.example()` and `.epilog()`:
-
-```typescript
-yargs(hideBin(process.argv))
-  .usage("$0 <command> [options]")
-  .example("$0 deploy web --env staging", "Deploy web app to staging")
-  .epilog("Learn more: https://docs.example.com/cli")
-  .demandCommand(1, "Please specify a command to run");
-```
-
-### Help Text Checklist
-
-- [ ] **Examples included** — 2-3 realistic examples via `.example()`
-- [ ] **Discoverable** — Running `mycli` alone shows help, not an error
-- [ ] **Empty invocation exits 0** — Informational, not an error
-- [ ] **Epilog for docs** — Links to full documentation
 
 ---
 
@@ -129,38 +105,23 @@ knowing. As [clig.dev](https://clig.dev/) puts it: "concise guidance at first
 invocation helps users learn your program conversationally."
 
 ```bash
-# ❌ Feels like an error (avoid)
+# Feels like an error (avoid)
 $ mycli extensions
 Error: Please specify a command
 Run 'mycli extensions --help' for usage
 
-# ✅ Feels like a menu (preferred)
+# Feels like a menu (preferred)
 $ mycli extensions
 Manage extensions for AI coding agents.
 
 Commands:
   mycli extensions add <source>   Add an extension
   mycli extensions list           List installed extensions
-  mycli extensions remove <name>  Remove an extension
-
-Examples:
-  mycli extensions add ./my-ext   Add from local path
-  mycli extensions list           Show all extensions
 
 Run 'mycli extensions <command> --help' for detailed usage.
 ```
 
-The concise welcome should include:
-
-- **Description** — What this command group does
-- **Available subcommands** — What actions are available
-- **Example or two** — Common usage patterns
-- **Pointer to more help** — How to get detailed information
-
-### Implementation
-
-Override the default `demandCommand` error behavior to show help and exit
-cleanly. For the implementation pattern, see the `/cli-conventions` skill.
+For implementation pattern, see the `/cli-conventions` skill.
 
 ### Parent Command Checklist
 
@@ -173,8 +134,15 @@ cleanly. For the implementation pattern, see the `/cli-conventions` skill.
 
 ## Standard Flags
 
-yargs provides `--help` and `--version` automatically. For the standard flags
-table, see the `/cli-conventions` skill.
+yargs provides `--help` and `--version` automatically.
+
+| Flag                | Short | Purpose                       |
+| ------------------- | ----- | ----------------------------- |
+| `--verbose`         | `-v`  | Increase output detail        |
+| `--quiet`           | `-q`  | Suppress non-essential output |
+| `--json`            |       | Output as JSON                |
+| `--non-interactive` |       | Disable all prompts           |
+| `--yes`             | `-y`  | Skip confirmations            |
 
 ### `--quiet` Behavior
 
@@ -183,8 +151,6 @@ table, see the `/cli-conventions` skill.
 | Progress spinners            | Final results/output      |
 | Phase messages               | Errors and warnings       |
 | Informational status updates | Content written to stdout |
-
-### Reserved Short Flags
 
 Use `-V` for version to free `-v` for verbose: `.alias("V", "version")`.
 
@@ -199,7 +165,7 @@ Use `-V` for version to free `-v` for verbose: `.alias("V", "version")`.
 
 ---
 
-## Interactive Prompts
+## Interactive Prompts with Bombshell
 
 Use [@clack/prompts](https://bomb.sh/docs/clack/packages/prompts/) for all
 interactive input. Clack provides consistent, accessible prompts with built-in
@@ -211,23 +177,39 @@ Prompts are a user experience boundary—inconsistent styling or missing
 cancellation support breaks trust. Clack handles edge cases (terminal resize,
 Ctrl+C, piped input) so command authors focus on business logic.
 
-For prompt code patterns and cancellation handling, see the `/cli-conventions`
-and `/bombshell` skills.
+### Wrapping Prompts with Effect
+
+Bombshell prompts return `Promise<T | symbol>` where the symbol indicates
+cancellation. Wrapping with Effect provides:
+
+- Typed errors for cancellation (catchable, not just a symbol check)
+- Composition with other Effects (sequencing, fallbacks, retries)
+- Testability via dependency injection
+- Consistent error handling across the CLI
+
+The key insight is that `p.isCancel()` must be checked after each prompt—the
+symbol return indicates user cancellation (Ctrl+C, Escape).
+
+For wrapping patterns and code examples, see the `/bombshell` skill.
+
+### Prompt Error Types
+
+Three error types cover all prompt failure modes:
+
+- **UserCancelled** — User pressed Ctrl+C or Escape during a prompt
+- **PromptError** — Unexpected prompt failure (rare, usually TTY issues)
+- **NotInteractiveError** — Attempted prompt in non-TTY environment
+
+For error type definitions with code, see the `/bombshell` skill.
 
 ### Non-Interactive Mode
 
 Commands must work without prompts when `--non-interactive` is set or stdin is
-not a TTY. Provide all promptable values as flags:
+not a TTY. Every prompt should have a flag equivalent for CI/scripted use. The
+`promptOrFlag` pattern provides this cleanly—flag values skip prompting
+entirely, while missing flags trigger interactive prompts (with TTY check).
 
-```typescript
-// If interactive, prompt for missing values; otherwise, require flags
-if (process.stdin.isTTY && !argv.nonInteractive) {
-  env = await askEnvironment();
-} else if (!argv.env) {
-  console.error("Error: --env required in non-interactive mode");
-  process.exit(1);
-}
-```
+For non-interactive fallback pattern code, see the `/bombshell` skill.
 
 ### Interactive Prompts Checklist
 
@@ -237,38 +219,53 @@ if (process.stdin.isTTY && !argv.nonInteractive) {
 - [ ] **Non-interactive fallback** — Every prompt has an equivalent flag
 - [ ] **TTY detection** — Prompts only shown when `process.stdin.isTTY`
 - [ ] **CI compatible** — Missing required input in CI shows error with flag name
+- [ ] **Typed errors** — UserCancelled, PromptError, NotInteractiveError extend
+      TaggedError
 
 ---
 
-## Workflow Automation Flags
+## Output Components
 
-Staged workflow pattern for commands that generate output to be persisted:
+Use clack's output components for consistent status communication.
 
-```bash
-mycli generate report              # Preview only (default)
-mycli generate report --apply      # Write to files
-mycli generate report --apply --commit  # Write and git commit
+### Spinners
+
+Spinners indicate ongoing work. They write to stderr and auto-clear on
+completion:
+
+```typescript
+import * as p from "@clack/prompts";
+
+const spin = p.spinner();
+spin.start("Deploying to staging");
+await deploy();
+spin.stop("Deployed successfully");
 ```
 
-Use `implies: "apply"` on `--commit` to enforce dependency. Distinguish from
-`--yes`: use `--apply` for "perform the write," `--yes` for "skip confirmation."
+Spinners are suppressed by `--quiet` (show only final result). For Effect
+integration, the spinner helper wraps an Effect (not a Promise) so the spinner
+integrates with Effect's error handling.
 
-### Workflow Automation Checklist
+For spinner helper pattern code, see the `/bombshell` skill.
 
-- [ ] **Preview default** — Without `--apply`, results displayed only
-- [ ] **Commit requires apply** — `--commit` uses `implies: "apply"`
-- [ ] **Idempotent apply** — Running `--apply` multiple times produces same
-      result
+### Structured Messages
 
----
+Use semantic log functions for consistent styling:
 
-## Output Conventions
+```typescript
+p.intro("mycli v1.0.0");
+p.log.info("Connected to database");
+p.log.warn("Rate limit approaching");
+p.log.error("Connection failed");
+p.log.success("Migration complete");
+p.outro("Done!");
+```
+
+### Output Conventions
 
 Stream separation enables scripting: data to stdout, diagnostics to stderr.
 Adapt output based on TTY detection—rich output in interactive terminals, plain
-text when piped. For TTY detection patterns, see the `/cli-conventions` skill.
-
-### Color Semantics
+text when piped.
 
 | Color  | Usage    | Color     | Usage                 |
 | ------ | -------- | --------- | --------------------- |
@@ -285,65 +282,8 @@ Colors disabled when: `NO_COLOR` set, `TERM=dumb`, `--no-color`, or non-TTY.
 - [ ] **TTY adaptive** — Rich output in TTY, plain text when piped
 - [ ] **NO_COLOR respected** — Colors disabled when `NO_COLOR` env var set
 - [ ] **JSON takes precedence** — `--json` outputs JSON regardless of TTY
-
----
-
-## Output Components
-
-Use clack's output components for consistent status communication. These
-complement the TTY-adaptive patterns above.
-
-### Spinners
-
-Spinners indicate ongoing work. They write to stderr and auto-clear on
-completion:
-
-```typescript
-import * as p from "@clack/prompts";
-
-const spin = p.spinner();
-spin.start("Deploying to staging");
-await deploy();
-spin.stop("Deployed successfully");
-```
-
-Spinners are suppressed by `--quiet` (show only final result).
-
-### Progress Bars
-
-For operations with known completion percentage:
-
-```typescript
-const progress = p.progress({ max: files.length });
-progress.start("Processing files");
-for (const file of files) {
-  await processFile(file);
-  progress.increment();
-}
-progress.stop("Processed all files");
-```
-
-### Structured Messages
-
-Use semantic log functions for consistent styling:
-
-```typescript
-p.intro("mycli v1.0.0");
-p.log.info("Connected to database");
-p.log.warn("Rate limit approaching");
-p.log.error("Connection failed");
-p.log.success("Migration complete");
-p.outro("Done!");
-```
-
-### Output Components Checklist
-
 - [ ] **Spinners for async** — Long-running operations show spinner
-- [ ] **Spinners to stderr** — Spinners never interfere with piped stdout
-- [ ] **Quiet suppresses spinners** — `--quiet` hides spinners, shows final result
-- [ ] **Progress for known bounds** — Operations with known count use progress bar
 - [ ] **Semantic log levels** — Uses `p.log.info/warn/error/success` appropriately
-- [ ] **Intro/outro framing** — Multi-step commands use `intro`/`outro` for context
 
 ---
 
@@ -369,21 +309,25 @@ For error message format examples, see the `/cli-conventions` skill.
 
 ---
 
-## Testing Commands
+## Workflow Automation Flags
 
-Test yargs validation and Effect handlers separately. This separation enables
-fast, focused tests without process lifecycle complexity.
+Staged workflow pattern for commands that generate output to be persisted:
 
-For testing patterns and code examples, see the `/cli-conventions` and
-`/testing` skills.
+```bash
+mycli generate report              # Preview only (default)
+mycli generate report --apply      # Write to files
+mycli generate report --apply --commit  # Write and git commit
+```
 
-### Testing Checklist
+Use `implies: "apply"` on `--commit` to enforce dependency. Distinguish from
+`--yes`: use `--apply` for "perform the write," `--yes` for "skip confirmation."
 
-- [ ] **Parser isolation** — Tests create fresh yargs instance per test
-- [ ] **Exit disabled** — Uses `.exitProcess(false)` to prevent process.exit()
-- [ ] **Fail disabled** — Uses `.fail(false)` to throw errors instead of logging
-- [ ] **Handler unit tests** — Effect handlers tested independently of yargs
-- [ ] **Services mocked** — Handler tests use test layers, not real services
+### Workflow Automation Checklist
+
+- [ ] **Preview default** — Without `--apply`, results displayed only
+- [ ] **Commit requires apply** — `--commit` uses `implies: "apply"`
+- [ ] **Idempotent apply** — Running `--apply` multiple times produces same
+      result
 
 ---
 
@@ -437,78 +381,10 @@ to another tool.
 
 ---
 
-## Internal vs External CLI
+## Skills
 
-| Aspect        | Internal CLI               | External CLI                        |
-| ------------- | -------------------------- | ----------------------------------- |
-| **Stability** | Can break between versions | SemVer strict, deprecation warnings |
-| **Errors**    | Stack traces OK            | Clean, actionable messages          |
-| **Telemetry** | Built-in analytics OK      | Opt-in only, privacy notice         |
-
-Use `deprecated` property on commands for deprecation warnings.
-
----
-
-## Shell Autocompletions
-
-Shell autocompletions make CLIs discoverable. Use
-[@bomb.sh/tab](https://bomb.sh/docs/tab/) to provide completions across zsh,
-bash, fish, and powershell from a single definition.
-
-### Why Autocompletions Matter
-
-Users expect Tab to work. Without completions, users must consult `--help`
-repeatedly. Tab reduces cognitive load and prevents typos in flag names and
-enum values.
-
-### Integration Pattern
-
-Tab works alongside yargs—yargs parses arguments, tab provides completions:
-
-```typescript
-import t from "@bomb.sh/tab";
-
-// Define completions that mirror yargs commands
-const cli = t.program("mycli");
-
-const deploy = cli.command("deploy", "Deploy to environment");
-deploy.option("env", "Target environment", (complete) => {
-  complete("staging", "Deploy to staging");
-  complete("production", "Deploy to production");
-});
-deploy.option("region", "AWS region", async (complete) => {
-  const regions = await fetchRegions(); // Dynamic completions
-  regions.forEach((r) => complete(r.id, r.name));
-});
-
-// Handle completion requests in CLI entry point
-if (process.argv.includes("complete")) {
-  await t.handle(cli);
-  process.exit(0);
-}
-```
-
-### User Setup
-
-Document the setup command for users:
-
-```bash
-# Add to shell profile
-eval "$(mycli complete zsh)"   # zsh
-eval "$(mycli complete bash)"  # bash
-mycli complete fish | source   # fish
-```
-
-### Shell Autocompletions Checklist
-
-- [ ] **Tab integration** — Uses `@bomb.sh/tab` for shell completions
-- [ ] **Mirrors yargs** — Completion definitions match yargs command structure
-- [ ] **All shells supported** — Works with zsh, bash, fish, powershell
-- [ ] **Dynamic values** — Enum options and choices have completions
-- [ ] **Setup documented** — README includes shell setup instructions
-- [ ] **Complete subcommand** — CLI exposes `complete <shell>` for script generation
-
----
+- `/cli-conventions` — yargs + Effect patterns, command structure, testing
+- `/bombshell` — Effect wrappers for prompts, TTY detection, spinners
 
 ## See Also
 
@@ -517,7 +393,3 @@ mycli complete fish | source   # fish
   philosophy
 - [Clack Documentation](https://bomb.sh/docs/clack/) — Interactive prompts and
   output components
-- [Tab Documentation](https://bomb.sh/docs/tab/) — Shell autocompletion
-  integration
-- `/cli-conventions` skill — Ready-to-use patterns for commands, flags, testing
-- `/bombshell` skill — Effect wrappers for interactive prompts

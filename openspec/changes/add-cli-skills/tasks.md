@@ -196,12 +196,12 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file exists at `packages/core/src/experimental/skills/__tests__/source-parser.test.ts`
-- [ ] Tests GitHub shorthand parsing
-- [ ] Tests URL parsing with refs and paths
-- [ ] Tests local path detection (POSIX and Windows)
-- [ ] Tests canonical notation output
-- [ ] `pnpm test source-parser` passes
+- [x] Test file exists at `packages/core/src/experimental/skills/__tests__/source-parser.test.ts`
+- [x] Tests GitHub shorthand parsing
+- [x] Tests URL parsing with refs and paths
+- [x] Tests local path detection (POSIX and Windows)
+- [x] Tests canonical notation output
+- [x] `pnpm test source-parser` passes
 
 **Dependencies:** TASK-1.2
 
@@ -213,10 +213,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file exists at `packages/core/src/experimental/skills/__tests__/agent-detection.test.ts`
-- [ ] Tests detection of various agent config directories
-- [ ] Tests behavior when no agents detected
-- [ ] `pnpm test agent-detection` passes
+- [x] Test file exists at `packages/core/src/experimental/skills/__tests__/agent-detection.test.ts`
+- [x] Tests detection of various agent config directories
+- [x] Tests behavior when no agents detected
+- [x] `pnpm test agent-detection` passes
 
 **Dependencies:** TASK-1.3
 
@@ -228,11 +228,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file exists at `packages/core/src/experimental/skills/__tests__/skill-discovery.test.ts`
-- [ ] Tests discovery of SKILL.md files
-- [ ] Tests case-insensitivity
-- [ ] Tests nested directory traversal
-- [ ] `pnpm test skill-discovery` passes
+- [x] Test file exists at `packages/core/src/experimental/skills/__tests__/skill-discovery.test.ts`
+- [x] Tests discovery of SKILL.md files
+- [x] Tests case-insensitivity
+- [x] Tests nested directory traversal
+- [x] `pnpm test skill-discovery` passes
 
 **Dependencies:** TASK-1.4
 
@@ -244,11 +244,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file exists at `packages/core/src/experimental/skills/__tests__/installer.test.ts`
-- [ ] Tests symlink creation with relative paths
-- [ ] Tests copy fallback on symlink failure
-- [ ] Tests path construction correctness
-- [ ] `pnpm test installer` passes
+- [x] Test file exists at `packages/core/src/experimental/skills/__tests__/installer.test.ts`
+- [x] Tests symlink creation with relative paths
+- [x] Tests copy fallback on symlink failure
+- [x] Tests path construction correctness
+- [x] `pnpm test installer` passes
 
 **Dependencies:** TASK-1.5
 
@@ -260,11 +260,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file exists at `packages/core/src/experimental/skills/__tests__/settings.test.ts`
-- [ ] Tests JSON round-trip
-- [ ] Tests merge behavior
-- [ ] Tests default values
-- [ ] `pnpm test settings` passes
+- [x] Test file exists at `packages/core/src/experimental/skills/__tests__/settings.test.ts`
+- [x] Tests JSON round-trip
+- [x] Tests merge behavior
+- [x] Tests default values
+- [x] `pnpm test settings` passes
 
 **Dependencies:** TASK-1.6
 
@@ -276,11 +276,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file exists at `packages/core/src/experimental/skills/__tests__/lockfile.test.ts`
-- [ ] Tests YAML round-trip
-- [ ] Tests partial updates
-- [ ] Tests timestamp formatting (ISO 8601)
-- [ ] `pnpm test lockfile` passes
+- [x] Test file exists at `packages/core/src/experimental/skills/__tests__/lockfile.test.ts`
+- [x] Tests YAML round-trip
+- [x] Tests partial updates
+- [x] Tests timestamp formatting (ISO 8601)
+- [x] `pnpm test lockfile` passes
 
 **Dependencies:** TASK-1.7
 
@@ -292,11 +292,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file exists at `packages/core/src/experimental/skills/__tests__/content-hash.test.ts`
-- [ ] Tests deterministic output for same content
-- [ ] Tests hash changes when content changes
-- [ ] Tests hash ignores metadata (timestamps)
-- [ ] `pnpm test content-hash` passes
+- [x] Test file exists at `packages/core/src/experimental/skills/__tests__/content-hash.test.ts`
+- [x] Tests deterministic output for same content
+- [x] Tests hash changes when content changes
+- [x] Tests hash ignores metadata (timestamps)
+- [x] `pnpm test content-hash` passes
 
 **Dependencies:** TASK-1.8
 
@@ -308,10 +308,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file exists at `packages/core/src/experimental/skills/__tests__/git.test.ts`
-- [ ] Tests ref resolution (tags, branches, SHAs)
-- [ ] Tests error handling for invalid refs
-- [ ] `pnpm test git` passes
+- [x] Test file exists at `packages/core/src/experimental/skills/__tests__/git.test.ts`
+- [x] Tests ref resolution (tags, branches, SHAs)
+- [x] Tests error handling for invalid refs
+- [x] `pnpm test git` passes
 
 **Dependencies:** TASK-1.9
 
@@ -323,11 +323,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file exists at `packages/core/src/experimental/skills/__tests__/wellknown.test.ts`
-- [ ] Tests index fetching and validation
-- [ ] Tests multi-file skill fetching
-- [ ] Tests error handling (404, invalid index)
-- [ ] `pnpm test wellknown` passes
+- [x] Test file exists at `packages/core/src/experimental/skills/__tests__/wellknown.test.ts`
+- [x] Tests index fetching and validation
+- [x] Tests multi-file skill fetching
+- [x] Tests error handling (404, invalid index)
+- [x] `pnpm test wellknown` passes
 
 **Dependencies:** TASK-1.9a
 

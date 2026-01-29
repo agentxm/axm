@@ -20,6 +20,21 @@ task plans, the same principles apply.
 
 ---
 
+## Skills
+
+This guide is also available as Claude Code skills for interactive use:
+
+| Skill                | Purpose                                        |
+| -------------------- | ---------------------------------------------- |
+| `/beads-plan`        | Create beads WBS from a markdown task plan     |
+| `/beads-task`        | Template for sub-agents executing bead tasks   |
+| `/beads-close-phase` | Close a phase and update the markdown document |
+
+Skills are in `.claude/skills/` and can be invoked directly or used by Claude
+automatically when relevant.
+
+---
+
 ## Purpose and Outcomes
 
 Translating a markdown task plan into beads serves three goals:
@@ -132,6 +147,34 @@ bd show <update-task-id>  # Confirm document update task dependencies
 - [ ] **Dependencies set** — Run `bd dep add` after all tasks exist
 - [ ] **Structure verified** — Run `bd list` and `bd show` to confirm hierarchy
 
+### Common bd Commands
+
+**Status management:**
+
+```bash
+# Mark task in-progress before starting work
+bd update <task-id> --status=in-progress
+
+# Close task with reason when complete
+bd close <task-id> --reason "Acceptance criteria met"
+
+# Close epic when all child tasks complete
+bd close <epic-id> --reason "All phase tasks complete"
+```
+
+**Query commands:**
+
+```bash
+# List open tasks (find work to do)
+bd list --status=open
+
+# Show task details with dependencies
+bd show <task-id>
+
+# List closed tasks (verify progress)
+bd list --status=closed | grep <epic-id>
+```
+
 ---
 
 ## When to Use Beads
@@ -149,6 +192,51 @@ across sessions.
 - [ ] **Context compaction** — Use beads when work must survive memory reset
 - [ ] **Single-session linear** — Use TodoWrite for simple sequential tasks in
       one session
+
+---
+
+## Sub-Agent Workflow
+
+When spawning sub-agents to implement bead tasks, provide clear context so each
+agent can work autonomously.
+
+### Prompt Template for Sub-Agents
+
+```
+You are implementing bead task <bead-id>: <task-title>
+
+**Acceptance Criteria:**
+<paste from bd show output>
+
+**Instructions:**
+1. Mark task in-progress: `bd update <bead-id> --status=in-progress`
+2. <task-specific instructions>
+3. Verify acceptance criteria met
+4. Close task: `bd close <bead-id>`
+```
+
+### Parent Agent Responsibilities
+
+Before spawning:
+
+- Check bead status: `bd show <task-id>`
+- Verify dependencies are closed (shown with ✓ in output)
+- Spawn multiple independent tasks in parallel for efficiency
+
+After sub-agents complete:
+
+- Update the markdown document (check acceptance criteria boxes)
+- Close phase epic when all tasks done: `bd close <epic-id> --reason "..."`
+
+### Sub-Agent Workflow Checklist
+
+- [ ] **Dependencies verified** — All blocking tasks show ✓ in `bd show` output
+- [ ] **Context provided** — Sub-agent prompt includes bead ID, acceptance
+      criteria, and specific instructions
+- [ ] **Status commands included** — Prompt tells agent to mark in-progress and
+      close when done
+- [ ] **Parallel execution** — Independent tasks spawned concurrently
+- [ ] **Document updated** — Parent agent updates markdown after phase completes
 
 ---
 

@@ -1,10 +1,14 @@
 # Tasks: Add CLI Skills Command
 
+**Plan Epic:** axm-1
+
 ## Phase 1: Core Domain Types and Services [AUTO]
+
+**Epic:** axm-1.1
 
 ### TASK-1.1: Create types module [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.1.1 **Implements:** cli-skills-add
 
 **Description:** Define core domain types for skills management.
 
@@ -18,7 +22,7 @@
 
 ### TASK-1.2: Create source-parser module [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.1.2 **Implements:** cli-skills-add
 
 **Description:** Parse source strings (github, gitlab, git, local, direct-url, well-known).
 
@@ -34,7 +38,7 @@
 
 ### TASK-1.3: Create agent-detection module [AUTO]
 
-**Implements:** cli-init, cli-skills-add
+**Bead:** axm-1.1.3 **Implements:** cli-init, cli-skills-add
 
 **Description:** Detect installed AI coding agents by checking configuration directories.
 
@@ -49,7 +53,7 @@
 
 ### TASK-1.4: Create skill-discovery module [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.1.4 **Implements:** cli-skills-add
 
 **Description:** Find SKILL.md files in directories.
 
@@ -63,7 +67,7 @@
 
 ### TASK-1.5: Create installer module [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.1.5 **Implements:** cli-skills-add
 
 **Description:** Install skills to agent directories using symlinks with copy fallback.
 
@@ -78,7 +82,7 @@
 
 ### TASK-1.6: Create settings module [AUTO]
 
-**Implements:** cli-init, cli-skills-add
+**Bead:** axm-1.1.6 **Implements:** cli-init, cli-skills-add
 
 **Description:** Read/write `.axm/settings.json` for user preferences and installed skills.
 
@@ -94,7 +98,7 @@
 
 ### TASK-1.7: Create lockfile module [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.1.7 **Implements:** cli-skills-add
 
 **Description:** Read/write `.axm/axm.lock` (YAML) for version tracking.
 
@@ -109,7 +113,7 @@
 
 ### TASK-1.8: Create content-hash module [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.1.8 **Implements:** cli-skills-add
 
 **Description:** Compute deterministic content hashes for skill directories.
 
@@ -124,7 +128,7 @@
 
 ### TASK-1.9: Create git module [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.1.9 **Implements:** cli-skills-add
 
 **Description:** Git operations for cloning repositories at specific refs.
 
@@ -139,7 +143,7 @@
 
 ### TASK-1.9a: Create wellknown module [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.1.10 **Implements:** cli-skills-add
 
 **Description:** Well-known skills discovery per RFC 8615.
 
@@ -155,7 +159,7 @@
 
 ### TASK-1.10: Create index module with exports [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.1.11 **Implements:** cli-skills-add
 
 **Description:** Public exports for the skills subpath.
 
@@ -168,7 +172,7 @@
 
 ### TASK-1.11: Add subpath export to package.json [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.1.12 **Implements:** cli-skills-add
 
 **Description:** Configure `./experimental/skills` subpath export in core package.
 
@@ -182,9 +186,11 @@
 
 ## Phase 2: Unit Tests [AUTO]
 
+**Epic:** axm-1.2
+
 ### TASK-2.1: Add source-parser tests [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.2.1 **Implements:** cli-skills-add
 
 **Description:** Unit tests for source parsing (all source types).
 
@@ -201,7 +207,7 @@
 
 ### TASK-2.2: Add agent-detection tests [AUTO]
 
-**Implements:** cli-init, cli-skills-add
+**Bead:** axm-1.2.2 **Implements:** cli-init, cli-skills-add
 
 **Description:** Unit tests for agent detection (mock filesystem).
 
@@ -216,7 +222,7 @@
 
 ### TASK-2.3: Add skill-discovery tests [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.2.3 **Implements:** cli-skills-add
 
 **Description:** Unit tests for skill discovery (mock filesystem).
 
@@ -232,7 +238,7 @@
 
 ### TASK-2.4: Add installer tests [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.2.4 **Implements:** cli-skills-add
 
 **Description:** Unit tests for installation logic (mock filesystem).
 
@@ -248,7 +254,7 @@
 
 ### TASK-2.5: Add settings tests [AUTO]
 
-**Implements:** cli-init, cli-skills-add
+**Bead:** axm-1.2.5 **Implements:** cli-init, cli-skills-add
 
 **Description:** Unit tests for settings read/write (mock filesystem).
 
@@ -264,7 +270,7 @@
 
 ### TASK-2.6: Add lockfile tests [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.2.6 **Implements:** cli-skills-add
 
 **Description:** Unit tests for lockfile read/write (mock filesystem).
 
@@ -280,7 +286,7 @@
 
 ### TASK-2.7: Add content-hash tests [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.2.7 **Implements:** cli-skills-add
 
 **Description:** Unit tests for content hash computation.
 
@@ -296,7 +302,7 @@
 
 ### TASK-2.8: Add git tests [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.2.8 **Implements:** cli-skills-add
 
 **Description:** Unit tests for git operations.
 
@@ -311,7 +317,7 @@
 
 ### TASK-2.9: Add wellknown tests [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.2.9 **Implements:** cli-skills-add
 
 **Description:** Unit tests for well-known discovery (mock HTTP).
 
@@ -327,9 +333,11 @@
 
 ## Phase 3: CLI Init Command [AUTO]
 
+**Epic:** axm-1.3
+
 ### TASK-3.1: Create init command definition [AUTO]
 
-**Implements:** cli-init
+**Bead:** axm-1.3.1 **Implements:** cli-init
 
 **Description:** Yargs command definition for `axm init`.
 
@@ -343,7 +351,7 @@
 
 ### TASK-3.2: Create init handler [AUTO]
 
-**Implements:** cli-init
+**Bead:** axm-1.3.2 **Implements:** cli-init
 
 **Description:** Effect-based handler orchestrating the init flow.
 
@@ -359,7 +367,7 @@
 
 ### TASK-3.3: Add init handler unit tests [AUTO]
 
-**Implements:** cli-init
+**Bead:** axm-1.3.3 **Implements:** cli-init
 
 **Description:** Unit tests for the init handler Effect function with mock services.
 
@@ -376,9 +384,11 @@
 
 ## Phase 4: CLI Skills Parent Command [AUTO]
 
+**Epic:** axm-1.4
+
 ### TASK-4.1: Create skills parent command [AUTO]
 
-**Implements:** cli-skills
+**Bead:** axm-1.4.1 **Implements:** cli-skills
 
 **Description:** Parent command with help and sub-command routing.
 
@@ -393,9 +403,11 @@
 
 ## Phase 5: CLI Skills Add Subcommand [AUTO]
 
+**Epic:** axm-1.5
+
 ### TASK-5.1: Create add command definition [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.5.1 **Implements:** cli-skills-add
 
 **Description:** Yargs command definition for `axm skills add`.
 
@@ -409,7 +421,7 @@
 
 ### TASK-5.2: Create add handler [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.5.2 **Implements:** cli-skills-add
 
 **Description:** Effect-based handler orchestrating the add flow.
 
@@ -423,7 +435,7 @@
 
 ### TASK-5.3: Implement interactive prompts [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.5.3 **Implements:** cli-skills-add
 
 **Description:** Interactive multi-select UI using @clack/prompts.
 
@@ -438,7 +450,7 @@
 
 ### TASK-5.4: Add handler unit tests [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.5.4 **Implements:** cli-skills-add
 
 **Description:** Unit tests for the add handler Effect function with mock services.
 
@@ -454,9 +466,11 @@
 
 ## Phase 6: Dependencies [AUTO]
 
+**Epic:** axm-1.6
+
 ### TASK-6.1: Add @clack/prompts dependency [AUTO]
 
-**Implements:** cli-skills-add, cli-init
+**Bead:** axm-1.6.1 **Implements:** cli-skills-add, cli-init
 
 **Description:** Add interactive UI library to CLI package.
 
@@ -469,7 +483,7 @@
 
 ### TASK-6.2: Add picocolors dependency [AUTO]
 
-**Implements:** cli-skills-add, cli-init
+**Bead:** axm-1.6.2 **Implements:** cli-skills-add, cli-init
 
 **Description:** Add terminal colors library to CLI package.
 
@@ -482,7 +496,7 @@
 
 ### TASK-6.3: Add simple-git dependency [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.6.3 **Implements:** cli-skills-add
 
 **Description:** Add git operations library to core package.
 
@@ -495,7 +509,7 @@
 
 ### TASK-6.4: Add yaml dependency [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.6.4 **Implements:** cli-skills-add
 
 **Description:** Add YAML library to core package.
 
@@ -508,9 +522,11 @@
 
 ## Phase 7: E2E Tests [AUTO]
 
+**Epic:** axm-1.7
+
 ### TASK-7.1: Set up E2E test infrastructure [AUTO]
 
-**Implements:** cli-init, cli-skills, cli-skills-add
+**Bead:** axm-1.7.1 **Implements:** cli-init, cli-skills, cli-skills-add
 
 **Description:** Set up E2E test infrastructure with execa and test utilities.
 
@@ -526,7 +542,7 @@
 
 ### TASK-7.2: Add init and skills command E2E tests [AUTO]
 
-**Implements:** cli-init, cli-skills
+**Bead:** axm-1.7.2 **Implements:** cli-init, cli-skills
 
 **Description:** E2E tests for `axm init` and `axm skills` commands.
 
@@ -543,7 +559,7 @@
 
 ### TASK-7.3: Add skills add E2E tests [AUTO]
 
-**Implements:** cli-skills-add
+**Bead:** axm-1.7.3 **Implements:** cli-skills-add
 
 **Description:** E2E tests for `axm skills add` command.
 
@@ -561,9 +577,11 @@
 
 ## Phase 8: Documentation [AUTO]
 
+**Epic:** axm-1.8
+
 ### TASK-8.1: Update CLI help text [AUTO]
 
-**Implements:** cli-init, cli-skills, cli-skills-add
+**Bead:** axm-1.8.1 **Implements:** cli-init, cli-skills, cli-skills-add
 
 **Description:** Ensure help text is clear and includes examples.
 
@@ -577,6 +595,8 @@
 **Dependencies:** TASK-4.1, TASK-5.1
 
 ───── Human Gate: Final Verification ─────
+
+**Bead:** axm-1.9
 
 **Blocked tasks:** None (final gate)
 
@@ -592,8 +612,25 @@
 
 ## Traceability Matrix
 
-| Spec           | Tasks                                                                | Status  |
-| -------------- | -------------------------------------------------------------------- | ------- |
-| cli-init       | TASK-3.1, TASK-3.2, TASK-3.3, TASK-7.2, TASK-8.1                     | Pending |
-| cli-skills     | TASK-4.1, TASK-7.2, TASK-8.1                                         | Pending |
-| cli-skills-add | TASK-1._, TASK-2._, TASK-5._, TASK-6._, TASK-7.1, TASK-7.3, TASK-8.1 | Pending |
+| Spec           | Tasks                                                                | Beads                                                                       | Status  |
+| -------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------- |
+| cli-init       | TASK-3.1, TASK-3.2, TASK-3.3, TASK-7.2, TASK-8.1                     | axm-1.3.1, axm-1.3.2, axm-1.3.3, axm-1.7.2, axm-1.8.1                       | Pending |
+| cli-skills     | TASK-4.1, TASK-7.2, TASK-8.1                                         | axm-1.4.1, axm-1.7.2, axm-1.8.1                                             | Pending |
+| cli-skills-add | TASK-1._, TASK-2._, TASK-5._, TASK-6._, TASK-7.1, TASK-7.3, TASK-8.1 | axm-1.1._, axm-1.2._, axm-1.5._, axm-1.6._, axm-1.7.1, axm-1.7.3, axm-1.8.1 | Pending |
+
+---
+
+## Beads Execution
+
+Multi-session tracking via beads. See
+[Executing Markdown Task Plans with Beads](../../../docs/guides/executing-markdown-task-plans-with-beads.md).
+
+**Plan Epic:** axm-1
+**Phase Epics:** axm-1.1 (P1), axm-1.2 (P2), axm-1.3 (P3), axm-1.4 (P4), axm-1.5 (P5), axm-1.6 (P6), axm-1.7 (P7), axm-1.8 (P8)
+**Human Gate:** axm-1.9
+
+**Document update tasks:** Each phase includes a bead task to update this
+document when the phase completes:
+
+- axm-1.1.13 (Phase 1), axm-1.2.10 (Phase 2), axm-1.3.4 (Phase 3), axm-1.4.2 (Phase 4)
+- axm-1.5.5 (Phase 5), axm-1.6.5 (Phase 6), axm-1.7.4 (Phase 7), axm-1.8.2 (Phase 8)

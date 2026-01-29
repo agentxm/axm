@@ -53,6 +53,20 @@ Translating a markdown task plan into beads serves three goals:
 
 ---
 
+## Bead ID Format
+
+Bead IDs are project-specific and depend on your rig's prefix configuration. For
+example:
+
+- A project with prefix `beads` will generate IDs like `beads-1`, `beads-2`
+- A project with prefix `axm` will generate IDs like `axm-1`, `axm-1.1`
+
+This guide uses placeholder notation like `<plan-epic-id>` and `<phase-epic-id>`
+to indicate where you should substitute your actual bead IDs. The actual IDs are
+returned when you create each bead—track them as you go.
+
+---
+
 ## Quick Reference
 
 _Illustrates: "Plan epic created," "Phase epics linked," "Task beads created,"
@@ -66,11 +80,11 @@ bd create --type=epic --title="User Preferences Feature" --priority=2 \
 
 # Create phase epic under plan epic
 bd create --type=epic --title="Phase 1: Core Implementation" --priority=2 \
-  --epic=beads-001
+  --parent=<plan-epic-id>
 
 # Create tasks under phase epic with description and acceptance criteria
 bd create --type=task --title="Create database schema" --priority=2 \
-  --labels=AUTO --epic=beads-002 \
+  --labels=AUTO --parent=<phase-epic-id> \
   --description="Define PostgreSQL schema for user preferences.
 **Implements:** DES-1, REQ-1
 **Source:** TASK-1.1 in docs/plans/user-preferences/tasks.md" \
@@ -79,7 +93,7 @@ bd create --type=task --title="Create database schema" --priority=2 \
 - [ ] Indexes defined for user_id lookups"
 
 bd create --type=task --title="Implement repository layer" --priority=2 \
-  --labels=AUTO --epic=beads-002 \
+  --labels=AUTO --parent=<phase-epic-id> \
   --description="Create data access layer for user preferences.
 **Implements:** DES-1, REQ-1
 **Source:** TASK-1.2 in docs/plans/user-preferences/tasks.md" \
@@ -89,28 +103,28 @@ bd create --type=task --title="Implement repository layer" --priority=2 \
 
 # Create document update task (syncs markdown with bead progress)
 bd create --type=task --title="Update Phase 1 completion in task plan" \
-  --priority=3 --labels=AUTO --epic=beads-002 \
+  --priority=3 --labels=AUTO --parent=<phase-epic-id> \
   --description="Synchronize markdown task plan with completed bead work.
 **Source document:** docs/plans/user-preferences/tasks.md" \
   --acceptance="- [ ] All Phase 1 acceptance criteria boxes checked in markdown
 - [ ] Traceability matrix status updated to Complete for Phase 1 tasks"
 
-# Set dependencies
-bd dep add beads-004 beads-003  # TASK-1.2 blocked by TASK-1.1
-bd dep add beads-005 beads-003  # Update task blocked by TASK-1.1
-bd dep add beads-005 beads-004  # Update task blocked by TASK-1.2
+# Set dependencies (bd dep add <blocked> <blocker>)
+bd dep add <task-1.2-id> <task-1.1-id>  # TASK-1.2 blocked by TASK-1.1
+bd dep add <update-task-id> <task-1.1-id>  # Update task blocked by TASK-1.1
+bd dep add <update-task-id> <task-1.2-id>  # Update task blocked by TASK-1.2
 
 # Verify structure
 bd list --status=open
-bd show beads-003
-bd show beads-005  # Confirm document update task dependencies
+bd show <task-1.1-id>
+bd show <update-task-id>  # Confirm document update task dependencies
 ```
 
 ### Quick Reference Checklist
 
 - [ ] **Plan epic created** — Run `bd create --type=epic` for entire document
-- [ ] **Phase epics linked** — Each phase uses `--epic` to link to plan epic
-- [ ] **Task beads created** — Each TASK-N.M uses `--epic` to link to phase
+- [ ] **Phase epics linked** — Each phase uses `--parent` to link to plan epic
+- [ ] **Task beads created** — Each TASK-N.M uses `--parent` to link to phase
 - [ ] **Acceptance criteria set** — Each task uses `--acceptance` with
       verifiable criteria
 - [ ] **Document update tasks created** — Tasks exist to update markdown after
@@ -164,8 +178,8 @@ Plan Epic (entire markdown document)
 - [ ] **Three-level hierarchy** — Plan epic contains phase epics which contain
       task beads
 - [ ] **One plan epic** — Single epic tracks entire markdown document completion
-- [ ] **Phase to plan link** — Each phase epic uses `--epic=<plan-id>`
-- [ ] **Task to phase link** — Each task bead uses `--epic=<phase-id>`
+- [ ] **Phase to plan link** — Each phase epic uses `--parent=<plan-id>`
+- [ ] **Task to phase link** — Each task bead uses `--parent=<phase-id>`
 - [ ] **Document update tasks** — Each phase includes a task to update the
       markdown document
 - [ ] **Cascade closure** — When all phase epics close, close the plan epic
@@ -202,7 +216,7 @@ One per phase, linked to plan epic:
 
 ```bash
 bd create --type=epic --title="Phase 1: Core Implementation" --priority=2 \
-  --epic=beads-001
+  --parent=<plan-epic-id>
 ```
 
 **Step 3: Create Task Beads**
@@ -212,9 +226,9 @@ implementation context and traceability, and `--acceptance` to specify
 verifiable acceptance criteria:
 
 ```bash
-# TASK-1.1 (beads-003)
+# TASK-1.1
 bd create --type=task --title="Create database schema" --priority=2 \
-  --labels=AUTO --epic=beads-002 \
+  --labels=AUTO --parent=<phase-epic-id> \
   --description="Define PostgreSQL schema for user preferences.
 **Implements:** DES-1, REQ-1
 **Source:** TASK-1.1 in docs/plans/user-preferences/tasks.md" \
@@ -222,9 +236,9 @@ bd create --type=task --title="Create database schema" --priority=2 \
 - [ ] Schema includes user_id, preference_key, preference_value columns
 - [ ] Indexes defined for user_id lookups"
 
-# TASK-1.2 (beads-004)
+# TASK-1.2
 bd create --type=task --title="Implement repository layer" --priority=2 \
-  --labels=AUTO --epic=beads-002 \
+  --labels=AUTO --parent=<phase-epic-id> \
   --description="Create data access layer for user preferences.
 **Implements:** DES-1, REQ-1
 **Source:** TASK-1.2 in docs/plans/user-preferences/tasks.md" \
@@ -245,9 +259,9 @@ For each phase, create a task that updates the markdown document to reflect
 completed work. This task depends on all implementation tasks in the phase:
 
 ```bash
-# Document update task (beads-005)
+# Document update task
 bd create --type=task --title="Update Phase 1 completion in task plan" \
-  --priority=3 --labels=AUTO --epic=beads-002 \
+  --priority=3 --labels=AUTO --parent=<phase-epic-id> \
   --description="Synchronize markdown task plan with completed Phase 1 work.
 **Source document:** docs/plans/user-preferences/tasks.md
 **Phase:** Phase 1: Core Implementation" \
@@ -266,16 +280,24 @@ relationships. Document update tasks should depend on all implementation tasks
 in their phase:
 
 ```bash
-# Implementation task dependency
-bd dep add beads-004 beads-003  # TASK-1.2 blocked by TASK-1.1
+# Implementation task dependency (bd dep add <blocked> <blocker>)
+bd dep add <task-1.2-id> <task-1.1-id>  # TASK-1.2 blocked by TASK-1.1
 
 # Document update task depends on all phase tasks
-bd dep add beads-005 beads-003  # Update task blocked by TASK-1.1
-bd dep add beads-005 beads-004  # Update task blocked by TASK-1.2
+bd dep add <update-task-id> <task-1.1-id>  # Update task blocked by TASK-1.1
+bd dep add <update-task-id> <task-1.2-id>  # Update task blocked by TASK-1.2
 ```
 
 **Human Gates:** Model as HUMAN-labeled tasks that block downstream AUTO tasks.
-The gate itself is not a bead—the HUMAN task within it is.
+Use `--type=task --labels=HUMAN` for human gates—there is no separate gate type.
+
+```bash
+bd create --type=task --title="Final Verification (Human Gate)" --priority=2 \
+  --labels=HUMAN --parent=<plan-epic-id> \
+  --description="Human gate for final verification." \
+  --acceptance="- [ ] All tests pass
+- [ ] Manual verification complete"
+```
 
 **Step 6: Annotate the Markdown**
 
@@ -291,15 +313,15 @@ status: active
 
 # User Preferences Task Plan
 
-**Plan Epic:** beads-001
+**Plan Epic:** <plan-epic-id>
 
 ### Phase 1: Core Implementation [AUTO]
 
-**Epic:** beads-002
+**Epic:** <phase-1-epic-id>
 
 ### TASK-1.1: Create database schema [AUTO]
 
-**Bead:** beads-003 **Implements:** DES-1, REQ-1
+**Bead:** <task-1.1-id> **Implements:** DES-1, REQ-1
 
 **Description:** Define PostgreSQL schema for user preferences.
 
@@ -312,7 +334,7 @@ status: active
 
 ### TASK-1.2: Implement repository layer [AUTO]
 
-**Bead:** beads-004 **Implements:** DES-1, REQ-1
+**Bead:** <task-1.2-id> **Implements:** DES-1, REQ-1
 
 **Dependencies:** TASK-1.1
 ```
@@ -322,9 +344,9 @@ status: active
 _Illustrates: "Structure verified" and "Dependencies confirmed"_
 
 ```bash
-bd list --status=open      # Confirm hierarchy
-bd show beads-003          # Confirm dependencies and description
-bd show beads-005          # Confirm document update task dependencies
+bd list --status=open          # Confirm hierarchy
+bd show <task-id>              # Confirm dependencies and description
+bd show <update-task-id>       # Confirm document update task dependencies
 ```
 
 ### Workflow Checklist
@@ -332,7 +354,7 @@ bd show beads-005          # Confirm document update task dependencies
 - [ ] **Plan epic created** — Run `bd create --type=epic` for entire document
 - [ ] **Markdown file referenced** — Plan epic description includes path to
       source markdown
-- [ ] **Phase epics linked** — Each phase uses `--epic=<plan-id>`
+- [ ] **Phase epics linked** — Each phase uses `--parent=<plan-id>`
 - [ ] **Task beads created** — Each TASK-N.M has a bead under its phase epic
 - [ ] **Acceptance criteria set** — Each task uses `--acceptance` with
       verifiable criteria
@@ -358,7 +380,7 @@ This table maps markdown elements to bead fields for consistent translation.
 | Markdown Element    | Bead Field      | Notes                                |
 | ------------------- | --------------- | ------------------------------------ |
 | Plan title          | Plan epic       | One epic for entire document         |
-| Phase header        | Phase epic      | Link with `--epic`                   |
+| Phase header        | Phase epic      | Link with `--parent`                 |
 | Task name           | `--title`       | Use verbatim from markdown           |
 | Task description    | `--description` | Include Implements refs, source task |
 | Acceptance criteria | `--acceptance`  | Verifiable criteria from markdown    |
@@ -415,10 +437,10 @@ This approach has advantages over ad-hoc updates:
 _Illustrates: "Matrix updated" with bead IDs and status tracking_
 
 ```markdown
-| Requirement | Design | Tasks    | Beads     | Status      |
-| ----------- | ------ | -------- | --------- | ----------- |
-| REQ-1       | DES-1  | TASK-1.1 | beads-003 | Complete    |
-| REQ-1       | DES-1  | TASK-1.2 | beads-004 | In Progress |
+| Requirement | Design | Tasks    | Beads         | Status      |
+| ----------- | ------ | -------- | ------------- | ----------- |
+| REQ-1       | DES-1  | TASK-1.1 | <task-1.1-id> | Complete    |
+| REQ-1       | DES-1  | TASK-1.2 | <task-1.2-id> | In Progress |
 ```
 
 ---
@@ -439,9 +461,9 @@ Multi-session tracking via beads. See
 
 **After creating beads, annotate this document:**
 
-- `**Plan Epic:** beads-XXX` at document top
-- `**Epic:** beads-XXX` below phase headers
-- `**Bead:** beads-XXX` as first field in each task
+- `**Plan Epic:** <plan-epic-id>` at document top
+- `**Epic:** <phase-epic-id>` below phase headers
+- `**Bead:** <task-id>` as first field in each task
 
 **Document update tasks:** Each phase includes a bead task to update this
 document when the phase completes. These tasks check acceptance criteria boxes

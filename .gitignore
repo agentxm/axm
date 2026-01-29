@@ -3,3 +3,6 @@ dist
 .DS_Store
 *.tsbuildinfo
 .idea
+
+# bv (beads viewer) local config and caches
+.bv/

@@ -23,11 +23,11 @@ Use `git mv` to preserve history. Update import paths within moved files.
 
 **Acceptance Criteria:**
 
-- [ ] `packages/cli/src/commands/init/command.ts` exists with yargs command definition
-- [ ] `packages/cli/src/commands/init/handler.ts` exists with Effect handler
-- [ ] `packages/cli/src/commands/init/handler.test.ts` exists with handler tests
-- [ ] Old files no longer exist at previous locations
-- [ ] Empty `packages/cli/src/commands/__tests__/` directory removed (if empty after moves)
+- [x] `packages/cli/src/commands/init/command.ts` exists with yargs command definition
+- [x] `packages/cli/src/commands/init/handler.ts` exists with Effect handler
+- [x] `packages/cli/src/commands/init/handler.test.ts` exists with handler tests
+- [x] Old files no longer exist at previous locations
+- [x] Empty `packages/cli/src/commands/__tests__/` directory removed (if empty after moves)
 
 **Dependencies:** None
 
@@ -50,13 +50,13 @@ Use `git mv` to preserve history. Update import paths within moved files.
 
 **Acceptance Criteria:**
 
-- [ ] `packages/cli/src/commands/skills/command.ts` exists with yargs command definition
-- [ ] `packages/cli/src/commands/skills/command.test.ts` exists with command tests
-- [ ] `packages/cli/src/commands/skills/add/command.ts` exists with add subcommand definition
-- [ ] `packages/cli/src/commands/skills/add/handler.ts` exists with Effect handler
-- [ ] `packages/cli/src/commands/skills/add/handler.test.ts` exists with handler tests
-- [ ] Old files no longer exist at previous locations
-- [ ] Empty `packages/cli/src/commands/skills/__tests__/` directory removed
+- [x] `packages/cli/src/commands/skills/command.ts` exists with yargs command definition
+- [x] `packages/cli/src/commands/skills/command.test.ts` exists with command tests
+- [x] `packages/cli/src/commands/skills/add/command.ts` exists with add subcommand definition
+- [x] `packages/cli/src/commands/skills/add/handler.ts` exists with Effect handler
+- [x] `packages/cli/src/commands/skills/add/handler.test.ts` exists with handler tests
+- [x] Old files no longer exist at previous locations
+- [x] Empty `packages/cli/src/commands/skills/__tests__/` directory removed
 
 **Dependencies:** None (can run parallel with TASK-1.1)
 
@@ -74,9 +74,9 @@ Update all import statements in files that reference the moved modules:
 
 **Acceptance Criteria:**
 
-- [ ] `main.ts` imports from `./commands/init/command` and `./commands/skills/command`
-- [ ] No import errors when running `pnpm build`
-- [ ] No runtime errors when running `pnpm test`
+- [x] `main.ts` imports from `./commands/init/command` and `./commands/skills/command`
+- [x] No import errors when running `pnpm build`
+- [x] No runtime errors when running `pnpm test`
 
 **Dependencies:** TASK-1.1, TASK-1.2
 
@@ -96,8 +96,8 @@ Remove any empty directories left after file moves:
 
 **Acceptance Criteria:**
 
-- [ ] No empty `__tests__/` directories under `packages/cli/src/commands/`
-- [ ] All directories contain at least one file
+- [x] No empty `__tests__/` directories under `packages/cli/src/commands/`
+- [x] All directories contain at least one file
 
 **Dependencies:** TASK-1.1, TASK-1.2, TASK-1.3
 

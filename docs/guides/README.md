@@ -29,6 +29,8 @@ too detailed for README.md or CLAUDE.md, but not tactical enough for skills.
 
 Purpose statement explaining what this guide covers and why it matters.
 
+> **Critical guidance:** [Section Name](../../CLAUDE.md#section-anchor) <!-- required if CLAUDE.md covers this topic -->
+
 ## Key Resources <!-- omit if none -->
 
 - [Official Docs](https://example.com) — Authoritative reference

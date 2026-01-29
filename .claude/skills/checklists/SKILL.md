@@ -1,6 +1,6 @@
 ---
 name: checklists
-description: Checklist authoring patterns. Use when creating or reviewing checklists in documentation.
+description: Checklist authoring for verifying satisfiable outcomes. Use when writing acceptance criteria, quality gates, review checklists, or any verification list.
 user-invocable: false
 ---
 

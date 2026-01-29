@@ -1,6 +1,6 @@
 ---
 name: testing-handler
-description: Patterns for testing handlers that need test layers. Use when writing handler tests.
+description: Handler test patterns requiring Effect test layers. Use when testing handlers (effectful entry points) that need service dependencies.
 user-invocable: false
 ---
 

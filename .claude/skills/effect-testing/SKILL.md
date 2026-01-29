@@ -1,6 +1,6 @@
 ---
 name: effect-testing
-description: Effect testing patterns. Use when writing tests for Effect programs, asserting on errors, or providing test layers.
+description: Effect testing patterns: runPromise, error assertions, test layers. Use when any test needs to run Effect programs or provide layers.
 user-invocable: false
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: beads-cleanup
-description: Clean up completed beads after plan execution or human verification. Closes orphaned tasks, phases, and epics.
+description: Reconcile bead state with markdown. Use after human verification gates pass or when tasks.md shows complete but beads remain open.
 allowed-tools: Bash(bd *), Read, Edit
 ---
 

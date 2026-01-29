@@ -1,6 +1,6 @@
 ---
 name: beads-prune
-description: Delete completed bead trees. Removes closed root beads (no parent) where all descendants are also closed.
+description: Permanently delete closed bead trees. Use to clean database after verified plan completion. Requires git commit.
 allowed-tools: Bash(bd *), Bash(jq *), Bash(git *)
 user-invocable: true
 disable-model-invocation: true

@@ -1,6 +1,6 @@
 ---
 name: testing-basics
-description: Test quality principles and level overview. Use when writing or reviewing tests.
+description: Test quality principles and test level guidance. Start here when writing or reviewing any test. Points to level-specific skills.
 user-invocable: false
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: bombshell
-description: Bombshell (bomb.sh) integration with Effect. Use when wrapping interactive prompts, handling cancellation, or adding spinner/progress indicators.
+description: Bombshell prompts wrapped with Effect. Use when adding interactive prompts, spinners, or handling user cancellation in CLI commands.
 user-invocable: false
 ---
 

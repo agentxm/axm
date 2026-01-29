@@ -1,6 +1,6 @@
 ---
 name: effect-basics
-description: Basic Effect patterns for async operations. Use when writing Effect code, converting Promises to Effect, or handling errors with Effect.
+description: Core Effect patterns for this codebase. Start here for Effect. Covers Effect.gen, tryPromise, typed errors, concurrency.
 user-invocable: false
 ---
 

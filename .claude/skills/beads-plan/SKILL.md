@@ -1,6 +1,6 @@
 ---
 name: beads-plan
-description: Create beads WBS from a markdown task plan. Use when starting work on a tasks.md file that needs beads for multi-session tracking.
+description: Create beads from markdown task plan. Entry point for multi-session work. Use when you have a tasks.md and need persistent tracking across sessions.
 context: fork
 agent: general-purpose
 allowed-tools: Bash(bd *), Read, Glob, Edit

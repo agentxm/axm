@@ -1,6 +1,6 @@
 ---
 name: testing-unit
-description: Unit test patterns for pure functions. Use when writing tests in packages/core/.
+description: Unit test patterns for pure functions and business logic. Use for *.test.ts colocated with source in packages/core/ or packages/cli/src/.
 user-invocable: false
 ---
 

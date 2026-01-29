@@ -1,6 +1,6 @@
 ---
 name: cli-conventions
-description: CLI design conventions for yargs + Effect. Use when adding CLI commands, flags, output formatting, prompts, or error handling.
+description: yargs + Effect CLI architecture. Use when adding commands, defining flags, or wiring handlers. Covers file organization and testing.
 user-invocable: false
 ---
 

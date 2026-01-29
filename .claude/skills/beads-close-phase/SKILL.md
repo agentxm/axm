@@ -1,6 +1,6 @@
 ---
 name: beads-close-phase
-description: Close a completed phase and update the markdown task plan. Use after all tasks in a phase are done.
+description: Close phase epic and sync markdown. Use when all tasks in a phase show closed in `bd show`.
 allowed-tools: Bash(bd *), Read, Edit
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: documentation
-description: Documentation conventions for README.md and CLAUDE.md. Use when creating or reviewing documentation files.
+description: Human-facing documentation (README.md) conventions. Use when writing docs for human readers. For agent-facing docs, use /agent-docs instead.
 user-invocable: false
 ---
 

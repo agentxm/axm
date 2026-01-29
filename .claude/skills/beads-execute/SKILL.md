@@ -1,6 +1,6 @@
 ---
 name: beads-execute
-description: Execute a single bead task. Use when implementing a specific bead from a task plan.
+description: Implement a single bead task (used by sub-agents). Called by /beads-execute-plan, not directly by users.
 context: fork
 agent: general-purpose
 allowed-tools: Bash(bd *), Read, Write, Edit, Glob, Grep

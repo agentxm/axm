@@ -1,6 +1,6 @@
 ---
 name: effect-service
-description: Effect service design patterns. Use when designing Effect services, error types, layers, or retry policies in this codebase.
+description: Effect service architecture: interfaces, error types, layers, retries. Use when creating new services or defining error hierarchies.
 user-invocable: false
 ---
 

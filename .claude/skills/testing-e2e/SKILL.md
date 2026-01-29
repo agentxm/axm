@@ -1,6 +1,6 @@
 ---
 name: testing-e2e
-description: E2E test patterns for CLI commands. Use when writing tests in packages/cli/e2e/.
+description: E2E test patterns for CLI subprocess tests. Use for packages/cli/e2e/*.test.ts. Tests full CLI binary with file system.
 user-invocable: false
 ---
 

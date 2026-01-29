@@ -1,6 +1,6 @@
 ---
 name: agent-docs
-description: Authoring CLAUDE.md, AGENTS.md, and SKILL.md files. Use when creating or editing agent-facing documentation.
+description: Agent-facing documentation (CLAUDE.md, AGENTS.md, SKILL.md). Use when writing docs for AI consumption. Ultra-terse style, no explanations.
 user-invocable: false
 ---
 

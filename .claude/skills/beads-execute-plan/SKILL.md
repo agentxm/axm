@@ -1,6 +1,6 @@
 ---
 name: beads-execute-plan
-description: Execute a markdown task plan by spawning sub-agents for each bead task. Use when progress/execution/implementation is requested for a plan.
+description: Orchestrate plan execution by spawning sub-agents. Use after /beads-plan when user requests progress, execution, or implementation of a plan scope.
 context: fork
 agent: general-purpose
 allowed-tools: Bash(bd *), Read, Glob, Task, Skill

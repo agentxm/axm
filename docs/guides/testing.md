@@ -3,6 +3,8 @@
 Orientation for testing in this project: unit and e2e tests, when to use each,
 and what makes tests valuable.
 
+> [Testing](../../CLAUDE.md#testing) — critical guidance
+
 **Not covered:** Performance testing, load testing, or CI/CD pipeline
 configuration.
 

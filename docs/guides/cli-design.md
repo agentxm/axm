@@ -4,6 +4,8 @@ Conventions for designing CLI commands in this project. Covers yargs + Effect
 architecture, command structure, interactive prompts with Bombshell, output
 formatting, and error handling.
 
+> [Handlers](../../CLAUDE.md#handlers) — critical guidance
+
 **Not covered:** yargs API details (see
 [official docs](https://github.com/yargs/yargs/blob/main/docs/api.md)), shell
 autocompletion setup, or testing strategies. For testing CLI commands, see the

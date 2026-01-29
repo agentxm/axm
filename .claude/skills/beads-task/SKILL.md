@@ -20,10 +20,13 @@ You are implementing bead task <bead-id>: <task-title>
 <paste from bd show output>
 
 **Instructions:**
-1. FIRST mark task in-progress: `bd update <bead-id> --status=in-progress`
-2. <task-specific instructions>
-3. Verify acceptance criteria met
-4. Close task: `bd close <bead-id> --reason "Acceptance criteria met"`
+1. IMMEDIATELY mark task in-progress (before ANY other action):
+   `bd update <bead-id> --status=in-progress`
+   Do NOT proceed until this command succeeds.
+2. Read the bead details: `bd show <bead-id>`
+3. <task-specific instructions>
+4. Verify acceptance criteria met
+5. Close task: `bd close <bead-id> --reason "Acceptance criteria met"`
 ```
 
 ## Common bd Commands
@@ -54,9 +57,9 @@ bd list --status=open
 
 ## Workflow
 
-1. **Read the task** - Use `bd show <bead-id>` to get full details
-2. **Check dependencies** - Verify all blockers show ✓ (closed)
-3. **Mark in-progress** - `bd update <bead-id> --status=in-progress`
+1. **Mark in-progress FIRST** - `bd update <bead-id> --status=in-progress` (do this before anything else)
+2. **Read the task** - Use `bd show <bead-id>` to get full details
+3. **Check dependencies** - Verify all blockers show ✓ (closed)
 4. **Do the work** - Follow acceptance criteria
 5. **Verify** - Confirm all criteria are met
 6. **Close** - `bd close <bead-id> --reason "..."`

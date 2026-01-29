@@ -12,7 +12,17 @@ Execute bead task `$ARGUMENTS`.
 
 ## Workflow
 
-### Step 1: Read the bead
+### Step 1: Mark in-progress (REQUIRED - DO THIS FIRST)
+
+**CRITICAL**: Before ANY other action, mark the task in-progress:
+
+```bash
+bd update $ARGUMENTS --status=in-progress
+```
+
+This MUST be your first command. Do not read files, check dependencies, or do any work until this command succeeds. This signals to other agents that work has begun and prevents duplicate effort.
+
+### Step 2: Read the bead
 
 ```bash
 bd show $ARGUMENTS
@@ -24,16 +34,6 @@ Understand:
 - Acceptance criteria (checklist items)
 - Dependencies (verify all show ✓)
 - Source reference (TASK-N.M in tasks.md)
-
-### Step 2: Mark in-progress (REQUIRED)
-
-**CRITICAL**: Always mark the task in-progress before starting work:
-
-```bash
-bd update $ARGUMENTS --status=in-progress
-```
-
-This signals to other agents that work has begun and prevents duplicate effort.
 
 ### Step 3: Implement the task
 

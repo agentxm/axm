@@ -89,8 +89,8 @@ Skill(skill="beads-execute", args="axm-1.3")
 
 Each `/beads-execute` invocation will:
 
-1. Read the bead details
-2. **Mark the task in-progress** (CRITICAL)
+1. **Mark the task in-progress FIRST** (CRITICAL - before any other action)
+2. Read the bead details
 3. Implement per acceptance criteria
 4. Close the task when done
 

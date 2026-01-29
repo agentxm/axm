@@ -231,4 +231,4 @@ it("deploys to target", async () => {
 - [ ] **Exit disabled** — Uses `.exitProcess(false)`
 - [ ] **Fail disabled** — Uses `.fail(false)` to throw
 - [ ] **Handler unit tests** — Effect handlers tested independently
-- [ ] **Services mocked** — Handler tests use test layers
+- [ ] **Test layers provided** — Handler tests provide test layers

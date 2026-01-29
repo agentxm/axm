@@ -16,7 +16,7 @@ Apply these qualities to design, implementation, and verification:
 
 3. **Testable** - Easy to test units in isolation, integrations at boundaries.
    - [ ] Business logic pure and isolated from I/O
-   - [ ] Tests at all layers (unit, handler, E2E)
+   - [ ] Tests at all levels (unit, handler, E2E)
 
 4. **Maintainable** - Easy to understand, change with confidence, and contribute to.
    - [ ] Consistent patterns across the codebase
@@ -60,9 +60,9 @@ Effect for all business logic/I/O. No raw Promises or async/await.
 
 ## Testing
 
-Three test layers, each with different scope:
+Three test levels, each with different scope:
 
-| Layer   | Location                             | Tests                          |
+| Level   | Location                             | Tests                          |
 | ------- | ------------------------------------ | ------------------------------ |
 | Unit    | `packages/core/src/**/*.test.ts`     | Pure business logic, utilities |
 | Handler | `packages/cli/src/**/__tests__/*.ts` | Effect handlers with mocks     |

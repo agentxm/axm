@@ -1,19 +1,19 @@
 ---
 name: testing-basics
-description: Test quality principles and layer overview. Use when writing or reviewing tests.
+description: Test quality principles and level overview. Use when writing or reviewing tests.
 user-invocable: false
 ---
 
 # Testing Basics
 
 Foundational testing principles for this project. All tests should exhibit these
-qualities regardless of layer.
+qualities regardless of level.
 
 ---
 
-## Testing Layers
+## Test Levels
 
-| Layer   | Location                             | Tests                          |
+| Level   | Location                             | Tests                          |
 | ------- | ------------------------------------ | ------------------------------ |
 | Unit    | `packages/core/src/**/*.test.ts`     | Pure business logic, utilities |
 | Handler | `packages/cli/src/**/__tests__/*.ts` | Effect handlers with mocks     |

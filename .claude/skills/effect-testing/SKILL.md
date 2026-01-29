@@ -6,7 +6,7 @@ user-invocable: false
 
 # Effect Testing Patterns
 
-Patterns for testing Effect programs across all test layers.
+Patterns for testing Effect programs across all test levels.
 
 ---
 

@@ -13,7 +13,7 @@ This feature enables axm to manage "skills"—reusable markdown instruction file
 - Must use yargs for CLI parsing (project convention)
 - Must use Effect for all business logic and I/O—no raw Promises or async/await (see CLAUDE.md Effect Guidelines)
 - Must support common source formats (GitHub, GitLab, local paths) for broad compatibility
-- Must be testable with unit tests at all layers
+- Must be testable with unit tests at all levels
 
 ## Goals / Non-Goals
 

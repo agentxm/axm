@@ -1,12 +1,12 @@
 ---
 name: testing-handler
-description: Handler test patterns with mock services. Use when writing tests in packages/cli/src/commands/__tests__/.
+description: Handler test patterns with test layers. Use when writing tests in packages/cli/src/commands/__tests__/.
 user-invocable: false
 ---
 
 # Handler Testing Patterns
 
-Handler tests verify Effect handlers with mock service layers. Location:
+Handler tests verify Effect handlers with test layers. Location:
 `packages/cli/src/commands/**/__tests__/*.test.ts`
 
 For Effect testing patterns (running effects, error assertions, providing
@@ -83,4 +83,4 @@ describe("init.handler", () => {
 - [ ] **Fresh temp directory** — Create in `beforeEach`, clean up in `afterEach`
 - [ ] **Reset cwd** — Save and restore `process.cwd()` if changing it
 - [ ] **Provide layers** — All Effect dependencies via test layers
-- [ ] **Error paths tested** — Verify error handling with failing services
+- [ ] **Error paths tested** — Verify error handling with test layers that simulate failures

@@ -1,6 +1,6 @@
 # Testing Guide
 
-Orientation for testing in this project: why we use three test layers, when to
+Orientation for testing in this project: why we use three test levels, when to
 use each, and what makes tests valuable.
 
 **Not covered:** Performance testing, load testing, or CI/CD pipeline
@@ -13,27 +13,27 @@ configuration.
 
 ## Skills
 
-- `/testing-basics` — Test quality principles and layer overview
+- `/testing-basics` — Test quality principles and level overview
 - `/testing-unit` — Unit test patterns for pure functions in `packages/core/`
-- `/testing-handler` — Handler test patterns with mock services
+- `/testing-handler` — Handler test patterns with test layers
 - `/testing-e2e` — E2E test patterns for CLI commands
 - `/effect-testing` — Effect testing patterns (running effects, error assertions)
 - `/effect-service` — Service patterns including test layer construction
 
 ---
 
-## Testing Layers
+## Test Levels
 
-This project uses three testing layers, each with different scope and
+This project uses three test levels, each with different scope and
 dependencies:
 
-| Layer   | Location               | What it tests                    | Dependencies     |
+| Level   | Location               | What it tests                    | Dependencies     |
 | ------- | ---------------------- | -------------------------------- | ---------------- |
 | Unit    | `packages/core/src/**` | Pure business logic, utilities   | None (pure)      |
-| Handler | `packages/cli/src/**`  | Effect handlers with mock layers | Mock services    |
+| Handler | `packages/cli/src/**`  | Effect handlers with mock layers | Test layers      |
 | E2E     | `packages/cli/e2e/`    | Full CLI as subprocess           | Built binary, fs |
 
-### When to Use Each Layer
+### When to Use Each Level
 
 **Unit tests** for:
 

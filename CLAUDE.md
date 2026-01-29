@@ -165,6 +165,17 @@ bd close <id> --reason "..."       # Close with context (not --comment)
 
 Do NOT use Claude Code's built-in task tools (TaskCreate, TaskUpdate, TaskList, etc.) for task management in this project.
 
+## Git Workflow
+
+**NEVER commit without explicit user request.** This is a hard rule with no exceptions.
+
+- Do NOT commit after completing work
+- Do NOT commit when tests pass
+- Do NOT commit as part of a task workflow
+- ONLY commit when the user explicitly asks (e.g., "commit", "/commit", "make a commit")
+
+Wait for the user to review changes and decide when to commit.
+
 <!-- OPENSPEC:START -->
 
 # OpenSpec Instructions

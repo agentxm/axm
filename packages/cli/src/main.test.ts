@@ -1,44 +1,36 @@
-import { Console, Effect, Ref } from "effect";
 import { describe, expect, it } from "vitest";
-import { program } from "./main.js";
+import yargs from "yargs";
+import { initCommand } from "./commands/init.js";
+import { skillsCommand } from "./commands/skills.js";
 
-const TypeId: Console.TypeId = Symbol.for("effect/Console") as Console.TypeId;
+describe("main CLI", () => {
+  const createParser = () =>
+    yargs()
+      .scriptName("axm")
+      .usage("$0 <command> [options]\n\nManage skills (extensions) for AI coding agents.")
+      .command(initCommand)
+      .command(skillsCommand)
+      .example("$0 init", "Initialize axm in current project")
+      .example("$0 skills add owner/repo", "Add skills from a GitHub repository")
+      .demandCommand(1)
+      .exitProcess(false);
 
-const makeTestConsole = (outputRef: Ref.Ref<string[]>): Console.Console => ({
-  [TypeId]: TypeId,
-  assert: () => Effect.void,
-  clear: Effect.void,
-  count: () => Effect.void,
-  countReset: () => Effect.void,
-  debug: () => Effect.void,
-  dir: () => Effect.void,
-  dirxml: () => Effect.void,
-  error: () => Effect.void,
-  group: () => Effect.void,
-  groupEnd: Effect.void,
-  info: () => Effect.void,
-  log: (...args: ReadonlyArray<unknown>) =>
-    Ref.update(outputRef, (lines) => [...lines, args.join(" ")]),
-  table: () => Effect.void,
-  time: () => Effect.void,
-  timeEnd: () => Effect.void,
-  timeLog: () => Effect.void,
-  trace: () => Effect.void,
-  warn: () => Effect.void,
-  unsafe: console,
-});
+  it("shows help when invoked without arguments", async () => {
+    const helpOutput = await createParser().getHelp();
+    expect(helpOutput).toContain("Manage skills (extensions) for AI coding agents");
+    expect(helpOutput).toContain("init");
+    expect(helpOutput).toContain("skills");
+  });
 
-describe("main", () => {
-  it("displays startup message", async () => {
-    const output = await Effect.runPromise(
-      Effect.gen(function* () {
-        const outputRef = yield* Ref.make<string[]>([]);
-        const testConsole = makeTestConsole(outputRef);
-        yield* Console.withConsole(program, testConsole);
-        return yield* Ref.get(outputRef);
-      }),
-    );
+  it("includes examples in help output", async () => {
+    const helpOutput = await createParser().getHelp();
+    expect(helpOutput).toContain("axm init");
+    expect(helpOutput).toContain("axm skills add owner/repo");
+  });
 
-    expect(output).toContain("AgentXM CLI ready");
+  it("shows available commands in help", async () => {
+    const helpOutput = await createParser().getHelp();
+    expect(helpOutput).toContain("Initialize axm");
+    expect(helpOutput).toContain("Manage skills");
   });
 });

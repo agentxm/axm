@@ -1,8 +1,14 @@
-## Purpose
+## REMOVED Requirements
 
-The CLI provides the primary user interface for the axm tool.
+### ~~Startup Message~~
 
-## Requirements
+_Removed: The CLI no longer outputs "AgentXM CLI ready" when invoked._
+
+### ~~Requirement: Extensions Sub-command~~
+
+_Removed: The `extensions` command has been replaced by `skills`._
+
+## MODIFIED Requirements
 
 ### Requirement: Root Command Behavior
 

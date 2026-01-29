@@ -63,6 +63,7 @@ Apply these qualities to design, implementation, and verification:
 - **Language**: TypeScript (strict mode)
 - **Package manager**: pnpm (workspaces)
 - **CLI parsing**: yargs
+- **CLI UI**: Bombshell (prompts, forms, validation)
 - **Business logic**: Effect
 - **Testing**: Vitest
 - **Formatting/Linting**: Biome (code), Prettier (markdown)
@@ -138,10 +139,13 @@ docs/guides/        # Reference documentation
 | `openspec/AGENTS.md`                                         | Planning new capabilities, writing specs, or applying changes     |
 | `docs/guides/effect-service-design.md`                       | Designing Effect services, error types, layers, or retry policies |
 | `docs/guides/cli-design-guidelines.md`                       | Adding CLI commands, flags, output formatting, or error messages  |
+| `docs/guides/bombshell-integration.md`                       | Wrapping Bombshell prompts with Effect, cancellation, spinners    |
 | `docs/guides/markdown-task-plans.md`                         | Writing task plans with execution markers for AI-assisted work    |
 | `docs/guides/creating-beads-wbs-from-markdown-task-plans.md` | Executing task plans using beads for structured task tracking     |
 | `docs/guides/documentation-guidelines.md`                    | Creating or reviewing README.md, CLAUDE.md, guides, or specs      |
 | `docs/guides/guide-authoring.md`                             | Writing guides with checklists, structure, and cross-references   |
+
+**Auto-loading skills:** `effect-service`, `cli-conventions`, `bombshell`, `documentation` load automatically when relevant. No manual invocation needed.
 
 ## Task Management Workflow
 

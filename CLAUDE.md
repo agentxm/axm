@@ -18,30 +18,7 @@ Apply these qualities to design, implementation, and verification:
 
 3. **Testable** - Easy to test units in isolation, integrations at boundaries.
    - [ ] Business logic pure and isolated from I/O
-   - [ ] Tests at all layers (unit, integration, E2E)
-   - [ ] Testing approach:
-     - Unit tests for all meaningful business logic/functions in `@agentxm/core`
-     - Unit tests for Effect handler functions (e.g., `add.handler.ts`) with mock services
-     - E2E tests for CLI commands using Vitest + execa (spawn CLI as subprocess)
-   - [ ] E2E test patterns:
-     - Use `execa` to invoke the built CLI binary
-     - Isolated temp directory per test (cleanup after)
-     - Assert on exit codes, stdout/stderr, and file system state
-     - Test fixtures for mock repositories (local paths)
-     - Place in `packages/cli/e2e/` directory
-   - [ ] Tests should be:
-     - Isolated - Same results regardless of run order
-     - Composable - Test dimensions separately
-     - Deterministic - Same result if nothing changes
-     - Fast - Run quickly
-     - Writable - Cheap to write relative to code cost
-     - Readable - Comprehensible, motivation clear
-     - Behavioral - Sensitive to behavior changes
-     - Structure-insensitive - Insensitive to structure changes
-     - Automated - Run without human intervention
-     - Specific - Failure cause obvious
-     - Predictive - Passing means production-ready
-     - Inspiring - Passing inspires confidence
+   - [ ] Tests at all layers (unit, handler, E2E)
 
 4. **Maintainable** - Easy to understand, change with confidence, and contribute to.
    - [ ] Consistent patterns across the codebase
@@ -68,43 +45,9 @@ Apply these qualities to design, implementation, and verification:
 - **Testing**: Vitest
 - **Formatting/Linting**: Biome (code), Prettier (markdown)
 
-## Effect Guidelines
+## Effect
 
-This project uses Effect for all business logic and I/O. Do NOT use raw Promises or async/await.
-
-**Core principles:**
-
-- All async operations return `Effect<A, E, R>`, never `Promise<T>`
-- Use typed errors (`E`) instead of thrown exceptions
-- Use dependency injection via Effect services (`R`)
-
-**Patterns:**
-
-| Instead of...          | Use...                                            |
-| ---------------------- | ------------------------------------------------- |
-| `async function foo()` | `const foo = Effect.gen(function* () { ... })`    |
-| `await promise`        | `yield* Effect.tryPromise(() => promise)`         |
-| `Promise.all([a, b])`  | `Effect.all([a, b], { concurrency: "unbounded"})` |
-| `try/catch`            | Typed errors with `Effect.catchTag`               |
-| `fs.readFile`          | `@effect/platform` FileSystem service             |
-| `fetch`                | `@effect/platform` HttpClient service             |
-
-**Wrapping external Promise APIs:**
-
-```typescript
-// Wrap external Promise-based APIs at the boundary
-const fetchData = (url: string) =>
-  Effect.tryPromise({
-    try: () => externalLib.fetch(url),
-    catch: (error) => new FetchError({ cause: error }),
-  });
-```
-
-**Running Effects:**
-
-- CLI entry points use `Effect.runPromise` or `BunRuntime.runMain`
-- Tests use `Effect.runPromise` within test functions
-- Never call `Effect.runPromise` inside business logic
+Effect for all business logic/I/O. No raw Promises or async/await.
 
 ## Commands
 
@@ -140,12 +83,13 @@ docs/guides/        # Reference documentation
 | `docs/guides/effect-service-design.md`                       | Designing Effect services, error types, layers, or retry policies |
 | `docs/guides/cli-design-guidelines.md`                       | Adding CLI commands, flags, output formatting, or error messages  |
 | `docs/guides/bombshell-integration.md`                       | Wrapping Bombshell prompts with Effect, cancellation, spinners    |
+| `docs/guides/testing-guidelines.md`                          | Writing unit tests, handler tests, or E2E tests                   |
 | `docs/guides/markdown-task-plans.md`                         | Writing task plans with execution markers for AI-assisted work    |
 | `docs/guides/creating-beads-wbs-from-markdown-task-plans.md` | Executing task plans using beads for structured task tracking     |
 | `docs/guides/documentation-guidelines.md`                    | Creating or reviewing README.md, CLAUDE.md, guides, or specs      |
 | `docs/guides/guide-authoring.md`                             | Writing guides with checklists, structure, and cross-references   |
 
-**Auto-loading skills:** `effect-service`, `cli-conventions`, `bombshell`, `documentation` load automatically when relevant. No manual invocation needed.
+**Auto-loading skills:** `effect-basics`, `effect-service`, `cli-conventions`, `bombshell`, `testing`, `documentation` load automatically when relevant.
 
 ## Task Management Workflow
 

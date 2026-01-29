@@ -116,9 +116,9 @@ Verify the refactoring is complete and correct by running the full build and tes
 
 **Acceptance Criteria:**
 
-- [ ] `pnpm build` completes without errors
-- [ ] `pnpm test` completes without failures
-- [ ] `pnpm typecheck` completes without errors
-- [ ] `pnpm lint` completes without errors (or only pre-existing issues)
+- [x] `pnpm build` completes without errors
+- [x] `pnpm test` completes without failures
+- [x] `pnpm typecheck` completes without errors
+- [x] `pnpm lint` completes without errors (or only pre-existing issues)
 
 **Dependencies:** TASK-1.4

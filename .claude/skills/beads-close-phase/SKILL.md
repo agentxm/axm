@@ -61,6 +61,13 @@ bd close <id> --reason "Description of completion"
 bd list --status=open
 ```
 
+## Automatic Invocation
+
+This skill should be invoked by `/beads-execute-plan` when:
+
+- All tasks in a phase show ✓ (closed)
+- The phase has document update tasks
+
 ## Output
 
 Summarize:
@@ -69,3 +76,10 @@ Summarize:
 - Markdown acceptance criteria updated
 - Phase epic closed
 - Next available work (if any)
+
+## Important
+
+**Do not leave phases open after all tasks complete.** The orchestrator must either:
+
+1. Call this skill to update markdown and close the phase, OR
+2. Directly close the phase with `bd close <epic-id> --reason "..."`

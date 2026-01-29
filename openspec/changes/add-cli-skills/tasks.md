@@ -602,11 +602,11 @@
 
 **Required actions:**
 
-- [ ] Run `pnpm test` and verify all unit tests pass
-- [ ] Run `pnpm test:e2e` and verify all E2E tests pass
-- [ ] Run `pnpm typecheck` and verify no errors
-- [ ] Run `pnpm lint` and verify no warnings
-- [ ] Manual test: `axm skills add owner/repo --list` with a real GitHub repository
+- [x] Run `pnpm test` and verify all unit tests pass
+- [x] Run `pnpm test:e2e` and verify all E2E tests pass
+- [x] Run `pnpm typecheck` and verify no errors
+- [x] Run `pnpm lint` and verify no warnings
+- [x] Manual test: `axm skills add owner/repo --list` with a real GitHub repository
 
 **Resumes at:** Implementation complete
 

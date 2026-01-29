@@ -114,19 +114,31 @@ bd show <epic-id>
 
 If more tasks are unblocked, return to Step 4 and spawn sub-agents for them.
 
-### Step 7: Close phase when complete
+### Step 7: Close phase when complete (REQUIRED)
 
-When all tasks in the phase are done, invoke the close-phase workflow:
+**CRITICAL: You MUST close phases when all tasks are complete. Do not leave phases open.**
+
+When all tasks in the phase are done:
 
 ```bash
-# Verify all closed
+# Verify all children show ✓
 bd show <epic-id>
 
-# Close the phase epic
-bd close <epic-id> --reason "All tasks complete"
+# If all children are closed, close the phase
+bd close <epic-id> --reason "All phase tasks complete"
 ```
 
-Or invoke `/beads-close-phase <epic-id>` to handle markdown updates.
+For phases with document update tasks, invoke `/beads-close-phase <epic-id>` to handle markdown updates.
+
+### Step 8: Run cleanup after plan completion
+
+After the final phase (including human gates), run `/beads-cleanup <plan-epic-id>` to:
+
+- Close any orphaned beads
+- Close document update tasks
+- Close the root plan epic
+
+**The plan is not complete until all beads are closed.**
 
 ## Parallelization Strategy
 

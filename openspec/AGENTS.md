@@ -57,13 +57,55 @@ Skip proposal for:
 
 **Approval gate**: Do not start implementation until the proposal is reviewed and approved.
 
-After approval, use the beads workflow for multi-session task tracking:
+**Triggers** (user says one of):
 
-1. **Create beads**: `/beads-plan <path-to-tasks.md>` — Creates bead hierarchy from the task plan
-2. **Execute tasks**: `/beads-execute-plan` — Orchestrates execution by spawning sub-agents
-3. **Close phases**: `/beads-close-phase <phase-epic-id>` — Syncs markdown when phase completes
+- "Implement this proposal"
+- "Start implementation"
+- "Apply this change"
+- "Execute the plan"
+- "Work on the tasks"
+- References a `tasks.md` with implementation intent
 
-For details on task plan format, execution types, and acceptance criteria, see `docs/guides/beads.md`.
+**MANDATORY: Use the beads workflow for ALL implementation work.**
+
+Why beads are required:
+
+- **Multi-session persistence** — Progress survives context window limits
+- **Clean context** — Sub-agents get fresh windows, avoiding context pollution
+- **Parallel execution** — Independent tasks run concurrently
+- **Verifiable progress** — Each task has acceptance criteria tracked via `bd`
+
+**Never implement directly.** Even "simple" tasks must go through beads. Direct implementation loses progress if the session ends and pollutes the orchestrator's context.
+
+**Workflow**
+
+1. **Create beads from task plan**:
+
+   ```
+   /beads-plan openspec/changes/<change-id>/tasks.md
+   ```
+
+   This creates the bead hierarchy (plan epic → phase epics → task beads) and annotates the markdown with bead IDs.
+
+2. **Execute the plan**:
+
+   ```
+   /beads-execute-plan <scope>
+   ```
+
+   The orchestrator spawns sub-agents for each ready task. Scope can be a phase name or epic ID.
+
+3. **Close phases when complete**:
+
+   ```
+   /beads-close-phase <phase-epic-id>
+   ```
+
+   Syncs markdown and closes the phase epic.
+
+4. **Handle human gates**: When HUMAN or HYBRID tasks are encountered, notify the user and pause until they confirm completion.
+
+For task plan format, execution types, and acceptance criteria, see `docs/guides/beads.md`.
 
 ### Stage 3: Archiving Changes
 
@@ -84,6 +126,7 @@ After deployment, create separate PR to:
 - [ ] Run `openspec list` to see active changes
 - [ ] Run `openspec list --specs` to see existing capabilities
 - [ ] Review available skills for relevant patterns and conventions (see below)
+- [ ] If implementing: Run `/beads-plan` first, then `/beads-execute-plan` (see Stage 2)
 
 **Before Creating Specs:**
 

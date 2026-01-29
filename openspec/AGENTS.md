@@ -54,15 +54,15 @@ Skip proposal for:
 
 ### Stage 2: Implementing Changes
 
-Track these steps as TODOs and complete them one by one.
+**Approval gate**: Do not start implementation until the proposal is reviewed and approved.
 
-1. **Read proposal.md** - Understand what's being built
-2. **Read design.md** (if exists) - Review technical decisions
-3. **Read tasks.md** - Get implementation checklist
-4. **Implement tasks sequentially** - Complete in order
-5. **Confirm completion** - Ensure every item in `tasks.md` is finished before updating statuses
-6. **Update checklist** - After all work is done, set every task to `- [x]` so the list reflects reality
-7. **Approval gate** - Do not start implementation until the proposal is reviewed and approved
+After approval, use the beads workflow for multi-session task tracking:
+
+1. **Create beads**: `/beads-plan <path-to-tasks.md>` — Creates bead hierarchy from the task plan
+2. **Execute tasks**: `/beads-execute-plan` — Orchestrates execution by spawning sub-agents
+3. **Close phases**: `/beads-close-phase <phase-epic-id>` — Syncs markdown when phase completes
+
+For details on task plan format, execution types, and acceptance criteria, see `docs/guides/beads.md`.
 
 ### Stage 3: Archiving Changes
 
@@ -221,16 +221,11 @@ The system SHALL provide...
 
 If multiple capabilities are affected, create multiple delta files under `changes/[change-id]/specs/<capability>/spec.md`—one per capability.
 
-4. **Create tasks.md:**
-
-```markdown
-## 1. Implementation
-
-- [ ] 1.1 Create database schema
-- [ ] 1.2 Implement API endpoint
-- [ ] 1.3 Add frontend component
-- [ ] 1.4 Write tests
-```
+4. **Create tasks.md:** Follow the task plan format in `docs/guides/beads.md`. Key elements:
+   - Use `TASK-N.M [TYPE]` identifiers (TYPE: AUTO, HUMAN, VERIFY, HYBRID)
+   - Include required fields: Implements, Description, Acceptance Criteria, Dependencies
+   - Group tasks into phases; front-load AUTO tasks before human gates
+   - Write verifiable acceptance criteria (binary yes/no)
 
 5. **Create design.md when needed:**
    Create `design.md` if any of the following apply; otherwise omit it:
@@ -377,7 +372,7 @@ openspec list
 CHANGE=add-two-factor-auth
 mkdir -p openspec/changes/$CHANGE/{specs/auth}
 printf "## Why\n...\n\n## What Changes\n- ...\n\n## Impact\n- ...\n" > openspec/changes/$CHANGE/proposal.md
-printf "## 1. Implementation\n- [ ] 1.1 ...\n" > openspec/changes/$CHANGE/tasks.md
+# Create tasks.md following docs/guides/beads.md format (TASK-N.M, execution types, acceptance criteria)
 
 # 3) Add deltas (example)
 cat > openspec/changes/$CHANGE/specs/auth/spec.md << 'EOF'

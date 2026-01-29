@@ -4,6 +4,8 @@ The `axm` CLI for managing extensions across AI coding agents.
 
 ## Quality Attributes
 
+- CLAUDE.md edits: ultra-terse, sacrifice grammar for brevity
+
 Apply these qualities to design, implementation, and verification:
 
 1. **Simple** - Use the simplest mechanism that works. Clear code beats clever code.
@@ -138,6 +140,8 @@ docs/guides/        # Reference documentation
 | `docs/guides/cli-design-guidelines.md`                       | Adding CLI commands, flags, output formatting, or error messages  |
 | `docs/guides/markdown-task-plans.md`                         | Writing task plans with execution markers for AI-assisted work    |
 | `docs/guides/creating-beads-wbs-from-markdown-task-plans.md` | Executing task plans using beads for structured task tracking     |
+| `docs/guides/documentation-guidelines.md`                    | Creating or reviewing README.md, CLAUDE.md, guides, or specs      |
+| `docs/guides/guide-authoring.md`                             | Writing guides with checklists, structure, and cross-references   |
 
 ## Task Management Workflow
 

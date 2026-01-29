@@ -19,6 +19,35 @@ or async/await.
 
 ---
 
+## When to Use Services vs Simple Functions
+
+**Default to simple functions.** Services add indirection—only use them when
+justified.
+
+| Use simple functions when...                | Use services when...                         |
+| ------------------------------------------- | -------------------------------------------- |
+| Operation is stateless                      | Shared mutable state (caches, pools)         |
+| No shared configuration beyond dependencies | Complex initialization requiring cleanup     |
+| Function composes well with other Effects   | Configuration shared across multiple methods |
+| Testing via `Effect.provide` is sufficient  | Need to swap entire implementation in tests  |
+
+### Simple Function Example
+
+```typescript
+// Just a function returning an Effect—no service needed
+export const computeIntegrity = (
+  dir: string,
+): Effect.Effect<string, FileSystemError, FileSystem> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem;
+    const files = yield* fs.readDirectory(dir);
+    // ... compute hash
+    return hash;
+  });
+```
+
+---
+
 ## Pattern Mapping
 
 | Instead of...          | Use...                                             |

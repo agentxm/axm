@@ -71,30 +71,31 @@ description: When should I read this guide? (one line)
 
 Purpose statement explaining what this guide covers and why it matters.
 
+## Skills
+
+- `/skill-name` — What this skill provides (agents auto-load these)
+
 ---
 
 ## [Topic Section]
 
 Context explaining _why_ this topic matters and what decisions it informs.
 
-### [Topic] Checklist
+## Links
 
-- [ ] **Item label** — Requirement statement
-
----
-
-## Skills
-
-- `/skill-name` — What this skill provides
+- [Related Guide](./related-guide.md) — How this connects
+- [External Resource](https://example.com) — Authoritative reference
 ```
 
 ### Structure Checklist
 
 - [ ] **Frontmatter complete** — Has status and description
 - [ ] **Clear purpose** — Opening explains what the guide covers
-- [ ] **Sections explain why** — Each section provides conceptual context
-- [ ] **Ends with Skills section** — Lists related skills with brief
-      descriptions
+- [ ] **Skills after purpose** — Lists related skills early for quick reference
+- [ ] **Sections explain why** — Each section provides conceptual context, not
+      tactical patterns
+- [ ] **Links included** — Related guides, specs, or external references for
+      deeper exploration
 
 ---
 

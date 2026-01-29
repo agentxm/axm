@@ -10,20 +10,6 @@ Apply these patterns when designing Effect services in this codebase.
 
 ---
 
-## When to Use Services vs Simple Functions
-
-**Default to simple functions.** Services add indirection—only use them when
-justified.
-
-| Use simple functions when...                | Use services when...                         |
-| ------------------------------------------- | -------------------------------------------- |
-| Operation is stateless                      | Shared mutable state (caches, pools)         |
-| No shared configuration beyond dependencies | Complex initialization requiring cleanup     |
-| Function composes well with other Effects   | Configuration shared across multiple methods |
-| Testing via `Effect.provide` is sufficient  | Need to swap entire implementation in tests  |
-
----
-
 ## Service Interface Pattern
 
 Use the inferred interface pattern to avoid circular references:

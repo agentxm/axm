@@ -2,7 +2,8 @@
 status: active
 description:
   Reference for designing and reviewing CLI features—command structure, flags,
-  output conventions, and error handling for yargs-based CLI applications.
+  prompts, output components, and shell autocompletions for yargs-based CLI
+  applications using bomb.sh tooling.
 ---
 
 # CLI Design Guidelines
@@ -271,6 +272,71 @@ Use `-V` for version to free `-v` for verbose: `.alias("V", "version")`.
 
 ---
 
+## Interactive Prompts
+
+Use [@clack/prompts](https://bomb.sh/docs/clack/packages/prompts/) for all
+interactive input. Clack provides consistent, accessible prompts with built-in
+cancellation handling and TypeScript support.
+
+### Why Clack
+
+Prompts are a user experience boundary—inconsistent styling or missing
+cancellation support breaks trust. Clack handles edge cases (terminal resize,
+Ctrl+C, piped input) so command authors focus on business logic.
+
+### Prompt Patterns
+
+```typescript
+import * as p from "@clack/prompts";
+import { Effect } from "effect";
+
+// Wrap prompts in Effect for consistent error handling
+const askEnvironment = Effect.tryPromise({
+  try: () =>
+    p.select({
+      message: "Select environment",
+      options: [
+        { value: "staging", label: "Staging" },
+        { value: "production", label: "Production", hint: "requires approval" },
+      ],
+    }),
+  catch: () => new PromptCancelledError(),
+});
+
+// Check for cancellation
+const result = await p.text({ message: "Project name?" });
+if (p.isCancel(result)) {
+  p.cancel("Operation cancelled.");
+  process.exit(0);
+}
+```
+
+### Non-Interactive Mode
+
+Commands must work without prompts when `--non-interactive` is set or stdin is
+not a TTY. Provide all promptable values as flags:
+
+```typescript
+// If interactive, prompt for missing values; otherwise, require flags
+if (process.stdin.isTTY && !argv.nonInteractive) {
+  env = await askEnvironment();
+} else if (!argv.env) {
+  console.error("Error: --env required in non-interactive mode");
+  process.exit(1);
+}
+```
+
+### Interactive Prompts Checklist
+
+- [ ] **Uses clack** — All prompts use `@clack/prompts`, not readline or inquirer
+- [ ] **Cancellation handled** — `p.isCancel()` checked after every prompt
+- [ ] **Cancel exits 0** — User cancellation exits cleanly, not as error
+- [ ] **Non-interactive fallback** — Every prompt has an equivalent flag
+- [ ] **TTY detection** — Prompts only shown when `process.stdin.isTTY`
+- [ ] **CI compatible** — Missing required input in CI shows error with flag name
+
+---
+
 ## Workflow Automation Flags
 
 Staged workflow pattern for commands that generate output to be persisted:
@@ -322,6 +388,65 @@ Colors disabled when: `NO_COLOR` set, `TERM=dumb`, `--no-color`, or non-TTY.
 - [ ] **TTY adaptive** — Rich output in TTY, plain text when piped
 - [ ] **NO_COLOR respected** — Colors disabled when `NO_COLOR` env var set
 - [ ] **JSON takes precedence** — `--json` outputs JSON regardless of TTY
+
+---
+
+## Output Components
+
+Use clack's output components for consistent status communication. These
+complement the TTY-adaptive patterns above.
+
+### Spinners
+
+Spinners indicate ongoing work. They write to stderr and auto-clear on
+completion:
+
+```typescript
+import * as p from "@clack/prompts";
+
+const spin = p.spinner();
+spin.start("Deploying to staging");
+await deploy();
+spin.stop("Deployed successfully");
+```
+
+Spinners are suppressed by `--quiet` (show only final result).
+
+### Progress Bars
+
+For operations with known completion percentage:
+
+```typescript
+const progress = p.progress({ max: files.length });
+progress.start("Processing files");
+for (const file of files) {
+  await processFile(file);
+  progress.increment();
+}
+progress.stop("Processed all files");
+```
+
+### Structured Messages
+
+Use semantic log functions for consistent styling:
+
+```typescript
+p.intro("mycli v1.0.0");
+p.log.info("Connected to database");
+p.log.warn("Rate limit approaching");
+p.log.error("Connection failed");
+p.log.success("Migration complete");
+p.outro("Done!");
+```
+
+### Output Components Checklist
+
+- [ ] **Spinners for async** — Long-running operations show spinner
+- [ ] **Spinners to stderr** — Spinners never interfere with piped stdout
+- [ ] **Quiet suppresses spinners** — `--quiet` hides spinners, shows final result
+- [ ] **Progress for known bounds** — Operations with known count use progress bar
+- [ ] **Semantic log levels** — Uses `p.log.info/warn/error/success` appropriately
+- [ ] **Intro/outro framing** — Multi-step commands use `intro`/`outro` for context
 
 ---
 
@@ -483,8 +608,73 @@ Use `deprecated` property on commands for deprecation warnings.
 
 ---
 
+## Shell Autocompletions
+
+Shell autocompletions make CLIs discoverable. Use
+[@bomb.sh/tab](https://bomb.sh/docs/tab/) to provide completions across zsh,
+bash, fish, and powershell from a single definition.
+
+### Why Autocompletions Matter
+
+Users expect Tab to work. Without completions, users must consult `--help`
+repeatedly. Tab reduces cognitive load and prevents typos in flag names and
+enum values.
+
+### Integration Pattern
+
+Tab works alongside yargs—yargs parses arguments, tab provides completions:
+
+```typescript
+import t from "@bomb.sh/tab";
+
+// Define completions that mirror yargs commands
+const cli = t.program("mycli");
+
+const deploy = cli.command("deploy", "Deploy to environment");
+deploy.option("env", "Target environment", (complete) => {
+  complete("staging", "Deploy to staging");
+  complete("production", "Deploy to production");
+});
+deploy.option("region", "AWS region", async (complete) => {
+  const regions = await fetchRegions(); // Dynamic completions
+  regions.forEach((r) => complete(r.id, r.name));
+});
+
+// Handle completion requests in CLI entry point
+if (process.argv.includes("complete")) {
+  await t.handle(cli);
+  process.exit(0);
+}
+```
+
+### User Setup
+
+Document the setup command for users:
+
+```bash
+# Add to shell profile
+eval "$(mycli complete zsh)"   # zsh
+eval "$(mycli complete bash)"  # bash
+mycli complete fish | source   # fish
+```
+
+### Shell Autocompletions Checklist
+
+- [ ] **Tab integration** — Uses `@bomb.sh/tab` for shell completions
+- [ ] **Mirrors yargs** — Completion definitions match yargs command structure
+- [ ] **All shells supported** — Works with zsh, bash, fish, powershell
+- [ ] **Dynamic values** — Enum options and choices have completions
+- [ ] **Setup documented** — README includes shell setup instructions
+- [ ] **Complete subcommand** — CLI exposes `complete <shell>` for script generation
+
+---
+
 ## See Also
 
 - [yargs GitHub](https://github.com/yargs/yargs) — Complete API documentation
 - [Command Line Interface Guidelines (clig.dev)](https://clig.dev/) — CLI design
   philosophy
+- [Clack Documentation](https://bomb.sh/docs/clack/) — Interactive prompts and
+  output components
+- [Tab Documentation](https://bomb.sh/docs/tab/) — Shell autocompletion
+  integration

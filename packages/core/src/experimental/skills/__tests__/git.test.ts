@@ -163,6 +163,28 @@ describe("git", () => {
       expect(sha).toMatch(/^[a-f0-9]{40}$/);
     });
 
+    it("resolves a full SHA to itself", async () => {
+      const repoPath = path.join(tempDir, "repo");
+      await createLocalRepo(repoPath);
+      const expectedSha = await getHeadSha(repoPath);
+
+      const sha = await runEffect(resolveRef(repoPath, expectedSha));
+
+      expect(sha).toBe(expectedSha);
+    });
+
+    it("resolves a short SHA to a full SHA", async () => {
+      const repoPath = path.join(tempDir, "repo");
+      await createLocalRepo(repoPath);
+      const expectedSha = await getHeadSha(repoPath);
+      const shortSha = expectedSha.substring(0, 7);
+
+      const sha = await runEffect(resolveRef(repoPath, shortSha));
+
+      expect(sha).toBe(expectedSha);
+      expect(sha).toMatch(/^[a-f0-9]{40}$/);
+    });
+
     it("fails with GitError for invalid ref", async () => {
       const repoPath = path.join(tempDir, "repo");
       await createLocalRepo(repoPath);

@@ -226,6 +226,7 @@ If multiple capabilities are affected, create multiple delta files under `change
    - Include required fields: Implements, Description, Acceptance Criteria, Dependencies
    - Group tasks into phases; front-load AUTO tasks before human gates
    - Write verifiable acceptance criteria (binary yes/no)
+   - Include relevant context from `proposal.md`, `design.md` decisions, and `spec.md` requirements in task descriptions so sub-agents have sufficient context to execute independently
 
 5. **Create design.md when needed:**
    Create `design.md` if any of the following apply; otherwise omit it:

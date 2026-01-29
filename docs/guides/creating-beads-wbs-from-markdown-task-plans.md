@@ -219,11 +219,38 @@ You are implementing bead task <bead-id>: <task-title>
 
 ### Parent Agent Responsibilities
 
+**The parent agent is an ORCHESTRATOR—it coordinates but never implements.**
+
+The orchestrator should ONLY:
+
+- Query bead status (`bd show`, `bd list`)
+- Spawn sub-agents for tasks
+- Check for newly unblocked work
+- Close epics when complete
+
+The orchestrator should NEVER:
+
+- Read source code (except to understand scope)
+- Write, edit, or create files
+- Run tests or implement acceptance criteria
+
+Every task must go to a sub-agent, even "simple" ones. This ensures clean
+context separation and true parallel execution.
+
 Before spawning:
 
 - Check bead status: `bd show <task-id>`
 - Verify dependencies are closed (shown with ✓ in output)
-- Spawn multiple independent tasks in parallel for efficiency
+- **Group all ready tasks and spawn in ONE message** for parallel execution
+
+**Parallel spawning pattern:**
+
+```
+# In a SINGLE message, call Skill multiple times:
+Skill(skill="beads-execute", args="axm-1.1")
+Skill(skill="beads-execute", args="axm-1.2")
+Skill(skill="beads-execute", args="axm-1.3")
+```
 
 After sub-agents complete:
 
@@ -237,7 +264,10 @@ After sub-agents complete:
       criteria, and specific instructions
 - [ ] **Status commands included** — Prompt tells agent to mark in-progress and
       close when done
-- [ ] **Parallel execution** — Independent tasks spawned concurrently
+- [ ] **Parallel execution** — Ready tasks spawned in ONE message (multiple Skill
+      calls) for true concurrency
+- [ ] **Batch-then-check** — After batch completes, check for newly unblocked
+      tasks before spawning next batch
 - [ ] **Document updated** — Parent agent updates markdown after phase completes
 
 ---

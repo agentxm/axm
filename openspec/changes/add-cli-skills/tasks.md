@@ -343,9 +343,9 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/cli/src/commands/init.ts`
-- [ ] Registers as `axm init` command
-- [ ] Defines `--global`, `--agent`, `--yes` flags
+- [x] File exists at `packages/cli/src/commands/init.ts`
+- [x] Registers as `axm init` command
+- [x] Defines `--global`, `--agent`, `--yes` flags
 
 **Dependencies:** TASK-1.11
 
@@ -357,11 +357,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/cli/src/commands/init.handler.ts`
-- [ ] Detects installed agents
-- [ ] Prompts for agent selection (interactive mode)
-- [ ] Creates `.axm/settings.json` with selected agents
-- [ ] Handles already-initialized case gracefully
+- [x] File exists at `packages/cli/src/commands/init.handler.ts`
+- [x] Detects installed agents
+- [x] Prompts for agent selection (interactive mode)
+- [x] Creates `.axm/settings.json` with selected agents
+- [x] Handles already-initialized case gracefully
 
 **Dependencies:** TASK-3.1, TASK-1.3, TASK-1.6
 
@@ -373,12 +373,12 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file exists at `packages/cli/src/commands/__tests__/init.handler.test.ts`
-- [ ] Tests first-time initialization flow
-- [ ] Tests already-initialized case
-- [ ] Tests non-interactive mode (--yes flag)
-- [ ] Tests --agent flag with explicit agents
-- [ ] `pnpm test init.handler` passes
+- [x] Test file exists at `packages/cli/src/commands/__tests__/init.handler.test.ts`
+- [x] Tests first-time initialization flow
+- [x] Tests already-initialized case
+- [x] Tests non-interactive mode (--yes flag)
+- [x] Tests --agent flag with explicit agents
+- [x] `pnpm test init.handler` passes
 
 **Dependencies:** TASK-3.2
 
@@ -476,8 +476,8 @@
 
 **Acceptance Criteria:**
 
-- [ ] `@clack/prompts` in `packages/cli/package.json` dependencies
-- [ ] `pnpm install` succeeds
+- [x] `@clack/prompts` in `packages/cli/package.json` dependencies
+- [x] `pnpm install` succeeds
 
 **Dependencies:** None
 

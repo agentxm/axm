@@ -4,6 +4,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
 import { extensionsCommand } from "./commands/extensions.js";
+import { initCommand } from "./commands/init.js";
 
 const version = "0.0.1";
 
@@ -14,6 +15,7 @@ export const program = Effect.gen(function* () {
       .version(version)
       .help()
       .strict()
+      .command(initCommand)
       .command(extensionsCommand)
       .demandCommand(0)
       .parseAsync(),

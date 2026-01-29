@@ -15,6 +15,9 @@
   },
   "dependencies": {
     "@agentxm/core": "workspace:*",
+    "@clack/prompts": "^1.0.0",
+    "@effect/platform": "^0.94.2",
+    "@effect/platform-node": "^0.104.1",
     "effect": "catalog:",
     "yargs": "catalog:"
   },

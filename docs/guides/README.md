@@ -13,6 +13,8 @@ too detailed for README.md or CLAUDE.md, but not tactical enough for skills.
       → If minor, fold into existing guide; if directory-scoped, use README
 - [ ] **High-level** — Overview and context, not step-by-step instructions
       → If tactical patterns or checklists, use a skill
+- [ ] **References CLAUDE.md** — Links to relevant CLAUDE.md section for critical guidance
+      → Guides must not duplicate CLAUDE.md; assume reader understands linked guidance
 - [ ] **Collects references** — Aggregates resources, skills, and background
       → If nothing to collect, content may belong inline or in CLAUDE.md
 - [ ] **Project-specific** — Contextualizes how the topic applies here

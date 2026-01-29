@@ -27,11 +27,11 @@ configuration.
 This project uses three test levels, each with different scope and
 dependencies:
 
-| Level   | Location               | What it tests                    | Dependencies     |
-| ------- | ---------------------- | -------------------------------- | ---------------- |
-| Unit    | `packages/core/src/**` | Pure business logic, utilities   | None (pure)      |
-| Handler | `packages/cli/src/**`  | Effect handlers with mock layers | Test layers      |
-| E2E     | `packages/cli/e2e/`    | Full CLI as subprocess           | Built binary, fs |
+| Level   | Location                         | What it tests                    | Dependencies     |
+| ------- | -------------------------------- | -------------------------------- | ---------------- |
+| Unit    | `packages/core/src/**/*.test.ts` | Pure business logic, utilities   | None (pure)      |
+| Handler | `packages/cli/src/**/*.test.ts`  | Effect handlers with mock layers | Test layers      |
+| E2E     | `packages/cli/e2e/*.test.ts`     | Full CLI as subprocess           | Built binary, fs |
 
 ### When to Use Each Level
 

@@ -1,13 +1,13 @@
 ---
 name: testing-handler
-description: Handler test patterns with test layers. Use when writing tests in packages/cli/src/commands/__tests__/.
+description: Handler test patterns with test layers. Use when writing tests in packages/cli/src/.
 user-invocable: false
 ---
 
 # Handler Testing Patterns
 
 Handler tests verify Effect handlers with test layers. Location:
-`packages/cli/src/commands/**/__tests__/*.test.ts`
+`packages/cli/src/**/*.test.ts` (colocated with handlers)
 
 For Effect testing patterns (running effects, error assertions, providing
 layers), see `/effect-testing`.
@@ -23,7 +23,7 @@ import * as path from "node:path";
 import { NodeFileSystem } from "@effect/platform-node";
 import { Effect } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { handleInit, type InitArgs } from "../init.handler.js";
+import { handleInit, type InitArgs } from "./init.handler.js";
 
 describe("init.handler", () => {
   let tempDir: string;

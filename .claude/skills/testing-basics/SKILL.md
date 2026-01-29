@@ -13,11 +13,11 @@ qualities regardless of level.
 
 ## Test Levels
 
-| Level   | Location                             | Tests                          |
-| ------- | ------------------------------------ | ------------------------------ |
-| Unit    | `packages/core/src/**/*.test.ts`     | Pure business logic, utilities |
-| Handler | `packages/cli/src/**/__tests__/*.ts` | Effect handlers with mocks     |
-| E2E     | `packages/cli/e2e/*.test.ts`         | Full CLI as subprocess         |
+| Level   | Location                         | Tests                          |
+| ------- | -------------------------------- | ------------------------------ |
+| Unit    | `packages/core/src/**/*.test.ts` | Pure business logic, utilities |
+| Handler | `packages/cli/src/**/*.test.ts`  | Effect handlers with mocks     |
+| E2E     | `packages/cli/e2e/*.test.ts`     | Full CLI as subprocess         |
 
 **When to use each:**
 

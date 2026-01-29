@@ -1,10 +1,24 @@
 # Testing Guide
 
-Patterns for writing tests at all layers: unit tests for business logic,
-handler tests with mock services, and E2E tests for CLI commands.
+Orientation for testing in this project: why we use three test layers, when to
+use each, and what makes tests valuable.
 
 **Not covered:** Performance testing, load testing, or CI/CD pipeline
 configuration.
+
+## Key Resources
+
+- [Vitest Documentation](https://vitest.dev/) — Test runner API and configuration
+- [Effect Testing](https://effect.website/docs/testing) — Testing Effect programs
+
+## Skills
+
+- `/testing-basics` — Test quality principles and layer overview
+- `/testing-unit` — Unit test patterns for pure functions in `packages/core/`
+- `/testing-handler` — Handler test patterns with mock services
+- `/testing-e2e` — E2E test patterns for CLI commands
+- `/effect-testing` — Effect testing patterns (running effects, error assertions)
+- `/effect-service` — Service patterns including test layer construction
 
 ---
 
@@ -41,65 +55,9 @@ dependencies:
 
 ---
 
-## Unit Tests
-
-Unit tests verify pure business logic without dependencies. For code patterns
-and examples, see the `/testing-unit` skill.
-
-### Unit Test Checklist
-
-- [ ] **Pure functions only** — No I/O, no services, no side effects
-- [ ] **Single behavior per test** — One assertion per logical behavior
-- [ ] **Descriptive names** — Test name describes the behavior being verified
-- [ ] **Edge cases covered** — Empty inputs, boundaries, error cases
-
----
-
-## Handler Tests
-
-Handler tests verify Effect handlers with mock service layers. For code patterns
-and examples, see the `/testing-handler` skill.
-
-### Handler Test Checklist
-
-- [ ] **Mock services** — All dependencies provided via test layers
-- [ ] **Fresh mocks per test** — Reset or recreate mocks to ensure isolation
-- [ ] **Error paths tested** — Verify error handling with failing services
-- [ ] **Effect.either for errors** — Use `Effect.either` to assert on failures
-
----
-
-## E2E Tests
-
-E2E tests spawn the CLI as a subprocess and verify end-to-end behavior. For code
-patterns and setup examples, see the `/testing-e2e` skill.
-
-### E2E Test Patterns
-
-| Pattern               | Implementation                                     |
-| --------------------- | -------------------------------------------------- |
-| Isolated temp dir     | `mkdtemp()` in `beforeEach`, `rm()` in `afterEach` |
-| CLI invocation        | `execa("./dist/cli.js", args, { cwd: tempDir })`   |
-| Exit code assertion   | `expect(result.exitCode).toBe(0)`                  |
-| Output assertion      | `expect(result.stdout).toContain("expected")`      |
-| Error assertion       | Catch rejected promise, assert on stderr           |
-| File system assertion | Read files from tempDir, verify contents           |
-| Test fixtures         | Local paths in `packages/cli/e2e/fixtures/`        |
-
-### E2E Test Checklist
-
-- [ ] **Isolated temp directory** — Each test gets fresh directory, cleaned up after
-- [ ] **Built binary** — Tests run against `./dist/cli.js`, not source
-- [ ] **Exit codes verified** — Assert on 0 for success, 1 for errors
-- [ ] **stdout/stderr checked** — Verify user-facing output
-- [ ] **File system state verified** — Check files created/modified
-- [ ] **No network calls** — Use local fixtures, not remote repos
-
----
-
 ## Test Quality Principles
 
-Tests should exhibit these qualities:
+Tests should exhibit these qualities (adapted from Kent Beck's test desiderata):
 
 | Quality                   | Description                          |
 | ------------------------- | ------------------------------------ |
@@ -138,31 +96,7 @@ Tests should exhibit these qualities:
 
 ---
 
-## Running Tests
+## See Also
 
-```bash
-# Run all tests
-pnpm test
-
-# Run tests in watch mode
-pnpm test -- --watch
-
-# Run specific test file
-pnpm test packages/core/src/extension-ref.test.ts
-
-# Run E2E tests only
-pnpm test packages/cli/e2e/
-
-# Run with coverage
-pnpm test -- --coverage
-```
-
----
-
-## Skills
-
-- `/testing-basics` — Test quality principles and layer overview
-- `/testing-unit` — Unit test patterns for pure functions in `packages/core/`
-- `/testing-handler` — Handler test patterns with mock services
-- `/testing-e2e` — E2E test patterns for CLI commands
-- `/effect-service` — Service patterns including test layer construction
+- [Test Desiderata](https://kentbeck.github.io/TestDesiderata/) — Kent Beck's
+  framework for evaluating test quality trade-offs

@@ -7,6 +7,7 @@ Effect for all business logic and I/O.
 
 - `/effect-basics` — Core patterns, when to use functions vs services
 - `/effect-service` — Service interfaces, error types, layers, retry policies
+- `/effect-testing` — Testing patterns for Effect programs
 
 ---
 

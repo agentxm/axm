@@ -96,7 +96,7 @@ docs/guides/        # Reference documentation
 
 **Guides** (`docs/guides/`) = high-level rationale for humans. **Skills** = tactical patterns for agents (auto-load when relevant).
 
-**Auto-loading skills:** `effect-basics`, `effect-service`, `cli-conventions`, `bombshell`, `testing-basics`, `testing-unit`, `testing-handler`, `testing-e2e`, `documentation`, `agent-docs`.
+**Auto-loading skills:** `effect-basics`, `effect-service`, `effect-testing`, `cli-conventions`, `bombshell`, `testing-basics`, `testing-unit`, `testing-handler`, `testing-e2e`, `documentation`, `agent-docs`.
 
 ## Task Management Workflow
 

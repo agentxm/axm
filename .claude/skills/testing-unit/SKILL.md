@@ -9,6 +9,9 @@ user-invocable: false
 Unit tests verify pure business logic without dependencies. Location:
 `packages/core/src/**/*.test.ts`
 
+For Effect testing patterns (running effects, error assertions), see
+`/effect-testing`.
+
 ---
 
 ## Pattern
@@ -19,16 +22,8 @@ import { describe, expect, it } from "vitest";
 import { parseSource } from "../source-parser.js";
 
 describe("source-parser", () => {
-  // Helper to run Effect and return result
+  // Helpers - see /effect-testing for patterns
   const parse = (input: string) => Effect.runPromise(parseSource(input));
-
-  // Helper for expected failures
-  const parseError = (input: string) =>
-    Effect.runPromise(parseSource(input).pipe(Effect.either)).then((result) => {
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") return result.left;
-      throw new Error("Expected failure");
-    });
 
   describe("GitHub shorthand", () => {
     it("parses owner/repo", async () => {
@@ -38,11 +33,15 @@ describe("source-parser", () => {
       expect(result.owner).toBe("owner");
       expect(result.repo).toBe("repo");
     });
+  });
 
-    it("rejects invalid format", async () => {
-      const error = await parseError("invalid");
+  describe("edge cases", () => {
+    it("handles empty string", async () => {
+      // Test boundary conditions
+    });
 
-      expect(error._tag).toBe("ParseError");
+    it("handles special characters", async () => {
+      // Test unusual inputs
     });
   });
 });
@@ -56,4 +55,3 @@ describe("source-parser", () => {
 - [ ] **Single behavior per test** — One assertion per logical behavior
 - [ ] **Descriptive names** — Test name describes behavior being verified
 - [ ] **Edge cases covered** — Empty inputs, boundaries, error cases
-- [ ] **Effect.either for errors** — Use `Effect.either` to assert on failures

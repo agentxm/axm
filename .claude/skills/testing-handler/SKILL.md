@@ -9,6 +9,9 @@ user-invocable: false
 Handler tests verify Effect handlers with mock service layers. Location:
 `packages/cli/src/commands/**/__tests__/*.test.ts`
 
+For Effect testing patterns (running effects, error assertions, providing
+layers), see `/effect-testing`.
+
 ---
 
 ## Pattern
@@ -26,6 +29,7 @@ describe("init.handler", () => {
   let tempDir: string;
   let originalCwd: string;
 
+  // Fresh temp directory per test
   beforeEach(() => {
     originalCwd = process.cwd();
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "init-handler-test-"));
@@ -37,13 +41,11 @@ describe("init.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  // Helper to run handler with real FileSystem layer
-  const runHandler = <A, E>(
-    effect: Effect.Effect<A, E, FileSystem.FileSystem>,
-  ) => Effect.runPromise(effect.pipe(Effect.provide(NodeFileSystem.layer)));
+  // Helpers - see /effect-testing for patterns
+  const run = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
+    Effect.runPromise(effect.pipe(Effect.provide(NodeFileSystem.layer)));
 
-  // Helper for error assertions
-  const runHandlerEither = <A, E>(
+  const runEither = <A, E>(
     effect: Effect.Effect<A, E, FileSystem.FileSystem>,
   ) =>
     Effect.runPromise(
@@ -53,9 +55,7 @@ describe("init.handler", () => {
   const defaultArgs: InitArgs = { global: false, agent: [], yes: false };
 
   it("creates settings.json", async () => {
-    const args: InitArgs = { ...defaultArgs, yes: true };
-
-    await runHandler(handleInit(args));
+    await run(handleInit({ ...defaultArgs, yes: true }));
 
     const settingsPath = path.join(tempDir, ".axm", "settings.json");
     expect(fs.existsSync(settingsPath)).toBe(true);
@@ -69,9 +69,7 @@ describe("init.handler", () => {
       JSON.stringify({ version: 1, agents: ["claude-code"], skills: {} }),
     );
 
-    const result = await runHandlerEither(
-      handleInit({ ...defaultArgs, yes: true }),
-    );
+    const result = await runEither(handleInit({ ...defaultArgs, yes: true }));
 
     expect(result._tag).toBe("Right");
   });
@@ -83,7 +81,6 @@ describe("init.handler", () => {
 ## Checklist
 
 - [ ] **Fresh temp directory** — Create in `beforeEach`, clean up in `afterEach`
-- [ ] **Provide Effect layers** — All dependencies via test layers
 - [ ] **Reset cwd** — Save and restore `process.cwd()` if changing it
+- [ ] **Provide layers** — All Effect dependencies via test layers
 - [ ] **Error paths tested** — Verify error handling with failing services
-- [ ] **Effect.either for errors** — Use `Effect.either` to assert on failures

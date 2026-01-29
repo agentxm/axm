@@ -70,11 +70,11 @@ Example `settings.json`:
   "agents": ["claude-code", "cursor"],
   "skills": {
     "pr-review": {
-      "source": "example-org/agent-skills",
+      "source": "github:example-org/agent-skills",
       "agents": ["claude-code", "cursor"]
     },
     "commit": {
-      "source": "example-org/agent-skills",
+      "source": "github:example-org/agent-skills",
       "agents": ["claude-code"]
     }
   }
@@ -82,6 +82,25 @@ Example `settings.json`:
 ```
 
 **Rationale**: Settings track _what_ is installed and _where_, lockfile tracks _which version_. Users can edit settings.json to change agent targets; lockfile ensures reproducible installations.
+
+### Decision: Canonical Source Notation
+
+While the CLI accepts liberal input formats (e.g., `owner/repo` for GitHub), stored sources in `settings.json` and `axm.lock` use a canonical prefix notation:
+
+| Input (liberal) | Stored (canonical) |
+|-----------------|-------------------|
+| `owner/repo` | `github:owner/repo` |
+| `https://github.com/owner/repo` | `github:owner/repo` |
+| `git@github.com:owner/repo.git` | `github:owner/repo` |
+| `https://gitlab.com/owner/repo` | `gitlab:owner/repo` |
+| `./local/path` | `local:./local/path` |
+| `https://example.com/skill.md` | `url:https://example.com/skill.md` |
+
+**Rationale**:
+- Unambiguous: No confusion between `foo/bar` (GitHub shorthand) and a local path
+- Self-documenting: Source type is explicit in stored data
+- Portable: Can reconstruct the fetch URL from the canonical form
+- Extensible: Easy to add new source types (e.g., `npm:`, `gist:`)
 
 ### Decision: YAML Lockfile Format
 
@@ -91,14 +110,15 @@ Use YAML instead of JSON for the lockfile:
 version: 1
 skills:
   pr-review:
-    source: example-org/agent-skills
-    sourceType: github
-    sourceUrl: https://github.com/example-org/agent-skills.git
+    source: github:example-org/agent-skills
     skillPath: skills/pr-review
-    hash: abc123...
+    commitSha: abc123def456...
+    contentHash: sha256:789xyz...
     installedAt: 2026-01-28T10:00:00Z
     updatedAt: 2026-01-28T10:00:00Z
 ```
+
+Note: The canonical `source` field encodes the source type, so separate `sourceType` and `sourceUrl` fields are unnecessary.
 
 **Rationale**: YAML is more readable in diffs and easier to edit if needed.
 

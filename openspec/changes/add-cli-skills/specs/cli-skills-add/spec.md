@@ -266,12 +266,17 @@ The CLI SHALL persist user preferences and installed skills in `.axm/settings.js
 #### Scenario: Track installed skills in settings
 
 - **WHEN** a skill is installed
-- **THEN** the CLI records the skill name, source shorthand, and target agents in `settings.json`
+- **THEN** the CLI records the skill name, canonical source, and target agents in `settings.json`
 
 #### Scenario: Settings file format
 
 - **WHEN** viewing the settings file
-- **THEN** it is in JSON format with `version`, `agents`, and `skills` (mapping skill names to source and agents)
+- **THEN** it is in JSON format with `version`, `agents`, and `skills` (mapping skill names to canonical source and agents)
+
+#### Scenario: Canonical source notation in settings
+
+- **WHEN** a skill is installed from any supported input format
+- **THEN** the source is stored in canonical prefix notation (e.g., `github:owner/repo`, `gitlab:owner/repo`, `local:./path`)
 
 Unit tests SHALL verify:
 - JSON serialization/deserialization round-trip
@@ -291,7 +296,12 @@ The CLI SHALL maintain a lockfile tracking resolved versions for reproducibility
 #### Scenario: Lockfile format
 
 - **WHEN** viewing the lockfile
-- **THEN** it is in YAML format with skill entries containing sourceType, sourceUrl, skillPath, hash (commit SHA or content hash), installedAt, and updatedAt
+- **THEN** it is in YAML format with skill entries containing source (canonical notation), skillPath, commitSha, contentHash, installedAt, and updatedAt
+
+#### Scenario: Canonical source notation in lockfile
+
+- **WHEN** a skill is recorded in the lockfile
+- **THEN** the source uses canonical prefix notation (e.g., `github:owner/repo`) which encodes the source type
 
 #### Scenario: Lockfile excludes user preferences
 
@@ -426,6 +436,46 @@ Unit tests SHALL verify:
 - Path normalization for comparison
 - Windows-style paths are accepted as input (can mock `path.win32` for cross-platform testing)
 
+### Requirement: Canonical Source Notation
+
+The CLI SHALL normalize all source inputs to a canonical prefix notation for storage.
+
+#### Scenario: GitHub shorthand normalized
+
+- **WHEN** the user provides `owner/repo` as input
+- **THEN** it is stored as `github:owner/repo`
+
+#### Scenario: GitHub URL normalized
+
+- **WHEN** the user provides `https://github.com/owner/repo` or `git@github.com:owner/repo.git`
+- **THEN** it is stored as `github:owner/repo`
+
+#### Scenario: GitLab URL normalized
+
+- **WHEN** the user provides `https://gitlab.com/owner/repo`
+- **THEN** it is stored as `gitlab:owner/repo`
+
+#### Scenario: Local path normalized
+
+- **WHEN** the user provides `./path/to/skills` or `/absolute/path`
+- **THEN** it is stored as `local:./path/to/skills` or `local:/absolute/path`
+
+#### Scenario: Direct URL normalized
+
+- **WHEN** the user provides `https://example.com/skill.md`
+- **THEN** it is stored as `url:https://example.com/skill.md`
+
+#### Scenario: Git ref preserved in canonical form
+
+- **WHEN** the user provides `owner/repo@v1.0.0`
+- **THEN** it is stored as `github:owner/repo@v1.0.0`
+
+Unit tests SHALL verify:
+- Normalization from each input format to canonical form
+- Prefix extraction from canonical notation
+- Value extraction from canonical notation
+- Round-trip: canonical form -> fetch URL reconstruction
+
 ### Requirement: Source Metadata Preservation
 
 The CLI SHALL preserve source metadata to enable future update operations.
@@ -433,12 +483,12 @@ The CLI SHALL preserve source metadata to enable future update operations.
 #### Scenario: Source recorded in settings
 
 - **WHEN** a skill is installed
-- **THEN** `settings.json` records the original source string (e.g., `owner/repo` or full URL)
+- **THEN** `settings.json` records the canonical source (e.g., `github:owner/repo`)
 
 #### Scenario: Lockfile records full source details
 
 - **WHEN** a skill is installed
-- **THEN** the lockfile records `sourceType`, `sourceUrl`, `skillPath`, and resolved `commitSha`
+- **THEN** the lockfile records canonical `source`, `skillPath`, resolved `commitSha`, and `contentHash`
 
 #### Scenario: Source metadata enables re-fetch
 
@@ -446,9 +496,10 @@ The CLI SHALL preserve source metadata to enable future update operations.
 - **THEN** the stored source metadata provides sufficient information to re-fetch from the original location
 
 Unit tests SHALL verify:
-- Settings correctly stores source shorthand
-- Lockfile correctly stores full source details
-- Round-trip: parsed source -> stored metadata -> can reconstruct clone URL
+- Settings correctly stores canonical source notation
+- Lockfile correctly stores canonical source and resolved details
+- Round-trip: liberal input -> canonical form -> can reconstruct fetch URL
+- Canonical notation parsing (prefix extraction, value extraction)
 
 ### Requirement: Content Hash Computation
 

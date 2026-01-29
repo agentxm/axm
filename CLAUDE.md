@@ -7,15 +7,16 @@ Open agent extension manager for skills and more
 1. **Simplicity** - Clear, minimal, obvious.
 2. **Reliability** - Trustworthy, resilient.
 3. **Delight** - Intuitive, helpful, honest, responsive.
+4. **Friendliness** - Welcoming, collaborative, open.
 
 ## Tech Stack
 
 - **Runtime**: Bun
 - **Language**: TypeScript (strict mode)
+- **Standard library**: Effect (concurrency, type safety, error handling, async, observability)
 - **Package manager**: pnpm (workspaces)
 - **CLI parsing**: yargs
 - **CLI UI**: Bombshell (prompts, forms, validation)
-- **Business logic**: Effect
 - **Testing**: Vitest
 - **Formatting/Linting**: Biome (code), Prettier (markdown)
 
@@ -33,8 +34,6 @@ Open agent extension manager for skills and more
 
 ## Testing
 
-Unit, handler, and e2e tests colocated with source.
-
 - [ ] Designs prescribe testing for key elements
 - [ ] Write tests first to define desired behavior
 - [ ] Implement until tests pass
@@ -42,7 +41,12 @@ Unit, handler, and e2e tests colocated with source.
 
 ## Effect
 
-Effect for all business logic/I/O. No raw Promises or async/await.
+- [ ] No raw Promises or async/await (use Effect.promise to wrap)
+- [ ] Errors are typed in the Effect signature
+- [ ] Dependencies use services, not direct imports
+- [ ] Resources use acquire/release patterns
+- [ ] Layers provide dependencies at the edge
+- [ ] Use concurrency (Effect.all, Effect.forEach) where parallelization is possible
 
 ### Handlers
 

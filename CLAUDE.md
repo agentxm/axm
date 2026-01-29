@@ -61,9 +61,47 @@ Apply these qualities to design, implementation, and verification:
 - **Language**: TypeScript (strict mode)
 - **Package manager**: pnpm (workspaces)
 - **CLI parsing**: yargs
-- **Business logic**: Effect (prefer Effect capabilities where they exist)
+- **Business logic**: Effect
 - **Testing**: Vitest
 - **Formatting/Linting**: Biome (code), Prettier (markdown)
+
+## Effect Guidelines
+
+This project uses Effect for all business logic and I/O. Do NOT use raw Promises or async/await.
+
+**Core principles:**
+
+- All async operations return `Effect<A, E, R>`, never `Promise<T>`
+- Use typed errors (`E`) instead of thrown exceptions
+- Use dependency injection via Effect services (`R`)
+
+**Patterns:**
+
+| Instead of...          | Use...                                            |
+| ---------------------- | ------------------------------------------------- |
+| `async function foo()` | `const foo = Effect.gen(function* () { ... })`    |
+| `await promise`        | `yield* Effect.tryPromise(() => promise)`         |
+| `Promise.all([a, b])`  | `Effect.all([a, b], { concurrency: "unbounded"})` |
+| `try/catch`            | Typed errors with `Effect.catchTag`               |
+| `fs.readFile`          | `@effect/platform` FileSystem service             |
+| `fetch`                | `@effect/platform` HttpClient service             |
+
+**Wrapping external Promise APIs:**
+
+```typescript
+// Wrap external Promise-based APIs at the boundary
+const fetchData = (url: string) =>
+  Effect.tryPromise({
+    try: () => externalLib.fetch(url),
+    catch: (error) => new FetchError({ cause: error }),
+  });
+```
+
+**Running Effects:**
+
+- CLI entry points use `Effect.runPromise` or `BunRuntime.runMain`
+- Tests use `Effect.runPromise` within test functions
+- Never call `Effect.runPromise` inside business logic
 
 ## Commands
 

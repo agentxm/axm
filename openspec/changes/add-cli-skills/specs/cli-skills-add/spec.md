@@ -39,6 +39,7 @@ The CLI SHALL support GitHub shorthand notation for specifying skill sources.
 - **THEN** the CLI clones the repository at the specified ref
 
 Unit tests SHALL verify:
+
 - Basic shorthand parsing (`owner/repo` -> `https://github.com/owner/repo.git`)
 - Shorthand with subpath extraction
 - Shorthand with git ref extraction
@@ -69,6 +70,7 @@ The CLI SHALL support full GitHub URLs for specifying skill sources.
 - **THEN** the CLI clones the repository, stripping the `.git` suffix for display purposes
 
 Unit tests SHALL verify:
+
 - GitHub URL parsing (with and without `.git` suffix)
 - Branch extraction from `/tree/branch-name` URLs
 - Path extraction from URLs with branch and path
@@ -123,6 +125,7 @@ The CLI SHALL support local filesystem paths for specifying skill sources.
 - **THEN** the CLI resolves to the current or parent directory respectively
 
 Unit tests SHALL verify:
+
 - Detection of local paths (starts with `./`, `../`, `/`, or Windows drive letter)
 - Path resolution relative to working directory
 - Distinction between local paths and GitHub shorthand (e.g., `./owner/repo` is local, `owner/repo` is GitHub)
@@ -231,6 +234,7 @@ The CLI SHALL install skills using symlinks by default with copy fallback.
 - **THEN** the CLI falls back to copying skill files directly to each agent's directory
 
 Unit tests SHALL verify:
+
 - Symlink target path is relative (for portability)
 - Copy fallback triggers on symlink error
 - Installed skill is readable from agent directory (either via symlink or copy)
@@ -276,9 +280,10 @@ The CLI SHALL persist user preferences and installed skills in `.axm/settings.js
 #### Scenario: Canonical source notation in settings
 
 - **WHEN** a skill is installed from any supported input format
-- **THEN** the source is stored in canonical prefix notation (e.g., `github:owner/repo`, `gitlab:owner/repo`, `local:./path`)
+- **THEN** the source is stored in canonical notation (e.g., `github:owner/repo`, `gitlab:owner/repo`, `./path`)
 
 Unit tests SHALL verify:
+
 - JSON serialization/deserialization round-trip
 - Settings schema validation
 - Merge behavior (new skills added, existing preserved)
@@ -309,6 +314,7 @@ The CLI SHALL maintain a lockfile tracking resolved versions for reproducibility
 - **THEN** the lockfile contains only version resolution data, not user preferences or agent selections
 
 Unit tests SHALL verify:
+
 - YAML serialization/deserialization round-trip
 - Lockfile schema validation
 - Partial updates (adding skills without losing existing entries)
@@ -368,6 +374,7 @@ The CLI SHALL support pinning to specific git refs (tags, branches, commit SHAs)
 - **THEN** the lockfile records the resolved commit SHA (not the ref name) for reproducibility
 
 Unit tests SHALL verify:
+
 - Parsing of various ref formats (tags, branches, SHAs, partial SHAs)
 - Ref extraction from shorthand and URL sources
 - Lockfile correctly stores resolved commit SHA
@@ -402,6 +409,7 @@ The CLI SHALL support authentication for private repositories.
 - **THEN** the CLI computes the hash locally from cloned content (not via GitHub API)
 
 Unit tests SHALL verify:
+
 - SSH URL parsing and detection
 - Error message generation for auth failures
 - Local hash computation produces consistent results
@@ -431,6 +439,7 @@ The CLI SHALL handle filesystem paths correctly on all supported platforms (macO
 - **THEN** the CLI normalizes paths before comparison to handle separator differences
 
 Unit tests SHALL verify:
+
 - Path joining produces correct results on the test platform
 - Relative path computation for symlinks
 - Path normalization for comparison
@@ -471,6 +480,7 @@ The CLI SHALL normalize all source inputs to a canonical prefix notation for sto
 - **THEN** it is stored as `github:owner/repo@v1.0.0`
 
 Unit tests SHALL verify:
+
 - Normalization from liberal input to canonical form
 - Shorthand sources get appropriate prefix (github:, gitlab:)
 - URLs and local paths stored without prefix
@@ -496,6 +506,7 @@ The CLI SHALL preserve source metadata to enable future update operations.
 - **THEN** the stored source metadata provides sufficient information to re-fetch from the original location
 
 Unit tests SHALL verify:
+
 - Settings correctly stores canonical source notation
 - Lockfile correctly stores canonical source and resolved details
 - Round-trip: liberal input -> canonical form -> can reconstruct fetch URL
@@ -526,6 +537,7 @@ The CLI SHALL compute content hashes locally for lockfile integrity.
 - **THEN** the CLI uses SHA-256 of sorted file paths and contents
 
 Unit tests SHALL verify:
+
 - Hash computation is deterministic for same content
 - Hash changes when content changes
 - Hash is independent of file system metadata (timestamps, permissions)

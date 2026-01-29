@@ -87,23 +87,25 @@ Example `settings.json`:
 
 While the CLI accepts liberal input formats (e.g., `owner/repo` for GitHub), stored sources in `settings.json` and `axm.lock` use a canonical notation:
 
-| Input (liberal) | Stored (canonical) |
-|-----------------|-------------------|
-| `owner/repo` | `github:owner/repo` |
-| `https://github.com/owner/repo` | `github:owner/repo` |
-| `git@github.com:owner/repo.git` | `github:owner/repo` |
-| `https://gitlab.com/owner/repo` | `gitlab:owner/repo` |
-| `./local/path` | `./local/path` |
-| `/absolute/path` | `/absolute/path` |
-| `https://example.com/skill.md` | `https://example.com/skill.md` |
+| Input (liberal)                 | Stored (canonical)             |
+| ------------------------------- | ------------------------------ |
+| `owner/repo`                    | `github:owner/repo`            |
+| `https://github.com/owner/repo` | `github:owner/repo`            |
+| `git@github.com:owner/repo.git` | `github:owner/repo`            |
+| `https://gitlab.com/owner/repo` | `gitlab:owner/repo`            |
+| `./local/path`                  | `./local/path`                 |
+| `/absolute/path`                | `/absolute/path`               |
+| `https://example.com/skill.md`  | `https://example.com/skill.md` |
 
 Prefixes are only used for shorthand notations that would otherwise be ambiguous:
+
 - `github:owner/repo` - disambiguates from relative path `owner/repo`
 - `gitlab:owner/repo` - disambiguates from relative path
 
 URLs and local paths are stored as-is since they're already unambiguous.
 
 **Rationale**:
+
 - Minimal: Only add prefixes where needed for disambiguation
 - Unambiguous: No confusion between `foo/bar` (GitHub shorthand) and a local path
 - Portable: Can reconstruct the fetch URL from the canonical form
@@ -129,9 +131,47 @@ Note: The canonical `source` field encodes the source type, so separate `sourceT
 
 **Rationale**: YAML is more readable in diffs and easier to edit if needed.
 
+### Decision: Implicit Initialization
+
+Commands that require `.axm/settings.json` SHALL trigger initialization if it doesn't exist:
+
+```typescript
+// Pattern for commands requiring initialization
+const addHandler = (args: AddArgs) =>
+  pipe(
+    ensureInitialized({ global: args.global, yes: args.yes }),
+    Effect.flatMap((settings) => installSkills(args, settings)),
+  );
+```
+
+The `ensureInitialized` service:
+
+1. Checks if settings file exists (fast path - no parsing)
+2. If exists, reads and returns settings
+3. If not, runs the init flow with provided options
+
+**Rationale**: Seamless first-time experience. Users can run `axm skills add` without knowing about `init`.
+
+### Decision: Agent Detection Strategy
+
+Detect agents by checking for their configuration directories:
+
+```typescript
+const agentConfigs: AgentConfig[] = [
+  { id: "claude-code", name: "Claude Code", detectPath: "~/.claude" },
+  { id: "cursor", name: "Cursor", detectPath: "~/.cursor" },
+  { id: "codex", name: "Codex", detectPath: "~/.codex" },
+  // ... 30+ agents
+];
+```
+
+Detection runs concurrently for speed. Results are cached in settings.
+
+**Rationale**: Simple, fast, no external dependencies. Works offline.
+
 ### Decision: Effect Integration
 
-Structure the add command as:
+Structure the init and add commands as:
 
 1. **CLI layer** (yargs): Parse arguments, call handler
 2. **Handler** (Effect): Orchestrates the flow using Effect services
@@ -158,6 +198,8 @@ Use @clack/prompts for the interactive CLI experience:
 
 ```
 packages/cli/src/commands/
+  init.ts                      # Init command (yargs)
+  init.handler.ts              # Init handler (Effect)
   skills.ts                    # Parent command
   skills/
     add.ts                     # Add subcommand (yargs)
@@ -253,6 +295,7 @@ const hash = computeHash(skillDirectory); // SHA-256 of sorted files + contents
 ```
 
 **Rationale**:
+
 - Works with private repositories (no API auth needed)
 - Works offline after clone
 - Avoids GitHub API rate limits
@@ -283,18 +326,44 @@ SSH is the recommended method for private repositories. The CLI:
 
 ## Testing Strategy
 
-All business logic modules SHALL have unit tests. Integration tests cover the full flow.
+All business logic modules SHALL have unit tests. E2E tests cover CLI invocation.
 
 ### Unit Test Coverage
 
-| Module | Key Test Cases |
-|--------|----------------|
-| `source-parser.ts` | GitHub shorthand, URLs with refs, subpaths, SSH URLs, local paths, Windows paths |
-| `content-hash.ts` | Deterministic output, changes with content, ignores metadata |
-| `installer.ts` | Symlink creation, copy fallback, path construction |
-| `lockfile.ts` | YAML round-trip, version migration, partial updates |
-| `settings.ts` | JSON round-trip, merge behavior, defaults |
-| `git.ts` | Ref resolution, shallow clone options, error handling |
+| Module               | Key Test Cases                                                                   |
+| -------------------- | -------------------------------------------------------------------------------- |
+| `source-parser.ts`   | GitHub shorthand, URLs with refs, subpaths, SSH URLs, local paths, Windows paths |
+| `content-hash.ts`    | Deterministic output, changes with content, ignores metadata                     |
+| `installer.ts`       | Symlink creation, copy fallback, path construction                               |
+| `lockfile.ts`        | YAML round-trip, version migration, partial updates                              |
+| `settings.ts`        | JSON round-trip, merge behavior, defaults, ensureInitialized logic               |
+| `agent-detection.ts` | Concurrent detection, config directory checks, caching                           |
+| `git.ts`             | Ref resolution, shallow clone options, error handling                            |
+| `init.handler.ts`    | First-time init, already initialized, non-interactive mode                       |
+| `add.handler.ts`     | Full flow with mock services, error handling, implicit init trigger              |
+
+### E2E Test Coverage
+
+E2E tests use Vitest + execa to spawn the CLI as a subprocess, asserting on exit codes, stdout/stderr, and file system state.
+
+| Scenario                           | Assertions                                                   |
+| ---------------------------------- | ------------------------------------------------------------ |
+| `axm init`                         | Creates `.axm/settings.json`, detects agents                 |
+| `axm init --global`                | Creates `~/.axm/settings.json`                               |
+| `axm init` (already initialized)   | Shows "already initialized" message                          |
+| `axm init --yes`                   | Non-interactive, uses all detected agents                    |
+| `axm skills` without subcommand    | Shows help, lists available subcommands                      |
+| `axm skills add <source> --list`   | Lists available skills, exits 0                              |
+| `axm skills add <local> --all`     | Installs skills, creates `.axm/` structure, creates symlinks |
+| `axm skills add <invalid>`         | Shows error message, exits non-zero                          |
+| `axm skills add <source> --global` | Installs to `~/.axm/`, not project directory                 |
+| `axm skills add` (uninitialized)   | Triggers implicit init, then installs                        |
+
+E2E tests live in `packages/cli/e2e/` and use:
+
+- Isolated temp directories per test (cleaned up after)
+- Local path fixtures for mock skill repositories (avoids network)
+- `execa` to invoke the built CLI binary
 
 ### Testing Approach
 
@@ -302,9 +371,13 @@ All business logic modules SHALL have unit tests. Integration tests cover the fu
 
 2. **Effect services for I/O**: Git operations, file system access, and prompts are Effect services that can be replaced with test implementations.
 
-3. **Cross-platform path tests**: Use `path.posix` and `path.win32` to test path handling on any platform.
+3. **Handler unit tests**: The Effect handler (`add.handler.ts`) is tested with mock services injected, covering the orchestration logic.
 
-4. **Snapshot tests for lockfile/settings**: Verify file format stability with snapshot tests.
+4. **E2E for CLI wiring**: Yargs command definitions are tested via actual CLI invocation, not unit tests.
+
+5. **Cross-platform path tests**: Use `path.posix` and `path.win32` to test path handling on any platform.
+
+6. **Snapshot tests for lockfile/settings**: Verify file format stability with snapshot tests.
 
 ## Open Questions
 

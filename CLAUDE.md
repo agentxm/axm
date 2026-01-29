@@ -17,6 +17,16 @@ Apply these qualities to design, implementation, and verification:
 3. **Testable** - Easy to test units in isolation, integrations at boundaries.
    - [ ] Business logic pure and isolated from I/O
    - [ ] Tests at all layers (unit, integration, E2E)
+   - [ ] Testing approach:
+     - Unit tests for all meaningful business logic/functions in `@agentxm/core`
+     - Unit tests for Effect handler functions (e.g., `add.handler.ts`) with mock services
+     - E2E tests for CLI commands using Vitest + execa (spawn CLI as subprocess)
+   - [ ] E2E test patterns:
+     - Use `execa` to invoke the built CLI binary
+     - Isolated temp directory per test (cleanup after)
+     - Assert on exit codes, stdout/stderr, and file system state
+     - Test fixtures for mock repositories (local paths)
+     - Place in `packages/cli/e2e/` directory
    - [ ] Tests should be:
      - Isolated - Same results regardless of run order
      - Composable - Test dimensions separately

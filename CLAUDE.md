@@ -95,6 +95,23 @@ docs/guides/        # Reference documentation
 
 - OpenSpec workflow: `openspec/AGENTS.md`
 
+## Task Management Workflow
+
+This project uses **beads (`bd`) CLI** for ALL task management:
+
+- **Creating tasks**: Use `bd` to create new tasks
+- **Editing tasks**: Use `bd` to update task details
+- **Progress tracking**: Use `bd` to track task status and completion
+
+**Sub-agent spawning**: Always spawn a sub-agent (using the Task tool) to work on each individual task. This ensures:
+
+- Fresh context window for each task
+- Focused work without context pollution
+- Clean separation of concerns between tasks
+- Better token efficiency for complex work
+
+Do NOT use Claude Code's built-in task tools (TaskCreate, TaskUpdate, TaskList, etc.) for task management in this project.
+
 <!-- OPENSPEC:START -->
 
 # OpenSpec Instructions

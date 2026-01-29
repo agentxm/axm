@@ -63,7 +63,22 @@ Example: `handleInit(args: InitArgs)` is the entry point for the `init` command,
 ```
 packages/           # All packages live here
   cli/              # @agentxm/cli - Thin CLI layer (yargs parsing, Effect handler wiring)
+    e2e/              # End-to-end tests
+      init.test.ts
+    src/
+      commands/
+        <command>/
+          <subcommand>/
+            handler.ts
+            handler.test.ts
+          utils.ts  # Shared within this command module
+      utils/        # Shared across cli modules
   core/             # @agentxm/core - Domain logic, types, and utilities (no CLI concerns)
+    src/
+      experimental/
+        <module>/
+          parser.ts
+          parser.test.ts
 openspec/           # Spec-driven development
   specs/            # Implemented capabilities
     <capability>/

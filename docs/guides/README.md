@@ -1,9 +1,14 @@
-# Guide Authoring
+# Guides
 
 Guides provide orientation for human readers on weighty topics—explaining the
 "why" behind important decisions. Agent instructions belong in skills or
 CLAUDE.md, not guides. This guide covers when to create guides and how to
 structure them.
+
+## Skills
+
+- `/documentation` — Templates for README.md and CLAUDE.md
+- `/agent-docs` — Ultra-terse style for agent-facing docs
 
 ---
 
@@ -24,16 +29,9 @@ Create a guide when the topic:
 - **Benefits from orientation** — New team members need context to work
   effectively in this area
 
-### When a Guide Isn't Needed
+### Checklist
 
-Skip the guide when:
-
-- The topic is purely tactical (patterns, templates, checklists) — use a skill
-- The audience is agents, not humans — use a skill or CLAUDE.md
-- The scope is limited to one package or directory — use a README
-- The content is a one-time explanation — document inline or in a PR
-
-### When to Create a Guide Checklist
+Before creating a guide, verify:
 
 - [ ] **Conceptual depth** — Topic requires understanding "why," not just "how"
 - [ ] **Cross-cutting scope** — Guidance applies across multiple areas
@@ -41,65 +39,39 @@ Skip the guide when:
       use
 - [ ] **Orientation value** — Newcomers benefit from this context
 
----
-
-## Guides vs Skills
-
-| Aspect       | Guides                         | Skills                             |
-| ------------ | ------------------------------ | ---------------------------------- |
-| **Audience** | Humans                         | Agents (and humans)                |
-| **Purpose**  | Orientation, context, "why"    | Tactical patterns, "how-to"        |
-| **Content**  | Rationale, concepts, decisions | Templates, checklists, code blocks |
-| **Loading**  | Read on demand                 | Auto-loaded when relevant          |
-
-Guides explain the reasoning behind choices for human readers. Skills provide
-patterns that agents follow while working. A developer might read a guide once
-to understand an area, while the corresponding skill auto-loads for agents
-during related tasks.
+If the topic is purely tactical, agent-focused, or limited to one directory,
+use a skill, README, or CLAUDE.md instead.
 
 ---
 
 ## Guide Structure
 
 ```markdown
----
-status: active
-description: When should I read this guide? (one line)
----
-
 # Guide Title
 
 Purpose statement explaining what this guide covers and why it matters.
 
-## Skills
+## Key Resources <!-- omit if none -->
 
-- `/skill-name` — What this skill provides (agents auto-load these)
+- [Official Docs](https://example.com) — Authoritative reference
+- [Related Guide](./related-guide.md) — Essential context
+
+## Skills <!-- omit if none -->
+
+- `/skill-name` — What this skill provides
+- `/another-skill` — Another related skill
 
 ---
 
-## [Topic Section]
+## [Topic Sections] <!-- required -->
 
 Context explaining _why_ this topic matters and what decisions it informs.
 
-## Links
-
-- [Related Guide](./related-guide.md) — How this connects
-- [External Resource](https://example.com) — Authoritative reference
-```
-
-### Structure Checklist
-
-- [ ] **Frontmatter complete** — Has status and description
-- [ ] **Clear purpose** — Opening explains what the guide covers
-- [ ] **Skills after purpose** — Lists related skills early for quick reference
-- [ ] **Sections explain why** — Each section provides conceptual context, not
-      tactical patterns
-- [ ] **Links included** — Related guides, specs, or external references for
-      deeper exploration
-
 ---
 
-## Skills
+## See Also <!-- omit if none -->
 
-- `/documentation` — Templates for README.md and CLAUDE.md
-- `/agent-docs` — Ultra-terse style for agent-facing docs
+- [Notable Article](https://example.com) — Influential writing on the topic
+- [Deep Dive](https://example.com) — Further exploration
+- [Training Resource](https://example.com) — Learning materials
+```

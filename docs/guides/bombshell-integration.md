@@ -26,50 +26,14 @@ cancellation. Wrapping with Effect provides:
 
 ---
 
-## Cancellation Error Type
-
-Define a tagged error for user cancellation:
-
-```typescript
-import { Data } from "effect";
-
-export class UserCancelled extends Data.TaggedError("UserCancelled")<{
-  readonly prompt: string;
-}> {}
-```
-
-### Cancellation Error Checklist
-
-- [ ] **TaggedError used** — Error extends `Data.TaggedError`
-- [ ] **Includes prompt context** — Error includes which prompt was cancelled
-- [ ] **Consistent naming** — All cancellation errors use same type across CLI
-
----
-
 ## Wrapping Pattern
 
-Wrap each Bombshell prompt with `Effect.tryPromise` and cancellation check:
+Bombshell prompts must be wrapped with Effect for typed error handling. The key
+insight is that `p.isCancel()` must be checked after each prompt—the symbol
+return indicates user cancellation (Ctrl+C, Escape).
 
-```typescript
-import * as p from "@bomb.sh/clack";
-import { Effect } from "effect";
-
-export const text = (opts: Parameters<typeof p.text>[0]) =>
-  Effect.gen(function* () {
-    const result = yield* Effect.tryPromise({
-      try: () => p.text(opts),
-      catch: (error) => new PromptError({ cause: error }),
-    });
-
-    if (p.isCancel(result)) {
-      return yield* Effect.fail(
-        new UserCancelled({ prompt: opts.message ?? "text" }),
-      );
-    }
-
-    return result;
-  });
-```
+For wrapping pattern code and error type definitions, see the `/bombshell`
+skill.
 
 ### Wrapping Pattern Checklist
 
@@ -135,27 +99,11 @@ const wrapPrompt = <T>(
 
 ## TTY Detection
 
-Prompts require an interactive terminal. Check before prompting:
+Prompts require an interactive terminal. Without TTY detection, commands fail
+mysteriously when run in CI or piped contexts. Check before prompting to provide
+clear error messages guiding users toward flag alternatives.
 
-```typescript
-export const requireTTY = Effect.gen(function* () {
-  if (!process.stdin.isTTY) {
-    return yield* Effect.fail(
-      new NotInteractiveError({
-        message: "Interactive prompts require a TTY. Use flags instead.",
-      }),
-    );
-  }
-});
-
-// Usage in command handler
-const handler = (args: Args) =>
-  Effect.gen(function* () {
-    yield* requireTTY;
-    const name = yield* text({ message: "Enter name:" });
-    // ...
-  });
-```
+For TTY detection pattern code, see the `/bombshell` skill.
 
 ### TTY Detection Checklist
 
@@ -167,40 +115,11 @@ const handler = (args: Args) =>
 
 ## Non-Interactive Fallback
 
-Every prompt should have a flag equivalent for CI/scripted use:
+Every prompt should have a flag equivalent for CI/scripted use. The
+`promptOrFlag` pattern provides this cleanly—flag values skip prompting
+entirely, while missing flags trigger interactive prompts (with TTY check).
 
-```typescript
-const handler = (args: { name?: string }) =>
-  Effect.gen(function* () {
-    const name = args.name
-      ? Effect.succeed(args.name)
-      : Effect.gen(function* () {
-          yield* requireTTY;
-          return yield* text({ message: "Enter name:" });
-        });
-
-    const resolvedName = yield* name;
-    // ...
-  });
-```
-
-Or using a helper:
-
-```typescript
-export const promptOrFlag = <T>(
-  flagValue: T | undefined,
-  prompt: Effect.Effect<T, UserCancelled | NotInteractiveError>,
-) =>
-  flagValue !== undefined
-    ? Effect.succeed(flagValue)
-    : Effect.gen(function* () {
-        yield* requireTTY;
-        return yield* prompt;
-      });
-
-// Usage
-const name = yield * promptOrFlag(args.name, text({ message: "Enter name:" }));
-```
+For non-interactive fallback pattern code, see the `/bombshell` skill.
 
 ### Non-Interactive Fallback Checklist
 
@@ -212,31 +131,12 @@ const name = yield * promptOrFlag(args.name, text({ message: "Enter name:" }));
 
 ## Spinner Integration
 
-Spinners wrap long-running operations:
+Spinners wrap long-running operations to provide visual feedback. The key
+pattern is wrapping an Effect (not a Promise) so the spinner integrates with
+Effect's error handling—stopping with failure indicator on error, success
+message on completion.
 
-```typescript
-import * as p from "@bomb.sh/clack";
-
-export const withSpinner = <A, E, R>(
-  message: string,
-  effect: Effect.Effect<A, E, R>,
-  successMessage?: string,
-) =>
-  Effect.gen(function* () {
-    const spin = p.spinner();
-    spin.start(message);
-
-    const result = yield* effect.pipe(
-      Effect.tapError(() => Effect.sync(() => spin.stop("Failed", 1))),
-    );
-
-    spin.stop(successMessage ?? "Done");
-    return result;
-  });
-
-// Usage
-yield * withSpinner("Deploying...", deployEffect, "Deployed successfully");
-```
+For spinner helper pattern code, see the `/bombshell` skill.
 
 ### Spinner Checklist
 
@@ -289,26 +189,13 @@ export const makeTestPromptService = (responses: Map<string, unknown>) =>
 
 ## Error Types Summary
 
-```typescript
-import { Data } from "effect";
+Three error types cover all prompt failure modes:
 
-// User pressed Ctrl+C or Escape
-export class UserCancelled extends Data.TaggedError("UserCancelled")<{
-  readonly prompt: string;
-}> {}
+- **UserCancelled** — User pressed Ctrl+C or Escape during a prompt
+- **PromptError** — Unexpected prompt failure (rare, usually TTY issues)
+- **NotInteractiveError** — Attempted prompt in non-TTY environment
 
-// Prompt failed (rare, usually TTY issues)
-export class PromptError extends Data.TaggedError("PromptError")<{
-  readonly cause: unknown;
-}> {}
-
-// Not running in interactive terminal
-export class NotInteractiveError extends Data.TaggedError(
-  "NotInteractiveError",
-)<{
-  readonly message: string;
-}> {}
-```
+For error type definitions with code, see the `/bombshell` skill.
 
 ### Error Types Checklist
 
@@ -328,3 +215,12 @@ Use this checklist when integrating Bombshell prompts with Effect:
 - [ ] **Flags provided** — Every prompt has non-interactive flag alternative
 - [ ] **Spinners use Effect** — Spinner helpers wrap Effects, not Promises
 - [ ] **Errors are tagged** — All errors extend `Data.TaggedError`
+
+---
+
+## See Also
+
+- `/bombshell` skill — Ready-to-use code patterns for wrapping, TTY, spinners
+- [Clack Documentation](https://bomb.sh/docs/clack/) — Official prompt API
+  reference
+- [CLI Design Guidelines](cli-design-guidelines.md) — Broader CLI design context

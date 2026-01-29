@@ -6,8 +6,7 @@ user-invocable: false
 
 # Testing Patterns
 
-Apply these patterns when writing tests. For full rationale and examples, see
-[testing-guidelines.md](../../../docs/guides/testing-guidelines.md).
+Apply these patterns when writing tests.
 
 ---
 

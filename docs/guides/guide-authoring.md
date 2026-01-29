@@ -58,6 +58,8 @@ example separates concerns: prose explains _why_, checklist specifies _what_.
 
 For experienced authors needing a quick refresher, verify against:
 
+- [Guides and Skills Checklist](#guides-and-skills-checklist) — skill references,
+  no tactical duplication
 - [Core Principle Checklist](#core-principle-checklist) — single source,
   checklist authority
 - [Guide Structure Checklist](#guide-structure-checklist) — section endings,
@@ -65,6 +67,51 @@ For experienced authors needing a quick refresher, verify against:
 - [Cross-Guide Boundaries Checklist](#cross-guide-boundaries-checklist) — no
   duplication across guides
 - [Guide Quality Checklist](#guide-quality-checklist) — final verification
+
+---
+
+## Guides vs Skills
+
+Guides and [skills](https://code.claude.com/docs/en/skills) serve complementary
+roles. Understanding when to use each prevents duplication and ensures
+appropriate depth.
+
+| Aspect         | Guides                           | Skills                            |
+| -------------- | -------------------------------- | --------------------------------- |
+| **Purpose**    | Cohesive, high-level guidance    | Tactical, actionable patterns     |
+| **Content**    | Rationale, concepts, when-to-use | How-to, code patterns, checklists |
+| **Depth**      | Comprehensive reference          | Focused, task-specific            |
+| **Loading**    | Manual (read on demand)          | Auto-loaded when relevant         |
+| **Standalone** | References skills for tactics    | Self-contained, no external refs  |
+
+### When Content Belongs in a Skill
+
+Move content to a skill when it's:
+
+- Directly actionable (copy-paste patterns, checklists)
+- Needed during specific tasks (writing tests, designing services)
+- Better served by auto-loading than manual lookup
+
+### Referencing Skills from Guides
+
+When a guide covers a topic that has a corresponding skill, reference the skill
+for tactical details rather than duplicating them:
+
+```markdown
+For implementing retry policies, see the `/effect-service` skill which provides
+ready-to-use patterns.
+```
+
+This keeps guides focused on the "what" and "why" while skills handle the "how."
+
+### Guides and Skills Checklist
+
+- [ ] **No tactical duplication** — Tactical patterns live in skills, not guides
+- [ ] **Skills referenced** — Guides point to relevant skills for actionable
+      patterns
+- [ ] **Rationale in guides** — Conceptual explanations and rationale stay in
+      guides
+- [ ] **Clear handoff** — Reference explains what the skill provides
 
 ---
 
@@ -459,6 +506,8 @@ section-specific checklists above rather than duplicating their items.
       [Cross-Guide Boundaries Checklist](#cross-guide-boundaries-checklist) pass
 - [ ] **External Documentation Checklist** — All items in
       [External Documentation Checklist](#external-documentation-checklist) pass
+- [ ] **Guides and Skills Checklist** — All items in
+      [Guides and Skills Checklist](#guides-and-skills-checklist) pass
 
 ### Overall Structure
 
@@ -583,3 +632,12 @@ incomplete.
   — Aviation checklist philosophy including the 5-9 item limit
 - [Cognitive Load Theory](https://www.learningscientists.org/blog/2017/7/28-1) —
   Background on Miller's 7±2 and working memory constraints
+
+---
+
+## See Also
+
+- `/documentation` skill — Templates and checklists for README.md and CLAUDE.md
+- `/agent-docs` skill — Ultra-terse style patterns for agent-facing documentation
+- [Documentation Guidelines](documentation-guidelines.md) — Broader documentation
+  conventions

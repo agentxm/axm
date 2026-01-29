@@ -6,8 +6,7 @@ user-invocable: false
 
 # CLI Design Conventions
 
-Apply these conventions when working on CLI commands. For full rationale and
-examples, see [cli-design-guidelines.md](../../../docs/guides/cli-design-guidelines.md).
+Apply these conventions when working on CLI commands.
 
 ---
 

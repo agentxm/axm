@@ -6,8 +6,7 @@ user-invocable: false
 
 # Bombshell Integration with Effect
 
-Apply these patterns when wrapping Bombshell prompt APIs with Effect. For full
-rationale and examples, see [bombshell-integration.md](../../../docs/guides/bombshell-integration.md).
+Apply these patterns when wrapping Bombshell prompt APIs with Effect.
 
 ---
 

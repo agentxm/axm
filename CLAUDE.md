@@ -4,8 +4,6 @@ The `axm` CLI for managing extensions across AI coding agents.
 
 ## Quality Attributes
 
-- CLAUDE.md edits: ultra-terse, sacrifice grammar for brevity
-
 Apply these qualities to design, implementation, and verification:
 
 1. **Simple** - Use the simplest mechanism that works. Clear code beats clever code.
@@ -75,7 +73,9 @@ openspec/           # Spec-driven development
 docs/guides/        # Reference documentation
 ```
 
-## Guides
+## Guides and Skills
+
+**Guides** = high-level rationale, concepts, when-to-use. **Skills** = tactical patterns, checklists, how-to (standalone). Guides reference skills for tactics.
 
 | Guide                                                        | When to Use                                                       |
 | ------------------------------------------------------------ | ----------------------------------------------------------------- |
@@ -89,7 +89,7 @@ docs/guides/        # Reference documentation
 | `docs/guides/documentation-guidelines.md`                    | Creating or reviewing README.md, CLAUDE.md, guides, or specs      |
 | `docs/guides/guide-authoring.md`                             | Writing guides with checklists, structure, and cross-references   |
 
-**Auto-loading skills:** `effect-basics`, `effect-service`, `cli-conventions`, `bombshell`, `testing`, `documentation` load automatically when relevant.
+**Auto-loading skills:** `effect-basics`, `effect-service`, `cli-conventions`, `bombshell`, `testing`, `documentation`, `agent-docs` load automatically when relevant.
 
 ## Task Management Workflow
 

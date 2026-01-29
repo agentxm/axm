@@ -31,6 +31,8 @@ documentation that serves both audiences effectively.
 
 - [Guide Authoring](guide-authoring.md#guide-structure-pattern) — Consult when
   creating a new guide; provides template and checklist-first methodology
+- [Guide Authoring: Guides vs Skills](guide-authoring.md#guides-vs-skills) —
+  Consult when deciding whether content belongs in a guide or skill
 
 ---
 
@@ -90,26 +92,8 @@ from context and explanation—they're learning. Agent readers need operational
 brevity—they're executing. Matching style to audience prevents wasted attention
 for humans and wasted tokens for agents.
 
-### Style Reference
-
-| Aspect   | Human-Facing (README, guides, specs) | Agent-Facing (CLAUDE.md)            |
-| -------- | ------------------------------------ | ----------------------------------- |
-| Length   | Clear over brief                     | Extremely terse                     |
-| Grammar  | Complete sentences                   | Optional; sacrifice for brevity     |
-| Tone     | Friendly, approachable               | Direct, operational                 |
-| Context  | Explain "why" not just "what"        | No explanations needed              |
-| Examples | Help understanding                   | Only if essential for correct usage |
-
-### Example Translations
-
-_Illustrates: "Tone matches audience," "Grammar matches audience," "Context
-matches audience"_
-
-| Human-facing (README)                                          | Agent-facing (CLAUDE.md)       |
-| -------------------------------------------------------------- | ------------------------------ |
-| "Run the test suite before submitting a pull request."         | `pnpm test` before PR          |
-| "This package uses Effect for error handling and concurrency." | Effect for errors, concurrency |
-| "See the API documentation for available endpoints."           | API docs: `docs/api.md`        |
+For a quick reference table of style differences by audience, see the
+`/documentation` skill.
 
 ### Writing Style Checklist
 
@@ -130,14 +114,7 @@ How you sequence content affects comprehension. Poor flow forces readers to hold
 abstract concepts in memory before seeing examples, or to learn exceptions
 before understanding the rule. Good flow builds understanding progressively.
 
-### Flow Principles
-
-| Principle                    | Description                                         | Anti-pattern                            |
-| ---------------------------- | --------------------------------------------------- | --------------------------------------- |
-| **Show before tell**         | Brief example early grounds abstract rules          | All rules first, example at end         |
-| **Concept before exception** | Explain what something IS before when NOT to use it | "When not to use X" before defining X   |
-| **Progressive disclosure**   | Simple core first, nuanced details later            | Edge cases mixed with fundamentals      |
-| **Inverted pyramid**         | Key takeaway in first paragraph, details follow     | Burying the lead after lengthy preamble |
+For a quick reference table of flow principles, see the `/documentation` skill.
 
 ### Applying Flow Principles
 
@@ -236,34 +213,7 @@ first. A good README orients readers to what's here and how to navigate it,
 without duplicating content that lives elsewhere. This separation prevents
 information drift and keeps maintenance burden low.
 
-### Template
-
-_Illustrates: "H1 names directory," "One-line description," "Overview present,"
-"Structure explained," "Cross-references specs"_
-
-```markdown
-# Directory Name
-
-One-line description of what this contains.
-
-## Overview
-
-2-3 sentences expanding on purpose and scope.
-
-## Structure
-
-Brief explanation of how contents are organized.
-```
-
-### Scope Reference
-
-Use this table to decide what belongs in README vs elsewhere.
-
-| README scope                   | Lives elsewhere                         |
-| ------------------------------ | --------------------------------------- |
-| Directory organization         | API details → spec docs                 |
-| Navigation guidance            | Product behavior → functional specs     |
-| Links to authoritative sources | Implementation decisions → ADRs or code |
+For the README.md template and content examples, see the `/documentation` skill.
 
 ### README.md Checklist
 
@@ -286,32 +236,7 @@ explains what's here; CLAUDE.md tells agents how to work here—commands to run,
 patterns to follow, constraints to observe. This separation keeps human docs
 readable while giving agents the operational detail they need.
 
-### Content Examples
-
-_Illustrates: "Operational only"_
-
-| Content type            | Example                          |
-| ----------------------- | -------------------------------- |
-| Operational constraints | `pnpm typecheck` after .ts edits |
-| Pattern preferences     | Composition over inheritance     |
-| Tool-specific commands  | `nx affected` not `nx run-many`  |
-| Workflow details        | CI on push; no `--no-verify`     |
-| Coding standards        | Max 100 lines/file               |
-| Warnings                | Don't modify `dist/`             |
-
-### Template
-
-_Illustrates: "Extremely terse," "Context available"_
-
-```markdown
-# [Directory Name]
-
-> See README.md for context (if present).
-
-## Agent Instructions
-
-[Operational details for working in this directory]
-```
+For the CLAUDE.md template and content examples, see the `/documentation` skill.
 
 ### Nested Inheritance
 
@@ -353,15 +278,7 @@ to assess relevance; agents may rely on outdated or incomplete content without
 knowing. Status and description fields solve this by making reliability and
 purpose immediately visible.
 
-### Required Fields
-
-```yaml
----
-status: active
-description: When to consult this document and what guidance it provides.
-lastRefreshed: 2026-01-22
----
-```
+For the frontmatter template, see the `/documentation` skill.
 
 ### Field Definitions
 
@@ -688,3 +605,11 @@ These items apply to every documentation artifact.
 | Guides                  | See [Guide Authoring] |
 
 [Guide Authoring]: guide-authoring.md#guide-quality-checklist
+
+---
+
+## See Also
+
+- `/documentation` skill — Ready-to-use templates and quick reference tables
+- `/agent-docs` skill — Agent-specific documentation authoring patterns
+- [Guide Authoring](guide-authoring.md) — When creating guides specifically

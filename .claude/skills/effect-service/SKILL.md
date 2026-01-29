@@ -6,8 +6,7 @@ user-invocable: false
 
 # Effect Service Design Patterns
 
-Apply these patterns when designing Effect services in this codebase. For full
-rationale and examples, see [effect-service-design.md](../../../docs/guides/effect-service-design.md).
+Apply these patterns when designing Effect services in this codebase.
 
 ---
 

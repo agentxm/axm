@@ -51,30 +51,8 @@ dependencies:
 
 ## Unit Tests
 
-Unit tests verify pure business logic without dependencies.
-
-### Unit Test Pattern
-
-```typescript
-import { describe, it, expect } from "vitest";
-import { parseExtensionRef } from "./extension-ref.js";
-
-describe("parseExtensionRef", () => {
-  it("parses GitHub shorthand", () => {
-    const result = parseExtensionRef("owner/repo");
-    expect(result).toEqual({
-      type: "github",
-      owner: "owner",
-      repo: "repo",
-    });
-  });
-
-  it("returns error for invalid format", () => {
-    const result = parseExtensionRef("invalid");
-    expect(result).toBeInstanceOf(ParseError);
-  });
-});
-```
+Unit tests verify pure business logic without dependencies. For code patterns
+and examples, see the `/testing` skill.
 
 ### Unit Test Checklist
 
@@ -87,49 +65,8 @@ describe("parseExtensionRef", () => {
 
 ## Handler Tests
 
-Handler tests verify Effect handlers with mock service layers.
-
-### Handler Test Pattern
-
-```typescript
-import { describe, it, expect } from "vitest";
-import { Effect, Layer } from "effect";
-import { handleAdd } from "./add.handler.js";
-import { ExtensionService } from "@agentxm/core";
-
-describe("handleAdd", () => {
-  const mockExtensionService = {
-    add: vi.fn(() => Effect.succeed({ installed: true })),
-    list: vi.fn(() => Effect.succeed([])),
-  };
-
-  const TestLayer = Layer.succeed(ExtensionService, mockExtensionService);
-
-  it("adds extension successfully", async () => {
-    const result = await Effect.runPromise(
-      handleAdd({ ref: "owner/repo" }).pipe(Effect.provide(TestLayer)),
-    );
-
-    expect(result.installed).toBe(true);
-    expect(mockExtensionService.add).toHaveBeenCalledWith("owner/repo");
-  });
-
-  it("handles service errors", async () => {
-    mockExtensionService.add.mockReturnValueOnce(
-      Effect.fail(new ExtensionError({ message: "Not found" })),
-    );
-
-    const result = await Effect.runPromise(
-      handleAdd({ ref: "owner/repo" }).pipe(
-        Effect.provide(TestLayer),
-        Effect.either,
-      ),
-    );
-
-    expect(result._tag).toBe("Left");
-  });
-});
-```
+Handler tests verify Effect handlers with mock service layers. For code patterns
+and examples, see the `/testing` skill.
 
 ### Handler Test Checklist
 
@@ -142,45 +79,8 @@ describe("handleAdd", () => {
 
 ## E2E Tests
 
-E2E tests spawn the built CLI binary and verify end-to-end behavior.
-
-### E2E Test Setup
-
-```typescript
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { execa } from "execa";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
-describe("axm add", () => {
-  let tempDir: string;
-  const cli = (args: string[]) =>
-    execa("./dist/cli.js", args, { cwd: tempDir });
-
-  beforeEach(async () => {
-    tempDir = await mkdtemp(join(tmpdir(), "axm-test-"));
-  });
-
-  afterEach(async () => {
-    await rm(tempDir, { recursive: true, force: true });
-  });
-
-  it("adds extension from local path", async () => {
-    const { exitCode, stdout } = await cli(["add", "./fixtures/sample-ext"]);
-
-    expect(exitCode).toBe(0);
-    expect(stdout).toContain("Added sample-ext");
-  });
-
-  it("exits 1 for invalid reference", async () => {
-    const result = await cli(["add", "invalid"]).catch((e) => e);
-
-    expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Invalid extension reference");
-  });
-});
-```
+E2E tests spawn the built CLI binary and verify end-to-end behavior. For code
+patterns and setup examples, see the `/testing` skill.
 
 ### E2E Test Patterns
 
@@ -264,3 +164,10 @@ pnpm test packages/cli/e2e/
 # Run with coverage
 pnpm test -- --coverage
 ```
+
+---
+
+## See Also
+
+- `/testing` skill — Ready-to-use test patterns for unit, handler, and E2E tests
+- `/effect-service` skill — Service patterns including test layer construction

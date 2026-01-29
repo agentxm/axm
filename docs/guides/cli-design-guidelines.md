@@ -16,51 +16,13 @@ API patterns, see the
 
 ## yargs + Effect Architecture
 
-yargs handles argument parsing; Effect handles business logic. Use typed
-`CommandModule` with separate handler functions for testability:
+yargs handles argument parsing; Effect handles business logic. The key pattern
+is separating the `CommandModule` (yargs wiring) from the Effect handler
+function—this enables testing handlers independently without yargs lifecycle
+complexity.
 
-```typescript
-import type { CommandModule } from "yargs";
-import { Effect } from "effect";
-
-// 1. Define args interface
-interface DeployArgs {
-  target: string;
-  env: string;
-}
-
-// 2. Pure Effect handler (testable without yargs)
-const handleDeploy = (args: DeployArgs) =>
-  Effect.gen(function* () {
-    // Business logic here
-  });
-
-// 3. CommandModule wires yargs to handler
-export const deployCommand: CommandModule<{}, DeployArgs> = {
-  command: "deploy <target>",
-  describe: "Deploy to target environment",
-  builder: (yargs) =>
-    yargs
-      .positional("target", {
-        type: "string",
-        describe: "Deployment target",
-        demandOption: true,
-      })
-      .option("env", {
-        type: "string",
-        describe: "Environment",
-        default: "staging",
-      }),
-  handler: async (argv) => {
-    await Effect.runPromise(
-      handleDeploy({ target: argv.target, env: argv.env }),
-    );
-  },
-};
-```
-
-The `CommandModule<ParentArgs, ThisArgs>` generic provides full type
-inference—no casts needed in the handler.
+For the complete architecture pattern with code examples, see the
+`/cli-conventions` skill.
 
 ### yargs Quick Reference
 
@@ -90,14 +52,10 @@ For TypeScript, install `@types/yargs` and see the
 
 ## Command Structure and Naming
 
-```bash
-# Noun-verb structure with flags over positionals
-mycli <resource> <action> [flags]
-mycli deploy create --env staging
-
-# Use flags for clarity when multiple values needed
-mycli migrate --from mydb --to production  # Not: mycli migrate mydb production
-```
+Commands follow a noun-verb structure: `mycli <resource> <action> [flags]`. Use
+flags over positionals when multiple values are needed—flags are self-documenting
+while positionals rely on order. For code examples, see the `/cli-conventions`
+skill.
 
 ### Command Naming Checklist
 
@@ -202,29 +160,7 @@ The concise welcome should include:
 ### Implementation
 
 Override the default `demandCommand` error behavior to show help and exit
-cleanly:
-
-```typescript
-export const extensionsCommand: CommandModule = {
-  command: "extensions",
-  describe: "Manage extensions for AI coding agents",
-  builder: (yargs) =>
-    yargs
-      .command(addCommand)
-      .command(listCommand)
-      .command(removeCommand)
-      .demandCommand(1)
-      .fail((msg, err, yargs) => {
-        if (msg?.includes("Not enough non-option arguments")) {
-          yargs.showHelp();
-          process.exit(0); // Welcome, not an error
-        }
-        console.error(msg);
-        process.exit(1);
-      }),
-  handler: () => {},
-};
-```
+cleanly. For the implementation pattern, see the `/cli-conventions` skill.
 
 ### Parent Command Checklist
 
@@ -237,17 +173,8 @@ export const extensionsCommand: CommandModule = {
 
 ## Standard Flags
 
-yargs provides `--help` and `--version` automatically. Implement these
-additional flags when needed:
-
-| Flag                | Short | Purpose                       | Notes                           |
-| ------------------- | ----- | ----------------------------- | ------------------------------- |
-| `--verbose`         | `-v`  | Increase output detail        | Use `type: "count"` for `-vvv`  |
-| `--quiet`           | `-q`  | Suppress non-essential output | Use `conflicts: "verbose"`      |
-| `--json`            |       | Output as JSON                | Essential for scripting         |
-| `--no-color`        |       | Disable colored output        | Also respect `NO_COLOR` env var |
-| `--non-interactive` |       | Disable all prompts           | Required for CI                 |
-| `--yes`             | `-y`  | Skip confirmations            | Required for CI automation      |
+yargs provides `--help` and `--version` automatically. For the standard flags
+table, see the `/cli-conventions` skill.
 
 ### `--quiet` Behavior
 
@@ -284,32 +211,8 @@ Prompts are a user experience boundary—inconsistent styling or missing
 cancellation support breaks trust. Clack handles edge cases (terminal resize,
 Ctrl+C, piped input) so command authors focus on business logic.
 
-### Prompt Patterns
-
-```typescript
-import * as p from "@clack/prompts";
-import { Effect } from "effect";
-
-// Wrap prompts in Effect for consistent error handling
-const askEnvironment = Effect.tryPromise({
-  try: () =>
-    p.select({
-      message: "Select environment",
-      options: [
-        { value: "staging", label: "Staging" },
-        { value: "production", label: "Production", hint: "requires approval" },
-      ],
-    }),
-  catch: () => new PromptCancelledError(),
-});
-
-// Check for cancellation
-const result = await p.text({ message: "Project name?" });
-if (p.isCancel(result)) {
-  p.cancel("Operation cancelled.");
-  process.exit(0);
-}
-```
+For prompt code patterns and cancellation handling, see the `/cli-conventions`
+and `/bombshell` skills.
 
 ### Non-Interactive Mode
 
@@ -362,14 +265,8 @@ Use `implies: "apply"` on `--commit` to enforce dependency. Distinguish from
 ## Output Conventions
 
 Stream separation enables scripting: data to stdout, diagnostics to stderr.
-
-```typescript
-if (process.stdout.isTTY) {
-  // Interactive: colors, spinners, tables
-} else {
-  // Piped: plain text, no ANSI codes, one item per line
-}
-```
+Adapt output based on TTY detection—rich output in interactive terminals, plain
+text when piped. For TTY detection patterns, see the `/cli-conventions` skill.
 
 ### Color Semantics
 
@@ -461,15 +358,7 @@ p.outro("Done!");
 Use `.fail()` to customize error handling. Pass `false` to enable try/catch. For
 testing, use `.exitProcess(false)` and `.fail(false)`.
 
-### Error Message Format
-
-```
-✗ Could not find configuration file
-  Looked for: ./mycli.config.ts, ./mycli.config.json
-  Run 'mycli init' to create one.
-```
-
-Map Effect typed errors to user-facing messages with recovery actions.
+For error message format examples, see the `/cli-conventions` skill.
 
 ### Error Handling Checklist
 
@@ -485,56 +374,8 @@ Map Effect typed errors to user-facing messages with recovery actions.
 Test yargs validation and Effect handlers separately. This separation enables
 fast, focused tests without process lifecycle complexity.
 
-### yargs Validation Tests
-
-Test argument parsing by creating an isolated parser with process.exit disabled:
-
-```typescript
-import yargs from "yargs";
-import { describe, it, expect } from "vitest";
-import { deployCommand } from "./deploy.js";
-
-describe("deploy command validation", () => {
-  const createParser = () =>
-    yargs().command(deployCommand).exitProcess(false).fail(false);
-
-  it("requires target positional", () => {
-    expect(() => createParser().parse("deploy")).toThrow(
-      /Not enough non-option arguments/,
-    );
-  });
-
-  it("accepts valid arguments", () => {
-    const argv = createParser().parse("deploy production --env staging");
-    expect(argv.target).toBe("production");
-    expect(argv.env).toBe("staging");
-  });
-});
-```
-
-### Effect Handler Tests
-
-Test handlers directly with mocked services—no yargs involved:
-
-```typescript
-import { Effect, Layer } from "effect";
-import { describe, it, expect } from "vitest";
-import { handleDeploy } from "./deploy.js";
-
-describe("handleDeploy", () => {
-  it("deploys to target environment", async () => {
-    const TestLayer = Layer.succeed(DeployService, mockDeployService);
-
-    const result = await Effect.runPromise(
-      handleDeploy({ target: "production", env: "staging" }).pipe(
-        Effect.provide(TestLayer),
-      ),
-    );
-
-    expect(result).toEqual({ deployed: true });
-  });
-});
-```
+For testing patterns and code examples, see the `/cli-conventions` and
+`/testing` skills.
 
 ### Testing Checklist
 
@@ -678,3 +519,5 @@ mycli complete fish | source   # fish
   output components
 - [Tab Documentation](https://bomb.sh/docs/tab/) — Shell autocompletion
   integration
+- `/cli-conventions` skill — Ready-to-use patterns for commands, flags, testing
+- `/bombshell` skill — Effect wrappers for interactive prompts

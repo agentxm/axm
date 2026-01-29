@@ -85,63 +85,15 @@ for the underlying service and layer concepts.
 | Explicit interface | Clear contract, self-documenting | Can drift from implementation, hides errors |
 | Inferred from impl | Type-safe, no drift possible     | Less readable without IDE support           |
 
-### Inferred Interface Pattern
-
-_Illustrates: "Infer from implementation," "Explicit method signatures," "Tag
-after type"_
-
-```typescript
-import { Context, Effect } from "effect";
-
-// 1. Define the implementation with explicit method signatures
-const make = (config: Config) => {
-  const doSomething = (input: string): Effect.Effect<Result, MyError> =>
-    Effect.tryPromise({
-      try: () => externalApi.call(input),
-      catch: mapToMyError,
-    });
-
-  const getConfig = (): string => config.value;
-
-  return { doSomething, getConfig };
-};
-
-// 2. Infer the service type from the implementation
-export type MyService = ReturnType<typeof make>;
-
-// 3. Create the service tag
-export const MyService = Context.GenericTag<MyService>("MyService");
-
-// 4. Create the layer
-export const MyServiceLive = Layer.effect(
-  MyService,
-  Effect.gen(function* () {
-    // ... setup logic
-    return make(config);
-  }),
-);
-```
-
 ### Avoiding Circular References
 
-_Illustrates: "No return type on make," "Methods typed explicitly"_
+The `make` function must not have an explicit return type annotation—this would
+create a circular reference when using `ReturnType<typeof make>`. Instead, each
+method within `make` gets explicit return types, providing type safety without
+the circularity.
 
-```typescript
-// BAD: Circular reference
-const make = (config: Config): MyService => {
-  // ...
-};
-export type MyService = ReturnType<typeof make>; // Error: circular reference
-
-// GOOD: No circular reference
-const make = (config: Config) => {
-  const doSomething = (input: string): Effect.Effect<Result, MyError> =>
-    // ...
-
-  return { doSomething };
-};
-export type MyService = ReturnType<typeof make>; // Works!
-```
+For the complete service interface pattern with code examples, see the
+`/effect-service` skill.
 
 ### Service Interface Pattern Checklist
 
@@ -168,44 +120,8 @@ simple. See
 [Effect Error Management](https://effect.website/docs/error-management/two-error-types/)
 for comprehensive error handling patterns.
 
-### Tagged Error Pattern
-
-_Illustrates: "Use TaggedError," "Include retryable property," "Descriptive
-fields"_
-
-```typescript
-import { Data } from "effect";
-
-export class ApiError extends Data.TaggedError("ApiError")<{
-  readonly status?: number;
-  readonly message: string;
-  readonly retryable: boolean;
-}> {}
-
-export class ConfigError extends Data.TaggedError("ConfigError")<{
-  readonly message: string;
-}> {}
-```
-
-### Error Mapping Pattern
-
-_Illustrates: "Map at boundaries," "Determine retryability at mapping time"_
-
-```typescript
-const mapApiError = (error: unknown): ApiError => {
-  if (error instanceof ExternalApiError) {
-    return new ApiError({
-      status: error.status,
-      message: error.message,
-      retryable: error.status === 429 || error.status >= 500,
-    });
-  }
-  return new ApiError({
-    message: `Unexpected error: ${String(error)}`,
-    retryable: false,
-  });
-};
-```
+For tagged error and error mapping patterns with code examples, see the
+`/effect-service` skill.
 
 ### Error Type Design Checklist
 
@@ -233,42 +149,8 @@ and
 [`Layer.succeed`](https://effect.website/docs/context-management/layers#layersucceed)
 for layer construction APIs.
 
-### Environment-Based Layer
-
-_Illustrates: "Validate config in layer," "Fail with ConfigError"_
-
-```typescript
-export const MyServiceLive = Layer.effect(
-  MyService,
-  Effect.gen(function* () {
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-      return yield* Effect.fail(
-        new ConfigError({ message: "API_KEY is required" }),
-      );
-    }
-
-    return make({ apiKey });
-  }),
-);
-```
-
-### Test Layer Pattern
-
-_Illustrates: "Explicit config parameters," "Sensible defaults"_
-
-```typescript
-export const makeMyServiceLayer = (
-  config: Partial<Config> & { apiKey: string },
-) =>
-  Layer.succeed(
-    MyService,
-    make({
-      apiKey: config.apiKey,
-      timeout: config.timeout ?? DEFAULT_TIMEOUT,
-    }),
-  );
-```
+For environment-based and test layer patterns with code examples, see the
+`/effect-service` skill.
 
 ### Layer Construction Checklist
 
@@ -291,26 +173,7 @@ Define retry behavior alongside the service using Effect's
 `retryable` property on error types enables `Schedule.whileInput` to retry only
 appropriate errors.
 
-### Retry Policy Pattern
-
-_Illustrates: "Exponential backoff," "Bounded retries," "Retry on retryable
-only"_
-
-```typescript
-import { Duration, Schedule } from "effect";
-
-const retryPolicy = Schedule.exponential(Duration.seconds(1)).pipe(
-  Schedule.intersect(Schedule.recurs(3)),
-  Schedule.whileInput((error: ApiError) => error.retryable),
-);
-
-// Apply in service methods
-const doSomething = (input: string): Effect.Effect<Result, ApiError> =>
-  Effect.tryPromise({
-    try: () => api.call(input),
-    catch: mapApiError,
-  }).pipe(Effect.retry(retryPolicy));
-```
+For retry policy patterns with code examples, see the `/effect-service` skill.
 
 ### Retry Policy Checklist
 
@@ -323,3 +186,15 @@ const doSomething = (input: string): Effect.Effect<Result, ApiError> =>
       errors
 - [ ] **Policy per operation** — Different operations may need different retry
       policies
+
+---
+
+## See Also
+
+- `/effect-service` skill — Ready-to-use code patterns for all sections above
+- `/effect-basics` skill — Foundational Effect patterns (generators, error
+  handling)
+- [Effect Context](https://effect.website/docs/context-management/services-and-layers/) —
+  Official service and layer documentation
+- [Effect Error Management](https://effect.website/docs/error-management/two-error-types/) —
+  Official error handling patterns

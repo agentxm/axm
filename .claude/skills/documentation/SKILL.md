@@ -6,8 +6,7 @@ user-invocable: false
 
 # Documentation Conventions
 
-Apply these conventions when writing documentation. For full rationale and
-examples, see [documentation-guidelines.md](../../../docs/guides/documentation-guidelines.md).
+Apply these conventions when writing documentation.
 
 ---
 

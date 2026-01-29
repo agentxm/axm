@@ -14,9 +14,9 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/core/src/experimental/skills/types.ts`
-- [ ] Exports `Skill`, `AgentConfig`, `ParsedSource`, `Settings`, `LockEntry` types
-- [ ] Types align with design.md specifications
+- [x] File exists at `packages/core/src/experimental/skills/types.ts`
+- [x] Exports `Skill`, `AgentConfig`, `ParsedSource`, `Settings`, `LockEntry` types
+- [x] Types align with design.md specifications
 
 **Dependencies:** None
 
@@ -28,11 +28,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/core/src/experimental/skills/source-parser.ts`
-- [ ] Parses GitHub shorthand (`owner/repo`, `owner/repo@ref`)
-- [ ] Parses GitHub/GitLab URLs with branch and path extraction
-- [ ] Parses local paths (relative and absolute, POSIX and Windows)
-- [ ] Normalizes to canonical notation per design.md
+- [x] File exists at `packages/core/src/experimental/skills/source-parser.ts`
+- [x] Parses GitHub shorthand (`owner/repo`, `owner/repo@ref`)
+- [x] Parses GitHub/GitLab URLs with branch and path extraction
+- [x] Parses local paths (relative and absolute, POSIX and Windows)
+- [x] Normalizes to canonical notation per design.md
 
 **Dependencies:** TASK-1.1
 
@@ -44,10 +44,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/core/src/experimental/skills/agent-detection.ts`
-- [ ] Detects Claude Code, Cursor, Codex, and 30+ other supported agents
-- [ ] Returns list of detected agents with their config paths
-- [ ] Runs detection concurrently for speed
+- [x] File exists at `packages/core/src/experimental/skills/agent-detection.ts`
+- [x] Detects Claude Code, Cursor, Codex, and 30+ other supported agents
+- [x] Returns list of detected agents with their config paths
+- [x] Runs detection concurrently for speed
 
 **Dependencies:** TASK-1.1
 
@@ -59,9 +59,9 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/core/src/experimental/skills/skill-discovery.ts`
-- [ ] Discovers all SKILL.md files (case-insensitive) in a directory tree
-- [ ] Returns skill metadata including name and path
+- [x] File exists at `packages/core/src/experimental/skills/skill-discovery.ts`
+- [x] Discovers all SKILL.md files (case-insensitive) in a directory tree
+- [x] Returns skill metadata including name and path
 
 **Dependencies:** TASK-1.1
 
@@ -73,10 +73,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/core/src/experimental/skills/installer.ts`
-- [ ] Creates symlinks from agent skill directories to canonical `.axm/skills/`
-- [ ] Falls back to copy when symlink fails
-- [ ] Uses `path.relative()` for portable symlink targets
+- [x] File exists at `packages/core/src/experimental/skills/installer.ts`
+- [x] Creates symlinks from agent skill directories to canonical `.axm/skills/`
+- [x] Falls back to copy when symlink fails
+- [x] Uses `path.relative()` for portable symlink targets
 
 **Dependencies:** TASK-1.1
 
@@ -88,11 +88,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/core/src/experimental/skills/settings.ts`
-- [ ] Reads and writes JSON with version, agents, and skills fields
-- [ ] Merges new skills without losing existing entries
-- [ ] Stores canonical source notation
-- [ ] Exports `ensureInitialized()` for implicit initialization
+- [x] File exists at `packages/core/src/experimental/skills/settings.ts`
+- [x] Reads and writes JSON with version, agents, and skills fields
+- [x] Merges new skills without losing existing entries
+- [x] Stores canonical source notation
+- [x] Exports `ensureInitialized()` for implicit initialization
 
 **Dependencies:** TASK-1.1
 
@@ -104,10 +104,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/core/src/experimental/skills/lockfile.ts`
-- [ ] Reads and writes YAML with version and skills fields
-- [ ] Stores source, skillPath, commitSha, contentHash, installedAt, updatedAt
-- [ ] Partial updates preserve existing entries
+- [x] File exists at `packages/core/src/experimental/skills/lockfile.ts`
+- [x] Reads and writes YAML with version and skills fields
+- [x] Stores source, skillPath, commitSha, contentHash, installedAt, updatedAt
+- [x] Partial updates preserve existing entries
 
 **Dependencies:** TASK-1.1
 
@@ -119,10 +119,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/core/src/experimental/skills/content-hash.ts`
-- [ ] Computes SHA-256 hash from sorted file paths and contents
-- [ ] Hash is deterministic for same content
-- [ ] Hash is independent of file system metadata (timestamps, permissions)
+- [x] File exists at `packages/core/src/experimental/skills/content-hash.ts`
+- [x] Computes SHA-256 hash from sorted file paths and contents
+- [x] Hash is deterministic for same content
+- [x] Hash is independent of file system metadata (timestamps, permissions)
 
 **Dependencies:** TASK-1.1
 
@@ -134,10 +134,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/core/src/experimental/skills/git.ts`
-- [ ] Clones repositories at specified refs (tags, branches, SHAs)
-- [ ] Uses `stdio: 'inherit'` to allow SSH passphrase prompts
-- [ ] Resolves refs to commit SHAs for lockfile
+- [x] File exists at `packages/core/src/experimental/skills/git.ts`
+- [x] Clones repositories at specified refs (tags, branches, SHAs)
+- [x] Uses `stdio: 'inherit'` to allow SSH passphrase prompts
+- [x] Resolves refs to commit SHAs for lockfile
 
 **Dependencies:** TASK-1.1
 
@@ -149,11 +149,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/core/src/experimental/skills/wellknown.ts`
-- [ ] Fetches `/.well-known/skills/index.json` from HTTP(S) hosts
-- [ ] Validates index structure (skills array with name, description, files)
-- [ ] Fetches all files listed in index entry, not just SKILL.md
-- [ ] Excludes GitHub/GitLab hosts (handled separately)
+- [x] File exists at `packages/core/src/experimental/skills/wellknown.ts`
+- [x] Fetches `/.well-known/skills/index.json` from HTTP(S) hosts
+- [x] Validates index structure (skills array with name, description, files)
+- [x] Fetches all files listed in index entry, not just SKILL.md
+- [x] Excludes GitHub/GitLab hosts (handled separately)
 
 **Dependencies:** TASK-1.1
 
@@ -165,8 +165,8 @@
 
 **Acceptance Criteria:**
 
-- [ ] File exists at `packages/core/src/experimental/skills/index.ts`
-- [ ] Exports all public functions and types from submodules
+- [x] File exists at `packages/core/src/experimental/skills/index.ts`
+- [x] Exports all public functions and types from submodules
 
 **Dependencies:** TASK-1.2, TASK-1.3, TASK-1.4, TASK-1.5, TASK-1.6, TASK-1.7, TASK-1.8, TASK-1.9, TASK-1.9a
 
@@ -178,9 +178,9 @@
 
 **Acceptance Criteria:**
 
-- [ ] `packages/core/package.json` exports `./experimental/skills`
-- [ ] Types and import paths resolve correctly
-- [ ] `pnpm build` succeeds
+- [x] `packages/core/package.json` exports `./experimental/skills`
+- [x] Types and import paths resolve correctly
+- [x] `pnpm build` succeeds
 
 **Dependencies:** TASK-1.10
 

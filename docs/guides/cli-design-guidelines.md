@@ -162,6 +162,78 @@ yargs(hideBin(process.argv))
 
 ---
 
+## Parent Command Behavior
+
+Parent commands (and the root command) should welcome users when invoked without
+arguments—help them discover what's available rather than scold them for not
+knowing. As [clig.dev](https://clig.dev/) puts it: "concise guidance at first
+invocation helps users learn your program conversationally."
+
+```bash
+# ❌ Feels like an error (avoid)
+$ mycli extensions
+Error: Please specify a command
+Run 'mycli extensions --help' for usage
+
+# ✅ Feels like a menu (preferred)
+$ mycli extensions
+Manage extensions for AI coding agents.
+
+Commands:
+  mycli extensions add <source>   Add an extension
+  mycli extensions list           List installed extensions
+  mycli extensions remove <name>  Remove an extension
+
+Examples:
+  mycli extensions add ./my-ext   Add from local path
+  mycli extensions list           Show all extensions
+
+Run 'mycli extensions <command> --help' for detailed usage.
+```
+
+The concise welcome should include:
+
+- **Description** — What this command group does
+- **Available subcommands** — What actions are available
+- **Example or two** — Common usage patterns
+- **Pointer to more help** — How to get detailed information
+
+### Implementation
+
+Override the default `demandCommand` error behavior to show help and exit
+cleanly:
+
+```typescript
+export const extensionsCommand: CommandModule = {
+  command: "extensions",
+  describe: "Manage extensions for AI coding agents",
+  builder: (yargs) =>
+    yargs
+      .command(addCommand)
+      .command(listCommand)
+      .command(removeCommand)
+      .demandCommand(1)
+      .fail((msg, err, yargs) => {
+        if (msg?.includes("Not enough non-option arguments")) {
+          yargs.showHelp();
+          process.exit(0); // Welcome, not an error
+        }
+        console.error(msg);
+        process.exit(1);
+      }),
+  handler: () => {},
+};
+```
+
+### Parent Command Checklist
+
+- [ ] **Welcome, don't scold** — No arguments shows help, exits 0
+- [ ] **Shows subcommands** — Lists available actions
+- [ ] **Includes examples** — 1-2 common usage patterns
+- [ ] **Points to more help** — Tells user how to get detailed usage
+
+---
+
 ## Standard Flags
 
 yargs provides `--help` and `--version` automatically. Implement these

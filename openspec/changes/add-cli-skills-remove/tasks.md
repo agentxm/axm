@@ -15,10 +15,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] `packages/cli/src/commands/skills/remove/handler.ts` exists
-- [ ] Handler exports `handleRemove` function returning Effect
-- [ ] Handler prints "Hello Alex" to console
-- [ ] Unit test in `handler.test.ts` verifies output
+- [x] `packages/cli/src/commands/skills/remove/handler.ts` exists
+- [x] Handler exports `handleRemove` function returning Effect
+- [x] Handler prints "Hello Alex" to console
+- [x] Unit test in `handler.test.ts` verifies output
 
 **Dependencies:** None
 
@@ -31,11 +31,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] `packages/cli/src/commands/skills/remove/command.ts` exists
-- [ ] Command exports `removeCommand` as CommandModule
-- [ ] Command uses `"remove"` as command string
-- [ ] Command has describe text for help
-- [ ] Unit test in `command.test.ts` verifies command structure
+- [x] `packages/cli/src/commands/skills/remove/command.ts` exists
+- [x] Command exports `removeCommand` as CommandModule
+- [x] Command uses `"remove"` as command string
+- [x] Command has describe text for help
+- [x] Unit test in `command.test.ts` verifies command structure
 
 **Dependencies:** TASK-1.1
 
@@ -48,8 +48,8 @@
 
 **Acceptance Criteria:**
 
-- [ ] `packages/cli/src/commands/skills/command.ts` imports and registers `removeCommand`
-- [ ] `axm skills --help` shows remove in sub-commands list
+- [x] `packages/cli/src/commands/skills/command.ts` imports and registers `removeCommand`
+- [x] `axm skills --help` shows remove in sub-commands list
 
 **Dependencies:** TASK-1.2
 
@@ -67,10 +67,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] `packages/cli/e2e/skills-remove.test.ts` exists
-- [ ] Test verifies `axm skills remove` outputs "Hello Alex"
-- [ ] Test verifies exit code 0
-- [ ] `pnpm test:e2e` passes
+- [x] `packages/cli/e2e/skills-remove.test.ts` exists
+- [x] Test verifies `axm skills remove` outputs "Hello Alex"
+- [x] Test verifies exit code 0
+- [x] `pnpm test:e2e` passes
 
 **Dependencies:** TASK-1.3
 
@@ -83,8 +83,8 @@
 
 **Acceptance Criteria:**
 
-- [ ] `pnpm test` exits 0
-- [ ] `pnpm test:e2e` exits 0
-- [ ] `pnpm typecheck` exits 0
+- [x] `pnpm test` exits 0
+- [x] `pnpm test:e2e` exits 0
+- [x] `pnpm typecheck` exits 0
 
 **Dependencies:** TASK-2.1

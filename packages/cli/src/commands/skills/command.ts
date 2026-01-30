@@ -1,5 +1,6 @@
 import type { CommandModule } from "yargs";
 import { addCommand } from "./add/command.js";
+import { removeCommand } from "./remove/command.js";
 
 export const skillsCommand: CommandModule = {
   command: "skills",
@@ -7,6 +8,7 @@ export const skillsCommand: CommandModule = {
   builder: (yargs) =>
     yargs
       .command(addCommand)
+      .command(removeCommand)
       .demandCommand(1)
       .example("$0 skills add owner/repo", "Add skills from a GitHub repository")
       .example("$0 skills add owner/repo@v1.0.0", "Add skills from a specific version")

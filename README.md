@@ -1,6 +1,10 @@
-# AgentXM
+# axm - the Open Agent extension manager
 
-Open source packages for AgentXM.ai - discover, create, and share agent extensions.
+Manage agent skills, commands, sub-agents, MCP servers, and rules for your Claude Code, Codex, Gemini CLI, GitHub Copilot, OpenCode, and more.
+
+## Use axm to...
+
+-
 
 ## Packages
 

@@ -1,6 +1,7 @@
 ---
 name: beads-execute-task
 description: Implement a single bead task (used by sub-agents). Called by /beads-execute-plan, not directly by users.
+user-invocable: false
 context: fork
 agent: general-purpose
 allowed-tools: Bash(bd *), Read, Write, Edit, Glob, Grep

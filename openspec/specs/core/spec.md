@@ -3,9 +3,7 @@
 ## Purpose
 
 TBD - created by archiving change add-core-package. Update Purpose after archive.
-
 ## Requirements
-
 ### Requirement: Package Structure
 
 The core package SHALL be located at `packages/core` and published as `@agentxm/core`.
@@ -35,12 +33,18 @@ The core package SHALL use Effect for domain logic and expose Effect-based APIs.
 
 ### Requirement: Testability
 
-The core package SHALL include a Vitest configuration for unit testing.
+The core package SHALL include a Vitest configuration for unit testing. Tests SHALL be colocated with source files, not placed in separate `__tests__/` directories.
 
 #### Scenario: Running tests
 
 - **WHEN** `pnpm test` is run from the monorepo root
 - **THEN** core package tests are executed
+
+#### Scenario: Test file location
+
+- **WHEN** a test file exists for a module
+- **THEN** the test file is colocated as `<module>.test.ts` alongside `<module>.ts`
+- **AND** tests are NOT placed in separate `__tests__/` directories
 
 ### Requirement: Experimental Subpath Export
 
@@ -66,3 +70,4 @@ The core package SHALL NOT depend on CLI-specific concerns (yargs, process argum
 - **WHEN** inspecting package.json dependencies
 - **THEN** `@agentxm/cli` depends on `@agentxm/core`
 - **AND** `@agentxm/core` does NOT depend on `@agentxm/cli`
+

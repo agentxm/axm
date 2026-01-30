@@ -26,6 +26,7 @@ Your responsibilities:
 - Wait for sub-agents to complete
 - Check for newly unblocked tasks
 - Close epics when phases complete
+- **LOOP to next phase until ALL phases are done** (for full plan execution)
 
 **NEVER do any of the following in this context:**
 
@@ -53,11 +54,13 @@ Every task—even "simple" ones—must be spawned to a sub-agent. This ensures:
 
 ## Workflow
 
+**CRITICAL LOOP REQUIREMENT**: For full plan execution (the default), you MUST continue executing phases until ALL phases are complete. Do NOT summarize or stop after completing a single phase. The workflow below is a LOOP that repeats for each phase.
+
 ### Step 1: Determine execution mode
 
 Parse `$ARGUMENTS` to determine what to execute:
 
-**Full plan execution** (default): If arguments contain only a file path (no phase name or epic ID), execute ALL remaining open phases in order.
+**Full plan execution** (default): If arguments contain only a file path (no phase name or epic ID), execute ALL remaining open phases in order. **You MUST loop through ALL phases—do not stop after one phase.**
 
 **Scoped execution**: If arguments include a phase name or epic ID, execute only that specific scope.
 
@@ -145,21 +148,30 @@ bd close <epic-id> --reason "All phase tasks complete"
 
 For phases with document update tasks, invoke `/beads-close-phase <epic-id>` to handle markdown updates.
 
-### Step 8: Continue to next phase (full plan execution only)
+### Step 8: LOOP — Continue to next phase (full plan execution)
 
-**For full plan execution**: After closing a phase, check if more phases remain:
+**CRITICAL FOR FULL PLAN EXECUTION: You MUST continue to the next phase. Do NOT summarize or stop here.**
+
+After closing a phase, IMMEDIATELY check for more phases:
 
 ```bash
 bd list --status=open --type=epic
 ```
 
-If open phase epics remain:
+**If open phase epics remain (this is the common case):**
 
 1. Identify the next phase (lowest phase number)
-2. Return to Step 2 and execute that phase
-3. Repeat until all phases are complete
+2. **IMMEDIATELY return to Step 2** and execute that phase
+3. **Repeat this loop until NO open phases remain**
 
-**Do NOT stop after completing one phase** unless running in scoped execution mode.
+**STOP ONLY when `bd list --status=open --type=epic` returns NO open epics.**
+
+Do NOT:
+
+- Summarize progress after each phase
+- Ask the user if they want to continue
+- Stop to report intermediate results
+- Output anything except brief status before continuing
 
 ### Step 9: Run cleanup after plan completion
 
@@ -243,9 +255,17 @@ bd update <task-id> --status=in-progress
 bd close <task-id> --reason "..."
 ```
 
-## Output
+## Output (ONLY when fully complete)
 
-Summarize:
+**Do NOT output a summary until ALL phases are complete or you hit a human gate.**
+
+Only summarize when:
+
+- All phases are closed (for full plan execution), OR
+- The scoped phase is closed (for scoped execution), OR
+- A human verification gate blocks further progress
+
+Summary should include:
 
 - Execution mode (full plan vs scoped)
 - Phases executed and completed

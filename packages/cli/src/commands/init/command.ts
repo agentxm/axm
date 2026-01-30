@@ -7,6 +7,10 @@ interface InitArgs {
   global: boolean;
   agent: string[];
   yes: boolean;
+  verbose?: boolean;
+  quiet?: boolean;
+  json?: boolean;
+  "non-interactive"?: boolean;
 }
 
 // biome-ignore lint/complexity/noBannedTypes: {} is the yargs convention for no parent args
@@ -41,6 +45,10 @@ export const initCommand: CommandModule<{}, InitArgs> = {
       global: argv.global,
       agent: argv.agent,
       yes: argv.yes,
+      verbose: argv.verbose,
+      quiet: argv.quiet,
+      json: argv.json,
+      nonInteractive: argv["non-interactive"],
     }).pipe(
       Effect.catchAll((error) =>
         Effect.sync(() => {

@@ -53,6 +53,14 @@ export interface AddArgs {
   readonly list: boolean;
   /** Install all available skills */
   readonly all: boolean;
+  /** Increase output detail */
+  readonly verbose?: boolean | undefined;
+  /** Suppress non-essential output */
+  readonly quiet?: boolean | undefined;
+  /** Output as JSON */
+  readonly json?: boolean | undefined;
+  /** Disable all prompts */
+  readonly nonInteractive?: boolean | undefined;
 }
 
 // -----------------------------------------------------------------------------

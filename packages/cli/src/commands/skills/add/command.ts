@@ -12,6 +12,10 @@ interface AddArgs {
   yes: boolean;
   list: boolean;
   all: boolean;
+  verbose?: boolean;
+  quiet?: boolean;
+  json?: boolean;
+  "non-interactive"?: boolean;
 }
 
 // biome-ignore lint/complexity/noBannedTypes: {} is the yargs convention for no parent args
@@ -81,6 +85,10 @@ export const addCommand: CommandModule<{}, AddArgs> = {
       yes: argv.yes,
       list: argv.list,
       all: argv.all,
+      verbose: argv.verbose,
+      quiet: argv.quiet,
+      json: argv.json,
+      nonInteractive: argv["non-interactive"],
     }).pipe(
       Effect.catchAll((error) =>
         Effect.sync(() => {

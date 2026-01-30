@@ -16,6 +16,24 @@ export const program = Effect.gen(function* () {
       .version(version)
       .help()
       .strict()
+      .option("verbose", {
+        alias: "v",
+        type: "boolean",
+        describe: "Increase output detail",
+      })
+      .option("quiet", {
+        alias: "q",
+        type: "boolean",
+        describe: "Suppress non-essential output",
+      })
+      .option("json", {
+        type: "boolean",
+        describe: "Output as JSON",
+      })
+      .option("non-interactive", {
+        type: "boolean",
+        describe: "Disable all prompts",
+      })
       .command(initCommand)
       .command(skillsCommand)
       .example("$0 init", "Initialize axm in current project")

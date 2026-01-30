@@ -35,6 +35,14 @@ export interface InitArgs {
   readonly agent: readonly string[];
   /** Skip confirmations and use all detected agents */
   readonly yes: boolean;
+  /** Increase output detail */
+  readonly verbose?: boolean | undefined;
+  /** Suppress non-essential output */
+  readonly quiet?: boolean | undefined;
+  /** Output as JSON */
+  readonly json?: boolean | undefined;
+  /** Disable all prompts */
+  readonly nonInteractive?: boolean | undefined;
 }
 
 // -----------------------------------------------------------------------------

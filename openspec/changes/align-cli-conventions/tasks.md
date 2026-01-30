@@ -15,12 +15,12 @@
 
 **Acceptance Criteria:**
 
-- [ ] `packages/cli/src/main.ts` defines `--verbose` (`-v`) boolean flag
-- [ ] `packages/cli/src/main.ts` defines `--quiet` (`-q`) boolean flag
-- [ ] `packages/cli/src/main.ts` defines `--json` boolean flag
-- [ ] `packages/cli/src/main.ts` defines `--non-interactive` boolean flag
-- [ ] Running `axm --help` shows all four standard flags
-- [ ] `pnpm typecheck` exits 0
+- [x] `packages/cli/src/main.ts` defines `--verbose` (`-v`) boolean flag
+- [x] `packages/cli/src/main.ts` defines `--quiet` (`-q`) boolean flag
+- [x] `packages/cli/src/main.ts` defines `--json` boolean flag
+- [x] `packages/cli/src/main.ts` defines `--non-interactive` boolean flag
+- [x] Running `axm --help` shows all four standard flags
+- [x] `pnpm typecheck` exits 0
 
 **Dependencies:** None
 
@@ -33,9 +33,9 @@
 
 **Acceptance Criteria:**
 
-- [ ] `InitArgs` interface includes `verbose`, `quiet`, `json`, `nonInteractive` fields
-- [ ] `command.ts` passes standard flags to handler
-- [ ] `pnpm typecheck` exits 0
+- [x] `InitArgs` interface includes `verbose`, `quiet`, `json`, `nonInteractive` fields
+- [x] `command.ts` passes standard flags to handler
+- [x] `pnpm typecheck` exits 0
 
 **Dependencies:** TASK-1.1
 
@@ -48,9 +48,9 @@
 
 **Acceptance Criteria:**
 
-- [ ] `AddArgs` interface includes `verbose`, `quiet`, `json`, `nonInteractive` fields
-- [ ] `command.ts` passes standard flags to handler
-- [ ] `pnpm typecheck` exits 0
+- [x] `AddArgs` interface includes `verbose`, `quiet`, `json`, `nonInteractive` fields
+- [x] `command.ts` passes standard flags to handler
+- [x] `pnpm typecheck` exits 0
 
 **Dependencies:** TASK-1.1
 

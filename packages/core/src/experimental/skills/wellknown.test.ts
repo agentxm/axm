@@ -17,7 +17,7 @@ import {
 import { NodeFileSystem } from "@effect/platform-node";
 import { Effect, Layer } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { WellKnownIndex } from "../types.js";
+import type { WellKnownIndex } from "./types.js";
 import {
   discoverWellKnownSkills,
   fetchSkillFiles,
@@ -26,7 +26,7 @@ import {
   WellKnownFetchError,
   WellKnownInvalidIndexError,
   WellKnownNotFoundError,
-} from "../wellknown.js";
+} from "./wellknown.js";
 
 describe("wellknown", () => {
   let tempDir: string;

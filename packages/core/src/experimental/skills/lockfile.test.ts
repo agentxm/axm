@@ -5,8 +5,8 @@ import type { FileSystem } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
 import { Effect } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { readLockfile, removeLockEntry, updateLockEntry, writeLockfile } from "../lockfile.js";
-import type { LockEntry, Lockfile } from "../types.js";
+import { readLockfile, removeLockEntry, updateLockEntry, writeLockfile } from "./lockfile.js";
+import type { LockEntry, Lockfile } from "./types.js";
 
 describe("lockfile", () => {
   let tempDir: string;

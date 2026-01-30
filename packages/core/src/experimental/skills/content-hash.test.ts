@@ -11,7 +11,7 @@ import type { FileSystem, Path } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
 import { Effect } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { computeContentHash, HashError } from "../content-hash.js";
+import { computeContentHash, HashError } from "./content-hash.js";
 
 describe("content-hash", () => {
   let tempDir: string;

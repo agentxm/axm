@@ -12,8 +12,8 @@ import {
   readSettings,
   updateSettings,
   writeSettings,
-} from "../settings.js";
-import type { Settings, SkillSettings } from "../types.js";
+} from "./settings.js";
+import type { Settings, SkillSettings } from "./types.js";
 
 describe("settings", () => {
   let tempDir: string;

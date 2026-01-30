@@ -10,7 +10,7 @@ import {
   getAgentById,
   getSupportedAgentIds,
   SUPPORTED_AGENTS,
-} from "../agent-detection.js";
+} from "./agent-detection.js";
 
 describe("agent-detection", () => {
   describe("SUPPORTED_AGENTS", () => {

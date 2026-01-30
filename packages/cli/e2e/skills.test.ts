@@ -7,21 +7,19 @@ import { runCli } from "./utils.js";
 
 describe("axm skills", () => {
   describe("without subcommand", () => {
-    it("shows error and available subcommands", async () => {
+    it("shows help and exits cleanly", async () => {
       const result = await runCli(["skills"]);
 
-      // Should exit with error due to demandCommand
-      expect(result.exitCode).not.toBe(0);
-
-      // Should indicate a subcommand is required
-      expect(result.stderr).toContain("Please specify a sub-command");
+      // Per spec: exits with code 0 and shows help
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain("Manage skills");
     });
 
-    it("shows available subcommands in help hint", async () => {
+    it("shows available subcommands", async () => {
       const result = await runCli(["skills"]);
 
       // Should mention the add subcommand in output
-      expect(result.stderr).toMatch(/add/i);
+      expect(result.stdout).toMatch(/add/i);
     });
   });
 

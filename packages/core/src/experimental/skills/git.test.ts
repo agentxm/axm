@@ -9,7 +9,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { Effect } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { cloneRepo, GitError, getCurrentCommit, resolveRef } from "../git.js";
+import { cloneRepo, GitError, getCurrentCommit, resolveRef } from "./git.js";
 
 describe("git", () => {
   let tempDir: string;

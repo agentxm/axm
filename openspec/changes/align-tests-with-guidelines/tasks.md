@@ -63,11 +63,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test added to `packages/cli/e2e/root.test.ts` (new file)
-- [ ] Test verifies exit code 0 when running `axm` without arguments
-- [ ] Test verifies output contains available commands (`init`, `skills`)
-- [ ] Test verifies output contains examples
-- [ ] `pnpm test:e2e packages/cli/e2e/root.test.ts` exits 0
+- [x] Test added to `packages/cli/e2e/root.test.ts` (new file)
+- [x] Test verifies exit code 0 when running `axm` without arguments
+- [x] Test verifies output contains available commands (`init`, `skills`)
+- [x] Test verifies output contains examples
+- [x] `pnpm test:e2e packages/cli/e2e/root.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -87,10 +87,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file moved using `git mv`
-- [ ] New location: `packages/core/src/experimental/skills/source-parser.test.ts`
-- [ ] All imports updated if needed
-- [ ] `pnpm test packages/core/src/experimental/skills/source-parser.test.ts` exits 0
+- [x] Test file moved using `git mv`
+- [x] New location: `packages/core/src/experimental/skills/source-parser.test.ts`
+- [x] All imports updated if needed
+- [x] `pnpm test packages/core/src/experimental/skills/source-parser.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -106,10 +106,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file moved using `git mv`
-- [ ] New location: `packages/core/src/experimental/skills/content-hash.test.ts`
-- [ ] All imports updated if needed
-- [ ] `pnpm test packages/core/src/experimental/skills/content-hash.test.ts` exits 0
+- [x] Test file moved using `git mv`
+- [x] New location: `packages/core/src/experimental/skills/content-hash.test.ts`
+- [x] All imports updated if needed
+- [x] `pnpm test packages/core/src/experimental/skills/content-hash.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -125,10 +125,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file moved using `git mv`
-- [ ] New location: `packages/core/src/experimental/skills/settings.test.ts`
-- [ ] All imports updated if needed
-- [ ] `pnpm test packages/core/src/experimental/skills/settings.test.ts` exits 0
+- [x] Test file moved using `git mv`
+- [x] New location: `packages/core/src/experimental/skills/settings.test.ts`
+- [x] All imports updated if needed
+- [x] `pnpm test packages/core/src/experimental/skills/settings.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -144,10 +144,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file moved using `git mv`
-- [ ] New location: `packages/core/src/experimental/skills/skill-discovery.test.ts`
-- [ ] All imports updated if needed
-- [ ] `pnpm test packages/core/src/experimental/skills/skill-discovery.test.ts` exits 0
+- [x] Test file moved using `git mv`
+- [x] New location: `packages/core/src/experimental/skills/skill-discovery.test.ts`
+- [x] All imports updated if needed
+- [x] `pnpm test packages/core/src/experimental/skills/skill-discovery.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -163,10 +163,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file moved using `git mv`
-- [ ] New location: `packages/core/src/experimental/skills/lockfile.test.ts`
-- [ ] All imports updated if needed
-- [ ] `pnpm test packages/core/src/experimental/skills/lockfile.test.ts` exits 0
+- [x] Test file moved using `git mv`
+- [x] New location: `packages/core/src/experimental/skills/lockfile.test.ts`
+- [x] All imports updated if needed
+- [x] `pnpm test packages/core/src/experimental/skills/lockfile.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -182,10 +182,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file moved using `git mv`
-- [ ] New location: `packages/core/src/experimental/skills/git.test.ts`
-- [ ] All imports updated if needed
-- [ ] `pnpm test packages/core/src/experimental/skills/git.test.ts` exits 0
+- [x] Test file moved using `git mv`
+- [x] New location: `packages/core/src/experimental/skills/git.test.ts`
+- [x] All imports updated if needed
+- [x] `pnpm test packages/core/src/experimental/skills/git.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -201,10 +201,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file moved using `git mv`
-- [ ] New location: `packages/core/src/experimental/skills/wellknown.test.ts`
-- [ ] All imports updated if needed
-- [ ] `pnpm test packages/core/src/experimental/skills/wellknown.test.ts` exits 0
+- [x] Test file moved using `git mv`
+- [x] New location: `packages/core/src/experimental/skills/wellknown.test.ts`
+- [x] All imports updated if needed
+- [x] `pnpm test packages/core/src/experimental/skills/wellknown.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -220,10 +220,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file moved using `git mv`
-- [ ] New location: `packages/core/src/experimental/skills/agent-detection.test.ts`
-- [ ] All imports updated if needed
-- [ ] `pnpm test packages/core/src/experimental/skills/agent-detection.test.ts` exits 0
+- [x] Test file moved using `git mv`
+- [x] New location: `packages/core/src/experimental/skills/agent-detection.test.ts`
+- [x] All imports updated if needed
+- [x] `pnpm test packages/core/src/experimental/skills/agent-detection.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -239,10 +239,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Test file moved using `git mv`
-- [ ] New location: `packages/core/src/experimental/skills/installer.test.ts`
-- [ ] All imports updated if needed
-- [ ] `pnpm test packages/core/src/experimental/skills/installer.test.ts` exits 0
+- [x] Test file moved using `git mv`
+- [x] New location: `packages/core/src/experimental/skills/installer.test.ts`
+- [x] All imports updated if needed
+- [x] `pnpm test packages/core/src/experimental/skills/installer.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -258,9 +258,9 @@
 
 **Acceptance Criteria:**
 
-- [ ] Directory `packages/core/src/experimental/skills/__tests__/` removed
-- [ ] No test files remain in `__tests__/` directories under `packages/core/`
-- [ ] `pnpm test` passes (all tests still run)
+- [x] Directory `packages/core/src/experimental/skills/__tests__/` removed
+- [x] No test files remain in `__tests__/` directories under `packages/core/`
+- [x] `pnpm test` passes (all tests still run)
 
 **Dependencies:** TASK-3.1, TASK-3.2, TASK-3.3, TASK-3.4, TASK-3.5, TASK-3.6, TASK-3.7, TASK-3.8, TASK-3.9
 
@@ -280,10 +280,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] `pnpm test` exits 0
-- [ ] `pnpm test:e2e` exits 0
-- [ ] `pnpm typecheck` exits 0
-- [ ] No test files remain in `__tests__/` directories
+- [x] `pnpm test` exits 0
+- [x] `pnpm test:e2e` exits 0
+- [x] `pnpm typecheck` exits 0
+- [x] No test files remain in `__tests__/` directories
 
 **Dependencies:** TASK-1.1, TASK-1.2, TASK-2.1, TASK-3.10
 

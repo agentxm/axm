@@ -18,8 +18,8 @@ import {
   InstallError,
   installSkill,
   installSkillToAgents,
-} from "../installer.js";
-import type { AgentConfig, Skill } from "../types.js";
+} from "./installer.js";
+import type { AgentConfig, Skill } from "./types.js";
 
 describe("installer", () => {
   let tempDir: string;

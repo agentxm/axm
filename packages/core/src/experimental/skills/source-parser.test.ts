@@ -6,7 +6,7 @@
 
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { ParseError, parseSource } from "../source-parser.js";
+import { ParseError, parseSource } from "./source-parser.js";
 
 describe("source-parser", () => {
   /**

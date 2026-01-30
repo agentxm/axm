@@ -193,10 +193,9 @@ describe("axm skills add", () => {
           { cwd: temp.path },
         );
 
-        // Should exit successfully but indicate no skills found
-        expect(result.exitCode).toBe(0);
-        expect(result.stdout).toContain("No SKILL.md files found");
-        expect(result.stdout).toContain("Nothing to install");
+        // Should exit with error when no skills found
+        expect(result.exitCode).not.toBe(0);
+        expect(result.stderr).toContain("No skills found");
       } finally {
         temp.cleanup();
         emptyDir.cleanup();

@@ -134,3 +134,81 @@ describe("init command examples", () => {
     }
   });
 });
+
+/**
+ * Parser tests verify actual yargs parsing behavior.
+ * These tests parse real command-line arguments and verify the parsed result.
+ *
+ * We create a handler-less version of the command to test parsing without
+ * triggering side effects.
+ */
+describe("init command parser", () => {
+  /**
+   * Creates a yargs parser configured for testing.
+   * - Uses initCommand.builder for option definitions but no handler
+   * - exitProcess(false): Prevents process.exit() on errors
+   * - fail(false): Throws errors instead of printing to stderr
+   */
+  const createParser = () =>
+    yargs()
+      .command({
+        command: initCommand.command,
+        describe: initCommand.describe,
+        builder: initCommand.builder,
+        handler: () => {}, // No-op handler - we only want to test parsing
+      })
+      .exitProcess(false)
+      .fail(false);
+
+  it("parses with default values when no options provided", async () => {
+    const argv = await createParser().parse(["init"]);
+
+    expect(argv["global"]).toBe(false);
+    expect(argv["yes"]).toBe(false);
+    expect(argv["agent"]).toEqual([]);
+  });
+
+  it("parses --global flag", async () => {
+    const argv = await createParser().parse(["init", "--global"]);
+
+    expect(argv["global"]).toBe(true);
+  });
+
+  it("parses --yes flag", async () => {
+    const argv = await createParser().parse(["init", "--yes"]);
+
+    expect(argv["yes"]).toBe(true);
+  });
+
+  it("parses -y alias for --yes", async () => {
+    const argv = await createParser().parse(["init", "-y"]);
+
+    expect(argv["yes"]).toBe(true);
+  });
+
+  it("parses single --agent value", async () => {
+    const argv = await createParser().parse(["init", "--agent", "claude-code"]);
+
+    expect(argv["agent"]).toEqual(["claude-code"]);
+  });
+
+  it("parses multiple --agent values", async () => {
+    const argv = await createParser().parse([
+      "init",
+      "--agent",
+      "claude-code",
+      "--agent",
+      "cursor",
+    ]);
+
+    expect(argv["agent"]).toEqual(["claude-code", "cursor"]);
+  });
+
+  it("parses combination of flags", async () => {
+    const argv = await createParser().parse(["init", "--global", "-y", "--agent", "claude-code"]);
+
+    expect(argv["global"]).toBe(true);
+    expect(argv["yes"]).toBe(true);
+    expect(argv["agent"]).toEqual(["claude-code"]);
+  });
+});

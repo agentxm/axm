@@ -178,12 +178,12 @@
 
 **Acceptance Criteria:**
 
-- [ ] `packages/cli/src/commands/init/command.test.ts` has parser test section
-- [ ] Tests use `yargs().command(initCommand).exitProcess(false).fail(false)` pattern
-- [ ] Tests verify `--global` defaults to false
-- [ ] Tests verify `--yes` alias `-y` works
-- [ ] Tests verify `--agent` accepts array of strings
-- [ ] `pnpm test packages/cli/src/commands/init/command.test.ts` exits 0
+- [x] `packages/cli/src/commands/init/command.test.ts` has parser test section
+- [x] Tests use `yargs().command(initCommand).exitProcess(false).fail(false)` pattern
+- [x] Tests verify `--global` defaults to false
+- [x] Tests verify `--yes` alias `-y` works
+- [x] Tests verify `--agent` accepts array of strings
+- [x] `pnpm test packages/cli/src/commands/init/command.test.ts` exits 0
 
 **Dependencies:** TASK-1.2
 
@@ -196,13 +196,13 @@
 
 **Acceptance Criteria:**
 
-- [ ] `packages/cli/src/commands/skills/add/command.test.ts` has parser test section
-- [ ] Tests use `yargs().command(addCommand).exitProcess(false).fail(false)` pattern
-- [ ] Tests verify `source` positional is required
-- [ ] Tests verify `--yes` alias `-y` works
-- [ ] Tests verify `--list` alias `-l` works
-- [ ] Tests verify `--agent` and `--skill` accept arrays
-- [ ] `pnpm test packages/cli/src/commands/skills/add/command.test.ts` exits 0
+- [x] `packages/cli/src/commands/skills/add/command.test.ts` has parser test section
+- [x] Tests use `yargs().command(addCommand).exitProcess(false).fail(false)` pattern
+- [x] Tests verify `source` positional is required
+- [x] Tests verify `--yes` alias `-y` works
+- [x] Tests verify `--list` alias `-l` works
+- [x] Tests verify `--agent` and `--skill` accept arrays
+- [x] `pnpm test packages/cli/src/commands/skills/add/command.test.ts` exits 0
 
 **Dependencies:** TASK-1.3
 

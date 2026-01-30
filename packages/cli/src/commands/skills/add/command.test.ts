@@ -259,3 +259,154 @@ describe("skills add command examples", () => {
     }
   });
 });
+
+/**
+ * Parser tests verify actual yargs parsing behavior.
+ * These tests parse real command-line arguments and verify the parsed result.
+ *
+ * We create a handler-less version of the command to test parsing without
+ * triggering side effects.
+ */
+describe("skills add command parser", () => {
+  /**
+   * Creates a yargs parser configured for testing.
+   * - Uses addCommand.builder for option definitions but no handler
+   * - exitProcess(false): Prevents process.exit() on errors
+   * - fail(false): Throws errors instead of printing to stderr
+   */
+  const createParser = () =>
+    yargs()
+      .command({
+        command: addCommand.command,
+        describe: addCommand.describe,
+        builder: addCommand.builder,
+        handler: () => {}, // No-op handler - we only want to test parsing
+      })
+      .exitProcess(false)
+      .fail(false);
+
+  it("requires source positional argument", async () => {
+    // yargs throws synchronously when required positional is missing with fail(false)
+    // We wrap in a try/catch to verify the error
+    let error: Error | null = null;
+    try {
+      await createParser().parse(["add"]);
+    } catch (e) {
+      error = e as Error;
+    }
+    expect(error).not.toBeNull();
+    expect(error?.message).toContain("Not enough non-option arguments");
+  });
+
+  it("parses source positional argument", async () => {
+    const argv = await createParser().parse(["add", "owner/repo"]);
+
+    expect(argv["source"]).toBe("owner/repo");
+  });
+
+  it("parses with default values when no options provided", async () => {
+    const argv = await createParser().parse(["add", "owner/repo"]);
+
+    expect(argv["global"]).toBe(false);
+    expect(argv["yes"]).toBe(false);
+    expect(argv["list"]).toBe(false);
+    expect(argv["all"]).toBe(false);
+    expect(argv["agent"]).toEqual([]);
+    expect(argv["skill"]).toEqual([]);
+  });
+
+  it("parses --global flag", async () => {
+    const argv = await createParser().parse(["add", "owner/repo", "--global"]);
+
+    expect(argv["global"]).toBe(true);
+  });
+
+  it("parses --yes flag", async () => {
+    const argv = await createParser().parse(["add", "owner/repo", "--yes"]);
+
+    expect(argv["yes"]).toBe(true);
+  });
+
+  it("parses -y alias for --yes", async () => {
+    const argv = await createParser().parse(["add", "owner/repo", "-y"]);
+
+    expect(argv["yes"]).toBe(true);
+  });
+
+  it("parses --list flag", async () => {
+    const argv = await createParser().parse(["add", "owner/repo", "--list"]);
+
+    expect(argv["list"]).toBe(true);
+  });
+
+  it("parses -l alias for --list", async () => {
+    const argv = await createParser().parse(["add", "owner/repo", "-l"]);
+
+    expect(argv["list"]).toBe(true);
+  });
+
+  it("parses --all flag", async () => {
+    const argv = await createParser().parse(["add", "owner/repo", "--all"]);
+
+    expect(argv["all"]).toBe(true);
+  });
+
+  it("parses single --agent value", async () => {
+    const argv = await createParser().parse(["add", "owner/repo", "--agent", "claude-code"]);
+
+    expect(argv["agent"]).toEqual(["claude-code"]);
+  });
+
+  it("parses multiple --agent values", async () => {
+    const argv = await createParser().parse([
+      "add",
+      "owner/repo",
+      "--agent",
+      "claude-code",
+      "--agent",
+      "cursor",
+    ]);
+
+    expect(argv["agent"]).toEqual(["claude-code", "cursor"]);
+  });
+
+  it("parses single --skill value", async () => {
+    const argv = await createParser().parse(["add", "owner/repo", "--skill", "pr-review"]);
+
+    expect(argv["skill"]).toEqual(["pr-review"]);
+  });
+
+  it("parses multiple --skill values", async () => {
+    const argv = await createParser().parse([
+      "add",
+      "owner/repo",
+      "--skill",
+      "pr-review",
+      "--skill",
+      "commit",
+    ]);
+
+    expect(argv["skill"]).toEqual(["pr-review", "commit"]);
+  });
+
+  it("parses combination of flags", async () => {
+    const argv = await createParser().parse([
+      "add",
+      "owner/repo",
+      "--global",
+      "-y",
+      "-l",
+      "--agent",
+      "claude-code",
+      "--skill",
+      "pr-review",
+    ]);
+
+    expect(argv["source"]).toBe("owner/repo");
+    expect(argv["global"]).toBe(true);
+    expect(argv["yes"]).toBe(true);
+    expect(argv["list"]).toBe(true);
+    expect(argv["agent"]).toEqual(["claude-code"]);
+    expect(argv["skill"]).toEqual(["pr-review"]);
+  });
+});

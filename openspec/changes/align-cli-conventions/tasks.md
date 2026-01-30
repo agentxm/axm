@@ -219,10 +219,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] `pnpm test` exits 0
-- [ ] `pnpm test:e2e` exits 0
-- [ ] `pnpm typecheck` exits 0
-- [ ] `pnpm lint` exits 0
+- [x] `pnpm test` exits 0
+- [x] `pnpm test:e2e` exits 0
+- [x] `pnpm typecheck` exits 0
+- [x] `pnpm lint` exits 0
 
 **Dependencies:** TASK-4.1, TASK-4.2, TASK-3.2, TASK-3.3
 
@@ -235,11 +235,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] `axm --help` shows standard flags
-- [ ] `axm init --help` shows standard flags
-- [ ] `axm skills add --help` shows standard flags
-- [ ] Running with `--json` produces valid JSON output
-- [ ] Running with `--quiet` suppresses progress output
-- [ ] Running without TTY (piped input) fails gracefully with helpful message
+- [x] `axm --help` shows standard flags
+- [x] `axm init --help` shows standard flags
+- [x] `axm skills add --help` shows standard flags
+- [x] Running with `--json` produces valid JSON output
+- [x] Running with `--quiet` suppresses progress output
+- [x] Running without TTY (piped input) fails gracefully with helpful message
 
 **Dependencies:** TASK-5.1

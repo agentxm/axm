@@ -159,7 +159,7 @@ describe("add.handler", () => {
       expect(result._tag).toBe("Right");
     });
 
-    it("handles empty source directory", async () => {
+    it("handles empty source directory with error and recovery guidance", async () => {
       fs.mkdirSync(sourceDir, { recursive: true });
       initializeAxm();
 
@@ -170,10 +170,16 @@ describe("add.handler", () => {
         agent: ["claude-code"],
       };
 
-      // Should complete successfully but indicate no skills found
+      // Should fail with error suggesting to check the source path
       const result = await runHandlerEither(handleAdd(args));
 
-      expect(result._tag).toBe("Right");
+      expect(result._tag).toBe("Left");
+      if (result._tag === "Left") {
+        expect(result.left._tag).toBe("AddError");
+        expect((result.left as AddError).message).toContain("No skills found");
+        expect((result.left as AddError).message).toContain(sourceDir);
+        expect((result.left as AddError).message).toContain("SKILL.md");
+      }
     });
 
     it("handles non-existent source path", async () => {
@@ -657,6 +663,56 @@ describe("add.handler", () => {
       expect(result._tag).toBe("Left");
       if (result._tag === "Left") {
         expect(result.left._tag).toBe("AddError");
+      }
+    });
+  });
+
+  describe("error messages with recovery guidance", () => {
+    it("invalid source error suggests valid source formats", async () => {
+      initializeAxm();
+
+      const args: AddArgs = {
+        ...defaultArgs,
+        source: "", // Empty source is invalid
+        yes: true,
+        agent: ["claude-code"],
+      };
+
+      const result = await runHandlerEither(handleAdd(args));
+
+      expect(result._tag).toBe("Left");
+      if (result._tag === "Left") {
+        expect(result.left._tag).toBe("AddError");
+        const message = (result.left as AddError).message;
+        expect(message).toContain("Invalid source");
+        // Recovery guidance: valid formats
+        expect(message).toContain("github:");
+        expect(message).toContain("gitlab:");
+        expect(message).toContain("local path");
+      }
+    });
+
+    it("no skills found error suggests checking the source path", async () => {
+      fs.mkdirSync(sourceDir, { recursive: true });
+      initializeAxm();
+
+      const args: AddArgs = {
+        ...defaultArgs,
+        source: sourceDir,
+        yes: true,
+        agent: ["claude-code"],
+      };
+
+      const result = await runHandlerEither(handleAdd(args));
+
+      expect(result._tag).toBe("Left");
+      if (result._tag === "Left") {
+        expect(result.left._tag).toBe("AddError");
+        const message = (result.left as AddError).message;
+        expect(message).toContain("No skills found");
+        expect(message).toContain(sourceDir);
+        // Recovery guidance: check for SKILL.md files
+        expect(message).toContain("SKILL.md");
       }
     });
   });

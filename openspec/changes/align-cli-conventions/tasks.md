@@ -125,10 +125,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] `packages/cli/src/utils/errors.ts` exports `formatError(what: string, details?: string[], howToFix?: string): string`
-- [ ] Output format includes the error, optional details, and optional recovery guidance
-- [ ] Unit test `packages/cli/src/utils/errors.test.ts` verifies format
-- [ ] `pnpm test packages/cli/src/utils/errors.test.ts` exits 0
+- [x] `packages/cli/src/utils/errors.ts` exports `formatError(what: string, details?: string[], howToFix?: string): string`
+- [x] Output format includes the error, optional details, and optional recovery guidance
+- [x] Unit test `packages/cli/src/utils/errors.test.ts` verifies format
+- [x] `pnpm test packages/cli/src/utils/errors.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -141,10 +141,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Unknown agent error suggests valid agent IDs
-- [ ] Settings write error suggests checking permissions
-- [ ] Non-TTY error suggests using `--yes` or `--non-interactive`
-- [ ] `pnpm test packages/cli/src/commands/init/handler.test.ts` exits 0
+- [x] Unknown agent error suggests valid agent IDs
+- [x] Settings write error suggests checking permissions
+- [x] Non-TTY error suggests using `--yes` or `--non-interactive`
+- [x] `pnpm test packages/cli/src/commands/init/handler.test.ts` exits 0
 
 **Dependencies:** TASK-3.1, TASK-2.2
 
@@ -157,11 +157,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] Invalid source error suggests valid source formats
-- [ ] No skills found error suggests checking the source path
-- [ ] Clone failure error suggests checking network or credentials
-- [ ] Non-TTY error suggests using `--yes`, `--all`, or `--non-interactive`
-- [ ] `pnpm test packages/cli/src/commands/skills/add/handler.test.ts` exits 0
+- [x] Invalid source error suggests valid source formats
+- [x] No skills found error suggests checking the source path
+- [x] Clone failure error suggests checking network or credentials
+- [x] Non-TTY error suggests using `--yes`, `--all`, or `--non-interactive`
+- [x] `pnpm test packages/cli/src/commands/skills/add/handler.test.ts` exits 0
 
 **Dependencies:** TASK-3.1, TASK-2.3
 

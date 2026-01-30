@@ -20,6 +20,7 @@ import {
 import * as p from "@clack/prompts";
 import type { FileSystem } from "@effect/platform";
 import { Data, Effect, pipe } from "effect";
+import { formatError } from "../../utils/errors.js";
 import { isFancyOutput, isInteractive } from "../../utils/tty.js";
 
 // -----------------------------------------------------------------------------
@@ -117,9 +118,15 @@ const validateAgentIds = (agentIds: readonly string[]): Effect.Effect<void, Init
   const invalidIds = agentIds.filter((id) => !supportedIds.includes(id));
 
   if (invalidIds.length > 0) {
+    // Show first 6 valid agent IDs as suggestions
+    const suggestions = supportedIds.slice(0, 6).join(", ");
     return Effect.fail(
       new InitError({
-        message: `Unknown agent(s): ${invalidIds.join(", ")}. Use one of: ${supportedIds.slice(0, 5).join(", ")}...`,
+        message: formatError(
+          `Unknown agent(s): ${invalidIds.join(", ")}`,
+          [`Valid agents include: ${suggestions}, ...`],
+          "Run 'axm init --help' to see all supported agents.",
+        ),
       }),
     );
   }
@@ -180,7 +187,11 @@ const writeSettingsWithErrorMapping = (
     Effect.mapError(
       (error) =>
         new InitError({
-          message: `Failed to write settings: ${error.message}`,
+          message: formatError(
+            "Failed to write settings",
+            [`Path: ${axmDir}/settings.json`],
+            "Check that you have write permissions for this directory.",
+          ),
           cause: error,
         }),
     ),
@@ -222,8 +233,11 @@ const selectAgents = (
   if (!isInteractive()) {
     return Effect.fail(
       new InitError({
-        message:
-          "Cannot prompt for agent selection: stdin is not a TTY. Use --yes or --non-interactive to auto-select detected agents.",
+        message: formatError(
+          "Cannot prompt for agent selection",
+          ["stdin is not a TTY"],
+          "Use --yes or --non-interactive to auto-select detected agents.",
+        ),
       }),
     );
   }

@@ -30,6 +30,7 @@ import {
 import * as p from "@clack/prompts";
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
 import { Data, Effect, pipe } from "effect";
+import { formatError } from "../../../utils/errors.js";
 import { isFancyOutput, isInteractive } from "../../../utils/tty.js";
 
 // -----------------------------------------------------------------------------
@@ -250,7 +251,11 @@ const resolveGitSource = (
       Effect.mapError(
         (error) =>
           new AddError({
-            message: `Failed to clone repository: ${error.message}`,
+            message: formatError(
+              `Failed to clone repository: ${error.message}`,
+              [`URL: ${cloneUrl}`],
+              "Check your network connection and repository access credentials.",
+            ),
             cause: error,
           }),
       ),
@@ -580,7 +585,11 @@ export const handleAdd = (
       Effect.mapError(
         (error) =>
           new AddError({
-            message: `Invalid source: ${error.message}`,
+            message: formatError(
+              `Invalid source: ${error.message}`,
+              [`Provided: ${args.source || "(empty)"}`],
+              "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
+            ),
             cause: error,
           }),
       ),
@@ -650,8 +659,11 @@ export const handleAdd = (
         // Not interactive and no --yes/--non-interactive flag
         return yield* Effect.fail(
           new AddError({
-            message:
-              "Cannot prompt for agent selection: stdin is not a TTY. Use --yes, --all, or --non-interactive to run without prompts.",
+            message: formatError(
+              "Cannot prompt for agent selection",
+              ["stdin is not a TTY"],
+              "Use --yes, --all, or --non-interactive to run without prompts.",
+            ),
           }),
         );
       } else {
@@ -695,9 +707,15 @@ export const handleAdd = (
 
     if (skills.length === 0) {
       spinnerHelper.stop("No skills found");
-      p.log.warn("No SKILL.md files found in the source.");
-      p.outro("Nothing to install.");
-      return;
+      return yield* Effect.fail(
+        new AddError({
+          message: formatError(
+            "No skills found in source",
+            [`Source: ${parsed.canonical}`],
+            "Verify the source path contains directories with SKILL.md files.",
+          ),
+        }),
+      );
     }
 
     spinnerHelper.stop(`Found ${skills.length} skill(s)`);
@@ -732,8 +750,11 @@ export const handleAdd = (
       // Need to prompt but can't
       return yield* Effect.fail(
         new AddError({
-          message:
-            "Cannot prompt for skill selection: stdin is not a TTY. Use --yes, --all, or --non-interactive to run without prompts.",
+          message: formatError(
+            "Cannot prompt for skill selection",
+            ["stdin is not a TTY"],
+            "Use --yes, --all, or --non-interactive to run without prompts.",
+          ),
         }),
       );
     } else {
@@ -753,8 +774,11 @@ export const handleAdd = (
       if (!isInteractive()) {
         return yield* Effect.fail(
           new AddError({
-            message:
-              "Cannot prompt for confirmation: stdin is not a TTY. Use --yes, --all, or --non-interactive to run without prompts.",
+            message: formatError(
+              "Cannot prompt for confirmation",
+              ["stdin is not a TTY"],
+              "Use --yes, --all, or --non-interactive to run without prompts.",
+            ),
           }),
         );
       }

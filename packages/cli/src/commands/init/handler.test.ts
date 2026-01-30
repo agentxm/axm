@@ -409,7 +409,9 @@ describe("init.handler", () => {
         const error = result.left as InitError;
         expect(error._tag).toBe("InitError");
         // Error should suggest valid alternatives
-        expect(error.message).toMatch(/Use one of:/);
+        expect(error.message).toContain("Valid agents include:");
+        // Error should include recovery guidance
+        expect(error.message).toContain("axm init --help");
       }
     });
 

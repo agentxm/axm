@@ -20,6 +20,7 @@ import {
 import * as p from "@clack/prompts";
 import type { FileSystem } from "@effect/platform";
 import { Data, Effect, pipe } from "effect";
+import { isFancyOutput, isInteractive } from "../../utils/tty.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -203,7 +204,7 @@ const selectAgents = (
     );
   }
 
-  if (args.yes) {
+  if (args.yes || args.nonInteractive) {
     // Auto-select all detected agents in non-interactive mode
     const selectedAgentIds = detectedAgents.map((a) => a.id);
     if (selectedAgentIds.length === 0) {
@@ -215,6 +216,16 @@ const selectAgents = (
     }
     p.log.info(`Auto-selecting all detected agents: ${selectedAgentIds.join(", ")}`);
     return Effect.succeed(selectedAgentIds);
+  }
+
+  // Check if we can prompt interactively
+  if (!isInteractive()) {
+    return Effect.fail(
+      new InitError({
+        message:
+          "Cannot prompt for agent selection: stdin is not a TTY. Use --yes or --non-interactive to auto-select detected agents.",
+      }),
+    );
   }
 
   // Interactive mode - prompt for selection
@@ -269,21 +280,30 @@ export const handleInit = (
       }
 
       // Continue with initialization
-      const spinner = p.spinner();
+      const useFancyOutput = isFancyOutput();
+      const spinner = useFancyOutput ? p.spinner() : null;
 
       return pipe(
         // Detect installed agents
         Effect.sync(() => {
-          spinner.start("Detecting installed agents...");
+          if (spinner) {
+            spinner.start("Detecting installed agents...");
+          } else {
+            p.log.info("Detecting installed agents...");
+          }
         }),
         Effect.flatMap(() => detectAgentsWithErrorMapping()),
         Effect.tap((detectedAgents) =>
           Effect.sync(() => {
-            spinner.stop(
+            const message =
               detectedAgents.length > 0
                 ? `Found ${detectedAgents.length} agent(s): ${detectedAgents.map((a) => a.name).join(", ")}`
-                : "No agents detected",
-            );
+                : "No agents detected";
+            if (spinner) {
+              spinner.stop(message);
+            } else {
+              p.log.info(message);
+            }
           }),
         ),
 
@@ -297,13 +317,22 @@ export const handleInit = (
             agents: selectedAgentIds,
           };
 
-          spinner.start("Writing settings...");
+          if (spinner) {
+            spinner.start("Writing settings...");
+          } else {
+            p.log.info("Writing settings...");
+          }
 
           return pipe(
             writeSettingsWithErrorMapping(axmDir, settings),
             Effect.tap(() =>
               Effect.sync(() => {
-                spinner.stop(`Created ${axmDir}/settings.json`);
+                const createdMessage = `Created ${axmDir}/settings.json`;
+                if (spinner) {
+                  spinner.stop(createdMessage);
+                } else {
+                  p.log.info(createdMessage);
+                }
 
                 // Show success
                 const agentNames = selectedAgentIds

@@ -11,7 +11,8 @@ import type { Settings } from "@agentxm/core/experimental/skills";
 import type { FileSystem } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
 import { Effect } from "effect";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import * as tty from "../../utils/tty.js";
 import { handleInit, type InitArgs, type InitError } from "./handler.js";
 
 describe("init.handler", () => {
@@ -429,6 +430,115 @@ describe("init.handler", () => {
 
       // Should succeed (early return for already initialized)
       expect(result._tag).toBe("Right");
+    });
+  });
+
+  describe("non-TTY scenarios", () => {
+    describe("when stdin is not a TTY (non-interactive)", () => {
+      beforeEach(() => {
+        vi.spyOn(tty, "isInteractive").mockReturnValue(false);
+      });
+
+      afterEach(() => {
+        vi.restoreAllMocks();
+      });
+
+      it("returns InitError when prompting is needed without --yes", async () => {
+        const args: InitArgs = {
+          ...defaultArgs,
+          // No --yes, no --agent, so prompting would be needed
+        };
+
+        const result = await runHandlerEither(handleInit(args));
+
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          const error = result.left as InitError;
+          expect(error._tag).toBe("InitError");
+          expect(error.message).toContain("stdin is not a TTY");
+          expect(error.message).toContain("--yes");
+          expect(error.message).toContain("--non-interactive");
+        }
+      });
+
+      it("succeeds when --yes is provided", async () => {
+        const args: InitArgs = {
+          ...defaultArgs,
+          yes: true,
+        };
+
+        const result = await runHandlerEither(handleInit(args));
+
+        expect(result._tag).toBe("Right");
+        const settingsPath = path.join(tempDir, ".axm", "settings.json");
+        expect(fs.existsSync(settingsPath)).toBe(true);
+      });
+
+      it("succeeds when --non-interactive is provided", async () => {
+        const args: InitArgs = {
+          ...defaultArgs,
+          nonInteractive: true,
+        };
+
+        const result = await runHandlerEither(handleInit(args));
+
+        expect(result._tag).toBe("Right");
+        const settingsPath = path.join(tempDir, ".axm", "settings.json");
+        expect(fs.existsSync(settingsPath)).toBe(true);
+      });
+
+      it("succeeds when --agent is provided (no prompting needed)", async () => {
+        const args: InitArgs = {
+          ...defaultArgs,
+          agent: ["claude-code"],
+        };
+
+        const result = await runHandlerEither(handleInit(args));
+
+        expect(result._tag).toBe("Right");
+        const settingsPath = path.join(tempDir, ".axm", "settings.json");
+        expect(fs.existsSync(settingsPath)).toBe(true);
+        const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.agents).toEqual(["claude-code"]);
+      });
+    });
+
+    describe("when stdout is not a TTY (non-fancy output)", () => {
+      beforeEach(() => {
+        vi.spyOn(tty, "isFancyOutput").mockReturnValue(false);
+      });
+
+      afterEach(() => {
+        vi.restoreAllMocks();
+      });
+
+      it("succeeds without errors when spinner would normally be used", async () => {
+        const args: InitArgs = {
+          ...defaultArgs,
+          yes: true,
+        };
+
+        const result = await runHandlerEither(handleInit(args));
+
+        // Should succeed - plain text logging used instead of spinner
+        expect(result._tag).toBe("Right");
+        const settingsPath = path.join(tempDir, ".axm", "settings.json");
+        expect(fs.existsSync(settingsPath)).toBe(true);
+      });
+
+      it("creates settings file correctly without fancy output", async () => {
+        const args: InitArgs = {
+          ...defaultArgs,
+          agent: ["claude-code", "cursor"],
+        };
+
+        await runHandler(handleInit(args));
+
+        const settingsPath = path.join(tempDir, ".axm", "settings.json");
+        const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.agents).toEqual(["claude-code", "cursor"]);
+        expect(settings.version).toBe(1);
+      });
     });
   });
 });

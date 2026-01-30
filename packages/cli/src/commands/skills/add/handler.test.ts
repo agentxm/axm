@@ -15,8 +15,14 @@ import { Effect, Layer } from "effect";
 // Layer providing all required services for tests
 const TestLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, FetchHttpClient.layer);
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type AddArgs, AddError, handleAdd } from "./handler.js";
+
+// Mock TTY utilities
+vi.mock("../../../utils/tty.js", () => ({
+  isInteractive: vi.fn(() => true),
+  isFancyOutput: vi.fn(() => true),
+}));
 
 describe("add.handler", () => {
   let tempDir: string;
@@ -673,6 +679,226 @@ describe("add.handler", () => {
       });
 
       expect(error.cause).toBe(cause);
+    });
+  });
+
+  describe("non-TTY scenarios", () => {
+    // Import the mocked module dynamically to control mock behavior
+    let isInteractiveMock: ReturnType<typeof vi.fn>;
+    let isFancyOutputMock: ReturnType<typeof vi.fn>;
+
+    beforeEach(async () => {
+      // Get references to the mocked functions
+      const ttyModule = await import("../../../utils/tty.js");
+      isInteractiveMock = ttyModule.isInteractive as ReturnType<typeof vi.fn>;
+      isFancyOutputMock = ttyModule.isFancyOutput as ReturnType<typeof vi.fn>;
+      // Reset to default TTY behavior
+      isInteractiveMock.mockReturnValue(true);
+      isFancyOutputMock.mockReturnValue(true);
+    });
+
+    afterEach(() => {
+      vi.clearAllMocks();
+    });
+
+    describe("agent selection in non-interactive mode", () => {
+      it("fails with AddError when stdin is not TTY and no --yes/--agent flag", async () => {
+        isInteractiveMock.mockReturnValue(false);
+        const source = createSkillSource([{ name: "commit" }]);
+        initializeAxm();
+
+        const args: AddArgs = {
+          ...defaultArgs,
+          source,
+          // No --yes, no --agent, no --non-interactive
+        };
+
+        const result = await runHandlerEither(handleAdd(args));
+
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left._tag).toBe("AddError");
+          expect((result.left as AddError).message).toContain("Cannot prompt for agent selection");
+          expect((result.left as AddError).message).toContain("stdin is not a TTY");
+          expect((result.left as AddError).message).toContain("--yes");
+          expect((result.left as AddError).message).toContain("--all");
+          expect((result.left as AddError).message).toContain("--non-interactive");
+        }
+      });
+
+      it("succeeds when stdin is not TTY but --yes flag is set", async () => {
+        isInteractiveMock.mockReturnValue(false);
+        const source = createSkillSource([{ name: "commit" }]);
+        initializeAxm();
+
+        const args: AddArgs = {
+          ...defaultArgs,
+          source,
+          yes: true,
+          agent: ["claude-code"],
+          all: true,
+        };
+
+        const result = await runHandlerEither(handleAdd(args));
+
+        expect(result._tag).toBe("Right");
+      });
+
+      it("succeeds when stdin is not TTY but --non-interactive flag is set", async () => {
+        isInteractiveMock.mockReturnValue(false);
+        const source = createSkillSource([{ name: "commit" }]);
+        initializeAxm();
+
+        const args: AddArgs = {
+          ...defaultArgs,
+          source,
+          nonInteractive: true,
+          agent: ["claude-code"],
+          all: true,
+        };
+
+        const result = await runHandlerEither(handleAdd(args));
+
+        expect(result._tag).toBe("Right");
+      });
+    });
+
+    describe("skill selection in non-interactive mode", () => {
+      it("fails with AddError when stdin is not TTY and no --all/--skill flag", async () => {
+        isInteractiveMock.mockReturnValue(false);
+        const source = createSkillSource([{ name: "commit" }]);
+        initializeAxm();
+
+        const args: AddArgs = {
+          ...defaultArgs,
+          source,
+          agent: ["claude-code"], // Explicit agent avoids agent selection prompt
+          // No --all, no --skill
+        };
+
+        const result = await runHandlerEither(handleAdd(args));
+
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left._tag).toBe("AddError");
+          expect((result.left as AddError).message).toContain("Cannot prompt for skill selection");
+          expect((result.left as AddError).message).toContain("stdin is not a TTY");
+        }
+      });
+
+      it("succeeds when stdin is not TTY but --all flag is set", async () => {
+        isInteractiveMock.mockReturnValue(false);
+        const source = createSkillSource([{ name: "commit" }]);
+        initializeAxm();
+
+        const args: AddArgs = {
+          ...defaultArgs,
+          source,
+          agent: ["claude-code"],
+          all: true,
+          yes: true, // Skip confirmation prompt too
+        };
+
+        const result = await runHandlerEither(handleAdd(args));
+
+        expect(result._tag).toBe("Right");
+      });
+
+      it("succeeds when stdin is not TTY but --skill flag is set", async () => {
+        isInteractiveMock.mockReturnValue(false);
+        const source = createSkillSource([{ name: "commit" }, { name: "review-pr" }]);
+        initializeAxm();
+
+        const args: AddArgs = {
+          ...defaultArgs,
+          source,
+          agent: ["claude-code"],
+          skill: ["commit"],
+          yes: true, // Skip confirmation prompt too
+        };
+
+        const result = await runHandlerEither(handleAdd(args));
+
+        expect(result._tag).toBe("Right");
+        // Only specified skill should be installed
+        expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"))).toBe(
+          true,
+        );
+        expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "review-pr"))).toBe(false);
+      });
+    });
+
+    describe("confirmation in non-interactive mode", () => {
+      it("fails with AddError when stdin is not TTY and confirmation needed", async () => {
+        isInteractiveMock.mockReturnValue(false);
+        const source = createSkillSource([{ name: "commit" }]);
+        initializeAxm();
+
+        const args: AddArgs = {
+          ...defaultArgs,
+          source,
+          agent: ["claude-code"],
+          all: true,
+          // No --yes - would need confirmation prompt
+        };
+
+        const result = await runHandlerEither(handleAdd(args));
+
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left._tag).toBe("AddError");
+          expect((result.left as AddError).message).toContain("Cannot prompt for confirmation");
+          expect((result.left as AddError).message).toContain("stdin is not a TTY");
+        }
+      });
+    });
+
+    describe("output formatting", () => {
+      it("uses plain text output when stdout is not TTY", async () => {
+        // This test verifies the handler doesn't crash when fancy output is disabled
+        isInteractiveMock.mockReturnValue(true);
+        isFancyOutputMock.mockReturnValue(false);
+
+        const source = createSkillSource([{ name: "commit" }]);
+        initializeAxm();
+
+        const args: AddArgs = {
+          ...defaultArgs,
+          source,
+          agent: ["claude-code"],
+          all: true,
+          yes: true,
+        };
+
+        const result = await runHandlerEither(handleAdd(args));
+
+        // Should complete successfully with plain text output
+        expect(result._tag).toBe("Right");
+      });
+
+      it("handles both non-TTY stdin and stdout", async () => {
+        isInteractiveMock.mockReturnValue(false);
+        isFancyOutputMock.mockReturnValue(false);
+
+        const source = createSkillSource([{ name: "commit" }]);
+        initializeAxm();
+
+        const args: AddArgs = {
+          ...defaultArgs,
+          source,
+          agent: ["claude-code"],
+          all: true,
+          yes: true,
+        };
+
+        const result = await runHandlerEither(handleAdd(args));
+
+        // Should complete successfully
+        expect(result._tag).toBe("Right");
+        expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"))).toBe(
+          true,
+        );
+      });
     });
   });
 });

@@ -67,12 +67,12 @@
 
 **Acceptance Criteria:**
 
-- [ ] `packages/cli/src/utils/tty.ts` exports `isInteractive(): boolean`
-- [ ] `packages/cli/src/utils/tty.ts` exports `isFancyOutput(): boolean`
-- [ ] `isInteractive()` returns `process.stdin.isTTY === true`
-- [ ] `isFancyOutput()` returns `process.stdout.isTTY === true`
-- [ ] Unit test `packages/cli/src/utils/tty.test.ts` covers both functions
-- [ ] `pnpm test packages/cli/src/utils/tty.test.ts` exits 0
+- [x] `packages/cli/src/utils/tty.ts` exports `isInteractive(): boolean`
+- [x] `packages/cli/src/utils/tty.ts` exports `isFancyOutput(): boolean`
+- [x] `isInteractive()` returns `process.stdin.isTTY === true`
+- [x] `isFancyOutput()` returns `process.stdout.isTTY === true`
+- [x] Unit test `packages/cli/src/utils/tty.test.ts` covers both functions
+- [x] `pnpm test packages/cli/src/utils/tty.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -85,12 +85,12 @@
 
 **Acceptance Criteria:**
 
-- [ ] Handler checks `isInteractive()` before calling prompt functions
-- [ ] When not interactive and `--yes` not set, returns `InitError` with message suggesting `--yes` or `--non-interactive`
-- [ ] Handler checks `isFancyOutput()` before using spinner
-- [ ] When not fancy output, logs plain text instead of spinner
-- [ ] Handler tests cover non-TTY scenarios
-- [ ] `pnpm test packages/cli/src/commands/init/handler.test.ts` exits 0
+- [x] Handler checks `isInteractive()` before calling prompt functions
+- [x] When not interactive and `--yes` not set, returns `InitError` with message suggesting `--yes` or `--non-interactive`
+- [x] Handler checks `isFancyOutput()` before using spinner
+- [x] When not fancy output, logs plain text instead of spinner
+- [x] Handler tests cover non-TTY scenarios
+- [x] `pnpm test packages/cli/src/commands/init/handler.test.ts` exits 0
 
 **Dependencies:** TASK-2.1, TASK-1.2
 
@@ -103,12 +103,12 @@
 
 **Acceptance Criteria:**
 
-- [ ] Handler checks `isInteractive()` before calling prompt functions
-- [ ] When not interactive and `--yes`/`--all` not set, returns `AddError` with message suggesting `--yes`, `--all`, or `--non-interactive`
-- [ ] Handler checks `isFancyOutput()` before using spinner
-- [ ] When not fancy output, logs plain text instead of spinner
-- [ ] Handler tests cover non-TTY scenarios
-- [ ] `pnpm test packages/cli/src/commands/skills/add/handler.test.ts` exits 0
+- [x] Handler checks `isInteractive()` before calling prompt functions
+- [x] When not interactive and `--yes`/`--all` not set, returns `AddError` with message suggesting `--yes`, `--all`, or `--non-interactive`
+- [x] Handler checks `isFancyOutput()` before using spinner
+- [x] When not fancy output, logs plain text instead of spinner
+- [x] Handler tests cover non-TTY scenarios
+- [x] `pnpm test packages/cli/src/commands/skills/add/handler.test.ts` exits 0
 
 **Dependencies:** TASK-2.1, TASK-1.3
 

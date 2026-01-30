@@ -30,6 +30,7 @@ import {
 import * as p from "@clack/prompts";
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
 import { Data, Effect, pipe } from "effect";
+import { isFancyOutput, isInteractive } from "../../../utils/tty.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -512,6 +513,40 @@ const installSkillsFromWellKnown = (
 // -----------------------------------------------------------------------------
 
 /**
+ * Helper to check if interactive prompts can be used, accounting for flags.
+ */
+const canPrompt = (args: AddArgs): boolean => {
+  if (args.yes || args.nonInteractive) {
+    return false; // Don't need to prompt
+  }
+  return isInteractive();
+};
+
+/**
+ * Helper to wrap spinner operations - uses spinner when fancy output, plain log otherwise.
+ */
+const createSpinnerHelper = (useFancy: boolean) => {
+  const spinner = useFancy ? p.spinner() : null;
+
+  return {
+    start: (message: string) => {
+      if (spinner) {
+        spinner.start(message);
+      } else {
+        p.log.info(message);
+      }
+    },
+    stop: (message: string) => {
+      if (spinner) {
+        spinner.stop(message);
+      } else {
+        p.log.info(message);
+      }
+    },
+  };
+};
+
+/**
  * Handles the `axm skills add` command.
  *
  * Flow:
@@ -535,10 +570,12 @@ export const handleAdd = (
     // Show intro
     p.intro(`axm skills add (${scopeLabel})`);
 
-    const spinner = p.spinner();
+    // Check TTY status for output and prompts
+    const useFancyOutput = isFancyOutput();
+    const spinnerHelper = createSpinnerHelper(useFancyOutput);
 
     // Step 1: Parse source
-    spinner.start("Parsing source...");
+    spinnerHelper.start("Parsing source...");
     const parsed = yield* parseSource(args.source).pipe(
       Effect.mapError(
         (error) =>
@@ -548,10 +585,10 @@ export const handleAdd = (
           }),
       ),
     );
-    spinner.stop(`Source: ${parsed.canonical} (${parsed.type})`);
+    spinnerHelper.stop(`Source: ${parsed.canonical} (${parsed.type})`);
 
     // Step 2: Ensure initialized
-    spinner.start("Checking initialization...");
+    spinnerHelper.start("Checking initialization...");
     yield* ensureInitialized({ axmDir }).pipe(
       Effect.mapError(
         (error) =>
@@ -561,10 +598,10 @@ export const handleAdd = (
           }),
       ),
     );
-    spinner.stop("Initialized");
+    spinnerHelper.stop("Initialized");
 
     // Step 3: Detect or select agents
-    spinner.start("Detecting agents...");
+    spinnerHelper.start("Detecting agents...");
     let agents: AgentConfig[];
 
     if (args.agent.length > 0) {
@@ -576,13 +613,13 @@ export const handleAdd = (
       if (agents.length !== args.agent.length) {
         const validIds = args.agent.filter((id) => getAgentById(id) !== undefined);
         const invalidIds = args.agent.filter((id) => getAgentById(id) === undefined);
-        spinner.stop(`Found ${validIds.length} agent(s), ${invalidIds.length} invalid`);
+        spinnerHelper.stop(`Found ${validIds.length} agent(s), ${invalidIds.length} invalid`);
 
         if (invalidIds.length > 0) {
           p.log.warn(`Unknown agents: ${invalidIds.join(", ")}`);
         }
       } else {
-        spinner.stop(`Using ${agents.length} specified agent(s)`);
+        spinnerHelper.stop(`Using ${agents.length} specified agent(s)`);
       }
     } else {
       // Detect installed agents
@@ -597,18 +634,26 @@ export const handleAdd = (
       );
 
       if (detectedAgents.length === 0) {
-        spinner.stop("No agents detected");
+        spinnerHelper.stop("No agents detected");
         p.log.error("No AI coding agents detected. Use --agent to specify agents manually.");
         p.outro("No agents available.");
         return;
       }
 
-      spinner.stop(`Found ${detectedAgents.length} agent(s)`);
+      spinnerHelper.stop(`Found ${detectedAgents.length} agent(s)`);
 
       // Select agents (interactive or auto)
-      if (args.yes) {
+      if (args.yes || args.nonInteractive) {
         agents = detectedAgents;
         p.log.info(`Auto-selecting all detected agents: ${agents.map((a) => a.name).join(", ")}`);
+      } else if (!isInteractive()) {
+        // Not interactive and no --yes/--non-interactive flag
+        return yield* Effect.fail(
+          new AddError({
+            message:
+              "Cannot prompt for agent selection: stdin is not a TTY. Use --yes, --all, or --non-interactive to run without prompts.",
+          }),
+        );
       } else {
         const selectedIds = yield* promptAgentSelection(detectedAgents);
         agents = detectedAgents.filter((a) => selectedIds.includes(a.id));
@@ -626,7 +671,7 @@ export const handleAdd = (
     let wellKnownSkills: WellKnownSkill[] | undefined;
     let commitSha: string | undefined;
 
-    spinner.start("Discovering skills...");
+    spinnerHelper.start("Discovering skills...");
 
     if (parsed.type === "local") {
       const result = yield* resolveLocalSource(parsed);
@@ -640,7 +685,7 @@ export const handleAdd = (
       skills = result.skills;
       wellKnownSkills = result.wellKnownSkills;
     } else {
-      spinner.stop("Unsupported source type");
+      spinnerHelper.stop("Unsupported source type");
       return yield* Effect.fail(
         new AddError({
           message: `Unsupported source type: ${parsed.type}`,
@@ -649,13 +694,13 @@ export const handleAdd = (
     }
 
     if (skills.length === 0) {
-      spinner.stop("No skills found");
+      spinnerHelper.stop("No skills found");
       p.log.warn("No SKILL.md files found in the source.");
       p.outro("Nothing to install.");
       return;
     }
 
-    spinner.stop(`Found ${skills.length} skill(s)`);
+    spinnerHelper.stop(`Found ${skills.length} skill(s)`);
 
     // Step 5: List mode - just show skills and exit
     if (args.list) {
@@ -683,6 +728,14 @@ export const handleAdd = (
       // Install all skills
       selectedSkills = skills;
       p.log.info(`Installing all ${skills.length} skill(s)`);
+    } else if (!canPrompt(args)) {
+      // Need to prompt but can't
+      return yield* Effect.fail(
+        new AddError({
+          message:
+            "Cannot prompt for skill selection: stdin is not a TTY. Use --yes, --all, or --non-interactive to run without prompts.",
+        }),
+      );
     } else {
       // Interactive selection
       const selectedNames = yield* promptSkillSelection(skills);
@@ -695,8 +748,16 @@ export const handleAdd = (
       return;
     }
 
-    // Step 7: Confirm installation (unless --yes)
-    if (!args.yes) {
+    // Step 7: Confirm installation (unless --yes or --non-interactive)
+    if (!args.yes && !args.nonInteractive) {
+      if (!isInteractive()) {
+        return yield* Effect.fail(
+          new AddError({
+            message:
+              "Cannot prompt for confirmation: stdin is not a TTY. Use --yes, --all, or --non-interactive to run without prompts.",
+          }),
+        );
+      }
       const confirmed = yield* promptConfirmInstall(selectedSkills.length, agents.length);
       if (!confirmed) {
         p.cancel("Installation cancelled.");
@@ -705,7 +766,9 @@ export const handleAdd = (
     }
 
     // Step 8: Install skills
-    spinner.start(`Installing ${selectedSkills.length} skill(s) to ${agents.length} agent(s)...`);
+    spinnerHelper.start(
+      `Installing ${selectedSkills.length} skill(s) to ${agents.length} agent(s)...`,
+    );
 
     let results: InstallResult[];
 
@@ -727,7 +790,7 @@ export const handleAdd = (
       );
     }
 
-    spinner.stop(`Installed ${results.length} skill(s)`);
+    spinnerHelper.stop(`Installed ${results.length} skill(s)`);
 
     // Show results summary
     const byMethod = {

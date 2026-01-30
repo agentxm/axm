@@ -1,9 +1,14 @@
 # Tasks: Add skills remove sub-command
 
+**Plan Epic:** axm-4
+
 ## Phase 1: Implementation
+
+**Epic:** axm-4.1
 
 ### TASK-1.1: Create remove command handler [AUTO]
 
+**Bead:** axm-4.1.1
 **Implements:** DES-1, DES-2
 
 **Description:** Create the Effect handler for the remove command that prints "Hello Alex" to the console.
@@ -19,6 +24,7 @@
 
 ### TASK-1.2: Create remove command yargs definition [AUTO]
 
+**Bead:** axm-4.1.2
 **Implements:** DES-1, DES-3
 
 **Description:** Create the yargs command definition that wires the handler to `axm skills remove`.
@@ -35,6 +41,7 @@
 
 ### TASK-1.3: Wire remove command to skills parent [AUTO]
 
+**Bead:** axm-4.1.3
 **Implements:** DES-1
 
 **Description:** Register the remove command with the skills parent command.
@@ -48,7 +55,11 @@
 
 ## Phase 2: Verification
 
+**Epic:** axm-4.2
+
 ### TASK-2.1: Add E2E test for remove command [AUTO]
+
+**Bead:** axm-4.2.1
 
 **Implements:** REQ-1 (Remove Command Basic Invocation)
 
@@ -65,6 +76,7 @@
 
 ### TASK-2.2: Verify all tests pass [VERIFY]
 
+**Bead:** axm-4.2.2
 **Implements:** REQ-1
 
 **Description:** Run full test suite to ensure no regressions.

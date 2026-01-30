@@ -13,6 +13,7 @@ Each guide is a single markdown file named after its topic:
 - `testing.md` — Testing orientation and skill references
 - `beads.md` — Task planning and beads workflow for multi-session execution
 - `cli-design.md` — CLI architecture and conventions
+- `spec-driven-development.md` — SDD workflow with OpenSpec and beads
 
 ---
 

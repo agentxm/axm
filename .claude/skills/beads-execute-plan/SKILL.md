@@ -1,6 +1,6 @@
 ---
 name: beads-execute-plan
-description: Orchestrate plan execution by spawning sub-agents. Use after /beads-plan when user requests progress, execution, or implementation of a plan scope.
+description: Orchestrate plan execution by spawning sub-agents. Executes ALL remaining phases by default; optionally scope to a specific phase or epic.
 context: fork
 agent: general-purpose
 allowed-tools: Bash(bd *), Read, Glob, Task, Skill
@@ -8,7 +8,9 @@ allowed-tools: Bash(bd *), Read, Glob, Task, Skill
 
 # Execute Markdown Task Plan
 
-Execute the task plan scope specified in `$ARGUMENTS` by spawning sub-agents for each ready bead task.
+Execute the task plan by spawning sub-agents for each ready bead task.
+
+**Default behavior**: Given a file path with no scope argument, execute ALL remaining open phases in order until the plan is complete. To execute only a specific phase, provide a scope argument (phase name or epic ID).
 
 **CRITICAL: Do NOT use Claude Code's built-in task tools (TaskCreate, TaskUpdate, TaskList, TaskGet).** Use only `bd` CLI commands for task management.
 
@@ -42,24 +44,35 @@ Every task—even "simple" ones—must be spawned to a sub-agent. This ensures:
 
 `$ARGUMENTS` can be:
 
-- Phase name: `Phase 3`, `Phase 1: Core Implementation`
-- Epic ID: `axm-2.3`, `beads-5`
-- Path + scope: `docs/plans/tasks.md Phase 2`
+- **File path only**: `docs/plans/tasks.md` — Executes ALL remaining phases (default)
+- **File path + scope**: `docs/plans/tasks.md Phase 2` — Executes only the specified phase
+- **Phase name**: `Phase 3`, `Phase 1: Core Implementation`
+- **Epic ID**: `axm-2.3`, `beads-5`
+
+**Default behavior**: If only a file path is provided with no specific phase or epic, execute the ENTIRE plan (all remaining open phases in order).
 
 ## Workflow
 
-### Step 1: Identify the scope
+### Step 1: Determine execution mode
 
-Parse `$ARGUMENTS` to determine what to execute. If an epic ID is provided, use it directly. If a phase name is given, find the corresponding epic:
+Parse `$ARGUMENTS` to determine what to execute:
+
+**Full plan execution** (default): If arguments contain only a file path (no phase name or epic ID), execute ALL remaining open phases in order.
+
+**Scoped execution**: If arguments include a phase name or epic ID, execute only that specific scope.
 
 ```bash
-# List open epics to find the phase
+# List all open epics to see available phases
 bd list --status=open --type=epic
 ```
 
-### Step 2: Get open tasks in scope
+### Step 2: Get target scope(s)
 
-Query for open tasks under the target epic:
+**For full plan execution:**
+Identify ALL open phase epics (type=epic) under the plan. Execute them in order, starting with the lowest phase number.
+
+**For scoped execution:**
+Query for tasks under the specific target epic:
 
 ```bash
 bd show <epic-id>
@@ -132,7 +145,23 @@ bd close <epic-id> --reason "All phase tasks complete"
 
 For phases with document update tasks, invoke `/beads-close-phase <epic-id>` to handle markdown updates.
 
-### Step 8: Run cleanup after plan completion
+### Step 8: Continue to next phase (full plan execution only)
+
+**For full plan execution**: After closing a phase, check if more phases remain:
+
+```bash
+bd list --status=open --type=epic
+```
+
+If open phase epics remain:
+
+1. Identify the next phase (lowest phase number)
+2. Return to Step 2 and execute that phase
+3. Repeat until all phases are complete
+
+**Do NOT stop after completing one phase** unless running in scoped execution mode.
+
+### Step 9: Run cleanup after plan completion
 
 After the final phase (including human gates), run `/beads-cleanup <plan-epic-id>` to:
 
@@ -218,7 +247,8 @@ bd close <task-id> --reason "..."
 
 Summarize:
 
-- Scope executed (phase name/epic ID)
-- Tasks spawned and completed
-- Any remaining blocked tasks
-- Phase closure status
+- Execution mode (full plan vs scoped)
+- Phases executed and completed
+- Tasks spawned and completed per phase
+- Any remaining blocked tasks or human gates
+- Final plan status

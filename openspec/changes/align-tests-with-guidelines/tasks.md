@@ -1,14 +1,16 @@
 # Tasks: Align Tests with Guidelines
 
-Plan Epic: (created by `/beads-plan`)
+**Plan Epic:** axm-2
 
 ---
 
 ## Phase 1: Add Missing Command Tests [AUTO]
 
-Phase Epic: (created by `/beads-plan`)
+**Epic:** axm-2.1
 
 ### TASK-1.1: Add init command test [AUTO]
+
+**Bead:** axm-2.1.1
 
 **Implements:** DES-1
 
@@ -16,11 +18,11 @@ Phase Epic: (created by `/beads-plan`)
 
 **Acceptance Criteria:**
 
-- [ ] Test file exists at `packages/cli/src/commands/init/command.test.ts`
-- [ ] Tests verify command description matches expected text
-- [ ] Tests verify `--yes`, `--global`, `--agent` options are defined
-- [ ] Tests verify option types and defaults
-- [ ] `pnpm test packages/cli/src/commands/init/command.test.ts` exits 0
+- [x] Test file exists at `packages/cli/src/commands/init/command.test.ts`
+- [x] Tests verify command description matches expected text
+- [x] Tests verify `--yes`, `--global`, `--agent` options are defined
+- [x] Tests verify option types and defaults
+- [x] `pnpm test packages/cli/src/commands/init/command.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -28,18 +30,20 @@ Phase Epic: (created by `/beads-plan`)
 
 ### TASK-1.2: Add skills add command test [AUTO]
 
+**Bead:** axm-2.1.2
+
 **Implements:** DES-1
 
 **Description:** Create `command.test.ts` for the skills add command to verify yargs command definition, positional source argument, and all options.
 
 **Acceptance Criteria:**
 
-- [ ] Test file exists at `packages/cli/src/commands/skills/add/command.test.ts`
-- [ ] Tests verify command description
-- [ ] Tests verify `source` positional argument
-- [ ] Tests verify options: `--global`, `--agent`, `--skill`, `--yes`, `--list`, `--all`
-- [ ] Tests verify option types (string, array, boolean)
-- [ ] `pnpm test packages/cli/src/commands/skills/add/command.test.ts` exits 0
+- [x] Test file exists at `packages/cli/src/commands/skills/add/command.test.ts`
+- [x] Tests verify command description
+- [x] Tests verify `source` positional argument
+- [x] Tests verify options: `--global`, `--agent`, `--skill`, `--yes`, `--list`, `--all`
+- [x] Tests verify option types (string, array, boolean)
+- [x] `pnpm test packages/cli/src/commands/skills/add/command.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -47,9 +51,11 @@ Phase Epic: (created by `/beads-plan`)
 
 ## Phase 2: Add E2E Root Command Test [AUTO]
 
-Phase Epic: (created by `/beads-plan`)
+**Epic:** axm-2.2
 
 ### TASK-2.1: Add root command E2E test [AUTO]
+
+**Bead:** axm-2.2.1
 
 **Implements:** DES-3
 
@@ -69,9 +75,11 @@ Phase Epic: (created by `/beads-plan`)
 
 ## Phase 3: Relocate Core Tests [AUTO]
 
-Phase Epic: (created by `/beads-plan`)
+**Epic:** axm-2.3
 
 ### TASK-3.1: Relocate source-parser test [AUTO]
+
+**Bead:** axm-2.3.1
 
 **Implements:** DES-2
 
@@ -90,6 +98,8 @@ Phase Epic: (created by `/beads-plan`)
 
 ### TASK-3.2: Relocate content-hash test [AUTO]
 
+**Bead:** axm-2.3.2
+
 **Implements:** DES-2
 
 **Description:** Move `content-hash.test.ts` from `__tests__/` to colocate with `content-hash.ts`.
@@ -106,6 +116,8 @@ Phase Epic: (created by `/beads-plan`)
 ---
 
 ### TASK-3.3: Relocate settings test [AUTO]
+
+**Bead:** axm-2.3.3
 
 **Implements:** DES-2
 
@@ -124,6 +136,8 @@ Phase Epic: (created by `/beads-plan`)
 
 ### TASK-3.4: Relocate skill-discovery test [AUTO]
 
+**Bead:** axm-2.3.4
+
 **Implements:** DES-2
 
 **Description:** Move `skill-discovery.test.ts` from `__tests__/` to colocate with `skill-discovery.ts`.
@@ -140,6 +154,8 @@ Phase Epic: (created by `/beads-plan`)
 ---
 
 ### TASK-3.5: Relocate lockfile test [AUTO]
+
+**Bead:** axm-2.3.5
 
 **Implements:** DES-2
 
@@ -158,6 +174,8 @@ Phase Epic: (created by `/beads-plan`)
 
 ### TASK-3.6: Relocate git test [AUTO]
 
+**Bead:** axm-2.3.6
+
 **Implements:** DES-2
 
 **Description:** Move `git.test.ts` from `__tests__/` to colocate with `git.ts`.
@@ -174,6 +192,8 @@ Phase Epic: (created by `/beads-plan`)
 ---
 
 ### TASK-3.7: Relocate wellknown test [AUTO]
+
+**Bead:** axm-2.3.7
 
 **Implements:** DES-2
 
@@ -192,6 +212,8 @@ Phase Epic: (created by `/beads-plan`)
 
 ### TASK-3.8: Relocate agent-detection test [AUTO]
 
+**Bead:** axm-2.3.8
+
 **Implements:** DES-2
 
 **Description:** Move `agent-detection.test.ts` from `__tests__/` to colocate with `agent-detection.ts`.
@@ -208,6 +230,8 @@ Phase Epic: (created by `/beads-plan`)
 ---
 
 ### TASK-3.9: Relocate installer test [AUTO]
+
+**Bead:** axm-2.3.9
 
 **Implements:** DES-2
 
@@ -226,6 +250,8 @@ Phase Epic: (created by `/beads-plan`)
 
 ### TASK-3.10: Remove empty **tests** directory [AUTO]
 
+**Bead:** axm-2.3.10
+
 **Implements:** DES-2
 
 **Description:** After all test relocations, remove the now-empty `__tests__/` directory.
@@ -242,9 +268,11 @@ Phase Epic: (created by `/beads-plan`)
 
 ## Phase 4: Verification [VERIFY]
 
-Phase Epic: (created by `/beads-plan`)
+**Epic:** axm-2.4
 
 ### TASK-4.1: Run full test suite [VERIFY]
+
+**Bead:** axm-2.4.1
 
 **Implements:** All
 

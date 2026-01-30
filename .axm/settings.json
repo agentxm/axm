@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "agents": [
+    "claude-code",
+    "cursor",
+    "codex",
+    "vscode"
+  ],
+  "skills": {}
+}

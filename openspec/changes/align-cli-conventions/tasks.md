@@ -1,9 +1,14 @@
 # Tasks: Align CLI with cli-conventions skill
 
+**Plan Epic:** axm-3
+
 ## Phase 1: Standard Flags Infrastructure
+
+**Epic:** axm-3.1
 
 ### TASK-1.1: Add global standard flags to root CLI [AUTO]
 
+**Bead:** axm-3.1.1
 **Implements:** DES-1, REQ-Standard Flags
 
 **Description:** Add `--verbose`, `--quiet`, `--json`, and `--non-interactive` flags to the root yargs configuration in `main.ts`. These flags should be available to all commands.
@@ -21,6 +26,7 @@
 
 ### TASK-1.2: Wire standard flags to init command [AUTO]
 
+**Bead:** axm-3.1.2
 **Implements:** DES-1, REQ-Standard Flags
 
 **Description:** Update the init command to accept and forward global standard flags to its handler. The handler interface should include these flags.
@@ -35,6 +41,7 @@
 
 ### TASK-1.3: Wire standard flags to skills add command [AUTO]
 
+**Bead:** axm-3.1.3
 **Implements:** DES-1, REQ-Standard Flags
 
 **Description:** Update the skills add command to accept and forward global standard flags to its handler. The handler interface should include these flags.
@@ -49,8 +56,11 @@
 
 ## Phase 2: TTY Detection
 
+**Epic:** axm-3.2
+
 ### TASK-2.1: Add TTY detection utility [AUTO]
 
+**Bead:** axm-3.2.1
 **Implements:** DES-2, REQ-TTY Detection
 
 **Description:** Create a utility module with functions for TTY detection that handlers can use. Include `isInteractive()` for stdin and `isFancyOutput()` for stdout.
@@ -68,6 +78,7 @@
 
 ### TASK-2.2: Add TTY detection to init handler [AUTO]
 
+**Bead:** axm-3.2.2
 **Implements:** DES-2, REQ-TTY Detection
 
 **Description:** Update the init handler to check TTY before prompting. If stdin is not a TTY and `--yes` is not provided, fail with a helpful error message.
@@ -85,6 +96,7 @@
 
 ### TASK-2.3: Add TTY detection to skills add handler [AUTO]
 
+**Bead:** axm-3.2.3
 **Implements:** DES-2, REQ-TTY Detection
 
 **Description:** Update the skills add handler to check TTY before prompting. If stdin is not a TTY and appropriate flags are not provided, fail with a helpful error message.
@@ -102,8 +114,11 @@
 
 ## Phase 3: Error Message Improvements
 
+**Epic:** axm-3.3
+
 ### TASK-3.1: Create error formatting utility [AUTO]
 
+**Bead:** axm-3.3.1
 **Implements:** DES-3, REQ-Error Message Format
 
 **Description:** Create a utility function that formats errors with what happened and how to fix. Use a consistent format across the CLI.
@@ -119,6 +134,7 @@
 
 ### TASK-3.2: Improve init handler error messages [AUTO]
 
+**Bead:** axm-3.3.2
 **Implements:** DES-3, REQ-Error Message Format
 
 **Description:** Update init handler error messages to include recovery guidance. Use the error formatting utility for consistency.
@@ -134,6 +150,7 @@
 
 ### TASK-3.3: Improve skills add handler error messages [AUTO]
 
+**Bead:** axm-3.3.3
 **Implements:** DES-3, REQ-Error Message Format
 
 **Description:** Update skills add handler error messages to include recovery guidance. Use the error formatting utility for consistency.
@@ -150,8 +167,11 @@
 
 ## Phase 4: Parser Unit Tests
 
+**Epic:** axm-3.4
+
 ### TASK-4.1: Add parser tests for init command [AUTO]
 
+**Bead:** axm-3.4.1
 **Implements:** DES-4, REQ-Parser Unit Testing
 
 **Description:** Add yargs parser unit tests for the init command. Tests should verify required arguments, defaults, aliases, and type coercion.
@@ -169,6 +189,7 @@
 
 ### TASK-4.2: Add parser tests for skills add command [AUTO]
 
+**Bead:** axm-3.4.2
 **Implements:** DES-4, REQ-Parser Unit Testing
 
 **Description:** Add yargs parser unit tests for the skills add command. Tests should verify required arguments, defaults, aliases, and type coercion.
@@ -187,8 +208,11 @@
 
 ## Phase 5: Validation
 
+**Epic:** axm-3.5
+
 ### TASK-5.1: Run full test suite [AUTO]
 
+**Bead:** axm-3.5.1
 **Implements:** All requirements
 
 **Description:** Run the full test suite to verify all changes work together. Fix any regressions.
@@ -204,6 +228,7 @@
 
 ### TASK-5.2: Manual CLI verification [VERIFY]
 
+**Bead:** axm-3.5.2
 **Implements:** All requirements
 
 **Description:** Manually verify CLI behavior matches the cli-conventions skill checklist.

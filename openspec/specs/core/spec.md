@@ -3,7 +3,9 @@
 ## Purpose
 
 TBD - created by archiving change add-core-package. Update Purpose after archive.
+
 ## Requirements
+
 ### Requirement: Package Structure
 
 The core package SHALL be located at `packages/core` and published as `@agentxm/core`.
@@ -70,4 +72,3 @@ The core package SHALL NOT depend on CLI-specific concerns (yargs, process argum
 - **WHEN** inspecting package.json dependencies
 - **THEN** `@agentxm/cli` depends on `@agentxm/core`
 - **AND** `@agentxm/core` does NOT depend on `@agentxm/cli`
-

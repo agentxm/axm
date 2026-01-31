@@ -1,111 +1,173 @@
 ---
 name: effect-testing
-description: Effect testing patterns: runPromise, error assertions, test layers. Use when any test needs to run Effect programs or provide layers.
+description: Effect testing with @effect/vitest. Use when any test needs to run Effect programs, test errors, or provide layers.
 user-invocable: false
 ---
 
-# Effect Testing Patterns
+# Effect Testing with @effect/vitest
 
-Patterns for testing Effect programs. Handlers (effectful entry points) typically
-need test layers to provide service dependencies.
+Use `@effect/vitest` to run Effect programs directly in tests without bridging
+to Promise-land. Stay in Effect-land for cleaner, more idiomatic code.
 
 ---
 
-## Running Effects in Tests
+## Setup
 
-Use `Effect.runPromise` to execute Effects in test functions:
+```bash
+pnpm add -D @effect/vitest
+```
+
+Requires vitest 1.6.0 or later.
+
+---
+
+## Basic Usage
+
+Import from `@effect/vitest` instead of `vitest`:
 
 ```typescript
 import { Effect } from "effect";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 
 describe("myFunction", () => {
-  it("returns expected value", async () => {
-    const result = await Effect.runPromise(myFunction("input"));
-
-    expect(result).toBe("expected");
-  });
+  it.effect("returns expected value", () =>
+    Effect.gen(function* () {
+      const result = yield* myFunction("input");
+      expect(result).toBe("expected");
+    }),
+  );
 });
 ```
+
+No `async`, no `await`, no `runPromise`. The test stays in Effect-land.
 
 ---
 
 ## Error Assertions
 
-Use `Effect.either` to assert on expected failures:
+Use `Effect.flip` to test expected failures. Flip swaps success and error
+channels—if the effect fails, the error becomes the success value:
 
 ```typescript
-// Helper for error assertions
-const runExpectError = <A, E>(effect: Effect.Effect<A, E>) =>
-  Effect.runPromise(effect.pipe(Effect.either)).then((result) => {
-    expect(result._tag).toBe("Left");
-    if (result._tag === "Left") return result.left;
-    throw new Error("Expected failure");
-  });
+it.effect("fails with ParseError for invalid input", () =>
+  Effect.gen(function* () {
+    const error = yield* parseSource("invalid").pipe(Effect.flip);
+    expect(error).toBeInstanceOf(ParseError);
+  }),
+);
+```
 
-it("fails with ParseError for invalid input", async () => {
-  const error = await runExpectError(parseSource("invalid"));
+For asserting the full Exit (success or failure):
 
-  expect(error._tag).toBe("ParseError");
-});
+```typescript
+import { Exit } from "effect";
+
+it.effect("returns expected exit", () =>
+  Effect.gen(function* () {
+    const exit = yield* Effect.exit(divide(4, 0));
+    expect(exit).toStrictEqual(Exit.fail("Cannot divide by zero"));
+  }),
+);
 ```
 
 ---
 
-## Providing Test Layers
+## Test Types
 
-Use `Effect.provide` to inject test dependencies:
+| Type              | Use case                                      |
+| ----------------- | --------------------------------------------- |
+| `it.effect`       | Standard tests with TestContext (TestClock)   |
+| `it.live`         | Tests requiring real time/IO                  |
+| `it.scoped`       | Tests with resources requiring Scope          |
+| `it.scopedLive`   | Scoped tests with live environment            |
+| `it.effect.skip`  | Temporarily skip a test                       |
+| `it.effect.only`  | Run only this test                            |
+| `it.effect.fails` | Assert test fails (for tracking known issues) |
+
+---
+
+## Providing Layers
+
+Use `Effect.provide` within the test:
 
 ```typescript
 import { NodeFileSystem } from "@effect/platform-node";
 
-// Helper to run with FileSystem layer
-const runWithFs = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
-  Effect.runPromise(effect.pipe(Effect.provide(NodeFileSystem.layer)));
-
-it("reads file contents", async () => {
-  const result = await runWithFs(readConfig("/path/to/config.json"));
-
-  expect(result.version).toBe(1);
-});
+it.effect("reads file contents", () =>
+  Effect.gen(function* () {
+    const result = yield* readConfig("/path/to/config.json");
+    expect(result.version).toBe(1);
+  }).pipe(Effect.provide(NodeFileSystem.layer)),
+);
 ```
 
-For mock layers, create layer factories that accept test configuration. See
-`/effect-service` for the test layer design pattern.
-
----
-
-## Test Helper Patterns
-
-Define helpers at describe block scope for consistency:
+For shared layers across tests, define a helper:
 
 ```typescript
 describe("myHandler", () => {
-  // Success helper
-  const run = <A, E>(effect: Effect.Effect<A, E, MyService>) =>
-    Effect.runPromise(effect.pipe(Effect.provide(TestLayer)));
+  const withTestLayer = <A, E>(effect: Effect.Effect<A, E, MyService>) =>
+    effect.pipe(Effect.provide(TestMyService));
 
-  // Error helper
-  const runEither = <A, E>(effect: Effect.Effect<A, E, MyService>) =>
-    Effect.runPromise(effect.pipe(Effect.either, Effect.provide(TestLayer)));
-
-  it("succeeds with valid input", async () => {
-    const result = await run(myHandler({ valid: true }));
-    expect(result).toBeDefined();
-  });
-
-  it("fails with invalid input", async () => {
-    const result = await runEither(myHandler({ valid: false }));
-    expect(result._tag).toBe("Left");
-  });
+  it.effect("succeeds with valid input", () =>
+    withTestLayer(
+      Effect.gen(function* () {
+        const result = yield* myHandler({ valid: true });
+        expect(result).toBeDefined();
+      }),
+    ),
+  );
 });
+```
+
+---
+
+## TestClock
+
+`it.effect` provides `TestContext` including `TestClock` (starts at 0ms):
+
+```typescript
+import { TestClock, Clock } from "effect";
+
+it.effect("handles timeout", () =>
+  Effect.gen(function* () {
+    const fiber = yield* Effect.sleep("1 second").pipe(Effect.fork);
+    yield* TestClock.adjust("1 second");
+    yield* fiber.join;
+    const now = yield* Clock.currentTimeMillis;
+    expect(now).toBe(1000);
+  }),
+);
+```
+
+---
+
+## Logging
+
+`it.effect` suppresses logs by default. To enable:
+
+```typescript
+import { Logger } from "effect";
+
+it.effect("with logging", () =>
+  Effect.gen(function* () {
+    yield* Effect.log("debug message");
+  }).pipe(Effect.provide(Logger.pretty)),
+);
+
+// Or use it.live for real logging
+it.live("with live logging", () =>
+  Effect.gen(function* () {
+    yield* Effect.log("visible in output");
+  }),
+);
 ```
 
 ---
 
 ## Checklist
 
-- [ ] **Effect.runPromise in tests** — Execute Effects within test functions
-- [ ] **Effect.either for errors** — Assert on expected failures, not try/catch
-- [ ] **Effect.provide for deps** — Inject layers, don't rely on globals
-- [ ] **Helpers per describe** — Define run/runEither helpers for consistency
+- [ ] **Import from @effect/vitest** — Not plain vitest
+- [ ] **Use it.effect** — Stay in Effect-land, no runPromise
+- [ ] **Effect.flip for errors** — Swap channels to assert on failures
+- [ ] **Effect.provide for deps** — Inject layers within the test
+- [ ] **it.scoped for resources** — When test requires Scope

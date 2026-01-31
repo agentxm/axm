@@ -10,8 +10,8 @@ Handlers are effectful entry points that require services provided via layers.
 This skill covers patterns for testing handlers. Location: colocated with source
 (e.g., `packages/cli/src/**/*.test.ts`).
 
-For Effect testing patterns (running effects, error assertions, providing
-layers), see `/effect-testing`.
+For Effect testing patterns (it.effect, error assertions, providing layers),
+see `/effect-testing`.
 
 ---
 
@@ -23,7 +23,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { NodeFileSystem } from "@effect/platform-node";
 import { Effect } from "effect";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import { handleInit, type InitArgs } from "./init.handler.js";
 
 describe("init.handler", () => {
@@ -42,38 +42,55 @@ describe("init.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  // Helpers - see /effect-testing for patterns
-  const run = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
-    Effect.runPromise(effect.pipe(Effect.provide(NodeFileSystem.layer)));
-
-  const runEither = <A, E>(
-    effect: Effect.Effect<A, E, FileSystem.FileSystem>,
-  ) =>
-    Effect.runPromise(
-      effect.pipe(Effect.either, Effect.provide(NodeFileSystem.layer)),
-    );
+  // Helper to provide FileSystem layer
+  const withFs = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
+    effect.pipe(Effect.provide(NodeFileSystem.layer));
 
   const defaultArgs: InitArgs = { global: false, agent: [], yes: false };
 
-  it("creates settings.json", async () => {
-    await run(handleInit({ ...defaultArgs, yes: true }));
+  it.effect("creates settings.json", () =>
+    withFs(
+      Effect.gen(function* () {
+        yield* handleInit({ ...defaultArgs, yes: true });
 
-    const settingsPath = path.join(tempDir, ".axm", "settings.json");
-    expect(fs.existsSync(settingsPath)).toBe(true);
-  });
+        const settingsPath = path.join(tempDir, ".axm", "settings.json");
+        expect(fs.existsSync(settingsPath)).toBe(true);
+      }),
+    ),
+  );
 
-  it("handles already-initialized case", async () => {
-    // Pre-create settings
-    fs.mkdirSync(path.join(tempDir, ".axm"), { recursive: true });
-    fs.writeFileSync(
-      path.join(tempDir, ".axm", "settings.json"),
-      JSON.stringify({ version: 1, agents: ["claude-code"], skills: {} }),
-    );
+  it.effect("handles already-initialized case", () =>
+    withFs(
+      Effect.gen(function* () {
+        // Pre-create settings
+        fs.mkdirSync(path.join(tempDir, ".axm"), { recursive: true });
+        fs.writeFileSync(
+          path.join(tempDir, ".axm", "settings.json"),
+          JSON.stringify({ version: 1, agents: ["claude-code"], skills: {} }),
+        );
 
-    const result = await runEither(handleInit({ ...defaultArgs, yes: true }));
+        const result = yield* handleInit({ ...defaultArgs, yes: true });
+        expect(result).toBeDefined();
+      }),
+    ),
+  );
 
-    expect(result._tag).toBe("Right");
-  });
+  it.effect("fails with InvalidConfig for bad settings", () =>
+    withFs(
+      Effect.gen(function* () {
+        fs.mkdirSync(path.join(tempDir, ".axm"), { recursive: true });
+        fs.writeFileSync(
+          path.join(tempDir, ".axm", "settings.json"),
+          "not json",
+        );
+
+        const error = yield* handleInit({ ...defaultArgs, yes: true }).pipe(
+          Effect.flip,
+        );
+        expect(error._tag).toBe("InvalidConfig");
+      }),
+    ),
+  );
 });
 ```
 
@@ -84,4 +101,5 @@ describe("init.handler", () => {
 - [ ] **Fresh temp directory** — Create in `beforeEach`, clean up in `afterEach`
 - [ ] **Reset cwd** — Save and restore `process.cwd()` if changing it
 - [ ] **Provide layers** — All Effect dependencies via test layers
+- [ ] **Effect.flip for errors** — Use flip to assert on expected failures
 - [ ] **Error paths tested** — Verify error handling with test layers that simulate failures

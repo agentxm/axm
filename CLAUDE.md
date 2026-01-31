@@ -110,32 +110,6 @@ openspec/           # Spec-driven development
   changes/          # Proposed changes
 ```
 
-## Task Management Workflow
-
-This project uses **beads (`bd`) CLI** for ALL task management:
-
-- **Creating tasks**: Use `bd` to create new tasks
-- **Editing tasks**: Use `bd` to update task details
-- **Progress tracking**: Use `bd` to track task status and completion
-
-**Common bd commands:**
-
-```bash
-bd list --status=open              # Find work to do
-bd show <id>                       # View task details and dependencies
-bd update <id> --status=in-progress  # Mark task started
-bd close <id> --reason "..."       # Close with context (not --comment)
-```
-
-**Sub-agent spawning**: Always spawn a sub-agent (using the Task tool) to work on each individual task. This ensures:
-
-- Fresh context window for each task
-- Focused work without context pollution
-- Clean separation of concerns between tasks
-- Better token efficiency for complex work
-
-Do NOT use Claude Code's built-in task tools (TaskCreate, TaskUpdate, TaskList, etc.) for task management in this project.
-
 ## Spec-Driven Development
 
 User/API behavior is specified before implementation. Specs define _what_, designs define _how_.

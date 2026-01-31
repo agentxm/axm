@@ -8,7 +8,7 @@ Instructions for AI coding assistants using OpenSpec for spec-driven development
 - Decide scope: new capability vs modify existing capability
 - Pick a unique `change-id`: kebab-case, verb-led (`add-`, `update-`, `remove-`, `refactor-`)
 - Review skills for relevant conventions and patterns
-- **Read `docs/guides/beads.md`** for required tasks.md format (TASK-N.M structure)
+- Use TASK-N.M format for tasks.md structure
 - Scaffold: `proposal.md`, `tasks.md`, `design.md`, and delta specs per affected capability (if any)
 - Write deltas (if behavior changes): use `## ADDED|MODIFIED|REMOVED|RENAMED Requirements`; include at least one `#### Scenario:` per requirement
 - No deltas needed for refactoring/implementation-only changes
@@ -68,48 +68,12 @@ Skip proposal for:
 - "Work on the tasks"
 - References a `tasks.md` with implementation intent
 
-**MANDATORY: Use the beads workflow for ALL implementation work.**
-
-**CRITICAL: Do NOT use Claude Code's built-in task tools (TaskCreate, TaskUpdate, TaskList, TaskGet) for task management.** These native tools lack multi-session persistence and will lose progress. Always use the `bd` CLI and beads skills instead.
-
-Why beads are required:
-
-- **Multi-session persistence** — Progress survives context window limits
-- **Clean context** — Sub-agents get fresh windows, avoiding context pollution
-- **Parallel execution** — Independent tasks run concurrently
-- **Verifiable progress** — Each task has acceptance criteria tracked via `bd`
-
-**Never implement directly.** Even "simple" tasks must go through beads. Direct implementation loses progress if the session ends and pollutes the orchestrator's context.
-
 **Workflow**
 
-1. **Create beads from task plan**:
-
-   ```
-   /beads-plan openspec/changes/<change-id>/tasks.md
-   ```
-
-   This creates the bead hierarchy (plan epic → phase epics → task beads) and annotates the markdown with bead IDs.
-
-2. **Execute the plan**:
-
-   ```
-   /beads-execute-plan <scope>
-   ```
-
-   The orchestrator spawns sub-agents for each ready task. Scope can be a phase name or epic ID.
-
-3. **Close phases when complete**:
-
-   ```
-   /beads-close-phase <phase-epic-id>
-   ```
-
-   Syncs markdown and closes the phase epic.
-
-4. **Handle human gates**: When HUMAN or HYBRID tasks are encountered, notify the user and pause until they confirm completion.
-
-For task plan format, execution types, and acceptance criteria, see `docs/guides/beads.md`.
+1. Review `tasks.md` and identify ready tasks (no unmet dependencies)
+2. Work through tasks in order, following acceptance criteria
+3. Mark tasks complete as you finish them
+4. Handle HUMAN or HYBRID tasks by notifying user and waiting for confirmation
 
 ### Stage 3: Archiving Changes
 
@@ -130,7 +94,7 @@ After deployment, create separate PR to:
 - [ ] Run `openspec list` to see active changes
 - [ ] Run `openspec list --specs` to see existing capabilities
 - [ ] Review available skills for relevant patterns and conventions (see below)
-- [ ] If implementing: Run `/beads-plan` first, then `/beads-execute-plan` (see Stage 2)
+- [ ] If implementing: Review `tasks.md` and work through tasks in order (see Stage 2)
 
 **Before Creating Specs:**
 
@@ -284,8 +248,6 @@ The system SHALL provide...
 If multiple capabilities are affected, create multiple delta files under `changes/[change-id]/specs/<capability>/spec.md`—one per capability.
 
 4. **Create tasks.md:**
-
-   **REQUIRED:** Read `docs/guides/beads.md` before writing tasks.md. The format is strict and summaries are insufficient.
 
    Required structure for each task:
 
@@ -453,7 +415,6 @@ openspec list
 CHANGE=add-two-factor-auth
 mkdir -p openspec/changes/$CHANGE  # Add /specs/<capability> only if behavior changes
 printf "## Why\n...\n\n## What Changes\n- ...\n\n## Impact\n- ...\n" > openspec/changes/$CHANGE/proposal.md
-# REQUIRED: Read docs/guides/beads.md BEFORE creating tasks.md
 # tasks.md must use TASK-N.M format with Implements, Description, Acceptance Criteria, Dependencies fields
 
 # 3) Add deltas (skip for refactoring/implementation-only changes)
@@ -583,7 +544,7 @@ Only add complexity with:
 ### File Purposes
 
 - `proposal.md` - Why and what
-- `tasks.md` - Implementation steps (MUST use TASK-N.M format from `docs/guides/beads.md`)
+- `tasks.md` - Implementation steps (TASK-N.M format)
 - `design.md` - Technical decisions
 - `spec.md` - Requirements and behavior
 

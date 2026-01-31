@@ -15,7 +15,7 @@ prompt = """
 3. Map the change into concrete capabilities or requirements, breaking multi-scope efforts into distinct spec deltas with clear relationships and sequencing.
 4. Capture architectural reasoning in `design.md` when the solution spans multiple systems, introduces new patterns, or demands trade-off discussion before committing to specs.
 5. Draft spec deltas in `changes/<id>/specs/<capability>/spec.md` (one folder per capability) using `## ADDED|MODIFIED|REMOVED Requirements` with at least one `#### Scenario:` per requirement and cross-reference related capabilities when relevant.
-6. **Read `docs/guides/beads.md`** then draft `tasks.md` using the required TASK-N.M format (Implements, Description, Acceptance Criteria, Dependencies fields). Group into phases, front-load AUTO tasks, and include validation steps.
+6. Draft `tasks.md` using the TASK-N.M format (Implements, Description, Acceptance Criteria, Dependencies fields). Group into phases and include validation steps.
 7. Validate with `openspec validate <id> --strict --no-interactive` and resolve every issue before sharing the proposal.
 
 **Reference**

@@ -34,6 +34,7 @@ const LOCKFILE_VERSION = 1;
 export class LockfileParseError extends Data.TaggedError("LockfileParseError")<{
   readonly message: string;
   readonly cause?: unknown;
+  readonly retryable: boolean;
 }> {}
 
 /**
@@ -44,6 +45,7 @@ export class LockfileParseError extends Data.TaggedError("LockfileParseError")<{
 export class LockfileWriteError extends Data.TaggedError("LockfileWriteError")<{
   readonly message: string;
   readonly cause?: unknown;
+  readonly retryable: boolean;
 }> {}
 
 /**
@@ -112,6 +114,7 @@ export const readLockfile = (
           new LockfileParseError({
             message: `Failed to check if lockfile exists at ${lockfilePath}`,
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -126,6 +129,7 @@ export const readLockfile = (
           new LockfileParseError({
             message: `Failed to read lockfile at ${lockfilePath}`,
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -137,6 +141,7 @@ export const readLockfile = (
         new LockfileParseError({
           message: `Failed to parse lockfile YAML at ${lockfilePath}`,
           cause: error,
+          retryable: false,
         }),
     });
 
@@ -169,6 +174,7 @@ export const writeLockfile = (
           new LockfileWriteError({
             message: `Failed to create directory ${axmDir}`,
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -184,6 +190,7 @@ export const writeLockfile = (
         new LockfileWriteError({
           message: "Failed to serialize lockfile to YAML",
           cause: error,
+          retryable: false,
         }),
     });
 
@@ -194,6 +201,7 @@ export const writeLockfile = (
           new LockfileWriteError({
             message: `Failed to write lockfile at ${lockfilePath}`,
             cause: error,
+            retryable: false,
           }),
       ),
     );

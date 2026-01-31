@@ -23,6 +23,7 @@ import { Data, Effect } from "effect";
 export class HashError extends Data.TaggedError("HashError")<{
   readonly message: string;
   readonly cause?: unknown;
+  readonly retryable: boolean;
 }> {}
 
 // -----------------------------------------------------------------------------
@@ -51,6 +52,7 @@ const listFilesRecursively = (
               new HashError({
                 message: `Failed to read directory: ${dir}`,
                 cause: e,
+                retryable: false,
               }),
           ),
         );
@@ -65,6 +67,7 @@ const listFilesRecursively = (
                 new HashError({
                   message: `Failed to stat file: ${fullPath}`,
                   cause: e,
+                  retryable: false,
                 }),
             ),
           );
@@ -150,6 +153,7 @@ export const computeContentHash = (
             new HashError({
               message: `Failed to read file: ${absolute}`,
               cause: e,
+              retryable: false,
             }),
         ),
       );

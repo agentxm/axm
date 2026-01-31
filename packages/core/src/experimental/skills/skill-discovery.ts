@@ -23,6 +23,7 @@ export class DiscoveryError extends Data.TaggedError("DiscoveryError")<{
   readonly message: string;
   readonly path?: string;
   readonly cause?: unknown;
+  readonly retryable: boolean;
 }> {}
 
 // -----------------------------------------------------------------------------
@@ -54,6 +55,7 @@ const walkDirectory = (
             message: `Failed to read directory: ${dir}`,
             path: dir,
             cause: error,
+            retryable: false,
           }),
         ),
       ),
@@ -148,6 +150,7 @@ export const discoverSkills = (
             message: `Directory does not exist or is not accessible: ${directory}`,
             path: directory,
             cause: error,
+            retryable: false,
           }),
         ),
       ),
@@ -158,6 +161,7 @@ export const discoverSkills = (
         new DiscoveryError({
           message: `Path is not a directory: ${directory}`,
           path: directory,
+          retryable: false,
         }),
       );
     }

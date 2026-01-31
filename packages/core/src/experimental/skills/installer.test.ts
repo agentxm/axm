@@ -455,6 +455,7 @@ describe("installer", () => {
         operation: "copy-to-canonical",
         message: "Test error",
         path: "/test/path",
+        retryable: false,
       });
 
       expect(error._tag).toBe("InstallError");
@@ -469,6 +470,7 @@ describe("installer", () => {
         operation: "create-symlink",
         message: "Failed to create symlink",
         cause,
+        retryable: false,
       });
 
       expect(error.cause).toBe(cause);
@@ -487,6 +489,7 @@ describe("installer", () => {
         const error = new InstallError({
           operation,
           message: `Error during ${operation}`,
+          retryable: false,
         });
         expect(error.operation).toBe(operation);
       }

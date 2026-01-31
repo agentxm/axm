@@ -39,6 +39,8 @@ export class InstallError extends Data.TaggedError("InstallError")<{
   readonly path?: string;
   /** Original error cause */
   readonly cause?: unknown;
+  /** Whether the operation can be retried */
+  readonly retryable: boolean;
 }> {}
 
 // -----------------------------------------------------------------------------
@@ -91,6 +93,7 @@ const copyDirectory = (
             message: `Failed to create directory: ${destDir}`,
             path: destDir,
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -104,6 +107,7 @@ const copyDirectory = (
             message: `Failed to read directory: ${srcDir}`,
             path: srcDir,
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -121,6 +125,7 @@ const copyDirectory = (
               message: `Failed to stat: ${srcPath}`,
               path: srcPath,
               cause: error,
+              retryable: false,
             }),
         ),
       );
@@ -138,6 +143,7 @@ const copyDirectory = (
                 message: `Failed to copy file: ${srcPath}`,
                 path: srcPath,
                 cause: error,
+                retryable: false,
               }),
           ),
         );
@@ -181,6 +187,7 @@ export const copySkillToCanonical = (
             message: `Failed to stat skill path: ${skill.path}`,
             path: skill.path,
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -194,6 +201,7 @@ export const copySkillToCanonical = (
             message: `Failed to create canonical directory: ${canonicalPath}`,
             path: canonicalPath,
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -243,6 +251,7 @@ export const createAgentSymlink = (
             message: `Failed to create agent skills directory: ${agentSkillsDir}`,
             path: agentSkillsDir,
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -259,6 +268,7 @@ export const createAgentSymlink = (
             message: `Failed to check if path exists: ${symlinkPath}`,
             path: symlinkPath,
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -272,6 +282,7 @@ export const createAgentSymlink = (
               message: `Failed to remove existing path: ${symlinkPath}`,
               path: symlinkPath,
               cause: error,
+              retryable: false,
             }),
         ),
       );
@@ -286,6 +297,7 @@ export const createAgentSymlink = (
             message: `Failed to create symlink: ${symlinkPath} -> ${relativeTarget}`,
             path: symlinkPath,
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -324,6 +336,7 @@ export const copyToAgent = (
             message: `Failed to create agent skills directory: ${agentSkillsDir}`,
             path: agentSkillsDir,
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -337,6 +350,7 @@ export const copyToAgent = (
             message: `Failed to check if path exists: ${destPath}`,
             path: destPath,
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -350,6 +364,7 @@ export const copyToAgent = (
               message: `Failed to remove existing path: ${destPath}`,
               path: destPath,
               cause: error,
+              retryable: false,
             }),
         ),
       );

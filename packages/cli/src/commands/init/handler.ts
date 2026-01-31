@@ -59,6 +59,7 @@ export interface InitArgs {
 export class InitError extends Data.TaggedError("InitError")<{
   readonly message: string;
   readonly cause?: unknown;
+  readonly retryable: boolean;
 }> {}
 
 // -----------------------------------------------------------------------------
@@ -107,6 +108,7 @@ const promptAgentSelection = (agents: readonly AgentConfig[]): Effect.Effect<str
       new InitError({
         message: "Failed to prompt for agent selection",
         cause: error,
+        retryable: false,
       }),
   });
 
@@ -127,6 +129,8 @@ const validateAgentIds = (agentIds: readonly string[]): Effect.Effect<void, Init
           [`Valid agents include: ${suggestions}, ...`],
           "Run 'axm init --help' to see all supported agents.",
         ),
+        cause: { invalidIds, supportedIds },
+        retryable: false,
       }),
     );
   }
@@ -151,6 +155,7 @@ const checkExistingSettings = (
         new InitError({
           message: `Failed to check existing settings: ${error.message}`,
           cause: error,
+          retryable: false,
         }),
       );
     }),
@@ -171,6 +176,7 @@ const detectAgentsWithErrorMapping = (): Effect.Effect<
         new InitError({
           message: `Failed to detect agents: ${error.message}`,
           cause: error,
+          retryable: false,
         }),
     ),
   );
@@ -193,6 +199,7 @@ const writeSettingsWithErrorMapping = (
             "Check that you have write permissions for this directory.",
           ),
           cause: error,
+          retryable: false,
         }),
     ),
   );
@@ -222,6 +229,8 @@ const selectAgents = (
       return Effect.fail(
         new InitError({
           message: "No agents detected. Use --agent to specify agents manually.",
+          cause: { detectedAgents: [] },
+          retryable: false,
         }),
       );
     }
@@ -238,6 +247,8 @@ const selectAgents = (
           ["stdin is not a TTY"],
           "Use --yes or --non-interactive to auto-select detected agents.",
         ),
+        cause: { reason: "stdin is not a TTY", detectedAgentCount: detectedAgents.length },
+        retryable: false,
       }),
     );
   }

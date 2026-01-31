@@ -15,7 +15,7 @@ import {
   HttpClientResponse,
 } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
-import { Effect, Layer } from "effect";
+import { Effect, Fiber, Layer, TestClock, TestContext } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { WellKnownIndex } from "./types.js";
 import {
@@ -235,12 +235,20 @@ describe("wellknown", () => {
     });
 
     it("returns WellKnownFetchError with retryable=true for 500 response", async () => {
-      const result = await Effect.runPromise(
-        fetchWellKnownIndex("https://example.com").pipe(
-          Effect.provide(create500ErrorLayer()),
-          Effect.either,
-        ),
-      );
+      // Use TestClock to fast-forward through retry delays
+      const program = Effect.gen(function* () {
+        const fiber = yield* Effect.fork(
+          fetchWellKnownIndex("https://example.com").pipe(
+            Effect.provide(create500ErrorLayer()),
+            Effect.either,
+          ),
+        );
+        // Fast-forward past all retry delays (1s + 2s + 4s = 7s)
+        yield* TestClock.adjust("10 seconds");
+        return yield* Fiber.join(fiber);
+      }).pipe(Effect.provide(TestContext.TestContext));
+
+      const result = await Effect.runPromise(program);
 
       expect(result._tag).toBe("Left");
       if (result._tag === "Left") {
@@ -580,13 +588,21 @@ describe("wellknown", () => {
 
       const destination = path.join(tempDir, "skills", "error");
 
-      const result = await Effect.runPromise(
-        fetchSkillFiles("https://example.com", skill, destination).pipe(
-          Effect.provide(create500ErrorLayer()),
-          Effect.provide(NodeFileSystem.layer),
-          Effect.either,
-        ),
-      );
+      // Use TestClock to fast-forward through retry delays
+      const program = Effect.gen(function* () {
+        const fiber = yield* Effect.fork(
+          fetchSkillFiles("https://example.com", skill, destination).pipe(
+            Effect.provide(create500ErrorLayer()),
+            Effect.provide(NodeFileSystem.layer),
+            Effect.either,
+          ),
+        );
+        // Fast-forward past all retry delays (1s + 2s + 4s = 7s)
+        yield* TestClock.adjust("10 seconds");
+        return yield* Fiber.join(fiber);
+      }).pipe(Effect.provide(TestContext.TestContext));
+
+      const result = await Effect.runPromise(program);
 
       expect(result._tag).toBe("Left");
       if (result._tag === "Left") {

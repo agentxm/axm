@@ -77,6 +77,7 @@ export interface AddArgs {
 export class AddError extends Data.TaggedError("AddError")<{
   readonly message: string;
   readonly cause?: unknown;
+  readonly retryable: boolean;
 }> {}
 
 // -----------------------------------------------------------------------------
@@ -137,6 +138,7 @@ const promptAgentSelection = (agents: readonly AgentConfig[]): Effect.Effect<str
       new AddError({
         message: "Failed to prompt for agent selection",
         cause: error,
+        retryable: false,
       }),
   });
 
@@ -175,6 +177,7 @@ const promptSkillSelection = (skills: readonly Skill[]): Effect.Effect<string[],
       new AddError({
         message: "Failed to prompt for skill selection",
         cause: error,
+        retryable: false,
       }),
   });
 
@@ -203,6 +206,7 @@ const promptConfirmInstall = (
       new AddError({
         message: "Failed to prompt for confirmation",
         cause: error,
+        retryable: false,
       }),
   });
 
@@ -227,6 +231,7 @@ const resolveLocalSource = (
         new AddError({
           message: `Failed to discover skills in ${parsed.canonical}: ${error.message}`,
           cause: error,
+          retryable: false,
         }),
     ),
   );
@@ -257,6 +262,7 @@ const resolveGitSource = (
               "Check your network connection and repository access credentials.",
             ),
             cause: error,
+            retryable: true,
           }),
       ),
     );
@@ -268,6 +274,7 @@ const resolveGitSource = (
           new AddError({
             message: `Failed to get commit SHA: ${error.message}`,
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -282,6 +289,7 @@ const resolveGitSource = (
           new AddError({
             message: `Failed to discover skills in ${skillsDir}: ${error.message}`,
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -309,6 +317,7 @@ const resolveWellKnownSource = (
           new AddError({
             message: `Failed to fetch well-known index from ${baseUrl}: ${error.message}`,
             cause: error,
+            retryable: "retryable" in error ? error.retryable : false,
           }),
       ),
     );
@@ -328,6 +337,47 @@ const resolveWellKnownSource = (
 // -----------------------------------------------------------------------------
 
 /**
+ * Installs a single skill and returns its install results and metadata for lockfile/settings updates.
+ */
+const installSingleSkillFromFileSystem = (
+  skill: Skill,
+  agents: AgentConfig[],
+  axmDir: string,
+): Effect.Effect<
+  { results: readonly InstallResult[]; skillName: string; skillPath: string; contentHash: string },
+  AddError,
+  FileSystem.FileSystem | Path.Path
+> =>
+  Effect.gen(function* () {
+    // Install skill to all agents
+    const results = yield* installSkillToAgents(skill, agents, axmDir).pipe(
+      Effect.mapError(
+        (error) =>
+          new AddError({
+            message: `Failed to install skill ${skill.name}: ${error.message}`,
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
+
+    // Compute content hash for lockfile
+    const canonicalSkillPath = nodePath.join(axmDir, "skills", skill.name);
+    const contentHash = yield* computeContentHash(canonicalSkillPath).pipe(
+      Effect.mapError(
+        (error) =>
+          new AddError({
+            message: `Failed to compute content hash for ${skill.name}: ${error.message}`,
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
+
+    return { results, skillName: skill.name, skillPath: skill.path, contentHash };
+  });
+
+/**
  * Installs skills from a local or git source.
  */
 const installSkillsFromFileSystem = (
@@ -338,59 +388,41 @@ const installSkillsFromFileSystem = (
   commitSha?: string,
 ): Effect.Effect<InstallResult[], AddError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const results: InstallResult[] = [];
+    // Install all skills in parallel
+    const installResults = yield* Effect.all(
+      skills.map((skill) => installSingleSkillFromFileSystem(skill, agents, axmDir)),
+      { concurrency: "unbounded" },
+    );
 
-    for (const skill of skills) {
-      // Install skill to all agents
-      const installResults = yield* installSkillToAgents(skill, agents, axmDir).pipe(
-        Effect.mapError(
-          (error) =>
-            new AddError({
-              message: `Failed to install skill ${skill.name}: ${error.message}`,
-              cause: error,
-            }),
-        ),
-      );
+    // Collect all results
+    const allResults: InstallResult[] = installResults.flatMap((r) => r.results);
 
-      results.push(...installResults);
-
-      // Compute content hash for lockfile
-      const canonicalSkillPath = nodePath.join(axmDir, "skills", skill.name);
-      const contentHash = yield* computeContentHash(canonicalSkillPath).pipe(
-        Effect.mapError(
-          (error) =>
-            new AddError({
-              message: `Failed to compute content hash for ${skill.name}: ${error.message}`,
-              cause: error,
-            }),
-        ),
-      );
-
-      // Update lockfile
-      const now = new Date().toISOString();
+    // Update lockfile and settings sequentially (after all installs complete)
+    const now = new Date().toISOString();
+    for (const { skillName, skillPath, contentHash } of installResults) {
       const lockEntry: LockEntry = {
         source: parsed.canonical,
-        skillPath: skill.path,
+        skillPath,
         ...(commitSha !== undefined ? { commitSha } : {}),
         contentHash,
         installedAt: now,
         updatedAt: now,
       };
 
-      yield* updateLockEntry(axmDir, skill.name, lockEntry).pipe(
+      yield* updateLockEntry(axmDir, skillName, lockEntry).pipe(
         Effect.mapError(
           (error) =>
             new AddError({
-              message: `Failed to update lockfile for ${skill.name}: ${error.message}`,
+              message: `Failed to update lockfile for ${skillName}: ${error.message}`,
               cause: error,
+              retryable: false,
             }),
         ),
       );
 
-      // Update settings
       yield* updateSettings(axmDir, {
         skills: {
-          [skill.name]: {
+          [skillName]: {
             source: parsed.canonical,
             agents: agents.map((a) => a.id),
           },
@@ -399,14 +431,82 @@ const installSkillsFromFileSystem = (
         Effect.mapError(
           (error) =>
             new AddError({
-              message: `Failed to update settings for ${skill.name}: ${error.message}`,
+              message: `Failed to update settings for ${skillName}: ${error.message}`,
               cause: error,
+              retryable: false,
             }),
         ),
       );
     }
 
-    return results;
+    return allResults;
+  });
+
+/**
+ * Installs a single skill from a well-known URL source and returns its install results and metadata.
+ */
+const installSingleSkillFromWellKnown = (
+  skill: Skill,
+  wellKnownSkills: WellKnownSkill[],
+  agents: AgentConfig[],
+  axmDir: string,
+  baseUrl: string,
+): Effect.Effect<
+  {
+    results: readonly InstallResult[];
+    skillName: string;
+    skillPath: string;
+    contentHash: string;
+  } | null,
+  AddError,
+  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path
+> =>
+  Effect.gen(function* () {
+    // Find the corresponding well-known skill
+    const wkSkill = wellKnownSkills.find((wk) => wk.name === skill.name);
+    if (!wkSkill) {
+      return null;
+    }
+
+    // Fetch skill files to cache
+    const cacheDir = nodePath.join(axmDir, "cache", "wellknown", skill.name);
+    const fetchedSkill = yield* fetchSkillFiles(baseUrl, wkSkill, cacheDir).pipe(
+      Effect.mapError(
+        (error) =>
+          new AddError({
+            message: `Failed to fetch skill ${skill.name}: ${error.message}`,
+            cause: error,
+            retryable: "retryable" in error ? error.retryable : false,
+          }),
+      ),
+    );
+
+    // Install skill to all agents
+    const results = yield* installSkillToAgents(fetchedSkill, agents, axmDir).pipe(
+      Effect.mapError(
+        (error) =>
+          new AddError({
+            message: `Failed to install skill ${skill.name}: ${error.message}`,
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
+
+    // Compute content hash for lockfile
+    const canonicalSkillPath = nodePath.join(axmDir, "skills", skill.name);
+    const contentHash = yield* computeContentHash(canonicalSkillPath).pipe(
+      Effect.mapError(
+        (error) =>
+          new AddError({
+            message: `Failed to compute content hash for ${skill.name}: ${error.message}`,
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
+
+    return { results, skillName: skill.name, skillPath: fetchedSkill.path, contentHash };
   });
 
 /**
@@ -425,76 +525,46 @@ const installSkillsFromWellKnown = (
 > =>
   Effect.gen(function* () {
     const baseUrl = parsed.url ?? parsed.canonical;
-    const results: InstallResult[] = [];
 
-    for (const skill of skills) {
-      // Find the corresponding well-known skill
-      const wkSkill = wellKnownSkills.find((wk) => wk.name === skill.name);
-      if (!wkSkill) {
-        continue;
-      }
+    // Install all skills in parallel
+    const installResults = yield* Effect.all(
+      skills.map((skill) =>
+        installSingleSkillFromWellKnown(skill, wellKnownSkills, agents, axmDir, baseUrl),
+      ),
+      { concurrency: "unbounded" },
+    );
 
-      // Fetch skill files to cache
-      const cacheDir = nodePath.join(axmDir, "cache", "wellknown", skill.name);
-      const fetchedSkill = yield* fetchSkillFiles(baseUrl, wkSkill, cacheDir).pipe(
-        Effect.mapError(
-          (error) =>
-            new AddError({
-              message: `Failed to fetch skill ${skill.name}: ${error.message}`,
-              cause: error,
-            }),
-        ),
-      );
+    // Filter out null results (skills not found in wellKnownSkills)
+    const validResults = installResults.filter((r): r is NonNullable<typeof r> => r !== null);
 
-      // Install skill to all agents
-      const installResults = yield* installSkillToAgents(fetchedSkill, agents, axmDir).pipe(
-        Effect.mapError(
-          (error) =>
-            new AddError({
-              message: `Failed to install skill ${skill.name}: ${error.message}`,
-              cause: error,
-            }),
-        ),
-      );
+    // Collect all results
+    const allResults: InstallResult[] = validResults.flatMap((r) => r.results);
 
-      results.push(...installResults);
-
-      // Compute content hash for lockfile
-      const canonicalSkillPath = nodePath.join(axmDir, "skills", skill.name);
-      const contentHash = yield* computeContentHash(canonicalSkillPath).pipe(
-        Effect.mapError(
-          (error) =>
-            new AddError({
-              message: `Failed to compute content hash for ${skill.name}: ${error.message}`,
-              cause: error,
-            }),
-        ),
-      );
-
-      // Update lockfile
-      const now = new Date().toISOString();
+    // Update lockfile and settings sequentially (after all installs complete)
+    const now = new Date().toISOString();
+    for (const { skillName, skillPath, contentHash } of validResults) {
       const lockEntry: LockEntry = {
         source: parsed.canonical,
-        skillPath: fetchedSkill.path,
+        skillPath,
         contentHash,
         installedAt: now,
         updatedAt: now,
       };
 
-      yield* updateLockEntry(axmDir, skill.name, lockEntry).pipe(
+      yield* updateLockEntry(axmDir, skillName, lockEntry).pipe(
         Effect.mapError(
           (error) =>
             new AddError({
-              message: `Failed to update lockfile for ${skill.name}: ${error.message}`,
+              message: `Failed to update lockfile for ${skillName}: ${error.message}`,
               cause: error,
+              retryable: false,
             }),
         ),
       );
 
-      // Update settings
       yield* updateSettings(axmDir, {
         skills: {
-          [skill.name]: {
+          [skillName]: {
             source: parsed.canonical,
             agents: agents.map((a) => a.id),
           },
@@ -503,14 +573,15 @@ const installSkillsFromWellKnown = (
         Effect.mapError(
           (error) =>
             new AddError({
-              message: `Failed to update settings for ${skill.name}: ${error.message}`,
+              message: `Failed to update settings for ${skillName}: ${error.message}`,
               cause: error,
+              retryable: false,
             }),
         ),
       );
     }
 
-    return results;
+    return allResults;
   });
 
 // -----------------------------------------------------------------------------
@@ -591,6 +662,7 @@ export const handleAdd = (
               "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
             ),
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -604,6 +676,7 @@ export const handleAdd = (
           new AddError({
             message: `Failed to initialize: ${error.message}`,
             cause: error,
+            retryable: false,
           }),
       ),
     );
@@ -638,6 +711,7 @@ export const handleAdd = (
             new AddError({
               message: `Failed to detect agents: ${error.message}`,
               cause: error,
+              retryable: false,
             }),
         ),
       );
@@ -664,6 +738,7 @@ export const handleAdd = (
               ["stdin is not a TTY"],
               "Use --yes, --all, or --non-interactive to run without prompts.",
             ),
+            retryable: false,
           }),
         );
       } else {
@@ -701,6 +776,7 @@ export const handleAdd = (
       return yield* Effect.fail(
         new AddError({
           message: `Unsupported source type: ${parsed.type}`,
+          retryable: false,
         }),
       );
     }
@@ -714,6 +790,7 @@ export const handleAdd = (
             [`Source: ${parsed.canonical}`],
             "Verify the source path contains directories with SKILL.md files.",
           ),
+          retryable: false,
         }),
       );
     }
@@ -755,6 +832,7 @@ export const handleAdd = (
             ["stdin is not a TTY"],
             "Use --yes, --all, or --non-interactive to run without prompts.",
           ),
+          retryable: false,
         }),
       );
     } else {
@@ -779,6 +857,7 @@ export const handleAdd = (
               ["stdin is not a TTY"],
               "Use --yes, --all, or --non-interactive to run without prompts.",
             ),
+            retryable: false,
           }),
         );
       }

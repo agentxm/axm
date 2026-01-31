@@ -11,7 +11,7 @@
 
 import { HttpClient, type HttpClientError } from "@effect/platform";
 import { FileSystem } from "@effect/platform/FileSystem";
-import { Data, Effect, pipe } from "effect";
+import { Data, Duration, Effect, pipe, Schedule } from "effect";
 
 import type { Skill, WellKnownIndex, WellKnownSkill } from "./types.js";
 
@@ -74,6 +74,22 @@ const INDEX_FILE = "index.json";
  * These hosts have their own handling via git clone.
  */
 const EXCLUDED_HOSTS = ["github.com", "www.github.com", "gitlab.com", "www.gitlab.com"];
+
+/**
+ * Retry policy with exponential backoff for transient network errors.
+ * Retries up to 3 times with exponential delay starting at 1 second.
+ * Only retries errors marked as retryable (network errors, 5xx responses).
+ */
+const retryPolicy = Schedule.exponential(Duration.seconds(1)).pipe(
+  Schedule.intersect(Schedule.recurs(3)),
+  Schedule.whileInput((error: WellKnownError) => {
+    // Only WellKnownFetchError has the retryable field
+    if (error._tag === "WellKnownFetchError") {
+      return error.retryable;
+    }
+    return false;
+  }),
+);
 
 // -----------------------------------------------------------------------------
 // Internal Helpers
@@ -253,6 +269,7 @@ export const fetchWellKnownIndex = (
     const response = yield* pipe(
       client.get(indexUrl),
       Effect.mapError((error) => mapHttpError(indexUrl, error)),
+      Effect.retry(retryPolicy),
     );
 
     const json = yield* pipe(
@@ -313,6 +330,7 @@ export const fetchSkillFiles = (
       const response = yield* pipe(
         client.get(fileUrl),
         Effect.mapError((error) => mapHttpError(fileUrl, error)),
+        Effect.retry(retryPolicy),
       );
 
       const content = yield* pipe(

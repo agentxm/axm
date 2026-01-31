@@ -11,10 +11,10 @@ Update all construction sites to set appropriate values.
 
 **Acceptance Criteria:**
 
-- [ ] `InitError` class includes `readonly retryable: boolean` field
-- [ ] All `new InitError({...})` calls include `retryable: false` (validation errors)
-- [ ] `pnpm typecheck` exits 0
-- [ ] `pnpm test packages/cli/src/commands/init/handler.test.ts` exits 0
+- [x] `InitError` class includes `readonly retryable: boolean` field
+- [x] All `new InitError({...})` calls include `retryable: false` (validation errors)
+- [x] `pnpm typecheck` exits 0
+- [x] `pnpm test packages/cli/src/commands/init/handler.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -27,11 +27,11 @@ Update all construction sites to set appropriate values.
 
 **Acceptance Criteria:**
 
-- [ ] `AddError` class includes `readonly retryable: boolean` field
-- [ ] Network-related errors set `retryable: true`
-- [ ] Validation errors set `retryable: false`
-- [ ] `pnpm typecheck` exits 0
-- [ ] `pnpm test packages/cli/src/commands/skills/add/handler.test.ts` exits 0
+- [x] `AddError` class includes `readonly retryable: boolean` field
+- [x] Network-related errors set `retryable: true`
+- [x] Validation errors set `retryable: false`
+- [x] `pnpm typecheck` exits 0
+- [x] `pnpm test packages/cli/src/commands/skills/add/handler.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -44,10 +44,10 @@ Update all construction sites.
 
 **Acceptance Criteria:**
 
-- [ ] `DiscoveryError` class includes `readonly retryable: boolean` field
-- [ ] All construction sites set appropriate values (file system errors not retryable)
-- [ ] `pnpm typecheck` exits 0
-- [ ] `pnpm test packages/core/src/experimental/skills/skill-discovery.test.ts` exits 0
+- [x] `DiscoveryError` class includes `readonly retryable: boolean` field
+- [x] All construction sites set appropriate values (file system errors not retryable)
+- [x] `pnpm typecheck` exits 0
+- [x] `pnpm test packages/core/src/experimental/skills/skill-discovery.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -60,10 +60,10 @@ Update all construction sites.
 
 **Acceptance Criteria:**
 
-- [ ] `InstallError` class includes `readonly retryable: boolean` field
-- [ ] All construction sites set appropriate values (file operations not retryable)
-- [ ] `pnpm typecheck` exits 0
-- [ ] `pnpm test packages/core/src/experimental/skills/installer.test.ts` exits 0
+- [x] `InstallError` class includes `readonly retryable: boolean` field
+- [x] All construction sites set appropriate values (file operations not retryable)
+- [x] `pnpm typecheck` exits 0
+- [x] `pnpm test packages/core/src/experimental/skills/installer.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -76,10 +76,10 @@ Update all construction sites.
 
 **Acceptance Criteria:**
 
-- [ ] `HashError` class includes `readonly retryable: boolean` field
-- [ ] All construction sites set `retryable: false` (file read errors not retryable)
-- [ ] `pnpm typecheck` exits 0
-- [ ] `pnpm test packages/core/src/experimental/skills/content-hash.test.ts` exits 0
+- [x] `HashError` class includes `readonly retryable: boolean` field
+- [x] All construction sites set `retryable: false` (file read errors not retryable)
+- [x] `pnpm typecheck` exits 0
+- [x] `pnpm test packages/core/src/experimental/skills/content-hash.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -92,11 +92,11 @@ Update all construction sites.
 
 **Acceptance Criteria:**
 
-- [ ] `LockfileParseError` class includes `readonly retryable: boolean` field
-- [ ] `LockfileWriteError` class includes `readonly retryable: boolean` field
-- [ ] All construction sites set `retryable: false` (parse/write errors not retryable)
-- [ ] `pnpm typecheck` exits 0
-- [ ] `pnpm test packages/core/src/experimental/skills/lockfile.test.ts` exits 0
+- [x] `LockfileParseError` class includes `readonly retryable: boolean` field
+- [x] `LockfileWriteError` class includes `readonly retryable: boolean` field
+- [x] All construction sites set `retryable: false` (parse/write errors not retryable)
+- [x] `pnpm typecheck` exits 0
+- [x] `pnpm test packages/core/src/experimental/skills/lockfile.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -112,13 +112,13 @@ delay.
 
 **Acceptance Criteria:**
 
-- [ ] `fetchWellKnownIndex` uses `Effect.retry()` with exponential backoff
-- [ ] `fetchSkillFiles` uses `Effect.retry()` with exponential backoff
-- [ ] Retry policy uses `Schedule.whileInput((error) => error.retryable)`
-- [ ] Maximum 3 retry attempts
-- [ ] Base delay is 1 second with exponential increase
-- [ ] `pnpm typecheck` exits 0
-- [ ] `pnpm test packages/core/src/experimental/skills/wellknown.test.ts` exits 0
+- [x] `fetchWellKnownIndex` uses `Effect.retry()` with exponential backoff
+- [x] `fetchSkillFiles` uses `Effect.retry()` with exponential backoff
+- [x] Retry policy uses `Schedule.whileInput((error) => error.retryable)`
+- [x] Maximum 3 retry attempts
+- [x] Base delay is 1 second with exponential increase
+- [x] `pnpm typecheck` exits 0
+- [x] `pnpm test packages/core/src/experimental/skills/wellknown.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -133,11 +133,11 @@ to use `Effect.all()` with unbounded concurrency instead of sequential processin
 
 **Acceptance Criteria:**
 
-- [ ] Skills are installed using `Effect.all([...], { concurrency: "unbounded" })`
-- [ ] Results are collected and processed correctly
-- [ ] Lockfile and settings updates remain sequential (after all installs complete)
-- [ ] `pnpm typecheck` exits 0
-- [ ] `pnpm test packages/cli/src/commands/skills/add/handler.test.ts` exits 0
+- [x] Skills are installed using `Effect.all([...], { concurrency: "unbounded" })`
+- [x] Results are collected and processed correctly
+- [x] Lockfile and settings updates remain sequential (after all installs complete)
+- [x] `pnpm typecheck` exits 0
+- [x] `pnpm test packages/cli/src/commands/skills/add/handler.test.ts` exits 0
 
 **Dependencies:** TASK-1.2
 
@@ -152,9 +152,9 @@ to use `Effect.all()` with unbounded concurrency instead of sequential processin
 
 **Acceptance Criteria:**
 
-- [ ] `parseError` helper uses `async/await` instead of `.then()`
-- [ ] All tests using the helper still pass
-- [ ] `pnpm test packages/core/src/experimental/skills/source-parser.test.ts` exits 0
+- [x] `parseError` helper uses `async/await` instead of `.then()`
+- [x] All tests using the helper still pass
+- [x] `pnpm test packages/core/src/experimental/skills/source-parser.test.ts` exits 0
 
 **Dependencies:** None
 
@@ -169,10 +169,10 @@ for debugging. The unknown agent error at line 130 is missing cause.
 
 **Acceptance Criteria:**
 
-- [ ] Unknown agent error includes original validation context as `cause`
-- [ ] Error message remains user-friendly
-- [ ] `pnpm typecheck` exits 0
-- [ ] `pnpm test packages/cli/src/commands/init/handler.test.ts` exits 0
+- [x] Unknown agent error includes original validation context as `cause`
+- [x] Error message remains user-friendly
+- [x] `pnpm typecheck` exits 0
+- [x] `pnpm test packages/cli/src/commands/init/handler.test.ts` exits 0
 
 **Dependencies:** TASK-1.1
 
@@ -187,9 +187,9 @@ regressions were introduced.
 
 **Acceptance Criteria:**
 
-- [ ] `pnpm test` exits 0
-- [ ] `pnpm test:e2e` exits 0
-- [ ] `pnpm typecheck` exits 0
-- [ ] `pnpm lint` exits 0
+- [x] `pnpm test` exits 0
+- [x] `pnpm test:e2e` exits 0
+- [x] `pnpm typecheck` exits 0
+- [x] `pnpm lint` exits 0
 
 **Dependencies:** TASK-1.1, TASK-1.2, TASK-1.3, TASK-1.4, TASK-1.5, TASK-1.6, TASK-2.1, TASK-3.1, TASK-4.1, TASK-5.1

@@ -721,6 +721,7 @@ describe("add.handler", () => {
     it("is a tagged error with correct tag", () => {
       const error = new AddError({
         message: "Test error message",
+        retryable: false,
       });
 
       expect(error._tag).toBe("AddError");
@@ -732,6 +733,7 @@ describe("add.handler", () => {
       const error = new AddError({
         message: "Wrapped error",
         cause,
+        retryable: false,
       });
 
       expect(error.cause).toBe(cause);

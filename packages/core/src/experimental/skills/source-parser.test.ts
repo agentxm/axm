@@ -17,14 +17,12 @@ describe("source-parser", () => {
   /**
    * Helper to run parseSource and expect failure
    */
-  const parseError = (input: string) =>
-    Effect.runPromise(parseSource(input).pipe(Effect.either)).then((result) => {
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        return result.left;
-      }
-      throw new Error("Expected failure but got success");
-    });
+  const parseError = async (input: string) => {
+    const result = await Effect.runPromise(parseSource(input).pipe(Effect.either));
+    expect(result._tag).toBe("Left");
+    if (result._tag === "Left") return result.left;
+    throw new Error("Expected failure");
+  };
 
   describe("GitHub shorthand", () => {
     it("parses owner/repo", async () => {

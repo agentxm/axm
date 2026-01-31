@@ -9,14 +9,16 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
   FetchHttpClient,
+  type FileSystem,
   HttpClient,
   HttpClientError,
   HttpClientRequest,
   HttpClientResponse,
 } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
+import { describe, expect, it } from "@effect/vitest";
 import { Effect, Fiber, Layer, TestClock, TestContext } from "effect";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach } from "vitest";
 import type { WellKnownIndex } from "./types.js";
 import {
   discoverWellKnownSkills,
@@ -176,7 +178,7 @@ describe("wellknown", () => {
   });
 
   describe("fetchWellKnownIndex", () => {
-    it("fetches and parses valid index JSON", async () => {
+    it.effect("fetches and parses valid index JSON", () => {
       const validIndex: WellKnownIndex = {
         skills: [
           {
@@ -187,19 +189,19 @@ describe("wellknown", () => {
         ],
       };
 
-      const result = await Effect.runPromise(
-        fetchWellKnownIndex("https://example.com").pipe(
+      return Effect.gen(function* () {
+        const result = yield* fetchWellKnownIndex("https://example.com").pipe(
           Effect.provide(createJsonResponseLayer(validIndex)),
-        ),
-      );
+        );
 
-      expect(result.skills).toHaveLength(1);
-      expect(result.skills[0]?.name).toBe("commit");
-      expect(result.skills[0]?.description).toBe("Create commits");
-      expect(result.skills[0]?.files).toEqual(["SKILL.md"]);
+        expect(result.skills).toHaveLength(1);
+        expect(result.skills[0]?.name).toBe("commit");
+        expect(result.skills[0]?.description).toBe("Create commits");
+        expect(result.skills[0]?.files).toEqual(["SKILL.md"]);
+      });
     });
 
-    it("strips trailing slashes from base URL", async () => {
+    it.effect("strips trailing slashes from base URL", () => {
       let capturedUrl = "";
       const layer = createMockHttpLayer((url) => {
         capturedUrl = url;
@@ -211,197 +213,185 @@ describe("wellknown", () => {
         );
       });
 
-      await Effect.runPromise(
-        fetchWellKnownIndex("https://example.com///").pipe(Effect.provide(layer)),
-      );
+      return Effect.gen(function* () {
+        yield* fetchWellKnownIndex("https://example.com///").pipe(Effect.provide(layer));
 
-      expect(capturedUrl).toBe("https://example.com/.well-known/skills/index.json");
+        expect(capturedUrl).toBe("https://example.com/.well-known/skills/index.json");
+      });
     });
 
-    it("returns WellKnownNotFoundError for 404 response", async () => {
-      const result = await Effect.runPromise(
-        fetchWellKnownIndex("https://example.com").pipe(
+    it.effect("returns WellKnownNotFoundError for 404 response", () =>
+      Effect.gen(function* () {
+        const error = yield* fetchWellKnownIndex("https://example.com").pipe(
           Effect.provide(create404ErrorLayer()),
-          Effect.either,
-        ),
-      );
+          Effect.flip,
+        );
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(WellKnownNotFoundError);
-        expect(result.left._tag).toBe("WellKnownNotFoundError");
-        expect(result.left.url).toContain("example.com");
-      }
-    });
+        expect(error).toBeInstanceOf(WellKnownNotFoundError);
+        expect(error._tag).toBe("WellKnownNotFoundError");
+        expect(error.url).toContain("example.com");
+      }),
+    );
 
-    it("returns WellKnownFetchError with retryable=true for 500 response", async () => {
-      // Use TestClock to fast-forward through retry delays
-      const program = Effect.gen(function* () {
+    it.effect("returns WellKnownFetchError with retryable=true for 500 response", () =>
+      Effect.gen(function* () {
         const fiber = yield* Effect.fork(
           fetchWellKnownIndex("https://example.com").pipe(
             Effect.provide(create500ErrorLayer()),
-            Effect.either,
+            Effect.flip,
           ),
         );
         // Fast-forward past all retry delays (1s + 2s + 4s = 7s)
         yield* TestClock.adjust("10 seconds");
-        return yield* Fiber.join(fiber);
-      }).pipe(Effect.provide(TestContext.TestContext));
+        const error = yield* Fiber.join(fiber);
 
-      const result = await Effect.runPromise(program);
-
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(WellKnownFetchError);
-        expect(result.left._tag).toBe("WellKnownFetchError");
-        if (result.left._tag === "WellKnownFetchError") {
-          expect(result.left.retryable).toBe(true);
+        expect(error).toBeInstanceOf(WellKnownFetchError);
+        expect(error._tag).toBe("WellKnownFetchError");
+        if (error._tag === "WellKnownFetchError") {
+          expect(error.retryable).toBe(true);
         }
-      }
-    });
+      }),
+    );
 
-    it("returns WellKnownFetchError with retryable=false for 4xx response", async () => {
-      const result = await Effect.runPromise(
-        fetchWellKnownIndex("https://example.com").pipe(
+    it.effect("returns WellKnownFetchError with retryable=false for 4xx response", () =>
+      Effect.gen(function* () {
+        const error = yield* fetchWellKnownIndex("https://example.com").pipe(
           Effect.provide(create400ErrorLayer()),
-          Effect.either,
-        ),
-      );
+          Effect.flip,
+        );
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(WellKnownFetchError);
-        if (result.left._tag === "WellKnownFetchError") {
-          expect(result.left.retryable).toBe(false);
+        expect(error).toBeInstanceOf(WellKnownFetchError);
+        if (error._tag === "WellKnownFetchError") {
+          expect(error.retryable).toBe(false);
         }
-      }
-    });
+      }),
+    );
 
-    it("returns WellKnownInvalidIndexError for invalid JSON", async () => {
+    it.effect("returns WellKnownInvalidIndexError for invalid JSON", () => {
       const layer = createMockHttpLayer(() =>
         Promise.resolve(new Response("not valid json", { status: 200 })),
       );
 
-      const result = await Effect.runPromise(
-        fetchWellKnownIndex("https://example.com").pipe(Effect.provide(layer), Effect.either),
-      );
+      return Effect.gen(function* () {
+        const error = yield* fetchWellKnownIndex("https://example.com").pipe(
+          Effect.provide(layer),
+          Effect.flip,
+        );
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(WellKnownInvalidIndexError);
-        expect(result.left._tag).toBe("WellKnownInvalidIndexError");
-      }
+        expect(error).toBeInstanceOf(WellKnownInvalidIndexError);
+        expect(error._tag).toBe("WellKnownInvalidIndexError");
+      });
     });
 
-    it("returns WellKnownInvalidIndexError when index is not an object", async () => {
+    it.effect("returns WellKnownInvalidIndexError when index is not an object", () => {
       const layer = createJsonResponseLayer("just a string");
 
-      const result = await Effect.runPromise(
-        fetchWellKnownIndex("https://example.com").pipe(Effect.provide(layer), Effect.either),
-      );
+      return Effect.gen(function* () {
+        const error = yield* fetchWellKnownIndex("https://example.com").pipe(
+          Effect.provide(layer),
+          Effect.flip,
+        );
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(WellKnownInvalidIndexError);
-        expect(result.left.message).toContain("must be an object");
-      }
+        expect(error).toBeInstanceOf(WellKnownInvalidIndexError);
+        expect(error.message).toContain("must be an object");
+      });
     });
 
-    it("returns WellKnownInvalidIndexError when skills is not an array", async () => {
+    it.effect("returns WellKnownInvalidIndexError when skills is not an array", () => {
       const layer = createJsonResponseLayer({ skills: "not an array" });
 
-      const result = await Effect.runPromise(
-        fetchWellKnownIndex("https://example.com").pipe(Effect.provide(layer), Effect.either),
-      );
+      return Effect.gen(function* () {
+        const error = yield* fetchWellKnownIndex("https://example.com").pipe(
+          Effect.provide(layer),
+          Effect.flip,
+        );
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(WellKnownInvalidIndexError);
-        expect(result.left.message).toContain("'skills' array");
-      }
+        expect(error).toBeInstanceOf(WellKnownInvalidIndexError);
+        expect(error.message).toContain("'skills' array");
+      });
     });
 
-    it("returns WellKnownInvalidIndexError when skill is missing name", async () => {
+    it.effect("returns WellKnownInvalidIndexError when skill is missing name", () => {
       const layer = createJsonResponseLayer({
         skills: [{ description: "No name", files: [] }],
       });
 
-      const result = await Effect.runPromise(
-        fetchWellKnownIndex("https://example.com").pipe(Effect.provide(layer), Effect.either),
-      );
+      return Effect.gen(function* () {
+        const error = yield* fetchWellKnownIndex("https://example.com").pipe(
+          Effect.provide(layer),
+          Effect.flip,
+        );
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(WellKnownInvalidIndexError);
-        expect(result.left.message).toContain("non-empty 'name' string");
-      }
+        expect(error).toBeInstanceOf(WellKnownInvalidIndexError);
+        expect(error.message).toContain("non-empty 'name' string");
+      });
     });
 
-    it("returns WellKnownInvalidIndexError when skill name is empty", async () => {
+    it.effect("returns WellKnownInvalidIndexError when skill name is empty", () => {
       const layer = createJsonResponseLayer({
         skills: [{ name: "  ", description: "Empty name", files: [] }],
       });
 
-      const result = await Effect.runPromise(
-        fetchWellKnownIndex("https://example.com").pipe(Effect.provide(layer), Effect.either),
-      );
+      return Effect.gen(function* () {
+        const error = yield* fetchWellKnownIndex("https://example.com").pipe(
+          Effect.provide(layer),
+          Effect.flip,
+        );
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(WellKnownInvalidIndexError);
-        expect(result.left.message).toContain("non-empty 'name' string");
-      }
+        expect(error).toBeInstanceOf(WellKnownInvalidIndexError);
+        expect(error.message).toContain("non-empty 'name' string");
+      });
     });
 
-    it("returns WellKnownInvalidIndexError when skill is missing description", async () => {
+    it.effect("returns WellKnownInvalidIndexError when skill is missing description", () => {
       const layer = createJsonResponseLayer({
         skills: [{ name: "commit", files: [] }],
       });
 
-      const result = await Effect.runPromise(
-        fetchWellKnownIndex("https://example.com").pipe(Effect.provide(layer), Effect.either),
-      );
+      return Effect.gen(function* () {
+        const error = yield* fetchWellKnownIndex("https://example.com").pipe(
+          Effect.provide(layer),
+          Effect.flip,
+        );
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(WellKnownInvalidIndexError);
-        expect(result.left.message).toContain("'description' string");
-      }
+        expect(error).toBeInstanceOf(WellKnownInvalidIndexError);
+        expect(error.message).toContain("'description' string");
+      });
     });
 
-    it("returns WellKnownInvalidIndexError when skill is missing files", async () => {
+    it.effect("returns WellKnownInvalidIndexError when skill is missing files", () => {
       const layer = createJsonResponseLayer({
         skills: [{ name: "commit", description: "Create commits" }],
       });
 
-      const result = await Effect.runPromise(
-        fetchWellKnownIndex("https://example.com").pipe(Effect.provide(layer), Effect.either),
-      );
+      return Effect.gen(function* () {
+        const error = yield* fetchWellKnownIndex("https://example.com").pipe(
+          Effect.provide(layer),
+          Effect.flip,
+        );
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(WellKnownInvalidIndexError);
-        expect(result.left.message).toContain("'files' array");
-      }
+        expect(error).toBeInstanceOf(WellKnownInvalidIndexError);
+        expect(error.message).toContain("'files' array");
+      });
     });
 
-    it("returns WellKnownInvalidIndexError when file entry is not a string", async () => {
+    it.effect("returns WellKnownInvalidIndexError when file entry is not a string", () => {
       const layer = createJsonResponseLayer({
         skills: [{ name: "commit", description: "Create commits", files: [123] }],
       });
 
-      const result = await Effect.runPromise(
-        fetchWellKnownIndex("https://example.com").pipe(Effect.provide(layer), Effect.either),
-      );
+      return Effect.gen(function* () {
+        const error = yield* fetchWellKnownIndex("https://example.com").pipe(
+          Effect.provide(layer),
+          Effect.flip,
+        );
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(WellKnownInvalidIndexError);
-        expect(result.left.message).toContain("must be a string");
-      }
+        expect(error).toBeInstanceOf(WellKnownInvalidIndexError);
+        expect(error.message).toContain("must be a string");
+      });
     });
 
-    it("handles multiple skills in index", async () => {
+    it.effect("handles multiple skills in index", () => {
       const validIndex: WellKnownIndex = {
         skills: [
           { name: "commit", description: "Create commits", files: ["SKILL.md"] },
@@ -413,15 +403,15 @@ describe("wellknown", () => {
         ],
       };
 
-      const result = await Effect.runPromise(
-        fetchWellKnownIndex("https://example.com").pipe(
+      return Effect.gen(function* () {
+        const result = yield* fetchWellKnownIndex("https://example.com").pipe(
           Effect.provide(createJsonResponseLayer(validIndex)),
-        ),
-      );
+        );
 
-      expect(result.skills).toHaveLength(2);
-      expect(result.skills[0]?.name).toBe("commit");
-      expect(result.skills[1]?.name).toBe("review-pr");
+        expect(result.skills).toHaveLength(2);
+        expect(result.skills[0]?.name).toBe("commit");
+        expect(result.skills[1]?.name).toBe("review-pr");
+      });
     });
   });
 
@@ -431,15 +421,23 @@ describe("wellknown", () => {
      */
     const createMultiFileHttpLayer = (fileResponses: Record<string, string>) =>
       createMockHttpLayer((url) => {
-        for (const [path, content] of Object.entries(fileResponses)) {
-          if (url.includes(path)) {
+        for (const [filePath, content] of Object.entries(fileResponses)) {
+          if (url.includes(filePath)) {
             return Promise.resolve(new Response(content, { status: 200 }));
           }
         }
         return Promise.resolve(new Response("Not Found", { status: 404 }));
       });
 
-    it("fetches single file skill", async () => {
+    /**
+     * Helper to provide HttpClient and FileSystem layers
+     */
+    const withLayers = <A, E>(
+      effect: Effect.Effect<A, E, HttpClient.HttpClient | FileSystem.FileSystem>,
+      httpLayer: Layer.Layer<HttpClient.HttpClient>,
+    ) => effect.pipe(Effect.provide(httpLayer), Effect.provide(NodeFileSystem.layer));
+
+    it.effect("fetches single file skill", () => {
       const skill = {
         name: "commit",
         description: "Create commits",
@@ -452,20 +450,20 @@ describe("wellknown", () => {
 
       const destination = path.join(tempDir, "skills", "commit");
 
-      const result = await Effect.runPromise(
-        fetchSkillFiles("https://example.com", skill, destination).pipe(
-          Effect.provide(layer),
-          Effect.provide(NodeFileSystem.layer),
-        ),
-      );
+      return Effect.gen(function* () {
+        const result = yield* withLayers(
+          fetchSkillFiles("https://example.com", skill, destination),
+          layer,
+        );
 
-      expect(result.name).toBe("commit");
-      expect(result.description).toBe("Create commits");
-      expect(fs.existsSync(path.join(destination, "SKILL.md"))).toBe(true);
-      expect(fs.readFileSync(path.join(destination, "SKILL.md"), "utf-8")).toBe(fileContent);
+        expect(result.name).toBe("commit");
+        expect(result.description).toBe("Create commits");
+        expect(fs.existsSync(path.join(destination, "SKILL.md"))).toBe(true);
+        expect(fs.readFileSync(path.join(destination, "SKILL.md"), "utf-8")).toBe(fileContent);
+      });
     });
 
-    it("fetches multiple files", async () => {
+    it.effect("fetches multiple files", () => {
       const skill = {
         name: "review-pr",
         description: "Review pull requests",
@@ -478,18 +476,15 @@ describe("wellknown", () => {
 
       const destination = path.join(tempDir, "skills", "review-pr");
 
-      await Effect.runPromise(
-        fetchSkillFiles("https://example.com", skill, destination).pipe(
-          Effect.provide(layer),
-          Effect.provide(NodeFileSystem.layer),
-        ),
-      );
+      return Effect.gen(function* () {
+        yield* withLayers(fetchSkillFiles("https://example.com", skill, destination), layer);
 
-      expect(fs.existsSync(path.join(destination, "SKILL.md"))).toBe(true);
-      expect(fs.existsSync(path.join(destination, "references", "commands.md"))).toBe(true);
+        expect(fs.existsSync(path.join(destination, "SKILL.md"))).toBe(true);
+        expect(fs.existsSync(path.join(destination, "references", "commands.md"))).toBe(true);
+      });
     });
 
-    it("creates nested directories for files", async () => {
+    it.effect("creates nested directories for files", () => {
       const skill = {
         name: "complex",
         description: "Complex skill",
@@ -502,17 +497,14 @@ describe("wellknown", () => {
 
       const destination = path.join(tempDir, "skills", "complex");
 
-      await Effect.runPromise(
-        fetchSkillFiles("https://example.com", skill, destination).pipe(
-          Effect.provide(layer),
-          Effect.provide(NodeFileSystem.layer),
-        ),
-      );
+      return Effect.gen(function* () {
+        yield* withLayers(fetchSkillFiles("https://example.com", skill, destination), layer);
 
-      expect(fs.existsSync(path.join(destination, "deep", "nested", "file.md"))).toBe(true);
+        expect(fs.existsSync(path.join(destination, "deep", "nested", "file.md"))).toBe(true);
+      });
     });
 
-    it("returns skill with correct path to SKILL.md", async () => {
+    it.effect("returns skill with correct path to SKILL.md", () => {
       const skill = {
         name: "commit",
         description: "Create commits",
@@ -524,17 +516,17 @@ describe("wellknown", () => {
 
       const destination = path.join(tempDir, "skills", "commit");
 
-      const result = await Effect.runPromise(
-        fetchSkillFiles("https://example.com", skill, destination).pipe(
-          Effect.provide(layer),
-          Effect.provide(NodeFileSystem.layer),
-        ),
-      );
+      return Effect.gen(function* () {
+        const result = yield* withLayers(
+          fetchSkillFiles("https://example.com", skill, destination),
+          layer,
+        );
 
-      expect(result.path).toBe(path.join(destination, "SKILL.md"));
+        expect(result.path).toBe(path.join(destination, "SKILL.md"));
+      });
     });
 
-    it("handles skill.md with different casing in files list", async () => {
+    it.effect("handles skill.md with different casing in files list", () => {
       const skill = {
         name: "commit",
         description: "Create commits",
@@ -546,17 +538,17 @@ describe("wellknown", () => {
 
       const destination = path.join(tempDir, "skills", "commit");
 
-      const result = await Effect.runPromise(
-        fetchSkillFiles("https://example.com", skill, destination).pipe(
-          Effect.provide(layer),
-          Effect.provide(NodeFileSystem.layer),
-        ),
-      );
+      return Effect.gen(function* () {
+        const result = yield* withLayers(
+          fetchSkillFiles("https://example.com", skill, destination),
+          layer,
+        );
 
-      expect(result.path).toBe(path.join(destination, "skill.md"));
+        expect(result.path).toBe(path.join(destination, "skill.md"));
+      });
     });
 
-    it("fails with WellKnownNotFoundError when file returns 404", async () => {
+    it.effect("fails with WellKnownNotFoundError when file returns 404", () => {
       const skill = {
         name: "missing",
         description: "Missing files",
@@ -565,54 +557,44 @@ describe("wellknown", () => {
 
       const destination = path.join(tempDir, "skills", "missing");
 
-      const result = await Effect.runPromise(
-        fetchSkillFiles("https://example.com", skill, destination).pipe(
+      return Effect.gen(function* () {
+        const error = yield* fetchSkillFiles("https://example.com", skill, destination).pipe(
           Effect.provide(create404ErrorLayer()),
           Effect.provide(NodeFileSystem.layer),
-          Effect.either,
-        ),
-      );
+          Effect.flip,
+        );
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(WellKnownNotFoundError);
-      }
+        expect(error).toBeInstanceOf(WellKnownNotFoundError);
+      });
     });
 
-    it("fails with WellKnownFetchError for server errors", async () => {
-      const skill = {
-        name: "error",
-        description: "Error skill",
-        files: ["SKILL.md"] as readonly string[],
-      };
+    it.live(
+      "fails with WellKnownFetchError for server errors",
+      () => {
+        const skill = {
+          name: "error",
+          description: "Error skill",
+          files: ["SKILL.md"] as readonly string[],
+        };
 
-      const destination = path.join(tempDir, "skills", "error");
+        const destination = path.join(tempDir, "skills", "error");
 
-      // Use TestClock to fast-forward through retry delays
-      const program = Effect.gen(function* () {
-        const fiber = yield* Effect.fork(
-          fetchSkillFiles("https://example.com", skill, destination).pipe(
+        return Effect.gen(function* () {
+          const error = yield* fetchSkillFiles("https://example.com", skill, destination).pipe(
             Effect.provide(create500ErrorLayer()),
             Effect.provide(NodeFileSystem.layer),
-            Effect.either,
-          ),
-        );
-        // Fast-forward past all retry delays (1s + 2s + 4s = 7s)
-        yield* TestClock.adjust("10 seconds");
-        return yield* Fiber.join(fiber);
-      }).pipe(Effect.provide(TestContext.TestContext));
+            Effect.flip,
+          );
 
-      const result = await Effect.runPromise(program);
-
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(WellKnownFetchError);
-      }
-    });
+          expect(error).toBeInstanceOf(WellKnownFetchError);
+        });
+      },
+      { timeout: 10000 },
+    );
   });
 
   describe("discoverWellKnownSkills", () => {
-    it("fetches index and returns skills array", async () => {
+    it.effect("fetches index and returns skills array", () => {
       const validIndex: WellKnownIndex = {
         skills: [
           { name: "commit", description: "Create commits", files: ["SKILL.md"] },
@@ -620,87 +602,84 @@ describe("wellknown", () => {
         ],
       };
 
-      const result = await Effect.runPromise(
-        discoverWellKnownSkills("https://example.com").pipe(
+      return Effect.gen(function* () {
+        const result = yield* discoverWellKnownSkills("https://example.com").pipe(
           Effect.provide(createJsonResponseLayer(validIndex)),
-        ),
-      );
+        );
 
-      expect(result).toHaveLength(2);
-      expect(result[0]?.name).toBe("commit");
-      expect(result[0]?.description).toBe("Create commits");
-      expect(result[1]?.name).toBe("review-pr");
+        expect(result).toHaveLength(2);
+        expect(result[0]?.name).toBe("commit");
+        expect(result[0]?.description).toBe("Create commits");
+        expect(result[1]?.name).toBe("review-pr");
+      });
     });
 
-    it("returns skills with expected path format", async () => {
+    it.effect("returns skills with expected path format", () => {
       const validIndex: WellKnownIndex = {
         skills: [{ name: "commit", description: "Create commits", files: ["SKILL.md"] }],
       };
 
-      const result = await Effect.runPromise(
-        discoverWellKnownSkills("https://example.com").pipe(
+      return Effect.gen(function* () {
+        const result = yield* discoverWellKnownSkills("https://example.com").pipe(
           Effect.provide(createJsonResponseLayer(validIndex)),
-        ),
-      );
+        );
 
-      expect(result[0]?.path).toBe("https://example.com/.well-known/skills/commit/SKILL.md");
+        expect(result[0]?.path).toBe("https://example.com/.well-known/skills/commit/SKILL.md");
+      });
     });
 
-    it("normalizes base URL trailing slashes", async () => {
+    it.effect("normalizes base URL trailing slashes", () => {
       const validIndex: WellKnownIndex = {
         skills: [{ name: "commit", description: "Create commits", files: ["SKILL.md"] }],
       };
 
-      const result = await Effect.runPromise(
-        discoverWellKnownSkills("https://example.com///").pipe(
+      return Effect.gen(function* () {
+        const result = yield* discoverWellKnownSkills("https://example.com///").pipe(
           Effect.provide(createJsonResponseLayer(validIndex)),
-        ),
-      );
+        );
 
-      expect(result[0]?.path).toBe("https://example.com/.well-known/skills/commit/SKILL.md");
+        expect(result[0]?.path).toBe("https://example.com/.well-known/skills/commit/SKILL.md");
+      });
     });
 
-    it("returns empty array for empty skills list", async () => {
+    it.effect("returns empty array for empty skills list", () => {
       const validIndex: WellKnownIndex = {
         skills: [],
       };
 
-      const result = await Effect.runPromise(
-        discoverWellKnownSkills("https://example.com").pipe(
+      return Effect.gen(function* () {
+        const result = yield* discoverWellKnownSkills("https://example.com").pipe(
           Effect.provide(createJsonResponseLayer(validIndex)),
-        ),
-      );
+        );
 
-      expect(result).toEqual([]);
+        expect(result).toEqual([]);
+      });
     });
 
-    it("propagates WellKnownNotFoundError from fetchWellKnownIndex", async () => {
-      const result = await Effect.runPromise(
-        discoverWellKnownSkills("https://example.com").pipe(
+    it.effect("propagates WellKnownNotFoundError from fetchWellKnownIndex", () =>
+      Effect.gen(function* () {
+        const error = yield* discoverWellKnownSkills("https://example.com").pipe(
           Effect.provide(create404ErrorLayer()),
-          Effect.either,
-        ),
-      );
+          Effect.flip,
+        );
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(WellKnownNotFoundError);
-      }
-    });
+        expect(error).toBeInstanceOf(WellKnownNotFoundError);
+      }),
+    );
 
-    it("propagates WellKnownInvalidIndexError from fetchWellKnownIndex", async () => {
+    it.effect("propagates WellKnownInvalidIndexError from fetchWellKnownIndex", () => {
       const layer = createMockHttpLayer(() =>
         Promise.resolve(new Response("not json", { status: 200 })),
       );
 
-      const result = await Effect.runPromise(
-        discoverWellKnownSkills("https://example.com").pipe(Effect.provide(layer), Effect.either),
-      );
+      return Effect.gen(function* () {
+        const error = yield* discoverWellKnownSkills("https://example.com").pipe(
+          Effect.provide(layer),
+          Effect.flip,
+        );
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(WellKnownInvalidIndexError);
-      }
+        expect(error).toBeInstanceOf(WellKnownInvalidIndexError);
+      });
     });
   });
 

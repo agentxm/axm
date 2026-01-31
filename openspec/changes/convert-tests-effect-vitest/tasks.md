@@ -10,10 +10,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Import from `@effect/vitest` instead of `vitest`
-- [ ] Replace `parse()` helper with direct Effect in `it.effect`
-- [ ] Replace `parseError()` helper with `Effect.flip` pattern
-- [ ] All tests pass: `pnpm test packages/core/src/experimental/skills/source-parser.test.ts`
+- [x] Import from `@effect/vitest` instead of `vitest`
+- [x] Replace `parse()` helper with direct Effect in `it.effect`
+- [x] Replace `parseError()` helper with `Effect.flip` pattern
+- [x] All tests pass: `pnpm test packages/core/src/experimental/skills/source-parser.test.ts`
 
 **Dependencies:** None
 
@@ -27,11 +27,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] Import from `@effect/vitest` instead of `vitest`
-- [ ] Replace `runEffect()` helper with `Effect.provide` inline or helper
-- [ ] Use `Effect.flip` for HashError assertion
-- [ ] Use `it.live` for "is independent of file timestamps" test
-- [ ] All tests pass: `pnpm test packages/core/src/experimental/skills/content-hash.test.ts`
+- [x] Import from `@effect/vitest` instead of `vitest`
+- [x] Replace `runEffect()` helper with `Effect.provide` inline or helper
+- [x] Use `Effect.flip` for HashError assertion
+- [x] Use `it.live` for "is independent of file timestamps" test
+- [x] All tests pass: `pnpm test packages/core/src/experimental/skills/content-hash.test.ts`
 
 **Dependencies:** None
 
@@ -45,10 +45,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Import from `@effect/vitest` instead of `vitest`
-- [ ] Replace `runWithFileSystem()` helper with `Effect.provide` pattern
-- [ ] Use `Effect.flip` for SettingsNotFoundError and SettingsParseError assertions
-- [ ] All tests pass: `pnpm test packages/core/src/experimental/skills/settings.test.ts`
+- [x] Import from `@effect/vitest` instead of `vitest`
+- [x] Replace `runWithFileSystem()` helper with `Effect.provide` pattern
+- [x] Use `Effect.flip` for SettingsNotFoundError and SettingsParseError assertions
+- [x] All tests pass: `pnpm test packages/core/src/experimental/skills/settings.test.ts`
 
 **Dependencies:** None
 
@@ -62,12 +62,12 @@
 
 **Acceptance Criteria:**
 
-- [ ] Import from `@effect/vitest` instead of `vitest`
-- [ ] Replace `runWithFileSystem()` helper with `Effect.provide` pattern
-- [ ] Use `Effect.flip` for InstallError assertions
-- [ ] Custom failing layer test uses `Effect.provide` directly
-- [ ] Use `it.live` for "runs installations concurrently" test (elapsed time check)
-- [ ] All tests pass: `pnpm test packages/core/src/experimental/skills/installer.test.ts`
+- [x] Import from `@effect/vitest` instead of `vitest`
+- [x] Replace `runWithFileSystem()` helper with `Effect.provide` pattern
+- [x] Use `Effect.flip` for InstallError assertions
+- [x] Custom failing layer test uses `Effect.provide` directly
+- [x] Use `it.live` for "runs installations concurrently" test (elapsed time check)
+- [x] All tests pass: `pnpm test packages/core/src/experimental/skills/installer.test.ts`
 
 **Dependencies:** None
 
@@ -81,11 +81,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] Import from `@effect/vitest` instead of `vitest`
-- [ ] Replace `runEffect()` helper with `Effect.provide` pattern
-- [ ] Use `Effect.flip` for LockfileError assertions
-- [ ] Use `it.live` for "updates the updatedAt timestamp" test
-- [ ] All tests pass: `pnpm test packages/core/src/experimental/skills/lockfile.test.ts`
+- [x] Import from `@effect/vitest` instead of `vitest`
+- [x] Replace `runEffect()` helper with `Effect.provide` pattern
+- [x] Use `Effect.flip` for LockfileError assertions
+- [x] Use `it.live` for "updates the updatedAt timestamp" test
+- [x] All tests pass: `pnpm test packages/core/src/experimental/skills/lockfile.test.ts`
 
 **Dependencies:** None
 
@@ -99,10 +99,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Import from `@effect/vitest` instead of `vitest`
-- [ ] Convert Effect-based tests to `it.effect`
-- [ ] Use `Effect.flip` for error assertions
-- [ ] All tests pass: `pnpm test packages/core/src/experimental/skills/git.test.ts`
+- [x] Import from `@effect/vitest` instead of `vitest`
+- [x] Convert Effect-based tests to `it.effect`
+- [x] Use `Effect.flip` for error assertions
+- [x] All tests pass: `pnpm test packages/core/src/experimental/skills/git.test.ts`
 
 **Dependencies:** None
 
@@ -116,10 +116,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Import from `@effect/vitest` instead of `vitest`
-- [ ] Convert Effect-based tests to `it.effect`
-- [ ] Use `Effect.flip` for DiscoveryError assertions
-- [ ] All tests pass: `pnpm test packages/core/src/experimental/skills/skill-discovery.test.ts`
+- [x] Import from `@effect/vitest` instead of `vitest`
+- [x] Convert Effect-based tests to `it.effect`
+- [x] Use `Effect.flip` for DiscoveryError assertions
+- [x] All tests pass: `pnpm test packages/core/src/experimental/skills/skill-discovery.test.ts`
 
 **Dependencies:** None
 
@@ -133,10 +133,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Import from `@effect/vitest` instead of `vitest`
-- [ ] Convert Effect-based tests to `it.effect`
-- [ ] Use `it.live` for elapsed time check test (if present)
-- [ ] All tests pass: `pnpm test packages/core/src/experimental/skills/agent-detection.test.ts`
+- [x] Import from `@effect/vitest` instead of `vitest`
+- [x] Convert Effect-based tests to `it.effect`
+- [x] Use `it.live` for elapsed time check test (if present)
+- [x] All tests pass: `pnpm test packages/core/src/experimental/skills/agent-detection.test.ts`
 
 **Dependencies:** None
 
@@ -150,10 +150,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Import from `@effect/vitest` instead of `vitest`
-- [ ] Convert Effect-based tests to `it.effect`
-- [ ] Use `Effect.flip` for WellKnownError assertions
-- [ ] All tests pass: `pnpm test packages/core/src/experimental/skills/wellknown.test.ts`
+- [x] Import from `@effect/vitest` instead of `vitest`
+- [x] Convert Effect-based tests to `it.effect`
+- [x] Use `Effect.flip` for WellKnownError assertions
+- [x] All tests pass: `pnpm test packages/core/src/experimental/skills/wellknown.test.ts`
 
 **Dependencies:** None
 
@@ -169,12 +169,12 @@
 
 **Acceptance Criteria:**
 
-- [ ] Import from `@effect/vitest` instead of `vitest`
-- [ ] Replace `runHandler()` and `runHandlerEither()` helpers with `it.effect` + `Effect.provide`
-- [ ] Use `Effect.flip` for InitError assertions
-- [ ] Use `it.live` for "does not modify settings file timestamp" test
-- [ ] Preserve vi.mock and vi.spyOn usage for TTY utilities
-- [ ] All tests pass: `pnpm test packages/cli/src/commands/init/handler.test.ts`
+- [x] Import from `@effect/vitest` instead of `vitest`
+- [x] Replace `runHandler()` and `runHandlerEither()` helpers with `it.effect` + `Effect.provide`
+- [x] Use `Effect.flip` for InitError assertions
+- [x] Use `it.live` for "does not modify settings file timestamp" test
+- [x] Preserve vi.mock and vi.spyOn usage for TTY utilities
+- [x] All tests pass: `pnpm test packages/cli/src/commands/init/handler.test.ts`
 
 **Dependencies:** TASK-1.3 (settings tests use similar patterns)
 
@@ -188,11 +188,11 @@
 
 **Acceptance Criteria:**
 
-- [ ] Import from `@effect/vitest` instead of `vitest`
-- [ ] Replace `runHandler()` and `runHandlerEither()` helpers with `it.effect` + `Effect.provide`
-- [ ] Use `Effect.flip` for AddError assertions
-- [ ] Preserve vi.mock and vi.spyOn usage for TTY utilities
-- [ ] All tests pass: `pnpm test packages/cli/src/commands/skills/add/handler.test.ts`
+- [x] Import from `@effect/vitest` instead of `vitest`
+- [x] Replace `runHandler()` and `runHandlerEither()` helpers with `it.effect` + `Effect.provide`
+- [x] Use `Effect.flip` for AddError assertions
+- [x] Preserve vi.mock and vi.spyOn usage for TTY utilities
+- [x] All tests pass: `pnpm test packages/cli/src/commands/skills/add/handler.test.ts`
 
 **Dependencies:** TASK-2.1 (similar handler test patterns)
 
@@ -206,10 +206,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] Import from `@effect/vitest` instead of `vitest`
-- [ ] Replace Effect run helpers with `it.effect` + `Effect.provide`
-- [ ] Use `Effect.flip` for RemoveError assertions
-- [ ] All tests pass: `pnpm test packages/cli/src/commands/skills/remove/handler.test.ts`
+- [x] Import from `@effect/vitest` instead of `vitest`
+- [x] Replace Effect run helpers with `it.effect` + `Effect.provide`
+- [x] Use `Effect.flip` for RemoveError assertions
+- [x] All tests pass: `pnpm test packages/cli/src/commands/skills/remove/handler.test.ts`
 
 **Dependencies:** TASK-2.1 (similar handler test patterns)
 
@@ -225,8 +225,8 @@
 
 **Acceptance Criteria:**
 
-- [ ] `pnpm test` passes with zero failures
-- [ ] `pnpm typecheck` passes
+- [x] `pnpm test` passes with zero failures
+- [x] `pnpm typecheck` passes
 
 **Dependencies:** TASK-2.1, TASK-2.2, TASK-2.3
 
@@ -240,10 +240,10 @@
 
 **Acceptance Criteria:**
 
-- [ ] `/effect-testing` skill documents `it.live` for real-time tests (file timestamps, actual delays)
-- [ ] `/effect-testing` skill documents `it.effect.skip`, `it.effect.only`, `it.effect.fails` modifiers
-- [ ] `/effect-testing` skill notes TestClock starts at 0ms (affects time-dependent code)
-- [ ] `/testing-handler` skill reflects actual handler test patterns with Layer.mergeAll
-- [ ] `/testing-unit` skill references `it.effect` for Effect functions
+- [x] `/effect-testing` skill documents `it.live` for real-time tests (file timestamps, actual delays)
+- [x] `/effect-testing` skill documents `it.effect.skip`, `it.effect.only`, `it.effect.fails` modifiers
+- [x] `/effect-testing` skill notes TestClock starts at 0ms (affects time-dependent code)
+- [x] `/testing-handler` skill reflects actual handler test patterns with Layer.mergeAll
+- [x] `/testing-unit` skill references `it.effect` for Effect functions
 
 **Dependencies:** TASK-3.1

@@ -3,8 +3,9 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { FileSystem } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
+import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach } from "vitest";
 import {
   addSkill,
   createDefaultSettings,
@@ -28,8 +29,8 @@ describe("settings", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const runWithFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
-    Effect.runPromise(effect.pipe(Effect.provide(NodeFileSystem.layer)));
+  const withFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
+    effect.pipe(Effect.provide(NodeFileSystem.layer));
 
   describe("createDefaultSettings", () => {
     it("returns settings with version 1", () => {
@@ -49,261 +50,305 @@ describe("settings", () => {
   });
 
   describe("readSettings", () => {
-    it("returns SettingsNotFoundError when file does not exist", async () => {
-      const result = await Effect.runPromise(
-        readSettings(axmDir).pipe(Effect.either, Effect.provide(NodeFileSystem.layer)),
-      );
+    it.effect("returns SettingsNotFoundError when file does not exist", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const error = yield* readSettings(axmDir).pipe(Effect.flip);
+          expect(error._tag).toBe("SettingsNotFoundError");
+        }),
+      ),
+    );
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left._tag).toBe("SettingsNotFoundError");
-      }
-    });
-
-    it("reads and parses valid settings file", async () => {
-      fs.mkdirSync(axmDir, { recursive: true });
-      const settings: Settings = {
-        version: 1,
-        agents: ["claude-code"],
-        skills: {
-          commit: {
-            source: "github:example/skills",
+    it.effect("reads and parses valid settings file", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          fs.mkdirSync(axmDir, { recursive: true });
+          const settings: Settings = {
+            version: 1,
             agents: ["claude-code"],
-          },
-        },
-      };
-      fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
+            skills: {
+              commit: {
+                source: "github:example/skills",
+                agents: ["claude-code"],
+              },
+            },
+          };
+          fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
 
-      const result = await runWithFileSystem(readSettings(axmDir));
+          const result = yield* readSettings(axmDir);
 
-      expect(result.version).toBe(1);
-      expect(result.agents).toEqual(["claude-code"]);
-      expect(result.skills["commit"]?.source).toBe("github:example/skills");
-    });
+          expect(result.version).toBe(1);
+          expect(result.agents).toEqual(["claude-code"]);
+          expect(result.skills["commit"]?.source).toBe("github:example/skills");
+        }),
+      ),
+    );
 
-    it("returns SettingsParseError for invalid JSON", async () => {
-      fs.mkdirSync(axmDir, { recursive: true });
-      fs.writeFileSync(path.join(axmDir, "settings.json"), "not valid json");
+    it.effect("returns SettingsParseError for invalid JSON", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          fs.mkdirSync(axmDir, { recursive: true });
+          fs.writeFileSync(path.join(axmDir, "settings.json"), "not valid json");
 
-      const result = await Effect.runPromise(
-        readSettings(axmDir).pipe(Effect.either, Effect.provide(NodeFileSystem.layer)),
-      );
-
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left._tag).toBe("SettingsParseError");
-      }
-    });
+          const error = yield* readSettings(axmDir).pipe(Effect.flip);
+          expect(error._tag).toBe("SettingsParseError");
+        }),
+      ),
+    );
   });
 
   describe("writeSettings", () => {
-    it("creates directory if it does not exist", async () => {
-      const settings = createDefaultSettings();
+    it.effect("creates directory if it does not exist", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const settings = createDefaultSettings();
 
-      await runWithFileSystem(writeSettings(axmDir, settings));
+          yield* writeSettings(axmDir, settings);
 
-      expect(fs.existsSync(axmDir)).toBe(true);
-    });
+          expect(fs.existsSync(axmDir)).toBe(true);
+        }),
+      ),
+    );
 
-    it("writes settings with 2-space indentation", async () => {
-      const settings = createDefaultSettings();
+    it.effect("writes settings with 2-space indentation", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const settings = createDefaultSettings();
 
-      await runWithFileSystem(writeSettings(axmDir, settings));
+          yield* writeSettings(axmDir, settings);
 
-      const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
-      const expected = JSON.stringify(settings, null, 2);
-      expect(content).toBe(expected);
-    });
+          const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+          const expected = JSON.stringify(settings, null, 2);
+          expect(content).toBe(expected);
+        }),
+      ),
+    );
 
-    it("overwrites existing settings file", async () => {
-      fs.mkdirSync(axmDir, { recursive: true });
-      const oldSettings: Settings = {
-        version: 1,
-        agents: ["old-agent"],
-        skills: {},
-      };
-      fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(oldSettings));
+    it.effect("overwrites existing settings file", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          fs.mkdirSync(axmDir, { recursive: true });
+          const oldSettings: Settings = {
+            version: 1,
+            agents: ["old-agent"],
+            skills: {},
+          };
+          fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(oldSettings));
 
-      const newSettings: Settings = {
-        version: 1,
-        agents: ["new-agent"],
-        skills: {},
-      };
-      await runWithFileSystem(writeSettings(axmDir, newSettings));
+          const newSettings: Settings = {
+            version: 1,
+            agents: ["new-agent"],
+            skills: {},
+          };
+          yield* writeSettings(axmDir, newSettings);
 
-      const result = await runWithFileSystem(readSettings(axmDir));
-      expect(result.agents).toEqual(["new-agent"]);
-    });
+          const result = yield* readSettings(axmDir);
+          expect(result.agents).toEqual(["new-agent"]);
+        }),
+      ),
+    );
   });
 
   describe("updateSettings", () => {
-    it("merges partial updates with existing settings", async () => {
-      const initial: Settings = {
-        version: 1,
-        agents: ["claude-code"],
-        skills: {
-          commit: {
-            source: "github:example/commit",
+    it.effect("merges partial updates with existing settings", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const initial: Settings = {
+            version: 1,
             agents: ["claude-code"],
-          },
-        },
-      };
-      await runWithFileSystem(writeSettings(axmDir, initial));
-
-      const updated = await runWithFileSystem(updateSettings(axmDir, { agents: ["cursor"] }));
-
-      expect(updated.agents).toEqual(["cursor"]);
-      expect(updated.skills["commit"]).toBeDefined();
-    });
-
-    it("merges skills from update with existing skills", async () => {
-      const initial: Settings = {
-        version: 1,
-        agents: [],
-        skills: {
-          commit: {
-            source: "github:example/commit",
-            agents: [],
-          },
-        },
-      };
-      await runWithFileSystem(writeSettings(axmDir, initial));
-
-      const updated = await runWithFileSystem(
-        updateSettings(axmDir, {
-          skills: {
-            "review-pr": {
-              source: "github:example/review-pr",
-              agents: [],
+            skills: {
+              commit: {
+                source: "github:example/commit",
+                agents: ["claude-code"],
+              },
             },
-          },
+          };
+          yield* writeSettings(axmDir, initial);
+
+          const updated = yield* updateSettings(axmDir, { agents: ["cursor"] });
+
+          expect(updated.agents).toEqual(["cursor"]);
+          expect(updated.skills["commit"]).toBeDefined();
         }),
-      );
+      ),
+    );
 
-      expect(updated.skills["commit"]).toBeDefined();
-      expect(updated.skills["review-pr"]).toBeDefined();
-    });
+    it.effect("merges skills from update with existing skills", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const initial: Settings = {
+            version: 1,
+            agents: [],
+            skills: {
+              commit: {
+                source: "github:example/commit",
+                agents: [],
+              },
+            },
+          };
+          yield* writeSettings(axmDir, initial);
 
-    it("preserves version unless explicitly updated", async () => {
-      const initial: Settings = {
-        version: 1,
-        agents: [],
-        skills: {},
-      };
-      await runWithFileSystem(writeSettings(axmDir, initial));
+          const updated = yield* updateSettings(axmDir, {
+            skills: {
+              "review-pr": {
+                source: "github:example/review-pr",
+                agents: [],
+              },
+            },
+          });
 
-      const updated = await runWithFileSystem(updateSettings(axmDir, { agents: ["claude-code"] }));
+          expect(updated.skills["commit"]).toBeDefined();
+          expect(updated.skills["review-pr"]).toBeDefined();
+        }),
+      ),
+    );
 
-      expect(updated.version).toBe(1);
-    });
+    it.effect("preserves version unless explicitly updated", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const initial: Settings = {
+            version: 1,
+            agents: [],
+            skills: {},
+          };
+          yield* writeSettings(axmDir, initial);
+
+          const updated = yield* updateSettings(axmDir, { agents: ["claude-code"] });
+
+          expect(updated.version).toBe(1);
+        }),
+      ),
+    );
   });
 
   describe("addSkill", () => {
-    it("adds a new skill to existing settings", async () => {
-      const initial: Settings = {
-        version: 1,
-        agents: [],
-        skills: {},
-      };
-      await runWithFileSystem(writeSettings(axmDir, initial));
-
-      const skillSettings: SkillSettings = {
-        source: "github:example/skills",
-        agents: ["claude-code"],
-      };
-      const updated = await runWithFileSystem(addSkill(axmDir, "commit", skillSettings));
-
-      expect(updated.skills["commit"]).toEqual(skillSettings);
-    });
-
-    it("preserves existing skills when adding new one", async () => {
-      const initial: Settings = {
-        version: 1,
-        agents: [],
-        skills: {
-          "existing-skill": {
-            source: "github:example/existing",
+    it.effect("adds a new skill to existing settings", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const initial: Settings = {
+            version: 1,
             agents: [],
-          },
-        },
-      };
-      await runWithFileSystem(writeSettings(axmDir, initial));
+            skills: {},
+          };
+          yield* writeSettings(axmDir, initial);
 
-      const skillSettings: SkillSettings = {
-        source: "github:example/new",
-        agents: [],
-      };
-      const updated = await runWithFileSystem(addSkill(axmDir, "new-skill", skillSettings));
+          const skillSettings: SkillSettings = {
+            source: "github:example/skills",
+            agents: ["claude-code"],
+          };
+          const updated = yield* addSkill(axmDir, "commit", skillSettings);
 
-      expect(updated.skills["existing-skill"]).toBeDefined();
-      expect(updated.skills["new-skill"]).toEqual(skillSettings);
-    });
+          expect(updated.skills["commit"]).toEqual(skillSettings);
+        }),
+      ),
+    );
 
-    it("updates existing skill if name matches", async () => {
-      const initial: Settings = {
-        version: 1,
-        agents: [],
-        skills: {
-          commit: {
-            source: "github:example/old",
+    it.effect("preserves existing skills when adding new one", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const initial: Settings = {
+            version: 1,
             agents: [],
-          },
-        },
-      };
-      await runWithFileSystem(writeSettings(axmDir, initial));
+            skills: {
+              "existing-skill": {
+                source: "github:example/existing",
+                agents: [],
+              },
+            },
+          };
+          yield* writeSettings(axmDir, initial);
 
-      const newSettings: SkillSettings = {
-        source: "github:example/new",
-        agents: ["claude-code"],
-      };
-      const updated = await runWithFileSystem(addSkill(axmDir, "commit", newSettings));
+          const skillSettings: SkillSettings = {
+            source: "github:example/new",
+            agents: [],
+          };
+          const updated = yield* addSkill(axmDir, "new-skill", skillSettings);
 
-      expect(updated.skills["commit"]).toEqual(newSettings);
-    });
+          expect(updated.skills["existing-skill"]).toBeDefined();
+          expect(updated.skills["new-skill"]).toEqual(skillSettings);
+        }),
+      ),
+    );
+
+    it.effect("updates existing skill if name matches", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const initial: Settings = {
+            version: 1,
+            agents: [],
+            skills: {
+              commit: {
+                source: "github:example/old",
+                agents: [],
+              },
+            },
+          };
+          yield* writeSettings(axmDir, initial);
+
+          const newSettings: SkillSettings = {
+            source: "github:example/new",
+            agents: ["claude-code"],
+          };
+          const updated = yield* addSkill(axmDir, "commit", newSettings);
+
+          expect(updated.skills["commit"]).toEqual(newSettings);
+        }),
+      ),
+    );
   });
 
   describe("ensureInitialized", () => {
-    it("returns existing settings if they exist", async () => {
-      const existing: Settings = {
-        version: 1,
-        agents: ["claude-code"],
-        skills: {},
-      };
-      fs.mkdirSync(axmDir, { recursive: true });
-      fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existing));
+    it.effect("returns existing settings if they exist", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const existing: Settings = {
+            version: 1,
+            agents: ["claude-code"],
+            skills: {},
+          };
+          fs.mkdirSync(axmDir, { recursive: true });
+          fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existing));
 
-      const result = await runWithFileSystem(ensureInitialized({ axmDir }));
+          const result = yield* ensureInitialized({ axmDir });
 
-      expect(result.agents).toEqual(["claude-code"]);
-    });
+          expect(result.agents).toEqual(["claude-code"]);
+        }),
+      ),
+    );
 
-    it("creates default settings if they do not exist", async () => {
-      const result = await runWithFileSystem(ensureInitialized({ axmDir }));
+    it.effect("creates default settings if they do not exist", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const result = yield* ensureInitialized({ axmDir });
 
-      expect(result.version).toBe(1);
-      expect(result.agents).toEqual([]);
-      expect(result.skills).toEqual({});
-    });
+          expect(result.version).toBe(1);
+          expect(result.agents).toEqual([]);
+          expect(result.skills).toEqual({});
+        }),
+      ),
+    );
 
-    it("writes default settings to disk when creating", async () => {
-      await runWithFileSystem(ensureInitialized({ axmDir }));
+    it.effect("writes default settings to disk when creating", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          yield* ensureInitialized({ axmDir });
 
-      const exists = fs.existsSync(path.join(axmDir, "settings.json"));
-      expect(exists).toBe(true);
-    });
+          const exists = fs.existsSync(path.join(axmDir, "settings.json"));
+          expect(exists).toBe(true);
+        }),
+      ),
+    );
 
-    it("returns parse error for invalid existing settings", async () => {
-      fs.mkdirSync(axmDir, { recursive: true });
-      fs.writeFileSync(path.join(axmDir, "settings.json"), "invalid json");
+    it.effect("returns parse error for invalid existing settings", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          fs.mkdirSync(axmDir, { recursive: true });
+          fs.writeFileSync(path.join(axmDir, "settings.json"), "invalid json");
 
-      const result = await Effect.runPromise(
-        ensureInitialized({ axmDir }).pipe(Effect.either, Effect.provide(NodeFileSystem.layer)),
-      );
-
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left._tag).toBe("SettingsParseError");
-      }
-    });
+          const error = yield* ensureInitialized({ axmDir }).pipe(Effect.flip);
+          expect(error._tag).toBe("SettingsParseError");
+        }),
+      ),
+    );
   });
 });

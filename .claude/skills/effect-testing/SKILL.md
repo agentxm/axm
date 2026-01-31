@@ -90,6 +90,7 @@ it.effect("returns expected exit", () =>
 - Elapsed time measurements for concurrency tests
 - Tests that call `Date.now()` and expect real values
 - Any test where TestClock (starting at 0ms) would cause failures
+- Tests with real retry delays (specify timeout: `it.live("...", () => ..., { timeout: 10000 })`)
 
 ---
 

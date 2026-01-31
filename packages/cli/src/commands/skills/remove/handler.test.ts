@@ -4,8 +4,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 import { handleRemove } from "./handler.js";
 
 describe("remove.handler", () => {
@@ -20,11 +21,13 @@ describe("remove.handler", () => {
       consoleSpy.mockRestore();
     });
 
-    it("prints 'Hello Alex' to the console", async () => {
-      await Effect.runPromise(handleRemove());
+    it.effect("prints 'Hello Alex' to the console", () =>
+      Effect.gen(function* () {
+        yield* handleRemove();
 
-      expect(consoleSpy).toHaveBeenCalledWith("Hello Alex");
-    });
+        expect(consoleSpy).toHaveBeenCalledWith("Hello Alex");
+      }),
+    );
 
     it("returns an Effect", () => {
       const result = handleRemove();
@@ -33,8 +36,12 @@ describe("remove.handler", () => {
       expect(Effect.isEffect(result)).toBe(true);
     });
 
-    it("succeeds without error", async () => {
-      await expect(Effect.runPromise(handleRemove())).resolves.not.toThrow();
-    });
+    it.effect("succeeds without error", () =>
+      Effect.gen(function* () {
+        yield* handleRemove();
+        // If we reach here, the effect succeeded without error
+        expect(true).toBe(true);
+      }),
+    );
   });
 });

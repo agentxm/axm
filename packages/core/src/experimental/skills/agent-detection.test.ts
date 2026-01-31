@@ -2,8 +2,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import type { FileSystem } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
+import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { describe, expect, it } from "vitest";
 import {
   DetectionError,
   detectAgents,
@@ -149,62 +149,80 @@ describe("agent-detection", () => {
   });
 
   describe("detectAgents", () => {
-    const runWithFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
-      Effect.runPromise(effect.pipe(Effect.provide(NodeFileSystem.layer)));
+    const withFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
+      effect.pipe(Effect.provide(NodeFileSystem.layer));
 
-    it("returns an array of detected agents", async () => {
-      // detectAgents scans the user's actual home directory for known agent config dirs
-      // This test verifies it returns an array (possibly empty if no agents installed)
-      const result = await runWithFileSystem(detectAgents());
-      expect(Array.isArray(result)).toBe(true);
-    });
+    it.effect("returns an array of detected agents", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          // detectAgents scans the user's actual home directory for known agent config dirs
+          // This test verifies it returns an array (possibly empty if no agents installed)
+          const result = yield* detectAgents();
+          expect(Array.isArray(result)).toBe(true);
+        }),
+      ),
+    );
 
-    it("detected agents have valid AgentConfig structure", async () => {
-      const result = await runWithFileSystem(detectAgents());
+    it.effect("detected agents have valid AgentConfig structure", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const result = yield* detectAgents();
 
-      for (const agent of result) {
-        expect(agent.id).toBeTruthy();
-        expect(typeof agent.id).toBe("string");
-        expect(agent.name).toBeTruthy();
-        expect(typeof agent.name).toBe("string");
-        expect(agent.detectPath).toBeTruthy();
-        expect(agent.detectPath.startsWith("~")).toBe(true);
-        // skillsDir is optional
-        if (agent.skillsDir !== undefined) {
-          expect(typeof agent.skillsDir).toBe("string");
-        }
-      }
-    });
+          for (const agent of result) {
+            expect(agent.id).toBeTruthy();
+            expect(typeof agent.id).toBe("string");
+            expect(agent.name).toBeTruthy();
+            expect(typeof agent.name).toBe("string");
+            expect(agent.detectPath).toBeTruthy();
+            expect(agent.detectPath.startsWith("~")).toBe(true);
+            // skillsDir is optional
+            if (agent.skillsDir !== undefined) {
+              expect(typeof agent.skillsDir).toBe("string");
+            }
+          }
+        }),
+      ),
+    );
 
-    it("returns only agents from the SUPPORTED_AGENTS list", async () => {
-      const result = await runWithFileSystem(detectAgents());
+    it.effect("returns only agents from the SUPPORTED_AGENTS list", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const result = yield* detectAgents();
 
-      // All returned agents should be in the SUPPORTED_AGENTS list
-      for (const agent of result) {
-        const supported = SUPPORTED_AGENTS.find((a) => a.id === agent.id);
-        expect(supported).toBeDefined();
-        // Verify it's the exact same config object
-        expect(agent).toEqual(supported);
-      }
-    });
+          // All returned agents should be in the SUPPORTED_AGENTS list
+          for (const agent of result) {
+            const supported = SUPPORTED_AGENTS.find((a) => a.id === agent.id);
+            expect(supported).toBeDefined();
+            // Verify it's the exact same config object
+            expect(agent).toEqual(supported);
+          }
+        }),
+      ),
+    );
 
-    it("returns no duplicates", async () => {
-      const result = await runWithFileSystem(detectAgents());
-      const ids = result.map((a) => a.id);
-      const uniqueIds = new Set(ids);
-      expect(uniqueIds.size).toBe(ids.length);
-    });
+    it.effect("returns no duplicates", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const result = yield* detectAgents();
+          const ids = result.map((a) => a.id);
+          const uniqueIds = new Set(ids);
+          expect(uniqueIds.size).toBe(ids.length);
+        }),
+      ),
+    );
 
-    it("runs detection concurrently", async () => {
-      // This test verifies the function completes in a reasonable time
-      // which would indicate concurrent execution
-      const startTime = Date.now();
-      await runWithFileSystem(detectAgents());
-      const elapsed = Date.now() - startTime;
+    it.live("runs detection concurrently", () =>
+      Effect.gen(function* () {
+        // This test verifies the function completes in a reasonable time
+        // which would indicate concurrent execution
+        const startTime = Date.now();
+        yield* detectAgents().pipe(Effect.provide(NodeFileSystem.layer));
+        const elapsed = Date.now() - startTime;
 
-      // Should complete quickly even with 30+ agents to check
-      expect(elapsed).toBeLessThan(5000);
-    });
+        // Should complete quickly even with 30+ agents to check
+        expect(elapsed).toBeLessThan(5000);
+      }),
+    );
   });
 
   describe("detectAgents - no agents scenario", () => {
@@ -219,28 +237,27 @@ describe("agent-detection", () => {
     // This behavior is verified through the SUPPORTED_AGENTS tests (which confirm
     // the structure) and the detectAgents tests (which confirm valid output).
 
-    it("handles case where no supported agents are installed", async () => {
-      // The detectAgents function should gracefully return an empty array
-      // when no agent directories are found. Since we can't mock os.homedir(),
-      // we verify this indirectly:
-      // 1. The function doesn't throw when checking non-existent paths
-      // 2. The returned array only contains agents whose paths exist
+    it.effect("handles case where no supported agents are installed", () =>
+      Effect.gen(function* () {
+        // The detectAgents function should gracefully return an empty array
+        // when no agent directories are found. Since we can't mock os.homedir(),
+        // we verify this indirectly:
+        // 1. The function doesn't throw when checking non-existent paths
+        // 2. The returned array only contains agents whose paths exist
 
-      const runWithFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
-        Effect.runPromise(effect.pipe(Effect.provide(NodeFileSystem.layer)));
+        const result = yield* detectAgents().pipe(Effect.provide(NodeFileSystem.layer));
 
-      const result = await runWithFileSystem(detectAgents());
+        // Verify that for each detected agent, the path actually exists
+        for (const agent of result) {
+          const expandedPath = agent.detectPath.replace(/^~/, os.homedir());
+          const exists = fs.existsSync(expandedPath);
+          expect(exists).toBe(true);
+        }
 
-      // Verify that for each detected agent, the path actually exists
-      for (const agent of result) {
-        const expandedPath = agent.detectPath.replace(/^~/, os.homedir());
-        const exists = fs.existsSync(expandedPath);
-        expect(exists).toBe(true);
-      }
-
-      // If we got here without errors, the function handles missing paths correctly
-      expect(true).toBe(true);
-    });
+        // If we got here without errors, the function handles missing paths correctly
+        expect(true).toBe(true);
+      }),
+    );
   });
 
   describe("DetectionError", () => {

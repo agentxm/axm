@@ -9,8 +9,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { FileSystem, Path } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
+import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { computeContentHash, HashError } from "./content-hash.js";
 
 describe("content-hash", () => {
@@ -27,10 +27,10 @@ describe("content-hash", () => {
   });
 
   /**
-   * Helper to run an Effect with Node.js context
+   * Helper to provide Node.js context to an Effect
    */
-  const runEffect = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-    Effect.runPromise(effect.pipe(Effect.provide(NodeContext.layer)));
+  const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
+    effect.pipe(Effect.provide(NodeContext.layer));
 
   /**
    * Helper to create a file in the temp directory
@@ -43,181 +43,242 @@ describe("content-hash", () => {
   };
 
   describe("computeContentHash", () => {
-    it("computes a hash in sha256:<hex> format", async () => {
-      createFile("SKILL.md", "# Test Skill");
+    it.effect("computes a hash in sha256:<hex> format", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          createFile("SKILL.md", "# Test Skill");
 
-      const hash = await runEffect(computeContentHash(tempDir));
+          const hash = yield* computeContentHash(tempDir);
 
-      expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
-    });
+          expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+        }),
+      ),
+    );
 
-    it("returns the same hash for the same content", async () => {
-      createFile("SKILL.md", "# Test Skill");
-      createFile("README.md", "Documentation");
+    it.effect("returns the same hash for the same content", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          createFile("SKILL.md", "# Test Skill");
+          createFile("README.md", "Documentation");
 
-      const hash1 = await runEffect(computeContentHash(tempDir));
-      const hash2 = await runEffect(computeContentHash(tempDir));
+          const hash1 = yield* computeContentHash(tempDir);
+          const hash2 = yield* computeContentHash(tempDir);
 
-      expect(hash1).toBe(hash2);
-    });
+          expect(hash1).toBe(hash2);
+        }),
+      ),
+    );
 
-    it("returns different hash when file content changes", async () => {
-      createFile("SKILL.md", "# Test Skill");
-      const hash1 = await runEffect(computeContentHash(tempDir));
+    it.effect("returns different hash when file content changes", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          createFile("SKILL.md", "# Test Skill");
+          const hash1 = yield* computeContentHash(tempDir);
 
-      // Modify the file content
-      createFile("SKILL.md", "# Updated Skill");
-      const hash2 = await runEffect(computeContentHash(tempDir));
+          // Modify the file content
+          createFile("SKILL.md", "# Updated Skill");
+          const hash2 = yield* computeContentHash(tempDir);
 
-      expect(hash1).not.toBe(hash2);
-    });
+          expect(hash1).not.toBe(hash2);
+        }),
+      ),
+    );
 
-    it("returns different hash when a file is added", async () => {
-      createFile("SKILL.md", "# Test Skill");
-      const hash1 = await runEffect(computeContentHash(tempDir));
+    it.effect("returns different hash when a file is added", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          createFile("SKILL.md", "# Test Skill");
+          const hash1 = yield* computeContentHash(tempDir);
 
-      // Add a new file
-      createFile("extra.md", "Extra content");
-      const hash2 = await runEffect(computeContentHash(tempDir));
+          // Add a new file
+          createFile("extra.md", "Extra content");
+          const hash2 = yield* computeContentHash(tempDir);
 
-      expect(hash1).not.toBe(hash2);
-    });
+          expect(hash1).not.toBe(hash2);
+        }),
+      ),
+    );
 
-    it("returns different hash when a file is removed", async () => {
-      createFile("SKILL.md", "# Test Skill");
-      createFile("extra.md", "Extra content");
-      const hash1 = await runEffect(computeContentHash(tempDir));
+    it.effect("returns different hash when a file is removed", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          createFile("SKILL.md", "# Test Skill");
+          createFile("extra.md", "Extra content");
+          const hash1 = yield* computeContentHash(tempDir);
 
-      // Remove a file
-      fs.unlinkSync(path.join(tempDir, "extra.md"));
-      const hash2 = await runEffect(computeContentHash(tempDir));
+          // Remove a file
+          fs.unlinkSync(path.join(tempDir, "extra.md"));
+          const hash2 = yield* computeContentHash(tempDir);
 
-      expect(hash1).not.toBe(hash2);
-    });
+          expect(hash1).not.toBe(hash2);
+        }),
+      ),
+    );
 
-    it("is deterministic regardless of file creation order", async () => {
-      // Create files in one order
-      createFile("a.md", "Content A");
-      createFile("b.md", "Content B");
-      createFile("c.md", "Content C");
-      const hash1 = await runEffect(computeContentHash(tempDir));
+    it.effect("is deterministic regardless of file creation order", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          // Create files in one order
+          createFile("a.md", "Content A");
+          createFile("b.md", "Content B");
+          createFile("c.md", "Content C");
+          const hash1 = yield* computeContentHash(tempDir);
 
-      // Clean up and recreate in different order
-      fs.rmSync(tempDir, { recursive: true, force: true });
-      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "content-hash-test-"));
+          // Clean up and recreate in different order
+          fs.rmSync(tempDir, { recursive: true, force: true });
+          tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "content-hash-test-"));
 
-      // Create files in reverse order
-      createFile("c.md", "Content C");
-      createFile("b.md", "Content B");
-      createFile("a.md", "Content A");
-      const hash2 = await runEffect(computeContentHash(tempDir));
+          // Create files in reverse order
+          createFile("c.md", "Content C");
+          createFile("b.md", "Content B");
+          createFile("a.md", "Content A");
+          const hash2 = yield* computeContentHash(tempDir);
 
-      expect(hash1).toBe(hash2);
-    });
+          expect(hash1).toBe(hash2);
+        }),
+      ),
+    );
 
-    it("handles nested directories correctly", async () => {
-      createFile("SKILL.md", "# Root");
-      createFile("docs/guide.md", "# Guide");
-      createFile("docs/advanced/tips.md", "# Tips");
+    it.effect("handles nested directories correctly", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          createFile("SKILL.md", "# Root");
+          createFile("docs/guide.md", "# Guide");
+          createFile("docs/advanced/tips.md", "# Tips");
 
-      const hash = await runEffect(computeContentHash(tempDir));
+          const hash = yield* computeContentHash(tempDir);
 
-      expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
-    });
+          expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+        }),
+      ),
+    );
 
-    it("produces different hashes for different directory structures with same content", async () => {
-      createFile("a/file.md", "Content");
-      const hash1 = await runEffect(computeContentHash(tempDir));
+    it.effect(
+      "produces different hashes for different directory structures with same content",
+      () =>
+        withNodeContext(
+          Effect.gen(function* () {
+            createFile("a/file.md", "Content");
+            const hash1 = yield* computeContentHash(tempDir);
 
-      // Clean up and create different structure
-      fs.rmSync(tempDir, { recursive: true, force: true });
-      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "content-hash-test-"));
+            // Clean up and create different structure
+            fs.rmSync(tempDir, { recursive: true, force: true });
+            tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "content-hash-test-"));
 
-      createFile("b/file.md", "Content");
-      const hash2 = await runEffect(computeContentHash(tempDir));
+            createFile("b/file.md", "Content");
+            const hash2 = yield* computeContentHash(tempDir);
 
-      // Hashes should differ because relative paths are different
-      expect(hash1).not.toBe(hash2);
-    });
+            // Hashes should differ because relative paths are different
+            expect(hash1).not.toBe(hash2);
+          }),
+        ),
+    );
 
-    it("handles empty directories (no files)", async () => {
-      // tempDir is already created and empty
-      const hash = await runEffect(computeContentHash(tempDir));
+    it.effect("handles empty directories (no files)", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          // tempDir is already created and empty
+          const hash = yield* computeContentHash(tempDir);
 
-      // Should produce a valid hash even for empty directory
-      expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
-    });
+          // Should produce a valid hash even for empty directory
+          expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+        }),
+      ),
+    );
 
-    it("handles binary files correctly", async () => {
-      // Create a binary file with some bytes
-      const binaryContent = Buffer.from([0x00, 0x01, 0x02, 0xff, 0xfe, 0xfd]);
-      fs.writeFileSync(path.join(tempDir, "binary.bin"), binaryContent);
+    it.effect("handles binary files correctly", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          // Create a binary file with some bytes
+          const binaryContent = Buffer.from([0x00, 0x01, 0x02, 0xff, 0xfe, 0xfd]);
+          fs.writeFileSync(path.join(tempDir, "binary.bin"), binaryContent);
 
-      const hash = await runEffect(computeContentHash(tempDir));
+          const hash = yield* computeContentHash(tempDir);
 
-      expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
-    });
+          expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+        }),
+      ),
+    );
 
-    it("returns HashError for non-existent directory", async () => {
-      const nonExistentDir = path.join(tempDir, "does-not-exist");
+    it.effect("returns HashError for non-existent directory", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          const nonExistentDir = path.join(tempDir, "does-not-exist");
 
-      const result = await Effect.runPromise(
-        computeContentHash(nonExistentDir).pipe(Effect.provide(NodeContext.layer), Effect.either),
-      );
+          const error = yield* computeContentHash(nonExistentDir).pipe(Effect.flip);
 
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left).toBeInstanceOf(HashError);
-        expect(result.left.message).toContain("Failed to read directory");
-      }
-    });
+          expect(error).toBeInstanceOf(HashError);
+          expect(error.message).toContain("Failed to read directory");
+        }),
+      ),
+    );
 
-    it("is independent of file timestamps", async () => {
-      createFile("SKILL.md", "# Test Skill");
-      const hash1 = await runEffect(computeContentHash(tempDir));
+    it.live("is independent of file timestamps", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          createFile("SKILL.md", "# Test Skill");
+          const hash1 = yield* computeContentHash(tempDir);
 
-      // Change the file's mtime
-      const futureTime = new Date(Date.now() + 1000 * 60 * 60); // 1 hour in future
-      fs.utimesSync(path.join(tempDir, "SKILL.md"), futureTime, futureTime);
-      const hash2 = await runEffect(computeContentHash(tempDir));
+          // Change the file's mtime
+          const futureTime = new Date(Date.now() + 1000 * 60 * 60); // 1 hour in future
+          fs.utimesSync(path.join(tempDir, "SKILL.md"), futureTime, futureTime);
+          const hash2 = yield* computeContentHash(tempDir);
 
-      expect(hash1).toBe(hash2);
-    });
+          expect(hash1).toBe(hash2);
+        }),
+      ),
+    );
 
-    it("handles files with special characters in names", async () => {
-      createFile("file with spaces.md", "Content");
-      createFile("file-with-dashes.md", "Content");
-      createFile("file_with_underscores.md", "Content");
+    it.effect("handles files with special characters in names", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          createFile("file with spaces.md", "Content");
+          createFile("file-with-dashes.md", "Content");
+          createFile("file_with_underscores.md", "Content");
 
-      const hash = await runEffect(computeContentHash(tempDir));
+          const hash = yield* computeContentHash(tempDir);
 
-      expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
-    });
+          expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+        }),
+      ),
+    );
 
-    it("handles deeply nested directories", async () => {
-      createFile("a/b/c/d/e/f/deep.md", "Deep content");
+    it.effect("handles deeply nested directories", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          createFile("a/b/c/d/e/f/deep.md", "Deep content");
 
-      const hash = await runEffect(computeContentHash(tempDir));
+          const hash = yield* computeContentHash(tempDir);
 
-      expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
-    });
+          expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+        }),
+      ),
+    );
 
-    it("handles files with unicode content", async () => {
-      createFile("unicode.md", "Hello World");
+    it.effect("handles files with unicode content", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          createFile("unicode.md", "Hello World");
 
-      const hash = await runEffect(computeContentHash(tempDir));
+          const hash = yield* computeContentHash(tempDir);
 
-      expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
-    });
+          expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+        }),
+      ),
+    );
 
-    it("handles large files", async () => {
-      // Create a ~1MB file
-      const largeContent = "x".repeat(1024 * 1024);
-      createFile("large.txt", largeContent);
+    it.effect("handles large files", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          // Create a ~1MB file
+          const largeContent = "x".repeat(1024 * 1024);
+          createFile("large.txt", largeContent);
 
-      const hash = await runEffect(computeContentHash(tempDir));
+          const hash = yield* computeContentHash(tempDir);
 
-      expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
-    });
+          expect(hash).toMatch(/^sha256:[a-f0-9]{64}$/);
+        }),
+      ),
+    );
   });
 });

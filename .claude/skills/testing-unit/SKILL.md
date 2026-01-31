@@ -15,42 +15,45 @@ Location: colocated with source (e.g., `packages/core/src/**/*.test.ts`).
 
 ## Pattern
 
+For pure functions returning Effect, use `it.effect` from `@effect/vitest`:
+
 ```typescript
 import { Effect } from "effect";
-import { describe, expect, it } from "vitest";
-import { parseSource } from "../source-parser.js";
+import { describe, expect, it } from "@effect/vitest";
+import { parseSource, ParseError } from "../source-parser.js";
 
 describe("source-parser", () => {
-  // Helpers - see /effect-testing for patterns
-  const parse = (input: string) => Effect.runPromise(parseSource(input));
-
   describe("GitHub shorthand", () => {
-    it("parses owner/repo", async () => {
-      const result = await parse("owner/repo");
+    it.effect("parses owner/repo", () =>
+      Effect.gen(function* () {
+        const result = yield* parseSource("owner/repo");
 
-      expect(result.type).toBe("github");
-      expect(result.owner).toBe("owner");
-      expect(result.repo).toBe("repo");
-    });
+        expect(result.type).toBe("github");
+        expect(result.owner).toBe("owner");
+        expect(result.repo).toBe("repo");
+      }),
+    );
   });
 
-  describe("edge cases", () => {
-    it("handles empty string", async () => {
-      // Test boundary conditions
-    });
-
-    it("handles special characters", async () => {
-      // Test unusual inputs
-    });
+  describe("error cases", () => {
+    it.effect("fails with ParseError for invalid input", () =>
+      Effect.gen(function* () {
+        const error = yield* parseSource("").pipe(Effect.flip);
+        expect(error).toBeInstanceOf(ParseError);
+      }),
+    );
   });
 });
 ```
+
+For functions requiring services, provide layers—see `/effect-testing`.
 
 ---
 
 ## Checklist
 
+- [ ] **Use it.effect for Effects** — Stay in Effect-land, no runPromise
 - [ ] **Single behavior per test** — One assertion per logical behavior
 - [ ] **Descriptive names** — Test name describes behavior being verified
 - [ ] **Edge cases covered** — Empty inputs, boundaries, error cases
-- [ ] **Provide layers for handlers** — Use test layers for service dependencies
+- [ ] **Provide layers for services** — Use test layers for service dependencies

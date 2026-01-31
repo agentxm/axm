@@ -21,19 +21,27 @@ see `/effect-testing`.
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { NodeFileSystem } from "@effect/platform-node";
-import { Effect } from "effect";
+import { FetchHttpClient } from "@effect/platform";
+import { NodeFileSystem, NodePath } from "@effect/platform-node";
+import { Effect, Layer } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
-import { handleInit, type InitArgs } from "./init.handler.js";
+import { type AddArgs, handleAdd } from "./handler.js";
 
-describe("init.handler", () => {
+// Multi-service layer using Layer.mergeAll
+const TestLayer = Layer.mergeAll(
+  NodeFileSystem.layer,
+  NodePath.layer,
+  FetchHttpClient.layer,
+);
+
+describe("add.handler", () => {
   let tempDir: string;
   let originalCwd: string;
 
   // Fresh temp directory per test
   beforeEach(() => {
     originalCwd = process.cwd();
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "init-handler-test-"));
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "handler-test-"));
     process.chdir(tempDir);
   });
 
@@ -42,56 +50,38 @@ describe("init.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  // Helper to provide FileSystem layer
-  const withFs = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
-    effect.pipe(Effect.provide(NodeFileSystem.layer));
+  const defaultArgs: AddArgs = { source: "", global: false, agent: [] };
 
-  const defaultArgs: InitArgs = { global: false, agent: [], yes: false };
+  it.effect("installs skill to canonical location", () =>
+    Effect.gen(function* () {
+      yield* handleAdd({ ...defaultArgs, source: "./skills", yes: true });
 
-  it.effect("creates settings.json", () =>
-    withFs(
-      Effect.gen(function* () {
-        yield* handleInit({ ...defaultArgs, yes: true });
-
-        const settingsPath = path.join(tempDir, ".axm", "settings.json");
-        expect(fs.existsSync(settingsPath)).toBe(true);
-      }),
-    ),
+      const skillPath = path.join(tempDir, ".axm", "skills", "commit");
+      expect(fs.existsSync(skillPath)).toBe(true);
+    }).pipe(Effect.provide(TestLayer)),
   );
 
-  it.effect("handles already-initialized case", () =>
-    withFs(
-      Effect.gen(function* () {
-        // Pre-create settings
-        fs.mkdirSync(path.join(tempDir, ".axm"), { recursive: true });
-        fs.writeFileSync(
-          path.join(tempDir, ".axm", "settings.json"),
-          JSON.stringify({ version: 1, agents: ["claude-code"], skills: {} }),
-        );
-
-        const result = yield* handleInit({ ...defaultArgs, yes: true });
-        expect(result).toBeDefined();
-      }),
-    ),
-  );
-
-  it.effect("fails with InvalidConfig for bad settings", () =>
-    withFs(
-      Effect.gen(function* () {
-        fs.mkdirSync(path.join(tempDir, ".axm"), { recursive: true });
-        fs.writeFileSync(
-          path.join(tempDir, ".axm", "settings.json"),
-          "not json",
-        );
-
-        const error = yield* handleInit({ ...defaultArgs, yes: true }).pipe(
-          Effect.flip,
-        );
-        expect(error._tag).toBe("InvalidConfig");
-      }),
-    ),
+  it.effect("fails with AddError for invalid source", () =>
+    Effect.gen(function* () {
+      const error = yield* handleAdd({ ...defaultArgs, source: "" }).pipe(
+        Effect.flip,
+      );
+      expect(error._tag).toBe("AddError");
+    }).pipe(Effect.provide(TestLayer)),
   );
 });
+```
+
+For handlers with timestamp checks or elapsed time measurements, use `it.live`:
+
+```typescript
+it.live("updates the updatedAt timestamp", () =>
+  Effect.gen(function* () {
+    yield* handleUpdate(args);
+    const mtime = fs.statSync(lockPath).mtimeMs;
+    expect(mtime).toBeGreaterThan(Date.now() - 1000);
+  }).pipe(Effect.provide(TestLayer)),
+);
 ```
 
 ---

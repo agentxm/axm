@@ -77,12 +77,19 @@ it.effect("returns expected exit", () =>
 | Type              | Use case                                      |
 | ----------------- | --------------------------------------------- |
 | `it.effect`       | Standard tests with TestContext (TestClock)   |
-| `it.live`         | Tests requiring real time/IO                  |
+| `it.live`         | Tests requiring real time (see below)         |
 | `it.scoped`       | Tests with resources requiring Scope          |
 | `it.scopedLive`   | Scoped tests with live environment            |
 | `it.effect.skip`  | Temporarily skip a test                       |
 | `it.effect.only`  | Run only this test                            |
 | `it.effect.fails` | Assert test fails (for tracking known issues) |
+
+**When to use `it.live`:**
+
+- File timestamp checks (mtime comparisons)
+- Elapsed time measurements for concurrency tests
+- Tests that call `Date.now()` and expect real values
+- Any test where TestClock (starting at 0ms) would cause failures
 
 ---
 

@@ -19,7 +19,9 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "generate:schemas": "bun scripts/generate-schemas.ts",
+    "check:schemas": "bun scripts/check-schemas.ts"
   },
   "engines": {
     "node": ">=22.0.0"

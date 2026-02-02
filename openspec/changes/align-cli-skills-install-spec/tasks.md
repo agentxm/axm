@@ -49,7 +49,7 @@
 ## 7. CLI Handler Updates
 
 - [x] 7.1 Update `handler.ts` to import and use `resolveExtension()`
-- [ ] 7.2 Add conflict detection logic (check if skill exists, warn and skip)
+- [x] 7.2 Add conflict detection logic (check if skill exists, warn and skip)
 - [ ] 7.3 Add `--force` flag handling to overwrite existing skills
 - [x] 7.4 Update lockfile writes to use new schema
 - [ ] 7.5 Update settings writes to use new schema

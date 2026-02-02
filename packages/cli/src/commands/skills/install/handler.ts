@@ -27,6 +27,7 @@ import {
   type LockEntry,
   type ParsedSource,
   parseSource,
+  readLockfile,
   type Skill,
   updateLockEntry,
   updateSettings,
@@ -870,6 +871,43 @@ export const handleInstall = (
       p.log.warn("No skills selected.");
       p.outro("Nothing to install.");
       return;
+    }
+
+    // Step 6b: Check for conflicts (skills already installed)
+    const lockfile = yield* readLockfile(axmDir).pipe(
+      Effect.mapError(
+        (error) =>
+          new InstallError({
+            message: `Failed to read lockfile: ${error.message}`,
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
+
+    const installedSkillNames = new Set(Object.keys(lockfile.extensions.skills));
+    const conflictingSkills = selectedSkills.filter((s) => installedSkillNames.has(s.name));
+    const newSkills = selectedSkills.filter((s) => !installedSkillNames.has(s.name));
+
+    // Warn about conflicts
+    for (const skill of conflictingSkills) {
+      p.log.warn(`Skill "${skill.name}" already installed. Skipping.`);
+      p.log.message("  Use --force to overwrite.");
+    }
+
+    if (newSkills.length === 0) {
+      p.log.info("All selected skills are already installed.");
+      p.outro("Nothing to install.");
+      return;
+    }
+
+    // Continue with only new skills
+    selectedSkills = newSkills;
+
+    if (conflictingSkills.length > 0) {
+      p.log.info(
+        `Installing ${newSkills.length} new skill(s), skipping ${conflictingSkills.length} existing`,
+      );
     }
 
     // Step 7: Confirm installation (unless --yes or --non-interactive)

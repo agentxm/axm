@@ -6,6 +6,7 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import YAML from "yaml";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "./utils.js";
 
 describe("axm skills install", () => {
@@ -91,10 +92,10 @@ describe("axm skills install", () => {
         expect(settings.skills).toHaveProperty("my-skill");
         expect(settings.skills).toHaveProperty("another-skill");
 
-        // Verify axm.lock exists and has entries (JSON format)
-        const lockPath = path.join(axmDir, "axm.lock");
+        // Verify axm-lock.yaml exists and has entries (YAML format)
+        const lockPath = path.join(axmDir, "axm-lock.yaml");
         expect(fs.existsSync(lockPath)).toBe(true);
-        const lock = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+        const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
         expect(lock).toHaveProperty("lockfileVersion");
         expect(lock).toHaveProperty("extensions");
         expect(lock.extensions).toHaveProperty("skills");
@@ -131,8 +132,8 @@ describe("axm skills install", () => {
           { cwd: temp.path },
         );
 
-        const lockPath = path.join(temp.path, ".axm", "axm.lock");
-        const lock = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+        const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+        const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify lockfile structure
         expect(lock.lockfileVersion).toBe(1);
@@ -341,7 +342,7 @@ describe("axm skills install", () => {
         // Expected structure:
         // .axm/
         //   settings.json
-        //   axm.lock
+        //   axm-lock.yaml
         //   skills/
         //     my-skill/
         //       SKILL.md
@@ -351,7 +352,7 @@ describe("axm skills install", () => {
 
         const axmDir = path.join(temp.path, ".axm");
         const settingsPath = path.join(axmDir, "settings.json");
-        const lockPath = path.join(axmDir, "axm.lock");
+        const lockPath = path.join(axmDir, "axm-lock.yaml");
         const canonicalSkillDir = path.join(axmDir, "skills", "my-skill");
         const canonicalSkillMd = path.join(canonicalSkillDir, "SKILL.md");
 
@@ -409,7 +410,7 @@ describe("axm skills install", () => {
       }
     });
 
-    it("axm.lock contains lock entry for installed skill with new schema", async () => {
+    it("axm-lock.yaml contains lock entry for installed skill with new schema", async () => {
       const temp = createTempDir();
       try {
         await runCli(["init", "--yes", "--agent", "claude-code"], {
@@ -430,8 +431,8 @@ describe("axm skills install", () => {
           { cwd: temp.path },
         );
 
-        const lockPath = path.join(temp.path, ".axm", "axm.lock");
-        const lock = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+        const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+        const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify new lockfile structure
         expect(lock.lockfileVersion).toBe(1);

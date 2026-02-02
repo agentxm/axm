@@ -769,7 +769,7 @@ const createSpinnerHelper = (useFancy: boolean) => {
  * 4. Discover skills from source
  * 5. Select skills (interactive or via --skill/--all flags)
  * 6. Install skills to agent directories
- * 7. Update settings.json and axm.lock
+ * 7. Update settings.json and axm-lock.yaml
  *
  * @experimental This API is unstable and may change without notice.
  */

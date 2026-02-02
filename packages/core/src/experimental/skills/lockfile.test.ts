@@ -5,6 +5,7 @@ import type { FileSystem } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
+import YAML from "yaml";
 import {
   LockfileParseError,
   readLockfile,
@@ -55,7 +56,7 @@ describe("lockfile", () => {
       withFileSystem(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          const lockfileContent = JSON.stringify({
+          const lockfileContent = YAML.stringify({
             lockfileVersion: 1,
             extensions: {
               skills: {
@@ -69,7 +70,7 @@ describe("lockfile", () => {
               },
             },
           });
-          fs.writeFileSync(path.join(axmDir, "axm.lock"), lockfileContent);
+          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), lockfileContent);
 
           const result = yield* readLockfile(axmDir);
 
@@ -82,11 +83,11 @@ describe("lockfile", () => {
       ),
     );
 
-    it.effect("returns LockfileParseError for invalid JSON", () =>
+    it.effect("returns LockfileParseError for invalid YAML", () =>
       withFileSystem(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          fs.writeFileSync(path.join(axmDir, "axm.lock"), "{ invalid json }");
+          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "invalid: yaml: content:");
 
           const error = yield* readLockfile(axmDir).pipe(Effect.flip);
 
@@ -100,7 +101,7 @@ describe("lockfile", () => {
       withFileSystem(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          fs.writeFileSync(path.join(axmDir, "axm.lock"), "null");
+          fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "null");
 
           const result = yield* readLockfile(axmDir);
 
@@ -115,8 +116,8 @@ describe("lockfile", () => {
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(
-            path.join(axmDir, "axm.lock"),
-            JSON.stringify({ extensions: { skills: {} } }),
+            path.join(axmDir, "axm-lock.yaml"),
+            YAML.stringify({ extensions: { skills: {} } }),
           );
 
           const result = yield* readLockfile(axmDir);
@@ -143,7 +144,7 @@ describe("lockfile", () => {
       ),
     );
 
-    it.effect("writes lockfile in JSON format", () =>
+    it.effect("writes lockfile in YAML format", () =>
       withFileSystem(
         Effect.gen(function* () {
           const lockfile: Lockfile = {
@@ -157,8 +158,8 @@ describe("lockfile", () => {
 
           yield* writeLockfile(axmDir, lockfile);
 
-          const content = fs.readFileSync(path.join(axmDir, "axm.lock"), "utf-8");
-          const parsed = JSON.parse(content);
+          const content = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8");
+          const parsed = YAML.parse(content);
           expect(parsed.lockfileVersion).toBe(1);
           expect(parsed.extensions.skills["pr-review"]).toBeDefined();
           expect(parsed.extensions.skills["pr-review"].source).toBe(
@@ -173,8 +174,8 @@ describe("lockfile", () => {
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(
-            path.join(axmDir, "axm.lock"),
-            JSON.stringify({ lockfileVersion: 1, extensions: { skills: {} } }),
+            path.join(axmDir, "axm-lock.yaml"),
+            YAML.stringify({ lockfileVersion: 1, extensions: { skills: {} } }),
           );
 
           const lockfile: Lockfile = {
@@ -361,7 +362,7 @@ describe("lockfile", () => {
     );
   });
 
-  describe("JSON format round-trip", () => {
+  describe("YAML format round-trip", () => {
     it.effect("preserves all fields through read/write cycle", () =>
       withFileSystem(
         Effect.gen(function* () {

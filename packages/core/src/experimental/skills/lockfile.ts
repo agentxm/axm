@@ -1,5 +1,5 @@
 /**
- * Lockfile module for managing `.axm/axm.lock` (JSON format).
+ * Lockfile module for managing `.axm/axm-lock.yaml` (YAML format).
  *
  * Provides functions to read, write, and update lockfile entries
  * for tracking installed skill versions.
@@ -11,6 +11,7 @@
 import * as path from "node:path";
 import { FileSystem } from "@effect/platform";
 import { Data, Effect } from "effect";
+import YAML from "yaml";
 
 import type { LockEntry, Lockfile } from "./types.js";
 
@@ -18,7 +19,7 @@ import type { LockEntry, Lockfile } from "./types.js";
 // Constants
 // -----------------------------------------------------------------------------
 
-const LOCKFILE_NAME = "axm.lock";
+const LOCKFILE_NAME = "axm-lock.yaml";
 const LOCKFILE_VERSION = 1;
 
 // -----------------------------------------------------------------------------
@@ -26,7 +27,7 @@ const LOCKFILE_VERSION = 1;
 // -----------------------------------------------------------------------------
 
 /**
- * Error parsing the lockfile JSON content.
+ * Error parsing the lockfile YAML content.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -95,7 +96,7 @@ const validateLockfile = (data: unknown): Lockfile => {
 // -----------------------------------------------------------------------------
 
 /**
- * Reads and parses the lockfile from `.axm/axm.lock`.
+ * Reads and parses the lockfile from `.axm/axm-lock.yaml`.
  *
  * Returns an empty lockfile if the file does not exist.
  *
@@ -138,12 +139,12 @@ export const readLockfile = (
       ),
     );
 
-    // Parse JSON
+    // Parse YAML
     const parsed = yield* Effect.try({
-      try: () => JSON.parse(content),
+      try: () => YAML.parse(content),
       catch: (error) =>
         new LockfileParseError({
-          message: `Failed to parse lockfile JSON at ${lockfilePath}`,
+          message: `Failed to parse lockfile YAML at ${lockfilePath}`,
           cause: error,
           retryable: false,
         }),
@@ -153,7 +154,7 @@ export const readLockfile = (
   });
 
 /**
- * Writes the lockfile to `.axm/axm.lock` in JSON format.
+ * Writes the lockfile to `.axm/axm-lock.yaml` in YAML format.
  *
  * Creates the `.axm` directory if it does not exist.
  *
@@ -183,19 +184,19 @@ export const writeLockfile = (
       ),
     );
 
-    // Convert to JSON
-    const jsonContent = yield* Effect.try({
-      try: () => JSON.stringify(lockfile, null, 2),
+    // Convert to YAML
+    const yamlContent = yield* Effect.try({
+      try: () => YAML.stringify(lockfile),
       catch: (error) =>
         new LockfileWriteError({
-          message: "Failed to serialize lockfile to JSON",
+          message: "Failed to serialize lockfile to YAML",
           cause: error,
           retryable: false,
         }),
     });
 
     // Write file
-    yield* fs.writeFileString(lockfilePath, jsonContent).pipe(
+    yield* fs.writeFileString(lockfilePath, yamlContent).pipe(
       Effect.mapError(
         (error) =>
           new LockfileWriteError({

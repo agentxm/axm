@@ -13,6 +13,7 @@ import { NodeFileSystem, NodePath } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import { afterEach, beforeEach, vi } from "vitest";
+import YAML from "yaml";
 import { handleInstall, type InstallArgs, InstallError } from "./handler.js";
 
 // Layer providing all required services for tests
@@ -504,7 +505,7 @@ describe("install.handler", () => {
       ),
     );
 
-    it.effect("creates axm.lock with installed skill entry", () =>
+    it.effect("creates axm-lock.yaml with installed skill entry", () =>
       withTestLayer(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
@@ -520,11 +521,11 @@ describe("install.handler", () => {
 
           yield* handleInstall(args);
 
-          const lockPath = path.join(tempDir, ".axm", "axm.lock");
+          const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
           expect(fs.existsSync(lockPath)).toBe(true);
 
-          // Lockfile is in JSON format - parse and verify structure
-          const lockContent = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+          // Lockfile is in YAML format - parse and verify structure
+          const lockContent = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           expect(lockContent.lockfileVersion).toBe(1);
           expect(lockContent.extensions.skills.commit).toBeDefined();
           expect(lockContent.extensions.skills.commit.source).toBe(source);
@@ -625,7 +626,7 @@ describe("install.handler", () => {
           // Backup and cleanup global settings and lockfile
           const globalAxmDir = path.join(os.homedir(), ".axm");
           const globalSettingsPath = path.join(globalAxmDir, "settings.json");
-          const globalLockfilePath = path.join(globalAxmDir, "axm.lock");
+          const globalLockfilePath = path.join(globalAxmDir, "axm-lock.yaml");
           const settingsExistedBefore = fs.existsSync(globalSettingsPath);
           const lockfileExistedBefore = fs.existsSync(globalLockfilePath);
           let backupSettings: string | undefined;
@@ -1033,8 +1034,8 @@ describe("install.handler", () => {
           });
 
           // Get original lockfile entry
-          const lockPath = path.join(tempDir, ".axm", "axm.lock");
-          const originalLock = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+          const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
+          const originalLock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           const originalHash = originalLock.extensions.skills.commit.folderHash;
 
           // Create second source with different content
@@ -1054,7 +1055,7 @@ describe("install.handler", () => {
           });
 
           // Lockfile should have updated hash
-          const newLock = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+          const newLock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           expect(newLock.extensions.skills.commit.folderHash).not.toBe(originalHash);
           expect(newLock.extensions.skills.commit.source).toBe(sourceDir2);
         }),
@@ -1195,8 +1196,8 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           });
 
-          const lockPath = path.join(tempDir, ".axm", "axm.lock");
-          const lockfile = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+          const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
+          const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
           expect(lockfile.lockfileVersion).toBe(1);
           expect(lockfile.extensions).toBeDefined();
@@ -1219,8 +1220,8 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           });
 
-          const lockPath = path.join(tempDir, ".axm", "axm.lock");
-          const lockfile = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+          const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
+          const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           const entry = lockfile.extensions.skills.commit;
 
           // Required fields per spec
@@ -1250,8 +1251,8 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           });
 
-          const lockPath = path.join(tempDir, ".axm", "axm.lock");
-          const lockfile = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+          const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
+          const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           const entry = lockfile.extensions.skills.commit;
 
           // Timestamps should be valid ISO strings
@@ -1325,8 +1326,8 @@ describe("install.handler", () => {
           });
 
           // Verify local source is stored as-is
-          const lockPath = path.join(tempDir, ".axm", "axm.lock");
-          const lockfile = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+          const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
+          const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           expect(lockfile.extensions.skills.commit.source).toBe(source);
         }),
       ),
@@ -1348,8 +1349,8 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           });
 
-          const lockPath = path.join(tempDir, ".axm", "axm.lock");
-          const lockfile = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+          const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
+          const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
           // Local path should be stored as-is per spec
           expect(lockfile.extensions.skills.commit.source).toBe(source);

@@ -82,7 +82,7 @@ export const ExtensionsByType = Schema.Struct({
 export type ExtensionsByType = typeof ExtensionsByType.Type;
 
 /**
- * Schema for lockfile (axm-lock.json).
+ * Schema for lockfile (axm-lock.yaml).
  *
  * The lockfile records the exact resolved state of all installed extensions,
  * enabling reproducible installations across environments.

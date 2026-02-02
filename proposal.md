@@ -496,7 +496,7 @@ extensions.
 
 ### 3.5 Lockfile
 
-The lockfile (`axm.lock`) records the resolved state of installed extensions.
+The lockfile (`axm-lock.yaml`) records the resolved state of installed extensions.
 Unlike package managers where lockfiles enable reproducible installs, AXM
 extensions are checked into source control. The lockfile tracks provenance and
 versions for update detection.
@@ -505,55 +505,46 @@ versions for update detection.
 
 #### Schema
 
-```json
-{
-  "lockfileVersion": 1,
-  "extensions": {
-    "skills": {
-      "@wayne/grappling-hook": {
-        "source": "github:wayne-industries/skills",
-        "origin": "https://github.com/wayne-industries/skills",
-        "path": "skills/grappling-hook",
-        "ref": "main",
-        "folderHash": "abc123def456...",
-        "installedAt": "2025-01-15T10:30:00Z",
-        "updatedAt": "2025-01-15T10:30:00Z"
-      }
-    },
-    "commands": {
-      "@wayne/batcomputer-sync": {
-        "source": "github:wayne-industries/commands",
-        "origin": "https://github.com/wayne-industries/commands",
-        "path": "commands/batcomputer-sync",
-        "ref": "main",
-        "folderHash": "def456ghi789...",
-        "installedAt": "2025-01-15T10:30:00Z",
-        "updatedAt": "2025-01-15T10:30:00Z"
-      }
-    },
-    "mcp-servers": {
-      "@wayne/batcomputer": {
-        "source": "github:wayne-industries/batcomputer",
-        "origin": "https://github.com/wayne-industries/batcomputer",
-        "ref": "v2.0.0",
-        "folderHash": "789ghi012jkl...",
-        "installedAt": "2025-01-15T10:30:00Z",
-        "updatedAt": "2025-01-15T10:30:00Z"
-      }
-    },
-    "packs": {
-      "@wayne/utility-belt": {
-        "source": "registry:@wayne/utility-belt",
-        "origin": "https://registry.agentxm.ai/extensions/@wayne/utility-belt",
-        "version": "1.0.0",
-        "folderHash": "mno345pqr678...",
-        "dependencies": ["@wayne/grappling-hook", "@wayne/batcomputer"],
-        "installedAt": "2025-01-15T10:30:00Z",
-        "updatedAt": "2025-01-15T10:30:00Z"
-      }
-    }
-  }
-}
+```yaml
+lockfileVersion: 1
+extensions:
+  skills:
+    "@wayne/grappling-hook":
+      source: github:wayne-industries/skills
+      origin: https://github.com/wayne-industries/skills
+      path: skills/grappling-hook
+      ref: main
+      folderHash: abc123def456...
+      installedAt: "2025-01-15T10:30:00Z"
+      updatedAt: "2025-01-15T10:30:00Z"
+  commands:
+    "@wayne/batcomputer-sync":
+      source: github:wayne-industries/commands
+      origin: https://github.com/wayne-industries/commands
+      path: commands/batcomputer-sync
+      ref: main
+      folderHash: def456ghi789...
+      installedAt: "2025-01-15T10:30:00Z"
+      updatedAt: "2025-01-15T10:30:00Z"
+  mcp-servers:
+    "@wayne/batcomputer":
+      source: github:wayne-industries/batcomputer
+      origin: https://github.com/wayne-industries/batcomputer
+      ref: v2.0.0
+      folderHash: 789ghi012jkl...
+      installedAt: "2025-01-15T10:30:00Z"
+      updatedAt: "2025-01-15T10:30:00Z"
+  packs:
+    "@wayne/utility-belt":
+      source: registry:@wayne/utility-belt
+      origin: https://registry.agentxm.ai/extensions/@wayne/utility-belt
+      version: 1.0.0
+      folderHash: mno345pqr678...
+      dependencies:
+        - "@wayne/grappling-hook"
+        - "@wayne/batcomputer"
+      installedAt: "2025-01-15T10:30:00Z"
+      updatedAt: "2025-01-15T10:30:00Z"
 ```
 
 #### Fields
@@ -1022,7 +1013,7 @@ axm skills install <skill>
 6. **Sync to agents** — Create symlinks to agent skill directories; fall back to
    copy when symlinks fail (Windows, cross-filesystem mounts)
 7. **Update lockfile** — Record source, origin, folderHash, timestamps in
-   `axm.lock`
+   `axm-lock.yaml`
 8. **Update settings** — Add extension entry to `settings.json`
 
 **Caching strategy**:
@@ -1046,7 +1037,7 @@ axm skills install <skill>
 ```
 .axm/
 ├── settings.json           # Lists installed skills with their source
-├── axm.lock                # Resolved state: folderHash, timestamps
+├── axm-lock.yaml           # Resolved state: folderHash, timestamps
 └── skills/
     └── my-skill/           # Canonical skill location
         ├── SKILL.md        # Main instructions (required)

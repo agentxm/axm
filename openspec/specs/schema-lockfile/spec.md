@@ -1,6 +1,6 @@
 ## ADDED Requirements
 
-### Requirement: Lockfile schema validates axm.lock files
+### Requirement: Lockfile schema validates axm-lock.yaml files
 
 The schema SHALL validate lockfiles with the following structure:
 
@@ -9,14 +9,16 @@ The schema SHALL validate lockfiles with the following structure:
 | `lockfileVersion` | number | Yes      | Schema version (currently `1`)            |
 | `extensions`      | object | Yes      | Map of extension type → name → lock entry |
 
+The lockfile SHALL be stored in YAML format at `axm-lock.yaml`.
+
 #### Scenario: Valid minimal lockfile
 
-- **WHEN** parsing `{ "lockfileVersion": 1, "extensions": {} }`
+- **WHEN** parsing YAML content `lockfileVersion: 1\nextensions: {}`
 - **THEN** validation succeeds and returns typed Lockfile
 
 #### Scenario: Missing lockfileVersion
 
-- **WHEN** parsing `{ "extensions": {} }`
+- **WHEN** parsing YAML content `extensions: {}`
 - **THEN** validation fails with error indicating missing `lockfileVersion` field
 
 ### Requirement: Lock entry schema
@@ -37,24 +39,19 @@ Each lock entry SHALL have the following fields:
 
 #### Scenario: Valid skill lock entry
 
-- **WHEN** parsing:
-  ```json
-  {
-    "lockfileVersion": 1,
-    "extensions": {
-      "skills": {
-        "@wayne/grappling-hook": {
-          "source": "github:wayne-industries/skills",
-          "origin": "https://github.com/wayne-industries/skills",
-          "path": "skills/grappling-hook",
-          "ref": "main",
-          "folderHash": "abc123def456",
-          "installedAt": "2025-01-15T10:30:00Z",
-          "updatedAt": "2025-01-15T10:30:00Z"
-        }
-      }
-    }
-  }
+- **WHEN** parsing YAML content:
+  ```yaml
+  lockfileVersion: 1
+  extensions:
+    skills:
+      "@wayne/grappling-hook":
+        source: "github:wayne-industries/skills"
+        origin: "https://github.com/wayne-industries/skills"
+        path: "skills/grappling-hook"
+        ref: "main"
+        folderHash: "abc123def456"
+        installedAt: "2025-01-15T10:30:00Z"
+        updatedAt: "2025-01-15T10:30:00Z"
   ```
 - **THEN** validation succeeds and lock entry fields are accessible with correct types
 
@@ -86,10 +83,10 @@ Each extension name SHALL match the `@<scope>/<name>` pattern.
 
 #### Scenario: Invalid extension name in lockfile
 
-- **WHEN** parsing `{ "lockfileVersion": 1, "extensions": { "skills": { "grappling-hook": { ... } } } }`
+- **WHEN** parsing YAML content with an invalid extension name (e.g., `grappling-hook` instead of `@scope/name`)
 - **THEN** validation fails with error indicating invalid extension name pattern
 
-### Requirement: JSON schema generated for axm.lock
+### Requirement: JSON schema generated for axm-lock.yaml
 
 The system SHALL generate a JSON Schema file at `__generated__/axm-lock.schema.json` from the Effect schema.
 

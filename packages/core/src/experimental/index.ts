@@ -39,7 +39,6 @@ export type {
   Lockfile,
   ParsedSource,
   Settings,
-  SettingsExtensions,
   Skill,
   SourceType,
   WellKnownIndex,

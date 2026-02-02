@@ -562,10 +562,8 @@ const installSkillsFromFileSystem = (
       );
 
       yield* updateSettings(axmDir, {
-        extensions: {
-          skills: {
-            [skillName]: "*",
-          },
+        skills: {
+          [skillName]: "*",
         },
       }).pipe(
         Effect.mapError(
@@ -705,10 +703,8 @@ const installSkillsFromWellKnown = (
       );
 
       yield* updateSettings(axmDir, {
-        extensions: {
-          skills: {
-            [skillName]: "*",
-          },
+        skills: {
+          [skillName]: "*",
         },
       }).pipe(
         Effect.mapError(

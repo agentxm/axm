@@ -87,7 +87,7 @@ describe("install.handler", () => {
 
     const settings: Settings = {
       agents,
-      extensions: { skills: {} },
+      skills: {},
     };
 
     fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings, null, 2));
@@ -498,8 +498,8 @@ describe("install.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
-          expect(settings.extensions.skills["commit"]).toBeDefined();
-          expect(settings.extensions.skills["commit"]).toBe("*");
+          expect(settings.skills["commit"]).toBeDefined();
+          expect(settings.skills["commit"]).toBe("*");
         }),
       ),
     );
@@ -1114,7 +1114,7 @@ describe("install.handler", () => {
   });
 
   describe("settings schema", () => {
-    it.effect("creates settings with extensions.skills structure", () =>
+    it.effect("creates settings with skills at root level", () =>
       withTestLayer(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
@@ -1133,10 +1133,9 @@ describe("install.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
-          // Verify extensions.skills structure
-          expect(settings.extensions).toBeDefined();
-          expect(settings.extensions.skills).toBeDefined();
-          expect(settings.extensions.skills.commit).toBe("*");
+          // Verify skills at root level
+          expect(settings.skills).toBeDefined();
+          expect(settings.skills.commit).toBe("*");
         }),
       ),
     );
@@ -1152,10 +1151,8 @@ describe("install.handler", () => {
             JSON.stringify({
               scope: "@myorg",
               agents: ["claude-code"],
-              extensions: {
-                skills: {
-                  "existing-skill": "^1.0.0",
-                },
+              skills: {
+                "existing-skill": "^1.0.0",
               },
             }),
           );
@@ -1175,9 +1172,9 @@ describe("install.handler", () => {
           // Existing settings should be preserved
           expect(settings.scope).toBe("@myorg");
           expect(settings.agents).toEqual(["claude-code"]);
-          expect(settings.extensions.skills["existing-skill"]).toBe("^1.0.0");
+          expect(settings.skills["existing-skill"]).toBe("^1.0.0");
           // New skill should be added
-          expect(settings.extensions.skills.commit).toBe("*");
+          expect(settings.skills.commit).toBe("*");
         }),
       ),
     );

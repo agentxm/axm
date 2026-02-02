@@ -38,9 +38,9 @@ describe("settings", () => {
       expect(settings.agents).toEqual([]);
     });
 
-    it("returns settings with empty extensions.skills object", () => {
+    it("returns settings with empty skills object", () => {
       const settings = createDefaultSettings();
-      expect(settings.extensions.skills).toEqual({});
+      expect(settings.skills).toEqual({});
     });
   });
 
@@ -60,10 +60,8 @@ describe("settings", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           const settings: Settings = {
             agents: ["claude-code"],
-            extensions: {
-              skills: {
-                commit: "^1.0.0",
-              },
+            skills: {
+              commit: "^1.0.0",
             },
           };
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
@@ -71,7 +69,7 @@ describe("settings", () => {
           const result = yield* readSettings(axmDir);
 
           expect(result.agents).toEqual(["claude-code"]);
-          expect(result.extensions.skills["commit"]).toBe("^1.0.0");
+          expect(result.skills["commit"]).toBe("^1.0.0");
         }),
       ),
     );
@@ -122,13 +120,13 @@ describe("settings", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           const oldSettings: Settings = {
             agents: ["old-agent"],
-            extensions: { skills: {} },
+            skills: {},
           };
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(oldSettings));
 
           const newSettings: Settings = {
             agents: ["new-agent"],
-            extensions: { skills: {} },
+            skills: {},
           };
           yield* writeSettings(axmDir, newSettings);
 
@@ -145,10 +143,8 @@ describe("settings", () => {
         Effect.gen(function* () {
           const initial: Settings = {
             agents: ["claude-code"],
-            extensions: {
-              skills: {
-                commit: "^1.0.0",
-              },
+            skills: {
+              commit: "^1.0.0",
             },
           };
           yield* writeSettings(axmDir, initial);
@@ -156,34 +152,30 @@ describe("settings", () => {
           const updated = yield* updateSettings(axmDir, { agents: ["cursor"] });
 
           expect(updated.agents).toEqual(["cursor"]);
-          expect(updated.extensions.skills["commit"]).toBeDefined();
+          expect(updated.skills["commit"]).toBeDefined();
         }),
       ),
     );
 
-    it.effect("merges extensions.skills from update with existing skills", () =>
+    it.effect("merges skills from update with existing skills", () =>
       withFileSystem(
         Effect.gen(function* () {
           const initial: Settings = {
             agents: [],
-            extensions: {
-              skills: {
-                commit: "^1.0.0",
-              },
+            skills: {
+              commit: "^1.0.0",
             },
           };
           yield* writeSettings(axmDir, initial);
 
           const updated = yield* updateSettings(axmDir, {
-            extensions: {
-              skills: {
-                "review-pr": "^2.0.0",
-              },
+            skills: {
+              "review-pr": "^2.0.0",
             },
           });
 
-          expect(updated.extensions.skills["commit"]).toBeDefined();
-          expect(updated.extensions.skills["review-pr"]).toBeDefined();
+          expect(updated.skills["commit"]).toBeDefined();
+          expect(updated.skills["review-pr"]).toBeDefined();
         }),
       ),
     );
@@ -195,13 +187,13 @@ describe("settings", () => {
         Effect.gen(function* () {
           const initial: Settings = {
             agents: [],
-            extensions: { skills: {} },
+            skills: {},
           };
           yield* writeSettings(axmDir, initial);
 
           const updated = yield* addSkill(axmDir, "commit", "^1.0.0");
 
-          expect(updated.extensions.skills["commit"]).toBe("^1.0.0");
+          expect(updated.skills["commit"]).toBe("^1.0.0");
         }),
       ),
     );
@@ -211,18 +203,16 @@ describe("settings", () => {
         Effect.gen(function* () {
           const initial: Settings = {
             agents: [],
-            extensions: {
-              skills: {
-                "existing-skill": "*",
-              },
+            skills: {
+              "existing-skill": "*",
             },
           };
           yield* writeSettings(axmDir, initial);
 
           const updated = yield* addSkill(axmDir, "new-skill", "^1.0.0");
 
-          expect(updated.extensions.skills["existing-skill"]).toBeDefined();
-          expect(updated.extensions.skills["new-skill"]).toBe("^1.0.0");
+          expect(updated.skills["existing-skill"]).toBeDefined();
+          expect(updated.skills["new-skill"]).toBe("^1.0.0");
         }),
       ),
     );
@@ -232,17 +222,15 @@ describe("settings", () => {
         Effect.gen(function* () {
           const initial: Settings = {
             agents: [],
-            extensions: {
-              skills: {
-                commit: "^1.0.0",
-              },
+            skills: {
+              commit: "^1.0.0",
             },
           };
           yield* writeSettings(axmDir, initial);
 
           const updated = yield* addSkill(axmDir, "commit", "^2.0.0");
 
-          expect(updated.extensions.skills["commit"]).toBe("^2.0.0");
+          expect(updated.skills["commit"]).toBe("^2.0.0");
         }),
       ),
     );
@@ -254,7 +242,7 @@ describe("settings", () => {
         Effect.gen(function* () {
           const existing: Settings = {
             agents: ["claude-code"],
-            extensions: { skills: {} },
+            skills: {},
           };
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existing));
@@ -272,7 +260,7 @@ describe("settings", () => {
           const result = yield* ensureInitialized({ axmDir });
 
           expect(result.agents).toEqual([]);
-          expect(result.extensions.skills).toEqual({});
+          expect(result.skills).toEqual({});
         }),
       ),
     );

@@ -83,9 +83,7 @@ export type SettingsError = SettingsNotFoundError | SettingsParseError | Setting
  */
 export const createDefaultSettings = (): Settings => ({
   agents: [],
-  extensions: {
-    skills: {},
-  },
+  skills: {},
 });
 
 // -----------------------------------------------------------------------------
@@ -225,13 +223,9 @@ export const updateSettings = (
     const updated: Settings = {
       ...current,
       ...update,
-      // Merge extensions.skills if both exist
-      extensions: {
-        skills:
-          update.extensions?.skills !== undefined
-            ? { ...current.extensions.skills, ...update.extensions.skills }
-            : current.extensions.skills,
-      },
+      // Merge skills if both exist
+      skills:
+        update.skills !== undefined ? { ...current.skills, ...update.skills } : current.skills,
     };
 
     yield* writeSettings(axmDir, updated);
@@ -260,11 +254,9 @@ export const addSkill = (
 
     const updated: Settings = {
       ...current,
-      extensions: {
-        skills: {
-          ...current.extensions.skills,
-          [skillName]: versionSpecifier,
-        },
+      skills: {
+        ...current.skills,
+        [skillName]: versionSpecifier,
       },
     };
 

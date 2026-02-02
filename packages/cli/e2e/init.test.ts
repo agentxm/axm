@@ -29,8 +29,7 @@ describe("axm init", () => {
         const settingsContent = fs.readFileSync(settingsPath, "utf-8");
         const settings = JSON.parse(settingsContent);
         expect(settings).toHaveProperty("agents");
-        expect(settings).toHaveProperty("extensions");
-        expect(settings.extensions).toHaveProperty("skills");
+        expect(settings).toHaveProperty("skills");
       } finally {
         temp.cleanup();
       }

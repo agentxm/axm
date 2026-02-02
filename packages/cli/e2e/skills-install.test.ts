@@ -83,14 +83,13 @@ describe("axm skills install", () => {
         const axmDir = path.join(temp.path, ".axm");
         expect(fs.existsSync(axmDir)).toBe(true);
 
-        // Verify settings.json exists and has skill entries in extensions.skills
+        // Verify settings.json exists and has skill entries in skills
         const settingsPath = path.join(axmDir, "settings.json");
         expect(fs.existsSync(settingsPath)).toBe(true);
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings).toHaveProperty("extensions");
-        expect(settings.extensions).toHaveProperty("skills");
-        expect(settings.extensions.skills).toHaveProperty("my-skill");
-        expect(settings.extensions.skills).toHaveProperty("another-skill");
+        expect(settings).toHaveProperty("skills");
+        expect(settings.skills).toHaveProperty("my-skill");
+        expect(settings.skills).toHaveProperty("another-skill");
 
         // Verify axm.lock exists and has entries (JSON format)
         const lockPath = path.join(axmDir, "axm.lock");
@@ -374,7 +373,7 @@ describe("axm skills install", () => {
       }
     });
 
-    it("settings.json contains skill in extensions.skills with version specifier", async () => {
+    it("settings.json contains skill in skills with version specifier", async () => {
       const temp = createTempDir();
       try {
         await runCli(["init", "--yes", "--agent", "claude-code"], {
@@ -401,11 +400,10 @@ describe("axm skills install", () => {
         // Verify new settings structure
         expect(settings).toHaveProperty("agents");
         expect(settings.agents).toContain("claude-code");
-        expect(settings).toHaveProperty("extensions");
-        expect(settings.extensions).toHaveProperty("skills");
+        expect(settings).toHaveProperty("skills");
         // Skills now store version specifier (e.g., "*" for unversioned sources)
-        expect(settings.extensions.skills["my-skill"]).toBeDefined();
-        expect(typeof settings.extensions.skills["my-skill"]).toBe("string");
+        expect(settings.skills["my-skill"]).toBeDefined();
+        expect(typeof settings.skills["my-skill"]).toBe("string");
       } finally {
         temp.cleanup();
       }

@@ -165,34 +165,16 @@ export const ExtensionMap = Schema.Record({
 export type ExtensionMap = typeof ExtensionMap.Type;
 
 /**
- * Extensions configuration for desired extensions by type.
- *
- * Each field is an optional map of extension names to version specifiers.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const ExtensionsConfig = Schema.Struct({
-  skills: Schema.optional(ExtensionMap),
-  commands: Schema.optional(ExtensionMap),
-  packs: Schema.optional(ExtensionMap),
-  "mcp-servers": Schema.optional(ExtensionMap),
-});
-
-/**
- * Inferred type for ExtensionsConfig schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type ExtensionsConfig = typeof ExtensionsConfig.Type;
-
-/**
  * AXM settings configuration schema.
  *
  * Settings define global configuration for AXM including:
  * - scope: Default scope for resolving/publishing extensions
  * - sources: Source provider configurations
  * - agents: List of agent IDs to sync extensions to
- * - extensions: Desired extensions by type
+ * - skills: Desired skills by FQN to version specifier
+ * - commands: Desired commands by FQN to version specifier
+ * - packs: Desired packs by FQN to version specifier
+ * - mcp-servers: Desired MCP servers by FQN to version specifier
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -200,7 +182,10 @@ export const Settings = Schema.Struct({
   scope: Schema.optional(Schema.String),
   sources: Schema.optional(SourcesConfig),
   agents: Schema.optional(Schema.Array(AgentId)),
-  extensions: Schema.optional(ExtensionsConfig),
+  skills: Schema.optional(ExtensionMap),
+  commands: Schema.optional(ExtensionMap),
+  packs: Schema.optional(ExtensionMap),
+  "mcp-servers": Schema.optional(ExtensionMap),
 });
 
 /**

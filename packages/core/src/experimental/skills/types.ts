@@ -83,17 +83,10 @@ export interface ParsedSource {
 // -----------------------------------------------------------------------------
 
 /**
- * Extensions section containing installed extension references.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface SettingsExtensions {
-  /** Skills keyed by name with version specifier (e.g., "^1.0.0" or "*" for unversioned) */
-  readonly skills: Readonly<Record<string, string>>;
-}
-
-/**
  * Contents of .axm/settings.json.
+ *
+ * Extension types are stored at the root level rather than nested under an
+ * `extensions` wrapper object.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -102,8 +95,14 @@ export interface Settings {
   readonly scope?: string;
   /** Default agent IDs */
   readonly agents: readonly string[];
-  /** Installed extensions keyed by type */
-  readonly extensions: SettingsExtensions;
+  /** Skills keyed by name with version specifier (e.g., "^1.0.0" or "*" for unversioned) */
+  readonly skills: Readonly<Record<string, string>>;
+  /** Commands keyed by name with version specifier */
+  readonly commands?: Readonly<Record<string, string>>;
+  /** Packs keyed by name with version specifier */
+  readonly packs?: Readonly<Record<string, string>>;
+  /** MCP servers keyed by name with version specifier */
+  readonly "mcp-servers"?: Readonly<Record<string, string>>;
 }
 
 // -----------------------------------------------------------------------------

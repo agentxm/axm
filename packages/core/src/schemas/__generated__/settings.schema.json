@@ -153,44 +153,37 @@
         ]
       }
     },
-    "extensions": {
+    "skills": {
       "type": "object",
       "required": [],
-      "properties": {
-        "skills": {
-          "type": "object",
-          "required": [],
-          "properties": {},
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "commands": {
-          "type": "object",
-          "required": [],
-          "properties": {},
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "packs": {
-          "type": "object",
-          "required": [],
-          "properties": {},
-          "additionalProperties": {
-            "type": "string"
-          }
-        },
-        "mcp-servers": {
-          "type": "object",
-          "required": [],
-          "properties": {},
-          "additionalProperties": {
-            "type": "string"
-          }
-        }
-      },
-      "additionalProperties": false
+      "properties": {},
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "commands": {
+      "type": "object",
+      "required": [],
+      "properties": {},
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "packs": {
+      "type": "object",
+      "required": [],
+      "properties": {},
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "mcp-servers": {
+      "type": "object",
+      "required": [],
+      "properties": {},
+      "additionalProperties": {
+        "type": "string"
+      }
     }
   },
   "additionalProperties": false

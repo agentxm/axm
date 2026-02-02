@@ -6,7 +6,7 @@
 
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { ExtensionMap, ExtensionsConfig, Settings, SourcesConfig } from "./settings.js";
+import { ExtensionMap, Settings, SourcesConfig } from "./settings.js";
 
 describe("Settings schema", () => {
   describe("valid settings", () => {
@@ -30,14 +30,13 @@ describe("Settings schema", () => {
           github: { url: "https://github.com" },
         },
         agents: ["claude-code", "cursor"],
-        extensions: {
-          skills: { "@wayne/grappling-hook": "^1.0.0" },
-        },
+        skills: { "@wayne/grappling-hook": "^1.0.0" },
       };
       const result = Schema.decodeUnknownSync(Settings)(input);
 
       expect(result.scope).toBe("@wayne");
       expect(result.agents).toEqual(["claude-code", "cursor"]);
+      expect(result.skills).toEqual({ "@wayne/grappling-hook": "^1.0.0" });
     });
   });
 
@@ -172,123 +171,78 @@ describe("Settings schema", () => {
     });
   });
 
-  describe("extensions configuration", () => {
-    it("accepts empty extensions", () => {
-      const input = { extensions: {} };
-      const result = Schema.decodeUnknownSync(Settings)(input);
-
-      expect(result.extensions).toEqual({});
-    });
-
-    it("accepts valid skills extension", () => {
+  describe("extension types at root level", () => {
+    it("accepts valid skills at root", () => {
       const input = {
-        extensions: {
-          skills: { "@wayne/grappling-hook": "^1.0.0" },
-        },
+        skills: { "@wayne/grappling-hook": "^1.0.0" },
       };
       const result = Schema.decodeUnknownSync(Settings)(input);
 
-      expect(result.extensions?.skills).toEqual({ "@wayne/grappling-hook": "^1.0.0" });
+      expect(result.skills).toEqual({ "@wayne/grappling-hook": "^1.0.0" });
     });
 
-    it("accepts valid commands extension", () => {
+    it("accepts valid commands at root", () => {
       const input = {
-        extensions: {
-          commands: { "@wayne/batcomputer-sync": "^1.0.0" },
-        },
+        commands: { "@wayne/batcomputer-sync": "^1.0.0" },
       };
       const result = Schema.decodeUnknownSync(Settings)(input);
 
-      expect(result.extensions?.commands).toEqual({ "@wayne/batcomputer-sync": "^1.0.0" });
+      expect(result.commands).toEqual({ "@wayne/batcomputer-sync": "^1.0.0" });
     });
 
-    it("accepts valid packs extension", () => {
+    it("accepts valid packs at root", () => {
       const input = {
-        extensions: {
-          packs: { "@wayne/utility-belt": "^1.0.0" },
-        },
+        packs: { "@wayne/utility-belt": "^1.0.0" },
       };
       const result = Schema.decodeUnknownSync(Settings)(input);
 
-      expect(result.extensions?.packs).toEqual({ "@wayne/utility-belt": "^1.0.0" });
+      expect(result.packs).toEqual({ "@wayne/utility-belt": "^1.0.0" });
     });
 
-    it("accepts valid mcp-servers extension", () => {
+    it("accepts valid mcp-servers at root", () => {
       const input = {
-        extensions: {
-          "mcp-servers": { "@wayne/batcomputer": "^2.0.0" },
-        },
+        "mcp-servers": { "@wayne/batcomputer": "^2.0.0" },
       };
       const result = Schema.decodeUnknownSync(Settings)(input);
 
-      expect(result.extensions?.["mcp-servers"]).toEqual({ "@wayne/batcomputer": "^2.0.0" });
+      expect(result["mcp-servers"]).toEqual({ "@wayne/batcomputer": "^2.0.0" });
     });
 
-    it("accepts all extension types together", () => {
+    it("accepts all extension types together at root", () => {
       const input = {
-        extensions: {
-          skills: { "@wayne/grappling-hook": "^1.0.0" },
-          commands: { "@wayne/batcomputer-sync": "^1.0.0" },
-          packs: { "@wayne/utility-belt": "^1.0.0" },
-          "mcp-servers": { "@wayne/batcomputer": "^2.0.0" },
-        },
+        skills: { "@wayne/grappling-hook": "^1.0.0" },
+        commands: { "@wayne/batcomputer-sync": "^1.0.0" },
+        packs: { "@wayne/utility-belt": "^1.0.0" },
+        "mcp-servers": { "@wayne/batcomputer": "^2.0.0" },
       };
       const result = Schema.decodeUnknownSync(Settings)(input);
 
-      expect(result.extensions?.skills).toEqual({ "@wayne/grappling-hook": "^1.0.0" });
-      expect(result.extensions?.commands).toEqual({ "@wayne/batcomputer-sync": "^1.0.0" });
-      expect(result.extensions?.packs).toEqual({ "@wayne/utility-belt": "^1.0.0" });
-      expect(result.extensions?.["mcp-servers"]).toEqual({ "@wayne/batcomputer": "^2.0.0" });
+      expect(result.skills).toEqual({ "@wayne/grappling-hook": "^1.0.0" });
+      expect(result.commands).toEqual({ "@wayne/batcomputer-sync": "^1.0.0" });
+      expect(result.packs).toEqual({ "@wayne/utility-belt": "^1.0.0" });
+      expect(result["mcp-servers"]).toEqual({ "@wayne/batcomputer": "^2.0.0" });
     });
 
     it("accepts multiple extensions per type", () => {
       const input = {
-        extensions: {
-          skills: {
-            "@wayne/grappling-hook": "^1.0.0",
-            "@wayne/batarang": "~2.0.0",
-            "@gotham/bat-signal": ">=1.0.0",
-          },
+        skills: {
+          "@wayne/grappling-hook": "^1.0.0",
+          "@wayne/batarang": "~2.0.0",
+          "@gotham/bat-signal": ">=1.0.0",
         },
       };
       const result = Schema.decodeUnknownSync(Settings)(input);
 
-      expect(Object.keys(result.extensions?.skills ?? {}).length).toBe(3);
+      expect(Object.keys(result.skills ?? {}).length).toBe(3);
     });
 
     it("accepts empty extension map", () => {
       const input = {
-        extensions: {
-          skills: {},
-        },
+        skills: {},
       };
       const result = Schema.decodeUnknownSync(Settings)(input);
 
-      expect(result.extensions?.skills).toEqual({});
-    });
-
-    it("rejects extension name without @scope/", () => {
-      const input = {
-        skills: { "grappling-hook": "^1.0.0" },
-      };
-
-      expect(() => Schema.decodeUnknownSync(ExtensionsConfig)(input)).toThrow();
-    });
-
-    it("rejects extension name with invalid format", () => {
-      const input = {
-        skills: { "wayne/grappling-hook": "^1.0.0" },
-      };
-
-      expect(() => Schema.decodeUnknownSync(ExtensionsConfig)(input)).toThrow();
-    });
-
-    it("rejects extension name with only scope", () => {
-      const input = {
-        skills: { "@wayne": "^1.0.0" },
-      };
-
-      expect(() => Schema.decodeUnknownSync(ExtensionsConfig)(input)).toThrow();
+      expect(result.skills).toEqual({});
     });
   });
 
@@ -344,20 +298,18 @@ describe("Settings schema", () => {
           registry: [{ path: "./.axm/registry" }, { url: "https://registry.wayne.com" }],
         },
         agents: ["claude-code", "cursor", "vscode"],
-        extensions: {
-          skills: {
-            "@wayne/grappling-hook": "^1.0.0",
-            "@wayne/batarang": "~2.0.0",
-          },
-          commands: {
-            "@wayne/batcomputer-sync": "^1.0.0",
-          },
-          packs: {
-            "@wayne/utility-belt": "^1.0.0",
-          },
-          "mcp-servers": {
-            "@wayne/batcomputer": "^2.0.0",
-          },
+        skills: {
+          "@wayne/grappling-hook": "^1.0.0",
+          "@wayne/batarang": "~2.0.0",
+        },
+        commands: {
+          "@wayne/batcomputer-sync": "^1.0.0",
+        },
+        packs: {
+          "@wayne/utility-belt": "^1.0.0",
+        },
+        "mcp-servers": {
+          "@wayne/batcomputer": "^2.0.0",
         },
       };
       const result = Schema.decodeUnknownSync(Settings)(input);
@@ -365,7 +317,7 @@ describe("Settings schema", () => {
       expect(result.scope).toBe("@wayne");
       expect(result.agents?.length).toBe(3);
       expect(result.sources?.registry).toHaveLength(2);
-      expect(Object.keys(result.extensions?.skills ?? {}).length).toBe(2);
+      expect(Object.keys(result.skills ?? {}).length).toBe(2);
     });
   });
 });

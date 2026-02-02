@@ -25,6 +25,7 @@ create, and share extensions that enhance AI coding assistant capabilities.
 - Runtime execution of extensions (handled by host agents)
 - Extension sandboxing or security isolation
 - Paid extension marketplace (future consideration)
+- Verbosity flags (`--verbose`, `-v`, `--quiet`) — use standard output levels
 
 ---
 
@@ -42,13 +43,14 @@ create, and share extensions that enhance AI coding assistant capabilities.
 | **Scope**          | Namespace for extensions, e.g., `@wayne` in `@wayne/grappling-hook`                         |
 | **Source**         | Origin of an extension: registry, github, gitlab, bitbucket, azuredevops, git, url, or path |
 | **Manifest**       | JSON file describing an extension's metadata (e.g., `axm-skill.json`)                       |
+| **Fork**           | Create a named universal extension from an existing extension                               |
 
 ### Extension Types
 
 | Term           | Definition                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------- |
 | **Skill**      | Context-triggered or explicitly invoked instructions that guide agent behavior for specific tasks |
-| **Command**    | User-invokable prompts that perform specific actions (similar to slash commands)                  |
+| **Command**    | User-invokable prompts that perform specific actions (distinct from CLI commands below)           |
 | **Pack**       | A bundle of extensions distributed together for a specific purpose or workflow                    |
 | **MCP Server** | A Model Context Protocol server that provides tools, resources, or context to agents              |
 
@@ -92,7 +94,8 @@ Context-triggered or invoked agent instructions.
 
 #### axm-command.json
 
-User-invokable agent prompts.
+User-invokable agent prompts. Note: "command" here refers to the extension type
+(agent prompts), not CLI commands documented in §4.3.
 
 ```json
 {
@@ -104,7 +107,12 @@ User-invokable agent prompts.
 
 #### axm-pack.json
 
-Bundle of extensions. References extensions by fully qualified name.
+Bundle of extensions. References extensions by fully qualified name. Packs can
+include other packs, enabling transitive dependencies.
+
+When multiple extensions or packs specify overlapping dependencies with different
+version constraints, the highest compatible version is used and a warning is
+displayed.
 
 ```json
 {
@@ -113,6 +121,7 @@ Bundle of extensions. References extensions by fully qualified name.
   "description": "Complete crime-fighting toolkit",
   "skills": ["@wayne/grappling-hook"],
   "mcp-servers": ["@wayne/batcomputer"],
+  "packs": ["@wayne/base-toolkit"],
   "commands": []
 }
 ```
@@ -256,8 +265,8 @@ Returns `ExtensionRef[]`. Empty array if nothing found.
 | Field           | Type    | Description                                                                      |
 | --------------- | ------- | -------------------------------------------------------------------------------- |
 | `type`          | enum    | `skill`, `command`, `pack`, `mcp-server`                                         |
-| `sourceType`    | enum    | `github`, `gitlab`, `bitbucket`, `azuredevops`, `git`, `url`, `path`, `registry` |
-| `sourceOrigin`  | string  | Fully resolved value (URL, path, or registry identifier)                         |
+| `source`        | enum    | `github`, `gitlab`, `bitbucket`, `azuredevops`, `git`, `url`, `path`, `registry` |
+| `origin`        | string  | Fully resolved value (URL, path, or registry identifier)                         |
 | `ref`           | string? | Git ref (branch, tag, commit) if from git source                                 |
 | `name`          | string? | Resolved name (e.g., `@scope/name`)                                              |
 | `originalInput` | string  | Input string before normalization                                                |
@@ -274,7 +283,7 @@ Returns `ExtensionRef[]`. Empty array if nothing found.
 | `keywords`     | string[] | Tags for categorization                       |
 | `files`        | string[] | Constituent files (for directory resolution)  |
 | `dependencies` | string[] | Required extensions                           |
-| `checksum`     | string   | Content hash for integrity                    |
+| `checksum`     | string   | Content hash for integrity verification       |
 | `size`         | number   | Total size in bytes                           |
 | `lastModified` | string   | ISO 8601 timestamp                            |
 | `sourceData`   | object   | Raw source-specific data (stars, forks, etc.) |
@@ -306,8 +315,7 @@ Sources define where extensions can be fetched from.
 
 ### 3.4 Settings
 
-Settings can be configured at the project level (`.axm/settings.json`) or user
-level (`~/.axm/settings.json`). Project settings override user settings.
+Settings are configured at the project level (`.axm/settings.json`).
 
 ```jsonc
 {
@@ -752,6 +760,19 @@ Command-line interface for managing extensions.
 ```
 axm <command> [target] [flags]
 ```
+
+#### Global Flags
+
+| Flag        | Description                                         |
+| ----------- | --------------------------------------------------- |
+| `--dry-run` | Preview changes without writing to disk or fetching |
+| `--yes`     | Skip confirmation prompts (for scripting)           |
+| `--help`    | Show help for command                               |
+| `--version` | Show AXM version                                    |
+
+> **Note:** The `--yes` flag enables non-interactive mode for scripting. CI/CD
+> pipelines are not a primary use case—extensions should be committed to source
+> control and available without runtime installation.
 
 #### Example Usage
 
@@ -1419,19 +1440,37 @@ axm packs validate [pack]
 
 ## 5. Open Questions
 
-- `import` vs `fork`: — which term better communicates the action?
-- External install behavior: `source-external` | `fork` | `ask`?
-- Init behavior when non-AXM extensions exist: `fork` | `ask`?
-- Rename command — should there be an explicit rename operation?
-- What about moving (or copying) an extension to/from user/project level?
-- Naming conflict during install — what happens if skill name already exists?
-  - Current: warn and skip
-  - Future options: `--force` to overwrite, version comparison if same source,
-    prompt for alternative name
+### Phase 1: Vertical Slice (`axm skills install`)
+
 - Skill naming — should skill name come from directory name or SKILL.md
   frontmatter `name` field?
   - Current: directory name
   - Alternative: frontmatter `name` takes precedence if present
+- Naming conflict during install — what happens if skill name already exists?
+  - Current: warn and skip
+  - Future options: `--force` to overwrite, version comparison if same source,
+    prompt for alternative name
+- External install behavior: `source-external` | `fork` | `ask`?
+- Init behavior when non-AXM extensions exist: `fork` | `ask`?
+- Checksum verification — should checksums be verified during install?
+- Extension provenance — how should extension origin be attested/verified?
+- Tampered extensions — what happens when installed extensions don't match their
+  expected checksums?
+
+### Phase 2: Complete Skills & Filesystem Registry
+
+- `import` vs `fork` — which term better communicates the action?
+- Rename command — should there be an explicit rename operation?
+- Rollback mechanism — how should failed updates be handled? Options:
+  - Automatic rollback to previous version on failure
+  - Manual recovery via `axm restore` command
+  - No rollback (user re-installs manually)
+- User-level settings — should `~/.axm/settings.json` be supported for global
+  defaults?
+- Environment variable overrides — should settings be configurable via
+  environment variables (e.g., `AXM_SCOPE`, `AXM_REGISTRY`)?
+- Moving extensions between levels — what about copying an extension to/from
+  user/project level?
 - Doctor/validate conditions — what checks should `axm doctor` perform? The
   `validate` subcommands will be a subset of these. Candidates:
   - Invalid manifests (missing required fields, malformed JSON)
@@ -1440,12 +1479,37 @@ axm packs validate [pack]
   - Stale lockfile (extensions modified since last install)
   - Broken symlinks (agent skill directories)
   - Outdated extensions (newer versions available)
-- Additional extension types — should rules (persistent behavior instructions) and
-  subagents (delegated task specialists) be supported as extension types?
+- `axm version` command — should there be a dedicated version command, or is
+  `--version` flag sufficient?
+- `--json` flag — is machine-readable JSON output needed for scripting/tooling
+  integration?
+- Glob/scope patterns — should commands support patterns like `@wayne/*` or
+  `**/*-skill` for bulk operations?
+
+### Phase 3: Commands Capability
+
+- (Patterns established in phases 1-2 apply)
+
+### Phase 4: Iterate
+
+- Additional extension types — should rules (persistent behavior instructions)
+  and subagents (delegated task specialists) be supported as extension types?
 
 ---
 
-## 6. Future Work
+## 6. Implementation Plan
+
+1. **Vertical slice of `axm skills install`** — Implement end-to-end flow
+   satisfying this proposal, including initialization, resolution, schemas, and
+   agent sync. Goal: establish patterns, approach, and architecture.
+2. **Complete skills capability** — Implement remaining skills commands and local
+   filesystem registry.
+3. **Commands capability** — Implement command extension type.
+4. **Iterate** — Experiment and adjust plan/architecture as needed.
+
+---
+
+## 7. Future Work
 
 ### Discovery
 

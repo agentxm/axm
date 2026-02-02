@@ -423,10 +423,9 @@ const installSkillsFromFileSystem = (
       );
 
       yield* updateSettings(axmDir, {
-        skills: {
-          [skillName]: {
-            source: parsed.canonical,
-            agents: agents.map((a) => a.id),
+        extensions: {
+          skills: {
+            [skillName]: "*",
           },
         },
       }).pipe(
@@ -565,10 +564,9 @@ const installSkillsFromWellKnown = (
       );
 
       yield* updateSettings(axmDir, {
-        skills: {
-          [skillName]: {
-            source: parsed.canonical,
-            agents: agents.map((a) => a.id),
+        extensions: {
+          skills: {
+            [skillName]: "*",
           },
         },
       }).pipe(

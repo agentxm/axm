@@ -83,36 +83,6 @@ export interface ParsedSource {
 // -----------------------------------------------------------------------------
 
 /**
- * Per-skill settings stored in settings.json (legacy format).
- *
- * @deprecated Use version specifier string in `SettingsV2.extensions.skills` instead.
- * @experimental This API is unstable and may change without notice.
- */
-export interface SkillSettings {
-  /** Canonical source notation */
-  readonly source: string;
-  /** Target agent IDs for this skill */
-  readonly agents: readonly string[];
-}
-
-/**
- * Contents of .axm/settings.json (legacy format v1).
- *
- * @deprecated Use SettingsV2 with extensions.skills structure instead.
- * @experimental This API is unstable and may change without notice.
- */
-export interface Settings {
-  /** Schema version */
-  readonly version: number;
-  /** Default scope for skill resolution (defaults to "@community" if not specified) */
-  readonly scope?: string;
-  /** Default agent IDs */
-  readonly agents: readonly string[];
-  /** Per-skill settings keyed by skill name */
-  readonly skills: Readonly<Record<string, SkillSettings>>;
-}
-
-/**
  * Extensions section containing installed extension references.
  *
  * @experimental This API is unstable and may change without notice.
@@ -123,16 +93,11 @@ export interface SettingsExtensions {
 }
 
 /**
- * Contents of .axm/settings.json (v2 format with extensions structure).
- *
- * This is the new settings format that:
- * - Nests skills under `extensions.skills`
- * - Uses version specifiers (e.g., "^1.0.0") instead of per-skill objects
- * - Moves agents to a global setting instead of per-skill
+ * Contents of .axm/settings.json.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface SettingsV2 {
+export interface Settings {
   /** Default scope for skill resolution (defaults to "@community" if not specified) */
   readonly scope?: string;
   /** Default agent IDs */

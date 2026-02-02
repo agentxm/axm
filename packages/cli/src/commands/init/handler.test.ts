@@ -64,7 +64,7 @@ describe("init.handler", () => {
 
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-          expect(settings.version).toBe(1);
+          expect(settings.extensions.skills).toEqual({});
         }),
       ),
     );
@@ -107,9 +107,8 @@ describe("init.handler", () => {
           const axmDir = path.join(tempDir, ".axm");
           fs.mkdirSync(axmDir, { recursive: true });
           const existingSettings: Settings = {
-            version: 1,
             agents: ["claude-code"],
-            skills: {},
+            extensions: { skills: {} },
           };
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existingSettings));
 
@@ -129,12 +128,10 @@ describe("init.handler", () => {
           const axmDir = path.join(tempDir, ".axm");
           fs.mkdirSync(axmDir, { recursive: true });
           const existingSettings: Settings = {
-            version: 1,
             agents: ["claude-code", "cursor"],
-            skills: {
-              commit: {
-                source: "github:example/skills",
-                agents: ["claude-code"],
+            extensions: {
+              skills: {
+                commit: "^1.0.0",
               },
             },
           };
@@ -147,7 +144,7 @@ describe("init.handler", () => {
           const settingsPath = path.join(axmDir, "settings.json");
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.agents).toEqual(["claude-code", "cursor"]);
-          expect(settings.skills["commit"]?.source).toBe("github:example/skills");
+          expect(settings.extensions.skills["commit"]).toBe("^1.0.0");
         }),
       ),
     );
@@ -160,9 +157,8 @@ describe("init.handler", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           const settingsPath = path.join(axmDir, "settings.json");
           const existingSettings: Settings = {
-            version: 1,
             agents: ["claude-code"],
-            skills: {},
+            extensions: { skills: {} },
           };
           fs.writeFileSync(settingsPath, JSON.stringify(existingSettings));
 
@@ -416,7 +412,7 @@ describe("init.handler", () => {
 
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-          expect(settings.skills).toEqual({});
+          expect(settings.extensions.skills).toEqual({});
         }),
       ),
     );
@@ -454,10 +450,9 @@ describe("init.handler", () => {
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
           // Verify all required fields exist
-          expect(typeof settings.version).toBe("number");
           expect(Array.isArray(settings.agents)).toBe(true);
-          expect(typeof settings.skills).toBe("object");
-          expect(settings.skills).not.toBeNull();
+          expect(typeof settings.extensions).toBe("object");
+          expect(typeof settings.extensions.skills).toBe("object");
         }),
       ),
     );
@@ -625,7 +620,7 @@ describe("init.handler", () => {
             const settingsPath = path.join(tempDir, ".axm", "settings.json");
             const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
             expect(settings.agents).toEqual(["claude-code", "cursor"]);
-            expect(settings.version).toBe(1);
+            expect(settings.extensions.skills).toEqual({});
           }),
         ),
       );

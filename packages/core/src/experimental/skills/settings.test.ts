@@ -14,7 +14,7 @@ import {
   updateSettings,
   writeSettings,
 } from "./settings.js";
-import type { Settings, SkillSettings } from "./types.js";
+import type { Settings } from "./types.js";
 
 describe("settings", () => {
   let tempDir: string;
@@ -33,19 +33,14 @@ describe("settings", () => {
     effect.pipe(Effect.provide(NodeFileSystem.layer));
 
   describe("createDefaultSettings", () => {
-    it("returns settings with version 1", () => {
-      const settings = createDefaultSettings();
-      expect(settings.version).toBe(1);
-    });
-
     it("returns settings with empty agents array", () => {
       const settings = createDefaultSettings();
       expect(settings.agents).toEqual([]);
     });
 
-    it("returns settings with empty skills object", () => {
+    it("returns settings with empty extensions.skills object", () => {
       const settings = createDefaultSettings();
-      expect(settings.skills).toEqual({});
+      expect(settings.extensions.skills).toEqual({});
     });
   });
 
@@ -64,12 +59,10 @@ describe("settings", () => {
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           const settings: Settings = {
-            version: 1,
             agents: ["claude-code"],
-            skills: {
-              commit: {
-                source: "github:example/skills",
-                agents: ["claude-code"],
+            extensions: {
+              skills: {
+                commit: "^1.0.0",
               },
             },
           };
@@ -77,9 +70,8 @@ describe("settings", () => {
 
           const result = yield* readSettings(axmDir);
 
-          expect(result.version).toBe(1);
           expect(result.agents).toEqual(["claude-code"]);
-          expect(result.skills["commit"]?.source).toBe("github:example/skills");
+          expect(result.extensions.skills["commit"]).toBe("^1.0.0");
         }),
       ),
     );
@@ -129,16 +121,14 @@ describe("settings", () => {
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           const oldSettings: Settings = {
-            version: 1,
             agents: ["old-agent"],
-            skills: {},
+            extensions: { skills: {} },
           };
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(oldSettings));
 
           const newSettings: Settings = {
-            version: 1,
             agents: ["new-agent"],
-            skills: {},
+            extensions: { skills: {} },
           };
           yield* writeSettings(axmDir, newSettings);
 
@@ -154,12 +144,10 @@ describe("settings", () => {
       withFileSystem(
         Effect.gen(function* () {
           const initial: Settings = {
-            version: 1,
             agents: ["claude-code"],
-            skills: {
-              commit: {
-                source: "github:example/commit",
-                agents: ["claude-code"],
+            extensions: {
+              skills: {
+                commit: "^1.0.0",
               },
             },
           };
@@ -168,54 +156,34 @@ describe("settings", () => {
           const updated = yield* updateSettings(axmDir, { agents: ["cursor"] });
 
           expect(updated.agents).toEqual(["cursor"]);
-          expect(updated.skills["commit"]).toBeDefined();
+          expect(updated.extensions.skills["commit"]).toBeDefined();
         }),
       ),
     );
 
-    it.effect("merges skills from update with existing skills", () =>
+    it.effect("merges extensions.skills from update with existing skills", () =>
       withFileSystem(
         Effect.gen(function* () {
           const initial: Settings = {
-            version: 1,
             agents: [],
-            skills: {
-              commit: {
-                source: "github:example/commit",
-                agents: [],
+            extensions: {
+              skills: {
+                commit: "^1.0.0",
               },
             },
           };
           yield* writeSettings(axmDir, initial);
 
           const updated = yield* updateSettings(axmDir, {
-            skills: {
-              "review-pr": {
-                source: "github:example/review-pr",
-                agents: [],
+            extensions: {
+              skills: {
+                "review-pr": "^2.0.0",
               },
             },
           });
 
-          expect(updated.skills["commit"]).toBeDefined();
-          expect(updated.skills["review-pr"]).toBeDefined();
-        }),
-      ),
-    );
-
-    it.effect("preserves version unless explicitly updated", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          const initial: Settings = {
-            version: 1,
-            agents: [],
-            skills: {},
-          };
-          yield* writeSettings(axmDir, initial);
-
-          const updated = yield* updateSettings(axmDir, { agents: ["claude-code"] });
-
-          expect(updated.version).toBe(1);
+          expect(updated.extensions.skills["commit"]).toBeDefined();
+          expect(updated.extensions.skills["review-pr"]).toBeDefined();
         }),
       ),
     );
@@ -226,19 +194,14 @@ describe("settings", () => {
       withFileSystem(
         Effect.gen(function* () {
           const initial: Settings = {
-            version: 1,
             agents: [],
-            skills: {},
+            extensions: { skills: {} },
           };
           yield* writeSettings(axmDir, initial);
 
-          const skillSettings: SkillSettings = {
-            source: "github:example/skills",
-            agents: ["claude-code"],
-          };
-          const updated = yield* addSkill(axmDir, "commit", skillSettings);
+          const updated = yield* addSkill(axmDir, "commit", "^1.0.0");
 
-          expect(updated.skills["commit"]).toEqual(skillSettings);
+          expect(updated.extensions.skills["commit"]).toBe("^1.0.0");
         }),
       ),
     );
@@ -247,25 +210,19 @@ describe("settings", () => {
       withFileSystem(
         Effect.gen(function* () {
           const initial: Settings = {
-            version: 1,
             agents: [],
-            skills: {
-              "existing-skill": {
-                source: "github:example/existing",
-                agents: [],
+            extensions: {
+              skills: {
+                "existing-skill": "*",
               },
             },
           };
           yield* writeSettings(axmDir, initial);
 
-          const skillSettings: SkillSettings = {
-            source: "github:example/new",
-            agents: [],
-          };
-          const updated = yield* addSkill(axmDir, "new-skill", skillSettings);
+          const updated = yield* addSkill(axmDir, "new-skill", "^1.0.0");
 
-          expect(updated.skills["existing-skill"]).toBeDefined();
-          expect(updated.skills["new-skill"]).toEqual(skillSettings);
+          expect(updated.extensions.skills["existing-skill"]).toBeDefined();
+          expect(updated.extensions.skills["new-skill"]).toBe("^1.0.0");
         }),
       ),
     );
@@ -274,24 +231,18 @@ describe("settings", () => {
       withFileSystem(
         Effect.gen(function* () {
           const initial: Settings = {
-            version: 1,
             agents: [],
-            skills: {
-              commit: {
-                source: "github:example/old",
-                agents: [],
+            extensions: {
+              skills: {
+                commit: "^1.0.0",
               },
             },
           };
           yield* writeSettings(axmDir, initial);
 
-          const newSettings: SkillSettings = {
-            source: "github:example/new",
-            agents: ["claude-code"],
-          };
-          const updated = yield* addSkill(axmDir, "commit", newSettings);
+          const updated = yield* addSkill(axmDir, "commit", "^2.0.0");
 
-          expect(updated.skills["commit"]).toEqual(newSettings);
+          expect(updated.extensions.skills["commit"]).toBe("^2.0.0");
         }),
       ),
     );
@@ -302,9 +253,8 @@ describe("settings", () => {
       withFileSystem(
         Effect.gen(function* () {
           const existing: Settings = {
-            version: 1,
             agents: ["claude-code"],
-            skills: {},
+            extensions: { skills: {} },
           };
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existing));
@@ -321,9 +271,8 @@ describe("settings", () => {
         Effect.gen(function* () {
           const result = yield* ensureInitialized({ axmDir });
 
-          expect(result.version).toBe(1);
           expect(result.agents).toEqual([]);
-          expect(result.skills).toEqual({});
+          expect(result.extensions.skills).toEqual({});
         }),
       ),
     );

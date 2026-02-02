@@ -7,14 +7,13 @@
 
 import { FileSystem } from "@effect/platform";
 import { Data, Effect } from "effect";
-import type { Settings, SkillSettings } from "./types.js";
+import type { Settings } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Constants
 // -----------------------------------------------------------------------------
 
 const SETTINGS_FILENAME = "settings.json";
-const CURRENT_VERSION = 1;
 
 /**
  * Default scope for skill resolution when not specified in settings.
@@ -83,9 +82,10 @@ export type SettingsError = SettingsNotFoundError | SettingsParseError | Setting
  * @experimental This API is unstable and may change without notice.
  */
 export const createDefaultSettings = (): Settings => ({
-  version: CURRENT_VERSION,
   agents: [],
-  skills: {},
+  extensions: {
+    skills: {},
+  },
 });
 
 // -----------------------------------------------------------------------------
@@ -225,11 +225,13 @@ export const updateSettings = (
     const updated: Settings = {
       ...current,
       ...update,
-      // Preserve version unless explicitly updated
-      version: update.version ?? current.version,
-      // Merge skills if both exist
-      skills:
-        update.skills !== undefined ? { ...current.skills, ...update.skills } : current.skills,
+      // Merge extensions.skills if both exist
+      extensions: {
+        skills:
+          update.extensions?.skills !== undefined
+            ? { ...current.extensions.skills, ...update.extensions.skills }
+            : current.extensions.skills,
+      },
     };
 
     yield* writeSettings(axmDir, updated);
@@ -243,7 +245,7 @@ export const updateSettings = (
  *
  * @param axmDir - Path to the .axm directory
  * @param skillName - Name of the skill to add/update
- * @param skillSettings - Settings for the skill
+ * @param versionSpecifier - Version specifier (e.g., "^1.0.0" or "*" for unversioned)
  * @returns Updated settings object
  *
  * @experimental This API is unstable and may change without notice.
@@ -251,16 +253,18 @@ export const updateSettings = (
 export const addSkill = (
   axmDir: string,
   skillName: string,
-  skillSettings: SkillSettings,
+  versionSpecifier: string,
 ): Effect.Effect<Settings, SettingsError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const current = yield* readSettings(axmDir);
 
     const updated: Settings = {
       ...current,
-      skills: {
-        ...current.skills,
-        [skillName]: skillSettings,
+      extensions: {
+        skills: {
+          ...current.extensions.skills,
+          [skillName]: versionSpecifier,
+        },
       },
     };
 

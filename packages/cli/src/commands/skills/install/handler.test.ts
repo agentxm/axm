@@ -85,9 +85,8 @@ describe("install.handler", () => {
     fs.mkdirSync(axmDir, { recursive: true });
 
     const settings: Settings = {
-      version: 1,
       agents,
-      skills: {},
+      extensions: { skills: {} },
     };
 
     fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings, null, 2));
@@ -498,9 +497,8 @@ describe("install.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
-          expect(settings.skills["commit"]).toBeDefined();
-          expect(settings.skills["commit"]?.source).toBe(source);
-          expect(settings.skills["commit"]?.agents).toContain("claude-code");
+          expect(settings.extensions.skills["commit"]).toBeDefined();
+          expect(settings.extensions.skills["commit"]).toBe("*");
         }),
       ),
     );

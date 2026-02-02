@@ -37,7 +37,7 @@ export const program = Effect.gen(function* () {
       .command(initCommand)
       .command(skillsCommand)
       .example("$0 init", "Initialize axm in current project")
-      .example("$0 skills add owner/repo", "Add skills from a GitHub repository")
+      .example("$0 skills install owner/repo", "Install skills from a GitHub repository")
       .demandCommand(1)
       .fail((msg, err, yargs) => {
         if (msg?.includes("Not enough non-option arguments")) {

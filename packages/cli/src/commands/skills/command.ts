@@ -1,5 +1,5 @@
 import type { CommandModule } from "yargs";
-import { addCommand } from "./add/command.js";
+import { installCommand } from "./install/command.js";
 import { removeCommand } from "./remove/command.js";
 
 export const skillsCommand: CommandModule = {
@@ -7,13 +7,13 @@ export const skillsCommand: CommandModule = {
   describe: "Manage skills (extensions) for AI coding agents",
   builder: (yargs) =>
     yargs
-      .command(addCommand)
+      .command(installCommand)
       .command(removeCommand)
       .demandCommand(1)
-      .example("$0 skills add owner/repo", "Add skills from a GitHub repository")
-      .example("$0 skills add owner/repo@v1.0.0", "Add skills from a specific version")
-      .example("$0 skills add ./local/path", "Add skills from a local directory")
-      .example("$0 skills add https://example.com", "Add skills via well-known discovery")
+      .example("$0 skills install owner/repo", "Install skills from a GitHub repository")
+      .example("$0 skills install owner/repo@v1.0.0", "Install skills from a specific version")
+      .example("$0 skills install ./local/path", "Install skills from a local directory")
+      .example("$0 skills install https://example.com", "Install skills via well-known discovery")
       .fail((msg, err, yargs) => {
         if (msg?.includes("Not enough non-option arguments")) {
           yargs.showHelp("log");

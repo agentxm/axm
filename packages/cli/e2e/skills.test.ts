@@ -18,8 +18,8 @@ describe("axm skills", () => {
     it("shows available subcommands", async () => {
       const result = await runCli(["skills"]);
 
-      // Should mention the add subcommand in output
-      expect(result.stdout).toMatch(/add/i);
+      // Should mention the install subcommand in output
+      expect(result.stdout).toMatch(/install/i);
     });
   });
 
@@ -31,11 +31,11 @@ describe("axm skills", () => {
       expect(result.stdout).toContain("Manage skills");
     });
 
-    it("shows add subcommand", async () => {
+    it("shows install subcommand", async () => {
       const result = await runCli(["skills", "--help"]);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("add");
+      expect(result.stdout).toContain("install");
     });
 
     it("shows usage examples", async () => {
@@ -46,9 +46,9 @@ describe("axm skills", () => {
     });
   });
 
-  describe("skills add --help", () => {
-    it("displays add subcommand usage", async () => {
-      const result = await runCli(["skills", "add", "--help"]);
+  describe("skills install --help", () => {
+    it("displays install subcommand usage", async () => {
+      const result = await runCli(["skills", "install", "--help"]);
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain("Install skills");

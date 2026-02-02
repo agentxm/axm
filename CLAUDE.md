@@ -2,6 +2,8 @@
 
 Open agent extension manager for skills and more
 
+Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md instructions.
+
 ## Values
 
 1. **Simplicity** - Clear, minimal, obvious.
@@ -130,25 +132,3 @@ User/API behavior is specified before implementation. Specs define _what_, desig
 - ONLY commit when the user explicitly asks (e.g., "commit", "/commit", "make a commit")
 
 Wait for the user to review changes and decide when to commit.
-
-<!-- OPENSPEC:START -->
-
-# OpenSpec Instructions
-
-These instructions are for AI assistants working in this project.
-
-Always open `@/openspec/AGENTS.md` when the request:
-
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
-
-Use `@/openspec/AGENTS.md` to learn:
-
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
-
-Keep this managed block so 'openspec update' can refresh the instructions.
-
-<!-- OPENSPEC:END -->

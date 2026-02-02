@@ -7,6 +7,11 @@
 import * as os from "node:os";
 import * as nodePath from "node:path";
 import {
+  type ExtensionRef,
+  type ResolutionOptions,
+  resolveExtension,
+} from "@agentxm/core/experimental/resolution";
+import {
   type AgentConfig,
   cloneRepo,
   computeContentHash,

@@ -654,6 +654,10 @@ self-hosted extension collections. This is the MVP registry implementation.
 When resolving `@<scope>/<name>`, the filesystem registry is checked at project
 level (`.axm/`) and user level (`~/.axm/`) before any remote registry.
 
+> **Note:** Within a single registry, the fully qualified name (`@<scope>/<name>`)
+> must be unique across all extension types. For example, you cannot have both a
+> skill and a command named `@wayne/grappling-hook` in the same registry.
+
 ---
 
 ### 4.2 Remote Registry API

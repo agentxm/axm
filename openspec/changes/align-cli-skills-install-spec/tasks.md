@@ -2,19 +2,19 @@
 
 ## 1. Resolution Module Setup
 
-- [ ] 1.1 Create `packages/core/src/experimental/resolution/` directory structure
-- [ ] 1.2 Create `types.ts` with `ExtensionRef`, `ExtensionType`, `SourceType`, `ResolutionOptions`, `ExtensionMetadata`
-- [ ] 1.3 Create `errors.ts` with `ResolutionError` tagged error class
-- [ ] 1.4 Create `index.ts` barrel export
+- [x] 1.1 Create `packages/core/src/experimental/resolution/` directory structure
+- [x] 1.2 Create `types.ts` with `ExtensionRef`, `ExtensionType`, `SourceType`, `ResolutionOptions`, `ExtensionMetadata`
+- [x] 1.3 Create `errors.ts` with `ResolutionError` tagged error class
+- [x] 1.4 Create `index.ts` barrel export
 
 ## 2. Individual Resolvers
 
-- [ ] 2.1 Implement `resolvers/local-path.ts` - detect and resolve `./`, `../`, `/`, Windows paths
-- [ ] 2.2 Implement `resolvers/axm-name.ts` - resolve `@scope/name` via project → global → registry
-- [ ] 2.3 Implement `resolvers/bare-name.ts` - resolve bare names using implied scope from settings
-- [ ] 2.4 Implement `resolvers/explicit-source.ts` - resolve `github:`, `gitlab:` prefixed inputs (wrap existing source-parser)
-- [ ] 2.5 Implement `resolvers/ambiguous.ts` - disambiguate `a/b` patterns (local → AXM → sources)
-- [ ] 2.6 Implement `resolvers/url.ts` - resolve unmatched URLs
+- [x] 2.1 Implement `resolvers/local-path.ts` - detect and resolve `./`, `../`, `/`, Windows paths
+- [x] 2.2 Implement `resolvers/axm-name.ts` - resolve `@scope/name` via project → global → registry
+- [x] 2.3 Implement `resolvers/bare-name.ts` - resolve bare names using implied scope from settings
+- [x] 2.4 Implement `resolvers/explicit-source.ts` - resolve `github:`, `gitlab:` prefixed inputs (wrap existing source-parser)
+- [x] 2.5 Implement `resolvers/ambiguous.ts` - disambiguate `a/b` patterns (local → AXM → sources)
+- [x] 2.6 Implement `resolvers/url.ts` - resolve unmatched URLs
 
 ## 3. Resolution Pipeline
 
@@ -25,12 +25,12 @@
 
 ## 4. Resolution Module Tests
 
-- [ ] 4.1 Unit tests for `local-path.ts` resolver
+- [x] 4.1 Unit tests for `local-path.ts` resolver
 - [ ] 4.2 Unit tests for `axm-name.ts` resolver
 - [ ] 4.3 Unit tests for `bare-name.ts` resolver
-- [ ] 4.4 Unit tests for `explicit-source.ts` resolver
+- [x] 4.4 Unit tests for `explicit-source.ts` resolver
 - [ ] 4.5 Unit tests for `ambiguous.ts` resolver
-- [ ] 4.6 Unit tests for `url.ts` resolver
+- [x] 4.6 Unit tests for `url.ts` resolver
 - [ ] 4.7 Integration tests for full resolution pipeline
 
 ## 5. Schema Updates

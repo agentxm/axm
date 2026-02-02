@@ -18,3 +18,4 @@ rules:
   tasks:
     - "TDD: add or update tests prior to implementation step: red, green, refactor until a good design"
     - "Add a typecheck/test verification step immediatly proceeding any implementation task, fix any issues found"
+    - "add a task after every test verification step to to kill any runaway vitest worker processes"

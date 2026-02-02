@@ -19,7 +19,13 @@ import simpleGit, { type SimpleGit, type SimpleGitOptions } from "simple-git";
  */
 export class GitError extends Data.TaggedError("GitError")<{
   /** What operation failed */
-  readonly operation: "clone" | "checkout" | "resolve-ref" | "get-commit";
+  readonly operation:
+    | "clone"
+    | "checkout"
+    | "resolve-ref"
+    | "get-commit"
+    | "get-tree-sha"
+    | "is-git-repo";
   /** Human-readable error message */
   readonly message: string;
   /** Original error cause */
@@ -142,3 +148,65 @@ export const getCurrentCommit = (repoPath: string): Effect.Effect<string, GitErr
     },
     catch: mapGitError("get-commit", "Failed to get current commit"),
   });
+
+/**
+ * Get the git tree SHA for a path within a repository.
+ *
+ * The tree SHA is a hash of the directory's contents at the current commit.
+ * Unlike commit SHA, it is stable across rebases that don't change content.
+ *
+ * @param repoPath - Path to the git repository root
+ * @param subPath - Optional subpath within the repository (defaults to root ".")
+ * @returns Effect that resolves to the tree SHA, or fails if path is not in a git repo
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const getTreeSha = (repoPath: string, subPath = "."): Effect.Effect<string, GitError> =>
+  Effect.tryPromise({
+    try: async () => {
+      const git = createGit(repoPath);
+
+      // For root directory, use rev-parse HEAD^{tree}
+      if (subPath === "." || subPath === "") {
+        const result = await git.revparse(["HEAD^{tree}"]);
+        return result.trim();
+      }
+
+      // For subdirectories, use ls-tree to get the tree object SHA
+      // ls-tree returns: <mode> <type> <sha>\t<path>
+      const result = await git.raw(["ls-tree", "HEAD", subPath]);
+      const trimmed = result.trim();
+      if (!trimmed) {
+        throw new Error(`Path '${subPath}' not found in repository`);
+      }
+      // Parse the output: "040000 tree <sha>\t<path>" or "100644 blob <sha>\t<path>"
+      const parts = trimmed.split(/\s+/);
+      const sha = parts[2];
+      if (parts.length < 3 || sha === undefined) {
+        throw new Error(`Unexpected ls-tree output: ${trimmed}`);
+      }
+      return sha;
+    },
+    catch: mapGitError(
+      "get-tree-sha" as GitError["operation"],
+      `Failed to get tree SHA for '${subPath}'`,
+    ),
+  });
+
+/**
+ * Check if a directory is within a git repository.
+ *
+ * @param dirPath - Path to check
+ * @returns Effect that resolves to true if in a git repo, false otherwise
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const isGitRepository = (dirPath: string): Effect.Effect<boolean, never> =>
+  Effect.tryPromise({
+    try: async () => {
+      const git = createGit(dirPath);
+      await git.revparse(["--git-dir"]);
+      return true;
+    },
+    catch: () => false,
+  }).pipe(Effect.catchAll(() => Effect.succeed(false)));

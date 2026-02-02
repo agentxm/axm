@@ -39,7 +39,7 @@
 - [x] 5.2 Update `types.ts` in skills module - new `Lockfile` interface with `lockfileVersion`, `extensions`, `folderHash`
 - [x] 5.3 Update `settings.ts` - read/write new settings format
 - [x] 5.4 Update `lockfile.ts` - read/write JSON format with new schema
-- [ ] 5.5 Add `folderHash` computation (git tree SHA or content hash fallback)
+- [x] 5.5 Add `folderHash` computation (git tree SHA or content hash fallback)
 
 ## 6. Schema Tests
 

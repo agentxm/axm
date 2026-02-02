@@ -15,8 +15,18 @@ export {
 } from "./agent-detection.js";
 // Content Hash
 export { computeContentHash, HashError } from "./content-hash.js";
+// Folder Hash
+export type { FolderHashResult, FolderHashSource } from "./folder-hash.js";
+export { computeFolderHash } from "./folder-hash.js";
 // Git
-export { cloneRepo, GitError, getCurrentCommit, resolveRef } from "./git.js";
+export {
+  cloneRepo,
+  GitError,
+  getCurrentCommit,
+  getTreeSha,
+  isGitRepository,
+  resolveRef,
+} from "./git.js";
 // Installer
 export type { InstallMethod, InstallResult } from "./installer.js";
 export {

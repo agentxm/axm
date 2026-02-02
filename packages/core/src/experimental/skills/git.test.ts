@@ -9,7 +9,14 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { cloneRepo, GitError, getCurrentCommit, resolveRef } from "./git.js";
+import {
+  cloneRepo,
+  GitError,
+  getCurrentCommit,
+  getTreeSha,
+  isGitRepository,
+  resolveRef,
+} from "./git.js";
 
 describe("git", () => {
   let tempDir: string;
@@ -253,6 +260,129 @@ describe("git", () => {
 
         expect(error).toBeInstanceOf(GitError);
         expect(error.operation).toBe("get-commit");
+      }),
+    );
+  });
+
+  describe("getTreeSha", () => {
+    it.effect("returns tree SHA for repository root", () =>
+      Effect.gen(function* () {
+        const repoPath = path.join(tempDir, "repo");
+        yield* Effect.promise(() => createLocalRepo(repoPath));
+
+        const treeSha = yield* getTreeSha(repoPath);
+
+        // Tree SHA is a 40-character hex string
+        expect(treeSha).toMatch(/^[a-f0-9]{40}$/);
+      }),
+    );
+
+    it.effect("returns different tree SHA for different content", () =>
+      Effect.gen(function* () {
+        const repoPath = path.join(tempDir, "repo");
+        yield* Effect.promise(() => createLocalRepo(repoPath));
+        const treeSha1 = yield* getTreeSha(repoPath);
+
+        // Add a new file and commit
+        const { execSync } = yield* Effect.promise(() => import("node:child_process"));
+        fs.writeFileSync(path.join(repoPath, "new-file.md"), "# New File");
+        execSync("git add .", { cwd: repoPath, stdio: "pipe" });
+        execSync("git commit -m 'Add new file'", { cwd: repoPath, stdio: "pipe" });
+
+        const treeSha2 = yield* getTreeSha(repoPath);
+
+        expect(treeSha1).not.toBe(treeSha2);
+        expect(treeSha2).toMatch(/^[a-f0-9]{40}$/);
+      }),
+    );
+
+    it.effect("returns tree SHA for subdirectory", () =>
+      Effect.gen(function* () {
+        const repoPath = path.join(tempDir, "repo");
+        yield* Effect.promise(() => createLocalRepo(repoPath));
+
+        // Create a subdirectory with content
+        const subDir = path.join(repoPath, "subdir");
+        fs.mkdirSync(subDir);
+        fs.writeFileSync(path.join(subDir, "file.txt"), "content");
+        const { execSync } = yield* Effect.promise(() => import("node:child_process"));
+        execSync("git add .", { cwd: repoPath, stdio: "pipe" });
+        execSync("git commit -m 'Add subdir'", { cwd: repoPath, stdio: "pipe" });
+
+        const treeSha = yield* getTreeSha(repoPath, "subdir");
+
+        expect(treeSha).toMatch(/^[a-f0-9]{40}$/);
+      }),
+    );
+
+    it.effect("fails with GitError for non-existent path", () =>
+      Effect.gen(function* () {
+        const repoPath = path.join(tempDir, "repo");
+        yield* Effect.promise(() => createLocalRepo(repoPath));
+
+        const error = yield* getTreeSha(repoPath, "non-existent").pipe(Effect.flip);
+
+        expect(error).toBeInstanceOf(GitError);
+        expect(error.operation).toBe("get-tree-sha");
+      }),
+    );
+
+    it.effect("fails with GitError for non-git directory", () =>
+      Effect.gen(function* () {
+        const nonGitPath = path.join(tempDir, "not-a-repo");
+        fs.mkdirSync(nonGitPath, { recursive: true });
+
+        const error = yield* getTreeSha(nonGitPath).pipe(Effect.flip);
+
+        expect(error).toBeInstanceOf(GitError);
+        expect(error.operation).toBe("get-tree-sha");
+      }),
+    );
+  });
+
+  describe("isGitRepository", () => {
+    it.effect("returns true for a git repository", () =>
+      Effect.gen(function* () {
+        const repoPath = path.join(tempDir, "repo");
+        yield* Effect.promise(() => createLocalRepo(repoPath));
+
+        const result = yield* isGitRepository(repoPath);
+
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("returns true for a subdirectory within a git repository", () =>
+      Effect.gen(function* () {
+        const repoPath = path.join(tempDir, "repo");
+        yield* Effect.promise(() => createLocalRepo(repoPath));
+        const subDir = path.join(repoPath, "subdir");
+        fs.mkdirSync(subDir);
+
+        const result = yield* isGitRepository(subDir);
+
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("returns false for a non-git directory", () =>
+      Effect.gen(function* () {
+        const nonGitPath = path.join(tempDir, "not-a-repo");
+        fs.mkdirSync(nonGitPath, { recursive: true });
+
+        const result = yield* isGitRepository(nonGitPath);
+
+        expect(result).toBe(false);
+      }),
+    );
+
+    it.effect("returns false for a non-existent directory", () =>
+      Effect.gen(function* () {
+        const nonExistentPath = path.join(tempDir, "does-not-exist");
+
+        const result = yield* isGitRepository(nonExistentPath);
+
+        expect(result).toBe(false);
       }),
     );
   });

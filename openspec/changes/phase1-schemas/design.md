@@ -123,6 +123,6 @@ export const SourceType = Schema.Union(
 
 **[Risk] JSON Schema drift** → Generated schemas are checked in; CI can verify they're up to date by re-running generation and checking for diff.
 
-**[Risk] Complex nested structures in settings.json** → Start with flat structure where possible; settings.sources and settings.agents have well-defined shapes from proposal.
+**[Risk] Complex nested structures in settings.json** → Start with flat structure where possible; agents is a simple string array, sources has well-defined shapes from proposal.
 
 **[Trade-off] Generated files in repo** → Increases repo size slightly but improves discoverability and allows external tools to reference schemas without running build.

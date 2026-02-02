@@ -351,13 +351,7 @@ Settings are configured at the project level (`.axm/settings.json`).
     "azuredevops": { "url": "https://dev.azure.com" },
     "registry": { "path": "~/extensions" },
   },
-  "agents": {
-    "claude-code": {},
-    "cursor": {},
-    "codex": {
-      "skills": { "path": "~/.codex/skills" },
-    },
-  },
+  "agents": ["claude-code", "cursor", "codex"],
   "extensions": {
     "skills": {
       "@wayne/grappling-hook": "^1.0.0",
@@ -377,12 +371,12 @@ Settings are configured at the project level (`.axm/settings.json`).
 
 #### Fields
 
-| Field        | Type   | Description                                                        |
-| ------------ | ------ | ------------------------------------------------------------------ |
-| `sources`    | object | Source configuration (see Source Configuration below)              |
-| `agents`     | object | Agent configuration (see Agent Configuration below)                |
-| `scope`      | string | Default scope for resolving and publishing (default: `@community`) |
-| `extensions` | object | Desired extensions by type (similar to npm dependencies)           |
+| Field        | Type     | Description                                                        |
+| ------------ | -------- | ------------------------------------------------------------------ |
+| `sources`    | object   | Source configuration (see Source Configuration below)              |
+| `agents`     | string[] | List of agent IDs to sync extensions to                            |
+| `scope`      | string   | Default scope for resolving and publishing (default: `@community`) |
+| `extensions` | object   | Desired extensions by type (similar to npm dependencies)           |
 
 The `extensions` field maps extension type to a dictionary of name → version
 specifier. Version specifiers follow semver ranges (e.g., `^1.0.0`, `~2.1.0`,
@@ -456,15 +450,13 @@ Use an array for multiple registry sources (checked in order):
 
 #### Agent Configuration
 
-The `agents` object maps agent identifier to its configuration. Agents are
+The `agents` array lists agent identifiers to sync extensions to. Agents are
 auto-detected by default; specify `agents` to limit which agents receive
-extensions or to customize paths.
+extensions.
 
 ```json
 {
-  "agents": {
-    "<agent-id>": { <agent-configuration> }
-  }
+  "agents": ["claude-code", "cursor", "codex"]
 }
 ```
 
@@ -491,64 +483,10 @@ extensions or to customize paths.
 | `vscode`      | VS Code        | `.vscode/skills` (project)   |
 | `opencode`    | OpenCode       | `.opencode/skills` (project) |
 
-**Agent configuration structure:**
-
-Each agent can configure settings per extension type:
-
-```json
-{
-  "agents": {
-    "<agent-id>": {
-      "skills": { "path": "..." },
-      "commands": { "path": "..." },
-      "packs": { "path": "..." },
-      "mcp-servers": { "path": "..." }
-    }
-  }
-}
-```
-
-**Extension type fields:**
-
-| Field  | Type   | Description                             |
-| ------ | ------ | --------------------------------------- |
-| `path` | string | Override the default directory for type |
-
-**Disabling an agent:**
-
-Set an agent to `false` to exclude it from extension sync:
-
-```json
-{
-  "agents": {
-    "cursor": false,
-    "windsurf": false
-  }
-}
-```
-
-**Custom paths:**
-
-Override default paths for agents with non-standard configurations:
-
-```json
-{
-  "agents": {
-    "codex": {
-      "skills": { "path": "~/.codex/extensions/skills" }
-    },
-    "claude-code": {
-      "skills": { "path": "/shared/team-skills" }
-    }
-  }
-}
-```
-
 **Auto-detection behavior:**
 
 - If `agents` is omitted, AXM auto-detects installed agents
 - If `agents` is specified, only listed agents are used (no auto-detection)
-- Use `{}` for an agent to use default configuration
 
 ---
 
@@ -1520,6 +1458,9 @@ axm packs validate [pack]
     explicitly disable (e.g., `"bitbucket": false`)? Currently, removing the key
     entirely is the only way to disable. Explicit disable could prevent
     auto-detection from re-enabling removed items.
+12. Agent configuration objects — should agents support per-agent configuration
+    (custom paths, extension type overrides)? Currently agents is a simple list
+    of agent IDs. Could expand to object syntax: `{ "codex": { "skills": { "path": "..." } } }`.
 
 ### Phase 3: Commands Capability
 

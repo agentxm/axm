@@ -4,12 +4,12 @@
 
 The schema SHALL validate settings files with the following top-level fields:
 
-| Field        | Type   | Required | Description                                         |
-| ------------ | ------ | -------- | --------------------------------------------------- |
-| `scope`      | string | No       | Default scope for resolving/publishing (@community) |
-| `sources`    | object | No       | Source configuration                                |
-| `agents`     | object | No       | Agent configuration                                 |
-| `extensions` | object | No       | Desired extensions by type                          |
+| Field        | Type     | Required | Description                                         |
+| ------------ | -------- | -------- | --------------------------------------------------- |
+| `scope`      | string   | No       | Default scope for resolving/publishing (@community) |
+| `sources`    | object   | No       | Source configuration                                |
+| `agents`     | string[] | No       | List of agent IDs to sync extensions to             |
+| `extensions` | object   | No       | Desired extensions by type                          |
 
 #### Scenario: Valid empty settings
 
@@ -60,36 +60,30 @@ To disable a source, remove it from the configuration entirely.
 
 ### Requirement: Agents configuration schema
 
-The `agents` field SHALL validate agent configurations:
+The `agents` field SHALL be an array of agent ID strings. Valid agent IDs are:
 
-| Agent ID      | Default Skills Path          |
-| ------------- | ---------------------------- |
-| `claude-code` | `.claude/skills` (project)   |
-| `cursor`      | `.cursor/skills` (project)   |
-| `windsurf`    | `.windsurf/skills` (project) |
-| `codex`       | `.codex/skills` (project)    |
-| `copilot`     | `.github/skills` (project)   |
-| `gemini`      | `.gemini/skills` (project)   |
-| `vscode`      | `.vscode/skills` (project)   |
-| `opencode`    | `.opencode/skills` (project) |
+| Agent ID      | Name           |
+| ------------- | -------------- |
+| `claude-code` | Claude Code    |
+| `cursor`      | Cursor         |
+| `windsurf`    | Windsurf       |
+| `codex`       | Codex CLI      |
+| `copilot`     | GitHub Copilot |
+| `gemini`      | Gemini CLI     |
+| `vscode`      | VS Code        |
+| `opencode`    | OpenCode       |
 
-Each agent MAY configure paths per extension type.
+To disable an agent, remove it from the array.
 
-To disable an agent, remove it from the configuration entirely.
+#### Scenario: Valid agents list
 
-#### Scenario: Valid agent with custom path
+- **WHEN** parsing `{ "agents": ["claude-code", "cursor", "codex"] }`
+- **THEN** validation succeeds and agents is an array of strings
 
-- **WHEN** parsing:
-  ```json
-  {
-    "agents": {
-      "codex": {
-        "skills": { "path": "~/.codex/extensions/skills" }
-      }
-    }
-  }
-  ```
-- **THEN** validation succeeds and codex.skills.path is accessible
+#### Scenario: Empty agents list
+
+- **WHEN** parsing `{ "agents": [] }`
+- **THEN** validation succeeds and agents is an empty array
 
 ### Requirement: Extensions configuration schema
 

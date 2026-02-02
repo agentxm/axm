@@ -9,7 +9,7 @@
 - [ ] 2.1 Create `common.ts` with Author schema
 - [ ] 2.2 Add CommonManifestFields (name, version, description, keywords, repository, homepage, license, bugs, author)
 - [ ] 2.3 Add FullyQualifiedName schema with `@<scope>/<name>` pattern validation
-- [ ] 2.4 Add ExtensionType and SourceType literal unions
+- [ ] 2.4 Add ExtensionType, SourceType, and AgentId literal unions
 - [ ] 2.5 Add tests for common schemas
 
 ## 3. Manifest Schemas
@@ -24,7 +24,7 @@
 
 - [ ] 4.1 Create `settings.ts` with Settings schema
 - [ ] 4.2 Add SourceConfig schema (github, gitlab, bitbucket, azuredevops, git, registry)
-- [ ] 4.3 Add AgentConfig schema (claude-code, cursor, windsurf, codex, copilot, gemini, vscode, opencode)
+- [ ] 4.3 Add AgentId literal union and agents array schema
 - [ ] 4.4 Add ExtensionsConfig schema (skills, commands, packs, mcp-servers maps)
 - [ ] 4.5 Add tests for settings schema
 

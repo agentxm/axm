@@ -61,6 +61,8 @@ export interface InstallArgs {
   readonly list: boolean;
   /** Install all available skills */
   readonly all: boolean;
+  /** Overwrite existing skills */
+  readonly force: boolean;
   /** Increase output detail */
   readonly verbose?: boolean | undefined;
   /** Suppress non-essential output */
@@ -889,25 +891,34 @@ export const handleInstall = (
     const conflictingSkills = selectedSkills.filter((s) => installedSkillNames.has(s.name));
     const newSkills = selectedSkills.filter((s) => !installedSkillNames.has(s.name));
 
-    // Warn about conflicts
-    for (const skill of conflictingSkills) {
-      p.log.warn(`Skill "${skill.name}" already installed. Skipping.`);
-      p.log.message("  Use --force to overwrite.");
-    }
+    // Handle conflicts based on --force flag
+    if (args.force) {
+      // With --force, reinstall conflicting skills
+      if (conflictingSkills.length > 0) {
+        p.log.info(`Overwriting ${conflictingSkills.length} existing skill(s) (--force)`);
+      }
+      // Keep all selected skills (both new and conflicting)
+    } else {
+      // Without --force, warn and skip conflicting skills
+      for (const skill of conflictingSkills) {
+        p.log.warn(`Skill "${skill.name}" already installed. Skipping.`);
+        p.log.message("  Use --force to overwrite.");
+      }
 
-    if (newSkills.length === 0) {
-      p.log.info("All selected skills are already installed.");
-      p.outro("Nothing to install.");
-      return;
-    }
+      if (newSkills.length === 0) {
+        p.log.info("All selected skills are already installed.");
+        p.outro("Nothing to install.");
+        return;
+      }
 
-    // Continue with only new skills
-    selectedSkills = newSkills;
+      // Continue with only new skills
+      selectedSkills = newSkills;
 
-    if (conflictingSkills.length > 0) {
-      p.log.info(
-        `Installing ${newSkills.length} new skill(s), skipping ${conflictingSkills.length} existing`,
-      );
+      if (conflictingSkills.length > 0) {
+        p.log.info(
+          `Installing ${newSkills.length} new skill(s), skipping ${conflictingSkills.length} existing`,
+        );
+      }
     }
 
     // Step 7: Confirm installation (unless --yes or --non-interactive)

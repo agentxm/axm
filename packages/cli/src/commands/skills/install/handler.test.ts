@@ -57,6 +57,7 @@ describe("install.handler", () => {
     yes: false,
     list: false,
     all: false,
+    force: false,
   };
 
   /**

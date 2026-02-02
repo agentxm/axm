@@ -50,7 +50,7 @@
 
 - [x] 7.1 Update `handler.ts` to import and use `resolveExtension()`
 - [x] 7.2 Add conflict detection logic (check if skill exists, warn and skip)
-- [ ] 7.3 Add `--force` flag handling to overwrite existing skills
+- [x] 7.3 Add `--force` flag handling to overwrite existing skills
 - [x] 7.4 Update lockfile writes to use new schema
 - [ ] 7.5 Update settings writes to use new schema
 - [ ] 7.6 Handle resolution returning multiple results (prompt for selection)

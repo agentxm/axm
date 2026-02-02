@@ -12,6 +12,7 @@ interface InstallArgs {
   yes: boolean;
   list: boolean;
   all: boolean;
+  force: boolean;
   verbose?: boolean;
   quiet?: boolean;
   json?: boolean;
@@ -63,6 +64,12 @@ export const installCommand: CommandModule<{}, InstallArgs> = {
         describe: "Install all discovered skills",
         default: false,
       })
+      .option("force", {
+        alias: "f",
+        type: "boolean",
+        describe: "Overwrite existing skills",
+        default: false,
+      })
       .example("$0 skills install owner/repo", "Clone GitHub repo and install skills interactively")
       .example(
         "$0 skills install owner/repo@v1.0.0",
@@ -91,6 +98,7 @@ export const installCommand: CommandModule<{}, InstallArgs> = {
       yes: argv.yes,
       list: argv.list,
       all: argv.all,
+      force: argv.force,
       verbose: argv.verbose,
       quiet: argv.quiet,
       json: argv.json,

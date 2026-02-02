@@ -67,12 +67,12 @@
 
 ## 9. E2E Tests
 
-- [ ] 9.1 Update E2E tests for new lockfile JSON format
-- [ ] 9.2 Update E2E tests for new settings structure
-- [ ] 9.3 Add E2E test for conflict detection behavior
+- [x] 9.1 Update E2E tests for new lockfile JSON format
+- [x] 9.2 Update E2E tests for new settings structure
+- [x] 9.3 Add E2E test for conflict detection behavior
 
 ## 10. Cleanup
 
-- [ ] 10.1 Remove YAML lockfile parsing code (or keep for migration warning)
-- [ ] 10.2 Update experimental index exports to include resolution module
-- [ ] 10.3 Add JSDoc with `@experimental` tags to all new exports
+- [x] 10.1 Remove YAML lockfile parsing code (or keep for migration warning)
+- [x] 10.2 Update experimental index exports to include resolution module
+- [x] 10.3 Add JSDoc with `@experimental` tags to all new exports

@@ -5,13 +5,21 @@
  * @packageDocumentation
  */
 
+export type {
+  ExtensionMetadata,
+  ExtensionRef,
+  ExtensionType,
+  ResolutionOptions,
+  SourceType as ResolutionSourceType,
+} from "./resolution/index.js";
+// Resolution module
+export { ResolutionError, type ResolutionErrorCode, resolveExtension } from "./resolution/index.js";
 export * from "./skills/git.js";
 export type {
   EnsureInitializedOptions,
   SettingsError,
   SettingsErrorTag,
 } from "./skills/settings.js";
-
 // Settings module
 export {
   addSkill,

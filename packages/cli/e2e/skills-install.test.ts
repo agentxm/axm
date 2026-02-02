@@ -6,7 +6,6 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import * as YAML from "yaml";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "./utils.js";
 
 describe("axm skills install", () => {
@@ -84,22 +83,24 @@ describe("axm skills install", () => {
         const axmDir = path.join(temp.path, ".axm");
         expect(fs.existsSync(axmDir)).toBe(true);
 
-        // Verify settings.json exists and has skill entries
+        // Verify settings.json exists and has skill entries in extensions.skills
         const settingsPath = path.join(axmDir, "settings.json");
         expect(fs.existsSync(settingsPath)).toBe(true);
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings).toHaveProperty("skills");
-        expect(settings.skills).toHaveProperty("my-skill");
-        expect(settings.skills).toHaveProperty("another-skill");
+        expect(settings).toHaveProperty("extensions");
+        expect(settings.extensions).toHaveProperty("skills");
+        expect(settings.extensions.skills).toHaveProperty("my-skill");
+        expect(settings.extensions.skills).toHaveProperty("another-skill");
 
-        // Verify axm.lock exists and has entries (YAML format)
+        // Verify axm.lock exists and has entries (JSON format)
         const lockPath = path.join(axmDir, "axm.lock");
         expect(fs.existsSync(lockPath)).toBe(true);
-        const lockContent = fs.readFileSync(lockPath, "utf-8");
-        const lock = YAML.parse(lockContent);
-        expect(lock).toHaveProperty("skills");
-        expect(lock.skills).toHaveProperty("my-skill");
-        expect(lock.skills).toHaveProperty("another-skill");
+        const lock = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+        expect(lock).toHaveProperty("lockfileVersion");
+        expect(lock).toHaveProperty("extensions");
+        expect(lock.extensions).toHaveProperty("skills");
+        expect(lock.extensions.skills).toHaveProperty("my-skill");
+        expect(lock.extensions.skills).toHaveProperty("another-skill");
 
         // Verify canonical skills directory
         const skillsDir = path.join(axmDir, "skills");
@@ -119,7 +120,7 @@ describe("axm skills install", () => {
       }
     });
 
-    it("includes contentHash in lockfile entries", async () => {
+    it("includes folderHash in lockfile entries", async () => {
       const temp = createTempDir();
       try {
         await runCli(["init", "--yes", "--agent", "claude-code"], {
@@ -132,19 +133,24 @@ describe("axm skills install", () => {
         );
 
         const lockPath = path.join(temp.path, ".axm", "axm.lock");
-        const lockContent = fs.readFileSync(lockPath, "utf-8");
-        const lock = YAML.parse(lockContent);
+        const lock = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
 
-        // Each skill entry should have required fields
+        // Verify lockfile structure
+        expect(lock.lockfileVersion).toBe(1);
+        expect(lock.extensions).toBeDefined();
+        expect(lock.extensions.skills).toBeDefined();
+
+        // Each skill entry should have required fields per new schema
         for (const skillName of ["my-skill", "another-skill"]) {
-          const entry = lock.skills[skillName];
+          const entry = lock.extensions.skills[skillName];
           expect(entry).toBeDefined();
           expect(entry).toHaveProperty("source");
-          expect(entry).toHaveProperty("contentHash");
+          expect(entry).toHaveProperty("origin");
+          expect(entry).toHaveProperty("folderHash");
           expect(entry).toHaveProperty("installedAt");
           expect(entry).toHaveProperty("updatedAt");
-          // contentHash should be a valid sha256 hash (sha256:64 hex chars)
-          expect(entry.contentHash).toMatch(/^sha256:[a-f0-9]{64}$/);
+          // folderHash should be a valid sha256 hash (sha256:64 hex chars)
+          expect(entry.folderHash).toMatch(/^sha256:[a-f0-9]{64}$/);
         }
       } finally {
         temp.cleanup();
@@ -368,7 +374,7 @@ describe("axm skills install", () => {
       }
     });
 
-    it("settings.json contains skill metadata", async () => {
+    it("settings.json contains skill in extensions.skills with version specifier", async () => {
       const temp = createTempDir();
       try {
         await runCli(["init", "--yes", "--agent", "claude-code"], {
@@ -392,16 +398,20 @@ describe("axm skills install", () => {
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
-        expect(settings.skills).toBeDefined();
-        expect(settings.skills["my-skill"]).toBeDefined();
-        expect(settings.skills["my-skill"].source).toBe(SKILLS_REPO_FIXTURE);
-        expect(settings.skills["my-skill"].agents).toContain("claude-code");
+        // Verify new settings structure
+        expect(settings).toHaveProperty("agents");
+        expect(settings.agents).toContain("claude-code");
+        expect(settings).toHaveProperty("extensions");
+        expect(settings.extensions).toHaveProperty("skills");
+        // Skills now store version specifier (e.g., "*" for unversioned sources)
+        expect(settings.extensions.skills["my-skill"]).toBeDefined();
+        expect(typeof settings.extensions.skills["my-skill"]).toBe("string");
       } finally {
         temp.cleanup();
       }
     });
 
-    it("axm.lock contains lock entry for installed skill", async () => {
+    it("axm.lock contains lock entry for installed skill with new schema", async () => {
       const temp = createTempDir();
       try {
         await runCli(["init", "--yes", "--agent", "claude-code"], {
@@ -423,16 +433,18 @@ describe("axm skills install", () => {
         );
 
         const lockPath = path.join(temp.path, ".axm", "axm.lock");
-        const lockContent = fs.readFileSync(lockPath, "utf-8");
-        const lock = YAML.parse(lockContent);
+        const lock = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
 
-        expect(lock.skills).toBeDefined();
-        expect(lock.skills["my-skill"]).toBeDefined();
+        // Verify new lockfile structure
+        expect(lock.lockfileVersion).toBe(1);
+        expect(lock.extensions).toBeDefined();
+        expect(lock.extensions.skills).toBeDefined();
+        expect(lock.extensions.skills["my-skill"]).toBeDefined();
 
-        const entry = lock.skills["my-skill"];
-        expect(entry.source).toBe(SKILLS_REPO_FIXTURE);
-        expect(entry.skillPath).toContain("my-skill");
-        expect(entry.contentHash).toBeDefined();
+        const entry = lock.extensions.skills["my-skill"];
+        expect(entry.source).toBeDefined();
+        expect(entry.origin).toBeDefined();
+        expect(entry.folderHash).toBeDefined();
         expect(entry.installedAt).toBeDefined();
         expect(entry.updatedAt).toBeDefined();
 
@@ -475,6 +487,99 @@ describe("axm skills install", () => {
     });
   });
 
+  describe("conflict detection", () => {
+    it("skips already installed skill by default", async () => {
+      const temp = createTempDir();
+      try {
+        await runCli(["init", "--yes", "--agent", "claude-code"], {
+          cwd: temp.path,
+        });
+
+        // First install
+        await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--skill",
+            "my-skill",
+            "--yes",
+            "--agent",
+            "claude-code",
+          ],
+          { cwd: temp.path },
+        );
+
+        // Second install of same skill should skip
+        const result = await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--skill",
+            "my-skill",
+            "--yes",
+            "--agent",
+            "claude-code",
+          ],
+          { cwd: temp.path },
+        );
+
+        expect(result.exitCode).toBe(0);
+        // Should indicate the skill was skipped
+        expect(result.stdout).toMatch(/already installed|skipping/i);
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("overwrites existing skill with --force", async () => {
+      const temp = createTempDir();
+      try {
+        await runCli(["init", "--yes", "--agent", "claude-code"], {
+          cwd: temp.path,
+        });
+
+        // First install
+        await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--skill",
+            "my-skill",
+            "--yes",
+            "--agent",
+            "claude-code",
+          ],
+          { cwd: temp.path },
+        );
+
+        // Second install with --force should succeed
+        const result = await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--skill",
+            "my-skill",
+            "--yes",
+            "--agent",
+            "claude-code",
+            "--force",
+          ],
+          { cwd: temp.path },
+        );
+
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("Successfully installed");
+        expect(result.stdout).toContain("my-skill");
+      } finally {
+        temp.cleanup();
+      }
+    });
+  });
+
   describe("--help", () => {
     it("displays usage information", async () => {
       const result = await runCli(["skills", "install", "--help"]);
@@ -487,6 +592,7 @@ describe("axm skills install", () => {
       expect(result.stdout).toContain("--skill");
       expect(result.stdout).toContain("--agent");
       expect(result.stdout).toContain("--global");
+      expect(result.stdout).toContain("--force");
     });
   });
 });

@@ -25,11 +25,12 @@ describe("axm init", () => {
         const settingsPath = path.join(axmDir, "settings.json");
         expect(fs.existsSync(settingsPath)).toBe(true);
 
-        // Settings should be valid JSON
+        // Settings should be valid JSON with new schema
         const settingsContent = fs.readFileSync(settingsPath, "utf-8");
         const settings = JSON.parse(settingsContent);
         expect(settings).toHaveProperty("agents");
-        expect(settings).toHaveProperty("version");
+        expect(settings).toHaveProperty("extensions");
+        expect(settings.extensions).toHaveProperty("skills");
       } finally {
         temp.cleanup();
       }

@@ -42,7 +42,7 @@ create, and share extensions that enhance AI coding assistant capabilities.
 | **Scope**          | Namespace for extensions, e.g., `@wayne` in `@wayne/grappling-hook`                         |
 | **Source**         | Origin of an extension: registry, github, gitlab, bitbucket, azuredevops, git, url, or path |
 | **Manifest**       | JSON file describing an extension's metadata (e.g., `axm-skill.json`)                       |
-| **Implied Scope**  | Default scope used when resolving bare names (configured in settings)                       |
+| **Scope**          | Default scope for resolving and publishing extensions (defaults to `@community`)            |
 
 ### Extension Types
 
@@ -352,7 +352,7 @@ level (`~/.axm/settings.json`). Project settings override user settings.
       "skills": { "path": "~/.codex/skills" }
     }
   },
-  "impliedScope": "@myorg",
+  "scope": "@myorg",
   "extensions": {
     "skills": {
       "@wayne/grappling-hook": "^1.0.0"
@@ -366,12 +366,12 @@ level (`~/.axm/settings.json`). Project settings override user settings.
 
 #### Fields
 
-| Field          | Type   | Description                                              |
-| -------------- | ------ | -------------------------------------------------------- |
-| `sources`      | object | Source configuration (see Source Configuration below)    |
-| `agents`       | object | Agent configuration (see Agent Configuration below)      |
-| `impliedScope` | string | Default scope for bare name resolution                   |
-| `extensions`   | object | Desired extensions by type (similar to npm dependencies) |
+| Field        | Type   | Description                                                        |
+| ------------ | ------ | ------------------------------------------------------------------ |
+| `sources`    | object | Source configuration (see Source Configuration below)              |
+| `agents`     | object | Agent configuration (see Agent Configuration below)                |
+| `scope`      | string | Default scope for resolving and publishing (default: `@community`) |
+| `extensions` | object | Desired extensions by type (similar to npm dependencies)           |
 
 The `extensions` field maps extension type to a dictionary of name → version
 specifier. Version specifiers follow semver ranges (e.g., `^1.0.0`, `~2.1.0`,

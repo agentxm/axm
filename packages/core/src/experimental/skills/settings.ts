@@ -16,6 +16,13 @@ import type { Settings, SkillSettings } from "./types.js";
 const SETTINGS_FILENAME = "settings.json";
 const CURRENT_VERSION = 1;
 
+/**
+ * Default scope for skill resolution when not specified in settings.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const DEFAULT_SCOPE = "@community";
+
 // -----------------------------------------------------------------------------
 // Error Types
 // -----------------------------------------------------------------------------
@@ -314,3 +321,13 @@ export const ensureInitialized = (
     yield* writeSettings(axmDir, defaultSettings);
     return defaultSettings;
   });
+
+/**
+ * Get the effective scope from settings, falling back to DEFAULT_SCOPE.
+ *
+ * @param settings - Settings object
+ * @returns The scope to use for skill resolution
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const getEffectiveScope = (settings: Settings): string => settings.scope ?? DEFAULT_SCOPE;

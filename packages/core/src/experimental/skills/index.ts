@@ -42,7 +42,9 @@ export type { EnsureInitializedOptions, SettingsError } from "./settings.js";
 export {
   addSkill,
   createDefaultSettings,
+  DEFAULT_SCOPE,
   ensureInitialized,
+  getEffectiveScope,
   readSettings,
   SettingsNotFoundError,
   SettingsParseError,

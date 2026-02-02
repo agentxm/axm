@@ -102,6 +102,8 @@ export interface SkillSettings {
 export interface Settings {
   /** Schema version */
   readonly version: number;
+  /** Default scope for skill resolution (defaults to "@community" if not specified) */
+  readonly scope?: string;
   /** Default agent IDs */
   readonly agents: readonly string[];
   /** Per-skill settings keyed by skill name */

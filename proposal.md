@@ -345,7 +345,13 @@ level (`~/.axm/settings.json`). Project settings override user settings.
     "azuredevops": { "url": "https://dev.azure.com" },
     "registry": { "path": "~/extensions" }
   },
-  "agents": ["claude-code"],
+  "agents": {
+    "claude-code": {},
+    "cursor": {},
+    "codex": {
+      "skills": { "path": "~/.codex/skills" }
+    }
+  },
   "impliedScope": "@myorg",
   "extensions": {
     "skills": {
@@ -360,12 +366,12 @@ level (`~/.axm/settings.json`). Project settings override user settings.
 
 #### Fields
 
-| Field          | Type     | Description                                                     |
-| -------------- | -------- | --------------------------------------------------------------- |
-| `sources`      | object   | Source configuration (see Source Configuration below)           |
-| `agents`       | string[] | Host agents to consider for extension resolution (default: all) |
-| `impliedScope` | string   | Default scope for bare name resolution                          |
-| `extensions`   | object   | Desired extensions by type (similar to npm dependencies)        |
+| Field          | Type   | Description                                              |
+| -------------- | ------ | -------------------------------------------------------- |
+| `sources`      | object | Source configuration (see Source Configuration below)    |
+| `agents`       | object | Agent configuration (see Agent Configuration below)      |
+| `impliedScope` | string | Default scope for bare name resolution                   |
+| `extensions`   | object | Desired extensions by type (similar to npm dependencies) |
 
 The `extensions` field maps extension type to a dictionary of name → version
 specifier. Version specifiers follow semver ranges (e.g., `^1.0.0`, `~2.1.0`,
@@ -436,6 +442,94 @@ Use an array for multiple registry sources (checked in order):
   }
 }
 ```
+
+#### Agent Configuration
+
+The `agents` object maps agent identifier to its configuration. Agents are
+auto-detected by default; specify `agents` to limit which agents receive
+extensions or to customize paths.
+
+```json
+{
+  "agents": {
+    "<agent-id>": { <agent-configuration> }
+  }
+}
+```
+
+**Supported agents:**
+
+| Agent ID      | Name           | Default Skills Path          |
+| ------------- | -------------- | ---------------------------- |
+| `claude-code` | Claude Code    | `.claude/skills` (project)   |
+| `cursor`      | Cursor         | `.cursor/skills` (project)   |
+| `windsurf`    | Windsurf       | `.windsurf/skills` (project) |
+| `codex`       | Codex CLI      | `.codex/skills` (project)    |
+| `copilot`     | GitHub Copilot | `.github/skills` (project)   |
+| `gemini`      | Gemini CLI     | `.gemini/skills` (project)   |
+| `vscode`      | VS Code        | `.vscode/skills` (project)   |
+| `opencode`    | OpenCode       | `.opencode/skills` (project) |
+
+**Agent configuration structure:**
+
+Each agent can configure settings per extension type:
+
+```json
+{
+  "agents": {
+    "<agent-id>": {
+      "skills": { "path": "..." },
+      "mcp-servers": { "path": "..." },
+      "rules": { "path": "..." },
+      "commands": { "path": "..." },
+      "agents": { "path": "..." }
+    }
+  }
+}
+```
+
+**Extension type fields:**
+
+| Field  | Type   | Description                             |
+| ------ | ------ | --------------------------------------- |
+| `path` | string | Override the default directory for type |
+
+**Disabling an agent:**
+
+Set an agent to `false` to exclude it from extension sync:
+
+```json
+{
+  "agents": {
+    "cursor": false,
+    "windsurf": false
+  }
+}
+```
+
+**Custom paths:**
+
+Override default paths for agents with non-standard configurations:
+
+```json
+{
+  "agents": {
+    "codex": {
+      "skills": { "path": "~/.codex/extensions/skills" }
+    },
+    "claude-code": {
+      "skills": { "path": "/shared/team-skills" },
+      "rules": { "path": "/shared/team-rules" }
+    }
+  }
+}
+```
+
+**Auto-detection behavior:**
+
+- If `agents` is omitted, AXM auto-detects installed agents
+- If `agents` is specified, only listed agents are used (no auto-detection)
+- Use `{}` for an agent to use default configuration
 
 ---
 

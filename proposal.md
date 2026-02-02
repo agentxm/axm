@@ -468,6 +468,16 @@ extensions or to customize paths.
 }
 ```
 
+**P0 Agents (initial implementation focus):**
+
+| Agent          | Documentation                                                        |
+| -------------- | -------------------------------------------------------------------- |
+| Claude Code    | [docs.anthropic.com](https://docs.anthropic.com/en/docs/claude-code) |
+| Gemini CLI     | [geminicli.com/docs](https://geminicli.com/docs)                     |
+| GitHub Copilot | [docs.github.com/copilot](https://docs.github.com/en/copilot)        |
+| OpenCode       | [opencode.ai/docs](https://opencode.ai/docs)                         |
+| OpenAI Codex   | [github.com/openai/codex](https://github.com/openai/codex)           |
+
 **Supported agents:**
 
 | Agent ID      | Name           | Default Skills Path          |
@@ -1465,20 +1475,18 @@ axm packs validate [pack]
 
 ### Phase 1: Vertical Slice (`axm skills install`)
 
-1. Skill naming — should skill name come from directory name or SKILL.md
-   frontmatter `name` field?
-   - Current: directory name
-   - Alternative: frontmatter `name` takes precedence if present
-2. Naming conflict during install — what happens if skill name already exists?
-   - Current: warn and skip
-   - Future options: `--force` to overwrite, version comparison if same source,
-     prompt for alternative name
-3. External install behavior: `source-external` | `fork` | `ask`?
-4. Init behavior when non-AXM extensions exist: `fork` | `ask`?
-5. Checksum verification — should checksums be verified during install?
-6. Extension provenance — how should extension origin be attested/verified?
-7. Tampered extensions — what happens when installed extensions don't match their
-   expected checksums?
+1. ~~Skill naming~~ **Decided:** SKILL.md frontmatter `name` is authoritative.
+   Error if directory name differs from frontmatter name.
+2. ~~Naming conflict~~ **Decided:** Error by default, `--force` to overwrite.
+   Same-source version comparison deferred to future.
+3. ~~External install~~ **Decided:** `install` honors external source (tracks
+   origin). `fork` converts to AXM-managed extension for customization/publishing.
+4. ~~Init with existing extensions~~ **Decided:** Prompt user with options:
+   (a) fork into AXM-managed, (b) continue sourcing if origin detectable, (c) remove.
+5. ~~Checksum verification~~ **Deferred:** Post-Phase 4. Applicable for remote
+   registry publish/install only.
+6. ~~Extension provenance~~ **Deferred:** Post-Phase 4. Remote registry concern.
+7. ~~Tampered extensions~~ **Deferred:** Post-Phase 4. Remote registry concern.
 
 ### Phase 2: Complete Skills & Filesystem Registry
 

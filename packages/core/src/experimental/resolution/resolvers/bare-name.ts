@@ -64,6 +64,12 @@ export const resolveBareName = (
   // Transform to scoped AXM name: name -> @scope/name
   const scopedName = `@${options.scope}/${input}`;
 
-  // Delegate to AXM name resolver
-  return resolveAxmName(scopedName, options);
+  // Delegate to AXM name resolver and preserve original bare name input
+  return Effect.gen(function* () {
+    const results = yield* resolveAxmName(scopedName, options);
+    return results.map((ref) => ({
+      ...ref,
+      originalInput: input,
+    }));
+  });
 };

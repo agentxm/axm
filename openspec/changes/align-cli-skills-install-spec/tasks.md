@@ -18,20 +18,20 @@
 
 ## 3. Resolution Pipeline
 
-- [ ] 3.1 Implement `resolver.ts` with ordered pipeline using Effect.gen
-- [ ] 3.2 Add type filtering (only return matching `types` option)
-- [ ] 3.3 Add source filtering (only query specified `sources` option)
-- [ ] 3.4 Wire up `resolveExtension()` public API in `index.ts`
+- [x] 3.1 Implement `resolver.ts` with ordered pipeline using Effect.gen
+- [x] 3.2 Add type filtering (only return matching `types` option)
+- [x] 3.3 Add source filtering (only query specified `sources` option)
+- [x] 3.4 Wire up `resolveExtension()` public API in `index.ts`
 
 ## 4. Resolution Module Tests
 
 - [x] 4.1 Unit tests for `local-path.ts` resolver
-- [ ] 4.2 Unit tests for `axm-name.ts` resolver
-- [ ] 4.3 Unit tests for `bare-name.ts` resolver
+- [x] 4.2 Unit tests for `axm-name.ts` resolver
+- [x] 4.3 Unit tests for `bare-name.ts` resolver
 - [x] 4.4 Unit tests for `explicit-source.ts` resolver
-- [ ] 4.5 Unit tests for `ambiguous.ts` resolver
+- [x] 4.5 Unit tests for `ambiguous.ts` resolver
 - [x] 4.6 Unit tests for `url.ts` resolver
-- [ ] 4.7 Integration tests for full resolution pipeline
+- [x] 4.7 Integration tests for full resolution pipeline
 
 ## 5. Schema Updates
 

@@ -10,6 +10,8 @@
 
 // Re-export errors
 export { ResolutionError, type ResolutionErrorCode } from "./errors.js";
+// Re-export resolver
+export { resolveExtension } from "./resolver.js";
 // Re-export types
 export type {
   ExtensionMetadata,
@@ -18,5 +20,3 @@ export type {
   ResolutionOptions,
   SourceType,
 } from "./types.js";
-
-// Note: resolveExtension will be exported here once resolver.ts is implemented

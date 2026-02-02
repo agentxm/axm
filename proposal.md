@@ -13,7 +13,7 @@ create, and share extensions that enhance AI coding assistant capabilities.
 ### 1.1 Goals
 
 - Unified management of multiple extension types (skills, commands, packs, MCP
-  servers, rules, subagents)
+  servers)
 - Support for multiple sources (registry, GitHub, GitLab, local filesystem)
 - Familiar CLI experience for users of npm/pnpm/cargo
 - Extension provenance and version tracking for updates
@@ -42,7 +42,6 @@ create, and share extensions that enhance AI coding assistant capabilities.
 | **Scope**          | Namespace for extensions, e.g., `@wayne` in `@wayne/grappling-hook`                         |
 | **Source**         | Origin of an extension: registry, github, gitlab, bitbucket, azuredevops, git, url, or path |
 | **Manifest**       | JSON file describing an extension's metadata (e.g., `axm-skill.json`)                       |
-| **Scope**          | Default scope for resolving and publishing extensions (defaults to `@community`)            |
 
 ### Extension Types
 
@@ -52,8 +51,6 @@ create, and share extensions that enhance AI coding assistant capabilities.
 | **Command**    | User-invokable prompts that perform specific actions (similar to slash commands)                  |
 | **Pack**       | A bundle of extensions distributed together for a specific purpose or workflow                    |
 | **MCP Server** | A Model Context Protocol server that provides tools, resources, or context to agents              |
-| **Rule**       | Persistent instructions that shape agent behavior across all interactions                         |
-| **Subagent**   | A sub-agent definition for delegating specialized tasks (distinct from the host agent)            |
 
 ---
 
@@ -129,30 +126,6 @@ MCP server configuration. Fields TBD.
   "name": "@wayne/batcave-mcp",
   "version": "1.0.0",
   "description": "MCP server for Batcave systems"
-}
-```
-
-#### axm-rule.json
-
-Instructions that shape AI behavior. Fields TBD.
-
-```json
-{
-  "name": "@wayne/no-killing-rule",
-  "version": "1.0.0",
-  "description": "The one rule that must never be broken"
-}
-```
-
-#### axm-subagent.json
-
-Sub-agent for specialized tasks. Fields TBD.
-
-```json
-{
-  "name": "@wayne/detective-subagent",
-  "version": "1.0.0",
-  "description": "Subagent specialized in forensic analysis"
 }
 ```
 
@@ -235,8 +208,8 @@ For fully qualified names (`@<scope>/<name>`), check levels in order:
 3. **Registry** — Remote AXM registry
 
 At each level, search all type directories in parallel: `skills`, `commands`,
-`packs`, `mcp-servers`, `rules`, `subagents`. If `types` is provided, only search
-matching type directories.
+`packs`, `mcp-servers`. If `types` is provided, only search matching type
+directories.
 
 Stop at first level with matches. Return all matches found at that level.
 
@@ -282,7 +255,7 @@ Returns `ExtensionRef[]`. Empty array if nothing found.
 
 | Field           | Type    | Description                                                                      |
 | --------------- | ------- | -------------------------------------------------------------------------------- |
-| `type`          | enum    | `skill`, `command`, `pack`, `mcp-server`, `rule`, `subagent`                     |
+| `type`          | enum    | `skill`, `command`, `pack`, `mcp-server`                                         |
 | `sourceType`    | enum    | `github`, `gitlab`, `bitbucket`, `azuredevops`, `git`, `url`, `path`, `registry` |
 | `sourceOrigin`  | string  | Fully resolved value (URL, path, or registry identifier)                         |
 | `ref`           | string? | Git ref (branch, tag, commit) if from git source                                 |
@@ -325,7 +298,7 @@ Sources define where extensions can be fetched from.
 **Registry sources:**
 
 - **Filesystem registry**: `origin` is a local path to a directory with
-  `axm-index.json` (see §4.2)
+  `axm-index.json` (see §4.1)
 - **Remote registry**: `origin` is a URL (e.g.,
   `https://registry.agentxm.ai/extensions/<scope>/<name>`)
 
@@ -336,31 +309,38 @@ Sources define where extensions can be fetched from.
 Settings can be configured at the project level (`.axm/settings.json`) or user
 level (`~/.axm/settings.json`). Project settings override user settings.
 
-```json
+```jsonc
 {
+  // Project default scope. Falls back to logged-in user's scope, or @community if not logged in.
+  "scope": "@myorg",
   "sources": {
     "github": { "url": "https://github.com" },
     "gitlab": { "url": "https://gitlab.com" },
     "bitbucket": { "url": "https://bitbucket.org" },
     "azuredevops": { "url": "https://dev.azure.com" },
-    "registry": { "path": "~/extensions" }
+    "registry": { "path": "~/extensions" },
   },
   "agents": {
     "claude-code": {},
     "cursor": {},
     "codex": {
-      "skills": { "path": "~/.codex/skills" }
-    }
+      "skills": { "path": "~/.codex/skills" },
+    },
   },
-  "scope": "@myorg",
   "extensions": {
     "skills": {
-      "@wayne/grappling-hook": "^1.0.0"
+      "@wayne/grappling-hook": "^1.0.0",
+    },
+    "commands": {
+      "@wayne/batcomputer-sync": "^1.0.0",
+    },
+    "packs": {
+      "@wayne/utility-belt": "^1.0.0",
     },
     "mcp-servers": {
-      "@wayne/batcomputer": "^2.0.0"
-    }
-  }
+      "@wayne/batcomputer": "^2.0.0",
+    },
+  },
 }
 ```
 
@@ -479,10 +459,9 @@ Each agent can configure settings per extension type:
   "agents": {
     "<agent-id>": {
       "skills": { "path": "..." },
-      "mcp-servers": { "path": "..." },
-      "rules": { "path": "..." },
       "commands": { "path": "..." },
-      "subagents": { "path": "..." }
+      "packs": { "path": "..." },
+      "mcp-servers": { "path": "..." }
     }
   }
 }
@@ -518,8 +497,7 @@ Override default paths for agents with non-standard configurations:
       "skills": { "path": "~/.codex/extensions/skills" }
     },
     "claude-code": {
-      "skills": { "path": "/shared/team-skills" },
-      "rules": { "path": "/shared/team-rules" }
+      "skills": { "path": "/shared/team-skills" }
     }
   }
 }
@@ -553,6 +531,17 @@ versions for update detection.
         "path": "skills/grappling-hook",
         "ref": "main",
         "folderHash": "abc123def456...",
+        "installedAt": "2025-01-15T10:30:00Z",
+        "updatedAt": "2025-01-15T10:30:00Z"
+      }
+    },
+    "commands": {
+      "@wayne/batcomputer-sync": {
+        "source": "github:wayne-industries/commands",
+        "origin": "https://github.com/wayne-industries/commands",
+        "path": "commands/batcomputer-sync",
+        "ref": "main",
+        "folderHash": "def456ghi789...",
         "installedAt": "2025-01-15T10:30:00Z",
         "updatedAt": "2025-01-15T10:30:00Z"
       }
@@ -658,27 +647,6 @@ level (`.axm/`) and user level (`~/.axm/`) before any remote registry.
 > must be unique across all extension types. For example, you cannot have both a
 > skill and a command named `@wayne/grappling-hook` in the same registry.
 
----
-
-### 4.2 Remote Registry API
-
-The AXM Registry is a centralized service for publishing and discovering
-extensions.
-
-> **Status:** Future — API specification to be defined.
-
-#### Planned Capabilities
-
-- Extension publishing and versioning
-- Scoped namespaces with ownership
-- Search and discovery
-- Download statistics and popularity metrics
-- Verified publishers
-
----
-
-### 4.3 Filesystem Registry Structure
-
 #### Extension Index (axm-index.json)
 
 A manifest describing multiple extensions in a directory structure.
@@ -702,9 +670,7 @@ A manifest describing multiple extensions in a directory structure.
     }
   ],
   "packs": [],
-  "mcp-servers": [],
-  "rules": [],
-  "subagents": []
+  "mcp-servers": []
 }
 ```
 
@@ -743,6 +709,23 @@ project/
         └── batcave-mcp/
             └── server.py
 ```
+
+---
+
+### 4.2 Remote Registry API
+
+The AXM Registry is a centralized service for publishing and discovering
+extensions.
+
+> **Status:** Future — API specification to be defined.
+
+#### Planned Capabilities
+
+- Extension publishing and versioning
+- Scoped namespaces with ownership
+- Search and discovery
+- Download statistics and popularity metrics
+- Verified publishers
 
 ---
 
@@ -817,6 +800,11 @@ axm init
 ```
 
 Creates the `.axm/` directory structure in the current project.
+
+**Flags:**
+
+- `--registry <path|url>`: Configure a registry source. If a local path is
+  provided and no registry exists at that location, prompts to create one.
 
 ##### doctor
 
@@ -1131,6 +1119,100 @@ axm skills validate [skill]
 
 ---
 
+#### Commands
+
+Commands for managing commands (user-invokable prompts).
+
+##### commands list
+
+List installed commands.
+
+```bash
+axm commands list
+```
+
+##### commands new
+
+Scaffold a new command.
+
+```bash
+axm commands new <name>
+```
+
+##### commands fork
+
+Copy an existing command to customize.
+
+```bash
+axm commands fork <command> [name]
+```
+
+##### commands install
+
+Install a command from registry or source.
+
+```bash
+axm commands install <command>
+```
+
+##### commands uninstall
+
+Remove a command.
+
+```bash
+axm commands uninstall <command>
+```
+
+##### commands update
+
+Update one or all commands.
+
+```bash
+axm commands update [command]
+```
+
+##### commands enable
+
+Enable a disabled command.
+
+```bash
+axm commands enable <command>
+```
+
+##### commands disable
+
+Disable a command without uninstalling.
+
+```bash
+axm commands disable <command>
+```
+
+##### commands publish
+
+Publish a command to the registry.
+
+```bash
+axm commands publish
+```
+
+##### commands unpublish
+
+Remove a command from the registry.
+
+```bash
+axm commands unpublish <command>
+```
+
+##### commands validate
+
+Validate command configuration.
+
+```bash
+axm commands validate [command]
+```
+
+---
+
 #### MCP Servers
 
 Commands for managing MCP (Model Context Protocol) server integrations.
@@ -1205,6 +1287,14 @@ Publish an MCP server to the registry.
 
 ```bash
 axm mcps publish
+```
+
+##### mcps unpublish
+
+Remove an MCP server from the registry.
+
+```bash
+axm mcps unpublish <server>
 ```
 
 ##### mcps validate
@@ -1293,6 +1383,14 @@ Publish a pack to the registry.
 axm packs publish
 ```
 
+##### packs unpublish
+
+Remove a pack from the registry.
+
+```bash
+axm packs unpublish <pack>
+```
+
 ##### packs add
 
 Add an extension to a pack.
@@ -1315,182 +1413,6 @@ Validate pack configuration.
 
 ```bash
 axm packs validate [pack]
-```
-
----
-
-#### Rules
-
-Commands for managing rules (instructions that shape AI behavior).
-
-> **Status:** MVP?
-
-##### rules list
-
-List installed rules.
-
-```bash
-axm rules list
-```
-
-##### rules new
-
-Scaffold a new rule.
-
-```bash
-axm rules new <name>
-```
-
-##### rules fork
-
-Copy an existing rule to customize.
-
-```bash
-axm rules fork <rule> [name]
-```
-
-##### rules install
-
-Install a rule from registry or source.
-
-```bash
-axm rules install <rule>
-```
-
-##### rules uninstall
-
-Remove a rule.
-
-```bash
-axm rules uninstall <rule>
-```
-
-##### rules update
-
-Update one or all rules.
-
-```bash
-axm rules update [rule]
-```
-
-##### rules enable
-
-Enable a disabled rule.
-
-```bash
-axm rules enable <rule>
-```
-
-##### rules disable
-
-Disable a rule without uninstalling.
-
-```bash
-axm rules disable <rule>
-```
-
-##### rules publish
-
-Publish a rule to the registry.
-
-```bash
-axm rules publish
-```
-
-##### rules validate
-
-Validate rule configuration.
-
-```bash
-axm rules validate [rule]
-```
-
----
-
-#### Subagents
-
-Commands for managing subagents (sub-agents for specialized tasks).
-
-> **Status:** MVP?
-
-##### subagents list
-
-List installed subagents.
-
-```bash
-axm subagents list
-```
-
-##### subagents new
-
-Scaffold a new subagent.
-
-```bash
-axm subagents new <name>
-```
-
-##### subagents fork
-
-Copy an existing subagent to customize.
-
-```bash
-axm subagents fork <subagent> [name]
-```
-
-##### subagents install
-
-Install a subagent from registry or source.
-
-```bash
-axm subagents install <subagent>
-```
-
-##### subagents uninstall
-
-Remove a subagent.
-
-```bash
-axm subagents uninstall <subagent>
-```
-
-##### subagents update
-
-Update one or all subagents.
-
-```bash
-axm subagents update [subagent]
-```
-
-##### subagents enable
-
-Enable a disabled subagent.
-
-```bash
-axm subagents enable <subagent>
-```
-
-##### subagents disable
-
-Disable a subagent without uninstalling.
-
-```bash
-axm subagents disable <subagent>
-```
-
-##### subagents publish
-
-Publish a subagent to the registry.
-
-```bash
-axm subagents publish
-```
-
-##### subagents validate
-
-Validate subagent configuration.
-
-```bash
-axm subagents validate [subagent]
 ```
 
 ---
@@ -1518,6 +1440,8 @@ axm subagents validate [subagent]
   - Stale lockfile (extensions modified since last install)
   - Broken symlinks (agent skill directories)
   - Outdated extensions (newer versions available)
+- Additional extension types — should rules (persistent behavior instructions) and
+  subagents (delegated task specialists) be supported as extension types?
 
 ---
 

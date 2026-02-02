@@ -1516,6 +1516,10 @@ axm packs validate [pack]
    integration?
 10. Glob/scope patterns — should commands support patterns like `@wayne/*` or
     `**/*-skill` for bulk operations?
+11. Explicit disable syntax — should sources/agents support `false` value to
+    explicitly disable (e.g., `"bitbucket": false`)? Currently, removing the key
+    entirely is the only way to disable. Explicit disable could prevent
+    auto-detection from re-enabling removed items.
 
 ### Phase 3: Commands Capability
 

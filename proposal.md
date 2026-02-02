@@ -339,7 +339,11 @@ level (`~/.axm/settings.json`). Project settings override user settings.
 ```json
 {
   "sources": {
-    "enabled": ["github", "gitlab", "bitbucket", "azuredevops", "git"]
+    "github": { "url": "https://github.com" },
+    "gitlab": { "url": "https://gitlab.com" },
+    "bitbucket": { "url": "https://bitbucket.org" },
+    "azuredevops": { "url": "https://dev.azure.com" },
+    "registry": { "path": "~/extensions" }
   },
   "agents": ["claude-code"],
   "impliedScope": "@myorg",
@@ -356,17 +360,82 @@ level (`~/.axm/settings.json`). Project settings override user settings.
 
 #### Fields
 
-| Field             | Type     | Description                                                     |
-| ----------------- | -------- | --------------------------------------------------------------- |
-| `sources`         | object   | Source configuration                                            |
-| `sources.enabled` | string[] | List of enabled source types (all enabled by default)           |
-| `agents`          | string[] | Host agents to consider for extension resolution (default: all) |
-| `impliedScope`    | string   | Default scope for bare name resolution                          |
-| `extensions`      | object   | Desired extensions by type (similar to npm dependencies)        |
+| Field          | Type     | Description                                                     |
+| -------------- | -------- | --------------------------------------------------------------- |
+| `sources`      | object   | Source configuration (see Source Configuration below)           |
+| `agents`       | string[] | Host agents to consider for extension resolution (default: all) |
+| `impliedScope` | string   | Default scope for bare name resolution                          |
+| `extensions`   | object   | Desired extensions by type (similar to npm dependencies)        |
 
 The `extensions` field maps extension type to a dictionary of name → version
 specifier. Version specifiers follow semver ranges (e.g., `^1.0.0`, `~2.1.0`,
 `1.x`, `*`).
+
+#### Source Configuration
+
+The `sources` object maps source type to its configuration. All sources have
+sensible defaults; omit `sources` entirely to use defaults.
+
+```json
+{
+  "sources": {
+    "<source-type>": { <source-type-configuration> }
+  }
+}
+```
+
+**Source type configurations:**
+
+| Source Type   | Fields          | Default                              |
+| ------------- | --------------- | ------------------------------------ |
+| `github`      | `url`: string   | `{ "url": "https://github.com" }`    |
+| `gitlab`      | `url`: string   | `{ "url": "https://gitlab.com" }`    |
+| `bitbucket`   | `url`: string   | `{ "url": "https://bitbucket.org" }` |
+| `azuredevops` | `url`: string   | `{ "url": "https://dev.azure.com" }` |
+| `git`         | (none)          | `{}`                                 |
+| `registry`    | `url` or `path` | (none)                               |
+
+**Disabling a source:**
+
+Set a source to `false` to disable it:
+
+```json
+{
+  "sources": {
+    "bitbucket": false,
+    "azuredevops": false
+  }
+}
+```
+
+**Enterprise/self-hosted instances:**
+
+Override the URL for self-hosted Git platforms:
+
+```json
+{
+  "sources": {
+    "github": { "url": "https://github.acme.corp" },
+    "gitlab": { "url": "https://gitlab.internal.io" }
+  }
+}
+```
+
+**Multiple registries:**
+
+Use an array for multiple registry sources (checked in order):
+
+```json
+{
+  "sources": {
+    "registry": [
+      { "path": "./.axm/registry" },
+      { "url": "https://registry.acme.corp" },
+      { "url": "https://registry.agentxm.ai" }
+    ]
+  }
+}
+```
 
 ---
 

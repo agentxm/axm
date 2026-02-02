@@ -320,7 +320,14 @@ Sources define where extensions can be fetched from.
 | `azuredevops` | Azure DevOps repositories | `https://dev.azure.com/<org>/_git/<repo>[?path=<path>]`   | `azuredevops:<org>/<repo>[/<path>]` |
 | `git`         | Generic git repositories  | `https://<host>/<path>.git`                               | `git:<url>`                         |
 | `url`         | Direct URL to extension   | `https://<host>/<path>`                                   | (use URL directly)                  |
-| `registry`    | AXM extension registry    | `https://registry.agentxm.ai/extensions/<scope>/<name>`   | `@<scope>/<name>`                   |
+| `registry`    | AXM extension registry    | Filesystem path or remote URL                             | `@<scope>/<name>`                   |
+
+**Registry sources:**
+
+- **Filesystem registry**: `origin` is a local path to a directory with
+  `axm-index.json` (see §4.2)
+- **Remote registry**: `origin` is a URL (e.g.,
+  `https://registry.agentxm.ai/extensions/<scope>/<name>`)
 
 ---
 
@@ -368,7 +375,7 @@ specifier. Version specifiers follow semver ranges (e.g., `^1.0.0`, `~2.1.0`,
 The lockfile (`axm.lock`) records the resolved state of installed extensions.
 Unlike package managers where lockfiles enable reproducible installs, AXM
 extensions are checked into source control. The lockfile tracks provenance and
-versions for update detection and integrity verification.
+versions for update detection.
 
 #### Schema
 
@@ -378,28 +385,34 @@ versions for update detection and integrity verification.
   "extensions": {
     "skills": {
       "@wayne/grappling-hook": {
-        "version": "1.2.3",
-        "sourceType": "registry",
-        "sourceOrigin": "https://registry.agentxm.ai/extensions/@wayne/grappling-hook",
-        "checksum": "sha256-abc123..."
+        "source": "github:wayne-industries/skills",
+        "origin": "https://github.com/wayne-industries/skills",
+        "path": "skills/grappling-hook",
+        "ref": "main",
+        "folderHash": "abc123def456...",
+        "installedAt": "2025-01-15T10:30:00Z",
+        "updatedAt": "2025-01-15T10:30:00Z"
       }
     },
     "mcp-servers": {
       "@wayne/batcomputer": {
-        "version": "2.0.0",
-        "sourceType": "github",
-        "sourceOrigin": "https://github.com/wayne-industries/batcomputer",
+        "source": "github:wayne-industries/batcomputer",
+        "origin": "https://github.com/wayne-industries/batcomputer",
         "ref": "v2.0.0",
-        "checksum": "sha256-def456..."
+        "folderHash": "789ghi012jkl...",
+        "installedAt": "2025-01-15T10:30:00Z",
+        "updatedAt": "2025-01-15T10:30:00Z"
       }
     },
     "packs": {
       "@wayne/utility-belt": {
+        "source": "registry:@wayne/utility-belt",
+        "origin": "https://registry.agentxm.ai/extensions/@wayne/utility-belt",
         "version": "1.0.0",
-        "sourceType": "registry",
-        "sourceOrigin": "https://registry.agentxm.ai/extensions/@wayne/utility-belt",
-        "checksum": "sha256-ghi789...",
-        "dependencies": ["@wayne/grappling-hook", "@wayne/batcomputer"]
+        "folderHash": "mno345pqr678...",
+        "dependencies": ["@wayne/grappling-hook", "@wayne/batcomputer"],
+        "installedAt": "2025-01-15T10:30:00Z",
+        "updatedAt": "2025-01-15T10:30:00Z"
       }
     }
   }
@@ -415,14 +428,46 @@ versions for update detection and integrity verification.
 
 **Lock entry fields:**
 
-| Field          | Type     | Required | Description                                   |
-| -------------- | -------- | -------- | --------------------------------------------- |
-| `version`      | string   | Yes      | Resolved semver version                       |
-| `sourceType`   | enum     | Yes      | Source type (see Sources table)               |
-| `sourceOrigin` | string   | Yes      | Fully resolved source URL or path             |
-| `ref`          | string   | No       | Git ref (branch, tag, commit) for git sources |
-| `checksum`     | string   | Yes      | Content hash for integrity (`sha256-<hash>`)  |
-| `dependencies` | string[] | No       | Fully qualified names of required extensions  |
+| Field          | Type     | Required | Description                                                  |
+| -------------- | -------- | -------- | ------------------------------------------------------------ |
+| `source`       | string   | Yes      | Normalized source identifier (e.g., `github:owner/repo`)     |
+| `origin`       | string   | Yes      | Fully resolved source URL or path                            |
+| `path`         | string   | No       | Subpath within source repository (for multi-extension repos) |
+| `ref`          | string   | No       | Git ref (branch, tag, commit) for git sources                |
+| `version`      | string   | No       | Semver version (registry sources only)                       |
+| `folderHash`   | string   | Yes      | Git tree SHA or content hash for the extension folder        |
+| `dependencies` | string[] | No       | Fully qualified names of required extensions                 |
+| `installedAt`  | string   | Yes      | ISO 8601 timestamp of initial installation                   |
+| `updatedAt`    | string   | Yes      | ISO 8601 timestamp of last update                            |
+
+#### Version Tracking
+
+For git-based sources, versioning uses **folder hashes** rather than semver:
+
+- **folderHash**: Git tree SHA that uniquely identifies the extension folder
+  contents
+- Obtained via GitHub/GitLab Trees API without cloning
+- Changes when any file in the extension folder is modified
+- More stable than commit SHAs (survives rebases)
+- Enables efficient update detection: compare local hash vs remote hash
+
+For registry sources, both `version` (semver) and `folderHash` are tracked.
+
+#### Update Detection
+
+To check for updates without cloning:
+
+1. Read `source` and `path` from lockfile entry
+2. Fetch remote folder hash via platform API:
+   - **GitHub**: `GET /repos/{owner}/{repo}/git/trees/{ref}?recursive=1`, find
+     entry where `path` matches and `type === 'tree'`, return `sha`
+   - **GitLab**: Similar approach via GitLab Trees API
+   - **Filesystem registry**: Compute hash from directory contents
+3. Compare remote hash to local `folderHash`
+4. If different, update is available
+
+The `axm outdated` command performs this check for all installed extensions. The
+`axm update` command re-runs installation for extensions with available updates.
 
 #### Behavior
 
@@ -431,20 +476,29 @@ versions for update detection and integrity verification.
 - **Should be committed** — Check into version control alongside extensions
 - **Provenance tracking** — Records where each extension was sourced from
 - **Update detection** — Enables `axm outdated` and `axm update` to compare
-  installed versions against available versions
-- **Integrity verification** — Checksums validate extension contents haven't
-  been modified
+  installed `folderHash` against remote
 
 ---
 
 ## 4. System Components
 
-### 4.1 Registry API
+### 4.1 Filesystem Registry
+
+A filesystem registry is a directory structure containing extensions, indexed by
+an `axm-index.json` manifest. Used for local development, monorepos, and
+self-hosted extension collections. This is the MVP registry implementation.
+
+When resolving `@<scope>/<name>`, the filesystem registry is checked at project
+level (`.axm/`) and user level (`~/.axm/`) before any remote registry.
+
+---
+
+### 4.2 Remote Registry API
 
 The AXM Registry is a centralized service for publishing and discovering
 extensions.
 
-> **Status:** TBD — API specification to be defined.
+> **Status:** Future — API specification to be defined.
 
 #### Planned Capabilities
 
@@ -456,11 +510,7 @@ extensions.
 
 ---
 
-### 4.2 Filesystem Registry
-
-A filesystem registry is a directory structure containing extensions, indexed by
-an `axm-index.json` manifest. Used for local development, monorepos, and
-self-hosted extension collections.
+### 4.3 Filesystem Registry Structure
 
 #### Extension Index (axm-index.json)
 
@@ -812,18 +862,38 @@ axm skills install <skill>
    - None → error: "skill not found"
    - One → proceed to install
    - Multiple (interactive) → prompt user to select
-4. **Install skill** — Copy to canonical location (`.axm/skills/<name>/`), sync
-   to configured agents (symlink preferred, falls back to copy)
-5. **Update lockfile** — Record resolved version, provenance, checksum in
+4. **Check conflicts** — If skill name already exists, warn and skip (see Open
+   Questions for future behavior)
+5. **Fetch source** — Clone to temp directory using shallow clone (`--depth 1`),
+   copy skill files to canonical location, then clean up temp directory
+6. **Sync to agents** — Create symlinks to agent skill directories; fall back to
+   copy when symlinks fail (Windows, cross-filesystem mounts)
+7. **Update lockfile** — Record source, origin, folderHash, timestamps in
    `axm.lock`
-6. **Update settings** — Add extension with version specifier to `settings.json`
+8. **Update settings** — Add extension entry to `settings.json`
+
+**Caching strategy**:
+
+- Git sources are cloned to a temp directory with `--depth 1` (shallow clone)
+- After copying skill files to `.axm/skills/<name>/`, the temp clone is deleted
+- No persistent cache of git clones—each install fetches fresh
+- Well-known URL sources follow the same pattern: fetch to temp, copy, cleanup
+
+**Symlink behavior**:
+
+- Symlinks are preferred for agent sync (single source of truth)
+- Fall back to copy when:
+  - Operating system doesn't support symlinks (Windows without admin)
+  - Agent directory is on a different filesystem
+  - Symlink creation fails for any reason
+- Lockfile does not track sync method—it's determined at sync time
 
 **Directory structure after installation**:
 
 ```
 .axm/
 ├── settings.json           # Lists installed skills with their source
-├── axm.lock                # Resolved state: commit SHA, content hashes, timestamps
+├── axm.lock                # Resolved state: folderHash, timestamps
 └── skills/
     └── my-skill/           # Canonical skill location
         ├── SKILL.md        # Main instructions (required)
@@ -1266,9 +1336,21 @@ axm agents validate [agent]
 - Rename command — should there be an explicit rename operation?
 - What about moving (or copying) an extension to/from user/project level?
 - Naming conflict during install — what happens if skill name already exists?
-  - Error by default, require `--force` to overwrite
-  - Version comparison if same source, offer upgrade path
-  - Prompt for alternative name
+  - Current: warn and skip
+  - Future options: `--force` to overwrite, version comparison if same source,
+    prompt for alternative name
+- Skill naming — should skill name come from directory name or SKILL.md
+  frontmatter `name` field?
+  - Current: directory name
+  - Alternative: frontmatter `name` takes precedence if present
+- Doctor/validate conditions — what checks should `axm doctor` perform? The
+  `validate` subcommands will be a subset of these. Candidates:
+  - Invalid manifests (missing required fields, malformed JSON)
+  - Missing dependencies (pack references non-existent extension)
+  - Orphaned extensions (in filesystem but not in settings/lockfile)
+  - Stale lockfile (extensions modified since last install)
+  - Broken symlinks (agent skill directories)
+  - Outdated extensions (newer versions available)
 
 ---
 
@@ -1292,13 +1374,5 @@ axm trending                     # show trending extensions
 - Private registries
 - Team/organization features
 - Usage analytics
-
-### Implementation Improvements
-
-- **Shallow clones**: Use `--depth 1` for git clones to reduce bandwidth and
-  speed up installation (current implementation does full clones)
-- **Temp/discard strategy**: Clone to temp directory, copy skills to canonical
-  location, then discard the clone—rather than caching clones in
-  `.axm/cache/git/`. This simplifies cache management and avoids stale repos.
 
 ---

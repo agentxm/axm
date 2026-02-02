@@ -13,7 +13,7 @@ create, and share extensions that enhance AI coding assistant capabilities.
 ### 1.1 Goals
 
 - Unified management of multiple extension types (skills, commands, packs, MCP
-  servers, rules, agents)
+  servers, rules, subagents)
 - Support for multiple sources (registry, GitHub, GitLab, local filesystem)
 - Familiar CLI experience for users of npm/pnpm/cargo
 - Extension provenance and version tracking for updates
@@ -53,7 +53,7 @@ create, and share extensions that enhance AI coding assistant capabilities.
 | **Pack**       | A bundle of extensions distributed together for a specific purpose or workflow                    |
 | **MCP Server** | A Model Context Protocol server that provides tools, resources, or context to agents              |
 | **Rule**       | Persistent instructions that shape agent behavior across all interactions                         |
-| **Agent**      | A sub-agent definition for delegating specialized tasks (distinct from the host agent)            |
+| **Subagent**   | A sub-agent definition for delegating specialized tasks (distinct from the host agent)            |
 
 ---
 
@@ -144,15 +144,15 @@ Instructions that shape AI behavior. Fields TBD.
 }
 ```
 
-#### axm-agent.json
+#### axm-subagent.json
 
 Sub-agent for specialized tasks. Fields TBD.
 
 ```json
 {
-  "name": "@wayne/detective-agent",
+  "name": "@wayne/detective-subagent",
   "version": "1.0.0",
-  "description": "Agent specialized in forensic analysis"
+  "description": "Subagent specialized in forensic analysis"
 }
 ```
 
@@ -235,7 +235,7 @@ For fully qualified names (`@<scope>/<name>`), check levels in order:
 3. **Registry** — Remote AXM registry
 
 At each level, search all type directories in parallel: `skills`, `commands`,
-`packs`, `mcp-servers`, `rules`, `agents`. If `types` is provided, only search
+`packs`, `mcp-servers`, `rules`, `subagents`. If `types` is provided, only search
 matching type directories.
 
 Stop at first level with matches. Return all matches found at that level.
@@ -282,7 +282,7 @@ Returns `ExtensionRef[]`. Empty array if nothing found.
 
 | Field           | Type    | Description                                                                      |
 | --------------- | ------- | -------------------------------------------------------------------------------- |
-| `type`          | enum    | `skill`, `command`, `pack`, `mcp-server`, `rule`, `agent`                        |
+| `type`          | enum    | `skill`, `command`, `pack`, `mcp-server`, `rule`, `subagent`                     |
 | `sourceType`    | enum    | `github`, `gitlab`, `bitbucket`, `azuredevops`, `git`, `url`, `path`, `registry` |
 | `sourceOrigin`  | string  | Fully resolved value (URL, path, or registry identifier)                         |
 | `ref`           | string? | Git ref (branch, tag, commit) if from git source                                 |
@@ -482,7 +482,7 @@ Each agent can configure settings per extension type:
       "mcp-servers": { "path": "..." },
       "rules": { "path": "..." },
       "commands": { "path": "..." },
-      "agents": { "path": "..." }
+      "subagents": { "path": "..." }
     }
   }
 }
@@ -700,7 +700,7 @@ A manifest describing multiple extensions in a directory structure.
   "packs": [],
   "mcp-servers": [],
   "rules": [],
-  "agents": []
+  "subagents": []
 }
 ```
 
@@ -1403,90 +1403,90 @@ axm rules validate [rule]
 
 ---
 
-#### Agents
+#### Subagents
 
-Commands for managing agents (sub-agents for specialized tasks).
+Commands for managing subagents (sub-agents for specialized tasks).
 
 > **Status:** MVP?
 
-##### agents list
+##### subagents list
 
-List installed agents.
+List installed subagents.
 
 ```bash
-axm agents list
+axm subagents list
 ```
 
-##### agents new
+##### subagents new
 
-Scaffold a new agent.
+Scaffold a new subagent.
 
 ```bash
-axm agents new <name>
+axm subagents new <name>
 ```
 
-##### agents fork
+##### subagents fork
 
-Copy an existing agent to customize.
+Copy an existing subagent to customize.
 
 ```bash
-axm agents fork <agent> [name]
+axm subagents fork <subagent> [name]
 ```
 
-##### agents install
+##### subagents install
 
-Install an agent from registry or source.
+Install a subagent from registry or source.
 
 ```bash
-axm agents install <agent>
+axm subagents install <subagent>
 ```
 
-##### agents uninstall
+##### subagents uninstall
 
-Remove an agent.
+Remove a subagent.
 
 ```bash
-axm agents uninstall <agent>
+axm subagents uninstall <subagent>
 ```
 
-##### agents update
+##### subagents update
 
-Update one or all agents.
+Update one or all subagents.
 
 ```bash
-axm agents update [agent]
+axm subagents update [subagent]
 ```
 
-##### agents enable
+##### subagents enable
 
-Enable a disabled agent.
+Enable a disabled subagent.
 
 ```bash
-axm agents enable <agent>
+axm subagents enable <subagent>
 ```
 
-##### agents disable
+##### subagents disable
 
-Disable an agent without uninstalling.
+Disable a subagent without uninstalling.
 
 ```bash
-axm agents disable <agent>
+axm subagents disable <subagent>
 ```
 
-##### agents publish
+##### subagents publish
 
-Publish an agent to the registry.
+Publish a subagent to the registry.
 
 ```bash
-axm agents publish
+axm subagents publish
 ```
 
-##### agents validate
+##### subagents validate
 
-Validate agent configuration.
+Validate subagent configuration.
 
 ```bash
-axm agents validate [agent]
+axm subagents validate [subagent]
 ```
 
 ---

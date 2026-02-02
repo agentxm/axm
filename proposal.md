@@ -1442,58 +1442,58 @@ axm packs validate [pack]
 
 ### Phase 1: Vertical Slice (`axm skills install`)
 
-- Skill naming — should skill name come from directory name or SKILL.md
-  frontmatter `name` field?
-  - Current: directory name
-  - Alternative: frontmatter `name` takes precedence if present
-- Naming conflict during install — what happens if skill name already exists?
-  - Current: warn and skip
-  - Future options: `--force` to overwrite, version comparison if same source,
-    prompt for alternative name
-- External install behavior: `source-external` | `fork` | `ask`?
-- Init behavior when non-AXM extensions exist: `fork` | `ask`?
-- Checksum verification — should checksums be verified during install?
-- Extension provenance — how should extension origin be attested/verified?
-- Tampered extensions — what happens when installed extensions don't match their
-  expected checksums?
+1. Skill naming — should skill name come from directory name or SKILL.md
+   frontmatter `name` field?
+   - Current: directory name
+   - Alternative: frontmatter `name` takes precedence if present
+2. Naming conflict during install — what happens if skill name already exists?
+   - Current: warn and skip
+   - Future options: `--force` to overwrite, version comparison if same source,
+     prompt for alternative name
+3. External install behavior: `source-external` | `fork` | `ask`?
+4. Init behavior when non-AXM extensions exist: `fork` | `ask`?
+5. Checksum verification — should checksums be verified during install?
+6. Extension provenance — how should extension origin be attested/verified?
+7. Tampered extensions — what happens when installed extensions don't match their
+   expected checksums?
 
 ### Phase 2: Complete Skills & Filesystem Registry
 
-- `import` vs `fork` — which term better communicates the action?
-- Rename command — should there be an explicit rename operation?
-- Rollback mechanism — how should failed updates be handled? Options:
-  - Automatic rollback to previous version on failure
-  - Manual recovery via `axm restore` command
-  - No rollback (user re-installs manually)
-- User-level settings — should `~/.axm/settings.json` be supported for global
-  defaults?
-- Environment variable overrides — should settings be configurable via
-  environment variables (e.g., `AXM_SCOPE`, `AXM_REGISTRY`)?
-- Moving extensions between levels — what about copying an extension to/from
-  user/project level?
-- Doctor/validate conditions — what checks should `axm doctor` perform? The
-  `validate` subcommands will be a subset of these. Candidates:
-  - Invalid manifests (missing required fields, malformed JSON)
-  - Missing dependencies (pack references non-existent extension)
-  - Orphaned extensions (in filesystem but not in settings/lockfile)
-  - Stale lockfile (extensions modified since last install)
-  - Broken symlinks (agent skill directories)
-  - Outdated extensions (newer versions available)
-- `axm version` command — should there be a dedicated version command, or is
-  `--version` flag sufficient?
-- `--json` flag — is machine-readable JSON output needed for scripting/tooling
-  integration?
-- Glob/scope patterns — should commands support patterns like `@wayne/*` or
-  `**/*-skill` for bulk operations?
+1. `import` vs `fork` — which term better communicates the action?
+2. Rename command — should there be an explicit rename operation?
+3. Rollback mechanism — how should failed updates be handled? Options:
+   - Automatic rollback to previous version on failure
+   - Manual recovery via `axm restore` command
+   - No rollback (user re-installs manually)
+4. User-level settings — should `~/.axm/settings.json` be supported for global
+   defaults?
+5. Environment variable overrides — should settings be configurable via
+   environment variables (e.g., `AXM_SCOPE`, `AXM_REGISTRY`)?
+6. Moving extensions between levels — what about copying an extension to/from
+   user/project level?
+7. Doctor/validate conditions — what checks should `axm doctor` perform? The
+   `validate` subcommands will be a subset of these. Candidates:
+   - Invalid manifests (missing required fields, malformed JSON)
+   - Missing dependencies (pack references non-existent extension)
+   - Orphaned extensions (in filesystem but not in settings/lockfile)
+   - Stale lockfile (extensions modified since last install)
+   - Broken symlinks (agent skill directories)
+   - Outdated extensions (newer versions available)
+8. `axm version` command — should there be a dedicated version command, or is
+   `--version` flag sufficient?
+9. `--json` flag — is machine-readable JSON output needed for scripting/tooling
+   integration?
+10. Glob/scope patterns — should commands support patterns like `@wayne/*` or
+    `**/*-skill` for bulk operations?
 
 ### Phase 3: Commands Capability
 
-- (Patterns established in phases 1-2 apply)
+(Patterns established in phases 1-2 apply)
 
 ### Phase 4: Iterate
 
-- Additional extension types — should rules (persistent behavior instructions)
-  and subagents (delegated task specialists) be supported as extension types?
+1. Additional extension types — should rules (persistent behavior instructions)
+   and subagents (delegated task specialists) be supported as extension types?
 
 ---
 

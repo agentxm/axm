@@ -83,8 +83,9 @@ export interface ParsedSource {
 // -----------------------------------------------------------------------------
 
 /**
- * Per-skill settings stored in settings.json.
+ * Per-skill settings stored in settings.json (legacy format).
  *
+ * @deprecated Use version specifier string in `SettingsV2.extensions.skills` instead.
  * @experimental This API is unstable and may change without notice.
  */
 export interface SkillSettings {
@@ -95,8 +96,9 @@ export interface SkillSettings {
 }
 
 /**
- * Contents of .axm/settings.json.
+ * Contents of .axm/settings.json (legacy format v1).
  *
+ * @deprecated Use SettingsV2 with extensions.skills structure instead.
  * @experimental This API is unstable and may change without notice.
  */
 export interface Settings {
@@ -108,6 +110,35 @@ export interface Settings {
   readonly agents: readonly string[];
   /** Per-skill settings keyed by skill name */
   readonly skills: Readonly<Record<string, SkillSettings>>;
+}
+
+/**
+ * Extensions section containing installed extension references.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface SettingsExtensions {
+  /** Skills keyed by name with version specifier (e.g., "^1.0.0" or "*" for unversioned) */
+  readonly skills: Readonly<Record<string, string>>;
+}
+
+/**
+ * Contents of .axm/settings.json (v2 format with extensions structure).
+ *
+ * This is the new settings format that:
+ * - Nests skills under `extensions.skills`
+ * - Uses version specifiers (e.g., "^1.0.0") instead of per-skill objects
+ * - Moves agents to a global setting instead of per-skill
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface SettingsV2 {
+  /** Default scope for skill resolution (defaults to "@community" if not specified) */
+  readonly scope?: string;
+  /** Default agent IDs */
+  readonly agents: readonly string[];
+  /** Installed extensions keyed by type */
+  readonly extensions: SettingsExtensions;
 }
 
 // -----------------------------------------------------------------------------

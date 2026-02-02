@@ -35,7 +35,7 @@
 
 ## 5. Schema Updates
 
-- [ ] 5.1 Update `types.ts` in skills module - new `Settings` interface with `extensions.skills`
+- [x] 5.1 Update `types.ts` in skills module - new `Settings` interface with `extensions.skills`
 - [ ] 5.2 Update `types.ts` in skills module - new `Lockfile` interface with `lockfileVersion`, `extensions`, `folderHash`
 - [ ] 5.3 Update `settings.ts` - read/write new settings format
 - [ ] 5.4 Update `lockfile.ts` - read/write JSON format with new schema

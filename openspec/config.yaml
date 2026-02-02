@@ -9,12 +9,12 @@ schema: spec-driven
 #     We use conventional commits
 #     Domain: e-commerce platform
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+rules:
+  proposal:
+    - focus on the functional behavior and interaction patterns of the API or feature, not the implementation details
+    - backward compatability is a non-goal
+  design:
+    - backward compatability is a non-goal
+  tasks:
+    - "TDD: add or update tests prior to implementation step: red, green, refactor until a good design"
+    - "Add a typecheck/test verification step immediatly proceeding any implementation task, fix any issues found"

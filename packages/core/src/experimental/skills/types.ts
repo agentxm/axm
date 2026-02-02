@@ -116,14 +116,12 @@ export interface Settings {
  * @experimental This API is unstable and may change without notice.
  */
 export interface LockEntry {
-  /** Canonical source notation */
+  /** Canonical source notation (e.g., "github:owner/repo") */
   readonly source: string;
-  /** Path to skill within the source */
-  readonly skillPath: string;
-  /** Git commit SHA (for git sources) */
-  readonly commitSha?: string;
-  /** Content hash (e.g., "sha256:...") */
-  readonly contentHash: string;
+  /** Fully resolved URL or path */
+  readonly origin: string;
+  /** Git tree SHA for git sources, or SHA-256 content hash for local sources */
+  readonly folderHash: string;
   /** ISO 8601 timestamp of initial installation */
   readonly installedAt: string;
   /** ISO 8601 timestamp of last update */
@@ -131,15 +129,25 @@ export interface LockEntry {
 }
 
 /**
- * Contents of .axm/axm.lock.
+ * Extensions section in lockfile containing locked extension entries.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface LockfileExtensions {
+  /** Skills keyed by name */
+  readonly skills: Readonly<Record<string, LockEntry>>;
+}
+
+/**
+ * Contents of .axm/axm.lock (JSON format).
  *
  * @experimental This API is unstable and may change without notice.
  */
 export interface Lockfile {
-  /** Schema version */
-  readonly version: number;
-  /** Per-skill lock entries keyed by skill name */
-  readonly skills: Readonly<Record<string, LockEntry>>;
+  /** Lockfile schema version */
+  readonly lockfileVersion: number;
+  /** Locked extensions keyed by type */
+  readonly extensions: LockfileExtensions;
 }
 
 // -----------------------------------------------------------------------------

@@ -104,6 +104,23 @@ const buildCloneUrl = (parsed: ParsedSource): string => {
 };
 
 /**
+ * Derives the origin URL/path from a parsed source.
+ */
+const getOriginFromParsed = (parsed: ParsedSource): string => {
+  switch (parsed.type) {
+    case "github":
+      return `https://github.com/${parsed.owner}/${parsed.repo}`;
+    case "gitlab":
+      return `https://gitlab.com/${parsed.owner}/${parsed.repo}`;
+    case "local":
+      return parsed.original;
+    case "direct-url":
+    case "well-known":
+      return parsed.url ?? parsed.original;
+  }
+};
+
+/**
  * Wraps @clack/prompts multiselect in an Effect for agent selection.
  */
 const promptAgentSelection = (
@@ -401,12 +418,13 @@ const installSkillsFromFileSystem = (
 
     // Update lockfile and settings sequentially (after all installs complete)
     const now = new Date().toISOString();
-    for (const { skillName, skillPath, contentHash } of installResults) {
+    for (const { skillName, contentHash } of installResults) {
+      // Derive origin from parsed source
+      const origin = getOriginFromParsed(parsed);
       const lockEntry: LockEntry = {
         source: parsed.canonical,
-        skillPath,
-        ...(commitSha !== undefined ? { commitSha } : {}),
-        contentHash,
+        origin,
+        folderHash: contentHash,
         installedAt: now,
         updatedAt: now,
       };
@@ -543,11 +561,13 @@ const installSkillsFromWellKnown = (
 
     // Update lockfile and settings sequentially (after all installs complete)
     const now = new Date().toISOString();
-    for (const { skillName, skillPath, contentHash } of validResults) {
+    for (const { skillName, contentHash } of validResults) {
+      // Derive origin from parsed source
+      const origin = getOriginFromParsed(parsed);
       const lockEntry: LockEntry = {
         source: parsed.canonical,
-        skillPath,
-        contentHash,
+        origin,
+        folderHash: contentHash,
         installedAt: now,
         updatedAt: now,
       };

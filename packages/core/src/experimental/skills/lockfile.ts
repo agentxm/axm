@@ -1,5 +1,5 @@
 /**
- * Lockfile module for managing `.axm/axm.lock` (YAML format).
+ * Lockfile module for managing `.axm/axm.lock` (JSON format).
  *
  * Provides functions to read, write, and update lockfile entries
  * for tracking installed skill versions.
@@ -11,7 +11,6 @@
 import * as path from "node:path";
 import { FileSystem } from "@effect/platform";
 import { Data, Effect } from "effect";
-import * as YAML from "yaml";
 
 import type { LockEntry, Lockfile } from "./types.js";
 
@@ -27,7 +26,7 @@ const LOCKFILE_VERSION = 1;
 // -----------------------------------------------------------------------------
 
 /**
- * Error parsing the lockfile YAML content.
+ * Error parsing the lockfile JSON content.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -63,8 +62,10 @@ export type LockfileError = LockfileParseError | LockfileWriteError;
  * Creates an empty lockfile with default values.
  */
 const createEmptyLockfile = (): Lockfile => ({
-  version: LOCKFILE_VERSION,
-  skills: {},
+  lockfileVersion: LOCKFILE_VERSION,
+  extensions: {
+    skills: {},
+  },
 });
 
 /**
@@ -76,13 +77,16 @@ const validateLockfile = (data: unknown): Lockfile => {
   }
 
   const obj = data as Record<string, unknown>;
-  const version = obj["version"];
-  const skills = obj["skills"];
+  const lockfileVersion = obj["lockfileVersion"];
+  const extensions = obj["extensions"] as Record<string, unknown> | undefined;
+  const skills = extensions?.["skills"];
 
   return {
-    version: typeof version === "number" ? version : LOCKFILE_VERSION,
-    skills:
-      typeof skills === "object" && skills !== null ? (skills as Record<string, LockEntry>) : {},
+    lockfileVersion: typeof lockfileVersion === "number" ? lockfileVersion : LOCKFILE_VERSION,
+    extensions: {
+      skills:
+        typeof skills === "object" && skills !== null ? (skills as Record<string, LockEntry>) : {},
+    },
   };
 };
 
@@ -134,12 +138,12 @@ export const readLockfile = (
       ),
     );
 
-    // Parse YAML
+    // Parse JSON
     const parsed = yield* Effect.try({
-      try: () => YAML.parse(content),
+      try: () => JSON.parse(content),
       catch: (error) =>
         new LockfileParseError({
-          message: `Failed to parse lockfile YAML at ${lockfilePath}`,
+          message: `Failed to parse lockfile JSON at ${lockfilePath}`,
           cause: error,
           retryable: false,
         }),
@@ -149,7 +153,7 @@ export const readLockfile = (
   });
 
 /**
- * Writes the lockfile to `.axm/axm.lock` in YAML format.
+ * Writes the lockfile to `.axm/axm.lock` in JSON format.
  *
  * Creates the `.axm` directory if it does not exist.
  *
@@ -179,23 +183,19 @@ export const writeLockfile = (
       ),
     );
 
-    // Convert to YAML
-    const yamlContent = yield* Effect.try({
-      try: () =>
-        YAML.stringify(lockfile, {
-          indent: 2,
-          lineWidth: 0, // Disable line wrapping
-        }),
+    // Convert to JSON
+    const jsonContent = yield* Effect.try({
+      try: () => JSON.stringify(lockfile, null, 2),
       catch: (error) =>
         new LockfileWriteError({
-          message: "Failed to serialize lockfile to YAML",
+          message: "Failed to serialize lockfile to JSON",
           cause: error,
           retryable: false,
         }),
     });
 
     // Write file
-    yield* fs.writeFileString(lockfilePath, yamlContent).pipe(
+    yield* fs.writeFileString(lockfilePath, jsonContent).pipe(
       Effect.mapError(
         (error) =>
           new LockfileWriteError({
@@ -230,11 +230,14 @@ export const updateLockEntry = (
 
     const updatedLockfile: Lockfile = {
       ...existing,
-      skills: {
-        ...existing.skills,
-        [skillName]: {
-          ...entry,
-          updatedAt: new Date().toISOString(),
+      extensions: {
+        ...existing.extensions,
+        skills: {
+          ...existing.extensions.skills,
+          [skillName]: {
+            ...entry,
+            updatedAt: new Date().toISOString(),
+          },
         },
       },
     };
@@ -264,11 +267,14 @@ export const removeLockEntry = (
     const existing = yield* readLockfile(axmDir);
 
     // Create new skills object without the specified skill
-    const { [skillName]: _, ...remainingSkills } = existing.skills;
+    const { [skillName]: _, ...remainingSkills } = existing.extensions.skills;
 
     const updatedLockfile: Lockfile = {
       ...existing,
-      skills: remainingSkills,
+      extensions: {
+        ...existing.extensions,
+        skills: remainingSkills,
+      },
     };
 
     yield* writeLockfile(axmDir, updatedLockfile);

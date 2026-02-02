@@ -522,15 +522,15 @@ describe("install.handler", () => {
           const lockPath = path.join(tempDir, ".axm", "axm.lock");
           expect(fs.existsSync(lockPath)).toBe(true);
 
-          // Lockfile is in YAML format - verify content via text matching
-          const lockContent = fs.readFileSync(lockPath, "utf-8");
-          expect(lockContent).toContain("version: 1");
-          expect(lockContent).toContain("skills:");
-          expect(lockContent).toContain("commit:");
-          expect(lockContent).toContain(`source: ${source}`);
-          expect(lockContent).toMatch(/contentHash: sha256:/);
-          expect(lockContent).toContain("installedAt:");
-          expect(lockContent).toContain("updatedAt:");
+          // Lockfile is in JSON format - parse and verify structure
+          const lockContent = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+          expect(lockContent.lockfileVersion).toBe(1);
+          expect(lockContent.extensions.skills.commit).toBeDefined();
+          expect(lockContent.extensions.skills.commit.source).toBe(source);
+          expect(lockContent.extensions.skills.commit.origin).toBe(source);
+          expect(lockContent.extensions.skills.commit.folderHash).toMatch(/^sha256:/);
+          expect(lockContent.extensions.skills.commit.installedAt).toBeDefined();
+          expect(lockContent.extensions.skills.commit.updatedAt).toBeDefined();
         }),
       ),
     );
@@ -621,17 +621,23 @@ describe("install.handler", () => {
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
 
-          // Backup and cleanup global settings
+          // Backup and cleanup global settings and lockfile
           const globalAxmDir = path.join(os.homedir(), ".axm");
           const globalSettingsPath = path.join(globalAxmDir, "settings.json");
-          const existedBefore = fs.existsSync(globalSettingsPath);
+          const globalLockfilePath = path.join(globalAxmDir, "axm.lock");
+          const settingsExistedBefore = fs.existsSync(globalSettingsPath);
+          const lockfileExistedBefore = fs.existsSync(globalLockfilePath);
           let backupSettings: string | undefined;
+          let backupLockfile: string | undefined;
           let backupSkillsDir: string | undefined;
           const skillsDir = path.join(globalAxmDir, "skills", "commit");
           const skillsExistedBefore = fs.existsSync(skillsDir);
 
-          if (existedBefore) {
+          if (settingsExistedBefore) {
             backupSettings = fs.readFileSync(globalSettingsPath, "utf-8");
+          }
+          if (lockfileExistedBefore) {
+            backupLockfile = fs.readFileSync(globalLockfilePath, "utf-8");
           }
           if (skillsExistedBefore) {
             // Backup existing skill if present
@@ -639,9 +645,12 @@ describe("install.handler", () => {
           }
 
           try {
-            // Remove existing settings to test fresh init
-            if (existedBefore) {
+            // Remove existing settings and lockfile to test fresh init
+            if (settingsExistedBefore) {
               fs.rmSync(globalSettingsPath);
+            }
+            if (lockfileExistedBefore) {
+              fs.rmSync(globalLockfilePath);
             }
             if (skillsExistedBefore) {
               fs.rmSync(skillsDir, { recursive: true });
@@ -670,10 +679,15 @@ describe("install.handler", () => {
             expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit"))).toBe(false);
           } finally {
             // Restore original state
-            if (existedBefore && backupSettings) {
+            if (settingsExistedBefore && backupSettings) {
               fs.writeFileSync(globalSettingsPath, backupSettings);
-            } else if (!existedBefore && fs.existsSync(globalSettingsPath)) {
+            } else if (!settingsExistedBefore && fs.existsSync(globalSettingsPath)) {
               fs.rmSync(globalSettingsPath);
+            }
+            if (lockfileExistedBefore && backupLockfile) {
+              fs.writeFileSync(globalLockfilePath, backupLockfile);
+            } else if (!lockfileExistedBefore && fs.existsSync(globalLockfilePath)) {
+              fs.rmSync(globalLockfilePath);
             }
             if (skillsExistedBefore && backupSkillsDir) {
               fs.mkdirSync(skillsDir, { recursive: true });

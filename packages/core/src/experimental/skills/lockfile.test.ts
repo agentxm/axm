@@ -32,9 +32,8 @@ describe("lockfile", () => {
 
   const createTestEntry = (overrides?: Partial<LockEntry>): LockEntry => ({
     source: "github:example-org/agent-skills",
-    skillPath: "skills/pr-review",
-    commitSha: "abc123def456",
-    contentHash: "sha256:789xyz",
+    origin: "https://github.com/example-org/agent-skills",
+    folderHash: "abc123def456789012345678901234567890",
     installedAt: "2026-01-28T10:00:00.000Z",
     updatedAt: "2026-01-28T10:00:00.000Z",
     ...overrides,
@@ -46,8 +45,8 @@ describe("lockfile", () => {
         Effect.gen(function* () {
           const result = yield* readLockfile(axmDir);
 
-          expect(result.version).toBe(1);
-          expect(result.skills).toEqual({});
+          expect(result.lockfileVersion).toBe(1);
+          expect(result.extensions.skills).toEqual({});
         }),
       ),
     );
@@ -56,37 +55,38 @@ describe("lockfile", () => {
       withFileSystem(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          const lockfileContent = `version: 1
-skills:
-  pr-review:
-    source: github:example-org/agent-skills
-    skillPath: skills/pr-review
-    commitSha: abc123def456
-    contentHash: sha256:789xyz
-    installedAt: 2026-01-28T10:00:00.000Z
-    updatedAt: 2026-01-28T10:00:00.000Z
-`;
+          const lockfileContent = JSON.stringify({
+            lockfileVersion: 1,
+            extensions: {
+              skills: {
+                "pr-review": {
+                  source: "github:example-org/agent-skills",
+                  origin: "https://github.com/example-org/agent-skills",
+                  folderHash: "abc123def456",
+                  installedAt: "2026-01-28T10:00:00.000Z",
+                  updatedAt: "2026-01-28T10:00:00.000Z",
+                },
+              },
+            },
+          });
           fs.writeFileSync(path.join(axmDir, "axm.lock"), lockfileContent);
 
           const result = yield* readLockfile(axmDir);
 
-          expect(result.version).toBe(1);
-          const prReview = result.skills["pr-review"];
+          expect(result.lockfileVersion).toBe(1);
+          const prReview = result.extensions.skills["pr-review"];
           expect(prReview).toBeDefined();
           expect(prReview?.source).toBe("github:example-org/agent-skills");
-          expect(prReview?.commitSha).toBe("abc123def456");
+          expect(prReview?.folderHash).toBe("abc123def456");
         }),
       ),
     );
 
-    it.effect("returns LockfileParseError for invalid YAML", () =>
+    it.effect("returns LockfileParseError for invalid JSON", () =>
       withFileSystem(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          fs.writeFileSync(
-            path.join(axmDir, "axm.lock"),
-            "version: 1\nskills:\n  - invalid: yaml: structure",
-          );
+          fs.writeFileSync(path.join(axmDir, "axm.lock"), "{ invalid json }");
 
           const error = yield* readLockfile(axmDir).pipe(Effect.flip);
 
@@ -104,21 +104,24 @@ skills:
 
           const result = yield* readLockfile(axmDir);
 
-          expect(result.version).toBe(1);
-          expect(result.skills).toEqual({});
+          expect(result.lockfileVersion).toBe(1);
+          expect(result.extensions.skills).toEqual({});
         }),
       ),
     );
 
-    it.effect("returns default version when version is missing", () =>
+    it.effect("returns default version when lockfileVersion is missing", () =>
       withFileSystem(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          fs.writeFileSync(path.join(axmDir, "axm.lock"), "skills: {}");
+          fs.writeFileSync(
+            path.join(axmDir, "axm.lock"),
+            JSON.stringify({ extensions: { skills: {} } }),
+          );
 
           const result = yield* readLockfile(axmDir);
 
-          expect(result.version).toBe(1);
+          expect(result.lockfileVersion).toBe(1);
         }),
       ),
     );
@@ -129,8 +132,8 @@ skills:
       withFileSystem(
         Effect.gen(function* () {
           const lockfile: Lockfile = {
-            version: 1,
-            skills: {},
+            lockfileVersion: 1,
+            extensions: { skills: {} },
           };
 
           yield* writeLockfile(axmDir, lockfile);
@@ -140,22 +143,27 @@ skills:
       ),
     );
 
-    it.effect("writes lockfile in YAML format", () =>
+    it.effect("writes lockfile in JSON format", () =>
       withFileSystem(
         Effect.gen(function* () {
           const lockfile: Lockfile = {
-            version: 1,
-            skills: {
-              "pr-review": createTestEntry(),
+            lockfileVersion: 1,
+            extensions: {
+              skills: {
+                "pr-review": createTestEntry(),
+              },
             },
           };
 
           yield* writeLockfile(axmDir, lockfile);
 
           const content = fs.readFileSync(path.join(axmDir, "axm.lock"), "utf-8");
-          expect(content).toContain("version: 1");
-          expect(content).toContain("pr-review:");
-          expect(content).toContain("source: github:example-org/agent-skills");
+          const parsed = JSON.parse(content);
+          expect(parsed.lockfileVersion).toBe(1);
+          expect(parsed.extensions.skills["pr-review"]).toBeDefined();
+          expect(parsed.extensions.skills["pr-review"].source).toBe(
+            "github:example-org/agent-skills",
+          );
         }),
       ),
     );
@@ -164,19 +172,24 @@ skills:
       withFileSystem(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
-          fs.writeFileSync(path.join(axmDir, "axm.lock"), "version: 1\nskills: {}");
+          fs.writeFileSync(
+            path.join(axmDir, "axm.lock"),
+            JSON.stringify({ lockfileVersion: 1, extensions: { skills: {} } }),
+          );
 
           const lockfile: Lockfile = {
-            version: 1,
-            skills: {
-              commit: createTestEntry({ skillPath: "skills/commit" }),
+            lockfileVersion: 1,
+            extensions: {
+              skills: {
+                commit: createTestEntry({ source: "github:other/repo" }),
+              },
             },
           };
 
           yield* writeLockfile(axmDir, lockfile);
 
           const result = yield* readLockfile(axmDir);
-          expect(result.skills["commit"]).toBeDefined();
+          expect(result.extensions.skills["commit"]).toBeDefined();
         }),
       ),
     );
@@ -190,7 +203,7 @@ skills:
 
           const result = yield* updateLockEntry(axmDir, "pr-review", entry);
 
-          const prReview = result.skills["pr-review"];
+          const prReview = result.extensions.skills["pr-review"];
           expect(prReview).toBeDefined();
           expect(prReview?.source).toBe(entry.source);
         }),
@@ -201,18 +214,20 @@ skills:
       withFileSystem(
         Effect.gen(function* () {
           const initialLockfile: Lockfile = {
-            version: 1,
-            skills: {
-              commit: createTestEntry({ skillPath: "skills/commit" }),
+            lockfileVersion: 1,
+            extensions: {
+              skills: {
+                commit: createTestEntry({ source: "github:other/commit" }),
+              },
             },
           };
           yield* writeLockfile(axmDir, initialLockfile);
 
-          const newEntry = createTestEntry({ skillPath: "skills/review" });
+          const newEntry = createTestEntry({ source: "github:other/review" });
           const result = yield* updateLockEntry(axmDir, "review", newEntry);
 
-          expect(result.skills["commit"]).toBeDefined();
-          expect(result.skills["review"]).toBeDefined();
+          expect(result.extensions.skills["commit"]).toBeDefined();
+          expect(result.extensions.skills["review"]).toBeDefined();
         }),
       ),
     );
@@ -220,19 +235,21 @@ skills:
     it.effect("updates existing entry", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const initialEntry = createTestEntry({ commitSha: "old-sha" });
+          const initialEntry = createTestEntry({ folderHash: "old-hash" });
           const initialLockfile: Lockfile = {
-            version: 1,
-            skills: {
-              "pr-review": initialEntry,
+            lockfileVersion: 1,
+            extensions: {
+              skills: {
+                "pr-review": initialEntry,
+              },
             },
           };
           yield* writeLockfile(axmDir, initialLockfile);
 
-          const updatedEntry = createTestEntry({ commitSha: "new-sha" });
+          const updatedEntry = createTestEntry({ folderHash: "new-hash" });
           const result = yield* updateLockEntry(axmDir, "pr-review", updatedEntry);
 
-          expect(result.skills["pr-review"]?.commitSha).toBe("new-sha");
+          expect(result.extensions.skills["pr-review"]?.folderHash).toBe("new-hash");
         }),
       ),
     );
@@ -245,7 +262,7 @@ skills:
 
           const result = yield* updateLockEntry(axmDir, "pr-review", entry);
 
-          const prReview = result.skills["pr-review"];
+          const prReview = result.extensions.skills["pr-review"];
           expect(prReview).toBeDefined();
           expect(prReview?.updatedAt).not.toBe(oldDate);
           // Check it's a valid ISO date
@@ -262,7 +279,7 @@ skills:
           yield* updateLockEntry(axmDir, "pr-review", entry);
 
           const readResult = yield* readLockfile(axmDir);
-          expect(readResult.skills["pr-review"]).toBeDefined();
+          expect(readResult.extensions.skills["pr-review"]).toBeDefined();
         }),
       ),
     );
@@ -273,18 +290,20 @@ skills:
       withFileSystem(
         Effect.gen(function* () {
           const initialLockfile: Lockfile = {
-            version: 1,
-            skills: {
-              "pr-review": createTestEntry(),
-              commit: createTestEntry({ skillPath: "skills/commit" }),
+            lockfileVersion: 1,
+            extensions: {
+              skills: {
+                "pr-review": createTestEntry(),
+                commit: createTestEntry({ source: "github:other/commit" }),
+              },
             },
           };
           yield* writeLockfile(axmDir, initialLockfile);
 
           const result = yield* removeLockEntry(axmDir, "pr-review");
 
-          expect(result.skills["pr-review"]).toBeUndefined();
-          expect(result.skills["commit"]).toBeDefined();
+          expect(result.extensions.skills["pr-review"]).toBeUndefined();
+          expect(result.extensions.skills["commit"]).toBeDefined();
         }),
       ),
     );
@@ -293,16 +312,18 @@ skills:
       withFileSystem(
         Effect.gen(function* () {
           const initialLockfile: Lockfile = {
-            version: 1,
-            skills: {
-              commit: createTestEntry({ skillPath: "skills/commit" }),
+            lockfileVersion: 1,
+            extensions: {
+              skills: {
+                commit: createTestEntry({ source: "github:other/commit" }),
+              },
             },
           };
           yield* writeLockfile(axmDir, initialLockfile);
 
           const result = yield* removeLockEntry(axmDir, "nonexistent");
 
-          expect(result.skills["commit"]).toBeDefined();
+          expect(result.extensions.skills["commit"]).toBeDefined();
         }),
       ),
     );
@@ -311,9 +332,11 @@ skills:
       withFileSystem(
         Effect.gen(function* () {
           const initialLockfile: Lockfile = {
-            version: 1,
-            skills: {
-              "pr-review": createTestEntry(),
+            lockfileVersion: 1,
+            extensions: {
+              skills: {
+                "pr-review": createTestEntry(),
+              },
             },
           };
           yield* writeLockfile(axmDir, initialLockfile);
@@ -321,7 +344,7 @@ skills:
           yield* removeLockEntry(axmDir, "pr-review");
 
           const readResult = yield* readLockfile(axmDir);
-          expect(readResult.skills["pr-review"]).toBeUndefined();
+          expect(readResult.extensions.skills["pr-review"]).toBeUndefined();
         }),
       ),
     );
@@ -331,41 +354,41 @@ skills:
         Effect.gen(function* () {
           const result = yield* removeLockEntry(axmDir, "nonexistent");
 
-          expect(result.version).toBe(1);
-          expect(result.skills).toEqual({});
+          expect(result.lockfileVersion).toBe(1);
+          expect(result.extensions.skills).toEqual({});
         }),
       ),
     );
   });
 
-  describe("YAML format round-trip", () => {
+  describe("JSON format round-trip", () => {
     it.effect("preserves all fields through read/write cycle", () =>
       withFileSystem(
         Effect.gen(function* () {
           const entry: LockEntry = {
             source: "github:example-org/agent-skills",
-            skillPath: "skills/pr-review",
-            commitSha: "abc123def456789012345678901234567890",
-            contentHash: "sha256:xyz789abc123",
+            origin: "https://github.com/example-org/agent-skills",
+            folderHash: "abc123def456789012345678901234567890",
             installedAt: "2026-01-28T10:00:00.000Z",
             updatedAt: "2026-01-28T12:30:00.000Z",
           };
           const lockfile: Lockfile = {
-            version: 1,
-            skills: {
-              "pr-review": entry,
+            lockfileVersion: 1,
+            extensions: {
+              skills: {
+                "pr-review": entry,
+              },
             },
           };
 
           yield* writeLockfile(axmDir, lockfile);
           const result = yield* readLockfile(axmDir);
 
-          expect(result.version).toBe(1);
-          const prReview = result.skills["pr-review"];
+          expect(result.lockfileVersion).toBe(1);
+          const prReview = result.extensions.skills["pr-review"];
           expect(prReview?.source).toBe(entry.source);
-          expect(prReview?.skillPath).toBe(entry.skillPath);
-          expect(prReview?.commitSha).toBe(entry.commitSha);
-          expect(prReview?.contentHash).toBe(entry.contentHash);
+          expect(prReview?.origin).toBe(entry.origin);
+          expect(prReview?.folderHash).toBe(entry.folderHash);
           expect(prReview?.installedAt).toBe(entry.installedAt);
           expect(prReview?.updatedAt).toBe(entry.updatedAt);
         }),
@@ -376,21 +399,23 @@ skills:
       withFileSystem(
         Effect.gen(function* () {
           const lockfile: Lockfile = {
-            version: 1,
-            skills: {
-              "pr-review": createTestEntry({ skillPath: "skills/pr-review" }),
-              commit: createTestEntry({ skillPath: "skills/commit" }),
-              "code-review": createTestEntry({ skillPath: "skills/code-review" }),
+            lockfileVersion: 1,
+            extensions: {
+              skills: {
+                "pr-review": createTestEntry({ source: "github:org/pr-review" }),
+                commit: createTestEntry({ source: "github:org/commit" }),
+                "code-review": createTestEntry({ source: "github:org/code-review" }),
+              },
             },
           };
 
           yield* writeLockfile(axmDir, lockfile);
           const result = yield* readLockfile(axmDir);
 
-          expect(Object.keys(result.skills)).toHaveLength(3);
-          expect(result.skills["pr-review"]).toBeDefined();
-          expect(result.skills["commit"]).toBeDefined();
-          expect(result.skills["code-review"]).toBeDefined();
+          expect(Object.keys(result.extensions.skills)).toHaveLength(3);
+          expect(result.extensions.skills["pr-review"]).toBeDefined();
+          expect(result.extensions.skills["commit"]).toBeDefined();
+          expect(result.extensions.skills["code-review"]).toBeDefined();
         }),
       ),
     );

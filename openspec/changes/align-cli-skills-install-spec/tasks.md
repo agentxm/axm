@@ -36,22 +36,22 @@
 ## 5. Schema Updates
 
 - [x] 5.1 Update `types.ts` in skills module - new `Settings` interface with `extensions.skills`
-- [ ] 5.2 Update `types.ts` in skills module - new `Lockfile` interface with `lockfileVersion`, `extensions`, `folderHash`
+- [x] 5.2 Update `types.ts` in skills module - new `Lockfile` interface with `lockfileVersion`, `extensions`, `folderHash`
 - [x] 5.3 Update `settings.ts` - read/write new settings format
-- [ ] 5.4 Update `lockfile.ts` - read/write JSON format with new schema
+- [x] 5.4 Update `lockfile.ts` - read/write JSON format with new schema
 - [ ] 5.5 Add `folderHash` computation (git tree SHA or content hash fallback)
 
 ## 6. Schema Tests
 
 - [x] 6.1 Update `settings.test.ts` for new schema
-- [ ] 6.2 Update `lockfile.test.ts` for JSON format and new fields
+- [x] 6.2 Update `lockfile.test.ts` for JSON format and new fields
 
 ## 7. CLI Handler Updates
 
 - [ ] 7.1 Update `handler.ts` to import and use `resolveExtension()`
 - [ ] 7.2 Add conflict detection logic (check if skill exists, warn and skip)
 - [ ] 7.3 Add `--force` flag handling to overwrite existing skills
-- [ ] 7.4 Update lockfile writes to use new schema
+- [x] 7.4 Update lockfile writes to use new schema
 - [ ] 7.5 Update settings writes to use new schema
 - [ ] 7.6 Handle resolution returning multiple results (prompt for selection)
 - [ ] 7.7 Handle resolution returning empty results (display error with suggestions)

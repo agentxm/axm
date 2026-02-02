@@ -47,12 +47,35 @@ create, and share extensions that enhance AI coding assistant capabilities.
 
 ### Extension Types
 
-| Term           | Definition                                                                                        |
-| -------------- | ------------------------------------------------------------------------------------------------- |
-| **Skill**      | Context-triggered or explicitly invoked instructions that guide agent behavior for specific tasks |
-| **Command**    | User-invokable prompts that perform specific actions (distinct from CLI commands below)           |
-| **Pack**       | A bundle of extensions distributed together for a specific purpose or workflow                    |
-| **MCP Server** | A Model Context Protocol server that provides tools, resources, or context to agents              |
+| Term           | Definition                                                                         |
+| -------------- | ---------------------------------------------------------------------------------- |
+| **Skill**      | Markdown instructions that guide agent behavior for specific tasks (see below)     |
+| **Command**    | User-invokable prompts that perform specific actions (distinct from CLI commands)  |
+| **Pack**       | A bundle of extensions distributed together for a specific purpose or workflow     |
+| **MCP Server** | A Model Context Protocol server providing tools, resources, or context (see below) |
+
+**Skill** — Context-triggered or explicitly invoked instructions written in markdown
+that guide agent behavior for specific tasks. Skills can include examples, scripts,
+and supporting files. See [Agent Skills](https://agentskills.io/home) and
+[Claude Code Skills](https://code.claude.com/docs/en/skills).
+
+**Command** — User-invokable prompts that perform specific actions when explicitly
+triggered (e.g., via slash commands like `/commit`). Unlike skills which can be
+context-triggered, commands are always explicitly invoked by the user. See
+[Gemini CLI Commands](https://geminicli.com/docs/cli/custom-commands/),
+[Claude Code Slash Commands](https://web.archive.org/web/20260110152000/https://code.claude.com/docs/en/slash-commands),
+[OpenCode Commands](https://opencode.ai/docs/commands/),
+[VS Code Prompt Files](https://code.visualstudio.com/docs/copilot/customization/prompt-files),
+and [Codex CLI Slash Commands](https://developers.openai.com/codex/cli/slash-commands/).
+
+**Pack** — A curated bundle of extensions (skills, commands, MCP servers, or other
+packs) distributed together. Packs simplify installation of related extensions for
+specific workflows, teams, or use cases.
+
+**MCP Server** — A server implementing the Model Context Protocol that provides
+tools, resources, or context to AI agents. MCP servers enable agents to interact
+with external systems, APIs, and data sources. See
+[Model Context Protocol](https://modelcontextprotocol.io/).
 
 ---
 

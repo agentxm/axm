@@ -237,6 +237,119 @@ const promptConfirmInstall = (
       }),
   });
 
+/**
+ * Wraps @clack/prompts select in an Effect for extension ref selection.
+ * Used when resolution returns multiple results.
+ */
+const promptExtensionRefSelection = (
+  refs: readonly ExtensionRef[],
+): Effect.Effect<ExtensionRef, InstallError> =>
+  Effect.tryPromise({
+    try: async () => {
+      const options = refs.map((ref, index) => {
+        const label = ref.name ?? ref.origin;
+        const hint = `${ref.source}${ref.ref ? `@${ref.ref}` : ""}`;
+        return { value: index, label, hint };
+      });
+
+      const result = await p.select({
+        message: "Multiple matches found. Select the source to install from:",
+        options,
+      });
+
+      if (p.isCancel(result)) {
+        p.cancel("Operation cancelled.");
+        process.exit(0);
+      }
+
+      const selected = refs[result as number];
+      if (!selected) {
+        throw new Error("Invalid selection");
+      }
+      return selected;
+    },
+    catch: (error) =>
+      new InstallError({
+        message: "Failed to prompt for extension selection",
+        cause: error,
+        retryable: false,
+      }),
+  });
+
+/**
+ * Formats an error message for empty resolution results with suggestions.
+ */
+const formatEmptyResolutionError = (input: string): string =>
+  formatError(
+    `Could not resolve "${input}"`,
+    ["No matching extensions found"],
+    [
+      "Try one of these formats:",
+      "  • Local path: ./path/to/skill or /absolute/path",
+      "  • GitHub: github:owner/repo or owner/repo",
+      "  • GitLab: gitlab:owner/repo",
+      "  • URL: https://example.com/.well-known/axm.json",
+      "  • AXM name: @scope/name (if installed)",
+    ].join("\n"),
+  );
+
+/**
+ * Handles extension resolution results - selects from multiple or fails on empty.
+ *
+ * @param refs - Extension references from resolution
+ * @param input - Original input string for error messages
+ * @param canPrompt - Whether interactive prompts are available
+ * @returns Single selected extension ref
+ */
+const selectExtensionRef = (
+  refs: readonly ExtensionRef[],
+  input: string,
+  canPrompt: boolean,
+): Effect.Effect<ExtensionRef, InstallError> =>
+  Effect.gen(function* () {
+    // Empty results - fail with suggestions
+    if (refs.length === 0) {
+      return yield* Effect.fail(
+        new InstallError({
+          message: formatEmptyResolutionError(input),
+          retryable: false,
+        }),
+      );
+    }
+
+    // Single result - use it directly
+    if (refs.length === 1) {
+      const ref = refs[0];
+      if (!ref) {
+        return yield* Effect.fail(
+          new InstallError({
+            message: formatEmptyResolutionError(input),
+            retryable: false,
+          }),
+        );
+      }
+      return ref;
+    }
+
+    // Multiple results - prompt for selection or fail if non-interactive
+    if (!canPrompt) {
+      const sources = refs.map((r) => `  • ${r.name ?? r.origin} (${r.source})`).join("\n");
+      return yield* Effect.fail(
+        new InstallError({
+          message: formatError(
+            `Ambiguous input "${input}" matches multiple sources`,
+            [`Found ${refs.length} matches:\n${sources}`],
+            "Use --yes or --non-interactive with a more specific source identifier.",
+          ),
+          retryable: false,
+        }),
+      );
+    }
+
+    // Interactive selection
+    return yield* promptExtensionRefSelection(refs);
+  });
+
 // -----------------------------------------------------------------------------
 // Source Resolution
 // -----------------------------------------------------------------------------

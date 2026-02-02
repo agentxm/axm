@@ -52,9 +52,9 @@
 - [x] 7.2 Add conflict detection logic (check if skill exists, warn and skip)
 - [x] 7.3 Add `--force` flag handling to overwrite existing skills
 - [x] 7.4 Update lockfile writes to use new schema
-- [ ] 7.5 Update settings writes to use new schema
-- [ ] 7.6 Handle resolution returning multiple results (prompt for selection)
-- [ ] 7.7 Handle resolution returning empty results (display error with suggestions)
+- [x] 7.5 Update settings writes to use new schema
+- [x] 7.6 Handle resolution returning multiple results (prompt for selection)
+- [x] 7.7 Handle resolution returning empty results (display error with suggestions)
 
 ## 8. CLI Tests
 

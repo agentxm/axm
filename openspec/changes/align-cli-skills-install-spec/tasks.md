@@ -58,12 +58,12 @@
 
 ## 8. CLI Tests
 
-- [ ] 8.1 Update `handler.test.ts` for resolution module integration
-- [ ] 8.2 Add tests for conflict detection (skip by default)
-- [ ] 8.3 Add tests for `--force` flag behavior
-- [ ] 8.4 Update tests for new settings/lockfile schemas
-- [ ] 8.5 Add tests for AXM name input patterns
-- [ ] 8.6 Add tests for explicit source prefix patterns
+- [x] 8.1 Update `handler.test.ts` for resolution module integration
+- [x] 8.2 Add tests for conflict detection (skip by default)
+- [x] 8.3 Add tests for `--force` flag behavior
+- [x] 8.4 Update tests for new settings/lockfile schemas
+- [x] 8.5 Add tests for AXM name input patterns
+- [x] 8.6 Add tests for explicit source prefix patterns
 
 ## 9. E2E Tests
 

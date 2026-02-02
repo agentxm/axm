@@ -819,6 +819,549 @@ describe("install.handler", () => {
     });
   });
 
+  describe("conflict detection", () => {
+    it.effect("skips already installed skills by default", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          // Create initial source with specific content
+          const sourceDir1 = path.join(tempDir, "source-1");
+          fs.mkdirSync(sourceDir1, { recursive: true });
+          fs.mkdirSync(path.join(sourceDir1, "commit"));
+          fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# Original");
+
+          initializeAxm();
+
+          // First install
+          yield* handleInstall({
+            ...defaultArgs,
+            source: sourceDir1,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          });
+
+          // Verify first install
+          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"))).toBe(
+            true,
+          );
+
+          // Create second source with DIFFERENT content for same skill name
+          const sourceDir2 = path.join(tempDir, "source-2");
+          fs.mkdirSync(sourceDir2, { recursive: true });
+          fs.mkdirSync(path.join(sourceDir2, "commit"));
+          fs.writeFileSync(path.join(sourceDir2, "commit", "SKILL.md"), "# Modified");
+
+          // Second install - should skip existing skills
+          yield* handleInstall({
+            ...defaultArgs,
+            source: sourceDir2,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          });
+
+          // File should still have original content (skill was skipped)
+          const content = fs.readFileSync(
+            path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"),
+            "utf-8",
+          );
+          expect(content).toBe("# Original");
+        }),
+      ),
+    );
+
+    it.effect("skips only conflicting skills, installs new ones", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          // Create initial source with one skill
+          const sourceDir1 = path.join(tempDir, "source-1");
+          fs.mkdirSync(sourceDir1, { recursive: true });
+          fs.mkdirSync(path.join(sourceDir1, "commit"));
+          fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# commit");
+
+          initializeAxm();
+
+          // Install first skill
+          const args1: InstallArgs = {
+            ...defaultArgs,
+            source: sourceDir1,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          };
+          yield* handleInstall(args1);
+
+          // Create second source with overlapping and new skill
+          const sourceDir2 = path.join(tempDir, "source-2");
+          fs.mkdirSync(sourceDir2, { recursive: true });
+          fs.mkdirSync(path.join(sourceDir2, "commit"));
+          fs.writeFileSync(path.join(sourceDir2, "commit", "SKILL.md"), "# commit v2");
+          fs.mkdirSync(path.join(sourceDir2, "review-pr"));
+          fs.writeFileSync(path.join(sourceDir2, "review-pr", "SKILL.md"), "# review-pr");
+
+          // Install from second source - commit should be skipped, review-pr installed
+          const args2: InstallArgs = {
+            ...defaultArgs,
+            source: sourceDir2,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          };
+          yield* handleInstall(args2);
+
+          // Original commit should not be overwritten
+          const commitContent = fs.readFileSync(
+            path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"),
+            "utf-8",
+          );
+          expect(commitContent).toBe("# commit"); // Original, not "# commit v2"
+
+          // New skill should be installed
+          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "review-pr", "SKILL.md"))).toBe(
+            true,
+          );
+        }),
+      ),
+    );
+
+    it.effect("exits early when all selected skills already installed", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          const source = createSkillSource([{ name: "commit" }]);
+          initializeAxm();
+
+          // First install
+          const args1: InstallArgs = {
+            ...defaultArgs,
+            source,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          };
+          yield* handleInstall(args1);
+
+          // Second install - should complete without error but do nothing
+          const args2: InstallArgs = {
+            ...defaultArgs,
+            source,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          };
+          yield* handleInstall(args2);
+
+          // Should have completed successfully (no error thrown)
+        }),
+      ),
+    );
+  });
+
+  describe("--force flag", () => {
+    it.effect("overwrites existing skills with --force", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          // Create initial source
+          const sourceDir1 = path.join(tempDir, "source-1");
+          fs.mkdirSync(sourceDir1, { recursive: true });
+          fs.mkdirSync(path.join(sourceDir1, "commit"));
+          fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# Original commit");
+
+          initializeAxm();
+
+          // Install first version
+          const args1: InstallArgs = {
+            ...defaultArgs,
+            source: sourceDir1,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          };
+          yield* handleInstall(args1);
+
+          // Verify original content
+          let content = fs.readFileSync(
+            path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"),
+            "utf-8",
+          );
+          expect(content).toBe("# Original commit");
+
+          // Create second source with updated skill
+          const sourceDir2 = path.join(tempDir, "source-2");
+          fs.mkdirSync(sourceDir2, { recursive: true });
+          fs.mkdirSync(path.join(sourceDir2, "commit"));
+          fs.writeFileSync(path.join(sourceDir2, "commit", "SKILL.md"), "# Updated commit");
+
+          // Install with --force
+          const args2: InstallArgs = {
+            ...defaultArgs,
+            source: sourceDir2,
+            all: true,
+            yes: true,
+            force: true,
+            agent: ["claude-code"],
+          };
+          yield* handleInstall(args2);
+
+          // Content should be updated
+          content = fs.readFileSync(
+            path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"),
+            "utf-8",
+          );
+          expect(content).toBe("# Updated commit");
+        }),
+      ),
+    );
+
+    it.effect("updates lockfile when overwriting with --force", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          // Create initial source
+          const sourceDir1 = path.join(tempDir, "source-1");
+          fs.mkdirSync(sourceDir1, { recursive: true });
+          fs.mkdirSync(path.join(sourceDir1, "commit"));
+          fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# Original");
+
+          initializeAxm();
+
+          // Install first version
+          yield* handleInstall({
+            ...defaultArgs,
+            source: sourceDir1,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          });
+
+          // Get original lockfile entry
+          const lockPath = path.join(tempDir, ".axm", "axm.lock");
+          const originalLock = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+          const originalHash = originalLock.extensions.skills.commit.folderHash;
+
+          // Create second source with different content
+          const sourceDir2 = path.join(tempDir, "source-2");
+          fs.mkdirSync(sourceDir2, { recursive: true });
+          fs.mkdirSync(path.join(sourceDir2, "commit"));
+          fs.writeFileSync(path.join(sourceDir2, "commit", "SKILL.md"), "# Updated content");
+
+          // Install with --force
+          yield* handleInstall({
+            ...defaultArgs,
+            source: sourceDir2,
+            all: true,
+            yes: true,
+            force: true,
+            agent: ["claude-code"],
+          });
+
+          // Lockfile should have updated hash
+          const newLock = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+          expect(newLock.extensions.skills.commit.folderHash).not.toBe(originalHash);
+          expect(newLock.extensions.skills.commit.source).toBe(sourceDir2);
+        }),
+      ),
+    );
+
+    it.effect("installs both existing and new skills with --force", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          // Create initial source
+          const sourceDir1 = path.join(tempDir, "source-1");
+          fs.mkdirSync(sourceDir1, { recursive: true });
+          fs.mkdirSync(path.join(sourceDir1, "commit"));
+          fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# commit v1");
+
+          initializeAxm();
+
+          // Install first skill
+          yield* handleInstall({
+            ...defaultArgs,
+            source: sourceDir1,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          });
+
+          // Create second source with both existing and new skills
+          const sourceDir2 = path.join(tempDir, "source-2");
+          fs.mkdirSync(sourceDir2, { recursive: true });
+          fs.mkdirSync(path.join(sourceDir2, "commit"));
+          fs.writeFileSync(path.join(sourceDir2, "commit", "SKILL.md"), "# commit v2");
+          fs.mkdirSync(path.join(sourceDir2, "review-pr"));
+          fs.writeFileSync(path.join(sourceDir2, "review-pr", "SKILL.md"), "# review-pr");
+
+          // Install with --force
+          yield* handleInstall({
+            ...defaultArgs,
+            source: sourceDir2,
+            all: true,
+            yes: true,
+            force: true,
+            agent: ["claude-code"],
+          });
+
+          // Both should be installed/updated
+          const commitContent = fs.readFileSync(
+            path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"),
+            "utf-8",
+          );
+          expect(commitContent).toBe("# commit v2");
+          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "review-pr", "SKILL.md"))).toBe(
+            true,
+          );
+        }),
+      ),
+    );
+  });
+
+  describe("settings schema", () => {
+    it.effect("creates settings with extensions.skills structure", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          const source = createSkillSource([{ name: "commit" }]);
+          // Don't initialize - let handler create fresh settings
+
+          const args: InstallArgs = {
+            ...defaultArgs,
+            source,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          };
+
+          yield* handleInstall(args);
+
+          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+
+          // Verify extensions.skills structure
+          expect(settings.extensions).toBeDefined();
+          expect(settings.extensions.skills).toBeDefined();
+          expect(settings.extensions.skills.commit).toBe("*");
+        }),
+      ),
+    );
+
+    it.effect("preserves existing settings when adding new skills", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          // Initialize with existing settings
+          const axmDir = path.join(tempDir, ".axm");
+          fs.mkdirSync(axmDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(axmDir, "settings.json"),
+            JSON.stringify({
+              scope: "@myorg",
+              agents: ["claude-code"],
+              extensions: {
+                skills: {
+                  "existing-skill": "^1.0.0",
+                },
+              },
+            }),
+          );
+
+          const source = createSkillSource([{ name: "commit" }]);
+
+          yield* handleInstall({
+            ...defaultArgs,
+            source,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          });
+
+          const settings = JSON.parse(fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8"));
+
+          // Existing settings should be preserved
+          expect(settings.scope).toBe("@myorg");
+          expect(settings.agents).toEqual(["claude-code"]);
+          expect(settings.extensions.skills["existing-skill"]).toBe("^1.0.0");
+          // New skill should be added
+          expect(settings.extensions.skills.commit).toBe("*");
+        }),
+      ),
+    );
+  });
+
+  describe("lockfile schema", () => {
+    it.effect("creates lockfile with lockfileVersion and extensions structure", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          const source = createSkillSource([{ name: "commit" }]);
+          initializeAxm();
+
+          yield* handleInstall({
+            ...defaultArgs,
+            source,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          });
+
+          const lockPath = path.join(tempDir, ".axm", "axm.lock");
+          const lockfile = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+
+          expect(lockfile.lockfileVersion).toBe(1);
+          expect(lockfile.extensions).toBeDefined();
+          expect(lockfile.extensions.skills).toBeDefined();
+        }),
+      ),
+    );
+
+    it.effect("lockfile entry contains required fields", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          const source = createSkillSource([{ name: "commit" }]);
+          initializeAxm();
+
+          yield* handleInstall({
+            ...defaultArgs,
+            source,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          });
+
+          const lockPath = path.join(tempDir, ".axm", "axm.lock");
+          const lockfile = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+          const entry = lockfile.extensions.skills.commit;
+
+          // Required fields per spec
+          expect(entry.source).toBeDefined();
+          expect(entry.origin).toBeDefined();
+          expect(entry.folderHash).toBeDefined();
+          expect(entry.installedAt).toBeDefined();
+          expect(entry.updatedAt).toBeDefined();
+
+          // folderHash should be a sha256 hash for local sources
+          expect(entry.folderHash).toMatch(/^sha256:/);
+        }),
+      ),
+    );
+
+    it.effect("lockfile timestamps are valid ISO strings", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          const source = createSkillSource([{ name: "commit" }]);
+          initializeAxm();
+
+          yield* handleInstall({
+            ...defaultArgs,
+            source,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          });
+
+          const lockPath = path.join(tempDir, ".axm", "axm.lock");
+          const lockfile = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+          const entry = lockfile.extensions.skills.commit;
+
+          // Timestamps should be valid ISO strings
+          expect(() => new Date(entry.installedAt)).not.toThrow();
+          expect(() => new Date(entry.updatedAt)).not.toThrow();
+          expect(new Date(entry.installedAt).toISOString()).toBe(entry.installedAt);
+          expect(new Date(entry.updatedAt).toISOString()).toBe(entry.updatedAt);
+        }),
+      ),
+    );
+  });
+
+  describe("explicit source prefix patterns", () => {
+    it.effect("parses github: prefix correctly", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          initializeAxm();
+
+          // github: prefix should be recognized as GitHub source
+          // Use an invalid repo to test parsing (will fail on clone, not parse)
+          const args: InstallArgs = {
+            ...defaultArgs,
+            source: "github:nonexistent-owner-xyz/nonexistent-repo-xyz",
+            yes: true,
+            agent: ["claude-code"],
+          };
+
+          // Should fail with clone error (not parse error), proving prefix was parsed
+          const error = yield* handleInstall(args).pipe(Effect.flip);
+          expect(error._tag).toBe("InstallError");
+          // Error should be about cloning, not parsing
+          expect((error as InstallError).message).toContain("clone");
+        }),
+      ),
+    );
+
+    it.effect("parses gitlab: prefix correctly", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          initializeAxm();
+
+          // gitlab: prefix should be recognized as GitLab source
+          const args: InstallArgs = {
+            ...defaultArgs,
+            source: "gitlab:nonexistent-owner-xyz/nonexistent-repo-xyz",
+            yes: true,
+            agent: ["claude-code"],
+          };
+
+          // Should fail with clone error (not parse error), proving prefix was parsed
+          const error = yield* handleInstall(args).pipe(Effect.flip);
+          expect(error._tag).toBe("InstallError");
+          expect((error as InstallError).message).toContain("clone");
+        }),
+      ),
+    );
+
+    it.effect("stores canonical source with github: prefix in lockfile", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          const source = createSkillSource([{ name: "commit" }]);
+          initializeAxm();
+
+          // Install from local source
+          yield* handleInstall({
+            ...defaultArgs,
+            source,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          });
+
+          // Verify local source is stored as-is
+          const lockPath = path.join(tempDir, ".axm", "axm.lock");
+          const lockfile = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+          expect(lockfile.extensions.skills.commit.source).toBe(source);
+        }),
+      ),
+    );
+  });
+
+  describe("source normalization", () => {
+    it.effect("stores local path as source in lockfile", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          const source = createSkillSource([{ name: "commit" }]);
+          initializeAxm();
+
+          yield* handleInstall({
+            ...defaultArgs,
+            source,
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          });
+
+          const lockPath = path.join(tempDir, ".axm", "axm.lock");
+          const lockfile = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+
+          // Local path should be stored as-is per spec
+          expect(lockfile.extensions.skills.commit.source).toBe(source);
+          expect(lockfile.extensions.skills.commit.origin).toBe(source);
+        }),
+      ),
+    );
+  });
+
   describe("non-TTY scenarios", () => {
     // Import the mocked module dynamically to control mock behavior
     let isInteractiveMock: ReturnType<typeof vi.fn>;

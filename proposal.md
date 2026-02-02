@@ -86,6 +86,8 @@ with external systems, APIs, and data sources. See
 Each extension type has a manifest file named `axm-<type>.json`. All manifests
 share common fields with type-specific extensions.
 
+> **See also:** Detailed schema specs at `openspec/specs/schema-manifest-*/spec.md`
+
 #### Common Fields
 
 | Field         | Type     | Required | Description                              |
@@ -340,6 +342,8 @@ Sources define where extensions can be fetched from.
 
 Settings are configured at the project level (`.axm/settings.json`).
 
+> **See also:** Schema spec at `openspec/specs/schema-settings/spec.md`
+
 ```jsonc
 {
   // Project default scope. Falls back to logged-in user's scope, or @community if not logged in.
@@ -496,6 +500,8 @@ The lockfile (`axm.lock`) records the resolved state of installed extensions.
 Unlike package managers where lockfiles enable reproducible installs, AXM
 extensions are checked into source control. The lockfile tracks provenance and
 versions for update detection.
+
+> **See also:** Schema spec at `openspec/specs/schema-lockfile/spec.md`
 
 #### Schema
 

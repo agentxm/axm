@@ -17,5 +17,5 @@ rules:
     - backward compatability is a non-goal
   tasks:
     - "TDD: add or update tests prior to implementation step: red, green, refactor until a good design"
-    - "Add a typecheck/test/lint verification steps immediatly proceeding any implementation task, fix any issues found"
+    - "Add a typecheck/lint/test verification steps immediatly proceeding any implementation task, fix any issues found"
     - "add a task after every test verification step to to kill any runaway vitest worker processes"

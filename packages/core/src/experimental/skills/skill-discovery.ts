@@ -49,15 +49,14 @@ const walkDirectory = (
     const fs = yield* FileSystem.FileSystem;
 
     const entries = yield* fs.readDirectory(dir).pipe(
-      Effect.catchAll((error) =>
-        Effect.fail(
+      Effect.mapError(
+        (error) =>
           new DiscoveryError({
             message: `Failed to read directory: ${dir}`,
             path: dir,
             cause: error,
             retryable: false,
           }),
-        ),
       ),
     );
 
@@ -144,26 +143,23 @@ export const discoverSkills = (
 
     // Verify the directory exists and is a directory
     const stat = yield* fs.stat(directory).pipe(
-      Effect.catchAll((error) =>
-        Effect.fail(
+      Effect.mapError(
+        (error) =>
           new DiscoveryError({
             message: `Directory does not exist or is not accessible: ${directory}`,
             path: directory,
             cause: error,
             retryable: false,
           }),
-        ),
       ),
     );
 
     if (stat.type !== "Directory") {
-      return yield* Effect.fail(
-        new DiscoveryError({
-          message: `Path is not a directory: ${directory}`,
-          path: directory,
-          retryable: false,
-        }),
-      );
+      return yield* new DiscoveryError({
+        message: `Path is not a directory: ${directory}`,
+        path: directory,
+        retryable: false,
+      });
     }
 
     // Walk the directory tree to find all files

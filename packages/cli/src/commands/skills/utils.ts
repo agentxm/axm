@@ -53,24 +53,20 @@ export function selectExtensionRef(
   return Effect.gen(function* () {
     // Empty results - fail with suggestions
     if (refs.length === 0) {
-      return yield* Effect.fail(
-        new SkillsError({
-          message: formatEmptyResolutionError(input),
-          retryable: false,
-        }),
-      );
+      return yield* new SkillsError({
+        message: formatEmptyResolutionError(input),
+        retryable: false,
+      });
     }
 
     // Single result - use it directly
     if (refs.length === 1) {
       const ref = refs[0];
       if (!ref) {
-        return yield* Effect.fail(
-          new SkillsError({
-            message: formatEmptyResolutionError(input),
-            retryable: false,
-          }),
-        );
+        return yield* new SkillsError({
+          message: formatEmptyResolutionError(input),
+          retryable: false,
+        });
       }
       return ref;
     }
@@ -78,16 +74,14 @@ export function selectExtensionRef(
     // Multiple results - prompt for selection or fail if non-interactive
     if (!canPrompt) {
       const sources = refs.map((r) => `  \u2022 ${r.name ?? r.origin} (${r.source})`).join("\n");
-      return yield* Effect.fail(
-        new SkillsError({
-          message: formatError(
-            `Ambiguous input "${input}" matches multiple sources`,
-            [`Found ${refs.length} matches:\n${sources}`],
-            "Use --yes or --non-interactive with a more specific source identifier.",
-          ),
-          retryable: false,
-        }),
-      );
+      return yield* new SkillsError({
+        message: formatError(
+          `Ambiguous input "${input}" matches multiple sources`,
+          [`Found ${refs.length} matches:\n${sources}`],
+          "Use --yes or --non-interactive with a more specific source identifier.",
+        ),
+        retryable: false,
+      });
     }
 
     // Interactive selection

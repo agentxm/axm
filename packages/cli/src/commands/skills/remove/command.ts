@@ -14,15 +14,6 @@ export const removeCommand: CommandModule<{}, {}> = {
   describe: "Remove installed skills (placeholder)",
   builder: (yargs) => yargs,
   handler: async () => {
-    const program = handleRemove().pipe(
-      Effect.catchAll((error) =>
-        Effect.sync(() => {
-          console.error(`Error: ${error}`);
-          process.exit(1);
-        }),
-      ),
-    );
-
-    await Effect.runPromise(program);
+    await Effect.runPromise(handleRemove());
   },
 };

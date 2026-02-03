@@ -124,12 +124,10 @@ export const readSettings = (
       ),
     );
     if (!exists) {
-      return yield* Effect.fail(
-        new SettingsNotFoundError({
-          path: settingsPath,
-          message: `Settings file not found: ${settingsPath}`,
-        }),
-      );
+      return yield* new SettingsNotFoundError({
+        path: settingsPath,
+        message: `Settings file not found: ${settingsPath}`,
+      });
     }
 
     // Read file contents
@@ -309,7 +307,7 @@ export const ensureInitialized = (
     const error = existingResult.left;
     if (error._tag !== "SettingsNotFoundError") {
       // Re-throw parse errors or other unexpected errors
-      return yield* Effect.fail(error);
+      return yield* error;
     }
 
     // Create default settings (slow path)

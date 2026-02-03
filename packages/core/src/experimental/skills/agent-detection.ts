@@ -308,13 +308,12 @@ const checkAgent = (
     const expandedPath = expandPath(agent.detectPath);
 
     const exists = yield* fs.exists(expandedPath).pipe(
-      Effect.catchAll((error) =>
-        Effect.fail(
+      Effect.mapError(
+        (error) =>
           new DetectionError({
             message: `Failed to check path for ${agent.name}: ${expandedPath}`,
             cause: error,
           }),
-        ),
       ),
     );
 

@@ -570,16 +570,14 @@ export const handleInstall = (
         p.log.info(`Auto-selecting all detected agents: ${agents.map((a) => a.name).join(", ")}`);
       } else if (!isInteractive()) {
         // Not interactive and no --yes/--non-interactive flag
-        return yield* Effect.fail(
-          new InstallError({
-            message: formatError(
-              "Cannot prompt for agent selection",
-              ["stdin is not a TTY"],
-              "Use --yes, --all, or --non-interactive to run without prompts.",
-            ),
-            retryable: false,
-          }),
-        );
+        return yield* new InstallError({
+          message: formatError(
+            "Cannot prompt for agent selection",
+            ["stdin is not a TTY"],
+            "Use --yes, --all, or --non-interactive to run without prompts.",
+          ),
+          retryable: false,
+        });
       } else {
         const selectedAgents = yield* promptMultiselect(
           "Select agents to install skills for",
@@ -638,26 +636,22 @@ export const handleInstall = (
       wellKnownSkills = result.wellKnownSkills;
     } else {
       spinnerHelper.stop("Unsupported source type");
-      return yield* Effect.fail(
-        new InstallError({
-          message: `Unsupported source type: ${parsed.type}`,
-          retryable: false,
-        }),
-      );
+      return yield* new InstallError({
+        message: `Unsupported source type: ${parsed.type}`,
+        retryable: false,
+      });
     }
 
     if (skills.length === 0) {
       spinnerHelper.stop("No skills found");
-      return yield* Effect.fail(
-        new InstallError({
-          message: formatError(
-            "No skills found in source",
-            [`Source: ${parsed.canonical}`],
-            "Verify the source path contains directories with SKILL.md files.",
-          ),
-          retryable: false,
-        }),
-      );
+      return yield* new InstallError({
+        message: formatError(
+          "No skills found in source",
+          [`Source: ${parsed.canonical}`],
+          "Verify the source path contains directories with SKILL.md files.",
+        ),
+        retryable: false,
+      });
     }
 
     spinnerHelper.stop(`Found ${skills.length} skill(s)`);
@@ -690,16 +684,14 @@ export const handleInstall = (
       p.log.info(`Installing all ${skills.length} skill(s)`);
     } else if (!canPrompt({ yes: args.yes, nonInteractive: args.nonInteractive ?? false })) {
       // Need to prompt but can't
-      return yield* Effect.fail(
-        new InstallError({
-          message: formatError(
-            "Cannot prompt for skill selection",
-            ["stdin is not a TTY"],
-            "Use --yes, --all, or --non-interactive to run without prompts.",
-          ),
-          retryable: false,
-        }),
-      );
+      return yield* new InstallError({
+        message: formatError(
+          "Cannot prompt for skill selection",
+          ["stdin is not a TTY"],
+          "Use --yes, --all, or --non-interactive to run without prompts.",
+        ),
+        retryable: false,
+      });
     } else {
       // Interactive selection
       selectedSkills = yield* promptMultiselect("Select skills to install", skills, {
@@ -782,16 +774,14 @@ export const handleInstall = (
     // Step 7: Confirm installation (unless --yes or --non-interactive)
     if (!args.yes && !args.nonInteractive) {
       if (!isInteractive()) {
-        return yield* Effect.fail(
-          new InstallError({
-            message: formatError(
-              "Cannot prompt for confirmation",
-              ["stdin is not a TTY"],
-              "Use --yes, --all, or --non-interactive to run without prompts.",
-            ),
-            retryable: false,
-          }),
-        );
+        return yield* new InstallError({
+          message: formatError(
+            "Cannot prompt for confirmation",
+            ["stdin is not a TTY"],
+            "Use --yes, --all, or --non-interactive to run without prompts.",
+          ),
+          retryable: false,
+        });
       }
       const confirmed = yield* promptConfirm(
         `Install ${selectedSkills.length} skill(s) to ${agents.length} agent(s)?`,

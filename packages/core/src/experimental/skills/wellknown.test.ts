@@ -86,13 +86,11 @@ describe("wellknown", () => {
             HttpClientRequest.get(req.url),
             new Response("Not Found", { status: 404 }),
           );
-          return yield* Effect.fail(
-            new HttpClientError.ResponseError({
-              request: req,
-              response,
-              reason: "StatusCode",
-            }),
-          );
+          return yield* new HttpClientError.ResponseError({
+            request: req,
+            response,
+            reason: "StatusCode",
+          });
         }),
       ),
     );
@@ -110,13 +108,11 @@ describe("wellknown", () => {
             HttpClientRequest.get(req.url),
             new Response("Internal Server Error", { status: 500 }),
           );
-          return yield* Effect.fail(
-            new HttpClientError.ResponseError({
-              request: req,
-              response,
-              reason: "StatusCode",
-            }),
-          );
+          return yield* new HttpClientError.ResponseError({
+            request: req,
+            response,
+            reason: "StatusCode",
+          });
         }),
       ),
     );
@@ -133,13 +129,11 @@ describe("wellknown", () => {
             HttpClientRequest.get(req.url),
             new Response("Bad Request", { status: 400 }),
           );
-          return yield* Effect.fail(
-            new HttpClientError.ResponseError({
-              request: req,
-              response,
-              reason: "StatusCode",
-            }),
-          );
+          return yield* new HttpClientError.ResponseError({
+            request: req,
+            response,
+            reason: "StatusCode",
+          });
         }),
       ),
     );
@@ -435,7 +429,7 @@ describe("wellknown", () => {
     const withLayers = <A, E>(
       effect: Effect.Effect<A, E, HttpClient.HttpClient | FileSystem.FileSystem>,
       httpLayer: Layer.Layer<HttpClient.HttpClient>,
-    ) => effect.pipe(Effect.provide(httpLayer), Effect.provide(NodeFileSystem.layer));
+    ) => effect.pipe(Effect.provide(Layer.merge(httpLayer, NodeFileSystem.layer)));
 
     it.effect("fetches single file skill", () => {
       const skill = {
@@ -559,8 +553,7 @@ describe("wellknown", () => {
 
       return Effect.gen(function* () {
         const error = yield* fetchSkillFiles("https://example.com", skill, destination).pipe(
-          Effect.provide(create404ErrorLayer()),
-          Effect.provide(NodeFileSystem.layer),
+          Effect.provide(Layer.merge(create404ErrorLayer(), NodeFileSystem.layer)),
           Effect.flip,
         );
 
@@ -581,8 +574,7 @@ describe("wellknown", () => {
 
         return Effect.gen(function* () {
           const error = yield* fetchSkillFiles("https://example.com", skill, destination).pipe(
-            Effect.provide(create500ErrorLayer()),
-            Effect.provide(NodeFileSystem.layer),
+            Effect.provide(Layer.merge(create500ErrorLayer(), NodeFileSystem.layer)),
             Effect.flip,
           );
 

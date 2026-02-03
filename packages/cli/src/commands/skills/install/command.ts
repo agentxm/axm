@@ -1,6 +1,6 @@
 import { FetchHttpClient } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import type { CommandModule } from "yargs";
 import { handleInstall } from "./handler.js";
 
@@ -110,8 +110,7 @@ export const installCommand: CommandModule<{}, InstallArgs> = {
           process.exit(1);
         }),
       ),
-      Effect.provide(NodeContext.layer),
-      Effect.provide(FetchHttpClient.layer),
+      Effect.provide(Layer.merge(NodeContext.layer, FetchHttpClient.layer)),
     );
 
     await Effect.runPromise(program);

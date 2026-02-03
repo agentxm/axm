@@ -62,7 +62,7 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 
 ## Effect
 
-- [ ] Use `Array`, `Record`, and `Option` from Effect, not built-in types
+- [ ] Use `Array.Array`, `Record.Record`, and `Option.Option` from Effect, not built-in types
 - [ ] Prefer `Option<T>` over `T | undefined` or optional properties (`prop?: T`)
 - [ ] No raw Promises or async/await (use Effect.promise to wrap)
 - [ ] Errors are typed in the Effect signature

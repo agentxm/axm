@@ -36,8 +36,12 @@ const ideal =
     force: false,
   });
 
-// buildPlan is pure - no effects needed
-const plan = buildPlan(current, ideal);
+// buildPlan is pure - returns Either
+const planResult = buildPlan(current, ideal);
+if (Either.isLeft(planResult)) {
+  return yield * Effect.fail(planResult.left);
+}
+const plan = planResult.right;
 
 // Check for empty plan
 if (plan.steps.length === 0) {
@@ -62,14 +66,14 @@ return plan;
 | Integrity checks    | Existence only, no content    | Avoid false positives from formatting changes                       |
 | Install location    | Canonical by source type      | Registry: `@<scope>/skills/<name>`, other: `external/skills/<name>` |
 | Agent sync          | Per-skill in IdealSkill       | Agents resolved by handler, included in ideal state and plan steps  |
-| Plan steps          | User intent, not impl         | Show install/update/remove, hide clean+add                          |
+| Plan steps          | User intent, not impl         | Show install/update/uninstall, hide clean+add                       |
 | Agent grouping      | Per-skill with agents[]       | Matches display: "skill @ agent1, agent2"; always explicit          |
 | Divergence handling | Handler inspects issues       | Issues on state; handler decides how to proceed                     |
 | Issues on state     | Computed during load          | No separate diagnose step; issues at ActualSkill/SkillState/Current |
-| Settings changes    | Derived from plan steps       | Install/update → add entry; remove → delete entry                   |
+| Settings changes    | Derived from plan steps       | Install/update → add entry; uninstall → delete entry                |
 | Multiple targets    | Bulk via args                 | Commands use arrays (skills, agents)                                |
 | Apply effectful     | Yes                           | Side effects require Effect                                         |
-| buildPlan           | Pure function                 | No effects needed; easier to test                                   |
+| buildPlan           | Pure, returns Either          | No effects; Either for error handling; semver for registry versions |
 | Install path        | Computed on demand            | Derived from source type + name; not stored                         |
 
 ## Workspace Service
@@ -95,7 +99,7 @@ class ApplyError extends Data.TaggedError("ApplyError")<{
 class UnhealthyWorkspaceError extends Data.TaggedError(
   "UnhealthyWorkspaceError",
 )<{
-  issues: Array.Array<AnyIssue>;
+  issues: Array<AnyIssue>;
 }> {}
 
 interface Workspace {
@@ -160,7 +164,7 @@ const computeInstallPath = (source: SkillSource, name: string): string => {
  * Collect all issues from current state into a flat array.
  * Returns issues from all levels: workspace, skill state, and actual skill.
  */
-const collectIssues = (current: CurrentState): Array.Array<AnyIssue> => [
+const collectIssues = (current: CurrentState): Array<AnyIssue> => [
   ...current.issues,
   ...current.skills.flatMap((s) => [
     ...s.issues,
@@ -171,12 +175,32 @@ const collectIssues = (current: CurrentState): Array.Array<AnyIssue> => [
   ]),
 ];
 
+/** Error during plan building */
+class BuildPlanError extends Data.TaggedError("BuildPlanError")<{
+  message: string;
+  cause?: unknown;
+}> {}
+
+/** Compare versions using semver for registry sources */
+const versionsEqual = (a: Option<string>, b: Option<string>): boolean =>
+  Option.match(a, {
+    onNone: () => Option.isNone(b),
+    onSome: (va) =>
+      Option.match(b, {
+        onNone: () => false,
+        onSome: (vb) => semver.eq(va, vb), // Use semver comparison
+      }),
+  });
+
 /**
  * Build execution plan by diffing current vs ideal state.
- * Pure function - no effects needed.
+ * Pure function - returns Either for error handling.
  */
-const buildPlan = (current: CurrentState, ideal: IdealState): Plan => {
-  const steps: Array.Array<PlanStep> = [];
+const buildPlan = (
+  current: CurrentState,
+  ideal: IdealState,
+): Either<BuildPlanError, Plan> => {
+  const steps: Array<PlanStep> = [];
 
   // Find skills to install or update
   for (const idealSkill of ideal.skills) {
@@ -199,9 +223,9 @@ const buildPlan = (current: CurrentState, ideal: IdealState): Plan => {
       // On disk and in lockfile → check for update
       const locked = currentSkill.locked.value;
       const needsUpdate =
-        (Option.isSome(idealSkill.version) &&
-          !Option.equals(idealSkill.version, locked.version)) ||
-        (Option.isSome(idealSkill.gitTreeHash) &&
+        (idealSkill.source._tag === "Registry" &&
+          !versionsEqual(idealSkill.version, locked.version)) ||
+        (idealSkill.source._tag !== "Registry" &&
           !Option.equals(idealSkill.gitTreeHash, locked.gitTreeHash)) ||
         idealSkill.source._tag === "Local"; // Local always updates
 
@@ -209,6 +233,7 @@ const buildPlan = (current: CurrentState, ideal: IdealState): Plan => {
         steps.push({
           _tag: "UpdateSkill",
           skill: idealSkill.name,
+          source: idealSkill.source,
           fromVersion: locked.version,
           toVersion: idealSkill.version,
           fromHash: locked.gitTreeHash,
@@ -219,7 +244,7 @@ const buildPlan = (current: CurrentState, ideal: IdealState): Plan => {
     }
   }
 
-  // Find skills to remove (in current but not in ideal)
+  // Find skills to uninstall (in current but not in ideal)
   for (const currentSkill of current.skills) {
     if (Option.isNone(currentSkill.actual)) continue;
 
@@ -230,14 +255,14 @@ const buildPlan = (current: CurrentState, ideal: IdealState): Plan => {
 
     if (!inIdeal && Option.isSome(currentSkill.locked)) {
       steps.push({
-        _tag: "RemoveSkill",
+        _tag: "UninstallSkill",
         skill: currentSkill.name,
-        agents: [], // TODO: Get from current settings
+        agents: currentSkill.locked.value.agents,
       });
     }
   }
 
-  return { steps };
+  return Either.right({ steps });
 };
 
 /** Check if plan has any changes */
@@ -280,21 +305,21 @@ type Command =
       /** GitHub shorthand (owner/repo), local path, or URL */
       source: string;
       /** Target agents (already resolved by handler) */
-      agents: Array.Array<string>;
+      agents: Array<string>;
       /** "all" to install all discovered skills, or specific skill names */
-      skills: "all" | Array.Array<string>;
+      skills: "all" | Array<string>;
       /** Skip confirmation when replacing skill from different source */
       force: boolean;
     }
   | {
       _tag: "skills-uninstall";
       /** Skill names to uninstall */
-      skills: Array.Array<string>;
+      skills: Array<string>;
     }
   | {
       _tag: "skills-update";
       /** "all" to update all installed skills, or specific skill names */
-      skills: "all" | Array.Array<string>;
+      skills: "all" | Array<string>;
     };
 ```
 
@@ -335,7 +360,7 @@ High-level algorithm for computing ideal state from current state + command.
 2. **For each skill to uninstall:**
    - Find skill by name in ideal
    - If not found → error (or warning?)
-   - If found → remove from ideal
+   - If found → exclude from ideal
 3. **Return ideal state**
 
 ### skills-update
@@ -394,7 +419,7 @@ type ActualSkillIssue =
   | { _tag: "MissingSkillMd"; path: string; severity: "error" }
   | {
       _tag: "InvalidFrontmatter";
-      errors: Array.Array<string>;
+      errors: Array<string>;
       severity: "error";
     }
   | { _tag: "MissingDescription"; severity: "warning" };
@@ -409,7 +434,7 @@ type WorkspaceIssue =
   | {
       _tag: "DuplicateName";
       name: string;
-      paths: Array.Array<string>;
+      paths: Array<string>;
       severity: "error";
     }
   | {
@@ -423,9 +448,9 @@ type WorkspaceIssue =
 interface ActualSkill {
   name: string;
   path: string;
-  files: Array.Array<string>;
+  files: Array<string>;
   frontmatter: Option<SkillFrontmatter>;
-  issues: Array.Array<ActualSkillIssue>;
+  issues: Array<ActualSkillIssue>;
 }
 
 /** Skill entry from lockfile */
@@ -434,6 +459,7 @@ interface LockedSkill {
   source: SkillSource;
   version: Option<string>; // Semver for registry, None for git/local
   gitTreeHash: Option<string>; // Hash of source folder for git sources
+  agents: Array<string>; // Agents this skill is installed for
   installedAt: Date;
   updatedAt: Date;
 }
@@ -443,17 +469,20 @@ interface SkillState {
   name: string;
   actual: Option<ActualSkill>; // None = not on disk
   locked: Option<LockedSkill>; // None = not in lockfile
-  issues: Array.Array<SkillStateIssue>;
+  issues: Array<SkillStateIssue>;
 }
 
 /**
  * Current workspace state - all skills with their actual/locked status.
- * Uses Array (not Record) because multiple skills with the same name may exist
- * on disk (e.g., in different locations), which is itself an issue to report.
+ *
+ * Uses Array (not Record) to accommodate duplicate skill names on disk
+ * (e.g., same skill installed from different sources). This is a must-have
+ * requirement for detecting and reporting conflicts. Tradeoff: O(n) lookups
+ * in buildPlan vs O(1) with Record, acceptable for typical workspace sizes.
  */
 interface CurrentState {
-  skills: Array.Array<SkillState>;
-  issues: Array.Array<WorkspaceIssue>;
+  skills: Array<SkillState>;
+  issues: Array<WorkspaceIssue>;
 }
 
 /** Desired skill after the command */
@@ -462,12 +491,12 @@ interface IdealSkill {
   source: SkillSource;
   version: Option<string>; // Semver for registry, None for git/local
   gitTreeHash: Option<string>; // Hash of source folder for git sources
-  agents: Array.Array<string>; // Target agents (explicit, never implicit "all")
+  agents: Array<string>; // Target agents (explicit, never implicit "all")
 }
 
 /** Desired outcome - what we want after the command */
 interface IdealState {
-  skills: Array.Array<IdealSkill>;
+  skills: Array<IdealSkill>;
 }
 ```
 
@@ -480,7 +509,7 @@ interface IdealState {
 **Plan computation** (diff of current vs ideal, matched by computed path):
 
 - In ideal but not current → install
-- In current but not ideal → remove
+- In current but not ideal → uninstall
 - In both, version or hash differs → update
 - In both, same version/hash → no-op
 
@@ -503,7 +532,7 @@ Plan is pure data - steps reflecting user intent. Execution is handled by `ws.ap
 ```typescript
 /** Plan is pure data - no behavior */
 interface Plan {
-  readonly steps: Array.Array<PlanStep>;
+  readonly steps: Array<PlanStep>;
 }
 
 /** Steps reflect user intent, grouped by skill */
@@ -514,27 +543,34 @@ type PlanStep =
       source: SkillSource;
       version: Option<string>;
       gitTreeHash: Option<string>;
-      agents: Array.Array<string>;
+      agents: Array<string>;
     }
   | {
       _tag: "UpdateSkill";
       skill: string;
+      source: SkillSource;
       fromVersion: Option<string>;
       toVersion: Option<string>;
       fromHash: Option<string>; // For git sources without version
       toHash: Option<string>;
-      agents: Array.Array<string>;
+      agents: Array<string>;
     }
   | {
-      _tag: "RemoveSkill";
+      _tag: "UninstallSkill";
       skill: string;
-      agents: Array.Array<string>;
+      agents: Array<string>; // Remove from these agents + canonical location + settings + lockfile
     };
 
 /** Result of applying a plan */
 interface ApplyResult {
-  applied: Array.Array<PlanStep>;
-  failed: Array.Array<{ step: PlanStep; error: ApplyError }>;
+  applied: Array<PlanStep>;
+  failed: Array<{ step: PlanStep; error: ApplyError }>;
+  summary: {
+    installed: number;
+    updated: number;
+    uninstalled: number;
+    failed: number;
+  };
 }
 ```
 
@@ -634,7 +670,7 @@ const toSettingsEntry = (source: SkillSource): SkillSettingsEntry => {
 **Settings update during apply:**
 
 - `InstallSkill` / `UpdateSkill` → `settings.skills[name] = toSettingsEntry(source)`
-- `RemoveSkill` → `delete settings.skills[name]`
+- `UninstallSkill` → `delete settings.skills[name]`
 
 ## Apply
 
@@ -642,10 +678,37 @@ const toSettingsEntry = (source: SkillSource): SkillSettingsEntry => {
 
 - **dryRun: true** — Display plan only, no side effects
 - **dryRun: false** — Execute in order:
-  1. Skill file operations (copy/remove to canonical location)
+  1. Skill file operations (copy/delete to canonical location)
   2. Agent sync (symlinks/copies to agent directories)
-  3. Settings update (add/remove skill entries per plan steps)
+  3. Settings update (derived from plan steps)
   4. Lockfile update (source of truth, written last)
+
+**Settings integration during apply:**
+
+```typescript
+const updateSettingsFromPlan = (settings: Settings, plan: Plan): Settings => {
+  let updated = settings;
+  for (const step of plan.steps) {
+    switch (step._tag) {
+      case "InstallSkill":
+      case "UpdateSkill":
+        updated = {
+          ...updated,
+          skills: {
+            ...updated.skills,
+            [step.skill]: toSettingsEntry(step.source),
+          },
+        };
+        break;
+      case "UninstallSkill":
+        const { [step.skill]: _, ...rest } = updated.skills;
+        updated = { ...updated, skills: rest };
+        break;
+    }
+  }
+  return updated;
+};
+```
 
 **Empty plan**: `Plan { steps: [] }` means no changes needed. Handler checks `plan.steps.length === 0` and displays "Already up to date."
 
@@ -719,10 +782,15 @@ axm doctor
 - [x] Integrity: Existence checks only, no content verification (formatters may modify)
 - [x] Plan execution: `ws.applyPlan(plan, opts)` - separate data from behavior
 - [x] Current state: Merged actual + locked into single CurrentState
-- [x] buildPlan signature: `buildPlan(current, ideal)` - pure function, no effects
+- [x] buildPlan signature: `buildPlan(current, ideal)` - pure function, returns Either
 - [x] gitTreeHash in lockfile: Required for git sources (no explicit version info)
 - [x] Install path: Computed on demand via `computeInstallPath`, not stored
 - [x] Agent resolution: Handler resolves agents before buildIdealState
 - [x] Settings entries: Derived from plan steps; SkillSettingsEntry union type
 - [x] collectIssues: Pure helper function defined
 - [x] UnhealthyWorkspaceError: Added to error types
+- [x] LockedSkill: Defined with agents field for tracking per-skill agent installations
+- [x] Uninstall semantics: Removes from specified agents + canonical location + settings + lockfile
+- [x] No repair concept: Simplified to install/update/uninstall only
+- [x] Version comparison: Semver for registry sources, hash for git sources
+- [x] Array for CurrentState.skills: Required to detect duplicate skill names (O(n) tradeoff accepted)

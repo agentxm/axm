@@ -124,21 +124,21 @@ type Command =
       /** GitHub shorthand (owner/repo), local path, or URL */
       source: string;
       /** Limit sync to these agents; empty = resolve from project settings during buildIdealState */
-      agents: string[];
+      agents: Array.Array<string>;
       /** "all" to install all discovered skills, or specific skill names */
-      skills: "all" | string[];
+      skills: "all" | Array.Array<string>;
       /** Overwrite existing skills */
       force: boolean;
     }
   | {
       _tag: "skills-uninstall";
       /** Skill names to uninstall */
-      skills: string[];
+      skills: Array.Array<string>;
     }
   | {
       _tag: "skills-update";
       /** Skill names to update; empty = all installed skills */
-      skills: string[];
+      skills: Array.Array<string>;
     };
 ```
 
@@ -420,9 +420,6 @@ axm doctor --fix
 ## Resolved
 
 - [x] Should `buildPlan` detect no-op and return empty plan? **Yes**, `Plan { steps: [] }` is the no-op representation
-
-## Resolved
-
 - [x] State types: Separate ActualSkill/IdealSkill (different shapes)
 - [x] Diffing: By source type - version for registry, gitTreeHash for git, always for local
 - [x] Integrity: Existence checks only, no content verification (formatters may modify)

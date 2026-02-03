@@ -525,8 +525,8 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        // Should indicate the skill was skipped
-        expect(result.stdout).toMatch(/already installed|skipping/i);
+        // Should indicate the skill was skipped (state-based: already up to date)
+        expect(result.stdout).toMatch(/already up to date|already installed|skipping/i);
       } finally {
         temp.cleanup();
       }
@@ -592,6 +592,317 @@ describe("axm skills install", () => {
       expect(result.stdout).toContain("--agent");
       expect(result.stdout).toContain("--global");
       expect(result.stdout).toContain("--force");
+      expect(result.stdout).toContain("--dry-run");
+      expect(result.stdout).toContain("--json");
+    });
+  });
+
+  describe("--dry-run", () => {
+    it("shows installation plan without making changes", async () => {
+      const temp = createTempDir();
+      try {
+        await runCli(["init", "--yes", "--agent", "claude-code"], {
+          cwd: temp.path,
+        });
+
+        const result = await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--all",
+            "--dry-run",
+            "--agent",
+            "claude-code",
+          ],
+          { cwd: temp.path },
+        );
+
+        expect(result.exitCode).toBe(0);
+        // Should show skills to be added
+        expect(result.stdout).toContain("my-skill");
+        expect(result.stdout).toContain("another-skill");
+        // Should show plan indicators (+ for add)
+        expect(result.stdout).toMatch(/\+.*my-skill|\+.*another-skill/);
+        // Should show dry-run message
+        expect(result.stdout).toContain("Dry-run complete. No changes made.");
+
+        // Verify no files were created
+        const skillsDir = path.join(temp.path, ".axm", "skills");
+        expect(fs.existsSync(skillsDir)).toBe(false);
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("shows summary with counts", async () => {
+      const temp = createTempDir();
+      try {
+        await runCli(["init", "--yes", "--agent", "claude-code"], {
+          cwd: temp.path,
+        });
+
+        const result = await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--all",
+            "--dry-run",
+            "--agent",
+            "claude-code",
+          ],
+          { cwd: temp.path },
+        );
+
+        expect(result.exitCode).toBe(0);
+        // Should show summary with add count
+        expect(result.stdout).toMatch(/\d+ to add/);
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("shows repair when skill exists with different content (hash mismatch)", async () => {
+      const temp = createTempDir();
+      try {
+        await runCli(["init", "--yes", "--agent", "claude-code"], {
+          cwd: temp.path,
+        });
+
+        // First install a skill
+        await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--skill",
+            "my-skill",
+            "--yes",
+            "--agent",
+            "claude-code",
+          ],
+          { cwd: temp.path },
+        );
+
+        // Modify the installed skill to simulate local changes (creates hash mismatch)
+        const skillMdPath = path.join(temp.path, ".axm", "skills", "my-skill", "SKILL.md");
+        const originalContent = fs.readFileSync(skillMdPath, "utf-8");
+        fs.writeFileSync(skillMdPath, `${originalContent}\n# Modified locally`);
+
+        // Run dry-run with force - should show repair due to hash mismatch
+        const result = await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--skill",
+            "my-skill",
+            "--dry-run",
+            "--force",
+            "--agent",
+            "claude-code",
+          ],
+          { cwd: temp.path },
+        );
+
+        expect(result.exitCode).toBe(0);
+        // Should show repair indicator (! for repair) since local content differs from locked
+        expect(result.stdout).toMatch(/!.*my-skill|repair/i);
+        expect(result.stdout).toContain("Dry-run complete. No changes made.");
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("shows already up to date when no changes needed", async () => {
+      const temp = createTempDir();
+      try {
+        await runCli(["init", "--yes", "--agent", "claude-code"], {
+          cwd: temp.path,
+        });
+
+        // Install a skill
+        await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--skill",
+            "my-skill",
+            "--yes",
+            "--agent",
+            "claude-code",
+          ],
+          { cwd: temp.path },
+        );
+
+        // Run dry-run for the same skill (without force - should skip)
+        const result = await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--skill",
+            "my-skill",
+            "--dry-run",
+            "--agent",
+            "claude-code",
+          ],
+          { cwd: temp.path },
+        );
+
+        expect(result.exitCode).toBe(0);
+        // Should indicate no changes
+        expect(result.stdout).toMatch(/already up to date|already installed|no changes/i);
+      } finally {
+        temp.cleanup();
+      }
+    });
+  });
+
+  describe("--dry-run --json", () => {
+    it("outputs plan as valid JSON", async () => {
+      const temp = createTempDir();
+      try {
+        await runCli(["init", "--yes", "--agent", "claude-code"], {
+          cwd: temp.path,
+        });
+
+        const result = await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--all",
+            "--dry-run",
+            "--json",
+            "--agent",
+            "claude-code",
+          ],
+          { cwd: temp.path },
+        );
+
+        expect(result.exitCode).toBe(0);
+
+        // Should be valid JSON
+        const json = JSON.parse(result.stdout);
+        expect(json).toBeDefined();
+        expect(json.changes).toBeDefined();
+        expect(Array.isArray(json.changes)).toBe(true);
+        expect(json.summary).toBeDefined();
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("includes _tag and name for each change", async () => {
+      const temp = createTempDir();
+      try {
+        await runCli(["init", "--yes", "--agent", "claude-code"], {
+          cwd: temp.path,
+        });
+
+        const result = await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--all",
+            "--dry-run",
+            "--json",
+            "--agent",
+            "claude-code",
+          ],
+          { cwd: temp.path },
+        );
+
+        expect(result.exitCode).toBe(0);
+
+        const json = JSON.parse(result.stdout);
+        expect(json.changes.length).toBeGreaterThan(0);
+
+        for (const change of json.changes) {
+          expect(change).toHaveProperty("_tag");
+          expect(change).toHaveProperty("name");
+          expect(["Add", "Update", "Remove", "Unchanged", "Repair"]).toContain(change._tag);
+        }
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("includes summary counts", async () => {
+      const temp = createTempDir();
+      try {
+        await runCli(["init", "--yes", "--agent", "claude-code"], {
+          cwd: temp.path,
+        });
+
+        const result = await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--all",
+            "--dry-run",
+            "--json",
+            "--agent",
+            "claude-code",
+          ],
+          { cwd: temp.path },
+        );
+
+        expect(result.exitCode).toBe(0);
+
+        const json = JSON.parse(result.stdout);
+        expect(json.summary).toHaveProperty("add");
+        expect(json.summary).toHaveProperty("update");
+        expect(json.summary).toHaveProperty("remove");
+        expect(json.summary).toHaveProperty("unchanged");
+        expect(json.summary).toHaveProperty("repair");
+        expect(typeof json.summary.add).toBe("number");
+        expect(json.summary.add).toBe(2); // my-skill and another-skill
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("shows Add changes with skill details", async () => {
+      const temp = createTempDir();
+      try {
+        await runCli(["init", "--yes", "--agent", "claude-code"], {
+          cwd: temp.path,
+        });
+
+        const result = await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--skill",
+            "my-skill",
+            "--dry-run",
+            "--json",
+            "--agent",
+            "claude-code",
+          ],
+          { cwd: temp.path },
+        );
+
+        expect(result.exitCode).toBe(0);
+
+        const json = JSON.parse(result.stdout);
+        const addChange = json.changes.find(
+          (c: { _tag: string; name: string }) => c._tag === "Add" && c.name === "my-skill",
+        );
+        expect(addChange).toBeDefined();
+        expect(addChange.skill).toBeDefined();
+        expect(addChange.skill.name).toBe("my-skill");
+        expect(addChange.skill.source).toBeDefined();
+      } finally {
+        temp.cleanup();
+      }
     });
   });
 });

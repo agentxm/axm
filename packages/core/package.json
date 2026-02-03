@@ -15,6 +15,10 @@
       "types": "./dist/experimental/skills/index.d.ts",
       "import": "./dist/experimental/skills/index.js"
     },
+    "./experimental/skills/state": {
+      "types": "./dist/experimental/skills/state/index.d.ts",
+      "import": "./dist/experimental/skills/state/index.js"
+    },
     "./experimental/resolution": {
       "types": "./dist/experimental/resolution/index.d.ts",
       "import": "./dist/experimental/resolution/index.js"

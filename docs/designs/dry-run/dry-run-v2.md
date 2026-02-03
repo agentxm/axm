@@ -7,7 +7,7 @@ Refactor dry-run support using a desired-state reconciliation pattern. Handlers 
 ## Core Pattern
 
 ```typescript
-import { Array, Console, Effect, Either, pipe } from "effect";
+import { Array, Console, Effect, pipe } from "effect";
 
 // Workspace context (local vs global) determined at service creation
 const ws = yield * Workspace;
@@ -43,16 +43,8 @@ const ideal =
     force: false,
   });
 
-// buildPlan is pure - returns Either
-const plan =
-  yield *
-  pipe(
-    buildPlan(current, ideal),
-    Either.match({
-      onLeft: Effect.fail,
-      onRight: Effect.succeed,
-    }),
-  );
+// buildPlan is pure
+const plan = buildPlan(current, ideal);
 
 // Check for empty plan
 if (Array.isEmptyArray(plan.steps)) {
@@ -84,9 +76,10 @@ return plan;
 | Settings changes    | Derived from plan steps       | Install/update → add entry; uninstall → delete entry                |
 | Multiple targets    | Bulk via args                 | Commands use arrays (skills, agents)                                |
 | Apply effectful     | Yes                           | Side effects require Effect                                         |
-| buildPlan           | Pure, returns Either          | No effects; Either for error handling; semver for registry versions |
+| buildPlan           | Pure, returns Plan            | No effects; validation happens in buildIdealState                   |
 | Install path        | Computed on demand            | Derived from source type + name; not stored                         |
-| Skill identity      | Name (unique across sources)  | Simplifies matching, agent sync, settings; rejects duplicates       |
+| Skill identity      | Name (unique across sources)  | Simplifies matching; duplicates detected as errors during load      |
+| Uninstall scope     | Requires actual + locked      | "Locked but not on disk" is a health issue, not an uninstall target |
 
 ## Workspace Service
 
@@ -159,7 +152,8 @@ const WorkspaceLive = (options: { global: boolean; interactive: boolean }) =>
 These functions are pure and can be tested without effects:
 
 ```typescript
-import { Array, Data, Either, Option, pipe, Record, semver } from "effect";
+import { Array, Data, Option, pipe, Record } from "effect";
+import * as semver from "semver";
 
 /**
  * Compute install path from source type and skill name.
@@ -196,13 +190,7 @@ const collectIssues = (current: CurrentState): Array.Array<AnyIssue> =>
     Array.appendAll(current.issues),
   );
 
-/** Error during plan building */
-class BuildPlanError extends Data.TaggedError("BuildPlanError")<{
-  readonly message: string;
-  readonly cause: Option.Option<unknown>;
-}> {}
-
-/** Compare versions using semver for registry sources */
+/** Compare versions using semver for registry sources, with fallback for non-semver */
 const versionsEqual = (
   a: Option.Option<string>,
   b: Option.Option<string>,
@@ -211,22 +199,24 @@ const versionsEqual = (
     Option.all([a, b]),
     Option.match({
       onNone: () => Option.isNone(a) && Option.isNone(b),
-      onSome: ([va, vb]) => semver.eq(va, vb),
+      onSome: ([va, vb]) => {
+        // Attempt semver comparison, fall back to string equality
+        const parsedA = semver.parse(va);
+        const parsedB = semver.parse(vb);
+        return parsedA && parsedB ? semver.eq(parsedA, parsedB) : va === vb; // Fallback for non-semver versions
+      },
     }),
   );
 
 /**
  * Build execution plan by diffing current vs ideal state.
- * Pure function - returns Either for error handling.
+ * Pure function - no validation, just diffing.
  *
  * Matching strategy: Skills are matched by name (unique across all sources).
  * - Install/update: iterate ideal skills, find matching current skill by name
  * - Uninstall: iterate current skills, check if name exists in ideal
  */
-const buildPlan = (
-  current: CurrentState,
-  ideal: IdealState,
-): Either.Either<Plan, BuildPlanError> => {
+const buildPlan = (current: CurrentState, ideal: IdealState): Plan => {
   // Find skills to install or update
   const installOrUpdateSteps = pipe(
     ideal.skills,
@@ -309,7 +299,7 @@ const buildPlan = (
   );
 
   const steps = Array.appendAll(installOrUpdateSteps, uninstallSteps);
-  return Either.right({ steps });
+  return { steps };
 };
 
 /** Check if plan has any changes */
@@ -405,10 +395,14 @@ High-level algorithm for computing ideal state from current state + command.
 
 1. **Start with current as baseline** — Copy existing skills to ideal
 2. **For each skill to uninstall:**
-   - Find skill by name in ideal
-   - If not found → error (or warning?)
+   - Find skill by name in current
+   - If not found → error
    - If found → exclude from ideal
 3. **Return ideal state**
+
+**Note:** Only skills that exist both on disk (actual) and in lockfile (locked) can be uninstalled.
+Skills that are "locked but not on disk" represent a health issue (MissingFromDisk) and should be
+resolved via `axm doctor` or by reinstalling, not by uninstalling.
 
 ### skills-update
 
@@ -769,10 +763,12 @@ interface SkillState {
 /**
  * Current workspace state - all skills with their actual/locked status.
  *
- * Uses Array (not Record) to accommodate duplicate skill names on disk
- * (e.g., same skill installed from different sources). This is a must-have
- * requirement for detecting and reporting conflicts. Tradeoff: O(n) lookups
- * in buildPlan vs O(1) with Record, acceptable for typical workspace sizes.
+ * Uses Array (not Record) to detect and report duplicate skill names on disk
+ * (e.g., same skill manually copied to multiple locations). Duplicates are
+ * workspace-level errors (DuplicateName issue) that block operations.
+ *
+ * When no duplicates exist, skills are matched by name (unique identifier).
+ * The O(n) lookup tradeoff is acceptable for typical workspace sizes (<100 skills).
  */
 interface CurrentState {
   readonly skills: Array.Array<SkillState>;
@@ -800,7 +796,7 @@ interface IdealState {
 - External skills (GitHub, local) install to `.axm/extensions/external/skills/<name>`
 - Agents are resolved by handler before buildIdealState; passed explicitly in command
 
-**Plan computation** (diff of current vs ideal, matched by computed path):
+**Plan computation** (diff of current vs ideal, matched by name):
 
 - In ideal but not current → install
 - In current but not ideal → uninstall
@@ -981,9 +977,9 @@ Both files track installed skills but serve different purposes:
 
 **Flow:**
 
-1. User adds entry to settings (or CLI does on install)
-2. `axm sync` or install resolves source → creates lockfile entry
-3. Lockfile enables reproducible installs across machines
+1. User runs `axm skills install` with a source
+2. CLI resolves source, copies files, creates lockfile entry, updates settings
+3. Skills and lockfile are committed to source control
 
 ## Apply
 
@@ -1125,11 +1121,6 @@ axm doctor
 3. **Composable** - Same pattern for all commands
 4. **Dry-run trivial** - Single `apply({ dryRun })` handles both modes
 
-## Open Questions
-
-- [ ] How to handle external state (remote skill registries)?
-- [ ] Error recovery: partial apply rollback?
-
 ## Resolved
 
 - [x] Should `buildPlan` detect no-op and return empty plan? **Yes**, `Plan { steps: [] }` is the no-op representation
@@ -1138,7 +1129,7 @@ axm doctor
 - [x] Integrity: Existence checks only, no content verification (formatters may modify)
 - [x] Plan execution: `ws.applyPlan(plan, opts)` - separate data from behavior
 - [x] Current state: Merged actual + locked into single CurrentState
-- [x] buildPlan signature: `buildPlan(current, ideal)` - pure function, returns Either
+- [x] buildPlan signature: `buildPlan(current, ideal)` - pure function, returns Plan directly
 - [x] gitTreeHash in lockfile: Required for git sources (no explicit version info)
 - [x] Install path: Computed on demand via `computeInstallPath`, not stored
 - [x] Agent resolution: Handler resolves agents before buildIdealState
@@ -1147,7 +1138,10 @@ axm doctor
 - [x] UnhealthyWorkspaceError: Added to error types
 - [x] LockedSkill: Defined with agents field for tracking per-skill agent installations
 - [x] Uninstall semantics: Removes from specified agents + canonical location + settings + lockfile
+- [x] Uninstall scope: Requires both actual (on disk) and locked (in lockfile); "locked but not on disk" is a health issue
 - [x] No repair concept: Simplified to install/update/uninstall only
 - [x] Version comparison: Semver for registry sources, hash for git sources
 - [x] Array for CurrentState.skills: Required to detect duplicate skill names (O(n) tradeoff accepted)
 - [x] Skill identity: Name-based (unique across all sources); rejects duplicates from different sources
+- [x] External state (registries): Fetched during `buildIdealState`; version/metadata captured in `IdealSkill`
+- [x] Error recovery: On apply failure, stop and return partial `ApplyResult`; lockfile only updated on full success

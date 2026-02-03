@@ -53,7 +53,14 @@ interface Workspace {
   /** Workspace root path (e.g., .axm/ or ~/.axm/) */
   readonly path: string;
 
-  /** Ensure workspace is initialized (create .axm/ if needed) */
+  /** Whether user prompts are allowed */
+  readonly interactive: boolean;
+
+  /**
+   * Ensure workspace is initialized.
+   * If interactive and not initialized, walks user through setup.
+   * If non-interactive and not initialized, fails with WorkspaceNotInitialized.
+   */
   ensureInit(): Effect.Effect<void, WorkspaceError>;
 
   /** Load filesystem state - what's physically on disk */
@@ -82,11 +89,14 @@ interface Workspace {
   ): Effect.Effect<SkillsDiagnosis, DiagnoseError>;
 }
 
-/** Layer factory - creates Workspace bound to a specific path */
-const WorkspaceLive = (options: { global: boolean }) =>
+/** Layer factory - creates Workspace with context */
+const WorkspaceLive = (options: { global: boolean; interactive: boolean }) =>
   Layer.succeed(
     Workspace,
-    makeWorkspace(options.global ? globalAxmPath() : localAxmPath()),
+    makeWorkspace({
+      path: options.global ? globalAxmPath() : localAxmPath(),
+      interactive: options.interactive,
+    }),
   );
 ```
 
@@ -124,17 +134,22 @@ type Command =
 ```typescript
 /** Filesystem reality - what's physically on disk */
 interface ActualState {
-  skills: Map<string, SkillOnDisk>;
+  skills: ReadonlyArray<SkillOnDisk>; // may have duplicates across agents
+}
+
+interface SkillOnDisk {
+  name: string;
+  agent: string;
+  path: string;
+  files: ReadonlyArray<string>;
 }
 
 /** Lockfile contract - what we've committed to having installed */
-interface LockedState {
-  entries: Map<string, LockfileEntry>;
-}
+type LockedState = Lockfile; // from @agentxm/core/experimental/schemas/lockfile
 
 /** Desired outcome - what we want after the command */
 interface IdealState {
-  skills: Map<string, InstalledSkill>;
+  skills: Record<string, InstalledSkill>;
   settings: Settings; // desired configuration
 }
 ```

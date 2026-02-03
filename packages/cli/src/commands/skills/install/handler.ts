@@ -149,7 +149,16 @@ const resolveGitSource = (
   FileSystem.FileSystem
 > =>
   Effect.gen(function* () {
-    const cloneUrl = buildCloneUrl(parsed);
+    const cloneUrl = yield* buildCloneUrl(parsed).pipe(
+      Effect.mapError(
+        (error) =>
+          new InstallError({
+            message: error.message,
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
     const cacheDir = nodePath.join(axmDir, "cache", "git", `${parsed.owner}-${parsed.repo}`);
 
     // Clone repository

@@ -497,7 +497,7 @@ describe("source-parser", () => {
   });
 
   describe("buildCloneUrl", () => {
-    it("builds GitHub clone URL", () => {
+    it("builds GitHub clone URL", async () => {
       const parsed: ParsedSource = {
         type: "github",
         original: "owner/repo",
@@ -506,12 +506,12 @@ describe("source-parser", () => {
         repo: "repo",
       };
 
-      const result = buildCloneUrl(parsed);
+      const result = await Effect.runPromise(buildCloneUrl(parsed));
 
       expect(result).toBe("https://github.com/owner/repo.git");
     });
 
-    it("builds GitLab clone URL", () => {
+    it("builds GitLab clone URL", async () => {
       const parsed: ParsedSource = {
         type: "gitlab",
         original: "gitlab:owner/repo",
@@ -520,23 +520,32 @@ describe("source-parser", () => {
         repo: "repo",
       };
 
-      const result = buildCloneUrl(parsed);
+      const result = await Effect.runPromise(buildCloneUrl(parsed));
 
       expect(result).toBe("https://gitlab.com/owner/repo.git");
     });
 
-    it("throws CloneUrlError for local source", () => {
+    it("returns CloneUrlError for local source", async () => {
       const parsed: ParsedSource = {
         type: "local",
         original: "./local/path",
         canonical: "./local/path",
       };
 
-      expect(() => buildCloneUrl(parsed)).toThrow(CloneUrlError);
-      expect(() => buildCloneUrl(parsed)).toThrow("Cannot build clone URL for source type: local");
+      const result = await Effect.runPromiseExit(buildCloneUrl(parsed));
+
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") {
+        const error = result.cause._tag === "Fail" ? result.cause.error : null;
+        expect(error).toBeInstanceOf(CloneUrlError);
+        expect((error as CloneUrlError).message).toBe(
+          "Cannot build clone URL for source type: local",
+        );
+        expect((error as CloneUrlError).sourceType).toBe("local");
+      }
     });
 
-    it("throws CloneUrlError for direct-url source", () => {
+    it("returns CloneUrlError for direct-url source", async () => {
       const parsed: ParsedSource = {
         type: "direct-url",
         original: "https://example.com/skill.md",
@@ -544,13 +553,19 @@ describe("source-parser", () => {
         url: "https://example.com/skill.md",
       };
 
-      expect(() => buildCloneUrl(parsed)).toThrow(CloneUrlError);
-      expect(() => buildCloneUrl(parsed)).toThrow(
-        "Cannot build clone URL for source type: direct-url",
-      );
+      const result = await Effect.runPromiseExit(buildCloneUrl(parsed));
+
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") {
+        const error = result.cause._tag === "Fail" ? result.cause.error : null;
+        expect(error).toBeInstanceOf(CloneUrlError);
+        expect((error as CloneUrlError).message).toBe(
+          "Cannot build clone URL for source type: direct-url",
+        );
+      }
     });
 
-    it("throws CloneUrlError for well-known source", () => {
+    it("returns CloneUrlError for well-known source", async () => {
       const parsed: ParsedSource = {
         type: "well-known",
         original: "https://example.com",
@@ -558,10 +573,16 @@ describe("source-parser", () => {
         url: "https://example.com",
       };
 
-      expect(() => buildCloneUrl(parsed)).toThrow(CloneUrlError);
-      expect(() => buildCloneUrl(parsed)).toThrow(
-        "Cannot build clone URL for source type: well-known",
-      );
+      const result = await Effect.runPromiseExit(buildCloneUrl(parsed));
+
+      expect(result._tag).toBe("Failure");
+      if (result._tag === "Failure") {
+        const error = result.cause._tag === "Fail" ? result.cause.error : null;
+        expect(error).toBeInstanceOf(CloneUrlError);
+        expect((error as CloneUrlError).message).toBe(
+          "Cannot build clone URL for source type: well-known",
+        );
+      }
     });
   });
 

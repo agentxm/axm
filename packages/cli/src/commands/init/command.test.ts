@@ -8,6 +8,7 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
+import type { Argv, Options } from "yargs";
 import yargs from "yargs";
 import { initCommand } from "./command.js";
 
@@ -48,7 +49,7 @@ describe("init command options", () => {
     const { mockYargs, capturedOptions } = createOptionCapturingMock();
 
     if (typeof initCommand.builder === "function") {
-      initCommand.builder(mockYargs as any);
+      initCommand.builder(mockYargs as unknown as Argv);
       expect(capturedOptions["yes"]).toEqual(
         expect.objectContaining({
           type: "boolean",
@@ -63,7 +64,7 @@ describe("init command options", () => {
     const { mockYargs, capturedOptions } = createOptionCapturingMock();
 
     if (typeof initCommand.builder === "function") {
-      initCommand.builder(mockYargs as any);
+      initCommand.builder(mockYargs as unknown as Argv);
       expect(capturedOptions["global"]).toEqual(
         expect.objectContaining({
           type: "boolean",
@@ -77,7 +78,7 @@ describe("init command options", () => {
     const { mockYargs, capturedOptions } = createOptionCapturingMock();
 
     if (typeof initCommand.builder === "function") {
-      initCommand.builder(mockYargs as any);
+      initCommand.builder(mockYargs as unknown as Argv);
       expect(capturedOptions["agent"]).toEqual(
         expect.objectContaining({
           type: "string",
@@ -92,9 +93,10 @@ describe("init command options", () => {
     const { mockYargs, capturedOptions } = createOptionCapturingMock();
 
     if (typeof initCommand.builder === "function") {
-      initCommand.builder(mockYargs as any);
-      expect((capturedOptions["yes"] as any).describe).toBeDefined();
-      expect((capturedOptions["yes"] as any).describe).toContain("detected agents");
+      initCommand.builder(mockYargs as unknown as Argv);
+      const yesOption = capturedOptions["yes"] as Options;
+      expect(yesOption.describe).toBeDefined();
+      expect(yesOption.describe).toContain("detected agents");
     }
   });
 
@@ -102,9 +104,10 @@ describe("init command options", () => {
     const { mockYargs, capturedOptions } = createOptionCapturingMock();
 
     if (typeof initCommand.builder === "function") {
-      initCommand.builder(mockYargs as any);
-      expect((capturedOptions["global"] as any).describe).toBeDefined();
-      expect((capturedOptions["global"] as any).describe).toContain("globally");
+      initCommand.builder(mockYargs as unknown as Argv);
+      const globalOption = capturedOptions["global"] as Options;
+      expect(globalOption.describe).toBeDefined();
+      expect(globalOption.describe).toContain("globally");
     }
   });
 
@@ -112,9 +115,10 @@ describe("init command options", () => {
     const { mockYargs, capturedOptions } = createOptionCapturingMock();
 
     if (typeof initCommand.builder === "function") {
-      initCommand.builder(mockYargs as any);
-      expect((capturedOptions["agent"] as any).describe).toBeDefined();
-      expect((capturedOptions["agent"] as any).describe).toContain("agent");
+      initCommand.builder(mockYargs as unknown as Argv);
+      const agentOption = capturedOptions["agent"] as Options;
+      expect(agentOption.describe).toBeDefined();
+      expect(agentOption.describe).toContain("agent");
     }
   });
 });
@@ -127,7 +131,7 @@ describe("init command examples", () => {
     };
 
     if (typeof initCommand.builder === "function") {
-      initCommand.builder(mockYargs as any);
+      initCommand.builder(mockYargs as unknown as Argv);
       expect(mockYargs.example).toHaveBeenCalled();
       // Verify at least one example is provided
       expect(mockYargs.example.mock.calls.length).toBeGreaterThan(0);

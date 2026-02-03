@@ -1,96 +1,82 @@
-## ADDED Requirements
-
-### Requirement: Lockfile schema validates axm-lock.yaml files
-
-The schema SHALL validate lockfiles with the following structure:
-
-| Field             | Type   | Required | Description                               |
-| ----------------- | ------ | -------- | ----------------------------------------- |
-| `lockfileVersion` | number | Yes      | Schema version (currently `1`)            |
-| `extensions`      | object | Yes      | Map of extension type → name → lock entry |
-
-The lockfile SHALL be stored in YAML format at `axm-lock.yaml`.
-
-#### Scenario: Valid minimal lockfile
-
-- **WHEN** parsing YAML content `lockfileVersion: 1\nextensions: {}`
-- **THEN** validation succeeds and returns typed Lockfile
-
-#### Scenario: Missing lockfileVersion
-
-- **WHEN** parsing YAML content `extensions: {}`
-- **THEN** validation fails with error indicating missing `lockfileVersion` field
+## MODIFIED Requirements
 
 ### Requirement: Lock entry schema
 
 Each lock entry SHALL have the following fields:
 
-| Field          | Type     | Required | Description                                              |
-| -------------- | -------- | -------- | -------------------------------------------------------- |
-| `source`       | string   | Yes      | Normalized source identifier (e.g., `github:owner/repo`) |
-| `origin`       | string   | Yes      | Fully resolved source URL or path                        |
-| `path`         | string   | No       | Subpath within source repository                         |
-| `ref`          | string   | No       | Git ref (branch, tag, commit) for git sources            |
-| `version`      | string   | No       | Semver version (registry sources only)                   |
-| `folderHash`   | string   | Yes      | Git tree SHA or content hash                             |
-| `dependencies` | string[] | No       | Fully qualified names of required extensions             |
-| `installedAt`  | string   | Yes      | ISO 8601 timestamp of initial installation               |
-| `updatedAt`    | string   | Yes      | ISO 8601 timestamp of last update                        |
+| Field         | Type     | Required | Description                                             |
+| ------------- | -------- | -------- | ------------------------------------------------------- |
+| `source`      | object   | Yes      | SkillSource discriminated union (Registry/GitHub/Local) |
+| `version`     | string   | No       | Semver version (registry sources only)                  |
+| `gitTreeHash` | string   | No       | Git tree SHA of source folder (git sources)             |
+| `agents`      | string[] | Yes      | Agent IDs this skill is installed for                   |
+| `installedAt` | string   | Yes      | ISO 8601 timestamp of initial installation              |
+| `updatedAt`   | string   | Yes      | ISO 8601 timestamp of last update                       |
 
-#### Scenario: Valid skill lock entry
+#### Scenario: Valid skill lock entry with gitTreeHash
 
 - **WHEN** parsing YAML content:
   ```yaml
   lockfileVersion: 1
-  extensions:
-    skills:
-      "@wayne/grappling-hook":
-        source: "github:wayne-industries/skills"
-        origin: "https://github.com/wayne-industries/skills"
-        path: "skills/grappling-hook"
-        ref: "main"
-        folderHash: "abc123def456"
-        installedAt: "2025-01-15T10:30:00Z"
-        updatedAt: "2025-01-15T10:30:00Z"
+  skills:
+    my-skill:
+      source:
+        _tag: GitHub
+        owner: wayne-industries
+        repo: skills
+        ref: main
+        path: skills/my-skill
+      gitTreeHash: abc123def456
+      agents: [claude-code, cursor]
+      installedAt: "2025-01-15T10:30:00Z"
+      updatedAt: "2025-01-15T10:30:00Z"
   ```
 - **THEN** validation succeeds and lock entry fields are accessible with correct types
 
-#### Scenario: Valid pack lock entry with dependencies
+#### Scenario: Valid registry skill lock entry with version
 
-- **WHEN** parsing a pack lock entry with `dependencies` array
-- **THEN** validation succeeds and dependencies are typed as string array
+- **WHEN** parsing a lock entry with Registry source and version field
+- **THEN** validation succeeds and version is typed as string
 
-#### Scenario: Missing required lock entry fields
+#### Scenario: Missing agents field
 
-- **WHEN** parsing a lock entry without `source`, `origin`, `folderHash`, `installedAt`, or `updatedAt`
-- **THEN** validation fails with errors indicating missing required fields
+- **WHEN** parsing a lock entry without `agents` array
+- **THEN** validation fails with error indicating missing required field
+
+### Requirement: Skills at root level
+
+The lockfile SHALL have skills directly at root level (not nested under extensions).
+
+#### Scenario: Skills at root
+
+- **WHEN** parsing YAML content:
+  ```yaml
+  lockfileVersion: 1
+  skills:
+    my-skill:
+      source: { _tag: Local, path: ./my-skills }
+      agents: [claude-code]
+      installedAt: "2025-01-15T10:30:00Z"
+      updatedAt: "2025-01-15T10:30:00Z"
+  ```
+- **THEN** validation succeeds and skills map is at root level
+
+## REMOVED Requirements
+
+### Requirement: Lock entry origin field
+
+**Reason**: Redundant with structured source object; origin was denormalized URL.
+
+**Migration**: Use source object fields to construct origin if needed.
+
+### Requirement: Lock entry folderHash field
+
+**Reason**: Renamed to gitTreeHash for clarity; only applies to git sources.
+
+**Migration**: Field renamed; content hash for local sources computed on demand.
 
 ### Requirement: Extensions grouped by type
 
-The `extensions` field SHALL organize entries by extension type:
+**Reason**: Simplified to skills-only for now; future extension types will be added as needed.
 
-- `skills`: Map of skill name → lock entry
-- `commands`: Map of command name → lock entry
-- `packs`: Map of pack name → lock entry
-- `mcp-servers`: Map of MCP server name → lock entry
-
-Each extension name SHALL match the `@<scope>/<name>` pattern.
-
-#### Scenario: Valid lockfile with multiple types
-
-- **WHEN** parsing a lockfile with skills, commands, and mcp-servers entries
-- **THEN** validation succeeds and each type section is accessible
-
-#### Scenario: Invalid extension name in lockfile
-
-- **WHEN** parsing YAML content with an invalid extension name (e.g., `grappling-hook` instead of `@scope/name`)
-- **THEN** validation fails with error indicating invalid extension name pattern
-
-### Requirement: JSON schema generated for axm-lock.yaml
-
-The system SHALL generate a JSON Schema file at `__generated__/axm-lock.schema.json` from the Effect schema.
-
-#### Scenario: JSON schema matches Effect schema
-
-- **WHEN** running schema generation
-- **THEN** `axm-lock.schema.json` is created with matching structure and constraints
+**Migration**: Use root-level `skills` map instead of `extensions.skills`.

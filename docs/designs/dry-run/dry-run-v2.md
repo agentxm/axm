@@ -109,6 +109,15 @@ class UnhealthyWorkspaceError extends Data.TaggedError(
   readonly issues: Array.Array<AnyIssue>;
 }> {}
 
+interface ApplyOptions {
+  readonly dryRun: boolean;
+  /** Optional progress callback - UI rendering is handler responsibility */
+  readonly onProgress?: (
+    step: PlanStep,
+    status: "starting" | "completed",
+  ) => void;
+}
+
 interface Workspace {
   /** Workspace root path (e.g., .axm/ or ~/.axm/) */
   readonly path: string;
@@ -132,7 +141,7 @@ interface Workspace {
   /** Apply a plan - display if dryRun, execute otherwise */
   applyPlan(
     plan: Plan,
-    opts: { dryRun: boolean },
+    opts: ApplyOptions,
   ): Effect.Effect<ApplyResult, ApplyError>;
 }
 
@@ -732,6 +741,14 @@ type WorkspaceIssue =
       severity: "warning";
     };
 
+/** Parsed SKILL.md frontmatter */
+interface SkillFrontmatter {
+  readonly name?: string;
+  readonly description?: string;
+  readonly version?: string;
+  readonly triggers?: readonly string[];
+}
+
 /** Skill as it exists on disk */
 interface ActualSkill {
   readonly name: string;
@@ -904,21 +921,12 @@ Settings entries are derived from plan steps during apply. The `settings.skills`
  * Settings entry for a skill.
  * String form is shorthand for registry FQN.
  * Object forms for other source types.
+ *
+ * Note: Registry variants (FileSystemRegistry, RemoteRegistry) will be added
+ * when registry infrastructure lands. For now, only GitHub and Local are supported.
  */
 type SkillSettingsEntry =
   | string // Registry FQN shorthand: "@scope/skill-name" or "@scope/skill-name@version"
-  | {
-      readonly _tag: "FileSystemRegistry";
-      readonly path: string;
-      readonly name: string;
-    }
-  | {
-      readonly _tag: "RemoteRegistry";
-      readonly origin: string;
-      readonly scope: string;
-      readonly name: string;
-      readonly version: Option.Option<string>;
-    }
   | {
       readonly _tag: "GitHub";
       readonly owner: string;
@@ -983,7 +991,7 @@ Both files track installed skills but serve different purposes:
 
 ## Apply
 
-`ws.applyPlan(plan, { dryRun })` handles execution:
+`ws.applyPlan(plan, opts)` handles execution (see `ApplyOptions` in Workspace Service section):
 
 - **dryRun: true** — Display plan only, no side effects
 - **dryRun: false** — Execute in order:
@@ -991,6 +999,29 @@ Both files track installed skills but serve different purposes:
   2. Agent sync (symlinks/copies to agent directories)
   3. Settings update (derived from plan steps)
   4. Lockfile update (source of truth, written last)
+
+**Progress reporting:**
+
+Progress is a UI concern handled at the handler level, not inside the Workspace service:
+
+```typescript
+// Handler level
+const spinner = createSpinnerHelper();
+spinner.start("Applying changes...");
+
+const result =
+  yield *
+  ws.applyPlan(plan, {
+    dryRun,
+    onProgress: (step, status) => {
+      if (status === "starting") {
+        spinner.stop(`Processing ${step.skill}...`);
+      }
+    },
+  });
+
+spinner.stop("Done.");
+```
 
 **Settings integration during apply:**
 
@@ -1022,7 +1053,14 @@ const updateSettingsFromPlan = (settings: Settings, plan: Plan): Settings =>
 
 **Empty plan**: `Plan { steps: [] }` means no changes needed. Handler checks `plan.steps.length === 0` and displays "Already up to date."
 
-**Partial failure**: On error, stop execution and return partial result. Lockfile only updated on full success.
+**Partial failure**: On error, stop execution and return partial `ApplyResult`. No automatic rollback:
+
+- Files written before failure remain on disk
+- Lockfile and settings are only updated on full success
+- `axm doctor` detects orphaned files as `NotInLockfile` warning
+- User can re-run command or manually clean up
+
+Rationale: Rollback logic doubles implementation complexity and introduces ambiguity (what if rollback fails?). Partial state is observable and recoverable via existing tools.
 
 ## Agent Sync
 
@@ -1121,6 +1159,94 @@ axm doctor
 3. **Composable** - Same pattern for all commands
 4. **Dry-run trivial** - Single `apply({ dryRun })` handles both modes
 
+## Code Mapping
+
+Mapping from existing codebase to new interfaces:
+
+| Existing Code            | Location           | New Interface           | Notes                                             |
+| ------------------------ | ------------------ | ----------------------- | ------------------------------------------------- |
+| `ParsedSource`           | `source-parser.ts` | `SkillSource`           | Rename `type` → `_tag`, add `Registry` variant    |
+| `ActualSkill`            | `state/types.ts`   | `ActualSkill`           | Add `issues` field, remove `validity`             |
+| `LockedSkill`            | `state/types.ts`   | `LockedSkill`           | Rename `folderHash` → `gitTreeHash`, add `agents` |
+| `SkillState`             | `state/types.ts`   | `SkillState`            | Replace `validity` with `issues` array            |
+| `SkillChange`            | `state/types.ts`   | `PlanStep`              | Collapse Add/Update/Remove; drop Unchanged/Repair |
+| `loadSkillsState()`      | `state/load.ts`    | `ws.loadCurrentState()` | Returns `CurrentState` with merged issues         |
+| `buildIdealForInstall()` | `state/ideal.ts`   | `buildIdealState()`     | Generalize to all commands                        |
+| `computeDiff()`          | `state/diff.ts`    | `buildPlan()`           | Pure function, returns `Plan`                     |
+| `SkillFrontmatter`       | `state/types.ts`   | `SkillFrontmatter`      | Same structure, already exists                    |
+
+## Apply Implementation
+
+High-level implementation outline (guidance, not prescriptive):
+
+```typescript
+import { Array, Effect, Either, pipe } from "effect";
+
+/** Apply a plan - display if dryRun, execute otherwise */
+const applyPlan = (
+  plan: Plan,
+  opts: ApplyOptions,
+): Effect.Effect<ApplyResult, ApplyError> =>
+  Effect.gen(function* () {
+    if (opts.dryRun) {
+      yield* displayPlan(plan);
+      return emptyApplyResult();
+    }
+
+    const results: Array<{ step: PlanStep; error?: ApplyError }> = [];
+
+    // Execute steps sequentially, stop on first failure
+    for (const step of plan.steps) {
+      opts.onProgress?.(step, "starting");
+      const result = yield* applyStep(step).pipe(Effect.either);
+
+      if (Either.isLeft(result)) {
+        results.push({ step, error: result.left });
+        break; // Stop on first failure
+      }
+
+      results.push({ step });
+      opts.onProgress?.(step, "completed");
+    }
+
+    // Only update lockfile/settings if all steps succeeded
+    const allSucceeded = results.every((r) => !r.error);
+    if (allSucceeded) {
+      yield* updateLockfile(plan);
+      yield* updateSettings(plan);
+    }
+
+    return buildApplyResult(results);
+  });
+
+/** Route to step-specific implementation */
+const applyStep = (step: PlanStep): Effect.Effect<void, ApplyError> => {
+  switch (step._tag) {
+    case "InstallSkill":
+      return installSkill(step);
+    case "UpdateSkill":
+      return updateSkill(step); // Implemented as delete + install
+    case "UninstallSkill":
+      return uninstallSkill(step);
+  }
+};
+
+/** Install a skill to canonical location + sync to agents */
+declare const installSkill: (
+  step: PlanStep & { _tag: "InstallSkill" },
+) => Effect.Effect<void, ApplyError>;
+
+/** Update = delete existing + install new */
+declare const updateSkill: (
+  step: PlanStep & { _tag: "UpdateSkill" },
+) => Effect.Effect<void, ApplyError>;
+
+/** Remove from canonical location + agents */
+declare const uninstallSkill: (
+  step: PlanStep & { _tag: "UninstallSkill" },
+) => Effect.Effect<void, ApplyError>;
+```
+
 ## Resolved
 
 - [x] Should `buildPlan` detect no-op and return empty plan? **Yes**, `Plan { steps: [] }` is the no-op representation
@@ -1145,3 +1271,7 @@ axm doctor
 - [x] Skill identity: Name-based (unique across all sources); rejects duplicates from different sources
 - [x] External state (registries): Fetched during `buildIdealState`; version/metadata captured in `IdealSkill`
 - [x] Error recovery: On apply failure, stop and return partial `ApplyResult`; lockfile only updated on full success
+- [x] SkillFrontmatter: Type defined with name, description, version, triggers fields
+- [x] Registry settings: Deferred; only GitHub and Local variants for now
+- [x] Progress reporting: Optional `onProgress` callback in ApplyOptions; UI is handler responsibility
+- [x] Partial apply rollback: No automatic rollback; orphaned files detected by doctor

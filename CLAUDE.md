@@ -82,6 +82,79 @@ Handlers are effectful entry points that wire together business logic:
 
 Example: `handleInit(args: InitArgs)` is the entry point for the `init` command, separate from yargs parsing.
 
+### Error Handling Patterns
+
+**Never throw in helper functions** — return typed Effect errors:
+
+```typescript
+// Bad: throws raw error
+const getPath = (source: Source): string => {
+  if (source._tag === "Remote") throw new Error("Not supported");
+  return source.path;
+};
+
+// Good: returns typed Effect
+const getPath = (source: Source): Effect.Effect<string, SourceError> =>
+  source._tag === "Remote"
+    ? Effect.fail(new SourceError({ message: "Not supported" }))
+    : Effect.succeed(source.path);
+```
+
+Exception: Functions named `unsafe*` or `*OrThrow` may throw intentionally (like `Option.getOrThrow`). Use this pattern sparingly for escape hatches where the caller explicitly opts out of Effect error handling.
+
+**Yielding errors in Effect.gen** — `Data.TaggedError` is directly yieldable:
+
+```typescript
+// Both valid: TaggedError extends YieldableError
+yield * new WorkspaceError({ message: "Not found" });
+yield * Effect.fail(new WorkspaceError({ message: "Not found" }));
+
+// Preferred: explicit Effect.fail for clarity and consistency
+yield * Effect.fail(new WorkspaceError({ message: "Not found" }));
+```
+
+**Always validate parsed data with Schema:**
+
+```typescript
+// Bad: cast without validation
+const data = yield * Effect.try({ try: () => YAML.parse(content) as Config });
+
+// Good: Schema validation
+const json = yield * Effect.try({ try: () => YAML.parse(content) });
+const data =
+  yield *
+  Schema.decodeUnknown(ConfigSchema)(json).pipe(
+    Effect.mapError((e) => new ParseError({ message: e.message })),
+  );
+```
+
+**Working with Option in arrays** — use Effect's Array functions:
+
+```typescript
+import { Array, Option, pipe } from "effect";
+
+// Best: Array.filterMap combines filter + transform
+const updated = Array.filterMap(skills, (s) =>
+  Option.map(s.locked, (locked) => ({ ...s, version: locked.version })),
+);
+
+// Good: Array.getSomes extracts values from Option array
+const lockedSkills = Array.getSomes(Array.map(skills, (s) => s.locked));
+
+// Good: Option.match for single values
+const result = Option.match(maybeValue, {
+  onNone: () => defaultValue,
+  onSome: (v) => transform(v),
+});
+```
+
+**Option.getOrThrow** — escape hatch when you're certain Option is Some:
+
+```typescript
+// Acceptable: in tests or when invariant is guaranteed by external logic
+const value = Option.getOrThrow(maybeValue); // Throws if None
+```
+
 <!-- effect-solutions:start -->
 
 ### Effect Best Practices
@@ -110,6 +183,7 @@ Avoid `as` casts. Prefer type-safe alternatives:
 | Mutable optional props   | Spread conditionals `...(x && { x })`        |
 | Mock objects             | Cast once at boundary with `as unknown as T` |
 | Caught errors            | Use type guards or Effect's Cause utilities  |
+| Discriminated unions     | Check `_tag` first, then TS narrows for you  |
 
 **`satisfies` over casting:**
 
@@ -162,6 +236,36 @@ const value = result; // TS knows it's string
 // Acceptable: cast with comment when library loses type info (e.g., dynamic config)
 // Cast needed: multiselect config loses generic type info due to dynamic construction
 const indices = result as number[];
+```
+
+**Discriminated unions** — comparing two values of same union type:
+
+```typescript
+// Best: use Data.TaggedClass for automatic structural equality
+import { Data, Equal } from "effect";
+
+class GitHub extends Data.TaggedClass("GitHub")<{
+  owner: string;
+  repo: string;
+}> {}
+class Local extends Data.TaggedClass("Local")<{ path: string }> {}
+type Source = GitHub | Local;
+
+Equal.equals(sourceA, sourceB); // structural comparison built-in
+
+// Acceptable: cast with comment when not using Data module
+const compare = (a: Source, b: Source): boolean => {
+  if (a._tag !== b._tag) return false;
+  switch (a._tag) {
+    case "GitHub": {
+      // Cast needed: TS doesn't correlate a._tag === b._tag check
+      const bGH = b as typeof a;
+      return a.owner === bGH.owner && a.repo === bGH.repo;
+    }
+    case "Local":
+      return a.path === (b as typeof a).path;
+  }
+};
 ```
 
 **Effect type widening:**

@@ -39,11 +39,11 @@ return plan;
 
 | Decision            | Choice              | Rationale                               |
 | ------------------- | ------------------- | --------------------------------------- |
-| Operation encoding  | Discriminated union | Simple, explicit, type-safe             |
+| Command encoding    | Discriminated union | Simple, explicit, type-safe             |
 | Plan execution      | `plan.apply()`      | Single method handles dry-run and apply |
 | State separation    | Actual/Locked/Ideal | Clear mental model, distinct concerns   |
 | Divergence handling | Handler diagnoses   | Explicit control per command            |
-| Multiple operations | Bulk via args       | Operations use arrays (skills, agents)  |
+| Multiple targets    | Bulk via args       | Commands use arrays (skills, agents)    |
 | Apply effectful     | Yes                 | Side effects require Effect             |
 
 ## Workspace Service
@@ -62,11 +62,11 @@ interface Workspace {
   /** Load lockfile state - what we expect to be installed */
   loadLocked(): Effect.Effect<LockedState, WorkspaceError>;
 
-  /** Compute ideal state for an operation based on current locked state */
+  /** Compute ideal state for a command based on current locked state */
   buildIdealState(
     locked: LockedState,
-    op: Operation,
-  ): Effect.Effect<IdealState, OperationError>;
+    cmd: Command,
+  ): Effect.Effect<IdealState, CommandError>;
 
   /** Diff current state vs ideal to produce execution plan */
   buildPlan(
@@ -90,12 +90,12 @@ const WorkspaceLive = (options: { global: boolean }) =>
   );
 ```
 
-## Operations
+## Commands
 
-Discriminated union of all supported operations:
+Discriminated union of all supported commands:
 
 ```typescript
-type Operation =
+type Command =
   | {
       _tag: "skills-install";
       /** GitHub shorthand (owner/repo), local path, or URL */
@@ -132,7 +132,7 @@ interface LockedState {
   entries: Map<string, LockfileEntry>;
 }
 
-/** Desired outcome - what we want after the operation */
+/** Desired outcome - what we want after the command */
 interface IdealState {
   skills: Map<string, InstalledSkill>;
   settings: Settings; // desired configuration
@@ -214,7 +214,7 @@ return diagnosis;
 
 1. **Testable** - Plans can be built and inspected without execution
 2. **Inspectable** - Plans returned from handlers for logging/debugging
-3. **Composable** - Same pattern for all operations
+3. **Composable** - Same pattern for all commands
 4. **Dry-run trivial** - Single `apply({ dryRun })` handles both modes
 
 ## Open Questions

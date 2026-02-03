@@ -137,11 +137,11 @@ const isAdd = (change: MyChange): change is MyChange & { _tag: "Add" } =>
 
 // Or just use inline: change._tag === "Add"
 
-// Schema for JSON serialization (using TaggedUnion for cleaner syntax)
-const MyChangeSchema = Schema.TaggedUnion("_tag", {
-  Add: Schema.Struct({ item: ItemSchema }),
-  Remove: Schema.Struct({ name: Schema.String }),
-});
+// Schema for JSON serialization (using Union of TaggedStructs)
+const MyChangeSchema = Schema.Union(
+  Schema.TaggedStruct("Add", { item: ItemSchema }),
+  Schema.TaggedStruct("Remove", { name: Schema.String }),
+);
 ```
 
 For simple non-union data types that only need serialization, you can derive the type from Schema:
@@ -203,8 +203,8 @@ interface PackState extends StateBase<ActualPack, LockedPack, PackValidity> {}
 ```typescript
 // packages/core/src/skills/state/types.ts
 
-import { Data, Option, Schema } from "effect";
-import { FullyQualifiedName } from "@agentxm/core/schemas";
+import { Array, Data, Option, pipe, Schema } from "effect";
+import { FullyQualifiedName, Settings } from "@agentxm/core/schemas";
 
 // =============================================================================
 // Actual State (what's on disk)
@@ -502,8 +502,6 @@ export const SkillsStateSchema = Schema.Struct({
 // =============================================================================
 // Settings State (settings.json)
 // =============================================================================
-
-import { Settings } from "@agentxm/core/schemas";
 
 /**
  * Settings validity states as discriminated union.
@@ -1113,6 +1111,16 @@ export const SkillSyncStateSchema = Schema.Struct({
 
 import { Array, Effect, Option, pipe, Record } from "effect";
 import type { FileSystem } from "@effect/platform";
+import {
+  SkillValidity,
+  type ActualSkill,
+  type LockedSkill,
+  type SkillsState,
+  type SkillState,
+  type WorkspaceLevel,
+  type WorkspaceState,
+} from "./types.js";
+import { LoadError } from "./apply.js";
 
 /**
  * Load complete skills state: actual + locked + computed validity.
@@ -1129,23 +1137,28 @@ export const loadSkillsState = (
 ): Effect.Effect<SkillsState, LoadError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     // Load actual and locked in parallel
-    const [actualMap, lockedMap] = yield* Effect.all([
+    // Returns Record<string, ActualSkill> and Record<string, LockedSkill>
+    const [actualRecord, lockedRecord] = yield* Effect.all([
       loadActualSkills(axmDir),
       loadLockedSkills(axmDir),
     ]);
 
-    // Merge keys from both maps and build state
+    // Merge keys from both records and build state
     const allNames = pipe(
-      [...actualMap.keys(), ...lockedMap.keys()],
+      [...Object.keys(actualRecord), ...Object.keys(lockedRecord)],
       Array.dedupe,
     );
 
-    const skills = Record.fromIterableWith(allNames, (name) => {
-      const actual = Option.fromNullable(actualMap.get(name));
-      const locked = Option.fromNullable(lockedMap.get(name));
-      const validity = computeValidity(actual, locked);
-      return [name, { name, actual, locked, validity }];
-    });
+    const skills = pipe(
+      allNames,
+      Array.map((name) => {
+        const actual = Option.fromNullable(actualRecord[name]);
+        const locked = Option.fromNullable(lockedRecord[name]);
+        const validity = computeValidity(actual, locked);
+        return [name, { name, actual, locked, validity }] as const;
+      }),
+      Record.fromEntries,
+    );
 
     return { skills, axmDir, loadedAt: new Date() };
   });
@@ -1153,6 +1166,10 @@ export const loadSkillsState = (
 /**
  * Compute validity by comparing actual vs locked state.
  * Uses Option.match for type-safe handling without throwing.
+ *
+ * Pre-condition: At least one of actual or locked must be Some.
+ * This is guaranteed by the merge logic in loadSkillsState which
+ * only creates entries for skills that exist in actual or locked maps.
  */
 const computeValidity = (
   actual: Option.Option<ActualSkill>,
@@ -1162,6 +1179,7 @@ const computeValidity = (
     // No actual state on disk
     onNone: () =>
       Option.match(locked, {
+        // Unreachable: merge only creates entries when actual or locked exists
         onNone: () => SkillValidity.Valid(),
         onSome: (l) => SkillValidity.Missing({ expected: l }),
       }),
@@ -1287,6 +1305,47 @@ Each operation builds the ideal state differently:
 // packages/core/src/skills/state/ideal.ts
 
 import { Array, Effect, Option, pipe, Record } from "effect";
+import type { FileSystem } from "@effect/platform";
+import type { HttpClient } from "@effect/platform";
+import {
+  SkillSource,
+  type IdealSkill,
+  type IdealSkillsState,
+  type LockedSkill,
+  type SkillsState,
+  type SkillState,
+} from "./types.js";
+import type { BuildIdealError } from "./apply.js";
+
+/** Convert existing skill state to ideal representation. */
+const stateToIdeal = (state: SkillState): IdealSkill =>
+  Option.match(state.locked, {
+    onNone: () => {
+      // Orphaned skill - use actual data to build ideal
+      const actual = Option.getOrThrow(state.actual);
+      return {
+        name: state.name,
+        source: SkillSource.Local({ path: actual.path }),
+        gitTreeFolderHash: actual.gitTreeFolderHash,
+        description: pipe(
+          actual.frontmatter,
+          Option.flatMap((fm) => Option.fromNullable(fm.description)),
+        ),
+        agents: [],
+      };
+    },
+    onSome: (locked) => ({
+      name: state.name,
+      source: SkillSource.Git({
+        url: locked.source,
+        ref: locked.ref,
+        subpath: locked.path,
+      }),
+      gitTreeFolderHash: locked.gitTreeFolderHash,
+      description: Option.none(),
+      agents: [],
+    }),
+  });
 
 /**
  * Build ideal state for install operation.
@@ -1367,12 +1426,16 @@ export const buildIdealForUpdate = (
     );
 
     // Fetch latest versions for skills to update
+    // Note: toUpdate is pre-filtered to only include skills with locked state
     const updatedSkills = yield* pipe(
       toUpdate,
+      Array.filterMap(([name, state]) =>
+        Option.map(state.locked, (locked) => [name, state, locked] as const),
+      ),
       Effect.forEach(
-        ([name, state]) =>
+        ([name, _state, locked]) =>
           pipe(
-            fetchLatestVersion(Option.getOrThrow(state.locked)),
+            fetchLatestVersion(locked),
             Effect.map((latest) => [name, latest] as const),
           ),
         { concurrency: "inherit" },
@@ -1453,6 +1516,13 @@ export const buildIdealForSync = (
 // packages/core/src/skills/state/diff.ts
 
 import { Array, Option, pipe, Record } from "effect";
+import {
+  SkillChange,
+  type IdealSkillsState,
+  type SkillsDiff,
+  type SkillsState,
+  type SkillValidity,
+} from "./types.js";
 
 /** Check if validity indicates the skill needs repair (not just warnings). Uses exhaustive switch. */
 const needsRepair = (validity: SkillValidity): boolean => {
@@ -1645,11 +1715,16 @@ const SkillsDiffInternalSchema = Schema.Struct({
   summary: DiffSummarySchema,
 });
 
-// JSON: Array for CLI consumers (with name field added)
-const SkillChangeWithNameSchema = Schema.extend(
-  SkillChangeSchema,
-  Schema.Struct({ name: Schema.String }),
-);
+// JSON output type: change with name field for array representation
+interface SkillChangeWithName {
+  readonly name: string;
+  readonly change: SkillChange;
+}
+
+const SkillChangeWithNameSchema = Schema.Struct({
+  name: Schema.String,
+  change: SkillChangeSchema,
+});
 
 const SkillsDiffJsonSchema = Schema.Struct({
   changes: Schema.Array(SkillChangeWithNameSchema),
@@ -1663,14 +1738,14 @@ export const SkillsDiffOutputSchema = SkillsDiffInternalSchema.pipe(
       ...internal,
       changes: pipe(
         Object.entries(internal.changes),
-        Array.map(([name, change]) => ({ ...change, name })),
+        Array.map(([name, change]) => ({ name, change })),
       ),
     }),
     encode: (json) => ({
       ...json,
       changes: pipe(
         json.changes,
-        Array.map((c) => [c.name, c] as const),
+        Array.map((c) => [c.name, c.change] as const),
         Record.fromEntries,
       ),
     }),
@@ -2372,46 +2447,46 @@ Same `computeDiff` and `applyDiff` for all operations.
 
 ## Decision Record
 
-| Decision            | Choice                                      | Rationale                                                                  |
-| ------------------- | ------------------------------------------- | -------------------------------------------------------------------------- |
-| Architecture        | State diffing (Arborist-style)              | Unified validation, natural idempotency, reusable for doctor/sync          |
-| State separation    | actual + locked → merged with validity      | Clear provenance, supports all comparison scenarios                        |
-| Per-type state      | SkillState, CommandState, etc.              | Type-specific validation, manifests, behaviors                             |
-| Tagged unions       | Plain interfaces + Schema at boundaries     | Simple domain types; Schema only for JSON serialization                    |
-| Pattern matching    | Exhaustive switch statements                | TypeScript catches missing cases; simpler than Match.valueTags             |
-| Type definitions    | Plain interfaces + Schema for serialization | Interfaces for domain; Schema at boundaries for JSON/validation            |
-| Locked types        | Derived from LockEntry via Schema           | One source of truth; Schema handles string↔Date, optional↔Option           |
-| Top-level container | WorkspaceState                              | Aggregates all extension states + settings for unified operations          |
-| Workspace level     | Same model for project and user             | Only paths differ; `level` field distinguishes                             |
-| Settings state      | Reuses Settings schema for actual/ideal     | One source of truth; operations may modify skills, commands, etc.          |
-| Settings diff       | Key-path based (not tagged union)           | Simpler than SkillsDiff; Settings is flat map structure                    |
-| Agent sync display  | Hidden from plan output                     | Implementation detail; plan focuses on extension changes                   |
-| Agent sync          | Separate from extension state               | Avoids N×M complexity, computed on demand                                  |
-| Validity            | Discriminated union + Schema                | Actionable errors, supports multiple issues, serializable                  |
-| Diff as plan        | SkillChange discriminated union             | Same display for dry-run and execution                                     |
-| Apply phase         | Idempotent operations                       | Re-run fixes partial failures                                              |
-| Discovery effects   | Allow git clone with messaging              | Remote source contents needed for ideal state; messaging sets expectations |
-| JSON output         | Record internally, array for JSON           | O(1) lookups internally; arrays easier for CLI consumers to iterate        |
-| Data structures     | Immutable Record/Array (not Map/Set)        | FP-friendly; works with pipe/Array combinators; natural JSON serialization |
-| Parallel apply      | Effect.forEach with concurrency option      | Cleaner than Effect.reduce; explicit concurrency control                   |
-| Partial failure     | Stop on first error, return partial result  | User can inspect state and retry; lockfile only updated on full success    |
-| Agent sync timing   | After all files in place, before lockfile   | Ensures files exist before syncing; sync failure stops before lockfile     |
-| Validity codes      | Static codes per variant (E001, W001)       | Stable IDs for docs, automation, suppression; severity from prefix         |
-| Folder hash         | Git tree hash                               | Deterministic, cross-platform; computed using git's tree object algorithm  |
-| Source resolution   | Existing `source-parser.ts` + `resolution/` | Proven patterns; supports GitHub, GitLab, local paths, well-known URLs     |
-| Sync method         | Platform detection (symlink vs copy)        | Symlinks on Unix-like; copies on Windows                                   |
-| Corrupted lockfile  | Treat as empty with warning                 | User can run `axm sync` to rebuild from actual state                       |
-| Workspace init      | Pre-condition verified before state load    | Simplifies state loading; init checked at command entry                    |
-| Rollback on failure | Effect.acquireRelease with checkpoint       | Handles both errors and Ctrl+C interruption; restore on failure            |
-| Dry-run messaging   | "Fetching source to analyze contents..."    | Sets expectations for remote clones during dry-run                         |
-| Pack atomicity      | Not atomic; partial = Incomplete validity   | Multiple files; partial installation detected and reported                 |
-| Error handling      | Data.TaggedError with retryable field       | Typed errors; retryable enables consistent retry policies                  |
-| Error recovery      | Effect.catchTag over Effect.either          | Type-safe recovery by error tag; cleaner composition than Either matching  |
-| Record construction | Record.fromIterableWith                     | Single-pass construction; cleaner than Array.map + Record.fromEntries      |
-| Conditional effects | Effect.if over Effect.when with gen wrapper | Explicit branches; avoids nested Effect.gen for conditional execution      |
-| Option handling     | Option.match over Option.getOrThrow         | No throwing; explicit handling of both cases                               |
-| Type guards         | Inline `_tag` checks                        | Simple and direct; no need for $is helpers                                 |
-| Constructors        | Factory functions on const object           | Cleaner than Data.TaggedEnum; no runtime overhead                          |
+| Decision            | Choice                                           | Rationale                                                                  |
+| ------------------- | ------------------------------------------------ | -------------------------------------------------------------------------- |
+| Architecture        | State diffing (Arborist-style)                   | Unified validation, natural idempotency, reusable for doctor/sync          |
+| State separation    | actual + locked → merged with validity           | Clear provenance, supports all comparison scenarios                        |
+| Per-type state      | SkillState, CommandState, etc.                   | Type-specific validation, manifests, behaviors                             |
+| Tagged unions       | Plain interfaces + Schema.Union of TaggedStructs | Simple domain types; Schema only for JSON serialization                    |
+| Pattern matching    | Exhaustive switch statements                     | TypeScript catches missing cases; simpler than Match.valueTags             |
+| Type definitions    | Plain interfaces + Schema for serialization      | Interfaces for domain; Schema at boundaries for JSON/validation            |
+| Locked types        | Derived from LockEntry via Schema                | One source of truth; Schema handles string↔Date, optional↔Option           |
+| Top-level container | WorkspaceState                                   | Aggregates all extension states + settings for unified operations          |
+| Workspace level     | Same model for project and user                  | Only paths differ; `level` field distinguishes                             |
+| Settings state      | Reuses Settings schema for actual/ideal          | One source of truth; operations may modify skills, commands, etc.          |
+| Settings diff       | Key-path based (not tagged union)                | Simpler than SkillsDiff; Settings is flat map structure                    |
+| Agent sync display  | Hidden from plan output                          | Implementation detail; plan focuses on extension changes                   |
+| Agent sync          | Separate from extension state                    | Avoids N×M complexity, computed on demand                                  |
+| Validity            | Discriminated union + Schema                     | Actionable errors, supports multiple issues, serializable                  |
+| Diff as plan        | SkillChange discriminated union                  | Same display for dry-run and execution                                     |
+| Apply phase         | Idempotent operations                            | Re-run fixes partial failures                                              |
+| Discovery effects   | Allow git clone with messaging                   | Remote source contents needed for ideal state; messaging sets expectations |
+| JSON output         | Record internally, array for JSON                | O(1) lookups internally; arrays easier for CLI consumers to iterate        |
+| Data structures     | Immutable Record/Array (not Map/Set)             | FP-friendly; works with pipe/Array combinators; natural JSON serialization |
+| Parallel apply      | Effect.forEach with concurrency option           | Cleaner than Effect.reduce; explicit concurrency control                   |
+| Partial failure     | Stop on first error, return partial result       | User can inspect state and retry; lockfile only updated on full success    |
+| Agent sync timing   | After all files in place, before lockfile        | Ensures files exist before syncing; sync failure stops before lockfile     |
+| Validity codes      | Static codes per variant (E001, W001)            | Stable IDs for docs, automation, suppression; severity from prefix         |
+| Folder hash         | Git tree hash                                    | Deterministic, cross-platform; computed using git's tree object algorithm  |
+| Source resolution   | Existing `source-parser.ts` + `resolution/`      | Proven patterns; supports GitHub, GitLab, local paths, well-known URLs     |
+| Sync method         | Platform detection (symlink vs copy)             | Symlinks on Unix-like; copies on Windows                                   |
+| Corrupted lockfile  | Treat as empty with warning                      | User can run `axm sync` to rebuild from actual state                       |
+| Workspace init      | Pre-condition verified before state load         | Simplifies state loading; init checked at command entry                    |
+| Rollback on failure | Effect.acquireRelease with checkpoint            | Handles both errors and Ctrl+C interruption; restore on failure            |
+| Dry-run messaging   | "Fetching source to analyze contents..."         | Sets expectations for remote clones during dry-run                         |
+| Pack atomicity      | Not atomic; partial = Incomplete validity        | Multiple files; partial installation detected and reported                 |
+| Error handling      | Data.TaggedError with retryable field            | Typed errors; retryable enables consistent retry policies                  |
+| Error recovery      | Effect.catchTag over Effect.either               | Type-safe recovery by error tag; cleaner composition than Either matching  |
+| Record construction | Record.fromIterableWith                          | Single-pass construction; cleaner than Array.map + Record.fromEntries      |
+| Conditional effects | Effect.if over Effect.when with gen wrapper      | Explicit branches; avoids nested Effect.gen for conditional execution      |
+| Option handling     | Option.match over Option.getOrThrow              | No throwing; explicit handling of both cases                               |
+| Type guards         | Inline `_tag` checks                             | Simple and direct; no need for $is helpers                                 |
+| Constructors        | Factory functions on const object                | Cleaner than Data.TaggedEnum; no runtime overhead                          |
 
 ---
 
@@ -2448,4 +2523,4 @@ Same `computeDiff` and `applyDiff` for all operations.
 
 ### Future Work
 
-19. **Type-specific lock entries**: The current `LockEntry` schema is generic across all extension types. May need type-specific schemas (e.g., `SkillLockEntry`, `CommandLockEntry`) if extension types diverge in their lockfile fields (triggers for skills, aliases for commands, etc.).
+1. **Type-specific lock entries**: The current `LockEntry` schema is generic across all extension types. May need type-specific schemas (e.g., `SkillLockEntry`, `CommandLockEntry`) if extension types diverge in their lockfile fields (triggers for skills, aliases for commands, etc.).

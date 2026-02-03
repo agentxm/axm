@@ -1,6 +1,13 @@
 /**
  * Unit tests for the init command handler.
  *
+ * Tests the state-based initialization flow:
+ * - New workspace (Add)
+ * - Already initialized (Unchanged)
+ * - Force re-initialization (Update)
+ * - Dry-run mode
+ * - Invalid workspace state
+ *
  * @experimental This API is unstable and may change without notice.
  */
 
@@ -39,9 +46,15 @@ describe("init.handler", () => {
     global: false,
     agent: [],
     yes: false,
+    force: false,
+    dryRun: false,
   };
 
-  describe("first-time initialization with --yes flag", () => {
+  // ---------------------------------------------------------------------------
+  // New Workspace (Add) - First-time initialization
+  // ---------------------------------------------------------------------------
+
+  describe("new workspace initialization (Add)", () => {
     it.effect("creates settings.json when no existing settings", () =>
       withFileSystem(
         Effect.gen(function* () {
@@ -51,20 +64,6 @@ describe("init.handler", () => {
 
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           expect(fs.existsSync(settingsPath)).toBe(true);
-        }),
-      ),
-    );
-
-    it.effect("creates settings with version 1", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          const args: InitArgs = { ...defaultArgs, yes: true };
-
-          yield* handleInit(args);
-
-          const settingsPath = path.join(tempDir, ".axm", "settings.json");
-          const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-          expect(settings.skills).toBeUndefined();
         }),
       ),
     );
@@ -83,6 +82,20 @@ describe("init.handler", () => {
       ),
     );
 
+    it.effect("includes @community scope in settings", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const args: InitArgs = { ...defaultArgs, yes: true };
+
+          yield* handleInit(args);
+
+          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+          expect(settings.scope).toBe("@community");
+        }),
+      ),
+    );
+
     it.effect("includes detected agents in settings when --yes is used", () =>
       withFileSystem(
         Effect.gen(function* () {
@@ -97,9 +110,32 @@ describe("init.handler", () => {
         }),
       ),
     );
+
+    it.effect("writes settings as formatted JSON", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const args: InitArgs = {
+            ...defaultArgs,
+            agent: ["claude-code"],
+          };
+
+          yield* handleInit(args);
+
+          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          const content = fs.readFileSync(settingsPath, "utf-8");
+          // Check that it's formatted (has newlines and indentation)
+          expect(content).toContain("\n");
+          expect(content).toMatch(/^\{\n/);
+        }),
+      ),
+    );
   });
 
-  describe("already-initialized case", () => {
+  // ---------------------------------------------------------------------------
+  // Already Initialized (Unchanged) - Settings exist, no --force
+  // ---------------------------------------------------------------------------
+
+  describe("already-initialized case (Unchanged)", () => {
     it.effect("does not error when settings already exist", () =>
       withFileSystem(
         Effect.gen(function* () {
@@ -109,6 +145,7 @@ describe("init.handler", () => {
           const existingSettings: Settings = {
             agents: ["claude-code"],
             skills: {},
+            scope: "@community",
           };
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existingSettings));
 
@@ -132,6 +169,7 @@ describe("init.handler", () => {
             skills: {
               commit: "^1.0.0",
             },
+            scope: "@myorg",
           } as Settings;
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existingSettings));
 
@@ -143,6 +181,7 @@ describe("init.handler", () => {
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.agents).toEqual(["claude-code", "cursor"]);
           expect(settings.skills?.["commit"]).toBe("^1.0.0");
+          expect(settings.scope).toBe("@myorg");
         }),
       ),
     );
@@ -157,6 +196,7 @@ describe("init.handler", () => {
           const existingSettings: Settings = {
             agents: ["claude-code"],
             skills: {},
+            scope: "@community",
           };
           fs.writeFileSync(settingsPath, JSON.stringify(existingSettings));
 
@@ -176,6 +216,220 @@ describe("init.handler", () => {
       ),
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // Force Re-initialization (Update) - Settings exist with --force
+  // ---------------------------------------------------------------------------
+
+  describe("force re-initialization (Update)", () => {
+    it.effect("overwrites settings when --force is used", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          // Pre-create settings with specific agents
+          const axmDir = path.join(tempDir, ".axm");
+          fs.mkdirSync(axmDir, { recursive: true });
+          const existingSettings: Settings = {
+            agents: ["claude-code"],
+            skills: {},
+            scope: "@myorg",
+          };
+          fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existingSettings));
+
+          // Re-init with different agents and force
+          const args: InitArgs = {
+            ...defaultArgs,
+            agent: ["cursor", "windsurf"],
+            force: true,
+          };
+          yield* handleInit(args);
+
+          // Settings should be updated
+          const settingsPath = path.join(axmDir, "settings.json");
+          const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+          expect(settings.agents).toEqual(["cursor", "windsurf"]);
+          // Scope should be reset to @community when not preserving
+          expect(settings.scope).toBe("@community");
+        }),
+      ),
+    );
+
+    it.effect("preserves existing skills when --force is used", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          // Pre-create settings with skills
+          const axmDir = path.join(tempDir, ".axm");
+          fs.mkdirSync(axmDir, { recursive: true });
+          const existingSettings: Settings = {
+            agents: ["claude-code"],
+            skills: {
+              commit: "^1.0.0",
+              "review-pr": "*",
+            },
+            scope: "@community",
+          };
+          fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existingSettings));
+
+          // Re-init with force
+          const args: InitArgs = {
+            ...defaultArgs,
+            agent: ["cursor"],
+            force: true,
+          };
+          yield* handleInit(args);
+
+          // Skills should be preserved
+          const settingsPath = path.join(axmDir, "settings.json");
+          const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+          expect(settings.skills?.["commit"]).toBe("^1.0.0");
+          expect(settings.skills?.["review-pr"]).toBe("*");
+        }),
+      ),
+    );
+
+    it.live("modifies settings file timestamp when --force is used", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          // Pre-create settings
+          const axmDir = path.join(tempDir, ".axm");
+          fs.mkdirSync(axmDir, { recursive: true });
+          const settingsPath = path.join(axmDir, "settings.json");
+          const existingSettings: Settings = {
+            agents: ["claude-code"],
+            skills: {},
+            scope: "@community",
+          };
+          fs.writeFileSync(settingsPath, JSON.stringify(existingSettings));
+
+          // Get the initial modification time
+          const statBefore = fs.statSync(settingsPath);
+
+          // Wait a bit to ensure timestamp will be different
+          yield* Effect.sleep(10);
+
+          const args: InitArgs = { ...defaultArgs, agent: ["cursor"], force: true };
+          yield* handleInit(args);
+
+          // File should have been modified
+          const statAfter = fs.statSync(settingsPath);
+          expect(statAfter.mtimeMs).toBeGreaterThan(statBefore.mtimeMs);
+        }),
+      ),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Dry-Run Mode
+  // ---------------------------------------------------------------------------
+
+  describe("dry-run mode", () => {
+    it.effect("does not create settings.json with --dry-run", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const args: InitArgs = { ...defaultArgs, yes: true, dryRun: true };
+
+          yield* handleInit(args);
+
+          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          expect(fs.existsSync(settingsPath)).toBe(false);
+        }),
+      ),
+    );
+
+    it.effect("does not modify existing settings with --dry-run --force", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          // Pre-create settings
+          const axmDir = path.join(tempDir, ".axm");
+          fs.mkdirSync(axmDir, { recursive: true });
+          const existingSettings: Settings = {
+            agents: ["claude-code"],
+            skills: {},
+            scope: "@myorg",
+          };
+          const settingsPath = path.join(axmDir, "settings.json");
+          fs.writeFileSync(settingsPath, JSON.stringify(existingSettings));
+
+          const args: InitArgs = { ...defaultArgs, agent: ["cursor"], force: true, dryRun: true };
+          yield* handleInit(args);
+
+          // Settings should remain unchanged
+          const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+          expect(settings.agents).toEqual(["claude-code"]);
+          expect(settings.scope).toBe("@myorg");
+        }),
+      ),
+    );
+
+    it.effect("succeeds with --dry-run for already initialized workspace", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          // Pre-create settings
+          const axmDir = path.join(tempDir, ".axm");
+          fs.mkdirSync(axmDir, { recursive: true });
+          const existingSettings: Settings = {
+            agents: ["claude-code"],
+            skills: {},
+            scope: "@community",
+          };
+          fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existingSettings));
+
+          const args: InitArgs = { ...defaultArgs, yes: true, dryRun: true };
+          yield* handleInit(args);
+
+          // Should succeed without error
+          expect(true).toBe(true);
+        }),
+      ),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Invalid Workspace State
+  // ---------------------------------------------------------------------------
+
+  describe("invalid workspace state", () => {
+    it.effect("returns InitError when settings file is invalid JSON", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          // Pre-create invalid settings file
+          const axmDir = path.join(tempDir, ".axm");
+          fs.mkdirSync(axmDir, { recursive: true });
+          fs.writeFileSync(path.join(axmDir, "settings.json"), "not valid json {{{");
+
+          const args: InitArgs = { ...defaultArgs, yes: true };
+          const error = yield* handleInit(args).pipe(Effect.flip);
+
+          expect(error._tag).toBe("InitError");
+          expect((error as InitError).message).toContain("invalid");
+        }),
+      ),
+    );
+
+    it.effect("returns InitError when settings file fails schema validation", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          // Pre-create settings with invalid schema
+          const axmDir = path.join(tempDir, ".axm");
+          fs.mkdirSync(axmDir, { recursive: true });
+          // agents should be an array, not a string
+          fs.writeFileSync(
+            path.join(axmDir, "settings.json"),
+            JSON.stringify({ agents: "invalid", scope: 123 }),
+          );
+
+          const args: InitArgs = { ...defaultArgs, yes: true };
+          const error = yield* handleInit(args).pipe(Effect.flip);
+
+          expect(error._tag).toBe("InitError");
+          expect((error as InitError).message).toContain("invalid");
+        }),
+      ),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Explicit --agent flag
+  // ---------------------------------------------------------------------------
 
   describe("explicit --agent flag with valid agent IDs", () => {
     it.effect("creates settings with specified agents", () =>
@@ -318,6 +572,10 @@ describe("init.handler", () => {
     );
   });
 
+  // ---------------------------------------------------------------------------
+  // Global flag
+  // ---------------------------------------------------------------------------
+
   describe("global flag", () => {
     // Note: Cannot mock os.homedir() directly as it's non-configurable.
     // These tests verify the global flag works with the real home directory.
@@ -397,8 +655,12 @@ describe("init.handler", () => {
     );
   });
 
+  // ---------------------------------------------------------------------------
+  // Settings structure
+  // ---------------------------------------------------------------------------
+
   describe("settings structure", () => {
-    it.effect("creates settings with empty skills object", () =>
+    it.effect("creates settings without skills field (undefined)", () =>
       withFileSystem(
         Effect.gen(function* () {
           const args: InitArgs = {
@@ -411,25 +673,6 @@ describe("init.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.skills).toBeUndefined();
-        }),
-      ),
-    );
-
-    it.effect("writes settings as formatted JSON", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          const args: InitArgs = {
-            ...defaultArgs,
-            agent: ["claude-code"],
-          };
-
-          yield* handleInit(args);
-
-          const settingsPath = path.join(tempDir, ".axm", "settings.json");
-          const content = fs.readFileSync(settingsPath, "utf-8");
-          // Check that it's formatted (has newlines and indentation)
-          expect(content).toContain("\n");
-          expect(content).toMatch(/^\{\n/);
         }),
       ),
     );
@@ -450,10 +693,15 @@ describe("init.handler", () => {
           // Verify agents field exists (skills is optional)
           expect(Array.isArray(settings.agents)).toBe(true);
           expect(settings.skills === undefined || typeof settings.skills === "object").toBe(true);
+          expect(settings.scope).toBe("@community");
         }),
       ),
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // Error handling
+  // ---------------------------------------------------------------------------
 
   describe("error handling", () => {
     it.effect("returns InitError with descriptive message for unknown agents", () =>
@@ -498,6 +746,10 @@ describe("init.handler", () => {
       ),
     );
   });
+
+  // ---------------------------------------------------------------------------
+  // Non-TTY scenarios
+  // ---------------------------------------------------------------------------
 
   describe("non-TTY scenarios", () => {
     describe("when stdin is not a TTY (non-interactive)", () => {

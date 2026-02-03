@@ -26,6 +26,10 @@
     "./experimental/schemas": {
       "types": "./dist/experimental/schemas/index.d.ts",
       "import": "./dist/experimental/schemas/index.js"
+    },
+    "./experimental/workspace-init": {
+      "types": "./dist/experimental/workspace-init/index.d.ts",
+      "import": "./dist/experimental/workspace-init/index.js"
     }
   },
   "scripts": {

@@ -38,7 +38,8 @@
       "**/*.cjs",
       "!!**/dist",
       "!!**/node_modules",
-      "!!.reference/**"
+      "!!.reference",
+      "!!.axm/cache"
     ]
   }
 }

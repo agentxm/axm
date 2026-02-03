@@ -1,10 +1,12 @@
+## MODIFIED Requirements
+
 ### Requirement: Lock entry schema
 
 Each lock entry SHALL have the following fields:
 
 | Field         | Type     | Required | Description                                       |
 | ------------- | -------- | -------- | ------------------------------------------------- |
-| `source`      | string   | Yes      | Source type: "github", "git", "local", "registry" |
+| `source`      | string   | Yes      | Source type from `extension-sources` SourceSchema |
 | `owner`       | string   | No       | GitHub owner (github source only)                 |
 | `repo`        | string   | No       | GitHub repo name (github source only)             |
 | `url`         | string   | No       | Git URL (git source only)                         |
@@ -17,6 +19,8 @@ Each lock entry SHALL have the following fields:
 | `agents`      | string[] | Yes      | Agent IDs this skill is installed for             |
 | `installedAt` | string   | Yes      | ISO 8601 timestamp of initial installation        |
 | `updatedAt`   | string   | Yes      | ISO 8601 timestamp of last update                 |
+
+The `source` field SHALL use `SourceSchema` imported from `extension-sources`.
 
 #### Scenario: Valid GitHub skill lock entry
 
@@ -83,22 +87,3 @@ Each lock entry SHALL have the following fields:
 
 - **WHEN** parsing a lock entry without `agents` array
 - **THEN** validation fails with error indicating missing required field
-
-### Requirement: Skills at root level
-
-The lockfile SHALL have skills directly at root level (not nested under extensions).
-
-#### Scenario: Skills at root
-
-- **WHEN** parsing YAML content:
-  ```yaml
-  lockfileVersion: 1
-  skills:
-    my-skill:
-      source: local
-      path: ./my-skills
-      agents: [claude-code]
-      installedAt: "2025-01-15T10:30:00Z"
-      updatedAt: "2025-01-15T10:30:00Z"
-  ```
-- **THEN** validation succeeds and skills map is at root level

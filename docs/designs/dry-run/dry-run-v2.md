@@ -86,6 +86,7 @@ return plan;
 | Apply effectful     | Yes                           | Side effects require Effect                                         |
 | buildPlan           | Pure, returns Either          | No effects; Either for error handling; semver for registry versions |
 | Install path        | Computed on demand            | Derived from source type + name; not stored                         |
+| Skill identity      | Name (unique across sources)  | Simplifies matching, agent sync, settings; rejects duplicates       |
 
 ## Workspace Service
 
@@ -158,7 +159,7 @@ const WorkspaceLive = (options: { global: boolean; interactive: boolean }) =>
 These functions are pure and can be tested without effects:
 
 ```typescript
-import { Array, Either, Option, pipe, Record } from "effect";
+import { Array, Data, Either, Option, pipe, Record, semver } from "effect";
 
 /**
  * Compute install path from source type and skill name.
@@ -217,6 +218,10 @@ const versionsEqual = (
 /**
  * Build execution plan by diffing current vs ideal state.
  * Pure function - returns Either for error handling.
+ *
+ * Matching strategy: Skills are matched by name (unique across all sources).
+ * - Install/update: iterate ideal skills, find matching current skill by name
+ * - Uninstall: iterate current skills, check if name exists in ideal
  */
 const buildPlan = (
   current: CurrentState,
@@ -226,15 +231,10 @@ const buildPlan = (
   const installOrUpdateSteps = pipe(
     ideal.skills,
     Array.filterMap((idealSkill) => {
-      const installPath = computeInstallPath(
-        idealSkill.source,
-        idealSkill.name,
-      );
+      // Match by name - skill names are unique across all sources
       const currentSkill = pipe(
         current.skills,
-        Array.findFirst(
-          (s) => Option.isSome(s.actual) && s.actual.value.path === installPath,
-        ),
+        Array.findFirst((s) => s.name === idealSkill.name),
       );
 
       return pipe(
@@ -284,17 +284,16 @@ const buildPlan = (
   );
 
   // Find skills to uninstall (in current but not in ideal)
+  // Match by name - consistent with install/update matching
   const uninstallSteps = pipe(
     current.skills,
     Array.filterMap((currentSkill) =>
       pipe(
         Option.all([currentSkill.actual, currentSkill.locked]),
-        Option.flatMap(([actual, locked]) => {
+        Option.flatMap(([_actual, locked]) => {
           const inIdeal = pipe(
             ideal.skills,
-            Array.some(
-              (s) => computeInstallPath(s.source, s.name) === actual.path,
-            ),
+            Array.some((s) => s.name === currentSkill.name),
           );
 
           return inIdeal
@@ -427,6 +426,253 @@ High-level algorithm for computing ideal state from current state + command.
    - Fetch latest version/hash from source
    - Update version/hash in ideal
 4. **Return ideal state**
+
+## buildIdealFor\* Implementations
+
+```typescript
+import { Array, Effect, Option, pipe } from "effect";
+
+// --- Helper function signatures (implementation elsewhere) ---
+
+/** Parse source string into SkillSource. */
+declare const parseSource: (
+  source: string,
+) => Effect.Effect<SkillSource, CommandError>;
+
+/** Discover skills available from a source (may clone/fetch). */
+declare const discoverSkills: (
+  source: SkillSource,
+) => Effect.Effect<Array.Array<DiscoveredSkill>, CommandError>;
+
+/** Fetch latest version/hash for a source. */
+declare const fetchLatestVersion: (
+  source: SkillSource,
+) => Effect.Effect<
+  { version: Option.Option<string>; gitTreeHash: Option.Option<string> },
+  CommandError
+>;
+
+/** Compare two sources for equality. */
+declare const sourcesEqual: (a: SkillSource, b: SkillSource) => boolean;
+
+interface DiscoveredSkill {
+  readonly name: string;
+  readonly version: Option.Option<string>;
+  readonly gitTreeHash: Option.Option<string>;
+}
+
+// --- Implementation ---
+
+/** Convert current skill state to ideal representation. */
+const currentToIdeal = (skill: SkillState): Option.Option<IdealSkill> =>
+  pipe(
+    skill.locked,
+    Option.map((locked) => ({
+      name: skill.name,
+      source: locked.source,
+      version: locked.version,
+      gitTreeHash: locked.gitTreeHash,
+      agents: locked.agents,
+    })),
+  );
+
+/** Check if skill name already exists in current state. */
+const nameExists = (current: CurrentState, name: string): boolean =>
+  pipe(
+    current.skills,
+    Array.some((s) => s.name === name),
+  );
+
+/**
+ * Build ideal state for install command.
+ */
+const buildIdealForInstall = (
+  current: CurrentState,
+  cmd: Command & { _tag: "skills-install" },
+): Effect.Effect<IdealState, CommandError> =>
+  Effect.gen(function* () {
+    // Step 1: Parse and validate source
+    const source = yield* parseSource(cmd.source);
+
+    // Step 2: Discover available skills from source
+    const discovered = yield* discoverSkills(source);
+
+    // Step 3: Filter by skills parameter
+    const toInstall =
+      cmd.skills === "all"
+        ? discovered
+        : pipe(
+            discovered,
+            Array.filter((s) => cmd.skills.includes(s.name)),
+          );
+
+    // Step 4: Check for name conflicts (unique across all sources)
+    const conflicts = pipe(
+      toInstall,
+      Array.filter((s) => nameExists(current, s.name)),
+      Array.filter((s) => {
+        // Allow reinstall from same source, reject different source
+        const existing = pipe(
+          current.skills,
+          Array.findFirst((cs) => cs.name === s.name),
+          Option.flatMap((cs) => cs.locked),
+        );
+        return pipe(
+          existing,
+          Option.match({
+            onNone: () => false,
+            onSome: (locked) => !sourcesEqual(locked.source, source),
+          }),
+        );
+      }),
+    );
+
+    if (Array.isNonEmptyArray(conflicts) && !cmd.force) {
+      return yield* Effect.fail(
+        new CommandError({
+          message: `Skills already installed from different source: ${conflicts.map((s) => s.name).join(", ")}`,
+          cause: Option.none(),
+        }),
+      );
+    }
+
+    // Step 5: Build ideal state
+    // Keep existing skills not being replaced
+    const existing = pipe(
+      current.skills,
+      Array.filterMap((s) => {
+        const beingReplaced = pipe(
+          toInstall,
+          Array.some((i) => i.name === s.name),
+        );
+        return beingReplaced ? Option.none() : currentToIdeal(s);
+      }),
+    );
+
+    // Add new/replacement skills
+    const newSkills = pipe(
+      toInstall,
+      Array.map(
+        (s): IdealSkill => ({
+          name: s.name,
+          source,
+          version: s.version,
+          gitTreeHash: s.gitTreeHash,
+          agents: cmd.agents,
+        }),
+      ),
+    );
+
+    return { skills: Array.appendAll(existing, newSkills) };
+  });
+
+/**
+ * Build ideal state for uninstall command.
+ */
+const buildIdealForUninstall = (
+  current: CurrentState,
+  cmd: Command & { _tag: "skills-uninstall" },
+): Effect.Effect<IdealState, CommandError> =>
+  Effect.gen(function* () {
+    // Validate all skills exist
+    const notFound = pipe(
+      cmd.skills,
+      Array.filter((name) => !nameExists(current, name)),
+    );
+
+    if (Array.isNonEmptyArray(notFound)) {
+      return yield* Effect.fail(
+        new CommandError({
+          message: `Skills not found: ${notFound.join(", ")}`,
+          cause: Option.none(),
+        }),
+      );
+    }
+
+    // Keep skills not being uninstalled
+    const remaining = pipe(
+      current.skills,
+      Array.filter((s) => !cmd.skills.includes(s.name)),
+      Array.filterMap(currentToIdeal),
+    );
+
+    return { skills: remaining };
+  });
+
+/**
+ * Build ideal state for update command.
+ */
+const buildIdealForUpdate = (
+  current: CurrentState,
+  cmd: Command & { _tag: "skills-update" },
+): Effect.Effect<IdealState, CommandError> =>
+  Effect.gen(function* () {
+    // Determine which skills to update
+    const toUpdate =
+      cmd.skills === "all"
+        ? pipe(
+            current.skills,
+            Array.filter((s) => Option.isSome(s.locked)),
+          )
+        : pipe(
+            current.skills,
+            Array.filter(
+              (s) => cmd.skills.includes(s.name) && Option.isSome(s.locked),
+            ),
+          );
+
+    // Validate requested skills exist
+    if (cmd.skills !== "all") {
+      const notFound = pipe(
+        cmd.skills,
+        Array.filter((name) => !nameExists(current, name)),
+      );
+      if (Array.isNonEmptyArray(notFound)) {
+        return yield* Effect.fail(
+          new CommandError({
+            message: `Skills not found: ${notFound.join(", ")}`,
+            cause: Option.none(),
+          }),
+        );
+      }
+    }
+
+    // Fetch latest versions for skills being updated
+    const updated = yield* pipe(
+      toUpdate,
+      Effect.forEach(
+        (skill) =>
+          Effect.gen(function* () {
+            const locked = Option.getOrThrow(skill.locked); // Safe: filtered above
+            const latest = yield* fetchLatestVersion(locked.source);
+            return {
+              name: skill.name,
+              source: locked.source,
+              version: latest.version,
+              gitTreeHash: latest.gitTreeHash,
+              agents: locked.agents,
+            } satisfies IdealSkill;
+          }),
+        { concurrency: "inherit" },
+      ),
+    );
+
+    // Keep skills not being updated
+    const unchanged = pipe(
+      current.skills,
+      Array.filter(
+        (s) =>
+          !pipe(
+            toUpdate,
+            Array.some((u) => u.name === s.name),
+          ),
+      ),
+      Array.filterMap(currentToIdeal),
+    );
+
+    return { skills: Array.appendAll(unchanged, updated) };
+  });
+```
 
 ## State Types
 
@@ -561,11 +807,12 @@ interface IdealState {
 - In both, version or hash differs → update
 - In both, same version/hash → no-op
 
-**Skill identity**: install path (derived from source type + name via `computeInstallPath`)
+**Skill identity**: name (unique across all sources)
 
 - Registry `@scope/skill` → `.axm/extensions/@scope/skills/skill`
 - External (GitHub, Local, etc.) → `.axm/extensions/external/skills/skill`
-- Registry and external skills with same name coexist (different paths)
+- Duplicate names rejected: installing `my-skill` from GitHub when `@scope/my-skill` exists fails
+- Rationale: Simplifies agent sync, settings, and user mental model
 
 **Update detection** (version or hash, depending on source type):
 
@@ -720,6 +967,24 @@ const toSettingsEntry = (source: SkillSource): SkillSettingsEntry => {
 - `InstallSkill` / `UpdateSkill` → `settings.skills[name] = toSettingsEntry(source)`
 - `UninstallSkill` → `delete settings.skills[name]`
 
+### Settings vs Lockfile
+
+Both files track installed skills but serve different purposes:
+
+| Aspect      | Settings (`settings.yaml`)          | Lockfile (`axm-lock.yaml`)            |
+| ----------- | ----------------------------------- | ------------------------------------- |
+| Purpose     | User-facing source declarations     | Exact state for reproducibility       |
+| Contains    | Source references (what to install) | Resolved versions, hashes, timestamps |
+| Editability | User-editable                       | Machine-managed                       |
+| Use case    | "Install from this source"          | "This exact version was installed"    |
+| Example     | `my-skill: "github:org/repo"`       | `my-skill: { gitTreeHash: "abc123" }` |
+
+**Flow:**
+
+1. User adds entry to settings (or CLI does on install)
+2. `axm sync` or install resolves source → creates lockfile entry
+3. Lockfile enables reproducible installs across machines
+
 ## Apply
 
 `ws.applyPlan(plan, { dryRun })` handles execution:
@@ -762,6 +1027,40 @@ const updateSettingsFromPlan = (settings: Settings, plan: Plan): Settings =>
 **Empty plan**: `Plan { steps: [] }` means no changes needed. Handler checks `plan.steps.length === 0` and displays "Already up to date."
 
 **Partial failure**: On error, stop execution and return partial result. Lockfile only updated on full success.
+
+## Agent Sync
+
+Agent sync propagates skills from the canonical location to agent-specific directories. This is an implementation detail hidden from plan output.
+
+**Mechanics:**
+
+1. **Discovery** — Detect installed agents by checking known paths:
+   - Claude Code: `~/.claude/` or `.claude/`
+   - Cursor: `~/.cursor/` or `.cursor/`
+   - Other agents: configurable via settings
+
+2. **Sync method** — Platform-dependent:
+   - Unix (macOS, Linux): Symlinks from agent dir to canonical location
+   - Windows: File copies (symlinks require admin privileges)
+
+3. **Directory structure:**
+
+   ```
+   .axm/extensions/@scope/skills/my-skill/    # Canonical location
+   .claude/skills/my-skill -> ../../../.axm/extensions/@scope/skills/my-skill  # Symlink
+   .cursor/skills/my-skill -> ../../../.axm/extensions/@scope/skills/my-skill  # Symlink
+   ```
+
+4. **Timing** — Sync happens after skill files are in place, before lockfile update:
+   - Install: Create symlinks/copies to target agents
+   - Update: Symlinks unchanged (point to same canonical path); copies refreshed
+   - Uninstall: Remove symlinks/copies from agents
+
+**Agent selection:**
+
+- `IdealSkill.agents` specifies target agents (resolved by handler)
+- Empty array means no agent sync (skill available but not linked)
+- Plan steps include agents for display: "my-skill @ claude, cursor"
 
 ## Issues
 
@@ -851,3 +1150,4 @@ axm doctor
 - [x] No repair concept: Simplified to install/update/uninstall only
 - [x] Version comparison: Semver for registry sources, hash for git sources
 - [x] Array for CurrentState.skills: Required to detect duplicate skill names (O(n) tradeoff accepted)
+- [x] Skill identity: Name-based (unique across all sources); rejects duplicates from different sources

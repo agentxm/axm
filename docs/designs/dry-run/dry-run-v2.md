@@ -130,7 +130,7 @@ type Command =
       agents: Array.Array<string>;
       /** "all" to install all discovered skills, or specific skill names */
       skills: "all" | Array.Array<string>;
-      /** Overwrite existing skills */
+      /** Skip confirmation when replacing skill from different source */
       force: boolean;
     }
   | {
@@ -144,6 +144,64 @@ type Command =
       skills: "all" | Array.Array<string>;
     };
 ```
+
+## buildIdealState Algorithm
+
+High-level algorithm for computing ideal state from current state + command.
+
+### skills-install
+
+**Input:** `CurrentState` + `Command { skills-install }`
+
+**Output:** `IdealState`
+
+**Algorithm:**
+
+1. **Start with current as baseline** — Copy existing skills to ideal (unchanged skills stay unchanged)
+2. **Resolve source** — Parse source string → `SkillSource`
+3. **Discover skills** — Fetch available skills from source
+4. **Filter skills** — Apply `skills: "all" | string[]` filter
+5. **Resolve agents** — Use command's `agents[]` or fall back to project settings
+6. **For each skill to install:**
+   - Compute install path (from source type + name)
+   - Check if path already exists in current
+   - If exists with same source → overwrite (refresh)
+   - If exists with different source and `!force` → prompt for confirmation
+   - If exists with different source and `force` → replace
+   - If not exists → add
+7. **Return ideal state**
+
+### skills-uninstall
+
+**Input:** `CurrentState` + `Command { skills-uninstall }`
+
+**Output:** `IdealState`
+
+**Algorithm:**
+
+1. **Start with current as baseline** — Copy existing skills to ideal
+2. **For each skill to uninstall:**
+   - Find skill by name in ideal
+   - If not found → error (or warning?)
+   - If found → remove from ideal
+3. **Return ideal state**
+
+### skills-update
+
+**Input:** `CurrentState` + `Command { skills-update }`
+
+**Output:** `IdealState`
+
+**Algorithm:**
+
+1. **Start with current as baseline** — Copy existing skills to ideal
+2. **Resolve skills to update** — `"all"` means all installed skills, otherwise filter by name
+3. **For each skill to update:**
+   - Get locked source from current state
+   - If no locked source → error (can't update untracked skill)
+   - Fetch latest version/hash from source
+   - Update version/hash in ideal
+4. **Return ideal state**
 
 ## State Types
 

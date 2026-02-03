@@ -10,7 +10,9 @@ Refactor dry-run support using a desired-state reconciliation pattern. Handlers 
 // Workspace context (local vs global) determined at service creation
 const ws = yield * Workspace;
 
+yield * ws.ensureInit();
 const actual = yield * ws.loadActual();
+const locked = yield * ws.loadLocked();
 const ideal =
   yield *
   ws.buildIdealState({
@@ -20,13 +22,10 @@ const ideal =
     skills: ["my-skill"], // or "all"
     force: false,
   });
-const plan = ws.buildPlan(actual, ideal);
+const plan = yield * ws.buildPlan(actual, locked, ideal);
+yield * plan.execute({ dryRun });
 
-if (dryRun) {
-  yield * plan.display();
-} else {
-  yield * plan.apply();
-}
+return plan;
 ```
 
 ## Design Decisions
@@ -34,8 +33,8 @@ if (dryRun) {
 | Decision            | Choice              | Rationale                               |
 | ------------------- | ------------------- | --------------------------------------- |
 | Operation encoding  | Discriminated union | Simple, explicit, type-safe             |
-| Plan presentation   | `plan.display()`    | Keeps Workspace focused on state        |
-| State scope         | Total state         | Cleaner diffing, single source of truth |
+| Plan execution      | `plan.execute()`    | Single method handles dry-run and apply |
+| State separation    | Actual/Locked/Ideal | Clear mental model, distinct concerns   |
 | Multiple operations | Bulk via args       | Operations use arrays (skills, agents)  |
 | Apply effectful     | Yes                 | Side effects require Effect             |
 
@@ -46,14 +45,30 @@ interface Workspace {
   /** Workspace root path (e.g., .axm/ or ~/.axm/) */
   readonly path: string;
 
-  /** Load current workspace state from disk */
-  loadActual(): Effect.Effect<WorkspaceState, WorkspaceError>;
+  /** Ensure workspace is initialized (create .axm/ if needed) */
+  ensureInit(): Effect.Effect<void, WorkspaceError>;
+
+  /** Load filesystem state - what's physically on disk */
+  loadActual(): Effect.Effect<ActualState, WorkspaceError>;
+
+  /** Load lockfile state - what we expect to be installed */
+  loadLocked(): Effect.Effect<LockedState, WorkspaceError>;
 
   /** Compute ideal state for an operation */
-  buildIdealState(op: Operation): Effect.Effect<WorkspaceState, OperationError>;
+  buildIdealState(op: Operation): Effect.Effect<IdealState, OperationError>;
 
-  /** Pure diff: compute steps to go from actual to ideal */
-  buildPlan(actual: WorkspaceState, ideal: WorkspaceState): Plan;
+  /** Diff current state vs ideal to produce execution plan */
+  buildPlan(
+    actual: ActualState,
+    locked: LockedState,
+    ideal: IdealState,
+  ): Effect.Effect<Plan, PlanError>;
+
+  /** Diagnose inconsistencies between actual and locked state */
+  diagnose(
+    actual: ActualState,
+    locked: LockedState,
+  ): Effect.Effect<DiagnosticResult, DiagnoseError>;
 }
 
 /** Layer factory - creates Workspace bound to a specific path */
@@ -93,15 +108,23 @@ type Operation =
     };
 ```
 
-## WorkspaceState
-
-Total state representation:
+## State Types
 
 ```typescript
-interface WorkspaceState {
+/** Filesystem reality - what's physically on disk */
+interface ActualState {
+  skills: Map<string, SkillOnDisk>;
+}
+
+/** Lockfile contract - what we've committed to having installed */
+interface LockedState {
+  entries: Map<string, LockfileEntry>;
+}
+
+/** Desired outcome - what we want after the operation */
+interface IdealState {
   skills: Map<string, InstalledSkill>;
-  settings: Settings;
-  // Future: other workspace concerns
+  settings: Settings; // desired configuration
 }
 ```
 
@@ -111,11 +134,8 @@ interface WorkspaceState {
 interface Plan {
   readonly steps: ReadonlyArray<PlanStep>;
 
-  /** Display plan to user (dry-run output) */
-  display(): Effect.Effect<void, DisplayError>;
-
-  /** Execute all steps */
-  apply(): Effect.Effect<void, ApplyError>;
+  /** Execute plan: display if dryRun, apply otherwise */
+  execute(opts: { dryRun: boolean }): Effect.Effect<void, ExecuteError>;
 }
 
 type PlanStep =
@@ -125,12 +145,50 @@ type PlanStep =
   | { _tag: "CreateDirectory"; path: string };
 ```
 
+## DiagnosticResult
+
+```typescript
+interface DiagnosticResult {
+  readonly issues: ReadonlyArray<Issue>;
+  readonly plan: Plan; // repairs for issues
+
+  /** Display issues only (axm doctor) */
+  displayIssues(): Effect.Effect<void, DisplayError>;
+}
+
+type Issue =
+  | { _tag: "SkillMissingFromDisk"; name: string }
+  | { _tag: "SkillNotInLockfile"; name: string; path: string }
+  | { _tag: "ChecksumMismatch"; name: string; expected: string; actual: string }
+  | { _tag: "OrphanedSettingsRef"; agent: string; skill: string };
+```
+
+## Doctor Pattern
+
+```typescript
+// axm doctor [--fix] [--dry-run]
+const ws = yield * Workspace;
+yield * ws.ensureInit();
+
+const actual = yield * ws.loadActual();
+const locked = yield * ws.loadLocked();
+const result = yield * ws.diagnose(actual, locked);
+
+if (!fix) {
+  yield * result.displayIssues();
+} else {
+  yield * result.plan.execute({ dryRun });
+}
+
+return result;
+```
+
 ## Benefits
 
-1. **Testable** - `buildPlan` is pure, test with fixtures
-2. **Inspectable** - Plans can be serialized, logged, reviewed
+1. **Testable** - Plans can be built and inspected without execution
+2. **Inspectable** - Plans returned from handlers for logging/debugging
 3. **Composable** - Same pattern for all operations
-4. **Dry-run trivial** - Just call `display()` instead of `apply()`
+4. **Dry-run trivial** - Single `execute({ dryRun })` handles both modes
 
 ## Open Questions
 

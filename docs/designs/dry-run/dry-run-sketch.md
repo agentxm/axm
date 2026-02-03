@@ -96,19 +96,20 @@ The diff between current (actual + locked) and ideal produces the plan. Dry-run 
 
 We use a dual approach for tagged unions:
 
-1. **`Data.TaggedEnum`** — Runtime types with constructors and pattern matching via `Match` module
+1. **`Data.TaggedEnum`** — Runtime types with constructors, `$match` for exhaustive pattern matching, and `$is` for type guards
 2. **`Schema.Union` with `Schema.TaggedStruct`** — JSON serialization for `--json` output
 
 This enables:
 
 - **Type-safe constructors** — `SkillValidity.Valid()`, `SkillChange.Add({ skill })`
-- **Exhaustive pattern matching** — `Match.exhaustive` catches missing cases at compile time
+- **Built-in exhaustive matching** — `MyChange.$match(value, { ... })` catches missing cases at compile time
+- **Built-in type guards** — `MyChange.$is("Add")` creates type-safe predicates
 - **JSON serialization** — `--json` flag outputs valid JSON that can be parsed back
 - **Test deserialization** — E2E tests can parse CLI output and assert on structured data
 - **Runtime validation** — `Schema.decodeUnknown` validates data at boundaries
 
 ```typescript
-import { Data, Match, pipe, Schema } from "effect";
+import { Data, Match, Schema } from "effect";
 
 // Pattern: Data.TaggedEnum for runtime, Schema for serialization
 export type MyChange = Data.TaggedEnum<{
@@ -119,16 +120,22 @@ export const MyChange = Data.taggedEnum<MyChange>();
 
 // Constructors: MyChange.Add({ item }), MyChange.Remove({ name: "foo" })
 
-// Pattern matching with Match module
+// Pattern matching with built-in $match (exhaustive by design)
 const handleChange = (change: MyChange) =>
-  pipe(
-    change,
-    Match.type<MyChange>().pipe(
-      Match.tag("Add", ({ item }) => `Adding ${item.name}`),
-      Match.tag("Remove", ({ name }) => `Removing ${name}`),
-      Match.exhaustive,
-    ),
-  );
+  MyChange.$match(change, {
+    Add: ({ item }) => `Adding ${item.name}`,
+    Remove: ({ name }) => `Removing ${name}`,
+  });
+
+// Type guards with built-in $is
+const isAdd = MyChange.$is("Add"); // (value: MyChange) => value is Add
+
+// For complex matching with predicates, use Match.valueTags
+const handleWithFallback = (change: MyChange) =>
+  Match.valueTags(change, {
+    Add: ({ item }) => `Adding ${item.name}`,
+    Remove: ({ name }) => `Removing ${name}`,
+  });
 
 // Schema for JSON serialization
 const MyChangeSchema = Schema.Union(
@@ -190,7 +197,7 @@ interface PackState extends StateBase<ActualPack, LockedPack, PackValidity> {}
 ```typescript
 // packages/core/src/skills/state/types.ts
 
-import { Data, Match, Option, pipe, Schema } from "effect";
+import { Data, Option, Schema } from "effect";
 import { FullyQualifiedName } from "@agentxm/core/schemas";
 
 // =============================================================================
@@ -283,7 +290,8 @@ export type SkillValidityCode = typeof SkillValidityCode.Type;
  *
  * Data.TaggedEnum provides:
  * - Type-safe constructors: SkillValidity.Valid(), SkillValidity.Missing({ ... })
- * - Pattern matching via Match module
+ * - Exhaustive pattern matching: SkillValidity.$match(value, { Valid: ..., ... })
+ * - Type guards: SkillValidity.$is("Valid") returns (v: SkillValidity) => v is Valid
  * - Discriminated union with _tag field
  */
 export type SkillValidity = Data.TaggedEnum<{
@@ -357,27 +365,20 @@ export type ValiditySeverity = typeof ValiditySeverity.Type;
 export const severityFromCode = (code: SkillValidityCode): ValiditySeverity =>
   code.startsWith("E") ? "error" : code.startsWith("W") ? "warning" : "info";
 
-/** Match helper for SkillValidity using Effect's Match module. */
-const matchValidity = Match.type<SkillValidity>();
-
-/** Extract code from validity (Valid has no code). */
+/** Extract code from validity (Valid has no code). Uses built-in $match. */
 export const getValidityCode = (v: SkillValidity): SkillValidityCode | null =>
-  pipe(
-    v,
-    matchValidity.pipe(
-      Match.tag("Valid", () => null),
-      Match.tag("MissingSkillMd", ({ code }) => code),
-      Match.tag("InvalidFrontmatter", ({ code }) => code),
-      Match.tag("NameMismatch", ({ code }) => code),
-      Match.tag("MissingDescription", ({ code }) => code),
-      Match.tag("Orphaned", ({ code }) => code),
-      Match.tag("Missing", ({ code }) => code),
-      Match.tag("HashMismatch", ({ code }) => code),
-      Match.tag("Incomplete", ({ code }) => code),
-      Match.tag("Multiple", ({ issues }) => getValidityCode(issues[0])),
-      Match.exhaustive,
-    ),
-  );
+  SkillValidity.$match(v, {
+    Valid: () => null,
+    MissingSkillMd: ({ code }) => code,
+    InvalidFrontmatter: ({ code }) => code,
+    NameMismatch: ({ code }) => code,
+    MissingDescription: ({ code }) => code,
+    Orphaned: ({ code }) => code,
+    Missing: ({ code }) => code,
+    HashMismatch: ({ code }) => code,
+    Incomplete: ({ code }) => code,
+    Multiple: ({ issues }) => getValidityCode(issues[0]),
+  });
 
 // =============================================================================
 // Unified State
@@ -407,7 +408,8 @@ export type SkillsState = typeof SkillsState.Type;
 import { Settings } from "@agentxm/core/schemas";
 
 /**
- * Settings validity states using Data.TaggedEnum for runtime pattern matching.
+ * Settings validity states using Data.TaggedEnum.
+ * Use SettingsValidity.$match for exhaustive matching, SettingsValidity.$is for type guards.
  */
 export type SettingsValidity = Data.TaggedEnum<{
   Valid: {};
@@ -509,7 +511,8 @@ export type WorkspaceState = typeof WorkspaceState.Type;
 // =============================================================================
 
 /**
- * Skill source types using Data.TaggedEnum for runtime pattern matching.
+ * Skill source types using Data.TaggedEnum.
+ * Use SkillSource.$match for exhaustive matching, SkillSource.$is for type guards.
  */
 export type SkillSource = Data.TaggedEnum<{
   Local: { readonly path: string };
@@ -574,7 +577,8 @@ export type IdealWorkspaceState = typeof IdealWorkspaceState.Type;
 // =============================================================================
 
 /**
- * Skill change types using Data.TaggedEnum for runtime pattern matching.
+ * Skill change types using Data.TaggedEnum.
+ * Use SkillChange.$match for exhaustive matching, SkillChange.$is for type guards.
  */
 export type SkillChange = Data.TaggedEnum<{
   Add: { readonly skill: IdealSkill };
@@ -616,6 +620,7 @@ export type SkillsDiff = typeof SkillsDiff.Type;
 /**
  * Settings changes tracked per field/key using Data.TaggedEnum.
  * Simpler than SkillsDiff since Settings is a flat map structure.
+ * Use SettingsKeyChange.$match for exhaustive matching, SettingsKeyChange.$is for type guards.
  */
 export type SettingsKeyChange = Data.TaggedEnum<{
   Added: { readonly key: string; readonly value: string };
@@ -767,7 +772,8 @@ export type SyncMethod = "symlink" | "copy";
 export const SyncMethodSchema = Schema.Literal("symlink", "copy");
 
 /**
- * Agent sync status using Data.TaggedEnum for runtime pattern matching.
+ * Agent sync status using Data.TaggedEnum.
+ * Use AgentSyncStatus.$match for exhaustive matching, AgentSyncStatus.$is for type guards.
  */
 export type AgentSyncStatus = Data.TaggedEnum<{
   Synced: { readonly method: SyncMethod };
@@ -1161,23 +1167,20 @@ export const buildIdealForSync = (
 
 import { Array, Match, Option, pipe, Record } from "effect";
 
-/** Match helper for SkillChange using Effect's Match module. */
-const matchChange = Match.type<SkillChange>();
-
-/** Match helper for SkillValidity using Effect's Match module. */
-const matchValidityForDiff = Match.type<SkillValidity>();
-
-/** Check if validity indicates the skill needs repair (not just warnings). */
+/** Check if validity indicates the skill needs repair (not just warnings). Uses built-in $match. */
 const needsRepair = (validity: SkillValidity): boolean =>
-  pipe(
-    validity,
-    matchValidityForDiff.pipe(
-      Match.tag("Valid", () => false),
-      Match.tag("MissingDescription", () => false), // Warning only
-      Match.tag("HashMismatch", () => false), // Handled as Update
-      Match.orElse(() => true), // All other issues need repair
-    ),
-  );
+  SkillValidity.$match(validity, {
+    Valid: () => false,
+    MissingDescription: () => false, // Warning only
+    HashMismatch: () => false, // Handled as Update
+    MissingSkillMd: () => true,
+    InvalidFrontmatter: () => true,
+    NameMismatch: () => true,
+    Orphaned: () => true,
+    Missing: () => true,
+    Incomplete: () => true,
+    Multiple: () => true,
+  });
 
 /**
  * Compute diff between current and ideal state.
@@ -1244,26 +1247,19 @@ export const computeDiff = (
     Record.fromEntries,
   );
 
-  // Compute summary from changes using Match
+  // Compute summary from changes using Match.valueTags (exhaustive by design)
   const summary = pipe(
     Object.values(changes),
     Array.reduce(
       { add: 0, update: 0, remove: 0, unchanged: 0, repair: 0 },
       (acc, change) =>
-        pipe(
-          change,
-          matchChange.pipe(
-            Match.tag("Add", () => ({ ...acc, add: acc.add + 1 })),
-            Match.tag("Update", () => ({ ...acc, update: acc.update + 1 })),
-            Match.tag("Remove", () => ({ ...acc, remove: acc.remove + 1 })),
-            Match.tag("Unchanged", () => ({
-              ...acc,
-              unchanged: acc.unchanged + 1,
-            })),
-            Match.tag("Repair", () => ({ ...acc, repair: acc.repair + 1 })),
-            Match.exhaustive,
-          ),
-        ),
+        Match.valueTags(change, {
+          Add: () => ({ ...acc, add: acc.add + 1 }),
+          Update: () => ({ ...acc, update: acc.update + 1 }),
+          Remove: () => ({ ...acc, remove: acc.remove + 1 }),
+          Unchanged: () => ({ ...acc, unchanged: acc.unchanged + 1 }),
+          Repair: () => ({ ...acc, repair: acc.repair + 1 }),
+        }),
     ),
   );
 
@@ -1404,6 +1400,7 @@ import {
   Record,
   Schema,
 } from "effect";
+// Note: Match imported for Match.valueTags where needed; $match used for most pattern matching
 
 // =============================================================================
 // Progress Events
@@ -1412,7 +1409,8 @@ import {
 export type ApplyAction = "add" | "update" | "remove" | "repair";
 
 /**
- * Progress events using Data.TaggedEnum for type-safe event handling.
+ * Progress events using Data.TaggedEnum.
+ * Use ApplyProgressEvent.$match for exhaustive matching, ApplyProgressEvent.$is for type guards.
  */
 export type ApplyProgressEvent = Data.TaggedEnum<{
   StartingSkill: { readonly name: string; readonly action: ApplyAction };
@@ -1494,12 +1492,11 @@ export const applyDiff = (
         : Effect.void,
   ).pipe(Effect.flatMap(() => applyDiffImpl(diff, options)));
 
-/** Check if a change is Unchanged (used for filtering). */
-const isUnchanged = (change: SkillChange): boolean =>
-  change._tag === "Unchanged";
+/** Type guard for Unchanged changes. Uses built-in $is. */
+const isUnchanged = SkillChange.$is("Unchanged");
 
-/** Check if a change is Remove (used for filtering). */
-const isRemove = (change: SkillChange): boolean => change._tag === "Remove";
+/** Type guard for Remove changes. Uses built-in $is. */
+const isRemove = SkillChange.$is("Remove");
 
 const applyDiffImpl = (
   diff: WorkspaceDiff,
@@ -1565,27 +1562,17 @@ const applyDiffImpl = (
       ),
     );
 
-    // Phase 3: Update settings.json
-    yield* pipe(
-      Effect.when(
-        Effect.gen(function* () {
-          options.onProgress?.(ApplyProgressEvent.UpdatingSettings({}));
-          yield* applySettingsDiff(diff.settings, options.axmDir);
-        }),
-        () => hasSettingsChanges(diff.settings),
-      ),
-    );
+    // Phase 3: Update settings.json (idiomatic Effect.when as pipe combinator)
+    yield* Effect.gen(function* () {
+      options.onProgress?.(ApplyProgressEvent.UpdatingSettings({}));
+      yield* applySettingsDiff(diff.settings, options.axmDir);
+    }).pipe(Effect.when(() => hasSettingsChanges(diff.settings)));
 
     // Phase 4: Update lockfile (last, as source of truth)
-    yield* pipe(
-      Effect.when(
-        Effect.gen(function* () {
-          options.onProgress?.(ApplyProgressEvent.UpdatingLockfile({}));
-          yield* updateLockfile(options.axmDir, diff, applied);
-        }),
-        () => Object.keys(applied).length > 0,
-      ),
-    );
+    yield* Effect.gen(function* () {
+      options.onProgress?.(ApplyProgressEvent.UpdatingLockfile({}));
+      yield* updateLockfile(options.axmDir, diff, applied);
+    }).pipe(Effect.when(() => Object.keys(applied).length > 0));
 
     // Compute summary from applied changes
     const summary = pipe(
@@ -1607,14 +1594,13 @@ const applyDiffImpl = (
     return { applied, failed: Record.empty(), summary };
   });
 
-/** Error for attempting to apply an unchanged skill (programming error). */
-class UnchangedSkillApplied extends Data.TaggedError("UnchangedSkillApplied")<{
-  readonly name: string;
-}> {}
+/** Error for attempting to apply an unchanged skill (programming error). Uses Schema.TaggedError for JSON serialization. */
+class UnchangedSkillApplied extends Schema.TaggedError<UnchangedSkillApplied>()(
+  "UnchangedSkillApplied",
+  { name: Schema.String },
+) {}
 
-/** Match helper for SkillChange in apply context. */
-const matchChangeForApply = Match.type<SkillChange>();
-
+/** Apply a single change using built-in $match (exhaustive by design). */
 const applyChange = (
   change: SkillChange,
   options: ApplyOptions,
@@ -1623,21 +1609,14 @@ const applyChange = (
   ApplyError | UnchangedSkillApplied,
   FileSystem.FileSystem | Path.Path
 > =>
-  pipe(
-    change,
-    matchChangeForApply.pipe(
-      Match.tag("Add", ({ skill }) => applyAdd(skill, options)),
-      Match.tag("Update", ({ from, to }) => applyUpdate(from, to, options)),
-      Match.tag("Remove", ({ skill }) => applyRemove(skill, options)),
-      Match.tag("Repair", ({ skill, target }) =>
-        applyRepair(skill, target, options),
-      ),
-      Match.tag("Unchanged", ({ skill }) =>
-        Effect.fail(new UnchangedSkillApplied({ name: skill.name })),
-      ),
-      Match.exhaustive,
-    ),
-  );
+  SkillChange.$match(change, {
+    Add: ({ skill }) => applyAdd(skill, options),
+    Update: ({ from, to }) => applyUpdate(from, to, options),
+    Remove: ({ skill }) => applyRemove(skill, options),
+    Repair: ({ skill, target }) => applyRepair(skill, target, options),
+    Unchanged: ({ skill }) =>
+      Effect.fail(new UnchangedSkillApplied({ name: skill.name })),
+  });
 
 const applyAdd = (
   skill: IdealSkill,
@@ -1767,12 +1746,11 @@ The state model naturally supports `doctor` and `validate`:
 
 import { Array, Effect, Option, pipe } from "effect";
 
-/** Check if validity is Valid. */
-const isValid = (validity: SkillValidity): boolean => validity._tag === "Valid";
+/** Type guard for Valid state. Uses built-in $is. */
+const isValid = SkillValidity.$is("Valid");
 
-/** Check if agent sync status is BrokenSymlink. */
-const isBrokenSymlink = (status: AgentSyncStatus): boolean =>
-  status._tag === "BrokenSymlink";
+/** Type guard for BrokenSymlink status. Uses built-in $is. */
+const isBrokenSymlink = AgentSyncStatus.$is("BrokenSymlink");
 
 export const handleDoctor = () =>
   Effect.gen(function* () {
@@ -2017,8 +1995,8 @@ Same `computeDiff` and `applyDiff` for all operations.
 | Architecture        | State diffing (Arborist-style)              | Unified validation, natural idempotency, reusable for doctor/sync          |
 | State separation    | actual + locked → merged with validity      | Clear provenance, supports all comparison scenarios                        |
 | Per-type state      | SkillState, CommandState, etc.              | Type-specific validation, manifests, behaviors                             |
-| Tagged unions       | Data.TaggedEnum + Schema                    | TaggedEnum for constructors/matching; Schema for JSON serialization        |
-| Pattern matching    | Effect Match module                         | Type-safe exhaustive matching; cleaner than manual switch/if-else          |
+| Tagged unions       | Data.TaggedEnum + Schema                    | TaggedEnum for constructors/$match/$is; Schema for JSON serialization      |
+| Pattern matching    | Built-in $match and Match.valueTags         | $match for exhaustive matching; valueTags when no separate helper needed   |
 | Type definitions    | Effect Schema (not interfaces)              | Enables JSON serialization, test deserialization, runtime validation       |
 | Locked types        | Derived from LockEntry via Schema           | One source of truth; Schema handles string↔Date, optional↔Option           |
 | Top-level container | WorkspaceState                              | Aggregates all extension states + settings for unified operations          |

@@ -79,33 +79,6 @@ export interface ParsedSource {
 }
 
 // -----------------------------------------------------------------------------
-// Settings Types
-// -----------------------------------------------------------------------------
-
-/**
- * Contents of .axm/settings.json.
- *
- * Extension types are stored at the root level rather than nested under an
- * `extensions` wrapper object.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface Settings {
-  /** Default scope for skill resolution (defaults to "@community" if not specified) */
-  readonly scope?: string;
-  /** Default agent IDs */
-  readonly agents: readonly string[];
-  /** Skills keyed by name with version specifier (e.g., "^1.0.0" or "*" for unversioned) */
-  readonly skills: Readonly<Record<string, string>>;
-  /** Commands keyed by name with version specifier */
-  readonly commands?: Readonly<Record<string, string>>;
-  /** Packs keyed by name with version specifier */
-  readonly packs?: Readonly<Record<string, string>>;
-  /** MCP servers keyed by name with version specifier */
-  readonly "mcp-servers"?: Readonly<Record<string, string>>;
-}
-
-// -----------------------------------------------------------------------------
 // Lockfile Types
 // -----------------------------------------------------------------------------
 
@@ -176,3 +149,9 @@ export interface WellKnownIndex {
   /** Available skills */
   readonly skills: readonly WellKnownSkill[];
 }
+
+// -----------------------------------------------------------------------------
+// Re-exports from canonical schemas
+// -----------------------------------------------------------------------------
+
+export type { Settings } from "../schemas/settings.js";

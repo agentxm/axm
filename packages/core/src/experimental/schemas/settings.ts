@@ -132,15 +132,24 @@ export const SourcesConfig = Schema.Struct({
 export type SourcesConfig = typeof SourcesConfig.Type;
 
 /**
- * Pattern for fully qualified names: `@<scope>/<name>`
+ * Pattern for skill names per agentskills.io specification:
+ * - Max 64 characters
+ * - Lowercase letters, numbers, and hyphens only
+ * - Must not start or end with a hyphen
+ *
+ * @see https://agentskills.io/specification
  */
-const FQN_PATTERN = /^@[\w-]+\/[\w-]+$/;
+const SKILL_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$|^[a-z0-9]$/;
 
 /**
- * Extension map - maps fully qualified names to version specifiers.
+ * Extension map - maps skill names to version specifiers.
  *
- * Keys must match `@<scope>/<name>` pattern. All keys are strictly validated.
- * Values are semver range strings (e.g., "^1.0.0", "~2.1.0", ">=1.0.0").
+ * Keys must be valid skill names per agentskills.io specification:
+ * - Max 64 characters
+ * - Lowercase letters, numbers, and hyphens only
+ * - Must not start or end with a hyphen
+ *
+ * Values are semver range strings (e.g., "^1.0.0", "~2.1.0", ">=1.0.0") or "*".
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -149,9 +158,11 @@ export const ExtensionMap = Schema.Record({
   value: Schema.String,
 }).pipe(
   Schema.filter((record) => {
-    const invalidKeys = Object.keys(record).filter((key) => !FQN_PATTERN.test(key));
+    const invalidKeys = Object.keys(record).filter(
+      (key) => key.length > 64 || !SKILL_NAME_PATTERN.test(key),
+    );
     if (invalidKeys.length > 0) {
-      return `Invalid extension name(s): ${invalidKeys.join(", ")}. Names must match @<scope>/<name> pattern.`;
+      return `Invalid skill name(s): ${invalidKeys.join(", ")}. Names must be max 64 chars, lowercase letters/numbers/hyphens, not starting or ending with hyphen.`;
     }
     return undefined;
   }),
@@ -171,10 +182,10 @@ export type ExtensionMap = typeof ExtensionMap.Type;
  * - scope: Default scope for resolving/publishing extensions
  * - sources: Source provider configurations
  * - agents: List of agent IDs to sync extensions to
- * - skills: Desired skills by FQN to version specifier
- * - commands: Desired commands by FQN to version specifier
- * - packs: Desired packs by FQN to version specifier
- * - mcp-servers: Desired MCP servers by FQN to version specifier
+ * - skills: Desired skills by name to version specifier
+ * - commands: Desired commands by name to version specifier
+ * - packs: Desired packs by name to version specifier
+ * - mcp-servers: Desired MCP servers by name to version specifier
  *
  * @experimental This API is unstable and may change without notice.
  */

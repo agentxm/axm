@@ -309,7 +309,7 @@ export const handleInit = (
     Effect.flatMap(() => checkExistingSettings(axmDir)),
     Effect.flatMap((existingSettings) => {
       if (existingSettings) {
-        const agentNames = existingSettings.agents
+        const agentNames = (existingSettings.agents ?? [])
           .map((id) => getAgentById(id)?.name ?? id)
           .join(", ");
         p.log.info(`Already initialized with agents: ${agentNames || "(none)"}`);
@@ -351,9 +351,10 @@ export const handleInit = (
 
         // Write settings
         Effect.flatMap((selectedAgentIds) => {
+          // Cast is safe: selectedAgentIds come from SUPPORTED_AGENTS or validated --agent flag
           const settings: Settings = {
             ...createDefaultSettings(),
-            agents: selectedAgentIds,
+            agents: selectedAgentIds as Settings["agents"],
           };
 
           if (spinner) {

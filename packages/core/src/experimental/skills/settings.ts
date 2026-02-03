@@ -7,25 +7,7 @@
 
 import { FileSystem } from "@effect/platform";
 import { Data, Effect, Schema } from "effect";
-import type { Settings } from "./types.js";
-
-// -----------------------------------------------------------------------------
-// Validation Schema
-// -----------------------------------------------------------------------------
-
-/**
- * Schema for validating Settings JSON.
- *
- * Matches the Settings interface from types.ts with required `agents` and `skills`.
- */
-const SettingsSchema = Schema.Struct({
-  scope: Schema.optional(Schema.String),
-  agents: Schema.Array(Schema.String),
-  skills: Schema.Record({ key: Schema.String, value: Schema.String }),
-  commands: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
-  packs: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
-  "mcp-servers": Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
-});
+import { type Settings, Settings as SettingsSchema } from "../schemas/settings.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -99,10 +81,7 @@ export type SettingsError = SettingsNotFoundError | SettingsParseError | Setting
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createDefaultSettings = (): Settings => ({
-  agents: [],
-  skills: {},
-});
+export const createDefaultSettings = (): Settings => ({});
 
 // -----------------------------------------------------------------------------
 // Core Functions
@@ -183,7 +162,7 @@ export const readSettings = (
       ),
     );
 
-    return parsed as Settings;
+    return parsed;
   });
 
 /**
@@ -251,9 +230,11 @@ export const updateSettings = (
     const updated: Settings = {
       ...current,
       ...update,
-      // Merge skills if both exist
+      // Merge skills if update provides skills (handle undefined current.skills)
       skills:
-        update.skills !== undefined ? { ...current.skills, ...update.skills } : current.skills,
+        update.skills !== undefined
+          ? { ...(current.skills ?? {}), ...update.skills }
+          : current.skills,
     };
 
     yield* writeSettings(axmDir, updated);
@@ -283,7 +264,7 @@ export const addSkill = (
     const updated: Settings = {
       ...current,
       skills: {
-        ...current.skills,
+        ...(current.skills ?? {}),
         [skillName]: versionSpecifier,
       },
     };

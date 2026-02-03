@@ -19,7 +19,7 @@ import { Data, Effect, Option } from "effect";
 
 import { readLockfile, writeLockfile } from "../lockfile.js";
 import { readSettings, writeSettings } from "../settings.js";
-import type { AgentConfig, LockEntry, Skill } from "../types.js";
+import type { AgentConfig, LockEntry, Settings, Skill } from "../types.js";
 import { getChangesToApply } from "./diff.js";
 import type { IdealSkill, SkillChange, SkillSource, SkillState, SkillsDiff } from "./types.js";
 
@@ -626,9 +626,7 @@ const updateSettingsForChanges = (
 
     // Read current settings
     const settings = yield* readSettings(axmDir).pipe(
-      Effect.catchTag("SettingsNotFoundError", () =>
-        Effect.succeed({ agents: [], skills: {} as Record<string, string> }),
-      ),
+      Effect.catchTag("SettingsNotFoundError", () => Effect.succeed<Settings>({})),
       Effect.mapError(
         (error) =>
           new ApplyError({
@@ -641,8 +639,8 @@ const updateSettingsForChanges = (
       ),
     );
 
-    // Build updated skills
-    const updatedSkills = { ...settings.skills };
+    // Build updated skills (handle undefined skills)
+    const updatedSkills: Record<string, string> = { ...(settings.skills ?? {}) };
 
     for (const [name, change] of changes) {
       if (!appliedNames.has(name)) continue;

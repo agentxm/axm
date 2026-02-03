@@ -5,6 +5,7 @@
  * @packageDocumentation
  */
 
+export type { Settings } from "../schemas/settings.js";
 // Agent Detection
 export {
   DetectionError,
@@ -78,7 +79,6 @@ export type {
   LockEntry,
   Lockfile,
   ParsedSource,
-  Settings,
   Skill,
   SourceType,
   WellKnownIndex,

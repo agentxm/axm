@@ -86,8 +86,9 @@ describe("install.handler", () => {
     const axmDir = path.join(tempDir, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
 
+    // Cast is safe: test helper only uses valid agent IDs from SUPPORTED_AGENTS
     const settings: Settings = {
-      agents,
+      agents: agents as Settings["agents"],
       skills: {},
     };
 
@@ -499,8 +500,8 @@ describe("install.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
-          expect(settings.skills["commit"]).toBeDefined();
-          expect(settings.skills["commit"]).toBe("*");
+          expect(settings.skills?.["commit"]).toBeDefined();
+          expect(settings.skills?.["commit"]).toBe("*");
         }),
       ),
     );
@@ -1173,7 +1174,7 @@ describe("install.handler", () => {
           // Existing settings should be preserved
           expect(settings.scope).toBe("@myorg");
           expect(settings.agents).toEqual(["claude-code"]);
-          expect(settings.skills["existing-skill"]).toBe("^1.0.0");
+          expect(settings.skills?.["existing-skill"]).toBe("^1.0.0");
           // New skill should be added
           expect(settings.skills.commit).toBe("*");
         }),

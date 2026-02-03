@@ -64,7 +64,7 @@ describe("init.handler", () => {
 
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-          expect(settings.skills).toEqual({});
+          expect(settings.skills).toBeUndefined();
         }),
       ),
     );
@@ -132,7 +132,7 @@ describe("init.handler", () => {
             skills: {
               commit: "^1.0.0",
             },
-          };
+          } as Settings;
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existingSettings));
 
           const args: InitArgs = { ...defaultArgs, yes: true };
@@ -142,7 +142,7 @@ describe("init.handler", () => {
           const settingsPath = path.join(axmDir, "settings.json");
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.agents).toEqual(["claude-code", "cursor"]);
-          expect(settings.skills["commit"]).toBe("^1.0.0");
+          expect(settings.skills?.["commit"]).toBe("^1.0.0");
         }),
       ),
     );
@@ -410,7 +410,7 @@ describe("init.handler", () => {
 
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-          expect(settings.skills).toEqual({});
+          expect(settings.skills).toBeUndefined();
         }),
       ),
     );
@@ -447,9 +447,9 @@ describe("init.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
-          // Verify all required fields exist
+          // Verify agents field exists (skills is optional)
           expect(Array.isArray(settings.agents)).toBe(true);
-          expect(typeof settings.skills).toBe("object");
+          expect(settings.skills === undefined || typeof settings.skills === "object").toBe(true);
         }),
       ),
     );
@@ -617,7 +617,7 @@ describe("init.handler", () => {
             const settingsPath = path.join(tempDir, ".axm", "settings.json");
             const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
             expect(settings.agents).toEqual(["claude-code", "cursor"]);
-            expect(settings.skills).toEqual({});
+            expect(settings.skills).toBeUndefined();
           }),
         ),
       );

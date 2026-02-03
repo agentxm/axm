@@ -16,10 +16,15 @@ import { computeFolderHash } from "../folder-hash.js";
 import { discoverSkills } from "../skill-discovery.js";
 import type { ParsedSource, Skill } from "../types.js";
 import {
-  type IdealSkill,
+  type CurrentState,
+  type IdealSkillLegacy as IdealSkill,
   type IdealSkillsState,
+  type IdealSkillV2,
+  type IdealState,
   SkillSource,
+  type SkillSourceV2,
   type SkillState,
+  type SkillStateV2,
   type SkillsState,
 } from "./types.js";
 
@@ -302,3 +307,164 @@ export const buildIdealForSync = (
     ),
   });
 };
+
+// =============================================================================
+// V2 Types and Functions (new reconciliation design)
+// =============================================================================
+
+/**
+ * Error for command validation failures.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export class CommandError extends Data.TaggedError("CommandError")<{
+  readonly message: string;
+  readonly cause: Option.Option<unknown>;
+}> {}
+
+/**
+ * Command type for skills-update operation.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface SkillsUpdateCommand {
+  readonly _tag: "skills-update";
+  /** "all" to update all installed skills, or specific skill names */
+  readonly skills: "all" | ReadonlyArray<string>;
+}
+
+/**
+ * Result from fetching latest version information.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface LatestVersionResult {
+  readonly version: Option.Option<string>;
+  readonly gitTreeHash: Option.Option<string>;
+}
+
+/**
+ * Function type for fetching latest version from a source.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type FetchLatestVersion = (
+  source: SkillSourceV2,
+) => Effect.Effect<LatestVersionResult, CommandError>;
+
+/**
+ * Check if skill name exists in current state.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+const nameExistsV2 = (current: CurrentState, name: string): boolean =>
+  pipe(
+    current.skills,
+    Arr.some((s) => s.name === name),
+  );
+
+/**
+ * Convert current skill state (V2) to ideal representation.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+const currentToIdealV2 = (skill: SkillStateV2): Option.Option<IdealSkillV2> =>
+  pipe(
+    skill.locked,
+    Option.map((locked) => ({
+      name: skill.name,
+      source: locked.source,
+      version: locked.version,
+      gitTreeHash: locked.gitTreeHash,
+      agents: locked.agents,
+    })),
+  );
+
+/**
+ * Build ideal state for update command.
+ *
+ * Algorithm:
+ * 1. Determine skills to update ("all" or specific names)
+ * 2. Validate requested skills exist
+ * 3. Fetch latest version/hash from each skill's locked source
+ * 4. Keep unchanged skills as-is
+ * 5. Return ideal state with updated versions
+ *
+ * @param current - Current workspace state
+ * @param cmd - Update command with skill names or "all"
+ * @param fetchLatestVersion - Function to fetch latest version from source
+ * @returns Effect yielding ideal state
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const buildIdealForUpdate = (
+  current: CurrentState,
+  cmd: SkillsUpdateCommand,
+  fetchLatestVersion: FetchLatestVersion,
+): Effect.Effect<IdealState, CommandError> =>
+  Effect.gen(function* () {
+    // Determine which skills to update
+    const toUpdate =
+      cmd.skills === "all"
+        ? pipe(
+            current.skills,
+            Arr.filter((s) => Option.isSome(s.locked)),
+          )
+        : pipe(
+            current.skills,
+            Arr.filter(
+              (s) =>
+                (cmd.skills as ReadonlyArray<string>).includes(s.name) && Option.isSome(s.locked),
+            ),
+          );
+
+    // Validate requested skills exist
+    if (cmd.skills !== "all") {
+      const notFound = pipe(
+        cmd.skills as ReadonlyArray<string>,
+        Arr.filter((name) => !nameExistsV2(current, name)),
+      );
+      if (Arr.isNonEmptyArray(notFound)) {
+        return yield* new CommandError({
+          message: `Skills not found: ${notFound.join(", ")}`,
+          cause: Option.none(),
+        });
+      }
+    }
+
+    // Fetch latest versions for skills being updated
+    const updated = yield* pipe(
+      toUpdate,
+      // biome-ignore lint/suspicious/useIterableCallbackReturn: Effect.forEach maps over array with effects
+      Effect.forEach(
+        (skill) =>
+          Effect.gen(function* () {
+            const locked = Option.getOrThrow(skill.locked); // Safe: filtered above
+            const latest = yield* fetchLatestVersion(locked.source);
+            return {
+              name: skill.name,
+              source: locked.source,
+              version: latest.version,
+              gitTreeHash: latest.gitTreeHash,
+              agents: [...locked.agents],
+            } satisfies IdealSkillV2;
+          }),
+        { concurrency: "inherit" },
+      ),
+    );
+
+    // Keep skills not being updated
+    const unchanged = pipe(
+      current.skills,
+      Arr.filter(
+        (s) =>
+          !pipe(
+            toUpdate,
+            Arr.some((u) => u.name === s.name),
+          ),
+      ),
+      Arr.filterMap(currentToIdealV2),
+    );
+
+    return { skills: Arr.appendAll(unchanged, updated) };
+  });

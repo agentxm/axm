@@ -7,6 +7,8 @@
  * - **Ideal state** - Desired state after an operation
  * - **Diff/Plan** - Changes to transform actual to ideal
  *
+ * See docs/designs/dry-run.md for the reconciliation pattern.
+ *
  * @example
  * ```typescript
  * import {
@@ -53,16 +55,27 @@ export type {
   RemoveSkillResult,
 } from "./apply.js";
 export { ApplyError, applyAdd, applyDiff, applyRemove, applyUpdate } from "./apply.js";
+
 // Diff computation
 export { computeDiff, getChangesToApply, hasChanges } from "./diff.js";
+
 // Ideal state builders
-export type { InstallOptions, ResolvedSource } from "./ideal.js";
+export type {
+  FetchLatestVersion,
+  InstallOptions,
+  LatestVersionResult,
+  ResolvedSource,
+  SkillsUpdateCommand,
+} from "./ideal.js";
 export {
   BuildIdealError,
   buildIdealForInstall,
   buildIdealForSync,
   buildIdealForUninstall,
+  buildIdealForUpdate,
+  CommandError,
 } from "./ideal.js";
+
 // Loading
 export {
   computeValidity,
@@ -71,44 +84,88 @@ export {
   loadLockedSkills,
   loadSkillsState,
 } from "./load.js";
+
+// =============================================================================
 // Types
+// =============================================================================
+
+// Legacy types (still used by existing code)
+// New reconciliation types (see docs/designs/dry-run.md)
 export type {
   ActualSkill,
+  ActualSkillIssue,
+  AnyIssue,
+  CurrentState,
   DiffSummary,
-  IdealSkill,
+  IdealSkillLegacy,
   IdealSkillsState,
+  IdealSkillType as IdealSkill,
+  IdealSkillV2,
+  IdealState,
   LockedSkill,
+  LockedSkillV2,
+  RegistryLocation,
+  Severity,
   SkillChange,
   SkillChangeWithName,
   SkillFrontmatter,
   SkillSource,
+  SkillSourceV2,
   SkillState,
+  SkillStateIssue,
+  SkillStateV2,
   SkillsDiff,
   SkillsDiffJson,
   SkillsState,
   SkillValidity,
   SkillValidityCode,
   ValiditySeverity,
+  WorkspaceIssue,
 } from "./types.js";
-// Type constructors and utilities
-// Schemas (for JSON serialization)
+
+// =============================================================================
+// Schemas and Constructors
+// =============================================================================
+
+// Legacy schemas and constructors
+// New reconciliation constructors and schemas
+// Backwards compatibility: IdealSkill constructor alias for IdealSkillV2
 export {
+  ActualSkillIssue as ActualSkillIssueConstructors,
+  ActualSkillIssueSchema,
   ActualSkillSchema,
+  AnyIssueSchema,
+  CurrentStateSchema,
   DiffSummarySchema,
   getValidityCode,
-  IdealSkillSchema,
+  IdealSkill as IdealSkillConstructors,
+  IdealSkillLegacySchema,
   IdealSkillsStateSchema,
+  IdealSkillV2 as IdealSkillV2Constructors,
+  IdealSkillV2Schema,
+  IdealStateV2Schema,
   LockedSkillSchema,
+  LockedSkillV2Schema,
+  RegistryLocation as RegistryLocationConstructors,
+  RegistryLocationSchema,
+  SeveritySchema,
   SkillChange as SkillChangeConstructors,
   SkillChangeSchema,
   SkillFrontmatterSchema,
   SkillSource as SkillSourceConstructors,
   SkillSourceSchema,
+  SkillSourceV2 as SkillSourceV2Constructors,
+  SkillSourceV2Schema,
+  SkillStateIssue as SkillStateIssueConstructors,
+  SkillStateIssueSchema,
   SkillStateSchema,
+  SkillStateV2Schema,
   SkillsDiffSchema,
   SkillsStateSchema,
   SkillValidity as SkillValidityConstructors,
   SkillValiditySchema,
   severityFromCode,
   skillsDiffToJson,
+  WorkspaceIssue as WorkspaceIssueConstructors,
+  WorkspaceIssueSchema,
 } from "./types.js";

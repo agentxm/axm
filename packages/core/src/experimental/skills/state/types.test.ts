@@ -4,16 +4,24 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { Option } from "effect";
+import { Option, Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import type { DiffSummary, IdealSkill, LockedSkill, SkillsDiff } from "./types.js";
+import type { AnyIssue, DiffSummary, IdealSkillLegacy, LockedSkill, SkillsDiff } from "./types.js";
 import {
+  ActualSkillIssue,
+  ActualSkillIssueSchema,
+  AnyIssueSchema,
   getValidityCode,
+  SeveritySchema,
   SkillChange,
   SkillSource,
+  SkillStateIssue,
+  SkillStateIssueSchema,
   SkillValidity,
   severityFromCode,
   skillsDiffToJson,
+  WorkspaceIssue,
+  WorkspaceIssueSchema,
 } from "./types.js";
 
 describe("SkillValidity constructors", () => {
@@ -197,7 +205,7 @@ describe("SkillSource constructors", () => {
 });
 
 describe("SkillChange constructors", () => {
-  const makeIdealSkill = (name: string): IdealSkill => ({
+  const makeIdealSkillLegacy = (name: string): IdealSkillLegacy => ({
     name,
     source: SkillSource.Local({ path: "/test" }),
     gitTreeFolderHash: "abc123",
@@ -213,14 +221,14 @@ describe("SkillChange constructors", () => {
   });
 
   it("creates Add change", () => {
-    const change = SkillChange.Add({ skill: makeIdealSkill("test") });
+    const change = SkillChange.Add({ skill: makeIdealSkillLegacy("test") });
     expect(change._tag).toBe("Add");
   });
 
   it("creates Update change", () => {
     const change = SkillChange.Update({
       from: makeSkillState("test"),
-      to: makeIdealSkill("test"),
+      to: makeIdealSkillLegacy("test"),
     });
     expect(change._tag).toBe("Update");
   });
@@ -238,7 +246,7 @@ describe("SkillChange constructors", () => {
   it("creates Repair change", () => {
     const change = SkillChange.Repair({
       skill: makeSkillState("test"),
-      target: makeIdealSkill("test"),
+      target: makeIdealSkillLegacy("test"),
     });
     expect(change._tag).toBe("Repair");
   });
@@ -256,7 +264,7 @@ describe("skillsDiffToJson", () => {
   });
 
   it("converts diff with Add change to JSON array", () => {
-    const idealSkill: IdealSkill = {
+    const idealSkill: IdealSkillLegacy = {
       name: "my-skill",
       source: SkillSource.Local({ path: "/test" }),
       gitTreeFolderHash: "abc123",
@@ -285,5 +293,190 @@ describe("skillsDiffToJson", () => {
     };
     const json = skillsDiffToJson(diff);
     expect(json.summary).toEqual(summary);
+  });
+});
+
+// =============================================================================
+// Issue Types (new reconciliation design)
+// =============================================================================
+
+describe("Severity type", () => {
+  it("validates error severity", () => {
+    const result = Schema.decodeUnknownSync(SeveritySchema)("error");
+    expect(result).toBe("error");
+  });
+
+  it("validates warning severity", () => {
+    const result = Schema.decodeUnknownSync(SeveritySchema)("warning");
+    expect(result).toBe("warning");
+  });
+
+  it("rejects invalid severity", () => {
+    expect(() => Schema.decodeUnknownSync(SeveritySchema)("info")).toThrow();
+  });
+});
+
+describe("ActualSkillIssue constructors", () => {
+  it("creates MissingSkillMd issue", () => {
+    const issue = ActualSkillIssue.MissingSkillMd({ path: "/skills/test" });
+    expect(issue._tag).toBe("MissingSkillMd");
+    if (issue._tag === "MissingSkillMd") {
+      expect(issue.path).toBe("/skills/test");
+    }
+    expect(issue.severity).toBe("error");
+  });
+
+  it("creates InvalidFrontmatter issue", () => {
+    const errors = ["Invalid YAML", "Missing name field"];
+    const issue = ActualSkillIssue.InvalidFrontmatter({ errors });
+    expect(issue._tag).toBe("InvalidFrontmatter");
+    if (issue._tag === "InvalidFrontmatter") {
+      expect(issue.errors).toEqual(errors);
+    }
+    expect(issue.severity).toBe("error");
+  });
+
+  it("creates MissingDescription issue", () => {
+    const issue = ActualSkillIssue.MissingDescription();
+    expect(issue._tag).toBe("MissingDescription");
+    expect(issue.severity).toBe("warning");
+  });
+});
+
+describe("ActualSkillIssueSchema", () => {
+  it("encodes and decodes MissingSkillMd", () => {
+    const issue = ActualSkillIssue.MissingSkillMd({ path: "/test" });
+    const encoded = Schema.encodeSync(ActualSkillIssueSchema)(issue);
+    const decoded = Schema.decodeSync(ActualSkillIssueSchema)(encoded);
+    expect(decoded).toEqual(issue);
+  });
+
+  it("encodes and decodes InvalidFrontmatter", () => {
+    const issue = ActualSkillIssue.InvalidFrontmatter({ errors: ["error1", "error2"] });
+    const encoded = Schema.encodeSync(ActualSkillIssueSchema)(issue);
+    const decoded = Schema.decodeSync(ActualSkillIssueSchema)(encoded);
+    expect(decoded).toEqual(issue);
+  });
+
+  it("encodes and decodes MissingDescription", () => {
+    const issue = ActualSkillIssue.MissingDescription();
+    const encoded = Schema.encodeSync(ActualSkillIssueSchema)(issue);
+    const decoded = Schema.decodeSync(ActualSkillIssueSchema)(encoded);
+    expect(decoded).toEqual(issue);
+  });
+});
+
+describe("SkillStateIssue constructors", () => {
+  it("creates MissingFromDisk issue", () => {
+    const issue = SkillStateIssue.MissingFromDisk({ name: "my-skill" });
+    expect(issue._tag).toBe("MissingFromDisk");
+    if (issue._tag === "MissingFromDisk") {
+      expect(issue.name).toBe("my-skill");
+    }
+    expect(issue.severity).toBe("error");
+  });
+
+  it("creates NotInLockfile issue", () => {
+    const issue = SkillStateIssue.NotInLockfile({ name: "orphaned-skill" });
+    expect(issue._tag).toBe("NotInLockfile");
+    if (issue._tag === "NotInLockfile") {
+      expect(issue.name).toBe("orphaned-skill");
+    }
+    expect(issue.severity).toBe("warning");
+  });
+});
+
+describe("SkillStateIssueSchema", () => {
+  it("encodes and decodes MissingFromDisk", () => {
+    const issue = SkillStateIssue.MissingFromDisk({ name: "test-skill" });
+    const encoded = Schema.encodeSync(SkillStateIssueSchema)(issue);
+    const decoded = Schema.decodeSync(SkillStateIssueSchema)(encoded);
+    expect(decoded).toEqual(issue);
+  });
+
+  it("encodes and decodes NotInLockfile", () => {
+    const issue = SkillStateIssue.NotInLockfile({ name: "orphan" });
+    const encoded = Schema.encodeSync(SkillStateIssueSchema)(issue);
+    const decoded = Schema.decodeSync(SkillStateIssueSchema)(encoded);
+    expect(decoded).toEqual(issue);
+  });
+});
+
+describe("WorkspaceIssue constructors", () => {
+  it("creates DuplicateName issue", () => {
+    const paths = ["/skills/foo", "/skills/bar/foo"];
+    const issue = WorkspaceIssue.DuplicateName({ name: "foo", paths });
+    expect(issue._tag).toBe("DuplicateName");
+    if (issue._tag === "DuplicateName") {
+      expect(issue.name).toBe("foo");
+      expect(issue.paths).toEqual(paths);
+    }
+    expect(issue.severity).toBe("error");
+  });
+
+  it("creates OrphanedSettingsRef issue", () => {
+    const issue = WorkspaceIssue.OrphanedSettingsRef({ agent: "claude", skill: "missing-skill" });
+    expect(issue._tag).toBe("OrphanedSettingsRef");
+    if (issue._tag === "OrphanedSettingsRef") {
+      expect(issue.agent).toBe("claude");
+      expect(issue.skill).toBe("missing-skill");
+    }
+    expect(issue.severity).toBe("warning");
+  });
+});
+
+describe("WorkspaceIssueSchema", () => {
+  it("encodes and decodes DuplicateName", () => {
+    const issue = WorkspaceIssue.DuplicateName({ name: "dup", paths: ["/a", "/b"] });
+    const encoded = Schema.encodeSync(WorkspaceIssueSchema)(issue);
+    const decoded = Schema.decodeSync(WorkspaceIssueSchema)(encoded);
+    expect(decoded).toEqual(issue);
+  });
+
+  it("encodes and decodes OrphanedSettingsRef", () => {
+    const issue = WorkspaceIssue.OrphanedSettingsRef({ agent: "cursor", skill: "old-skill" });
+    const encoded = Schema.encodeSync(WorkspaceIssueSchema)(issue);
+    const decoded = Schema.decodeSync(WorkspaceIssueSchema)(encoded);
+    expect(decoded).toEqual(issue);
+  });
+});
+
+describe("AnyIssue union", () => {
+  it("accepts ActualSkillIssue", () => {
+    const issue: AnyIssue = ActualSkillIssue.MissingSkillMd({ path: "/test" });
+    expect(issue._tag).toBe("MissingSkillMd");
+  });
+
+  it("accepts SkillStateIssue", () => {
+    const issue: AnyIssue = SkillStateIssue.MissingFromDisk({ name: "test" });
+    expect(issue._tag).toBe("MissingFromDisk");
+  });
+
+  it("accepts WorkspaceIssue", () => {
+    const issue: AnyIssue = WorkspaceIssue.DuplicateName({ name: "dup", paths: ["/a"] });
+    expect(issue._tag).toBe("DuplicateName");
+  });
+});
+
+describe("AnyIssueSchema", () => {
+  it("encodes and decodes ActualSkillIssue via AnyIssueSchema", () => {
+    const issue = ActualSkillIssue.InvalidFrontmatter({ errors: ["test"] });
+    const encoded = Schema.encodeSync(AnyIssueSchema)(issue);
+    const decoded = Schema.decodeSync(AnyIssueSchema)(encoded);
+    expect(decoded).toEqual(issue);
+  });
+
+  it("encodes and decodes SkillStateIssue via AnyIssueSchema", () => {
+    const issue = SkillStateIssue.NotInLockfile({ name: "orphan" });
+    const encoded = Schema.encodeSync(AnyIssueSchema)(issue);
+    const decoded = Schema.decodeSync(AnyIssueSchema)(encoded);
+    expect(decoded).toEqual(issue);
+  });
+
+  it("encodes and decodes WorkspaceIssue via AnyIssueSchema", () => {
+    const issue = WorkspaceIssue.OrphanedSettingsRef({ agent: "claude", skill: "test" });
+    const encoded = Schema.encodeSync(AnyIssueSchema)(issue);
+    const decoded = Schema.decodeSync(AnyIssueSchema)(encoded);
+    expect(decoded).toEqual(issue);
   });
 });

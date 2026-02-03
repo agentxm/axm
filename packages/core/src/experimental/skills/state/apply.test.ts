@@ -16,7 +16,7 @@ import { type ApplyProgressEvent, applyAdd, applyDiff, applyRemove, applyUpdate 
 import { computeDiff } from "./diff.js";
 import type {
   ActualSkill,
-  IdealSkill,
+  IdealSkillLegacy as IdealSkill,
   IdealSkillsState,
   LockedSkill,
   SkillState,

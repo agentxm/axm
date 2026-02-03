@@ -13,10 +13,12 @@ const ws = yield * Workspace;
 yield * ws.ensureInit();
 const current = yield * ws.loadCurrentState();
 
-// Handler decides how to handle divergence
-const { issues } = yield * ws.diagnose(current);
-if (issues.some((i) => i.severity === "error") && !force) {
-  return yield * Effect.fail(new UnhealthyWorkspaceError({ issues }));
+// Handler decides how to handle issues (computed during state loading)
+const allIssues = collectIssues(current); // Helper to gather issues from all levels
+if (allIssues.some((i) => i.severity === "error") && !force) {
+  return (
+    yield * Effect.fail(new UnhealthyWorkspaceError({ issues: allIssues }))
+  );
 }
 
 const ideal =
@@ -48,8 +50,8 @@ return plan;
 | Agent sync          | Separate concern              | Computed independently; not part of skill state                     |
 | Plan steps          | User intent, not impl         | Show install/update/remove, hide clean+add                          |
 | Agent grouping      | Per-skill with agents[]       | Matches display: "skill @ agent1, agent2"; always explicit          |
-| Divergence handling | Handler diagnoses             | Explicit control per command                                        |
-| Diagnosis decoupled | Issues only, no plan          | Separation of concerns; plan built if needed                        |
+| Divergence handling | Handler inspects issues       | Issues on state; handler decides how to proceed                     |
+| Issues on state     | Computed during load          | No separate diagnose step; issues at ActualSkill/SkillState/Current |
 | Settings changes    | Derived, not explicit         | Encapsulated in skill operations                                    |
 | Multiple targets    | Bulk via args                 | Commands use arrays (skills, agents)                                |
 | Apply effectful     | Yes                           | Side effects require Effect                                         |
@@ -57,6 +59,12 @@ return plan;
 ## Workspace Service
 
 ```typescript
+// Error types (detailed definitions TBD)
+type WorkspaceError = { _tag: "WorkspaceError"; message: string };
+type CommandError = { _tag: "CommandError"; message: string };
+type PlanError = { _tag: "PlanError"; message: string };
+type ApplyError = { _tag: "ApplyError"; message: string };
+
 interface Workspace {
   /** Workspace root path (e.g., .axm/ or ~/.axm/) */
   readonly path: string;
@@ -71,7 +79,10 @@ interface Workspace {
    */
   ensureInit(): Effect.Effect<void, WorkspaceError>;
 
-  /** Load current state - merges actual (disk) with locked (lockfile) */
+  /**
+   * Load current state - merges actual (disk) with locked (lockfile).
+   * Issues are computed during loading and attached to the appropriate level.
+   */
   loadCurrentState(): Effect.Effect<CurrentState, WorkspaceError>;
 
   /** Compute ideal state for a command based on current state */
@@ -91,15 +102,6 @@ interface Workspace {
     plan: Plan,
     opts: { dryRun: boolean },
   ): Effect.Effect<ApplyResult, ApplyError>;
-
-  /** Diagnose workspace inconsistencies */
-  diagnose(current: CurrentState): Effect.Effect<Diagnosis, DiagnoseError>;
-
-  /** Build ideal state to repair diagnosed issues (for doctor --fix) */
-  buildIdealFromDiagnosis(
-    current: CurrentState,
-    diagnosis: Diagnosis,
-  ): Effect.Effect<IdealState, CommandError>;
 }
 
 /** Layer factory - creates Workspace with context */
@@ -137,8 +139,8 @@ type Command =
     }
   | {
       _tag: "skills-update";
-      /** Skill names to update; empty = all installed skills */
-      skills: Array.Array<string>;
+      /** "all" to update all installed skills, or specific skill names */
+      skills: "all" | Array.Array<string>;
     };
 ```
 
@@ -165,12 +167,40 @@ type SkillSource =
     }
   | { _tag: "Local"; path: string };
 
+/** Issue severity */
+type Severity = "error" | "warning";
+
+/** Issues that can occur with skills */
+type SkillIssue =
+  | {
+      _tag: "DuplicateName";
+      name: string;
+      paths: Array.Array<string>;
+      severity: "error";
+    }
+  | { _tag: "MissingSkillMd"; path: string; severity: "error" }
+  | {
+      _tag: "InvalidFrontmatter";
+      errors: Array.Array<string>;
+      severity: "error";
+    }
+  | { _tag: "MissingDescription"; severity: "warning" }
+  | { _tag: "MissingFromDisk"; name: string; severity: "error" }
+  | { _tag: "NotInLockfile"; name: string; severity: "warning" }
+  | {
+      _tag: "OrphanedSettingsRef";
+      agent: string;
+      skill: string;
+      severity: "warning";
+    };
+
 /** Skill as it exists on disk */
 interface ActualSkill {
   name: string;
   path: string;
   files: Array.Array<string>;
   frontmatter: Option<SkillFrontmatter>;
+  issues: Array.Array<SkillIssue>; // Issues specific to this skill on disk
 }
 
 /** Skill entry from lockfile */
@@ -188,17 +218,23 @@ interface SkillState {
   name: string;
   actual: Option<ActualSkill>; // None = not on disk
   locked: Option<LockedSkill>; // None = not in lockfile
+  issues: Array.Array<SkillIssue>; // Issues from comparing actual vs locked (e.g., MissingFromDisk)
 }
 
-/** Current workspace state - all skills with their actual/locked status */
+/**
+ * Current workspace state - all skills with their actual/locked status.
+ * Uses Array (not Record) because multiple skills with the same name may exist
+ * on disk (e.g., in different locations), which is itself an issue to report.
+ */
 interface CurrentState {
   skills: Array.Array<SkillState>;
+  issues: Array.Array<SkillIssue>; // Workspace-level issues (e.g., DuplicateName)
 }
 
 /** Desired skill after the command */
 interface IdealSkill {
   name: string;
-  path: string; // Install path (identity, derived from source)
+  path: string; // Install path - pre-computed from source for convenience
   source: SkillSource;
   version: Option<string>; // Semver for registry, None for git/local
   gitTreeHash: Option<string>; // Hash of source folder for git sources
@@ -272,12 +308,6 @@ type PlanStep =
       skill: string;
       path: string;
       agents: Array.Array<string>;
-    }
-  | {
-      _tag: "RepairSkill";
-      skill: string;
-      path: string;
-      agents: Array.Array<string>;
     };
 
 /** Result of applying a plan */
@@ -332,77 +362,58 @@ Implementation details (e.g., update = clean + add) are hidden inside `plan.appl
 
 **Partial failure**: On error, stop execution and return partial result. Lockfile only updated on full success.
 
-## Diagnosis
+## Issues
 
-Diagnosis is decoupled from planning. Issues are identified from current state; repair plan is built separately if needed.
+Issues are computed during state loading and attached to the relevant level:
 
-```typescript
-interface Diagnosis {
-  readonly issues: Array.Array<Issue>;
-}
+- **ActualSkill.issues** — Issues specific to a skill on disk (e.g., `MissingSkillMd`, `InvalidFrontmatter`)
+- **SkillState.issues** — Issues from comparing actual vs locked (e.g., `MissingFromDisk`, `NotInLockfile`)
+- **CurrentState.issues** — Workspace-level issues spanning multiple skills (e.g., `DuplicateName`)
 
-/** Issue severity - derived from issue type */
-type Severity = "error" | "warning";
-
-type Issue =
-  | {
-      _tag: "SkillMissingFromDisk";
-      name: string;
-      severity: "error";
-    }
-  | {
-      _tag: "SkillNotInLockfile";
-      name: string;
-      severity: "warning"; // Orphaned skill - cleanup candidate
-    }
-  | {
-      _tag: "OrphanedSettingsRef";
-      agent: string;
-      skill: string;
-      severity: "warning";
-    }
-  | {
-      _tag: "MissingSkillMd";
-      name: string;
-      severity: "error";
-    };
-```
+This allows handlers to inspect issues at any level without a separate diagnosis step.
 
 Note: No checksum/hash-based issues - we use version-based diffing only.
 
 ## Doctor Pattern
 
 ```typescript
-// axm doctor [--fix] [--dry-run]
+// axm doctor [--dry-run]
 const ws = yield * Workspace;
 yield * ws.ensureInit();
 
 const current = yield * ws.loadCurrentState();
-const diagnosis = yield * ws.diagnose(current);
 
-if (!fix) {
-  // Display issues only
-  yield * displayIssues(diagnosis.issues);
-  return diagnosis;
+// Collect all issues from state
+const allIssues = [
+  ...current.issues,
+  ...current.skills.flatMap((s) => [
+    ...s.issues,
+    ...Option.map(s.actual, (a) => a.issues).pipe(Option.getOrElse(() => [])),
+  ]),
+];
+
+const errors = allIssues.filter((i) => i.severity === "error");
+const warnings = allIssues.filter((i) => i.severity === "warning");
+
+// Display issues
+yield * displayIssues(allIssues);
+
+if (errors.length === 0 && warnings.length === 0) {
+  return yield * Console.log("No issues found");
 }
 
-// Build repair plan from issues
-const ideal = yield * ws.buildIdealFromDiagnosis(current, diagnosis);
-const plan = yield * ws.buildPlan(current, ideal);
-yield * ws.applyPlan(plan, { dryRun });
-
-return diagnosis;
+return { errors: errors.length, warnings: warnings.length };
 ```
 
 Example output:
 
 ```
-axm doctor --fix
+axm doctor
 
-  (repair) broken-skill @ claude
-  (remove) orphaned-skill @ cursor
+  error: my-skill - Missing SKILL.md
+  warning: orphaned-skill - Not in lockfile
 
-  1 to repair, 1 to remove
+  1 error, 1 warning
 ```
 
 ## Benefits

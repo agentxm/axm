@@ -11,6 +11,12 @@ Effect for all business logic and I/O.
   Official service and layer documentation
 - [Effect Error Management](https://effect.website/docs/error-management/two-error-types/) —
   Official error handling patterns
+- [Effect Schema Classes](https://effect.website/docs/schema/classes/) —
+  Schema.TaggedClass, Schema.Class, and class-based schemas
+- [Effect Solutions - Data Modeling](https://www.effect.solutions/data-modeling) —
+  Tagged unions, branded types, and domain modeling patterns
+- [EffectPatterns](https://github.com/PaulJPhilp/EffectPatterns) —
+  Community patterns for error recovery, streams, and configuration
 
 ## Skills
 

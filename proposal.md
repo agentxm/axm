@@ -742,6 +742,45 @@ axm <command> [target] [flags]
 > pipelines are not a primary use case—extensions should be committed to source
 > control and available without runtime installation.
 
+#### Dry-Run Support
+
+The `--dry-run` flag shows what changes would be made without executing them.
+Commands that modify extension state (files, lockfile, settings) support dry-run.
+
+> **See also:** Technical design at `docs/designs/dry-run/dry-run-sketch.md`
+
+**Extension management commands (applies to all extension types):**
+
+| Command     | Dry-run | Reason                                       |
+| ----------- | ------- | -------------------------------------------- |
+| `install`   | ✓       | Adds files, updates lockfile and settings    |
+| `uninstall` | ✓       | Removes files, updates lockfile and settings |
+| `update`    | ✓       | Modifies files, updates lockfile             |
+| `fork`      | ✓       | Creates new extension files                  |
+| `enable`    | ✓       | Modifies settings                            |
+| `disable`   | ✓       | Modifies settings                            |
+| `prune`     | ✓       | Removes orphaned files                       |
+| `import`    | ✓       | Creates files in .axm/, updates lockfile     |
+| `new`       | ✓       | Creates scaffold files                       |
+
+**Workspace commands:**
+
+| Command        | Dry-run | Reason                    |
+| -------------- | ------- | ------------------------- |
+| `init`         | ✓       | Creates `.axm/` directory |
+| `doctor`       | —       | Read-only diagnostic      |
+| `settings set` | ✓       | Modifies settings file    |
+| `settings get` | —       | Read-only                 |
+
+**Commands not supporting dry-run:**
+
+| Command                     | Reason                                 |
+| --------------------------- | -------------------------------------- |
+| `list`, `info`, `validate`  | Read-only operations                   |
+| `outdated`                  | Read-only (checks for updates)         |
+| `login`, `logout`, `whoami` | Authentication operations              |
+| `publish`, `unpublish`      | Registry operations (separate concern) |
+
 #### Example Usage
 
 ```bash

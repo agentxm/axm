@@ -1140,16 +1140,12 @@ export const loadSkillsState = (
       Array.dedupe,
     );
 
-    const skills = pipe(
-      allNames,
-      Array.map((name) => {
-        const actual = Option.fromNullable(actualMap.get(name));
-        const locked = Option.fromNullable(lockedMap.get(name));
-        const validity = computeValidity(actual, locked);
-        return [name, { name, actual, locked, validity }] as const;
-      }),
-      Record.fromEntries,
-    );
+    const skills = Record.fromIterableWith(allNames, (name) => {
+      const actual = Option.fromNullable(actualMap.get(name));
+      const locked = Option.fromNullable(lockedMap.get(name));
+      const validity = computeValidity(actual, locked);
+      return [name, { name, actual, locked, validity }];
+    });
 
     return { skills, axmDir, loadedAt: new Date() };
   });
@@ -1926,17 +1922,25 @@ const applyDiffImpl = (
       ),
     );
 
-    // Phase 3: Update settings.json (idiomatic Effect.when as pipe combinator)
-    yield* Effect.gen(function* () {
-      options.onProgress?.(ApplyProgressEvent.UpdatingSettings({}));
-      yield* applySettingsDiff(diff.settings, options.axmDir);
-    }).pipe(Effect.when(() => hasSettingsChanges(diff.settings)));
+    // Phase 3: Update settings.json (Effect.if for conditional execution)
+    yield* Effect.if(hasSettingsChanges(diff.settings), {
+      onTrue: () =>
+        Effect.gen(function* () {
+          options.onProgress?.(ApplyProgressEvent.UpdatingSettings());
+          yield* applySettingsDiff(diff.settings, options.axmDir);
+        }),
+      onFalse: () => Effect.void,
+    });
 
     // Phase 4: Update lockfile (last, as source of truth)
-    yield* Effect.gen(function* () {
-      options.onProgress?.(ApplyProgressEvent.UpdatingLockfile({}));
-      yield* updateLockfile(options.axmDir, diff, applied);
-    }).pipe(Effect.when(() => Object.keys(applied).length > 0));
+    yield* Effect.if(Object.keys(applied).length > 0, {
+      onTrue: () =>
+        Effect.gen(function* () {
+          options.onProgress?.(ApplyProgressEvent.UpdatingLockfile());
+          yield* updateLockfile(options.axmDir, diff, applied);
+        }),
+      onFalse: () => Effect.void,
+    });
 
     // Compute summary from applied changes
     const summary = pipe(
@@ -2402,6 +2406,9 @@ Same `computeDiff` and `applyDiff` for all operations.
 | Dry-run messaging   | "Fetching source to analyze contents..."    | Sets expectations for remote clones during dry-run                         |
 | Pack atomicity      | Not atomic; partial = Incomplete validity   | Multiple files; partial installation detected and reported                 |
 | Error handling      | Data.TaggedError with retryable field       | Typed errors; retryable enables consistent retry policies                  |
+| Error recovery      | Effect.catchTag over Effect.either          | Type-safe recovery by error tag; cleaner composition than Either matching  |
+| Record construction | Record.fromIterableWith                     | Single-pass construction; cleaner than Array.map + Record.fromEntries      |
+| Conditional effects | Effect.if over Effect.when with gen wrapper | Explicit branches; avoids nested Effect.gen for conditional execution      |
 | Option handling     | Option.match over Option.getOrThrow         | No throwing; explicit handling of both cases                               |
 | Type guards         | Inline `_tag` checks                        | Simple and direct; no need for $is helpers                                 |
 | Constructors        | Factory functions on const object           | Cleaner than Data.TaggedEnum; no runtime overhead                          |

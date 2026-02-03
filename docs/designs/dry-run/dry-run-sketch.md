@@ -94,7 +94,9 @@ The diff between current (actual + locked) and ideal produces the plan. Dry-run 
 
 ### Per-Extension-Type Design
 
-Each extension type (skill, command, pack, mcp) has its own state types with type-specific validation:
+Each extension type (skill, command, pack, mcp) has its own state types with type-specific validation.
+
+**Locked types** derive from the shared `LockEntry` schema using Effect Schema transformations. This gives us one source of truth for both serialization and domain representation:
 
 ```typescript
 // Shared pattern
@@ -104,6 +106,11 @@ interface StateBase<TActual, TLocked, TValidity> {
   readonly locked: Option.Option<TLocked>;
   readonly validity: TValidity;
 }
+
+// Locked types derived from LockEntry schema with transformations
+// Schema handles: string ↔ Date, optional ↔ Option
+const LockedSkill = LockEntry.pipe(Schema.transform(...));
+type LockedSkill = typeof LockedSkill.Type;
 
 // Per-type implementations
 interface SkillState extends StateBase<
@@ -125,7 +132,8 @@ interface PackState extends StateBase<ActualPack, LockedPack, PackValidity> {}
 ```typescript
 // packages/core/src/skills/state/types.ts
 
-import { Data, Option } from "effect";
+import { Data, Option, Schema } from "effect";
+import { FullyQualifiedName } from "@agentxm/core/schemas";
 
 // =============================================================================
 // Actual State (what's on disk)
@@ -157,17 +165,24 @@ export interface SkillFrontmatter {
 
 /**
  * Skill entry from axm-lock.yaml.
+ *
+ * Derived from the LockEntry schema with Effect Schema transformations.
+ * The schema handles string ↔ Date and optional ↔ Option conversions.
  */
-export interface LockedSkill {
-  readonly name: string;
-  readonly source: string;
-  readonly origin: string;
-  readonly path: Option.Option<string>;
-  readonly ref: Option.Option<string>;
-  readonly folderHash: string;
-  readonly installedAt: Date;
-  readonly updatedAt: Date;
-}
+export const LockedSkill = Schema.Struct({
+  source: Schema.String,
+  origin: Schema.String,
+  path: Schema.optionalToOption(Schema.String),
+  ref: Schema.optionalToOption(Schema.String),
+  version: Schema.optionalToOption(Schema.String),
+  folderHash: Schema.String,
+  dependencies: Schema.optionalToOption(Schema.Array(FullyQualifiedName)),
+  installedAt: Schema.Date,
+  updatedAt: Schema.Date,
+});
+
+export type LockedSkill = typeof LockedSkill.Type;
+// Encoded form for serialization: { path?: string, installedAt: string, ... }
 
 // =============================================================================
 // Validity (type-specific diagnostics)
@@ -228,7 +243,54 @@ export interface SkillState {
 
 export interface SkillsState {
   readonly skills: ReadonlyMap<string, SkillState>;
+}
+
+// =============================================================================
+// Settings State (settings.json)
+// =============================================================================
+
+import { Settings } from "@agentxm/core/schemas";
+
+/**
+ * Settings state reuses the Settings schema directly.
+ * Actual = parsed Settings from disk. Ideal = desired Settings.
+ */
+export interface SettingsState {
+  readonly path: string;
+  readonly actual: Option.Option<Settings>; // None if file doesn't exist
+  readonly lastModified: Option.Option<Date>;
+  readonly validity: SettingsValidity;
+}
+
+export type SettingsValidity = Data.TaggedEnum<{
+  Valid: {};
+  ParseError: { error: string };
+  SchemaMismatch: { errors: readonly string[] };
+  OrphanedSkills: { names: readonly string[] }; // skills in settings but not installed
+  OrphanedCommands: { names: readonly string[] };
+  Multiple: { issues: readonly SettingsValidity[] };
+}>;
+
+export const SettingsValidity = Data.taggedEnum<SettingsValidity>();
+
+// IdealSettings is just Settings - what we want settings.json to become
+type IdealSettings = Settings;
+
+// =============================================================================
+// Project Workspace State (top-level container)
+// =============================================================================
+
+/**
+ * Complete state of an axm project workspace.
+ * Aggregates all extension states and settings.
+ */
+export interface WorkspaceState {
   readonly axmDir: string;
+  readonly skills: SkillsState;
+  readonly commands: CommandsState;
+  readonly mcpServers: McpServersState;
+  readonly packs: PacksState;
+  readonly settings: SettingsState;
   readonly loadedAt: Date;
 }
 
@@ -260,6 +322,18 @@ export const SkillSource = Data.taggedEnum<SkillSource>();
 export interface IdealSkillsState {
   readonly skills: ReadonlyMap<string, IdealSkill>;
   readonly removals: ReadonlySet<string>;
+}
+
+/**
+ * Complete ideal state for a project workspace.
+ * IdealSettings = Settings (reuses schema directly).
+ */
+export interface IdealWorkspaceState {
+  readonly skills: IdealSkillsState;
+  readonly commands: IdealCommandsState;
+  readonly mcpServers: IdealMcpServersState;
+  readonly packs: IdealPacksState;
+  readonly settings: Settings; // Ideal settings = Settings schema
 }
 
 // =============================================================================
@@ -768,7 +842,7 @@ export const handleInstall = (args: InstallArgs) =>
 
     // Phase 1: Load current state
     const spinner = p.spinner();
-    spinner.start("Analyzing workspace...");
+    spinner.start("Analyzing project...");
     const current = yield* loadSkillsState(axmDir);
     spinner.stop(`Found ${current.skills.size} installed skill(s)`);
 
@@ -1028,11 +1102,11 @@ Same `computeDiff` and `applyDiff` for all operations.
 
 | Phase                       | Scope                                 | Breaking? |
 | --------------------------- | ------------------------------------- | --------- |
-| 1. Define types             | New module `skills/state/types.ts`    | No        |
-| 2. Implement loading        | `loadSkillsState`                     | No        |
+| 1. Define types             | New module `state/types.ts`           | No        |
+| 2. Implement loading        | `loadWorkspaceState`                  | No        |
 | 3. Implement ideal builders | Per-operation builders                | No        |
 | 4. Implement diff           | `computeDiff`                         | No        |
-| 5. Implement apply          | `applyDiff`                           | No        |
+| 5. Implement apply          | `applyDiff` (extensions + settings)   | No        |
 | 6. Add `--dry-run` flag     | Feature flag, old handler still works | No        |
 | 7. Switch handler           | Handler uses new state model          | Internal  |
 | 8. Extend to other types    | Commands, MCPs, Packs                 | Per-type  |
@@ -1041,15 +1115,21 @@ Same `computeDiff` and `applyDiff` for all operations.
 
 ## Decision Record
 
-| Decision         | Choice                                 | Rationale                                                         |
-| ---------------- | -------------------------------------- | ----------------------------------------------------------------- |
-| Architecture     | State diffing (Arborist-style)         | Unified validation, natural idempotency, reusable for doctor/sync |
-| State separation | actual + locked → merged with validity | Clear provenance, supports all comparison scenarios               |
-| Per-type state   | SkillState, CommandState, etc.         | Type-specific validation, manifests, behaviors                    |
-| Agent sync       | Separate from extension state          | Avoids N×M complexity, computed on demand                         |
-| Validity         | Tagged union with payloads             | Actionable errors, supports multiple issues                       |
-| Diff as plan     | SkillChange tagged union               | Same display for dry-run and execution                            |
-| Apply phase      | Idempotent operations                  | Re-run fixes partial failures                                     |
+| Decision            | Choice                                  | Rationale                                                              |
+| ------------------- | --------------------------------------- | ---------------------------------------------------------------------- |
+| Architecture        | State diffing (Arborist-style)          | Unified validation, natural idempotency, reusable for doctor/sync      |
+| State separation    | actual + locked → merged with validity  | Clear provenance, supports all comparison scenarios                    |
+| Per-type state      | SkillState, CommandState, etc.          | Type-specific validation, manifests, behaviors                         |
+| Locked types        | Derived from LockEntry via Schema       | One source of truth; Schema handles string↔Date, optional↔Option       |
+| Top-level container | WorkspaceState                          | Aggregates all extension states + settings for unified operations      |
+| Settings state      | Reuses Settings schema for actual/ideal | One source of truth; operations may modify skills, commands, etc.      |
+| Agent sync          | Separate from extension state           | Avoids N×M complexity, computed on demand                              |
+| Validity            | Tagged union with payloads              | Actionable errors, supports multiple issues                            |
+| Diff as plan        | SkillChange tagged union                | Same display for dry-run and execution                                 |
+| Apply phase         | Idempotent operations                   | Re-run fixes partial failures                                          |
+| Discovery effects   | Allow git clone with messaging          | Cache population needed for accurate plan; messaging sets expectations |
+| JSON output         | Serialize SkillsDiff directly           | Simple, complete, matches internal model                               |
+| Parallel apply      | Parallel file ops, sequential lockfile  | Maximizes throughput while ensuring lockfile consistency               |
 
 ---
 
@@ -1061,14 +1141,13 @@ Same `computeDiff` and `applyDiff` for all operations.
 2. **Per-type state**: Yes, each extension type has own types ✓
 3. **Agent sync**: Separate concern, computed on demand ✓
 4. **Validity**: Tagged union with severity levels ✓
+5. **Locked types**: Derived from LockEntry schema via Effect Schema transformations ✓
+6. **Top-level container**: WorkspaceState aggregates all extension states + settings ✓
+7. **Settings state**: Reuses existing Settings schema for actual/ideal; no separate types ✓
+8. **Discovery side effects**: Dry-run allows git clone to populate cache, with clear messaging ✓
+9. **JSON output**: Serialize SkillsDiff directly for `--json` flag ✓
+10. **Parallel apply**: Yes for file operations, sequential for lockfile update ✓
 
-### To Decide
+### Future Work
 
-5. **Discovery side effects**: Should dry-run allow git clone to populate cache?
-   - **Recommendation**: Yes, with clear messaging
-
-6. **JSON output**: Format for `--json` flag?
-   - **Recommendation**: Serialize SkillsDiff directly
-
-7. **Parallel apply**: Can independent changes be parallelized?
-   - **Recommendation**: Yes for file operations, sequential for lockfile update
+11. **Type-specific lock entries**: The current `LockEntry` schema is generic across all extension types. May need type-specific schemas (e.g., `SkillLockEntry`, `CommandLockEntry`) if extension types diverge in their lockfile fields (triggers for skills, aliases for commands, etc.).

@@ -402,10 +402,7 @@ export const installSkill = (
 
     // Step 2: Try symlink first
     const symlinkResult = yield* createAgentSymlink(canonicalPath, agent, skill.name).pipe(
-      Effect.map((agentPath) => ({
-        method: "symlink" as InstallMethod,
-        agentPath,
-      })),
+      Effect.map((agentPath) => ({ method: "symlink" as const, agentPath })),
       Effect.either,
     );
 
@@ -415,7 +412,7 @@ export const installSkill = (
         method: symlinkResult.right.method,
         canonicalPath,
         agentPath: symlinkResult.right.agentPath,
-      };
+      } satisfies InstallResult;
     }
 
     // Step 3: Fall back to copy
@@ -423,10 +420,10 @@ export const installSkill = (
 
     return {
       skillName: skill.name,
-      method: "copy" as InstallMethod,
+      method: "copy",
       canonicalPath,
       agentPath,
-    };
+    } satisfies InstallResult;
   });
 
 /**
@@ -460,10 +457,7 @@ export const installSkillToAgents = (
         Effect.gen(function* () {
           // Try symlink first
           const symlinkResult = yield* createAgentSymlink(canonicalPath, agent, skill.name).pipe(
-            Effect.map((agentPath) => ({
-              method: "symlink" as InstallMethod,
-              agentPath,
-            })),
+            Effect.map((agentPath) => ({ method: "symlink" as const, agentPath })),
             Effect.either,
           );
 
@@ -473,7 +467,7 @@ export const installSkillToAgents = (
               method: symlinkResult.right.method,
               canonicalPath,
               agentPath: symlinkResult.right.agentPath,
-            };
+            } satisfies InstallResult;
           }
 
           // Fall back to copy
@@ -481,10 +475,10 @@ export const installSkillToAgents = (
 
           return {
             skillName: skill.name,
-            method: "copy" as InstallMethod,
+            method: "copy",
             canonicalPath,
             agentPath,
-          };
+          } satisfies InstallResult;
         }),
       ),
       { concurrency: "unbounded" },

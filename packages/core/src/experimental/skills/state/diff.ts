@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-import { Array as Arr, Option, pipe } from "effect";
+import { Array as Arr, Option, pipe, Record } from "effect";
 import {
   type IdealSkillsState,
   SkillChange,
@@ -75,7 +75,7 @@ export const computeDiff = (current: SkillsState, ideal: IdealSkillsState): Skil
 
   // Process ideal skills
   const idealChanges = pipe(
-    Object.entries(ideal.skills),
+    Record.toEntries(ideal.skills),
     Arr.map(([name, idealSkill]) => {
       const currentState = current.skills[name];
 
@@ -101,9 +101,7 @@ export const computeDiff = (current: SkillsState, ideal: IdealSkillsState): Skil
   );
 
   // Combine changes into record
-  const changes = Object.fromEntries([...removalChanges, ...idealChanges]) as Readonly<
-    Record<string, (typeof removalChanges)[number][1] | (typeof idealChanges)[number][1]>
-  >;
+  const changes = Record.fromEntries([...removalChanges, ...idealChanges]);
 
   // Compute summary
   const summary = Object.values(changes).reduce(

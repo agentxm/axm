@@ -92,16 +92,10 @@ export const computeFolderHash = (
       const effectiveRoot = repoRoot ?? directory;
 
       const treeSha = yield* getTreeSha(effectiveRoot, subPath);
-      return {
-        hash: treeSha,
-        source: "git-tree" as FolderHashSource,
-      };
+      return { hash: treeSha, source: "git-tree" } satisfies FolderHashResult;
     }
 
     // Fall back to content hash for non-git directories
     const contentHash = yield* computeContentHash(directory);
-    return {
-      hash: contentHash,
-      source: "content-hash" as FolderHashSource,
-    };
+    return { hash: contentHash, source: "content-hash" } satisfies FolderHashResult;
   });

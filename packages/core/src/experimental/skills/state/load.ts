@@ -7,7 +7,7 @@
 
 import * as nodePath from "node:path";
 import { FileSystem, type Path } from "@effect/platform";
-import { Array as Arr, Data, Effect, Option, pipe } from "effect";
+import { Array as Arr, Data, Effect, Option, pipe, Record } from "effect";
 
 import { computeFolderHash } from "../folder-hash.js";
 import { readLockfile } from "../lockfile.js";
@@ -92,23 +92,15 @@ const parseFrontmatter = (content: string): Option.Option<SkillFrontmatter> => {
       }
     }
 
-    // Build frontmatter only with valid fields
-    const frontmatter: SkillFrontmatter = {};
-
-    if (typeof data["name"] === "string") {
-      (frontmatter as { name?: string }).name = data["name"];
-    }
-    if (typeof data["description"] === "string") {
-      (frontmatter as { description?: string }).description = data["description"];
-    }
-    if (typeof data["version"] === "string") {
-      (frontmatter as { version?: string }).version = data["version"];
-    }
-    if (globalThis.Array.isArray(data["triggers"])) {
-      (frontmatter as { triggers?: readonly string[] }).triggers = (
-        data["triggers"] as unknown[]
-      ).filter((t): t is string => typeof t === "string");
-    }
+    // Build frontmatter only with valid fields using conditional spreading
+    const frontmatter: SkillFrontmatter = {
+      ...(typeof data["name"] === "string" && { name: data["name"] }),
+      ...(typeof data["description"] === "string" && { description: data["description"] }),
+      ...(typeof data["version"] === "string" && { version: data["version"] }),
+      ...(globalThis.Array.isArray(data["triggers"]) && {
+        triggers: (data["triggers"] as unknown[]).filter((t): t is string => typeof t === "string"),
+      }),
+    };
 
     return Option.some(frontmatter);
   } catch {
@@ -463,8 +455,8 @@ export const loadSkillsState = (
         const validity = computeValidity(actual, locked);
         return [name, { name, actual, locked, validity }] as const;
       }),
-      (entries) => Object.fromEntries(entries),
-    ) as Readonly<Record<string, SkillState>>;
+      Record.fromEntries,
+    );
 
     return { skills };
   });

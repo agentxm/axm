@@ -10,7 +10,7 @@
 
 import * as nodePath from "node:path";
 import type { FileSystem, Path } from "@effect/platform";
-import { Array as Arr, Data, Effect, Option, pipe } from "effect";
+import { Array as Arr, Data, Effect, Option, pipe, Record } from "effect";
 
 import { computeFolderHash } from "../folder-hash.js";
 import { discoverSkills } from "../skill-discovery.js";
@@ -187,17 +187,17 @@ export const buildIdealForInstall = (
 
     // Keep existing valid skills as ideal (unless they're being overwritten)
     const existingIdeal = pipe(
-      Object.entries(current.skills) as [string, SkillState][],
-      Arr.filter(([name, state]: [string, SkillState]) => {
+      Record.toEntries(current.skills),
+      Arr.filter(([name, state]) => {
         // Keep if has both actual and locked, and not being replaced
         const hasActual = Option.isSome(state.actual);
         const hasLocked = Option.isSome(state.locked);
         const beingReplaced = filtered.some((s) => s.name === name);
         return hasActual && hasLocked && (!beingReplaced || !options.force);
       }),
-      Arr.map(([name, state]: [string, SkillState]) => [name, stateToIdeal(state)] as const),
-      (entries) => Object.fromEntries(entries),
-    ) as Record<string, IdealSkill>;
+      Arr.map(([name, state]) => [name, stateToIdeal(state)] as const),
+      Record.fromEntries,
+    );
 
     // Build ideal for new/updated skills from source
     const newIdealEntries = yield* pipe(
@@ -236,7 +236,7 @@ export const buildIdealForInstall = (
       Effect.map(Arr.getSomes),
     );
 
-    const newIdeal = Object.fromEntries(newIdealEntries) as Record<string, IdealSkill>;
+    const newIdeal = Record.fromEntries(newIdealEntries);
 
     return {
       skills: { ...existingIdeal, ...newIdeal },
@@ -260,18 +260,15 @@ export const buildIdealForUninstall = (
   Effect.succeed({
     // Keep skills not being uninstalled
     skills: pipe(
-      Object.entries(current.skills) as [string, SkillState][],
-      Arr.filter(
-        ([name, state]: [string, SkillState]) =>
-          !skillNames.includes(name) && Option.isSome(state.locked),
-      ),
-      Arr.map(([name, state]: [string, SkillState]) => [name, stateToIdeal(state)] as const),
-      (entries) => Object.fromEntries(entries),
-    ) as Record<string, IdealSkill>,
+      Record.toEntries(current.skills),
+      Arr.filter(([name, state]) => !skillNames.includes(name) && Option.isSome(state.locked)),
+      Arr.map(([name, state]) => [name, stateToIdeal(state)] as const),
+      Record.fromEntries,
+    ),
     // Mark specified skills for removal
     removals: pipe(
-      skillNames as string[],
-      Arr.filter((name: string) => name in current.skills),
+      skillNames,
+      Arr.filter((name) => name in current.skills),
     ),
   });
 
@@ -287,24 +284,21 @@ export const buildIdealForUninstall = (
 export const buildIdealForSync = (
   current: SkillsState,
 ): Effect.Effect<IdealSkillsState, BuildIdealError, never> => {
-  const entries = Object.entries(current.skills) as [string, SkillState][];
+  const entries = Record.toEntries(current.skills);
 
   return Effect.succeed({
     // Keep locked skills as ideal
     skills: pipe(
       entries,
-      Arr.filter(([_, state]: [string, SkillState]) => Option.isSome(state.locked)),
-      Arr.map(([name, state]: [string, SkillState]) => [name, stateToIdeal(state)] as const),
-      (entries) => Object.fromEntries(entries),
-    ) as Record<string, IdealSkill>,
+      Arr.filter(([_, state]) => Option.isSome(state.locked)),
+      Arr.map(([name, state]) => [name, stateToIdeal(state)] as const),
+      Record.fromEntries,
+    ),
     // Mark orphaned (actual but not locked) for removal
     removals: pipe(
       entries,
-      Arr.filter(
-        ([_, state]: [string, SkillState]) =>
-          Option.isNone(state.locked) && Option.isSome(state.actual),
-      ),
-      Arr.map(([name]: [string, SkillState]) => name),
+      Arr.filter(([_, state]) => Option.isNone(state.locked) && Option.isSome(state.actual)),
+      Arr.map(([name]) => name),
     ),
   });
 };

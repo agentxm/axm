@@ -13,9 +13,16 @@ const ws = yield * Workspace;
 yield * ws.ensureInit();
 const actual = yield * ws.loadActual();
 const locked = yield * ws.loadLocked();
+
+// Handler decides how to handle divergence
+const { issues } = yield * ws.diagnoseSkills(actual, locked);
+if (issues.some((i) => i.critical) && !force) {
+  return yield * Effect.fail(new UnhealthyWorkspaceError({ issues }));
+}
+
 const ideal =
   yield *
-  ws.buildIdealState({
+  ws.buildIdealState(locked, {
     _tag: "skills-install",
     source: "owner/repo",
     agents: ["claude"],
@@ -23,7 +30,7 @@ const ideal =
     force: false,
   });
 const plan = yield * ws.buildPlan(actual, locked, ideal);
-yield * plan.execute({ dryRun });
+yield * plan.apply({ dryRun });
 
 return plan;
 ```
@@ -33,8 +40,9 @@ return plan;
 | Decision            | Choice              | Rationale                               |
 | ------------------- | ------------------- | --------------------------------------- |
 | Operation encoding  | Discriminated union | Simple, explicit, type-safe             |
-| Plan execution      | `plan.execute()`    | Single method handles dry-run and apply |
+| Plan execution      | `plan.apply()`      | Single method handles dry-run and apply |
 | State separation    | Actual/Locked/Ideal | Clear mental model, distinct concerns   |
+| Divergence handling | Handler diagnoses   | Explicit control per command            |
 | Multiple operations | Bulk via args       | Operations use arrays (skills, agents)  |
 | Apply effectful     | Yes                 | Side effects require Effect             |
 
@@ -54,8 +62,11 @@ interface Workspace {
   /** Load lockfile state - what we expect to be installed */
   loadLocked(): Effect.Effect<LockedState, WorkspaceError>;
 
-  /** Compute ideal state for an operation */
-  buildIdealState(op: Operation): Effect.Effect<IdealState, OperationError>;
+  /** Compute ideal state for an operation based on current locked state */
+  buildIdealState(
+    locked: LockedState,
+    op: Operation,
+  ): Effect.Effect<IdealState, OperationError>;
 
   /** Diff current state vs ideal to produce execution plan */
   buildPlan(
@@ -64,11 +75,11 @@ interface Workspace {
     ideal: IdealState,
   ): Effect.Effect<Plan, PlanError>;
 
-  /** Diagnose inconsistencies between actual and locked state */
-  diagnose(
+  /** Diagnose skill inconsistencies between actual and locked state */
+  diagnoseSkills(
     actual: ActualState,
     locked: LockedState,
-  ): Effect.Effect<DiagnosticResult, DiagnoseError>;
+  ): Effect.Effect<SkillsDiagnosis, DiagnoseError>;
 }
 
 /** Layer factory - creates Workspace bound to a specific path */
@@ -134,8 +145,8 @@ interface IdealState {
 interface Plan {
   readonly steps: ReadonlyArray<PlanStep>;
 
-  /** Execute plan: display if dryRun, apply otherwise */
-  execute(opts: { dryRun: boolean }): Effect.Effect<void, ExecuteError>;
+  /** Apply plan: display if dryRun, execute otherwise */
+  apply(opts: { dryRun: boolean }): Effect.Effect<void, ApplyError>;
 }
 
 type PlanStep =
@@ -145,22 +156,38 @@ type PlanStep =
   | { _tag: "CreateDirectory"; path: string };
 ```
 
-## DiagnosticResult
+## SkillsDiagnosis
 
 ```typescript
-interface DiagnosticResult {
-  readonly issues: ReadonlyArray<Issue>;
-  readonly plan: Plan; // repairs for issues
+interface SkillsDiagnosis {
+  readonly issues: ReadonlyArray<SkillIssue>;
+  readonly prescriptionPlan: Plan; // repairs for issues
 
   /** Display issues only (axm doctor) */
   displayIssues(): Effect.Effect<void, DisplayError>;
 }
 
-type Issue =
-  | { _tag: "SkillMissingFromDisk"; name: string }
-  | { _tag: "SkillNotInLockfile"; name: string; path: string }
-  | { _tag: "ChecksumMismatch"; name: string; expected: string; actual: string }
-  | { _tag: "OrphanedSettingsRef"; agent: string; skill: string };
+type SkillIssue =
+  | { _tag: "SkillMissingFromDisk"; name: string; critical: boolean }
+  | {
+      _tag: "SkillNotInLockfile";
+      name: string;
+      path: string;
+      critical: boolean;
+    }
+  | {
+      _tag: "ChecksumMismatch";
+      name: string;
+      expected: string;
+      actual: string;
+      critical: boolean;
+    }
+  | {
+      _tag: "OrphanedSettingsRef";
+      agent: string;
+      skill: string;
+      critical: boolean;
+    };
 ```
 
 ## Doctor Pattern
@@ -172,15 +199,15 @@ yield * ws.ensureInit();
 
 const actual = yield * ws.loadActual();
 const locked = yield * ws.loadLocked();
-const result = yield * ws.diagnose(actual, locked);
+const diagnosis = yield * ws.diagnoseSkills(actual, locked);
 
 if (!fix) {
-  yield * result.displayIssues();
+  yield * diagnosis.displayIssues();
 } else {
-  yield * result.plan.execute({ dryRun });
+  yield * diagnosis.prescriptionPlan.apply({ dryRun });
 }
 
-return result;
+return diagnosis;
 ```
 
 ## Benefits
@@ -188,7 +215,7 @@ return result;
 1. **Testable** - Plans can be built and inspected without execution
 2. **Inspectable** - Plans returned from handlers for logging/debugging
 3. **Composable** - Same pattern for all operations
-4. **Dry-run trivial** - Single `execute({ dryRun })` handles both modes
+4. **Dry-run trivial** - Single `apply({ dryRun })` handles both modes
 
 ## Open Questions
 

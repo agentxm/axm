@@ -13,7 +13,7 @@ import { FileSystem } from "@effect/platform";
 import { Data, Effect, Schema } from "effect";
 import YAML from "yaml";
 
-import type { LockEntry, Lockfile } from "./types.js";
+import { type Lockfile, LockfileSchema, type SkillLockEntry } from "../schemas/lockfile.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -64,39 +64,23 @@ export type LockfileError = LockfileParseError | LockfileWriteError;
  */
 const createEmptyLockfile = (): Lockfile => ({
   lockfileVersion: LOCKFILE_VERSION,
-  extensions: {
-    skills: {},
-  },
-});
-
-/**
- * Schema for a single LockEntry in the legacy lockfile format.
- */
-const LockEntrySchema = Schema.Struct({
-  source: Schema.String,
-  origin: Schema.String,
-  folderHash: Schema.String,
-  installedAt: Schema.String,
-  updatedAt: Schema.String,
-});
-
-/**
- * Schema for the legacy lockfile format (with extensions.skills structure).
- */
-const LockfileSchemaLegacy = Schema.Struct({
-  lockfileVersion: Schema.Number,
-  extensions: Schema.Struct({
-    skills: Schema.Record({ key: Schema.String, value: LockEntrySchema }),
-  }),
+  skills: {},
 });
 
 /**
  * Validates parsed YAML data against the lockfile schema.
- * Falls back to an empty lockfile on validation failure for graceful recovery.
+ * Returns a typed LockfileParseError on validation failure.
  */
-const validateLockfile = (data: unknown): Effect.Effect<Lockfile, never> =>
-  Schema.decodeUnknown(LockfileSchemaLegacy)(data).pipe(
-    Effect.catchAll(() => Effect.succeed(createEmptyLockfile())),
+const decodeLockfile = (data: unknown): Effect.Effect<Lockfile, LockfileParseError> =>
+  Schema.decodeUnknown(LockfileSchema)(data).pipe(
+    Effect.mapError(
+      (e) =>
+        new LockfileParseError({
+          message: "Invalid lockfile format",
+          cause: e,
+          retryable: false,
+        }),
+    ),
   );
 
 // -----------------------------------------------------------------------------
@@ -107,6 +91,7 @@ const validateLockfile = (data: unknown): Effect.Effect<Lockfile, never> =>
  * Reads and parses the lockfile from `.axm/axm-lock.yaml`.
  *
  * Returns an empty lockfile if the file does not exist.
+ * Returns a LockfileParseError if the file exists but is invalid.
  *
  * @param axmDir - Path to the `.axm` directory
  * @returns Effect yielding the parsed Lockfile
@@ -158,13 +143,14 @@ export const readLockfile = (
         }),
     });
 
-    return yield* validateLockfile(parsed);
+    return yield* decodeLockfile(parsed);
   });
 
 /**
  * Writes the lockfile to `.axm/axm-lock.yaml` in YAML format.
  *
  * Creates the `.axm` directory if it does not exist.
+ * Encodes Date fields to ISO strings for YAML serialization.
  *
  * @param axmDir - Path to the `.axm` directory
  * @param lockfile - The lockfile object to write
@@ -192,9 +178,20 @@ export const writeLockfile = (
       ),
     );
 
+    // Encode Dates to ISO strings for YAML serialization
+    const encoded = yield* Effect.try({
+      try: () => Schema.encodeSync(LockfileSchema)(lockfile),
+      catch: (error) =>
+        new LockfileWriteError({
+          message: "Failed to encode lockfile",
+          cause: error,
+          retryable: false,
+        }),
+    });
+
     // Convert to YAML
     const yamlContent = yield* Effect.try({
-      try: () => YAML.stringify(lockfile),
+      try: () => YAML.stringify(encoded),
       catch: (error) =>
         new LockfileWriteError({
           message: "Failed to serialize lockfile to YAML",
@@ -232,21 +229,18 @@ export const writeLockfile = (
 export const updateLockEntry = (
   axmDir: string,
   skillName: string,
-  entry: LockEntry,
+  entry: SkillLockEntry,
 ): Effect.Effect<Lockfile, LockfileError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const existing = yield* readLockfile(axmDir);
 
     const updatedLockfile: Lockfile = {
       ...existing,
-      extensions: {
-        ...existing.extensions,
-        skills: {
-          ...existing.extensions.skills,
-          [skillName]: {
-            ...entry,
-            updatedAt: new Date().toISOString(),
-          },
+      skills: {
+        ...existing.skills,
+        [skillName]: {
+          ...entry,
+          updatedAt: new Date(),
         },
       },
     };
@@ -276,14 +270,11 @@ export const removeLockEntry = (
     const existing = yield* readLockfile(axmDir);
 
     // Create new skills object without the specified skill
-    const { [skillName]: _, ...remainingSkills } = existing.extensions.skills;
+    const { [skillName]: _, ...remainingSkills } = existing.skills;
 
     const updatedLockfile: Lockfile = {
       ...existing,
-      extensions: {
-        ...existing.extensions,
-        skills: remainingSkills,
-      },
+      skills: remainingSkills,
     };
 
     yield* writeLockfile(axmDir, updatedLockfile);

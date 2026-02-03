@@ -10,8 +10,8 @@ import { FileSystem, type Path } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
 import { Effect, Option } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { Lockfile } from "../../schemas/lockfile.js";
 import { writeLockfile } from "../lockfile.js";
-import type { Lockfile } from "../types.js";
 import { computeValidity, loadActualSkills, loadLockedSkills, loadSkillsState } from "./load.js";
 import type { ActualSkill, LockedSkill } from "./types.js";
 
@@ -171,15 +171,14 @@ describe("loadLockedSkills", () => {
   it("loads skills from lockfile", async () => {
     const lockfile: Lockfile = {
       lockfileVersion: 1,
-      extensions: {
-        skills: {
-          "my-skill": {
-            source: "github:owner/repo",
-            origin: "https://github.com/owner/repo",
-            folderHash: "abc123",
-            installedAt: "2024-01-01T00:00:00.000Z",
-            updatedAt: "2024-01-02T00:00:00.000Z",
-          },
+      skills: {
+        "my-skill": {
+          name: "my-skill",
+          source: { _tag: "GitHub", owner: "owner", repo: "repo" },
+          gitTreeHash: "abc123",
+          agents: [],
+          installedAt: new Date("2024-01-01T00:00:00.000Z"),
+          updatedAt: new Date("2024-01-02T00:00:00.000Z"),
         },
       },
     };
@@ -370,15 +369,14 @@ description: Test skill
   it("detects missing skill (in lockfile but not on disk)", async () => {
     const lockfile: Lockfile = {
       lockfileVersion: 1,
-      extensions: {
-        skills: {
-          "missing-skill": {
-            source: "github:owner/repo",
-            origin: "https://github.com/owner/repo",
-            folderHash: "abc123",
-            installedAt: "2024-01-01T00:00:00.000Z",
-            updatedAt: "2024-01-01T00:00:00.000Z",
-          },
+      skills: {
+        "missing-skill": {
+          name: "missing-skill",
+          source: { _tag: "GitHub", owner: "owner", repo: "repo" },
+          gitTreeHash: "abc123",
+          agents: [],
+          installedAt: new Date("2024-01-01T00:00:00.000Z"),
+          updatedAt: new Date("2024-01-01T00:00:00.000Z"),
         },
       },
     };

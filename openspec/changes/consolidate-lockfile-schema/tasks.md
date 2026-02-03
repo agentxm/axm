@@ -11,14 +11,14 @@
 
 ## 2. Lockfile I/O Updates (skills/lockfile.ts)
 
-- [ ] 2.1 Update tests for skills/lockfile.ts to use new schema types (red phase)
-- [ ] 2.2 Rewrite skills/lockfile.ts to use LockfileSchema from schemas/lockfile.ts
-- [ ] 2.3 Remove internal LockEntrySchema and LockfileSchemaLegacy
-- [ ] 2.4 Update decodeLockfile to use typed LockfileParseError instead of silent fallback
-- [ ] 2.5 Typecheck verification
-- [ ] 2.6 Lint verification
-- [ ] 2.7 Test verification
-- [ ] 2.8 Kill runaway vitest workers
+- [x] 2.1 Update tests for skills/lockfile.ts to use new schema types (red phase)
+- [x] 2.2 Rewrite skills/lockfile.ts to use LockfileSchema from schemas/lockfile.ts
+- [x] 2.3 Remove internal LockEntrySchema and LockfileSchemaLegacy
+- [x] 2.4 Update decodeLockfile to use typed LockfileParseError instead of silent fallback
+- [x] 2.5 Typecheck verification
+- [x] 2.6 Lint verification
+- [x] 2.7 Test verification
+- [x] 2.8 Kill runaway vitest workers
 
 ## 3. Remove Duplicate Types (skills/types.ts)
 

@@ -29,13 +29,13 @@ import {
   fetchWellKnownIndex,
   getAgentById,
   getCurrentCommit,
-  getOriginFromParsed,
   type InstallResult,
   installSkillToAgents,
-  type LockEntry,
+  type SkillSource as LockfileSkillSource,
   type ParsedSource,
   parseSource,
   type Skill,
+  type SkillLockEntry,
   updateLockEntry,
   updateSettings,
   type WellKnownSkill,
@@ -110,6 +110,33 @@ export class InstallError extends Data.TaggedError("InstallError")<{
   readonly cause?: unknown;
   readonly retryable: boolean;
 }> {}
+
+// -----------------------------------------------------------------------------
+// Lockfile Helpers
+// -----------------------------------------------------------------------------
+
+/**
+ * Convert ParsedSource to the new structured SkillSource format for lockfile.
+ */
+const parsedSourceToSkillSource = (parsed: ParsedSource): LockfileSkillSource => {
+  switch (parsed.type) {
+    case "local":
+      return { _tag: "Local", path: parsed.canonical };
+    case "github":
+    case "gitlab":
+      return {
+        _tag: "GitHub",
+        owner: parsed.owner ?? "",
+        repo: parsed.repo ?? "",
+        ref: parsed.ref,
+        path: parsed.path,
+      };
+    case "direct-url":
+      return { _tag: "Git", url: parsed.url ?? parsed.canonical };
+    case "well-known":
+      return { _tag: "Git", url: parsed.url ?? parsed.canonical };
+  }
+};
 
 // -----------------------------------------------------------------------------
 // Source Resolution
@@ -435,15 +462,15 @@ const installSkillsFromFileSystem = (
     const allResults: InstallResult[] = installResults.flatMap((r) => r.results);
 
     // Update lockfile entries sequentially (lockfile is a shared file)
-    const now = new Date().toISOString();
+    const now = new Date();
     yield* Effect.forEach(
       installResults,
       ({ skillName, contentHash }) => {
-        const origin = getOriginFromParsed(parsed);
-        const lockEntry: LockEntry = {
-          source: parsed.canonical,
-          origin,
-          folderHash: contentHash,
+        const lockEntry: SkillLockEntry = {
+          name: skillName,
+          source: parsedSourceToSkillSource(parsed),
+          gitTreeHash: contentHash,
+          agents: agents.map((a) => a.id),
           installedAt: now,
           updatedAt: now,
         };
@@ -578,15 +605,15 @@ const installSkillsFromWellKnown = (
     const allResults: InstallResult[] = validResults.flatMap((r) => r.results);
 
     // Update lockfile entries sequentially (lockfile is a shared file)
-    const now = new Date().toISOString();
+    const now = new Date();
     yield* Effect.forEach(
       validResults,
       ({ skillName, contentHash }) => {
-        const origin = getOriginFromParsed(parsed);
-        const lockEntry: LockEntry = {
-          source: parsed.canonical,
-          origin,
-          folderHash: contentHash,
+        const lockEntry: SkillLockEntry = {
+          name: skillName,
+          source: parsedSourceToSkillSource(parsed),
+          gitTreeHash: contentHash,
+          agents: agents.map((a) => a.id),
           installedAt: now,
           updatedAt: now,
         };

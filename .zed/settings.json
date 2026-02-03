@@ -1,12 +1,8 @@
 {
-  "file_scan_exclusions": [
-    "**/.git",
-    "**/.svn",
-    "**/.hg",
-    "**/node_modules",
-    "**/dist",
-    "**/build",
-    "**/.DS_Store",
-    "**/.reference"
-  ]
+  "search": {
+    "exclude": {
+      "**/.axm/cache": true,
+      "**/.reference": true
+    }
+  }
 }

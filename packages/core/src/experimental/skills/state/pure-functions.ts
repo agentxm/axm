@@ -12,45 +12,20 @@
 
 import { Array as Arr, Option, pipe } from "effect";
 import * as semver from "semver";
-import type { ActualSkillIssue, AnyIssue, SkillStateIssue, WorkspaceIssue } from "./types.js";
-
-// =============================================================================
-// SkillSource Type (compatible with design doc)
-// =============================================================================
+import type {
+  ActualSkillIssue,
+  AnyIssue,
+  SkillSourceV2,
+  SkillStateIssue,
+  WorkspaceIssue,
+} from "./types.js";
 
 /**
- * Registry location - remote URL or local filesystem path.
+ * Skill source type re-exported from types.ts for convenience.
  *
  * @experimental This API is unstable and may change without notice.
  */
-type RegistryLocation =
-  | { readonly _tag: "Remote"; readonly url: string }
-  | { readonly _tag: "FileSystem"; readonly path: string };
-
-/**
- * Skill source for computeInstallPath.
- *
- * This type is compatible with the SkillSource from types.ts but explicitly
- * defines only the variants needed for path computation per the design doc.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type SkillSource =
-  | {
-      readonly _tag: "Registry";
-      readonly location: RegistryLocation;
-      readonly scope: string;
-      readonly name: string;
-      readonly version: Option.Option<string>;
-    }
-  | {
-      readonly _tag: "GitHub";
-      readonly owner: string;
-      readonly repo: string;
-      readonly ref: Option.Option<string>;
-      readonly path: Option.Option<string>;
-    }
-  | { readonly _tag: "Local"; readonly path: string };
+export type SkillSource = SkillSourceV2;
 
 // =============================================================================
 // Install Path Computation

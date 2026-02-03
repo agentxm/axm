@@ -180,22 +180,6 @@ const getSourcePath = (source: SkillSource): Effect.Effect<string, UnsupportedSo
       );
 
 /**
- * Convert SkillSource to lockfile source string.
- */
-const sourceToLockfileValue = (source: SkillSource): string => {
-  switch (source._tag) {
-    case "Local":
-      return source.path;
-    case "Git":
-      return source.url;
-    case "WellKnown":
-      return `${source.baseUrl}/${source.skillName}`;
-    case "Registry":
-      return `${source.name}@${source.version}`;
-  }
-};
-
-/**
  * Convert SkillSource to settings entry value.
  */
 const sourceToSettingsValue = (source: SkillSource): SkillSettingsEntry => {
@@ -213,8 +197,16 @@ const sourceToSettingsValue = (source: SkillSource): SkillSettingsEntry => {
 };
 
 /**
- * Convert IdealSkill to SkillLockEntry.
- * Maps the legacy SkillSource format to the new structured SkillSource schema.
+ * Convert IdealSkill (legacy state type) to SkillLockEntry (canonical schema).
+ *
+ * This conversion is needed because:
+ * - IdealSkill uses legacy SkillSource with WellKnown variant and Option refs
+ * - SkillLockEntry uses canonical SkillSource (Local | GitHub | Git | Registry)
+ *
+ * WellKnown sources are converted to Git sources.
+ * Registry sources are not yet supported.
+ *
+ * This bridge will be removed when IdealSkill migrates to use canonical types.
  */
 const idealToLockEntry = (
   ideal: IdealSkill,

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Schema } from "effect";
-import { LockfileSchema, SkillLockEntrySchema, SkillsLockMapSchema } from "./lockfile";
+import {
+  LockfileSchema,
+  RegistryLocationSchema,
+  SkillLockEntrySchema,
+  SkillSourceSchema,
+  SkillsLockMapSchema,
+} from "./lockfile";
 
 describe("lockfile schema", () => {
   describe("Lockfile", () => {
@@ -85,6 +91,66 @@ describe("lockfile schema", () => {
       expect(result.skills["my-skill"]?.source._tag).toBe("Local");
       if (result.skills["my-skill"]?.source._tag === "Local") {
         expect(result.skills["my-skill"]?.source.path).toBe("./my-skills");
+      }
+    });
+
+    it("accepts valid skill lock entry with Git source", () => {
+      const input = {
+        lockfileVersion: 1,
+        skills: {
+          "my-skill": {
+            name: "my-skill",
+            source: {
+              _tag: "Git",
+              url: "https://gitlab.com/example/skills.git",
+              ref: "v1.0.0",
+              subpath: "skills/my-skill",
+            },
+            gitTreeHash: "abc123def456",
+            agents: ["claude-code"],
+            installedAt: "2025-01-15T10:30:00Z",
+            updatedAt: "2025-01-15T10:30:00Z",
+          },
+        },
+      };
+
+      const result = Schema.decodeUnknownSync(LockfileSchema)(input);
+
+      expect(result.skills["my-skill"]).toBeDefined();
+      expect(result.skills["my-skill"]?.source._tag).toBe("Git");
+      if (result.skills["my-skill"]?.source._tag === "Git") {
+        expect(result.skills["my-skill"]?.source.url).toBe("https://gitlab.com/example/skills.git");
+        expect(result.skills["my-skill"]?.source.ref).toBe("v1.0.0");
+        expect(result.skills["my-skill"]?.source.subpath).toBe("skills/my-skill");
+      }
+    });
+
+    it("accepts Git source with only required url field", () => {
+      const input = {
+        lockfileVersion: 1,
+        skills: {
+          "my-skill": {
+            name: "my-skill",
+            source: {
+              _tag: "Git",
+              url: "https://bitbucket.org/example/skills.git",
+            },
+            agents: ["claude-code"],
+            installedAt: "2025-01-15T10:30:00Z",
+            updatedAt: "2025-01-15T10:30:00Z",
+          },
+        },
+      };
+
+      const result = Schema.decodeUnknownSync(LockfileSchema)(input);
+
+      expect(result.skills["my-skill"]).toBeDefined();
+      if (result.skills["my-skill"]?.source._tag === "Git") {
+        expect(result.skills["my-skill"]?.source.url).toBe(
+          "https://bitbucket.org/example/skills.git",
+        );
+        expect(result.skills["my-skill"]?.source.ref).toBeUndefined();
+        expect(result.skills["my-skill"]?.source.subpath).toBeUndefined();
       }
     });
 
@@ -261,6 +327,32 @@ describe("lockfile schema", () => {
       expect(result.version).toBe("1.0.0");
     });
 
+    it("accepts valid lock entry with Git source", () => {
+      const input = {
+        name: "my-skill",
+        source: {
+          _tag: "Git",
+          url: "https://gitlab.com/example/skills.git",
+          ref: "main",
+          subpath: "skills/my-skill",
+        },
+        gitTreeHash: "abc123def456",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+
+      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
+
+      expect(result.source._tag).toBe("Git");
+      if (result.source._tag === "Git") {
+        expect(result.source.url).toBe("https://gitlab.com/example/skills.git");
+        expect(result.source.ref).toBe("main");
+        expect(result.source.subpath).toBe("skills/my-skill");
+      }
+      expect(result.gitTreeHash).toBe("abc123def456");
+    });
+
     it("accepts lock entry with empty agents array", () => {
       const input = {
         name: "my-skill",
@@ -374,6 +466,169 @@ describe("lockfile schema", () => {
 
       expect(result["my-skill"]).toBeDefined();
       expect(result["another-skill"]).toBeDefined();
+    });
+  });
+
+  describe("SkillSourceSchema", () => {
+    it("accepts Local source", () => {
+      const input = { _tag: "Local", path: "./my-skill" };
+
+      const result = Schema.decodeUnknownSync(SkillSourceSchema)(input);
+
+      expect(result._tag).toBe("Local");
+      if (result._tag === "Local") {
+        expect(result.path).toBe("./my-skill");
+      }
+    });
+
+    it("accepts GitHub source with all fields", () => {
+      const input = {
+        _tag: "GitHub",
+        owner: "example-org",
+        repo: "skills",
+        ref: "main",
+        path: "skills/my-skill",
+      };
+
+      const result = Schema.decodeUnknownSync(SkillSourceSchema)(input);
+
+      expect(result._tag).toBe("GitHub");
+      if (result._tag === "GitHub") {
+        expect(result.owner).toBe("example-org");
+        expect(result.repo).toBe("skills");
+        expect(result.ref).toBe("main");
+        expect(result.path).toBe("skills/my-skill");
+      }
+    });
+
+    it("accepts GitHub source with only required fields", () => {
+      const input = {
+        _tag: "GitHub",
+        owner: "example-org",
+        repo: "skills",
+      };
+
+      const result = Schema.decodeUnknownSync(SkillSourceSchema)(input);
+
+      expect(result._tag).toBe("GitHub");
+      if (result._tag === "GitHub") {
+        expect(result.owner).toBe("example-org");
+        expect(result.repo).toBe("skills");
+        expect(result.ref).toBeUndefined();
+        expect(result.path).toBeUndefined();
+      }
+    });
+
+    it("accepts Git source with all fields", () => {
+      const input = {
+        _tag: "Git",
+        url: "https://gitlab.com/example/skills.git",
+        ref: "v1.0.0",
+        subpath: "skills/my-skill",
+      };
+
+      const result = Schema.decodeUnknownSync(SkillSourceSchema)(input);
+
+      expect(result._tag).toBe("Git");
+      if (result._tag === "Git") {
+        expect(result.url).toBe("https://gitlab.com/example/skills.git");
+        expect(result.ref).toBe("v1.0.0");
+        expect(result.subpath).toBe("skills/my-skill");
+      }
+    });
+
+    it("accepts Git source with only required fields", () => {
+      const input = {
+        _tag: "Git",
+        url: "https://bitbucket.org/example/skills.git",
+      };
+
+      const result = Schema.decodeUnknownSync(SkillSourceSchema)(input);
+
+      expect(result._tag).toBe("Git");
+      if (result._tag === "Git") {
+        expect(result.url).toBe("https://bitbucket.org/example/skills.git");
+        expect(result.ref).toBeUndefined();
+        expect(result.subpath).toBeUndefined();
+      }
+    });
+
+    it("accepts Registry source with Remote location", () => {
+      const input = {
+        _tag: "Registry",
+        location: { _tag: "Remote", url: "https://registry.example.com" },
+        scope: "example",
+        name: "my-skill",
+        version: "1.0.0",
+      };
+
+      const result = Schema.decodeUnknownSync(SkillSourceSchema)(input);
+
+      expect(result._tag).toBe("Registry");
+      if (result._tag === "Registry") {
+        expect(result.location._tag).toBe("Remote");
+        expect(result.scope).toBe("example");
+        expect(result.name).toBe("my-skill");
+        expect(result.version).toBe("1.0.0");
+      }
+    });
+
+    it("accepts Registry source with FileSystem location", () => {
+      const input = {
+        _tag: "Registry",
+        location: { _tag: "FileSystem", path: "/local/registry" },
+        scope: "local",
+        name: "my-skill",
+      };
+
+      const result = Schema.decodeUnknownSync(SkillSourceSchema)(input);
+
+      expect(result._tag).toBe("Registry");
+      if (result._tag === "Registry") {
+        expect(result.location._tag).toBe("FileSystem");
+        if (result.location._tag === "FileSystem") {
+          expect(result.location.path).toBe("/local/registry");
+        }
+        expect(result.scope).toBe("local");
+        expect(result.name).toBe("my-skill");
+        expect(result.version).toBeUndefined();
+      }
+    });
+
+    it("rejects unknown source _tag", () => {
+      const input = { _tag: "WellKnown", baseUrl: "https://example.com", skillName: "my-skill" };
+
+      expect(() => Schema.decodeUnknownSync(SkillSourceSchema)(input)).toThrow();
+    });
+  });
+
+  describe("RegistryLocationSchema", () => {
+    it("accepts Remote location", () => {
+      const input = { _tag: "Remote", url: "https://registry.example.com" };
+
+      const result = Schema.decodeUnknownSync(RegistryLocationSchema)(input);
+
+      expect(result._tag).toBe("Remote");
+      if (result._tag === "Remote") {
+        expect(result.url).toBe("https://registry.example.com");
+      }
+    });
+
+    it("accepts FileSystem location", () => {
+      const input = { _tag: "FileSystem", path: "/local/registry" };
+
+      const result = Schema.decodeUnknownSync(RegistryLocationSchema)(input);
+
+      expect(result._tag).toBe("FileSystem");
+      if (result._tag === "FileSystem") {
+        expect(result.path).toBe("/local/registry");
+      }
+    });
+
+    it("rejects unknown location _tag", () => {
+      const input = { _tag: "Unknown", data: "test" };
+
+      expect(() => Schema.decodeUnknownSync(RegistryLocationSchema)(input)).toThrow();
     });
   });
 });

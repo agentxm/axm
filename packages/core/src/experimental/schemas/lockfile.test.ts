@@ -1,48 +1,45 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Schema } from "effect";
-import {
-  ExtensionLockMapSchema,
-  ExtensionsByTypeSchema,
-  LockEntrySchema,
-  LockfileSchema,
-} from "./lockfile";
+import { LockfileSchema, SkillLockEntrySchema, SkillsLockMapSchema } from "./lockfile";
 
 describe("lockfile schema", () => {
   describe("Lockfile", () => {
     it("accepts valid minimal lockfile", () => {
       const input = {
         lockfileVersion: 1,
-        extensions: {},
+        skills: {},
       };
 
       const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
       expect(result.lockfileVersion).toBe(1);
-      expect(result.extensions).toEqual({});
+      expect(result.skills).toEqual({});
     });
 
     it("rejects missing lockfileVersion", () => {
       const input = {
-        extensions: {},
+        skills: {},
       };
 
       expect(() => Schema.decodeUnknownSync(LockfileSchema)(input)).toThrow();
     });
 
-    it("accepts valid skill lock entry", () => {
+    it("accepts valid skill lock entry with GitHub source", () => {
       const input = {
         lockfileVersion: 1,
-        extensions: {
-          skills: {
-            "@wayne/grappling-hook": {
-              source: "github:wayne-industries/skills",
-              origin: "https://github.com/wayne-industries/skills",
-              path: "skills/grappling-hook",
+        skills: {
+          "my-skill": {
+            source: {
+              _tag: "GitHub",
+              owner: "wayne-industries",
+              repo: "skills",
               ref: "main",
-              folderHash: "abc123def456",
-              installedAt: "2025-01-15T10:30:00Z",
-              updatedAt: "2025-01-15T10:30:00Z",
+              path: "skills/my-skill",
             },
+            gitTreeHash: "abc123def456",
+            agents: ["claude-code", "cursor"],
+            installedAt: "2025-01-15T10:30:00Z",
+            updatedAt: "2025-01-15T10:30:00Z",
           },
         },
       };
@@ -50,273 +47,261 @@ describe("lockfile schema", () => {
       const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
       expect(result.lockfileVersion).toBe(1);
-      expect(result.extensions.skills?.["@wayne/grappling-hook"]).toBeDefined();
-      expect(result.extensions.skills?.["@wayne/grappling-hook"]?.source).toBe(
-        "github:wayne-industries/skills",
-      );
-      expect(result.extensions.skills?.["@wayne/grappling-hook"]?.path).toBe(
-        "skills/grappling-hook",
-      );
+      expect(result.skills["my-skill"]).toBeDefined();
+      expect(result.skills["my-skill"]?.source._tag).toBe("GitHub");
+      if (result.skills["my-skill"]?.source._tag === "GitHub") {
+        expect(result.skills["my-skill"]?.source.owner).toBe("wayne-industries");
+        expect(result.skills["my-skill"]?.source.repo).toBe("skills");
+      }
+      expect(result.skills["my-skill"]?.gitTreeHash).toBe("abc123def456");
+      expect(result.skills["my-skill"]?.agents).toEqual(["claude-code", "cursor"]);
     });
 
-    it("accepts valid pack lock entry with dependencies", () => {
+    it("accepts valid skill lock entry with Local source", () => {
       const input = {
         lockfileVersion: 1,
-        extensions: {
-          packs: {
-            "@wayne/batpack": {
-              source: "github:wayne-industries/packs",
-              origin: "https://github.com/wayne-industries/packs",
-              folderHash: "def456abc123",
-              dependencies: ["@wayne/skill-a", "@wayne/skill-b"],
-              installedAt: "2025-01-15T10:30:00Z",
-              updatedAt: "2025-01-15T10:30:00Z",
+        skills: {
+          "my-skill": {
+            source: {
+              _tag: "Local",
+              path: "./my-skills",
             },
+            agents: ["claude-code"],
+            installedAt: "2025-01-15T10:30:00Z",
+            updatedAt: "2025-01-15T10:30:00Z",
           },
         },
       };
 
       const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
-      expect(result.extensions.packs?.["@wayne/batpack"]?.dependencies).toEqual([
-        "@wayne/skill-a",
-        "@wayne/skill-b",
-      ]);
+      expect(result.skills["my-skill"]).toBeDefined();
+      expect(result.skills["my-skill"]?.source._tag).toBe("Local");
+      if (result.skills["my-skill"]?.source._tag === "Local") {
+        expect(result.skills["my-skill"]?.source.path).toBe("./my-skills");
+      }
     });
 
-    it("rejects invalid extension name without @scope/", () => {
+    it("accepts valid skill lock entry with Registry source and version", () => {
       const input = {
         lockfileVersion: 1,
-        extensions: {
-          skills: {
-            "grappling-hook": {
-              source: "github:wayne-industries/skills",
-              origin: "https://github.com/wayne-industries/skills",
-              folderHash: "abc123def456",
-              installedAt: "2025-01-15T10:30:00Z",
-              updatedAt: "2025-01-15T10:30:00Z",
+        skills: {
+          "my-skill": {
+            source: {
+              _tag: "Registry",
+              name: "@scope/my-skill",
+              version: "1.0.0",
             },
-          },
-        },
-      };
-
-      expect(() => Schema.decodeUnknownSync(LockfileSchema)(input)).toThrow();
-    });
-
-    it("accepts lockfile with multiple extension types", () => {
-      const input = {
-        lockfileVersion: 1,
-        extensions: {
-          skills: {
-            "@wayne/grappling-hook": {
-              source: "github:wayne-industries/skills",
-              origin: "https://github.com/wayne-industries/skills",
-              folderHash: "abc123",
-              installedAt: "2025-01-15T10:30:00Z",
-              updatedAt: "2025-01-15T10:30:00Z",
-            },
-          },
-          commands: {
-            "@wayne/build": {
-              source: "github:wayne-industries/commands",
-              origin: "https://github.com/wayne-industries/commands",
-              folderHash: "def456",
-              installedAt: "2025-01-15T11:00:00Z",
-              updatedAt: "2025-01-15T11:00:00Z",
-            },
-          },
-          "mcp-servers": {
-            "@wayne/batcomputer": {
-              source: "github:wayne-industries/mcp-servers",
-              origin: "https://github.com/wayne-industries/mcp-servers",
-              folderHash: "ghi789",
-              installedAt: "2025-01-15T12:00:00Z",
-              updatedAt: "2025-01-15T12:00:00Z",
-            },
+            version: "1.0.0",
+            agents: ["claude-code"],
+            installedAt: "2025-01-15T10:30:00Z",
+            updatedAt: "2025-01-15T10:30:00Z",
           },
         },
       };
 
       const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
-      expect(result.extensions.skills?.["@wayne/grappling-hook"]).toBeDefined();
-      expect(result.extensions.commands?.["@wayne/build"]).toBeDefined();
-      expect(result.extensions["mcp-servers"]?.["@wayne/batcomputer"]).toBeDefined();
+      expect(result.skills["my-skill"]).toBeDefined();
+      expect(result.skills["my-skill"]?.source._tag).toBe("Registry");
+      expect(result.skills["my-skill"]?.version).toBe("1.0.0");
+    });
+
+    it("accepts valid skill lock entry with WellKnown source", () => {
+      const input = {
+        lockfileVersion: 1,
+        skills: {
+          "my-skill": {
+            source: {
+              _tag: "WellKnown",
+              baseUrl: "https://example.com",
+              skillName: "my-skill",
+            },
+            gitTreeHash: "abc123",
+            agents: ["claude-code"],
+            installedAt: "2025-01-15T10:30:00Z",
+            updatedAt: "2025-01-15T10:30:00Z",
+          },
+        },
+      };
+
+      const result = Schema.decodeUnknownSync(LockfileSchema)(input);
+
+      expect(result.skills["my-skill"]).toBeDefined();
+      expect(result.skills["my-skill"]?.source._tag).toBe("WellKnown");
+    });
+
+    it("accepts multiple skills", () => {
+      const input = {
+        lockfileVersion: 1,
+        skills: {
+          "skill-one": {
+            source: { _tag: "Local", path: "./skills/one" },
+            agents: ["claude-code"],
+            installedAt: "2025-01-15T10:30:00Z",
+            updatedAt: "2025-01-15T10:30:00Z",
+          },
+          "skill-two": {
+            source: { _tag: "Local", path: "./skills/two" },
+            agents: ["cursor"],
+            installedAt: "2025-01-15T11:00:00Z",
+            updatedAt: "2025-01-15T11:00:00Z",
+          },
+        },
+      };
+
+      const result = Schema.decodeUnknownSync(LockfileSchema)(input);
+
+      expect(Object.keys(result.skills)).toHaveLength(2);
+      expect(result.skills["skill-one"]).toBeDefined();
+      expect(result.skills["skill-two"]).toBeDefined();
     });
   });
 
-  describe("LockEntry", () => {
+  describe("SkillLockEntry", () => {
     it("accepts valid lock entry with required fields only", () => {
       const input = {
-        source: "github:example/repo",
-        origin: "https://github.com/example/repo",
-        folderHash: "abc123",
+        source: { _tag: "Local", path: "./my-skill" },
+        agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      const result = Schema.decodeUnknownSync(LockEntrySchema)(input);
+      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
 
-      expect(result.source).toBe("github:example/repo");
-      expect(result.origin).toBe("https://github.com/example/repo");
-      expect(result.folderHash).toBe("abc123");
+      expect(result.source._tag).toBe("Local");
+      expect(result.agents).toEqual(["claude-code"]);
       expect(result.installedAt).toBe("2025-01-15T10:30:00Z");
       expect(result.updatedAt).toBe("2025-01-15T10:30:00Z");
     });
 
-    it("accepts valid lock entry with all optional fields", () => {
+    it("accepts valid lock entry with optional gitTreeHash", () => {
       const input = {
-        source: "github:example/repo",
-        origin: "https://github.com/example/repo",
-        path: "skills/my-skill",
-        ref: "v1.0.0",
-        version: "1.0.0",
-        folderHash: "abc123",
-        dependencies: ["@example/dep-a", "@example/dep-b"],
+        source: {
+          _tag: "GitHub",
+          owner: "example",
+          repo: "skills",
+          ref: "main",
+          path: "skills/my-skill",
+        },
+        gitTreeHash: "abc123def456",
+        agents: ["claude-code", "cursor"],
         installedAt: "2025-01-15T10:30:00Z",
-        updatedAt: "2025-01-16T14:00:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      const result = Schema.decodeUnknownSync(LockEntrySchema)(input);
+      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
 
-      expect(result.path).toBe("skills/my-skill");
-      expect(result.ref).toBe("v1.0.0");
+      expect(result.gitTreeHash).toBe("abc123def456");
+    });
+
+    it("accepts valid lock entry with optional version", () => {
+      const input = {
+        source: {
+          _tag: "Registry",
+          name: "@scope/skill",
+          version: "1.0.0",
+        },
+        version: "1.0.0",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+
+      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
+
       expect(result.version).toBe("1.0.0");
-      expect(result.dependencies).toEqual(["@example/dep-a", "@example/dep-b"]);
     });
 
     it("rejects lock entry missing source", () => {
       const input = {
-        origin: "https://github.com/example/repo",
-        folderHash: "abc123",
+        agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      expect(() => Schema.decodeUnknownSync(LockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
 
-    it("rejects lock entry missing origin", () => {
+    it("rejects lock entry missing agents", () => {
       const input = {
-        source: "github:example/repo",
-        folderHash: "abc123",
+        source: { _tag: "Local", path: "./my-skill" },
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      expect(() => Schema.decodeUnknownSync(LockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
 
-    it("rejects lock entry missing folderHash", () => {
+    it("rejects lock entry with empty agents array", () => {
       const input = {
-        source: "github:example/repo",
-        origin: "https://github.com/example/repo",
+        source: { _tag: "Local", path: "./my-skill" },
+        agents: [],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      expect(() => Schema.decodeUnknownSync(LockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects lock entry missing installedAt", () => {
       const input = {
-        source: "github:example/repo",
-        origin: "https://github.com/example/repo",
-        folderHash: "abc123",
+        source: { _tag: "Local", path: "./my-skill" },
+        agents: ["claude-code"],
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      expect(() => Schema.decodeUnknownSync(LockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects lock entry missing updatedAt", () => {
       const input = {
-        source: "github:example/repo",
-        origin: "https://github.com/example/repo",
-        folderHash: "abc123",
+        source: { _tag: "Local", path: "./my-skill" },
+        agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
       };
 
-      expect(() => Schema.decodeUnknownSync(LockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
 
-    it("rejects invalid dependency names", () => {
+    it("rejects lock entry with invalid source _tag", () => {
       const input = {
-        source: "github:example/repo",
-        origin: "https://github.com/example/repo",
-        folderHash: "abc123",
-        dependencies: ["invalid-dep"],
+        source: { _tag: "InvalidType", path: "./my-skill" },
+        agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      expect(() => Schema.decodeUnknownSync(LockEntrySchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
   });
 
-  describe("ExtensionsByType", () => {
-    it("accepts empty extensions object", () => {
+  describe("SkillsLockMap", () => {
+    it("accepts empty skills map", () => {
       const input = {};
 
-      const result = Schema.decodeUnknownSync(ExtensionsByTypeSchema)(input);
+      const result = Schema.decodeUnknownSync(SkillsLockMapSchema)(input);
 
       expect(result).toEqual({});
     });
 
-    it("accepts all extension types", () => {
+    it("accepts map with valid skill names", () => {
       const lockEntry = {
-        source: "github:example/repo",
-        origin: "https://github.com/example/repo",
-        folderHash: "abc123",
+        source: { _tag: "Local", path: "./skills/my-skill" },
+        agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
       const input = {
-        skills: { "@example/skill": lockEntry },
-        commands: { "@example/command": lockEntry },
-        packs: { "@example/pack": lockEntry },
-        "mcp-servers": { "@example/mcp": lockEntry },
+        "my-skill": lockEntry,
+        "another-skill": lockEntry,
       };
 
-      const result = Schema.decodeUnknownSync(ExtensionsByTypeSchema)(input);
+      const result = Schema.decodeUnknownSync(SkillsLockMapSchema)(input);
 
-      expect(result.skills?.["@example/skill"]).toBeDefined();
-      expect(result.commands?.["@example/command"]).toBeDefined();
-      expect(result.packs?.["@example/pack"]).toBeDefined();
-      expect(result["mcp-servers"]?.["@example/mcp"]).toBeDefined();
-    });
-  });
-
-  describe("ExtensionLockMap", () => {
-    it("accepts valid map with FQN keys", () => {
-      const input = {
-        "@scope/name": {
-          source: "github:example/repo",
-          origin: "https://github.com/example/repo",
-          folderHash: "abc123",
-          installedAt: "2025-01-15T10:30:00Z",
-          updatedAt: "2025-01-15T10:30:00Z",
-        },
-      };
-
-      const result = Schema.decodeUnknownSync(ExtensionLockMapSchema)(input);
-
-      expect(result["@scope/name"]).toBeDefined();
-    });
-
-    it("rejects map with invalid FQN keys", () => {
-      const input = {
-        "invalid-key": {
-          source: "github:example/repo",
-          origin: "https://github.com/example/repo",
-          folderHash: "abc123",
-          installedAt: "2025-01-15T10:30:00Z",
-          updatedAt: "2025-01-15T10:30:00Z",
-        },
-      };
-
-      expect(() => Schema.decodeUnknownSync(ExtensionLockMapSchema)(input)).toThrow();
+      expect(result["my-skill"]).toBeDefined();
+      expect(result["another-skill"]).toBeDefined();
     });
   });
 });

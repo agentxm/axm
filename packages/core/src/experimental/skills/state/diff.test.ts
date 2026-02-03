@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import { computeDiff, getChangesToApply, hasChanges } from "./diff.js";
 import type {
   ActualSkill,
-  IdealSkill,
+  IdealSkillLegacy as IdealSkill,
   IdealSkillsState,
   SkillState,
   SkillsState,

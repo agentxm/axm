@@ -7,11 +7,14 @@
  * - **Ideal** state is the desired state after an operation
  * - **Diff/Plan** is the set of changes to transform actual to ideal
  *
+ * See docs/designs/dry-run.md for the reconciliation pattern.
+ *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
-import { type Option, Schema } from "effect";
+import type { Option } from "effect";
+import { Schema } from "effect";
 
 // =============================================================================
 // Skill Frontmatter
@@ -329,7 +332,474 @@ export const getValidityCode = (v: SkillValidity): SkillValidityCode | null => {
 };
 
 // =============================================================================
-// Unified State
+// Issue Types (new reconciliation design)
+// =============================================================================
+
+/**
+ * Issue severity levels.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type Severity = "error" | "warning";
+
+/**
+ * Schema for issue severity.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SeveritySchema = Schema.Literal("error", "warning");
+
+/**
+ * Issues specific to a skill on disk.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type ActualSkillIssue =
+  | { readonly _tag: "MissingSkillMd"; readonly path: string; readonly severity: "error" }
+  | {
+      readonly _tag: "InvalidFrontmatter";
+      readonly errors: ReadonlyArray<string>;
+      readonly severity: "error";
+    }
+  | { readonly _tag: "MissingDescription"; readonly severity: "warning" };
+
+/**
+ * Constructors for ActualSkillIssue variants.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const ActualSkillIssue = {
+  MissingSkillMd: (args: { path: string }): ActualSkillIssue => ({
+    _tag: "MissingSkillMd",
+    path: args.path,
+    severity: "error",
+  }),
+  InvalidFrontmatter: (args: { errors: ReadonlyArray<string> }): ActualSkillIssue => ({
+    _tag: "InvalidFrontmatter",
+    errors: args.errors,
+    severity: "error",
+  }),
+  MissingDescription: (): ActualSkillIssue => ({
+    _tag: "MissingDescription",
+    severity: "warning",
+  }),
+} as const;
+
+/**
+ * Schema for ActualSkillIssue.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const ActualSkillIssueSchema = Schema.Union(
+  Schema.TaggedStruct("MissingSkillMd", {
+    path: Schema.String,
+    severity: Schema.Literal("error"),
+  }),
+  Schema.TaggedStruct("InvalidFrontmatter", {
+    errors: Schema.Array(Schema.String),
+    severity: Schema.Literal("error"),
+  }),
+  Schema.TaggedStruct("MissingDescription", {
+    severity: Schema.Literal("warning"),
+  }),
+);
+
+/**
+ * Issues from comparing actual vs locked state.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type SkillStateIssue =
+  | { readonly _tag: "MissingFromDisk"; readonly name: string; readonly severity: "error" }
+  | { readonly _tag: "NotInLockfile"; readonly name: string; readonly severity: "warning" };
+
+/**
+ * Constructors for SkillStateIssue variants.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SkillStateIssue = {
+  MissingFromDisk: (args: { name: string }): SkillStateIssue => ({
+    _tag: "MissingFromDisk",
+    name: args.name,
+    severity: "error",
+  }),
+  NotInLockfile: (args: { name: string }): SkillStateIssue => ({
+    _tag: "NotInLockfile",
+    name: args.name,
+    severity: "warning",
+  }),
+} as const;
+
+/**
+ * Schema for SkillStateIssue.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SkillStateIssueSchema = Schema.Union(
+  Schema.TaggedStruct("MissingFromDisk", {
+    name: Schema.String,
+    severity: Schema.Literal("error"),
+  }),
+  Schema.TaggedStruct("NotInLockfile", {
+    name: Schema.String,
+    severity: Schema.Literal("warning"),
+  }),
+);
+
+/**
+ * Workspace-level issues spanning multiple skills.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type WorkspaceIssue =
+  | {
+      readonly _tag: "DuplicateName";
+      readonly name: string;
+      readonly paths: ReadonlyArray<string>;
+      readonly severity: "error";
+    }
+  | {
+      readonly _tag: "OrphanedSettingsRef";
+      readonly agent: string;
+      readonly skill: string;
+      readonly severity: "warning";
+    };
+
+/**
+ * Constructors for WorkspaceIssue variants.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const WorkspaceIssue = {
+  DuplicateName: (args: { name: string; paths: ReadonlyArray<string> }): WorkspaceIssue => ({
+    _tag: "DuplicateName",
+    name: args.name,
+    paths: args.paths,
+    severity: "error",
+  }),
+  OrphanedSettingsRef: (args: { agent: string; skill: string }): WorkspaceIssue => ({
+    _tag: "OrphanedSettingsRef",
+    agent: args.agent,
+    skill: args.skill,
+    severity: "warning",
+  }),
+} as const;
+
+/**
+ * Schema for WorkspaceIssue.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const WorkspaceIssueSchema = Schema.Union(
+  Schema.TaggedStruct("DuplicateName", {
+    name: Schema.String,
+    paths: Schema.Array(Schema.String),
+    severity: Schema.Literal("error"),
+  }),
+  Schema.TaggedStruct("OrphanedSettingsRef", {
+    agent: Schema.String,
+    skill: Schema.String,
+    severity: Schema.Literal("warning"),
+  }),
+);
+
+/**
+ * Union of all issue types.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type AnyIssue = ActualSkillIssue | SkillStateIssue | WorkspaceIssue;
+
+/**
+ * Schema for AnyIssue union.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const AnyIssueSchema = Schema.Union(
+  ActualSkillIssueSchema,
+  SkillStateIssueSchema,
+  WorkspaceIssueSchema,
+);
+
+// =============================================================================
+// SkillSourceV2 (new reconciliation design)
+// =============================================================================
+
+/**
+ * Registry location - remote URL or local filesystem path.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type RegistryLocation =
+  | { readonly _tag: "Remote"; readonly url: string }
+  | { readonly _tag: "FileSystem"; readonly path: string };
+
+/**
+ * Constructors for RegistryLocation variants.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const RegistryLocation = {
+  Remote: (args: { url: string }): RegistryLocation => ({ _tag: "Remote", url: args.url }),
+  FileSystem: (args: { path: string }): RegistryLocation => ({
+    _tag: "FileSystem",
+    path: args.path,
+  }),
+} as const;
+
+/**
+ * Schema for RegistryLocation.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const RegistryLocationSchema = Schema.Union(
+  Schema.TaggedStruct("Remote", { url: Schema.String }),
+  Schema.TaggedStruct("FileSystem", { path: Schema.String }),
+);
+
+/**
+ * Skill source types as discriminated union (V2 - new reconciliation design).
+ * Matches the design doc SkillSource type with Registry, GitHub, Local variants.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type SkillSourceV2 =
+  | {
+      readonly _tag: "Registry";
+      readonly location: RegistryLocation;
+      readonly scope: string;
+      readonly name: string;
+      readonly version: Option.Option<string>;
+    }
+  | {
+      readonly _tag: "GitHub";
+      readonly owner: string;
+      readonly repo: string;
+      readonly ref: Option.Option<string>;
+      readonly path: Option.Option<string>;
+    }
+  | { readonly _tag: "Local"; readonly path: string };
+
+/**
+ * Constructors for SkillSourceV2 variants.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SkillSourceV2 = {
+  Registry: (args: {
+    location: RegistryLocation;
+    scope: string;
+    name: string;
+    version: Option.Option<string>;
+  }): SkillSourceV2 => ({ _tag: "Registry", ...args }),
+  GitHub: (args: {
+    owner: string;
+    repo: string;
+    ref: Option.Option<string>;
+    path: Option.Option<string>;
+  }): SkillSourceV2 => ({ _tag: "GitHub", ...args }),
+  Local: (args: { path: string }): SkillSourceV2 => ({ _tag: "Local", ...args }),
+} as const;
+
+/**
+ * Schema for SkillSourceV2.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SkillSourceV2Schema = Schema.Union(
+  Schema.TaggedStruct("Registry", {
+    location: RegistryLocationSchema,
+    scope: Schema.String,
+    name: Schema.String,
+    version: Schema.OptionFromNullOr(Schema.String),
+  }),
+  Schema.TaggedStruct("GitHub", {
+    owner: Schema.String,
+    repo: Schema.String,
+    ref: Schema.OptionFromNullOr(Schema.String),
+    path: Schema.OptionFromNullOr(Schema.String),
+  }),
+  Schema.TaggedStruct("Local", { path: Schema.String }),
+);
+
+// =============================================================================
+// ActualSkillV2, LockedSkillV2, SkillStateV2, CurrentState (new reconciliation design)
+// =============================================================================
+
+/**
+ * Skill as it exists on disk (V2 - with issues array).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface ActualSkillV2 {
+  readonly name: string;
+  readonly path: string;
+  readonly files: ReadonlyArray<string>;
+  readonly frontmatter: Option.Option<SkillFrontmatter>;
+  readonly issues: ReadonlyArray<ActualSkillIssue>;
+}
+
+/**
+ * Schema for ActualSkillV2.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const ActualSkillV2Schema = Schema.Struct({
+  name: Schema.String,
+  path: Schema.String,
+  files: Schema.Array(Schema.String),
+  frontmatter: Schema.OptionFromNullOr(SkillFrontmatterSchema),
+  issues: Schema.Array(ActualSkillIssueSchema),
+});
+
+/**
+ * Skill entry from lockfile (V2 - with SkillSourceV2 and agents).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface LockedSkillV2 {
+  readonly name: string;
+  readonly source: SkillSourceV2;
+  readonly version: Option.Option<string>;
+  readonly gitTreeHash: Option.Option<string>;
+  readonly agents: ReadonlyArray<string>;
+  readonly installedAt: Date;
+  readonly updatedAt: Date;
+}
+
+/**
+ * Schema for LockedSkillV2.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const LockedSkillV2Schema = Schema.Struct({
+  name: Schema.String,
+  source: SkillSourceV2Schema,
+  version: Schema.OptionFromNullOr(Schema.String),
+  gitTreeHash: Schema.OptionFromNullOr(Schema.String),
+  agents: Schema.Array(Schema.String),
+  installedAt: Schema.Date,
+  updatedAt: Schema.Date,
+});
+
+/**
+ * Combined state for a skill - actual + locked merged (V2 - with issues array).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface SkillStateV2 {
+  readonly name: string;
+  readonly actual: Option.Option<ActualSkillV2>;
+  readonly locked: Option.Option<LockedSkillV2>;
+  readonly issues: ReadonlyArray<SkillStateIssue>;
+}
+
+/**
+ * Schema for SkillStateV2.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SkillStateV2Schema = Schema.Struct({
+  name: Schema.String,
+  actual: Schema.OptionFromNullOr(ActualSkillV2Schema),
+  locked: Schema.OptionFromNullOr(LockedSkillV2Schema),
+  issues: Schema.Array(SkillStateIssueSchema),
+});
+
+/**
+ * Current workspace state - all skills with their actual/locked status (V2).
+ * Uses Array (not Record) to detect and report duplicate skill names on disk.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface CurrentState {
+  readonly skills: ReadonlyArray<SkillStateV2>;
+  readonly issues: ReadonlyArray<WorkspaceIssue>;
+}
+
+/**
+ * Schema for CurrentState.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const CurrentStateSchema = Schema.Struct({
+  skills: Schema.Array(SkillStateV2Schema),
+  issues: Schema.Array(WorkspaceIssueSchema),
+});
+
+// =============================================================================
+// IdealSkill and IdealState (new reconciliation design)
+// =============================================================================
+
+/**
+ * Desired skill after a command (V2 - with SkillSourceV2).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface IdealSkillV2 {
+  readonly name: string;
+  readonly source: SkillSourceV2;
+  readonly version: Option.Option<string>;
+  readonly gitTreeHash: Option.Option<string>;
+  readonly agents: ReadonlyArray<string>;
+}
+
+/**
+ * Constructor for IdealSkillV2.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const IdealSkillV2 = {
+  make: (args: {
+    name: string;
+    source: SkillSourceV2;
+    version: Option.Option<string>;
+    gitTreeHash: Option.Option<string>;
+    agents: ReadonlyArray<string>;
+  }): IdealSkillV2 => args,
+} as const;
+
+/**
+ * Alias for IdealSkillV2 constructor. Use IdealSkill.make() to create new IdealSkillV2 instances.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const IdealSkill = IdealSkillV2;
+
+/**
+ * Schema for IdealSkillV2.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const IdealSkillV2Schema = Schema.Struct({
+  name: Schema.String,
+  source: SkillSourceV2Schema,
+  version: Schema.OptionFromNullOr(Schema.String),
+  gitTreeHash: Schema.OptionFromNullOr(Schema.String),
+  agents: Schema.Array(Schema.String),
+});
+
+/**
+ * Desired outcome - what we want after a command (V2).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface IdealState {
+  readonly skills: ReadonlyArray<IdealSkillV2>;
+}
+
+/**
+ * Schema for IdealState (V2).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const IdealStateV2Schema = Schema.Struct({
+  skills: Schema.Array(IdealSkillV2Schema),
+});
+
+// =============================================================================
+// Unified State (legacy)
 // =============================================================================
 
 /**
@@ -448,15 +918,16 @@ export const SkillSourceSchema = Schema.Union(
 );
 
 /**
- * Desired state for a skill after an operation.
+ * Desired state for a skill after an operation (legacy interface).
  *
  * The source field serves dual purpose:
  * 1. Where to fetch the skill from (for install/update)
  * 2. What to write to settings.json (the settings entry value)
  *
+ * @deprecated Use IdealSkillV2 for the new reconciliation design.
  * @experimental This API is unstable and may change without notice.
  */
-export interface IdealSkill {
+export interface IdealSkillLegacy {
   readonly name: string;
   readonly source: SkillSource;
   readonly gitTreeFolderHash: string;
@@ -465,11 +936,21 @@ export interface IdealSkill {
 }
 
 /**
- * Schema for JSON serialization of IdealSkill.
+ * Type alias for legacy code that uses IdealSkill as a type.
+ * Also provides IdealSkill.make() for creating V2 instances.
  *
+ * @deprecated Use IdealSkillV2 for the new reconciliation design.
  * @experimental This API is unstable and may change without notice.
  */
-export const IdealSkillSchema = Schema.Struct({
+export type IdealSkillType = IdealSkillLegacy;
+
+/**
+ * Schema for JSON serialization of IdealSkillLegacy.
+ *
+ * @deprecated Use IdealSkillSchema for the new reconciliation design.
+ * @experimental This API is unstable and may change without notice.
+ */
+export const IdealSkillLegacySchema = Schema.Struct({
   name: Schema.String,
   source: SkillSourceSchema,
   gitTreeFolderHash: Schema.String,
@@ -478,22 +959,24 @@ export const IdealSkillSchema = Schema.Struct({
 });
 
 /**
- * Ideal skills state with skills to add/update and removals list.
+ * Ideal skills state with skills to add/update and removals list (legacy).
  *
+ * @deprecated Use IdealState for the new reconciliation design.
  * @experimental This API is unstable and may change without notice.
  */
 export interface IdealSkillsState {
-  readonly skills: Readonly<Record<string, IdealSkill>>;
+  readonly skills: Readonly<Record<string, IdealSkillLegacy>>;
   readonly removals: readonly string[];
 }
 
 /**
- * Schema for JSON serialization of IdealSkillsState.
+ * Schema for JSON serialization of IdealSkillsState (legacy).
  *
+ * @deprecated Use IdealStateSchema for the new reconciliation design.
  * @experimental This API is unstable and may change without notice.
  */
 export const IdealSkillsStateSchema = Schema.Struct({
-  skills: Schema.Record({ key: Schema.String, value: IdealSkillSchema }),
+  skills: Schema.Record({ key: Schema.String, value: IdealSkillLegacySchema }),
   removals: Schema.Array(Schema.String),
 });
 
@@ -502,34 +985,36 @@ export const IdealSkillsStateSchema = Schema.Struct({
 // =============================================================================
 
 /**
- * Skill change types as discriminated union.
+ * Skill change types as discriminated union (legacy).
  * Use exhaustive switch for pattern matching.
  *
+ * @deprecated Use PlanStep for the new reconciliation design.
  * @experimental This API is unstable and may change without notice.
  */
 export type SkillChange =
-  | { readonly _tag: "Add"; readonly skill: IdealSkill }
+  | { readonly _tag: "Add"; readonly skill: IdealSkillLegacy }
   | {
       readonly _tag: "Update";
       readonly from: SkillState;
-      readonly to: IdealSkill;
+      readonly to: IdealSkillLegacy;
     }
   | { readonly _tag: "Remove"; readonly skill: SkillState }
   | { readonly _tag: "Unchanged"; readonly skill: SkillState }
   | {
       readonly _tag: "Repair";
       readonly skill: SkillState;
-      readonly target: IdealSkill;
+      readonly target: IdealSkillLegacy;
     };
 
 /**
- * Constructors for SkillChange variants.
+ * Constructors for SkillChange variants (legacy).
  *
+ * @deprecated Use PlanStep for the new reconciliation design.
  * @experimental This API is unstable and may change without notice.
  */
 export const SkillChange = {
-  Add: (args: { skill: IdealSkill }): SkillChange => ({ _tag: "Add", ...args }),
-  Update: (args: { from: SkillState; to: IdealSkill }): SkillChange => ({
+  Add: (args: { skill: IdealSkillLegacy }): SkillChange => ({ _tag: "Add", ...args }),
+  Update: (args: { from: SkillState; to: IdealSkillLegacy }): SkillChange => ({
     _tag: "Update",
     ...args,
   }),
@@ -541,28 +1026,29 @@ export const SkillChange = {
     _tag: "Unchanged",
     ...args,
   }),
-  Repair: (args: { skill: SkillState; target: IdealSkill }): SkillChange => ({
+  Repair: (args: { skill: SkillState; target: IdealSkillLegacy }): SkillChange => ({
     _tag: "Repair",
     ...args,
   }),
 } as const;
 
 /**
- * Schema for JSON serialization of SkillChange.
+ * Schema for JSON serialization of SkillChange (legacy).
  *
+ * @deprecated Use PlanStepSchema for the new reconciliation design.
  * @experimental This API is unstable and may change without notice.
  */
 export const SkillChangeSchema = Schema.Union(
-  Schema.TaggedStruct("Add", { skill: IdealSkillSchema }),
+  Schema.TaggedStruct("Add", { skill: IdealSkillLegacySchema }),
   Schema.TaggedStruct("Update", {
     from: SkillStateSchema,
-    to: IdealSkillSchema,
+    to: IdealSkillLegacySchema,
   }),
   Schema.TaggedStruct("Remove", { skill: SkillStateSchema }),
   Schema.TaggedStruct("Unchanged", { skill: SkillStateSchema }),
   Schema.TaggedStruct("Repair", {
     skill: SkillStateSchema,
-    target: IdealSkillSchema,
+    target: IdealSkillLegacySchema,
   }),
 );
 
@@ -624,10 +1110,10 @@ export const SkillsDiffSchema = Schema.Struct({
 export interface SkillChangeWithName {
   readonly name: string;
   readonly _tag: SkillChange["_tag"];
-  readonly skill?: IdealSkill | SkillState;
+  readonly skill?: IdealSkillLegacy | SkillState;
   readonly from?: SkillState;
-  readonly to?: IdealSkill;
-  readonly target?: IdealSkill;
+  readonly to?: IdealSkillLegacy;
+  readonly target?: IdealSkillLegacy;
 }
 
 /**
@@ -663,4 +1149,191 @@ export const skillsDiffToJson = (diff: SkillsDiff): SkillsDiffJson => ({
     }
   }),
   summary: diff.summary,
+});
+
+// =============================================================================
+// PlanStep, Plan, and ApplyResult (new reconciliation design)
+// =============================================================================
+
+/**
+ * Plan step types as discriminated union.
+ * Simplified from SkillChange: InstallSkill/UpdateSkill/UninstallSkill only.
+ * Use exhaustive switch for pattern matching.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type PlanStep =
+  | {
+      readonly _tag: "InstallSkill";
+      readonly skill: string;
+      readonly source: SkillSourceV2;
+      readonly version: Option.Option<string>;
+      readonly gitTreeHash: Option.Option<string>;
+      readonly agents: ReadonlyArray<string>;
+    }
+  | {
+      readonly _tag: "UpdateSkill";
+      readonly skill: string;
+      readonly source: SkillSourceV2;
+      readonly fromVersion: Option.Option<string>;
+      readonly toVersion: Option.Option<string>;
+      readonly fromHash: Option.Option<string>;
+      readonly toHash: Option.Option<string>;
+      readonly agents: ReadonlyArray<string>;
+    }
+  | {
+      readonly _tag: "UninstallSkill";
+      readonly skill: string;
+      readonly agents: ReadonlyArray<string>;
+    };
+
+/**
+ * Constructors for PlanStep variants.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PlanStep = {
+  InstallSkill: (args: {
+    skill: string;
+    source: SkillSourceV2;
+    version: Option.Option<string>;
+    gitTreeHash: Option.Option<string>;
+    agents: ReadonlyArray<string>;
+  }): PlanStep => ({ _tag: "InstallSkill", ...args }),
+
+  UpdateSkill: (args: {
+    skill: string;
+    source: SkillSourceV2;
+    fromVersion: Option.Option<string>;
+    toVersion: Option.Option<string>;
+    fromHash: Option.Option<string>;
+    toHash: Option.Option<string>;
+    agents: ReadonlyArray<string>;
+  }): PlanStep => ({ _tag: "UpdateSkill", ...args }),
+
+  UninstallSkill: (args: { skill: string; agents: ReadonlyArray<string> }): PlanStep => ({
+    _tag: "UninstallSkill",
+    ...args,
+  }),
+} as const;
+
+/**
+ * Schema for JSON serialization of PlanStep.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PlanStepSchema = Schema.Union(
+  Schema.TaggedStruct("InstallSkill", {
+    skill: Schema.String,
+    source: SkillSourceSchema,
+    version: Schema.OptionFromNullOr(Schema.String),
+    gitTreeHash: Schema.OptionFromNullOr(Schema.String),
+    agents: Schema.Array(Schema.String),
+  }),
+  Schema.TaggedStruct("UpdateSkill", {
+    skill: Schema.String,
+    source: SkillSourceSchema,
+    fromVersion: Schema.OptionFromNullOr(Schema.String),
+    toVersion: Schema.OptionFromNullOr(Schema.String),
+    fromHash: Schema.OptionFromNullOr(Schema.String),
+    toHash: Schema.OptionFromNullOr(Schema.String),
+    agents: Schema.Array(Schema.String),
+  }),
+  Schema.TaggedStruct("UninstallSkill", {
+    skill: Schema.String,
+    agents: Schema.Array(Schema.String),
+  }),
+);
+
+/**
+ * Plan is pure data - no behavior.
+ * Contains steps reflecting user intent for skill operations.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface Plan {
+  readonly steps: ReadonlyArray<PlanStep>;
+}
+
+/**
+ * Schema for JSON serialization of Plan.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PlanSchema = Schema.Struct({
+  steps: Schema.Array(PlanStepSchema),
+});
+
+/**
+ * Error type for apply operations.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface ApplyError {
+  readonly _tag: "ApplyError";
+  readonly message: string;
+  readonly step: Option.Option<PlanStep>;
+  readonly cause: Option.Option<unknown>;
+}
+
+/**
+ * Schema for JSON serialization of ApplyError.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const ApplyErrorSchema = Schema.TaggedStruct("ApplyError", {
+  message: Schema.String,
+  step: Schema.OptionFromNullOr(PlanStepSchema),
+  cause: Schema.OptionFromNullOr(Schema.Unknown),
+});
+
+/**
+ * Summary of apply operation counts.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface ApplySummary {
+  readonly installed: number;
+  readonly updated: number;
+  readonly uninstalled: number;
+  readonly failed: number;
+}
+
+/**
+ * Schema for JSON serialization of ApplySummary.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const ApplySummarySchema = Schema.Struct({
+  installed: Schema.Number,
+  updated: Schema.Number,
+  uninstalled: Schema.Number,
+  failed: Schema.Number,
+});
+
+/**
+ * Result of applying a plan.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface ApplyResult {
+  readonly applied: ReadonlyArray<PlanStep>;
+  readonly failed: ReadonlyArray<{ step: PlanStep; error: ApplyError }>;
+  readonly summary: ApplySummary;
+}
+
+/**
+ * Schema for JSON serialization of ApplyResult.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const ApplyResultSchema = Schema.Struct({
+  applied: Schema.Array(PlanStepSchema),
+  failed: Schema.Array(
+    Schema.Struct({
+      step: PlanStepSchema,
+      error: ApplyErrorSchema,
+    }),
+  ),
+  summary: ApplySummarySchema,
 });

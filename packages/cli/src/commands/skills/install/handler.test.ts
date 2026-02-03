@@ -1,6 +1,10 @@
 /**
  * Unit tests for the install command handler.
  *
+ * Tests the reconciliation pattern:
+ * 1. makeWorkspaceContext -> ensureInit -> loadCurrentState
+ * 2. buildIdealState -> buildPlan -> applyPlan
+ *
  * @experimental This API is unstable and may change without notice.
  */
 
@@ -95,6 +99,197 @@ describe("install.handler", () => {
     fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings, null, 2));
   };
 
+  // =============================================================================
+  // Reconciliation Pattern Tests
+  // =============================================================================
+
+  describe("reconciliation pattern", () => {
+    describe("workspace initialization", () => {
+      it.effect("initializes .axm directory if not present", () =>
+        withTestLayer(
+          Effect.gen(function* () {
+            const source = createSkillSource([{ name: "commit" }]);
+            // Don't call initializeAxm() - let handler create it
+
+            const args: InstallArgs = {
+              ...defaultArgs,
+              source,
+              all: true,
+              yes: true,
+              agent: ["claude-code"],
+            };
+
+            yield* handleInstall(args);
+
+            expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(true);
+            expect(fs.existsSync(path.join(tempDir, ".axm", "settings.json"))).toBe(true);
+          }),
+        ),
+      );
+    });
+
+    describe("dry-run mode", () => {
+      it.effect("displays plan without making changes in dry-run mode", () =>
+        withTestLayer(
+          Effect.gen(function* () {
+            const source = createSkillSource([{ name: "commit" }]);
+            initializeAxm();
+
+            const args: InstallArgs = {
+              ...defaultArgs,
+              source,
+              all: true,
+              dryRun: true,
+              agent: ["claude-code"],
+            };
+
+            yield* handleInstall(args);
+
+            // Skill should NOT be installed in dry-run mode
+            expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit"))).toBe(false);
+          }),
+        ),
+      );
+
+      it.effect("auto-selects all skills in dry-run mode", () =>
+        withTestLayer(
+          Effect.gen(function* () {
+            const source = createSkillSource([{ name: "commit" }, { name: "review-pr" }]);
+            initializeAxm();
+
+            const args: InstallArgs = {
+              ...defaultArgs,
+              source,
+              dryRun: true,
+              agent: ["claude-code"],
+            };
+
+            // Should complete without prompting for skill selection
+            yield* handleInstall(args);
+
+            // No skills installed in dry-run
+            expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit"))).toBe(false);
+            expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "review-pr"))).toBe(false);
+          }),
+        ),
+      );
+    });
+
+    describe("force flag for unhealthy workspace", () => {
+      it.effect("proceeds with installation when --force is used", () =>
+        withTestLayer(
+          Effect.gen(function* () {
+            const source = createSkillSource([{ name: "commit" }]);
+            initializeAxm();
+
+            const args: InstallArgs = {
+              ...defaultArgs,
+              source,
+              all: true,
+              yes: true,
+              force: true,
+              agent: ["claude-code"],
+            };
+
+            yield* handleInstall(args);
+
+            expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"))).toBe(
+              true,
+            );
+          }),
+        ),
+      );
+
+      it.effect("overwrites existing skills with --force", () =>
+        withTestLayer(
+          Effect.gen(function* () {
+            // Create initial source
+            const sourceDir1 = path.join(tempDir, "source-1");
+            fs.mkdirSync(sourceDir1, { recursive: true });
+            fs.mkdirSync(path.join(sourceDir1, "commit"));
+            fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# Original commit");
+
+            initializeAxm();
+
+            // Install first version
+            yield* handleInstall({
+              ...defaultArgs,
+              source: sourceDir1,
+              all: true,
+              yes: true,
+              agent: ["claude-code"],
+            });
+
+            // Verify original content
+            let content = fs.readFileSync(
+              path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"),
+              "utf-8",
+            );
+            expect(content).toBe("# Original commit");
+
+            // Create second source with updated skill
+            const sourceDir2 = path.join(tempDir, "source-2");
+            fs.mkdirSync(sourceDir2, { recursive: true });
+            fs.mkdirSync(path.join(sourceDir2, "commit"));
+            fs.writeFileSync(path.join(sourceDir2, "commit", "SKILL.md"), "# Updated commit");
+
+            // Install with --force
+            yield* handleInstall({
+              ...defaultArgs,
+              source: sourceDir2,
+              all: true,
+              yes: true,
+              force: true,
+              agent: ["claude-code"],
+            });
+
+            // Content should be updated
+            content = fs.readFileSync(
+              path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"),
+              "utf-8",
+            );
+            expect(content).toBe("# Updated commit");
+          }),
+        ),
+      );
+    });
+
+    describe("plan computation", () => {
+      it.effect("reports 'already up to date' when no changes needed", () =>
+        withTestLayer(
+          Effect.gen(function* () {
+            const source = createSkillSource([{ name: "commit" }]);
+            initializeAxm();
+
+            // First install
+            yield* handleInstall({
+              ...defaultArgs,
+              source,
+              all: true,
+              yes: true,
+              agent: ["claude-code"],
+            });
+
+            // Second install - should report no changes
+            yield* handleInstall({
+              ...defaultArgs,
+              source,
+              all: true,
+              yes: true,
+              agent: ["claude-code"],
+            });
+
+            // Should have completed successfully (no error thrown)
+          }),
+        ),
+      );
+    });
+  });
+
+  // =============================================================================
+  // Source Parsing Tests
+  // =============================================================================
+
   describe("source parsing", () => {
     it.effect("fails with InstallError for invalid source format", () =>
       withTestLayer(
@@ -135,6 +330,10 @@ describe("install.handler", () => {
       ),
     );
   });
+
+  // =============================================================================
+  // Local Source Discovery Tests
+  // =============================================================================
 
   describe("local source discovery", () => {
     it.effect("discovers skills from local path", () =>
@@ -204,6 +403,10 @@ describe("install.handler", () => {
     );
   });
 
+  // =============================================================================
+  // Agent Handling Tests
+  // =============================================================================
+
   describe("agent handling", () => {
     it.effect("uses explicitly specified agents via --agent flag", () =>
       withTestLayer(
@@ -269,6 +472,10 @@ describe("install.handler", () => {
       ),
     );
   });
+
+  // =============================================================================
+  // Non-Interactive Mode Tests
+  // =============================================================================
 
   describe("non-interactive mode with --yes flag", () => {
     it.effect("skips agent selection prompt with --yes", () =>
@@ -338,6 +545,10 @@ describe("install.handler", () => {
     );
   });
 
+  // =============================================================================
+  // --all Flag Tests
+  // =============================================================================
+
   describe("--all flag", () => {
     it.effect("installs all discovered skills with --all", () =>
       withTestLayer(
@@ -373,6 +584,10 @@ describe("install.handler", () => {
       ),
     );
   });
+
+  // =============================================================================
+  // --skill Flag Tests
+  // =============================================================================
 
   describe("--skill flag for specific skills", () => {
     it.effect("installs only specified skills with --skill", () =>
@@ -453,6 +668,10 @@ describe("install.handler", () => {
     );
   });
 
+  // =============================================================================
+  // --list Flag Tests
+  // =============================================================================
+
   describe("--list flag", () => {
     it.effect("lists available skills without installing", () =>
       withTestLayer(
@@ -479,6 +698,10 @@ describe("install.handler", () => {
       ),
     );
   });
+
+  // =============================================================================
+  // Settings and Lockfile Tests
+  // =============================================================================
 
   describe("settings and lockfile updates", () => {
     it.effect("updates settings.json with installed skill", () =>
@@ -539,6 +762,10 @@ describe("install.handler", () => {
     );
   });
 
+  // =============================================================================
+  // Canonical Skill Storage Tests
+  // =============================================================================
+
   describe("canonical skill storage", () => {
     it.effect("copies skill to .axm/skills/<name>/", () =>
       withTestLayer(
@@ -594,29 +821,9 @@ describe("install.handler", () => {
     );
   });
 
-  describe("initialization", () => {
-    it.effect("initializes .axm directory if not present", () =>
-      withTestLayer(
-        Effect.gen(function* () {
-          const source = createSkillSource([{ name: "commit" }]);
-          // Don't call initializeAxm() - let handler create it
-
-          const args: InstallArgs = {
-            ...defaultArgs,
-            source,
-            all: true,
-            yes: true,
-            agent: ["claude-code"],
-          };
-
-          yield* handleInstall(args);
-
-          expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(true);
-          expect(fs.existsSync(path.join(tempDir, ".axm", "settings.json"))).toBe(true);
-        }),
-      ),
-    );
-  });
+  // =============================================================================
+  // Global Flag Tests
+  // =============================================================================
 
   describe("global flag", () => {
     it.effect("uses ~/.axm for global installations", () =>
@@ -704,6 +911,10 @@ describe("install.handler", () => {
     );
   });
 
+  // =============================================================================
+  // Error Handling Tests
+  // =============================================================================
+
   describe("error scenarios", () => {
     it.effect("returns InstallError with descriptive message for parsing errors", () =>
       withTestLayer(
@@ -745,6 +956,10 @@ describe("install.handler", () => {
       ),
     );
   });
+
+  // =============================================================================
+  // Error Message Recovery Guidance Tests
+  // =============================================================================
 
   describe("error messages with recovery guidance", () => {
     it.effect("invalid source error suggests valid source formats", () =>
@@ -798,6 +1013,10 @@ describe("install.handler", () => {
     );
   });
 
+  // =============================================================================
+  // InstallError Tests
+  // =============================================================================
+
   describe("InstallError", () => {
     it("is a tagged error with correct tag", () => {
       const error = new InstallError({
@@ -820,6 +1039,10 @@ describe("install.handler", () => {
       expect(error.cause).toBe(cause);
     });
   });
+
+  // =============================================================================
+  // Conflict Detection Tests
+  // =============================================================================
 
   describe("conflict detection", () => {
     it.effect("skips already installed skills by default", () =>
@@ -958,62 +1181,11 @@ describe("install.handler", () => {
     );
   });
 
+  // =============================================================================
+  // Force Flag Tests
+  // =============================================================================
+
   describe("--force flag", () => {
-    it.effect("overwrites existing skills with --force", () =>
-      withTestLayer(
-        Effect.gen(function* () {
-          // Create initial source
-          const sourceDir1 = path.join(tempDir, "source-1");
-          fs.mkdirSync(sourceDir1, { recursive: true });
-          fs.mkdirSync(path.join(sourceDir1, "commit"));
-          fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# Original commit");
-
-          initializeAxm();
-
-          // Install first version
-          const args1: InstallArgs = {
-            ...defaultArgs,
-            source: sourceDir1,
-            all: true,
-            yes: true,
-            agent: ["claude-code"],
-          };
-          yield* handleInstall(args1);
-
-          // Verify original content
-          let content = fs.readFileSync(
-            path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"),
-            "utf-8",
-          );
-          expect(content).toBe("# Original commit");
-
-          // Create second source with updated skill
-          const sourceDir2 = path.join(tempDir, "source-2");
-          fs.mkdirSync(sourceDir2, { recursive: true });
-          fs.mkdirSync(path.join(sourceDir2, "commit"));
-          fs.writeFileSync(path.join(sourceDir2, "commit", "SKILL.md"), "# Updated commit");
-
-          // Install with --force
-          const args2: InstallArgs = {
-            ...defaultArgs,
-            source: sourceDir2,
-            all: true,
-            yes: true,
-            force: true,
-            agent: ["claude-code"],
-          };
-          yield* handleInstall(args2);
-
-          // Content should be updated
-          content = fs.readFileSync(
-            path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"),
-            "utf-8",
-          );
-          expect(content).toBe("# Updated commit");
-        }),
-      ),
-    );
-
     it.effect("updates lockfile when overwriting with --force", () =>
       withTestLayer(
         Effect.gen(function* () {
@@ -1115,6 +1287,10 @@ describe("install.handler", () => {
     );
   });
 
+  // =============================================================================
+  // Settings Schema Tests
+  // =============================================================================
+
   describe("settings schema", () => {
     it.effect("creates settings with skills at root level", () =>
       withTestLayer(
@@ -1181,6 +1357,10 @@ describe("install.handler", () => {
       ),
     );
   });
+
+  // =============================================================================
+  // Lockfile Schema Tests
+  // =============================================================================
 
   describe("lockfile schema", () => {
     it.effect("creates lockfile with lockfileVersion and extensions structure", () =>
@@ -1266,6 +1446,10 @@ describe("install.handler", () => {
     );
   });
 
+  // =============================================================================
+  // Explicit Source Prefix Pattern Tests
+  // =============================================================================
+
   describe("explicit source prefix patterns", () => {
     it.effect("parses github: prefix correctly", () =>
       withTestLayer(
@@ -1335,6 +1519,10 @@ describe("install.handler", () => {
     );
   });
 
+  // =============================================================================
+  // Source Normalization Tests
+  // =============================================================================
+
   describe("source normalization", () => {
     it.effect("stores local path as source in lockfile", () =>
       withTestLayer(
@@ -1360,6 +1548,10 @@ describe("install.handler", () => {
       ),
     );
   });
+
+  // =============================================================================
+  // Non-TTY Scenarios Tests
+  // =============================================================================
 
   describe("non-TTY scenarios", () => {
     // Import the mocked module dynamically to control mock behavior

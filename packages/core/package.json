@@ -45,12 +45,14 @@
   "dependencies": {
     "@effect/platform": "^0.94.2",
     "effect": "catalog:",
+    "semver": "^7.7.1",
     "simple-git": "^3.27.0",
     "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@effect/platform-node": "^0.104.1",
     "@types/bun": "catalog:",
+    "@types/semver": "^7.5.8",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

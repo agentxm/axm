@@ -16,12 +16,18 @@
 import * as nodePath from "node:path";
 import { FileSystem, type Path } from "@effect/platform";
 import { Data, Effect, Option } from "effect";
-
+import type { SkillSettingsEntry } from "../../schemas/settings.js";
 import { readLockfile, writeLockfile } from "../lockfile.js";
 import { readSettings, writeSettings } from "../settings.js";
 import type { AgentConfig, LockEntry, Settings, Skill } from "../types.js";
 import { getChangesToApply } from "./diff.js";
-import type { IdealSkill, SkillChange, SkillSource, SkillState, SkillsDiff } from "./types.js";
+import type {
+  IdealSkillLegacy as IdealSkill,
+  SkillChange,
+  SkillSource,
+  SkillState,
+  SkillsDiff,
+} from "./types.js";
 
 // =============================================================================
 // Constants
@@ -178,13 +184,30 @@ const _idealToSkill = (ideal: IdealSkill): Skill => {
 };
 
 /**
- * Convert SkillSource to settings entry value.
+ * Convert SkillSource to lockfile source string.
  */
-const sourceToSettingsValue = (source: SkillSource): string => {
+const sourceToLockfileValue = (source: SkillSource): string => {
   switch (source._tag) {
     case "Local":
       return source.path;
     case "Git":
+      return source.url;
+    case "WellKnown":
+      return `${source.baseUrl}/${source.skillName}`;
+    case "Registry":
+      return `${source.name}@${source.version}`;
+  }
+};
+
+/**
+ * Convert SkillSource to settings entry value.
+ */
+const sourceToSettingsValue = (source: SkillSource): SkillSettingsEntry => {
+  switch (source._tag) {
+    case "Local":
+      return { _tag: "Local", path: source.path };
+    case "Git":
+      // Git sources are kept as string URL for settings
       return source.url;
     case "WellKnown":
       return `${source.baseUrl}/${source.skillName}`;
@@ -199,7 +222,7 @@ const sourceToSettingsValue = (source: SkillSource): string => {
 const idealToLockEntry = (ideal: IdealSkill): LockEntry => {
   const now = new Date().toISOString();
   return {
-    source: sourceToSettingsValue(ideal.source),
+    source: sourceToLockfileValue(ideal.source),
     origin: getSourcePath(ideal.source),
     folderHash: ideal.gitTreeFolderHash,
     installedAt: now,
@@ -640,7 +663,7 @@ const updateSettingsForChanges = (
     );
 
     // Build updated skills (handle undefined skills)
-    const updatedSkills: Record<string, string> = { ...(settings.skills ?? {}) };
+    const updatedSkills: Record<string, SkillSettingsEntry> = { ...(settings.skills ?? {}) };
 
     for (const [name, change] of changes) {
       if (!appliedNames.has(name)) continue;

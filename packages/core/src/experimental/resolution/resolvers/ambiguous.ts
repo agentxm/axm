@@ -11,7 +11,7 @@
 import type { FileSystem } from "@effect/platform";
 import { Effect } from "effect";
 import { parseSource } from "../../skills/source-parser.js";
-import type { ExtensionRef, ResolutionOptions, SourceType } from "../types.js";
+import type { ExtensionRef, ResolutionOptions } from "../types.js";
 import { resolveAxmName } from "./axm-name.js";
 import { resolveLocalPath } from "./local-path.js";
 

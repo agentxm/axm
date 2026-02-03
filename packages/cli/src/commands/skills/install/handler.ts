@@ -1,12 +1,16 @@
 /**
  * Install command handler - Effect-based orchestration for `axm skills install`.
  *
- * Uses state-based architecture:
- * 1. Load current state (actual from disk + locked from lockfile)
- * 2. Build ideal state from resolved source
- * 3. Compute diff (the plan)
- * 4. Display plan (dry-run stops here)
- * 5. Apply changes (if not dry-run)
+ * Uses desired-state reconciliation pattern:
+ * 1. Create workspace context (local vs global)
+ * 2. Ensure workspace is initialized
+ * 3. Load current state (actual from disk + locked from lockfile)
+ * 4. Build ideal state from command
+ * 5. Build plan (diff current vs ideal)
+ * 6. Display plan (dry-run stops here)
+ * 7. Apply plan (if not dry-run)
+ *
+ * See docs/designs/dry-run.md for the reconciliation pattern.
  *
  * @experimental This API is unstable and may change without notice.
  */

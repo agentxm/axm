@@ -138,6 +138,57 @@ const mock = { method: vi.fn().mockReturnThis() };
 builder(mock as unknown as ComplexInterface);
 ```
 
+**Library types that don't narrow (e.g., @clack/prompts):**
+
+```typescript
+// Bad: cast after cancel check (TS doesn't narrow)
+if (p.isCancel(result)) {
+  process.exit(0);
+}
+const value = result as string;
+
+// Good: assertion function bridges the gap
+function assertNotCancel<T>(result: T | symbol): asserts result is T {
+  if (typeof result === "symbol") throw new Error("Unexpected cancel");
+}
+if (p.isCancel(result)) {
+  process.exit(0);
+}
+assertNotCancel(result);
+const value = result; // TS knows it's string
+
+// Acceptable: cast with comment when library loses type info (e.g., dynamic config)
+// Cast needed: multiselect config loses generic type info due to dynamic construction
+const indices = result as number[];
+```
+
+**Effect type widening:**
+
+```typescript
+// Bad: cast the value
+Effect.succeed(undefined as Settings | undefined);
+Effect.succeed([] as string[]);
+
+// Good: explicit type parameter
+Effect.succeed<Settings | undefined>(undefined);
+Effect.succeed<string[]>([]);
+```
+
+**JSON parsing - always validate:**
+
+```typescript
+// Bad: cast without validation
+const data = JSON.parse(content) as Config;
+
+// Good: Schema validation
+const json = JSON.parse(content) as unknown;
+const data =
+  yield *
+  Schema.decodeUnknown(ConfigSchema)(json).pipe(
+    Effect.mapError((e) => new ParseError({ message: e.message })),
+  );
+```
+
 ## Project Structure
 
 ```

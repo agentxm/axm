@@ -20,6 +20,19 @@ import {
 import * as p from "@clack/prompts";
 import type { FileSystem } from "@effect/platform";
 import { Data, Effect, pipe } from "effect";
+
+/**
+ * Asserts that a prompt result is not a cancel symbol.
+ *
+ * TypeScript doesn't narrow after `p.isCancel()` check, so this assertion
+ * function bridges the gap after cancel has been handled.
+ */
+function assertNotCancel<T>(result: T | symbol): asserts result is T {
+  if (typeof result === "symbol") {
+    throw new Error("Unexpected cancel symbol after isCancel check");
+  }
+}
+
 import { formatError } from "../../utils/errors.js";
 import { isFancyOutput, isInteractive } from "../../utils/tty.js";
 
@@ -102,7 +115,8 @@ const promptAgentSelection = (agents: readonly AgentConfig[]): Effect.Effect<str
         process.exit(0);
       }
 
-      return result as string[];
+      assertNotCancel(result);
+      return result;
     },
     catch: (error) =>
       new InitError({
@@ -149,7 +163,7 @@ const checkExistingSettings = (
     Effect.map((settings): Settings | undefined => settings),
     Effect.catchAll((error: SettingsError) => {
       if (error._tag === "SettingsNotFoundError") {
-        return Effect.succeed(undefined as Settings | undefined);
+        return Effect.succeed<Settings | undefined>(undefined);
       }
       return Effect.fail(
         new InitError({
@@ -256,7 +270,7 @@ const selectAgents = (
   // Interactive mode - prompt for selection
   if (detectedAgents.length === 0) {
     p.log.warn("No agents detected. You can add agents later with 'axm init --agent <id>'.");
-    return Effect.succeed([] as string[]);
+    return Effect.succeed<string[]>([]);
   }
 
   return promptAgentSelection(detectedAgents);

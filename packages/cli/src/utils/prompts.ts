@@ -10,6 +10,22 @@ import { Data, Effect } from "effect";
 import { isInteractive } from "./tty.js";
 
 // -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+/**
+ * Asserts that a prompt result is not a cancel symbol.
+ *
+ * TypeScript doesn't narrow after `p.isCancel()` check, so this assertion
+ * function bridges the gap after cancel has been handled.
+ */
+function assertNotCancel<T>(result: T | symbol): asserts result is T {
+  if (typeof result === "symbol") {
+    throw new Error("Unexpected cancel symbol after isCancel check");
+  }
+}
+
+// -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
 
@@ -123,7 +139,8 @@ export function promptSelect<T>(
         process.exit(0);
       }
 
-      const selected = items[result as number];
+      assertNotCancel(result);
+      const selected = items[result];
       if (selected === undefined) {
         throw new Error("Invalid selection");
       }
@@ -191,6 +208,7 @@ export function promptMultiselect<T>(
         process.exit(0);
       }
 
+      // Cast needed: multiselect config loses generic type info due to dynamic construction
       const indices = result as number[];
       return indices.map((index) => items[index]).filter((item): item is T => item !== undefined);
     },

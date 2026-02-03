@@ -6,8 +6,26 @@
  */
 
 import { FileSystem } from "@effect/platform";
-import { Data, Effect } from "effect";
+import { Data, Effect, Schema } from "effect";
 import type { Settings } from "./types.js";
+
+// -----------------------------------------------------------------------------
+// Validation Schema
+// -----------------------------------------------------------------------------
+
+/**
+ * Schema for validating Settings JSON.
+ *
+ * Matches the Settings interface from types.ts with required `agents` and `skills`.
+ */
+const SettingsSchema = Schema.Struct({
+  scope: Schema.optional(Schema.String),
+  agents: Schema.Array(Schema.String),
+  skills: Schema.Record({ key: Schema.String, value: Schema.String }),
+  commands: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+  packs: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+  "mcp-servers": Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+});
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -143,8 +161,8 @@ export const readSettings = (
     );
 
     // Parse JSON
-    const parsed = yield* Effect.try({
-      try: () => JSON.parse(content) as Settings,
+    const json = yield* Effect.try({
+      try: () => JSON.parse(content) as unknown,
       catch: (error) =>
         new SettingsParseError({
           path: settingsPath,
@@ -153,7 +171,19 @@ export const readSettings = (
         }),
     });
 
-    return parsed;
+    // Validate schema
+    const parsed = yield* Schema.decodeUnknown(SettingsSchema)(json).pipe(
+      Effect.mapError(
+        (error) =>
+          new SettingsParseError({
+            path: settingsPath,
+            message: `Invalid settings format: ${error.message}`,
+            cause: error,
+          }),
+      ),
+    );
+
+    return parsed as Settings;
   });
 
 /**

@@ -15,7 +15,10 @@ rules:
     - backward compatability is a non-goal
   design:
     - backward compatability is a non-goal
+    - should always require linting to pass
   tasks:
-    - "TDD: add or update tests prior to implementation step: red, green, refactor until a good design"
-    - "Add a typecheck/lint/test verification steps immediatly proceeding any implementation task, fix any issues found"
+    - "TDD: add (design) or update tests prior to implementation step: red, green, refactor until a good design"
+    - "Add a typecheck verification steps immediatly proceeding any implementation task, fix any issues found"
+    - "Add a lint verification steps immediatly proceeding any implementation task, fix any issues found"
+    - "Add a test verification steps immediatly proceeding any implementation task, fix any issues found"
     - "add a task after every test verification step to to kill any runaway vitest worker processes"

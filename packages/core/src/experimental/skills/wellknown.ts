@@ -150,86 +150,88 @@ const mapHttpError = (url: string, error: HttpClientError.HttpClientError): Well
 const validateIndex = (
   url: string,
   data: unknown,
-): Effect.Effect<WellKnownIndex, WellKnownInvalidIndexError> => {
-  if (typeof data !== "object" || data === null) {
-    return Effect.fail(
-      new WellKnownInvalidIndexError({
+): Effect.Effect<WellKnownIndex, WellKnownInvalidIndexError> =>
+  Effect.gen(function* () {
+    if (typeof data !== "object" || data === null) {
+      return yield* new WellKnownInvalidIndexError({
         message: "Index must be an object",
         url,
-      }),
-    );
-  }
+      });
+    }
 
-  const obj = data as { skills?: unknown };
-  const skills = obj.skills;
+    const obj = data as { skills?: unknown };
+    const skills = obj.skills;
 
-  if (!Array.isArray(skills)) {
-    return Effect.fail(
-      new WellKnownInvalidIndexError({
+    if (!Array.isArray(skills)) {
+      return yield* new WellKnownInvalidIndexError({
         message: "Index must have a 'skills' array",
         url,
-      }),
+      });
+    }
+
+    // Validate each skill in the array
+    yield* Effect.forEach(
+      skills.map((skill, i) => [skill, i] as const),
+      ([skill, i]) =>
+        Effect.gen(function* () {
+          const typedSkill = skill as {
+            name?: unknown;
+            description?: unknown;
+            files?: unknown;
+          } | null;
+
+          if (typeof typedSkill !== "object" || typedSkill === null) {
+            return yield* new WellKnownInvalidIndexError({
+              message: `Skill at index ${i} must be an object`,
+              url,
+            });
+          }
+
+          const skillName = typedSkill.name;
+          const skillDescription = typedSkill.description;
+          const skillFiles = typedSkill.files;
+
+          if (typeof skillName !== "string" || skillName.trim() === "") {
+            return yield* new WellKnownInvalidIndexError({
+              message: `Skill at index ${i} must have a non-empty 'name' string`,
+              url,
+            });
+          }
+
+          if (typeof skillDescription !== "string") {
+            return yield* new WellKnownInvalidIndexError({
+              message: `Skill at index ${i} must have a 'description' string`,
+              url,
+            });
+          }
+
+          if (!Array.isArray(skillFiles)) {
+            return yield* new WellKnownInvalidIndexError({
+              message: `Skill at index ${i} must have a 'files' array`,
+              url,
+            });
+          }
+
+          // Validate each file in the skill
+          yield* Effect.forEach(
+            skillFiles.map((file, j) => [file, j] as const),
+            ([file, j]) => {
+              if (typeof file !== "string") {
+                return new WellKnownInvalidIndexError({
+                  message: `File at index ${j} in skill '${skillName}' must be a string`,
+                  url,
+                });
+              }
+              return Effect.void;
+            },
+            { discard: true },
+          );
+        }),
+      { discard: true },
     );
-  }
 
-  // Validate each skill in the array
-  for (let i = 0; i < skills.length; i++) {
-    const skill = skills[i] as { name?: unknown; description?: unknown; files?: unknown } | null;
-
-    if (typeof skill !== "object" || skill === null) {
-      return Effect.fail(
-        new WellKnownInvalidIndexError({
-          message: `Skill at index ${i} must be an object`,
-          url,
-        }),
-      );
-    }
-
-    const skillName = skill.name;
-    const skillDescription = skill.description;
-    const skillFiles = skill.files;
-
-    if (typeof skillName !== "string" || skillName.trim() === "") {
-      return Effect.fail(
-        new WellKnownInvalidIndexError({
-          message: `Skill at index ${i} must have a non-empty 'name' string`,
-          url,
-        }),
-      );
-    }
-
-    if (typeof skillDescription !== "string") {
-      return Effect.fail(
-        new WellKnownInvalidIndexError({
-          message: `Skill at index ${i} must have a 'description' string`,
-          url,
-        }),
-      );
-    }
-
-    if (!Array.isArray(skillFiles)) {
-      return Effect.fail(
-        new WellKnownInvalidIndexError({
-          message: `Skill at index ${i} must have a 'files' array`,
-          url,
-        }),
-      );
-    }
-
-    for (let j = 0; j < skillFiles.length; j++) {
-      if (typeof skillFiles[j] !== "string") {
-        return Effect.fail(
-          new WellKnownInvalidIndexError({
-            message: `File at index ${j} in skill '${skillName}' must be a string`,
-            url,
-          }),
-        );
-      }
-    }
-  }
-
-  return Effect.succeed(data as WellKnownIndex);
-};
+    return data as WellKnownIndex;
+  });
 
 // -----------------------------------------------------------------------------
 // Public API

@@ -274,45 +274,47 @@ const installSkillsFromFileSystem = (
     // Collect all results
     const allResults: InstallResult[] = installResults.flatMap((r) => r.results);
 
-    // Update lockfile and settings sequentially (after all installs complete)
+    // Update lockfile entries in parallel (each skill has its own lock entry file)
     const now = new Date().toISOString();
-    for (const { skillName, contentHash } of installResults) {
-      // Derive origin from parsed source
-      const origin = getOriginFromParsed(parsed);
-      const lockEntry: LockEntry = {
-        source: parsed.canonical,
-        origin,
-        folderHash: contentHash,
-        installedAt: now,
-        updatedAt: now,
-      };
+    yield* Effect.forEach(
+      installResults,
+      ({ skillName, contentHash }) => {
+        const origin = getOriginFromParsed(parsed);
+        const lockEntry: LockEntry = {
+          source: parsed.canonical,
+          origin,
+          folderHash: contentHash,
+          installedAt: now,
+          updatedAt: now,
+        };
+        return updateLockEntry(axmDir, skillName, lockEntry).pipe(
+          Effect.mapError(
+            (error) =>
+              new InstallError({
+                message: `Failed to update lockfile for ${skillName}: ${error.message}`,
+                cause: error,
+                retryable: false,
+              }),
+          ),
+        );
+      },
+      { concurrency: "unbounded" },
+    );
 
-      yield* updateLockEntry(axmDir, skillName, lockEntry).pipe(
-        Effect.mapError(
-          (error) =>
-            new InstallError({
-              message: `Failed to update lockfile for ${skillName}: ${error.message}`,
-              cause: error,
-              retryable: false,
-            }),
-        ),
-      );
-
-      yield* updateSettings(axmDir, {
-        skills: {
-          [skillName]: "*",
-        },
-      }).pipe(
-        Effect.mapError(
-          (error) =>
-            new InstallError({
-              message: `Failed to update settings for ${skillName}: ${error.message}`,
-              cause: error,
-              retryable: false,
-            }),
-        ),
-      );
-    }
+    // Batch all settings updates into a single call (settings.json is a shared file)
+    const skillsToAdd = Object.fromEntries(
+      installResults.map(({ skillName }) => [skillName, "*"] as const),
+    );
+    yield* updateSettings(axmDir, { skills: skillsToAdd }).pipe(
+      Effect.mapError(
+        (error) =>
+          new InstallError({
+            message: `Failed to update settings: ${error.message}`,
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
 
     return allResults;
   });
@@ -415,45 +417,47 @@ const installSkillsFromWellKnown = (
     // Collect all results
     const allResults: InstallResult[] = validResults.flatMap((r) => r.results);
 
-    // Update lockfile and settings sequentially (after all installs complete)
+    // Update lockfile entries in parallel (each skill has its own lock entry file)
     const now = new Date().toISOString();
-    for (const { skillName, contentHash } of validResults) {
-      // Derive origin from parsed source
-      const origin = getOriginFromParsed(parsed);
-      const lockEntry: LockEntry = {
-        source: parsed.canonical,
-        origin,
-        folderHash: contentHash,
-        installedAt: now,
-        updatedAt: now,
-      };
+    yield* Effect.forEach(
+      validResults,
+      ({ skillName, contentHash }) => {
+        const origin = getOriginFromParsed(parsed);
+        const lockEntry: LockEntry = {
+          source: parsed.canonical,
+          origin,
+          folderHash: contentHash,
+          installedAt: now,
+          updatedAt: now,
+        };
+        return updateLockEntry(axmDir, skillName, lockEntry).pipe(
+          Effect.mapError(
+            (error) =>
+              new InstallError({
+                message: `Failed to update lockfile for ${skillName}: ${error.message}`,
+                cause: error,
+                retryable: false,
+              }),
+          ),
+        );
+      },
+      { concurrency: "unbounded" },
+    );
 
-      yield* updateLockEntry(axmDir, skillName, lockEntry).pipe(
-        Effect.mapError(
-          (error) =>
-            new InstallError({
-              message: `Failed to update lockfile for ${skillName}: ${error.message}`,
-              cause: error,
-              retryable: false,
-            }),
-        ),
-      );
-
-      yield* updateSettings(axmDir, {
-        skills: {
-          [skillName]: "*",
-        },
-      }).pipe(
-        Effect.mapError(
-          (error) =>
-            new InstallError({
-              message: `Failed to update settings for ${skillName}: ${error.message}`,
-              cause: error,
-              retryable: false,
-            }),
-        ),
-      );
-    }
+    // Batch all settings updates into a single call (settings.json is a shared file)
+    const skillsToAdd = Object.fromEntries(
+      validResults.map(({ skillName }) => [skillName, "*"] as const),
+    );
+    yield* updateSettings(axmDir, { skills: skillsToAdd }).pipe(
+      Effect.mapError(
+        (error) =>
+          new InstallError({
+            message: `Failed to update settings: ${error.message}`,
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
 
     return allResults;
   });

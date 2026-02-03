@@ -10,7 +10,7 @@
 
 import * as nodePath from "node:path";
 import { FileSystem } from "@effect/platform";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import type { ExtensionRef, ExtensionType, ResolutionOptions } from "../types.js";
 
 // -----------------------------------------------------------------------------
@@ -85,33 +85,27 @@ const scanDirectory = (
   originalInput: string,
 ): Effect.Effect<ExtensionRef[], never, FileSystem.FileSystem> =>
   Effect.gen(function* () {
-    const results: ExtensionRef[] = [];
-
-    // Check for each extension file type
-    for (const { file, type } of EXTENSION_FILES) {
-      const filePath = nodePath.join(dirPath, file);
-      const exists = yield* fileExists(filePath);
-
-      if (exists) {
-        // For SKILL.md variants, only add one entry (avoid duplicates)
-        const hasSkillAlready = results.some((r) => r.type === "skill");
-        if (type === "skill" && hasSkillAlready) {
-          continue;
-        }
-
-        results.push({
+    const allRefs = yield* Effect.forEach(EXTENSION_FILES, ({ file, type }) =>
+      Effect.gen(function* () {
+        const filePath = nodePath.join(dirPath, file);
+        const exists = yield* fileExists(filePath);
+        if (!exists) return Option.none();
+        return Option.some({
           type,
-          source: "path",
+          source: "path" as const,
           origin: dirPath,
           originalInput,
           metadata: {
             files: [file],
           },
         });
-      }
-    }
+      }),
+    );
 
-    return results;
+    // Filter out None values and dedupe skills (keep first skill only)
+    const refs = allRefs.filter(Option.isSome).map((o) => o.value);
+    const seenSkill = refs.findIndex((r) => r.type === "skill");
+    return refs.filter((r, i) => r.type !== "skill" || i === seenSkill);
   });
 
 /**

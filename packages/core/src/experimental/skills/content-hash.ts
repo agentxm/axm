@@ -57,30 +57,33 @@ const listFilesRecursively = (
           ),
         );
 
-        const results: string[] = [];
+        const nestedResults = yield* Effect.forEach(
+          entries,
+          (entry) =>
+            Effect.gen(function* () {
+              const fullPath = path.join(dir, entry);
+              const stat = yield* fs.stat(fullPath).pipe(
+                Effect.mapError(
+                  (e) =>
+                    new HashError({
+                      message: `Failed to stat file: ${fullPath}`,
+                      cause: e,
+                      retryable: false,
+                    }),
+                ),
+              );
 
-        for (const entry of entries) {
-          const fullPath = path.join(dir, entry);
-          const stat = yield* fs.stat(fullPath).pipe(
-            Effect.mapError(
-              (e) =>
-                new HashError({
-                  message: `Failed to stat file: ${fullPath}`,
-                  cause: e,
-                  retryable: false,
-                }),
-            ),
-          );
-
-          if (stat.type === "Directory") {
-            const subFiles = yield* walk(fullPath);
-            results.push(...subFiles);
-          } else if (stat.type === "File") {
-            results.push(fullPath);
-          }
-        }
-
-        return results;
+              if (stat.type === "Directory") {
+                return yield* walk(fullPath);
+              }
+              if (stat.type === "File") {
+                return [fullPath];
+              }
+              return [];
+            }),
+          { concurrency: "unbounded" },
+        );
+        return nestedResults.flat();
       });
 
     return yield* walk(directory);

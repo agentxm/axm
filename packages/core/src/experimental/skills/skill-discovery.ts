@@ -7,7 +7,7 @@
 
 import * as path from "node:path";
 import { FileSystem } from "@effect/platform";
-import { Data, Effect } from "effect";
+import { Data, Effect, Option } from "effect";
 import type { Skill } from "./types.js";
 
 // -----------------------------------------------------------------------------
@@ -60,33 +60,27 @@ const walkDirectory = (
       ),
     );
 
-    const results: string[] = [];
-
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry);
-
-      const stat = yield* fs.stat(fullPath).pipe(
-        Effect.catchAll((_error) =>
-          // Skip files we can't stat (permission errors, etc.)
-          Effect.succeed(null).pipe(
-            Effect.tap(() => Effect.logDebug(`Skipping inaccessible path: ${fullPath}`)),
-          ),
-        ),
-      );
-
-      if (stat === null) {
-        continue;
-      }
-
-      if (stat.type === "Directory") {
-        const subResults = yield* walkDirectory(fullPath);
-        results.push(...subResults);
-      } else if (stat.type === "File") {
-        results.push(fullPath);
-      }
-    }
-
-    return results;
+    const nestedResults = yield* Effect.forEach(
+      entries,
+      (entry) =>
+        Effect.gen(function* () {
+          const fullPath = path.join(dir, entry);
+          const stat = yield* fs.stat(fullPath).pipe(
+            Effect.tapError(() => Effect.logDebug(`Skipping inaccessible path: ${fullPath}`)),
+            Effect.option,
+          );
+          if (Option.isNone(stat)) return [];
+          if (stat.value.type === "Directory") {
+            return yield* walkDirectory(fullPath);
+          }
+          if (stat.value.type === "File") {
+            return [fullPath];
+          }
+          return [];
+        }),
+      { concurrency: "unbounded" },
+    );
+    return nestedResults.flat();
   });
 
 /**

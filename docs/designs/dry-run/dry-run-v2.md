@@ -14,7 +14,8 @@ yield * ws.ensureInit();
 const current = yield * ws.loadCurrentState();
 
 // Handler decides how to handle issues (computed during state loading)
-const allIssues = collectIssues(current); // Helper to gather issues from all levels
+// collectIssues returns Array<ActualSkillIssue | SkillStateIssue | WorkspaceIssue>
+const allIssues = collectIssues(current);
 if (allIssues.some((i) => i.severity === "error") && !force) {
   return (
     yield * Effect.fail(new UnhealthyWorkspaceError({ issues: allIssues }))
@@ -170,23 +171,29 @@ type SkillSource =
 /** Issue severity */
 type Severity = "error" | "warning";
 
-/** Issues that can occur with skills */
-type SkillIssue =
-  | {
-      _tag: "DuplicateName";
-      name: string;
-      paths: Array.Array<string>;
-      severity: "error";
-    }
+/** Issues specific to a skill on disk */
+type ActualSkillIssue =
   | { _tag: "MissingSkillMd"; path: string; severity: "error" }
   | {
       _tag: "InvalidFrontmatter";
       errors: Array.Array<string>;
       severity: "error";
     }
-  | { _tag: "MissingDescription"; severity: "warning" }
+  | { _tag: "MissingDescription"; severity: "warning" };
+
+/** Issues from comparing actual vs locked state */
+type SkillStateIssue =
   | { _tag: "MissingFromDisk"; name: string; severity: "error" }
-  | { _tag: "NotInLockfile"; name: string; severity: "warning" }
+  | { _tag: "NotInLockfile"; name: string; severity: "warning" };
+
+/** Workspace-level issues spanning multiple skills */
+type WorkspaceIssue =
+  | {
+      _tag: "DuplicateName";
+      name: string;
+      paths: Array.Array<string>;
+      severity: "error";
+    }
   | {
       _tag: "OrphanedSettingsRef";
       agent: string;
@@ -200,7 +207,7 @@ interface ActualSkill {
   path: string;
   files: Array.Array<string>;
   frontmatter: Option<SkillFrontmatter>;
-  issues: Array.Array<SkillIssue>; // Issues specific to this skill on disk
+  issues: Array.Array<ActualSkillIssue>;
 }
 
 /** Skill entry from lockfile */
@@ -218,7 +225,7 @@ interface SkillState {
   name: string;
   actual: Option<ActualSkill>; // None = not on disk
   locked: Option<LockedSkill>; // None = not in lockfile
-  issues: Array.Array<SkillIssue>; // Issues from comparing actual vs locked (e.g., MissingFromDisk)
+  issues: Array.Array<SkillStateIssue>;
 }
 
 /**
@@ -228,7 +235,7 @@ interface SkillState {
  */
 interface CurrentState {
   skills: Array.Array<SkillState>;
-  issues: Array.Array<SkillIssue>; // Workspace-level issues (e.g., DuplicateName)
+  issues: Array.Array<WorkspaceIssue>;
 }
 
 /** Desired skill after the command */
@@ -364,11 +371,11 @@ Implementation details (e.g., update = clean + add) are hidden inside `plan.appl
 
 ## Issues
 
-Issues are computed during state loading and attached to the relevant level:
+Issues are computed during state loading and attached to the relevant level with distinct types:
 
-- **ActualSkill.issues** — Issues specific to a skill on disk (e.g., `MissingSkillMd`, `InvalidFrontmatter`)
-- **SkillState.issues** — Issues from comparing actual vs locked (e.g., `MissingFromDisk`, `NotInLockfile`)
-- **CurrentState.issues** — Workspace-level issues spanning multiple skills (e.g., `DuplicateName`)
+- **ActualSkill.issues: `ActualSkillIssue[]`** — Issues specific to a skill on disk (e.g., `MissingSkillMd`, `InvalidFrontmatter`)
+- **SkillState.issues: `SkillStateIssue[]`** — Issues from comparing actual vs locked (e.g., `MissingFromDisk`, `NotInLockfile`)
+- **CurrentState.issues: `WorkspaceIssue[]`** — Workspace-level issues spanning multiple skills (e.g., `DuplicateName`)
 
 This allows handlers to inspect issues at any level without a separate diagnosis step.
 
@@ -383,8 +390,9 @@ yield * ws.ensureInit();
 
 const current = yield * ws.loadCurrentState();
 
-// Collect all issues from state
-const allIssues = [
+// Collect all issues from state (union of all issue types)
+type AnyIssue = ActualSkillIssue | SkillStateIssue | WorkspaceIssue;
+const allIssues: Array.Array<AnyIssue> = [
   ...current.issues,
   ...current.skills.flatMap((s) => [
     ...s.issues,

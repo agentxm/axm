@@ -37,19 +37,21 @@ return plan;
 
 ## Design Decisions
 
-| Decision            | Choice                    | Rationale                                    |
-| ------------------- | ------------------------- | -------------------------------------------- |
-| Command encoding    | Discriminated union       | Simple, explicit, type-safe                  |
-| Plan execution      | `plan.apply()`            | Single method handles dry-run and apply      |
-| State separation    | Actual/Locked/Ideal       | Clear mental model, distinct concerns        |
-| State types         | Shared for Actual & Ideal | Diff is set operations; same structure       |
-| Plan steps          | User intent, not impl     | Show install/update/remove, hide clean+add   |
-| Agent grouping      | Per-skill with agents[]   | Matches display: "skill @ agent1, agent2"    |
-| Divergence handling | Handler diagnoses         | Explicit control per command                 |
-| Diagnosis decoupled | Issues only, no plan      | Separation of concerns; plan built if needed |
-| Settings changes    | Derived, not explicit     | Encapsulated in skill operations             |
-| Multiple targets    | Bulk via args             | Commands use arrays (skills, agents)         |
-| Apply effectful     | Yes                       | Side effects require Effect                  |
+| Decision            | Choice                     | Rationale                                                  |
+| ------------------- | -------------------------- | ---------------------------------------------------------- |
+| Command encoding    | Discriminated union        | Simple, explicit, type-safe                                |
+| Plan execution      | `plan.apply()`             | Single method handles dry-run and apply                    |
+| State separation    | Actual/Locked/Ideal        | Clear mental model, distinct concerns                      |
+| State types         | Shared for Actual & Ideal  | Diff is set operations; same structure                     |
+| Install location    | Canonical by source type   | Registry: `@<scope>/skills/`, external: `external/skills/` |
+| Agent sync          | All by default, filterable | Sync to project agents; `--agent` to filter                |
+| Plan steps          | User intent, not impl      | Show install/update/remove, hide clean+add                 |
+| Agent grouping      | Per-skill with agents[]    | Matches display: "skill @ agent1, agent2"                  |
+| Divergence handling | Handler diagnoses          | Explicit control per command                               |
+| Diagnosis decoupled | Issues only, no plan       | Separation of concerns; plan built if needed               |
+| Settings changes    | Derived, not explicit      | Encapsulated in skill operations                           |
+| Multiple targets    | Bulk via args              | Commands use arrays (skills, agents)                       |
+| Apply effectful     | Yes                        | Side effects require Effect                                |
 
 ## Workspace Service
 
@@ -121,7 +123,7 @@ type Command =
       _tag: "skills-install";
       /** GitHub shorthand (owner/repo), local path, or URL */
       source: string;
-      /** Install only to specified agent(s); empty = all agents */
+      /** Limit sync to these agents; empty = all agents from project settings */
       agents: string[];
       /** "all" to install all discovered skills, or specific skill names */
       skills: "all" | string[];
@@ -143,17 +145,18 @@ type Command =
 ## State Types
 
 ```typescript
-/** Skill installed at a specific agent location */
-interface SkillAtAgent {
+/** Skill in the workspace (canonical or agent-synced location) */
+interface WorkspaceSkill {
   name: string;
-  agent: string;
+  /** Where found: undefined = canonical (.axm/extensions/...), string = agent directory */
+  agent?: string;
   path: string;
   files: ReadonlyArray<string>;
 }
 
 /** Filesystem reality - what's physically on disk */
 interface ActualState {
-  skills: ReadonlyArray<SkillAtAgent>;
+  skills: ReadonlyArray<WorkspaceSkill>;
 }
 
 /** Lockfile contract - what we've committed to having installed */
@@ -161,11 +164,18 @@ type LockedState = Lockfile; // from @agentxm/core/experimental/schemas/lockfile
 
 /** Desired outcome - what we want after the command */
 interface IdealState {
-  skills: ReadonlyArray<SkillAtAgent>;
+  skills: ReadonlyArray<WorkspaceSkill>;
 }
 ```
 
-Note: ActualState and IdealState share the same structure. The plan is computed by diffing these sets:
+**Installation model:**
+
+- Registry skills install to `.axm/extensions/@<scope>/skills/<name>`
+- External skills (GitHub, local) install to `.axm/extensions/external/skills/<name>`
+- Sync to agents defined in project settings (filtered by `--agent` if specified)
+- ActualState scans both canonical and agent directories
+
+**Plan computation** (diff of actual vs ideal):
 
 - In ideal but not actual → install
 - In actual but not ideal → remove
@@ -188,6 +198,7 @@ type PlanStep =
   | {
       _tag: "InstallSkill";
       skill: string;
+      /** Agents to sync to (resolved from settings + filter) */
       agents: ReadonlyArray<string>;
       source: string;
     }
@@ -205,6 +216,15 @@ axm skills install github:org/repo --all
   (install) review-pr @ claude, cursor, codex
 
   2 skills to install across 3 agents
+```
+
+```
+axm skills install github:org/repo --all --agent claude
+
+  (install) commit @ claude
+  (install) review-pr @ claude
+
+  2 skills to install
 ```
 
 ```
@@ -230,26 +250,26 @@ type SkillIssue =
   | {
       _tag: "SkillMissingFromDisk";
       name: string;
-      agent: string;
+      agent?: string;
       critical: boolean;
     }
   | {
       _tag: "SkillNotInLockfile";
       name: string;
-      agent: string;
+      agent?: string;
       critical: boolean;
     }
   | {
       _tag: "ChecksumMismatch";
       name: string;
-      agent: string;
+      agent?: string;
       expected: string;
       actual: string;
       critical: boolean;
     }
   | {
       _tag: "OrphanedSettingsRef";
-      agent: string;
+      agent?: string;
       skill: string;
       critical: boolean;
     };

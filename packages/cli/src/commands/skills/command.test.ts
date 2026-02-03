@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import yargs from "yargs";
+import yargs, { type Argv } from "yargs";
 import { skillsCommand } from "./command.js";
 
 describe("skills command", () => {
@@ -29,8 +29,8 @@ describe("skills subcommand help", () => {
   });
 
   it("has add subcommand registered", () => {
-    // Verify the builder registers the add command
-    const mockYargs = {
+    // Build mock object - methods return self for chaining
+    const mock = {
       command: vi.fn().mockReturnThis(),
       demandCommand: vi.fn().mockReturnThis(),
       example: vi.fn().mockReturnThis(),
@@ -38,8 +38,9 @@ describe("skills subcommand help", () => {
     };
 
     if (typeof skillsCommand.builder === "function") {
-      skillsCommand.builder(mockYargs as any);
-      expect(mockYargs.command).toHaveBeenCalled();
+      // Cast once at the boundary - yargs types are too complex for mocks
+      skillsCommand.builder(mock as unknown as Argv);
+      expect(mock.command).toHaveBeenCalled();
     }
   });
 });

@@ -8,8 +8,14 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import yargs from "yargs";
+import yargs, { type Argv, type Options, type PositionalOptions } from "yargs";
 import { installCommand } from "./command.js";
+
+/**
+ * Type for captured yargs option configurations.
+ */
+type CapturedOptions = Record<string, Options>;
+type CapturedPositionals = Record<string, PositionalOptions>;
 
 describe("skills install command", () => {
   const createParser = () => yargs().command(installCommand).exitProcess(false);
@@ -29,29 +35,36 @@ describe("skills install command positional", () => {
   /**
    * Creates a mock yargs instance that records positional() and option() calls.
    * Returns the mock along with helpers to retrieve captured options.
+   *
+   * Note: yargs Argv has complex overloaded signatures that mocks cannot satisfy.
+   * We cast to Argv at the boundary rather than using `as any` throughout.
    */
   const createCapturingMock = () => {
-    const capturedPositionals: Record<string, unknown> = {};
-    const capturedOptions: Record<string, unknown> = {};
-    const mockYargs = {
-      positional: vi.fn((name: string, config: unknown) => {
+    const capturedPositionals: CapturedPositionals = {};
+    const capturedOptions: CapturedOptions = {};
+
+    // Build mock object - methods return self for chaining
+    const mock = {
+      positional: vi.fn((name: string, config: PositionalOptions) => {
         capturedPositionals[name] = config;
-        return mockYargs;
+        return mock;
       }),
-      option: vi.fn((name: string, config: unknown) => {
+      option: vi.fn((name: string, config: Options) => {
         capturedOptions[name] = config;
-        return mockYargs;
+        return mock;
       }),
       example: vi.fn().mockReturnThis(),
     };
-    return { mockYargs, capturedPositionals, capturedOptions };
+
+    // Cast once at the boundary - yargs types are too complex for mocks
+    return { mockYargs: mock as unknown as Argv, capturedPositionals, capturedOptions };
   };
 
   it("defines source positional argument as required string", () => {
     const { mockYargs, capturedPositionals } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs as any);
+      installCommand.builder(mockYargs);
       expect(capturedPositionals["source"]).toEqual(
         expect.objectContaining({
           type: "string",
@@ -65,9 +78,9 @@ describe("skills install command positional", () => {
     const { mockYargs, capturedPositionals } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs as any);
-      expect((capturedPositionals["source"] as any).describe).toBeDefined();
-      expect((capturedPositionals["source"] as any).describe).toContain("GitHub");
+      installCommand.builder(mockYargs);
+      expect(capturedPositionals["source"]?.describe).toBeDefined();
+      expect(capturedPositionals["source"]?.describe).toContain("GitHub");
     }
   });
 });
@@ -76,29 +89,36 @@ describe("skills install command options", () => {
   /**
    * Creates a mock yargs instance that records positional() and option() calls.
    * Returns the mock along with helpers to retrieve captured options.
+   *
+   * Note: yargs Argv has complex overloaded signatures that mocks cannot satisfy.
+   * We cast to Argv at the boundary rather than using `as any` throughout.
    */
   const createCapturingMock = () => {
-    const capturedPositionals: Record<string, unknown> = {};
-    const capturedOptions: Record<string, unknown> = {};
-    const mockYargs = {
-      positional: vi.fn((name: string, config: unknown) => {
+    const capturedPositionals: CapturedPositionals = {};
+    const capturedOptions: CapturedOptions = {};
+
+    // Build mock object - methods return self for chaining
+    const mock = {
+      positional: vi.fn((name: string, config: PositionalOptions) => {
         capturedPositionals[name] = config;
-        return mockYargs;
+        return mock;
       }),
-      option: vi.fn((name: string, config: unknown) => {
+      option: vi.fn((name: string, config: Options) => {
         capturedOptions[name] = config;
-        return mockYargs;
+        return mock;
       }),
       example: vi.fn().mockReturnThis(),
     };
-    return { mockYargs, capturedPositionals, capturedOptions };
+
+    // Cast once at the boundary - yargs types are too complex for mocks
+    return { mockYargs: mock as unknown as Argv, capturedPositionals, capturedOptions };
   };
 
   it("defines --global option with boolean type and default false", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs as any);
+      installCommand.builder(mockYargs);
       expect(capturedOptions["global"]).toEqual(
         expect.objectContaining({
           type: "boolean",
@@ -112,7 +132,7 @@ describe("skills install command options", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs as any);
+      installCommand.builder(mockYargs);
       expect(capturedOptions["agent"]).toEqual(
         expect.objectContaining({
           type: "string",
@@ -127,7 +147,7 @@ describe("skills install command options", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs as any);
+      installCommand.builder(mockYargs);
       expect(capturedOptions["skill"]).toEqual(
         expect.objectContaining({
           type: "string",
@@ -142,7 +162,7 @@ describe("skills install command options", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs as any);
+      installCommand.builder(mockYargs);
       expect(capturedOptions["yes"]).toEqual(
         expect.objectContaining({
           type: "boolean",
@@ -157,7 +177,7 @@ describe("skills install command options", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs as any);
+      installCommand.builder(mockYargs);
       expect(capturedOptions["list"]).toEqual(
         expect.objectContaining({
           type: "boolean",
@@ -172,7 +192,7 @@ describe("skills install command options", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs as any);
+      installCommand.builder(mockYargs);
       expect(capturedOptions["all"]).toEqual(
         expect.objectContaining({
           type: "boolean",
@@ -186,9 +206,9 @@ describe("skills install command options", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs as any);
-      expect((capturedOptions["global"] as any).describe).toBeDefined();
-      expect((capturedOptions["global"] as any).describe).toContain("global");
+      installCommand.builder(mockYargs);
+      expect(capturedOptions["global"]?.describe).toBeDefined();
+      expect(capturedOptions["global"]?.describe).toContain("global");
     }
   });
 
@@ -196,9 +216,9 @@ describe("skills install command options", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs as any);
-      expect((capturedOptions["agent"] as any).describe).toBeDefined();
-      expect((capturedOptions["agent"] as any).describe).toContain("agent");
+      installCommand.builder(mockYargs);
+      expect(capturedOptions["agent"]?.describe).toBeDefined();
+      expect(capturedOptions["agent"]?.describe).toContain("agent");
     }
   });
 
@@ -206,9 +226,9 @@ describe("skills install command options", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs as any);
-      expect((capturedOptions["skill"] as any).describe).toBeDefined();
-      expect((capturedOptions["skill"] as any).describe).toContain("skill");
+      installCommand.builder(mockYargs);
+      expect(capturedOptions["skill"]?.describe).toBeDefined();
+      expect(capturedOptions["skill"]?.describe).toContain("skill");
     }
   });
 
@@ -216,9 +236,9 @@ describe("skills install command options", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs as any);
-      expect((capturedOptions["yes"] as any).describe).toBeDefined();
-      expect((capturedOptions["yes"] as any).describe).toContain("prompts");
+      installCommand.builder(mockYargs);
+      expect(capturedOptions["yes"]?.describe).toBeDefined();
+      expect(capturedOptions["yes"]?.describe).toContain("prompts");
     }
   });
 
@@ -226,9 +246,9 @@ describe("skills install command options", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs as any);
-      expect((capturedOptions["list"] as any).describe).toBeDefined();
-      expect((capturedOptions["list"] as any).describe).toContain("List");
+      installCommand.builder(mockYargs);
+      expect(capturedOptions["list"]?.describe).toBeDefined();
+      expect(capturedOptions["list"]?.describe).toContain("List");
     }
   });
 
@@ -236,26 +256,28 @@ describe("skills install command options", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs as any);
-      expect((capturedOptions["all"] as any).describe).toBeDefined();
-      expect((capturedOptions["all"] as any).describe).toContain("all");
+      installCommand.builder(mockYargs);
+      expect(capturedOptions["all"]?.describe).toBeDefined();
+      expect(capturedOptions["all"]?.describe).toContain("all");
     }
   });
 });
 
 describe("skills install command examples", () => {
   it("registers usage examples", () => {
-    const mockYargs = {
+    // Build mock object - methods return self for chaining
+    const mock = {
       positional: vi.fn().mockReturnThis(),
       option: vi.fn().mockReturnThis(),
       example: vi.fn().mockReturnThis(),
     };
 
     if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs as any);
-      expect(mockYargs.example).toHaveBeenCalled();
+      // Cast once at the boundary - yargs types are too complex for mocks
+      installCommand.builder(mock as unknown as Argv);
+      expect(mock.example).toHaveBeenCalled();
       // Verify multiple examples are provided for this complex command
-      expect(mockYargs.example.mock.calls.length).toBeGreaterThan(3);
+      expect(mock.example.mock.calls.length).toBeGreaterThan(3);
     }
   });
 });

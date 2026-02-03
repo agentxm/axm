@@ -145,7 +145,7 @@ const trySourceParser = (
       }
 
       // Check source filter if provided
-      if (options.sources && !options.sources.includes(parsed.type as SourceType)) {
+      if (options.sources && !options.sources.includes(parsed.type)) {
         return [];
       }
 
@@ -156,7 +156,7 @@ const trySourceParser = (
 
       const ref: ExtensionRef = {
         type: "skill",
-        source: parsed.type as SourceType,
+        source: parsed.type,
         origin: buildOriginUrl(parsed.type, parsed.owner, parsed.repo),
         originalInput: input,
         metadata: {},

@@ -1,5 +1,16 @@
-import { Effect, Exit } from "effect";
+import { Cause, Effect, Exit } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+/**
+ * Helper to extract the failure error from an Exit.
+ * Returns the error if it's a Fail cause, otherwise undefined.
+ */
+const getFailureError = <E>(exit: Exit.Exit<unknown, E>): E | undefined => {
+  if (Exit.isFailure(exit) && exit.cause._tag === "Fail") {
+    return exit.cause.error;
+  }
+  return undefined;
+};
 
 // Mock @clack/prompts before importing the module under test
 vi.mock("@clack/prompts", () => ({
@@ -124,7 +135,8 @@ describe("promptConfirm", () => {
 
   it("calls cancel and exits process on cancel", async () => {
     const cancelSymbol = Symbol("cancel");
-    vi.mocked(p.confirm).mockResolvedValue(cancelSymbol as unknown as boolean);
+    // Mock returns cancel symbol - type the mock to accept it
+    vi.mocked(p.confirm).mockResolvedValue(cancelSymbol as boolean | symbol);
     vi.mocked(p.isCancel).mockReturnValue(true);
 
     // The process.exit(0) call throws in tests (mocked above)
@@ -145,12 +157,10 @@ describe("promptConfirm", () => {
 
     const exit = await Effect.runPromiseExit(promptConfirm("Continue?"));
     expect(Exit.isFailure(exit)).toBe(true);
-    if (Exit.isFailure(exit)) {
-      const error = exit.cause._tag === "Fail" ? exit.cause.error : null;
-      expect(error).toBeInstanceOf(PromptError);
-      expect((error as PromptError).message).toBe("Failed to prompt for confirmation");
-      expect((error as PromptError).cause).toBe(originalError);
-    }
+    const error = getFailureError(exit);
+    expect(error).toBeInstanceOf(PromptError);
+    expect(error?.message).toBe("Failed to prompt for confirmation");
+    expect(error?.cause).toBe(originalError);
   });
 });
 
@@ -231,7 +241,8 @@ describe("promptSelect", () => {
 
   it("calls cancel and exits process on cancel", async () => {
     const cancelSymbol = Symbol("cancel");
-    vi.mocked(p.select).mockResolvedValue(cancelSymbol as unknown as number);
+    // Mock returns cancel symbol - type the mock to accept it
+    vi.mocked(p.select).mockResolvedValue(cancelSymbol as number | symbol);
     vi.mocked(p.isCancel).mockReturnValue(true);
 
     // The process.exit(0) call throws in tests (mocked above)
@@ -252,12 +263,10 @@ describe("promptSelect", () => {
 
     const exit = await Effect.runPromiseExit(promptSelect("Choose:", items, toOption));
     expect(Exit.isFailure(exit)).toBe(true);
-    if (Exit.isFailure(exit)) {
-      const error = exit.cause._tag === "Fail" ? exit.cause.error : null;
-      expect(error).toBeInstanceOf(PromptError);
-      expect((error as PromptError).message).toBe("Failed to prompt for selection");
-      expect((error as PromptError).cause).toBe(originalError);
-    }
+    const error = getFailureError(exit);
+    expect(error).toBeInstanceOf(PromptError);
+    expect(error?.message).toBe("Failed to prompt for selection");
+    expect(error?.cause).toBe(originalError);
   });
 
   it("fails with PromptError on invalid selection index", async () => {
@@ -266,11 +275,9 @@ describe("promptSelect", () => {
 
     const exit = await Effect.runPromiseExit(promptSelect("Choose:", items, toOption));
     expect(Exit.isFailure(exit)).toBe(true);
-    if (Exit.isFailure(exit)) {
-      const error = exit.cause._tag === "Fail" ? exit.cause.error : null;
-      expect(error).toBeInstanceOf(PromptError);
-      expect((error as PromptError).message).toBe("Failed to prompt for selection");
-    }
+    const error = getFailureError(exit);
+    expect(error).toBeInstanceOf(PromptError);
+    expect(error?.message).toBe("Failed to prompt for selection");
   });
 });
 
@@ -393,7 +400,8 @@ describe("promptMultiselect", () => {
 
   it("calls cancel and exits process on cancel", async () => {
     const cancelSymbol = Symbol("cancel");
-    vi.mocked(p.multiselect).mockResolvedValue(cancelSymbol as unknown as number[]);
+    // Mock returns cancel symbol - type the mock to accept it
+    vi.mocked(p.multiselect).mockResolvedValue(cancelSymbol as number[] | symbol);
     vi.mocked(p.isCancel).mockReturnValue(true);
 
     // The process.exit(0) call throws in tests (mocked above)
@@ -414,12 +422,10 @@ describe("promptMultiselect", () => {
 
     const exit = await Effect.runPromiseExit(promptMultiselect("Choose:", items, { toOption }));
     expect(Exit.isFailure(exit)).toBe(true);
-    if (Exit.isFailure(exit)) {
-      const error = exit.cause._tag === "Fail" ? exit.cause.error : null;
-      expect(error).toBeInstanceOf(PromptError);
-      expect((error as PromptError).message).toBe("Failed to prompt for multiselect");
-      expect((error as PromptError).cause).toBe(originalError);
-    }
+    const error = getFailureError(exit);
+    expect(error).toBeInstanceOf(PromptError);
+    expect(error?.message).toBe("Failed to prompt for multiselect");
+    expect(error?.cause).toBe(originalError);
   });
 
   it("filters out undefined items from invalid indices", async () => {

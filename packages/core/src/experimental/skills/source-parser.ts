@@ -106,25 +106,15 @@ const buildGitSource = (
   repo: string,
   ref?: string,
   path?: string,
-): ParsedSource => {
-  const canonical = `${type}:${owner}/${repo}`;
-  const base: ParsedSource = {
-    type,
-    original,
-    canonical,
-    owner,
-    repo,
-  };
-
-  if (ref) {
-    (base as { ref?: string }).ref = ref;
-  }
-  if (path) {
-    (base as { path?: string }).path = path;
-  }
-
-  return base;
-};
+): ParsedSource => ({
+  type,
+  original,
+  canonical: `${type}:${owner}/${repo}`,
+  owner,
+  repo,
+  ...(ref && { ref }),
+  ...(path && { path }),
+});
 
 // -----------------------------------------------------------------------------
 // Parser Functions
@@ -233,13 +223,12 @@ const parseShorthand = (input: string): Effect.Effect<ParsedSource, ParseError> 
 /**
  * Parse a local path (./relative, /absolute, or Windows path).
  */
-const parseLocalPath = (input: string): Effect.Effect<ParsedSource, never> => {
-  return Effect.succeed({
-    type: "local" as SourceType,
+const parseLocalPath = (input: string): Effect.Effect<ParsedSource, never> =>
+  Effect.succeed({
+    type: "local",
     original: input,
     canonical: input,
-  });
-};
+  } satisfies ParsedSource);
 
 /**
  * Parse a direct URL (non-GitHub/GitLab HTTPS URL).
@@ -257,19 +246,19 @@ const parseDirectUrl = (input: string): Effect.Effect<ParsedSource, ParseError> 
 
   if (hasFileExtension) {
     return Effect.succeed({
-      type: "direct-url" as SourceType,
+      type: "direct-url",
       original: input,
       canonical: input,
       url: input,
-    });
+    } satisfies ParsedSource);
   }
 
   return Effect.succeed({
-    type: "well-known" as SourceType,
+    type: "well-known",
     original: input,
     canonical: input,
     url: input,
-  });
+  } satisfies ParsedSource);
 };
 
 // -----------------------------------------------------------------------------

@@ -96,6 +96,48 @@ Never guess at Effect patterns - check the guide first.
 
 <!-- effect-solutions:end -->
 
+## TypeScript
+
+### Minimize Type Assertions
+
+Avoid `as` casts. Prefer type-safe alternatives:
+
+| Pattern                  | Solution                                     |
+| ------------------------ | -------------------------------------------- |
+| `"literal" as UnionType` | Use `satisfies` on the object                |
+| Mutable optional props   | Spread conditionals `...(x && { x })`        |
+| Mock objects             | Cast once at boundary with `as unknown as T` |
+| Caught errors            | Use type guards or Effect's Cause utilities  |
+
+**`satisfies` over casting:**
+
+```typescript
+// Bad: type assertion
+return { type: "local" as SourceType, ... };
+
+// Good: satisfies validates the shape
+return { type: "local", ... } satisfies ParsedSource;
+```
+
+**Conditional optional properties:**
+
+```typescript
+// Bad: mutation with cast
+const obj: T = { required };
+if (optional) (obj as { opt?: string }).opt = optional;
+
+// Good: spread conditional
+const obj: T = { required, ...(optional && { optional }) };
+```
+
+**Complex interface mocks (yargs, etc.):**
+
+```typescript
+// Acceptable: cast once at boundary, not throughout
+const mock = { method: vi.fn().mockReturnThis() };
+builder(mock as unknown as ComplexInterface);
+```
+
 ## Project Structure
 
 ```

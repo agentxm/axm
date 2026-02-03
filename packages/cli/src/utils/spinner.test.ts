@@ -1,20 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSpinnerHelper } from "./spinner.js";
 
-// Mock @clack/prompts
-vi.mock("@clack/prompts", () => {
-  const mockSpinner = {
-    start: vi.fn(),
-    stop: vi.fn(),
-  };
+// Define mock spinner type
+interface MockSpinner {
+  start: ReturnType<typeof vi.fn>;
+  stop: ReturnType<typeof vi.fn>;
+}
 
-  return {
-    spinner: vi.fn(() => mockSpinner),
-    log: {
-      info: vi.fn(),
-    },
-  };
-});
+// Create the mock spinner instance
+const mockSpinnerInstance: MockSpinner = {
+  start: vi.fn(),
+  stop: vi.fn(),
+};
+
+// Mock @clack/prompts
+vi.mock("@clack/prompts", () => ({
+  spinner: vi.fn(() => mockSpinnerInstance),
+  log: {
+    info: vi.fn(),
+  },
+}));
 
 // Import after mocking
 import * as p from "@clack/prompts";
@@ -46,27 +51,17 @@ describe("createSpinnerHelper", () => {
 
     it("start() calls spinner.start with the message", () => {
       const helper = createSpinnerHelper();
-      const mockResult = (p.spinner as ReturnType<typeof vi.fn>).mock.results[0];
-      const mockSpinner = mockResult?.value as {
-        start: ReturnType<typeof vi.fn>;
-        stop: ReturnType<typeof vi.fn>;
-      };
 
       helper.start("Loading...");
-      expect(mockSpinner.start).toHaveBeenCalledWith("Loading...");
+      expect(mockSpinnerInstance.start).toHaveBeenCalledWith("Loading...");
       expect(p.log.info).not.toHaveBeenCalled();
     });
 
     it("stop() calls spinner.stop with the message", () => {
       const helper = createSpinnerHelper();
-      const mockResult = (p.spinner as ReturnType<typeof vi.fn>).mock.results[0];
-      const mockSpinner = mockResult?.value as {
-        start: ReturnType<typeof vi.fn>;
-        stop: ReturnType<typeof vi.fn>;
-      };
 
       helper.stop("Done!");
-      expect(mockSpinner.stop).toHaveBeenCalledWith("Done!");
+      expect(mockSpinnerInstance.stop).toHaveBeenCalledWith("Done!");
       expect(p.log.info).not.toHaveBeenCalled();
     });
   });

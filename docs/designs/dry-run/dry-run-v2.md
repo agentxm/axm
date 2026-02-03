@@ -145,6 +145,8 @@ type Command =
 ## State Types
 
 ```typescript
+import { Array, Option } from "effect";
+
 /** Skill source - where to fetch from */
 type SkillSource =
   | {
@@ -161,7 +163,7 @@ type SkillSource =
 interface ActualSkill {
   name: string;
   path: string;
-  files: ReadonlyArray<string>;
+  files: Array.Array<string>;
   frontmatter: Option<SkillFrontmatter>;
 }
 
@@ -185,7 +187,7 @@ interface SkillState {
 
 /** Current workspace state - all skills with their actual/locked status */
 interface CurrentState {
-  skills: ReadonlyArray<SkillState>;
+  skills: Array.Array<SkillState>;
 }
 
 /** Desired skill after the command */
@@ -195,12 +197,12 @@ interface IdealSkill {
   source: SkillSource;
   version: Option<string>; // Semver for registry, None for git/local
   gitTreeHash: Option<string>; // Hash of source folder for git sources
-  agents: ReadonlyArray<string>; // Which agents to sync to
+  agents: Array.Array<string>; // Which agents to sync to
 }
 
 /** Desired outcome - what we want after the command */
 interface IdealState {
-  skills: ReadonlyArray<IdealSkill>;
+  skills: Array.Array<IdealSkill>;
 }
 ```
 
@@ -236,7 +238,7 @@ Plan is pure data - steps reflecting user intent. Execution is handled by `ws.ap
 ```typescript
 /** Plan is pure data - no behavior */
 interface Plan {
-  readonly steps: ReadonlyArray<PlanStep>;
+  readonly steps: Array.Array<PlanStep>;
 }
 
 /** Steps reflect user intent, grouped by skill */
@@ -247,7 +249,7 @@ type PlanStep =
       source: SkillSource;
       version: Option<string>;
       gitTreeHash: Option<string>;
-      agents: ReadonlyArray<string>;
+      agents: Array.Array<string>;
     }
   | {
       _tag: "UpdateSkill";
@@ -256,15 +258,15 @@ type PlanStep =
       toVersion: Option<string>;
       fromHash: Option<string>; // For git sources without version
       toHash: Option<string>;
-      agents: ReadonlyArray<string>;
+      agents: Array.Array<string>;
     }
-  | { _tag: "RemoveSkill"; skill: string; agents: ReadonlyArray<string> }
-  | { _tag: "RepairSkill"; skill: string; agents: ReadonlyArray<string> };
+  | { _tag: "RemoveSkill"; skill: string; agents: Array.Array<string> }
+  | { _tag: "RepairSkill"; skill: string; agents: Array.Array<string> };
 
 /** Result of applying a plan */
 interface ApplyResult {
-  applied: ReadonlyArray<PlanStep>;
-  failed: ReadonlyArray<{ step: PlanStep; error: ApplyError }>;
+  applied: Array.Array<PlanStep>;
+  failed: Array.Array<{ step: PlanStep; error: ApplyError }>;
 }
 ```
 
@@ -304,7 +306,7 @@ Diagnosis is decoupled from planning. Issues are identified from current state; 
 
 ```typescript
 interface Diagnosis {
-  readonly issues: ReadonlyArray<Issue>;
+  readonly issues: Array.Array<Issue>;
 }
 
 /** Issue severity - derived from issue type */

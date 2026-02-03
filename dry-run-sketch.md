@@ -51,84 +51,7 @@ This document analyzes how to implement dry-run functionality for the `axm skill
 
 ---
 
-## Architectural Approaches
-
-### Approach A: Flag-Based Operation Skipping
-
-Add a `dryRun: boolean` parameter threaded through the handler, with conditional execution at each write point.
-
-```typescript
-// In handler
-if (!dryRun) {
-  yield * copySkillToCanonical(skill, axmDir);
-} else {
-  yield * Effect.log(`[DRY-RUN] Would copy ${skill.name} to ${axmDir}/skills/`);
-}
-```
-
-**Pros:**
-
-- Simple to implement incrementally
-- No architectural changes required
-- Easy to understand control flow
-
-**Cons:**
-
-- Conditionals scattered throughout codebase
-- Easy to miss a write operation
-- Violates open/closed principle (modifying existing code for new behavior)
-- Testing requires covering both branches at every point
-- Dry-run behavior diverges from real behavior over time
-
----
-
-### Approach B: Dual-Mode Services (Mock Layers)
-
-Create dry-run implementations of Effect services that log instead of execute.
-
-```typescript
-// DryRunFileSystem - implements same interface, logs instead of writing
-const DryRunFileSystem = Layer.succeed(
-  FileSystem.FileSystem,
-  FileSystem.FileSystem.of({
-    writeFile: (path, content) =>
-      Effect.log(`[DRY-RUN] writeFile: ${path} (${content.length} bytes)`),
-    mkdir: (path) => Effect.log(`[DRY-RUN] mkdir: ${path}`),
-    copyFile: (src, dest) =>
-      Effect.log(`[DRY-RUN] copyFile: ${src} -> ${dest}`),
-    symlink: (target, path) =>
-      Effect.log(`[DRY-RUN] symlink: ${path} -> ${target}`),
-    // Read operations pass through to real filesystem
-    readFile: FileSystem.readFile,
-    stat: FileSystem.stat,
-    // ...
-  }),
-);
-
-// Usage in command.ts
-const layer = dryRun
-  ? DryRunFileSystem.pipe(Layer.provideMerge(NodeContext.layer))
-  : NodeContext.layer;
-```
-
-**Pros:**
-
-- Clean separation of concerns
-- Handler code unchanged - same Effect runs
-- Guaranteed consistency: if Effect runs, service decides behavior
-- Easy to test - swap layers in tests
-- Aligns with Effect's philosophy of dependency injection
-
-**Cons:**
-
-- Must implement full service interface for each mock
-- Read-after-write patterns may fail (file doesn't exist after dry-run "write")
-- Git operations aren't Effect services (uses subprocess)
-- Some operations have mixed read/write (e.g., `ensureInitialized` checks then creates)
-
----
-
-### Approach C: Operation Log + Replay Architecture (Detailed)
+## Architecture: Operation Log + Replay
 
 Separate planning from execution: generate a list of operations, then optionally execute. This is the Terraform-style "plan/apply" model.
 
@@ -986,68 +909,9 @@ const createRollbackPlan = (plan: InstallPlan): MutationOp[] =>
 
 ---
 
-### Approach E: Effect Aspect-Oriented Interception
+## Implementation Roadmap
 
-Use Effect's built-in tracing/aspects to intercept operations at runtime.
-
-```typescript
-// Tag operations that should be skipped in dry-run
-const WriteOperation = Context.GenericTag<"WriteOperation">("WriteOperation");
-
-// Wrap write operations with the tag
-const taggedWriteFile = (path: string, content: string) =>
-  FileSystem.writeFile(path, content).pipe(
-    Effect.withSpan("writeFile", { attributes: { path } }),
-    Effect.provideService(WriteOperation, "write"),
-  );
-
-// Create interceptor that skips tagged operations
-const dryRunInterceptor = Effect.withSpan("dry-run")
-  .pipe
-  // Custom runtime that logs instead of executing writes
-  ();
-```
-
-**Pros:**
-
-- Very powerful and flexible
-- Can intercept any Effect
-- Good observability (tracing integration)
-
-**Cons:**
-
-- Complex to implement correctly
-- Requires deep Effect knowledge
-- May have surprising behavior with concurrent effects
-- Less explicit than other approaches
-
----
-
-## Recommendation
-
-### Primary: Approach C (Operation Log + Replay)
-
-After analysis, Approach C is the recommended path despite the higher upfront investment. Key reasons:
-
-1. **Architectural clarity** - Separates "what will happen" from "make it happen"
-2. **Dry-run is a natural byproduct** - Not bolted on, but core to the design
-3. **Future capabilities** - Undo, plan serialization, diffing come naturally
-4. **Testability** - Planner and executor test independently
-5. **Composability** - Plans can be combined, filtered, modified
-6. **Early refactor advantage** - Better to establish the pattern now than retrofit later
-
-### Why Not Approach D (Hybrid Layer)?
-
-Approach D was initially recommended for its lower effort, but has drawbacks:
-
-- **Hidden complexity** - Virtual state is tricky to get right (directory listings, stat, etc.)
-- **Git/HTTP still need special handling** - Doesn't solve the discovery problem
-- **Dry-run bolted on** - Handler remains imperative; dry-run is a mode switch
-- **No path to plan/apply** - Would need significant refactor later anyway
-
-### Implementation Roadmap
-
-See the detailed **Migration Path** in Approach C section above. Summary:
+See the detailed **Migration Path** section above. Summary:
 
 | Phase                       | Scope                                          | Breaking?     |
 | --------------------------- | ---------------------------------------------- | ------------- |
@@ -1070,46 +934,6 @@ See the detailed **Migration Path** in Approach C section above. Summary:
 | Tests            | 2-3 new/modified | Medium      |
 
 ---
-
-## Comparison with Approach D (Reference)
-
-For reference, Approach D (Hybrid Layer) details are preserved below. This approach remains valid for simpler dry-run needs or as a stepping stone.
-
-<details>
-<summary>Approach D: Hybrid Service Layer (Alternative)</summary>
-
-Combine mock services with targeted read-through for dependent operations.
-
-```typescript
-const createDryRunFileSystem = (realFs: FileSystem.FileSystem) => {
-  const virtualState = new Map<string, VirtualEntry>();
-
-  return FileSystem.FileSystem.of({
-    writeFile: (path, content) =>
-      Effect.gen(function* () {
-        virtualState.set(path, { type: "file", content });
-        yield* Effect.log(`[DRY-RUN] writeFile: ${path}`);
-      }),
-
-    readFile: (path) =>
-      Effect.gen(function* () {
-        const virtual = virtualState.get(path);
-        if (virtual?.type === "file") return virtual.content;
-        return yield* realFs.readFile(path);
-      }),
-
-    // ... other operations
-  });
-};
-```
-
-**When to use Approach D instead:**
-
-- Simpler commands with few side effects
-- Rapid prototyping before full refactor
-- Commands where plan/apply doesn't make sense
-
-</details>
 
 ### Effect Integration
 
@@ -1484,20 +1308,6 @@ describe("plan snapshots", () => {
 
 ---
 
-## Summary
-
-| Approach               | Effort   | Correctness | Extensibility | Recommendation             |
-| ---------------------- | -------- | ----------- | ------------- | -------------------------- |
-| A: Flag-based skipping | Low      | Medium      | Low           | Not recommended            |
-| B: Mock services       | Medium   | Medium      | High          | Viable for simple cases    |
-| **C: Operation log**   | **High** | **High**    | **Very High** | **Recommended**            |
-| D: Hybrid layer        | Medium   | High        | High          | Alternative/stepping stone |
-| E: AOP interception    | High     | Medium      | Medium        | Too complex                |
-
-**Pursue Approach C** - The higher upfront investment pays off with a cleaner architecture that naturally supports dry-run, undo, plan serialization, and testing. This is the right time to make this architectural choice before the codebase grows.
-
----
-
 ## Extension to Other Commands
 
 The operation log pattern should extend to all mutating commands:
@@ -1562,42 +1372,40 @@ axm apply combined.plan
 
 ### Resolved
 
-1. **Architecture**: Which approach? → **Approach C (Operation Log)**
-
-2. **Scope**: Should other commands get dry-run? → **Yes**, pattern extends to all mutating commands
+1. **Scope**: Should other commands get dry-run? → **Yes**, pattern extends to all mutating commands
 
 ### To Decide
 
-3. **Discovery side effects**: Should dry-run allow git clone to populate cache?
+2. **Discovery side effects**: Should dry-run allow git clone to populate cache?
    - Option A: No cache writes (pure dry-run, may fail on uncached sources)
    - Option B: Allow cache writes (accurate planning, minor side effects)
    - Option C: Use API probe for git (no clone, may have less info)
    - **Recommendation**: Option B for MVP, with clear messaging that cache may be updated
 
-4. **Naming**: `--dry-run` vs `--plan` vs `--preview`?
+3. **Naming**: `--dry-run` vs `--plan` vs `--preview`?
    - `--dry-run` / `-n` - Most widely understood (Docker, npm, rsync); `-n` is Unix convention from `make`
    - `--plan` - Terraform convention, implies serializable output
    - `--preview` - Azure DevOps convention
    - **Recommendation**: `--dry-run` with `-n` shorthand for flag, "plan" for serialized output feature
 
-5. **Plan file format**: JSON, YAML, or binary?
+4. **Plan file format**: JSON, YAML, or binary?
    - JSON: Universal, easy to inspect and manipulate
    - YAML: More readable, matches lockfile format
    - Binary: Smaller, tamper-evident (like Terraform)
    - **Recommendation**: JSON for transparency and tooling compatibility
 
-6. **Plan staleness**: How to handle state changes between plan and apply?
+5. **Plan staleness**: How to handle state changes between plan and apply?
    - Option A: Fail if state changed (safest)
    - Option B: Re-validate and warn (flexible)
    - Option C: Always re-plan on apply (simple but less useful)
    - **Recommendation**: Option A with `--force` to override
 
-7. **Operation granularity**: How fine-grained should mutations be?
+6. **Operation granularity**: How fine-grained should mutations be?
    - Fine: Every file copy is separate operation (verbose but reversible)
    - Coarse: "Install skill X" is one operation (simpler but less visibility)
    - **Recommendation**: Fine for internal model, coarse for user display
 
-8. **Error handling during execution**: Rollback on failure?
+7. **Error handling during execution**: Rollback on failure?
    - Option A: Stop and leave partial state (simple)
    - Option B: Rollback completed operations (complex, safer)
    - Option C: Continue and report failures (resilient)
@@ -1605,11 +1413,11 @@ axm apply combined.plan
 
 ### Future Considerations
 
-9. **Remote apply**: Could plans be sent to a server for execution? (Not now, but architecture supports it)
+8. **Remote apply**: Could plans be sent to a server for execution? (Not now, but architecture supports it)
 
-10. **Plan diff**: Show difference between current plan and previous? (Nice to have)
+9. **Plan diff**: Show difference between current plan and previous? (Nice to have)
 
-11. **Interactive plan editing**: Let users modify plan before apply? (Complex, maybe not needed)
+10. **Interactive plan editing**: Let users modify plan before apply? (Complex, maybe not needed)
 
 ---
 
@@ -1674,21 +1482,21 @@ axm apply combined.plan
 
 ## Decision Record
 
-| Decision               | Choice                     | Rationale                                                                              |
-| ---------------------- | -------------------------- | -------------------------------------------------------------------------------------- |
-| Architecture           | Operation Log (Approach C) | Higher upfront cost pays off with cleaner design, natural dry-run, future capabilities |
-| Code style             | FP with Effect             | Declarative, no mutable state; enables retry, parallelism, testability                 |
-| Display logic          | Unified (plan-driven)      | Same display for preview and execution; only header/outro differs                      |
-| Display focus          | Functional behavior        | Show "skill → agents" not file operations; details available via `--verbose`           |
-| Dry-run scope          | Mutations only             | Wizards, prompts, discovery always run; only file writes are skipped                   |
-| Discovery side effects | Allow cache population     | Accurate planning requires real data; cache is acceptable side effect                  |
-| Flag name              | `--dry-run` / `-n`         | Industry standard (Docker, npm, rsync); `-n` is Unix convention from `make`            |
-| Plan format            | JSON                       | Universal, tooling-friendly, inspectable                                               |
-| JSON output            | `--json` flag              | Machine-readable output for CI/CD and testing                                          |
-| Mutation granularity   | Fine-grained internally    | Maximum visibility and reversibility                                                   |
-| Mutation display       | Grouped by skill           | User-friendly summary                                                                  |
-| Confirmation           | Danger-level based         | Low/moderate/high/severe levels determine confirmation requirements                    |
-| Error handling         | Stop on first failure      | Simple, predictable; rollback as future enhancement                                    |
+| Decision               | Choice                  | Rationale                                                                              |
+| ---------------------- | ----------------------- | -------------------------------------------------------------------------------------- |
+| Architecture           | Operation Log           | Higher upfront cost pays off with cleaner design, natural dry-run, future capabilities |
+| Code style             | FP with Effect          | Declarative, no mutable state; enables retry, parallelism, testability                 |
+| Display logic          | Unified (plan-driven)   | Same display for preview and execution; only header/outro differs                      |
+| Display focus          | Functional behavior     | Show "skill → agents" not file operations; details available via `--verbose`           |
+| Dry-run scope          | Mutations only          | Wizards, prompts, discovery always run; only file writes are skipped                   |
+| Discovery side effects | Allow cache population  | Accurate planning requires real data; cache is acceptable side effect                  |
+| Flag name              | `--dry-run` / `-n`      | Industry standard (Docker, npm, rsync); `-n` is Unix convention from `make`            |
+| Plan format            | JSON                    | Universal, tooling-friendly, inspectable                                               |
+| JSON output            | `--json` flag           | Machine-readable output for CI/CD and testing                                          |
+| Mutation granularity   | Fine-grained internally | Maximum visibility and reversibility                                                   |
+| Mutation display       | Grouped by skill        | User-friendly summary                                                                  |
+| Confirmation           | Danger-level based      | Low/moderate/high/severe levels determine confirmation requirements                    |
+| Error handling         | Stop on first failure   | Simple, predictable; rollback as future enhancement                                    |
 
 ---
 

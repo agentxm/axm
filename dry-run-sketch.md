@@ -133,16 +133,38 @@ Separate planning from execution: generate a list of operations, then optionally
 
 ---
 
-#### Core Insight: Two Categories of Operations
+#### Core Insight: Three Categories of Operations
 
-Analyzing the current install handler reveals two distinct categories:
+Analyzing the current install handler reveals three distinct categories:
 
-| Category      | Operations                                                    | Side Effects                  | Dry-Run Behavior                           |
-| ------------- | ------------------------------------------------------------- | ----------------------------- | ------------------------------------------ |
-| **Discovery** | Parse source, detect agents, discover skills, select skills   | Git clone, HTTP fetch (cache) | Run normally OR skip with cached/mock data |
-| **Mutation**  | Copy files, create symlinks, update lockfile, update settings | File system writes            | Skip and log what would happen             |
+| Category       | Operations                                                    | Side Effects                  | Dry-Run Behavior              |
+| -------------- | ------------------------------------------------------------- | ----------------------------- | ----------------------------- |
+| **Always-Run** | Init wizard (if needed), user prompts, pre-condition checks   | None (user interaction only)  | Run normally                  |
+| **Discovery**  | Parse source, detect agents, discover skills                  | Git clone, HTTP fetch (cache) | Run normally (populate cache) |
+| **Mutation**   | Copy files, create symlinks, update lockfile, update settings | File system writes            | Skip (plan only)              |
 
-The key insight: **Discovery operations read external state** (repos, URLs, agent directories) while **Mutation operations write local state** (skills directory, config files).
+The key insight: **Not all logic needs dry-run treatment.** The dry-run boundary applies only to mutations:
+
+```
+┌─────────────────────────────────────────┐
+│  ALWAYS RUNS (even in dry-run)          │
+│  - Parse source                         │
+│  - Run init wizard if workspace missing │
+│  - Detect/select agents (prompts)       │
+│  - Discover skills                      │
+│  - Select skills (prompts)              │
+│  - Check conflicts                      │
+│  - Build plan                           │
+├─────────────────────────────────────────┤
+│  SKIPPED IN DRY-RUN (mutations only)    │
+│  - Copy skill files                     │
+│  - Create symlinks                      │
+│  - Update lockfile                      │
+│  - Update settings                      │
+└─────────────────────────────────────────┘
+```
+
+Interactive wizards and prompts are part of **gathering information to build the plan**, not part of execution. A dry-run validates that all preconditions can be satisfied and shows exactly what mutations would occur.
 
 ---
 
@@ -321,42 +343,42 @@ export const planInstall = (
       args.force,
     );
 
-    // Step 7: Build per-skill installation plans
-    const skillPlans: SkillInstallPlan[] = [];
+    // Step 7: Build per-skill installation plans (Effect.forEach for effectful mapping)
     const now = new Date().toISOString();
+    const skillsToInstall = [...newSkills, ...updatedSkills];
 
-    for (const skill of [...newSkills, ...updatedSkills]) {
-      const canonicalPath = nodePath.join(axmDir, "skills", skill.name);
+    const skillPlans = yield* Effect.forEach(
+      skillsToInstall,
+      (skill) =>
+        Effect.gen(function* () {
+          const canonicalPath = nodePath.join(axmDir, "skills", skill.name);
 
-      // Determine agent installation methods (symlink vs copy)
-      const agentInstalls = yield* planAgentInstalls(
-        skill,
-        agents,
-        axmDir,
-        canonicalPath,
-      );
+          // These operations may be effectful (file system reads for hash, etc.)
+          const [agentInstalls, contentHash] = yield* Effect.all([
+            planAgentInstalls(skill, agents, axmDir, canonicalPath),
+            computeContentHash(skill.path),
+          ]);
 
-      // Compute content hash (from source, before copy)
-      const contentHash = yield* computeContentHash(skill.path);
-
-      skillPlans.push({
-        skill: {
-          name: skill.name,
-          path: skill.path,
-          description: skill.description,
-        },
-        canonicalPath,
-        agentInstalls,
-        contentHash,
-        lockEntry: {
-          source: parsed.canonical,
-          origin: getOriginFromParsed(parsed),
-          folderHash: contentHash,
-          installedAt: now,
-          updatedAt: now,
-        },
-      });
-    }
+          return {
+            skill: {
+              name: skill.name,
+              path: skill.path,
+              description: skill.description,
+            },
+            canonicalPath,
+            agentInstalls,
+            contentHash,
+            lockEntry: {
+              source: parsed.canonical,
+              origin: getOriginFromParsed(parsed),
+              folderHash: contentHash,
+              installedAt: now,
+              updatedAt: now,
+            },
+          } satisfies SkillInstallPlan;
+        }),
+      { concurrency: "unbounded" }, // Skills can be planned in parallel
+    );
 
     // Step 8: Derive flat mutation list from skill plans
     const mutations = deriveMutations(skillPlans, axmDir, initNeeded);
@@ -388,101 +410,91 @@ export const planInstall = (
 
 /**
  * Derives the flat list of mutations from skill plans.
+ * Pure function - no side effects, no mutation.
  */
 const deriveMutations = (
   skillPlans: SkillInstallPlan[],
   axmDir: string,
   initNeeded: boolean,
-): MutationOp[] => {
-  const ops: MutationOp[] = [];
+): MutationOp[] => [
+  // Init operations (conditional spread)
+  ...(initNeeded
+    ? [
+        MutationOp.CreateDir({ path: axmDir, recursive: true }),
+        MutationOp.CreateDir({
+          path: nodePath.join(axmDir, "skills"),
+          recursive: true,
+        }),
+        MutationOp.CreateDir({
+          path: nodePath.join(axmDir, "cache"),
+          recursive: true,
+        }),
+        MutationOp.WriteFile({
+          path: nodePath.join(axmDir, "settings.json"),
+          content: JSON.stringify({ agents: [], skills: {} }, null, 2),
+        }),
+      ]
+    : []),
 
-  // Init operations (if needed)
-  if (initNeeded) {
-    ops.push(MutationOp.CreateDir({ path: axmDir, recursive: true }));
-    ops.push(
-      MutationOp.CreateDir({
-        path: nodePath.join(axmDir, "skills"),
-        recursive: true,
-      }),
-    );
-    ops.push(
-      MutationOp.CreateDir({
-        path: nodePath.join(axmDir, "cache"),
-        recursive: true,
-      }),
-    );
-    ops.push(
-      MutationOp.WriteFile({
-        path: nodePath.join(axmDir, "settings.json"),
-        content: JSON.stringify({ agents: [], skills: {} }, null, 2),
-      }),
-    );
-  }
-
-  // Per-skill operations
-  for (const plan of skillPlans) {
+  // Per-skill operations (flatMap for declarative transformation)
+  ...skillPlans.flatMap((plan) => [
     // Copy to canonical location
-    ops.push(
-      MutationOp.CopyDir({
-        src: plan.skill.path,
-        dest: plan.canonicalPath,
-      }),
-    );
+    MutationOp.CopyDir({
+      src: plan.skill.path,
+      dest: plan.canonicalPath,
+    }),
 
-    // Agent installations
-    for (const agentInstall of plan.agentInstalls) {
-      if (agentInstall.method === "symlink") {
-        ops.push(
-          MutationOp.CreateSymlink({
+    // Agent installations (map with conditional)
+    ...plan.agentInstalls.map((agent) =>
+      agent.method === "symlink"
+        ? MutationOp.CreateSymlink({
             target: plan.canonicalPath,
-            link: agentInstall.targetPath,
-          }),
-        );
-      } else {
-        ops.push(
-          MutationOp.CopyFallback({
+            link: agent.targetPath,
+          })
+        : MutationOp.CopyFallback({
             src: plan.canonicalPath,
-            dest: agentInstall.targetPath,
+            dest: agent.targetPath,
           }),
-        );
-      }
-    }
+    ),
 
     // Metadata updates
-    ops.push(
-      MutationOp.UpdateLockEntry({
-        axmDir,
-        skillName: plan.skill.name,
-        entry: plan.lockEntry,
-      }),
-    );
-    ops.push(
-      MutationOp.UpdateSettings({
-        axmDir,
-        patch: { skills: { [plan.skill.name]: "*" } },
-      }),
-    );
-  }
-
-  return ops;
-};
+    MutationOp.UpdateLockEntry({
+      axmDir,
+      skillName: plan.skill.name,
+      entry: plan.lockEntry,
+    }),
+    MutationOp.UpdateSettings({
+      axmDir,
+      patch: { skills: { [plan.skill.name]: "*" } },
+    }),
+  ]),
+];
 ```
 
 ---
 
 #### Execution Phase
 
-The executor takes a plan and applies its mutations.
+The executor takes a plan and applies its mutations using Effect's declarative combinators.
 
 ```typescript
 // packages/core/src/experimental/operations/executor.ts
 
-import { Effect } from "effect";
+import { Effect, pipe, Schedule } from "effect";
 import type { FileSystem, Path } from "@effect/platform";
 import type { InstallPlan, MutationOp } from "./types.js";
 
 /**
+ * Default retry policy for transient failures (e.g., file system busy).
+ */
+const retryPolicy = pipe(
+  Schedule.exponential("100 millis"),
+  Schedule.intersect(Schedule.recurs(2)),
+);
+
+/**
  * Executes the mutations from an install plan.
+ * Uses Effect.forEach for declarative iteration with built-in error handling.
  */
 export const executePlan = (
   plan: InstallPlan,
@@ -491,23 +503,29 @@ export const executePlan = (
   ExecutionError,
   FileSystem.FileSystem | Path.Path
 > =>
-  Effect.gen(function* () {
-    const results: MutationResult[] = [];
-
-    for (const op of plan.mutations) {
-      const result = yield* executeMutation(op);
-      results.push(result);
-    }
-
-    return {
+  pipe(
+    Effect.forEach(
+      plan.mutations,
+      (op) =>
+        pipe(
+          executeMutation(op),
+          Effect.retry(retryPolicy),
+          Effect.tapError((e) =>
+            Effect.logError(`Mutation failed: ${describeMutation(op)}`, e),
+          ),
+        ),
+      { concurrency: 1 }, // Sequential execution (order matters)
+    ),
+    Effect.map((results) => ({
       success: true,
       mutationsApplied: results.length,
       results,
-    };
-  });
+    })),
+  );
 
 /**
  * Executes a single mutation operation.
+ * Returns MutationResult on success, typed error on failure.
  */
 const executeMutation = (
   op: MutationOp,
@@ -516,56 +534,30 @@ const executeMutation = (
   ExecutionError,
   FileSystem.FileSystem | Path.Path
 > =>
-  MutationOp.$match(op, {
-    CreateDir: ({ path, recursive }) =>
-      pipe(
-        fs.makeDirectory(path, { recursive }),
-        Effect.map(() => ({ op, success: true })),
-      ),
-
-    CopyDir: ({ src, dest }) =>
-      pipe(
-        copyDirectory(src, dest),
-        Effect.map(() => ({ op, success: true })),
-      ),
-
-    CreateSymlink: ({ target, link }) =>
-      pipe(
-        fs.symlink(target, link),
-        Effect.map(() => ({ op, success: true })),
-      ),
-
-    CopyFallback: ({ src, dest }) =>
-      pipe(
-        copyDirectory(src, dest),
-        Effect.map(() => ({ op, success: true })),
-      ),
-
-    WriteFile: ({ path, content }) =>
-      pipe(
-        fs.writeFileString(path, content),
-        Effect.map(() => ({ op, success: true })),
-      ),
-
-    UpdateLockEntry: ({ axmDir, skillName, entry }) =>
-      pipe(
+  pipe(
+    MutationOp.$match(op, {
+      CreateDir: ({ path, recursive }) => fs.makeDirectory(path, { recursive }),
+      CopyDir: ({ src, dest }) => copyDirectory(src, dest),
+      CreateSymlink: ({ target, link }) => fs.symlink(target, link),
+      CopyFallback: ({ src, dest }) => copyDirectory(src, dest),
+      WriteFile: ({ path, content }) => fs.writeFileString(path, content),
+      UpdateLockEntry: ({ axmDir, skillName, entry }) =>
         updateLockEntry(axmDir, skillName, entry),
-        Effect.map(() => ({ op, success: true })),
-      ),
-
-    UpdateSettings: ({ axmDir, patch }) =>
-      pipe(
-        updateSettings(axmDir, patch),
-        Effect.map(() => ({ op, success: true })),
-      ),
-
-    Remove: ({ path, recursive }) =>
-      pipe(
-        fs.remove(path, { recursive }),
-        Effect.map(() => ({ op, success: true })),
-      ),
-  });
+      UpdateSettings: ({ axmDir, patch }) => updateSettings(axmDir, patch),
+      Remove: ({ path, recursive }) => fs.remove(path, { recursive }),
+    }),
+    Effect.map(() => ({ op, success: true as const })),
+    Effect.mapError((cause) => new ExecutionError({ op, cause })),
+  );
 ```
+
+**Benefits of this approach:**
+
+- **Declarative**: `Effect.forEach` replaces imperative loop + mutable accumulator
+- **Retry built-in**: Transient failures (file busy, network blip) auto-retry
+- **Error logging**: Failures logged with context before propagating
+- **Concurrency control**: Easy to parallelize independent operations later
+- **Type-safe errors**: `ExecutionError` wraps the failing operation for debugging
 
 ---
 
@@ -584,7 +576,7 @@ export const handleInstall = (
   Effect.gen(function* () {
     p.intro(`axm skills install (${args.global ? "global" : "project"})`);
 
-    // Phase 1: Plan
+    // Phase 1: Plan (includes all discovery, prompts, and validation)
     const spinnerHelper = createSpinnerHelper();
     spinnerHelper.start("Planning installation...");
 
@@ -599,17 +591,16 @@ export const handleInstall = (
       `Plan: ${plan.summary.skillCount} skill(s) to ${plan.summary.agentCount} agent(s)`,
     );
 
-    // Show plan summary
-    displayPlanSummary(plan);
+    // Phase 2: Display plan (SAME for dry-run and real execution)
+    displayPlan(plan);
 
-    // Phase 2: Dry-run exits here
+    // Phase 3: Dry-run exits here (only the outro differs)
     if (args.dryRun) {
-      displayDryRunDetails(plan);
       p.outro("Dry-run complete. No changes made.");
       return;
     }
 
-    // Phase 3: Confirm (unless --yes)
+    // Phase 4: Confirm (unless --yes)
     if (!args.yes && !args.nonInteractive) {
       const confirmed = yield* promptConfirm(
         `Apply ${plan.mutations.length} operations?`,
@@ -620,7 +611,7 @@ export const handleInstall = (
       }
     }
 
-    // Phase 4: Execute
+    // Phase 5: Execute
     spinnerHelper.start("Applying changes...");
 
     const result = yield* executePlan(plan).pipe(
@@ -632,15 +623,21 @@ export const handleInstall = (
 
     spinnerHelper.stop(`Applied ${result.mutationsApplied} operations`);
 
-    // Show results
-    displayResults(plan, result);
+    // Phase 6: Success outro (display already shown in Phase 2)
     p.outro(`Successfully installed ${plan.summary.skillCount} skill(s)`);
   });
 ```
 
+Note: The `displayPlan()` call is identical for both modes. The only difference is:
+
+- **Dry-run**: exits after display with "No changes made"
+- **Execution**: continues to confirm → execute → success outro
+
 ---
 
-#### Display Functions
+#### Unified Display Logic
+
+**Design principle**: Preview (dry-run) and actual execution share the same display logic. The plan is the single source of truth for what to display—only the framing (header/outro) differs between modes.
 
 ```typescript
 // packages/cli/src/commands/skills/install/display.ts
@@ -651,9 +648,15 @@ import type {
 } from "@agentxm/core/experimental/operations";
 import * as p from "@clack/prompts";
 
-export const displayPlanSummary = (plan: InstallPlan): void => {
+/**
+ * Display plan operations - SAME output for both dry-run and execution.
+ * The plan determines what to show; the mode only affects header/outro.
+ */
+export const displayPlan = (plan: InstallPlan): void => {
+  // Source info
   p.log.info(`Source: ${plan.source.canonical} (${plan.source.type})`);
 
+  // Skill summary
   if (plan.summary.newSkills.length > 0) {
     p.log.info(`New skills: ${plan.summary.newSkills.join(", ")}`);
   }
@@ -665,22 +668,22 @@ export const displayPlanSummary = (plan: InstallPlan): void => {
       `Skipped (already installed): ${plan.summary.skippedSkills.join(", ")}`,
     );
   }
-};
 
-export const displayDryRunDetails = (plan: InstallPlan): void => {
-  p.log.step("Operations that would be performed:");
-
-  for (const op of plan.mutations) {
-    const description = describeMutation(op);
-    p.log.message(`  ${description}`);
+  // Operations (grouped by skill for readability)
+  for (const skillPlan of plan.skills) {
+    p.log.step(`${skillPlan.skill.name}`);
+    p.log.message(`  copy → ${skillPlan.canonicalPath}`);
+    for (const agent of skillPlan.agentInstalls) {
+      const method = agent.method === "symlink" ? "symlink" : "copy";
+      p.log.message(`  ${method} → ${agent.agentName}`);
+    }
   }
 
+  // Summary stats
   p.log.info("");
-  p.log.info("Summary:");
-  p.log.info(`  - ${plan.summary.skillCount} skill(s) would be installed`);
-  p.log.info(`  - ${plan.summary.symlinkCount} symlink(s) would be created`);
-  p.log.info(`  - ${plan.summary.copyCount} directory copies would be made`);
-  p.log.info(`  - lockfile and settings would be updated`);
+  p.log.info(
+    `${plan.summary.skillCount} skill(s), ${plan.summary.symlinkCount} symlink(s), ${plan.summary.copyCount} copy(s)`,
+  );
 };
 
 const describeMutation = (op: MutationOp): string =>
@@ -696,6 +699,12 @@ const describeMutation = (op: MutationOp): string =>
     Remove: ({ path }) => `remove ${path}`,
   });
 ```
+
+This ensures:
+
+- **Consistency**: What you see in dry-run is exactly what happens in execution
+- **Maintainability**: Single display function to update
+- **Predictability**: No divergence between preview and reality
 
 ---
 
@@ -1085,71 +1094,88 @@ const execute = (op: MutationOp): Effect.Effect<void, Error, FileSystem> =>
 **Batching and Concurrency**
 
 ```typescript
-// Plan enables smart execution strategies
-const executePlan = (plan: InstallPlan) =>
-  Effect.gen(function* () {
-    // Independent operations can run in parallel
-    const [copyOps, metadataOps] = partition(plan.mutations, isCopyOp);
-
-    // Copies are independent - parallelize
-    yield* Effect.all(copyOps.map(execute), { concurrency: "unbounded" });
-
-    // Metadata updates are sequential
-    for (const op of metadataOps) {
-      yield* execute(op);
-    }
-  });
+// Plan enables smart execution strategies - all declarative
+const executePlanOptimized = (plan: InstallPlan) =>
+  pipe(
+    // Partition operations by independence
+    Effect.succeed(partition(plan.mutations, isCopyOp)),
+    Effect.flatMap(([copyOps, metadataOps]) =>
+      pipe(
+        // Copies are independent - parallelize
+        Effect.forEach(copyOps, executeMutation, { concurrency: "unbounded" }),
+        // Then metadata updates - sequential
+        Effect.flatMap(() =>
+          Effect.forEach(metadataOps, executeMutation, { concurrency: 1 }),
+        ),
+      ),
+    ),
+    Effect.map((results) => ({
+      success: true,
+      mutationsApplied: results.length,
+      results,
+    })),
+  );
 ```
 
 **Layers for Testing**
 
 ```typescript
-// Test planner with mock filesystem
-const plan =
-  yield *
-  planInstall(args).pipe(
-    Effect.provide(MockFileSystem),
-    Effect.provide(MockHttpClient),
-  );
+// Test planner with mock filesystem - pure pipe composition
+const testPlanner = pipe(
+  planInstall(args),
+  Effect.provide(MockFileSystem),
+  Effect.provide(MockHttpClient),
+);
 
-// Test executor with real or mock filesystem
-const result =
-  yield * executePlan(plan).pipe(Effect.provide(InMemoryFileSystem));
+// Test executor with in-memory filesystem
+const testExecutor = (plan: InstallPlan) =>
+  pipe(executePlan(plan), Effect.provide(InMemoryFileSystem));
+
+// Run in tests
+const plan = await Effect.runPromise(testPlanner);
+const result = await Effect.runPromise(testExecutor(plan));
 ```
 
 ### Prompts and User Interaction
 
-Prompts happen during planning, not execution:
+All interactive flows happen during planning—execution is non-interactive:
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│                   PLANNING PHASE                     │
+│              PLANNING PHASE (always runs)            │
 │  - Parse source                                      │
+│  - Run init wizard if workspace not initialized      │
 │  - Detect agents                                     │
-│  - Discover skills (may clone/fetch)                 │
+│  - Discover skills (may clone/fetch to cache)        │
 │  - SELECT SKILLS (interactive prompt)                │
 │  - SELECT AGENTS (interactive prompt)                │
 │  - Check conflicts                                   │
 │  - Generate plan                                     │
 ├─────────────────────────────────────────────────────┤
-│                   DISPLAY PLAN                       │
-│  - Show what will happen                             │
-│  - CONFIRM (interactive prompt, unless --yes)        │
+│              DISPLAY PLAN (same for both modes)      │
+│  - Show skills, agents, operations                   │
+│  - Show summary stats                                │
 ├─────────────────────────────────────────────────────┤
-│                 EXECUTION PHASE                      │
-│  - Apply mutations (no prompts)                      │
-│  - Report results                                    │
+│              DRY-RUN EXITS HERE                      │
+│  - "Dry-run complete. No changes made."              │
+├─────────────────────────────────────────────────────┤
+│              CONFIRM (unless --yes)                  │
+│  - "Apply N operations?"                             │
+├─────────────────────────────────────────────────────┤
+│              EXECUTION PHASE (no prompts)            │
+│  - Apply mutations                                   │
+│  - "Successfully installed N skill(s)"               │
 └─────────────────────────────────────────────────────┘
 ```
 
-In dry-run mode, execution phase is skipped but all prompts still happen.
+**Key principle**: Wizards and prompts are part of gathering information to build the plan. They always run, even in dry-run mode. The dry-run boundary is specifically at the mutation phase.
 
-```typescript
-// Clear indication of dry-run mode in UI
-if (args.dryRun) {
-  p.note("DRY-RUN MODE - showing what would happen without making changes");
-}
-```
+This means:
+
+- Init wizard runs in dry-run (validates workspace can be set up)
+- Skill selection prompts run in dry-run (user chooses what to install)
+- Agent selection prompts run in dry-run (user chooses target agents)
+- Only the final mutations are skipped
 
 ---
 
@@ -1569,6 +1595,9 @@ axm apply combined.plan
 | Decision               | Choice                     | Rationale                                                                              |
 | ---------------------- | -------------------------- | -------------------------------------------------------------------------------------- |
 | Architecture           | Operation Log (Approach C) | Higher upfront cost pays off with cleaner design, natural dry-run, future capabilities |
+| Code style             | FP with Effect             | Declarative, no mutable state; enables retry, parallelism, testability                 |
+| Display logic          | Unified (plan-driven)      | Same display for preview and execution; only header/outro differs                      |
+| Dry-run scope          | Mutations only             | Wizards, prompts, discovery always run; only file writes are skipped                   |
 | Discovery side effects | Allow cache population     | Accurate planning requires real data; cache is acceptable side effect                  |
 | Flag name              | `--dry-run`                | Industry standard (Docker, npm, rsync); most widely understood                         |
 | Plan format            | JSON                       | Universal, tooling-friendly, inspectable                                               |

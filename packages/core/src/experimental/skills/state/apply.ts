@@ -16,10 +16,11 @@
 import * as nodePath from "node:path";
 import { FileSystem, type Path } from "@effect/platform";
 import { Data, Effect } from "effect";
+import type { SkillLockEntry } from "../../schemas/lockfile.js";
 import type { SkillSettingsEntry } from "../../schemas/settings.js";
 import { readLockfile, writeLockfile } from "../lockfile.js";
 import { readSettings, writeSettings } from "../settings.js";
-import type { AgentConfig, LockEntry, Settings } from "../types.js";
+import type { AgentConfig, Settings } from "../types.js";
 import { getChangesToApply } from "./diff.js";
 import type {
   IdealSkillLegacy as IdealSkill,
@@ -212,16 +213,46 @@ const sourceToSettingsValue = (source: SkillSource): SkillSettingsEntry => {
 };
 
 /**
- * Convert IdealSkill to LockEntry.
+ * Convert IdealSkill to SkillLockEntry.
+ * Maps the legacy SkillSource format to the new structured SkillSource schema.
  */
-const idealToLockEntry = (ideal: IdealSkill): Effect.Effect<LockEntry, UnsupportedSourceError> =>
+const idealToLockEntry = (
+  ideal: IdealSkill,
+): Effect.Effect<SkillLockEntry, UnsupportedSourceError> =>
   Effect.gen(function* () {
-    const origin = yield* getSourcePath(ideal.source);
-    const now = new Date().toISOString();
+    const now = new Date();
+
+    // Convert SkillSource to the new structured format
+    let skillSource: SkillLockEntry["source"];
+
+    switch (ideal.source._tag) {
+      case "Local":
+        skillSource = { _tag: "Local", path: ideal.source.path };
+        break;
+      case "Git":
+        skillSource = { _tag: "Git", url: ideal.source.url };
+        break;
+      case "WellKnown":
+        // WellKnown sources are remote URLs, convert to Git source
+        skillSource = { _tag: "Git", url: `${ideal.source.baseUrl}/${ideal.source.skillName}` };
+        break;
+      case "Registry":
+        // For now, treat Registry as not supported in lock entries
+        // We'll need to add proper registry location info later
+        return yield* Effect.fail(
+          new UnsupportedSourceError({
+            message: "Registry sources not yet supported in apply",
+            sourceTag: ideal.source._tag,
+          }),
+        );
+    }
+
     return {
-      source: sourceToLockfileValue(ideal.source),
-      origin,
-      folderHash: ideal.gitTreeFolderHash,
+      name: ideal.name,
+      source: skillSource,
+      version: undefined,
+      gitTreeHash: ideal.gitTreeFolderHash,
+      agents: Array.from(ideal.agents),
       installedAt: now,
       updatedAt: now,
     };
@@ -736,7 +767,7 @@ const updateLockfileForChanges = (
     );
 
     // Build updated skills
-    const updatedSkills = { ...lockfile.extensions.skills };
+    const updatedSkills = { ...lockfile.skills };
 
     for (const [name, change] of changes) {
       if (!appliedNames.has(name)) continue;
@@ -773,7 +804,7 @@ const updateLockfileForChanges = (
           );
           updatedSkills[name] = {
             ...entry,
-            installedAt: lockfile.extensions.skills[name]?.installedAt ?? new Date().toISOString(),
+            installedAt: lockfile.skills[name]?.installedAt ?? new Date(),
           };
           break;
         }
@@ -792,7 +823,7 @@ const updateLockfileForChanges = (
           );
           updatedSkills[name] = {
             ...entry,
-            installedAt: lockfile.extensions.skills[name]?.installedAt ?? new Date().toISOString(),
+            installedAt: lockfile.skills[name]?.installedAt ?? new Date(),
           };
           break;
         }
@@ -805,10 +836,7 @@ const updateLockfileForChanges = (
     // Write updated lockfile
     yield* writeLockfile(axmDir, {
       ...lockfile,
-      extensions: {
-        ...lockfile.extensions,
-        skills: updatedSkills,
-      },
+      skills: updatedSkills,
     }).pipe(
       Effect.mapError(
         (error) =>

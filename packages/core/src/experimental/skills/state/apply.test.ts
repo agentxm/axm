@@ -452,7 +452,7 @@ describe("applyDiff", () => {
       }),
     );
     await runEffect(writeSettings(axmDir, { agents: [], skills: {} }));
-    await runEffect(writeLockfile(axmDir, { lockfileVersion: 1, extensions: { skills: {} } }));
+    await runEffect(writeLockfile(axmDir, { lockfileVersion: 1, skills: {} }));
   });
 
   afterEach(async () => {

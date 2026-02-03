@@ -8,10 +8,9 @@
 import * as nodePath from "node:path";
 import { FileSystem, type Path } from "@effect/platform";
 import { Array as Arr, Data, Effect, Option, pipe, Record } from "effect";
-
+import type { SkillLockEntry } from "../../schemas/lockfile.js";
 import { computeFolderHash } from "../folder-hash.js";
 import { readLockfile } from "../lockfile.js";
-import type { LockEntry } from "../types.js";
 import {
   type ActualSkill,
   type LockedSkill,
@@ -109,18 +108,57 @@ const parseFrontmatter = (content: string): Option.Option<SkillFrontmatter> => {
 };
 
 /**
- * Convert a lockfile LockEntry to a LockedSkill.
+ * Convert a lockfile SkillLockEntry to a LockedSkill.
+ * Maps the new structured format to the legacy string-based format.
  */
-const lockEntryToLockedSkill = (entry: LockEntry): LockedSkill => ({
-  source: entry.source,
-  origin: entry.origin,
-  path: Option.none(), // LockEntry doesn't have path field
-  ref: Option.none(), // LockEntry doesn't have ref field
-  version: Option.none(), // LockEntry doesn't have version field
-  gitTreeFolderHash: entry.folderHash,
-  installedAt: new Date(entry.installedAt),
-  updatedAt: new Date(entry.updatedAt),
-});
+const lockEntryToLockedSkill = (entry: SkillLockEntry): LockedSkill => {
+  // Convert structured source to canonical string format
+  let sourceStr: string;
+  let originStr: string;
+
+  switch (entry.source._tag) {
+    case "GitHub":
+      sourceStr = `github:${entry.source.owner}/${entry.source.repo}`;
+      originStr = `https://github.com/${entry.source.owner}/${entry.source.repo}`;
+      break;
+    case "Git":
+      sourceStr = `git:${entry.source.url}`;
+      originStr = entry.source.url;
+      break;
+    case "Local":
+      sourceStr = `local:${entry.source.path}`;
+      originStr = entry.source.path;
+      break;
+    case "Registry":
+      sourceStr = `registry:${entry.source.scope}/${entry.source.name}`;
+      originStr =
+        entry.source.location._tag === "Remote"
+          ? entry.source.location.url
+          : entry.source.location.path;
+      break;
+  }
+
+  return {
+    source: sourceStr,
+    origin: originStr,
+    path:
+      entry.source._tag === "GitHub" && entry.source.path
+        ? Option.some(entry.source.path)
+        : entry.source._tag === "Git" && entry.source.subpath
+          ? Option.some(entry.source.subpath)
+          : Option.none(),
+    ref:
+      entry.source._tag === "GitHub" && entry.source.ref
+        ? Option.some(entry.source.ref)
+        : entry.source._tag === "Git" && entry.source.ref
+          ? Option.some(entry.source.ref)
+          : Option.none(),
+    version: entry.version ? Option.some(entry.version) : Option.none(),
+    gitTreeFolderHash: entry.gitTreeHash ?? "",
+    installedAt: entry.installedAt,
+    updatedAt: entry.updatedAt,
+  };
+};
 
 /**
  * List files in a skill directory (non-recursive, just the file names).
@@ -307,10 +345,7 @@ export const loadLockedSkills = (
 
     // Convert each lock entry to LockedSkill
     const lockedSkills = Object.fromEntries(
-      Object.entries(lockfile.extensions.skills).map(([name, entry]) => [
-        name,
-        lockEntryToLockedSkill(entry),
-      ]),
+      Object.entries(lockfile.skills).map(([name, entry]) => [name, lockEntryToLockedSkill(entry)]),
     );
 
     return lockedSkills;

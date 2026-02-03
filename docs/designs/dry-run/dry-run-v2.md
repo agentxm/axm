@@ -37,14 +37,19 @@ return plan;
 
 ## Design Decisions
 
-| Decision            | Choice              | Rationale                               |
-| ------------------- | ------------------- | --------------------------------------- |
-| Command encoding    | Discriminated union | Simple, explicit, type-safe             |
-| Plan execution      | `plan.apply()`      | Single method handles dry-run and apply |
-| State separation    | Actual/Locked/Ideal | Clear mental model, distinct concerns   |
-| Divergence handling | Handler diagnoses   | Explicit control per command            |
-| Multiple targets    | Bulk via args       | Commands use arrays (skills, agents)    |
-| Apply effectful     | Yes                 | Side effects require Effect             |
+| Decision            | Choice                    | Rationale                                    |
+| ------------------- | ------------------------- | -------------------------------------------- |
+| Command encoding    | Discriminated union       | Simple, explicit, type-safe                  |
+| Plan execution      | `plan.apply()`            | Single method handles dry-run and apply      |
+| State separation    | Actual/Locked/Ideal       | Clear mental model, distinct concerns        |
+| State types         | Shared for Actual & Ideal | Diff is set operations; same structure       |
+| Plan steps          | User intent, not impl     | Show install/update/remove, hide clean+add   |
+| Agent grouping      | Per-skill with agents[]   | Matches display: "skill @ agent1, agent2"    |
+| Divergence handling | Handler diagnoses         | Explicit control per command                 |
+| Diagnosis decoupled | Issues only, no plan      | Separation of concerns; plan built if needed |
+| Settings changes    | Derived, not explicit     | Encapsulated in skill operations             |
+| Multiple targets    | Bulk via args             | Commands use arrays (skills, agents)         |
+| Apply effectful     | Yes                       | Side effects require Effect                  |
 
 ## Workspace Service
 
@@ -87,6 +92,12 @@ interface Workspace {
     actual: ActualState,
     locked: LockedState,
   ): Effect.Effect<SkillsDiagnosis, DiagnoseError>;
+
+  /** Build ideal state to repair diagnosed issues (for doctor --fix) */
+  buildIdealFromDiagnosis(
+    locked: LockedState,
+    diagnosis: SkillsDiagnosis,
+  ): Effect.Effect<IdealState, CommandError>;
 }
 
 /** Layer factory - creates Workspace with context */
@@ -132,16 +143,17 @@ type Command =
 ## State Types
 
 ```typescript
-/** Filesystem reality - what's physically on disk */
-interface ActualState {
-  skills: ReadonlyArray<SkillOnDisk>; // may have duplicates across agents
-}
-
-interface SkillOnDisk {
+/** Skill installed at a specific agent location */
+interface SkillAtAgent {
   name: string;
   agent: string;
   path: string;
   files: ReadonlyArray<string>;
+}
+
+/** Filesystem reality - what's physically on disk */
+interface ActualState {
+  skills: ReadonlyArray<SkillAtAgent>;
 }
 
 /** Lockfile contract - what we've committed to having installed */
@@ -149,12 +161,19 @@ type LockedState = Lockfile; // from @agentxm/core/experimental/schemas/lockfile
 
 /** Desired outcome - what we want after the command */
 interface IdealState {
-  skills: Record<string, InstalledSkill>;
-  settings: Settings; // desired configuration
+  skills: ReadonlyArray<SkillAtAgent>;
 }
 ```
 
+Note: ActualState and IdealState share the same structure. The plan is computed by diffing these sets:
+
+- In ideal but not actual → install
+- In actual but not ideal → remove
+- In both → no-op
+
 ## Plan
+
+Plan steps reflect user intent, not implementation details. Each step groups affected agents.
 
 ```typescript
 interface Plan {
@@ -164,35 +183,66 @@ interface Plan {
   apply(opts: { dryRun: boolean }): Effect.Effect<void, ApplyError>;
 }
 
+/** Steps reflect user intent, grouped by skill */
 type PlanStep =
-  | { _tag: "AddSkill"; skill: string; source: string }
-  | { _tag: "RemoveSkill"; skill: string }
-  | { _tag: "SyncSkill"; skill: string; agent: string }
-  | { _tag: "CleanSkill"; skill: string; agent: string };
+  | {
+      _tag: "InstallSkill";
+      skill: string;
+      agents: ReadonlyArray<string>;
+      source: string;
+    }
+  | { _tag: "UpdateSkill"; skill: string; agents: ReadonlyArray<string> }
+  | { _tag: "RemoveSkill"; skill: string; agents: ReadonlyArray<string> }
+  | { _tag: "RepairSkill"; skill: string; agents: ReadonlyArray<string> };
 ```
 
+Example output:
+
+```
+axm skills install github:org/repo --all
+
+  (install) commit @ claude, cursor, codex
+  (install) review-pr @ claude, cursor, codex
+
+  2 skills to install across 3 agents
+```
+
+```
+axm skills update my-skill
+
+  (update) my-skill @ claude, codex, gemini
+
+  1 skill to update
+```
+
+Implementation details (e.g., update = clean + add) are hidden inside `plan.apply()`.
+
 ## SkillsDiagnosis
+
+Diagnosis is decoupled from planning. Issues are identified; repair plan is built separately if needed.
 
 ```typescript
 interface SkillsDiagnosis {
   readonly issues: ReadonlyArray<SkillIssue>;
-  readonly prescriptionPlan: Plan; // repairs for issues
-
-  /** Display issues only (axm doctor) */
-  displayIssues(): Effect.Effect<void, DisplayError>;
 }
 
 type SkillIssue =
-  | { _tag: "SkillMissingFromDisk"; name: string; critical: boolean }
+  | {
+      _tag: "SkillMissingFromDisk";
+      name: string;
+      agent: string;
+      critical: boolean;
+    }
   | {
       _tag: "SkillNotInLockfile";
       name: string;
-      path: string;
+      agent: string;
       critical: boolean;
     }
   | {
       _tag: "ChecksumMismatch";
       name: string;
+      agent: string;
       expected: string;
       actual: string;
       critical: boolean;
@@ -204,6 +254,8 @@ type SkillIssue =
       critical: boolean;
     };
 ```
+
+Note: Issue types need further refinement to align with validation codes (see sketch doc).
 
 ## Doctor Pattern
 
@@ -217,12 +269,28 @@ const locked = yield * ws.loadLocked();
 const diagnosis = yield * ws.diagnoseSkills(actual, locked);
 
 if (!fix) {
-  yield * diagnosis.displayIssues();
-} else {
-  yield * diagnosis.prescriptionPlan.apply({ dryRun });
+  // Display issues only
+  yield * displayIssues(diagnosis.issues);
+  return diagnosis;
 }
 
+// Build repair plan from issues
+const ideal = yield * ws.buildIdealFromDiagnosis(locked, diagnosis);
+const plan = yield * ws.buildPlan(actual, locked, ideal);
+yield * plan.apply({ dryRun });
+
 return diagnosis;
+```
+
+Example output:
+
+```
+axm doctor --fix
+
+  (repair) broken-skill @ claude
+  (remove) orphaned-skill @ cursor
+
+  1 to repair, 1 to remove
 ```
 
 ## Benefits
@@ -237,3 +305,4 @@ return diagnosis;
 - [ ] How to handle external state (remote skill registries)?
 - [ ] Should `buildPlan` detect no-op and return empty plan?
 - [ ] Error recovery: partial apply rollback?
+- [ ] SkillIssue types need refinement to align with validation codes (see sketch doc)

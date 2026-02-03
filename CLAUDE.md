@@ -113,7 +113,7 @@ packages/           # All packages live here
       utils/        # Shared across cli modules
   core/             # @agentxm/core - Domain logic, types, and utilities (no CLI concerns)
     src/
-      experimental/
+      experimental/   # All core code lives here (@experimental API)
         <module>/
           parser.ts
           parser.test.ts

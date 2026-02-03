@@ -14,7 +14,6 @@ yield * ws.ensureInit();
 const current = yield * ws.loadCurrentState();
 
 // Handler decides how to handle issues (computed during state loading)
-// collectIssues returns Array<ActualSkillIssue | SkillStateIssue | WorkspaceIssue>
 const allIssues = collectIssues(current);
 if (allIssues.some((i) => i.severity === "error") && !force) {
   return (
@@ -22,16 +21,30 @@ if (allIssues.some((i) => i.severity === "error") && !force) {
   );
 }
 
+// Resolve agents before building ideal state (handler responsibility)
+const resolvedAgents =
+  command.agents.length > 0 ? command.agents : projectSettings.defaultAgents;
+
+// buildIdealState is effectful (fetches from source)
 const ideal =
   yield *
-  ws.buildIdealState(current, {
+  buildIdealState(current, {
     _tag: "skills-install",
     source: "owner/repo",
-    agents: ["claude"],
+    agents: resolvedAgents, // Already resolved, not "fall back to settings"
     skills: ["my-skill"], // or "all"
     force: false,
   });
-const plan = yield * ws.buildPlan(current, ideal);
+
+// buildPlan is pure - no effects needed
+const plan = buildPlan(current, ideal);
+
+// Check for empty plan
+if (plan.steps.length === 0) {
+  yield * Console.log("Already up to date.");
+  return plan;
+}
+
 yield * ws.applyPlan(plan, { dryRun });
 
 return plan;
@@ -48,23 +61,42 @@ return plan;
 | Diffing             | Version or hash by source     | Registry: semver; Git: tree hash; Local: always update              |
 | Integrity checks    | Existence only, no content    | Avoid false positives from formatting changes                       |
 | Install location    | Canonical by source type      | Registry: `@<scope>/skills/<name>`, other: `external/skills/<name>` |
-| Agent sync          | Separate concern              | Computed independently; not part of skill state                     |
+| Agent sync          | Per-skill in IdealSkill       | Agents resolved by handler, included in ideal state and plan steps  |
 | Plan steps          | User intent, not impl         | Show install/update/remove, hide clean+add                          |
 | Agent grouping      | Per-skill with agents[]       | Matches display: "skill @ agent1, agent2"; always explicit          |
 | Divergence handling | Handler inspects issues       | Issues on state; handler decides how to proceed                     |
 | Issues on state     | Computed during load          | No separate diagnose step; issues at ActualSkill/SkillState/Current |
-| Settings changes    | Derived, not explicit         | Encapsulated in skill operations                                    |
+| Settings changes    | Derived from plan steps       | Install/update → add entry; remove → delete entry                   |
 | Multiple targets    | Bulk via args                 | Commands use arrays (skills, agents)                                |
 | Apply effectful     | Yes                           | Side effects require Effect                                         |
+| buildPlan           | Pure function                 | No effects needed; easier to test                                   |
+| Install path        | Computed on demand            | Derived from source type + name; not stored                         |
 
 ## Workspace Service
 
 ```typescript
-// Error types (detailed definitions TBD)
-type WorkspaceError = { _tag: "WorkspaceError"; message: string };
-type CommandError = { _tag: "CommandError"; message: string };
-type PlanError = { _tag: "PlanError"; message: string };
-type ApplyError = { _tag: "ApplyError"; message: string };
+// Error types
+class WorkspaceError extends Data.TaggedError("WorkspaceError")<{
+  message: string;
+  cause?: unknown;
+}> {}
+
+class CommandError extends Data.TaggedError("CommandError")<{
+  message: string;
+  cause?: unknown;
+}> {}
+
+class ApplyError extends Data.TaggedError("ApplyError")<{
+  message: string;
+  step?: PlanStep;
+  cause?: unknown;
+}> {}
+
+class UnhealthyWorkspaceError extends Data.TaggedError(
+  "UnhealthyWorkspaceError",
+)<{
+  issues: Array.Array<AnyIssue>;
+}> {}
 
 interface Workspace {
   /** Workspace root path (e.g., .axm/ or ~/.axm/) */
@@ -86,18 +118,6 @@ interface Workspace {
    */
   loadCurrentState(): Effect.Effect<CurrentState, WorkspaceError>;
 
-  /** Compute ideal state for a command based on current state */
-  buildIdealState(
-    current: CurrentState,
-    cmd: Command,
-  ): Effect.Effect<IdealState, CommandError>;
-
-  /** Diff current state vs ideal to produce execution plan */
-  buildPlan(
-    current: CurrentState,
-    ideal: IdealState,
-  ): Effect.Effect<Plan, PlanError>;
-
   /** Apply a plan - display if dryRun, execute otherwise */
   applyPlan(
     plan: Plan,
@@ -116,6 +136,139 @@ const WorkspaceLive = (options: { global: boolean; interactive: boolean }) =>
   );
 ```
 
+## Pure Functions
+
+These functions are pure and can be tested without effects:
+
+```typescript
+/**
+ * Compute install path from source type and skill name.
+ * Registry skills: .axm/extensions/@<scope>/skills/<name>
+ * External skills: .axm/extensions/external/skills/<name>
+ */
+const computeInstallPath = (source: SkillSource, name: string): string => {
+  switch (source._tag) {
+    case "Registry":
+      return `.axm/extensions/@${source.scope}/skills/${name}`;
+    case "GitHub":
+    case "Local":
+      return `.axm/extensions/external/skills/${name}`;
+  }
+};
+
+/**
+ * Collect all issues from current state into a flat array.
+ * Returns issues from all levels: workspace, skill state, and actual skill.
+ */
+const collectIssues = (current: CurrentState): Array.Array<AnyIssue> => [
+  ...current.issues,
+  ...current.skills.flatMap((s) => [
+    ...s.issues,
+    ...Option.match(s.actual, {
+      onNone: () => [],
+      onSome: (a) => a.issues,
+    }),
+  ]),
+];
+
+/**
+ * Build execution plan by diffing current vs ideal state.
+ * Pure function - no effects needed.
+ */
+const buildPlan = (current: CurrentState, ideal: IdealState): Plan => {
+  const steps: Array.Array<PlanStep> = [];
+
+  // Find skills to install or update
+  for (const idealSkill of ideal.skills) {
+    const installPath = computeInstallPath(idealSkill.source, idealSkill.name);
+    const currentSkill = current.skills.find(
+      (s) => Option.isSome(s.actual) && s.actual.value.path === installPath,
+    );
+
+    if (!currentSkill || Option.isNone(currentSkill.actual)) {
+      // Not on disk → install
+      steps.push({
+        _tag: "InstallSkill",
+        skill: idealSkill.name,
+        source: idealSkill.source,
+        version: idealSkill.version,
+        gitTreeHash: idealSkill.gitTreeHash,
+        agents: idealSkill.agents,
+      });
+    } else if (Option.isSome(currentSkill.locked)) {
+      // On disk and in lockfile → check for update
+      const locked = currentSkill.locked.value;
+      const needsUpdate =
+        (Option.isSome(idealSkill.version) &&
+          !Option.equals(idealSkill.version, locked.version)) ||
+        (Option.isSome(idealSkill.gitTreeHash) &&
+          !Option.equals(idealSkill.gitTreeHash, locked.gitTreeHash)) ||
+        idealSkill.source._tag === "Local"; // Local always updates
+
+      if (needsUpdate) {
+        steps.push({
+          _tag: "UpdateSkill",
+          skill: idealSkill.name,
+          fromVersion: locked.version,
+          toVersion: idealSkill.version,
+          fromHash: locked.gitTreeHash,
+          toHash: idealSkill.gitTreeHash,
+          agents: idealSkill.agents,
+        });
+      }
+    }
+  }
+
+  // Find skills to remove (in current but not in ideal)
+  for (const currentSkill of current.skills) {
+    if (Option.isNone(currentSkill.actual)) continue;
+
+    const actualPath = currentSkill.actual.value.path;
+    const inIdeal = ideal.skills.some(
+      (s) => computeInstallPath(s.source, s.name) === actualPath,
+    );
+
+    if (!inIdeal && Option.isSome(currentSkill.locked)) {
+      steps.push({
+        _tag: "RemoveSkill",
+        skill: currentSkill.name,
+        agents: [], // TODO: Get from current settings
+      });
+    }
+  }
+
+  return { steps };
+};
+
+/** Check if plan has any changes */
+const hasChanges = (plan: Plan): boolean => plan.steps.length > 0;
+```
+
+## Effectful Functions
+
+These functions require effects (I/O, fetching):
+
+```typescript
+/**
+ * Compute ideal state for a command based on current state.
+ * Effectful because it may fetch from remote sources.
+ */
+const buildIdealState = (
+  current: CurrentState,
+  cmd: Command,
+): Effect.Effect<IdealState, CommandError> =>
+  Effect.gen(function* () {
+    switch (cmd._tag) {
+      case "skills-install":
+        return yield* buildIdealForInstall(current, cmd);
+      case "skills-uninstall":
+        return yield* buildIdealForUninstall(current, cmd);
+      case "skills-update":
+        return yield* buildIdealForUpdate(current, cmd);
+    }
+  });
+```
+
 ## Commands
 
 Discriminated union of all supported commands:
@@ -126,7 +279,7 @@ type Command =
       _tag: "skills-install";
       /** GitHub shorthand (owner/repo), local path, or URL */
       source: string;
-      /** Limit sync to these agents; empty = resolve from project settings during buildIdealState */
+      /** Target agents (already resolved by handler) */
       agents: Array.Array<string>;
       /** "all" to install all discovered skills, or specific skill names */
       skills: "all" | Array.Array<string>;
@@ -161,15 +314,14 @@ High-level algorithm for computing ideal state from current state + command.
 2. **Resolve source** — Parse source string → `SkillSource`
 3. **Discover skills** — Fetch available skills from source
 4. **Filter skills** — Apply `skills: "all" | string[]` filter
-5. **Resolve agents** — Use command's `agents[]` or fall back to project settings
-6. **For each skill to install:**
-   - Compute install path (from source type + name)
-   - Check if path already exists in current
+5. **For each skill to install:**
+   - Compute install path via `computeInstallPath(source, name)`
+   - Check if path already exists in current (lookup by path)
    - If exists with same source → overwrite (refresh)
    - If exists with different source and `!force` → prompt for confirmation
    - If exists with different source and `force` → replace
    - If not exists → add
-7. **Return ideal state**
+6. **Return ideal state**
 
 ### skills-uninstall
 
@@ -208,14 +360,19 @@ High-level algorithm for computing ideal state from current state + command.
 ```typescript
 import { Array, Option } from "effect";
 
+/** Registry location - remote URL or local filesystem path */
+type RegistryLocation =
+  | { _tag: "Remote"; url: string }
+  | { _tag: "FileSystem"; path: string };
+
 /** Skill source - where to fetch from */
 type SkillSource =
   | {
       _tag: "Registry";
-      origin: string;
+      location: RegistryLocation;
       scope: string;
       name: string;
-      version: string;
+      version: Option<string>; // None = latest
     }
   | {
       _tag: "GitHub";
@@ -228,6 +385,9 @@ type SkillSource =
 
 /** Issue severity */
 type Severity = "error" | "warning";
+
+/** Union of all issue types */
+type AnyIssue = ActualSkillIssue | SkillStateIssue | WorkspaceIssue;
 
 /** Issues specific to a skill on disk */
 type ActualSkillIssue =
@@ -299,7 +459,6 @@ interface CurrentState {
 /** Desired skill after the command */
 interface IdealSkill {
   name: string;
-  path: string; // Install path - pre-computed from source for convenience
   source: SkillSource;
   version: Option<string>; // Semver for registry, None for git/local
   gitTreeHash: Option<string>; // Hash of source folder for git sources
@@ -316,16 +475,16 @@ interface IdealState {
 
 - Registry skills install to `.axm/extensions/@<scope>/skills/<name>`
 - External skills (GitHub, local) install to `.axm/extensions/external/skills/<name>`
-- Sync to agents defined in project settings (filtered by `--agent` if specified)
+- Agents are resolved by handler before buildIdealState; passed explicitly in command
 
-**Plan computation** (diff of current vs ideal, matched by path):
+**Plan computation** (diff of current vs ideal, matched by computed path):
 
 - In ideal but not current → install
 - In current but not ideal → remove
 - In both, version or hash differs → update
 - In both, same version/hash → no-op
 
-**Skill identity**: install path (derived from source type + name)
+**Skill identity**: install path (derived from source type + name via `computeInstallPath`)
 
 - Registry `@scope/skill` → `.axm/extensions/@scope/skills/skill`
 - External (GitHub, Local, etc.) → `.axm/extensions/external/skills/skill`
@@ -352,7 +511,6 @@ type PlanStep =
   | {
       _tag: "InstallSkill";
       skill: string;
-      path: string; // Computed install path
       source: SkillSource;
       version: Option<string>;
       gitTreeHash: Option<string>;
@@ -361,7 +519,6 @@ type PlanStep =
   | {
       _tag: "UpdateSkill";
       skill: string;
-      path: string;
       fromVersion: Option<string>;
       toVersion: Option<string>;
       fromHash: Option<string>; // For git sources without version
@@ -371,7 +528,6 @@ type PlanStep =
   | {
       _tag: "RemoveSkill";
       skill: string;
-      path: string;
       agents: Array.Array<string>;
     };
 
@@ -410,7 +566,75 @@ axm skills update my-skill
   1 skill to update
 ```
 
-Implementation details (e.g., update = clean + add) are hidden inside `plan.apply()`.
+Implementation details (e.g., update = clean + add) are hidden inside `applyPlan()`.
+
+## Settings
+
+Settings entries are derived from plan steps during apply. The `settings.skills` map stores skill sources for each installed skill.
+
+```typescript
+/**
+ * Settings entry for a skill.
+ * String form is shorthand for registry FQN.
+ * Object forms for other source types.
+ */
+type SkillSettingsEntry =
+  | string // Registry FQN shorthand: "@scope/skill-name" or "@scope/skill-name@version"
+  | {
+      _tag: "FileSystemRegistry";
+      path: string;
+      name: string;
+    }
+  | {
+      _tag: "RemoteRegistry";
+      origin: string;
+      scope: string;
+      name: string;
+      version: Option<string>;
+    }
+  | {
+      _tag: "GitHub";
+      owner: string;
+      repo: string;
+      ref: Option<string>;
+      path: Option<string>;
+    }
+  | {
+      _tag: "Local";
+      path: string;
+    };
+
+/**
+ * Convert SkillSource to settings entry.
+ * Uses FQN shorthand for registry sources (simpler for users to read).
+ * Full source details are preserved in the lockfile.
+ */
+const toSettingsEntry = (source: SkillSource): SkillSettingsEntry => {
+  switch (source._tag) {
+    case "Registry":
+      // Use FQN shorthand for registry sources
+      return Option.match(source.version, {
+        onNone: () => `@${source.scope}/${source.name}`,
+        onSome: (v) => `@${source.scope}/${source.name}@${v}`,
+      });
+    case "GitHub":
+      return {
+        _tag: "GitHub",
+        owner: source.owner,
+        repo: source.repo,
+        ref: source.ref,
+        path: source.path,
+      };
+    case "Local":
+      return { _tag: "Local", path: source.path };
+  }
+};
+```
+
+**Settings update during apply:**
+
+- `InstallSkill` / `UpdateSkill` → `settings.skills[name] = toSettingsEntry(source)`
+- `RemoveSkill` → `delete settings.skills[name]`
 
 ## Apply
 
@@ -420,10 +644,10 @@ Implementation details (e.g., update = clean + add) are hidden inside `plan.appl
 - **dryRun: false** — Execute in order:
   1. Skill file operations (copy/remove to canonical location)
   2. Agent sync (symlinks/copies to agent directories)
-  3. Settings update (add/remove skill entries)
+  3. Settings update (add/remove skill entries per plan steps)
   4. Lockfile update (source of truth, written last)
 
-**Empty plan**: `Plan { steps: [] }` means no changes needed. Handler can display "Already up to date."
+**Empty plan**: `Plan { steps: [] }` means no changes needed. Handler checks `plan.steps.length === 0` and displays "Already up to date."
 
 **Partial failure**: On error, stop execution and return partial result. Lockfile only updated on full success.
 
@@ -448,15 +672,8 @@ yield * ws.ensureInit();
 
 const current = yield * ws.loadCurrentState();
 
-// Collect all issues from state (union of all issue types)
-type AnyIssue = ActualSkillIssue | SkillStateIssue | WorkspaceIssue;
-const allIssues: Array.Array<AnyIssue> = [
-  ...current.issues,
-  ...current.skills.flatMap((s) => [
-    ...s.issues,
-    ...Option.map(s.actual, (a) => a.issues).pipe(Option.getOrElse(() => [])),
-  ]),
-];
+// Collect all issues from state using pure helper
+const allIssues = collectIssues(current);
 
 const errors = allIssues.filter((i) => i.severity === "error");
 const warnings = allIssues.filter((i) => i.severity === "warning");
@@ -484,7 +701,7 @@ axm doctor
 
 ## Benefits
 
-1. **Testable** - Plans can be built and inspected without execution
+1. **Testable** - Pure functions (`buildPlan`, `collectIssues`, `computeInstallPath`) can be unit tested without effects
 2. **Inspectable** - Plans returned from handlers for logging/debugging
 3. **Composable** - Same pattern for all commands
 4. **Dry-run trivial** - Single `apply({ dryRun })` handles both modes
@@ -502,5 +719,10 @@ axm doctor
 - [x] Integrity: Existence checks only, no content verification (formatters may modify)
 - [x] Plan execution: `ws.applyPlan(plan, opts)` - separate data from behavior
 - [x] Current state: Merged actual + locked into single CurrentState
-- [x] buildPlan signature: `buildPlan(current, ideal)` - locked already consumed
+- [x] buildPlan signature: `buildPlan(current, ideal)` - pure function, no effects
 - [x] gitTreeHash in lockfile: Required for git sources (no explicit version info)
+- [x] Install path: Computed on demand via `computeInstallPath`, not stored
+- [x] Agent resolution: Handler resolves agents before buildIdealState
+- [x] Settings entries: Derived from plan steps; SkillSettingsEntry union type
+- [x] collectIssues: Pure helper function defined
+- [x] UnhealthyWorkspaceError: Added to error types

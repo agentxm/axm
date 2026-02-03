@@ -1,13 +1,13 @@
 ## 1. Schema Updates (schemas/lockfile.ts)
 
-- [ ] 1.1 Add RegistryLocationSchema (Remote | FileSystem discriminated union)
-- [ ] 1.2 Update SkillSourceSchema: keep Local, GitHub, Git; remove WellKnown; update Registry to include location and scope
-- [ ] 1.3 Update SkillLockEntrySchema: add name field, change agents to regular array, add DateFromString transforms for installedAt/updatedAt
-- [ ] 1.4 Remove all deprecated exports from schemas/lockfile.ts
-- [ ] 1.5 Typecheck verification
-- [ ] 1.6 Lint verification
-- [ ] 1.7 Test verification
-- [ ] 1.8 Kill runaway vitest workers
+- [x] 1.1 Add RegistryLocationSchema (Remote | FileSystem discriminated union)
+- [x] 1.2 Update SkillSourceSchema: keep Local, GitHub, Git; remove WellKnown; update Registry to include location and scope
+- [x] 1.3 Update SkillLockEntrySchema: add name field, change agents to regular array, add DateFromString transforms for installedAt/updatedAt
+- [x] 1.4 Remove all deprecated exports from schemas/lockfile.ts
+- [x] 1.5 Typecheck verification
+- [x] 1.6 Lint verification
+- [x] 1.7 Test verification
+- [x] 1.8 Kill runaway vitest workers
 
 ## 2. Lockfile I/O Updates (skills/lockfile.ts)
 

@@ -29,6 +29,7 @@ describe("lockfile schema", () => {
         lockfileVersion: 1,
         skills: {
           "my-skill": {
+            name: "my-skill",
             source: {
               _tag: "GitHub",
               owner: "wayne-industries",
@@ -48,6 +49,7 @@ describe("lockfile schema", () => {
 
       expect(result.lockfileVersion).toBe(1);
       expect(result.skills["my-skill"]).toBeDefined();
+      expect(result.skills["my-skill"]?.name).toBe("my-skill");
       expect(result.skills["my-skill"]?.source._tag).toBe("GitHub");
       if (result.skills["my-skill"]?.source._tag === "GitHub") {
         expect(result.skills["my-skill"]?.source.owner).toBe("wayne-industries");
@@ -55,6 +57,9 @@ describe("lockfile schema", () => {
       }
       expect(result.skills["my-skill"]?.gitTreeHash).toBe("abc123def456");
       expect(result.skills["my-skill"]?.agents).toEqual(["claude-code", "cursor"]);
+      // Dates are decoded to Date objects
+      expect(result.skills["my-skill"]?.installedAt).toBeInstanceOf(Date);
+      expect(result.skills["my-skill"]?.updatedAt).toBeInstanceOf(Date);
     });
 
     it("accepts valid skill lock entry with Local source", () => {
@@ -62,6 +67,7 @@ describe("lockfile schema", () => {
         lockfileVersion: 1,
         skills: {
           "my-skill": {
+            name: "my-skill",
             source: {
               _tag: "Local",
               path: "./my-skills",
@@ -87,9 +93,12 @@ describe("lockfile schema", () => {
         lockfileVersion: 1,
         skills: {
           "my-skill": {
+            name: "my-skill",
             source: {
               _tag: "Registry",
-              name: "@scope/my-skill",
+              location: { _tag: "Remote", url: "https://registry.example.com" },
+              scope: "example",
+              name: "my-skill",
               version: "1.0.0",
             },
             version: "1.0.0",
@@ -104,20 +113,26 @@ describe("lockfile schema", () => {
 
       expect(result.skills["my-skill"]).toBeDefined();
       expect(result.skills["my-skill"]?.source._tag).toBe("Registry");
+      if (result.skills["my-skill"]?.source._tag === "Registry") {
+        expect(result.skills["my-skill"]?.source.location._tag).toBe("Remote");
+        expect(result.skills["my-skill"]?.source.scope).toBe("example");
+        expect(result.skills["my-skill"]?.source.name).toBe("my-skill");
+      }
       expect(result.skills["my-skill"]?.version).toBe("1.0.0");
     });
 
-    it("accepts valid skill lock entry with WellKnown source", () => {
+    it("accepts Registry source with FileSystem location", () => {
       const input = {
         lockfileVersion: 1,
         skills: {
           "my-skill": {
+            name: "my-skill",
             source: {
-              _tag: "WellKnown",
-              baseUrl: "https://example.com",
-              skillName: "my-skill",
+              _tag: "Registry",
+              location: { _tag: "FileSystem", path: "/local/registry" },
+              scope: "local",
+              name: "my-skill",
             },
-            gitTreeHash: "abc123",
             agents: ["claude-code"],
             installedAt: "2025-01-15T10:30:00Z",
             updatedAt: "2025-01-15T10:30:00Z",
@@ -128,7 +143,12 @@ describe("lockfile schema", () => {
       const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
       expect(result.skills["my-skill"]).toBeDefined();
-      expect(result.skills["my-skill"]?.source._tag).toBe("WellKnown");
+      if (result.skills["my-skill"]?.source._tag === "Registry") {
+        expect(result.skills["my-skill"]?.source.location._tag).toBe("FileSystem");
+        if (result.skills["my-skill"]?.source.location._tag === "FileSystem") {
+          expect(result.skills["my-skill"]?.source.location.path).toBe("/local/registry");
+        }
+      }
     });
 
     it("accepts multiple skills", () => {
@@ -136,12 +156,14 @@ describe("lockfile schema", () => {
         lockfileVersion: 1,
         skills: {
           "skill-one": {
+            name: "skill-one",
             source: { _tag: "Local", path: "./skills/one" },
             agents: ["claude-code"],
             installedAt: "2025-01-15T10:30:00Z",
             updatedAt: "2025-01-15T10:30:00Z",
           },
           "skill-two": {
+            name: "skill-two",
             source: { _tag: "Local", path: "./skills/two" },
             agents: ["cursor"],
             installedAt: "2025-01-15T11:00:00Z",
@@ -156,11 +178,31 @@ describe("lockfile schema", () => {
       expect(result.skills["skill-one"]).toBeDefined();
       expect(result.skills["skill-two"]).toBeDefined();
     });
+
+    it("accepts skill with empty agents array", () => {
+      const input = {
+        lockfileVersion: 1,
+        skills: {
+          "my-skill": {
+            name: "my-skill",
+            source: { _tag: "Local", path: "./my-skill" },
+            agents: [],
+            installedAt: "2025-01-15T10:30:00Z",
+            updatedAt: "2025-01-15T10:30:00Z",
+          },
+        },
+      };
+
+      const result = Schema.decodeUnknownSync(LockfileSchema)(input);
+
+      expect(result.skills["my-skill"]?.agents).toEqual([]);
+    });
   });
 
   describe("SkillLockEntry", () => {
     it("accepts valid lock entry with required fields only", () => {
       const input = {
+        name: "my-skill",
         source: { _tag: "Local", path: "./my-skill" },
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
@@ -169,14 +211,17 @@ describe("lockfile schema", () => {
 
       const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
 
+      expect(result.name).toBe("my-skill");
       expect(result.source._tag).toBe("Local");
       expect(result.agents).toEqual(["claude-code"]);
-      expect(result.installedAt).toBe("2025-01-15T10:30:00Z");
-      expect(result.updatedAt).toBe("2025-01-15T10:30:00Z");
+      // Dates are decoded to Date objects
+      expect(result.installedAt).toBeInstanceOf(Date);
+      expect(result.updatedAt).toBeInstanceOf(Date);
     });
 
     it("accepts valid lock entry with optional gitTreeHash", () => {
       const input = {
+        name: "my-skill",
         source: {
           _tag: "GitHub",
           owner: "example",
@@ -197,9 +242,12 @@ describe("lockfile schema", () => {
 
     it("accepts valid lock entry with optional version", () => {
       const input = {
+        name: "my-skill",
         source: {
           _tag: "Registry",
-          name: "@scope/skill",
+          location: { _tag: "Remote", url: "https://registry.example.com" },
+          scope: "example",
+          name: "my-skill",
           version: "1.0.0",
         },
         version: "1.0.0",
@@ -213,8 +261,34 @@ describe("lockfile schema", () => {
       expect(result.version).toBe("1.0.0");
     });
 
+    it("accepts lock entry with empty agents array", () => {
+      const input = {
+        name: "my-skill",
+        source: { _tag: "Local", path: "./my-skill" },
+        agents: [],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+
+      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
+
+      expect(result.agents).toEqual([]);
+    });
+
+    it("rejects lock entry missing name", () => {
+      const input = {
+        source: { _tag: "Local", path: "./my-skill" },
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+
+      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
+    });
+
     it("rejects lock entry missing source", () => {
       const input = {
+        name: "my-skill",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -225,18 +299,8 @@ describe("lockfile schema", () => {
 
     it("rejects lock entry missing agents", () => {
       const input = {
+        name: "my-skill",
         source: { _tag: "Local", path: "./my-skill" },
-        installedAt: "2025-01-15T10:30:00Z",
-        updatedAt: "2025-01-15T10:30:00Z",
-      };
-
-      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
-    });
-
-    it("rejects lock entry with empty agents array", () => {
-      const input = {
-        source: { _tag: "Local", path: "./my-skill" },
-        agents: [],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
       };
@@ -246,6 +310,7 @@ describe("lockfile schema", () => {
 
     it("rejects lock entry missing installedAt", () => {
       const input = {
+        name: "my-skill",
         source: { _tag: "Local", path: "./my-skill" },
         agents: ["claude-code"],
         updatedAt: "2025-01-15T10:30:00Z",
@@ -256,6 +321,7 @@ describe("lockfile schema", () => {
 
     it("rejects lock entry missing updatedAt", () => {
       const input = {
+        name: "my-skill",
         source: { _tag: "Local", path: "./my-skill" },
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
@@ -266,6 +332,7 @@ describe("lockfile schema", () => {
 
     it("rejects lock entry with invalid source _tag", () => {
       const input = {
+        name: "my-skill",
         source: { _tag: "InvalidType", path: "./my-skill" },
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
@@ -286,16 +353,21 @@ describe("lockfile schema", () => {
     });
 
     it("accepts map with valid skill names", () => {
-      const lockEntry = {
-        source: { _tag: "Local", path: "./skills/my-skill" },
-        agents: ["claude-code"],
-        installedAt: "2025-01-15T10:30:00Z",
-        updatedAt: "2025-01-15T10:30:00Z",
-      };
-
       const input = {
-        "my-skill": lockEntry,
-        "another-skill": lockEntry,
+        "my-skill": {
+          name: "my-skill",
+          source: { _tag: "Local", path: "./skills/my-skill" },
+          agents: ["claude-code"],
+          installedAt: "2025-01-15T10:30:00Z",
+          updatedAt: "2025-01-15T10:30:00Z",
+        },
+        "another-skill": {
+          name: "another-skill",
+          source: { _tag: "Local", path: "./skills/another-skill" },
+          agents: ["claude-code"],
+          installedAt: "2025-01-15T10:30:00Z",
+          updatedAt: "2025-01-15T10:30:00Z",
+        },
       };
 
       const result = Schema.decodeUnknownSync(SkillsLockMapSchema)(input);

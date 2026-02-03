@@ -10,6 +10,58 @@
 import { Schema } from "effect";
 
 // =============================================================================
+// Date Transform
+// =============================================================================
+
+/**
+ * Schema that transforms ISO 8601 strings to Date objects.
+ * Stored as string in YAML, decoded to Date in TypeScript.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const DateFromString = Schema.transform(Schema.String, Schema.DateFromSelf, {
+  decode: (s) => new Date(s),
+  encode: (d) => d.toISOString(),
+});
+
+// =============================================================================
+// Registry Location (discriminated union)
+// =============================================================================
+
+/**
+ * Remote registry location - registry at a URL.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const RemoteLocationSchema = Schema.TaggedStruct("Remote", {
+  url: Schema.String,
+});
+
+/**
+ * FileSystem registry location - registry at a local path.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const FileSystemLocationSchema = Schema.TaggedStruct("FileSystem", {
+  path: Schema.String,
+});
+
+/**
+ * Registry location discriminated union.
+ * Represents where a registry is located.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const RegistryLocationSchema = Schema.Union(RemoteLocationSchema, FileSystemLocationSchema);
+
+/**
+ * Inferred type for RegistryLocation schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type RegistryLocation = typeof RegistryLocationSchema.Type;
+
+// =============================================================================
 // Skill Source (discriminated union for source types)
 // =============================================================================
 
@@ -49,23 +101,15 @@ export const GitHubSourceSchema = Schema.TaggedStruct("GitHub", {
 });
 
 /**
- * WellKnown source - skill from a well-known URL pattern.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const WellKnownSourceSchema = Schema.TaggedStruct("WellKnown", {
-  baseUrl: Schema.String,
-  skillName: Schema.String,
-});
-
-/**
  * Registry source - skill from a registry.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const RegistrySourceSchema = Schema.TaggedStruct("Registry", {
+  location: RegistryLocationSchema,
+  scope: Schema.String,
   name: Schema.String,
-  version: Schema.String,
+  version: Schema.optional(Schema.String),
 });
 
 /**
@@ -78,7 +122,6 @@ export const SkillSourceSchema = Schema.Union(
   LocalSourceSchema,
   GitSourceSchema,
   GitHubSourceSchema,
-  WellKnownSourceSchema,
   RegistrySourceSchema,
 );
 
@@ -97,22 +140,24 @@ export type SkillSource = typeof SkillSourceSchema.Type;
  * Lock entry for a single installed skill.
  *
  * Fields:
- * - source: Structured source object (Registry/GitHub/Git/Local/WellKnown)
+ * - name: Skill identifier (also the map key, stored redundantly for convenience)
+ * - source: Structured source object (Registry/GitHub/Git/Local)
  * - version: Semver version (registry sources only)
  * - gitTreeHash: Git tree SHA of source folder (git sources)
- * - agents: Agent IDs this skill is installed for (required, non-empty)
- * - installedAt: ISO 8601 timestamp of initial installation
- * - updatedAt: ISO 8601 timestamp of last update
+ * - agents: Agent IDs this skill is installed for (can be empty)
+ * - installedAt: ISO 8601 timestamp of initial installation (Date in TS)
+ * - updatedAt: ISO 8601 timestamp of last update (Date in TS)
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const SkillLockEntrySchema = Schema.Struct({
+  name: Schema.String,
   source: SkillSourceSchema,
   version: Schema.optional(Schema.String),
   gitTreeHash: Schema.optional(Schema.String),
-  agents: Schema.NonEmptyArray(Schema.String),
-  installedAt: Schema.String,
-  updatedAt: Schema.String,
+  agents: Schema.Array(Schema.String),
+  installedAt: DateFromString,
+  updatedAt: DateFromString,
 });
 
 /**
@@ -171,57 +216,3 @@ export const LockfileSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export type Lockfile = typeof LockfileSchema.Type;
-
-// =============================================================================
-// Legacy Exports (kept for backward compatibility during migration)
-// =============================================================================
-
-/**
- * @deprecated Use SkillLockEntrySchema instead.
- * Legacy lock entry schema for backward compatibility.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const LockEntrySchema = SkillLockEntrySchema;
-
-/**
- * @deprecated Use SkillLockEntry instead.
- * Legacy type alias for backward compatibility.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type LockEntry = SkillLockEntry;
-
-/**
- * @deprecated Use SkillsLockMapSchema instead.
- * Legacy extension lock map schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const ExtensionLockMapSchema = SkillsLockMapSchema;
-
-/**
- * @deprecated Use SkillsLockMap instead.
- * Legacy type alias.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type ExtensionLockMap = SkillsLockMap;
-
-/**
- * @deprecated No longer used - skills are at root level now.
- * Legacy extensions by type schema (stub for backward compatibility).
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const ExtensionsByTypeSchema = Schema.Struct({
-  skills: Schema.optional(SkillsLockMapSchema),
-});
-
-/**
- * @deprecated No longer used.
- * Legacy type alias.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type ExtensionsByType = typeof ExtensionsByTypeSchema.Type;

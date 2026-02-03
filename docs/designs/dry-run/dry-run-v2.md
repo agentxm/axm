@@ -47,7 +47,7 @@ return plan;
 | Install location    | Canonical by source type      | Registry: `@<scope>/skills/<name>`, other: `external/skills/<name>` |
 | Agent sync          | Separate concern              | Computed independently; not part of skill state                     |
 | Plan steps          | User intent, not impl         | Show install/update/remove, hide clean+add                          |
-| Agent grouping      | Per-skill with agents[]       | Matches display: "skill @ agent1, agent2"                           |
+| Agent grouping      | Per-skill with agents[]       | Matches display: "skill @ agent1, agent2"; always explicit          |
 | Divergence handling | Handler diagnoses             | Explicit control per command                                        |
 | Diagnosis decoupled | Issues only, no plan          | Separation of concerns; plan built if needed                        |
 | Settings changes    | Derived, not explicit         | Encapsulated in skill operations                                    |
@@ -123,7 +123,7 @@ type Command =
       _tag: "skills-install";
       /** GitHub shorthand (owner/repo), local path, or URL */
       source: string;
-      /** Limit sync to these agents; empty = all agents from project settings */
+      /** Limit sync to these agents; empty = resolve from project settings during buildIdealState */
       agents: string[];
       /** "all" to install all discovered skills, or specific skill names */
       skills: "all" | string[];
@@ -156,7 +156,13 @@ type SkillSource =
       name: string;
       version: string;
     }
-  | { _tag: "GitHub"; owner: string; repo: string; ref?: string; path?: string }
+  | {
+      _tag: "GitHub";
+      owner: string;
+      repo: string;
+      ref: Option<string>;
+      path: Option<string>;
+    }
   | { _tag: "Local"; path: string };
 
 /** Skill as it exists on disk */
@@ -196,7 +202,7 @@ interface IdealSkill {
   source: SkillSource;
   version: Option<string>; // Semver for registry, None for git/local
   gitTreeHash: Option<string>; // Hash of source folder for git sources
-  agents: Array.Array<string>; // Which agents to sync to
+  agents: Array.Array<string>; // Target agents (explicit, never implicit "all")
 }
 
 /** Desired outcome - what we want after the command */
@@ -311,6 +317,21 @@ axm skills update my-skill
 
 Implementation details (e.g., update = clean + add) are hidden inside `plan.apply()`.
 
+## Apply
+
+`ws.applyPlan(plan, { dryRun })` handles execution:
+
+- **dryRun: true** — Display plan only, no side effects
+- **dryRun: false** — Execute in order:
+  1. Skill file operations (copy/remove to canonical location)
+  2. Agent sync (symlinks/copies to agent directories)
+  3. Settings update (add/remove skill entries)
+  4. Lockfile update (source of truth, written last)
+
+**Empty plan**: `Plan { steps: [] }` means no changes needed. Handler can display "Already up to date."
+
+**Partial failure**: On error, stop execution and return partial result. Lockfile only updated on full success.
+
 ## Diagnosis
 
 Diagnosis is decoupled from planning. Issues are identified from current state; repair plan is built separately if needed.
@@ -394,8 +415,11 @@ axm doctor --fix
 ## Open Questions
 
 - [ ] How to handle external state (remote skill registries)?
-- [ ] Should `buildPlan` detect no-op and return empty plan?
 - [ ] Error recovery: partial apply rollback?
+
+## Resolved
+
+- [x] Should `buildPlan` detect no-op and return empty plan? **Yes**, `Plan { steps: [] }` is the no-op representation
 
 ## Resolved
 

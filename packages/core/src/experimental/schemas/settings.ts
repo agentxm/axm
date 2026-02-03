@@ -177,105 +177,24 @@ export const ExtensionMapSchema = Schema.Record({
 export type ExtensionMap = typeof ExtensionMapSchema.Type;
 
 /**
- * GitHub source for skills in settings.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const GitHubSettingsEntrySchema = Schema.Struct({
-  _tag: Schema.Literal("GitHub"),
-  owner: Schema.String,
-  repo: Schema.String,
-  ref: Schema.optional(Schema.NullOr(Schema.String)),
-  path: Schema.optional(Schema.NullOr(Schema.String)),
-}).pipe(
-  Schema.transform(
-    Schema.Struct({
-      _tag: Schema.Literal("GitHub"),
-      owner: Schema.String,
-      repo: Schema.String,
-      ref: Schema.optional(Schema.String),
-      path: Schema.optional(Schema.String),
-    }),
-    {
-      strict: true,
-      decode: (input) => ({
-        _tag: input._tag,
-        owner: input.owner,
-        repo: input.repo,
-        ref: input.ref ?? undefined,
-        path: input.path ?? undefined,
-      }),
-      encode: (output) => ({
-        _tag: output._tag,
-        owner: output.owner,
-        repo: output.repo,
-        ref: output.ref,
-        path: output.path,
-      }),
-    },
-  ),
-);
-
-/**
- * Inferred type for GitHub settings entry.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type GitHubSettingsEntry = typeof GitHubSettingsEntrySchema.Type;
-
-/**
- * Local source for skills in settings.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const LocalSettingsEntrySchema = Schema.Struct({
-  _tag: Schema.Literal("Local"),
-  path: Schema.String,
-});
-
-/**
- * Inferred type for Local settings entry.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type LocalSettingsEntry = typeof LocalSettingsEntrySchema.Type;
-
-/**
- * Skill settings entry - union of string (Registry FQN shorthand) and object variants.
- *
- * String form is shorthand for registry FQN: "@scope/skill-name" or "@scope/skill-name@version"
- * Object forms for GitHub and Local source types.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const SkillSettingsEntrySchema = Schema.Union(
-  Schema.String,
-  GitHubSettingsEntrySchema,
-  LocalSettingsEntrySchema,
-);
-
-/**
- * Inferred type for SkillSettingsEntry schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type SkillSettingsEntry = typeof SkillSettingsEntrySchema.Type;
-
-/**
- * Skills map - maps skill names to SkillSettingsEntry values.
+ * Skills map - maps skill names to source strings.
  *
  * Keys must be valid skill names per agentskills.io specification:
  * - Max 64 characters
  * - Lowercase letters, numbers, and hyphens only
  * - Must not start or end with a hyphen
  *
- * Values are SkillSettingsEntry (string for registry FQN, or object for GitHub/Local).
+ * Values are source strings in one of these formats:
+ * - Registry: `@scope/name` or `@scope/name@version`
+ * - GitHub: `github:owner/repo[/path][#ref]`
+ * - Git: `git:url[#ref]`
+ * - Local: `local:path`
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const SkillsMapSchema = Schema.Record({
   key: Schema.String,
-  value: SkillSettingsEntrySchema,
+  value: Schema.String,
 }).pipe(
   Schema.filter((record) => {
     const invalidKeys = Object.keys(record).filter(
@@ -302,7 +221,7 @@ export type SkillsMap = typeof SkillsMapSchema.Type;
  * - scope: Default scope for resolving/publishing extensions
  * - sources: Source provider configurations
  * - agents: List of agent IDs to sync extensions to
- * - skills: Desired skills by name to SkillSettingsEntry
+ * - skills: Desired skills by name to source string
  * - commands: Desired commands by name to version specifier
  * - packs: Desired packs by name to version specifier
  * - mcp-servers: Desired MCP servers by name to version specifier

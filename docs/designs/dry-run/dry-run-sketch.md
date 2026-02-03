@@ -14,7 +14,7 @@ The diff between current (actual + locked) and ideal produces the plan. Dry-run 
 
 ## Current Install Flow (8 Steps)
 
-1. **Parse Source** — Resolve `github:owner/repo`, local path, or well-known URL
+1. **Parse Source** — Resolve `github:owner/repo`, local path, or well-known URL (see `source-parser.ts` and `resolution/`)
 2. **Ensure Initialized** — Create `.axm/` directory if missing
 3. **Detect/Select Agents** — Find installed agents (Claude Code, Cursor, etc.)
 4. **Discover Skills** — Clone/fetch source, find SKILL.md files
@@ -134,6 +134,7 @@ interface StateBase<TActual, TLocked, TValidity> {
 
 // Locked types derived from LockEntry schema with transformations
 // Schema handles: string ↔ Date, optional ↔ Option
+// See implementation for Schema transformation details
 const LockedSkill = LockEntry.pipe(Schema.transform(...));
 type LockedSkill = typeof LockedSkill.Type;
 
@@ -176,13 +177,16 @@ export type SkillFrontmatter = typeof SkillFrontmatter.Type;
 
 /**
  * Skill as it exists on disk at canonical location (.axm/skills/<name>/).
+ *
+ * The gitTreeFolderHash is the git tree hash of the skill folder, computed using
+ * git's tree object algorithm for deterministic, cross-platform hashing.
  */
 export const ActualSkill = Schema.Struct({
   name: Schema.String,
   path: Schema.String,
   frontmatter: Schema.OptionFromNullOr(SkillFrontmatter),
   content: Schema.String,
-  folderHash: Schema.String,
+  gitTreeFolderHash: Schema.String, // git tree hash
   files: Schema.Array(Schema.String),
   lastModified: Schema.Date,
 });
@@ -204,8 +208,7 @@ export const LockedSkill = Schema.Struct({
   path: Schema.optionalToOption(Schema.String),
   ref: Schema.optionalToOption(Schema.String),
   version: Schema.optionalToOption(Schema.String),
-  folderHash: Schema.String,
-  dependencies: Schema.optionalToOption(Schema.Array(FullyQualifiedName)),
+  gitTreeFolderHash: Schema.String, // git tree hash
   installedAt: Schema.Date,
   updatedAt: Schema.Date,
 });
@@ -399,7 +402,7 @@ export type WorkspaceState = typeof WorkspaceState.Type;
 
 // Commands: Shell commands with aliases
 // Actual: { name, path, content, aliases, lastModified }
-// Locked: { source, origin, aliases, folderHash, installedAt, updatedAt }
+// Locked: { source, origin, aliases, gitTreeFolderHash, installedAt, updatedAt }
 // Validity: Valid | MissingCommandFile | InvalidManifest | Orphaned | Missing | HashMismatch
 
 // MCP Servers: Model Context Protocol server configurations
@@ -411,6 +414,9 @@ export type WorkspaceState = typeof WorkspaceState.Type;
 // Actual: { name, path, manifest, members, lastModified }
 // Locked: { source, origin, version, members, installedAt, updatedAt }
 // Validity: Valid | InvalidManifest | MissingMembers | Orphaned | Missing
+//
+// Pack installation writes multiple files but is not atomic.
+// Partial pack installation results in Incomplete validity.
 
 // =============================================================================
 // Ideal State (desired after operation)
@@ -437,7 +443,7 @@ export type SkillSource = typeof SkillSource.Type;
 export const IdealSkill = Schema.Struct({
   name: Schema.String,
   source: SkillSource,
-  folderHash: Schema.String,
+  gitTreeFolderHash: Schema.String,
   description: Schema.OptionFromNullOr(Schema.String),
   agents: Schema.Array(Schema.String),
 });
@@ -532,6 +538,84 @@ export const SettingsDiff = Schema.Struct({
 });
 export type SettingsDiff = typeof SettingsDiff.Type;
 
+/**
+ * Compute settings diff between actual and ideal.
+ */
+export const computeSettingsDiff = (
+  actual: Option.Option<Settings>,
+  ideal: Settings,
+): SettingsDiff => {
+  const actualSettings = Option.getOrElse(actual, () => emptySettings);
+
+  const diffKeyValues = (
+    actualMap: Record<string, string>,
+    idealMap: Record<string, string>,
+  ): readonly SettingsKeyChange[] =>
+    pipe(
+      [...Object.keys(actualMap), ...Object.keys(idealMap)],
+      Array.dedupe,
+      Array.filterMap((key) => {
+        const actualVal = actualMap[key];
+        const idealVal = idealMap[key];
+        if (actualVal === undefined && idealVal !== undefined) {
+          return Option.some(SettingsKeyChange.Added({ key, value: idealVal }));
+        }
+        if (actualVal !== undefined && idealVal === undefined) {
+          return Option.some(
+            SettingsKeyChange.Removed({ key, previousValue: actualVal }),
+          );
+        }
+        if (actualVal !== idealVal) {
+          return Option.some(
+            SettingsKeyChange.Changed({ key, from: actualVal, to: idealVal }),
+          );
+        }
+        return Option.none();
+      }),
+    );
+
+  return {
+    skills: diffKeyValues(actualSettings.skills ?? {}, ideal.skills ?? {}),
+    commands: diffKeyValues(
+      actualSettings.commands ?? {},
+      ideal.commands ?? {},
+    ),
+    packs: diffKeyValues(actualSettings.packs ?? {}, ideal.packs ?? {}),
+    mcpServers: diffKeyValues(
+      actualSettings.mcpServers ?? {},
+      ideal.mcpServers ?? {},
+    ),
+    agents: {
+      added: pipe(
+        ideal.agents ?? [],
+        Array.filter((a) => !(actualSettings.agents ?? []).includes(a)),
+      ),
+      removed: pipe(
+        actualSettings.agents ?? [],
+        Array.filter((a) => !(ideal.agents ?? []).includes(a)),
+      ),
+    },
+    scope: pipe(
+      actualSettings.scope !== ideal.scope
+        ? Option.some({
+            from: Option.fromNullable(actualSettings.scope),
+            to: ideal.scope,
+          })
+        : Option.none(),
+      Option.filter(() => ideal.scope !== undefined),
+    ),
+  };
+};
+
+export const hasSettingsChanges = (diff: SettingsDiff): boolean =>
+  diff.skills.length > 0 ||
+  diff.commands.length > 0 ||
+  diff.packs.length > 0 ||
+  diff.mcpServers.length > 0 ||
+  diff.agents.added.length > 0 ||
+  diff.agents.removed.length > 0 ||
+  Option.isSome(diff.scope);
+
 // =============================================================================
 // Workspace Diff (combined)
 // =============================================================================
@@ -549,6 +633,11 @@ export type WorkspaceDiff = typeof WorkspaceDiff.Type;
 // Agent Sync (computed separately, hidden from plan output)
 // =============================================================================
 
+/**
+ * Sync method determined by platform detection:
+ * - symlink: Unix-like systems (macOS, Linux)
+ * - copy: Windows
+ */
 export const SyncMethod = Schema.Literal("symlink", "copy");
 
 export const AgentSyncStatus = Schema.Union(
@@ -585,6 +674,13 @@ import type { FileSystem } from "@effect/platform";
 
 /**
  * Load complete skills state: actual + locked + computed validity.
+ *
+ * Pre-condition: Workspace must be initialized (axmDir exists).
+ * Initialization is verified before state loading.
+ *
+ * Lockfile handling:
+ * - If axm-lock.yaml fails to parse, treat as empty lockfile with warning.
+ * - User can run `axm sync` to rebuild from actual state.
  */
 export const loadSkillsState = (
   axmDir: string,
@@ -694,12 +790,12 @@ const computeValidity = (
           ),
 
           // Hash mismatch
-          a.folderHash !== l.folderHash
+          a.gitTreeFolderHash !== l.gitTreeFolderHash
             ? Option.some(
                 SkillValidity.HashMismatch({
                   code: "E005",
-                  expected: l.folderHash,
-                  actual: a.folderHash,
+                  expected: l.gitTreeFolderHash,
+                  actual: a.gitTreeFolderHash,
                 }),
               )
             : Option.none(),
@@ -975,8 +1071,8 @@ export const computeDiff = (
 
       // Hash differs -> Update
       if (
-        Option.getOrThrow(currentState.actual).folderHash !==
-        idealSkill.folderHash
+        Option.getOrThrow(currentState.actual).gitTreeFolderHash !==
+        idealSkill.gitTreeFolderHash
       ) {
         return [
           name,
@@ -1192,10 +1288,24 @@ export interface ApplyOptions {
  * 3. Update settings.json
  * 4. Update lockfile (last, as source of truth)
  *
- * If any step fails, we stop and return partial results.
- * User can inspect state and retry or git reset.
+ * Failure and cancellation handling:
+ * Uses Effect.acquireRelease to create a checkpoint before applying.
+ * On failure or Ctrl+C interruption, the checkpoint is restored.
+ * Effect's interruption model handles cancellation automatically.
  */
 export const applyDiff = (
+  diff: WorkspaceDiff,
+  options: ApplyOptions,
+): Effect.Effect<ApplyResult, ApplyError, FileSystem.FileSystem | Path.Path> =>
+  Effect.acquireRelease(
+    createCheckpoint(options.axmDir), // Snapshot current state
+    (checkpoint, exit) =>
+      Exit.isFailure(exit)
+        ? restoreCheckpoint(checkpoint) // Rollback on failure/interruption
+        : Effect.void,
+  ).pipe(Effect.flatMap(() => applyDiffImpl(diff, options)));
+
+const applyDiffImpl = (
   diff: WorkspaceDiff,
   options: ApplyOptions,
 ): Effect.Effect<ApplyResult, ApplyError, FileSystem.FileSystem | Path.Path> =>
@@ -1375,7 +1485,13 @@ export const handleInstall = (args: InstallArgs) =>
     );
 
     // Phase 2: Resolve source and build ideal
-    spinner.start("Resolving source...");
+    // For remote sources, this clones to a temp directory to analyze contents.
+    // Dry-run messaging: "Fetching source to analyze contents..."
+    spinner.start(
+      args.dryRun
+        ? "Fetching source to analyze contents..."
+        : "Resolving source...",
+    );
     const source = yield* resolveSource(args.source);
     const ideal = yield* buildIdealForInstall(current, source, {
       global: args.global,
@@ -1681,29 +1797,37 @@ Same `computeDiff` and `applyDiff` for all operations.
 
 ## Decision Record
 
-| Decision            | Choice                                     | Rationale                                                                  |
-| ------------------- | ------------------------------------------ | -------------------------------------------------------------------------- |
-| Architecture        | State diffing (Arborist-style)             | Unified validation, natural idempotency, reusable for doctor/sync          |
-| State separation    | actual + locked → merged with validity     | Clear provenance, supports all comparison scenarios                        |
-| Per-type state      | SkillState, CommandState, etc.             | Type-specific validation, manifests, behaviors                             |
-| Type definitions    | Effect Schema (not interfaces)             | Enables JSON serialization, test deserialization, runtime validation       |
-| Locked types        | Derived from LockEntry via Schema          | One source of truth; Schema handles string↔Date, optional↔Option           |
-| Top-level container | WorkspaceState                             | Aggregates all extension states + settings for unified operations          |
-| Workspace level     | Same model for project and user            | Only paths differ; `level` field distinguishes                             |
-| Settings state      | Reuses Settings schema for actual/ideal    | One source of truth; operations may modify skills, commands, etc.          |
-| Settings diff       | Key-path based (not tagged union)          | Simpler than SkillsDiff; Settings is flat map structure                    |
-| Agent sync display  | Hidden from plan output                    | Implementation detail; plan focuses on extension changes                   |
-| Agent sync          | Separate from extension state              | Avoids N×M complexity, computed on demand                                  |
-| Validity            | Schema.TaggedStruct union                  | Actionable errors, supports multiple issues, serializable                  |
-| Diff as plan        | SkillChange tagged union                   | Same display for dry-run and execution                                     |
-| Apply phase         | Idempotent operations                      | Re-run fixes partial failures                                              |
-| Discovery effects   | Allow git clone with messaging             | Remote source contents needed for ideal state; messaging sets expectations |
-| JSON output         | Record internally, array for JSON          | O(1) lookups internally; arrays easier for CLI consumers to iterate        |
-| Data structures     | Immutable Record/Array (not Map/Set)       | FP-friendly; works with pipe/Array combinators; natural JSON serialization |
-| Parallel apply      | Sequential phases, parallel within phase   | Maintains consistency; lockfile updated last as source of truth            |
-| Partial failure     | Stop on first error, return partial result | User can inspect state and retry; lockfile only updated on full success    |
-| Agent sync timing   | After all files in place, before lockfile  | Ensures files exist before syncing; sync failure stops before lockfile     |
-| Validity codes      | Static codes per variant (E001, W001)      | Stable IDs for docs, automation, suppression; severity from prefix         |
+| Decision            | Choice                                      | Rationale                                                                  |
+| ------------------- | ------------------------------------------- | -------------------------------------------------------------------------- |
+| Architecture        | State diffing (Arborist-style)              | Unified validation, natural idempotency, reusable for doctor/sync          |
+| State separation    | actual + locked → merged with validity      | Clear provenance, supports all comparison scenarios                        |
+| Per-type state      | SkillState, CommandState, etc.              | Type-specific validation, manifests, behaviors                             |
+| Type definitions    | Effect Schema (not interfaces)              | Enables JSON serialization, test deserialization, runtime validation       |
+| Locked types        | Derived from LockEntry via Schema           | One source of truth; Schema handles string↔Date, optional↔Option           |
+| Top-level container | WorkspaceState                              | Aggregates all extension states + settings for unified operations          |
+| Workspace level     | Same model for project and user             | Only paths differ; `level` field distinguishes                             |
+| Settings state      | Reuses Settings schema for actual/ideal     | One source of truth; operations may modify skills, commands, etc.          |
+| Settings diff       | Key-path based (not tagged union)           | Simpler than SkillsDiff; Settings is flat map structure                    |
+| Agent sync display  | Hidden from plan output                     | Implementation detail; plan focuses on extension changes                   |
+| Agent sync          | Separate from extension state               | Avoids N×M complexity, computed on demand                                  |
+| Validity            | Schema.TaggedStruct union                   | Actionable errors, supports multiple issues, serializable                  |
+| Diff as plan        | SkillChange tagged union                    | Same display for dry-run and execution                                     |
+| Apply phase         | Idempotent operations                       | Re-run fixes partial failures                                              |
+| Discovery effects   | Allow git clone with messaging              | Remote source contents needed for ideal state; messaging sets expectations |
+| JSON output         | Record internally, array for JSON           | O(1) lookups internally; arrays easier for CLI consumers to iterate        |
+| Data structures     | Immutable Record/Array (not Map/Set)        | FP-friendly; works with pipe/Array combinators; natural JSON serialization |
+| Parallel apply      | Sequential phases, parallel within phase    | Maintains consistency; lockfile updated last as source of truth            |
+| Partial failure     | Stop on first error, return partial result  | User can inspect state and retry; lockfile only updated on full success    |
+| Agent sync timing   | After all files in place, before lockfile   | Ensures files exist before syncing; sync failure stops before lockfile     |
+| Validity codes      | Static codes per variant (E001, W001)       | Stable IDs for docs, automation, suppression; severity from prefix         |
+| Folder hash         | Git tree hash                               | Deterministic, cross-platform; computed using git's tree object algorithm  |
+| Source resolution   | Existing `source-parser.ts` + `resolution/` | Proven patterns; supports GitHub, GitLab, local paths, well-known URLs     |
+| Sync method         | Platform detection (symlink vs copy)        | Symlinks on Unix-like; copies on Windows                                   |
+| Corrupted lockfile  | Treat as empty with warning                 | User can run `axm sync` to rebuild from actual state                       |
+| Workspace init      | Pre-condition verified before state load    | Simplifies state loading; init checked at command entry                    |
+| Rollback on failure | Effect.acquireRelease with checkpoint       | Handles both errors and Ctrl+C interruption; restore on failure            |
+| Dry-run messaging   | "Fetching source to analyze contents..."    | Sets expectations for remote clones during dry-run                         |
+| Pack atomicity      | Not atomic; partial = Incomplete validity   | Multiple files; partial installation detected and reported                 |
 
 ---
 
@@ -1729,6 +1853,14 @@ Same `computeDiff` and `applyDiff` for all operations.
 16. **Agent sync timing**: After files in place, before lockfile; failure stops apply ✓
 17. **Validity codes**: Static codes per variant (E001, W001, etc.) for docs/automation ✓
 18. **Staleness detection**: Non-goal ✓
+19. **Folder hash**: Git tree hash for deterministic, cross-platform hashing ✓
+20. **Source resolution**: Use existing `source-parser.ts` and `resolution/` modules ✓
+21. **Sync method**: Platform detection (symlinks on Unix, copies on Windows) ✓
+22. **Corrupted lockfile**: Treat as empty with warning; user can `axm sync` to rebuild ✓
+23. **Workspace init**: Pre-condition verified before state loading ✓
+24. **Rollback**: Effect.acquireRelease with checkpoint; handles failure and Ctrl+C ✓
+25. **Dry-run messaging**: "Fetching source to analyze contents..." for remote clones ✓
+26. **Pack atomicity**: Not atomic; partial installation results in Incomplete validity ✓
 
 ### Future Work
 

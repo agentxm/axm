@@ -514,7 +514,7 @@ extensions:
       origin: https://github.com/wayne-industries/skills
       path: skills/grappling-hook
       ref: main
-      folderHash: abc123def456...
+      gitTreeFolderHash: abc123def456...
       installedAt: "2025-01-15T10:30:00Z"
       updatedAt: "2025-01-15T10:30:00Z"
   commands:
@@ -523,7 +523,7 @@ extensions:
       origin: https://github.com/wayne-industries/commands
       path: commands/batcomputer-sync
       ref: main
-      folderHash: def456ghi789...
+      gitTreeFolderHash: def456ghi789...
       installedAt: "2025-01-15T10:30:00Z"
       updatedAt: "2025-01-15T10:30:00Z"
   mcp-servers:
@@ -531,7 +531,7 @@ extensions:
       source: github:wayne-industries/batcomputer
       origin: https://github.com/wayne-industries/batcomputer
       ref: v2.0.0
-      folderHash: 789ghi012jkl...
+      gitTreeFolderHash: 789ghi012jkl...
       installedAt: "2025-01-15T10:30:00Z"
       updatedAt: "2025-01-15T10:30:00Z"
   packs:
@@ -539,7 +539,7 @@ extensions:
       source: registry:@wayne/utility-belt
       origin: https://registry.agentxm.ai/extensions/@wayne/utility-belt
       version: 1.0.0
-      folderHash: mno345pqr678...
+      gitTreeFolderHash: mno345pqr678...
       dependencies:
         - "@wayne/grappling-hook"
         - "@wayne/batcomputer"
@@ -556,30 +556,30 @@ extensions:
 
 **Lock entry fields:**
 
-| Field          | Type     | Required | Description                                                  |
-| -------------- | -------- | -------- | ------------------------------------------------------------ |
-| `source`       | string   | Yes      | Normalized source identifier (e.g., `github:owner/repo`)     |
-| `origin`       | string   | Yes      | Fully resolved source URL or path                            |
-| `path`         | string   | No       | Subpath within source repository (for multi-extension repos) |
-| `ref`          | string   | No       | Git ref (branch, tag, commit) for git sources                |
-| `version`      | string   | No       | Semver version (registry sources only)                       |
-| `folderHash`   | string   | Yes      | Git tree SHA or content hash for the extension folder        |
-| `dependencies` | string[] | No       | Fully qualified names of required extensions                 |
-| `installedAt`  | string   | Yes      | ISO 8601 timestamp of initial installation                   |
-| `updatedAt`    | string   | Yes      | ISO 8601 timestamp of last update                            |
+| Field               | Type     | Required | Description                                                  |
+| ------------------- | -------- | -------- | ------------------------------------------------------------ |
+| `source`            | string   | Yes      | Normalized source identifier (e.g., `github:owner/repo`)     |
+| `origin`            | string   | Yes      | Fully resolved source URL or path                            |
+| `path`              | string   | No       | Subpath within source repository (for multi-extension repos) |
+| `ref`               | string   | No       | Git ref (branch, tag, commit) for git sources                |
+| `version`           | string   | No       | Semver version (registry sources only)                       |
+| `gitTreeFolderHash` | string   | Yes      | Git tree SHA or content hash for the extension folder        |
+| `dependencies`      | string[] | No       | Fully qualified names of required extensions                 |
+| `installedAt`       | string   | Yes      | ISO 8601 timestamp of initial installation                   |
+| `updatedAt`         | string   | Yes      | ISO 8601 timestamp of last update                            |
 
 #### Version Tracking
 
 For git-based sources, versioning uses **folder hashes** rather than semver:
 
-- **folderHash**: Git tree SHA that uniquely identifies the extension folder
+- **gitTreeFolderHash**: Git tree SHA that uniquely identifies the extension folder
   contents
 - Obtained via GitHub/GitLab Trees API without cloning
 - Changes when any file in the extension folder is modified
 - More stable than commit SHAs (survives rebases)
 - Enables efficient update detection: compare local hash vs remote hash
 
-For registry sources, both `version` (semver) and `folderHash` are tracked.
+For registry sources, both `version` (semver) and `gitTreeFolderHash` are tracked.
 
 #### Update Detection
 
@@ -591,7 +591,7 @@ To check for updates without cloning:
      entry where `path` matches and `type === 'tree'`, return `sha`
    - **GitLab**: Similar approach via GitLab Trees API
    - **Filesystem registry**: Compute hash from directory contents
-3. Compare remote hash to local `folderHash`
+3. Compare remote hash to local `gitTreeFolderHash`
 4. If different, update is available
 
 The `axm outdated` command performs this check for all installed extensions. The
@@ -604,7 +604,7 @@ The `axm outdated` command performs this check for all installed extensions. The
 - **Should be committed** — Check into version control alongside extensions
 - **Provenance tracking** — Records where each extension was sourced from
 - **Update detection** — Enables `axm outdated` and `axm update` to compare
-  installed `folderHash` against remote
+  installed `gitTreeFolderHash` against remote
 
 ---
 
@@ -1012,7 +1012,7 @@ axm skills install <skill>
    copy skill files to canonical location, then clean up temp directory
 6. **Sync to agents** — Create symlinks to agent skill directories; fall back to
    copy when symlinks fail (Windows, cross-filesystem mounts)
-7. **Update lockfile** — Record source, origin, folderHash, timestamps in
+7. **Update lockfile** — Record source, origin, gitTreeFolderHash, timestamps in
    `axm-lock.yaml`
 8. **Update settings** — Add extension entry to `settings.json`
 
@@ -1037,7 +1037,7 @@ axm skills install <skill>
 ```
 .axm/
 ├── settings.json           # Lists installed skills with their source
-├── axm-lock.yaml           # Resolved state: folderHash, timestamps
+├── axm-lock.yaml           # Resolved state: gitTreeFolderHash, timestamps
 └── skills/
     └── my-skill/           # Canonical skill location
         ├── SKILL.md        # Main instructions (required)

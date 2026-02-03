@@ -92,76 +92,77 @@ The diff between current (actual + locked) and ideal produces the plan. Dry-run 
 
 ## Type Definitions
 
-### Design Principle: Data.TaggedEnum + Schema
+### Design Principle: Plain Interfaces + Schema at Boundaries
 
-We use a dual approach for tagged unions:
+We use a separation of concerns approach:
 
-1. **`Data.TaggedEnum`** — Runtime types with constructors, `$match` for exhaustive pattern matching, and `$is` for type guards
-2. **`Schema.Union` with `Schema.TaggedStruct`** — JSON serialization for `--json` output
+1. **Plain interfaces** — Domain types with `_tag` discriminator for pattern matching
+2. **Exhaustive switch statements** — TypeScript catches missing cases at compile time
+3. **`Schema.TaggedUnion`** — JSON serialization for `--json` output (at boundaries only)
 
 This enables:
 
-- **Type-safe constructors** — `SkillValidity.Valid()`, `SkillChange.Add({ skill })`
-- **Built-in exhaustive matching** — `MyChange.$match(value, { ... })` catches missing cases at compile time
-- **Built-in type guards** — `MyChange.$is("Add")` creates type-safe predicates
+- **Simple domain modeling** — Plain TypeScript interfaces, no runtime overhead
+- **Exhaustive matching** — Switch statements with TypeScript control flow analysis
+- **Inline type checks** — Simple `value._tag === "Add"` checks
 - **JSON serialization** — `--json` flag outputs valid JSON that can be parsed back
 - **Test deserialization** — E2E tests can parse CLI output and assert on structured data
 - **Runtime validation** — `Schema.decodeUnknown` validates data at boundaries
 
 ```typescript
-import { Data, Match, Schema } from "effect";
+import { Schema } from "effect";
 
-// Pattern: Data.TaggedEnum for runtime, Schema for serialization
-export type MyChange = Data.TaggedEnum<{
-  Add: { readonly item: Item };
-  Remove: { readonly name: string };
-}>;
-export const MyChange = Data.taggedEnum<MyChange>();
+// Pattern: Plain interfaces for domain, Schema for serialization
+export type MyChange =
+  | { readonly _tag: "Add"; readonly item: Item }
+  | { readonly _tag: "Remove"; readonly name: string };
 
-// Constructors: MyChange.Add({ item }), MyChange.Remove({ name: "foo" })
+// Constructors: Simple object literals
+const addChange: MyChange = { _tag: "Add", item };
+const removeChange: MyChange = { _tag: "Remove", name: "foo" };
 
-// Pattern matching with built-in $match (exhaustive by design)
-const handleChange = (change: MyChange) =>
-  MyChange.$match(change, {
-    Add: ({ item }) => `Adding ${item.name}`,
-    Remove: ({ name }) => `Removing ${name}`,
-  });
+// Pattern matching with exhaustive switch (TypeScript catches missing cases)
+const handleChange = (change: MyChange): string => {
+  switch (change._tag) {
+    case "Add":
+      return `Adding ${change.item.name}`;
+    case "Remove":
+      return `Removing ${change.name}`;
+  }
+};
 
-// Type guards with built-in $is
-const isAdd = MyChange.$is("Add"); // (value: MyChange) => value is Add
+// Type guards: inline checks
+const isAdd = (change: MyChange): change is MyChange & { _tag: "Add" } =>
+  change._tag === "Add";
 
-// For complex matching with predicates, use Match.valueTags
-const handleWithFallback = (change: MyChange) =>
-  Match.valueTags(change, {
-    Add: ({ item }) => `Adding ${item.name}`,
-    Remove: ({ name }) => `Removing ${name}`,
-  });
+// Or just use inline: change._tag === "Add"
 
-// Schema for JSON serialization
-const MyChangeSchema = Schema.Union(
-  Schema.TaggedStruct("Add", { item: ItemSchema }),
-  Schema.TaggedStruct("Remove", { name: Schema.String }),
-);
+// Schema for JSON serialization (using TaggedUnion for cleaner syntax)
+const MyChangeSchema = Schema.TaggedUnion("_tag", {
+  Add: Schema.Struct({ item: ItemSchema }),
+  Remove: Schema.Struct({ name: Schema.String }),
+});
 ```
 
-For simple data types (non-unions), use `Schema.Struct` directly:
+For simple non-union data types that only need serialization, you can derive the type from Schema:
 
 ```typescript
-const MyType = Schema.Struct({
+// Only for serialization-boundary types, not domain types
+const MyTypeSchema = Schema.Struct({
   name: Schema.String,
   value: Schema.Number,
 });
-type MyType = typeof MyType.Type;
+type MyType = typeof MyTypeSchema.Type;
 ```
 
 ### Per-Extension-Type Design
 
 Each extension type (skill, command, pack, mcp) has its own state types with type-specific validation.
 
-**Locked types** derive from the shared `LockEntry` schema using Effect Schema transformations. This gives us one source of truth for both serialization and domain representation:
+**Pattern:** Define plain interfaces for domain, separate schemas for serialization:
 
 ```typescript
-// Shared pattern
+// Shared pattern for state types
 interface StateBase<TActual, TLocked, TValidity> {
   readonly name: string;
   readonly actual: Option.Option<TActual>;
@@ -169,13 +170,18 @@ interface StateBase<TActual, TLocked, TValidity> {
   readonly validity: TValidity;
 }
 
-// Locked types derived from LockEntry schema with transformations
-// Schema handles: string ↔ Date, optional ↔ Option
-// See implementation for Schema transformation details
-const LockedSkill = LockEntry.pipe(Schema.transform(...));
-type LockedSkill = typeof LockedSkill.Type;
+// Domain interfaces
+interface LockedSkill {
+  readonly source: string;
+  readonly origin: string;
+  readonly gitTreeFolderHash: string;
+  // ...
+}
 
-// Per-type implementations
+// Schema for JSON serialization (derived from LockEntry with transformations)
+const LockedSkillSchema = LockEntry.pipe(Schema.transform(...));
+
+// Per-type implementations use the shared pattern
 interface SkillState extends StateBase<
   ActualSkill,
   LockedSkill,
@@ -204,13 +210,21 @@ import { FullyQualifiedName } from "@agentxm/core/schemas";
 // Actual State (what's on disk)
 // =============================================================================
 
-export const SkillFrontmatter = Schema.Struct({
+/** Skill frontmatter parsed from SKILL.md */
+export interface SkillFrontmatter {
+  readonly name?: string;
+  readonly description?: string;
+  readonly version?: string;
+  readonly triggers?: readonly string[];
+}
+
+// Schema for JSON serialization
+export const SkillFrontmatterSchema = Schema.Struct({
   name: Schema.optional(Schema.String),
   description: Schema.optional(Schema.String),
   version: Schema.optional(Schema.String),
   triggers: Schema.optional(Schema.Array(Schema.String)),
 });
-export type SkillFrontmatter = typeof SkillFrontmatter.Type;
 
 /**
  * Skill as it exists on disk at canonical location (.axm/skills/<name>/).
@@ -218,16 +232,26 @@ export type SkillFrontmatter = typeof SkillFrontmatter.Type;
  * The gitTreeFolderHash is the git tree hash of the skill folder, computed using
  * git's tree object algorithm for deterministic, cross-platform hashing.
  */
-export const ActualSkill = Schema.Struct({
+export interface ActualSkill {
+  readonly name: string;
+  readonly path: string;
+  readonly frontmatter: Option.Option<SkillFrontmatter>;
+  readonly content: string;
+  readonly gitTreeFolderHash: string;
+  readonly files: readonly string[];
+  readonly lastModified: Date;
+}
+
+// Schema for JSON serialization
+export const ActualSkillSchema = Schema.Struct({
   name: Schema.String,
   path: Schema.String,
-  frontmatter: Schema.OptionFromNullOr(SkillFrontmatter),
+  frontmatter: Schema.OptionFromNullOr(SkillFrontmatterSchema),
   content: Schema.String,
-  gitTreeFolderHash: Schema.String, // git tree hash
+  gitTreeFolderHash: Schema.String,
   files: Schema.Array(Schema.String),
   lastModified: Schema.Date,
 });
-export type ActualSkill = typeof ActualSkill.Type;
 
 // =============================================================================
 // Locked State (what the lockfile says)
@@ -239,19 +263,28 @@ export type ActualSkill = typeof ActualSkill.Type;
  * Derived from the LockEntry schema with Effect Schema transformations.
  * The schema handles string ↔ Date and optional ↔ Option conversions.
  */
-export const LockedSkill = Schema.Struct({
+export interface LockedSkill {
+  readonly source: string;
+  readonly origin: string;
+  readonly path: Option.Option<string>;
+  readonly ref: Option.Option<string>;
+  readonly version: Option.Option<string>;
+  readonly gitTreeFolderHash: string;
+  readonly installedAt: Date;
+  readonly updatedAt: Date;
+}
+
+// Schema for JSON serialization
+export const LockedSkillSchema = Schema.Struct({
   source: Schema.String,
   origin: Schema.String,
-  path: Schema.optionalToOption(Schema.String),
-  ref: Schema.optionalToOption(Schema.String),
-  version: Schema.optionalToOption(Schema.String),
-  gitTreeFolderHash: Schema.String, // git tree hash
+  path: Schema.OptionFromNullOr(Schema.String),
+  ref: Schema.OptionFromNullOr(Schema.String),
+  version: Schema.OptionFromNullOr(Schema.String),
+  gitTreeFolderHash: Schema.String,
   installedAt: Schema.Date,
   updatedAt: Schema.Date,
 });
-
-export type LockedSkill = typeof LockedSkill.Type;
-// Encoded form for serialization: { path?: string, installedAt: string, ... }
 
 // =============================================================================
 // Validity (type-specific diagnostics)
@@ -271,57 +304,109 @@ export type LockedSkill = typeof LockedSkill.Type;
  *   W001: MissingDescription - No description in frontmatter
  *   W002: Orphaned - On disk but not in lockfile
  */
-export const SkillValidityCode = Schema.Literal(
-  "E001",
-  "E002",
-  "E003",
-  "E004",
-  "E005",
-  "E006",
-  "W001",
-  "W002",
-);
-export type SkillValidityCode = typeof SkillValidityCode.Type;
+export type SkillValidityCode =
+  | "E001"
+  | "E002"
+  | "E003"
+  | "E004"
+  | "E005"
+  | "E006"
+  | "W001"
+  | "W002";
 
 /**
- * Skill validity states using Data.TaggedEnum for runtime pattern matching.
+ * Skill validity states as discriminated union.
  * Each variant has a static code for identification.
  * Severity derived from code prefix: E = error, W = warning.
  *
- * Data.TaggedEnum provides:
- * - Type-safe constructors: SkillValidity.Valid(), SkillValidity.Missing({ ... })
- * - Exhaustive pattern matching: SkillValidity.$match(value, { Valid: ..., ... })
- * - Type guards: SkillValidity.$is("Valid") returns (v: SkillValidity) => v is Valid
- * - Discriminated union with _tag field
+ * Use exhaustive switch statements for pattern matching:
+ * - TypeScript catches missing cases at compile time
+ * - No runtime overhead from tagged enum machinery
+ * - Simple inline checks: validity._tag === "Valid"
  */
-export type SkillValidity = Data.TaggedEnum<{
-  Valid: {};
-  MissingSkillMd: { readonly code: "E001"; readonly path: string };
-  InvalidFrontmatter: {
-    readonly code: "E002";
-    readonly errors: readonly string[];
-  };
-  NameMismatch: {
-    readonly code: "E003";
-    readonly frontmatterName: string;
-    readonly directoryName: string;
-  };
-  MissingDescription: { readonly code: "W001" };
-  Orphaned: { readonly code: "W002" };
-  Missing: { readonly code: "E004"; readonly expected: LockedSkill };
-  HashMismatch: {
-    readonly code: "E005";
-    readonly expected: string;
-    readonly actual: string;
-  };
-  Incomplete: { readonly code: "E006"; readonly reason: string };
-  Multiple: { readonly issues: readonly SkillValidity[] };
-}>;
-export const SkillValidity = Data.taggedEnum<SkillValidity>();
+export type SkillValidity =
+  | { readonly _tag: "Valid" }
+  | {
+      readonly _tag: "MissingSkillMd";
+      readonly code: "E001";
+      readonly path: string;
+    }
+  | {
+      readonly _tag: "InvalidFrontmatter";
+      readonly code: "E002";
+      readonly errors: readonly string[];
+    }
+  | {
+      readonly _tag: "NameMismatch";
+      readonly code: "E003";
+      readonly frontmatterName: string;
+      readonly directoryName: string;
+    }
+  | { readonly _tag: "MissingDescription"; readonly code: "W001" }
+  | { readonly _tag: "Orphaned"; readonly code: "W002" }
+  | {
+      readonly _tag: "Missing";
+      readonly code: "E004";
+      readonly expected: LockedSkill;
+    }
+  | {
+      readonly _tag: "HashMismatch";
+      readonly code: "E005";
+      readonly expected: string;
+      readonly actual: string;
+    }
+  | {
+      readonly _tag: "Incomplete";
+      readonly code: "E006";
+      readonly reason: string;
+    }
+  | { readonly _tag: "Multiple"; readonly issues: readonly SkillValidity[] };
+
+// Constructors: simple factory functions for convenience
+export const SkillValidity = {
+  Valid: (): SkillValidity => ({ _tag: "Valid" }),
+  MissingSkillMd: (args: { path: string }): SkillValidity => ({
+    _tag: "MissingSkillMd",
+    code: "E001",
+    ...args,
+  }),
+  InvalidFrontmatter: (args: { errors: readonly string[] }): SkillValidity => ({
+    _tag: "InvalidFrontmatter",
+    code: "E002",
+    ...args,
+  }),
+  NameMismatch: (args: {
+    frontmatterName: string;
+    directoryName: string;
+  }): SkillValidity => ({ _tag: "NameMismatch", code: "E003", ...args }),
+  MissingDescription: (): SkillValidity => ({
+    _tag: "MissingDescription",
+    code: "W001",
+  }),
+  Orphaned: (): SkillValidity => ({ _tag: "Orphaned", code: "W002" }),
+  Missing: (args: { expected: LockedSkill }): SkillValidity => ({
+    _tag: "Missing",
+    code: "E004",
+    ...args,
+  }),
+  HashMismatch: (args: {
+    expected: string;
+    actual: string;
+  }): SkillValidity => ({ _tag: "HashMismatch", code: "E005", ...args }),
+  Incomplete: (args: { reason: string }): SkillValidity => ({
+    _tag: "Incomplete",
+    code: "E006",
+    ...args,
+  }),
+  Multiple: (args: { issues: readonly SkillValidity[] }): SkillValidity => ({
+    _tag: "Multiple",
+    ...args,
+  }),
+} as const;
 
 /**
  * Schema for JSON serialization of SkillValidity.
- * Mirrors the Data.TaggedEnum structure for encode/decode.
+ * Uses TaggedUnion for cleaner syntax.
  */
 export const SkillValiditySchema: Schema.Schema<SkillValidity> = Schema.Union(
   Schema.TaggedStruct("Valid", {}),
@@ -342,7 +427,7 @@ export const SkillValiditySchema: Schema.Schema<SkillValidity> = Schema.Union(
   Schema.TaggedStruct("Orphaned", { code: Schema.Literal("W002") }),
   Schema.TaggedStruct("Missing", {
     code: Schema.Literal("E004"),
-    expected: LockedSkill,
+    expected: LockedSkillSchema,
   }),
   Schema.TaggedStruct("HashMismatch", {
     code: Schema.Literal("E005"),
@@ -358,27 +443,30 @@ export const SkillValiditySchema: Schema.Schema<SkillValidity> = Schema.Union(
   }),
 );
 
-export const ValiditySeverity = Schema.Literal("error", "warning", "info");
-export type ValiditySeverity = typeof ValiditySeverity.Type;
+export type ValiditySeverity = "error" | "warning" | "info";
 
 /** Derive severity from validity code prefix. */
 export const severityFromCode = (code: SkillValidityCode): ValiditySeverity =>
   code.startsWith("E") ? "error" : code.startsWith("W") ? "warning" : "info";
 
-/** Extract code from validity (Valid has no code). Uses built-in $match. */
-export const getValidityCode = (v: SkillValidity): SkillValidityCode | null =>
-  SkillValidity.$match(v, {
-    Valid: () => null,
-    MissingSkillMd: ({ code }) => code,
-    InvalidFrontmatter: ({ code }) => code,
-    NameMismatch: ({ code }) => code,
-    MissingDescription: ({ code }) => code,
-    Orphaned: ({ code }) => code,
-    Missing: ({ code }) => code,
-    HashMismatch: ({ code }) => code,
-    Incomplete: ({ code }) => code,
-    Multiple: ({ issues }) => getValidityCode(issues[0]),
-  });
+/** Extract code from validity (Valid has no code). Uses exhaustive switch. */
+export const getValidityCode = (v: SkillValidity): SkillValidityCode | null => {
+  switch (v._tag) {
+    case "Valid":
+      return null;
+    case "MissingSkillMd":
+    case "InvalidFrontmatter":
+    case "NameMismatch":
+    case "MissingDescription":
+    case "Orphaned":
+    case "Missing":
+    case "HashMismatch":
+    case "Incomplete":
+      return v.code;
+    case "Multiple":
+      return v.issues[0] ? getValidityCode(v.issues[0]) : null;
+  }
+};
 
 // =============================================================================
 // Unified State
@@ -387,19 +475,29 @@ export const getValidityCode = (v: SkillValidity): SkillValidityCode | null =>
 /**
  * Complete state of a skill: actual + locked + computed validity.
  */
-export const SkillState = Schema.Struct({
+export interface SkillState {
+  readonly name: string;
+  readonly actual: Option.Option<ActualSkill>;
+  readonly locked: Option.Option<LockedSkill>;
+  readonly validity: SkillValidity;
+}
+
+// Schema for JSON serialization
+export const SkillStateSchema = Schema.Struct({
   name: Schema.String,
-  actual: Schema.OptionFromNullOr(ActualSkill),
-  locked: Schema.OptionFromNullOr(LockedSkill),
+  actual: Schema.OptionFromNullOr(ActualSkillSchema),
+  locked: Schema.OptionFromNullOr(LockedSkillSchema),
   validity: SkillValiditySchema,
 });
-export type SkillState = typeof SkillState.Type;
 
 // Skills stored as Record for O(1) lookups and immutable updates
-export const SkillsState = Schema.Struct({
-  skills: Schema.Record({ key: Schema.String, value: SkillState }),
+export interface SkillsState {
+  readonly skills: Readonly<Record<string, SkillState>>;
+}
+
+export const SkillsStateSchema = Schema.Struct({
+  skills: Schema.Record({ key: Schema.String, value: SkillStateSchema }),
 });
-export type SkillsState = typeof SkillsState.Type;
 
 // =============================================================================
 // Settings State (settings.json)
@@ -408,18 +506,40 @@ export type SkillsState = typeof SkillsState.Type;
 import { Settings } from "@agentxm/core/schemas";
 
 /**
- * Settings validity states using Data.TaggedEnum.
- * Use SettingsValidity.$match for exhaustive matching, SettingsValidity.$is for type guards.
+ * Settings validity states as discriminated union.
+ * Use exhaustive switch for pattern matching.
  */
-export type SettingsValidity = Data.TaggedEnum<{
-  Valid: {};
-  ParseError: { readonly error: string };
-  SchemaMismatch: { readonly errors: readonly string[] };
-  OrphanedSkills: { readonly names: readonly string[] };
-  OrphanedCommands: { readonly names: readonly string[] };
-  Multiple: { readonly issues: readonly SettingsValidity[] };
-}>;
-export const SettingsValidity = Data.taggedEnum<SettingsValidity>();
+export type SettingsValidity =
+  | { readonly _tag: "Valid" }
+  | { readonly _tag: "ParseError"; readonly error: string }
+  | { readonly _tag: "SchemaMismatch"; readonly errors: readonly string[] }
+  | { readonly _tag: "OrphanedSkills"; readonly names: readonly string[] }
+  | { readonly _tag: "OrphanedCommands"; readonly names: readonly string[] }
+  | { readonly _tag: "Multiple"; readonly issues: readonly SettingsValidity[] };
+
+// Constructors
+export const SettingsValidity = {
+  Valid: (): SettingsValidity => ({ _tag: "Valid" }),
+  ParseError: (args: { error: string }): SettingsValidity => ({
+    _tag: "ParseError",
+    ...args,
+  }),
+  SchemaMismatch: (args: { errors: readonly string[] }): SettingsValidity => ({
+    _tag: "SchemaMismatch",
+    ...args,
+  }),
+  OrphanedSkills: (args: { names: readonly string[] }): SettingsValidity => ({
+    _tag: "OrphanedSkills",
+    ...args,
+  }),
+  OrphanedCommands: (args: { names: readonly string[] }): SettingsValidity => ({
+    _tag: "OrphanedCommands",
+    ...args,
+  }),
+  Multiple: (args: {
+    issues: readonly SettingsValidity[];
+  }): SettingsValidity => ({ _tag: "Multiple", ...args }),
+} as const;
 
 /** Schema for JSON serialization of SettingsValidity. */
 export const SettingsValiditySchema: Schema.Schema<SettingsValidity> =
@@ -444,13 +564,19 @@ export const SettingsValiditySchema: Schema.Schema<SettingsValidity> =
  * Settings state reuses the Settings schema directly.
  * Actual = parsed Settings from disk. Ideal = desired Settings.
  */
-export const SettingsState = Schema.Struct({
+export interface SettingsState {
+  readonly path: string;
+  readonly actual: Option.Option<Settings>;
+  readonly lastModified: Option.Option<Date>;
+  readonly validity: SettingsValidity;
+}
+
+export const SettingsStateSchema = Schema.Struct({
   path: Schema.String,
   actual: Schema.OptionFromNullOr(Settings),
   lastModified: Schema.OptionFromNullOr(Schema.Date),
   validity: SettingsValiditySchema,
 });
-export type SettingsState = typeof SettingsState.Type;
 
 // IdealSettings is just Settings - what we want settings.json to become
 type IdealSettings = Settings;
@@ -459,8 +585,7 @@ type IdealSettings = Settings;
 // Workspace State (top-level container)
 // =============================================================================
 
-export const WorkspaceLevel = Schema.Literal("project", "user");
-export type WorkspaceLevel = typeof WorkspaceLevel.Type;
+export type WorkspaceLevel = "project" | "user";
 
 /**
  * Complete state of an axm workspace.
@@ -472,17 +597,28 @@ export type WorkspaceLevel = typeof WorkspaceLevel.Type;
  *
  * The same state model applies; only paths differ.
  */
-export const WorkspaceState = Schema.Struct({
-  level: WorkspaceLevel,
+export interface WorkspaceState {
+  readonly level: WorkspaceLevel;
+  readonly axmDir: string;
+  readonly skills: SkillsState;
+  readonly commands: CommandsState;
+  readonly mcpServers: McpServersState;
+  readonly packs: PacksState;
+  readonly settings: SettingsState;
+  readonly loadedAt: Date;
+}
+
+// Schema for JSON serialization
+export const WorkspaceStateSchema = Schema.Struct({
+  level: Schema.Literal("project", "user"),
   axmDir: Schema.String,
-  skills: SkillsState,
-  commands: CommandsState,
-  mcpServers: McpServersState,
-  packs: PacksState,
-  settings: SettingsState,
+  skills: SkillsStateSchema,
+  commands: CommandsStateSchema,
+  mcpServers: McpServersStateSchema,
+  packs: PacksStateSchema,
+  settings: SettingsStateSchema,
   loadedAt: Schema.Date,
 });
-export type WorkspaceState = typeof WorkspaceState.Type;
 
 // =============================================================================
 // Other Extension Types (follow same pattern as Skills)
@@ -511,20 +647,45 @@ export type WorkspaceState = typeof WorkspaceState.Type;
 // =============================================================================
 
 /**
- * Skill source types using Data.TaggedEnum.
- * Use SkillSource.$match for exhaustive matching, SkillSource.$is for type guards.
+ * Skill source types as discriminated union.
+ * Use exhaustive switch for pattern matching.
  */
-export type SkillSource = Data.TaggedEnum<{
-  Local: { readonly path: string };
-  Git: {
-    readonly url: string;
-    readonly ref: Option.Option<string>;
-    readonly subpath: Option.Option<string>;
-  };
-  WellKnown: { readonly baseUrl: string; readonly skillName: string };
-  Registry: { readonly name: string; readonly version: string };
-}>;
-export const SkillSource = Data.taggedEnum<SkillSource>();
+export type SkillSource =
+  | { readonly _tag: "Local"; readonly path: string }
+  | {
+      readonly _tag: "Git";
+      readonly url: string;
+      readonly ref: Option.Option<string>;
+      readonly subpath: Option.Option<string>;
+    }
+  | {
+      readonly _tag: "WellKnown";
+      readonly baseUrl: string;
+      readonly skillName: string;
+    }
+  | {
+      readonly _tag: "Registry";
+      readonly name: string;
+      readonly version: string;
+    };
+
+// Constructors
+export const SkillSource = {
+  Local: (args: { path: string }): SkillSource => ({ _tag: "Local", ...args }),
+  Git: (args: {
+    url: string;
+    ref: Option.Option<string>;
+    subpath: Option.Option<string>;
+  }): SkillSource => ({ _tag: "Git", ...args }),
+  WellKnown: (args: { baseUrl: string; skillName: string }): SkillSource => ({
+    _tag: "WellKnown",
+    ...args,
+  }),
+  Registry: (args: { name: string; version: string }): SkillSource => ({
+    _tag: "Registry",
+    ...args,
+  }),
+} as const;
 
 /** Schema for JSON serialization of SkillSource. */
 export const SkillSourceSchema = Schema.Union(
@@ -544,90 +705,176 @@ export const SkillSourceSchema = Schema.Union(
   }),
 );
 
-export const IdealSkill = Schema.Struct({
+export interface IdealSkill {
+  readonly name: string;
+  readonly source: SkillSource;
+  readonly gitTreeFolderHash: string;
+  readonly description: Option.Option<string>;
+  readonly agents: readonly string[];
+}
+
+export const IdealSkillSchema = Schema.Struct({
   name: Schema.String,
   source: SkillSourceSchema,
   gitTreeFolderHash: Schema.String,
   description: Schema.OptionFromNullOr(Schema.String),
   agents: Schema.Array(Schema.String),
 });
-export type IdealSkill = typeof IdealSkill.Type;
 
-export const IdealSkillsState = Schema.Struct({
-  skills: Schema.Record({ key: Schema.String, value: IdealSkill }),
-  removals: Schema.Array(Schema.String), // Immutable array of names to remove
+export interface IdealSkillsState {
+  readonly skills: Readonly<Record<string, IdealSkill>>;
+  readonly removals: readonly string[]; // Immutable array of names to remove
+}
+
+export const IdealSkillsStateSchema = Schema.Struct({
+  skills: Schema.Record({ key: Schema.String, value: IdealSkillSchema }),
+  removals: Schema.Array(Schema.String),
 });
-export type IdealSkillsState = typeof IdealSkillsState.Type;
 
 /**
  * Complete ideal state for a project workspace.
  * IdealSettings = Settings (reuses schema directly).
  */
-export const IdealWorkspaceState = Schema.Struct({
-  skills: IdealSkillsState,
-  commands: IdealCommandsState, // defined similarly
-  mcpServers: IdealMcpServersState,
-  packs: IdealPacksState,
+export interface IdealWorkspaceState {
+  readonly skills: IdealSkillsState;
+  readonly commands: IdealCommandsState; // defined similarly
+  readonly mcpServers: IdealMcpServersState;
+  readonly packs: IdealPacksState;
+  readonly settings: Settings;
+}
+
+export const IdealWorkspaceStateSchema = Schema.Struct({
+  skills: IdealSkillsStateSchema,
+  commands: IdealCommandsStateSchema,
+  mcpServers: IdealMcpServersStateSchema,
+  packs: IdealPacksStateSchema,
   settings: Settings,
 });
-export type IdealWorkspaceState = typeof IdealWorkspaceState.Type;
 
 // =============================================================================
 // Diff / Plan
 // =============================================================================
 
 /**
- * Skill change types using Data.TaggedEnum.
- * Use SkillChange.$match for exhaustive matching, SkillChange.$is for type guards.
+ * Skill change types as discriminated union.
+ * Use exhaustive switch for pattern matching.
  */
-export type SkillChange = Data.TaggedEnum<{
-  Add: { readonly skill: IdealSkill };
-  Update: { readonly from: SkillState; readonly to: IdealSkill };
-  Remove: { readonly skill: SkillState };
-  Unchanged: { readonly skill: SkillState };
-  Repair: { readonly skill: SkillState; readonly target: IdealSkill };
-}>;
-export const SkillChange = Data.taggedEnum<SkillChange>();
+export type SkillChange =
+  | { readonly _tag: "Add"; readonly skill: IdealSkill }
+  | {
+      readonly _tag: "Update";
+      readonly from: SkillState;
+      readonly to: IdealSkill;
+    }
+  | { readonly _tag: "Remove"; readonly skill: SkillState }
+  | { readonly _tag: "Unchanged"; readonly skill: SkillState }
+  | {
+      readonly _tag: "Repair";
+      readonly skill: SkillState;
+      readonly target: IdealSkill;
+    };
+
+// Constructors
+export const SkillChange = {
+  Add: (args: { skill: IdealSkill }): SkillChange => ({ _tag: "Add", ...args }),
+  Update: (args: { from: SkillState; to: IdealSkill }): SkillChange => ({
+    _tag: "Update",
+    ...args,
+  }),
+  Remove: (args: { skill: SkillState }): SkillChange => ({
+    _tag: "Remove",
+    ...args,
+  }),
+  Unchanged: (args: { skill: SkillState }): SkillChange => ({
+    _tag: "Unchanged",
+    ...args,
+  }),
+  Repair: (args: { skill: SkillState; target: IdealSkill }): SkillChange => ({
+    _tag: "Repair",
+    ...args,
+  }),
+} as const;
 
 /** Schema for JSON serialization of SkillChange. */
 export const SkillChangeSchema = Schema.Union(
-  Schema.TaggedStruct("Add", { skill: IdealSkill }),
-  Schema.TaggedStruct("Update", { from: SkillState, to: IdealSkill }),
-  Schema.TaggedStruct("Remove", { skill: SkillState }),
-  Schema.TaggedStruct("Unchanged", { skill: SkillState }),
-  Schema.TaggedStruct("Repair", { skill: SkillState, target: IdealSkill }),
+  Schema.TaggedStruct("Add", { skill: IdealSkillSchema }),
+  Schema.TaggedStruct("Update", {
+    from: SkillStateSchema,
+    to: IdealSkillSchema,
+  }),
+  Schema.TaggedStruct("Remove", { skill: SkillStateSchema }),
+  Schema.TaggedStruct("Unchanged", { skill: SkillStateSchema }),
+  Schema.TaggedStruct("Repair", {
+    skill: SkillStateSchema,
+    target: IdealSkillSchema,
+  }),
 );
 
-export const DiffSummary = Schema.Struct({
+export interface DiffSummary {
+  readonly add: number;
+  readonly update: number;
+  readonly remove: number;
+  readonly unchanged: number;
+  readonly repair: number;
+}
+
+export const DiffSummarySchema = Schema.Struct({
   add: Schema.Number,
   update: Schema.Number,
   remove: Schema.Number,
   unchanged: Schema.Number,
   repair: Schema.Number,
 });
-export type DiffSummary = typeof DiffSummary.Type;
 
-export const SkillsDiff = Schema.Struct({
+export interface SkillsDiff {
+  readonly changes: Readonly<Record<string, SkillChange>>;
+  readonly summary: DiffSummary;
+}
+
+export const SkillsDiffSchema = Schema.Struct({
   changes: Schema.Record({ key: Schema.String, value: SkillChangeSchema }),
-  summary: DiffSummary,
+  summary: DiffSummarySchema,
 });
-export type SkillsDiff = typeof SkillsDiff.Type;
 
 // =============================================================================
 // Settings Diff (key-path based)
 // =============================================================================
 
 /**
- * Settings changes tracked per field/key using Data.TaggedEnum.
+ * Settings changes tracked per field/key as discriminated union.
  * Simpler than SkillsDiff since Settings is a flat map structure.
- * Use SettingsKeyChange.$match for exhaustive matching, SettingsKeyChange.$is for type guards.
+ * Use exhaustive switch for pattern matching.
  */
-export type SettingsKeyChange = Data.TaggedEnum<{
-  Added: { readonly key: string; readonly value: string };
-  Removed: { readonly key: string; readonly previousValue: string };
-  Changed: { readonly key: string; readonly from: string; readonly to: string };
-}>;
-export const SettingsKeyChange = Data.taggedEnum<SettingsKeyChange>();
+export type SettingsKeyChange =
+  | { readonly _tag: "Added"; readonly key: string; readonly value: string }
+  | {
+      readonly _tag: "Removed";
+      readonly key: string;
+      readonly previousValue: string;
+    }
+  | {
+      readonly _tag: "Changed";
+      readonly key: string;
+      readonly from: string;
+      readonly to: string;
+    };
+
+// Constructors
+export const SettingsKeyChange = {
+  Added: (args: { key: string; value: string }): SettingsKeyChange => ({
+    _tag: "Added",
+    ...args,
+  }),
+  Removed: (args: {
+    key: string;
+    previousValue: string;
+  }): SettingsKeyChange => ({ _tag: "Removed", ...args }),
+  Changed: (args: {
+    key: string;
+    from: string;
+    to: string;
+  }): SettingsKeyChange => ({ _tag: "Changed", ...args }),
+} as const;
 
 /** Schema for JSON serialization of SettingsKeyChange. */
 export const SettingsKeyChangeSchema = Schema.Union(
@@ -643,29 +890,47 @@ export const SettingsKeyChangeSchema = Schema.Union(
   }),
 );
 
-export const AgentsDiff = Schema.Struct({
+export interface AgentsDiff {
+  readonly added: readonly string[];
+  readonly removed: readonly string[];
+}
+
+export const AgentsDiffSchema = Schema.Struct({
   added: Schema.Array(Schema.String),
   removed: Schema.Array(Schema.String),
 });
 
-export const ScopeDiff = Schema.Struct({
+export interface ScopeDiff {
+  readonly from: Option.Option<string>;
+  readonly to: string;
+}
+
+export const ScopeDiffSchema = Schema.Struct({
   from: Schema.OptionFromNullOr(Schema.String),
   to: Schema.String,
 });
 
-export const SettingsDiff = Schema.Struct({
+export interface SettingsDiff {
+  readonly skills: readonly SettingsKeyChange[];
+  readonly commands: readonly SettingsKeyChange[];
+  readonly packs: readonly SettingsKeyChange[];
+  readonly mcpServers: readonly SettingsKeyChange[];
+  readonly agents: AgentsDiff;
+  readonly scope: Option.Option<ScopeDiff>;
+}
+
+export const SettingsDiffSchema = Schema.Struct({
   skills: Schema.Array(SettingsKeyChangeSchema),
   commands: Schema.Array(SettingsKeyChangeSchema),
   packs: Schema.Array(SettingsKeyChangeSchema),
   mcpServers: Schema.Array(SettingsKeyChangeSchema),
-  agents: AgentsDiff,
-  scope: Schema.OptionFromNullOr(ScopeDiff),
+  agents: AgentsDiffSchema,
+  scope: Schema.OptionFromNullOr(ScopeDiffSchema),
 });
-export type SettingsDiff = typeof SettingsDiff.Type;
 
 /**
  * Compute settings diff between actual and ideal.
- * Uses Data.TaggedEnum constructors for type-safe change creation.
+ * Uses factory constructors for type-safe change creation.
  */
 export const computeSettingsDiff = (
   actual: Option.Option<Settings>,
@@ -750,14 +1015,21 @@ export const hasSettingsChanges = (diff: SettingsDiff): boolean =>
 // Workspace Diff (combined)
 // =============================================================================
 
-export const WorkspaceDiff = Schema.Struct({
-  skills: SkillsDiff,
-  commands: CommandsDiff, // defined similarly
-  mcpServers: McpServersDiff,
-  packs: PacksDiff,
-  settings: SettingsDiff,
+export interface WorkspaceDiff {
+  readonly skills: SkillsDiff;
+  readonly commands: CommandsDiff; // defined similarly
+  readonly mcpServers: McpServersDiff;
+  readonly packs: PacksDiff;
+  readonly settings: SettingsDiff;
+}
+
+export const WorkspaceDiffSchema = Schema.Struct({
+  skills: SkillsDiffSchema,
+  commands: CommandsDiffSchema,
+  mcpServers: McpServersDiffSchema,
+  packs: PacksDiffSchema,
+  settings: SettingsDiffSchema,
 });
-export type WorkspaceDiff = typeof WorkspaceDiff.Type;
 
 // =============================================================================
 // Agent Sync (computed separately, hidden from plan output)
@@ -769,23 +1041,45 @@ export type WorkspaceDiff = typeof WorkspaceDiff.Type;
  * - copy: Windows
  */
 export type SyncMethod = "symlink" | "copy";
-export const SyncMethodSchema = Schema.Literal("symlink", "copy");
 
 /**
- * Agent sync status using Data.TaggedEnum.
- * Use AgentSyncStatus.$match for exhaustive matching, AgentSyncStatus.$is for type guards.
+ * Agent sync status as discriminated union.
+ * Use exhaustive switch for pattern matching.
  */
-export type AgentSyncStatus = Data.TaggedEnum<{
-  Synced: { readonly method: SyncMethod };
-  Missing: {};
-  Stale: { readonly expected: string; readonly actual: string };
-  BrokenSymlink: { readonly link: string; readonly target: string };
-}>;
-export const AgentSyncStatus = Data.taggedEnum<AgentSyncStatus>();
+export type AgentSyncStatus =
+  | { readonly _tag: "Synced"; readonly method: SyncMethod }
+  | { readonly _tag: "Missing" }
+  | {
+      readonly _tag: "Stale";
+      readonly expected: string;
+      readonly actual: string;
+    }
+  | {
+      readonly _tag: "BrokenSymlink";
+      readonly link: string;
+      readonly target: string;
+    };
+
+// Constructors
+export const AgentSyncStatus = {
+  Synced: (args: { method: SyncMethod }): AgentSyncStatus => ({
+    _tag: "Synced",
+    ...args,
+  }),
+  Missing: (): AgentSyncStatus => ({ _tag: "Missing" }),
+  Stale: (args: { expected: string; actual: string }): AgentSyncStatus => ({
+    _tag: "Stale",
+    ...args,
+  }),
+  BrokenSymlink: (args: { link: string; target: string }): AgentSyncStatus => ({
+    _tag: "BrokenSymlink",
+    ...args,
+  }),
+} as const;
 
 /** Schema for JSON serialization of AgentSyncStatus. */
 export const AgentSyncStatusSchema = Schema.Union(
-  Schema.TaggedStruct("Synced", { method: SyncMethodSchema }),
+  Schema.TaggedStruct("Synced", { method: Schema.Literal("symlink", "copy") }),
   Schema.TaggedStruct("Missing", {}),
   Schema.TaggedStruct("Stale", {
     expected: Schema.String,
@@ -797,12 +1091,17 @@ export const AgentSyncStatusSchema = Schema.Union(
   }),
 );
 
-export const SkillSyncState = Schema.Struct({
+export interface SkillSyncState {
+  readonly skillName: string;
+  readonly canonicalPath: string;
+  readonly agents: Readonly<Record<string, AgentSyncStatus>>; // agentId -> status
+}
+
+export const SkillSyncStateSchema = Schema.Struct({
   skillName: Schema.String,
   canonicalPath: Schema.String,
-  agents: Schema.Record({ key: Schema.String, value: AgentSyncStatusSchema }), // agentId -> status
+  agents: Schema.Record({ key: Schema.String, value: AgentSyncStatusSchema }),
 });
-export type SkillSyncState = typeof SkillSyncState.Type;
 ```
 
 ---
@@ -867,13 +1166,13 @@ const computeValidity = (
     // No actual state on disk
     onNone: () =>
       Option.match(locked, {
-        onNone: () => SkillValidity.Valid({}),
-        onSome: (l) => SkillValidity.Missing({ code: "E004", expected: l }),
+        onNone: () => SkillValidity.Valid(),
+        onSome: (l) => SkillValidity.Missing({ expected: l }),
       }),
     // Actual state exists
     onSome: (a) =>
       Option.match(locked, {
-        onNone: () => SkillValidity.Orphaned({ code: "W002" }),
+        onNone: () => SkillValidity.Orphaned(),
         onSome: (l) => compareActualAndLocked(a, l),
       }),
   });
@@ -891,20 +1190,14 @@ const compareActualAndLocked = (
       // Missing SKILL.md
       a.content === ""
         ? Option.some(
-            SkillValidity.MissingSkillMd({
-              code: "E001",
-              path: `${a.path}/SKILL.md`,
-            }),
+            SkillValidity.MissingSkillMd({ path: `${a.path}/SKILL.md` }),
           )
         : Option.none(),
 
       // Invalid frontmatter
       Option.isNone(a.frontmatter) && a.content !== ""
         ? Option.some(
-            SkillValidity.InvalidFrontmatter({
-              code: "E002",
-              errors: ["Failed to parse"],
-            }),
+            SkillValidity.InvalidFrontmatter({ errors: ["Failed to parse"] }),
           )
         : Option.none(),
 
@@ -915,7 +1208,6 @@ const compareActualAndLocked = (
           fm.name && fm.name !== a.name
             ? Option.some(
                 SkillValidity.NameMismatch({
-                  code: "E003",
                   frontmatterName: fm.name,
                   directoryName: a.name,
                 }),
@@ -929,7 +1221,7 @@ const compareActualAndLocked = (
         a.frontmatter,
         Option.flatMap((fm) =>
           !fm.description
-            ? Option.some(SkillValidity.MissingDescription({ code: "W001" }))
+            ? Option.some(SkillValidity.MissingDescription())
             : Option.none(),
         ),
       ),
@@ -938,7 +1230,6 @@ const compareActualAndLocked = (
       a.gitTreeFolderHash !== l.gitTreeFolderHash
         ? Option.some(
             SkillValidity.HashMismatch({
-              code: "E005",
               expected: l.gitTreeFolderHash,
               actual: a.gitTreeFolderHash,
             }),
@@ -951,7 +1242,7 @@ const compareActualAndLocked = (
   return pipe(
     issues,
     Array.match({
-      onEmpty: () => SkillValidity.Valid({}),
+      onEmpty: () => SkillValidity.Valid(),
       onNonEmpty: (nonEmpty) =>
         nonEmpty.length === 1
           ? nonEmpty[0]
@@ -1165,22 +1456,25 @@ export const buildIdealForSync = (
 ```typescript
 // packages/core/src/skills/state/diff.ts
 
-import { Array, Match, Option, pipe, Record } from "effect";
+import { Array, Option, pipe, Record } from "effect";
 
-/** Check if validity indicates the skill needs repair (not just warnings). Uses built-in $match. */
-const needsRepair = (validity: SkillValidity): boolean =>
-  SkillValidity.$match(validity, {
-    Valid: () => false,
-    MissingDescription: () => false, // Warning only
-    HashMismatch: () => false, // Handled as Update
-    MissingSkillMd: () => true,
-    InvalidFrontmatter: () => true,
-    NameMismatch: () => true,
-    Orphaned: () => true,
-    Missing: () => true,
-    Incomplete: () => true,
-    Multiple: () => true,
-  });
+/** Check if validity indicates the skill needs repair (not just warnings). Uses exhaustive switch. */
+const needsRepair = (validity: SkillValidity): boolean => {
+  switch (validity._tag) {
+    case "Valid":
+    case "MissingDescription": // Warning only
+    case "HashMismatch": // Handled as Update
+      return false;
+    case "MissingSkillMd":
+    case "InvalidFrontmatter":
+    case "NameMismatch":
+    case "Orphaned":
+    case "Missing":
+    case "Incomplete":
+    case "Multiple":
+      return true;
+  }
+};
 
 /**
  * Compute diff between current and ideal state.
@@ -1247,19 +1541,25 @@ export const computeDiff = (
     Record.fromEntries,
   );
 
-  // Compute summary from changes using Match.valueTags (exhaustive by design)
+  // Compute summary from changes using exhaustive switch
   const summary = pipe(
     Object.values(changes),
     Array.reduce(
       { add: 0, update: 0, remove: 0, unchanged: 0, repair: 0 },
-      (acc, change) =>
-        Match.valueTags(change, {
-          Add: () => ({ ...acc, add: acc.add + 1 }),
-          Update: () => ({ ...acc, update: acc.update + 1 }),
-          Remove: () => ({ ...acc, remove: acc.remove + 1 }),
-          Unchanged: () => ({ ...acc, unchanged: acc.unchanged + 1 }),
-          Repair: () => ({ ...acc, repair: acc.repair + 1 }),
-        }),
+      (acc, change) => {
+        switch (change._tag) {
+          case "Add":
+            return { ...acc, add: acc.add + 1 };
+          case "Update":
+            return { ...acc, update: acc.update + 1 };
+          case "Remove":
+            return { ...acc, remove: acc.remove + 1 };
+          case "Unchanged":
+            return { ...acc, unchanged: acc.unchanged + 1 };
+          case "Repair":
+            return { ...acc, repair: acc.repair + 1 };
+        }
+      },
     ),
   );
 
@@ -1344,25 +1644,25 @@ Effect Schema transformation for JSON encoding:
 
 ```typescript
 // Internal: Record for O(1) lookups and immutable updates
-const SkillsDiffInternal = Schema.Struct({
+const SkillsDiffInternalSchema = Schema.Struct({
   changes: Schema.Record({ key: Schema.String, value: SkillChangeSchema }),
-  summary: DiffSummary,
+  summary: DiffSummarySchema,
 });
 
 // JSON: Array for CLI consumers (with name field added)
-const SkillChangeWithName = Schema.extend(
+const SkillChangeWithNameSchema = Schema.extend(
   SkillChangeSchema,
   Schema.Struct({ name: Schema.String }),
 );
 
-const SkillsDiffJson = Schema.Struct({
-  changes: Schema.Array(SkillChangeWithName),
-  summary: DiffSummary,
+const SkillsDiffJsonSchema = Schema.Struct({
+  changes: Schema.Array(SkillChangeWithNameSchema),
+  summary: DiffSummarySchema,
 });
 
 // Transform between representations
-export const SkillsDiffSchema = SkillsDiffInternal.pipe(
-  Schema.transform(SkillsDiffJson, {
+export const SkillsDiffOutputSchema = SkillsDiffInternalSchema.pipe(
+  Schema.transform(SkillsDiffJsonSchema, {
     decode: (internal) => ({
       ...internal,
       changes: pipe(
@@ -1394,13 +1694,11 @@ import {
   Data,
   Effect,
   Exit,
-  Match,
   Option,
   pipe,
   Record,
   Schema,
 } from "effect";
-// Note: Match imported for Match.valueTags where needed; $match used for most pattern matching
 
 // =============================================================================
 // Progress Events
@@ -1409,18 +1707,54 @@ import {
 export type ApplyAction = "add" | "update" | "remove" | "repair";
 
 /**
- * Progress events using Data.TaggedEnum.
- * Use ApplyProgressEvent.$match for exhaustive matching, ApplyProgressEvent.$is for type guards.
+ * Progress events as discriminated union.
+ * Use exhaustive switch for pattern matching.
  */
-export type ApplyProgressEvent = Data.TaggedEnum<{
-  StartingSkill: { readonly name: string; readonly action: ApplyAction };
-  CompletedSkill: { readonly name: string; readonly action: ApplyAction };
-  FailedSkill: { readonly name: string; readonly error: string };
-  SyncingAgent: { readonly skillName: string; readonly agentId: string };
-  UpdatingSettings: {};
-  UpdatingLockfile: {};
-}>;
-export const ApplyProgressEvent = Data.taggedEnum<ApplyProgressEvent>();
+export type ApplyProgressEvent =
+  | {
+      readonly _tag: "StartingSkill";
+      readonly name: string;
+      readonly action: ApplyAction;
+    }
+  | {
+      readonly _tag: "CompletedSkill";
+      readonly name: string;
+      readonly action: ApplyAction;
+    }
+  | {
+      readonly _tag: "FailedSkill";
+      readonly name: string;
+      readonly error: string;
+    }
+  | {
+      readonly _tag: "SyncingAgent";
+      readonly skillName: string;
+      readonly agentId: string;
+    }
+  | { readonly _tag: "UpdatingSettings" }
+  | { readonly _tag: "UpdatingLockfile" };
+
+// Constructors
+export const ApplyProgressEvent = {
+  StartingSkill: (args: {
+    name: string;
+    action: ApplyAction;
+  }): ApplyProgressEvent => ({ _tag: "StartingSkill", ...args }),
+  CompletedSkill: (args: {
+    name: string;
+    action: ApplyAction;
+  }): ApplyProgressEvent => ({ _tag: "CompletedSkill", ...args }),
+  FailedSkill: (args: { name: string; error: string }): ApplyProgressEvent => ({
+    _tag: "FailedSkill",
+    ...args,
+  }),
+  SyncingAgent: (args: {
+    skillName: string;
+    agentId: string;
+  }): ApplyProgressEvent => ({ _tag: "SyncingAgent", ...args }),
+  UpdatingSettings: (): ApplyProgressEvent => ({ _tag: "UpdatingSettings" }),
+  UpdatingLockfile: (): ApplyProgressEvent => ({ _tag: "UpdatingLockfile" }),
+} as const;
 
 /** Schema for JSON serialization of ApplyProgressEvent. */
 export const ApplyProgressEventSchema = Schema.Union(
@@ -1449,8 +1783,8 @@ export const ApplyProgressEventSchema = Schema.Union(
 // =============================================================================
 
 export interface ApplyResult {
-  readonly applied: Record<string, AppliedChange>;
-  readonly failed: Record<string, ApplyError>;
+  readonly applied: Readonly<Record<string, AppliedChange>>;
+  readonly failed: Readonly<Record<string, ApplyError>>;
   readonly summary: {
     readonly added: number;
     readonly updated: number;
@@ -1465,6 +1799,30 @@ export interface ApplyOptions {
   readonly agents: readonly AgentConfig[];
   readonly onProgress?: (event: ApplyProgressEvent) => void;
 }
+
+// =============================================================================
+// Errors (Data.TaggedError with retryable field)
+// =============================================================================
+
+export class ApplyError extends Data.TaggedError("ApplyError")<{
+  readonly message: string;
+  readonly skillName: string;
+  readonly cause?: unknown;
+  readonly retryable: boolean;
+}> {}
+
+export class LoadError extends Data.TaggedError("LoadError")<{
+  readonly message: string;
+  readonly path: string;
+  readonly cause?: unknown;
+  readonly retryable: boolean; // true for IO errors, false for parse errors
+}> {}
+
+export class BuildIdealError extends Data.TaggedError("BuildIdealError")<{
+  readonly message: string;
+  readonly cause?: unknown;
+  readonly retryable: boolean;
+}> {}
 
 /**
  * Apply diff to make actual state match ideal state.
@@ -1492,49 +1850,55 @@ export const applyDiff = (
         : Effect.void,
   ).pipe(Effect.flatMap(() => applyDiffImpl(diff, options)));
 
-/** Type guard for Unchanged changes. Uses built-in $is. */
-const isUnchanged = SkillChange.$is("Unchanged");
+/** Type guard for Unchanged changes. Simple inline check. */
+const isUnchanged = (
+  change: SkillChange,
+): change is SkillChange & { _tag: "Unchanged" } => change._tag === "Unchanged";
 
-/** Type guard for Remove changes. Uses built-in $is. */
-const isRemove = SkillChange.$is("Remove");
+/** Type guard for Remove changes. Simple inline check. */
+const isRemove = (
+  change: SkillChange,
+): change is SkillChange & { _tag: "Remove" } => change._tag === "Remove";
 
 const applyDiffImpl = (
   diff: WorkspaceDiff,
   options: ApplyOptions,
 ): Effect.Effect<ApplyResult, ApplyError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    // Phase 1: Apply skill file changes (sequential for consistency)
+    // Phase 1: Apply skill file changes
+    // Note: Sequential here because we want progress events in order.
+    // For truly independent operations, use { concurrency: "unbounded" }
     const changesToApply = pipe(
       Object.entries(diff.skills.changes),
       Array.filter(([_, change]) => !isUnchanged(change)),
     );
 
-    const applied = yield* pipe(
+    const appliedEntries = yield* Effect.forEach(
       changesToApply,
-      Effect.reduce(
-        Record.empty<string, AppliedChange>(),
-        (acc, [name, change]) =>
-          Effect.gen(function* () {
-            options.onProgress?.(
-              ApplyProgressEvent.StartingSkill({
-                name,
-                action: changeToAction(change),
-              }),
-            );
+      ([name, change]) =>
+        Effect.gen(function* () {
+          options.onProgress?.(
+            ApplyProgressEvent.StartingSkill({
+              name,
+              action: changeToAction(change),
+            }),
+          );
 
-            const result = yield* applyChange(change, options);
+          const result = yield* applyChange(change, options);
 
-            options.onProgress?.(
-              ApplyProgressEvent.CompletedSkill({
-                name,
-                action: result.type,
-              }),
-            );
+          options.onProgress?.(
+            ApplyProgressEvent.CompletedSkill({
+              name,
+              action: result.type,
+            }),
+          );
 
-            return { ...acc, [name]: result };
-          }),
-      ),
+          return [name, result] as const;
+        }),
+      { concurrency: 1 }, // Sequential for ordered progress; use "unbounded" if order doesn't matter
     );
+
+    const applied = Object.fromEntries(appliedEntries);
 
     // Phase 2: Sync to agents (after all files are in place)
     const skillsToSync = pipe(
@@ -1594,13 +1958,13 @@ const applyDiffImpl = (
     return { applied, failed: Record.empty(), summary };
   });
 
-/** Error for attempting to apply an unchanged skill (programming error). Uses Schema.TaggedError for JSON serialization. */
-class UnchangedSkillApplied extends Schema.TaggedError<UnchangedSkillApplied>()(
-  "UnchangedSkillApplied",
-  { name: Schema.String },
-) {}
+/** Error for attempting to apply an unchanged skill (programming error). Uses Data.TaggedError. */
+class UnchangedSkillApplied extends Data.TaggedError("UnchangedSkillApplied")<{
+  readonly name: string;
+  readonly retryable: false; // Always false - programming error
+}> {}
 
-/** Apply a single change using built-in $match (exhaustive by design). */
+/** Apply a single change using exhaustive switch. */
 const applyChange = (
   change: SkillChange,
   options: ApplyOptions,
@@ -1608,15 +1972,25 @@ const applyChange = (
   AppliedChange,
   ApplyError | UnchangedSkillApplied,
   FileSystem.FileSystem | Path.Path
-> =>
-  SkillChange.$match(change, {
-    Add: ({ skill }) => applyAdd(skill, options),
-    Update: ({ from, to }) => applyUpdate(from, to, options),
-    Remove: ({ skill }) => applyRemove(skill, options),
-    Repair: ({ skill, target }) => applyRepair(skill, target, options),
-    Unchanged: ({ skill }) =>
-      Effect.fail(new UnchangedSkillApplied({ name: skill.name })),
-  });
+> => {
+  switch (change._tag) {
+    case "Add":
+      return applyAdd(change.skill, options);
+    case "Update":
+      return applyUpdate(change.from, change.to, options);
+    case "Remove":
+      return applyRemove(change.skill, options);
+    case "Repair":
+      return applyRepair(change.skill, change.target, options);
+    case "Unchanged":
+      return Effect.fail(
+        new UnchangedSkillApplied({
+          name: change.skill.name,
+          retryable: false,
+        }),
+      );
+  }
+};
 
 const applyAdd = (
   skill: IdealSkill,
@@ -1746,11 +2120,15 @@ The state model naturally supports `doctor` and `validate`:
 
 import { Array, Effect, Option, pipe } from "effect";
 
-/** Type guard for Valid state. Uses built-in $is. */
-const isValid = SkillValidity.$is("Valid");
+/** Type guard for Valid state. Simple inline check. */
+const isValid = (v: SkillValidity): v is SkillValidity & { _tag: "Valid" } =>
+  v._tag === "Valid";
 
-/** Type guard for BrokenSymlink status. Uses built-in $is. */
-const isBrokenSymlink = AgentSyncStatus.$is("BrokenSymlink");
+/** Type guard for BrokenSymlink status. Simple inline check. */
+const isBrokenSymlink = (
+  s: AgentSyncStatus,
+): s is AgentSyncStatus & { _tag: "BrokenSymlink" } =>
+  s._tag === "BrokenSymlink";
 
 export const handleDoctor = () =>
   Effect.gen(function* () {
@@ -1761,7 +2139,7 @@ export const handleDoctor = () =>
     const skillIssues = pipe(
       Object.entries(current.skills),
       Array.filterMap(([name, state]) =>
-        isValid(state.validity)
+        state.validity._tag === "Valid"
           ? Option.none()
           : Option.some({
               name,
@@ -1789,7 +2167,7 @@ export const handleDoctor = () =>
         pipe(
           Object.entries(sync.agents),
           Array.filterMap(([agentId, status]) =>
-            isBrokenSymlink(status)
+            status._tag === "BrokenSymlink"
               ? Option.some({ skillName: sync.skillName, agentId })
               : Option.none(),
           ),
@@ -1995,9 +2373,9 @@ Same `computeDiff` and `applyDiff` for all operations.
 | Architecture        | State diffing (Arborist-style)              | Unified validation, natural idempotency, reusable for doctor/sync          |
 | State separation    | actual + locked → merged with validity      | Clear provenance, supports all comparison scenarios                        |
 | Per-type state      | SkillState, CommandState, etc.              | Type-specific validation, manifests, behaviors                             |
-| Tagged unions       | Data.TaggedEnum + Schema                    | TaggedEnum for constructors/$match/$is; Schema for JSON serialization      |
-| Pattern matching    | Built-in $match and Match.valueTags         | $match for exhaustive matching; valueTags when no separate helper needed   |
-| Type definitions    | Effect Schema (not interfaces)              | Enables JSON serialization, test deserialization, runtime validation       |
+| Tagged unions       | Plain interfaces + Schema at boundaries     | Simple domain types; Schema only for JSON serialization                    |
+| Pattern matching    | Exhaustive switch statements                | TypeScript catches missing cases; simpler than Match.valueTags             |
+| Type definitions    | Plain interfaces + Schema for serialization | Interfaces for domain; Schema at boundaries for JSON/validation            |
 | Locked types        | Derived from LockEntry via Schema           | One source of truth; Schema handles string↔Date, optional↔Option           |
 | Top-level container | WorkspaceState                              | Aggregates all extension states + settings for unified operations          |
 | Workspace level     | Same model for project and user             | Only paths differ; `level` field distinguishes                             |
@@ -2005,13 +2383,13 @@ Same `computeDiff` and `applyDiff` for all operations.
 | Settings diff       | Key-path based (not tagged union)           | Simpler than SkillsDiff; Settings is flat map structure                    |
 | Agent sync display  | Hidden from plan output                     | Implementation detail; plan focuses on extension changes                   |
 | Agent sync          | Separate from extension state               | Avoids N×M complexity, computed on demand                                  |
-| Validity            | Data.TaggedEnum + Schema                    | Actionable errors, supports multiple issues, serializable                  |
-| Diff as plan        | SkillChange tagged union                    | Same display for dry-run and execution                                     |
+| Validity            | Discriminated union + Schema                | Actionable errors, supports multiple issues, serializable                  |
+| Diff as plan        | SkillChange discriminated union             | Same display for dry-run and execution                                     |
 | Apply phase         | Idempotent operations                       | Re-run fixes partial failures                                              |
 | Discovery effects   | Allow git clone with messaging              | Remote source contents needed for ideal state; messaging sets expectations |
 | JSON output         | Record internally, array for JSON           | O(1) lookups internally; arrays easier for CLI consumers to iterate        |
 | Data structures     | Immutable Record/Array (not Map/Set)        | FP-friendly; works with pipe/Array combinators; natural JSON serialization |
-| Parallel apply      | Sequential phases, parallel within phase    | Maintains consistency; lockfile updated last as source of truth            |
+| Parallel apply      | Effect.forEach with concurrency option      | Cleaner than Effect.reduce; explicit concurrency control                   |
 | Partial failure     | Stop on first error, return partial result  | User can inspect state and retry; lockfile only updated on full success    |
 | Agent sync timing   | After all files in place, before lockfile   | Ensures files exist before syncing; sync failure stops before lockfile     |
 | Validity codes      | Static codes per variant (E001, W001)       | Stable IDs for docs, automation, suppression; severity from prefix         |
@@ -2023,8 +2401,10 @@ Same `computeDiff` and `applyDiff` for all operations.
 | Rollback on failure | Effect.acquireRelease with checkpoint       | Handles both errors and Ctrl+C interruption; restore on failure            |
 | Dry-run messaging   | "Fetching source to analyze contents..."    | Sets expectations for remote clones during dry-run                         |
 | Pack atomicity      | Not atomic; partial = Incomplete validity   | Multiple files; partial installation detected and reported                 |
-| Error handling      | Data.TaggedError, not Effect.die            | Programming errors are typed; easier to test and handle                    |
+| Error handling      | Data.TaggedError with retryable field       | Typed errors; retryable enables consistent retry policies                  |
 | Option handling     | Option.match over Option.getOrThrow         | No throwing; explicit handling of both cases                               |
+| Type guards         | Inline `_tag` checks                        | Simple and direct; no need for $is helpers                                 |
+| Constructors        | Factory functions on const object           | Cleaner than Data.TaggedEnum; no runtime overhead                          |
 
 ---
 
@@ -2035,9 +2415,9 @@ Same `computeDiff` and `applyDiff` for all operations.
 1. **State model**: Arborist-style with actual/locked/ideal ✓
 2. **Per-type state**: Yes, each extension type has own types ✓
 3. **Agent sync**: Separate concern, computed on demand ✓
-4. **Validity**: Data.TaggedEnum for runtime + Schema for serialization ✓
+4. **Validity**: Plain discriminated union + Schema for serialization ✓
 5. **Locked types**: Derived from LockEntry schema via Effect Schema transformations ✓
-6. **Type definitions**: All types as Effect Schemas (not interfaces) for JSON serialization ✓
+6. **Type definitions**: Plain interfaces for domain, Schema at boundaries for serialization ✓
 7. **Top-level container**: WorkspaceState aggregates all extension states + settings ✓
 8. **Workspace level**: Same model for project and user; only paths differ ✓
 9. **Settings state**: Reuses existing Settings schema for actual/ideal; no separate types ✓

@@ -4,7 +4,7 @@ Each lock entry SHALL have the following fields:
 
 | Field         | Type     | Required | Description                                       |
 | ------------- | -------- | -------- | ------------------------------------------------- |
-| `source`      | string   | Yes      | Source type: "github", "git", "local", "registry" |
+| `source`      | string   | Yes      | Source type from `extension-sources` SourceSchema |
 | `owner`       | string   | No       | GitHub owner (github source only)                 |
 | `repo`        | string   | No       | GitHub repo name (github source only)             |
 | `url`         | string   | No       | Git URL (git source only)                         |
@@ -17,6 +17,8 @@ Each lock entry SHALL have the following fields:
 | `agents`      | string[] | Yes      | Agent IDs this skill is installed for             |
 | `installedAt` | string   | Yes      | ISO 8601 timestamp of initial installation        |
 | `updatedAt`   | string   | Yes      | ISO 8601 timestamp of last update                 |
+
+The `source` field SHALL use `SourceSchema` imported from `extension-sources`.
 
 #### Scenario: Valid GitHub skill lock entry
 

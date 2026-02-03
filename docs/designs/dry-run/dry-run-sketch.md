@@ -500,86 +500,6 @@ export const SkillsStateSchema = Schema.Struct({
 });
 
 // =============================================================================
-// Settings State (settings.json)
-// =============================================================================
-
-/**
- * Settings validity states as discriminated union.
- * Use exhaustive switch for pattern matching.
- */
-export type SettingsValidity =
-  | { readonly _tag: "Valid" }
-  | { readonly _tag: "ParseError"; readonly error: string }
-  | { readonly _tag: "SchemaMismatch"; readonly errors: readonly string[] }
-  | { readonly _tag: "OrphanedSkills"; readonly names: readonly string[] }
-  | { readonly _tag: "OrphanedCommands"; readonly names: readonly string[] }
-  | { readonly _tag: "Multiple"; readonly issues: readonly SettingsValidity[] };
-
-// Constructors
-export const SettingsValidity = {
-  Valid: (): SettingsValidity => ({ _tag: "Valid" }),
-  ParseError: (args: { error: string }): SettingsValidity => ({
-    _tag: "ParseError",
-    ...args,
-  }),
-  SchemaMismatch: (args: { errors: readonly string[] }): SettingsValidity => ({
-    _tag: "SchemaMismatch",
-    ...args,
-  }),
-  OrphanedSkills: (args: { names: readonly string[] }): SettingsValidity => ({
-    _tag: "OrphanedSkills",
-    ...args,
-  }),
-  OrphanedCommands: (args: { names: readonly string[] }): SettingsValidity => ({
-    _tag: "OrphanedCommands",
-    ...args,
-  }),
-  Multiple: (args: {
-    issues: readonly SettingsValidity[];
-  }): SettingsValidity => ({ _tag: "Multiple", ...args }),
-} as const;
-
-/** Schema for JSON serialization of SettingsValidity. */
-export const SettingsValiditySchema: Schema.Schema<SettingsValidity> =
-  Schema.Union(
-    Schema.TaggedStruct("Valid", {}),
-    Schema.TaggedStruct("ParseError", { error: Schema.String }),
-    Schema.TaggedStruct("SchemaMismatch", {
-      errors: Schema.Array(Schema.String),
-    }),
-    Schema.TaggedStruct("OrphanedSkills", {
-      names: Schema.Array(Schema.String),
-    }),
-    Schema.TaggedStruct("OrphanedCommands", {
-      names: Schema.Array(Schema.String),
-    }),
-    Schema.TaggedStruct("Multiple", {
-      issues: Schema.Array(Schema.suspend(() => SettingsValiditySchema)),
-    }),
-  );
-
-/**
- * Settings state reuses the Settings schema directly.
- * Actual = parsed Settings from disk. Ideal = desired Settings.
- */
-export interface SettingsState {
-  readonly path: string;
-  readonly actual: Option.Option<Settings>;
-  readonly lastModified: Option.Option<Date>;
-  readonly validity: SettingsValidity;
-}
-
-export const SettingsStateSchema = Schema.Struct({
-  path: Schema.String,
-  actual: Schema.OptionFromNullOr(Settings),
-  lastModified: Schema.OptionFromNullOr(Schema.Date),
-  validity: SettingsValiditySchema,
-});
-
-// IdealSettings is just Settings - what we want settings.json to become
-type IdealSettings = Settings;
-
-// =============================================================================
 // Workspace State (top-level container)
 // =============================================================================
 
@@ -587,13 +507,17 @@ export type WorkspaceLevel = "project" | "user";
 
 /**
  * Complete state of an axm workspace.
- * Aggregates all extension states and settings.
+ * Aggregates all extension states.
  *
  * Works for both levels:
  * - Project level: axmDir = ".axm/", extensions in project
  * - User level (--global): axmDir = "~/.axm/", extensions at user level
  *
  * The same state model applies; only paths differ.
+ *
+ * Note: Settings changes are captured within extension changes (e.g., SkillChange
+ * includes the settings entry that will be added/removed). Settings is not tracked
+ * as a separate state—it's derived from extension state.
  */
 export interface WorkspaceState {
   readonly level: WorkspaceLevel;
@@ -602,7 +526,6 @@ export interface WorkspaceState {
   readonly commands: CommandsState;
   readonly mcpServers: McpServersState;
   readonly packs: PacksState;
-  readonly settings: SettingsState;
   readonly loadedAt: Date;
 }
 
@@ -614,7 +537,6 @@ export const WorkspaceStateSchema = Schema.Struct({
   commands: CommandsStateSchema,
   mcpServers: McpServersStateSchema,
   packs: PacksStateSchema,
-  settings: SettingsStateSchema,
   loadedAt: Schema.Date,
 });
 
@@ -703,6 +625,16 @@ export const SkillSourceSchema = Schema.Union(
   }),
 );
 
+/**
+ * Desired state for a skill after an operation.
+ *
+ * The source field serves dual purpose:
+ * 1. Where to fetch the skill from (for install/update)
+ * 2. What to write to settings.json (the settings entry value)
+ *
+ * This means SkillChange.Add implicitly includes the settings change—
+ * no separate SettingsDiff needed.
+ */
 export interface IdealSkill {
   readonly name: string;
   readonly source: SkillSource;
@@ -731,14 +663,15 @@ export const IdealSkillsStateSchema = Schema.Struct({
 
 /**
  * Complete ideal state for a project workspace.
- * IdealSettings = Settings (reuses schema directly).
+ *
+ * Note: No separate settings field. Settings changes are derived from
+ * extension changes (e.g., adding a skill implies adding its settings entry).
  */
 export interface IdealWorkspaceState {
   readonly skills: IdealSkillsState;
   readonly commands: IdealCommandsState; // defined similarly
   readonly mcpServers: IdealMcpServersState;
   readonly packs: IdealPacksState;
-  readonly settings: Settings;
 }
 
 export const IdealWorkspaceStateSchema = Schema.Struct({
@@ -746,7 +679,6 @@ export const IdealWorkspaceStateSchema = Schema.Struct({
   commands: IdealCommandsStateSchema,
   mcpServers: IdealMcpServersStateSchema,
   packs: IdealPacksStateSchema,
-  settings: Settings,
 });
 
 // =============================================================================
@@ -835,190 +767,20 @@ export const SkillsDiffSchema = Schema.Struct({
 });
 
 // =============================================================================
-// Settings Diff (key-path based)
-// =============================================================================
-
-/**
- * Settings changes tracked per field/key as discriminated union.
- * Simpler than SkillsDiff since Settings is a flat map structure.
- * Use exhaustive switch for pattern matching.
- */
-export type SettingsKeyChange =
-  | { readonly _tag: "Added"; readonly key: string; readonly value: string }
-  | {
-      readonly _tag: "Removed";
-      readonly key: string;
-      readonly previousValue: string;
-    }
-  | {
-      readonly _tag: "Changed";
-      readonly key: string;
-      readonly from: string;
-      readonly to: string;
-    };
-
-// Constructors
-export const SettingsKeyChange = {
-  Added: (args: { key: string; value: string }): SettingsKeyChange => ({
-    _tag: "Added",
-    ...args,
-  }),
-  Removed: (args: {
-    key: string;
-    previousValue: string;
-  }): SettingsKeyChange => ({ _tag: "Removed", ...args }),
-  Changed: (args: {
-    key: string;
-    from: string;
-    to: string;
-  }): SettingsKeyChange => ({ _tag: "Changed", ...args }),
-} as const;
-
-/** Schema for JSON serialization of SettingsKeyChange. */
-export const SettingsKeyChangeSchema = Schema.Union(
-  Schema.TaggedStruct("Added", { key: Schema.String, value: Schema.String }),
-  Schema.TaggedStruct("Removed", {
-    key: Schema.String,
-    previousValue: Schema.String,
-  }),
-  Schema.TaggedStruct("Changed", {
-    key: Schema.String,
-    from: Schema.String,
-    to: Schema.String,
-  }),
-);
-
-export interface AgentsDiff {
-  readonly added: readonly string[];
-  readonly removed: readonly string[];
-}
-
-export const AgentsDiffSchema = Schema.Struct({
-  added: Schema.Array(Schema.String),
-  removed: Schema.Array(Schema.String),
-});
-
-export interface ScopeDiff {
-  readonly from: Option.Option<string>;
-  readonly to: string;
-}
-
-export const ScopeDiffSchema = Schema.Struct({
-  from: Schema.OptionFromNullOr(Schema.String),
-  to: Schema.String,
-});
-
-export interface SettingsDiff {
-  readonly skills: readonly SettingsKeyChange[];
-  readonly commands: readonly SettingsKeyChange[];
-  readonly packs: readonly SettingsKeyChange[];
-  readonly mcpServers: readonly SettingsKeyChange[];
-  readonly agents: AgentsDiff;
-  readonly scope: Option.Option<ScopeDiff>;
-}
-
-export const SettingsDiffSchema = Schema.Struct({
-  skills: Schema.Array(SettingsKeyChangeSchema),
-  commands: Schema.Array(SettingsKeyChangeSchema),
-  packs: Schema.Array(SettingsKeyChangeSchema),
-  mcpServers: Schema.Array(SettingsKeyChangeSchema),
-  agents: AgentsDiffSchema,
-  scope: Schema.OptionFromNullOr(ScopeDiffSchema),
-});
-
-/**
- * Compute settings diff between actual and ideal.
- * Uses factory constructors for type-safe change creation.
- */
-export const computeSettingsDiff = (
-  actual: Option.Option<Settings>,
-  ideal: Settings,
-): SettingsDiff => {
-  const actualSettings = Option.getOrElse(actual, () => emptySettings);
-
-  const diffKeyValues = (
-    actualMap: Record<string, string>,
-    idealMap: Record<string, string>,
-  ): readonly SettingsKeyChange[] =>
-    pipe(
-      [...Object.keys(actualMap), ...Object.keys(idealMap)],
-      Array.dedupe,
-      Array.filterMap((key) => {
-        const actualVal = actualMap[key];
-        const idealVal = idealMap[key];
-        if (actualVal === undefined && idealVal !== undefined) {
-          return Option.some(SettingsKeyChange.Added({ key, value: idealVal }));
-        }
-        if (actualVal !== undefined && idealVal === undefined) {
-          return Option.some(
-            SettingsKeyChange.Removed({ key, previousValue: actualVal }),
-          );
-        }
-        if (actualVal !== idealVal) {
-          return Option.some(
-            SettingsKeyChange.Changed({
-              key,
-              from: actualVal!,
-              to: idealVal!,
-            }),
-          );
-        }
-        return Option.none();
-      }),
-    );
-
-  return {
-    skills: diffKeyValues(actualSettings.skills ?? {}, ideal.skills ?? {}),
-    commands: diffKeyValues(
-      actualSettings.commands ?? {},
-      ideal.commands ?? {},
-    ),
-    packs: diffKeyValues(actualSettings.packs ?? {}, ideal.packs ?? {}),
-    mcpServers: diffKeyValues(
-      actualSettings.mcpServers ?? {},
-      ideal.mcpServers ?? {},
-    ),
-    agents: {
-      added: pipe(
-        ideal.agents ?? [],
-        Array.filter((a) => !(actualSettings.agents ?? []).includes(a)),
-      ),
-      removed: pipe(
-        actualSettings.agents ?? [],
-        Array.filter((a) => !(ideal.agents ?? []).includes(a)),
-      ),
-    },
-    scope: pipe(
-      actualSettings.scope !== ideal.scope
-        ? Option.some({
-            from: Option.fromNullable(actualSettings.scope),
-            to: ideal.scope,
-          })
-        : Option.none(),
-      Option.filter(() => ideal.scope !== undefined),
-    ),
-  };
-};
-
-export const hasSettingsChanges = (diff: SettingsDiff): boolean =>
-  diff.skills.length > 0 ||
-  diff.commands.length > 0 ||
-  diff.packs.length > 0 ||
-  diff.mcpServers.length > 0 ||
-  diff.agents.added.length > 0 ||
-  diff.agents.removed.length > 0 ||
-  Option.isSome(diff.scope);
-
-// =============================================================================
 // Workspace Diff (combined)
 // =============================================================================
 
+/**
+ * Combined diff for all extension types.
+ *
+ * Note: No separate settings diff. Settings changes are implicit in extension
+ * changes (e.g., SkillChange.Add includes the source that becomes the settings entry).
+ */
 export interface WorkspaceDiff {
   readonly skills: SkillsDiff;
   readonly commands: CommandsDiff; // defined similarly
   readonly mcpServers: McpServersDiff;
   readonly packs: PacksDiff;
-  readonly settings: SettingsDiff;
 }
 
 export const WorkspaceDiffSchema = Schema.Struct({
@@ -1026,7 +788,6 @@ export const WorkspaceDiffSchema = Schema.Struct({
   commands: CommandsDiffSchema,
   mcpServers: McpServersDiffSchema,
   packs: PacksDiffSchema,
-  settings: SettingsDiffSchema,
 });
 
 // =============================================================================
@@ -1266,7 +1027,7 @@ const compareActualAndLocked = (
 };
 
 /**
- * Load complete workspace state: all extension types + settings.
+ * Load complete workspace state: all extension types.
  */
 export const loadWorkspaceState = (
   axmDir: string,
@@ -1274,12 +1035,11 @@ export const loadWorkspaceState = (
 ): Effect.Effect<WorkspaceState, LoadError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     // Load all extension states in parallel
-    const [skills, commands, mcpServers, packs, settings] = yield* Effect.all([
+    const [skills, commands, mcpServers, packs] = yield* Effect.all([
       loadSkillsState(axmDir),
       loadCommandsState(axmDir),
       loadMcpServersState(axmDir),
       loadPacksState(axmDir),
-      loadSettingsState(axmDir),
     ]);
 
     return {
@@ -1289,7 +1049,6 @@ export const loadWorkspaceState = (
       commands,
       mcpServers,
       packs,
-      settings,
       loadedAt: new Date(),
     };
   });
@@ -1649,15 +1408,10 @@ Dry-run output shows the plan in a human-readable format:
 Plan:
 
   Skills:
-    + @skills/commit                      (add)
-    ~ @skills/review-pr  abc123 → def456  (update)
-    ! @skills/broken                      (repair)
-    - @skills/deprecated                  (remove)
-
-  Settings:
-    skills:
-      + @skills/commit = "^1.0.0"
-      - @skills/deprecated
+    + @skills/commit       github:org/skills@v1.0.0  (add)
+    ~ @skills/review-pr    abc123 → def456           (update)
+    ! @skills/broken                                 (repair)
+    - @skills/deprecated                             (remove)
 
   Summary: 1 to add, 1 to update, 1 to repair, 1 to remove
 ```
@@ -1668,7 +1422,8 @@ Plan:
 2. **Agent sync is hidden** — implementation detail, not user-facing
 3. **Symbols**: `+` add, `~` update, `!` repair, `-` remove
 4. **Hash preview**: Show short hashes for updates (first 7 chars)
-5. **Settings grouped by section**: skills, commands, packs, mcp-servers
+5. **Source shown for adds** — shows where the skill comes from (also the settings entry value)
+6. **No separate settings section** — settings changes are implicit in extension changes
 
 ### JSON Output (`--json`)
 
@@ -1681,7 +1436,7 @@ Internal state uses `Record<string, SkillChange>` for O(1) lookups and immutable
       {
         "_tag": "Add",
         "name": "@skills/commit",
-        "source": { "_tag": "Git", "url": "github:org/repo" }
+        "source": { "_tag": "Git", "url": "github:org/repo", "ref": "v1.0.0" }
       },
       {
         "_tag": "Update",
@@ -1692,16 +1447,6 @@ Internal state uses `Record<string, SkillChange>` for O(1) lookups and immutable
       { "_tag": "Remove", "name": "@skills/deprecated" }
     ],
     "summary": { "add": 1, "update": 1, "remove": 1, "repair": 0 }
-  },
-  "settings": {
-    "skills": [
-      { "_tag": "Added", "key": "@skills/commit", "value": "^1.0.0" },
-      {
-        "_tag": "Removed",
-        "key": "@skills/deprecated",
-        "previousValue": "^2.0.0"
-      }
-    ]
   }
 }
 ```
@@ -1997,12 +1742,13 @@ const applyDiffImpl = (
       ),
     );
 
-    // Phase 3: Update settings.json (Effect.if for conditional execution)
-    yield* Effect.if(hasSettingsChanges(diff.settings), {
+    // Phase 3: Update settings.json (derived from extension changes)
+    // Settings entries are added/removed based on skill changes
+    yield* Effect.if(Object.keys(applied).length > 0, {
       onTrue: () =>
         Effect.gen(function* () {
           options.onProgress?.(ApplyProgressEvent.UpdatingSettings());
-          yield* applySettingsDiff(diff.settings, options.axmDir);
+          yield* updateSettingsFromChanges(diff.skills.changes, options.axmDir);
         }),
       onFalse: () => Effect.void,
     });
@@ -2456,10 +2202,9 @@ Same `computeDiff` and `applyDiff` for all operations.
 | Pattern matching    | Exhaustive switch statements                     | TypeScript catches missing cases; simpler than Match.valueTags             |
 | Type definitions    | Plain interfaces + Schema for serialization      | Interfaces for domain; Schema at boundaries for JSON/validation            |
 | Locked types        | Derived from LockEntry via Schema                | One source of truth; Schema handles string↔Date, optional↔Option           |
-| Top-level container | WorkspaceState                                   | Aggregates all extension states + settings for unified operations          |
+| Top-level container | WorkspaceState                                   | Aggregates all extension states for unified operations                     |
 | Workspace level     | Same model for project and user                  | Only paths differ; `level` field distinguishes                             |
-| Settings state      | Reuses Settings schema for actual/ideal          | One source of truth; operations may modify skills, commands, etc.          |
-| Settings diff       | Key-path based (not tagged union)                | Simpler than SkillsDiff; Settings is flat map structure                    |
+| Settings changes    | Derived from extension changes                   | SkillChange.Add includes source → settings entry; no separate SettingsDiff |
 | Agent sync display  | Hidden from plan output                          | Implementation detail; plan focuses on extension changes                   |
 | Agent sync          | Separate from extension state                    | Avoids N×M complexity, computed on demand                                  |
 | Validity            | Discriminated union + Schema                     | Actionable errors, supports multiple issues, serializable                  |
@@ -2502,24 +2247,23 @@ Same `computeDiff` and `applyDiff` for all operations.
 6. **Type definitions**: Plain interfaces for domain, Schema at boundaries for serialization ✓
 7. **Top-level container**: WorkspaceState aggregates all extension states + settings ✓
 8. **Workspace level**: Same model for project and user; only paths differ ✓
-9. **Settings state**: Reuses existing Settings schema for actual/ideal; no separate types ✓
-10. **Settings diff**: Key-path based approach (simpler than tagged union for flat maps) ✓
-11. **Agent sync display**: Hidden from plan output; implementation detail ✓
-12. **Discovery side effects**: Dry-run allows git clone to determine remote source contents, with clear messaging ✓
-13. **JSON output**: Record internally, transform to array for JSON output ✓
-14. **Apply phases**: Sequential (files → agent sync → settings → lockfile) for consistency ✓
-15. **Partial failure**: Stop on first error; lockfile only updated on full success ✓
-16. **Agent sync timing**: After files in place, before lockfile; failure stops apply ✓
-17. **Validity codes**: Static codes per variant (E001, W001, etc.) for docs/automation ✓
-18. **Staleness detection**: Non-goal ✓
-19. **Folder hash**: Git tree hash for deterministic, cross-platform hashing ✓
-20. **Source resolution**: Use existing `source-parser.ts` and `resolution/` modules ✓
-21. **Sync method**: Platform detection (symlinks on Unix, copies on Windows) ✓
-22. **Corrupted lockfile**: Treat as empty with warning; user can `axm sync` to rebuild ✓
-23. **Workspace init**: Pre-condition verified before state loading ✓
-24. **Rollback**: Effect.acquireRelease with checkpoint; handles failure and Ctrl+C ✓
-25. **Dry-run messaging**: "Fetching source to analyze contents..." for remote clones ✓
-26. **Pack atomicity**: Not atomic; partial installation results in Incomplete validity ✓
+9. **Settings changes**: Derived from extension changes; no separate SettingsState or SettingsDiff ✓
+10. **Agent sync display**: Hidden from plan output; implementation detail ✓
+11. **Discovery side effects**: Dry-run allows git clone to determine remote source contents, with clear messaging ✓
+12. **JSON output**: Record internally, transform to array for JSON output ✓
+13. **Apply phases**: Sequential (files → agent sync → settings → lockfile) for consistency ✓
+14. **Partial failure**: Stop on first error; lockfile only updated on full success ✓
+15. **Agent sync timing**: After files in place, before lockfile; failure stops apply ✓
+16. **Validity codes**: Static codes per variant (E001, W001, etc.) for docs/automation ✓
+17. **Staleness detection**: Non-goal ✓
+18. **Folder hash**: Git tree hash for deterministic, cross-platform hashing ✓
+19. **Source resolution**: Use existing `source-parser.ts` and `resolution/` modules ✓
+20. **Sync method**: Platform detection (symlinks on Unix, copies on Windows) ✓
+21. **Corrupted lockfile**: Treat as empty with warning; user can `axm sync` to rebuild ✓
+22. **Workspace init**: Pre-condition verified before state loading ✓
+23. **Rollback**: Effect.acquireRelease with checkpoint; handles failure and Ctrl+C ✓
+24. **Dry-run messaging**: "Fetching source to analyze contents..." for remote clones ✓
+25. **Pack atomicity**: Not atomic; partial installation results in Incomplete validity ✓
 
 ### Future Work
 

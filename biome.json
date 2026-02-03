@@ -31,6 +31,14 @@
     }
   },
   "files": {
-    "includes": ["**/*.ts", "**/*.js", "**/*.mjs", "**/*.cjs", "!!**/dist", "!!**/node_modules"]
+    "includes": [
+      "**/*.ts",
+      "**/*.js",
+      "**/*.mjs",
+      "**/*.cjs",
+      "!!**/dist",
+      "!!**/node_modules",
+      "!!.reference/**"
+    ]
   }
 }

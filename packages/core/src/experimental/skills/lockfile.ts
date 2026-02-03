@@ -10,7 +10,7 @@
 
 import * as path from "node:path";
 import { FileSystem } from "@effect/platform";
-import { Data, Effect } from "effect";
+import { Data, Effect, Schema } from "effect";
 import YAML from "yaml";
 
 import type { LockEntry, Lockfile } from "./types.js";
@@ -70,26 +70,34 @@ const createEmptyLockfile = (): Lockfile => ({
 });
 
 /**
- * Validates and normalizes a parsed lockfile object.
+ * Schema for a single LockEntry in the legacy lockfile format.
  */
-const validateLockfile = (data: unknown): Lockfile => {
-  if (typeof data !== "object" || data === null) {
-    return createEmptyLockfile();
-  }
+const LockEntrySchema = Schema.Struct({
+  source: Schema.String,
+  origin: Schema.String,
+  folderHash: Schema.String,
+  installedAt: Schema.String,
+  updatedAt: Schema.String,
+});
 
-  const obj = data as Record<string, unknown>;
-  const lockfileVersion = obj["lockfileVersion"];
-  const extensions = obj["extensions"] as Record<string, unknown> | undefined;
-  const skills = extensions?.["skills"];
+/**
+ * Schema for the legacy lockfile format (with extensions.skills structure).
+ */
+const LockfileSchemaLegacy = Schema.Struct({
+  lockfileVersion: Schema.Number,
+  extensions: Schema.Struct({
+    skills: Schema.Record({ key: Schema.String, value: LockEntrySchema }),
+  }),
+});
 
-  return {
-    lockfileVersion: typeof lockfileVersion === "number" ? lockfileVersion : LOCKFILE_VERSION,
-    extensions: {
-      skills:
-        typeof skills === "object" && skills !== null ? (skills as Record<string, LockEntry>) : {},
-    },
-  };
-};
+/**
+ * Validates parsed YAML data against the lockfile schema.
+ * Falls back to an empty lockfile on validation failure for graceful recovery.
+ */
+const validateLockfile = (data: unknown): Effect.Effect<Lockfile, never> =>
+  Schema.decodeUnknown(LockfileSchemaLegacy)(data).pipe(
+    Effect.catchAll(() => Effect.succeed(createEmptyLockfile())),
+  );
 
 // -----------------------------------------------------------------------------
 // Public Functions
@@ -150,7 +158,7 @@ export const readLockfile = (
         }),
     });
 
-    return validateLockfile(parsed);
+    return yield* validateLockfile(parsed);
   });
 
 /**

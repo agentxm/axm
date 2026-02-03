@@ -15,11 +15,11 @@
 
 import * as nodePath from "node:path";
 import { FileSystem, type Path } from "@effect/platform";
-import { Data, Effect, Option } from "effect";
+import { Data, Effect } from "effect";
 import type { SkillSettingsEntry } from "../../schemas/settings.js";
 import { readLockfile, writeLockfile } from "../lockfile.js";
 import { readSettings, writeSettings } from "../settings.js";
-import type { AgentConfig, LockEntry, Settings, Skill } from "../types.js";
+import type { AgentConfig, LockEntry, Settings } from "../types.js";
 import { getChangesToApply } from "./diff.js";
 import type {
   IdealSkillLegacy as IdealSkill,
@@ -50,6 +50,16 @@ export class ApplyError extends Data.TaggedError("ApplyError")<{
   readonly operation: "add" | "remove" | "update" | "sync" | "lockfile" | "settings";
   readonly cause?: unknown;
   readonly retryable: boolean;
+}> {}
+
+/**
+ * Error when a source type is not supported for an operation.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export class UnsupportedSourceError extends Data.TaggedError("UnsupportedSourceError")<{
+  readonly message: string;
+  readonly sourceTag: string;
 }> {}
 
 // =============================================================================
@@ -156,32 +166,17 @@ export interface ApplyOptions {
 
 /**
  * Get the source path from a SkillSource.
- * Returns the local path for Local sources, throws for remote sources.
+ * Returns the local path for Local sources, fails for remote sources.
  */
-const getSourcePath = (source: SkillSource): string => {
-  switch (source._tag) {
-    case "Local":
-      return source.path;
-    case "Git":
-    case "WellKnown":
-    case "Registry":
-      // For remote sources, we need to fetch first (not implemented yet)
-      // For now, throw an error
-      throw new Error(`Remote source type ${source._tag} not yet supported in apply`);
-  }
-};
-
-/**
- * Convert IdealSkill to Skill for the installer module.
- */
-const _idealToSkill = (ideal: IdealSkill): Skill => {
-  const base = {
-    name: ideal.name,
-    path: nodePath.join(getSourcePath(ideal.source), "SKILL.md"),
-  };
-  const description = Option.getOrUndefined(ideal.description);
-  return description !== undefined ? { ...base, description } : base;
-};
+const getSourcePath = (source: SkillSource): Effect.Effect<string, UnsupportedSourceError> =>
+  source._tag === "Local"
+    ? Effect.succeed(source.path)
+    : Effect.fail(
+        new UnsupportedSourceError({
+          message: `Remote source type ${source._tag} not yet supported in apply`,
+          sourceTag: source._tag,
+        }),
+      );
 
 /**
  * Convert SkillSource to lockfile source string.
@@ -219,16 +214,18 @@ const sourceToSettingsValue = (source: SkillSource): SkillSettingsEntry => {
 /**
  * Convert IdealSkill to LockEntry.
  */
-const idealToLockEntry = (ideal: IdealSkill): LockEntry => {
-  const now = new Date().toISOString();
-  return {
-    source: sourceToLockfileValue(ideal.source),
-    origin: getSourcePath(ideal.source),
-    folderHash: ideal.gitTreeFolderHash,
-    installedAt: now,
-    updatedAt: now,
-  };
-};
+const idealToLockEntry = (ideal: IdealSkill): Effect.Effect<LockEntry, UnsupportedSourceError> =>
+  Effect.gen(function* () {
+    const origin = yield* getSourcePath(ideal.source);
+    const now = new Date().toISOString();
+    return {
+      source: sourceToLockfileValue(ideal.source),
+      origin,
+      folderHash: ideal.gitTreeFolderHash,
+      installedAt: now,
+      updatedAt: now,
+    };
+  });
 
 /**
  * Copy directory recursively.
@@ -326,7 +323,18 @@ export const applyAdd = (
     const fs = yield* FileSystem.FileSystem;
     const { axmDir, agents } = options;
 
-    const sourcePath = getSourcePath(ideal.source);
+    const sourcePath = yield* getSourcePath(ideal.source).pipe(
+      Effect.mapError(
+        (error) =>
+          new ApplyError({
+            message: error.message,
+            skillName: ideal.name,
+            operation: "add",
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
     const skillsDir = nodePath.join(axmDir, SKILLS_DIR);
     const canonicalPath = nodePath.join(skillsDir, ideal.name);
 
@@ -734,21 +742,60 @@ const updateLockfileForChanges = (
       if (!appliedNames.has(name)) continue;
 
       switch (change._tag) {
-        case "Add":
-          updatedSkills[name] = idealToLockEntry(change.skill);
+        case "Add": {
+          const entry = yield* idealToLockEntry(change.skill).pipe(
+            Effect.mapError(
+              (error) =>
+                new ApplyError({
+                  message: error.message,
+                  skillName: name,
+                  operation: "lockfile",
+                  cause: error,
+                  retryable: false,
+                }),
+            ),
+          );
+          updatedSkills[name] = entry;
           break;
-        case "Update":
+        }
+        case "Update": {
+          const entry = yield* idealToLockEntry(change.to).pipe(
+            Effect.mapError(
+              (error) =>
+                new ApplyError({
+                  message: error.message,
+                  skillName: name,
+                  operation: "lockfile",
+                  cause: error,
+                  retryable: false,
+                }),
+            ),
+          );
           updatedSkills[name] = {
-            ...idealToLockEntry(change.to),
+            ...entry,
             installedAt: lockfile.extensions.skills[name]?.installedAt ?? new Date().toISOString(),
           };
           break;
-        case "Repair":
+        }
+        case "Repair": {
+          const entry = yield* idealToLockEntry(change.target).pipe(
+            Effect.mapError(
+              (error) =>
+                new ApplyError({
+                  message: error.message,
+                  skillName: name,
+                  operation: "lockfile",
+                  cause: error,
+                  retryable: false,
+                }),
+            ),
+          );
           updatedSkills[name] = {
-            ...idealToLockEntry(change.target),
+            ...entry,
             installedAt: lockfile.extensions.skills[name]?.installedAt ?? new Date().toISOString(),
           };
           break;
+        }
         case "Remove":
           delete updatedSkills[name];
           break;

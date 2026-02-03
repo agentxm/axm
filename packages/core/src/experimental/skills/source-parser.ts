@@ -26,16 +26,14 @@ export class ParseError extends Data.TaggedError("ParseError")<{
 }> {}
 
 /**
- * Error thrown when a clone URL cannot be built for a source type.
+ * Error when a clone URL cannot be built for a source type.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export class CloneUrlError extends Error {
-  constructor(sourceType: string) {
-    super(`Cannot build clone URL for source type: ${sourceType}`);
-    this.name = "CloneUrlError";
-  }
-}
+export class CloneUrlError extends Data.TaggedError("CloneUrlError")<{
+  readonly message: string;
+  readonly sourceType: string;
+}> {}
 
 // -----------------------------------------------------------------------------
 // Regex Patterns
@@ -268,21 +266,25 @@ const parseDirectUrl = (input: string): Effect.Effect<ParsedSource, ParseError> 
 /**
  * Build a git clone URL from a parsed source.
  *
- * Only works for GitHub and GitLab sources. Throws CloneUrlError for other types.
+ * Only works for GitHub and GitLab sources. Returns CloneUrlError for other types.
  *
  * @experimental This API is unstable and may change without notice.
  * @param parsed - The parsed source to build a clone URL for
- * @returns The HTTPS clone URL
- * @throws {CloneUrlError} If the source type doesn't support cloning
+ * @returns Effect containing the HTTPS clone URL or CloneUrlError
  */
-export const buildCloneUrl = (parsed: ParsedSource): string => {
+export const buildCloneUrl = (parsed: ParsedSource): Effect.Effect<string, CloneUrlError> => {
   if (parsed.type === "github") {
-    return `https://github.com/${parsed.owner}/${parsed.repo}.git`;
+    return Effect.succeed(`https://github.com/${parsed.owner}/${parsed.repo}.git`);
   }
   if (parsed.type === "gitlab") {
-    return `https://gitlab.com/${parsed.owner}/${parsed.repo}.git`;
+    return Effect.succeed(`https://gitlab.com/${parsed.owner}/${parsed.repo}.git`);
   }
-  throw new CloneUrlError(parsed.type);
+  return Effect.fail(
+    new CloneUrlError({
+      message: `Cannot build clone URL for source type: ${parsed.type}`,
+      sourceType: parsed.type,
+    }),
+  );
 };
 
 /**

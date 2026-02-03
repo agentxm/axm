@@ -4,13 +4,14 @@
 
 All code in this package is under active development. Place all new code in the `src/experimental/` folder to communicate to consumers that the API is unstable and subject to breaking changes.
 
-Consumers MUST import experimental APIs from the `/experimental` subpath:
+Consumers MUST import experimental APIs directly from the specific module:
 
 ```typescript
-import { something } from "@agentxm/core/experimental";
+import { something } from "@agentxm/core/experimental/some-module";
+import { other } from "@agentxm/core/experimental/some-feature"; // feature folder with barrel
 ```
 
-Do NOT re-export experimental code from the main entry point (`src/index.ts`).
+Do NOT use a barrel file (`index.ts`) at the `src/experimental/` level.
 
 ## JSDoc Requirements
 
@@ -29,10 +30,11 @@ export const myFunction = () => { ... };
 
 ```
 src/
-  index.ts              # Stable exports only (minimal)
-  experimental/         # All implementation code lives here
-    index.ts            # Barrel export for experimental APIs
-    <feature>.ts        # Feature modules
+  experimental/         # All code lives here (no barrel file)
+    <feature>.ts        # Single-file feature modules
+    <feature>/          # Feature folders
+      index.ts          # Barrel file for this feature
+      <submodule>.ts
 ```
 
 ## Stability Guarantees

@@ -150,10 +150,10 @@ interface Plan {
 }
 
 type PlanStep =
-  | { _tag: "CreateFile"; path: string; content: string }
-  | { _tag: "UpdateFile"; path: string; content: string }
-  | { _tag: "DeleteFile"; path: string }
-  | { _tag: "CreateDirectory"; path: string };
+  | { _tag: "AddSkill"; skill: string; source: string }
+  | { _tag: "RemoveSkill"; skill: string }
+  | { _tag: "SyncSkill"; skill: string; agent: string }
+  | { _tag: "CleanSkill"; skill: string; agent: string };
 ```
 
 ## SkillsDiagnosis

@@ -4,6 +4,12 @@
  * Each operation (install, update, uninstall, sync) has its own builder that
  * constructs the ideal state from the current state and operation parameters.
  *
+ * This module uses two type systems:
+ * - Legacy types (IdealSkillLegacy, SkillSource) - for existing install/uninstall/sync
+ * - V2 types (IdealSkillV2, SkillSourceV2) - for new reconciliation design (update)
+ *
+ * Migration to fully use V2 types is planned for a future phase.
+ *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */

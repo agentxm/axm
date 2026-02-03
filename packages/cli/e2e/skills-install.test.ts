@@ -99,10 +99,9 @@ describe("axm skills install", () => {
         expect(fs.existsSync(lockPath)).toBe(true);
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
         expect(lock).toHaveProperty("lockfileVersion");
-        expect(lock).toHaveProperty("extensions");
-        expect(lock.extensions).toHaveProperty("skills");
-        expect(lock.extensions.skills).toHaveProperty("my-skill");
-        expect(lock.extensions.skills).toHaveProperty("another-skill");
+        expect(lock).toHaveProperty("skills");
+        expect(lock.skills).toHaveProperty("my-skill");
+        expect(lock.skills).toHaveProperty("another-skill");
 
         // Verify canonical skills directory
         const skillsDir = path.join(axmDir, "skills");
@@ -139,20 +138,20 @@ describe("axm skills install", () => {
 
         // Verify lockfile structure
         expect(lock.lockfileVersion).toBe(1);
-        expect(lock.extensions).toBeDefined();
-        expect(lock.extensions.skills).toBeDefined();
+        expect(lock.skills).toBeDefined();
 
         // Each skill entry should have required fields per new schema
         for (const skillName of ["my-skill", "another-skill"]) {
-          const entry = lock.extensions.skills[skillName];
+          const entry = lock.skills[skillName];
           expect(entry).toBeDefined();
+          expect(entry).toHaveProperty("name");
           expect(entry).toHaveProperty("source");
-          expect(entry).toHaveProperty("origin");
-          expect(entry).toHaveProperty("folderHash");
+          expect(entry).toHaveProperty("agents");
           expect(entry).toHaveProperty("installedAt");
           expect(entry).toHaveProperty("updatedAt");
-          // folderHash should be a valid sha256 hash (sha256:64 hex chars)
-          expect(entry.folderHash).toMatch(/^sha256:[a-f0-9]{64}$/);
+          // Source should be a structured object with _tag
+          expect(entry.source).toHaveProperty("_tag");
+          expect(entry.source._tag).toBe("Local");
         }
       } finally {
         temp.cleanup();
@@ -438,14 +437,15 @@ describe("axm skills install", () => {
 
         // Verify new lockfile structure
         expect(lock.lockfileVersion).toBe(1);
-        expect(lock.extensions).toBeDefined();
-        expect(lock.extensions.skills).toBeDefined();
-        expect(lock.extensions.skills["my-skill"]).toBeDefined();
+        expect(lock.skills).toBeDefined();
+        expect(lock.skills["my-skill"]).toBeDefined();
 
-        const entry = lock.extensions.skills["my-skill"];
+        const entry = lock.skills["my-skill"];
+        expect(entry.name).toBe("my-skill");
         expect(entry.source).toBeDefined();
-        expect(entry.origin).toBeDefined();
-        expect(entry.folderHash).toBeDefined();
+        expect(entry.source._tag).toBe("Local");
+        expect(entry.agents).toBeDefined();
+        expect(Array.isArray(entry.agents)).toBe(true);
         expect(entry.installedAt).toBeDefined();
         expect(entry.updatedAt).toBeDefined();
 

@@ -45,10 +45,10 @@ import {
   computeDiff,
   type DiffSummary,
   hasChanges,
+  type SkillSource as LegacySkillSource,
   loadSkillsState,
   type ResolvedSource,
   type SkillChange,
-  type SkillSource,
   type SkillsDiff,
   skillsDiffToJson,
 } from "@agentxm/core/experimental/skills/state";
@@ -116,7 +116,10 @@ export class InstallError extends Data.TaggedError("InstallError")<{
 // -----------------------------------------------------------------------------
 
 /**
- * Convert ParsedSource to the new structured SkillSource format for lockfile.
+ * Convert ParsedSource to canonical SkillSource format for lockfile entries.
+ *
+ * Uses LockfileSkillSource (from schemas/lockfile.ts) which is the canonical type
+ * for lockfile storage. This differs from LegacySkillSource which has WellKnown variant.
  */
 const parsedSourceToSkillSource = (parsed: ParsedSource): LockfileSkillSource => {
   switch (parsed.type) {
@@ -275,8 +278,9 @@ const resolveWellKnownSource = (
 
 /**
  * Format source for display in plan output.
+ * Uses legacy SkillSource type which includes WellKnown variant.
  */
-const formatSource = (source: SkillSource): string => {
+const formatSource = (source: LegacySkillSource): string => {
   switch (source._tag) {
     case "Local":
       return source.path;

@@ -6,6 +6,10 @@
  * 2. Reads the lockfile for locked skills
  * 3. Merges them by skill name with appropriate issues
  *
+ * Uses V2 types (SkillSourceV2, LockedSkillV2, ActualSkillV2) from skills/state/types.ts
+ * for the new reconciliation design. The internal parseSource function converts raw YAML
+ * to the typed SkillSourceV2 discriminated union.
+ *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */

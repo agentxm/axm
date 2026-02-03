@@ -15,7 +15,6 @@ import {
   type ActualSkill,
   type LockedSkill,
   type SkillFrontmatter,
-  type SkillState,
   type SkillsState,
   SkillValidity,
 } from "./types.js";
@@ -108,8 +107,13 @@ const parseFrontmatter = (content: string): Option.Option<SkillFrontmatter> => {
 };
 
 /**
- * Convert a lockfile SkillLockEntry to a LockedSkill.
- * Maps the new structured format to the legacy string-based format.
+ * Convert a lockfile SkillLockEntry (canonical schema) to LockedSkill (legacy state type).
+ *
+ * This conversion is needed because:
+ * - SkillLockEntry uses discriminated union source (Local | GitHub | Git | Registry)
+ * - LockedSkill uses string-based source for legacy compatibility
+ *
+ * This bridge will be removed when LockedSkill is fully deprecated.
  */
 const lockEntryToLockedSkill = (entry: SkillLockEntry): LockedSkill => {
   // Convert structured source to canonical string format

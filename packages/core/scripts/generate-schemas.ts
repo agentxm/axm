@@ -9,14 +9,14 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { JSONSchema } from "effect";
-import { Lockfile } from "../src/schemas/lockfile.js";
-import { CommandManifest } from "../src/schemas/manifest-command.js";
-import { McpServerManifest } from "../src/schemas/manifest-mcp-server.js";
-import { PackManifest } from "../src/schemas/manifest-pack.js";
-import { SkillManifest } from "../src/schemas/manifest-skill.js";
-import { Settings } from "../src/schemas/settings.js";
+import { Lockfile } from "../src/experimental/schemas/lockfile.js";
+import { CommandManifest } from "../src/experimental/schemas/manifest-command.js";
+import { McpServerManifest } from "../src/experimental/schemas/manifest-mcp-server.js";
+import { PackManifest } from "../src/experimental/schemas/manifest-pack.js";
+import { SkillManifest } from "../src/experimental/schemas/manifest-skill.js";
+import { Settings } from "../src/experimental/schemas/settings.js";
 
-const OUTPUT_DIR = path.join(import.meta.dirname, "../src/schemas/__generated__");
+const OUTPUT_DIR = path.join(import.meta.dirname, "../src/experimental/schemas/__generated__");
 
 const schemas = [
   { name: "axm-skill.schema.json", schema: SkillManifest },

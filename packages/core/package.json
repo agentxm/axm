@@ -7,9 +7,9 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./experimental": {
-      "types": "./dist/experimental/index.d.ts",
-      "import": "./dist/experimental/index.js"
+    "./experimental/paths": {
+      "types": "./dist/experimental/paths.d.ts",
+      "import": "./dist/experimental/paths.js"
     },
     "./experimental/skills": {
       "types": "./dist/experimental/skills/index.d.ts",
@@ -18,6 +18,10 @@
     "./experimental/resolution": {
       "types": "./dist/experimental/resolution/index.d.ts",
       "import": "./dist/experimental/resolution/index.js"
+    },
+    "./experimental/schemas": {
+      "types": "./dist/experimental/schemas/index.d.ts",
+      "import": "./dist/experimental/schemas/index.js"
     }
   },
   "scripts": {

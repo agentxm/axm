@@ -20,7 +20,7 @@ execSync("bun scripts/generate-schemas.ts", {
 });
 
 // Check for changes in __generated__ directory
-const status = execSync("git status --porcelain src/schemas/__generated__/", {
+const status = execSync("git status --porcelain src/experimental/schemas/__generated__/", {
   encoding: "utf-8",
   cwd: coreDir,
 });

@@ -5,7 +5,7 @@
  */
 
 import * as nodePath from "node:path";
-import { getAxmDir } from "@agentxm/core/experimental";
+import { getAxmDir } from "@agentxm/core/experimental/paths";
 import {
   type AgentConfig,
   buildCloneUrl,

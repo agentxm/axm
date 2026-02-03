@@ -9,7 +9,6 @@ import { describe, expect, it } from "vitest";
 import {
   ExtensionMapSchema,
   SettingsSchema,
-  SkillSettingsEntrySchema,
   SkillsMapSchema,
   SourcesConfigSchema,
 } from "./settings.js";
@@ -177,293 +176,55 @@ describe("Settings schema", () => {
     });
   });
 
-  describe("SkillSettingsEntry schema", () => {
-    describe("string variant (Registry FQN shorthand)", () => {
-      it("accepts FQN without version", () => {
-        const input = "@wayne/my-skill";
-        const result = Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input);
-
-        expect(result).toBe("@wayne/my-skill");
-      });
-
-      it("accepts FQN with version", () => {
-        const input = "@wayne/my-skill@^1.0.0";
-        const result = Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input);
-
-        expect(result).toBe("@wayne/my-skill@^1.0.0");
-      });
-
-      it("accepts FQN with exact version", () => {
-        const input = "@wayne/my-skill@1.2.3";
-        const result = Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input);
-
-        expect(result).toBe("@wayne/my-skill@1.2.3");
-      });
-
-      it("accepts FQN with tilde version", () => {
-        const input = "@wayne/my-skill@~2.0.0";
-        const result = Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input);
-
-        expect(result).toBe("@wayne/my-skill@~2.0.0");
-      });
-    });
-
-    describe("GitHub variant", () => {
-      it("accepts GitHub source with required fields only", () => {
-        const input = {
-          _tag: "GitHub",
-          owner: "wayne-industries",
-          repo: "skills",
-        };
-        const result = Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input);
-
-        expect(result).toEqual({
-          _tag: "GitHub",
-          owner: "wayne-industries",
-          repo: "skills",
-          ref: undefined,
-          path: undefined,
-        });
-      });
-
-      it("accepts GitHub source with ref", () => {
-        const input = {
-          _tag: "GitHub",
-          owner: "wayne-industries",
-          repo: "skills",
-          ref: "v1.0.0",
-        };
-        const result = Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input);
-
-        expect(result).toEqual({
-          _tag: "GitHub",
-          owner: "wayne-industries",
-          repo: "skills",
-          ref: "v1.0.0",
-          path: undefined,
-        });
-      });
-
-      it("accepts GitHub source with path", () => {
-        const input = {
-          _tag: "GitHub",
-          owner: "wayne-industries",
-          repo: "skills",
-          path: "skills/grappling-hook",
-        };
-        const result = Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input);
-
-        expect(result).toEqual({
-          _tag: "GitHub",
-          owner: "wayne-industries",
-          repo: "skills",
-          ref: undefined,
-          path: "skills/grappling-hook",
-        });
-      });
-
-      it("accepts GitHub source with all fields", () => {
-        const input = {
-          _tag: "GitHub",
-          owner: "wayne-industries",
-          repo: "skills",
-          ref: "main",
-          path: "skills/grappling-hook",
-        };
-        const result = Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input);
-
-        expect(result).toEqual({
-          _tag: "GitHub",
-          owner: "wayne-industries",
-          repo: "skills",
-          ref: "main",
-          path: "skills/grappling-hook",
-        });
-      });
-
-      it("accepts GitHub source with null ref and path", () => {
-        const input = {
-          _tag: "GitHub",
-          owner: "wayne-industries",
-          repo: "skills",
-          ref: null,
-          path: null,
-        };
-        const result = Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input);
-
-        expect(result).toEqual({
-          _tag: "GitHub",
-          owner: "wayne-industries",
-          repo: "skills",
-          ref: undefined,
-          path: undefined,
-        });
-      });
-
-      it("rejects GitHub source missing owner", () => {
-        const input = {
-          _tag: "GitHub",
-          repo: "skills",
-        };
-
-        expect(() => Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input)).toThrow();
-      });
-
-      it("rejects GitHub source missing repo", () => {
-        const input = {
-          _tag: "GitHub",
-          owner: "wayne-industries",
-        };
-
-        expect(() => Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input)).toThrow();
-      });
-    });
-
-    describe("Local variant", () => {
-      it("accepts Local source with path", () => {
-        const input = {
-          _tag: "Local",
-          path: "./my-skills/dev-skill",
-        };
-        const result = Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input);
-
-        expect(result).toEqual({
-          _tag: "Local",
-          path: "./my-skills/dev-skill",
-        });
-      });
-
-      it("accepts Local source with absolute path", () => {
-        const input = {
-          _tag: "Local",
-          path: "/home/user/skills/dev-skill",
-        };
-        const result = Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input);
-
-        expect(result).toEqual({
-          _tag: "Local",
-          path: "/home/user/skills/dev-skill",
-        });
-      });
-
-      it("rejects Local source missing path", () => {
-        const input = {
-          _tag: "Local",
-        };
-
-        expect(() => Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input)).toThrow();
-      });
-    });
-
-    describe("invalid variants", () => {
-      it("rejects unknown _tag", () => {
-        const input = {
-          _tag: "Unknown",
-          foo: "bar",
-        };
-
-        expect(() => Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input)).toThrow();
-      });
-
-      it("rejects object without _tag", () => {
-        const input = {
-          owner: "wayne-industries",
-          repo: "skills",
-        };
-
-        expect(() => Schema.decodeUnknownSync(SkillSettingsEntrySchema)(input)).toThrow();
-      });
-
-      it("rejects number", () => {
-        expect(() => Schema.decodeUnknownSync(SkillSettingsEntrySchema)(123)).toThrow();
-      });
-
-      it("rejects array", () => {
-        expect(() => Schema.decodeUnknownSync(SkillSettingsEntrySchema)(["a", "b"])).toThrow();
-      });
-    });
-  });
-
-  describe("skills at root level with SkillSettingsEntry", () => {
-    it("accepts skills with Registry FQN shorthand", () => {
+  describe("skills at root level", () => {
+    it("accepts skills with registry source", () => {
       const input = {
         skills: {
-          "my-skill": "@wayne/my-skill@^1.0.0",
+          "my-skill": "@acme/my-skill@^1.0.0",
         },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.skills).toEqual({ "my-skill": "@wayne/my-skill@^1.0.0" });
+      expect(result.skills).toEqual({ "my-skill": "@acme/my-skill@^1.0.0" });
     });
 
     it("accepts skills with GitHub source", () => {
       const input = {
         skills: {
-          "grappling-hook": {
-            _tag: "GitHub",
-            owner: "wayne-industries",
-            repo: "skills",
-          },
+          "grappling-hook": "github:wayne-industries/skills/grappling-hook",
         },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.skills?.["grappling-hook"]).toEqual({
-        _tag: "GitHub",
-        owner: "wayne-industries",
-        repo: "skills",
-        ref: undefined,
-        path: undefined,
+      expect(result.skills).toEqual({
+        "grappling-hook": "github:wayne-industries/skills/grappling-hook",
       });
     });
 
-    it("accepts skills with Local source", () => {
+    it("accepts skills with local source", () => {
       const input = {
         skills: {
-          "dev-skill": {
-            _tag: "Local",
-            path: "./my-skills/dev-skill",
-          },
+          "dev-skill": "local:./my-skills/dev-skill",
         },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.skills?.["dev-skill"]).toEqual({
-        _tag: "Local",
-        path: "./my-skills/dev-skill",
-      });
+      expect(result.skills).toEqual({ "dev-skill": "local:./my-skills/dev-skill" });
     });
 
     it("accepts skills with mixed source types", () => {
       const input = {
         skills: {
           "registry-skill": "@wayne/registry-skill@^1.0.0",
-          "github-skill": {
-            _tag: "GitHub",
-            owner: "wayne-industries",
-            repo: "skills",
-            ref: "main",
-          },
-          "local-skill": {
-            _tag: "Local",
-            path: "./dev/local-skill",
-          },
+          "github-skill": "github:wayne-industries/skills#main",
+          "local-skill": "local:./dev/local-skill",
         },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.skills?.["registry-skill"]).toBe("@wayne/registry-skill@^1.0.0");
-      expect(result.skills?.["github-skill"]).toEqual({
-        _tag: "GitHub",
-        owner: "wayne-industries",
-        repo: "skills",
-        ref: "main",
-        path: undefined,
-      });
-      expect(result.skills?.["local-skill"]).toEqual({
-        _tag: "Local",
-        path: "./dev/local-skill",
-      });
+      expect(result.skills?.["github-skill"]).toBe("github:wayne-industries/skills#main");
+      expect(result.skills?.["local-skill"]).toBe("local:./dev/local-skill");
     });
 
     it("accepts empty skills map", () => {
@@ -680,7 +441,7 @@ describe("Settings schema", () => {
   });
 
   describe("complete settings example", () => {
-    it("accepts complete Wayne Enterprises settings with new skill format", () => {
+    it("accepts complete Wayne Enterprises settings with string source format", () => {
       const input = {
         scope: "@wayne",
         sources: {
@@ -691,17 +452,8 @@ describe("Settings schema", () => {
         agents: ["claude-code", "cursor", "vscode"],
         skills: {
           "grappling-hook": "@wayne/grappling-hook@^1.0.0",
-          batarang: {
-            _tag: "GitHub",
-            owner: "wayne-industries",
-            repo: "gadgets",
-            ref: "main",
-            path: "skills/batarang",
-          },
-          "dev-gadget": {
-            _tag: "Local",
-            path: "./dev/gadgets/dev-gadget",
-          },
+          batarang: "github:wayne-industries/gadgets/skills/batarang#main",
+          "dev-gadget": "local:./dev/gadgets/dev-gadget",
         },
         commands: {
           "batcomputer-sync": "^1.0.0",
@@ -720,8 +472,10 @@ describe("Settings schema", () => {
       expect(result.sources?.registry).toHaveLength(2);
       expect(Object.keys(result.skills ?? {}).length).toBe(3);
       expect(result.skills?.["grappling-hook"]).toBe("@wayne/grappling-hook@^1.0.0");
-      expect((result.skills?.["batarang"] as { _tag: string })._tag).toBe("GitHub");
-      expect((result.skills?.["dev-gadget"] as { _tag: string })._tag).toBe("Local");
+      expect(result.skills?.["batarang"]).toBe(
+        "github:wayne-industries/gadgets/skills/batarang#main",
+      );
+      expect(result.skills?.["dev-gadget"]).toBe("local:./dev/gadgets/dev-gadget");
     });
   });
 });

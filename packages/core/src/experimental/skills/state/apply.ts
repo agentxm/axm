@@ -17,7 +17,6 @@ import * as nodePath from "node:path";
 import { FileSystem, type Path } from "@effect/platform";
 import { Data, Effect } from "effect";
 import type { SkillLockEntry } from "../../schemas/lockfile.js";
-import type { SkillSettingsEntry } from "../../schemas/settings.js";
 import { readLockfile, writeLockfile } from "../lockfile.js";
 import { readSettings, writeSettings } from "../settings.js";
 import type { AgentConfig, Settings } from "../types.js";
@@ -180,17 +179,22 @@ const getSourcePath = (source: SkillSource): Effect.Effect<string, UnsupportedSo
       );
 
 /**
- * Convert SkillSource to settings entry value.
+ * Convert SkillSource to settings source string.
+ *
+ * Source string formats:
+ * - Registry: `@scope/name` or `@scope/name@version`
+ * - GitHub: `github:owner/repo[/path][#ref]`
+ * - Git: `git:url[#ref]`
+ * - Local: `local:path`
  */
-const sourceToSettingsValue = (source: SkillSource): SkillSettingsEntry => {
+const sourceToSettingsValue = (source: SkillSource): string => {
   switch (source._tag) {
     case "Local":
-      return { _tag: "Local", path: source.path };
+      return `local:${source.path}`;
     case "Git":
-      // Git sources are kept as string URL for settings
-      return source.url;
+      return `git:${source.url}`;
     case "WellKnown":
-      return `${source.baseUrl}/${source.skillName}`;
+      return `github:${source.baseUrl}/${source.skillName}`;
     case "Registry":
       return `${source.name}@${source.version}`;
   }
@@ -700,7 +704,7 @@ const updateSettingsForChanges = (
     );
 
     // Build updated skills (handle undefined skills)
-    const updatedSkills: Record<string, SkillSettingsEntry> = { ...(settings.skills ?? {}) };
+    const updatedSkills: Record<string, string> = { ...(settings.skills ?? {}) };
 
     for (const [name, change] of changes) {
       if (!appliedNames.has(name)) continue;

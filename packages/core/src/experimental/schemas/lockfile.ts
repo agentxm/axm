@@ -9,6 +9,8 @@
 
 import { Schema } from "effect";
 
+import { SourceSchema, type SourceType } from "./extension-sources.js";
+
 // =============================================================================
 // Date Transform
 // =============================================================================
@@ -23,26 +25,6 @@ export const DateFromString = Schema.transform(Schema.String, Schema.DateFromSel
   decode: (s) => new Date(s),
   encode: (d) => d.toISOString(),
 });
-
-// =============================================================================
-// Source Type Literal
-// =============================================================================
-
-/**
- * Source type discriminator for lock entries.
- * Simple string literal union for the source field.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const LockSourceTypeSchema = Schema.Literal("github", "git", "local", "registry");
-
-/**
- * Inferred type for LockSourceType.
- * Distinguishes from SourceType in types.ts (used for parsed sources).
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type LockSourceType = typeof LockSourceTypeSchema.Type;
 
 // =============================================================================
 // Flat Source Schemas (discriminated by source field)

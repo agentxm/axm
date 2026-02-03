@@ -31,7 +31,6 @@ import {
   getCurrentCommit,
   type InstallResult,
   installSkillToAgents,
-  type SkillSource as LockfileSkillSource,
   type ParsedSource,
   parseSource,
   type Skill,
@@ -116,28 +115,48 @@ export class InstallError extends Data.TaggedError("InstallError")<{
 // -----------------------------------------------------------------------------
 
 /**
- * Convert ParsedSource to canonical SkillSource format for lockfile entries.
+ * Create a partial SkillLockEntry from ParsedSource.
  *
- * Uses LockfileSkillSource (from schemas/lockfile.ts) which is the canonical type
- * for lockfile storage. This differs from LegacySkillSource which has WellKnown variant.
+ * Returns flat fields that can be spread into a full SkillLockEntry.
+ * The returned object contains source-specific fields based on the parsed source type.
  */
-const parsedSourceToSkillSource = (parsed: ParsedSource): LockfileSkillSource => {
+const createLockEntryFromParsed = (
+  parsed: ParsedSource,
+  agents: string[],
+  contentHash: string,
+  now: Date,
+): SkillLockEntry => {
+  const commonFields = {
+    gitTreeHash: contentHash,
+    agents,
+    installedAt: now,
+    updatedAt: now,
+  };
+
   switch (parsed.type) {
     case "local":
-      return { _tag: "Local", path: parsed.canonical };
+      return {
+        source: "local" as const,
+        path: parsed.canonical,
+        ...commonFields,
+      };
     case "github":
     case "gitlab":
       return {
-        _tag: "GitHub",
+        source: "github" as const,
         owner: parsed.owner ?? "",
         repo: parsed.repo ?? "",
         ref: parsed.ref,
         path: parsed.path,
+        ...commonFields,
       };
     case "direct-url":
-      return { _tag: "Git", url: parsed.url ?? parsed.canonical };
     case "well-known":
-      return { _tag: "Git", url: parsed.url ?? parsed.canonical };
+      return {
+        source: "git" as const,
+        url: parsed.url ?? parsed.canonical,
+        ...commonFields,
+      };
   }
 };
 
@@ -470,14 +489,12 @@ const installSkillsFromFileSystem = (
     yield* Effect.forEach(
       installResults,
       ({ skillName, contentHash }) => {
-        const lockEntry: SkillLockEntry = {
-          name: skillName,
-          source: parsedSourceToSkillSource(parsed),
-          gitTreeHash: contentHash,
-          agents: agents.map((a) => a.id),
-          installedAt: now,
-          updatedAt: now,
-        };
+        const lockEntry = createLockEntryFromParsed(
+          parsed,
+          agents.map((a) => a.id),
+          contentHash,
+          now,
+        );
         return updateLockEntry(axmDir, skillName, lockEntry).pipe(
           Effect.mapError(
             (error) =>
@@ -613,14 +630,12 @@ const installSkillsFromWellKnown = (
     yield* Effect.forEach(
       validResults,
       ({ skillName, contentHash }) => {
-        const lockEntry: SkillLockEntry = {
-          name: skillName,
-          source: parsedSourceToSkillSource(parsed),
-          gitTreeHash: contentHash,
-          agents: agents.map((a) => a.id),
-          installedAt: now,
-          updatedAt: now,
-        };
+        const lockEntry = createLockEntryFromParsed(
+          parsed,
+          agents.map((a) => a.id),
+          contentHash,
+          now,
+        );
         return updateLockEntry(axmDir, skillName, lockEntry).pipe(
           Effect.mapError(
             (error) =>

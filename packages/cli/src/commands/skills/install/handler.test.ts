@@ -748,13 +748,12 @@ describe("install.handler", () => {
           const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
           expect(fs.existsSync(lockPath)).toBe(true);
 
-          // Lockfile is in YAML format - parse and verify structure (new flat structure)
+          // Lockfile is in YAML format - parse and verify structure (flat structure)
           const lockContent = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           expect(lockContent.lockfileVersion).toBe(1);
           expect(lockContent.skills.commit).toBeDefined();
-          expect(lockContent.skills.commit.name).toBe("commit");
-          expect(lockContent.skills.commit.source._tag).toBe("Local");
-          expect(lockContent.skills.commit.source.path).toBe(source);
+          expect(lockContent.skills.commit.source).toBe("local");
+          expect(lockContent.skills.commit.path).toBe(source);
           expect(lockContent.skills.commit.gitTreeHash).toMatch(/^sha256:/);
           expect(lockContent.skills.commit.agents).toBeDefined();
           expect(lockContent.skills.commit.installedAt).toBeDefined();
@@ -1229,10 +1228,10 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           });
 
-          // Lockfile should have updated hash (new flat structure)
+          // Lockfile should have updated hash (flat structure)
           const newLock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           expect(newLock.skills.commit.gitTreeHash).not.toBe(originalHash);
-          expect(newLock.skills.commit.source.path).toBe(sourceDir2);
+          expect(newLock.skills.commit.path).toBe(sourceDir2);
         }),
       ),
     );
@@ -1406,9 +1405,9 @@ describe("install.handler", () => {
           const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           const entry = lockfile.skills.commit;
 
-          // Required fields per new schema
-          expect(entry.name).toBeDefined();
-          expect(entry.source).toBeDefined();
+          // Required fields per flat schema
+          expect(entry.source).toBe("local");
+          expect(entry.path).toBeDefined();
           expect(entry.agents).toBeDefined();
           expect(entry.installedAt).toBeDefined();
           expect(entry.updatedAt).toBeDefined();
@@ -1511,11 +1510,11 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           });
 
-          // Verify local source is stored with structured format
+          // Verify local source is stored with flat format
           const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
           const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-          expect(lockfile.skills.commit.source._tag).toBe("Local");
-          expect(lockfile.skills.commit.source.path).toBe(source);
+          expect(lockfile.skills.commit.source).toBe("local");
+          expect(lockfile.skills.commit.path).toBe(source);
         }),
       ),
     );
@@ -1543,9 +1542,9 @@ describe("install.handler", () => {
           const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
           const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
-          // Local path should be stored with structured format
-          expect(lockfile.skills.commit.source._tag).toBe("Local");
-          expect(lockfile.skills.commit.source.path).toBe(source);
+          // Local path should be stored with flat format
+          expect(lockfile.skills.commit.source).toBe("local");
+          expect(lockfile.skills.commit.path).toBe(source);
         }),
       ),
     );

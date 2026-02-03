@@ -31,13 +31,16 @@ describe("lockfile", () => {
   const withFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
     effect.pipe(Effect.provide(NodeFileSystem.layer));
 
-  const createTestEntry = (overrides?: Partial<SkillLockEntry>): SkillLockEntry => ({
-    name: "test-skill",
-    source: { _tag: "GitHub", owner: "example-org", repo: "agent-skills" },
+  const createTestEntry = (
+    overrides?: Partial<SkillLockEntry>,
+  ): SkillLockEntry & { source: "github" } => ({
+    source: "github",
+    owner: "example-org",
+    repo: "agent-skills",
     agents: ["claude-code"],
     installedAt: new Date("2026-01-28T10:00:00.000Z"),
     updatedAt: new Date("2026-01-28T10:00:00.000Z"),
-    ...overrides,
+    ...(overrides as Partial<SkillLockEntry & { source: "github" }>),
   });
 
   describe("readLockfile", () => {
@@ -60,8 +63,9 @@ describe("lockfile", () => {
             lockfileVersion: 1,
             skills: {
               "pr-review": {
-                name: "pr-review",
-                source: { _tag: "GitHub", owner: "example-org", repo: "agent-skills" },
+                source: "github",
+                owner: "example-org",
+                repo: "agent-skills",
                 agents: ["claude-code"],
                 installedAt: "2026-01-28T10:00:00.000Z",
                 updatedAt: "2026-01-28T10:00:00.000Z",
@@ -75,11 +79,11 @@ describe("lockfile", () => {
           expect(result.lockfileVersion).toBe(1);
           const prReview = result.skills["pr-review"];
           expect(prReview).toBeDefined();
-          expect(prReview?.source).toEqual({
-            _tag: "GitHub",
-            owner: "example-org",
-            repo: "agent-skills",
-          });
+          expect(prReview?.source).toBe("github");
+          if (prReview?.source === "github") {
+            expect(prReview?.owner).toBe("example-org");
+            expect(prReview?.repo).toBe("agent-skills");
+          }
           expect(prReview?.agents).toEqual(["claude-code"]);
         }),
       ),
@@ -150,7 +154,7 @@ describe("lockfile", () => {
           const lockfile: Lockfile = {
             lockfileVersion: 1,
             skills: {
-              "pr-review": createTestEntry({ name: "pr-review" }),
+              "pr-review": createTestEntry(),
             },
           };
 
@@ -160,11 +164,9 @@ describe("lockfile", () => {
           const parsed = YAML.parse(content);
           expect(parsed.lockfileVersion).toBe(1);
           expect(parsed.skills["pr-review"]).toBeDefined();
-          expect(parsed.skills["pr-review"].source).toEqual({
-            _tag: "GitHub",
-            owner: "example-org",
-            repo: "agent-skills",
-          });
+          expect(parsed.skills["pr-review"].source).toBe("github");
+          expect(parsed.skills["pr-review"].owner).toBe("example-org");
+          expect(parsed.skills["pr-review"].repo).toBe("agent-skills");
         }),
       ),
     );
@@ -182,8 +184,8 @@ describe("lockfile", () => {
             lockfileVersion: 1,
             skills: {
               commit: createTestEntry({
-                name: "commit",
-                source: { _tag: "GitHub", owner: "other", repo: "repo" },
+                owner: "other",
+                repo: "repo",
               }),
             },
           };
@@ -201,13 +203,13 @@ describe("lockfile", () => {
     it.effect("adds new entry to empty lockfile", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const entry = createTestEntry({ name: "pr-review" });
+          const entry = createTestEntry();
 
           const result = yield* updateLockEntry(axmDir, "pr-review", entry);
 
           const prReview = result.skills["pr-review"];
           expect(prReview).toBeDefined();
-          expect(prReview?.source).toEqual(entry.source);
+          expect(prReview?.source).toBe("github");
         }),
       ),
     );
@@ -219,16 +221,16 @@ describe("lockfile", () => {
             lockfileVersion: 1,
             skills: {
               commit: createTestEntry({
-                name: "commit",
-                source: { _tag: "GitHub", owner: "other", repo: "commit" },
+                owner: "other",
+                repo: "commit",
               }),
             },
           };
           yield* writeLockfile(axmDir, initialLockfile);
 
           const newEntry = createTestEntry({
-            name: "review",
-            source: { _tag: "GitHub", owner: "other", repo: "review" },
+            owner: "other",
+            repo: "review",
           });
           const result = yield* updateLockEntry(axmDir, "review", newEntry);
 
@@ -241,7 +243,7 @@ describe("lockfile", () => {
     it.effect("updates existing entry", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const initialEntry = createTestEntry({ name: "pr-review", gitTreeHash: "old-hash" });
+          const initialEntry = createTestEntry({ gitTreeHash: "old-hash" });
           const initialLockfile: Lockfile = {
             lockfileVersion: 1,
             skills: {
@@ -250,7 +252,7 @@ describe("lockfile", () => {
           };
           yield* writeLockfile(axmDir, initialLockfile);
 
-          const updatedEntry = createTestEntry({ name: "pr-review", gitTreeHash: "new-hash" });
+          const updatedEntry = createTestEntry({ gitTreeHash: "new-hash" });
           const result = yield* updateLockEntry(axmDir, "pr-review", updatedEntry);
 
           expect(result.skills["pr-review"]?.gitTreeHash).toBe("new-hash");
@@ -262,7 +264,7 @@ describe("lockfile", () => {
       withFileSystem(
         Effect.gen(function* () {
           const oldDate = new Date("2020-01-01T00:00:00.000Z");
-          const entry = createTestEntry({ name: "pr-review", updatedAt: oldDate });
+          const entry = createTestEntry({ updatedAt: oldDate });
 
           const result = yield* updateLockEntry(axmDir, "pr-review", entry);
 
@@ -279,7 +281,7 @@ describe("lockfile", () => {
     it.effect("persists changes to disk", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const entry = createTestEntry({ name: "pr-review" });
+          const entry = createTestEntry();
           yield* updateLockEntry(axmDir, "pr-review", entry);
 
           const readResult = yield* readLockfile(axmDir);
@@ -296,10 +298,10 @@ describe("lockfile", () => {
           const initialLockfile: Lockfile = {
             lockfileVersion: 1,
             skills: {
-              "pr-review": createTestEntry({ name: "pr-review" }),
+              "pr-review": createTestEntry(),
               commit: createTestEntry({
-                name: "commit",
-                source: { _tag: "GitHub", owner: "other", repo: "commit" },
+                owner: "other",
+                repo: "commit",
               }),
             },
           };
@@ -320,8 +322,8 @@ describe("lockfile", () => {
             lockfileVersion: 1,
             skills: {
               commit: createTestEntry({
-                name: "commit",
-                source: { _tag: "GitHub", owner: "other", repo: "commit" },
+                owner: "other",
+                repo: "commit",
               }),
             },
           };
@@ -340,7 +342,7 @@ describe("lockfile", () => {
           const initialLockfile: Lockfile = {
             lockfileVersion: 1,
             skills: {
-              "pr-review": createTestEntry({ name: "pr-review" }),
+              "pr-review": createTestEntry(),
             },
           };
           yield* writeLockfile(axmDir, initialLockfile);
@@ -370,10 +372,12 @@ describe("lockfile", () => {
       withFileSystem(
         Effect.gen(function* () {
           const entry: SkillLockEntry = {
-            name: "pr-review",
-            source: { _tag: "GitHub", owner: "example-org", repo: "agent-skills" },
+            source: "github",
+            owner: "example-org",
+            repo: "agent-skills",
+            ref: "main",
+            path: "skills/pr-review",
             agents: ["claude-code", "cursor"],
-            version: "1.2.3",
             gitTreeHash: "abc123def456789012345678901234567890",
             installedAt: new Date("2026-01-28T10:00:00.000Z"),
             updatedAt: new Date("2026-01-28T12:30:00.000Z"),
@@ -390,10 +394,14 @@ describe("lockfile", () => {
 
           expect(result.lockfileVersion).toBe(1);
           const prReview = result.skills["pr-review"];
-          expect(prReview?.name).toBe(entry.name);
-          expect(prReview?.source).toEqual(entry.source);
+          expect(prReview?.source).toBe("github");
+          if (prReview?.source === "github") {
+            expect(prReview?.owner).toBe(entry.owner);
+            expect(prReview?.repo).toBe(entry.repo);
+            expect(prReview?.ref).toBe(entry.ref);
+            expect(prReview?.path).toBe(entry.path);
+          }
           expect(prReview?.agents).toEqual(entry.agents);
-          expect(prReview?.version).toBe(entry.version);
           expect(prReview?.gitTreeHash).toBe(entry.gitTreeHash);
           expect(prReview?.installedAt).toEqual(entry.installedAt);
           expect(prReview?.updatedAt).toEqual(entry.updatedAt);
@@ -408,16 +416,16 @@ describe("lockfile", () => {
             lockfileVersion: 1,
             skills: {
               "pr-review": createTestEntry({
-                name: "pr-review",
-                source: { _tag: "GitHub", owner: "org", repo: "pr-review" },
+                owner: "org",
+                repo: "pr-review",
               }),
               commit: createTestEntry({
-                name: "commit",
-                source: { _tag: "GitHub", owner: "org", repo: "commit" },
+                owner: "org",
+                repo: "commit",
               }),
               "code-review": createTestEntry({
-                name: "code-review",
-                source: { _tag: "GitHub", owner: "org", repo: "code-review" },
+                owner: "org",
+                repo: "code-review",
               }),
             },
           };

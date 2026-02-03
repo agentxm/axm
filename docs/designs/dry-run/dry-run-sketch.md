@@ -321,7 +321,7 @@ export const SkillState = Schema.Struct({
 });
 export type SkillState = typeof SkillState.Type;
 
-// Note: Maps serialize as Record<string, T> in JSON
+// Skills stored as Record for O(1) lookups and immutable updates
 export const SkillsState = Schema.Struct({
   skills: Schema.Record({ key: Schema.String, value: SkillState }),
 });
@@ -445,7 +445,7 @@ export type IdealSkill = typeof IdealSkill.Type;
 
 export const IdealSkillsState = Schema.Struct({
   skills: Schema.Record({ key: Schema.String, value: IdealSkill }),
-  removals: Schema.Array(Schema.String), // Sets serialize as arrays
+  removals: Schema.Array(Schema.String), // Immutable array of names to remove
 });
 export type IdealSkillsState = typeof IdealSkillsState.Type;
 
@@ -568,7 +568,7 @@ export type AgentSyncStatus = typeof AgentSyncStatus.Type;
 export const SkillSyncState = Schema.Struct({
   skillName: Schema.String,
   canonicalPath: Schema.String,
-  agents: Schema.Record({ key: Schema.String, value: AgentSyncStatus }),
+  agents: Schema.Record({ key: Schema.String, value: AgentSyncStatus }), // agentId -> status
 });
 export type SkillSyncState = typeof SkillSyncState.Type;
 ```
@@ -580,7 +580,7 @@ export type SkillSyncState = typeof SkillSyncState.Type;
 ```typescript
 // packages/core/src/skills/state/load.ts
 
-import { Effect, Option } from "effect";
+import { Array, Effect, Option, pipe, Record } from "effect";
 import type { FileSystem } from "@effect/platform";
 
 /**
@@ -596,16 +596,22 @@ export const loadSkillsState = (
       loadLockedSkills(axmDir),
     ]);
 
-    // Merge keys from both maps
-    const allNames = new Set([...actualMap.keys(), ...lockedMap.keys()]);
-    const skills = new Map<string, SkillState>();
+    // Merge keys from both maps and build state
+    const allNames = pipe(
+      [...actualMap.keys(), ...lockedMap.keys()],
+      Array.dedupe,
+    );
 
-    for (const name of allNames) {
-      const actual = Option.fromNullable(actualMap.get(name));
-      const locked = Option.fromNullable(lockedMap.get(name));
-      const validity = computeValidity(actual, locked);
-      skills.set(name, { name, actual, locked, validity });
-    }
+    const skills = pipe(
+      allNames,
+      Array.map((name) => {
+        const actual = Option.fromNullable(actualMap.get(name));
+        const locked = Option.fromNullable(lockedMap.get(name));
+        const validity = computeValidity(actual, locked);
+        return [name, { name, actual, locked, validity }] as const;
+      }),
+      Record.fromEntries,
+    );
 
     return { skills, axmDir, loadedAt: new Date() };
   });
@@ -616,75 +622,103 @@ export const loadSkillsState = (
 const computeValidity = (
   actual: Option.Option<ActualSkill>,
   locked: Option.Option<LockedSkill>,
-): SkillValidity => {
-  // Neither exists
-  if (Option.isNone(actual) && Option.isNone(locked)) {
-    return SkillValidity.Valid({});
-  }
+): SkillValidity =>
+  pipe(
+    // Handle presence/absence cases
+    Option.match(actual, {
+      onNone: () =>
+        Option.match(locked, {
+          onNone: () => Option.some(SkillValidity.Valid({})),
+          onSome: (l) =>
+            Option.some(SkillValidity.Missing({ code: "E004", expected: l })),
+        }),
+      onSome: (a) =>
+        Option.match(locked, {
+          onNone: () => Option.some(SkillValidity.Orphaned({ code: "W002" })),
+          onSome: (l) => Option.none(), // Both exist - need detailed comparison
+        }),
+    }),
+    Option.getOrElse(() => {
+      // Both exist - compare and collect issues
+      const a = Option.getOrThrow(actual);
+      const l = Option.getOrThrow(locked);
 
-  // Orphaned (on disk, not in lockfile)
-  if (Option.isSome(actual) && Option.isNone(locked)) {
-    return SkillValidity.Orphaned({ code: "W002" });
-  }
+      const issues = pipe(
+        [
+          // Missing SKILL.md
+          a.content === ""
+            ? Option.some(
+                SkillValidity.MissingSkillMd({
+                  code: "E001",
+                  path: `${a.path}/SKILL.md`,
+                }),
+              )
+            : Option.none(),
 
-  // Missing (in lockfile, not on disk)
-  if (Option.isNone(actual) && Option.isSome(locked)) {
-    return SkillValidity.Missing({ code: "E004", expected: locked.value });
-  }
+          // Invalid frontmatter
+          Option.isNone(a.frontmatter) && a.content !== ""
+            ? Option.some(
+                SkillValidity.InvalidFrontmatter({
+                  code: "E002",
+                  errors: ["Failed to parse"],
+                }),
+              )
+            : Option.none(),
 
-  // Both exist - compare
-  const a = actual.value;
-  const l = locked.value;
-  const issues: SkillValidity[] = [];
+          // Name mismatch (only if frontmatter exists)
+          pipe(
+            a.frontmatter,
+            Option.flatMap((fm) =>
+              fm.name && fm.name !== a.name
+                ? Option.some(
+                    SkillValidity.NameMismatch({
+                      code: "E003",
+                      frontmatterName: fm.name,
+                      directoryName: a.name,
+                    }),
+                  )
+                : Option.none(),
+            ),
+          ),
 
-  if (a.content === "") {
-    issues.push(
-      SkillValidity.MissingSkillMd({
-        code: "E001",
-        path: `${a.path}/SKILL.md`,
-      }),
-    );
-  }
+          // Missing description (only if frontmatter exists)
+          pipe(
+            a.frontmatter,
+            Option.flatMap((fm) =>
+              !fm.description
+                ? Option.some(
+                    SkillValidity.MissingDescription({ code: "W001" }),
+                  )
+                : Option.none(),
+            ),
+          ),
 
-  if (Option.isNone(a.frontmatter) && a.content !== "") {
-    issues.push(
-      SkillValidity.InvalidFrontmatter({
-        code: "E002",
-        errors: ["Failed to parse"],
-      }),
-    );
-  }
+          // Hash mismatch
+          a.folderHash !== l.folderHash
+            ? Option.some(
+                SkillValidity.HashMismatch({
+                  code: "E005",
+                  expected: l.folderHash,
+                  actual: a.folderHash,
+                }),
+              )
+            : Option.none(),
+        ],
+        Array.getSomes,
+      );
 
-  if (Option.isSome(a.frontmatter)) {
-    const fm = a.frontmatter.value;
-    if (fm.name && fm.name !== a.name) {
-      issues.push(
-        SkillValidity.NameMismatch({
-          code: "E003",
-          frontmatterName: fm.name,
-          directoryName: a.name,
+      return pipe(
+        issues,
+        Array.match({
+          onEmpty: () => SkillValidity.Valid({}),
+          onNonEmpty: (nonEmpty) =>
+            nonEmpty.length === 1
+              ? nonEmpty[0]
+              : SkillValidity.Multiple({ issues: nonEmpty }),
         }),
       );
-    }
-    if (!fm.description) {
-      issues.push(SkillValidity.MissingDescription({ code: "W001" }));
-    }
-  }
-
-  if (a.folderHash !== l.folderHash) {
-    issues.push(
-      SkillValidity.HashMismatch({
-        code: "E005",
-        expected: l.folderHash,
-        actual: a.folderHash,
-      }),
-    );
-  }
-
-  if (issues.length === 0) return SkillValidity.Valid({});
-  if (issues.length === 1) return issues[0];
-  return SkillValidity.Multiple({ issues });
-};
+    }),
+  );
 
 /**
  * Load complete workspace state: all extension types + settings.
@@ -725,6 +759,8 @@ Each operation builds the ideal state differently:
 ```typescript
 // packages/core/src/skills/state/ideal.ts
 
+import { Array, Effect, Option, pipe, Record } from "effect";
+
 /**
  * Build ideal state for install operation.
  */
@@ -744,29 +780,38 @@ export const buildIdealForInstall = (
     // Filter by --skill flag
     const filtered =
       options.skills.length > 0
-        ? discovered.filter((s) => options.skills.includes(s.name))
+        ? pipe(
+            discovered,
+            Array.filter((s) => options.skills.includes(s.name)),
+          )
         : discovered;
 
-    // Build ideal: keep existing + add new
-    const idealSkills = new Map<string, IdealSkill>();
+    // Keep existing valid skills as ideal
+    const existingIdeal = pipe(
+      Object.entries(current.skills),
+      Array.filter(
+        ([_, state]) =>
+          Option.isSome(state.actual) && Option.isSome(state.locked),
+      ),
+      Array.map(([name, state]) => [name, stateToIdeal(state)] as const),
+      Record.fromEntries,
+    );
 
-    // Keep existing valid skills
-    for (const [name, state] of current.skills) {
-      if (Option.isSome(state.actual) && Option.isSome(state.locked)) {
-        idealSkills.set(name, stateToIdeal(state));
-      }
-    }
+    // Add/update from source (skip existing unless force)
+    const newIdeal = pipe(
+      filtered,
+      Array.filter((skill) => {
+        const existing = current.skills[skill.name];
+        return !existing || Option.isNone(existing.actual) || options.force;
+      }),
+      Array.map((skill) => [skill.name, skill] as const),
+      Record.fromEntries,
+    );
 
-    // Add/update from source
-    for (const skill of filtered) {
-      const existing = current.skills.get(skill.name);
-      if (existing && Option.isSome(existing.actual) && !options.force) {
-        continue; // Skip existing unless force
-      }
-      idealSkills.set(skill.name, skill);
-    }
-
-    return { skills: idealSkills, removals: new Set() };
+    return {
+      skills: { ...existingIdeal, ...newIdeal },
+      removals: [],
+    };
   });
 
 /**
@@ -782,22 +827,41 @@ export const buildIdealForUpdate = (
   FileSystem.FileSystem | HttpClient.HttpClient
 > =>
   Effect.gen(function* () {
-    const idealSkills = new Map<string, IdealSkill>();
+    // Filter to skills with lock entries
+    const lockedSkills = pipe(
+      Object.entries(current.skills),
+      Array.filter(([_, state]) => Option.isSome(state.locked)),
+    );
 
-    for (const [name, state] of current.skills) {
-      if (Option.isNone(state.locked)) continue;
+    // Partition into skills to update vs keep
+    const [toUpdate, toKeep] = pipe(
+      lockedSkills,
+      Array.partition(([name]) => !skillNames || skillNames.includes(name)),
+    );
 
-      const shouldUpdate = !skillNames || skillNames.includes(name);
+    // Fetch latest versions for skills to update
+    const updatedSkills = yield* pipe(
+      toUpdate,
+      Effect.forEach(
+        ([name, state]) =>
+          pipe(
+            fetchLatestVersion(Option.getOrThrow(state.locked)),
+            Effect.map((latest) => [name, latest] as const),
+          ),
+        { concurrency: "inherit" },
+      ),
+    );
 
-      if (shouldUpdate) {
-        const latest = yield* fetchLatestVersion(state.locked.value);
-        idealSkills.set(name, latest);
-      } else {
-        idealSkills.set(name, stateToIdeal(state));
-      }
-    }
+    // Keep existing versions for others
+    const keptSkills = pipe(
+      toKeep,
+      Array.map(([name, state]) => [name, stateToIdeal(state)] as const),
+    );
 
-    return { skills: idealSkills, removals: new Set() };
+    return {
+      skills: pipe([...updatedSkills, ...keptSkills], Record.fromEntries),
+      removals: [],
+    };
   });
 
 /**
@@ -807,19 +871,22 @@ export const buildIdealForUninstall = (
   current: SkillsState,
   skillNames: readonly string[],
 ): Effect.Effect<IdealSkillsState, BuildIdealError, never> =>
-  Effect.gen(function* () {
-    const idealSkills = new Map<string, IdealSkill>();
-    const removals = new Set<string>();
-
-    for (const [name, state] of current.skills) {
-      if (skillNames.includes(name)) {
-        removals.add(name);
-      } else if (Option.isSome(state.locked)) {
-        idealSkills.set(name, stateToIdeal(state));
-      }
-    }
-
-    return { skills: idealSkills, removals };
+  Effect.succeed({
+    // Keep skills not being uninstalled
+    skills: pipe(
+      Object.entries(current.skills),
+      Array.filter(
+        ([name, state]) =>
+          !skillNames.includes(name) && Option.isSome(state.locked),
+      ),
+      Array.map(([name, state]) => [name, stateToIdeal(state)] as const),
+      Record.fromEntries,
+    ),
+    // Mark specified skills for removal
+    removals: pipe(
+      skillNames,
+      Array.filter((name) => name in current.skills),
+    ),
   });
 
 /**
@@ -827,21 +894,28 @@ export const buildIdealForUninstall = (
  */
 export const buildIdealForSync = (
   current: SkillsState,
-): Effect.Effect<IdealSkillsState, BuildIdealError, never> =>
-  Effect.gen(function* () {
-    const idealSkills = new Map<string, IdealSkill>();
-    const removals = new Set<string>();
+): Effect.Effect<IdealSkillsState, BuildIdealError, never> => {
+  const entries = Object.entries(current.skills);
 
-    for (const [name, state] of current.skills) {
-      if (Option.isSome(state.locked)) {
-        idealSkills.set(name, stateToIdeal(state));
-      } else if (Option.isSome(state.actual)) {
-        removals.add(name); // Orphaned
-      }
-    }
-
-    return { skills: idealSkills, removals };
+  return Effect.succeed({
+    // Keep locked skills as ideal
+    skills: pipe(
+      entries,
+      Array.filter(([_, state]) => Option.isSome(state.locked)),
+      Array.map(([name, state]) => [name, stateToIdeal(state)] as const),
+      Record.fromEntries,
+    ),
+    // Mark orphaned (actual but not locked) for removal
+    removals: pipe(
+      entries,
+      Array.filter(
+        ([_, state]) =>
+          Option.isNone(state.locked) && Option.isSome(state.actual),
+      ),
+      Array.map(([name]) => name),
+    ),
   });
+};
 ```
 
 ---
@@ -851,6 +925,8 @@ export const buildIdealForSync = (
 ```typescript
 // packages/core/src/skills/state/diff.ts
 
+import { Array, Option, pipe, Record } from "effect";
+
 /**
  * Compute diff between current and ideal state.
  * This is the "plan" displayed in dry-run and executed in apply.
@@ -859,64 +935,82 @@ export const computeDiff = (
   current: SkillsState,
   ideal: IdealSkillsState,
 ): SkillsDiff => {
-  const changes = new Map<string, SkillChange>();
-  let add = 0,
-    update = 0,
-    remove = 0,
-    unchanged = 0,
-    repair = 0;
-
   // Process removals
-  for (const name of ideal.removals) {
-    const state = current.skills.get(name);
-    if (state && Option.isSome(state.actual)) {
-      changes.set(name, SkillChange.Remove({ skill: state }));
-      remove++;
-    }
-  }
+  const removalChanges = pipe(
+    ideal.removals,
+    Array.filterMap((name) =>
+      pipe(
+        Option.fromNullable(current.skills[name]),
+        Option.filter((state) => Option.isSome(state.actual)),
+        Option.map(
+          (state) => [name, SkillChange.Remove({ skill: state })] as const,
+        ),
+      ),
+    ),
+  );
 
   // Process ideal skills
-  for (const [name, idealSkill] of ideal.skills) {
-    const currentState = current.skills.get(name);
+  const idealChanges = pipe(
+    Object.entries(ideal.skills),
+    Array.map(([name, idealSkill]) => {
+      const currentState = current.skills[name];
 
-    // Not installed -> Add
-    if (!currentState || Option.isNone(currentState.actual)) {
-      changes.set(name, SkillChange.Add({ skill: idealSkill }));
-      add++;
-      continue;
-    }
+      // Not installed -> Add
+      if (!currentState || Option.isNone(currentState.actual)) {
+        return [name, SkillChange.Add({ skill: idealSkill })] as const;
+      }
 
-    // Invalid state -> Repair
-    const needsRepair =
-      !SkillValidity.$is("Valid")(currentState.validity) &&
-      !SkillValidity.$is("MissingDescription")(currentState.validity) &&
-      !SkillValidity.$is("HashMismatch")(currentState.validity);
+      // Invalid state -> Repair
+      const needsRepair =
+        !SkillValidity.$is("Valid")(currentState.validity) &&
+        !SkillValidity.$is("MissingDescription")(currentState.validity) &&
+        !SkillValidity.$is("HashMismatch")(currentState.validity);
 
-    if (needsRepair) {
-      changes.set(
-        name,
-        SkillChange.Repair({ skill: currentState, target: idealSkill }),
-      );
-      repair++;
-      continue;
-    }
+      if (needsRepair) {
+        return [
+          name,
+          SkillChange.Repair({ skill: currentState, target: idealSkill }),
+        ] as const;
+      }
 
-    // Hash differs -> Update
-    if (currentState.actual.value.folderHash !== idealSkill.folderHash) {
-      changes.set(
-        name,
-        SkillChange.Update({ from: currentState, to: idealSkill }),
-      );
-      update++;
-      continue;
-    }
+      // Hash differs -> Update
+      if (
+        Option.getOrThrow(currentState.actual).folderHash !==
+        idealSkill.folderHash
+      ) {
+        return [
+          name,
+          SkillChange.Update({ from: currentState, to: idealSkill }),
+        ] as const;
+      }
 
-    // Unchanged
-    changes.set(name, SkillChange.Unchanged({ skill: currentState }));
-    unchanged++;
-  }
+      // Unchanged
+      return [name, SkillChange.Unchanged({ skill: currentState })] as const;
+    }),
+  );
 
-  return { changes, summary: { add, update, remove, unchanged, repair } };
+  const changes = pipe(
+    [...removalChanges, ...idealChanges],
+    Record.fromEntries,
+  );
+
+  // Compute summary from changes
+  const summary = pipe(
+    Object.values(changes),
+    Array.reduce(
+      { add: 0, update: 0, remove: 0, unchanged: 0, repair: 0 },
+      (acc, change) =>
+        SkillChange.$match(change, {
+          Add: () => ({ ...acc, add: acc.add + 1 }),
+          Update: () => ({ ...acc, update: acc.update + 1 }),
+          Remove: () => ({ ...acc, remove: acc.remove + 1 }),
+          Unchanged: () => ({ ...acc, unchanged: acc.unchanged + 1 }),
+          Repair: () => ({ ...acc, repair: acc.repair + 1 }),
+        }),
+    ),
+  );
+
+  return { changes, summary };
 };
 
 export const hasChanges = (diff: SkillsDiff): boolean =>
@@ -959,7 +1053,7 @@ Plan:
 
 ### JSON Output (`--json`)
 
-Internal state uses `Record<string, SkillChange>` for O(1) lookups. JSON output transforms to arrays for CLI consumers (easier to iterate, no key duplication).
+Internal state uses `Record<string, SkillChange>` for O(1) lookups and immutable updates. JSON output transforms to arrays for CLI consumers (easier to iterate, no key duplication).
 
 ```json
 {
@@ -996,7 +1090,7 @@ Internal state uses `Record<string, SkillChange>` for O(1) lookups. JSON output 
 Effect Schema transformation for JSON encoding:
 
 ```typescript
-// Internal: Record for O(1) lookups
+// Internal: Record for O(1) lookups and immutable updates
 const SkillsDiffInternal = Schema.Struct({
   changes: Schema.Record({ key: Schema.String, value: SkillChange }),
   summary: DiffSummary,
@@ -1015,14 +1109,18 @@ export const SkillsDiff = SkillsDiffInternal.pipe(
   Schema.transform(SkillsDiffJson, {
     decode: (internal) => ({
       ...internal,
-      changes: Array.from(internal.changes.entries()).map(([name, change]) => ({
-        ...change,
-        name,
-      })),
+      changes: pipe(
+        Object.entries(internal.changes),
+        Array.map(([name, change]) => ({ ...change, name })),
+      ),
     }),
     encode: (json) => ({
       ...json,
-      changes: new Map(json.changes.map((c) => [c.name, c])),
+      changes: pipe(
+        json.changes,
+        Array.map((c) => [c.name, c] as const),
+        Record.fromEntries,
+      ),
     }),
   }),
 );
@@ -1034,6 +1132,8 @@ export const SkillsDiff = SkillsDiffInternal.pipe(
 
 ```typescript
 // packages/core/src/skills/state/apply.ts
+
+import { Array, Effect, Option, pipe, Record, Schema } from "effect";
 
 // =============================================================================
 // Progress Events
@@ -1066,8 +1166,8 @@ export type ApplyProgressEvent = typeof ApplyProgressEvent.Type;
 // =============================================================================
 
 export interface ApplyResult {
-  readonly applied: ReadonlyMap<string, AppliedChange>;
-  readonly failed: ReadonlyMap<string, ApplyError>;
+  readonly applied: Record<string, AppliedChange>;
+  readonly failed: Record<string, ApplyError>;
   readonly summary: {
     readonly added: number;
     readonly updated: number;
@@ -1100,97 +1200,109 @@ export const applyDiff = (
   options: ApplyOptions,
 ): Effect.Effect<ApplyResult, ApplyError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const applied = new Map<string, AppliedChange>();
-    const failed = new Map<string, ApplyError>();
-    let added = 0,
-      updated = 0,
-      removed = 0,
-      repaired = 0;
+    // Phase 1: Apply skill file changes (sequential for consistency)
+    const changesToApply = pipe(
+      Object.entries(diff.skills.changes),
+      Array.filter(([_, change]) => !SkillChange.$is("Unchanged")(change)),
+    );
 
-    // Phase 1: Apply skill file changes
-    for (const [name, change] of diff.skills.changes) {
-      if (SkillChange.$is("Unchanged")(change)) continue;
+    const applied = yield* pipe(
+      changesToApply,
+      Effect.reduce(
+        Record.empty<string, AppliedChange>(),
+        (acc, [name, change]) =>
+          Effect.gen(function* () {
+            options.onProgress?.(
+              ApplyProgressEvent.StartingSkill({
+                name,
+                action: changeToAction(change),
+              }),
+            );
 
-      options.onProgress?.(
-        ApplyProgressEvent.StartingSkill({
-          name,
-          action: changeToAction(change),
-        }),
-      );
+            const result = yield* applyChange(change, options);
 
-      const result = yield* pipe(applyChange(change, options), Effect.either);
+            options.onProgress?.(
+              ApplyProgressEvent.CompletedSkill({
+                name,
+                action: result.type,
+              }),
+            );
 
-      if (result._tag === "Right") {
-        applied.set(name, result.right);
-        switch (result.right.type) {
-          case "add":
-            added++;
-            break;
-          case "update":
-            updated++;
-            break;
-          case "remove":
-            removed++;
-            break;
-          case "repair":
-            repaired++;
-            break;
-        }
-        options.onProgress?.(
-          ApplyProgressEvent.CompletedSkill({
-            name,
-            action: result.right.type,
+            return { ...acc, [name]: result };
           }),
-        );
-      } else {
-        failed.set(name, result.left);
-        options.onProgress?.(
-          ApplyProgressEvent.FailedSkill({
-            name,
-            error: result.left.message,
-          }),
-        );
-        // Stop on first failure to maintain consistent state
-        return yield* Effect.fail(result.left);
-      }
-    }
+      ),
+    );
 
     // Phase 2: Sync to agents (after all files are in place)
-    for (const [name, change] of diff.skills.changes) {
-      if (
-        SkillChange.$is("Unchanged")(change) ||
-        SkillChange.$is("Remove")(change)
-      )
-        continue;
+    const skillsToSync = pipe(
+      Object.entries(diff.skills.changes),
+      Array.filter(
+        ([_, change]) =>
+          !SkillChange.$is("Unchanged")(change) &&
+          !SkillChange.$is("Remove")(change),
+      ),
+    );
 
-      for (const agent of options.agents) {
-        options.onProgress?.(
-          ApplyProgressEvent.SyncingAgent({
-            skillName: name,
-            agentId: agent.id,
-          }),
-        );
-        yield* syncSkillToAgent(name, options.axmDir, agent);
-      }
-    }
+    yield* pipe(
+      skillsToSync,
+      Effect.forEach(([name]) =>
+        pipe(
+          options.agents,
+          Effect.forEach((agent) =>
+            Effect.gen(function* () {
+              options.onProgress?.(
+                ApplyProgressEvent.SyncingAgent({
+                  skillName: name,
+                  agentId: agent.id,
+                }),
+              );
+              yield* syncSkillToAgent(name, options.axmDir, agent);
+            }),
+          ),
+        ),
+      ),
+    );
 
     // Phase 3: Update settings.json
-    if (hasSettingsChanges(diff.settings)) {
-      options.onProgress?.(ApplyProgressEvent.UpdatingSettings({}));
-      yield* applySettingsDiff(diff.settings, options.axmDir);
-    }
+    yield* pipe(
+      Effect.when(
+        Effect.gen(function* () {
+          options.onProgress?.(ApplyProgressEvent.UpdatingSettings({}));
+          yield* applySettingsDiff(diff.settings, options.axmDir);
+        }),
+        () => hasSettingsChanges(diff.settings),
+      ),
+    );
 
     // Phase 4: Update lockfile (last, as source of truth)
-    if (applied.size > 0) {
-      options.onProgress?.(ApplyProgressEvent.UpdatingLockfile({}));
-      yield* updateLockfile(options.axmDir, diff, applied);
-    }
+    yield* pipe(
+      Effect.when(
+        Effect.gen(function* () {
+          options.onProgress?.(ApplyProgressEvent.UpdatingLockfile({}));
+          yield* updateLockfile(options.axmDir, diff, applied);
+        }),
+        () => Object.keys(applied).length > 0,
+      ),
+    );
 
-    return {
-      applied,
-      failed,
-      summary: { added, updated, removed, repaired, failed: failed.size },
-    };
+    // Compute summary from applied changes
+    const summary = pipe(
+      Object.values(applied),
+      Array.reduce(
+        { added: 0, updated: 0, removed: 0, repaired: 0, failed: 0 },
+        (acc, change) => ({
+          ...acc,
+          [change.type === "add" ? "added" : `${change.type}d`]:
+            acc[
+              change.type === "add"
+                ? "added"
+                : (`${change.type}d` as keyof typeof acc)
+            ] + 1,
+        }),
+      ),
+    );
+
+    return { applied, failed: Record.empty(), summary };
   });
 
 const applyChange = (
@@ -1217,31 +1329,23 @@ const applyAdd = (
   ApplyError,
   FileSystem.FileSystem | Path.Path
 > =>
-  Effect.gen(function* () {
-    const canonicalPath = `${options.axmDir}/skills/${skill.name}`;
-
-    // 1. Fetch source to temp
-    const tempPath = yield* fetchSource(skill.source, skill.name);
-
-    // 2. Copy to canonical location
-    yield* copyToCanonical(tempPath, canonicalPath, skill.name);
-
-    // 3. Sync to agents
-    const syncedAgents = yield* syncToAgents(
-      canonicalPath,
-      skill.name,
-      options.agents,
-    );
-
-    // 4. Cleanup temp
-    yield* cleanupTemp(tempPath);
-
-    return {
+  pipe(
+    Effect.Do,
+    Effect.let("canonicalPath", () => `${options.axmDir}/skills/${skill.name}`),
+    Effect.bind("tempPath", () => fetchSource(skill.source, skill.name)),
+    Effect.tap(({ tempPath, canonicalPath }) =>
+      copyToCanonical(tempPath, canonicalPath, skill.name),
+    ),
+    Effect.bind("syncedAgents", ({ canonicalPath }) =>
+      syncToAgents(canonicalPath, skill.name, options.agents),
+    ),
+    Effect.tap(({ tempPath }) => cleanupTemp(tempPath)),
+    Effect.map(({ syncedAgents }) => ({
       name: skill.name,
       type: "add" as const,
       agentsSynced: syncedAgents,
-    };
-  });
+    })),
+  );
 
 // Update, Remove, Repair follow similar patterns...
 ```
@@ -1252,6 +1356,8 @@ const applyAdd = (
 
 ```typescript
 // packages/cli/src/commands/skills/install/handler.ts
+
+import { Array, Effect, pipe } from "effect";
 
 export const handleInstall = (args: InstallArgs) =>
   Effect.gen(function* () {
@@ -1264,7 +1370,9 @@ export const handleInstall = (args: InstallArgs) =>
     const spinner = p.spinner();
     spinner.start("Analyzing project...");
     const current = yield* loadSkillsState(axmDir);
-    spinner.stop(`Found ${current.skills.size} installed skill(s)`);
+    spinner.stop(
+      `Found ${Object.keys(current.skills).length} installed skill(s)`,
+    );
 
     // Phase 2: Resolve source and build ideal
     spinner.start("Resolving source...");
@@ -1313,11 +1421,12 @@ export const handleInstall = (args: InstallArgs) =>
     );
 
     // Phase 9: Report failures
-    if (result.failed.size > 0) {
-      for (const [name, error] of result.failed) {
-        p.log.error(`Failed: ${name} - ${error.message}`);
-      }
-    }
+    pipe(
+      Object.entries(result.failed),
+      Array.forEach(([name, error]) =>
+        p.log.error(`Failed: ${name} - ${error.message}`),
+      ),
+    );
 
     p.outro(`Installed ${result.summary.added} skill(s)`);
   });
@@ -1332,46 +1441,79 @@ The state model naturally supports `doctor` and `validate`:
 ```typescript
 // packages/cli/src/commands/doctor/handler.ts
 
+import { Array, Effect, Option, pipe } from "effect";
+
 export const handleDoctor = () =>
   Effect.gen(function* () {
     const axmDir = yield* findAxmDir();
     const current = yield* loadSkillsState(axmDir);
 
-    let errors = 0;
-    let warnings = 0;
+    // Collect skill validity issues
+    const skillIssues = pipe(
+      Object.entries(current.skills),
+      Array.filterMap(([name, state]) =>
+        SkillValidity.$is("Valid")(state.validity)
+          ? Option.none()
+          : Option.some({
+              name,
+              code: getValidityCode(state.validity),
+              severity: severityFromCode(getValidityCode(state.validity)!),
+              message: describeValidity(state.validity),
+            }),
+      ),
+    );
 
-    for (const [name, state] of current.skills) {
-      if (SkillValidity.$is("Valid")(state.validity)) continue;
+    // Log skill issues
+    pipe(
+      skillIssues,
+      Array.forEach(({ name, code, severity, message }) => {
+        const formatted = `${name}: [${code}] ${message}`;
+        severity === "error" ? p.log.error(formatted) : p.log.warn(formatted);
+      }),
+    );
 
-      const code = getValidityCode(state.validity);
-      const severity = severityFromCode(code);
-      const message = `[${code}] ${describeValidity(state.validity)}`;
-
-      if (severity === "error") {
-        p.log.error(`${name}: ${message}`);
-        errors++;
-      } else if (severity === "warning") {
-        p.log.warn(`${name}: ${message}`);
-        warnings++;
-      }
-    }
-
-    // Also check agent sync status
+    // Check agent sync status
     const syncStates = yield* loadAgentSyncStates(axmDir);
-    for (const sync of syncStates) {
-      for (const [agentId, status] of sync.agents) {
-        if (AgentSyncStatus.$is("BrokenSymlink")(status)) {
-          p.log.error(`${sync.skillName}: Broken symlink to ${agentId}`);
-          errors++;
-        }
-      }
-    }
+    const brokenSymlinks = pipe(
+      syncStates,
+      Array.flatMap((sync) =>
+        pipe(
+          Object.entries(sync.agents),
+          Array.filterMap(([agentId, status]) =>
+            AgentSyncStatus.$is("BrokenSymlink")(status)
+              ? Option.some({ skillName: sync.skillName, agentId })
+              : Option.none(),
+          ),
+        ),
+      ),
+    );
 
-    if (errors === 0 && warnings === 0) {
-      p.log.success("No issues found");
-    } else {
-      p.log.info(`${errors} error(s), ${warnings} warning(s)`);
-    }
+    // Log broken symlinks
+    pipe(
+      brokenSymlinks,
+      Array.forEach(({ skillName, agentId }) =>
+        p.log.error(`${skillName}: Broken symlink to ${agentId}`),
+      ),
+    );
+
+    // Compute totals
+    const errors =
+      pipe(
+        skillIssues,
+        Array.filter((i) => i.severity === "error"),
+        Array.length,
+      ) + brokenSymlinks.length;
+
+    const warnings = pipe(
+      skillIssues,
+      Array.filter((i) => i.severity === "warning"),
+      Array.length,
+    );
+
+    // Report
+    errors === 0 && warnings === 0
+      ? p.log.success("No issues found")
+      : p.log.info(`${errors} error(s), ${warnings} warning(s)`);
   });
 ```
 
@@ -1557,6 +1699,7 @@ Same `computeDiff` and `applyDiff` for all operations.
 | Apply phase         | Idempotent operations                      | Re-run fixes partial failures                                              |
 | Discovery effects   | Allow git clone with messaging             | Remote source contents needed for ideal state; messaging sets expectations |
 | JSON output         | Record internally, array for JSON          | O(1) lookups internally; arrays easier for CLI consumers to iterate        |
+| Data structures     | Immutable Record/Array (not Map/Set)       | FP-friendly; works with pipe/Array combinators; natural JSON serialization |
 | Parallel apply      | Sequential phases, parallel within phase   | Maintains consistency; lockfile updated last as source of truth            |
 | Partial failure     | Stop on first error, return partial result | User can inspect state and retry; lockfile only updated on full success    |
 | Agent sync timing   | After all files in place, before lockfile  | Ensures files exist before syncing; sync failure stops before lockfile     |

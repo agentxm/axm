@@ -9,11 +9,11 @@ Refactor dry-run support using a desired-state reconciliation pattern. Handlers 
 ```typescript
 import { Array, Console, Effect, pipe } from "effect";
 
-// Workspace context (local vs global) determined at service creation
-const ws = yield * Workspace;
+// Workspace context (local vs global) determined at handler level
+const ws = makeWorkspaceContext(options);
 
-yield * ws.ensureInit();
-const current = yield * ws.loadCurrentState();
+yield * ensureInit(ws);
+const current = yield * loadCurrentState(ws);
 
 // Handler decides how to handle issues (computed during state loading)
 const allIssues = collectIssues(current);
@@ -52,7 +52,7 @@ if (Array.isEmptyArray(plan.steps)) {
   return plan;
 }
 
-yield * ws.applyPlan(plan, { dryRun });
+yield * applyPlan(ws, plan, { dryRun });
 
 return plan;
 ```
@@ -62,7 +62,7 @@ return plan;
 | Decision            | Choice                        | Rationale                                                           |
 | ------------------- | ----------------------------- | ------------------------------------------------------------------- |
 | Command encoding    | Discriminated union           | Simple, explicit, type-safe                                         |
-| Plan execution      | `ws.applyPlan(plan, opts)`    | Separate data from behavior; easier to test                         |
+| Plan execution      | `applyPlan(ws, plan, opts)`   | Separate data from behavior; easier to test                         |
 | State separation    | Actual/Ideal (distinct types) | Different shapes: actual has path/files, ideal has source           |
 | Current state       | Merged actual + locked        | Single object for diffing; locked consumed early                    |
 | Diffing             | Version or hash by source     | Registry: semver; Git: tree hash; Local: always update              |
@@ -81,10 +81,10 @@ return plan;
 | Skill identity      | Name (unique across sources)  | Simplifies matching; duplicates detected as errors during load      |
 | Uninstall scope     | Requires actual + locked      | "Locked but not on disk" is a health issue, not an uninstall target |
 
-## Workspace Service
+## Workspace Context
 
 ```typescript
-import { Array, Data, Effect, Layer, Option } from "effect";
+import { Array, Data, Effect, Option } from "effect";
 
 // Error types
 class WorkspaceError extends Data.TaggedError("WorkspaceError")<{
@@ -118,42 +118,47 @@ interface ApplyOptions {
   ) => void;
 }
 
-interface Workspace {
+/** Workspace context - passed to workspace functions */
+interface WorkspaceContext {
   /** Workspace root path (e.g., .axm/ or ~/.axm/) */
   readonly path: string;
 
   /** Whether user prompts are allowed */
   readonly interactive: boolean;
-
-  /**
-   * Ensure workspace is initialized.
-   * If interactive and not initialized, walks user through setup.
-   * If non-interactive and not initialized, fails with WorkspaceNotInitialized.
-   */
-  ensureInit(): Effect.Effect<void, WorkspaceError>;
-
-  /**
-   * Load current state - merges actual (disk) with locked (lockfile).
-   * Issues are computed during loading and attached to the appropriate level.
-   */
-  loadCurrentState(): Effect.Effect<CurrentState, WorkspaceError>;
-
-  /** Apply a plan - display if dryRun, execute otherwise */
-  applyPlan(
-    plan: Plan,
-    opts: ApplyOptions,
-  ): Effect.Effect<ApplyResult, ApplyError>;
 }
 
-/** Layer factory - creates Workspace with context */
-const WorkspaceLive = (options: { global: boolean; interactive: boolean }) =>
-  Layer.succeed(
-    Workspace,
-    makeWorkspace({
-      path: options.global ? globalAxmPath() : localAxmPath(),
-      interactive: options.interactive,
-    }),
-  );
+/** Create workspace context from handler options */
+const makeWorkspaceContext = (options: {
+  global: boolean;
+  interactive: boolean;
+}): WorkspaceContext => ({
+  path: options.global ? globalAxmPath() : localAxmPath(),
+  interactive: options.interactive,
+});
+
+/**
+ * Ensure workspace is initialized.
+ * If interactive and not initialized, walks user through setup.
+ * If non-interactive and not initialized, fails with WorkspaceNotInitialized.
+ */
+declare const ensureInit: (
+  ws: WorkspaceContext,
+) => Effect.Effect<void, WorkspaceError>;
+
+/**
+ * Load current state - merges actual (disk) with locked (lockfile).
+ * Issues are computed during loading and attached to the appropriate level.
+ */
+declare const loadCurrentState: (
+  ws: WorkspaceContext,
+) => Effect.Effect<CurrentState, WorkspaceError>;
+
+/** Apply a plan - display if dryRun, execute otherwise */
+declare const applyPlan: (
+  ws: WorkspaceContext,
+  plan: Plan,
+  opts: ApplyOptions,
+) => Effect.Effect<ApplyResult, ApplyError>;
 ```
 
 ## Pure Functions
@@ -991,7 +996,7 @@ Both files track installed skills but serve different purposes:
 
 ## Apply
 
-`ws.applyPlan(plan, opts)` handles execution (see `ApplyOptions` in Workspace Service section):
+`applyPlan(ctx, plan, opts)` handles execution (see `ApplyOptions` in Workspace Context section):
 
 - **dryRun: true** — Display plan only, no side effects
 - **dryRun: false** — Execute in order:
@@ -1114,10 +1119,10 @@ Note: No checksum/hash-based issues - we use version-based diffing only.
 import { Array, Console, Effect, pipe } from "effect";
 
 // axm doctor [--dry-run]
-const ws = yield * Workspace;
-yield * ws.ensureInit();
+const ws = makeWorkspaceContext(options);
+yield * ensureInit(ws);
 
-const current = yield * ws.loadCurrentState();
+const current = yield * loadCurrentState(ws);
 
 // Collect all issues from state using pure helper
 const allIssues = collectIssues(current);
@@ -1163,17 +1168,17 @@ axm doctor
 
 Mapping from existing codebase to new interfaces:
 
-| Existing Code            | Location           | New Interface           | Notes                                             |
-| ------------------------ | ------------------ | ----------------------- | ------------------------------------------------- |
-| `ParsedSource`           | `source-parser.ts` | `SkillSource`           | Rename `type` → `_tag`, add `Registry` variant    |
-| `ActualSkill`            | `state/types.ts`   | `ActualSkill`           | Add `issues` field, remove `validity`             |
-| `LockedSkill`            | `state/types.ts`   | `LockedSkill`           | Rename `folderHash` → `gitTreeHash`, add `agents` |
-| `SkillState`             | `state/types.ts`   | `SkillState`            | Replace `validity` with `issues` array            |
-| `SkillChange`            | `state/types.ts`   | `PlanStep`              | Collapse Add/Update/Remove; drop Unchanged/Repair |
-| `loadSkillsState()`      | `state/load.ts`    | `ws.loadCurrentState()` | Returns `CurrentState` with merged issues         |
-| `buildIdealForInstall()` | `state/ideal.ts`   | `buildIdealState()`     | Generalize to all commands                        |
-| `computeDiff()`          | `state/diff.ts`    | `buildPlan()`           | Pure function, returns `Plan`                     |
-| `SkillFrontmatter`       | `state/types.ts`   | `SkillFrontmatter`      | Same structure, already exists                    |
+| Existing Code            | Location           | New Interface          | Notes                                             |
+| ------------------------ | ------------------ | ---------------------- | ------------------------------------------------- |
+| `ParsedSource`           | `source-parser.ts` | `SkillSource`          | Rename `type` → `_tag`, add `Registry` variant    |
+| `ActualSkill`            | `state/types.ts`   | `ActualSkill`          | Add `issues` field, remove `validity`             |
+| `LockedSkill`            | `state/types.ts`   | `LockedSkill`          | Rename `folderHash` → `gitTreeHash`, add `agents` |
+| `SkillState`             | `state/types.ts`   | `SkillState`           | Replace `validity` with `issues` array            |
+| `SkillChange`            | `state/types.ts`   | `PlanStep`             | Collapse Add/Update/Remove; drop Unchanged/Repair |
+| `loadSkillsState()`      | `state/load.ts`    | `loadCurrentState(ws)` | Returns `CurrentState` with merged issues         |
+| `buildIdealForInstall()` | `state/ideal.ts`   | `buildIdealState()`    | Generalize to all commands                        |
+| `computeDiff()`          | `state/diff.ts`    | `buildPlan()`          | Pure function, returns `Plan`                     |
+| `SkillFrontmatter`       | `state/types.ts`   | `SkillFrontmatter`     | Same structure, already exists                    |
 
 ## Apply Implementation
 

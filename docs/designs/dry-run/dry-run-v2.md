@@ -11,47 +11,48 @@ Refactor dry-run support using a desired-state reconciliation pattern. Handlers 
 const ws = yield * Workspace;
 
 yield * ws.ensureInit();
-const actual = yield * ws.loadActual();
-const locked = yield * ws.loadLocked();
+const current = yield * ws.loadCurrentState();
 
 // Handler decides how to handle divergence
-const { issues } = yield * ws.diagnoseSkills(actual, locked);
+const { issues } = yield * ws.diagnose(current);
 if (issues.some((i) => i.critical) && !force) {
   return yield * Effect.fail(new UnhealthyWorkspaceError({ issues }));
 }
 
 const ideal =
   yield *
-  ws.buildIdealState(locked, {
+  ws.buildIdealState(current, {
     _tag: "skills-install",
     source: "owner/repo",
     agents: ["claude"],
     skills: ["my-skill"], // or "all"
     force: false,
   });
-const plan = yield * ws.buildPlan(actual, locked, ideal);
-yield * plan.apply({ dryRun });
+const plan = yield * ws.buildPlan(current, ideal);
+yield * ws.applyPlan(plan, { dryRun });
 
 return plan;
 ```
 
 ## Design Decisions
 
-| Decision            | Choice                     | Rationale                                                  |
-| ------------------- | -------------------------- | ---------------------------------------------------------- |
-| Command encoding    | Discriminated union        | Simple, explicit, type-safe                                |
-| Plan execution      | `plan.apply()`             | Single method handles dry-run and apply                    |
-| State separation    | Actual/Locked/Ideal        | Clear mental model, distinct concerns                      |
-| State types         | Shared for Actual & Ideal  | Diff is set operations; same structure                     |
-| Install location    | Canonical by source type   | Registry: `@<scope>/skills/`, external: `external/skills/` |
-| Agent sync          | All by default, filterable | Sync to project agents; `--agent` to filter                |
-| Plan steps          | User intent, not impl      | Show install/update/remove, hide clean+add                 |
-| Agent grouping      | Per-skill with agents[]    | Matches display: "skill @ agent1, agent2"                  |
-| Divergence handling | Handler diagnoses          | Explicit control per command                               |
-| Diagnosis decoupled | Issues only, no plan       | Separation of concerns; plan built if needed               |
-| Settings changes    | Derived, not explicit      | Encapsulated in skill operations                           |
-| Multiple targets    | Bulk via args              | Commands use arrays (skills, agents)                       |
-| Apply effectful     | Yes                        | Side effects require Effect                                |
+| Decision            | Choice                        | Rationale                                                  |
+| ------------------- | ----------------------------- | ---------------------------------------------------------- |
+| Command encoding    | Discriminated union           | Simple, explicit, type-safe                                |
+| Plan execution      | `ws.applyPlan(plan, opts)`    | Separate data from behavior; easier to test                |
+| State separation    | Actual/Ideal (distinct types) | Different shapes: actual has path/files, ideal has source  |
+| Current state       | Merged actual + locked        | Single object for diffing; locked consumed early           |
+| Diffing             | Version or hash by source     | Registry: semver; Git: tree hash; Local: always update     |
+| Integrity checks    | Existence only, no content    | Avoid false positives from formatting changes              |
+| Install location    | Canonical by source type      | Registry: `@<scope>/skills/`, external: `external/skills/` |
+| Agent sync          | Separate concern              | Computed independently; not part of skill state            |
+| Plan steps          | User intent, not impl         | Show install/update/remove, hide clean+add                 |
+| Agent grouping      | Per-skill with agents[]       | Matches display: "skill @ agent1, agent2"                  |
+| Divergence handling | Handler diagnoses             | Explicit control per command                               |
+| Diagnosis decoupled | Issues only, no plan          | Separation of concerns; plan built if needed               |
+| Settings changes    | Derived, not explicit         | Encapsulated in skill operations                           |
+| Multiple targets    | Bulk via args                 | Commands use arrays (skills, agents)                       |
+| Apply effectful     | Yes                           | Side effects require Effect                                |
 
 ## Workspace Service
 
@@ -70,35 +71,34 @@ interface Workspace {
    */
   ensureInit(): Effect.Effect<void, WorkspaceError>;
 
-  /** Load filesystem state - what's physically on disk */
-  loadActual(): Effect.Effect<ActualState, WorkspaceError>;
+  /** Load current state - merges actual (disk) with locked (lockfile) */
+  loadCurrentState(): Effect.Effect<CurrentState, WorkspaceError>;
 
-  /** Load lockfile state - what we expect to be installed */
-  loadLocked(): Effect.Effect<LockedState, WorkspaceError>;
-
-  /** Compute ideal state for a command based on current locked state */
+  /** Compute ideal state for a command based on current state */
   buildIdealState(
-    locked: LockedState,
+    current: CurrentState,
     cmd: Command,
   ): Effect.Effect<IdealState, CommandError>;
 
   /** Diff current state vs ideal to produce execution plan */
   buildPlan(
-    actual: ActualState,
-    locked: LockedState,
+    current: CurrentState,
     ideal: IdealState,
   ): Effect.Effect<Plan, PlanError>;
 
-  /** Diagnose skill inconsistencies between actual and locked state */
-  diagnoseSkills(
-    actual: ActualState,
-    locked: LockedState,
-  ): Effect.Effect<SkillsDiagnosis, DiagnoseError>;
+  /** Apply a plan - display if dryRun, execute otherwise */
+  applyPlan(
+    plan: Plan,
+    opts: { dryRun: boolean },
+  ): Effect.Effect<ApplyResult, ApplyError>;
+
+  /** Diagnose workspace inconsistencies */
+  diagnose(current: CurrentState): Effect.Effect<Diagnosis, DiagnoseError>;
 
   /** Build ideal state to repair diagnosed issues (for doctor --fix) */
   buildIdealFromDiagnosis(
-    locked: LockedState,
-    diagnosis: SkillsDiagnosis,
+    current: CurrentState,
+    diagnosis: Diagnosis,
   ): Effect.Effect<IdealState, CommandError>;
 }
 
@@ -145,26 +145,62 @@ type Command =
 ## State Types
 
 ```typescript
-/** Skill in the workspace (canonical or agent-synced location) */
-interface WorkspaceSkill {
+/** Skill source - where to fetch from */
+type SkillSource =
+  | {
+      _tag: "Registry";
+      origin: string;
+      scope: string;
+      name: string;
+      version: string;
+    }
+  | { _tag: "GitHub"; owner: string; repo: string; ref?: string; path?: string }
+  | { _tag: "Local"; path: string };
+
+/** Skill as it exists on disk */
+interface ActualSkill {
   name: string;
-  /** Where found: undefined = canonical (.axm/extensions/...), string = agent directory */
-  agent?: string;
   path: string;
   files: ReadonlyArray<string>;
+  frontmatter: Option<SkillFrontmatter>;
 }
 
-/** Filesystem reality - what's physically on disk */
-interface ActualState {
-  skills: ReadonlyArray<WorkspaceSkill>;
+/** Skill entry from lockfile */
+interface LockedSkill {
+  name: string;
+  source: SkillSource;
+  version: Option<string>; // Semver for registry, None for git/local
+  gitTreeHash: Option<string>; // Hash of source folder for git sources
+  installedAt: Date;
+  updatedAt: Date;
 }
 
-/** Lockfile contract - what we've committed to having installed */
-type LockedState = Lockfile; // from @agentxm/core/experimental/schemas/lockfile
+/** Combined state for a skill - actual + locked merged */
+interface SkillState {
+  name: string;
+  path: string; // Install path (identity)
+  actual: Option<ActualSkill>; // None = not on disk
+  locked: Option<LockedSkill>; // None = not in lockfile
+}
+
+/** Current workspace state - all skills with their actual/locked status */
+interface CurrentState {
+  skills: ReadonlyArray<SkillState>;
+}
+
+/** Desired skill after the command */
+interface IdealSkill {
+  name: string;
+  path: string; // Install path (identity, derived from source)
+  source: SkillSource;
+  version: Option<string>; // Semver for registry, None for git/local
+  gitTreeHash: Option<string>; // Hash of source folder for git sources
+  agents: ReadonlyArray<string>; // Which agents to sync to
+}
 
 /** Desired outcome - what we want after the command */
 interface IdealState {
-  skills: ReadonlyArray<WorkspaceSkill>;
+  skills: ReadonlyArray<IdealSkill>;
 }
 ```
 
@@ -173,24 +209,34 @@ interface IdealState {
 - Registry skills install to `.axm/extensions/@<scope>/skills/<name>`
 - External skills (GitHub, local) install to `.axm/extensions/external/skills/<name>`
 - Sync to agents defined in project settings (filtered by `--agent` if specified)
-- ActualState scans both canonical and agent directories
 
-**Plan computation** (diff of actual vs ideal):
+**Plan computation** (diff of current vs ideal, matched by path):
 
-- In ideal but not actual → install
-- In actual but not ideal → remove
-- In both → no-op
+- In ideal but not current → install
+- In current but not ideal → remove
+- In both, version or hash differs → update
+- In both, same version/hash → no-op
+
+**Skill identity**: install path (derived from source + name)
+
+- `github:org/repo#skill` → `.axm/extensions/github/org/repo/skill`
+- `@registry/scope/skill` → `.axm/extensions/@registry/scope/skill`
+- Same name from different sources = different paths = different skills
+
+**Update detection** (version or hash, depending on source type):
+
+- Registry sources: compare `version`
+- Git sources: compare `gitTreeHash`
+- Local sources: always update (no stable identifier)
 
 ## Plan
 
-Plan steps reflect user intent, not implementation details. Each step groups affected agents.
+Plan is pure data - steps reflecting user intent. Execution is handled by `ws.applyPlan()`.
 
 ```typescript
+/** Plan is pure data - no behavior */
 interface Plan {
   readonly steps: ReadonlyArray<PlanStep>;
-
-  /** Apply plan: display if dryRun, execute otherwise */
-  apply(opts: { dryRun: boolean }): Effect.Effect<void, ApplyError>;
 }
 
 /** Steps reflect user intent, grouped by skill */
@@ -198,13 +244,28 @@ type PlanStep =
   | {
       _tag: "InstallSkill";
       skill: string;
-      /** Agents to sync to (resolved from settings + filter) */
+      source: SkillSource;
+      version: Option<string>;
+      gitTreeHash: Option<string>;
       agents: ReadonlyArray<string>;
-      source: string;
     }
-  | { _tag: "UpdateSkill"; skill: string; agents: ReadonlyArray<string> }
+  | {
+      _tag: "UpdateSkill";
+      skill: string;
+      fromVersion: Option<string>;
+      toVersion: Option<string>;
+      fromHash: Option<string>; // For git sources without version
+      toHash: Option<string>;
+      agents: ReadonlyArray<string>;
+    }
   | { _tag: "RemoveSkill"; skill: string; agents: ReadonlyArray<string> }
   | { _tag: "RepairSkill"; skill: string; agents: ReadonlyArray<string> };
+
+/** Result of applying a plan */
+interface ApplyResult {
+  applied: ReadonlyArray<PlanStep>;
+  failed: ReadonlyArray<{ step: PlanStep; error: ApplyError }>;
+}
 ```
 
 Example output:
@@ -237,45 +298,43 @@ axm skills update my-skill
 
 Implementation details (e.g., update = clean + add) are hidden inside `plan.apply()`.
 
-## SkillsDiagnosis
+## Diagnosis
 
-Diagnosis is decoupled from planning. Issues are identified; repair plan is built separately if needed.
+Diagnosis is decoupled from planning. Issues are identified from current state; repair plan is built separately if needed.
 
 ```typescript
-interface SkillsDiagnosis {
-  readonly issues: ReadonlyArray<SkillIssue>;
+interface Diagnosis {
+  readonly issues: ReadonlyArray<Issue>;
 }
 
-type SkillIssue =
+/** Issue severity - derived from issue type */
+type Severity = "error" | "warning";
+
+type Issue =
   | {
       _tag: "SkillMissingFromDisk";
       name: string;
-      agent?: string;
-      critical: boolean;
+      severity: "error";
     }
   | {
       _tag: "SkillNotInLockfile";
       name: string;
-      agent?: string;
-      critical: boolean;
-    }
-  | {
-      _tag: "ChecksumMismatch";
-      name: string;
-      agent?: string;
-      expected: string;
-      actual: string;
-      critical: boolean;
+      severity: "warning"; // Orphaned skill - cleanup candidate
     }
   | {
       _tag: "OrphanedSettingsRef";
-      agent?: string;
+      agent: string;
       skill: string;
-      critical: boolean;
+      severity: "warning";
+    }
+  | {
+      _tag: "MissingSkillMd";
+      name: string;
+      severity: "error";
     };
 ```
 
-Note: Issue types need further refinement to align with validation codes (see sketch doc).
+Note: No checksum/hash-based issues - we use version-based diffing only.
 
 ## Doctor Pattern
 
@@ -284,9 +343,8 @@ Note: Issue types need further refinement to align with validation codes (see sk
 const ws = yield * Workspace;
 yield * ws.ensureInit();
 
-const actual = yield * ws.loadActual();
-const locked = yield * ws.loadLocked();
-const diagnosis = yield * ws.diagnoseSkills(actual, locked);
+const current = yield * ws.loadCurrentState();
+const diagnosis = yield * ws.diagnose(current);
 
 if (!fix) {
   // Display issues only
@@ -295,9 +353,9 @@ if (!fix) {
 }
 
 // Build repair plan from issues
-const ideal = yield * ws.buildIdealFromDiagnosis(locked, diagnosis);
-const plan = yield * ws.buildPlan(actual, locked, ideal);
-yield * plan.apply({ dryRun });
+const ideal = yield * ws.buildIdealFromDiagnosis(current, diagnosis);
+const plan = yield * ws.buildPlan(current, ideal);
+yield * ws.applyPlan(plan, { dryRun });
 
 return diagnosis;
 ```
@@ -325,4 +383,13 @@ axm doctor --fix
 - [ ] How to handle external state (remote skill registries)?
 - [ ] Should `buildPlan` detect no-op and return empty plan?
 - [ ] Error recovery: partial apply rollback?
-- [ ] SkillIssue types need refinement to align with validation codes (see sketch doc)
+
+## Resolved
+
+- [x] State types: Separate ActualSkill/IdealSkill (different shapes)
+- [x] Diffing: By source type - version for registry, gitTreeHash for git, always for local
+- [x] Integrity: Existence checks only, no content verification (formatters may modify)
+- [x] Plan execution: `ws.applyPlan(plan, opts)` - separate data from behavior
+- [x] Current state: Merged actual + locked into single CurrentState
+- [x] buildPlan signature: `buildPlan(current, ideal)` - locked already consumed
+- [x] gitTreeHash in lockfile: Required for git sources (no explicit version info)

@@ -15,7 +15,7 @@ const current = yield * ws.loadCurrentState();
 
 // Handler decides how to handle divergence
 const { issues } = yield * ws.diagnose(current);
-if (issues.some((i) => i.critical) && !force) {
+if (issues.some((i) => i.severity === "error") && !force) {
   return yield * Effect.fail(new UnhealthyWorkspaceError({ issues }));
 }
 
@@ -36,23 +36,23 @@ return plan;
 
 ## Design Decisions
 
-| Decision            | Choice                        | Rationale                                                  |
-| ------------------- | ----------------------------- | ---------------------------------------------------------- |
-| Command encoding    | Discriminated union           | Simple, explicit, type-safe                                |
-| Plan execution      | `ws.applyPlan(plan, opts)`    | Separate data from behavior; easier to test                |
-| State separation    | Actual/Ideal (distinct types) | Different shapes: actual has path/files, ideal has source  |
-| Current state       | Merged actual + locked        | Single object for diffing; locked consumed early           |
-| Diffing             | Version or hash by source     | Registry: semver; Git: tree hash; Local: always update     |
-| Integrity checks    | Existence only, no content    | Avoid false positives from formatting changes              |
-| Install location    | Canonical by source type      | Registry: `@<scope>/skills/`, external: `external/skills/` |
-| Agent sync          | Separate concern              | Computed independently; not part of skill state            |
-| Plan steps          | User intent, not impl         | Show install/update/remove, hide clean+add                 |
-| Agent grouping      | Per-skill with agents[]       | Matches display: "skill @ agent1, agent2"                  |
-| Divergence handling | Handler diagnoses             | Explicit control per command                               |
-| Diagnosis decoupled | Issues only, no plan          | Separation of concerns; plan built if needed               |
-| Settings changes    | Derived, not explicit         | Encapsulated in skill operations                           |
-| Multiple targets    | Bulk via args                 | Commands use arrays (skills, agents)                       |
-| Apply effectful     | Yes                           | Side effects require Effect                                |
+| Decision            | Choice                        | Rationale                                                           |
+| ------------------- | ----------------------------- | ------------------------------------------------------------------- |
+| Command encoding    | Discriminated union           | Simple, explicit, type-safe                                         |
+| Plan execution      | `ws.applyPlan(plan, opts)`    | Separate data from behavior; easier to test                         |
+| State separation    | Actual/Ideal (distinct types) | Different shapes: actual has path/files, ideal has source           |
+| Current state       | Merged actual + locked        | Single object for diffing; locked consumed early                    |
+| Diffing             | Version or hash by source     | Registry: semver; Git: tree hash; Local: always update              |
+| Integrity checks    | Existence only, no content    | Avoid false positives from formatting changes                       |
+| Install location    | Canonical by source type      | Registry: `@<scope>/skills/<name>`, other: `external/skills/<name>` |
+| Agent sync          | Separate concern              | Computed independently; not part of skill state                     |
+| Plan steps          | User intent, not impl         | Show install/update/remove, hide clean+add                          |
+| Agent grouping      | Per-skill with agents[]       | Matches display: "skill @ agent1, agent2"                           |
+| Divergence handling | Handler diagnoses             | Explicit control per command                                        |
+| Diagnosis decoupled | Issues only, no plan          | Separation of concerns; plan built if needed                        |
+| Settings changes    | Derived, not explicit         | Encapsulated in skill operations                                    |
+| Multiple targets    | Bulk via args                 | Commands use arrays (skills, agents)                                |
+| Apply effectful     | Yes                           | Side effects require Effect                                         |
 
 ## Workspace Service
 
@@ -180,7 +180,6 @@ interface LockedSkill {
 /** Combined state for a skill - actual + locked merged */
 interface SkillState {
   name: string;
-  path: string; // Install path (identity)
   actual: Option<ActualSkill>; // None = not on disk
   locked: Option<LockedSkill>; // None = not in lockfile
 }
@@ -219,11 +218,11 @@ interface IdealState {
 - In both, version or hash differs → update
 - In both, same version/hash → no-op
 
-**Skill identity**: install path (derived from source + name)
+**Skill identity**: install path (derived from source type + name)
 
-- `github:org/repo#skill` → `.axm/extensions/github/org/repo/skill`
-- `@registry/scope/skill` → `.axm/extensions/@registry/scope/skill`
-- Same name from different sources = different paths = different skills
+- Registry `@scope/skill` → `.axm/extensions/@scope/skills/skill`
+- External (GitHub, Local, etc.) → `.axm/extensions/external/skills/skill`
+- Registry and external skills with same name coexist (different paths)
 
 **Update detection** (version or hash, depending on source type):
 
@@ -246,6 +245,7 @@ type PlanStep =
   | {
       _tag: "InstallSkill";
       skill: string;
+      path: string; // Computed install path
       source: SkillSource;
       version: Option<string>;
       gitTreeHash: Option<string>;
@@ -254,14 +254,25 @@ type PlanStep =
   | {
       _tag: "UpdateSkill";
       skill: string;
+      path: string;
       fromVersion: Option<string>;
       toVersion: Option<string>;
       fromHash: Option<string>; // For git sources without version
       toHash: Option<string>;
       agents: Array.Array<string>;
     }
-  | { _tag: "RemoveSkill"; skill: string; agents: Array.Array<string> }
-  | { _tag: "RepairSkill"; skill: string; agents: Array.Array<string> };
+  | {
+      _tag: "RemoveSkill";
+      skill: string;
+      path: string;
+      agents: Array.Array<string>;
+    }
+  | {
+      _tag: "RepairSkill";
+      skill: string;
+      path: string;
+      agents: Array.Array<string>;
+    };
 
 /** Result of applying a plan */
 interface ApplyResult {

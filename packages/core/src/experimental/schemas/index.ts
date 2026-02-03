@@ -7,32 +7,28 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+// Common schemas and types
 export type {
-  AgentId as AgentIdType,
-  Author as AuthorType,
-  ExtensionType as ExtensionTypeType,
-  FullyQualifiedName as FullyQualifiedNameType,
-  SourceType as SourceTypeType,
-} from "./common.js";
-// Common schemas (shared fields and types)
-export {
   AgentId,
   Author,
-  CommonManifestFields,
   ExtensionType,
   FullyQualifiedName,
   SourceType,
 } from "./common.js";
-export type { CommandManifest as CommandManifestType } from "./manifest-command.js";
-export { CommandManifest } from "./manifest-command.js";
-export type { McpServerManifest as McpServerManifestType } from "./manifest-mcp-server.js";
-export { McpServerManifest } from "./manifest-mcp-server.js";
-export type { PackManifest as PackManifestType } from "./manifest-pack.js";
-export { PackManifest } from "./manifest-pack.js";
-export type { SkillManifest as SkillManifestType } from "./manifest-skill.js";
-// Manifest schemas
-export { SkillManifest } from "./manifest-skill.js";
-
-// Schema modules will be re-exported here as they are created:
-// - settings.ts
-// - lockfile.ts
+export {
+  AgentIdSchema,
+  AuthorSchema,
+  CommonManifestFields,
+  ExtensionTypeSchema,
+  FullyQualifiedNameSchema,
+  SourceTypeSchema,
+} from "./common.js";
+export type { CommandManifest } from "./manifest-command.js";
+export { CommandManifestSchema } from "./manifest-command.js";
+export type { McpServerManifest } from "./manifest-mcp-server.js";
+export { McpServerManifestSchema } from "./manifest-mcp-server.js";
+export type { PackManifest } from "./manifest-pack.js";
+export { PackManifestSchema } from "./manifest-pack.js";
+// Manifest schemas and types
+export type { SkillManifest } from "./manifest-skill.js";
+export { SkillManifestSchema } from "./manifest-skill.js";

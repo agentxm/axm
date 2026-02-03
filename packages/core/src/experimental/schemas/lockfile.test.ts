@@ -1,6 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Schema } from "effect";
-import { ExtensionLockMap, ExtensionsByType, LockEntry, Lockfile } from "./lockfile";
+import {
+  ExtensionLockMapSchema,
+  ExtensionsByTypeSchema,
+  LockEntrySchema,
+  LockfileSchema,
+} from "./lockfile";
 
 describe("lockfile schema", () => {
   describe("Lockfile", () => {
@@ -10,7 +15,7 @@ describe("lockfile schema", () => {
         extensions: {},
       };
 
-      const result = Schema.decodeUnknownSync(Lockfile)(input);
+      const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
       expect(result.lockfileVersion).toBe(1);
       expect(result.extensions).toEqual({});
@@ -21,7 +26,7 @@ describe("lockfile schema", () => {
         extensions: {},
       };
 
-      expect(() => Schema.decodeUnknownSync(Lockfile)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(LockfileSchema)(input)).toThrow();
     });
 
     it("accepts valid skill lock entry", () => {
@@ -42,7 +47,7 @@ describe("lockfile schema", () => {
         },
       };
 
-      const result = Schema.decodeUnknownSync(Lockfile)(input);
+      const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
       expect(result.lockfileVersion).toBe(1);
       expect(result.extensions.skills?.["@wayne/grappling-hook"]).toBeDefined();
@@ -71,7 +76,7 @@ describe("lockfile schema", () => {
         },
       };
 
-      const result = Schema.decodeUnknownSync(Lockfile)(input);
+      const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
       expect(result.extensions.packs?.["@wayne/batpack"]?.dependencies).toEqual([
         "@wayne/skill-a",
@@ -95,7 +100,7 @@ describe("lockfile schema", () => {
         },
       };
 
-      expect(() => Schema.decodeUnknownSync(Lockfile)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(LockfileSchema)(input)).toThrow();
     });
 
     it("accepts lockfile with multiple extension types", () => {
@@ -132,7 +137,7 @@ describe("lockfile schema", () => {
         },
       };
 
-      const result = Schema.decodeUnknownSync(Lockfile)(input);
+      const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
       expect(result.extensions.skills?.["@wayne/grappling-hook"]).toBeDefined();
       expect(result.extensions.commands?.["@wayne/build"]).toBeDefined();
@@ -150,7 +155,7 @@ describe("lockfile schema", () => {
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      const result = Schema.decodeUnknownSync(LockEntry)(input);
+      const result = Schema.decodeUnknownSync(LockEntrySchema)(input);
 
       expect(result.source).toBe("github:example/repo");
       expect(result.origin).toBe("https://github.com/example/repo");
@@ -172,7 +177,7 @@ describe("lockfile schema", () => {
         updatedAt: "2025-01-16T14:00:00Z",
       };
 
-      const result = Schema.decodeUnknownSync(LockEntry)(input);
+      const result = Schema.decodeUnknownSync(LockEntrySchema)(input);
 
       expect(result.path).toBe("skills/my-skill");
       expect(result.ref).toBe("v1.0.0");
@@ -188,7 +193,7 @@ describe("lockfile schema", () => {
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      expect(() => Schema.decodeUnknownSync(LockEntry)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(LockEntrySchema)(input)).toThrow();
     });
 
     it("rejects lock entry missing origin", () => {
@@ -199,7 +204,7 @@ describe("lockfile schema", () => {
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      expect(() => Schema.decodeUnknownSync(LockEntry)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(LockEntrySchema)(input)).toThrow();
     });
 
     it("rejects lock entry missing folderHash", () => {
@@ -210,7 +215,7 @@ describe("lockfile schema", () => {
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      expect(() => Schema.decodeUnknownSync(LockEntry)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(LockEntrySchema)(input)).toThrow();
     });
 
     it("rejects lock entry missing installedAt", () => {
@@ -221,7 +226,7 @@ describe("lockfile schema", () => {
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      expect(() => Schema.decodeUnknownSync(LockEntry)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(LockEntrySchema)(input)).toThrow();
     });
 
     it("rejects lock entry missing updatedAt", () => {
@@ -232,7 +237,7 @@ describe("lockfile schema", () => {
         installedAt: "2025-01-15T10:30:00Z",
       };
 
-      expect(() => Schema.decodeUnknownSync(LockEntry)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(LockEntrySchema)(input)).toThrow();
     });
 
     it("rejects invalid dependency names", () => {
@@ -245,7 +250,7 @@ describe("lockfile schema", () => {
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      expect(() => Schema.decodeUnknownSync(LockEntry)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(LockEntrySchema)(input)).toThrow();
     });
   });
 
@@ -253,7 +258,7 @@ describe("lockfile schema", () => {
     it("accepts empty extensions object", () => {
       const input = {};
 
-      const result = Schema.decodeUnknownSync(ExtensionsByType)(input);
+      const result = Schema.decodeUnknownSync(ExtensionsByTypeSchema)(input);
 
       expect(result).toEqual({});
     });
@@ -274,7 +279,7 @@ describe("lockfile schema", () => {
         "mcp-servers": { "@example/mcp": lockEntry },
       };
 
-      const result = Schema.decodeUnknownSync(ExtensionsByType)(input);
+      const result = Schema.decodeUnknownSync(ExtensionsByTypeSchema)(input);
 
       expect(result.skills?.["@example/skill"]).toBeDefined();
       expect(result.commands?.["@example/command"]).toBeDefined();
@@ -295,7 +300,7 @@ describe("lockfile schema", () => {
         },
       };
 
-      const result = Schema.decodeUnknownSync(ExtensionLockMap)(input);
+      const result = Schema.decodeUnknownSync(ExtensionLockMapSchema)(input);
 
       expect(result["@scope/name"]).toBeDefined();
     });
@@ -311,7 +316,7 @@ describe("lockfile schema", () => {
         },
       };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionLockMap)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExtensionLockMapSchema)(input)).toThrow();
     });
   });
 });

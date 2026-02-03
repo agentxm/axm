@@ -5,21 +5,21 @@
  */
 
 import { Schema } from "effect";
-import { FullyQualifiedName } from "./common";
+import { FullyQualifiedNameSchema } from "./common";
 
 /**
  * Lock entry for a single installed extension.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const LockEntry = Schema.Struct({
+export const LockEntrySchema = Schema.Struct({
   source: Schema.String,
   origin: Schema.String,
   path: Schema.optional(Schema.String),
   ref: Schema.optional(Schema.String),
   version: Schema.optional(Schema.String),
   folderHash: Schema.String,
-  dependencies: Schema.optional(Schema.Array(FullyQualifiedName)),
+  dependencies: Schema.optional(Schema.Array(FullyQualifiedNameSchema)),
   installedAt: Schema.String,
   updatedAt: Schema.String,
 });
@@ -29,7 +29,7 @@ export const LockEntry = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type LockEntry = typeof LockEntry.Type;
+export type LockEntry = typeof LockEntrySchema.Type;
 
 /**
  * Pattern for validating fully qualified extension names.
@@ -42,9 +42,9 @@ const FQN_PATTERN = /^@[\w-]+\/[\w-]+$/;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ExtensionLockMap = Schema.Record({
+export const ExtensionLockMapSchema = Schema.Record({
   key: Schema.String,
-  value: LockEntry,
+  value: LockEntrySchema,
 }).pipe(
   Schema.filter((record) => {
     const invalidKeys = Object.keys(record).filter((key) => !FQN_PATTERN.test(key));
@@ -60,18 +60,18 @@ export const ExtensionLockMap = Schema.Record({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type ExtensionLockMap = typeof ExtensionLockMap.Type;
+export type ExtensionLockMap = typeof ExtensionLockMapSchema.Type;
 
 /**
  * Extensions grouped by type in the lockfile.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ExtensionsByType = Schema.Struct({
-  skills: Schema.optional(ExtensionLockMap),
-  commands: Schema.optional(ExtensionLockMap),
-  packs: Schema.optional(ExtensionLockMap),
-  "mcp-servers": Schema.optional(ExtensionLockMap),
+export const ExtensionsByTypeSchema = Schema.Struct({
+  skills: Schema.optional(ExtensionLockMapSchema),
+  commands: Schema.optional(ExtensionLockMapSchema),
+  packs: Schema.optional(ExtensionLockMapSchema),
+  "mcp-servers": Schema.optional(ExtensionLockMapSchema),
 });
 
 /**
@@ -79,7 +79,7 @@ export const ExtensionsByType = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type ExtensionsByType = typeof ExtensionsByType.Type;
+export type ExtensionsByType = typeof ExtensionsByTypeSchema.Type;
 
 /**
  * Schema for lockfile (axm-lock.yaml).
@@ -89,9 +89,9 @@ export type ExtensionsByType = typeof ExtensionsByType.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const Lockfile = Schema.Struct({
+export const LockfileSchema = Schema.Struct({
   lockfileVersion: Schema.Number,
-  extensions: ExtensionsByType,
+  extensions: ExtensionsByTypeSchema,
 });
 
 /**
@@ -99,4 +99,4 @@ export const Lockfile = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type Lockfile = typeof Lockfile.Type;
+export type Lockfile = typeof LockfileSchema.Type;

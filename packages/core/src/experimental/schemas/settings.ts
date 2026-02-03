@@ -7,14 +7,14 @@
  */
 
 import { Schema } from "effect";
-import { AgentId } from "./common.js";
+import { AgentIdSchema } from "./common.js";
 
 /**
  * URL-based source configuration for GitHub, GitLab, Bitbucket, and Azure DevOps.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const UrlSource = Schema.Struct({
+export const UrlSourceSchema = Schema.Struct({
   url: Schema.String,
 });
 
@@ -23,14 +23,14 @@ export const UrlSource = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type UrlSource = typeof UrlSource.Type;
+export type UrlSource = typeof UrlSourceSchema.Type;
 
 /**
  * Path-based source configuration for local registries.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PathSource = Schema.Struct({
+export const PathSourceSchema = Schema.Struct({
   path: Schema.String,
 });
 
@@ -39,7 +39,7 @@ export const PathSource = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type PathSource = typeof PathSource.Type;
+export type PathSource = typeof PathSourceSchema.Type;
 
 /**
  * Registry source type - either URL-based or path-based.
@@ -56,7 +56,7 @@ export type RegistrySource = { url: string } | { path: string };
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RegistrySource: Schema.Schema<RegistrySource> = Schema.declare(
+export const RegistrySourceSchema: Schema.Schema<RegistrySource> = Schema.declare(
   (input): input is RegistrySource => {
     if (typeof input !== "object" || input === null) return false;
     const obj = input as Record<string, unknown>;
@@ -93,14 +93,14 @@ export const RegistrySource: Schema.Schema<RegistrySource> = Schema.declare(
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const EmptySource = Schema.Struct({});
+export const EmptySourceSchema = Schema.Struct({});
 
 /**
  * Inferred type for EmptySource schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type EmptySource = typeof EmptySource.Type;
+export type EmptySource = typeof EmptySourceSchema.Type;
 
 /**
  * Sources configuration for extension origins.
@@ -115,13 +115,13 @@ export type EmptySource = typeof EmptySource.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SourcesConfig = Schema.Struct({
-  github: Schema.optional(UrlSource),
-  gitlab: Schema.optional(UrlSource),
-  bitbucket: Schema.optional(UrlSource),
-  azuredevops: Schema.optional(UrlSource),
-  git: Schema.optional(EmptySource),
-  registry: Schema.optional(Schema.Union(RegistrySource, Schema.Array(RegistrySource))),
+export const SourcesConfigSchema = Schema.Struct({
+  github: Schema.optional(UrlSourceSchema),
+  gitlab: Schema.optional(UrlSourceSchema),
+  bitbucket: Schema.optional(UrlSourceSchema),
+  azuredevops: Schema.optional(UrlSourceSchema),
+  git: Schema.optional(EmptySourceSchema),
+  registry: Schema.optional(Schema.Union(RegistrySourceSchema, Schema.Array(RegistrySourceSchema))),
 });
 
 /**
@@ -129,7 +129,7 @@ export const SourcesConfig = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SourcesConfig = typeof SourcesConfig.Type;
+export type SourcesConfig = typeof SourcesConfigSchema.Type;
 
 /**
  * Pattern for skill names per agentskills.io specification:
@@ -153,7 +153,7 @@ const SKILL_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$|^[a-z0-9]$/;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ExtensionMap = Schema.Record({
+export const ExtensionMapSchema = Schema.Record({
   key: Schema.String,
   value: Schema.String,
 }).pipe(
@@ -173,7 +173,7 @@ export const ExtensionMap = Schema.Record({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type ExtensionMap = typeof ExtensionMap.Type;
+export type ExtensionMap = typeof ExtensionMapSchema.Type;
 
 /**
  * AXM settings configuration schema.
@@ -189,14 +189,14 @@ export type ExtensionMap = typeof ExtensionMap.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const Settings = Schema.Struct({
+export const SettingsSchema = Schema.Struct({
   scope: Schema.optional(Schema.String),
-  sources: Schema.optional(SourcesConfig),
-  agents: Schema.optional(Schema.Array(AgentId)),
-  skills: Schema.optional(ExtensionMap),
-  commands: Schema.optional(ExtensionMap),
-  packs: Schema.optional(ExtensionMap),
-  "mcp-servers": Schema.optional(ExtensionMap),
+  sources: Schema.optional(SourcesConfigSchema),
+  agents: Schema.optional(Schema.Array(AgentIdSchema)),
+  skills: Schema.optional(ExtensionMapSchema),
+  commands: Schema.optional(ExtensionMapSchema),
+  packs: Schema.optional(ExtensionMapSchema),
+  "mcp-servers": Schema.optional(ExtensionMapSchema),
 });
 
 /**
@@ -204,4 +204,4 @@ export const Settings = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type Settings = typeof Settings.Type;
+export type Settings = typeof SettingsSchema.Type;

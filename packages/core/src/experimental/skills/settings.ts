@@ -7,7 +7,7 @@
 
 import { FileSystem } from "@effect/platform";
 import { Data, Effect, Schema } from "effect";
-import { type Settings, Settings as SettingsSchema } from "../schemas/settings.js";
+import { type Settings, SettingsSchema } from "../schemas/settings.js";
 
 // -----------------------------------------------------------------------------
 // Constants

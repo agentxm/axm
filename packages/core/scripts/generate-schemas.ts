@@ -9,22 +9,22 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { JSONSchema } from "effect";
-import { Lockfile } from "../src/experimental/schemas/lockfile.js";
-import { CommandManifest } from "../src/experimental/schemas/manifest-command.js";
-import { McpServerManifest } from "../src/experimental/schemas/manifest-mcp-server.js";
-import { PackManifest } from "../src/experimental/schemas/manifest-pack.js";
-import { SkillManifest } from "../src/experimental/schemas/manifest-skill.js";
-import { Settings } from "../src/experimental/schemas/settings.js";
+import { LockfileSchema } from "../src/experimental/schemas/lockfile.js";
+import { CommandManifestSchema } from "../src/experimental/schemas/manifest-command.js";
+import { McpServerManifestSchema } from "../src/experimental/schemas/manifest-mcp-server.js";
+import { PackManifestSchema } from "../src/experimental/schemas/manifest-pack.js";
+import { SkillManifestSchema } from "../src/experimental/schemas/manifest-skill.js";
+import { SettingsSchema } from "../src/experimental/schemas/settings.js";
 
 const OUTPUT_DIR = path.join(import.meta.dirname, "../src/experimental/schemas/__generated__");
 
 const schemas = [
-  { name: "axm-skill.schema.json", schema: SkillManifest },
-  { name: "axm-command.schema.json", schema: CommandManifest },
-  { name: "axm-pack.schema.json", schema: PackManifest },
-  { name: "axm-mcp-server.schema.json", schema: McpServerManifest },
-  { name: "settings.schema.json", schema: Settings },
-  { name: "axm-lock.schema.json", schema: Lockfile },
+  { name: "axm-skill.schema.json", schema: SkillManifestSchema },
+  { name: "axm-command.schema.json", schema: CommandManifestSchema },
+  { name: "axm-pack.schema.json", schema: PackManifestSchema },
+  { name: "axm-mcp-server.schema.json", schema: McpServerManifestSchema },
+  { name: "settings.schema.json", schema: SettingsSchema },
+  { name: "axm-lock.schema.json", schema: LockfileSchema },
 ];
 
 // Ensure output directory exists

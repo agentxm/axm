@@ -11,7 +11,7 @@ import { Schema } from "effect";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const Author = Schema.Struct({
+export const AuthorSchema = Schema.Struct({
   name: Schema.String,
   email: Schema.optional(Schema.String),
   url: Schema.optional(Schema.String),
@@ -22,7 +22,7 @@ export const Author = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type Author = typeof Author.Type;
+export type Author = typeof AuthorSchema.Type;
 
 /**
  * Fully qualified name pattern: `@<scope>/<name>` where scope and name
@@ -30,14 +30,14 @@ export type Author = typeof Author.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const FullyQualifiedName = Schema.String.pipe(Schema.pattern(/^@[\w-]+\/[\w-]+$/));
+export const FullyQualifiedNameSchema = Schema.String.pipe(Schema.pattern(/^@[\w-]+\/[\w-]+$/));
 
 /**
  * Inferred type for FullyQualifiedName schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type FullyQualifiedName = typeof FullyQualifiedName.Type;
+export type FullyQualifiedName = typeof FullyQualifiedNameSchema.Type;
 
 /**
  * Common fields shared across all manifest types.
@@ -46,7 +46,7 @@ export type FullyQualifiedName = typeof FullyQualifiedName.Type;
  * @experimental This API is unstable and may change without notice.
  */
 export const CommonManifestFields = {
-  name: FullyQualifiedName,
+  name: FullyQualifiedNameSchema,
   version: Schema.String,
   description: Schema.optional(Schema.String),
   keywords: Schema.optional(Schema.Array(Schema.String)),
@@ -54,7 +54,7 @@ export const CommonManifestFields = {
   homepage: Schema.optional(Schema.String),
   license: Schema.optional(Schema.String),
   bugs: Schema.optional(Schema.String),
-  author: Schema.optional(Author),
+  author: Schema.optional(AuthorSchema),
 };
 
 /**
@@ -62,7 +62,7 @@ export const CommonManifestFields = {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const ExtensionType = Schema.Union(
+export const ExtensionTypeSchema = Schema.Union(
   Schema.Literal("skill"),
   Schema.Literal("command"),
   Schema.Literal("pack"),
@@ -74,14 +74,14 @@ export const ExtensionType = Schema.Union(
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type ExtensionType = typeof ExtensionType.Type;
+export type ExtensionType = typeof ExtensionTypeSchema.Type;
 
 /**
  * Source type enumeration for extension origins.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SourceType = Schema.Union(
+export const SourceTypeSchema = Schema.Union(
   Schema.Literal("github"),
   Schema.Literal("gitlab"),
   Schema.Literal("bitbucket"),
@@ -97,14 +97,14 @@ export const SourceType = Schema.Union(
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SourceType = typeof SourceType.Type;
+export type SourceType = typeof SourceTypeSchema.Type;
 
 /**
  * Agent identifier enumeration for supported coding agents.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const AgentId = Schema.Union(
+export const AgentIdSchema = Schema.Union(
   Schema.Literal("claude-code"),
   Schema.Literal("cursor"),
   Schema.Literal("windsurf"),
@@ -120,4 +120,4 @@ export const AgentId = Schema.Union(
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type AgentId = typeof AgentId.Type;
+export type AgentId = typeof AgentIdSchema.Type;

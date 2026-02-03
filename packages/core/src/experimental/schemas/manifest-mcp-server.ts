@@ -15,7 +15,7 @@ import { CommonManifestFields } from "./common";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const McpServerManifest = Schema.Struct({
+export const McpServerManifestSchema = Schema.Struct({
   ...CommonManifestFields,
 });
 
@@ -24,4 +24,4 @@ export const McpServerManifest = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type McpServerManifest = typeof McpServerManifest.Type;
+export type McpServerManifest = typeof McpServerManifestSchema.Type;

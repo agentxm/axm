@@ -15,7 +15,7 @@ import { CommonManifestFields } from "./common";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const CommandManifest = Schema.Struct({
+export const CommandManifestSchema = Schema.Struct({
   ...CommonManifestFields,
 });
 
@@ -24,4 +24,4 @@ export const CommandManifest = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type CommandManifest = typeof CommandManifest.Type;
+export type CommandManifest = typeof CommandManifestSchema.Type;

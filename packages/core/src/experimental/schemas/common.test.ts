@@ -1,19 +1,19 @@
 /**
  * Unit tests for common schema definitions.
  *
- * Tests validation behavior for Author, FullyQualifiedName,
- * ExtensionType, SourceType, and AgentId schemas.
+ * Tests validation behavior for AuthorSchema, FullyQualifiedNameSchema,
+ * ExtensionTypeSchema, SourceTypeSchema, and AgentIdSchema schemas.
  */
 
 import { Either, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import {
-  AgentId,
-  Author,
+  AgentIdSchema,
+  AuthorSchema,
   CommonManifestFields,
-  ExtensionType,
-  FullyQualifiedName,
-  SourceType,
+  ExtensionTypeSchema,
+  FullyQualifiedNameSchema,
+  SourceTypeSchema,
 } from "./common.js";
 
 describe("common schemas", () => {
@@ -25,7 +25,7 @@ describe("common schemas", () => {
         url: "https://wayne.com",
       };
 
-      const result = Schema.decodeUnknownEither(Author)(input);
+      const result = Schema.decodeUnknownEither(AuthorSchema)(input);
 
       expect(Either.isRight(result)).toBe(true);
       if (Either.isRight(result)) {
@@ -38,7 +38,7 @@ describe("common schemas", () => {
     it("accepts valid minimal author (name only)", () => {
       const input = { name: "Bruce Wayne" };
 
-      const result = Schema.decodeUnknownEither(Author)(input);
+      const result = Schema.decodeUnknownEither(AuthorSchema)(input);
 
       expect(Either.isRight(result)).toBe(true);
       if (Either.isRight(result)) {
@@ -51,7 +51,7 @@ describe("common schemas", () => {
     it("rejects author missing required name", () => {
       const input = { email: "test@example.com" };
 
-      const result = Schema.decodeUnknownEither(Author)(input);
+      const result = Schema.decodeUnknownEither(AuthorSchema)(input);
 
       expect(Either.isLeft(result)).toBe(true);
     });
@@ -59,13 +59,13 @@ describe("common schemas", () => {
     it("rejects author with non-string name", () => {
       const input = { name: 123 };
 
-      const result = Schema.decodeUnknownEither(Author)(input);
+      const result = Schema.decodeUnknownEither(AuthorSchema)(input);
 
       expect(Either.isLeft(result)).toBe(true);
     });
 
     it("rejects null input", () => {
-      const result = Schema.decodeUnknownEither(Author)(null);
+      const result = Schema.decodeUnknownEither(AuthorSchema)(null);
 
       expect(Either.isLeft(result)).toBe(true);
     });
@@ -73,7 +73,7 @@ describe("common schemas", () => {
 
   describe("FullyQualifiedName", () => {
     it("accepts valid @scope/name pattern", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedName)("@wayne/grappling-hook");
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne/grappling-hook");
 
       expect(Either.isRight(result)).toBe(true);
       if (Either.isRight(result)) {
@@ -82,49 +82,49 @@ describe("common schemas", () => {
     });
 
     it("accepts pattern with underscores", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedName)("@wayne_corp/bat_signal");
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne_corp/bat_signal");
 
       expect(Either.isRight(result)).toBe(true);
     });
 
     it("accepts pattern with numbers", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedName)("@wayne123/tool456");
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne123/tool456");
 
       expect(Either.isRight(result)).toBe(true);
     });
 
     it("rejects name without @ prefix", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedName)("wayne/grappling-hook");
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("wayne/grappling-hook");
 
       expect(Either.isLeft(result)).toBe(true);
     });
 
     it("rejects name without scope (just name)", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedName)("grappling-hook");
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("grappling-hook");
 
       expect(Either.isLeft(result)).toBe(true);
     });
 
     it("rejects incomplete pattern (@scope only)", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedName)("@wayne");
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne");
 
       expect(Either.isLeft(result)).toBe(true);
     });
 
     it("rejects pattern with trailing slash", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedName)("@wayne/");
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne/");
 
       expect(Either.isLeft(result)).toBe(true);
     });
 
     it("rejects pattern with multiple slashes", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedName)("@wayne/tools/hook");
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne/tools/hook");
 
       expect(Either.isLeft(result)).toBe(true);
     });
 
     it("rejects empty string", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedName)("");
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("");
 
       expect(Either.isLeft(result)).toBe(true);
     });
@@ -201,7 +201,7 @@ describe("common schemas", () => {
       "pack",
       "mcp-server",
     ] as const)("accepts valid extension type: %s", (type) => {
-      const result = Schema.decodeUnknownEither(ExtensionType)(type);
+      const result = Schema.decodeUnknownEither(ExtensionTypeSchema)(type);
 
       expect(Either.isRight(result)).toBe(true);
       if (Either.isRight(result)) {
@@ -210,19 +210,19 @@ describe("common schemas", () => {
     });
 
     it("rejects invalid extension type", () => {
-      const result = Schema.decodeUnknownEither(ExtensionType)("invalid");
+      const result = Schema.decodeUnknownEither(ExtensionTypeSchema)("invalid");
 
       expect(Either.isLeft(result)).toBe(true);
     });
 
     it("rejects empty string", () => {
-      const result = Schema.decodeUnknownEither(ExtensionType)("");
+      const result = Schema.decodeUnknownEither(ExtensionTypeSchema)("");
 
       expect(Either.isLeft(result)).toBe(true);
     });
 
     it("rejects non-string value", () => {
-      const result = Schema.decodeUnknownEither(ExtensionType)(123);
+      const result = Schema.decodeUnknownEither(ExtensionTypeSchema)(123);
 
       expect(Either.isLeft(result)).toBe(true);
     });
@@ -239,7 +239,7 @@ describe("common schemas", () => {
       "path",
       "registry",
     ] as const)("accepts valid source type: %s", (type) => {
-      const result = Schema.decodeUnknownEither(SourceType)(type);
+      const result = Schema.decodeUnknownEither(SourceTypeSchema)(type);
 
       expect(Either.isRight(result)).toBe(true);
       if (Either.isRight(result)) {
@@ -248,13 +248,13 @@ describe("common schemas", () => {
     });
 
     it("rejects invalid source type", () => {
-      const result = Schema.decodeUnknownEither(SourceType)("npm");
+      const result = Schema.decodeUnknownEither(SourceTypeSchema)("npm");
 
       expect(Either.isLeft(result)).toBe(true);
     });
 
     it("rejects case variations", () => {
-      const result = Schema.decodeUnknownEither(SourceType)("GitHub");
+      const result = Schema.decodeUnknownEither(SourceTypeSchema)("GitHub");
 
       expect(Either.isLeft(result)).toBe(true);
     });
@@ -271,7 +271,7 @@ describe("common schemas", () => {
       "vscode",
       "opencode",
     ] as const)("accepts valid agent id: %s", (agentId) => {
-      const result = Schema.decodeUnknownEither(AgentId)(agentId);
+      const result = Schema.decodeUnknownEither(AgentIdSchema)(agentId);
 
       expect(Either.isRight(result)).toBe(true);
       if (Either.isRight(result)) {
@@ -280,19 +280,19 @@ describe("common schemas", () => {
     });
 
     it("rejects invalid agent id", () => {
-      const result = Schema.decodeUnknownEither(AgentId)("unknown-agent");
+      const result = Schema.decodeUnknownEither(AgentIdSchema)("unknown-agent");
 
       expect(Either.isLeft(result)).toBe(true);
     });
 
     it("rejects null", () => {
-      const result = Schema.decodeUnknownEither(AgentId)(null);
+      const result = Schema.decodeUnknownEither(AgentIdSchema)(null);
 
       expect(Either.isLeft(result)).toBe(true);
     });
 
     it("rejects undefined", () => {
-      const result = Schema.decodeUnknownEither(AgentId)(undefined);
+      const result = Schema.decodeUnknownEither(AgentIdSchema)(undefined);
 
       expect(Either.isLeft(result)).toBe(true);
     });

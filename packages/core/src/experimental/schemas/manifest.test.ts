@@ -1,12 +1,12 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { CommandManifest } from "./manifest-command";
-import { McpServerManifest } from "./manifest-mcp-server";
-import { PackManifest } from "./manifest-pack";
-import { SkillManifest } from "./manifest-skill";
+import { CommandManifestSchema } from "./manifest-command";
+import { McpServerManifestSchema } from "./manifest-mcp-server";
+import { PackManifestSchema } from "./manifest-pack";
+import { SkillManifestSchema } from "./manifest-skill";
 
-describe("SkillManifest", () => {
-  const decode = Schema.decodeUnknownSync(SkillManifest);
+describe("SkillManifestSchema", () => {
+  const decode = Schema.decodeUnknownSync(SkillManifestSchema);
 
   it("accepts valid minimal manifest", () => {
     const input = { name: "@wayne/grappling-hook", version: "1.0.0" };
@@ -49,8 +49,8 @@ describe("SkillManifest", () => {
   });
 });
 
-describe("CommandManifest", () => {
-  const decode = Schema.decodeUnknownSync(CommandManifest);
+describe("CommandManifestSchema", () => {
+  const decode = Schema.decodeUnknownSync(CommandManifestSchema);
 
   it("accepts valid minimal manifest", () => {
     const input = { name: "@wayne/batcomputer-sync", version: "1.0.0" };
@@ -70,8 +70,8 @@ describe("CommandManifest", () => {
   });
 });
 
-describe("PackManifest", () => {
-  const decode = Schema.decodeUnknownSync(PackManifest);
+describe("PackManifestSchema", () => {
+  const decode = Schema.decodeUnknownSync(PackManifestSchema);
 
   it("accepts valid minimal manifest", () => {
     const input = { name: "@wayne/utility-belt", version: "1.0.0" };
@@ -123,8 +123,8 @@ describe("PackManifest", () => {
   });
 });
 
-describe("McpServerManifest", () => {
-  const decode = Schema.decodeUnknownSync(McpServerManifest);
+describe("McpServerManifestSchema", () => {
+  const decode = Schema.decodeUnknownSync(McpServerManifestSchema);
 
   it("accepts valid minimal manifest", () => {
     const input = { name: "@wayne/batcave-mcp", version: "1.0.0" };

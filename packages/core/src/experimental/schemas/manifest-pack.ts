@@ -5,7 +5,7 @@
  */
 
 import { Schema } from "effect";
-import { CommonManifestFields, FullyQualifiedName } from "./common";
+import { CommonManifestFields, FullyQualifiedNameSchema } from "./common";
 
 /**
  * Schema for pack manifest files (axm-pack.json).
@@ -15,12 +15,12 @@ import { CommonManifestFields, FullyQualifiedName } from "./common";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PackManifest = Schema.Struct({
+export const PackManifestSchema = Schema.Struct({
   ...CommonManifestFields,
-  skills: Schema.optional(Schema.Array(FullyQualifiedName)),
-  commands: Schema.optional(Schema.Array(FullyQualifiedName)),
-  "mcp-servers": Schema.optional(Schema.Array(FullyQualifiedName)),
-  packs: Schema.optional(Schema.Array(FullyQualifiedName)),
+  skills: Schema.optional(Schema.Array(FullyQualifiedNameSchema)),
+  commands: Schema.optional(Schema.Array(FullyQualifiedNameSchema)),
+  "mcp-servers": Schema.optional(Schema.Array(FullyQualifiedNameSchema)),
+  packs: Schema.optional(Schema.Array(FullyQualifiedNameSchema)),
 });
 
 /**
@@ -28,4 +28,4 @@ export const PackManifest = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type PackManifest = typeof PackManifest.Type;
+export type PackManifest = typeof PackManifestSchema.Type;

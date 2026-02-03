@@ -15,7 +15,7 @@ import { CommonManifestFields } from "./common";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillManifest = Schema.Struct({
+export const SkillManifestSchema = Schema.Struct({
   ...CommonManifestFields,
 });
 
@@ -24,4 +24,4 @@ export const SkillManifest = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SkillManifest = typeof SkillManifest.Type;
+export type SkillManifest = typeof SkillManifestSchema.Type;

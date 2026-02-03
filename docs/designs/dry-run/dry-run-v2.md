@@ -7,6 +7,8 @@ Refactor dry-run support using a desired-state reconciliation pattern. Handlers 
 ## Core Pattern
 
 ```typescript
+import { Array, Console, Effect, Either, pipe } from "effect";
+
 // Workspace context (local vs global) determined at service creation
 const ws = yield * Workspace;
 
@@ -15,15 +17,20 @@ const current = yield * ws.loadCurrentState();
 
 // Handler decides how to handle issues (computed during state loading)
 const allIssues = collectIssues(current);
-if (allIssues.some((i) => i.severity === "error") && !force) {
+const hasErrors = pipe(
+  allIssues,
+  Array.some((i) => i.severity === "error"),
+);
+if (hasErrors && !force) {
   return (
     yield * Effect.fail(new UnhealthyWorkspaceError({ issues: allIssues }))
   );
 }
 
 // Resolve agents before building ideal state (handler responsibility)
-const resolvedAgents =
-  command.agents.length > 0 ? command.agents : projectSettings.defaultAgents;
+const resolvedAgents = Array.isNonEmptyArray(command.agents)
+  ? command.agents
+  : projectSettings.defaultAgents;
 
 // buildIdealState is effectful (fetches from source)
 const ideal =
@@ -37,14 +44,18 @@ const ideal =
   });
 
 // buildPlan is pure - returns Either
-const planResult = buildPlan(current, ideal);
-if (Either.isLeft(planResult)) {
-  return yield * Effect.fail(planResult.left);
-}
-const plan = planResult.right;
+const plan =
+  yield *
+  pipe(
+    buildPlan(current, ideal),
+    Either.match({
+      onLeft: Effect.fail,
+      onRight: Effect.succeed,
+    }),
+  );
 
 // Check for empty plan
-if (plan.steps.length === 0) {
+if (Array.isEmptyArray(plan.steps)) {
   yield * Console.log("Already up to date.");
   return plan;
 }
@@ -79,27 +90,29 @@ return plan;
 ## Workspace Service
 
 ```typescript
+import { Array, Data, Effect, Layer, Option } from "effect";
+
 // Error types
 class WorkspaceError extends Data.TaggedError("WorkspaceError")<{
-  message: string;
-  cause?: unknown;
+  readonly message: string;
+  readonly cause: Option.Option<unknown>;
 }> {}
 
 class CommandError extends Data.TaggedError("CommandError")<{
-  message: string;
-  cause?: unknown;
+  readonly message: string;
+  readonly cause: Option.Option<unknown>;
 }> {}
 
 class ApplyError extends Data.TaggedError("ApplyError")<{
-  message: string;
-  step?: PlanStep;
-  cause?: unknown;
+  readonly message: string;
+  readonly step: Option.Option<PlanStep>;
+  readonly cause: Option.Option<unknown>;
 }> {}
 
 class UnhealthyWorkspaceError extends Data.TaggedError(
   "UnhealthyWorkspaceError",
 )<{
-  issues: Array<AnyIssue>;
+  readonly issues: Array.Array<AnyIssue>;
 }> {}
 
 interface Workspace {
@@ -145,6 +158,8 @@ const WorkspaceLive = (options: { global: boolean; interactive: boolean }) =>
 These functions are pure and can be tested without effects:
 
 ```typescript
+import { Array, Either, Option, pipe, Record } from "effect";
+
 /**
  * Compute install path from source type and skill name.
  * Registry skills: .axm/extensions/@<scope>/skills/<name>
@@ -164,33 +179,40 @@ const computeInstallPath = (source: SkillSource, name: string): string => {
  * Collect all issues from current state into a flat array.
  * Returns issues from all levels: workspace, skill state, and actual skill.
  */
-const collectIssues = (current: CurrentState): Array<AnyIssue> => [
-  ...current.issues,
-  ...current.skills.flatMap((s) => [
-    ...s.issues,
-    ...Option.match(s.actual, {
-      onNone: () => [],
-      onSome: (a) => a.issues,
-    }),
-  ]),
-];
+const collectIssues = (current: CurrentState): Array.Array<AnyIssue> =>
+  pipe(
+    current.skills,
+    Array.flatMap((s) =>
+      Array.appendAll(
+        s.issues,
+        pipe(
+          s.actual,
+          Option.map((a) => a.issues),
+          Option.getOrElse(() => Array.empty<ActualSkillIssue>()),
+        ),
+      ),
+    ),
+    Array.appendAll(current.issues),
+  );
 
 /** Error during plan building */
 class BuildPlanError extends Data.TaggedError("BuildPlanError")<{
-  message: string;
-  cause?: unknown;
+  readonly message: string;
+  readonly cause: Option.Option<unknown>;
 }> {}
 
 /** Compare versions using semver for registry sources */
-const versionsEqual = (a: Option<string>, b: Option<string>): boolean =>
-  Option.match(a, {
-    onNone: () => Option.isNone(b),
-    onSome: (va) =>
-      Option.match(b, {
-        onNone: () => false,
-        onSome: (vb) => semver.eq(va, vb), // Use semver comparison
-      }),
-  });
+const versionsEqual = (
+  a: Option.Option<string>,
+  b: Option.Option<string>,
+): boolean =>
+  pipe(
+    Option.all([a, b]),
+    Option.match({
+      onNone: () => Option.isNone(a) && Option.isNone(b),
+      onSome: ([va, vb]) => semver.eq(va, vb),
+    }),
+  );
 
 /**
  * Build execution plan by diffing current vs ideal state.
@@ -199,74 +221,100 @@ const versionsEqual = (a: Option<string>, b: Option<string>): boolean =>
 const buildPlan = (
   current: CurrentState,
   ideal: IdealState,
-): Either<BuildPlanError, Plan> => {
-  const steps: Array<PlanStep> = [];
-
+): Either.Either<Plan, BuildPlanError> => {
   // Find skills to install or update
-  for (const idealSkill of ideal.skills) {
-    const installPath = computeInstallPath(idealSkill.source, idealSkill.name);
-    const currentSkill = current.skills.find(
-      (s) => Option.isSome(s.actual) && s.actual.value.path === installPath,
-    );
+  const installOrUpdateSteps = pipe(
+    ideal.skills,
+    Array.filterMap((idealSkill) => {
+      const installPath = computeInstallPath(
+        idealSkill.source,
+        idealSkill.name,
+      );
+      const currentSkill = pipe(
+        current.skills,
+        Array.findFirst(
+          (s) => Option.isSome(s.actual) && s.actual.value.path === installPath,
+        ),
+      );
 
-    if (!currentSkill || Option.isNone(currentSkill.actual)) {
-      // Not on disk → install
-      steps.push({
-        _tag: "InstallSkill",
-        skill: idealSkill.name,
-        source: idealSkill.source,
-        version: idealSkill.version,
-        gitTreeHash: idealSkill.gitTreeHash,
-        agents: idealSkill.agents,
-      });
-    } else if (Option.isSome(currentSkill.locked)) {
-      // On disk and in lockfile → check for update
-      const locked = currentSkill.locked.value;
-      const needsUpdate =
-        (idealSkill.source._tag === "Registry" &&
-          !versionsEqual(idealSkill.version, locked.version)) ||
-        (idealSkill.source._tag !== "Registry" &&
-          !Option.equals(idealSkill.gitTreeHash, locked.gitTreeHash)) ||
-        idealSkill.source._tag === "Local"; // Local always updates
+      return pipe(
+        currentSkill,
+        Option.match({
+          onNone: () =>
+            // Not on disk → install
+            Option.some<PlanStep>({
+              _tag: "InstallSkill",
+              skill: idealSkill.name,
+              source: idealSkill.source,
+              version: idealSkill.version,
+              gitTreeHash: idealSkill.gitTreeHash,
+              agents: idealSkill.agents,
+            }),
+          onSome: (cs) =>
+            pipe(
+              cs.locked,
+              Option.flatMap((locked) => {
+                const needsUpdate =
+                  (idealSkill.source._tag === "Registry" &&
+                    !versionsEqual(idealSkill.version, locked.version)) ||
+                  (idealSkill.source._tag !== "Registry" &&
+                    !Option.equals(
+                      idealSkill.gitTreeHash,
+                      locked.gitTreeHash,
+                    )) ||
+                  idealSkill.source._tag === "Local"; // Local always updates
 
-      if (needsUpdate) {
-        steps.push({
-          _tag: "UpdateSkill",
-          skill: idealSkill.name,
-          source: idealSkill.source,
-          fromVersion: locked.version,
-          toVersion: idealSkill.version,
-          fromHash: locked.gitTreeHash,
-          toHash: idealSkill.gitTreeHash,
-          agents: idealSkill.agents,
-        });
-      }
-    }
-  }
+                return needsUpdate
+                  ? Option.some<PlanStep>({
+                      _tag: "UpdateSkill",
+                      skill: idealSkill.name,
+                      source: idealSkill.source,
+                      fromVersion: locked.version,
+                      toVersion: idealSkill.version,
+                      fromHash: locked.gitTreeHash,
+                      toHash: idealSkill.gitTreeHash,
+                      agents: idealSkill.agents,
+                    })
+                  : Option.none();
+              }),
+            ),
+        }),
+      );
+    }),
+  );
 
   // Find skills to uninstall (in current but not in ideal)
-  for (const currentSkill of current.skills) {
-    if (Option.isNone(currentSkill.actual)) continue;
+  const uninstallSteps = pipe(
+    current.skills,
+    Array.filterMap((currentSkill) =>
+      pipe(
+        Option.all([currentSkill.actual, currentSkill.locked]),
+        Option.flatMap(([actual, locked]) => {
+          const inIdeal = pipe(
+            ideal.skills,
+            Array.some(
+              (s) => computeInstallPath(s.source, s.name) === actual.path,
+            ),
+          );
 
-    const actualPath = currentSkill.actual.value.path;
-    const inIdeal = ideal.skills.some(
-      (s) => computeInstallPath(s.source, s.name) === actualPath,
-    );
+          return inIdeal
+            ? Option.none()
+            : Option.some<PlanStep>({
+                _tag: "UninstallSkill",
+                skill: currentSkill.name,
+                agents: locked.agents,
+              });
+        }),
+      ),
+    ),
+  );
 
-    if (!inIdeal && Option.isSome(currentSkill.locked)) {
-      steps.push({
-        _tag: "UninstallSkill",
-        skill: currentSkill.name,
-        agents: currentSkill.locked.value.agents,
-      });
-    }
-  }
-
+  const steps = Array.appendAll(installOrUpdateSteps, uninstallSteps);
   return Either.right({ steps });
 };
 
 /** Check if plan has any changes */
-const hasChanges = (plan: Plan): boolean => plan.steps.length > 0;
+const hasChanges = (plan: Plan): boolean => Array.isNonEmptyArray(plan.steps);
 ```
 
 ## Effectful Functions
@@ -301,25 +349,25 @@ Discriminated union of all supported commands:
 ```typescript
 type Command =
   | {
-      _tag: "skills-install";
+      readonly _tag: "skills-install";
       /** GitHub shorthand (owner/repo), local path, or URL */
-      source: string;
+      readonly source: string;
       /** Target agents (already resolved by handler) */
-      agents: Array<string>;
+      readonly agents: Array.Array<string>;
       /** "all" to install all discovered skills, or specific skill names */
-      skills: "all" | Array<string>;
+      readonly skills: "all" | Array.Array<string>;
       /** Skip confirmation when replacing skill from different source */
-      force: boolean;
+      readonly force: boolean;
     }
   | {
-      _tag: "skills-uninstall";
+      readonly _tag: "skills-uninstall";
       /** Skill names to uninstall */
-      skills: Array<string>;
+      readonly skills: Array.Array<string>;
     }
   | {
-      _tag: "skills-update";
+      readonly _tag: "skills-update";
       /** "all" to update all installed skills, or specific skill names */
-      skills: "all" | Array<string>;
+      readonly skills: "all" | Array.Array<string>;
     };
 ```
 
@@ -383,30 +431,30 @@ High-level algorithm for computing ideal state from current state + command.
 ## State Types
 
 ```typescript
-import { Array, Option } from "effect";
+import { Array, Option, Record } from "effect";
 
 /** Registry location - remote URL or local filesystem path */
 type RegistryLocation =
-  | { _tag: "Remote"; url: string }
-  | { _tag: "FileSystem"; path: string };
+  | { readonly _tag: "Remote"; readonly url: string }
+  | { readonly _tag: "FileSystem"; readonly path: string };
 
 /** Skill source - where to fetch from */
 type SkillSource =
   | {
-      _tag: "Registry";
-      location: RegistryLocation;
-      scope: string;
-      name: string;
-      version: Option<string>; // None = latest
+      readonly _tag: "Registry";
+      readonly location: RegistryLocation;
+      readonly scope: string;
+      readonly name: string;
+      readonly version: Option.Option<string>; // None = latest
     }
   | {
-      _tag: "GitHub";
-      owner: string;
-      repo: string;
-      ref: Option<string>;
-      path: Option<string>;
+      readonly _tag: "GitHub";
+      readonly owner: string;
+      readonly repo: string;
+      readonly ref: Option.Option<string>;
+      readonly path: Option.Option<string>;
     }
-  | { _tag: "Local"; path: string };
+  | { readonly _tag: "Local"; readonly path: string };
 
 /** Issue severity */
 type Severity = "error" | "warning";
@@ -419,7 +467,7 @@ type ActualSkillIssue =
   | { _tag: "MissingSkillMd"; path: string; severity: "error" }
   | {
       _tag: "InvalidFrontmatter";
-      errors: Array<string>;
+      errors: Array.Array<string>;
       severity: "error";
     }
   | { _tag: "MissingDescription"; severity: "warning" };
@@ -434,7 +482,7 @@ type WorkspaceIssue =
   | {
       _tag: "DuplicateName";
       name: string;
-      paths: Array<string>;
+      paths: Array.Array<string>;
       severity: "error";
     }
   | {
@@ -446,30 +494,30 @@ type WorkspaceIssue =
 
 /** Skill as it exists on disk */
 interface ActualSkill {
-  name: string;
-  path: string;
-  files: Array<string>;
-  frontmatter: Option<SkillFrontmatter>;
-  issues: Array<ActualSkillIssue>;
+  readonly name: string;
+  readonly path: string;
+  readonly files: Array.Array<string>;
+  readonly frontmatter: Option.Option<SkillFrontmatter>;
+  readonly issues: Array.Array<ActualSkillIssue>;
 }
 
 /** Skill entry from lockfile */
 interface LockedSkill {
-  name: string;
-  source: SkillSource;
-  version: Option<string>; // Semver for registry, None for git/local
-  gitTreeHash: Option<string>; // Hash of source folder for git sources
-  agents: Array<string>; // Agents this skill is installed for
-  installedAt: Date;
-  updatedAt: Date;
+  readonly name: string;
+  readonly source: SkillSource;
+  readonly version: Option.Option<string>; // Semver for registry, None for git/local
+  readonly gitTreeHash: Option.Option<string>; // Hash of source folder for git sources
+  readonly agents: Array.Array<string>; // Agents this skill is installed for
+  readonly installedAt: Date;
+  readonly updatedAt: Date;
 }
 
 /** Combined state for a skill - actual + locked merged */
 interface SkillState {
-  name: string;
-  actual: Option<ActualSkill>; // None = not on disk
-  locked: Option<LockedSkill>; // None = not in lockfile
-  issues: Array<SkillStateIssue>;
+  readonly name: string;
+  readonly actual: Option.Option<ActualSkill>; // None = not on disk
+  readonly locked: Option.Option<LockedSkill>; // None = not in lockfile
+  readonly issues: Array.Array<SkillStateIssue>;
 }
 
 /**
@@ -481,22 +529,22 @@ interface SkillState {
  * in buildPlan vs O(1) with Record, acceptable for typical workspace sizes.
  */
 interface CurrentState {
-  skills: Array<SkillState>;
-  issues: Array<WorkspaceIssue>;
+  readonly skills: Array.Array<SkillState>;
+  readonly issues: Array.Array<WorkspaceIssue>;
 }
 
 /** Desired skill after the command */
 interface IdealSkill {
-  name: string;
-  source: SkillSource;
-  version: Option<string>; // Semver for registry, None for git/local
-  gitTreeHash: Option<string>; // Hash of source folder for git sources
-  agents: Array<string>; // Target agents (explicit, never implicit "all")
+  readonly name: string;
+  readonly source: SkillSource;
+  readonly version: Option.Option<string>; // Semver for registry, None for git/local
+  readonly gitTreeHash: Option.Option<string>; // Hash of source folder for git sources
+  readonly agents: Array.Array<string>; // Target agents (explicit, never implicit "all")
 }
 
 /** Desired outcome - what we want after the command */
 interface IdealState {
-  skills: Array<IdealSkill>;
+  readonly skills: Array.Array<IdealSkill>;
 }
 ```
 
@@ -532,44 +580,44 @@ Plan is pure data - steps reflecting user intent. Execution is handled by `ws.ap
 ```typescript
 /** Plan is pure data - no behavior */
 interface Plan {
-  readonly steps: Array<PlanStep>;
+  readonly steps: Array.Array<PlanStep>;
 }
 
 /** Steps reflect user intent, grouped by skill */
 type PlanStep =
   | {
-      _tag: "InstallSkill";
-      skill: string;
-      source: SkillSource;
-      version: Option<string>;
-      gitTreeHash: Option<string>;
-      agents: Array<string>;
+      readonly _tag: "InstallSkill";
+      readonly skill: string;
+      readonly source: SkillSource;
+      readonly version: Option.Option<string>;
+      readonly gitTreeHash: Option.Option<string>;
+      readonly agents: Array.Array<string>;
     }
   | {
-      _tag: "UpdateSkill";
-      skill: string;
-      source: SkillSource;
-      fromVersion: Option<string>;
-      toVersion: Option<string>;
-      fromHash: Option<string>; // For git sources without version
-      toHash: Option<string>;
-      agents: Array<string>;
+      readonly _tag: "UpdateSkill";
+      readonly skill: string;
+      readonly source: SkillSource;
+      readonly fromVersion: Option.Option<string>;
+      readonly toVersion: Option.Option<string>;
+      readonly fromHash: Option.Option<string>; // For git sources without version
+      readonly toHash: Option.Option<string>;
+      readonly agents: Array.Array<string>;
     }
   | {
-      _tag: "UninstallSkill";
-      skill: string;
-      agents: Array<string>; // Remove from these agents + canonical location + settings + lockfile
+      readonly _tag: "UninstallSkill";
+      readonly skill: string;
+      readonly agents: Array.Array<string>; // Remove from these agents + canonical location + settings + lockfile
     };
 
 /** Result of applying a plan */
 interface ApplyResult {
-  applied: Array<PlanStep>;
-  failed: Array<{ step: PlanStep; error: ApplyError }>;
-  summary: {
-    installed: number;
-    updated: number;
-    uninstalled: number;
-    failed: number;
+  readonly applied: Array.Array<PlanStep>;
+  readonly failed: Array.Array<{ step: PlanStep; error: ApplyError }>;
+  readonly summary: {
+    readonly installed: number;
+    readonly updated: number;
+    readonly uninstalled: number;
+    readonly failed: number;
   };
 }
 ```
@@ -617,27 +665,27 @@ Settings entries are derived from plan steps during apply. The `settings.skills`
 type SkillSettingsEntry =
   | string // Registry FQN shorthand: "@scope/skill-name" or "@scope/skill-name@version"
   | {
-      _tag: "FileSystemRegistry";
-      path: string;
-      name: string;
+      readonly _tag: "FileSystemRegistry";
+      readonly path: string;
+      readonly name: string;
     }
   | {
-      _tag: "RemoteRegistry";
-      origin: string;
-      scope: string;
-      name: string;
-      version: Option<string>;
+      readonly _tag: "RemoteRegistry";
+      readonly origin: string;
+      readonly scope: string;
+      readonly name: string;
+      readonly version: Option.Option<string>;
     }
   | {
-      _tag: "GitHub";
-      owner: string;
-      repo: string;
-      ref: Option<string>;
-      path: Option<string>;
+      readonly _tag: "GitHub";
+      readonly owner: string;
+      readonly repo: string;
+      readonly ref: Option.Option<string>;
+      readonly path: Option.Option<string>;
     }
   | {
-      _tag: "Local";
-      path: string;
+      readonly _tag: "Local";
+      readonly path: string;
     };
 
 /**
@@ -686,28 +734,29 @@ const toSettingsEntry = (source: SkillSource): SkillSettingsEntry => {
 **Settings integration during apply:**
 
 ```typescript
-const updateSettingsFromPlan = (settings: Settings, plan: Plan): Settings => {
-  let updated = settings;
-  for (const step of plan.steps) {
-    switch (step._tag) {
-      case "InstallSkill":
-      case "UpdateSkill":
-        updated = {
-          ...updated,
-          skills: {
-            ...updated.skills,
-            [step.skill]: toSettingsEntry(step.source),
-          },
-        };
-        break;
-      case "UninstallSkill":
-        const { [step.skill]: _, ...rest } = updated.skills;
-        updated = { ...updated, skills: rest };
-        break;
-    }
-  }
-  return updated;
-};
+const updateSettingsFromPlan = (settings: Settings, plan: Plan): Settings =>
+  pipe(
+    plan.steps,
+    Array.reduce(settings, (acc, step) => {
+      switch (step._tag) {
+        case "InstallSkill":
+        case "UpdateSkill":
+          return {
+            ...acc,
+            skills: Record.set(
+              acc.skills,
+              step.skill,
+              toSettingsEntry(step.source),
+            ),
+          };
+        case "UninstallSkill":
+          return {
+            ...acc,
+            skills: Record.remove(acc.skills, step.skill),
+          };
+      }
+    }),
+  );
 ```
 
 **Empty plan**: `Plan { steps: [] }` means no changes needed. Handler checks `plan.steps.length === 0` and displays "Already up to date."
@@ -729,6 +778,8 @@ Note: No checksum/hash-based issues - we use version-based diffing only.
 ## Doctor Pattern
 
 ```typescript
+import { Array, Console, Effect, pipe } from "effect";
+
 // axm doctor [--dry-run]
 const ws = yield * Workspace;
 yield * ws.ensureInit();
@@ -738,17 +789,23 @@ const current = yield * ws.loadCurrentState();
 // Collect all issues from state using pure helper
 const allIssues = collectIssues(current);
 
-const errors = allIssues.filter((i) => i.severity === "error");
-const warnings = allIssues.filter((i) => i.severity === "warning");
+const errors = pipe(
+  allIssues,
+  Array.filter((i) => i.severity === "error"),
+);
+const warnings = pipe(
+  allIssues,
+  Array.filter((i) => i.severity === "warning"),
+);
 
 // Display issues
 yield * displayIssues(allIssues);
 
-if (errors.length === 0 && warnings.length === 0) {
+if (Array.isEmptyArray(errors) && Array.isEmptyArray(warnings)) {
   return yield * Console.log("No issues found");
 }
 
-return { errors: errors.length, warnings: warnings.length };
+return { errors: Array.length(errors), warnings: Array.length(warnings) };
 ```
 
 Example output:

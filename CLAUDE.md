@@ -62,6 +62,7 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 
 ## Effect
 
+- [ ] Use `Array` and `Record` from Effect, not built-in types
 - [ ] No raw Promises or async/await (use Effect.promise to wrap)
 - [ ] Errors are typed in the Effect signature
 - [ ] Dependencies use services, not direct imports

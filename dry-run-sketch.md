@@ -47,6 +47,7 @@ This document analyzes how to implement dry-run functionality for the `axm skill
 3. **User Confidence** - Show exactly what will happen before committing
 4. **Debugging** - Trace installation flow without cleanup burden
 5. **Idempotency Checks** - Verify what would change on re-run
+6. **Remote Validation** - For registry operations like `publish`/`unpublish`, dry-run validates that operations would succeed (auth, permissions, version conflicts) before committing
 
 ---
 
@@ -130,6 +131,21 @@ const layer = dryRun
 ### Approach C: Operation Log + Replay Architecture (Detailed)
 
 Separate planning from execution: generate a list of operations, then optionally execute. This is the Terraform-style "plan/apply" model.
+
+**Anti-pattern this approach avoids:**
+
+The most common dry-run bug is the "two codepaths" problem where dry-run logic diverges from execution:
+
+```typescript
+// ❌ Anti-pattern: separate code paths that can diverge
+if (dryRun) {
+  console.log(`Would copy: ${src}`); // Different code path
+} else {
+  await copyDir(src, dest); // Only this path is tested
+}
+```
+
+As features evolve, these branches diverge and previews become misleading. The operation log pattern avoids this by design—the same `planInstall()` code runs regardless of mode, and the plan is the single source of truth.
 
 ---
 
@@ -592,15 +608,23 @@ export const handleInstall = (
     );
 
     // Phase 2: Display plan (SAME for dry-run and real execution)
-    displayPlan(plan);
+    // --json flag outputs raw plan for CI/CD and testing
+    if (args.json) {
+      console.log(JSON.stringify(plan, null, 2));
+    } else {
+      displayPlan(plan);
+    }
 
     // Phase 3: Dry-run exits here (only the outro differs)
     if (args.dryRun) {
-      p.outro("Dry-run complete. No changes made.");
+      if (!args.json) {
+        p.outro("Dry-run complete. No changes made.");
+      }
       return;
     }
 
     // Phase 4: Confirm (unless --yes)
+    // Confirmation requirements vary by danger level (see Danger Levels table below)
     if (!args.yes && !args.nonInteractive) {
       const confirmed = yield* promptConfirm(
         `Apply ${plan.mutations.length} operations?`,
@@ -651,6 +675,9 @@ import * as p from "@clack/prompts";
 /**
  * Display plan operations - SAME output for both dry-run and execution.
  * The plan determines what to show; the mode only affects header/outro.
+ *
+ * For machine-readable output, use --json flag which outputs the raw
+ * InstallPlan object. Useful for CI/CD integration and testing.
  */
 export const displayPlan = (plan: InstallPlan): void => {
   // Source info
@@ -669,21 +696,31 @@ export const displayPlan = (plan: InstallPlan): void => {
     );
   }
 
-  // Operations (grouped by skill for readability)
+  // Operations (grouped by skill, showing functional behavior not file operations)
   for (const skillPlan of plan.skills) {
-    p.log.step(`${skillPlan.skill.name}`);
-    p.log.message(`  copy → ${skillPlan.canonicalPath}`);
-    for (const agent of skillPlan.agentInstalls) {
-      const method = agent.method === "symlink" ? "symlink" : "copy";
-      p.log.message(`  ${method} → ${agent.agentName}`);
+    const agentNames = skillPlan.agentInstalls.map((a) => a.agentName);
+    const isNew = plan.summary.newSkills.includes(skillPlan.skill.name);
+    const prefix = isNew ? "+" : "~";
+
+    p.log.step(`${prefix} ${skillPlan.skill.name} → ${agentNames.join(", ")}`);
+    if (skillPlan.skill.description) {
+      p.log.message(`    ${skillPlan.skill.description}`);
     }
   }
 
-  // Summary stats
+  // Summary line (Terraform-style)
   p.log.info("");
-  p.log.info(
-    `${plan.summary.skillCount} skill(s), ${plan.summary.symlinkCount} symlink(s), ${plan.summary.copyCount} copy(s)`,
-  );
+  const parts = [];
+  if (plan.summary.newSkills.length > 0) {
+    parts.push(`${plan.summary.newSkills.length} to install`);
+  }
+  if (plan.summary.updatedSkills.length > 0) {
+    parts.push(`${plan.summary.updatedSkills.length} to update`);
+  }
+  if (plan.summary.skippedSkills.length > 0) {
+    parts.push(`${plan.summary.skippedSkills.length} unchanged`);
+  }
+  p.log.info(`Plan: ${parts.join(", ")}`);
 };
 
 const describeMutation = (op: MutationOp): string =>
@@ -1179,6 +1216,25 @@ This means:
 
 ---
 
+### Danger Levels and Confirmation
+
+Confirmation requirements should vary based on the destructiveness of the operation:
+
+| Level        | Operations                       | Behavior                                           |
+| ------------ | -------------------------------- | -------------------------------------------------- |
+| **Low**      | list, validate, sync (read-only) | Execute immediately, no confirmation               |
+| **Moderate** | install, update                  | Show preview, prompt `Proceed? [y/N]`              |
+| **High**     | uninstall, force overwrite       | Show preview with warnings, prompt with default No |
+| **Severe**   | uninstall with dependents        | Require typing skill name to confirm               |
+
+**Standard flags for scripting:**
+
+- `--yes` / `-y`: Auto-accept confirmation prompts
+- `--force` / `-f`: Skip confirmation AND override safety checks (e.g., install over existing)
+- `--dry-run` / `-n`: Preview only, never prompt or execute
+
+---
+
 ## Testing Strategy
 
 ### Unit Tests: Planner
@@ -1328,8 +1384,8 @@ describe("axm skills install --dry-run", () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("Dry-run complete");
-    expect(result.stdout).toContain("2 skill(s) would be installed");
-    expect(result.stdout).toContain("symlink");
+    expect(result.stdout).toContain("Plan: 2 to install");
+    expect(result.stdout).toMatch(/\+ \w+ → /); // "+ skill-name → agent-name" format
 
     // Verify no actual changes
     expect(await fs.exists(".axm/skills/commit")).toBe(false);
@@ -1349,8 +1405,29 @@ describe("axm skills install --dry-run", () => {
     expect(result.stderr).toContain("not found");
   });
 
+  it("dry-run with --json returns structured plan", async () => {
+    const result = await runCLI([
+      "skills",
+      "install",
+      "./fixtures/skills",
+      "--dry-run",
+      "--all",
+      "--yes",
+      "--json",
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    const plan = JSON.parse(result.stdout);
+
+    expect(plan.summary.skillCount).toBe(2);
+    expect(plan.skills).toHaveLength(2);
+    expect(plan.mutations).toContainEqual(
+      expect.objectContaining({ _tag: "CopyDir" }),
+    );
+  });
+
   it("dry-run then real install produces same result", async () => {
-    // Dry run
+    // Dry run with JSON for reliable parsing
     const dryResult = await runCLI([
       "skills",
       "install",
@@ -1358,10 +1435,11 @@ describe("axm skills install --dry-run", () => {
       "--dry-run",
       "--all",
       "--yes",
+      "--json",
     ]);
 
-    // Parse plan from output (or use --json)
-    const plannedSkills = extractSkillsFromOutput(dryResult.stdout);
+    const plan = JSON.parse(dryResult.stdout);
+    const plannedSkills = plan.skills.map((s: any) => s.skill.name);
 
     // Real install
     const realResult = await runCLI([
@@ -1433,6 +1511,10 @@ The operation log pattern should extend to all mutating commands:
 | `skills update`    | remove, copy, symlink, lockfile   | P1         |
 | `init`             | create dirs, write config files   | P2         |
 | `skills sync`      | copy, remove, lockfile            | P2         |
+| `skills publish`   | registry upload                   | P2         |
+| `skills unpublish` | registry removal                  | P2         |
+
+**Note on registry operations**: `publish` and `unpublish` benefit significantly from dry-run to validate authentication, permissions, and version constraints before committing changes to a remote registry.
 
 ### Shared Operation Types
 
@@ -1493,10 +1575,10 @@ axm apply combined.plan
    - **Recommendation**: Option B for MVP, with clear messaging that cache may be updated
 
 4. **Naming**: `--dry-run` vs `--plan` vs `--preview`?
-   - `--dry-run` - Most widely understood (Docker, npm, rsync)
+   - `--dry-run` / `-n` - Most widely understood (Docker, npm, rsync); `-n` is Unix convention from `make`
    - `--plan` - Terraform convention, implies serializable output
    - `--preview` - Azure DevOps convention
-   - **Recommendation**: `--dry-run` for flag, "plan" for serialized output feature
+   - **Recommendation**: `--dry-run` with `-n` shorthand for flag, "plan" for serialized output feature
 
 5. **Plan file format**: JSON, YAML, or binary?
    - JSON: Universal, easy to inspect and manipulate
@@ -1597,12 +1679,15 @@ axm apply combined.plan
 | Architecture           | Operation Log (Approach C) | Higher upfront cost pays off with cleaner design, natural dry-run, future capabilities |
 | Code style             | FP with Effect             | Declarative, no mutable state; enables retry, parallelism, testability                 |
 | Display logic          | Unified (plan-driven)      | Same display for preview and execution; only header/outro differs                      |
+| Display focus          | Functional behavior        | Show "skill → agents" not file operations; details available via `--verbose`           |
 | Dry-run scope          | Mutations only             | Wizards, prompts, discovery always run; only file writes are skipped                   |
 | Discovery side effects | Allow cache population     | Accurate planning requires real data; cache is acceptable side effect                  |
-| Flag name              | `--dry-run`                | Industry standard (Docker, npm, rsync); most widely understood                         |
+| Flag name              | `--dry-run` / `-n`         | Industry standard (Docker, npm, rsync); `-n` is Unix convention from `make`            |
 | Plan format            | JSON                       | Universal, tooling-friendly, inspectable                                               |
+| JSON output            | `--json` flag              | Machine-readable output for CI/CD and testing                                          |
 | Mutation granularity   | Fine-grained internally    | Maximum visibility and reversibility                                                   |
 | Mutation display       | Grouped by skill           | User-friendly summary                                                                  |
+| Confirmation           | Danger-level based         | Low/moderate/high/severe levels determine confirmation requirements                    |
 | Error handling         | Stop on first failure      | Simple, predictable; rollback as future enhancement                                    |
 
 ---

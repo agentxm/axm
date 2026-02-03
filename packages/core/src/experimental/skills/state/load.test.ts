@@ -173,8 +173,9 @@ describe("loadLockedSkills", () => {
       lockfileVersion: 1,
       skills: {
         "my-skill": {
-          name: "my-skill",
-          source: { _tag: "GitHub", owner: "owner", repo: "repo" },
+          source: "github",
+          owner: "owner",
+          repo: "repo",
           gitTreeHash: "abc123",
           agents: [],
           installedAt: new Date("2024-01-01T00:00:00.000Z"),
@@ -371,8 +372,9 @@ description: Test skill
       lockfileVersion: 1,
       skills: {
         "missing-skill": {
-          name: "missing-skill",
-          source: { _tag: "GitHub", owner: "owner", repo: "repo" },
+          source: "github",
+          owner: "owner",
+          repo: "repo",
           gitTreeHash: "abc123",
           agents: [],
           installedAt: new Date("2024-01-01T00:00:00.000Z"),

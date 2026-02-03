@@ -5,11 +5,7 @@
  * @packageDocumentation
  */
 
-export type {
-  Lockfile,
-  SkillLockEntry,
-  SkillSource,
-} from "../schemas/lockfile.js";
+export type { Lockfile, LockSourceType, SkillLockEntry } from "../schemas/lockfile.js";
 export type { Settings } from "../schemas/settings.js";
 // Agent Detection
 export {

@@ -197,11 +197,11 @@ const sourceToSettingsValue = (source: SkillSource): SkillSettingsEntry => {
 };
 
 /**
- * Convert IdealSkill (legacy state type) to SkillLockEntry (canonical schema).
+ * Convert IdealSkill (legacy state type) to SkillLockEntry (flat schema).
  *
  * This conversion is needed because:
  * - IdealSkill uses legacy SkillSource with WellKnown variant and Option refs
- * - SkillLockEntry uses canonical SkillSource (Local | GitHub | Git | Registry)
+ * - SkillLockEntry uses flat structure with `source` as string discriminator
  *
  * WellKnown sources are converted to Git sources.
  * Registry sources are not yet supported.
@@ -214,20 +214,36 @@ const idealToLockEntry = (
   Effect.gen(function* () {
     const now = new Date();
 
-    // Convert SkillSource to the new structured format
-    let skillSource: SkillLockEntry["source"];
-
+    // Build flat lock entry based on source type
     switch (ideal.source._tag) {
       case "Local":
-        skillSource = { _tag: "Local", path: ideal.source.path };
-        break;
+        return {
+          source: "local" as const,
+          path: ideal.source.path,
+          gitTreeHash: ideal.gitTreeFolderHash,
+          agents: Array.from(ideal.agents),
+          installedAt: now,
+          updatedAt: now,
+        };
       case "Git":
-        skillSource = { _tag: "Git", url: ideal.source.url };
-        break;
+        return {
+          source: "git" as const,
+          url: ideal.source.url,
+          gitTreeHash: ideal.gitTreeFolderHash,
+          agents: Array.from(ideal.agents),
+          installedAt: now,
+          updatedAt: now,
+        };
       case "WellKnown":
         // WellKnown sources are remote URLs, convert to Git source
-        skillSource = { _tag: "Git", url: `${ideal.source.baseUrl}/${ideal.source.skillName}` };
-        break;
+        return {
+          source: "git" as const,
+          url: `${ideal.source.baseUrl}/${ideal.source.skillName}`,
+          gitTreeHash: ideal.gitTreeFolderHash,
+          agents: Array.from(ideal.agents),
+          installedAt: now,
+          updatedAt: now,
+        };
       case "Registry":
         // For now, treat Registry as not supported in lock entries
         // We'll need to add proper registry location info later
@@ -238,16 +254,6 @@ const idealToLockEntry = (
           }),
         );
     }
-
-    return {
-      name: ideal.name,
-      source: skillSource,
-      version: undefined,
-      gitTreeHash: ideal.gitTreeFolderHash,
-      agents: Array.from(ideal.agents),
-      installedAt: now,
-      updatedAt: now,
-    };
   });
 
 /**

@@ -107,57 +107,53 @@ const parseFrontmatter = (content: string): Option.Option<SkillFrontmatter> => {
 };
 
 /**
- * Convert a lockfile SkillLockEntry (canonical schema) to LockedSkill (legacy state type).
+ * Convert a lockfile SkillLockEntry (flat schema) to LockedSkill (legacy state type).
  *
  * This conversion is needed because:
- * - SkillLockEntry uses discriminated union source (Local | GitHub | Git | Registry)
+ * - SkillLockEntry uses flat structure with `source` as string discriminator
  * - LockedSkill uses string-based source for legacy compatibility
  *
  * This bridge will be removed when LockedSkill is fully deprecated.
  */
 const lockEntryToLockedSkill = (entry: SkillLockEntry): LockedSkill => {
-  // Convert structured source to canonical string format
+  // Convert flat source to canonical string format
   let sourceStr: string;
   let originStr: string;
+  let pathOpt: Option.Option<string> = Option.none();
+  let refOpt: Option.Option<string> = Option.none();
+  let versionOpt: Option.Option<string> = Option.none();
 
-  switch (entry.source._tag) {
-    case "GitHub":
-      sourceStr = `github:${entry.source.owner}/${entry.source.repo}`;
-      originStr = `https://github.com/${entry.source.owner}/${entry.source.repo}`;
+  switch (entry.source) {
+    case "github":
+      sourceStr = `github:${entry.owner}/${entry.repo}`;
+      originStr = `https://github.com/${entry.owner}/${entry.repo}`;
+      if (entry.path) pathOpt = Option.some(entry.path);
+      if (entry.ref) refOpt = Option.some(entry.ref);
       break;
-    case "Git":
-      sourceStr = `git:${entry.source.url}`;
-      originStr = entry.source.url;
+    case "git":
+      sourceStr = `git:${entry.url}`;
+      originStr = entry.url;
+      if (entry.path) pathOpt = Option.some(entry.path);
+      if (entry.ref) refOpt = Option.some(entry.ref);
       break;
-    case "Local":
-      sourceStr = `local:${entry.source.path}`;
-      originStr = entry.source.path;
+    case "local":
+      sourceStr = `local:${entry.path}`;
+      originStr = entry.path;
+      pathOpt = Option.some(entry.path);
       break;
-    case "Registry":
-      sourceStr = `registry:${entry.source.scope}/${entry.source.name}`;
-      originStr =
-        entry.source.location._tag === "Remote"
-          ? entry.source.location.url
-          : entry.source.location.path;
+    case "registry":
+      sourceStr = `registry:${entry.scope}/${entry.name}`;
+      originStr = `registry:${entry.scope}/${entry.name}`;
+      if (entry.version) versionOpt = Option.some(entry.version);
       break;
   }
 
   return {
     source: sourceStr,
     origin: originStr,
-    path:
-      entry.source._tag === "GitHub" && entry.source.path
-        ? Option.some(entry.source.path)
-        : entry.source._tag === "Git" && entry.source.subpath
-          ? Option.some(entry.source.subpath)
-          : Option.none(),
-    ref:
-      entry.source._tag === "GitHub" && entry.source.ref
-        ? Option.some(entry.source.ref)
-        : entry.source._tag === "Git" && entry.source.ref
-          ? Option.some(entry.source.ref)
-          : Option.none(),
-    version: entry.version ? Option.some(entry.version) : Option.none(),
+    path: pathOpt,
+    ref: refOpt,
+    version: versionOpt,
     gitTreeFolderHash: entry.gitTreeHash ?? "",
     installedAt: entry.installedAt,
     updatedAt: entry.updatedAt,

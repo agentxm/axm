@@ -25,140 +25,122 @@ export const DateFromString = Schema.transform(Schema.String, Schema.DateFromSel
 });
 
 // =============================================================================
-// Registry Location (discriminated union)
+// Source Type Literal
 // =============================================================================
 
 /**
- * Remote registry location - registry at a URL.
+ * Source type discriminator for lock entries.
+ * Simple string literal union for the source field.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RemoteLocationSchema = Schema.TaggedStruct("Remote", {
-  url: Schema.String,
-});
+export const LockSourceTypeSchema = Schema.Literal("github", "git", "local", "registry");
 
 /**
- * FileSystem registry location - registry at a local path.
+ * Inferred type for LockSourceType.
+ * Distinguishes from SourceType in types.ts (used for parsed sources).
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const FileSystemLocationSchema = Schema.TaggedStruct("FileSystem", {
-  path: Schema.String,
-});
-
-/**
- * Registry location discriminated union.
- * Represents where a registry is located.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const RegistryLocationSchema = Schema.Union(RemoteLocationSchema, FileSystemLocationSchema);
-
-/**
- * Inferred type for RegistryLocation schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type RegistryLocation = typeof RegistryLocationSchema.Type;
+export type LockSourceType = typeof LockSourceTypeSchema.Type;
 
 // =============================================================================
-// Skill Source (discriminated union for source types)
+// Flat Source Schemas (discriminated by source field)
 // =============================================================================
 
 /**
- * Local source - skill from a local filesystem path.
- *
- * @experimental This API is unstable and may change without notice.
+ * Common fields shared by all lock entries.
  */
-export const LocalSourceSchema = Schema.TaggedStruct("Local", {
-  path: Schema.String,
-});
+const CommonFields = {
+  agents: Schema.Array(Schema.String),
+  installedAt: DateFromString,
+  updatedAt: DateFromString,
+  gitTreeHash: Schema.optional(Schema.String),
+};
 
 /**
- * Git source - skill from a git repository.
- *
- * Note: Uses Git (_tag: "Git") to align with state/types.ts SkillSource.
- * The lockfile stores resolved ref/subpath as optional strings.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const GitSourceSchema = Schema.TaggedStruct("Git", {
-  url: Schema.String,
-  ref: Schema.optional(Schema.String),
-  subpath: Schema.optional(Schema.String),
-});
-
-/**
- * GitHub source - skill from a GitHub repository (shorthand for Git).
+ * GitHub source - skill from a GitHub repository.
+ * Required: owner, repo
+ * Optional: ref, path
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const GitHubSourceSchema = Schema.TaggedStruct("GitHub", {
+export const GitHubLockEntrySchema = Schema.Struct({
+  source: Schema.Literal("github"),
   owner: Schema.String,
   repo: Schema.String,
   ref: Schema.optional(Schema.String),
   path: Schema.optional(Schema.String),
+  ...CommonFields,
+});
+
+/**
+ * Git source - skill from a generic git repository.
+ * Required: url
+ * Optional: ref, path
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const GitLockEntrySchema = Schema.Struct({
+  source: Schema.Literal("git"),
+  url: Schema.String,
+  ref: Schema.optional(Schema.String),
+  path: Schema.optional(Schema.String),
+  ...CommonFields,
+});
+
+/**
+ * Local source - skill from a local filesystem path.
+ * Required: path
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const LocalLockEntrySchema = Schema.Struct({
+  source: Schema.Literal("local"),
+  path: Schema.String,
+  ...CommonFields,
 });
 
 /**
  * Registry source - skill from a registry.
+ * Required: scope, name
+ * Optional: version
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RegistrySourceSchema = Schema.TaggedStruct("Registry", {
-  location: RegistryLocationSchema,
+export const RegistryLockEntrySchema = Schema.Struct({
+  source: Schema.Literal("registry"),
   scope: Schema.String,
   name: Schema.String,
   version: Schema.optional(Schema.String),
+  ...CommonFields,
 });
 
-/**
- * Skill source discriminated union.
- * Represents where a skill was installed from.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const SkillSourceSchema = Schema.Union(
-  LocalSourceSchema,
-  GitSourceSchema,
-  GitHubSourceSchema,
-  RegistrySourceSchema,
-);
-
-/**
- * Inferred type for SkillSource schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type SkillSource = typeof SkillSourceSchema.Type;
-
 // =============================================================================
-// Skill Lock Entry
+// Skill Lock Entry (union of all source types)
 // =============================================================================
 
 /**
  * Lock entry for a single installed skill.
+ * Discriminated union by the `source` field.
  *
- * Fields:
- * - name: Skill identifier (also the map key, stored redundantly for convenience)
- * - source: Structured source object (Registry/GitHub/Git/Local)
- * - version: Semver version (registry sources only)
- * - gitTreeHash: Git tree SHA of source folder (git sources)
+ * Fields common to all entries:
+ * - source: Source type ("github", "git", "local", "registry")
  * - agents: Agent IDs this skill is installed for (can be empty)
  * - installedAt: ISO 8601 timestamp of initial installation (Date in TS)
  * - updatedAt: ISO 8601 timestamp of last update (Date in TS)
+ * - gitTreeHash: Git tree SHA of source folder (git sources, optional)
+ *
+ * Source-specific fields are at the top level based on source type.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillLockEntrySchema = Schema.Struct({
-  name: Schema.String,
-  source: SkillSourceSchema,
-  version: Schema.optional(Schema.String),
-  gitTreeHash: Schema.optional(Schema.String),
-  agents: Schema.Array(Schema.String),
-  installedAt: DateFromString,
-  updatedAt: DateFromString,
-});
+export const SkillLockEntrySchema = Schema.Union(
+  GitHubLockEntrySchema,
+  GitLockEntrySchema,
+  LocalLockEntrySchema,
+  RegistryLockEntrySchema,
+);
 
 /**
  * Inferred type for SkillLockEntry schema.

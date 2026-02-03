@@ -52,3 +52,30 @@ export function formatError(what: string, details?: string[], howToFix?: string)
 
   return lines.join("\n");
 }
+
+/**
+ * Formats an error for when extension resolution returns no results.
+ *
+ * Provides guidance on valid input formats for extension resolution.
+ *
+ * @param input - The input string that failed to resolve
+ * @returns Formatted error string with format suggestions
+ *
+ * @example
+ * formatEmptyResolutionError("my-skill")
+ * // => "✗ Could not resolve \"my-skill\"\n  No matching extensions found\n  Try one of these formats:..."
+ */
+export function formatEmptyResolutionError(input: string): string {
+  return formatError(
+    `Could not resolve "${input}"`,
+    ["No matching extensions found"],
+    [
+      "Try one of these formats:",
+      "  • Local path: ./path/to/skill or /absolute/path",
+      "  • GitHub: github:owner/repo or owner/repo",
+      "  • GitLab: gitlab:owner/repo",
+      "  • URL: https://example.com/.well-known/axm.json",
+      "  • AXM name: @scope/name (if installed)",
+    ].join("\n"),
+  );
+}

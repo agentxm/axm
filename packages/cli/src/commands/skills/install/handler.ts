@@ -4,15 +4,11 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as os from "node:os";
 import * as nodePath from "node:path";
-import {
-  type ExtensionRef,
-  type ResolutionOptions,
-  resolveExtension,
-} from "@agentxm/core/experimental/resolution";
+import { getAxmDir } from "@agentxm/core/experimental";
 import {
   type AgentConfig,
+  buildCloneUrl,
   cloneRepo,
   computeContentHash,
   detectAgents,
@@ -22,6 +18,7 @@ import {
   fetchWellKnownIndex,
   getAgentById,
   getCurrentCommit,
+  getOriginFromParsed,
   type InstallResult,
   installSkillToAgents,
   type LockEntry,
@@ -37,7 +34,9 @@ import * as p from "@clack/prompts";
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
 import { Data, Effect, pipe } from "effect";
 import { formatError } from "../../../utils/errors.js";
-import { isFancyOutput, isInteractive } from "../../../utils/tty.js";
+import { canPrompt, promptConfirm, promptMultiselect } from "../../../utils/prompts.js";
+import { createSpinnerHelper } from "../../../utils/spinner.js";
+import { isInteractive } from "../../../utils/tty.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -87,268 +86,6 @@ export class InstallError extends Data.TaggedError("InstallError")<{
   readonly cause?: unknown;
   readonly retryable: boolean;
 }> {}
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-/**
- * Determines the .axm directory path based on global flag.
- */
-const getAxmDir = (global: boolean): string =>
-  global ? nodePath.join(os.homedir(), ".axm") : nodePath.join(process.cwd(), ".axm");
-
-/**
- * Builds the Git clone URL for GitHub/GitLab sources.
- */
-const buildCloneUrl = (parsed: ParsedSource): string => {
-  if (parsed.type === "github") {
-    return `https://github.com/${parsed.owner}/${parsed.repo}.git`;
-  }
-  if (parsed.type === "gitlab") {
-    return `https://gitlab.com/${parsed.owner}/${parsed.repo}.git`;
-  }
-  throw new Error(`Cannot build clone URL for source type: ${parsed.type}`);
-};
-
-/**
- * Derives the origin URL/path from a parsed source.
- */
-const getOriginFromParsed = (parsed: ParsedSource): string => {
-  switch (parsed.type) {
-    case "github":
-      return `https://github.com/${parsed.owner}/${parsed.repo}`;
-    case "gitlab":
-      return `https://gitlab.com/${parsed.owner}/${parsed.repo}`;
-    case "local":
-      return parsed.original;
-    case "direct-url":
-    case "well-known":
-      return parsed.url ?? parsed.original;
-  }
-};
-
-/**
- * Wraps @clack/prompts multiselect in an Effect for agent selection.
- */
-const promptAgentSelection = (
-  agents: readonly AgentConfig[],
-): Effect.Effect<string[], InstallError> =>
-  Effect.tryPromise({
-    try: async () => {
-      const options = agents.map((a) => {
-        const opt: { value: string; label: string; hint?: string } = {
-          value: a.id,
-          label: a.name,
-        };
-        if (a.skillsDir) {
-          opt.hint = `skills: ${a.skillsDir}`;
-        }
-        return opt;
-      });
-
-      const result = await p.multiselect({
-        message: "Select agents to install skills for",
-        options,
-        initialValues: agents.map((a) => a.id),
-        required: true,
-      });
-
-      if (p.isCancel(result)) {
-        p.cancel("Operation cancelled.");
-        process.exit(0);
-      }
-
-      return result as string[];
-    },
-    catch: (error) =>
-      new InstallError({
-        message: "Failed to prompt for agent selection",
-        cause: error,
-        retryable: false,
-      }),
-  });
-
-/**
- * Wraps @clack/prompts multiselect in an Effect for skill selection.
- */
-const promptSkillSelection = (skills: readonly Skill[]): Effect.Effect<string[], InstallError> =>
-  Effect.tryPromise({
-    try: async () => {
-      const options = skills.map((s) => {
-        const opt: { value: string; label: string; hint?: string } = {
-          value: s.name,
-          label: s.name,
-        };
-        if (s.description) {
-          opt.hint = s.description;
-        }
-        return opt;
-      });
-
-      const result = await p.multiselect({
-        message: "Select skills to install",
-        options,
-        initialValues: skills.map((s) => s.name),
-        required: true,
-      });
-
-      if (p.isCancel(result)) {
-        p.cancel("Operation cancelled.");
-        process.exit(0);
-      }
-
-      return result as string[];
-    },
-    catch: (error) =>
-      new InstallError({
-        message: "Failed to prompt for skill selection",
-        cause: error,
-        retryable: false,
-      }),
-  });
-
-/**
- * Wraps @clack/prompts confirm in an Effect for installation confirmation.
- */
-const promptConfirmInstall = (
-  skillCount: number,
-  agentCount: number,
-): Effect.Effect<boolean, InstallError> =>
-  Effect.tryPromise({
-    try: async () => {
-      const result = await p.confirm({
-        message: `Install ${skillCount} skill(s) to ${agentCount} agent(s)?`,
-        initialValue: true,
-      });
-
-      if (p.isCancel(result)) {
-        p.cancel("Operation cancelled.");
-        process.exit(0);
-      }
-
-      return result;
-    },
-    catch: (error) =>
-      new InstallError({
-        message: "Failed to prompt for confirmation",
-        cause: error,
-        retryable: false,
-      }),
-  });
-
-/**
- * Wraps @clack/prompts select in an Effect for extension ref selection.
- * Used when resolution returns multiple results.
- */
-const promptExtensionRefSelection = (
-  refs: readonly ExtensionRef[],
-): Effect.Effect<ExtensionRef, InstallError> =>
-  Effect.tryPromise({
-    try: async () => {
-      const options = refs.map((ref, index) => {
-        const label = ref.name ?? ref.origin;
-        const hint = `${ref.source}${ref.ref ? `@${ref.ref}` : ""}`;
-        return { value: index, label, hint };
-      });
-
-      const result = await p.select({
-        message: "Multiple matches found. Select the source to install from:",
-        options,
-      });
-
-      if (p.isCancel(result)) {
-        p.cancel("Operation cancelled.");
-        process.exit(0);
-      }
-
-      const selected = refs[result as number];
-      if (!selected) {
-        throw new Error("Invalid selection");
-      }
-      return selected;
-    },
-    catch: (error) =>
-      new InstallError({
-        message: "Failed to prompt for extension selection",
-        cause: error,
-        retryable: false,
-      }),
-  });
-
-/**
- * Formats an error message for empty resolution results with suggestions.
- */
-const formatEmptyResolutionError = (input: string): string =>
-  formatError(
-    `Could not resolve "${input}"`,
-    ["No matching extensions found"],
-    [
-      "Try one of these formats:",
-      "  • Local path: ./path/to/skill or /absolute/path",
-      "  • GitHub: github:owner/repo or owner/repo",
-      "  • GitLab: gitlab:owner/repo",
-      "  • URL: https://example.com/.well-known/axm.json",
-      "  • AXM name: @scope/name (if installed)",
-    ].join("\n"),
-  );
-
-/**
- * Handles extension resolution results - selects from multiple or fails on empty.
- *
- * @param refs - Extension references from resolution
- * @param input - Original input string for error messages
- * @param canPrompt - Whether interactive prompts are available
- * @returns Single selected extension ref
- */
-const selectExtensionRef = (
-  refs: readonly ExtensionRef[],
-  input: string,
-  canPrompt: boolean,
-): Effect.Effect<ExtensionRef, InstallError> =>
-  Effect.gen(function* () {
-    // Empty results - fail with suggestions
-    if (refs.length === 0) {
-      return yield* Effect.fail(
-        new InstallError({
-          message: formatEmptyResolutionError(input),
-          retryable: false,
-        }),
-      );
-    }
-
-    // Single result - use it directly
-    if (refs.length === 1) {
-      const ref = refs[0];
-      if (!ref) {
-        return yield* Effect.fail(
-          new InstallError({
-            message: formatEmptyResolutionError(input),
-            retryable: false,
-          }),
-        );
-      }
-      return ref;
-    }
-
-    // Multiple results - prompt for selection or fail if non-interactive
-    if (!canPrompt) {
-      const sources = refs.map((r) => `  • ${r.name ?? r.origin} (${r.source})`).join("\n");
-      return yield* Effect.fail(
-        new InstallError({
-          message: formatError(
-            `Ambiguous input "${input}" matches multiple sources`,
-            [`Found ${refs.length} matches:\n${sources}`],
-            "Use --yes or --non-interactive with a more specific source identifier.",
-          ),
-          retryable: false,
-        }),
-      );
-    }
-
-    // Interactive selection
-    return yield* promptExtensionRefSelection(refs);
-  });
 
 // -----------------------------------------------------------------------------
 // Source Resolution
@@ -726,40 +463,6 @@ const installSkillsFromWellKnown = (
 // -----------------------------------------------------------------------------
 
 /**
- * Helper to check if interactive prompts can be used, accounting for flags.
- */
-const canPrompt = (args: InstallArgs): boolean => {
-  if (args.yes || args.nonInteractive) {
-    return false; // Don't need to prompt
-  }
-  return isInteractive();
-};
-
-/**
- * Helper to wrap spinner operations - uses spinner when fancy output, plain log otherwise.
- */
-const createSpinnerHelper = (useFancy: boolean) => {
-  const spinner = useFancy ? p.spinner() : null;
-
-  return {
-    start: (message: string) => {
-      if (spinner) {
-        spinner.start(message);
-      } else {
-        p.log.info(message);
-      }
-    },
-    stop: (message: string) => {
-      if (spinner) {
-        spinner.stop(message);
-      } else {
-        p.log.info(message);
-      }
-    },
-  };
-};
-
-/**
  * Handles the `axm skills install` command.
  *
  * Flow:
@@ -783,9 +486,8 @@ export const handleInstall = (
     // Show intro
     p.intro(`axm skills install (${scopeLabel})`);
 
-    // Check TTY status for output and prompts
-    const useFancyOutput = isFancyOutput();
-    const spinnerHelper = createSpinnerHelper(useFancyOutput);
+    // Create spinner helper (auto-detects TTY)
+    const spinnerHelper = createSpinnerHelper();
 
     // Step 1: Parse source
     spinnerHelper.start("Parsing source...");
@@ -879,8 +581,34 @@ export const handleInstall = (
           }),
         );
       } else {
-        const selectedIds = yield* promptAgentSelection(detectedAgents);
-        agents = detectedAgents.filter((a) => selectedIds.includes(a.id));
+        const selectedAgents = yield* promptMultiselect(
+          "Select agents to install skills for",
+          detectedAgents,
+          {
+            toOption: (a) => {
+              const opt: { value: string; label: string; hint?: string } = {
+                value: a.id,
+                label: a.name,
+              };
+              if (a.skillsDir) {
+                opt.hint = `skills: ${a.skillsDir}`;
+              }
+              return opt;
+            },
+            initialValues: detectedAgents.map((a) => a.id),
+            required: true,
+          },
+        ).pipe(
+          Effect.mapError(
+            (error) =>
+              new InstallError({
+                message: "Failed to prompt for agent selection",
+                cause: error,
+                retryable: false,
+              }),
+          ),
+        );
+        agents = selectedAgents;
       }
     }
 
@@ -960,7 +688,7 @@ export const handleInstall = (
       // Install all skills
       selectedSkills = skills;
       p.log.info(`Installing all ${skills.length} skill(s)`);
-    } else if (!canPrompt(args)) {
+    } else if (!canPrompt({ yes: args.yes, nonInteractive: args.nonInteractive ?? false })) {
       // Need to prompt but can't
       return yield* Effect.fail(
         new InstallError({
@@ -974,8 +702,29 @@ export const handleInstall = (
       );
     } else {
       // Interactive selection
-      const selectedNames = yield* promptSkillSelection(skills);
-      selectedSkills = skills.filter((s) => selectedNames.includes(s.name));
+      selectedSkills = yield* promptMultiselect("Select skills to install", skills, {
+        toOption: (s) => {
+          const opt: { value: string; label: string; hint?: string } = {
+            value: s.name,
+            label: s.name,
+          };
+          if (s.description) {
+            opt.hint = s.description;
+          }
+          return opt;
+        },
+        initialValues: skills.map((s) => s.name),
+        required: true,
+      }).pipe(
+        Effect.mapError(
+          (error) =>
+            new InstallError({
+              message: "Failed to prompt for skill selection",
+              cause: error,
+              retryable: false,
+            }),
+        ),
+      );
     }
 
     if (selectedSkills.length === 0) {
@@ -1044,7 +793,18 @@ export const handleInstall = (
           }),
         );
       }
-      const confirmed = yield* promptConfirmInstall(selectedSkills.length, agents.length);
+      const confirmed = yield* promptConfirm(
+        `Install ${selectedSkills.length} skill(s) to ${agents.length} agent(s)?`,
+      ).pipe(
+        Effect.mapError(
+          (error) =>
+            new InstallError({
+              message: "Failed to prompt for confirmation",
+              cause: error,
+              retryable: false,
+            }),
+        ),
+      );
       if (!confirmed) {
         p.cancel("Installation cancelled.");
         return;

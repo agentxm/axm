@@ -6,7 +6,14 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { ParseError, parseSource } from "./source-parser.js";
+import {
+  buildCloneUrl,
+  CloneUrlError,
+  getOriginFromParsed,
+  ParseError,
+  parseSource,
+} from "./source-parser.js";
+import type { ParsedSource } from "./types.js";
 
 describe("source-parser", () => {
   describe("GitHub shorthand", () => {
@@ -487,5 +494,166 @@ describe("source-parser", () => {
         expect(result.original).toBe(input);
       }),
     );
+  });
+
+  describe("buildCloneUrl", () => {
+    it("builds GitHub clone URL", () => {
+      const parsed: ParsedSource = {
+        type: "github",
+        original: "owner/repo",
+        canonical: "github:owner/repo",
+        owner: "owner",
+        repo: "repo",
+      };
+
+      const result = buildCloneUrl(parsed);
+
+      expect(result).toBe("https://github.com/owner/repo.git");
+    });
+
+    it("builds GitLab clone URL", () => {
+      const parsed: ParsedSource = {
+        type: "gitlab",
+        original: "gitlab:owner/repo",
+        canonical: "gitlab:owner/repo",
+        owner: "owner",
+        repo: "repo",
+      };
+
+      const result = buildCloneUrl(parsed);
+
+      expect(result).toBe("https://gitlab.com/owner/repo.git");
+    });
+
+    it("throws CloneUrlError for local source", () => {
+      const parsed: ParsedSource = {
+        type: "local",
+        original: "./local/path",
+        canonical: "./local/path",
+      };
+
+      expect(() => buildCloneUrl(parsed)).toThrow(CloneUrlError);
+      expect(() => buildCloneUrl(parsed)).toThrow("Cannot build clone URL for source type: local");
+    });
+
+    it("throws CloneUrlError for direct-url source", () => {
+      const parsed: ParsedSource = {
+        type: "direct-url",
+        original: "https://example.com/skill.md",
+        canonical: "https://example.com/skill.md",
+        url: "https://example.com/skill.md",
+      };
+
+      expect(() => buildCloneUrl(parsed)).toThrow(CloneUrlError);
+      expect(() => buildCloneUrl(parsed)).toThrow(
+        "Cannot build clone URL for source type: direct-url",
+      );
+    });
+
+    it("throws CloneUrlError for well-known source", () => {
+      const parsed: ParsedSource = {
+        type: "well-known",
+        original: "https://example.com",
+        canonical: "https://example.com",
+        url: "https://example.com",
+      };
+
+      expect(() => buildCloneUrl(parsed)).toThrow(CloneUrlError);
+      expect(() => buildCloneUrl(parsed)).toThrow(
+        "Cannot build clone URL for source type: well-known",
+      );
+    });
+  });
+
+  describe("getOriginFromParsed", () => {
+    it("returns GitHub origin URL", () => {
+      const parsed: ParsedSource = {
+        type: "github",
+        original: "owner/repo",
+        canonical: "github:owner/repo",
+        owner: "owner",
+        repo: "repo",
+      };
+
+      const result = getOriginFromParsed(parsed);
+
+      expect(result).toBe("https://github.com/owner/repo");
+    });
+
+    it("returns GitLab origin URL", () => {
+      const parsed: ParsedSource = {
+        type: "gitlab",
+        original: "gitlab:owner/repo",
+        canonical: "gitlab:owner/repo",
+        owner: "owner",
+        repo: "repo",
+      };
+
+      const result = getOriginFromParsed(parsed);
+
+      expect(result).toBe("https://gitlab.com/owner/repo");
+    });
+
+    it("returns original for local source", () => {
+      const parsed: ParsedSource = {
+        type: "local",
+        original: "./local/path",
+        canonical: "./local/path",
+      };
+
+      const result = getOriginFromParsed(parsed);
+
+      expect(result).toBe("./local/path");
+    });
+
+    it("returns url for direct-url source", () => {
+      const parsed: ParsedSource = {
+        type: "direct-url",
+        original: "https://example.com/skill.md",
+        canonical: "https://example.com/skill.md",
+        url: "https://example.com/skill.md",
+      };
+
+      const result = getOriginFromParsed(parsed);
+
+      expect(result).toBe("https://example.com/skill.md");
+    });
+
+    it("returns url for well-known source", () => {
+      const parsed: ParsedSource = {
+        type: "well-known",
+        original: "https://example.com",
+        canonical: "https://example.com",
+        url: "https://example.com",
+      };
+
+      const result = getOriginFromParsed(parsed);
+
+      expect(result).toBe("https://example.com");
+    });
+
+    it("falls back to original when url is undefined for direct-url", () => {
+      const parsed: ParsedSource = {
+        type: "direct-url",
+        original: "https://example.com/fallback",
+        canonical: "https://example.com/fallback",
+      };
+
+      const result = getOriginFromParsed(parsed);
+
+      expect(result).toBe("https://example.com/fallback");
+    });
+
+    it("falls back to original when url is undefined for well-known", () => {
+      const parsed: ParsedSource = {
+        type: "well-known",
+        original: "https://example.com/fallback",
+        canonical: "https://example.com/fallback",
+      };
+
+      const result = getOriginFromParsed(parsed);
+
+      expect(result).toBe("https://example.com/fallback");
+    });
   });
 });

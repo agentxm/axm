@@ -65,7 +65,13 @@ export {
 // Skill Discovery
 export { DiscoveryError, discoverSkills } from "./skill-discovery.js";
 // Source Parser
-export { ParseError, parseSource } from "./source-parser.js";
+export {
+  buildCloneUrl,
+  CloneUrlError,
+  getOriginFromParsed,
+  ParseError,
+  parseSource,
+} from "./source-parser.js";
 // Types
 export type {
   AgentConfig,

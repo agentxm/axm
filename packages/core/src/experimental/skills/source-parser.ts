@@ -25,6 +25,18 @@ export class ParseError extends Data.TaggedError("ParseError")<{
   readonly input: string;
 }> {}
 
+/**
+ * Error thrown when a clone URL cannot be built for a source type.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export class CloneUrlError extends Error {
+  constructor(sourceType: string) {
+    super(`Cannot build clone URL for source type: ${sourceType}`);
+    this.name = "CloneUrlError";
+  }
+}
+
 // -----------------------------------------------------------------------------
 // Regex Patterns
 // -----------------------------------------------------------------------------
@@ -258,6 +270,57 @@ const parseDirectUrl = (input: string): Effect.Effect<ParsedSource, ParseError> 
     canonical: input,
     url: input,
   });
+};
+
+// -----------------------------------------------------------------------------
+// URL Builders
+// -----------------------------------------------------------------------------
+
+/**
+ * Build a git clone URL from a parsed source.
+ *
+ * Only works for GitHub and GitLab sources. Throws CloneUrlError for other types.
+ *
+ * @experimental This API is unstable and may change without notice.
+ * @param parsed - The parsed source to build a clone URL for
+ * @returns The HTTPS clone URL
+ * @throws {CloneUrlError} If the source type doesn't support cloning
+ */
+export const buildCloneUrl = (parsed: ParsedSource): string => {
+  if (parsed.type === "github") {
+    return `https://github.com/${parsed.owner}/${parsed.repo}.git`;
+  }
+  if (parsed.type === "gitlab") {
+    return `https://gitlab.com/${parsed.owner}/${parsed.repo}.git`;
+  }
+  throw new CloneUrlError(parsed.type);
+};
+
+/**
+ * Get the origin URL from a parsed source.
+ *
+ * Returns the human-readable URL or path for the source.
+ * - For GitHub: https://github.com/owner/repo
+ * - For GitLab: https://gitlab.com/owner/repo
+ * - For local: the original path
+ * - For direct-url/well-known: the url property or original
+ *
+ * @experimental This API is unstable and may change without notice.
+ * @param parsed - The parsed source to get the origin from
+ * @returns The origin URL or path
+ */
+export const getOriginFromParsed = (parsed: ParsedSource): string => {
+  switch (parsed.type) {
+    case "github":
+      return `https://github.com/${parsed.owner}/${parsed.repo}`;
+    case "gitlab":
+      return `https://gitlab.com/${parsed.owner}/${parsed.repo}`;
+    case "local":
+      return parsed.original;
+    case "direct-url":
+    case "well-known":
+      return parsed.url ?? parsed.original;
+  }
 };
 
 // -----------------------------------------------------------------------------

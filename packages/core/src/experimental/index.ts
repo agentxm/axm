@@ -5,6 +5,8 @@
  * @packageDocumentation
  */
 
+// Path utilities
+export { getAxmDir, getGlobalDir, getProjectDir } from "./paths.js";
 export type {
   ExtensionMetadata,
   ExtensionRef,

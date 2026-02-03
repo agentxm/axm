@@ -14,7 +14,7 @@
     "lint:fix": "biome lint --write .",
     "check": "biome check --write .",
     "check:ci": "biome check .",
-    "prepare": "husky"
+    "prepare": "husky && effect-language-service patch"
   },
   "lint-staged": {
     "*.{js,ts,mjs,cjs}": "biome check --write --no-errors-on-unmatched",
@@ -22,10 +22,12 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.11",
+    "@effect/language-service": "^0.72.0",
     "@effect/vitest": "^0.27.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.8.1",
+    "typescript": "catalog:",
     "vitest": "catalog:"
   }
 }

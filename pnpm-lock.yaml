@@ -16,7 +16,7 @@ catalogs:
       specifier: ^3.19.15
       version: 3.19.15
     typescript:
-      specifier: ^5.7.3
+      specifier: ^5.9.3
       version: 5.9.3
     vitest:
       specifier: ^3.2.4
@@ -32,6 +32,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.3.11
         version: 2.3.13
+      '@effect/language-service':
+        specifier: ^0.72.0
+        version: 0.72.0
       '@effect/vitest':
         specifier: ^0.27.0
         version: 0.27.0(effect@3.19.15)(vitest@3.2.4(@types/node@25.1.0)(yaml@2.8.2))
@@ -44,6 +47,9 @@ importers:
       prettier:
         specifier: ^3.8.1
         version: 3.8.1
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
       vitest:
         specifier: 'catalog:'
         version: 3.2.4(@types/node@25.1.0)(yaml@2.8.2)
@@ -205,6 +211,10 @@ packages:
         optional: true
       lmdb:
         optional: true
+
+  '@effect/language-service@0.72.0':
+    resolution: {integrity: sha512-MWkyTPCXSs5Q3OIBWR3q24SA+ipkdWW7EBJBt6EPUzlzZxjJLXtLBhXpMoCFheSEM0FTWOHT4BRLh5lufsmjVw==}
+    hasBin: true
 
   '@effect/platform-node-shared@0.57.1':
     resolution: {integrity: sha512-oX/bApMdoKsyrDiNdJxo7U9Rz1RXsjRv+ecfAPp1qGlSdGIo32wVRvJ2XCHqYj0sqaYJS0pU0/GCulRfVGuJag==}
@@ -1391,6 +1401,8 @@ snapshots:
       '@effect/platform': 0.94.2(effect@3.19.15)
       effect: 3.19.15
       uuid: 11.1.0
+
+  '@effect/language-service@0.72.0': {}
 
   '@effect/platform-node-shared@0.57.1(@effect/cluster@0.56.1(@effect/platform@0.94.2(effect@3.19.15))(@effect/rpc@0.73.0(@effect/platform@0.94.2(effect@3.19.15))(effect@3.19.15))(@effect/sql@0.49.0(@effect/experimental@0.58.0(@effect/platform@0.94.2(effect@3.19.15))(effect@3.19.15))(@effect/platform@0.94.2(effect@3.19.15))(effect@3.19.15))(@effect/workflow@0.16.0(@effect/experimental@0.58.0(@effect/platform@0.94.2(effect@3.19.15))(effect@3.19.15))(@effect/platform@0.94.2(effect@3.19.15))(@effect/rpc@0.73.0(@effect/platform@0.94.2(effect@3.19.15))(effect@3.19.15))(effect@3.19.15))(effect@3.19.15))(@effect/platform@0.94.2(effect@3.19.15))(@effect/rpc@0.73.0(@effect/platform@0.94.2(effect@3.19.15))(effect@3.19.15))(@effect/sql@0.49.0(@effect/experimental@0.58.0(@effect/platform@0.94.2(effect@3.19.15))(effect@3.19.15))(@effect/platform@0.94.2(effect@3.19.15))(effect@3.19.15))(effect@3.19.15)':
     dependencies:

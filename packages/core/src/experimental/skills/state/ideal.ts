@@ -131,20 +131,16 @@ const skillToIdeal = (
   agents: readonly string[],
 ): IdealSkill => {
   const skillSource =
-    source.parsed.type === "local"
-      ? SkillSource.Local({ path: nodePath.dirname(skill.path) })
-      : source.parsed.type === "github" || source.parsed.type === "gitlab"
-        ? SkillSource.Git({
-            url: source.parsed.canonical,
-            ref: Option.fromNullable(source.parsed.ref),
-            subpath: Option.fromNullable(source.parsed.path),
-          })
-        : source.parsed.type === "well-known"
-          ? SkillSource.WellKnown({
-              baseUrl: source.parsed.url ?? source.parsed.canonical,
-              skillName: skill.name,
-            })
-          : SkillSource.Local({ path: nodePath.dirname(skill.path) });
+    source.parsed.type === "github" ||
+    source.parsed.type === "gitlab" ||
+    source.parsed.type === "bitbucket" ||
+    source.parsed.type === "git"
+      ? SkillSource.Git({
+          url: source.parsed.canonical,
+          ref: Option.fromNullable(source.parsed.ref),
+          subpath: Option.fromNullable(source.parsed.path),
+        })
+      : SkillSource.Local({ path: nodePath.dirname(skill.path) });
 
   return {
     name: skill.name,

@@ -13,7 +13,6 @@ import {
   resolveAxmName,
   resolveBareName,
   resolveExplicitSource,
-  resolveLocalPath,
   resolveUrl,
 } from "./resolvers/index.js";
 import type { ExtensionRef, ExtensionType, ResolutionOptions, SourceType } from "./types.js";
@@ -68,12 +67,11 @@ const filterByType = (refs: ExtensionRef[], types?: readonly ExtensionType[]): E
  * Resolves an extension input string to one or more extension references.
  *
  * Tries resolvers in order and returns the first non-empty result:
- * 1. resolveLocalPath - File system paths
- * 2. resolveAxmName - Scoped names like @owner/name
- * 3. resolveBareName - Bare names like name
- * 4. resolveExplicitSource - Explicit source prefixes (github:, gitlab:, etc.)
- * 5. resolveAmbiguous - Multiple matches requiring user selection
- * 6. resolveUrl - Direct URLs
+ * 1. resolveAxmName - Scoped names like @owner/name
+ * 2. resolveBareName - Bare names like name
+ * 3. resolveExplicitSource - Explicit source prefixes (github:, gitlab:, etc.)
+ * 4. resolveAmbiguous - Multiple matches requiring user selection
+ * 5. resolveUrl - Direct URLs
  *
  * After resolution, filters results by source type and extension type if specified in options.
  *
@@ -88,7 +86,6 @@ export const resolveExtension = (
   options: ResolutionOptions = {},
 ): Effect.Effect<ExtensionRef[], ResolutionError, FileSystem.FileSystem> => {
   const resolvers: Resolver[] = [
-    resolveLocalPath,
     resolveAxmName,
     resolveBareName,
     resolveExplicitSource,

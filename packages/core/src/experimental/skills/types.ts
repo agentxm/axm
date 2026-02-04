@@ -50,9 +50,15 @@ export interface AgentConfig {
 /**
  * Source type discriminator for ParsedSource.
  *
+ * - `"github"` - GitHub repository source
+ * - `"gitlab"` - GitLab repository source
+ * - `"bitbucket"` - Bitbucket repository source
+ * - `"git"` - Generic git repository source
+ * - `"registry"` - Package registry source
+ *
  * @experimental This API is unstable and may change without notice.
  */
-export type SourceType = "github" | "gitlab" | "local" | "direct-url" | "well-known";
+export type SourceType = "github" | "gitlab" | "bitbucket" | "git" | "registry";
 
 /**
  * Result of parsing a source string.
@@ -66,15 +72,15 @@ export interface ParsedSource {
   readonly original: string;
   /** Normalized canonical form (e.g., "github:owner/repo") */
   readonly canonical: string;
-  /** Repository owner (for github/gitlab) */
+  /** Repository owner (for github/gitlab/bitbucket) */
   readonly owner?: string;
-  /** Repository name (for github/gitlab) */
+  /** Repository name (for github/gitlab/bitbucket) */
   readonly repo?: string;
   /** Git ref (tag, branch, or SHA) */
   readonly ref?: string;
   /** Subpath within the repository */
   readonly path?: string;
-  /** URL (for direct-url/well-known) */
+  /** URL (for git sources) */
   readonly url?: string;
 }
 

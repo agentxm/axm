@@ -1,7 +1,7 @@
 /**
  * Source string parser for skills.
  *
- * Parses various source formats (GitHub shorthand, URLs, local paths)
+ * Parses various source formats (GitHub shorthand, URLs)
  * into a normalized ParsedSource structure.
  *
  * @experimental This API is unstable and may change without notice.
@@ -66,6 +66,19 @@ const GITHUB_SSH_PATTERN = /^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/;
 const GITLAB_SSH_PATTERN = /^git@gitlab\.com:([^/]+)\/([^/]+?)(?:\.git)?$/;
 
 /**
+ * Bitbucket HTTPS URL pattern.
+ * Matches: https://bitbucket.org/owner/repo[/src/ref/path]
+ */
+const BITBUCKET_HTTPS_PATTERN =
+  /^https?:\/\/bitbucket\.org\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/src\/([^/]+)(?:\/(.+))?)?$/;
+
+/**
+ * Bitbucket SSH URL pattern.
+ * Matches: git@bitbucket.org:owner/repo.git
+ */
+const BITBUCKET_SSH_PATTERN = /^git@bitbucket\.org:([^/]+)\/([^/]+?)(?:\.git)?$/;
+
+/**
  * GitHub/GitLab shorthand pattern.
  * Matches: owner/repo[/path][@ref]
  * Note: Must have exactly 2+ segments separated by / and owner cannot start with . or /
@@ -74,31 +87,31 @@ const SHORTHAND_PATTERN = /^([^/@.][^/@]*)\/([^/@]+)(?:\/([^@]+))?(?:@(.+))?$/;
 
 /**
  * Prefixed shorthand pattern.
- * Matches: github:owner/repo[/path][@ref] or gitlab:owner/repo[/path][@ref]
+ * Matches: github:owner/repo[/path][@ref] or gitlab:owner/repo[/path][@ref] or bitbucket:owner/repo[/path][@ref]
  */
-const PREFIXED_SHORTHAND_PATTERN = /^(github|gitlab):([^/@]+)\/([^/@]+)(?:\/([^@]+))?(?:@(.+))?$/;
+const PREFIXED_SHORTHAND_PATTERN =
+  /^(github|gitlab|bitbucket):([^/@]+)\/([^/@]+)(?:\/([^@]+))?(?:@(.+))?$/;
 
 /**
- * Local path pattern.
- * Matches: ./path, ../path, /path, or Windows paths like C:\path
- */
-const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|[A-Za-z]:[\\/])/;
-
-/**
- * Direct URL pattern.
- * Matches: https://example.com/anything (not GitHub/GitLab)
+ * URL pattern for detecting HTTPS URLs.
  */
 const URL_PATTERN = /^https?:\/\/.+/;
+
+/**
+ * Local path pattern for rejecting local filesystem paths.
+ * Matches: ./path, ../path, /path, or Windows paths like C:\path or C:/path
+ */
+const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|[A-Za-z]:[\\/]|[A-Za-z]:\/)/;
 
 // -----------------------------------------------------------------------------
 // Helper Functions
 // -----------------------------------------------------------------------------
 
 /**
- * Build a ParsedSource for GitHub/GitLab sources.
+ * Build a ParsedSource for GitHub/GitLab/Bitbucket sources.
  */
 const buildGitSource = (
-  type: "github" | "gitlab",
+  type: "github" | "gitlab" | "bitbucket",
   original: string,
   owner: string,
   repo: string,
@@ -183,7 +196,39 @@ const parseGitLabSshUrl = (input: string): Effect.Effect<ParsedSource, ParseErro
 };
 
 /**
- * Parse a prefixed shorthand (github:owner/repo or gitlab:owner/repo).
+ * Parse a Bitbucket HTTPS URL.
+ */
+const parseBitbucketHttpsUrl = (input: string): Effect.Effect<ParsedSource, ParseError> => {
+  const match = input.match(BITBUCKET_HTTPS_PATTERN);
+  if (!match || !match[1] || !match[2]) {
+    return Effect.fail(new ParseError({ message: "Invalid Bitbucket URL format", input }));
+  }
+
+  const owner = match[1];
+  const repo = match[2];
+  const ref = match[3];
+  const path = match[4];
+
+  return Effect.succeed(buildGitSource("bitbucket", input, owner, repo, ref, path));
+};
+
+/**
+ * Parse a Bitbucket SSH URL.
+ */
+const parseBitbucketSshUrl = (input: string): Effect.Effect<ParsedSource, ParseError> => {
+  const match = input.match(BITBUCKET_SSH_PATTERN);
+  if (!match || !match[1] || !match[2]) {
+    return Effect.fail(new ParseError({ message: "Invalid Bitbucket SSH URL format", input }));
+  }
+
+  const owner = match[1];
+  const repo = match[2];
+
+  return Effect.succeed(buildGitSource("bitbucket", input, owner, repo));
+};
+
+/**
+ * Parse a prefixed shorthand (github:owner/repo, gitlab:owner/repo, or bitbucket:owner/repo).
  */
 const parsePrefixedShorthand = (input: string): Effect.Effect<ParsedSource, ParseError> => {
   const match = input.match(PREFIXED_SHORTHAND_PATTERN);
@@ -191,7 +236,7 @@ const parsePrefixedShorthand = (input: string): Effect.Effect<ParsedSource, Pars
     return Effect.fail(new ParseError({ message: "Invalid prefixed shorthand format", input }));
   }
 
-  const prefix = match[1] as "github" | "gitlab";
+  const prefix = match[1] as "github" | "gitlab" | "bitbucket";
   const owner = match[2];
   const repo = match[3];
   const path = match[4];
@@ -218,47 +263,6 @@ const parseShorthand = (input: string): Effect.Effect<ParsedSource, ParseError> 
   return Effect.succeed(buildGitSource("github", input, owner, repo, ref, path));
 };
 
-/**
- * Parse a local path (./relative, /absolute, or Windows path).
- */
-const parseLocalPath = (input: string): Effect.Effect<ParsedSource, never> =>
-  Effect.succeed({
-    type: "local",
-    original: input,
-    canonical: input,
-  } satisfies ParsedSource);
-
-/**
- * Parse a direct URL (non-GitHub/GitLab HTTPS URL).
- */
-const parseDirectUrl = (input: string): Effect.Effect<ParsedSource, ParseError> => {
-  // Check if it's a well-known URL (has a host but no file extension suggesting a direct file)
-  // Direct URLs typically point to specific files (e.g., .md, .txt)
-  // Well-known URLs are base URLs that will be used to fetch /.well-known/skills/index.json
-  const url = new URL(input);
-  const pathname = url.pathname;
-
-  // If the URL ends with a known file extension, treat as direct-url
-  // Otherwise, treat as well-known (will fetch /.well-known/skills/index.json)
-  const hasFileExtension = /\.[a-zA-Z0-9]+$/.test(pathname);
-
-  if (hasFileExtension) {
-    return Effect.succeed({
-      type: "direct-url",
-      original: input,
-      canonical: input,
-      url: input,
-    } satisfies ParsedSource);
-  }
-
-  return Effect.succeed({
-    type: "well-known",
-    original: input,
-    canonical: input,
-    url: input,
-  } satisfies ParsedSource);
-};
-
 // -----------------------------------------------------------------------------
 // URL Builders
 // -----------------------------------------------------------------------------
@@ -266,7 +270,7 @@ const parseDirectUrl = (input: string): Effect.Effect<ParsedSource, ParseError> 
 /**
  * Build a git clone URL from a parsed source.
  *
- * Only works for GitHub and GitLab sources. Returns CloneUrlError for other types.
+ * Only works for GitHub, GitLab, and Bitbucket sources. Returns CloneUrlError for other types.
  *
  * @experimental This API is unstable and may change without notice.
  * @param parsed - The parsed source to build a clone URL for
@@ -278,6 +282,9 @@ export const buildCloneUrl = (parsed: ParsedSource): Effect.Effect<string, Clone
   }
   if (parsed.type === "gitlab") {
     return Effect.succeed(`https://gitlab.com/${parsed.owner}/${parsed.repo}.git`);
+  }
+  if (parsed.type === "bitbucket") {
+    return Effect.succeed(`https://bitbucket.org/${parsed.owner}/${parsed.repo}.git`);
   }
   return Effect.fail(
     new CloneUrlError({
@@ -293,8 +300,8 @@ export const buildCloneUrl = (parsed: ParsedSource): Effect.Effect<string, Clone
  * Returns the human-readable URL or path for the source.
  * - For GitHub: https://github.com/owner/repo
  * - For GitLab: https://gitlab.com/owner/repo
- * - For local: the original path
- * - For direct-url/well-known: the url property or original
+ * - For Bitbucket: https://bitbucket.org/owner/repo
+ * - For git/registry: the original string
  *
  * @experimental This API is unstable and may change without notice.
  * @param parsed - The parsed source to get the origin from
@@ -306,11 +313,11 @@ export const getOriginFromParsed = (parsed: ParsedSource): string => {
       return `https://github.com/${parsed.owner}/${parsed.repo}`;
     case "gitlab":
       return `https://gitlab.com/${parsed.owner}/${parsed.repo}`;
-    case "local":
+    case "bitbucket":
+      return `https://bitbucket.org/${parsed.owner}/${parsed.repo}`;
+    case "git":
+    case "registry":
       return parsed.original;
-    case "direct-url":
-    case "well-known":
-      return parsed.url ?? parsed.original;
   }
 };
 
@@ -323,14 +330,13 @@ export const getOriginFromParsed = (parsed: ParsedSource): string => {
  *
  * Supported formats:
  * - GitHub shorthand: `owner/repo`, `owner/repo@ref`, `owner/repo/path`, `owner/repo/path@ref`
- * - Prefixed shorthand: `github:owner/repo`, `gitlab:owner/repo`
+ * - Prefixed shorthand: `github:owner/repo`, `gitlab:owner/repo`, `bitbucket:owner/repo`
  * - GitHub HTTPS: `https://github.com/owner/repo`, `https://github.com/owner/repo/tree/branch/path`
  * - GitLab HTTPS: `https://gitlab.com/owner/repo`, `https://gitlab.com/owner/repo/-/tree/branch/path`
+ * - Bitbucket HTTPS: `https://bitbucket.org/owner/repo`, `https://bitbucket.org/owner/repo/src/branch/path`
  * - GitHub SSH: `git@github.com:owner/repo.git`
  * - GitLab SSH: `git@gitlab.com:owner/repo.git`
- * - Local paths: `./relative/path`, `/absolute/path`, `C:\windows\path`
- * - Direct URLs: `https://example.com/skill.md`
- * - Well-known: `https://example.com` (will fetch /.well-known/skills/index.json)
+ * - Bitbucket SSH: `git@bitbucket.org:owner/repo.git`
  *
  * @experimental This API is unstable and may change without notice.
  * @param input - The source string to parse
@@ -344,8 +350,12 @@ export const parseSource = (input: string): Effect.Effect<ParsedSource, ParseErr
     return Effect.fail(new ParseError({ message: "Source string cannot be empty", input }));
   }
 
-  // Check for prefixed shorthand first (github:, gitlab:)
-  if (trimmed.startsWith("github:") || trimmed.startsWith("gitlab:")) {
+  // Check for prefixed shorthand first (github:, gitlab:, bitbucket:)
+  if (
+    trimmed.startsWith("github:") ||
+    trimmed.startsWith("gitlab:") ||
+    trimmed.startsWith("bitbucket:")
+  ) {
     return parsePrefixedShorthand(trimmed);
   }
 
@@ -359,6 +369,11 @@ export const parseSource = (input: string): Effect.Effect<ParsedSource, ParseErr
     return parseGitLabHttpsUrl(trimmed);
   }
 
+  // Check for Bitbucket HTTPS URL
+  if (trimmed.match(/^https?:\/\/bitbucket\.org\//)) {
+    return parseBitbucketHttpsUrl(trimmed);
+  }
+
   // Check for GitHub SSH URL
   if (trimmed.startsWith("git@github.com:")) {
     return parseGitHubSshUrl(trimmed);
@@ -369,17 +384,29 @@ export const parseSource = (input: string): Effect.Effect<ParsedSource, ParseErr
     return parseGitLabSshUrl(trimmed);
   }
 
-  // Check for local paths
-  if (LOCAL_PATH_PATTERN.test(trimmed)) {
-    return parseLocalPath(trimmed);
+  // Check for Bitbucket SSH URL
+  if (trimmed.startsWith("git@bitbucket.org:")) {
+    return parseBitbucketSshUrl(trimmed);
   }
 
-  // Check for other URLs (direct-url or well-known)
+  // Check for other HTTPS URLs (not supported)
   if (URL_PATTERN.test(trimmed)) {
-    return Effect.try({
-      try: () => new URL(trimmed),
-      catch: () => new ParseError({ message: "Invalid URL format", input: trimmed }),
-    }).pipe(Effect.flatMap(() => parseDirectUrl(trimmed)));
+    return Effect.fail(
+      new ParseError({
+        message: `Unsupported URL: "${trimmed}". Only GitHub, GitLab, and Bitbucket URLs are supported.`,
+        input: trimmed,
+      }),
+    );
+  }
+
+  // Check for local paths (not supported)
+  if (LOCAL_PATH_PATTERN.test(trimmed)) {
+    return Effect.fail(
+      new ParseError({
+        message: `Local paths are not supported: "${trimmed}". Use a git URL or shorthand instead.`,
+        input: trimmed,
+      }),
+    );
   }
 
   // Try to parse as shorthand (owner/repo)
@@ -390,7 +417,7 @@ export const parseSource = (input: string): Effect.Effect<ParsedSource, ParseErr
   // Unable to parse
   return Effect.fail(
     new ParseError({
-      message: `Unable to parse source: "${trimmed}". Expected GitHub shorthand (owner/repo), URL, or local path.`,
+      message: `Unable to parse source: "${trimmed}". Expected GitHub shorthand (owner/repo) or GitHub/GitLab/Bitbucket URL.`,
       input: trimmed,
     }),
   );

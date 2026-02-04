@@ -159,13 +159,13 @@ describe("selectExtensionRef", () => {
       Effect.gen(function* () {
         const refs = [
           createRef({ origin: "https://github.com/owner/repo", source: "github" }),
-          createRef({ origin: "/local/path/to/skills", source: "path" }),
+          createRef({ origin: "/local/path/to/skills", source: "git" }),
         ];
 
         const error = yield* selectExtensionRef(refs, "skills", false).pipe(Effect.flip);
 
         expect(error.message).toContain("https://github.com/owner/repo (github)");
-        expect(error.message).toContain("/local/path/to/skills (path)");
+        expect(error.message).toContain("/local/path/to/skills (git)");
       }),
     );
 

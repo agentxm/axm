@@ -10,7 +10,7 @@
 
 import { Effect } from "effect";
 import { parseSource } from "../../skills/source-parser.js";
-import type { ExtensionRef, ResolutionOptions, SourceType } from "../types.js";
+import type { ExtensionRef, ResolutionOptions } from "../types.js";
 
 /**
  * URL pattern for detecting URL-like inputs.
@@ -44,28 +44,6 @@ const buildOriginUrl = (sourceType: "github" | "gitlab", owner: string, repo: st
 };
 
 /**
- * Map ParsedSource type to resolution SourceType.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const mapSourceType = (
-  parsedType: "github" | "gitlab" | "local" | "direct-url" | "well-known",
-): SourceType => {
-  switch (parsedType) {
-    case "github":
-      return "github";
-    case "gitlab":
-      return "gitlab";
-    case "direct-url":
-      return "direct-url";
-    case "well-known":
-      return "well-known";
-    case "local":
-      return "path";
-  }
-};
-
-/**
  * Resolve URL-like inputs to ExtensionRefs.
  *
  * Handles:
@@ -73,8 +51,6 @@ const mapSourceType = (
  * - GitLab HTTPS URLs: `https://gitlab.com/owner/repo`
  * - GitHub SSH URLs: `git@github.com:owner/repo.git`
  * - GitLab SSH URLs: `git@gitlab.com:owner/repo.git`
- * - Direct URLs: `https://example.com/skill.md`
- * - Well-known URLs: `https://example.com` (base URL for /.well-known/skills/)
  *
  * This is the last resolver in the pipeline - catches any URL-like inputs
  * that weren't handled by earlier resolvers.
@@ -118,20 +94,7 @@ export const resolveUrl = (
         return [ref];
       }
 
-      // Handle direct-url and well-known sources
-      if (parsed.type === "direct-url" || parsed.type === "well-known") {
-        const ref: ExtensionRef = {
-          type: "skill", // Infer as skill for now
-          source: mapSourceType(parsed.type),
-          origin: trimmed, // Use the URL itself as the origin
-          originalInput: input,
-          metadata: {},
-        };
-
-        return [ref];
-      }
-
-      // Local paths shouldn't be handled by URL resolver
+      // Other source types (bitbucket, git, registry) not yet supported by URL resolver
       return [];
     }),
     // On parse error, return empty array (not a match for this resolver)

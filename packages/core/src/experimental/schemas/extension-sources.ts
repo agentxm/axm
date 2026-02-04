@@ -13,13 +13,14 @@ import { Schema } from "effect";
  * Source type discriminator for extension origins.
  *
  * - `"github"` - GitHub repository source
+ * - `"gitlab"` - GitLab repository source
+ * - `"bitbucket"` - Bitbucket repository source
  * - `"git"` - Generic git repository source
- * - `"local"` - Local filesystem source
  * - `"registry"` - Package registry source
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SourceSchema = Schema.Literal("github", "git", "local", "registry");
+export const SourceSchema = Schema.Literal("github", "gitlab", "bitbucket", "git", "registry");
 
 /**
  * Inferred type for SourceSchema.

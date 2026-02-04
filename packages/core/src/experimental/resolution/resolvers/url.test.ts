@@ -160,60 +160,35 @@ describe("url resolver", () => {
     );
   });
 
-  describe("direct URLs", () => {
-    it.effect("resolves URL with file extension as direct-url", () =>
+  describe("non-git URLs", () => {
+    // Note: Non-git URLs (direct files, well-known endpoints) are not currently
+    // supported by the resolution pipeline as their source types are not in SourceType.
+    // These tests verify the current behavior of returning empty arrays.
+
+    it.effect("returns empty for URL with file extension (not a git host)", () =>
       Effect.gen(function* () {
         const result = yield* resolveUrl("https://example.com/skills/my-skill.md", defaultOptions);
 
-        expect(result).toHaveLength(1);
-        expect(result[0]).toMatchObject({
-          type: "skill",
-          source: "direct-url",
-          origin: "https://example.com/skills/my-skill.md",
-          originalInput: "https://example.com/skills/my-skill.md",
-        });
+        // Non-git URLs return empty - source type filtering removes them
+        expect(result).toEqual([]);
       }),
     );
 
-    it.effect("resolves URL with .txt extension as direct-url", () =>
-      Effect.gen(function* () {
-        const result = yield* resolveUrl("https://example.com/skill.txt", defaultOptions);
-
-        expect(result).toHaveLength(1);
-        expect(result[0]).toMatchObject({
-          type: "skill",
-          source: "direct-url",
-          origin: "https://example.com/skill.txt",
-        });
-      }),
-    );
-  });
-
-  describe("well-known URLs", () => {
-    it.effect("resolves base URL without file extension as well-known", () =>
+    it.effect("returns empty for URL without recognized git host", () =>
       Effect.gen(function* () {
         const result = yield* resolveUrl("https://example.com", defaultOptions);
 
-        expect(result).toHaveLength(1);
-        expect(result[0]).toMatchObject({
-          type: "skill",
-          source: "well-known",
-          origin: "https://example.com",
-          originalInput: "https://example.com",
-        });
+        // Non-git URLs return empty - source type filtering removes them
+        expect(result).toEqual([]);
       }),
     );
 
-    it.effect("resolves URL with path but no extension as well-known", () =>
+    it.effect("returns empty for URL with path but no recognized git host", () =>
       Effect.gen(function* () {
         const result = yield* resolveUrl("https://example.com/some/path", defaultOptions);
 
-        expect(result).toHaveLength(1);
-        expect(result[0]).toMatchObject({
-          type: "skill",
-          source: "well-known",
-          origin: "https://example.com/some/path",
-        });
+        // Non-git URLs return empty - source type filtering removes them
+        expect(result).toEqual([]);
       }),
     );
   });

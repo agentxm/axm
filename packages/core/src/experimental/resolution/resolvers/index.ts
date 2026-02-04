@@ -9,5 +9,4 @@ export { resolveAmbiguous } from "./ambiguous.js";
 export { isAxmName, resolveAxmName } from "./axm-name.js";
 export { resolveBareName } from "./bare-name.js";
 export { resolveExplicitSource } from "./explicit-source.js";
-export { isLocalPath, resolveLocalPath } from "./local-path.js";
 export { resolveUrl } from "./url.js";

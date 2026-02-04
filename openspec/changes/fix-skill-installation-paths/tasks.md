@@ -73,69 +73,80 @@
 
 ## 8. Enhance workspace/apply.ts - Comprehensive Tests
 
-- [ ] 8.1 Test applyStep InstallSkill copies to canonical + syncs to agents
-- [ ] 8.2 Test applyStep UninstallSkill removes from agents + canonical
-- [ ] 8.3 Test applyStep UpdateSkill removes old + installs new
-- [ ] 8.4 Test applyPlan updates lockfile on success
-- [ ] 8.5 Test applyPlan updates settings on success
-- [ ] 8.6 Test applyPlan with dryRun: true makes no changes
-- [ ] 8.7 Run `pnpm typecheck` and fix any errors
-- [ ] 8.8 Run `pnpm lint` and fix any errors
-- [ ] 8.9 Run `pnpm test packages/core/src/experimental/workspace/` and fix any failures
-- [ ] 8.10 Kill any vitest worker processes
+_All tests already exist in apply.test.ts (verified 2024-02-04)._
 
-## 9. Migrate Install Handler
+- [x] 8.1 Test applyStep InstallSkill copies to canonical + syncs to agents (lines 503-644)
+- [x] 8.2 Test applyStep UninstallSkill removes from agents + canonical (lines 793-866)
+- [x] 8.3 Test applyStep UpdateSkill removes old + installs new (lines 707-754)
+- [x] 8.4 Test applyPlan updates lockfile on success (lines 239-254, 919-1137)
+- [x] 8.5 Test applyPlan updates settings on success (lines 239-254, 1180-1379)
+- [x] 8.6 Test applyPlan with dryRun: true makes no changes (lines 186-206)
+- [x] 8.7 Run `pnpm typecheck` and fix any errors
+- [x] 8.8 Run `pnpm lint` and fix any errors (one fix: `version` -> `_version` in sourceV2ToLockEntry)
+- [x] 8.9 Run `pnpm test packages/core/src/experimental/workspace/` and fix any failures (116 tests pass)
+- [x] 8.10 Kill any vitest worker processes
 
-- [ ] 9.1 Update imports in install/handler.ts to use agents/ module
-- [ ] 9.2 Update imports in install/handler.ts to use workspace/\* modules
-- [ ] 9.3 Replace loadSkillsState with loadCurrentState
-- [ ] 9.4 Replace buildIdealForInstall with buildIdealState
-- [ ] 9.5 Replace computeDiff with buildPlan
-- [ ] 9.6 Replace applyDiff with applyPlan
-- [ ] 9.7 Update progress event handling for new API
-- [ ] 9.8 Update test mocks in install/handler.test.ts to use new AgentConfig structure
-- [ ] 9.9 Run `pnpm typecheck` and fix any errors
-- [ ] 9.10 Run `pnpm lint` and fix any errors
-- [ ] 9.11 Run `pnpm test` and fix any failures
-- [ ] 9.12 Run `pnpm test:e2e -- --grep install` and fix any failures
-- [ ] 9.13 Kill any vitest worker processes
+## 9. Update Legacy Apply to Use New AgentConfig
 
-## 10. Migrate Uninstall Handler
+_BLOCKER: The CLI handlers use `applyDiff` from `skills/state/apply.ts` which expects the OLD
+AgentConfig type (with `detectPath` and optional `skillsDir`). The new AgentConfig from `agents/`
+has `skills.projectDir` and `skills.globalDir` instead. Handlers cannot be migrated until the
+legacy apply accepts the new type._
 
-- [ ] 10.1 Update imports in uninstall/handler.ts to use agents/ module
-- [ ] 10.2 Update imports in uninstall/handler.ts to use workspace/\* modules
-- [ ] 10.3 Replace legacy pipeline calls with workspace V2
-- [ ] 10.4 Fix handlePartialUninstall to use agent.skills.projectDir instead of fallback pattern
-- [ ] 10.5 Update test mocks in uninstall/handler.test.ts to use new AgentConfig structure
-- [ ] 10.6 Run `pnpm typecheck` and fix any errors
-- [ ] 10.7 Run `pnpm lint` and fix any errors
-- [ ] 10.8 Run `pnpm test` and fix any failures
-- [ ] 10.9 Run `pnpm test:e2e -- --grep uninstall` and fix any failures
-- [ ] 10.10 Kill any vitest worker processes
+_Option A: Update `skills/state/apply.ts` to accept new AgentConfig type (keeps legacy pipeline)_
+_Option B: Create workspace V2 pipeline (`loadCurrentState`, `buildIdealState`, `buildPlan`) (full migration)_
 
-## 11. Migrate Init Handler (if applicable)
+_Choosing Option A for this change - full V2 migration deferred to separate change._
 
-- [ ] 11.1 Check if init/handler.ts uses skills/state functions
-- [ ] 11.2 Update to workspace pipeline if needed
-- [ ] 11.3 Run `pnpm typecheck` and fix any errors
-- [ ] 11.4 Run `pnpm lint` and fix any errors
-- [ ] 11.5 Run `pnpm test` and fix any failures
-- [ ] 11.6 Kill any vitest worker processes
+- [ ] 9.1 Update `skills/state/apply.ts` to import AgentConfig from `agents/` module
+- [ ] 9.2 Update `applyAdd` to use `agent.skills.projectDir` instead of `agent.skillsDir ?? ...` fallback
+- [ ] 9.3 Update `applyRemove` to use `agent.skills.projectDir` instead of fallback
+- [ ] 9.4 Update any other functions that access agent paths
+- [ ] 9.5 Run `pnpm typecheck` and fix any errors
+- [ ] 9.6 Run `pnpm lint` and fix any errors
+- [ ] 9.7 Run `pnpm test packages/core/src/experimental/skills/state/` and fix any failures
+- [ ] 9.8 Kill any vitest worker processes
 
-## 12. Delete Superseded skills/state/ Modules
+## 10. Migrate Install Handler
 
-- [ ] 12.1 Delete `skills/state/apply.ts` and `skills/state/apply.test.ts`
-- [ ] 12.2 Delete `skills/state/load.ts` and `skills/state/load.test.ts`
-- [ ] 12.3 Delete `skills/state/ideal.ts` and `skills/state/ideal.test.ts`
-- [ ] 12.4 Delete `skills/state/diff.ts` and `skills/state/diff.test.ts`
-- [ ] 12.5 Update `skills/state/index.ts` to only export kept modules (types.ts, pure-functions.ts)
-- [ ] 12.6 Remove legacy state exports from `skills/index.ts`
-- [ ] 12.7 Run `pnpm typecheck` and fix any errors
-- [ ] 12.8 Run `pnpm lint` and fix any errors
-- [ ] 12.9 Run `pnpm test` and fix any failures
-- [ ] 12.10 Kill any vitest worker processes
+_Depends on Phase 9 completing - legacy apply must accept new AgentConfig first._
+
+- [ ] 10.1 Update imports in install/handler.ts to use agents/ module for AgentConfig, detectAgents, getAgentById
+- [ ] 10.2 Update getAgentById usage to handle Option<AgentConfig> return type
+- [ ] 10.3 Update any `agent.skillsDir` references to `agent.skills.projectDir`
+- [ ] 10.4 Update test mocks in install/handler.test.ts to use new AgentConfig structure
+- [ ] 10.5 Run `pnpm typecheck` and fix any errors
+- [ ] 10.6 Run `pnpm lint` and fix any errors
+- [ ] 10.7 Run `pnpm test packages/cli/src/commands/skills/install/` and fix any failures
+- [ ] 10.8 Run `pnpm test:e2e -- --grep install` and fix any failures
+- [ ] 10.9 Kill any vitest worker processes
+
+## 11. Migrate Uninstall Handler
+
+_Depends on Phase 9 completing - legacy apply must accept new AgentConfig first._
+
+- [ ] 11.1 Update imports in uninstall/handler.ts to use agents/ module
+- [ ] 11.2 Update getAgentById usage to handle Option<AgentConfig> return type
+- [ ] 11.3 Fix handlePartialUninstall to use agent.skills.projectDir instead of fallback pattern
+- [ ] 11.4 Update test mocks in uninstall/handler.test.ts to use new AgentConfig structure
+- [ ] 11.5 Run `pnpm typecheck` and fix any errors
+- [ ] 11.6 Run `pnpm lint` and fix any errors
+- [ ] 11.7 Run `pnpm test packages/cli/src/commands/skills/uninstall/` and fix any failures
+- [ ] 11.8 Run `pnpm test:e2e -- --grep uninstall` and fix any failures
+- [ ] 11.9 Kill any vitest worker processes
+
+## 12. Migrate Init Handler (if applicable)
+
+- [ ] 12.1 Check if init/handler.ts uses skills/state functions or AgentConfig
+- [ ] 12.2 Update to use agents/ module if needed
+- [ ] 12.3 Run `pnpm typecheck` and fix any errors
+- [ ] 12.4 Run `pnpm lint` and fix any errors
+- [ ] 12.5 Run `pnpm test` and fix any failures
+- [ ] 12.6 Kill any vitest worker processes
 
 ## 13. Delete Superseded Agent Code
+
+_After handlers migrate to agents/ module, remove old agent code from skills/._
 
 - [ ] 13.1 Remove AgentConfig interface from `skills/types.ts`
 - [ ] 13.2 Remove agent exports from `skills/index.ts` (SUPPORTED_AGENTS, detectAgents, getAgentById, DetectionError)
@@ -163,3 +174,17 @@
 - [ ] 15.3 Run `pnpm test` - full test suite
 - [ ] 15.4 Run `pnpm test:e2e` - full E2E suite
 - [ ] 15.5 Kill any vitest worker processes
+
+---
+
+## Deferred to Future Change: Delete skills/state/ Modules
+
+_The following deletions are deferred until the workspace V2 pipeline is fully implemented.
+Currently, CLI handlers still depend on `skills/state/apply.ts` and related modules._
+
+- [ ] Delete `skills/state/apply.ts` and `skills/state/apply.test.ts`
+- [ ] Delete `skills/state/load.ts` and `skills/state/load.test.ts`
+- [ ] Delete `skills/state/ideal.ts` and `skills/state/ideal.test.ts`
+- [ ] Delete `skills/state/diff.ts` and `skills/state/diff.test.ts`
+- [ ] Update `skills/state/index.ts` to only export kept modules (types.ts, pure-functions.ts)
+- [ ] Remove legacy state exports from `skills/index.ts`

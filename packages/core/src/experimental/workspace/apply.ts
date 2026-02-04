@@ -733,7 +733,7 @@ export const applyStep = (
  */
 const sourceV2ToLockEntry = (
   source: SkillSourceV2,
-  version: Option.Option<string>,
+  _version: Option.Option<string>,
   gitTreeHash: Option.Option<string>,
   agents: ReadonlyArray<string>,
   installedAt: Date,

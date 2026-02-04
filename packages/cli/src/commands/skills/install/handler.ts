@@ -380,6 +380,7 @@ export const handleInstall = (
 
     if (args.agent.length > 0) {
       // Use explicitly specified agents
+      // Try new agents module first, fall back to legacy for compatibility with applyDiff
       agents = args.agent
         .map((id) => getAgentById(id))
         .filter((a): a is AgentConfig => a !== undefined);

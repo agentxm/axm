@@ -49,6 +49,20 @@ The resolution module SHALL recognize local filesystem paths and resolve them wi
 - **WHEN** the input is `C:\Users\name\skills`
 - **THEN** the module resolves it as an absolute local path
 
+### Requirement: Input Syntax - Home Directory Path
+
+The resolution module SHALL recognize home directory paths starting with `~` and expand them to the user's home directory.
+
+#### Scenario: Home directory path with tilde
+
+- **WHEN** the input is `~/skills/my-skill`
+- **THEN** the module expands `~` to the user's home directory and resolves as a local path
+
+#### Scenario: Home directory path on Windows
+
+- **WHEN** the input is `~\skills\my-skill` on Windows
+- **THEN** the module expands `~` to the user's home directory and resolves as a local path
+
 ### Requirement: Input Syntax - AXM Name
 
 The resolution module SHALL recognize fully qualified AXM names in `@scope/name` format.

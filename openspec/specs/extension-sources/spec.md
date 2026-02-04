@@ -26,7 +26,11 @@ Source strings SHALL follow these formats:
 | registry | `@scope/name` or `@scope/name@version` | `@acme/my-skill`, `@acme/my-skill@1.0.0`         |
 | github   | `github:owner/repo[/path][#ref]`       | `github:acme/skills`, `github:acme/repo/path#v1` |
 | git      | `git:url[#ref]`                        | `git:https://example.com/repo.git#main`          |
-| local    | `local:path`                           | `local:./my-skills/foo`, `local:/abs/path`       |
+| local    | `local:path` or bare path              | `local:./skills`, `~/my-skills`, `./dev-skill`   |
+
+Bare paths starting with `./`, `../`, `/`, `~/`, or Windows drive letters (e.g., `C:\`) are recognized as local sources and normalized to `local:path` format internally.
+
+The `~` prefix represents the user's home directory and is expanded at resolution time.
 
 #### Scenario: Registry source string
 
@@ -43,7 +47,17 @@ Source strings SHALL follow these formats:
 - **WHEN** parsing source string `git:https://example.com/repo.git#v2.0.0`
 - **THEN** source type is `git` with url `https://example.com/repo.git`, ref `v2.0.0`
 
-#### Scenario: Local source string
+#### Scenario: Local source string with explicit prefix
 
 - **WHEN** parsing source string `local:./my-skills/dev-skill`
 - **THEN** source type is `local` with path `./my-skills/dev-skill`
+
+#### Scenario: Local source string with bare path
+
+- **WHEN** parsing source string `~/my-skills/dev-skill`
+- **THEN** source type is `local` with path `~/my-skills/dev-skill`
+
+#### Scenario: Local source string with home directory
+
+- **WHEN** parsing source string `~/path/to/skill`
+- **THEN** source type is `local` with path containing `~` (expanded at resolution time)

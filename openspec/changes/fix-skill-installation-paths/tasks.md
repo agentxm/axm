@@ -98,40 +98,40 @@ _Option B: Create workspace V2 pipeline (`loadCurrentState`, `buildIdealState`, 
 
 _Choosing Option A for this change - full V2 migration deferred to separate change._
 
-- [ ] 9.1 Update `skills/state/apply.ts` to import AgentConfig from `agents/` module
-- [ ] 9.2 Update `applyAdd` to use `agent.skills.projectDir` instead of `agent.skillsDir ?? ...` fallback
-- [ ] 9.3 Update `applyRemove` to use `agent.skills.projectDir` instead of fallback
-- [ ] 9.4 Update any other functions that access agent paths
-- [ ] 9.5 Run `pnpm typecheck` and fix any errors
-- [ ] 9.6 Run `pnpm lint` and fix any errors
-- [ ] 9.7 Run `pnpm test packages/core/src/experimental/skills/state/` and fix any failures
-- [ ] 9.8 Kill any vitest worker processes
+- [x] 9.1 Update `skills/state/apply.ts` to import AgentConfig from `agents/` module
+- [x] 9.2 Update `applyAdd` to use `agent.skills.projectDir` instead of `agent.skillsDir ?? ...` fallback
+- [x] 9.3 Update `applyRemove` to use `agent.skills.projectDir` instead of fallback
+- [x] 9.4 Update any other functions that access agent paths
+- [x] 9.5 Run `pnpm typecheck` and fix any errors
+- [x] 9.6 Run `pnpm lint` and fix any errors
+- [x] 9.7 Run `pnpm test packages/core/src/experimental/skills/state/` and fix any failures (178 tests pass)
+- [x] 9.8 Kill any vitest worker processes
 
 ## 10. Migrate Install Handler
 
 _Depends on Phase 9 completing - legacy apply must accept new AgentConfig first._
 
-- [ ] 10.1 Update imports in install/handler.ts to use agents/ module for AgentConfig, detectAgents, getAgentById
-- [ ] 10.2 Update getAgentById usage to handle Option<AgentConfig> return type
-- [ ] 10.3 Update any `agent.skillsDir` references to `agent.skills.projectDir`
-- [ ] 10.4 Update test mocks in install/handler.test.ts to use new AgentConfig structure
-- [ ] 10.5 Run `pnpm typecheck` and fix any errors
-- [ ] 10.6 Run `pnpm lint` and fix any errors
-- [ ] 10.7 Run `pnpm test packages/cli/src/commands/skills/install/` and fix any failures
-- [ ] 10.8 Run `pnpm test:e2e -- --grep install` and fix any failures
-- [ ] 10.9 Kill any vitest worker processes
+- [x] 10.1 Update imports in install/handler.ts to use agents/ module for AgentConfig, detectAgents, getAgentById
+- [x] 10.2 Update getAgentById usage to handle Option<AgentConfig> return type
+- [x] 10.3 Update any `agent.skillsDir` references to `agent.skills.projectDir`
+- [x] 10.4 Update test mocks in install/handler.test.ts to use new AgentConfig structure
+- [x] 10.5 Run `pnpm typecheck` and fix any errors
+- [x] 10.6 Run `pnpm lint` and fix any errors
+- [x] 10.7 Run `pnpm test packages/cli/src/commands/skills/install/` and fix any failures (110 tests pass)
+- [x] 10.8 Run `pnpm test:e2e -- --grep install` and fix any failures (E2E path expectations updated; some tests that mix install+uninstall fail until Phase 11 completes)
+- [x] 10.9 Kill any vitest worker processes
 
 ## 11. Migrate Uninstall Handler
 
 _Depends on Phase 9 completing - legacy apply must accept new AgentConfig first._
 
-- [ ] 11.1 Update imports in uninstall/handler.ts to use agents/ module
-- [ ] 11.2 Update getAgentById usage to handle Option<AgentConfig> return type
-- [ ] 11.3 Fix handlePartialUninstall to use agent.skills.projectDir instead of fallback pattern
-- [ ] 11.4 Update test mocks in uninstall/handler.test.ts to use new AgentConfig structure
-- [ ] 11.5 Run `pnpm typecheck` and fix any errors
-- [ ] 11.6 Run `pnpm lint` and fix any errors
-- [ ] 11.7 Run `pnpm test packages/cli/src/commands/skills/uninstall/` and fix any failures
+- [x] 11.1 Update imports in uninstall/handler.ts to use agents/ module
+- [x] 11.2 Update getAgentById usage to handle Option<AgentConfig> return type
+- [x] 11.3 Fix handlePartialUninstall to use agent.skills.projectDir instead of fallback pattern
+- [x] 11.4 Update test mocks in uninstall/handler.test.ts to use new AgentConfig structure (no mocks needed update)
+- [x] 11.5 Run `pnpm typecheck` and fix any errors
+- [x] 11.6 Run `pnpm lint` and fix any errors
+- [x] 11.7 Run `pnpm test packages/cli/src/commands/skills/uninstall/` and fix any failures (16 tests pass)
 - [ ] 11.8 Run `pnpm test:e2e -- --grep uninstall` and fix any failures
 - [ ] 11.9 Kill any vitest worker processes
 

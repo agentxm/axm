@@ -14,12 +14,9 @@
  */
 
 import * as nodePath from "node:path";
+import { type AgentConfig, getAgentById } from "@agentxm/core/experimental/agents";
 import { getAxmDir } from "@agentxm/core/experimental/paths";
-import {
-  type AgentConfig,
-  ensureInitialized,
-  getAgentById,
-} from "@agentxm/core/experimental/skills";
+import { ensureInitialized } from "@agentxm/core/experimental/skills";
 import {
   applyDiff,
   buildIdealForUninstall,
@@ -455,7 +452,8 @@ const handlePartialUninstall = (
     // Get agent configs for removal
     const agentConfigs: AgentConfig[] = targetAgents
       .map((id) => getAgentById(id))
-      .filter((a): a is AgentConfig => a !== undefined);
+      .filter(Option.isSome)
+      .map((opt) => opt.value);
 
     if (isFullRemoval) {
       // This became a full removal - use state-based pattern
@@ -499,7 +497,7 @@ const handlePartialUninstall = (
       yield* Effect.all(
         agentConfigs.map((agent) =>
           Effect.gen(function* () {
-            const agentSkillsDir = agent.skillsDir ?? nodePath.join(agent.detectPath, "skills");
+            const agentSkillsDir = agent.skills.projectDir;
             const skillPath = nodePath.join(agentSkillsDir, args.skill);
 
             const exists = yield* fs.exists(skillPath);

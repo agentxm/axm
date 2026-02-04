@@ -110,8 +110,8 @@ describe("axm skills install", () => {
         expect(fs.existsSync(path.join(skillsDir, "another-skill"))).toBe(true);
 
         // Verify symlinks were created in agent directory
-        // claude-code skillsDir is ".claude/commands"
-        const claudeSkillsDir = path.join(temp.path, ".claude", "commands", "my-skill");
+        // claude-code skillsDir is ".claude/skills"
+        const claudeSkillsDir = path.join(temp.path, ".claude", "skills", "my-skill");
         expect(fs.existsSync(claudeSkillsDir)).toBe(true);
         // Check if it's a symlink
         const stat = fs.lstatSync(claudeSkillsDir);
@@ -360,8 +360,8 @@ describe("axm skills install", () => {
         expect(fs.existsSync(canonicalSkillDir)).toBe(true);
         expect(fs.existsSync(canonicalSkillMd)).toBe(true);
 
-        // Verify symlink in agent directory (.claude/commands for claude-code)
-        const agentSkillDir = path.join(temp.path, ".claude", "commands", "my-skill");
+        // Verify symlink in agent directory (.claude/skills for claude-code)
+        const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
         expect(fs.existsSync(agentSkillDir)).toBe(true);
         expect(fs.lstatSync(agentSkillDir).isSymbolicLink()).toBe(true);
 
@@ -468,8 +468,8 @@ describe("axm skills install", () => {
         );
 
         for (const skillName of ["my-skill", "another-skill"]) {
-          // claude-code skillsDir is ".claude/commands"
-          const agentSkillDir = path.join(temp.path, ".claude", "commands", skillName);
+          // claude-code skillsDir is ".claude/skills"
+          const agentSkillDir = path.join(temp.path, ".claude", "skills", skillName);
           const canonicalSkillDir = path.join(temp.path, ".axm", "skills", skillName);
 
           expect(fs.lstatSync(agentSkillDir).isSymbolicLink()).toBe(true);

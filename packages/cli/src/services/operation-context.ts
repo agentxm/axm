@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import { Context, Effect, Layer } from "effect";
+import { Context, Layer } from "effect";
 
 /**
  * Operation context configuration.
@@ -17,8 +17,6 @@ import { Context, Effect, Layer } from "effect";
 export interface OperationContextConfig {
   /** Working directory for the operation */
   readonly cwd: string;
-  /** Whether to run in verbose mode */
-  readonly verbose: boolean;
   /** Whether to run in dry-run mode (no side effects) */
   readonly dryRun: boolean;
 }
@@ -45,7 +43,6 @@ export class OperationContext extends Context.Tag("@agentxm/cli/OperationContext
     OperationContext,
     () => ({
       cwd: process.cwd(),
-      verbose: false,
       dryRun: false,
     }),
   );

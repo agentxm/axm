@@ -1,0 +1,185 @@
+/**
+ * Effect service wrapper for @clack/prompts.
+ *
+ * Provides an injectable service for CLI prompts, logging, and spinners.
+ * Makes handlers testable by allowing mock implementations.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
+import * as p from "@clack/prompts";
+import { Context, Effect, Layer } from "effect";
+import { PromptCancelled, PromptError } from "./errors.js";
+import type { MultiselectConfig, PromptOption, Spinner } from "./types.js";
+
+// -----------------------------------------------------------------------------
+// Service Interface
+// -----------------------------------------------------------------------------
+
+/**
+ * Service interface for clack prompts.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface ClackService {
+  // Lifecycle
+  readonly intro: (title: string) => Effect.Effect<void>;
+  readonly outro: (message: string) => Effect.Effect<void>;
+
+  // Logging
+  readonly log: {
+    readonly info: (message: string) => Effect.Effect<void>;
+    readonly warn: (message: string) => Effect.Effect<void>;
+    readonly error: (message: string) => Effect.Effect<void>;
+    readonly success: (message: string) => Effect.Effect<void>;
+    readonly message: (message: string) => Effect.Effect<void>;
+  };
+
+  // Prompts
+  readonly confirm: (
+    message: string,
+    initialValue?: boolean,
+  ) => Effect.Effect<boolean, PromptError | PromptCancelled>;
+
+  readonly select: <T>(
+    message: string,
+    items: readonly T[],
+    toOption: (item: T) => PromptOption,
+  ) => Effect.Effect<T, PromptError | PromptCancelled>;
+
+  readonly multiselect: <T>(
+    message: string,
+    items: readonly T[],
+    config: MultiselectConfig<T>,
+  ) => Effect.Effect<readonly T[], PromptError | PromptCancelled>;
+
+  // Spinner
+  readonly spinner: () => Effect.Effect<Spinner>;
+}
+
+// -----------------------------------------------------------------------------
+// Service Tag
+// -----------------------------------------------------------------------------
+
+/**
+ * Effect service tag for clack prompts.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export class Clack extends Context.Tag("@agentxm/cli/Clack")<Clack, ClackService>() {}
+
+// -----------------------------------------------------------------------------
+// Live Implementation
+// -----------------------------------------------------------------------------
+
+const makeLiveClackService = (): ClackService => ({
+  intro: (title) => Effect.sync(() => p.intro(title)),
+
+  outro: (message) => Effect.sync(() => p.outro(message)),
+
+  log: {
+    info: (message) => Effect.sync(() => p.log.info(message)),
+    warn: (message) => Effect.sync(() => p.log.warn(message)),
+    error: (message) => Effect.sync(() => p.log.error(message)),
+    success: (message) => Effect.sync(() => p.log.success(message)),
+    message: (message) => Effect.sync(() => p.log.message(message)),
+  },
+
+  confirm: (message, initialValue = true) =>
+    Effect.gen(function* () {
+      const result = yield* Effect.tryPromise({
+        try: () => p.confirm({ message, initialValue }),
+        catch: (error) =>
+          new PromptError({ message: "Failed to prompt for confirmation", cause: error }),
+      });
+
+      if (p.isCancel(result)) {
+        return yield* Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
+      }
+
+      return result;
+    }),
+
+  select: <T>(message: string, items: readonly T[], toOption: (item: T) => PromptOption) =>
+    Effect.gen(function* () {
+      const options = items.map((item, index) => ({
+        ...toOption(item),
+        value: index,
+      }));
+
+      const result = yield* Effect.tryPromise({
+        try: () => p.select({ message, options }),
+        catch: (error) =>
+          new PromptError({ message: "Failed to prompt for selection", cause: error }),
+      });
+
+      if (p.isCancel(result)) {
+        return yield* Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
+      }
+
+      const selected = items[result];
+      if (selected === undefined) {
+        return yield* Effect.fail(new PromptError({ message: "Invalid selection index" }));
+      }
+
+      return selected;
+    }),
+
+  multiselect: <T>(message: string, items: readonly T[], config: MultiselectConfig<T>) =>
+    Effect.gen(function* () {
+      const promptOptions = items.map((item, index) => ({
+        ...config.toOption(item),
+        value: index,
+      }));
+
+      // Map initialValues (string values) to indices
+      const initialIndices = config.initialValues
+        ? items
+            .map((item, index) => ({ item, index }))
+            .filter(({ item }) => config.initialValues?.includes(config.toOption(item).value))
+            .map(({ index }) => index)
+        : undefined;
+
+      // Build multiselect config
+      const multiselectConfig: Parameters<typeof p.multiselect>[0] = {
+        message,
+        options: promptOptions,
+      };
+      if (initialIndices !== undefined) {
+        multiselectConfig.initialValues = initialIndices;
+      }
+      if (config.required !== undefined) {
+        multiselectConfig.required = config.required;
+      }
+
+      const result = yield* Effect.tryPromise({
+        try: () => p.multiselect(multiselectConfig),
+        catch: (error) =>
+          new PromptError({ message: "Failed to prompt for multiselect", cause: error }),
+      });
+
+      if (p.isCancel(result)) {
+        return yield* Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
+      }
+
+      // Cast needed: multiselect config loses generic type info due to dynamic construction
+      const indices = result as number[];
+      return indices.map((index) => items[index]).filter((item): item is T => item !== undefined);
+    }),
+
+  spinner: () =>
+    Effect.sync(() => {
+      const s = p.spinner();
+      return {
+        start: (message: string) => s.start(message),
+        stop: (message: string) => s.stop(message),
+      };
+    }),
+});
+
+/**
+ * Live layer for clack service using @clack/prompts.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const ClackLive: Layer.Layer<Clack> = Layer.succeed(Clack, makeLiveClackService());

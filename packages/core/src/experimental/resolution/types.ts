@@ -17,15 +17,7 @@ export type ExtensionType = "skill" | "command" | "pack" | "mcp-server";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SourceType =
-  | "github"
-  | "gitlab"
-  | "path"
-  | "registry"
-  | "bitbucket"
-  | "azure"
-  | "direct-url"
-  | "well-known";
+export type SourceType = "github" | "gitlab" | "bitbucket" | "git" | "registry";
 
 /**
  * Additional info about the extension.

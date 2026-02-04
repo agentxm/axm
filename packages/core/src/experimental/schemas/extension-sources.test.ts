@@ -9,19 +9,28 @@ describe("extension-sources schema", () => {
       expect(result).toBe("github");
     });
 
+    it("accepts 'gitlab' source type", () => {
+      const result = Schema.decodeUnknownSync(SourceSchema)("gitlab");
+      expect(result).toBe("gitlab");
+    });
+
+    it("accepts 'bitbucket' source type", () => {
+      const result = Schema.decodeUnknownSync(SourceSchema)("bitbucket");
+      expect(result).toBe("bitbucket");
+    });
+
     it("accepts 'git' source type", () => {
       const result = Schema.decodeUnknownSync(SourceSchema)("git");
       expect(result).toBe("git");
     });
 
-    it("accepts 'local' source type", () => {
-      const result = Schema.decodeUnknownSync(SourceSchema)("local");
-      expect(result).toBe("local");
-    });
-
     it("accepts 'registry' source type", () => {
       const result = Schema.decodeUnknownSync(SourceSchema)("registry");
       expect(result).toBe("registry");
+    });
+
+    it("rejects 'local' source type (removed)", () => {
+      expect(() => Schema.decodeUnknownSync(SourceSchema)("local")).toThrow();
     });
 
     it("rejects invalid source type", () => {
@@ -45,13 +54,15 @@ describe("extension-sources schema", () => {
     it("type is correctly inferred as union", () => {
       // Type-level test: these should compile
       const github: SourceType = "github";
+      const gitlab: SourceType = "gitlab";
+      const bitbucket: SourceType = "bitbucket";
       const git: SourceType = "git";
-      const local: SourceType = "local";
       const registry: SourceType = "registry";
 
       expect(github).toBe("github");
+      expect(gitlab).toBe("gitlab");
+      expect(bitbucket).toBe("bitbucket");
       expect(git).toBe("git");
-      expect(local).toBe("local");
       expect(registry).toBe("registry");
     });
   });

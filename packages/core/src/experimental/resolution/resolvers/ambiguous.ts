@@ -1,8 +1,8 @@
 /**
  * Ambiguous pattern resolver for `a/b` inputs.
  *
- * Disambiguates inputs that could be local paths, AXM names, or source shorthand.
- * Resolution order: local path -> AXM name -> GitHub shorthand.
+ * Disambiguates inputs that could be AXM names or source shorthand.
+ * Resolution order: AXM name -> GitHub shorthand.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -13,7 +13,6 @@ import { Effect } from "effect";
 import { parseSource } from "../../skills/source-parser.js";
 import type { ExtensionRef, ResolutionOptions } from "../types.js";
 import { resolveAxmName } from "./axm-name.js";
-import { resolveLocalPath } from "./local-path.js";
 
 // -----------------------------------------------------------------------------
 // Pattern Detection
@@ -84,22 +83,6 @@ const buildOriginUrl = (sourceType: "github" | "gitlab", owner: string, repo: st
 // -----------------------------------------------------------------------------
 // Sub-Resolvers
 // -----------------------------------------------------------------------------
-
-/**
- * Try to resolve as a local path by prepending `./`.
- *
- * Converts `a/b` to `./a/b` and delegates to resolveLocalPath.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const tryLocalPath = (
-  input: string,
-  options: ResolutionOptions,
-): Effect.Effect<ExtensionRef[], never, FileSystem.FileSystem> => {
-  // Prepend ./ to make it a valid local path pattern
-  const localPathInput = `./${input}`;
-  return resolveLocalPath(localPathInput, options);
-};
 
 /**
  * Try to resolve as AXM scoped name by prepending @.
@@ -175,12 +158,11 @@ const trySourceParser = (
 // -----------------------------------------------------------------------------
 
 /**
- * Resolve ambiguous `a/b` patterns that could be local paths, AXM names, or source shorthand.
+ * Resolve ambiguous `a/b` patterns that could be AXM names or source shorthand.
  *
  * Resolution order (early exit on first non-empty result):
- * 1. Check if it's a local path that exists (checks `./a/b`)
- * 2. Check if `@a/b` exists as an AXM name (treat first segment as scope)
- * 3. Fall back to GitHub shorthand via source-parser
+ * 1. Check if `@a/b` exists as an AXM name (treat first segment as scope)
+ * 2. Fall back to GitHub shorthand via source-parser
  *
  * @experimental This API is unstable and may change without notice.
  * @param input - The input string to resolve (expected format: `a/b`)
@@ -197,8 +179,7 @@ const trySourceParser = (
  *   Effect.provide(NodeFileSystem.layer),
  * );
  *
- * // If ./owner/repo exists locally -> returns path ExtensionRef
- * // Else if @owner/repo exists in AXM -> returns registry ExtensionRef
+ * // If @owner/repo exists in AXM -> returns registry ExtensionRef
  * // Else -> returns GitHub ExtensionRef for owner/repo
  * const refs = await Effect.runPromise(program);
  * ```
@@ -214,23 +195,14 @@ export const resolveAmbiguous = (
     return Effect.succeed([]);
   }
 
-  // Check source filter - if path is excluded, skip local path check
-  const allowPath = !options.sources || options.sources.includes("path");
+  // Check source filter
   const allowRegistry = !options.sources || options.sources.includes("registry");
   const allowGitSources =
     !options.sources || options.sources.some((s) => ["github", "gitlab"].includes(s));
 
   // Try resolution in order with early exit
   return Effect.gen(function* () {
-    // 1. Try local path (if not filtered out)
-    if (allowPath) {
-      const localResults = yield* tryLocalPath(trimmed, options);
-      if (localResults.length > 0) {
-        return localResults;
-      }
-    }
-
-    // 2. Try AXM name (if not filtered out)
+    // 1. Try AXM name (if not filtered out)
     if (allowRegistry) {
       const axmResults = yield* tryAxmName(trimmed, options);
       if (axmResults.length > 0) {
@@ -238,7 +210,7 @@ export const resolveAmbiguous = (
       }
     }
 
-    // 3. Fall back to GitHub shorthand (if not filtered out)
+    // 2. Fall back to GitHub shorthand (if not filtered out)
     if (allowGitSources) {
       const gitResults = yield* trySourceParser(trimmed, options);
       if (gitResults.length > 0) {

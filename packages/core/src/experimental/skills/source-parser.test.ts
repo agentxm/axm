@@ -6,13 +6,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
-import {
-  buildCloneUrl,
-  CloneUrlError,
-  getOriginFromParsed,
-  ParseError,
-  parseSource,
-} from "./source-parser.js";
+import { buildCloneUrl, getOriginFromParsed, ParseError, parseSource } from "./source-parser.js";
 import type { ParsedSource } from "./types.js";
 
 describe("source-parser", () => {
@@ -282,117 +276,208 @@ describe("source-parser", () => {
     );
   });
 
-  describe("local paths", () => {
-    it.effect("parses ./relative/path", () =>
+  describe("Bitbucket HTTPS URLs", () => {
+    it.effect("parses https://bitbucket.org/owner/repo", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("./relative/path");
+        const result = yield* parseSource("https://bitbucket.org/owner/repo");
 
-        expect(result.type).toBe("local");
-        expect(result.canonical).toBe("./relative/path");
-        expect(result.original).toBe("./relative/path");
+        expect(result.type).toBe("bitbucket");
+        expect(result.canonical).toBe("bitbucket:owner/repo");
+        expect(result.owner).toBe("owner");
+        expect(result.repo).toBe("repo");
       }),
     );
 
-    it.effect("parses ../parent/path", () =>
+    it.effect("parses https://bitbucket.org/owner/repo.git", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("../parent/path");
+        const result = yield* parseSource("https://bitbucket.org/owner/repo.git");
 
-        expect(result.type).toBe("local");
-        expect(result.canonical).toBe("../parent/path");
+        expect(result.type).toBe("bitbucket");
+        expect(result.canonical).toBe("bitbucket:owner/repo");
+        expect(result.owner).toBe("owner");
+        expect(result.repo).toBe("repo");
       }),
     );
 
-    it.effect("parses /absolute/path", () =>
+    it.effect("parses https://bitbucket.org/owner/repo/src/main", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("/absolute/path");
+        const result = yield* parseSource("https://bitbucket.org/owner/repo/src/main");
 
-        expect(result.type).toBe("local");
-        expect(result.canonical).toBe("/absolute/path");
+        expect(result.type).toBe("bitbucket");
+        expect(result.canonical).toBe("bitbucket:owner/repo");
+        expect(result.ref).toBe("main");
+        expect(result.path).toBeUndefined();
       }),
     );
 
-    it.effect("parses Windows path C:\\path", () =>
+    it.effect("parses https://bitbucket.org/owner/repo/src/main/skills/my-skill", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("C:\\path\\to\\skill");
+        const result = yield* parseSource(
+          "https://bitbucket.org/owner/repo/src/main/skills/my-skill",
+        );
 
-        expect(result.type).toBe("local");
-        expect(result.canonical).toBe("C:\\path\\to\\skill");
-      }),
-    );
-
-    it.effect("parses Windows path with forward slashes C:/path", () =>
-      Effect.gen(function* () {
-        const result = yield* parseSource("C:/path/to/skill");
-
-        expect(result.type).toBe("local");
-        expect(result.canonical).toBe("C:/path/to/skill");
-      }),
-    );
-
-    it.effect("parses Windows path D:\\drive", () =>
-      Effect.gen(function* () {
-        const result = yield* parseSource("D:\\other\\drive");
-
-        expect(result.type).toBe("local");
-        expect(result.canonical).toBe("D:\\other\\drive");
+        expect(result.type).toBe("bitbucket");
+        expect(result.canonical).toBe("bitbucket:owner/repo");
+        expect(result.ref).toBe("main");
+        expect(result.path).toBe("skills/my-skill");
       }),
     );
   });
 
-  describe("direct URLs", () => {
-    it.effect("parses https://example.com/skill.md as direct-url", () =>
+  describe("Bitbucket SSH URLs", () => {
+    it.effect("parses git@bitbucket.org:owner/repo.git", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("https://example.com/skill.md");
+        const result = yield* parseSource("git@bitbucket.org:owner/repo.git");
 
-        expect(result.type).toBe("direct-url");
-        expect(result.canonical).toBe("https://example.com/skill.md");
-        expect(result.url).toBe("https://example.com/skill.md");
+        expect(result.type).toBe("bitbucket");
+        expect(result.canonical).toBe("bitbucket:owner/repo");
+        expect(result.owner).toBe("owner");
+        expect(result.repo).toBe("repo");
       }),
     );
 
-    it.effect("parses https://example.com/path/to/SKILL.md as direct-url", () =>
+    it.effect("parses git@bitbucket.org:owner/repo (without .git)", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("https://example.com/path/to/SKILL.md");
+        const result = yield* parseSource("git@bitbucket.org:owner/repo");
 
-        expect(result.type).toBe("direct-url");
-        expect(result.url).toBe("https://example.com/path/to/SKILL.md");
-      }),
-    );
-
-    it.effect("parses URL with .txt extension as direct-url", () =>
-      Effect.gen(function* () {
-        const result = yield* parseSource("https://example.com/file.txt");
-
-        expect(result.type).toBe("direct-url");
+        expect(result.type).toBe("bitbucket");
+        expect(result.canonical).toBe("bitbucket:owner/repo");
       }),
     );
   });
 
-  describe("well-known URLs", () => {
-    it.effect("parses https://example.com as well-known", () =>
+  describe("Bitbucket shorthand", () => {
+    it.effect("parses bitbucket:owner/repo", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("https://example.com");
+        const result = yield* parseSource("bitbucket:owner/repo");
 
-        expect(result.type).toBe("well-known");
-        expect(result.canonical).toBe("https://example.com");
-        expect(result.url).toBe("https://example.com");
+        expect(result.type).toBe("bitbucket");
+        expect(result.canonical).toBe("bitbucket:owner/repo");
+        expect(result.owner).toBe("owner");
+        expect(result.repo).toBe("repo");
       }),
     );
 
-    it.effect("parses https://example.com/skills as well-known (no extension)", () =>
+    it.effect("parses bitbucket:owner/repo@ref", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("https://example.com/skills");
+        const result = yield* parseSource("bitbucket:owner/repo@v1.0.0");
 
-        expect(result.type).toBe("well-known");
-        expect(result.url).toBe("https://example.com/skills");
+        expect(result.type).toBe("bitbucket");
+        expect(result.canonical).toBe("bitbucket:owner/repo");
+        expect(result.ref).toBe("v1.0.0");
       }),
     );
 
-    it.effect("parses https://example.com/path/ as well-known (trailing slash)", () =>
+    it.effect("parses bitbucket:owner/repo/path@ref", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("https://example.com/path/");
+        const result = yield* parseSource("bitbucket:owner/repo/skills/my-skill@main");
 
-        expect(result.type).toBe("well-known");
+        expect(result.type).toBe("bitbucket");
+        expect(result.canonical).toBe("bitbucket:owner/repo");
+        expect(result.path).toBe("skills/my-skill");
+        expect(result.ref).toBe("main");
+      }),
+    );
+  });
+
+  describe("local paths (removed)", () => {
+    it.effect("fails on ./relative/path", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSource("./relative/path"));
+
+        expect(error).toBeInstanceOf(ParseError);
+      }),
+    );
+
+    it.effect("fails on ../parent/path", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSource("../parent/path"));
+
+        expect(error).toBeInstanceOf(ParseError);
+      }),
+    );
+
+    it.effect("fails on /absolute/path", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSource("/absolute/path"));
+
+        expect(error).toBeInstanceOf(ParseError);
+      }),
+    );
+
+    it.effect("fails on Windows path C:\\path", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSource("C:\\path\\to\\skill"));
+
+        expect(error).toBeInstanceOf(ParseError);
+      }),
+    );
+
+    it.effect("fails on Windows path with forward slashes C:/path", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSource("C:/path/to/skill"));
+
+        expect(error).toBeInstanceOf(ParseError);
+      }),
+    );
+
+    it.effect("fails on Windows path D:\\drive", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSource("D:\\other\\drive"));
+
+        expect(error).toBeInstanceOf(ParseError);
+      }),
+    );
+  });
+
+  describe("direct URLs (removed)", () => {
+    it.effect("fails on https://example.com/skill.md", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSource("https://example.com/skill.md"));
+
+        expect(error).toBeInstanceOf(ParseError);
+      }),
+    );
+
+    it.effect("fails on https://example.com/path/to/SKILL.md", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSource("https://example.com/path/to/SKILL.md"));
+
+        expect(error).toBeInstanceOf(ParseError);
+      }),
+    );
+
+    it.effect("fails on URL with .txt extension", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSource("https://example.com/file.txt"));
+
+        expect(error).toBeInstanceOf(ParseError);
+      }),
+    );
+  });
+
+  describe("well-known URLs (removed)", () => {
+    it.effect("fails on https://example.com", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSource("https://example.com"));
+
+        expect(error).toBeInstanceOf(ParseError);
+      }),
+    );
+
+    it.effect("fails on https://example.com/skills (no extension)", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSource("https://example.com/skills"));
+
+        expect(error).toBeInstanceOf(ParseError);
+      }),
+    );
+
+    it.effect("fails on https://example.com/path/ (trailing slash)", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSource("https://example.com/path/"));
+
+        expect(error).toBeInstanceOf(ParseError);
       }),
     );
   });
@@ -470,19 +555,19 @@ describe("source-parser", () => {
       }),
     );
 
-    it.effect("does not parse ./ starting path as shorthand", () =>
+    it.effect("fails on ./ starting path", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("./owner/repo");
+        const error = yield* Effect.flip(parseSource("./owner/repo"));
 
-        expect(result.type).toBe("local");
+        expect(error).toBeInstanceOf(ParseError);
       }),
     );
 
-    it.effect("does not parse ../ starting path as shorthand", () =>
+    it.effect("fails on ../ starting path", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("../owner/repo");
+        const error = yield* Effect.flip(parseSource("../owner/repo"));
 
-        expect(result.type).toBe("local");
+        expect(error).toBeInstanceOf(ParseError);
       }),
     );
 
@@ -525,64 +610,18 @@ describe("source-parser", () => {
       expect(result).toBe("https://gitlab.com/owner/repo.git");
     });
 
-    it("returns CloneUrlError for local source", async () => {
+    it("builds Bitbucket clone URL", async () => {
       const parsed: ParsedSource = {
-        type: "local",
-        original: "./local/path",
-        canonical: "./local/path",
+        type: "bitbucket",
+        original: "bitbucket:owner/repo",
+        canonical: "bitbucket:owner/repo",
+        owner: "owner",
+        repo: "repo",
       };
 
-      const result = await Effect.runPromiseExit(buildCloneUrl(parsed));
+      const result = await Effect.runPromise(buildCloneUrl(parsed));
 
-      expect(result._tag).toBe("Failure");
-      if (result._tag === "Failure") {
-        const error = result.cause._tag === "Fail" ? result.cause.error : null;
-        expect(error).toBeInstanceOf(CloneUrlError);
-        expect((error as CloneUrlError).message).toBe(
-          "Cannot build clone URL for source type: local",
-        );
-        expect((error as CloneUrlError).sourceType).toBe("local");
-      }
-    });
-
-    it("returns CloneUrlError for direct-url source", async () => {
-      const parsed: ParsedSource = {
-        type: "direct-url",
-        original: "https://example.com/skill.md",
-        canonical: "https://example.com/skill.md",
-        url: "https://example.com/skill.md",
-      };
-
-      const result = await Effect.runPromiseExit(buildCloneUrl(parsed));
-
-      expect(result._tag).toBe("Failure");
-      if (result._tag === "Failure") {
-        const error = result.cause._tag === "Fail" ? result.cause.error : null;
-        expect(error).toBeInstanceOf(CloneUrlError);
-        expect((error as CloneUrlError).message).toBe(
-          "Cannot build clone URL for source type: direct-url",
-        );
-      }
-    });
-
-    it("returns CloneUrlError for well-known source", async () => {
-      const parsed: ParsedSource = {
-        type: "well-known",
-        original: "https://example.com",
-        canonical: "https://example.com",
-        url: "https://example.com",
-      };
-
-      const result = await Effect.runPromiseExit(buildCloneUrl(parsed));
-
-      expect(result._tag).toBe("Failure");
-      if (result._tag === "Failure") {
-        const error = result.cause._tag === "Fail" ? result.cause.error : null;
-        expect(error).toBeInstanceOf(CloneUrlError);
-        expect((error as CloneUrlError).message).toBe(
-          "Cannot build clone URL for source type: well-known",
-        );
-      }
+      expect(result).toBe("https://bitbucket.org/owner/repo.git");
     });
   });
 
@@ -615,66 +654,18 @@ describe("source-parser", () => {
       expect(result).toBe("https://gitlab.com/owner/repo");
     });
 
-    it("returns original for local source", () => {
+    it("returns Bitbucket origin URL", () => {
       const parsed: ParsedSource = {
-        type: "local",
-        original: "./local/path",
-        canonical: "./local/path",
+        type: "bitbucket",
+        original: "bitbucket:owner/repo",
+        canonical: "bitbucket:owner/repo",
+        owner: "owner",
+        repo: "repo",
       };
 
       const result = getOriginFromParsed(parsed);
 
-      expect(result).toBe("./local/path");
-    });
-
-    it("returns url for direct-url source", () => {
-      const parsed: ParsedSource = {
-        type: "direct-url",
-        original: "https://example.com/skill.md",
-        canonical: "https://example.com/skill.md",
-        url: "https://example.com/skill.md",
-      };
-
-      const result = getOriginFromParsed(parsed);
-
-      expect(result).toBe("https://example.com/skill.md");
-    });
-
-    it("returns url for well-known source", () => {
-      const parsed: ParsedSource = {
-        type: "well-known",
-        original: "https://example.com",
-        canonical: "https://example.com",
-        url: "https://example.com",
-      };
-
-      const result = getOriginFromParsed(parsed);
-
-      expect(result).toBe("https://example.com");
-    });
-
-    it("falls back to original when url is undefined for direct-url", () => {
-      const parsed: ParsedSource = {
-        type: "direct-url",
-        original: "https://example.com/fallback",
-        canonical: "https://example.com/fallback",
-      };
-
-      const result = getOriginFromParsed(parsed);
-
-      expect(result).toBe("https://example.com/fallback");
-    });
-
-    it("falls back to original when url is undefined for well-known", () => {
-      const parsed: ParsedSource = {
-        type: "well-known",
-        original: "https://example.com/fallback",
-        canonical: "https://example.com/fallback",
-      };
-
-      const result = getOriginFromParsed(parsed);
-
-      expect(result).toBe("https://example.com/fallback");
+      expect(result).toBe("https://bitbucket.org/owner/repo");
     });
   });
 });

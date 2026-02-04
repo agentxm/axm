@@ -118,9 +118,11 @@ description: A new skill
     const current: SkillsState = { skills: {} };
     const source = {
       parsed: {
-        type: "local" as const,
+        type: "github" as const,
         original: skillsDir,
-        canonical: skillsDir,
+        canonical: `github:test/repo`,
+        owner: "test",
+        repo: "repo",
       } as ParsedSource,
       skillsDir,
     };
@@ -137,7 +139,7 @@ description: A new skill
 
     expect(Object.keys(result.skills)).toEqual(["new-skill"]);
     expect(result.skills["new-skill"]?.name).toBe("new-skill");
-    expect(result.skills["new-skill"]?.source._tag).toBe("Local");
+    expect(result.skills["new-skill"]?.source._tag).toBe("Git");
     expect(result.removals).toEqual([]);
   });
 
@@ -157,9 +159,11 @@ description: A new skill
     const current: SkillsState = { skills: {} };
     const source = {
       parsed: {
-        type: "local" as const,
+        type: "github" as const,
         original: skillsDir,
-        canonical: skillsDir,
+        canonical: `github:test/repo`,
+        owner: "test",
+        repo: "repo",
       } as ParsedSource,
       skillsDir,
     };
@@ -196,9 +200,11 @@ description: A new skill
     };
     const source = {
       parsed: {
-        type: "local" as const,
+        type: "github" as const,
         original: skillsDir,
-        canonical: skillsDir,
+        canonical: `github:test/repo`,
+        owner: "test",
+        repo: "repo",
       } as ParsedSource,
       skillsDir,
     };

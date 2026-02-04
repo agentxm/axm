@@ -5,6 +5,9 @@
  * 1. makeWorkspaceContext -> ensureInit -> loadCurrentState
  * 2. buildIdealState -> buildPlan -> applyPlan
  *
+ * Since parseSource now rejects local paths, tests use GitHub shorthand
+ * (github:test/skills) and mock git operations to use local fixtures.
+ *
  * @experimental This API is unstable and may change without notice.
  */
 
@@ -20,6 +23,61 @@ import { afterEach, beforeEach, vi } from "vitest";
 import YAML from "yaml";
 import { handleInstall, type InstallArgs, InstallError } from "./handler.js";
 
+// Mock git operations to use local fixtures instead of cloning
+vi.mock("@agentxm/core/experimental/skills", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@agentxm/core/experimental/skills")>();
+
+  // Track the fixture path for each mock call
+  let currentFixturePath: string | undefined;
+
+  return {
+    ...original,
+    // Allow tests to set the fixture path for cloning
+    __setFixturePath: (fixturePath: string) => {
+      currentFixturePath = fixturePath;
+    },
+    __clearFixturePath: () => {
+      currentFixturePath = undefined;
+    },
+    // Mock cloneRepo to copy from fixture instead of actual git clone
+    cloneRepo: vi.fn((url: string, destination: string, ref?: string) => {
+      return Effect.gen(function* () {
+        if (!currentFixturePath) {
+          throw new Error("No fixture path set for mock cloneRepo");
+        }
+        // Create destination and copy files from fixture
+        fs.mkdirSync(destination, { recursive: true });
+        copyDirSync(currentFixturePath, destination);
+        // Create a minimal .git directory so isGitRepository returns true
+        const gitDir = path.join(destination, ".git");
+        fs.mkdirSync(gitDir, { recursive: true });
+        fs.writeFileSync(path.join(gitDir, "HEAD"), "ref: refs/heads/main\n");
+      });
+    }),
+    // Mock getCurrentCommit to return a fake SHA
+    getCurrentCommit: vi.fn((repoPath: string) => {
+      return Effect.succeed("abc1234567890abcdef1234567890abcdef12345");
+    }),
+  };
+});
+
+/**
+ * Helper to recursively copy a directory.
+ */
+function copyDirSync(src: string, dest: string): void {
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      fs.mkdirSync(destPath, { recursive: true });
+      copyDirSync(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
 // Layer providing all required services for tests
 const TestLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, FetchHttpClient.layer);
 
@@ -29,22 +87,34 @@ vi.mock("../../../utils/tty.js", () => ({
   isFancyOutput: vi.fn(() => true),
 }));
 
+// Import the mock helpers after vi.mock
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+type SkillsModule = typeof import("@agentxm/core/experimental/skills") & {
+  __setFixturePath: (path: string) => void;
+  __clearFixturePath: () => void;
+};
+
 describe("install.handler", () => {
   let tempDir: string;
   let originalCwd: string;
   let sourceDir: string;
+  let skillsModule: SkillsModule;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     originalCwd = process.cwd();
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "install-handler-test-"));
     sourceDir = path.join(tempDir, "source-skills");
     // Change to temp dir so .axm is created there
     process.chdir(tempDir);
+    // Import the mocked module to access helper functions
+    skillsModule = (await import("@agentxm/core/experimental/skills")) as unknown as SkillsModule;
   });
 
   afterEach(() => {
     process.chdir(originalCwd);
     fs.rmSync(tempDir, { recursive: true, force: true });
+    // Clear fixture path after each test
+    skillsModule.__clearFixturePath();
   });
 
   /**
@@ -66,7 +136,10 @@ describe("install.handler", () => {
   };
 
   /**
-   * Creates a local skill source directory with SKILL.md files.
+   * Creates a local skill source directory with SKILL.md files and
+   * sets up the mock to use it when cloning.
+   *
+   * Returns a GitHub shorthand source string (the mock will use the local fixture).
    */
   const createSkillSource = (skills: { name: string; description?: string }[]): string => {
     fs.mkdirSync(sourceDir, { recursive: true });
@@ -80,7 +153,11 @@ describe("install.handler", () => {
       fs.writeFileSync(path.join(skillDir, "SKILL.md"), content);
     }
 
-    return sourceDir;
+    // Set the fixture path for the mock cloneRepo
+    skillsModule.__setFixturePath(sourceDir);
+
+    // Return a GitHub shorthand - the mock will clone from the fixture instead
+    return "github:test/skills";
   };
 
   /**

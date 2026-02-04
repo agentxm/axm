@@ -25,8 +25,6 @@ import {
   detectAgents,
   discoverSkills,
   ensureInitialized,
-  fetchSkillFiles,
-  fetchWellKnownIndex,
   getAgentById,
   getCurrentCommit,
   type InstallResult,
@@ -37,7 +35,6 @@ import {
   type SkillLockEntry,
   updateLockEntry,
   updateSettings,
-  type WellKnownSkill,
 } from "@agentxm/core/experimental/skills";
 import {
   buildIdealForInstall,
@@ -53,7 +50,7 @@ import {
 } from "@agentxm/core/experimental/skills/state";
 import * as p from "@clack/prompts";
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
-import { Data, Effect, Option, pipe } from "effect";
+import { Data, Effect, Option } from "effect";
 import { formatError } from "../../../utils/errors.js";
 import { canPrompt, promptConfirm, promptMultiselect } from "../../../utils/prompts.js";
 import { createSpinnerHelper } from "../../../utils/spinner.js";
@@ -134,14 +131,9 @@ const createLockEntryFromParsed = (
   };
 
   switch (parsed.type) {
-    case "local":
-      return {
-        source: "local" as const,
-        path: parsed.canonical,
-        ...commonFields,
-      };
     case "github":
     case "gitlab":
+    case "bitbucket":
       return {
         source: "github" as const,
         owner: parsed.owner ?? "",
@@ -150,11 +142,21 @@ const createLockEntryFromParsed = (
         path: parsed.path,
         ...commonFields,
       };
-    case "direct-url":
-    case "well-known":
+    case "git":
       return {
         source: "git" as const,
         url: parsed.url ?? parsed.canonical,
+        ref: parsed.ref,
+        path: parsed.path,
+        ...commonFields,
+      };
+    case "registry":
+      // Registry sources require scope and name from the parsed source
+      // For now, extract from canonical form (e.g., "@scope/name")
+      return {
+        source: "registry" as const,
+        scope: parsed.owner ?? "",
+        name: parsed.repo ?? parsed.canonical,
         ...commonFields,
       };
   }
@@ -165,29 +167,7 @@ const createLockEntryFromParsed = (
 // -----------------------------------------------------------------------------
 
 /**
- * Resolves skills from a local path source.
- */
-const resolveLocalSource = (
-  parsed: ParsedSource,
-): Effect.Effect<{ skills: Skill[]; skillsDir: string }, InstallError, FileSystem.FileSystem> =>
-  pipe(
-    discoverSkills(parsed.canonical),
-    Effect.map((skills) => ({
-      skills,
-      skillsDir: parsed.canonical,
-    })),
-    Effect.mapError(
-      (error: { message: string }) =>
-        new InstallError({
-          message: `Failed to discover skills in ${parsed.canonical}: ${error.message}`,
-          cause: error,
-          retryable: false,
-        }),
-    ),
-  );
-
-/**
- * Resolves skills from a GitHub/GitLab source.
+ * Resolves skills from a GitHub/GitLab/Bitbucket git hosting source.
  */
 const resolveGitSource = (
   parsed: ParsedSource,
@@ -254,41 +234,6 @@ const resolveGitSource = (
     );
 
     return { skills, skillsDir, commitSha };
-  });
-
-/**
- * Resolves skills from a well-known URL source.
- */
-const resolveWellKnownSource = (
-  parsed: ParsedSource,
-): Effect.Effect<
-  { skills: Skill[]; wellKnownSkills: WellKnownSkill[] },
-  InstallError,
-  HttpClient.HttpClient
-> =>
-  Effect.gen(function* () {
-    const baseUrl = parsed.url ?? parsed.canonical;
-
-    // Fetch the well-known index
-    const index = yield* fetchWellKnownIndex(baseUrl).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: `Failed to fetch well-known index from ${baseUrl}: ${error.message}`,
-            cause: error,
-            retryable: "retryable" in error ? error.retryable : false,
-          }),
-      ),
-    );
-
-    // Convert to Skill objects for display/selection
-    const skills: Skill[] = index.skills.map((wkSkill) => ({
-      name: wkSkill.name,
-      path: `${baseUrl}/.well-known/skills/${wkSkill.name}/SKILL.md`,
-      description: wkSkill.description,
-    }));
-
-    return { skills, wellKnownSkills: [...index.skills] };
   });
 
 // -----------------------------------------------------------------------------
@@ -527,147 +472,6 @@ const installSkillsFromFileSystem = (
     return allResults;
   });
 
-/**
- * Installs a single skill from a well-known URL source and returns its install results and metadata.
- */
-const installSingleSkillFromWellKnown = (
-  skill: Skill,
-  wellKnownSkills: WellKnownSkill[],
-  agents: AgentConfig[],
-  axmDir: string,
-  baseUrl: string,
-): Effect.Effect<
-  {
-    results: readonly InstallResult[];
-    skillName: string;
-    skillPath: string;
-    contentHash: string;
-  } | null,
-  InstallError,
-  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path
-> =>
-  Effect.gen(function* () {
-    // Find the corresponding well-known skill
-    const wkSkill = wellKnownSkills.find((wk) => wk.name === skill.name);
-    if (!wkSkill) {
-      return null;
-    }
-
-    // Fetch skill files to cache
-    const cacheDir = nodePath.join(axmDir, "cache", "wellknown", skill.name);
-    const fetchedSkill = yield* fetchSkillFiles(baseUrl, wkSkill, cacheDir).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: `Failed to fetch skill ${skill.name}: ${error.message}`,
-            cause: error,
-            retryable: "retryable" in error ? error.retryable : false,
-          }),
-      ),
-    );
-
-    // Install skill to all agents
-    const results = yield* installSkillToAgents(fetchedSkill, agents, axmDir).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: `Failed to install skill ${skill.name}: ${error.message}`,
-            cause: error,
-            retryable: false,
-          }),
-      ),
-    );
-
-    // Compute content hash for lockfile
-    const canonicalSkillPath = nodePath.join(axmDir, "skills", skill.name);
-    const contentHash = yield* computeContentHash(canonicalSkillPath).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: `Failed to compute content hash for ${skill.name}: ${error.message}`,
-            cause: error,
-            retryable: false,
-          }),
-      ),
-    );
-
-    return { results, skillName: skill.name, skillPath: fetchedSkill.path, contentHash };
-  });
-
-/**
- * Installs skills from a well-known URL source.
- */
-const installSkillsFromWellKnown = (
-  skills: Skill[],
-  wellKnownSkills: WellKnownSkill[],
-  agents: AgentConfig[],
-  axmDir: string,
-  parsed: ParsedSource,
-): Effect.Effect<
-  InstallResult[],
-  InstallError,
-  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path
-> =>
-  Effect.gen(function* () {
-    const baseUrl = parsed.url ?? parsed.canonical;
-
-    // Install all skills in parallel
-    const installResults = yield* Effect.all(
-      skills.map((skill) =>
-        installSingleSkillFromWellKnown(skill, wellKnownSkills, agents, axmDir, baseUrl),
-      ),
-      { concurrency: "unbounded" },
-    );
-
-    // Filter out null results (skills not found in wellKnownSkills)
-    const validResults = installResults.filter((r): r is NonNullable<typeof r> => r !== null);
-
-    // Collect all results
-    const allResults: InstallResult[] = validResults.flatMap((r) => r.results);
-
-    // Update lockfile entries sequentially (lockfile is a shared file)
-    const now = new Date();
-    yield* Effect.forEach(
-      validResults,
-      ({ skillName, contentHash }) => {
-        const lockEntry = createLockEntryFromParsed(
-          parsed,
-          agents.map((a) => a.id),
-          contentHash,
-          now,
-        );
-        return updateLockEntry(axmDir, skillName, lockEntry).pipe(
-          Effect.mapError(
-            (error) =>
-              new InstallError({
-                message: `Failed to update lockfile for ${skillName}: ${error.message}`,
-                cause: error,
-                retryable: false,
-              }),
-          ),
-        );
-      },
-      { concurrency: 1 },
-    );
-
-    // Batch all settings updates into a single call (settings.json is a shared file)
-    const skillsToAdd = Object.fromEntries(
-      validResults.map(({ skillName }) => [skillName, "*"] as const),
-    );
-    yield* updateSettings(axmDir, { skills: skillsToAdd }).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: `Failed to update settings: ${error.message}`,
-            cause: error,
-            retryable: false,
-          }),
-      ),
-    );
-
-    return allResults;
-  });
-
 // -----------------------------------------------------------------------------
 // Main Handler
 // -----------------------------------------------------------------------------
@@ -854,35 +658,32 @@ export const handleInstall = (
 
     // Step 5: Discover skills based on source type
     let skills: Skill[];
-    let wellKnownSkills: WellKnownSkill[] | undefined;
     let resolvedSource: ResolvedSource;
 
     if (showOutput) {
-      if (parsed.type === "github" || parsed.type === "gitlab" || parsed.type === "well-known") {
+      if (parsed.type === "github" || parsed.type === "gitlab" || parsed.type === "bitbucket") {
         spinnerHelper.start("Fetching source to analyze contents...");
       } else {
         spinnerHelper.start("Discovering skills...");
       }
     }
 
-    if (parsed.type === "local") {
-      const result = yield* resolveLocalSource(parsed);
-      skills = result.skills;
-      resolvedSource = { parsed, skillsDir: result.skillsDir };
-    } else if (parsed.type === "github" || parsed.type === "gitlab") {
+    if (parsed.type === "github" || parsed.type === "gitlab" || parsed.type === "bitbucket") {
       const result = yield* resolveGitSource(parsed, axmDir);
       skills = result.skills;
       resolvedSource = { parsed, skillsDir: result.skillsDir, commitSha: result.commitSha };
-    } else if (parsed.type === "well-known") {
-      const result = yield* resolveWellKnownSource(parsed);
-      skills = result.skills;
-      wellKnownSkills = result.wellKnownSkills;
-      // For well-known, the skillsDir is set but skills are fetched on demand
-      resolvedSource = { parsed, skillsDir: parsed.url ?? parsed.canonical };
+    } else if (parsed.type === "git" || parsed.type === "registry") {
+      if (showOutput) spinnerHelper.stop("Source type not yet supported");
+      return yield* new InstallError({
+        message: `Source type "${parsed.type}" is not yet supported`,
+        retryable: false,
+      });
     } else {
+      // Exhaustive check - should never reach here
+      const _exhaustive: never = parsed.type;
       if (showOutput) spinnerHelper.stop("Unsupported source type");
       return yield* new InstallError({
-        message: `Unsupported source type: ${parsed.type}`,
+        message: `Unsupported source type: ${_exhaustive}`,
         retryable: false,
       });
     }
@@ -1078,19 +879,7 @@ export const handleInstall = (
       );
     }
 
-    let results: InstallResult[];
-
-    if (parsed.type === "well-known" && wellKnownSkills) {
-      results = yield* installSkillsFromWellKnown(
-        skillsToInstall,
-        wellKnownSkills,
-        agents,
-        axmDir,
-        parsed,
-      );
-    } else {
-      results = yield* installSkillsFromFileSystem(skillsToInstall, agents, axmDir, parsed);
-    }
+    const results = yield* installSkillsFromFileSystem(skillsToInstall, agents, axmDir, parsed);
 
     if (showOutput) spinnerHelper.stop(`Installed ${results.length} skill(s)`);
 

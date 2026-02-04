@@ -132,28 +132,7 @@ describe("resolveAmbiguous", () => {
   });
 
   describe("resolution order", () => {
-    it.effect("prefers local path when ./owner/repo exists", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          // Create local directory
-          const localDir = path.join(tempDir, "owner", "repo");
-          fs.mkdirSync(localDir, { recursive: true });
-          fs.writeFileSync(path.join(localDir, "SKILL.md"), "# Local Skill");
-
-          const result = yield* resolveAmbiguous("owner/repo", { cwd: tempDir });
-
-          expect(result).toHaveLength(1);
-          expect(result[0]).toMatchObject({
-            type: "skill",
-            source: "path",
-            origin: localDir,
-            originalInput: "./owner/repo",
-          });
-        }),
-      ),
-    );
-
-    it.effect("falls back to AXM name when local doesn't exist but @owner/repo is installed", () =>
+    it.effect("prefers AXM name when @owner/repo is installed", () =>
       withFileSystem(
         Effect.gen(function* () {
           // Create AXM directory in project
@@ -177,7 +156,7 @@ describe("resolveAmbiguous", () => {
       ),
     );
 
-    it.effect("falls back to GitHub shorthand when neither local nor AXM exists", () =>
+    it.effect("falls back to GitHub shorthand when AXM name not found", () =>
       withFileSystem(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous("owner/repo", { cwd: tempDir });
@@ -193,36 +172,10 @@ describe("resolveAmbiguous", () => {
       ),
     );
 
-    it.effect("prefers local over AXM when both exist", () =>
+    it.effect("prefers AXM over GitHub when AXM exists", () =>
       withFileSystem(
         Effect.gen(function* () {
-          // Create both local and AXM directories
-          const localDir = path.join(tempDir, "owner", "repo");
-          fs.mkdirSync(localDir, { recursive: true });
-          fs.writeFileSync(path.join(localDir, "SKILL.md"), "# Local Skill");
-
-          const axmSkillDir = path.join(projectAxmDir, "skills", "@owner", "repo");
-          fs.mkdirSync(axmSkillDir, { recursive: true });
-
-          const result = yield* resolveAmbiguous("owner/repo", {
-            cwd: tempDir,
-            projectDir: ".axm",
-          });
-
-          expect(result).toHaveLength(1);
-          expect(result[0]).toMatchObject({
-            type: "skill",
-            source: "path",
-            origin: localDir,
-          });
-        }),
-      ),
-    );
-
-    it.effect("prefers AXM over GitHub when AXM exists but local doesn't", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          // Create only AXM directory
+          // Create AXM directory
           const axmSkillDir = path.join(projectAxmDir, "skills", "@owner", "repo");
           fs.mkdirSync(axmSkillDir, { recursive: true });
 
@@ -243,26 +196,6 @@ describe("resolveAmbiguous", () => {
   });
 
   describe("source filtering", () => {
-    it.effect("skips path check when sources excludes path", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          // Create local directory (should be ignored)
-          const localDir = path.join(tempDir, "owner", "repo");
-          fs.mkdirSync(localDir, { recursive: true });
-          fs.writeFileSync(path.join(localDir, "SKILL.md"), "# Local Skill");
-
-          const result = yield* resolveAmbiguous("owner/repo", {
-            cwd: tempDir,
-            sources: ["registry", "github"],
-          });
-
-          // Should fall back to GitHub, not use local path
-          expect(result).toHaveLength(1);
-          expect(result[0]?.source).toBe("github");
-        }),
-      ),
-    );
-
     it.effect("skips registry check when sources excludes registry", () =>
       withFileSystem(
         Effect.gen(function* () {
@@ -273,7 +206,7 @@ describe("resolveAmbiguous", () => {
           const result = yield* resolveAmbiguous("owner/repo", {
             cwd: tempDir,
             projectDir: ".axm",
-            sources: ["path", "github"],
+            sources: ["github"],
           });
 
           // Should fall back to GitHub, not use registry
@@ -283,49 +216,30 @@ describe("resolveAmbiguous", () => {
       ),
     );
 
+    it.effect("returns empty when sources excludes both github and registry", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const result = yield* resolveAmbiguous("owner/repo", {
+            cwd: tempDir,
+            sources: ["git"],
+          });
+
+          // Should return empty since neither registry nor github is allowed
+          expect(result).toEqual([]);
+        }),
+      ),
+    );
+
     it.effect("skips GitHub when sources excludes github", () =>
       withFileSystem(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous("owner/repo", {
             cwd: tempDir,
-            sources: ["path", "registry"],
+            sources: ["registry"],
           });
 
-          // Should return empty since nothing else matches
+          // Should return empty since no AXM exists and github is excluded
           expect(result).toEqual([]);
-        }),
-      ),
-    );
-
-    it.effect("skips GitHub when sources excludes gitlab", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          const result = yield* resolveAmbiguous("owner/repo", {
-            cwd: tempDir,
-            sources: ["path", "registry", "gitlab"],
-          });
-
-          // Should return empty since GitHub is excluded
-          expect(result).toEqual([]);
-        }),
-      ),
-    );
-
-    it.effect("respects sources filter with only path", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          // Create local directory
-          const localDir = path.join(tempDir, "owner", "repo");
-          fs.mkdirSync(localDir, { recursive: true });
-          fs.writeFileSync(path.join(localDir, "SKILL.md"), "# Local Skill");
-
-          const result = yield* resolveAmbiguous("owner/repo", {
-            cwd: tempDir,
-            sources: ["path"],
-          });
-
-          expect(result).toHaveLength(1);
-          expect(result[0]?.source).toBe("path");
         }),
       ),
     );

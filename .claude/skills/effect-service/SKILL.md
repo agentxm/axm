@@ -15,9 +15,9 @@ Apply these patterns when designing Effect services in this codebase.
 Use the inferred interface pattern to avoid circular references:
 
 ```typescript
-// 1. Define implementation with explicit method signatures
+// 1. Define implementation - let Effect infer method return types
 const make = (config: Config) => {
-  const doSomething = (input: string): Effect.Effect<Result, MyError> =>
+  const doSomething = (input: string) =>
     Effect.tryPromise({
       try: () => externalApi.call(input),
       catch: mapToMyError,
@@ -45,7 +45,7 @@ export const MyServiceLive = Layer.effect(
 ### Service Interface Checklist
 
 - [ ] **Infer from implementation** — Use `ReturnType<typeof make>` not explicit interface
-- [ ] **Explicit method signatures** — Each method has explicit return type
+- [ ] **Let methods infer types** — Effect infers `Effect<A, E, R>` signatures
 - [ ] **No return type on make** — Avoid circular references
 - [ ] **Tag after type** — Service tag created after type inference
 - [ ] **Single responsibility** — Service handles one domain concern
@@ -146,7 +146,7 @@ const retryPolicy = Schedule.exponential(Duration.seconds(1)).pipe(
   Schedule.whileInput((error: ApiError) => error.retryable),
 );
 
-const doSomething = (input: string): Effect.Effect<Result, ApiError> =>
+const doSomething = (input: string) =>
   Effect.tryPromise({
     try: () => api.call(input),
     catch: mapApiError,

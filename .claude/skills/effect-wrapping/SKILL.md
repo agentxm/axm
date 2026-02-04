@@ -54,3 +54,4 @@ When wrapping an entire third-party library, create a dedicated wrapper module.
 - [ ] **Typed errors** — Define TaggedError types for failure cases
 - [ ] **Preserve signatures** — Wrappers accept same options as originals
 - [ ] **Re-export via index** — Public API exported from index.ts (for library wrappers)
+- [ ] **Let Effect infer types** — Don't add explicit return type annotations

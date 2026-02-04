@@ -8,9 +8,9 @@
  * @packageDocumentation
  */
 
-import { Effect } from "effect";
+import * as Effect from "effect/Effect";
 import { parseSource } from "../../skills/source-parser.js";
-import type { ExtensionRef, ResolutionOptions } from "../types.js";
+import type { ExtensionRef } from "../types.js";
 
 /**
  * URL pattern for detecting URL-like inputs.
@@ -60,10 +60,7 @@ const buildOriginUrl = (sourceType: "github" | "gitlab", owner: string, repo: st
  * @param _options - Resolution options (unused currently)
  * @returns Effect containing array of ExtensionRefs, or empty array if not a match
  */
-export const resolveUrl = (
-  input: string,
-  _options: ResolutionOptions,
-): Effect.Effect<ExtensionRef[], never> => {
+export const resolveUrl = (input: string): Effect.Effect<ExtensionRef[], never> => {
   const trimmed = input.trim();
 
   // Return empty array if input doesn't look like a URL

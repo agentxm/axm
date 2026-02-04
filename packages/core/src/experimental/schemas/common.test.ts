@@ -5,7 +5,8 @@
  * ExtensionTypeSchema, SourceTypeSchema, and AgentIdSchema schemas.
  */
 
-import { Either, Schema } from "effect";
+import * as Either from "effect/Either";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import {
   AgentIdSchema,

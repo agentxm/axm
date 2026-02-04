@@ -11,8 +11,13 @@
  */
 
 import * as nodePath from "node:path";
-import { FileSystem } from "@effect/platform";
-import { Console, Data, Effect, Either, Option, pipe } from "effect";
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as Console from "effect/Console";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
+import * as Either from "effect/Either";
+import { pipe } from "effect/Function";
+import * as Option from "effect/Option";
 import type { AgentConfig } from "../agents/index.js";
 import type { Lockfile, SkillLockEntry } from "../schemas/lockfile.js";
 import type { Settings } from "../schemas/settings.js";

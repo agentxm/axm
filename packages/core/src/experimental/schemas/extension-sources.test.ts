@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Schema } from "effect";
+import * as Schema from "effect/Schema";
 import { SourceSchema, type SourceType } from "./extension-sources.js";
 
 describe("extension-sources schema", () => {

@@ -8,7 +8,8 @@
  */
 
 import type { ExtensionRef } from "@agentxm/core/experimental/resolution";
-import { Data, Effect } from "effect";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
 import { formatEmptyResolutionError, formatError } from "../../utils/errors.js";
 import { promptSelect } from "../../utils/prompts.js";
 

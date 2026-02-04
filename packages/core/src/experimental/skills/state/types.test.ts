@@ -4,7 +4,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { Option, Schema } from "effect";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import type { AnyIssue, DiffSummary, IdealSkillLegacy, LockedSkill, SkillsDiff } from "./types.js";
 import {

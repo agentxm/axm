@@ -7,7 +7,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { Effect, Option } from "effect";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import type {
   CurrentState,
@@ -106,9 +107,11 @@ const mockDiscoveredSkills: ReadonlyArray<DiscoveredSkill> = [
 ];
 
 /** Mock parseSource that returns a GitHub source */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const mockParseSource = (_source: string) => Effect.succeed(makeGitHubSource("owner", "repo"));
 
 /** Mock discoverSkills that returns mock skills */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const mockDiscoverSkills = (_source: SkillSourceV2) => Effect.succeed(mockDiscoveredSkills);
 
 // =============================================================================

@@ -9,7 +9,7 @@
  */
 
 import * as path from "node:path";
-import { Option } from "effect";
+import * as Option from "effect/Option";
 import { claudeHome, codexHome, configHome, home } from "./constants.js";
 import type { AgentConfig, AgentId, AgentRegistry } from "./types.js";
 

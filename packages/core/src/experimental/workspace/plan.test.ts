@@ -6,7 +6,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { Option } from "effect";
+import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import type {
   ActualSkillV2,

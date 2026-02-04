@@ -7,7 +7,9 @@
  * @packageDocumentation
  */
 
-import { Array as Arr, Option, pipe } from "effect";
+import * as Arr from "effect/Array";
+import { pipe } from "effect/Function";
+import * as Option from "effect/Option";
 import { versionsEqual } from "../skills/state/pure-functions.js";
 import type {
   CurrentState,
@@ -125,7 +127,7 @@ export const buildPlan = (current: CurrentState, ideal: IdealState): Plan => {
     Arr.filterMap((currentSkill) =>
       pipe(
         Option.all([currentSkill.actual, currentSkill.locked]),
-        Option.flatMap(([_actual, locked]) => {
+        Option.flatMap(([, locked]) => {
           const inIdeal = pipe(
             ideal.skills,
             Arr.some((s) => s.name === currentSkill.name),

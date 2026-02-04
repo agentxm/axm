@@ -7,7 +7,8 @@
  * @packageDocumentation
  */
 
-import { Data, Effect } from "effect";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
 import type { ActualInitState, IdealInitState, InitDiff } from "./types.js";
 import { InitChange } from "./types.js";
 

@@ -2,9 +2,9 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { FileSystem } from "@effect/platform";
-import { NodeFileSystem } from "@effect/platform-node";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
-import { Effect } from "effect";
+import * as Effect from "effect/Effect";
 import { isAxmName, resolveAxmName } from "./axm-name.js";
 
 describe("isAxmName", () => {
@@ -322,7 +322,8 @@ describe("resolveAxmName", () => {
         Effect.gen(function* () {
           // Create skill in default location relative to process.cwd()
           const processCwd = process.cwd();
-          const _skillPath = path.join(processCwd, ".axm", "skills", "@test", "skill");
+          const _unused = path.join(processCwd, ".axm", "skills", "@test", "skill");
+          void _unused; // Avoid unused variable lint error
 
           // Only create if we can safely test (avoid polluting real filesystem)
           // For this test, we'll just verify empty result since we're not setting up the real cwd

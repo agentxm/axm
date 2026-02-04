@@ -5,7 +5,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
-import { Effect } from "effect";
+import * as Effect from "effect/Effect";
 import { fetchGitHubTreeHash, GitHubApiError } from "./github-api.js";
 
 describe("github-api", () => {

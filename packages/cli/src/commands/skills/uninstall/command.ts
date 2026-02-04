@@ -4,8 +4,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { NodeContext } from "@effect/platform-node";
-import { Effect, Layer } from "effect";
+import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import type { CommandModule } from "yargs";
 import { handleUninstall } from "./handler.js";
 

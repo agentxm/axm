@@ -1,4 +1,5 @@
-import { Effect, Exit } from "effect";
+import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -88,13 +89,14 @@ describe("canPrompt", () => {
 });
 
 describe("promptConfirm", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockProcessExit: any;
 
   beforeEach(() => {
     vi.resetAllMocks();
-    mockProcessExit = vi.spyOn(process, "exit").mockImplementation(() => {
+    mockProcessExit = vi.spyOn(process, "exit").mockImplementation((() => {
       throw new Error("process.exit called");
-    });
+    }) as () => never);
   });
 
   afterEach(() => {
@@ -164,13 +166,14 @@ describe("promptConfirm", () => {
 });
 
 describe("promptSelect", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockProcessExit: any;
 
   beforeEach(() => {
     vi.resetAllMocks();
-    mockProcessExit = vi.spyOn(process, "exit").mockImplementation(() => {
+    mockProcessExit = vi.spyOn(process, "exit").mockImplementation((() => {
       throw new Error("process.exit called");
-    });
+    }) as () => never);
   });
 
   afterEach(() => {
@@ -280,13 +283,14 @@ describe("promptSelect", () => {
 });
 
 describe("promptMultiselect", () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let mockProcessExit: any;
 
   beforeEach(() => {
     vi.resetAllMocks();
-    mockProcessExit = vi.spyOn(process, "exit").mockImplementation(() => {
+    mockProcessExit = vi.spyOn(process, "exit").mockImplementation((() => {
       throw new Error("process.exit called");
-    });
+    }) as () => never);
   });
 
   afterEach(() => {

@@ -9,8 +9,9 @@
  */
 
 import * as path from "node:path";
-import { FileSystem } from "@effect/platform";
-import { Data, Effect } from "effect";
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
 import { claudeHome, codexHome, configHome, home } from "./constants.js";
 import { getAllAgents } from "./registry.js";
 import type { AgentConfig } from "./types.js";

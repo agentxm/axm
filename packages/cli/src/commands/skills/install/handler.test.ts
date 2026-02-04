@@ -16,10 +16,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { Settings } from "@agentxm/core/experimental/skills";
-import { FetchHttpClient, type FileSystem, type HttpClient, type Path } from "@effect/platform";
-import { NodeFileSystem, NodePath } from "@effect/platform-node";
+import * as FetchHttpClient from "@effect/platform/FetchHttpClient";
+import type { FileSystem, HttpClient, Path } from "@effect/platform";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodePath from "@effect/platform-node/NodePath";
 import { describe, expect, it } from "@effect/vitest";
-import { Effect, Layer } from "effect";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { afterEach, beforeEach, vi } from "vitest";
 import YAML from "yaml";
 import { handleInstall, type InstallArgs, InstallError } from "./handler.js";
@@ -41,7 +44,7 @@ vi.mock("@agentxm/core/experimental/skills", async (importOriginal) => {
       currentFixturePath = undefined;
     },
     // Mock cloneRepo to copy from fixture instead of actual git clone
-    cloneRepo: vi.fn((url: string, destination: string, _ref?: string) => {
+    cloneRepo: vi.fn((url: string, destination: string) => {
       if (!currentFixturePath) {
         // Die with an error when no fixture is set (simulates failed clone)
         return Effect.die(`Failed to clone repository from ${url}`);
@@ -56,7 +59,7 @@ vi.mock("@agentxm/core/experimental/skills", async (importOriginal) => {
       return Effect.void;
     }),
     // Mock getCurrentCommit to return a fake SHA
-    getCurrentCommit: vi.fn((_repoPath: string) => {
+    getCurrentCommit: vi.fn(() => {
       return Effect.succeed("abc1234567890abcdef1234567890abcdef12345");
     }),
   };
@@ -73,16 +76,14 @@ vi.mock("@agentxm/core/experimental/skills/github-api", async (importOriginal) =
   return {
     ...original,
     // Mock fetchGitHubTreeHash to return unique fake hashes for each call
-    fetchGitHubTreeHash: vi.fn(
-      (_owner: string, _repo: string, _ref: string, _skillPath: string) => {
-        // Increment call counter and generate unique hash based on call number
-        gitHubApiCallCount++;
-        // Generate a valid 40-character hex hash with varying content
-        const hexPart = gitHubApiCallCount.toString(16).padStart(8, "0");
-        const hash = `${hexPart}00000000000000000000000000000000`.slice(0, 40);
-        return Effect.succeed(hash);
-      },
-    ),
+    fetchGitHubTreeHash: vi.fn(() => {
+      // Increment call counter and generate unique hash based on call number
+      gitHubApiCallCount++;
+      // Generate a valid 40-character hex hash with varying content
+      const hexPart = gitHubApiCallCount.toString(16).padStart(8, "0");
+      const hash = `${hexPart}00000000000000000000000000000000`.slice(0, 40);
+      return Effect.succeed(hash);
+    }),
     // Allow tests to reset the call counter
     __resetGitHubApiCallCount: () => {
       gitHubApiCallCount = 0;

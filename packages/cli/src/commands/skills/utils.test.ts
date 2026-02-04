@@ -6,7 +6,7 @@
 
 import type { ExtensionRef } from "@agentxm/core/experimental/resolution";
 import { describe, expect, it } from "@effect/vitest";
-import { Effect } from "effect";
+import * as Effect from "effect/Effect";
 import { SkillsError, selectExtensionRef } from "./utils.js";
 
 describe("selectExtensionRef", () => {

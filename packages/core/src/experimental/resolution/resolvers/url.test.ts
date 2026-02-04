@@ -5,17 +5,14 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import { Effect } from "effect";
-import type { ResolutionOptions } from "../types.js";
+import * as Effect from "effect/Effect";
 import { resolveUrl } from "./url.js";
-
-const defaultOptions: ResolutionOptions = {};
 
 describe("url resolver", () => {
   describe("GitHub HTTPS URLs", () => {
     it.effect("resolves https://github.com/owner/repo", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("https://github.com/owner/repo", defaultOptions);
+        const result = yield* resolveUrl("https://github.com/owner/repo");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -32,7 +29,7 @@ describe("url resolver", () => {
 
     it.effect("resolves https://github.com/owner/repo.git", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("https://github.com/owner/repo.git", defaultOptions);
+        const result = yield* resolveUrl("https://github.com/owner/repo.git");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -46,10 +43,7 @@ describe("url resolver", () => {
 
     it.effect("resolves GitHub URL with tree ref and path", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl(
-          "https://github.com/owner/repo/tree/main/skills/my-skill",
-          defaultOptions,
-        );
+        const result = yield* resolveUrl("https://github.com/owner/repo/tree/main/skills/my-skill");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -64,10 +58,7 @@ describe("url resolver", () => {
 
     it.effect("resolves GitHub URL with just tree ref", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl(
-          "https://github.com/owner/repo/tree/v1.0.0",
-          defaultOptions,
-        );
+        const result = yield* resolveUrl("https://github.com/owner/repo/tree/v1.0.0");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -83,7 +74,7 @@ describe("url resolver", () => {
   describe("GitLab HTTPS URLs", () => {
     it.effect("resolves https://gitlab.com/owner/repo", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("https://gitlab.com/owner/repo", defaultOptions);
+        const result = yield* resolveUrl("https://gitlab.com/owner/repo");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -98,10 +89,7 @@ describe("url resolver", () => {
 
     it.effect("resolves GitLab URL with tree ref and path", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl(
-          "https://gitlab.com/owner/repo/-/tree/develop/src/skills",
-          defaultOptions,
-        );
+        const result = yield* resolveUrl("https://gitlab.com/owner/repo/-/tree/develop/src/skills");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -118,7 +106,7 @@ describe("url resolver", () => {
   describe("GitHub SSH URLs", () => {
     it.effect("resolves git@github.com:owner/repo.git", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("git@github.com:owner/repo.git", defaultOptions);
+        const result = yield* resolveUrl("git@github.com:owner/repo.git");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -132,7 +120,7 @@ describe("url resolver", () => {
 
     it.effect("resolves git@github.com:owner/repo (without .git)", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("git@github.com:owner/repo", defaultOptions);
+        const result = yield* resolveUrl("git@github.com:owner/repo");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -147,7 +135,7 @@ describe("url resolver", () => {
   describe("GitLab SSH URLs", () => {
     it.effect("resolves git@gitlab.com:owner/repo.git", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("git@gitlab.com:owner/repo.git", defaultOptions);
+        const result = yield* resolveUrl("git@gitlab.com:owner/repo.git");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -167,7 +155,7 @@ describe("url resolver", () => {
 
     it.effect("returns empty for URL with file extension (not a git host)", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("https://example.com/skills/my-skill.md", defaultOptions);
+        const result = yield* resolveUrl("https://example.com/skills/my-skill.md");
 
         // Non-git URLs return empty - source type filtering removes them
         expect(result).toEqual([]);
@@ -176,7 +164,7 @@ describe("url resolver", () => {
 
     it.effect("returns empty for URL without recognized git host", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("https://example.com", defaultOptions);
+        const result = yield* resolveUrl("https://example.com");
 
         // Non-git URLs return empty - source type filtering removes them
         expect(result).toEqual([]);
@@ -185,7 +173,7 @@ describe("url resolver", () => {
 
     it.effect("returns empty for URL with path but no recognized git host", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("https://example.com/some/path", defaultOptions);
+        const result = yield* resolveUrl("https://example.com/some/path");
 
         // Non-git URLs return empty - source type filtering removes them
         expect(result).toEqual([]);
@@ -196,7 +184,7 @@ describe("url resolver", () => {
   describe("non-matching inputs", () => {
     it.effect("returns empty array for prefixed shorthand", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("github:owner/repo", defaultOptions);
+        const result = yield* resolveUrl("github:owner/repo");
 
         expect(result).toEqual([]);
       }),
@@ -204,7 +192,7 @@ describe("url resolver", () => {
 
     it.effect("returns empty array for unprefixed shorthand", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("owner/repo", defaultOptions);
+        const result = yield* resolveUrl("owner/repo");
 
         expect(result).toEqual([]);
       }),
@@ -212,7 +200,7 @@ describe("url resolver", () => {
 
     it.effect("returns empty array for local path", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("./local/path", defaultOptions);
+        const result = yield* resolveUrl("./local/path");
 
         expect(result).toEqual([]);
       }),
@@ -220,7 +208,7 @@ describe("url resolver", () => {
 
     it.effect("returns empty array for absolute local path", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("/absolute/path", defaultOptions);
+        const result = yield* resolveUrl("/absolute/path");
 
         expect(result).toEqual([]);
       }),
@@ -228,7 +216,7 @@ describe("url resolver", () => {
 
     it.effect("returns empty array for empty string", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("", defaultOptions);
+        const result = yield* resolveUrl("");
 
         expect(result).toEqual([]);
       }),
@@ -236,7 +224,7 @@ describe("url resolver", () => {
 
     it.effect("returns empty array for whitespace-only string", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("   ", defaultOptions);
+        const result = yield* resolveUrl("   ");
 
         expect(result).toEqual([]);
       }),
@@ -244,7 +232,7 @@ describe("url resolver", () => {
 
     it.effect("returns empty array for plain text", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("just-some-text", defaultOptions);
+        const result = yield* resolveUrl("just-some-text");
 
         expect(result).toEqual([]);
       }),
@@ -254,7 +242,7 @@ describe("url resolver", () => {
   describe("edge cases", () => {
     it.effect("trims whitespace from input", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("  https://github.com/owner/repo  ", defaultOptions);
+        const result = yield* resolveUrl("  https://github.com/owner/repo  ");
 
         expect(result).toHaveLength(1);
         expect(result[0]?.source).toBe("github");
@@ -263,7 +251,7 @@ describe("url resolver", () => {
 
     it.effect("preserves original input with whitespace", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("  https://github.com/owner/repo  ", defaultOptions);
+        const result = yield* resolveUrl("  https://github.com/owner/repo  ");
 
         expect(result[0]?.originalInput).toBe("  https://github.com/owner/repo  ");
       }),
@@ -271,7 +259,7 @@ describe("url resolver", () => {
 
     it.effect("handles repos with dashes and dots", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("https://github.com/my-org/repo.js", defaultOptions);
+        const result = yield* resolveUrl("https://github.com/my-org/repo.js");
 
         expect(result).toHaveLength(1);
         expect(result[0]?.origin).toBe("https://github.com/my-org/repo.js");
@@ -280,7 +268,7 @@ describe("url resolver", () => {
 
     it.effect("handles http:// URLs (not just https://)", () =>
       Effect.gen(function* () {
-        const result = yield* resolveUrl("http://github.com/owner/repo", defaultOptions);
+        const result = yield* resolveUrl("http://github.com/owner/repo");
 
         expect(result).toHaveLength(1);
         expect(result[0]?.source).toBe("github");

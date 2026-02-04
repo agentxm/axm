@@ -38,8 +38,11 @@ import {
   type WorkspaceContext,
 } from "@agentxm/core/experimental/workspace";
 import * as p from "@clack/prompts";
-import { FileSystem, type Path } from "@effect/platform";
-import { Data, Effect, Option } from "effect";
+import * as FileSystem from "@effect/platform/FileSystem";
+import type { Path } from "@effect/platform";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { formatError } from "../../../utils/errors.js";
 import { promptConfirm } from "../../../utils/prompts.js";
 import { createSpinnerHelper } from "../../../utils/spinner.js";

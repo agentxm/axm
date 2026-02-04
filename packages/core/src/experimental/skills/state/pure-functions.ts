@@ -8,7 +8,8 @@
  * @packageDocumentation
  */
 
-import { Option, pipe } from "effect";
+import { pipe } from "effect/Function";
+import * as Option from "effect/Option";
 import * as semver from "semver";
 import type { SkillSourceV2 } from "./types.js";
 

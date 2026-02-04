@@ -51,7 +51,10 @@ import {
 } from "@agentxm/core/experimental/workspace";
 import * as p from "@clack/prompts";
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
-import { Data, Effect, Option, pipe } from "effect";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
+import { pipe } from "effect/Function";
+import * as Option from "effect/Option";
 import { formatError } from "../../../utils/errors.js";
 import { canPrompt, promptConfirm, promptMultiselect } from "../../../utils/prompts.js";
 import { createSpinnerHelper } from "../../../utils/spinner.js";
@@ -373,8 +376,7 @@ const createBuildIdealDeps = (
   resolvedSource: ResolvedSource,
   discoveredSkills: readonly Skill[],
 ): BuildIdealDeps => ({
-  parseSource: (_source: string) =>
-    parsedSourceToV2(resolvedSource.parsed, resolvedSource.skillsDir),
+  parseSource: () => parsedSourceToV2(resolvedSource.parsed, resolvedSource.skillsDir),
 
   discoverSkills: (source: SkillSourceV2) =>
     Effect.gen(function* () {

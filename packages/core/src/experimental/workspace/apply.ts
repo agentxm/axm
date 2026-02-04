@@ -68,15 +68,19 @@ export interface ApplyOptions {
  * Dependencies for applyPlan.
  * Allows injection of step execution and state updates for testing.
  *
+ * The R type parameter represents the context requirements for the deps.
+ * For real usage, this will typically be FileSystem.FileSystem.
+ * For testing, this can be never (no requirements with mocks).
+ *
  * @experimental This API is unstable and may change without notice.
  */
-export interface ApplyDeps {
+export interface ApplyDeps<R = never> {
   /** Execute a single step */
-  readonly applyStep: (step: PlanStep) => Effect.Effect<void, ApplyError>;
+  readonly applyStep: (step: PlanStep) => Effect.Effect<void, ApplyError, R>;
   /** Update lockfile after successful apply */
-  readonly updateLockfile: (plan: Plan) => Effect.Effect<void, ApplyError>;
+  readonly updateLockfile: (plan: Plan) => Effect.Effect<void, ApplyError, R>;
   /** Update settings after successful apply */
-  readonly updateSettings: (plan: Plan) => Effect.Effect<void, ApplyError>;
+  readonly updateSettings: (plan: Plan) => Effect.Effect<void, ApplyError, R>;
 }
 
 // =============================================================================
@@ -284,12 +288,12 @@ export const displayPlan = (plan: Plan): Effect.Effect<void> =>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const applyPlan = (
+export const applyPlan = <R>(
   _ws: WorkspaceContext,
   plan: Plan,
   opts: ApplyOptions,
-  deps: ApplyDeps,
-): Effect.Effect<ApplyResult, ApplyError> =>
+  deps: ApplyDeps<R>,
+): Effect.Effect<ApplyResult, ApplyError, R> =>
   Effect.gen(function* () {
     if (opts.dryRun) {
       yield* displayPlan(plan);

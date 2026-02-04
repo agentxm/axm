@@ -6,7 +6,8 @@
  */
 
 import * as p from "@clack/prompts";
-import { Data, Effect } from "effect";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
 import { isInteractive } from "./tty.js";
 
 // -----------------------------------------------------------------------------

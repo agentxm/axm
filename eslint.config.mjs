@@ -20,7 +20,7 @@ export default tseslint.config(
       // Enforce direct imports from Effect submodules
       "@effect/no-import-from-barrel-package": [
         "error",
-        { packageNames: ["effect", "@effect/platform", "@effect/platform-node", "@effect/vitest"] },
+        { packageNames: ["effect", "@effect/platform", "@effect/platform-node"] },
       ],
     },
   },

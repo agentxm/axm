@@ -4,7 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { Data } from "effect";
+import * as Data from "effect/Data";
 
 /**
  * Error that occurs during prompt operations.

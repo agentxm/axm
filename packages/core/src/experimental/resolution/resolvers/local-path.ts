@@ -10,8 +10,8 @@
 
 import * as os from "node:os";
 import * as nodePath from "node:path";
-import { FileSystem } from "@effect/platform";
-import { Effect } from "effect";
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as Effect from "effect/Effect";
 import type { ExtensionRef, ExtensionType, ResolutionOptions } from "../types.js";
 
 // -----------------------------------------------------------------------------

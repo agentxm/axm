@@ -9,8 +9,10 @@
  */
 
 import * as path from "node:path";
-import { FileSystem } from "@effect/platform";
-import { Data, Effect, Schema } from "effect";
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import YAML from "yaml";
 
 import { type Lockfile, LockfileSchema, type SkillLockEntry } from "../schemas/lockfile.js";
@@ -270,7 +272,8 @@ export const removeLockEntry = (
     const existing = yield* readLockfile(axmDir);
 
     // Create new skills object without the specified skill
-    const { [skillName]: _, ...remainingSkills } = existing.skills;
+    const { [skillName]: _removed, ...remainingSkills } = existing.skills;
+    void _removed; // Avoid unused variable lint error
 
     const updatedLockfile: Lockfile = {
       ...existing,

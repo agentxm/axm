@@ -7,7 +7,10 @@
  * @packageDocumentation
  */
 
-import { Context, Layer } from "effect";
+import * as Context from "effect/Context";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import type { InteractionContextService } from "./interaction-context/types.js";
 
 /**
  * Operation context configuration.
@@ -19,6 +22,8 @@ export interface OperationContextConfig {
   readonly cwd: string;
   /** Whether to run in dry-run mode (no side effects) */
   readonly dryRun: boolean;
+  /** Optional interaction context for prompts and UI */
+  readonly interaction: Option.Option<InteractionContextService>;
 }
 
 /**
@@ -44,6 +49,7 @@ export class OperationContext extends Context.Tag("@agentxm/cli/OperationContext
     () => ({
       cwd: process.cwd(),
       dryRun: false,
+      interaction: Option.none(),
     }),
   );
 }

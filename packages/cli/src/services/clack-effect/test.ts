@@ -6,10 +6,11 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { Effect, Layer } from "effect";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { PromptCancelled, PromptError } from "./errors.js";
 import { Clack, type ClackService } from "./service.js";
-import type { MultiselectConfig, PromptOption, Spinner } from "./types.js";
+import type { Spinner } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -133,7 +134,7 @@ export function makeMockClackService(config: MockClackConfig = {}): MockClackSer
         }),
     },
 
-    confirm: (_message, _initialValue) => {
+    confirm: () => {
       const behavior = config.confirmBehavior ?? { type: "return", value: true };
       if (behavior.type === "cancel") {
         return Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
@@ -141,7 +142,7 @@ export function makeMockClackService(config: MockClackConfig = {}): MockClackSer
       return Effect.succeed(behavior.value);
     },
 
-    select: <T>(_message: string, items: readonly T[], _toOption: (item: T) => PromptOption) => {
+    select: <T>(_message: string, items: readonly T[]) => {
       const behavior = config.selectBehavior ?? { type: "return", index: 0 };
       if (behavior.type === "cancel") {
         return Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
@@ -156,7 +157,7 @@ export function makeMockClackService(config: MockClackConfig = {}): MockClackSer
       return Effect.succeed(selected);
     },
 
-    multiselect: <T>(_message: string, items: readonly T[], _config: MultiselectConfig<T>) => {
+    multiselect: <T>(_message: string, items: readonly T[]) => {
       const behavior = config.multiselectBehavior ?? { type: "return", indices: [0] };
       if (behavior.type === "cancel") {
         return Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));

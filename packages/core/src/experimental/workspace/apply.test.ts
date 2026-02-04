@@ -10,9 +10,11 @@
 
 import * as os from "node:os";
 import * as nodePath from "node:path";
-import { FileSystem, type Path } from "@effect/platform";
-import { NodeContext } from "@effect/platform-node";
-import { Effect, Option } from "effect";
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as Path from "@effect/platform/Path";
+import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Plan, PlanStep, SkillSourceV2 } from "../skills/state/types.js";
 import { PlanStep as PlanStepConstructor } from "../skills/state/types.js";

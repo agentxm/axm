@@ -33,7 +33,11 @@ import {
 } from "@agentxm/core/experimental/workspace-init";
 import * as p from "@clack/prompts";
 import type { FileSystem } from "@effect/platform";
-import { Array as Arr, Data, Effect, Option, pipe } from "effect";
+import * as Arr from "effect/Array";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { pipe } from "effect/Function";
 import { formatError } from "../../utils/errors.js";
 import { promptMultiselect } from "../../utils/prompts.js";
 import { createSpinnerHelper } from "../../utils/spinner.js";

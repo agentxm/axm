@@ -8,7 +8,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { JSONSchema } from "effect";
+import * as JSONSchema from "effect/JSONSchema";
 import { LockfileSchema } from "../src/experimental/schemas/lockfile.js";
 import { CommandManifestSchema } from "../src/experimental/schemas/manifest-command.js";
 import { McpServerManifestSchema } from "../src/experimental/schemas/manifest-mcp-server.js";

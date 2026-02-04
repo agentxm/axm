@@ -4,7 +4,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { Effect, Exit, Option } from "effect";
+import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
+import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import type { AgentConfig, AgentId } from "../agents/types.js";
 import type { AgentId as SettingsAgentId } from "../schemas/common.js";

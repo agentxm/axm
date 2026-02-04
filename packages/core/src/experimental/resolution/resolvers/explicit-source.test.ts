@@ -5,17 +5,14 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import { Effect } from "effect";
-import type { ResolutionOptions } from "../types.js";
+import * as Effect from "effect/Effect";
 import { resolveExplicitSource } from "./explicit-source.js";
-
-const defaultOptions: ResolutionOptions = {};
 
 describe("explicit-source resolver", () => {
   describe("github: prefix", () => {
     it.effect("resolves github:owner/repo", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource("github:owner/repo", defaultOptions);
+        const result = yield* resolveExplicitSource("github:owner/repo");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -32,7 +29,7 @@ describe("explicit-source resolver", () => {
 
     it.effect("resolves github:owner/repo@ref", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource("github:owner/repo@v1.0.0", defaultOptions);
+        const result = yield* resolveExplicitSource("github:owner/repo@v1.0.0");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -47,10 +44,7 @@ describe("explicit-source resolver", () => {
 
     it.effect("resolves github:owner/repo/path", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource(
-          "github:owner/repo/skills/my-skill",
-          defaultOptions,
-        );
+        const result = yield* resolveExplicitSource("github:owner/repo/skills/my-skill");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -65,10 +59,7 @@ describe("explicit-source resolver", () => {
 
     it.effect("resolves github:owner/repo/path@ref", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource(
-          "github:owner/repo/skills/my-skill@main",
-          defaultOptions,
-        );
+        const result = yield* resolveExplicitSource("github:owner/repo/skills/my-skill@main");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -86,7 +77,7 @@ describe("explicit-source resolver", () => {
   describe("gitlab: prefix", () => {
     it.effect("resolves gitlab:owner/repo", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource("gitlab:owner/repo", defaultOptions);
+        const result = yield* resolveExplicitSource("gitlab:owner/repo");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -101,7 +92,7 @@ describe("explicit-source resolver", () => {
 
     it.effect("resolves gitlab:owner/repo@ref", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource("gitlab:owner/repo@develop", defaultOptions);
+        const result = yield* resolveExplicitSource("gitlab:owner/repo@develop");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -116,10 +107,7 @@ describe("explicit-source resolver", () => {
 
     it.effect("resolves gitlab:owner/repo/path@ref", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource(
-          "gitlab:owner/repo/skills/test@v2.0.0",
-          defaultOptions,
-        );
+        const result = yield* resolveExplicitSource("gitlab:owner/repo/skills/test@v2.0.0");
 
         expect(result).toHaveLength(1);
         expect(result[0]).toMatchObject({
@@ -136,7 +124,7 @@ describe("explicit-source resolver", () => {
   describe("non-matching inputs", () => {
     it.effect("returns empty array for unprefixed shorthand", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource("owner/repo", defaultOptions);
+        const result = yield* resolveExplicitSource("owner/repo");
 
         expect(result).toEqual([]);
       }),
@@ -144,10 +132,7 @@ describe("explicit-source resolver", () => {
 
     it.effect("returns empty array for GitHub HTTPS URL", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource(
-          "https://github.com/owner/repo",
-          defaultOptions,
-        );
+        const result = yield* resolveExplicitSource("https://github.com/owner/repo");
 
         expect(result).toEqual([]);
       }),
@@ -155,7 +140,7 @@ describe("explicit-source resolver", () => {
 
     it.effect("returns empty array for local path", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource("./local/path", defaultOptions);
+        const result = yield* resolveExplicitSource("./local/path");
 
         expect(result).toEqual([]);
       }),
@@ -163,7 +148,7 @@ describe("explicit-source resolver", () => {
 
     it.effect("returns empty array for empty string", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource("", defaultOptions);
+        const result = yield* resolveExplicitSource("");
 
         expect(result).toEqual([]);
       }),
@@ -171,7 +156,7 @@ describe("explicit-source resolver", () => {
 
     it.effect("returns empty array for whitespace-only string", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource("   ", defaultOptions);
+        const result = yield* resolveExplicitSource("   ");
 
         expect(result).toEqual([]);
       }),
@@ -179,7 +164,7 @@ describe("explicit-source resolver", () => {
 
     it.effect("returns empty array for unknown prefix", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource("unknown:owner/repo", defaultOptions);
+        const result = yield* resolveExplicitSource("unknown:owner/repo");
 
         expect(result).toEqual([]);
       }),
@@ -189,7 +174,7 @@ describe("explicit-source resolver", () => {
   describe("edge cases", () => {
     it.effect("trims whitespace from input", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource("  github:owner/repo  ", defaultOptions);
+        const result = yield* resolveExplicitSource("  github:owner/repo  ");
 
         expect(result).toHaveLength(1);
         expect(result[0]?.source).toBe("github");
@@ -198,7 +183,7 @@ describe("explicit-source resolver", () => {
 
     it.effect("handles repos with dashes and dots", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource("github:my-org/repo.js", defaultOptions);
+        const result = yield* resolveExplicitSource("github:my-org/repo.js");
 
         expect(result).toHaveLength(1);
         expect(result[0]?.origin).toBe("https://github.com/my-org/repo.js");
@@ -207,7 +192,7 @@ describe("explicit-source resolver", () => {
 
     it.effect("preserves original input with whitespace", () =>
       Effect.gen(function* () {
-        const result = yield* resolveExplicitSource("  github:owner/repo  ", defaultOptions);
+        const result = yield* resolveExplicitSource("  github:owner/repo  ");
 
         expect(result[0]?.originalInput).toBe("  github:owner/repo  ");
       }),
@@ -216,7 +201,7 @@ describe("explicit-source resolver", () => {
     it.effect("returns empty array for bitbucket: (not yet implemented in parser)", () =>
       Effect.gen(function* () {
         // bitbucket: prefix is recognized but parser doesn't support it yet
-        const result = yield* resolveExplicitSource("bitbucket:owner/repo", defaultOptions);
+        const result = yield* resolveExplicitSource("bitbucket:owner/repo");
 
         expect(result).toEqual([]);
       }),
@@ -225,7 +210,7 @@ describe("explicit-source resolver", () => {
     it.effect("returns empty array for azure: (not yet implemented in parser)", () =>
       Effect.gen(function* () {
         // azure: prefix is recognized but parser doesn't support it yet
-        const result = yield* resolveExplicitSource("azure:owner/repo", defaultOptions);
+        const result = yield* resolveExplicitSource("azure:owner/repo");
 
         expect(result).toEqual([]);
       }),

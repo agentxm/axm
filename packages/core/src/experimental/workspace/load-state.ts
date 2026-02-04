@@ -15,8 +15,13 @@
  */
 
 import * as nodePath from "node:path";
-import { FileSystem, type Path } from "@effect/platform";
-import { Array as Arr, Data, Effect, Option, pipe } from "effect";
+import * as FileSystem from "@effect/platform/FileSystem";
+import type { Path } from "@effect/platform";
+import * as Arr from "effect/Array";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
+import { pipe } from "effect/Function";
+import * as Option from "effect/Option";
 import YAML from "yaml";
 import {
   type ActualSkillIssue,

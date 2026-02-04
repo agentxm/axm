@@ -9,7 +9,7 @@
  */
 
 import type { FileSystem } from "@effect/platform";
-import { Effect } from "effect";
+import * as Effect from "effect/Effect";
 import { parseSource } from "../../skills/source-parser.js";
 import type { ExtensionRef, ResolutionOptions } from "../types.js";
 import { resolveAxmName } from "./axm-name.js";

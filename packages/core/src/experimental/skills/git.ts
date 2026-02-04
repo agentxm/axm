@@ -5,7 +5,8 @@
  * @packageDocumentation
  */
 
-import { Data, Effect } from "effect";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
 import simpleGit, { type SimpleGit, type SimpleGitOptions } from "simple-git";
 
 // -----------------------------------------------------------------------------

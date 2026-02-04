@@ -10,8 +10,9 @@
  * @packageDocumentation
  */
 
-import { FileSystem } from "@effect/platform";
-import { Data, Effect } from "effect";
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
 
 import type { Settings } from "../schemas/settings.js";
 import type { IdealInitState, InitChange } from "./types.js";

@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import { Effect } from "effect";
+import * as Effect from "effect/Effect";
 import { buildCloneUrl, getOriginFromParsed, ParseError, parseSource } from "./source-parser.js";
 import type { ParsedSource } from "./types.js";
 

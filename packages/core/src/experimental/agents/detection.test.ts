@@ -8,10 +8,12 @@
  */
 
 import * as path from "node:path";
-import { FileSystem, Error as PlatformError } from "@effect/platform";
-import { NodeFileSystem } from "@effect/platform-node";
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as PlatformError from "@effect/platform/Error";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { describe, expect, it } from "@effect/vitest";
-import { Effect, Layer } from "effect";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { claudeHome, codexHome, configHome, home } from "./constants.js";
 import { DetectionError, detectAgent, detectAgents } from "./detection.js";
 import { AGENTS } from "./registry.js";
@@ -34,7 +36,7 @@ const createMockFileSystem = (existingPaths: Set<string>) =>
  */
 const createFailingFileSystem = (errorMessage: string) =>
   Layer.succeed(FileSystem.FileSystem, {
-    exists: (_p: string) =>
+    exists: () =>
       Effect.fail(
         new PlatformError.SystemError({
           reason: "Unknown",

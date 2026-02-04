@@ -1,6 +1,7 @@
-import { FetchHttpClient } from "@effect/platform";
-import { NodeContext } from "@effect/platform-node";
-import { Effect, Layer } from "effect";
+import * as FetchHttpClient from "@effect/platform/FetchHttpClient";
+import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import type { CommandModule } from "yargs";
 import { handleInstall } from "./handler.js";
 

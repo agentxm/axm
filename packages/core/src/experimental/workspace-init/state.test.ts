@@ -6,9 +6,10 @@
 
 import * as os from "node:os";
 import * as nodePath from "node:path";
-import { FileSystem } from "@effect/platform";
-import { NodeContext } from "@effect/platform-node";
-import { Effect, Option } from "effect";
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AgentConfig, AgentId } from "../agents/types.js";
 import { buildIdealInitState, loadActualInitState } from "./state.js";

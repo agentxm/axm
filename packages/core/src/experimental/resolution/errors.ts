@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-import { Data } from "effect";
+import * as Data from "effect/Data";
 
 /**
  * Error codes for resolution failures.

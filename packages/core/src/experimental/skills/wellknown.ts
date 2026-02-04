@@ -9,9 +9,14 @@
  * @packageDocumentation
  */
 
-import { HttpClient, type HttpClientError } from "@effect/platform";
+import * as HttpClient from "@effect/platform/HttpClient";
+import type * as HttpClientError from "@effect/platform/HttpClientError";
 import { FileSystem } from "@effect/platform/FileSystem";
-import { Data, Duration, Effect, pipe, Schedule } from "effect";
+import * as Data from "effect/Data";
+import * as Duration from "effect/Duration";
+import * as Effect from "effect/Effect";
+import { pipe } from "effect/Function";
+import * as Schedule from "effect/Schedule";
 
 import type { Skill, WellKnownIndex, WellKnownSkill } from "./types.js";
 

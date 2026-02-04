@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { Schema } from "effect";
+import * as Schema from "effect/Schema";
 
 /**
  * Source type discriminator for extension origins.

@@ -6,7 +6,7 @@
  */
 
 import type { FileSystem } from "@effect/platform";
-import { Effect } from "effect";
+import * as Effect from "effect/Effect";
 import type { ResolutionError } from "./errors.js";
 import {
   resolveAmbiguous,

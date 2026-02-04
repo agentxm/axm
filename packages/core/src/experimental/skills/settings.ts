@@ -5,8 +5,11 @@
  * @packageDocumentation
  */
 
-import { FileSystem } from "@effect/platform";
-import { Data, Effect, Record, Schema } from "effect";
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
+import * as Record from "effect/Record";
+import * as Schema from "effect/Schema";
 import { type Settings, SettingsSchema } from "../schemas/settings.js";
 
 // -----------------------------------------------------------------------------

@@ -6,9 +6,11 @@
 
 import * as os from "node:os";
 import * as nodePath from "node:path";
-import { FileSystem, type Path } from "@effect/platform";
-import { NodeContext } from "@effect/platform-node";
-import { Effect, Option } from "effect";
+import * as FileSystem from "@effect/platform/FileSystem";
+import type * as Path from "@effect/platform/Path";
+import * as NodeContext from "@effect/platform-node/NodeContext";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { WorkspaceContext } from "./context.js";
 import { loadCurrentState } from "./load-state.js";

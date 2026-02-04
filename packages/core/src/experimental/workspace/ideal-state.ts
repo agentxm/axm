@@ -8,7 +8,11 @@
  * @packageDocumentation
  */
 
-import { Array as Arr, Data, Effect, Option, pipe } from "effect";
+import * as Arr from "effect/Array";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
+import { pipe } from "effect/Function";
+import * as Option from "effect/Option";
 import type {
   CurrentState,
   IdealSkillV2,

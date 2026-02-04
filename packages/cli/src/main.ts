@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { Effect } from "effect";
+import * as Effect from "effect/Effect";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 

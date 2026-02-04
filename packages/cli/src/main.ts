@@ -25,10 +25,6 @@ export const program = Effect.promise(() =>
       type: "boolean",
       describe: "Suppress non-essential output",
     })
-    .option("json", {
-      type: "boolean",
-      describe: "Output as JSON",
-    })
     .option("non-interactive", {
       type: "boolean",
       describe: "Disable all prompts",

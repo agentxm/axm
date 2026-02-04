@@ -15,7 +15,6 @@ interface InstallArgs {
   force: boolean;
   verbose?: boolean;
   quiet?: boolean;
-  json?: boolean;
   "non-interactive"?: boolean;
   "dry-run"?: boolean;
 }
@@ -76,11 +75,6 @@ export const installCommand: CommandModule<{}, InstallArgs> = {
         describe: "Show what would be installed without making changes",
         default: false,
       })
-      .option("json", {
-        type: "boolean",
-        describe: "Output the plan as JSON (useful with --dry-run)",
-        default: false,
-      })
       .example("$0 skills install owner/repo", "Clone GitHub repo and install skills interactively")
       .example(
         "$0 skills install owner/repo@v1.0.0",
@@ -103,8 +97,7 @@ export const installCommand: CommandModule<{}, InstallArgs> = {
       .example(
         "$0 skills install owner/repo --dry-run",
         "Preview installation plan without changes",
-      )
-      .example("$0 skills install owner/repo --dry-run --json", "Output installation plan as JSON"),
+      ),
   handler: async (argv) => {
     const program = handleInstall({
       source: argv.source,
@@ -117,7 +110,6 @@ export const installCommand: CommandModule<{}, InstallArgs> = {
       force: argv.force,
       verbose: argv.verbose,
       quiet: argv.quiet,
-      json: argv.json,
       nonInteractive: argv["non-interactive"],
       dryRun: argv["dry-run"],
     }).pipe(

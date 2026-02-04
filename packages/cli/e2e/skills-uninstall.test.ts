@@ -563,123 +563,6 @@ describe("axm skills uninstall", () => {
     });
   });
 
-  describe("--json flag", () => {
-    it("outputs valid JSON", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
-
-        const result = await runCli(["skills", "uninstall", "my-skill", "--dry-run", "--json"], {
-          cwd: temp.path,
-        });
-
-        expect(result.exitCode).toBe(0);
-
-        // Should be valid JSON
-        const json = JSON.parse(result.stdout);
-        expect(json).toBeDefined();
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("includes changes array with uninstall steps", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
-
-        const result = await runCli(["skills", "uninstall", "my-skill", "--dry-run", "--json"], {
-          cwd: temp.path,
-        });
-
-        expect(result.exitCode).toBe(0);
-
-        const json = JSON.parse(result.stdout);
-        // V2 format uses "steps" instead of "changes"
-        expect(json.steps).toBeDefined();
-        expect(Array.isArray(json.steps)).toBe(true);
-        expect(json.steps.length).toBeGreaterThan(0);
-
-        // Should have an uninstall step for my-skill
-        const uninstallStep = json.steps.find(
-          (s: { _tag: string; skill?: string }) =>
-            s._tag === "UninstallSkill" && s.skill === "my-skill",
-        );
-        expect(uninstallStep).toBeDefined();
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("includes summary with remove count", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
-
-        const result = await runCli(["skills", "uninstall", "my-skill", "--dry-run", "--json"], {
-          cwd: temp.path,
-        });
-
-        expect(result.exitCode).toBe(0);
-
-        const json = JSON.parse(result.stdout);
-        expect(json.summary).toBeDefined();
-        // V2 format uses "uninstalled" instead of "remove"
-        expect(json.summary.uninstalled).toBeGreaterThan(0);
-      } finally {
-        temp.cleanup();
-      }
-    });
-  });
-
   describe("--help", () => {
     it("displays usage information", async () => {
       const result = await runCli(["skills", "uninstall", "--help"]);
@@ -689,7 +572,6 @@ describe("axm skills uninstall", () => {
       expect(result.stdout).toContain("--agent");
       expect(result.stdout).toContain("--yes");
       expect(result.stdout).toContain("--dry-run");
-      expect(result.stdout).toContain("--json");
     });
   });
 

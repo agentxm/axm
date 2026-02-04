@@ -58,7 +58,6 @@ describe("uninstall.handler", () => {
     agent: [],
     yes: false,
     dryRun: false,
-    json: false,
   };
 
   /**
@@ -355,38 +354,6 @@ describe("uninstall.handler", () => {
           );
           expect(lockfile.skills["my-skill"]).toBeDefined();
           expect(lockfile.skills["my-skill"].agents).toEqual(["windsurf"]);
-        }),
-      ),
-    );
-  });
-
-  // =============================================================================
-  // JSON Output Tests
-  // =============================================================================
-
-  describe("--json flag", () => {
-    it.effect("outputs JSON without other messages", () =>
-      withTestLayer(
-        Effect.gen(function* () {
-          initializeAxm(["claude-code"]);
-          installSkillDirectly("my-skill", ["claude-code"]);
-
-          const args: UninstallArgs = {
-            ...defaultArgs,
-            skill: "my-skill",
-            yes: true,
-            json: true,
-          };
-
-          // Should complete successfully
-          yield* handleUninstall(args);
-
-          // Skill should be removed
-          expect(
-            fs.existsSync(
-              path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
-            ),
-          ).toBe(false);
         }),
       ),
     );

@@ -15,7 +15,6 @@ import type {
   LockedSkillV2,
   Plan,
   PlanStep,
-  SkillSourceV2,
 } from "../skills/state/types.js";
 
 // =============================================================================
@@ -31,35 +30,6 @@ export interface PlanSummary {
   readonly installed: number;
   readonly updated: number;
   readonly uninstalled: number;
-}
-
-// =============================================================================
-// JSON Output Types
-// =============================================================================
-
-/**
- * Skill source serialized to JSON (Option converted to null).
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface SkillSourceJson {
-  readonly _tag: "Registry" | "GitHub" | "Local";
-  readonly [key: string]: unknown;
-}
-
-/**
- * Plan step serialized to JSON (Option converted to null).
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface PlanStepJson {
-  readonly _tag: "InstallSkill" | "UpdateSkill" | "UninstallSkill";
-  readonly skill: string;
-  readonly source?: SkillSourceJson;
-  readonly version?: string | null;
-  readonly fromVersion?: string | null;
-  readonly toVersion?: string | null;
-  readonly agents: ReadonlyArray<string>;
 }
 
 /**
@@ -219,20 +189,6 @@ const determineNeedsUpdate = (
 };
 
 // =============================================================================
-// Plan JSON Output Type
-// =============================================================================
-
-/**
- * Plan serialized to JSON for --json flag output.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface PlanJson {
-  readonly steps: ReadonlyArray<PlanStepJson>;
-  readonly summary: PlanSummary;
-}
-
-// =============================================================================
 // Plan Utility Functions
 // =============================================================================
 
@@ -280,80 +236,3 @@ export const getPlanSummary = (plan: Plan): PlanSummary => {
 
   return { installed, updated, uninstalled };
 };
-
-/**
- * Convert a SkillSourceV2 to JSON-serializable format.
- * Converts Option values to null.
- */
-const sourceToJson = (source: SkillSourceV2): SkillSourceJson => {
-  switch (source._tag) {
-    case "Registry":
-      return {
-        _tag: "Registry",
-        location: source.location,
-        scope: source.scope,
-        name: source.name,
-        version: Option.getOrNull(source.version),
-      };
-    case "GitHub":
-      return {
-        _tag: "GitHub",
-        owner: source.owner,
-        repo: source.repo,
-        ref: Option.getOrNull(source.ref),
-        path: Option.getOrNull(source.path),
-      };
-    case "Local":
-      return {
-        _tag: "Local",
-        path: source.path,
-      };
-  }
-};
-
-/**
- * Convert a PlanStep to JSON-serializable format.
- * Converts Option values to null.
- */
-const stepToJson = (step: PlanStep): PlanStepJson => {
-  switch (step._tag) {
-    case "InstallSkill":
-      return {
-        _tag: "InstallSkill",
-        skill: step.skill,
-        source: sourceToJson(step.source),
-        version: Option.getOrNull(step.version),
-        agents: step.agents,
-      };
-    case "UpdateSkill":
-      return {
-        _tag: "UpdateSkill",
-        skill: step.skill,
-        source: sourceToJson(step.source),
-        fromVersion: Option.getOrNull(step.fromVersion),
-        toVersion: Option.getOrNull(step.toVersion),
-        agents: step.agents,
-      };
-    case "UninstallSkill":
-      return {
-        _tag: "UninstallSkill",
-        skill: step.skill,
-        agents: step.agents,
-      };
-  }
-};
-
-/**
- * Serialize a plan to JSON for --json flag output.
- *
- * Converts Option values to null for JSON serialization.
- *
- * @param plan - The execution plan to serialize
- * @returns JSON-serializable plan with steps and summary
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const planToJson = (plan: Plan): PlanJson => ({
-  steps: plan.steps.map((step) => stepToJson(step)),
-  summary: getPlanSummary(plan),
-});

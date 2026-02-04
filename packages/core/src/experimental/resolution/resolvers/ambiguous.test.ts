@@ -79,6 +79,15 @@ describe("resolveAmbiguous", () => {
       ),
     );
 
+    it.effect("returns empty for ~/path (home directory path)", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const result = yield* resolveAmbiguous("~/my-skills/skill", { cwd: tempDir });
+          expect(result).toEqual([]);
+        }),
+      ),
+    );
+
     it.effect("returns empty for https://github.com/owner/repo (URL)", () =>
       withFileSystem(
         Effect.gen(function* () {
@@ -504,6 +513,41 @@ describe("resolveAmbiguous", () => {
           }
         }),
       ),
+    );
+  });
+
+  describe("local path precedence", () => {
+    it.effect("skips local path check for a/b pattern (not a local path format)", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          // a/b doesn't match local path pattern (no ./, /, ~, etc.)
+          // So it should fall through to AXM name or GitHub shorthand
+          const result = yield* resolveAmbiguous("owner/repo", { cwd: tempDir });
+
+          // Should resolve to GitHub (since no AXM exists)
+          expect(result).toHaveLength(1);
+          expect(result[0]?.source).toBe("github");
+        }),
+      ),
+    );
+
+    it.effect(
+      "returns empty array for ./path inputs (handled by local-path resolver, not ambiguous)",
+      () =>
+        withFileSystem(
+          Effect.gen(function* () {
+            // Create a skill at ./my-skill
+            const skillDir = path.join(tempDir, "my-skill");
+            fs.mkdirSync(skillDir);
+            fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# My Skill");
+
+            // ./my-skill is NOT an ambiguous pattern - it's clearly a local path
+            // The ambiguous resolver should return empty, letting local-path resolver handle it
+            const result = yield* resolveAmbiguous("./my-skill", { cwd: tempDir });
+
+            expect(result).toEqual([]);
+          }),
+        ),
     );
   });
 });

@@ -423,6 +423,75 @@ describe("resolveExtension - integration tests", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Local Path Resolution
+  // ---------------------------------------------------------------------------
+
+  describe("local path resolution", () => {
+    it.effect("resolves ./path to local extension", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const skillDir = path.join(tempDir, "my-skill");
+          fs.mkdirSync(skillDir);
+          fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# My Skill");
+
+          const result = yield* resolveExtension("./my-skill", { cwd: tempDir });
+
+          expect(result).toHaveLength(1);
+          expect(result[0]).toMatchObject({
+            type: "skill",
+            source: "local",
+            origin: skillDir,
+            originalInput: "./my-skill",
+          });
+        }),
+      ),
+    );
+
+    it.effect("resolves absolute path to local extension", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const skillDir = path.join(tempDir, "my-skill");
+          fs.mkdirSync(skillDir);
+          fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# My Skill");
+
+          const result = yield* resolveExtension(skillDir, { cwd: "/other/dir" });
+
+          expect(result).toHaveLength(1);
+          expect(result[0]?.source).toBe("local");
+          expect(result[0]?.origin).toBe(skillDir);
+        }),
+      ),
+    );
+
+    it.effect("returns empty array for non-existent local path", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const result = yield* resolveExtension("./nonexistent", { cwd: tempDir });
+          expect(result).toEqual([]);
+        }),
+      ),
+    );
+
+    it.effect("filters local sources by source option", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const skillDir = path.join(tempDir, "my-skill");
+          fs.mkdirSync(skillDir);
+          fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# My Skill");
+
+          // Filter to only github sources - should exclude local
+          const result = yield* resolveExtension("./my-skill", {
+            cwd: tempDir,
+            sources: ["github"],
+          });
+
+          expect(result).toEqual([]);
+        }),
+      ),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
   // Combined Type and Source Filtering
   // ---------------------------------------------------------------------------
 

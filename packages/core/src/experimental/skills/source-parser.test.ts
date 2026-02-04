@@ -380,52 +380,69 @@ describe("source-parser", () => {
     );
   });
 
-  describe("local paths (removed)", () => {
-    it.effect("fails on ./relative/path", () =>
+  describe("local path parsing", () => {
+    it.effect("parses relative path starting with ./", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSource("./relative/path"));
-
-        expect(error).toBeInstanceOf(ParseError);
+        const result = yield* parseSource("./my-skill");
+        expect(result.type).toBe("local");
+        expect(result.original).toBe("./my-skill");
+        expect(result.canonical).toBe("local:./my-skill");
       }),
     );
 
-    it.effect("fails on ../parent/path", () =>
+    it.effect("parses relative path starting with ../", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSource("../parent/path"));
-
-        expect(error).toBeInstanceOf(ParseError);
+        const result = yield* parseSource("../sibling-skill");
+        expect(result.type).toBe("local");
+        expect(result.canonical).toBe("local:../sibling-skill");
       }),
     );
 
-    it.effect("fails on /absolute/path", () =>
+    it.effect("parses absolute POSIX path", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSource("/absolute/path"));
-
-        expect(error).toBeInstanceOf(ParseError);
+        const result = yield* parseSource("/home/user/skills/my-skill");
+        expect(result.type).toBe("local");
+        expect(result.canonical).toBe("local:/home/user/skills/my-skill");
       }),
     );
 
-    it.effect("fails on Windows path C:\\path", () =>
+    it.effect("parses home directory path with ~/", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSource("C:\\path\\to\\skill"));
-
-        expect(error).toBeInstanceOf(ParseError);
+        const result = yield* parseSource("~/my-skills/dev-skill");
+        expect(result.type).toBe("local");
+        expect(result.canonical).toBe("local:~/my-skills/dev-skill");
       }),
     );
 
-    it.effect("fails on Windows path with forward slashes C:/path", () =>
+    it.effect("parses home directory path with ~\\ (Windows)", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSource("C:/path/to/skill"));
-
-        expect(error).toBeInstanceOf(ParseError);
+        const result = yield* parseSource("~\\my-skills\\dev-skill");
+        expect(result.type).toBe("local");
+        expect(result.canonical).toBe("local:~\\my-skills\\dev-skill");
       }),
     );
 
-    it.effect("fails on Windows path D:\\drive", () =>
+    it.effect("parses Windows path with drive letter and backslash", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSource("D:\\other\\drive"));
+        const result = yield* parseSource("C:\\Users\\name\\skills");
+        expect(result.type).toBe("local");
+        expect(result.canonical).toBe("local:C:\\Users\\name\\skills");
+      }),
+    );
 
-        expect(error).toBeInstanceOf(ParseError);
+    it.effect("parses Windows path with drive letter and forward slash", () =>
+      Effect.gen(function* () {
+        const result = yield* parseSource("C:/Users/name/skills");
+        expect(result.type).toBe("local");
+        expect(result.canonical).toBe("local:C:/Users/name/skills");
+      }),
+    );
+
+    it.effect("parses explicit local: prefix", () =>
+      Effect.gen(function* () {
+        const result = yield* parseSource("local:./my-skill");
+        expect(result.type).toBe("local");
+        expect(result.canonical).toBe("local:./my-skill");
       }),
     );
   });
@@ -555,19 +572,19 @@ describe("source-parser", () => {
       }),
     );
 
-    it.effect("fails on ./ starting path", () =>
+    it.effect("parses ./ starting path as local", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSource("./owner/repo"));
-
-        expect(error).toBeInstanceOf(ParseError);
+        const result = yield* parseSource("./owner/repo");
+        expect(result.type).toBe("local");
+        expect(result.canonical).toBe("local:./owner/repo");
       }),
     );
 
-    it.effect("fails on ../ starting path", () =>
+    it.effect("parses ../ starting path as local", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSource("../owner/repo"));
-
-        expect(error).toBeInstanceOf(ParseError);
+        const result = yield* parseSource("../owner/repo");
+        expect(result.type).toBe("local");
+        expect(result.canonical).toBe("local:../owner/repo");
       }),
     );
 

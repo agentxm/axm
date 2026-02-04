@@ -17,10 +17,18 @@ import { Schema } from "effect";
  * - `"bitbucket"` - Bitbucket repository source
  * - `"git"` - Generic git repository source
  * - `"registry"` - Package registry source
+ * - `"local"` - Local filesystem path source
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SourceSchema = Schema.Literal("github", "gitlab", "bitbucket", "git", "registry");
+export const SourceSchema = Schema.Literal(
+  "github",
+  "gitlab",
+  "bitbucket",
+  "git",
+  "registry",
+  "local",
+);
 
 /**
  * Inferred type for SourceSchema.

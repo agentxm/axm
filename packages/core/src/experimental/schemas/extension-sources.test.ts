@@ -29,8 +29,9 @@ describe("extension-sources schema", () => {
       expect(result).toBe("registry");
     });
 
-    it("rejects 'local' source type (removed)", () => {
-      expect(() => Schema.decodeUnknownSync(SourceSchema)("local")).toThrow();
+    it("accepts 'local' source type", () => {
+      const result = Schema.decodeUnknownSync(SourceSchema)("local");
+      expect(result).toBe("local");
     });
 
     it("rejects invalid source type", () => {
@@ -58,12 +59,14 @@ describe("extension-sources schema", () => {
       const bitbucket: SourceType = "bitbucket";
       const git: SourceType = "git";
       const registry: SourceType = "registry";
+      const local: SourceType = "local";
 
       expect(github).toBe("github");
       expect(gitlab).toBe("gitlab");
       expect(bitbucket).toBe("bitbucket");
       expect(git).toBe("git");
       expect(registry).toBe("registry");
+      expect(local).toBe("local");
     });
   });
 });

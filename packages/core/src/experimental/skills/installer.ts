@@ -486,3 +486,107 @@ export const installSkillToAgents = (
 
     return results;
   });
+
+/**
+ * Remove a skill from multiple agents and delete the canonical copy.
+ *
+ * Inverse of `installSkillToAgents`:
+ * 1. For each agent, delete symlink/dir at `<skillsDir>/<skillName>`
+ * 2. Delete canonical at `.axm/skills/<skillName>/`
+ *
+ * @param skillName - Name of the skill to remove
+ * @param agents - Agent configurations to remove the skill from
+ * @param axmDir - Path to .axm directory
+ * @returns Effect that completes when removal is done
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const removeSkillFromAgents = (
+  skillName: string,
+  agents: readonly AgentConfig[],
+  axmDir: string,
+): Effect.Effect<void, InstallError, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const canonicalPath = path.join(axmDir, SKILLS_DIRNAME, skillName);
+
+    // Verify canonical exists before attempting removal
+    const canonicalExists = yield* fs.exists(canonicalPath).pipe(
+      Effect.mapError(
+        (error) =>
+          new InstallError({
+            operation: "remove",
+            message: `Failed to check canonical path: ${canonicalPath}`,
+            path: canonicalPath,
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
+
+    if (!canonicalExists) {
+      return yield* Effect.fail(
+        new InstallError({
+          operation: "remove",
+          message: `Skill "${skillName}" not found in canonical location`,
+          path: canonicalPath,
+          retryable: false,
+        }),
+      );
+    }
+
+    // Remove from each agent concurrently
+    yield* Effect.all(
+      agents.map((agent) =>
+        Effect.gen(function* () {
+          const agentSkillsDir = agent.skillsDir ?? path.join(agent.detectPath, SKILLS_DIRNAME);
+          const skillPath = path.join(agentSkillsDir, skillName);
+
+          // Check if skill exists in agent's directory
+          const exists = yield* fs.exists(skillPath).pipe(
+            Effect.mapError(
+              (error) =>
+                new InstallError({
+                  operation: "remove",
+                  message: `Failed to check skill path: ${skillPath}`,
+                  path: skillPath,
+                  cause: error,
+                  retryable: false,
+                }),
+            ),
+          );
+
+          if (exists) {
+            // Remove the symlink or copied directory
+            yield* fs.remove(skillPath, { recursive: true }).pipe(
+              Effect.mapError(
+                (error) =>
+                  new InstallError({
+                    operation: "remove",
+                    message: `Failed to remove skill from agent: ${skillPath}`,
+                    path: skillPath,
+                    cause: error,
+                    retryable: false,
+                  }),
+              ),
+            );
+          }
+        }),
+      ),
+      { concurrency: "unbounded" },
+    );
+
+    // Delete canonical copy
+    yield* fs.remove(canonicalPath, { recursive: true }).pipe(
+      Effect.mapError(
+        (error) =>
+          new InstallError({
+            operation: "remove",
+            message: `Failed to remove canonical copy: ${canonicalPath}`,
+            path: canonicalPath,
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
+  });

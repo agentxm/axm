@@ -66,12 +66,14 @@ export type {
   LatestVersionResult,
   ResolvedSource,
   SkillsUpdateCommand,
+  UninstallOptionsV2,
 } from "./ideal.js";
 export {
   BuildIdealError,
   buildIdealForInstall,
   buildIdealForSync,
   buildIdealForUninstall,
+  buildIdealForUninstallV2,
   buildIdealForUpdate,
   CommandError,
 } from "./ideal.js";

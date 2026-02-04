@@ -218,6 +218,123 @@ describe("settings", () => {
         }),
       ),
     );
+
+    it.effect("removes a skill when set to null", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const initial = {
+            agents: [],
+            skills: {
+              commit: "^1.0.0",
+              "review-pr": "^2.0.0",
+            },
+          } as Settings;
+          yield* writeSettings(axmDir, initial);
+
+          const updated = yield* updateSettings(axmDir, {
+            skills: {
+              commit: null,
+            },
+          });
+
+          expect(updated.skills?.["commit"]).toBeUndefined();
+          expect(updated.skills?.["review-pr"]).toBe("^2.0.0");
+        }),
+      ),
+    );
+
+    it.effect("preserves other skills when removing one with null", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const initial = {
+            skills: {
+              "skill-a": "^1.0.0",
+              "skill-b": "^2.0.0",
+              "skill-c": "^3.0.0",
+            },
+          } as Settings;
+          yield* writeSettings(axmDir, initial);
+
+          const updated = yield* updateSettings(axmDir, {
+            skills: {
+              "skill-b": null,
+            },
+          });
+
+          expect(updated.skills?.["skill-a"]).toBe("^1.0.0");
+          expect(updated.skills?.["skill-b"]).toBeUndefined();
+          expect(updated.skills?.["skill-c"]).toBe("^3.0.0");
+          expect(Object.keys(updated.skills ?? {})).toHaveLength(2);
+        }),
+      ),
+    );
+
+    it.effect("removing a non-existent skill is a no-op", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const initial = {
+            skills: {
+              commit: "^1.0.0",
+            },
+          } as Settings;
+          yield* writeSettings(axmDir, initial);
+
+          const updated = yield* updateSettings(axmDir, {
+            skills: {
+              "non-existent": null,
+            },
+          });
+
+          expect(updated.skills?.["commit"]).toBe("^1.0.0");
+          expect(updated.skills?.["non-existent"]).toBeUndefined();
+          expect(Object.keys(updated.skills ?? {})).toHaveLength(1);
+        }),
+      ),
+    );
+
+    it.effect("can add and remove skills in the same update", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const initial = {
+            skills: {
+              "old-skill": "^1.0.0",
+            },
+          } as Settings;
+          yield* writeSettings(axmDir, initial);
+
+          const updated = yield* updateSettings(axmDir, {
+            skills: {
+              "old-skill": null,
+              "new-skill": "^2.0.0",
+            },
+          });
+
+          expect(updated.skills?.["old-skill"]).toBeUndefined();
+          expect(updated.skills?.["new-skill"]).toBe("^2.0.0");
+        }),
+      ),
+    );
+
+    it.effect("removing last skill results in empty skills object", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const initial = {
+            skills: {
+              "only-skill": "^1.0.0",
+            },
+          } as Settings;
+          yield* writeSettings(axmDir, initial);
+
+          const updated = yield* updateSettings(axmDir, {
+            skills: {
+              "only-skill": null,
+            },
+          });
+
+          expect(updated.skills).toEqual({});
+        }),
+      ),
+    );
   });
 
   describe("addSkill", () => {

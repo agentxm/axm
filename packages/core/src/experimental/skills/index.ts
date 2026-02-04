@@ -39,6 +39,7 @@ export {
   InstallError,
   installSkill,
   installSkillToAgents,
+  removeSkillFromAgents,
 } from "./installer.js";
 // Lockfile
 export type { LockfileError } from "./lockfile.js";
@@ -51,7 +52,12 @@ export {
   writeLockfile,
 } from "./lockfile.js";
 // Settings
-export type { EnsureInitializedOptions, SettingsError } from "./settings.js";
+export type {
+  EnsureInitializedOptions,
+  SettingsError,
+  SettingsUpdate,
+  SkillsUpdate,
+} from "./settings.js";
 export {
   addSkill,
   createDefaultSettings,

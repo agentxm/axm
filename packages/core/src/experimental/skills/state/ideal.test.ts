@@ -628,3 +628,263 @@ describe("buildIdealForUpdate", () => {
     });
   });
 });
+
+// =============================================================================
+// buildIdealForUninstallV2 tests (new reconciliation design)
+// =============================================================================
+
+describe("buildIdealForUninstallV2", async () => {
+  // Import after tests are defined to avoid circular dependency issues
+  const { buildIdealForUninstallV2 } = await import("./ideal.js");
+
+  describe("uninstall from all agents", () => {
+    it("removes skill entirely when no agents specified", () => {
+      const lockedA = makeLockedSkillV2("skill-a", githubSource, {
+        gitTreeHash: "hash-a",
+        agents: ["claude", "cursor"],
+      });
+      const lockedB = makeLockedSkillV2("skill-b", githubSource, {
+        gitTreeHash: "hash-b",
+        agents: ["claude"],
+      });
+
+      const current: CurrentState = {
+        skills: [makeSkillStateV2("skill-a", lockedA), makeSkillStateV2("skill-b", lockedB)],
+        issues: [],
+      };
+
+      const result = buildIdealForUninstallV2(current, "skill-a");
+
+      // Only skill-b should remain
+      expect(result.skills).toHaveLength(1);
+      expect(result.skills[0]?.name).toBe("skill-b");
+    });
+
+    it("removes skill when agents is empty array", () => {
+      const lockedA = makeLockedSkillV2("skill-a", githubSource, {
+        gitTreeHash: "hash-a",
+        agents: ["claude"],
+      });
+      const lockedB = makeLockedSkillV2("skill-b", localSource, {
+        gitTreeHash: "hash-b",
+        agents: ["cursor"],
+      });
+
+      const current: CurrentState = {
+        skills: [makeSkillStateV2("skill-a", lockedA), makeSkillStateV2("skill-b", lockedB)],
+        issues: [],
+      };
+
+      const result = buildIdealForUninstallV2(current, "skill-a", { agents: [] });
+
+      // Only skill-b should remain
+      expect(result.skills).toHaveLength(1);
+      expect(result.skills[0]?.name).toBe("skill-b");
+    });
+
+    it("preserves all other skills unchanged", () => {
+      const lockedA = makeLockedSkillV2("skill-a", githubSource, {
+        gitTreeHash: "hash-a",
+        agents: ["claude"],
+      });
+      const lockedB = makeLockedSkillV2("skill-b", localSource, {
+        gitTreeHash: "hash-b",
+        agents: ["cursor", "codex"],
+      });
+      const lockedC = makeLockedSkillV2("skill-c", githubSource, {
+        version: "1.0.0",
+        agents: ["claude", "cursor"],
+      });
+
+      const current: CurrentState = {
+        skills: [
+          makeSkillStateV2("skill-a", lockedA),
+          makeSkillStateV2("skill-b", lockedB),
+          makeSkillStateV2("skill-c", lockedC),
+        ],
+        issues: [],
+      };
+
+      const result = buildIdealForUninstallV2(current, "skill-b");
+
+      expect(result.skills).toHaveLength(2);
+      const skillA = result.skills.find((s) => s.name === "skill-a");
+      const skillC = result.skills.find((s) => s.name === "skill-c");
+
+      expect(skillA?.gitTreeHash).toEqual(Option.some("hash-a"));
+      expect(skillA?.agents).toEqual(["claude"]);
+      expect(skillC?.version).toEqual(Option.some("1.0.0"));
+      expect(skillC?.agents).toEqual(["claude", "cursor"]);
+    });
+  });
+
+  describe("partial uninstall (per-agent)", () => {
+    it("removes skill from specific agents only", () => {
+      const locked = makeLockedSkillV2("skill-a", githubSource, {
+        gitTreeHash: "hash-a",
+        agents: ["claude", "cursor", "codex"],
+      });
+
+      const current: CurrentState = {
+        skills: [makeSkillStateV2("skill-a", locked)],
+        issues: [],
+      };
+
+      const result = buildIdealForUninstallV2(current, "skill-a", { agents: ["cursor"] });
+
+      // Skill should still exist but without cursor
+      expect(result.skills).toHaveLength(1);
+      expect(result.skills[0]?.name).toBe("skill-a");
+      expect(result.skills[0]?.agents).toEqual(["claude", "codex"]);
+    });
+
+    it("removes skill from multiple specific agents", () => {
+      const locked = makeLockedSkillV2("skill-a", githubSource, {
+        gitTreeHash: "hash-a",
+        agents: ["claude", "cursor", "codex", "windsurf"],
+      });
+
+      const current: CurrentState = {
+        skills: [makeSkillStateV2("skill-a", locked)],
+        issues: [],
+      };
+
+      const result = buildIdealForUninstallV2(current, "skill-a", {
+        agents: ["cursor", "windsurf"],
+      });
+
+      expect(result.skills).toHaveLength(1);
+      expect(result.skills[0]?.agents).toEqual(["claude", "codex"]);
+    });
+
+    it("removes skill entirely when removing from all its agents", () => {
+      const locked = makeLockedSkillV2("skill-a", githubSource, {
+        gitTreeHash: "hash-a",
+        agents: ["claude", "cursor"],
+      });
+
+      const current: CurrentState = {
+        skills: [makeSkillStateV2("skill-a", locked)],
+        issues: [],
+      };
+
+      const result = buildIdealForUninstallV2(current, "skill-a", {
+        agents: ["claude", "cursor"],
+      });
+
+      // Skill should be completely removed since no agents remain
+      expect(result.skills).toHaveLength(0);
+    });
+
+    it("ignores agents that skill is not installed for", () => {
+      const locked = makeLockedSkillV2("skill-a", githubSource, {
+        gitTreeHash: "hash-a",
+        agents: ["claude", "cursor"],
+      });
+
+      const current: CurrentState = {
+        skills: [makeSkillStateV2("skill-a", locked)],
+        issues: [],
+      };
+
+      // Try to remove from codex which doesn't have the skill
+      const result = buildIdealForUninstallV2(current, "skill-a", { agents: ["codex"] });
+
+      // Skill should remain unchanged
+      expect(result.skills).toHaveLength(1);
+      expect(result.skills[0]?.agents).toEqual(["claude", "cursor"]);
+    });
+
+    it("preserves source and version when doing partial uninstall", () => {
+      const registrySource: SkillSourceV2 = {
+        _tag: "Registry",
+        location: { _tag: "Remote", url: "https://registry.example.com" },
+        scope: "official",
+        name: "skill",
+        version: Option.some("2.0.0"),
+      };
+
+      const locked = makeLockedSkillV2("registry-skill", registrySource, {
+        version: "2.0.0",
+        gitTreeHash: "hash-123",
+        agents: ["claude", "cursor", "codex"],
+      });
+
+      const current: CurrentState = {
+        skills: [makeSkillStateV2("registry-skill", locked)],
+        issues: [],
+      };
+
+      const result = buildIdealForUninstallV2(current, "registry-skill", { agents: ["cursor"] });
+
+      expect(result.skills).toHaveLength(1);
+      const skill = result.skills[0];
+      expect(skill?.source._tag).toBe("Registry");
+      expect(skill?.version).toEqual(Option.some("2.0.0"));
+      expect(skill?.gitTreeHash).toEqual(Option.some("hash-123"));
+      expect(skill?.agents).toEqual(["claude", "codex"]);
+    });
+  });
+
+  describe("skill not found", () => {
+    it("returns state unchanged when skill does not exist", () => {
+      const locked = makeLockedSkillV2("existing-skill", githubSource, {
+        gitTreeHash: "hash",
+        agents: ["claude"],
+      });
+
+      const current: CurrentState = {
+        skills: [makeSkillStateV2("existing-skill", locked)],
+        issues: [],
+      };
+
+      const result = buildIdealForUninstallV2(current, "non-existent-skill");
+
+      // State should be unchanged
+      expect(result.skills).toHaveLength(1);
+      expect(result.skills[0]?.name).toBe("existing-skill");
+    });
+
+    it("returns state unchanged when skill exists but has no locked state", () => {
+      const current: CurrentState = {
+        skills: [makeSkillStateV2("orphan-skill", null)],
+        issues: [],
+      };
+
+      const result = buildIdealForUninstallV2(current, "orphan-skill");
+
+      // Orphan skills (no locked state) are not included in ideal state
+      expect(result.skills).toHaveLength(0);
+    });
+  });
+
+  describe("edge cases", () => {
+    it("handles empty current state", () => {
+      const current: CurrentState = {
+        skills: [],
+        issues: [],
+      };
+
+      const result = buildIdealForUninstallV2(current, "any-skill");
+
+      expect(result.skills).toHaveLength(0);
+    });
+
+    it("handles skill with empty agents array", () => {
+      const locked = makeLockedSkillV2("skill-a", githubSource, {
+        gitTreeHash: "hash",
+        agents: [],
+      });
+
+      const current: CurrentState = {
+        skills: [makeSkillStateV2("skill-a", locked)],
+        issues: [],
+      };
+
+      const result = buildIdealForUninstallV2(current, "skill-a");
+
+      // Skill with no agents should be removed
+      expect(result.skills).toHaveLength(0);
+    });
+  });
+});

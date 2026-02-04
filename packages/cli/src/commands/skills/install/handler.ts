@@ -875,18 +875,18 @@ export const handleInstall = (
       spinnerHelper.start(`Applying ${summary.installed + summary.updated} change(s)...`);
     }
 
-    // Create a modified applyStep that converts remote sources to local paths for file operations
-    // The plan stores the original source (e.g., GitHub) for lockfile/settings,
-    // but file operations need the local cached path
-    const applyStepWithLocalPath = (step: PlanStep) => {
-      // For install/update steps with remote sources, replace with local source for file ops
+    // Create a modified applyStep that ensures source paths point to the specific skill folder.
+    // The plan stores source pointing to the skillsDir root (for lockfile/settings),
+    // but file operations need the path to the specific skill folder.
+    const applyStepWithSkillPath = (step: PlanStep) => {
+      // For install/update steps, ensure source path includes the skill name
       if (step._tag === "InstallSkill" || step._tag === "UpdateSkill") {
-        if (step.source._tag === "GitHub" || step.source._tag === "Registry") {
-          // Use the cached skillsDir for file operations
-          const localSource = SkillSourceV2.Local({ path: resolvedSource.skillsDir });
-          const localStep = { ...step, source: localSource };
-          return applyStep(localStep, { workspacePath: ws.path, agents });
-        }
+        // For GitHub/Registry: use the cached skillsDir + skill name
+        // For Local: the source path is the skillsDir root, append skill name
+        const skillPath = nodePath.join(resolvedSource.skillsDir, step.skill);
+        const localSource = SkillSourceV2.Local({ path: skillPath });
+        const localStep = { ...step, source: localSource };
+        return applyStep(localStep, { workspacePath: ws.path, agents });
       }
       return applyStep(step, { workspacePath: ws.path, agents });
     };
@@ -896,7 +896,7 @@ export const handleInstall = (
       plan,
       { dryRun: false },
       {
-        applyStep: applyStepWithLocalPath,
+        applyStep: applyStepWithSkillPath,
         updateLockfile: (p: { steps: ReadonlyArray<PlanStep> }) =>
           updateLockfileForPlan(ws.path, p),
         updateSettings: (p: { steps: ReadonlyArray<PlanStep> }) =>

@@ -45,13 +45,14 @@ describe("axm skills install --dry-run integration", () => {
         const plan = JSON.parse(dryResult.stdout);
 
         // Get the skills that would be added from dry-run plan
-        const plannedAdds = plan.changes
-          .filter((c: { _tag: string }) => c._tag === "Add")
-          .map((c: { name: string }) => c.name)
+        const plannedAdds = plan.steps
+          .filter((c: { _tag: string }) => c._tag === "InstallSkill")
+          .map((c: { skill: string }) => c.skill)
           .sort();
 
         // Verify no skills were installed during dry-run
-        const skillsDirBefore = path.join(temp.path, ".axm", "skills");
+        // V2 uses extensions/external/skills/ directory structure
+        const skillsDirBefore = path.join(temp.path, ".axm", "extensions", "external", "skills");
         expect(fs.existsSync(skillsDirBefore)).toBe(false);
 
         // Real install
@@ -63,7 +64,7 @@ describe("axm skills install --dry-run integration", () => {
         expect(installResult.exitCode).toBe(0);
 
         // Verify installed skills match the plan
-        const skillsDir = path.join(temp.path, ".axm", "skills");
+        const skillsDir = path.join(temp.path, ".axm", "extensions", "external", "skills");
         expect(fs.existsSync(skillsDir)).toBe(true);
 
         const installed = fs.readdirSync(skillsDir).sort();
@@ -119,8 +120,8 @@ describe("axm skills install --dry-run integration", () => {
         const plan2 = JSON.parse(result2.stdout);
 
         // Plans should have the same changes (in potentially different order)
-        const names1 = plan1.changes.map((c: { name: string }) => c.name).sort();
-        const names2 = plan2.changes.map((c: { name: string }) => c.name).sort();
+        const names1 = plan1.steps.map((c: { skill: string }) => c.skill).sort();
+        const names2 = plan2.steps.map((c: { skill: string }) => c.skill).sort();
 
         expect(names1).toEqual(names2);
         expect(plan1.summary).toEqual(plan2.summary);
@@ -259,15 +260,15 @@ describe("axm skills install --dry-run integration", () => {
         expect(result.exitCode).toBe(0);
 
         const plan = JSON.parse(result.stdout);
-        expect(plan.changes).toBeDefined();
-        expect(Array.isArray(plan.changes)).toBe(true);
+        expect(plan.steps).toBeDefined();
+        expect(Array.isArray(plan.steps)).toBe(true);
 
         // Should have the remote skill in the plan
-        const remoteSkillChange = plan.changes.find(
-          (c: { name: string }) => c.name === "remote-skill",
+        const remoteSkillStep = plan.steps.find(
+          (c: { skill: string }) => c.skill === "remote-skill",
         );
-        expect(remoteSkillChange).toBeDefined();
-        expect(remoteSkillChange._tag).toBe("Add");
+        expect(remoteSkillStep).toBeDefined();
+        expect(remoteSkillStep._tag).toBe("InstallSkill");
       } finally {
         temp.cleanup();
       }

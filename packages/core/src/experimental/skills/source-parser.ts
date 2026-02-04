@@ -9,7 +9,7 @@
  */
 
 import { Data, Effect } from "effect";
-import type { ParsedSource, SourceType } from "./types.js";
+import type { ParsedSource } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Error Types
@@ -98,14 +98,24 @@ const PREFIXED_SHORTHAND_PATTERN =
 const URL_PATTERN = /^https?:\/\/.+/;
 
 /**
- * Local path pattern for rejecting local filesystem paths.
- * Matches: ./path, ../path, /path, or Windows paths like C:\path or C:/path
+ * Local path pattern for recognizing local filesystem paths.
+ * Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path or C:/path
  */
-const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|[A-Za-z]:[\\/]|[A-Za-z]:\/)/;
+const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
 
 // -----------------------------------------------------------------------------
 // Helper Functions
 // -----------------------------------------------------------------------------
+
+/**
+ * Build a ParsedSource for local paths.
+ */
+const buildLocalSource = (original: string, path: string): ParsedSource => ({
+  type: "local",
+  original,
+  canonical: `local:${path}`,
+  localPath: path,
+});
 
 /**
  * Build a ParsedSource for GitHub/GitLab/Bitbucket sources.
@@ -246,6 +256,13 @@ const parsePrefixedShorthand = (input: string): Effect.Effect<ParsedSource, Pars
 };
 
 /**
+ * Parse a local filesystem path.
+ */
+const parseLocalPath = (input: string): Effect.Effect<ParsedSource, ParseError> => {
+  return Effect.succeed(buildLocalSource(input, input));
+};
+
+/**
  * Parse GitHub shorthand (owner/repo[/path][@ref]).
  * Defaults to GitHub when no prefix is specified.
  */
@@ -315,6 +332,8 @@ export const getOriginFromParsed = (parsed: ParsedSource): string => {
       return `https://gitlab.com/${parsed.owner}/${parsed.repo}`;
     case "bitbucket":
       return `https://bitbucket.org/${parsed.owner}/${parsed.repo}`;
+    case "local":
+      return parsed.original;
     case "git":
     case "registry":
       return parsed.original;
@@ -348,6 +367,12 @@ export const parseSource = (input: string): Effect.Effect<ParsedSource, ParseErr
 
   if (!trimmed) {
     return Effect.fail(new ParseError({ message: "Source string cannot be empty", input }));
+  }
+
+  // Check for local: prefix
+  if (trimmed.startsWith("local:")) {
+    const path = trimmed.slice(6); // Remove "local:" prefix
+    return parseLocalPath(path);
   }
 
   // Check for prefixed shorthand first (github:, gitlab:, bitbucket:)
@@ -399,14 +424,9 @@ export const parseSource = (input: string): Effect.Effect<ParsedSource, ParseErr
     );
   }
 
-  // Check for local paths (not supported)
+  // Check for local paths (now supported)
   if (LOCAL_PATH_PATTERN.test(trimmed)) {
-    return Effect.fail(
-      new ParseError({
-        message: `Local paths are not supported: "${trimmed}". Use a git URL or shorthand instead.`,
-        input: trimmed,
-      }),
-    );
+    return parseLocalPath(trimmed);
   }
 
   // Try to parse as shorthand (owner/repo)

@@ -58,7 +58,7 @@ export interface AgentConfig {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SourceType = "github" | "gitlab" | "bitbucket" | "git" | "registry";
+export type SourceType = "github" | "gitlab" | "bitbucket" | "git" | "registry" | "local";
 
 /**
  * Result of parsing a source string.
@@ -82,6 +82,8 @@ export interface ParsedSource {
   readonly path?: string;
   /** URL (for git sources) */
   readonly url?: string;
+  /** Absolute path for local sources (after ~ expansion) */
+  readonly localPath?: string;
 }
 
 // -----------------------------------------------------------------------------

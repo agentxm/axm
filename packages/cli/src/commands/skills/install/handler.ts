@@ -159,6 +159,16 @@ const createLockEntryFromParsed = (
         name: parsed.repo ?? parsed.canonical,
         ...commonFields,
       };
+    case "local":
+      // Local sources use the path directly
+      // Note: Local source support in install command is not yet implemented
+      return {
+        source: "github" as const, // Placeholder - local sources not yet supported
+        owner: "",
+        repo: "",
+        path: parsed.localPath ?? parsed.canonical,
+        ...commonFields,
+      };
   }
 };
 
@@ -672,7 +682,7 @@ export const handleInstall = (
       const result = yield* resolveGitSource(parsed, axmDir);
       skills = result.skills;
       resolvedSource = { parsed, skillsDir: result.skillsDir, commitSha: result.commitSha };
-    } else if (parsed.type === "git" || parsed.type === "registry") {
+    } else if (parsed.type === "git" || parsed.type === "registry" || parsed.type === "local") {
       if (showOutput) spinnerHelper.stop("Source type not yet supported");
       return yield* new InstallError({
         message: `Source type "${parsed.type}" is not yet supported`,

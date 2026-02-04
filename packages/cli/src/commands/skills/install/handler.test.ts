@@ -5,8 +5,9 @@
  * 1. makeWorkspaceContext -> ensureInit -> loadCurrentState
  * 2. buildIdealState -> buildPlan -> applyPlan
  *
- * Since parseSource now rejects local paths, tests use GitHub shorthand
- * (github:test/skills) and mock git operations to use local fixtures.
+ * Tests use GitHub shorthand (github:test/skills) with mocked git operations
+ * that copy from local fixtures. Local path sources are parsed but not yet
+ * supported in the CLI handler.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -40,22 +41,22 @@ vi.mock("@agentxm/core/experimental/skills", async (importOriginal) => {
       currentFixturePath = undefined;
     },
     // Mock cloneRepo to copy from fixture instead of actual git clone
-    cloneRepo: vi.fn((url: string, destination: string, ref?: string) => {
-      return Effect.gen(function* () {
-        if (!currentFixturePath) {
-          throw new Error("No fixture path set for mock cloneRepo");
-        }
-        // Create destination and copy files from fixture
-        fs.mkdirSync(destination, { recursive: true });
-        copyDirSync(currentFixturePath, destination);
-        // Create a minimal .git directory so isGitRepository returns true
-        const gitDir = path.join(destination, ".git");
-        fs.mkdirSync(gitDir, { recursive: true });
-        fs.writeFileSync(path.join(gitDir, "HEAD"), "ref: refs/heads/main\n");
-      });
+    cloneRepo: vi.fn((url: string, destination: string, _ref?: string) => {
+      if (!currentFixturePath) {
+        // Die with an error when no fixture is set (simulates failed clone)
+        return Effect.die(`Failed to clone repository from ${url}`);
+      }
+      // Create destination and copy files from fixture
+      fs.mkdirSync(destination, { recursive: true });
+      copyDirSync(currentFixturePath, destination);
+      // Create a minimal .git directory so isGitRepository returns true
+      const gitDir = path.join(destination, ".git");
+      fs.mkdirSync(gitDir, { recursive: true });
+      fs.writeFileSync(path.join(gitDir, "HEAD"), "ref: refs/heads/main\n");
+      return Effect.void;
     }),
     // Mock getCurrentCommit to return a fake SHA
-    getCurrentCommit: vi.fn((repoPath: string) => {
+    getCurrentCommit: vi.fn((_repoPath: string) => {
       return Effect.succeed("abc1234567890abcdef1234567890abcdef12345");
     }),
   };
@@ -286,12 +287,13 @@ describe("install.handler", () => {
             fs.mkdirSync(path.join(sourceDir1, "commit"));
             fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# Original commit");
 
+            skillsModule.__setFixturePath(sourceDir1);
             initializeAxm();
 
             // Install first version
             yield* handleInstall({
               ...defaultArgs,
-              source: sourceDir1,
+              source: "github:test/skills",
               all: true,
               yes: true,
               agent: ["claude-code"],
@@ -310,10 +312,13 @@ describe("install.handler", () => {
             fs.mkdirSync(path.join(sourceDir2, "commit"));
             fs.writeFileSync(path.join(sourceDir2, "commit", "SKILL.md"), "# Updated commit");
 
+            // Update mock to use new fixture
+            skillsModule.__setFixturePath(sourceDir2);
+
             // Install with --force
             yield* handleInstall({
               ...defaultArgs,
-              source: sourceDir2,
+              source: "github:test/skills",
               all: true,
               yes: true,
               force: true,
@@ -387,7 +392,7 @@ describe("install.handler", () => {
       ),
     );
 
-    it.effect("recognizes local path source type", () =>
+    it.effect("recognizes GitHub source type in list mode", () =>
       withTestLayer(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
@@ -409,11 +414,11 @@ describe("install.handler", () => {
   });
 
   // =============================================================================
-  // Local Source Discovery Tests
+  // Source Discovery Tests (using GitHub shorthand with mock)
   // =============================================================================
 
-  describe("local source discovery", () => {
-    it.effect("discovers skills from local path", () =>
+  describe("source discovery", () => {
+    it.effect("discovers skills from GitHub source via mock", () =>
       withTestLayer(
         Effect.gen(function* () {
           const source = createSkillSource([
@@ -435,7 +440,7 @@ describe("install.handler", () => {
       ),
     );
 
-    it.effect("handles empty source directory with error and recovery guidance", () =>
+    it.effect("handles local source directory (not yet supported)", () =>
       withTestLayer(
         Effect.gen(function* () {
           fs.mkdirSync(sourceDir, { recursive: true });
@@ -448,18 +453,17 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           };
 
-          // Should fail with error suggesting to check the source path
+          // Local source parsing works but CLI handler doesn't support it yet
           const error = yield* handleInstall(args).pipe(Effect.flip);
 
           expect(error._tag).toBe("InstallError");
-          expect((error as InstallError).message).toContain("No skills found");
-          expect((error as InstallError).message).toContain(sourceDir);
-          expect((error as InstallError).message).toContain("SKILL.md");
+          expect((error as InstallError).message).toContain("local");
+          expect((error as InstallError).message).toContain("not yet supported");
         }),
       ),
     );
 
-    it.effect("handles non-existent source path", () =>
+    it.effect("handles non-existent local source path", () =>
       withTestLayer(
         Effect.gen(function* () {
           initializeAxm();
@@ -471,10 +475,12 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           };
 
-          // Should fail with error about discovering skills
+          // Local source parsing works but CLI handler doesn't support it yet
           const error = yield* handleInstall(args).pipe(Effect.flip);
 
           expect(error._tag).toBe("InstallError");
+          expect((error as InstallError).message).toContain("local");
+          expect((error as InstallError).message).toContain("not yet supported");
         }),
       ),
     );
@@ -829,8 +835,9 @@ describe("install.handler", () => {
           const lockContent = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           expect(lockContent.lockfileVersion).toBe(1);
           expect(lockContent.skills.commit).toBeDefined();
-          expect(lockContent.skills.commit.source).toBe("local");
-          expect(lockContent.skills.commit.path).toBe(source);
+          expect(lockContent.skills.commit.source).toBe("github");
+          expect(lockContent.skills.commit.owner).toBe("test");
+          expect(lockContent.skills.commit.repo).toBe("skills");
           expect(lockContent.skills.commit.gitTreeHash).toMatch(/^sha256:/);
           expect(lockContent.skills.commit.agents).toBeDefined();
           expect(lockContent.skills.commit.installedAt).toBeDefined();
@@ -871,7 +878,8 @@ describe("install.handler", () => {
     it.effect("preserves skill directory structure", () =>
       withTestLayer(
         Effect.gen(function* () {
-          // Create skill with subdirectories
+          // Create skill with subdirectories via createSkillSource helper
+          // which sets up the mock to use the local fixture
           fs.mkdirSync(sourceDir, { recursive: true });
           const skillDir = path.join(sourceDir, "complex-skill");
           fs.mkdirSync(skillDir, { recursive: true });
@@ -879,11 +887,13 @@ describe("install.handler", () => {
           fs.mkdirSync(path.join(skillDir, "references"), { recursive: true });
           fs.writeFileSync(path.join(skillDir, "references", "commands.md"), "# Commands");
 
+          // Set up mock to use the local fixture
+          skillsModule.__setFixturePath(sourceDir);
           initializeAxm();
 
           const args: InstallArgs = {
             ...defaultArgs,
-            source: sourceDir,
+            source: "github:test/skills",
             all: true,
             yes: true,
             agent: ["claude-code"],
@@ -1065,7 +1075,7 @@ describe("install.handler", () => {
       ),
     );
 
-    it.effect("no skills found error suggests checking the source path", () =>
+    it.effect("local source type not yet supported error", () =>
       withTestLayer(
         Effect.gen(function* () {
           fs.mkdirSync(sourceDir, { recursive: true });
@@ -1082,10 +1092,9 @@ describe("install.handler", () => {
 
           expect(error._tag).toBe("InstallError");
           const message = (error as InstallError).message;
-          expect(message).toContain("No skills found");
-          expect(message).toContain(sourceDir);
-          // Recovery guidance: check for SKILL.md files
-          expect(message).toContain("SKILL.md");
+          // Local source parsing works but CLI handler doesn't support it yet
+          expect(message).toContain("local");
+          expect(message).toContain("not yet supported");
         }),
       ),
     );
@@ -1132,12 +1141,13 @@ describe("install.handler", () => {
           fs.mkdirSync(path.join(sourceDir1, "commit"));
           fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# Original");
 
+          skillsModule.__setFixturePath(sourceDir1);
           initializeAxm();
 
           // First install
           yield* handleInstall({
             ...defaultArgs,
-            source: sourceDir1,
+            source: "github:test/skills",
             all: true,
             yes: true,
             agent: ["claude-code"],
@@ -1154,10 +1164,13 @@ describe("install.handler", () => {
           fs.mkdirSync(path.join(sourceDir2, "commit"));
           fs.writeFileSync(path.join(sourceDir2, "commit", "SKILL.md"), "# Modified");
 
+          // Update mock to use new fixture
+          skillsModule.__setFixturePath(sourceDir2);
+
           // Second install - should skip existing skills
           yield* handleInstall({
             ...defaultArgs,
-            source: sourceDir2,
+            source: "github:test/skills",
             all: true,
             yes: true,
             agent: ["claude-code"],
@@ -1182,12 +1195,13 @@ describe("install.handler", () => {
           fs.mkdirSync(path.join(sourceDir1, "commit"));
           fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# commit");
 
+          skillsModule.__setFixturePath(sourceDir1);
           initializeAxm();
 
           // Install first skill
           const args1: InstallArgs = {
             ...defaultArgs,
-            source: sourceDir1,
+            source: "github:test/skills",
             all: true,
             yes: true,
             agent: ["claude-code"],
@@ -1202,10 +1216,13 @@ describe("install.handler", () => {
           fs.mkdirSync(path.join(sourceDir2, "review-pr"));
           fs.writeFileSync(path.join(sourceDir2, "review-pr", "SKILL.md"), "# review-pr");
 
+          // Update mock to use new fixture
+          skillsModule.__setFixturePath(sourceDir2);
+
           // Install from second source - commit should be skipped, review-pr installed
           const args2: InstallArgs = {
             ...defaultArgs,
-            source: sourceDir2,
+            source: "github:test/skills",
             all: true,
             yes: true,
             agent: ["claude-code"],
@@ -1273,12 +1290,13 @@ describe("install.handler", () => {
           fs.mkdirSync(path.join(sourceDir1, "commit"));
           fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# Original");
 
+          skillsModule.__setFixturePath(sourceDir1);
           initializeAxm();
 
           // Install first version
           yield* handleInstall({
             ...defaultArgs,
-            source: sourceDir1,
+            source: "github:test/skills",
             all: true,
             yes: true,
             agent: ["claude-code"],
@@ -1295,10 +1313,13 @@ describe("install.handler", () => {
           fs.mkdirSync(path.join(sourceDir2, "commit"));
           fs.writeFileSync(path.join(sourceDir2, "commit", "SKILL.md"), "# Updated content");
 
+          // Update mock to use new fixture
+          skillsModule.__setFixturePath(sourceDir2);
+
           // Install with --force
           yield* handleInstall({
             ...defaultArgs,
-            source: sourceDir2,
+            source: "github:test/skills",
             all: true,
             yes: true,
             force: true,
@@ -1308,7 +1329,6 @@ describe("install.handler", () => {
           // Lockfile should have updated hash (flat structure)
           const newLock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           expect(newLock.skills.commit.gitTreeHash).not.toBe(originalHash);
-          expect(newLock.skills.commit.path).toBe(sourceDir2);
         }),
       ),
     );
@@ -1322,12 +1342,13 @@ describe("install.handler", () => {
           fs.mkdirSync(path.join(sourceDir1, "commit"));
           fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# commit v1");
 
+          skillsModule.__setFixturePath(sourceDir1);
           initializeAxm();
 
           // Install first skill
           yield* handleInstall({
             ...defaultArgs,
-            source: sourceDir1,
+            source: "github:test/skills",
             all: true,
             yes: true,
             agent: ["claude-code"],
@@ -1341,10 +1362,13 @@ describe("install.handler", () => {
           fs.mkdirSync(path.join(sourceDir2, "review-pr"));
           fs.writeFileSync(path.join(sourceDir2, "review-pr", "SKILL.md"), "# review-pr");
 
+          // Update mock to use new fixture
+          skillsModule.__setFixturePath(sourceDir2);
+
           // Install with --force
           yield* handleInstall({
             ...defaultArgs,
-            source: sourceDir2,
+            source: "github:test/skills",
             all: true,
             yes: true,
             force: true,
@@ -1482,14 +1506,15 @@ describe("install.handler", () => {
           const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           const entry = lockfile.skills.commit;
 
-          // Required fields per flat schema
-          expect(entry.source).toBe("local");
-          expect(entry.path).toBeDefined();
+          // Required fields per flat schema (using GitHub shorthand via createSkillSource)
+          expect(entry.source).toBe("github");
+          expect(entry.owner).toBe("test");
+          expect(entry.repo).toBe("skills");
           expect(entry.agents).toBeDefined();
           expect(entry.installedAt).toBeDefined();
           expect(entry.updatedAt).toBeDefined();
 
-          // gitTreeHash should be a sha256 hash for local sources
+          // gitTreeHash should be a sha256 hash
           expect(entry.gitTreeHash).toMatch(/^sha256:/);
         }),
       ),
@@ -1531,22 +1556,21 @@ describe("install.handler", () => {
     it.effect("parses github: prefix correctly", () =>
       withTestLayer(
         Effect.gen(function* () {
+          // Set up a valid fixture so we can verify parsing works
+          const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
 
-          // github: prefix should be recognized as GitHub source
-          // Use an invalid repo to test parsing (will fail on clone, not parse)
+          // The source returned by createSkillSource is github:test/skills
+          // which proves github: prefix is parsed correctly
           const args: InstallArgs = {
             ...defaultArgs,
-            source: "github:nonexistent-owner-xyz/nonexistent-repo-xyz",
-            yes: true,
+            source,
+            list: true, // Use list mode to avoid full install
             agent: ["claude-code"],
           };
 
-          // Should fail with clone error (not parse error), proving prefix was parsed
-          const error = yield* handleInstall(args).pipe(Effect.flip);
-          expect(error._tag).toBe("InstallError");
-          // Error should be about cloning, not parsing
-          expect((error as InstallError).message).toContain("clone");
+          // Should succeed in list mode - proves github: prefix was parsed
+          yield* handleInstall(args);
         }),
       ),
     );
@@ -1557,17 +1581,25 @@ describe("install.handler", () => {
           initializeAxm();
 
           // gitlab: prefix should be recognized as GitLab source
+          // Since we don't have a mock for gitlab, test that it fails at clone stage
+          // (not parse stage) by checking the error is about the clone operation
           const args: InstallArgs = {
             ...defaultArgs,
-            source: "gitlab:nonexistent-owner-xyz/nonexistent-repo-xyz",
+            source: "gitlab:test/skills",
             yes: true,
             agent: ["claude-code"],
           };
 
-          // Should fail with clone error (not parse error), proving prefix was parsed
-          const error = yield* handleInstall(args).pipe(Effect.flip);
-          expect(error._tag).toBe("InstallError");
-          expect((error as InstallError).message).toContain("clone");
+          // Should fail during clone (not during parsing)
+          // Effect.die creates a defect which we catch with catchAllDefect
+          const result = yield* handleInstall(args).pipe(
+            Effect.map(() => "success" as const),
+            Effect.catchAllDefect((defect) => Effect.succeed(String(defect))),
+            Effect.catchAll((error) => Effect.succeed(`error: ${error._tag}`)),
+          );
+
+          // Should fail at clone stage with our mock's die message
+          expect(result).toContain("Failed to clone");
         }),
       ),
     );
@@ -1578,7 +1610,7 @@ describe("install.handler", () => {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
 
-          // Install from local source
+          // Install from GitHub source (createSkillSource returns github:test/skills)
           yield* handleInstall({
             ...defaultArgs,
             source,
@@ -1587,11 +1619,12 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           });
 
-          // Verify local source is stored with flat format
+          // Verify GitHub source is stored with flat format
           const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
           const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-          expect(lockfile.skills.commit.source).toBe("local");
-          expect(lockfile.skills.commit.path).toBe(source);
+          expect(lockfile.skills.commit.source).toBe("github");
+          expect(lockfile.skills.commit.owner).toBe("test");
+          expect(lockfile.skills.commit.repo).toBe("skills");
         }),
       ),
     );
@@ -1602,7 +1635,7 @@ describe("install.handler", () => {
   // =============================================================================
 
   describe("source normalization", () => {
-    it.effect("stores local path as source in lockfile", () =>
+    it.effect("stores GitHub source in lockfile with flat format", () =>
       withTestLayer(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
@@ -1619,9 +1652,10 @@ describe("install.handler", () => {
           const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
           const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
-          // Local path should be stored with flat format
-          expect(lockfile.skills.commit.source).toBe("local");
-          expect(lockfile.skills.commit.path).toBe(source);
+          // GitHub source should be stored with flat format
+          expect(lockfile.skills.commit.source).toBe("github");
+          expect(lockfile.skills.commit.owner).toBe("test");
+          expect(lockfile.skills.commit.repo).toBe("skills");
         }),
       ),
     );

@@ -50,7 +50,7 @@ const isAmbiguousPattern = (input: string): boolean => {
   if (trimmed.startsWith("@")) return false;
 
   // Skip if looks like a local path
-  if (/^(\.\.?\/|\/|[A-Za-z]:[\\/])/.test(trimmed)) return false;
+  if (/^(\.\.?\/|\/|~[/\\]|[A-Za-z]:[\\/])/.test(trimmed)) return false;
 
   // Skip if looks like a URL
   if (/^https?:\/\//.test(trimmed)) return false;

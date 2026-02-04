@@ -13,6 +13,7 @@ import {
   resolveAxmName,
   resolveBareName,
   resolveExplicitSource,
+  resolveLocalPath,
   resolveUrl,
 } from "./resolvers/index.js";
 import type { ExtensionRef, ExtensionType, ResolutionOptions, SourceType } from "./types.js";
@@ -88,6 +89,7 @@ export const resolveExtension = (
   const resolvers: Resolver[] = [
     resolveAxmName,
     resolveBareName,
+    resolveLocalPath,
     resolveExplicitSource,
     resolveAmbiguous,
     resolveUrl,

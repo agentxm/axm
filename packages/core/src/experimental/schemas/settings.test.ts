@@ -61,20 +61,21 @@ describe("Settings schema", () => {
     });
 
     it("accepts all valid agent IDs", () => {
-      const allAgents = [
+      // Sample of valid agent IDs from the complete list
+      const sampleAgents = [
         "claude-code",
         "cursor",
         "windsurf",
         "codex",
-        "copilot",
-        "gemini",
-        "vscode",
+        "github-copilot",
+        "gemini-cli",
         "opencode",
+        "antigravity",
       ];
-      const input = { agents: allAgents };
+      const input = { agents: sampleAgents };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.agents).toEqual(allAgents);
+      expect(result.agents).toEqual(sampleAgents);
     });
 
     it("rejects invalid agent ID", () => {
@@ -449,7 +450,7 @@ describe("Settings schema", () => {
           gitlab: { url: "https://gitlab.wayne.com" },
           registry: [{ path: "./.axm/registry" }, { url: "https://registry.wayne.com" }],
         },
-        agents: ["claude-code", "cursor", "vscode"],
+        agents: ["claude-code", "cursor", "windsurf"],
         skills: {
           "grappling-hook": "@wayne/grappling-hook@^1.0.0",
           batarang: "github:wayne-industries/gadgets/skills/batarang#main",

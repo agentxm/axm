@@ -200,6 +200,8 @@ export const buildIdealForInstall = (
         : discovered;
 
     // Keep existing valid skills as ideal (unless they're being overwritten)
+    // Local sources always replace existing skills (no stable identifier for comparison)
+    const isLocalSource = source.parsed.type === "local";
     const existingIdeal = pipe(
       Record.toEntries(current.skills),
       Arr.filter(([name, state]) => {
@@ -207,7 +209,9 @@ export const buildIdealForInstall = (
         const hasActual = Option.isSome(state.actual);
         const hasLocked = Option.isSome(state.locked);
         const beingReplaced = filtered.some((s) => s.name === name);
-        return hasActual && hasLocked && (!beingReplaced || !options.force);
+        // For local sources, always treat as being replaced (will be in newIdealEntries)
+        const shouldReplace = beingReplaced && (options.force || isLocalSource);
+        return hasActual && hasLocked && !shouldReplace;
       }),
       Arr.map(([name, state]) => [name, stateToIdeal(state)] as const),
       Record.fromEntries,
@@ -222,14 +226,17 @@ export const buildIdealForInstall = (
           Effect.gen(function* () {
             const existing = current.skills[skill.name];
 
-            // Skip if exists and not forcing
-            if (existing && Option.isSome(existing.actual) && !options.force) {
-              return Option.none();
-            }
-
             // Compute hash based on source type
             // Only GitHub sources get a hash via API - other sources always update
             let hash: string;
+            const isLocalSource = source.parsed.type === "local";
+
+            // Skip if exists and not forcing, unless it's a local source.
+            // Local sources have no stable identifier, so we always include them
+            // in the ideal state to trigger repair via computeDiff.
+            if (existing && Option.isSome(existing.actual) && !options.force && !isLocalSource) {
+              return Option.none();
+            }
 
             if (source.parsed.type === "github" && source.parsed.owner && source.parsed.repo) {
               // GitHub sources: fetch tree hash from GitHub API

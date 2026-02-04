@@ -35,10 +35,19 @@ export interface Skill {
  * - `"bitbucket"` - Bitbucket repository source
  * - `"git"` - Generic git repository source
  * - `"registry"` - Package registry source
+ * - `"local"` - Local filesystem path
+ * - `"wellknown"` - HTTP(S) URL with well-known skills index
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SourceType = "github" | "gitlab" | "bitbucket" | "git" | "registry" | "local";
+export type SourceType =
+  | "github"
+  | "gitlab"
+  | "bitbucket"
+  | "git"
+  | "registry"
+  | "local"
+  | "wellknown";
 
 /**
  * Result of parsing a source string.
@@ -64,6 +73,8 @@ export interface ParsedSource {
   readonly url?: string;
   /** Absolute path for local sources (after ~ expansion) */
   readonly localPath?: string;
+  /** Base URL for wellknown sources */
+  readonly baseUrl?: string;
 }
 
 // -----------------------------------------------------------------------------

@@ -159,21 +159,24 @@ _After handlers migrate to agents/ module, remove old agent code from skills/._
 
 ## 14. Clean Up Types
 
-- [ ] 14.1 Remove legacy types from `skills/state/types.ts` (keep only V2 types)
-- [ ] 14.2 Update any V2 types that reference old AgentConfig to use new agents/ types
-- [ ] 14.3 Verify no V2 types import from skills/types.ts or skills/agent-detection.ts
-- [ ] 14.4 Run `pnpm typecheck` and fix any errors
-- [ ] 14.5 Run `pnpm lint` and fix any errors
-- [ ] 14.6 Run `pnpm test` and fix any failures
-- [ ] 14.7 Kill any vitest worker processes
+_Task 14.1 is blocked by deferred module deletions - legacy types are still used by apply.ts, diff.ts, load.ts, ideal.ts.
+Tasks 14.2-14.3 verified: V2 types already use string agent IDs, no old AgentConfig references._
+
+- [x] 14.1 Remove legacy types from `skills/state/types.ts` (keep only V2 types) — DEFERRED: blocked by skills/state/ module deletions
+- [x] 14.2 Update any V2 types that reference old AgentConfig to use new agents/ types — N/A: V2 types already use string agent IDs
+- [x] 14.3 Verify no V2 types import from skills/types.ts or skills/agent-detection.ts — VERIFIED: imports are clean
+- [x] 14.4 Run `pnpm typecheck` and fix any errors
+- [x] 14.5 Run `pnpm lint` and fix any errors
+- [x] 14.6 Run `pnpm test` and fix any failures
+- [x] 14.7 Kill any vitest worker processes
 
 ## 15. Final Verification
 
-- [ ] 15.1 Run `pnpm typecheck` - full project type check
-- [ ] 15.2 Run `pnpm lint` - full project lint
-- [ ] 15.3 Run `pnpm test` - full test suite
-- [ ] 15.4 Run `pnpm test:e2e` - full E2E suite
-- [ ] 15.5 Kill any vitest worker processes
+- [x] 15.1 Run `pnpm typecheck` - full project type check
+- [x] 15.2 Run `pnpm lint` - full project lint
+- [x] 15.3 Run `pnpm test` - full test suite (1408 tests pass)
+- [x] 15.4 Run `pnpm test:e2e` - full E2E suite (78 tests pass, 16 skipped)
+- [x] 15.5 Kill any vitest worker processes
 
 ---
 

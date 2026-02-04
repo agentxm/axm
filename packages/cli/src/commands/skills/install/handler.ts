@@ -22,6 +22,7 @@ import {
   buildCloneUrl,
   cloneRepo,
   discoverSkills,
+  discoverWellKnownSkills,
   ensureInitialized,
   getCurrentCommit,
   type ParsedSource,
@@ -518,6 +519,25 @@ export const handleInstall = (
         ),
       );
       resolvedSource = { parsed, skillsDir };
+    } else if (parsed.type === "wellknown") {
+      // Well-known URL sources: discover skills from /.well-known/skills/index.json
+      const baseUrl = parsed.baseUrl ?? parsed.original;
+      skills = yield* discoverWellKnownSkills(baseUrl).pipe(
+        Effect.mapError(
+          (error) =>
+            new InstallError({
+              message: formatError(
+                `Failed to discover skills from well-known URL: ${error.message}`,
+                [`URL: ${baseUrl}`],
+                "Verify the URL serves a valid skills index at /.well-known/skills/index.json",
+              ),
+              cause: error,
+              retryable: error._tag === "WellKnownFetchError" && error.retryable,
+            }),
+        ),
+      );
+      // For wellknown sources, skillsDir is the base URL since files are fetched over HTTP
+      resolvedSource = { parsed, skillsDir: baseUrl };
     } else if (parsed.type === "git" || parsed.type === "registry") {
       if (showOutput) spinnerHelper.stop("Source type not yet supported");
       return yield* new InstallError({

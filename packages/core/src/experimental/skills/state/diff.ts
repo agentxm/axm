@@ -95,6 +95,13 @@ export const computeDiff = (current: SkillsState, ideal: IdealSkillsState): Skil
         return [name, SkillChange.Update({ from: currentState, to: idealSkill })] as const;
       }
 
+      // Local sources with no hash (empty string) have no stable identifier.
+      // We cannot verify the content is unchanged, so we treat this as Repair.
+      // This ensures local sources are always refreshed on reinstall.
+      if (actualSkill.gitTreeFolderHash === "" && idealSkill.gitTreeFolderHash === "") {
+        return [name, SkillChange.Repair({ skill: currentState, target: idealSkill })] as const;
+      }
+
       // Unchanged
       return [name, SkillChange.Unchanged({ skill: currentState })] as const;
     }),

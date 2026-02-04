@@ -17,7 +17,6 @@
 
 import * as nodePath from "node:path";
 import { type AgentConfig, detectAgents, getAgentById } from "@agentxm/core/experimental/agents";
-import { getAxmDir } from "@agentxm/core/experimental/paths";
 import {
   buildCloneUrl,
   cloneRepo,
@@ -29,22 +28,33 @@ import {
   parseSource,
   type Skill,
 } from "@agentxm/core/experimental/skills";
+import { fetchGitHubTreeHash } from "@agentxm/core/experimental/skills/github-api";
 import {
-  applyDiff,
+  applyPlan,
+  applyStep,
+  type BuildIdealDeps,
   buildIdealForInstall,
-  computeDiff,
-  type DiffSummary,
-  hasChanges,
-  type SkillSource as LegacySkillSource,
-  loadSkillsState,
-  type ResolvedSource,
-  type SkillChange,
-  type SkillsDiff,
-  skillsDiffToJson,
-} from "@agentxm/core/experimental/skills/state";
+  buildPlan,
+  CommandError,
+  type DiscoveredSkill,
+  getPlanSummary,
+  type InstallCommand,
+  loadCurrentState,
+  makeWorkspaceContext,
+  type Plan,
+  type PlanJson,
+  type PlanStep,
+  type PlanSummary,
+  planHasChanges,
+  planToJson,
+  SkillSourceV2,
+  updateLockfileForPlan,
+  updateSettingsForPlan,
+  type WorkspaceContext,
+} from "@agentxm/core/experimental/workspace";
 import * as p from "@clack/prompts";
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
-import { Data, Effect, Option } from "effect";
+import { Data, Effect, Option, pipe } from "effect";
 import { formatError } from "../../../utils/errors.js";
 import { canPrompt, promptConfirm, promptMultiselect } from "../../../utils/prompts.js";
 import { createSpinnerHelper } from "../../../utils/spinner.js";
@@ -100,6 +110,23 @@ export class InstallError extends Data.TaggedError("InstallError")<{
   readonly cause?: unknown;
   readonly retryable: boolean;
 }> {}
+
+// -----------------------------------------------------------------------------
+// Internal Types
+// -----------------------------------------------------------------------------
+
+/**
+ * Resolved source with skills directory path.
+ * Used internally by the handler to track source resolution.
+ */
+interface ResolvedSource {
+  /** Parsed source information */
+  readonly parsed: ParsedSource;
+  /** Path to directory containing skills */
+  readonly skillsDir: string;
+  /** Git commit SHA (for git sources) */
+  readonly commitSha?: string;
+}
 
 // -----------------------------------------------------------------------------
 // Source Resolution
@@ -181,45 +208,57 @@ const resolveGitSource = (
 
 /**
  * Format source for display in plan output.
- * Uses legacy SkillSource type which includes WellKnown variant.
+ * Uses V2 SkillSourceV2 type with Registry, GitHub, Local variants.
  */
-const formatSource = (source: LegacySkillSource): string => {
+const formatSourceV2 = (source: SkillSourceV2): string => {
   switch (source._tag) {
     case "Local":
       return source.path;
-    case "Git":
-      return Option.isSome(source.ref) ? `${source.url}@${source.ref.value}` : source.url;
-    case "WellKnown":
-      return source.baseUrl;
-    case "Registry":
-      return `${source.name}@${source.version}`;
+    case "GitHub": {
+      let result = `github:${source.owner}/${source.repo}`;
+      if (Option.isSome(source.path)) {
+        result += `/${source.path.value}`;
+      }
+      if (Option.isSome(source.ref)) {
+        result += `@${source.ref.value}`;
+      }
+      return result;
+    }
+    case "Registry": {
+      let result = `@${source.scope}/${source.name}`;
+      if (Option.isSome(source.version)) {
+        result += `@${source.version.value}`;
+      }
+      return result;
+    }
   }
 };
 
 /**
  * Format hash for display (first 7 characters).
  */
-const formatHash = (hash: string): string => {
-  // Remove prefix like "sha256:" if present
-  const stripped = hash.includes(":") ? (hash.split(":")[1] ?? hash) : hash;
-  return stripped.slice(0, 7);
-};
+const formatHash = (hash: Option.Option<string>): string =>
+  pipe(
+    hash,
+    Option.map((h) => {
+      // Remove prefix like "sha256:" if present
+      const stripped = h.includes(":") ? (h.split(":")[1] ?? h) : h;
+      return stripped.slice(0, 7);
+    }),
+    Option.getOrElse(() => "???????"),
+  );
 
 /**
- * Get symbol for change type.
+ * Get symbol for plan step type.
  */
-const getChangeSymbol = (tag: SkillChange["_tag"]): string => {
+const getStepSymbol = (tag: PlanStep["_tag"]): string => {
   switch (tag) {
-    case "Add":
+    case "InstallSkill":
       return "+";
-    case "Update":
+    case "UpdateSkill":
       return "~";
-    case "Remove":
+    case "UninstallSkill":
       return "-";
-    case "Repair":
-      return "!";
-    case "Unchanged":
-      return " ";
     default: {
       // Exhaustive check
       const _exhaustive: never = tag;
@@ -229,58 +268,50 @@ const getChangeSymbol = (tag: SkillChange["_tag"]): string => {
 };
 
 /**
- * Format a single change for display.
+ * Format a single plan step for display.
+ * @param step - The plan step to format
+ * @param displaySource - Optional display source string (for showing original source instead of cached path)
  */
-const formatChange = (name: string, change: SkillChange): string => {
-  const symbol = getChangeSymbol(change._tag);
+const formatStep = (step: PlanStep, displaySource?: string): string => {
+  const symbol = getStepSymbol(step._tag);
 
-  switch (change._tag) {
-    case "Add": {
-      const source = formatSource(change.skill.source);
-      return `  ${symbol} ${name.padEnd(20)} ${source}`;
+  switch (step._tag) {
+    case "InstallSkill": {
+      const source = displaySource ?? formatSourceV2(step.source);
+      return `  ${symbol} ${step.skill.padEnd(20)} ${source}`;
     }
-    case "Update": {
-      const fromHash = Option.isSome(change.from.actual)
-        ? formatHash(change.from.actual.value.gitTreeFolderHash)
-        : "???????";
-      const toHash = formatHash(change.to.gitTreeFolderHash);
-      return `  ${symbol} ${name.padEnd(20)} ${fromHash} -> ${toHash}`;
+    case "UpdateSkill": {
+      const fromHash = formatHash(step.fromHash);
+      const toHash = formatHash(step.toHash);
+      return `  ${symbol} ${step.skill.padEnd(20)} ${fromHash} -> ${toHash}`;
     }
-    case "Remove":
-      return `  ${symbol} ${name.padEnd(20)} (remove)`;
-    case "Repair":
-      return `  ${symbol} ${name.padEnd(20)} (repair)`;
-    case "Unchanged":
-      return `  ${symbol} ${name.padEnd(20)} (unchanged)`;
+    case "UninstallSkill":
+      return `  ${symbol} ${step.skill.padEnd(20)} (remove)`;
     default: {
-      const _exhaustive: never = change;
+      const _exhaustive: never = step;
       return _exhaustive;
     }
   }
 };
 
 /**
- * Format summary line.
+ * Format summary line for plan.
  */
-const formatSummary = (summary: DiffSummary): string => {
+const formatPlanSummary = (summary: PlanSummary): string => {
   const parts: string[] = [];
-  if (summary.add > 0) parts.push(`${summary.add} to add`);
-  if (summary.update > 0) parts.push(`${summary.update} to update`);
-  if (summary.repair > 0) parts.push(`${summary.repair} to repair`);
-  if (summary.remove > 0) parts.push(`${summary.remove} to remove`);
+  if (summary.installed > 0) parts.push(`${summary.installed} to install`);
+  if (summary.updated > 0) parts.push(`${summary.updated} to update`);
+  if (summary.uninstalled > 0) parts.push(`${summary.uninstalled} to uninstall`);
   return parts.length > 0 ? parts.join(", ") : "No changes";
 };
 
 /**
- * Display the diff/plan in human-readable format.
+ * Display the plan in human-readable format.
+ * @param steps - The plan steps to display
+ * @param displaySource - Optional display source string (for showing original source instead of cached path)
  */
-const displayDiff = (diff: SkillsDiff): void => {
-  // Filter out unchanged
-  const changes: Array<[string, SkillChange]> = Object.entries(diff.changes).filter(
-    (entry): entry is [string, SkillChange] => entry[1]._tag !== "Unchanged",
-  );
-
-  if (changes.length === 0) {
+const displayPlanOutput = (steps: ReadonlyArray<PlanStep>, displaySource?: string): void => {
+  if (steps.length === 0) {
     return;
   }
 
@@ -288,21 +319,121 @@ const displayDiff = (diff: SkillsDiff): void => {
   p.log.message("");
   p.log.message("  Skills:");
 
-  for (const [name, change] of changes) {
-    p.log.message(formatChange(name, change));
+  for (const step of steps) {
+    p.log.message(formatStep(step, displaySource));
   }
 
+  const summary = getPlanSummary({ steps });
   p.log.message("");
-  p.log.message(`  Summary: ${formatSummary(diff.summary)}`);
+  p.log.message(`  Summary: ${formatPlanSummary(summary)}`);
 };
 
 /**
- * Output diff as JSON.
+ * Output plan as JSON.
  */
-const outputDiffJson = (diff: SkillsDiff): void => {
-  const json = skillsDiffToJson(diff);
+const outputPlanJson = (steps: ReadonlyArray<PlanStep>): void => {
+  const json: PlanJson = planToJson({ steps });
   console.log(JSON.stringify(json, null, 2));
 };
+
+// -----------------------------------------------------------------------------
+// V2 Dependencies
+// -----------------------------------------------------------------------------
+
+/**
+ * Convert ParsedSource to SkillSourceV2.
+ * Used to create a source for buildIdealForInstall.
+ *
+ * This preserves the original source info (e.g., GitHub owner/repo) for
+ * storage in the lockfile and settings. The actual local path for file
+ * operations is provided separately to the applyStep callback.
+ */
+const parsedSourceToV2 = (
+  parsed: ParsedSource,
+  skillsDir: string,
+): Effect.Effect<SkillSourceV2, CommandError> => {
+  switch (parsed.type) {
+    case "local":
+      return Effect.succeed(SkillSourceV2.Local({ path: skillsDir }));
+    case "github":
+      return Effect.succeed(
+        SkillSourceV2.GitHub({
+          owner: parsed.owner ?? "",
+          repo: parsed.repo ?? "",
+          ref: Option.fromNullable(parsed.ref),
+          path: Option.fromNullable(parsed.path),
+        }),
+      );
+    case "gitlab":
+    case "bitbucket":
+      // For non-GitHub git sources, store as Local with the cached path
+      // The original source info is preserved in the lockfile via separate mechanism
+      return Effect.succeed(SkillSourceV2.Local({ path: skillsDir }));
+    case "wellknown":
+      // For wellknown, store as Local with the cached path
+      return Effect.succeed(SkillSourceV2.Local({ path: skillsDir }));
+    default:
+      return Effect.fail(
+        new CommandError({
+          message: `Unsupported source type: ${parsed.type}`,
+          cause: Option.none(),
+        }),
+      );
+  }
+};
+
+/**
+ * Create BuildIdealDeps for the V2 buildIdealForInstall.
+ * This creates the parseSource and discoverSkills callbacks required by the V2 API.
+ */
+const createBuildIdealDeps = (
+  resolvedSource: ResolvedSource,
+  discoveredSkills: readonly Skill[],
+): BuildIdealDeps => ({
+  parseSource: (_source: string) =>
+    parsedSourceToV2(resolvedSource.parsed, resolvedSource.skillsDir),
+
+  discoverSkills: (source: SkillSourceV2) =>
+    Effect.gen(function* () {
+      // For GitHub sources, fetch git tree hash from API for each skill
+      const skills: DiscoveredSkill[] = [];
+
+      for (const skill of discoveredSkills) {
+        let gitTreeHash: Option.Option<string> = Option.none();
+
+        if (
+          source._tag === "GitHub" &&
+          resolvedSource.parsed.type === "github" &&
+          resolvedSource.parsed.owner &&
+          resolvedSource.parsed.repo
+        ) {
+          // Build path within repo: subpath (if any) + skill name
+          const pathInRepo = resolvedSource.parsed.path
+            ? `${resolvedSource.parsed.path}/${skill.name}`
+            : skill.name;
+
+          gitTreeHash = yield* fetchGitHubTreeHash(
+            resolvedSource.parsed.owner,
+            resolvedSource.parsed.repo,
+            resolvedSource.parsed.ref ?? "HEAD",
+            pathInRepo,
+          ).pipe(
+            Effect.map((h): Option.Option<string> => (h === null ? Option.none() : Option.some(h))),
+            Effect.catchAll(() => Effect.succeed<Option.Option<string>>(Option.none())),
+          );
+        }
+
+        skills.push({
+          name: skill.name,
+          // Skills from discover don't have version; it's from the frontmatter which we don't use here
+          version: Option.none(),
+          gitTreeHash,
+        });
+      }
+
+      return skills;
+    }),
+});
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -317,7 +448,7 @@ const outputDiffJson = (diff: SkillsDiff): void => {
  * 3. Detect installed agents (or use --agent flag)
  * 4. Load current state (actual + locked)
  * 5. Resolve source and build ideal state
- * 6. Compute diff (the plan)
+ * 6. Build plan (diff current vs ideal)
  * 7. Display plan (dry-run stops here)
  * 8. Confirm and apply changes
  *
@@ -326,12 +457,17 @@ const outputDiffJson = (diff: SkillsDiff): void => {
 export const handleInstall = (
   args: InstallArgs,
 ): Effect.Effect<void, InstallError, FileSystem.FileSystem | HttpClient.HttpClient | Path.Path> => {
-  const axmDir = getAxmDir(args.global);
   const scopeLabel = args.global ? "global" : "project";
 
   return Effect.gen(function* () {
     // JSON mode should suppress non-JSON output
     const showOutput = !args.json;
+
+    // Create workspace context (V2)
+    const ws: WorkspaceContext = makeWorkspaceContext({
+      global: args.global,
+      interactive: isInteractive() && !args.nonInteractive,
+    });
 
     // Show intro
     if (showOutput) {
@@ -361,7 +497,7 @@ export const handleInstall = (
 
     // Step 2: Ensure initialized
     if (showOutput) spinnerHelper.start("Checking initialization...");
-    yield* ensureInitialized({ axmDir }).pipe(
+    yield* ensureInitialized({ axmDir: ws.path }).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({
@@ -470,9 +606,9 @@ export const handleInstall = (
       return;
     }
 
-    // Step 4: Load current state
+    // Step 4: Load current state (V2)
     if (showOutput) spinnerHelper.start("Loading current state...");
-    const currentState = yield* loadSkillsState(axmDir).pipe(
+    const currentState = yield* loadCurrentState(ws).pipe(
       Effect.mapError(
         (error: { message: string }) =>
           new InstallError({
@@ -497,7 +633,7 @@ export const handleInstall = (
     }
 
     if (parsed.type === "github" || parsed.type === "gitlab" || parsed.type === "bitbucket") {
-      const result = yield* resolveGitSource(parsed, axmDir);
+      const result = yield* resolveGitSource(parsed, ws.path);
       skills = result.skills;
       resolvedSource = { parsed, skillsDir: result.skillsDir, commitSha: result.commitSha };
     } else if (parsed.type === "local") {
@@ -642,15 +778,25 @@ export const handleInstall = (
       return;
     }
 
-    // Step 7: Build ideal state
+    // Filter discovered skills to only those selected
+    const filteredSkills = skills.filter((s) => selectedSkillNames.includes(s.name));
+
+    // Step 7: Build ideal state (V2)
     if (showOutput) spinnerHelper.start("Building installation plan...");
-    const ideal = yield* buildIdealForInstall(currentState, resolvedSource, {
-      global: args.global,
+
+    // Create the InstallCommand for V2 API
+    const installCmd: InstallCommand = {
+      _tag: "skills-install",
+      source: args.source,
       agents: agents.map((a) => a.id),
+      skills: args.all ? "all" : [...selectedSkillNames],
       force: args.force,
-      skills: [...selectedSkillNames],
-      all: args.all,
-    }).pipe(
+    };
+
+    // Create deps for buildIdealForInstall
+    const buildIdealDeps = createBuildIdealDeps(resolvedSource, filteredSkills);
+
+    const ideal = yield* buildIdealForInstall(currentState, installCmd, buildIdealDeps).pipe(
       Effect.mapError(
         (error: { message: string }) =>
           new InstallError({
@@ -662,22 +808,24 @@ export const handleInstall = (
     );
     if (showOutput) spinnerHelper.stop("Built installation plan");
 
-    // Step 8: Compute diff
-    const diff = computeDiff(currentState, ideal);
+    // Step 8: Build plan (V2)
+    const plan = buildPlan(currentState, ideal);
 
     // Step 9: Display plan or output JSON
+    // Use the original parsed.canonical for display (e.g., "github:owner/repo")
+    // instead of the cached local path
     if (args.json) {
-      outputDiffJson(diff);
+      outputPlanJson(plan.steps);
       if (args.dryRun) {
         // JSON output for dry-run doesn't include text message
         return;
       }
     } else {
-      displayDiff(diff);
+      displayPlanOutput(plan.steps, parsed.canonical);
     }
 
     // Step 10: Check if there are changes
-    if (!hasChanges(diff)) {
+    if (!planHasChanges(plan)) {
       if (showOutput) {
         p.log.info("Already up to date.");
         p.outro("No changes needed.");
@@ -721,14 +869,42 @@ export const handleInstall = (
       }
     }
 
-    // Step 13: Apply changes
+    // Step 13: Apply changes (V2)
+    const summary = getPlanSummary(plan);
     if (showOutput) {
-      spinnerHelper.start(`Applying ${diff.summary.add + diff.summary.update} change(s)...`);
+      spinnerHelper.start(`Applying ${summary.installed + summary.updated} change(s)...`);
     }
 
-    const applyResult = yield* applyDiff(diff, { axmDir, agents }).pipe(
+    // Create a modified applyStep that converts remote sources to local paths for file operations
+    // The plan stores the original source (e.g., GitHub) for lockfile/settings,
+    // but file operations need the local cached path
+    const applyStepWithLocalPath = (step: PlanStep) => {
+      // For install/update steps with remote sources, replace with local source for file ops
+      if (step._tag === "InstallSkill" || step._tag === "UpdateSkill") {
+        if (step.source._tag === "GitHub" || step.source._tag === "Registry") {
+          // Use the cached skillsDir for file operations
+          const localSource = SkillSourceV2.Local({ path: resolvedSource.skillsDir });
+          const localStep = { ...step, source: localSource };
+          return applyStep(localStep, { workspacePath: ws.path, agents });
+        }
+      }
+      return applyStep(step, { workspacePath: ws.path, agents });
+    };
+
+    const applyResult = yield* applyPlan(
+      ws,
+      plan,
+      { dryRun: false },
+      {
+        applyStep: applyStepWithLocalPath,
+        updateLockfile: (p: { steps: ReadonlyArray<PlanStep> }) =>
+          updateLockfileForPlan(ws.path, p),
+        updateSettings: (p: { steps: ReadonlyArray<PlanStep> }) =>
+          updateSettingsForPlan(ws.path, p),
+      },
+    ).pipe(
       Effect.mapError(
-        (error) =>
+        (error: { message: string }) =>
           new InstallError({
             message: `Failed to apply changes: ${error.message}`,
             cause: error,
@@ -741,35 +917,19 @@ export const handleInstall = (
 
     // Show results summary
     if (showOutput) {
-      for (const result of applyResult.applied) {
-        const methods = result.agentResults.map((r) => r.method);
-        const symlinkCount = methods.filter((m) => m === "symlink").length;
-        const copyCount = methods.filter((m) => m === "copy").length;
-
-        const methodInfo: string[] = [];
-        if (symlinkCount > 0) methodInfo.push(`${symlinkCount} symlink(s)`);
-        if (copyCount > 0) methodInfo.push(`${copyCount} copy(ies)`);
-
-        const agentNames = result.agentResults
-          .map((r) => {
-            const agent = agents.find((a) => a.id === r.agentId);
-            return agent?.name ?? r.agentId;
-          })
-          .join(", ");
-
-        p.log.success(
-          `${result.skillName} -> ${agentNames}${methodInfo.length > 0 ? ` (${methodInfo.join(", ")})` : ""}`,
-        );
+      for (const step of applyResult.applied) {
+        const agentNames = step.agents.join(", ");
+        p.log.success(`${step.skill} -> ${agentNames}`);
       }
 
       if (applyResult.failed.length > 0) {
         for (const failure of applyResult.failed) {
-          p.log.error(`${failure.skillName}: ${failure.error.message}`);
+          p.log.error(`${failure.step.skill}: ${failure.error.message}`);
         }
       }
 
       p.outro(
-        `Successfully installed ${applyResult.applied.length} skill(s) to ${agents.length} agent(s)`,
+        `Successfully installed ${applyResult.summary.installed} skill(s) to ${agents.length} agent(s)`,
       );
     }
   });

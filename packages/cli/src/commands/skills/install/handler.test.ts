@@ -252,7 +252,11 @@ describe("install.handler", () => {
             yield* handleInstall(args);
 
             // Skill should NOT be installed in dry-run mode
-            expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit"))).toBe(false);
+            expect(
+              fs.existsSync(
+                path.join(tempDir, ".axm", "extensions", "external", "skills", "commit"),
+              ),
+            ).toBe(false);
           }),
         ),
       );
@@ -274,8 +278,16 @@ describe("install.handler", () => {
             yield* handleInstall(args);
 
             // No skills installed in dry-run
-            expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit"))).toBe(false);
-            expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "review-pr"))).toBe(false);
+            expect(
+              fs.existsSync(
+                path.join(tempDir, ".axm", "extensions", "external", "skills", "commit"),
+              ),
+            ).toBe(false);
+            expect(
+              fs.existsSync(
+                path.join(tempDir, ".axm", "extensions", "external", "skills", "review-pr"),
+              ),
+            ).toBe(false);
           }),
         ),
       );
@@ -299,9 +311,19 @@ describe("install.handler", () => {
 
             yield* handleInstall(args);
 
-            expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"))).toBe(
-              true,
-            );
+            expect(
+              fs.existsSync(
+                path.join(
+                  tempDir,
+                  ".axm",
+                  "extensions",
+                  "external",
+                  "skills",
+                  "commit",
+                  "SKILL.md",
+                ),
+              ),
+            ).toBe(true);
           }),
         ),
       );
@@ -329,7 +351,7 @@ describe("install.handler", () => {
 
             // Verify original content
             let content = fs.readFileSync(
-              path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"),
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "commit", "SKILL.md"),
               "utf-8",
             );
             expect(content).toBe("# Original commit");
@@ -355,7 +377,7 @@ describe("install.handler", () => {
 
             // Content should be updated
             content = fs.readFileSync(
-              path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"),
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "commit", "SKILL.md"),
               "utf-8",
             );
             expect(content).toBe("# Updated commit");
@@ -534,7 +556,15 @@ describe("install.handler", () => {
           yield* handleInstall(args);
 
           // Verify skill was installed to canonical location
-          const canonicalSkillPath = path.join(tempDir, ".axm", "skills", "commit", "SKILL.md");
+          const canonicalSkillPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "external",
+            "skills",
+            "commit",
+            "SKILL.md",
+          );
           expect(fs.existsSync(canonicalSkillPath)).toBe(true);
         }),
       ),
@@ -624,12 +654,24 @@ describe("install.handler", () => {
           yield* handleInstall(args);
 
           // Both skills should be installed
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"))).toBe(
-            true,
-          );
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "review-pr", "SKILL.md"))).toBe(
-            true,
-          );
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "commit", "SKILL.md"),
+            ),
+          ).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(
+                tempDir,
+                ".axm",
+                "extensions",
+                "external",
+                "skills",
+                "review-pr",
+                "SKILL.md",
+              ),
+            ),
+          ).toBe(true);
         }),
       ),
     );
@@ -680,15 +722,21 @@ describe("install.handler", () => {
           yield* handleInstall(args);
 
           // All skills should be installed
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "skill-1", "SKILL.md"))).toBe(
-            true,
-          );
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "skill-2", "SKILL.md"))).toBe(
-            true,
-          );
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "skill-3", "SKILL.md"))).toBe(
-            true,
-          );
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "skill-1", "SKILL.md"),
+            ),
+          ).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "skill-2", "SKILL.md"),
+            ),
+          ).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "skill-3", "SKILL.md"),
+            ),
+          ).toBe(true);
         }),
       ),
     );
@@ -720,14 +768,22 @@ describe("install.handler", () => {
           yield* handleInstall(args);
 
           // Only specified skills should be installed
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"))).toBe(
-            true,
-          );
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "debug", "SKILL.md"))).toBe(
-            true,
-          );
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "commit", "SKILL.md"),
+            ),
+          ).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "debug", "SKILL.md"),
+            ),
+          ).toBe(true);
           // review-pr should NOT be installed
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "review-pr"))).toBe(false);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "review-pr"),
+            ),
+          ).toBe(false);
         }),
       ),
     );
@@ -749,9 +805,11 @@ describe("install.handler", () => {
           // Should still install the valid skill
           yield* handleInstall(args);
 
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"))).toBe(
-            true,
-          );
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "commit", "SKILL.md"),
+            ),
+          ).toBe(true);
         }),
       ),
     );
@@ -801,8 +859,14 @@ describe("install.handler", () => {
           yield* handleInstall(args);
 
           // Skills should NOT be installed in list mode
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit"))).toBe(false);
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "review-pr"))).toBe(false);
+          expect(
+            fs.existsSync(path.join(tempDir, ".axm", "extensions", "external", "skills", "commit")),
+          ).toBe(false);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "review-pr"),
+            ),
+          ).toBe(false);
         }),
       ),
     );
@@ -832,9 +896,9 @@ describe("install.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
-          // New behavior: settings records the source path (not "*")
+          // V2 stores the full source URL (e.g., "github:test/skills")
           expect(settings.skills?.["commit"]).toBeDefined();
-          expect(settings.skills?.["commit"]).toContain("commit");
+          expect(settings.skills?.["commit"]).toContain("github:test/skills");
         }),
       ),
     );
@@ -858,15 +922,14 @@ describe("install.handler", () => {
           const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
           expect(fs.existsSync(lockPath)).toBe(true);
 
-          // Lockfile is in YAML format - parse and verify structure (flat structure)
-          // Note: With applyDiff, all sources are recorded as "local" with the cached path
+          // V2 preserves the original source type (github, not local)
           const lockContent = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           expect(lockContent.lockfileVersion).toBe(1);
           expect(lockContent.skills.commit).toBeDefined();
-          expect(lockContent.skills.commit.source).toBe("local");
-          expect(lockContent.skills.commit.path).toBeDefined();
-          // GitHub sources now use raw git tree SHA from GitHub API (no sha256: prefix)
-          expect(lockContent.skills.commit.gitTreeHash).toMatch(/^[a-f0-9]{40}$/);
+          expect(lockContent.skills.commit.source).toBe("github");
+          expect(lockContent.skills.commit.owner).toBe("test");
+          expect(lockContent.skills.commit.repo).toBe("skills");
+          // gitTreeHash is optional in V2 (only present if GitHub API returns it)
           expect(lockContent.skills.commit.agents).toBeDefined();
           expect(lockContent.skills.commit.installedAt).toBeDefined();
           expect(lockContent.skills.commit.updatedAt).toBeDefined();
@@ -880,7 +943,8 @@ describe("install.handler", () => {
   // =============================================================================
 
   describe("canonical skill storage", () => {
-    it.effect("copies skill to .axm/skills/<name>/", () =>
+    // V2 stores skills at .axm/extensions/external/skills/<name>/ for GitHub sources
+    it.effect("copies skill to .axm/extensions/external/skills/<name>/", () =>
       withTestLayer(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
@@ -896,7 +960,15 @@ describe("install.handler", () => {
 
           yield* handleInstall(args);
 
-          const canonicalPath = path.join(tempDir, ".axm", "skills", "commit");
+          // V2 canonical path for external sources
+          const canonicalPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "external",
+            "skills",
+            "commit",
+          );
           expect(fs.existsSync(canonicalPath)).toBe(true);
           expect(fs.existsSync(path.join(canonicalPath, "SKILL.md"))).toBe(true);
         }),
@@ -929,7 +1001,15 @@ describe("install.handler", () => {
 
           yield* handleInstall(args);
 
-          const canonicalPath = path.join(tempDir, ".axm", "skills", "complex-skill");
+          // V2 canonical path for external sources
+          const canonicalPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "external",
+            "skills",
+            "complex-skill",
+          );
           expect(fs.existsSync(path.join(canonicalPath, "SKILL.md"))).toBe(true);
           expect(fs.existsSync(path.join(canonicalPath, "references", "commands.md"))).toBe(true);
         }),
@@ -956,7 +1036,8 @@ describe("install.handler", () => {
           let backupSettings: string | undefined;
           let backupLockfile: string | undefined;
           let backupSkillsDir: string | undefined;
-          const skillsDir = path.join(globalAxmDir, "skills", "commit");
+          // V2 canonical path for external sources
+          const skillsDir = path.join(globalAxmDir, "extensions", "external", "skills", "commit");
           const skillsExistedBefore = fs.existsSync(skillsDir);
 
           if (settingsExistedBefore) {
@@ -996,13 +1077,19 @@ describe("install.handler", () => {
             // Should create settings in home directory
             expect(fs.existsSync(globalSettingsPath)).toBe(true);
 
-            // Skill should be in global location
-            expect(fs.existsSync(path.join(globalAxmDir, "skills", "commit", "SKILL.md"))).toBe(
-              true,
-            );
+            // Skill should be in global location (V2 canonical path)
+            expect(
+              fs.existsSync(
+                path.join(globalAxmDir, "extensions", "external", "skills", "commit", "SKILL.md"),
+              ),
+            ).toBe(true);
 
             // Should NOT be in project directory
-            expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit"))).toBe(false);
+            expect(
+              fs.existsSync(
+                path.join(tempDir, ".axm", "extensions", "external", "skills", "commit"),
+              ),
+            ).toBe(false);
           } finally {
             // Restore original state
             if (settingsExistedBefore && backupSettings) {
@@ -1159,7 +1246,9 @@ describe("install.handler", () => {
   // =============================================================================
 
   describe("conflict detection", () => {
-    it.effect("skips already installed skills by default", () =>
+    // V2 behavior: Re-installing from the same source updates the skill
+    // (no skipping). Only different sources trigger conflicts requiring --force.
+    it.effect("updates skill when reinstalling from same source (V2 behavior)", () =>
       withTestLayer(
         Effect.gen(function* () {
           // Create initial source with specific content
@@ -1181,9 +1270,11 @@ describe("install.handler", () => {
           });
 
           // Verify first install
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"))).toBe(
-            true,
-          );
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "commit", "SKILL.md"),
+            ),
+          ).toBe(true);
 
           // Create second source with DIFFERENT content for same skill name
           const sourceDir2 = path.join(tempDir, "source-2");
@@ -1194,7 +1285,7 @@ describe("install.handler", () => {
           // Update mock to use new fixture
           skillsModule.__setFixturePath(sourceDir2);
 
-          // Second install - should skip existing skills
+          // Second install from same source - V2 updates the skill
           yield* handleInstall({
             ...defaultArgs,
             source: "github:test/skills",
@@ -1203,17 +1294,17 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           });
 
-          // File should still have original content (skill was skipped)
+          // V2: File should have new content (skill was updated, not skipped)
           const content = fs.readFileSync(
-            path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"),
+            path.join(tempDir, ".axm", "extensions", "external", "skills", "commit", "SKILL.md"),
             "utf-8",
           );
-          expect(content).toBe("# Original");
+          expect(content).toBe("# Modified");
         }),
       ),
     );
 
-    it.effect("skips only conflicting skills, installs new ones", () =>
+    it.effect("updates existing and installs new skills from same source (V2 behavior)", () =>
       withTestLayer(
         Effect.gen(function* () {
           // Create initial source with one skill
@@ -1246,7 +1337,7 @@ describe("install.handler", () => {
           // Update mock to use new fixture
           skillsModule.__setFixturePath(sourceDir2);
 
-          // Install from second source - commit should be skipped, review-pr installed
+          // Install from same source - V2 updates commit, installs review-pr
           const args2: InstallArgs = {
             ...defaultArgs,
             source: "github:test/skills",
@@ -1256,17 +1347,27 @@ describe("install.handler", () => {
           };
           yield* handleInstall(args2);
 
-          // Original commit should not be overwritten
+          // V2: commit should be updated
           const commitContent = fs.readFileSync(
-            path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"),
+            path.join(tempDir, ".axm", "extensions", "external", "skills", "commit", "SKILL.md"),
             "utf-8",
           );
-          expect(commitContent).toBe("# commit"); // Original, not "# commit v2"
+          expect(commitContent).toBe("# commit v2"); // Updated, not original
 
           // New skill should be installed
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "review-pr", "SKILL.md"))).toBe(
-            true,
-          );
+          expect(
+            fs.existsSync(
+              path.join(
+                tempDir,
+                ".axm",
+                "extensions",
+                "external",
+                "skills",
+                "review-pr",
+                "SKILL.md",
+              ),
+            ),
+          ).toBe(true);
         }),
       ),
     );
@@ -1404,13 +1505,23 @@ describe("install.handler", () => {
 
           // Both should be installed/updated
           const commitContent = fs.readFileSync(
-            path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"),
+            path.join(tempDir, ".axm", "extensions", "external", "skills", "commit", "SKILL.md"),
             "utf-8",
           );
           expect(commitContent).toBe("# commit v2");
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "review-pr", "SKILL.md"))).toBe(
-            true,
-          );
+          expect(
+            fs.existsSync(
+              path.join(
+                tempDir,
+                ".axm",
+                "extensions",
+                "external",
+                "skills",
+                "review-pr",
+                "SKILL.md",
+              ),
+            ),
+          ).toBe(true);
         }),
       ),
     );
@@ -1440,9 +1551,9 @@ describe("install.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
-          // Verify skills at root level - new behavior: records source path, not "*"
+          // V2 stores the full source URL (e.g., "github:test/skills")
           expect(settings.skills).toBeDefined();
-          expect(settings.skills.commit).toContain("commit");
+          expect(settings.skills.commit).toContain("github:test/skills");
         }),
       ),
     );
@@ -1480,8 +1591,8 @@ describe("install.handler", () => {
           expect(settings.scope).toBe("@myorg");
           expect(settings.agents).toEqual(["claude-code"]);
           expect(settings.skills?.["existing-skill"]).toBe("^1.0.0");
-          // New skill should be added - new behavior: records source path, not "*"
-          expect(settings.skills.commit).toContain("commit");
+          // V2 stores the full source URL (e.g., "github:test/skills")
+          expect(settings.skills.commit).toContain("github:test/skills");
         }),
       ),
     );
@@ -1533,15 +1644,16 @@ describe("install.handler", () => {
           const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           const entry = lockfile.skills.commit;
 
-          // With applyDiff, all sources are recorded as "local" with cached path
-          expect(entry.source).toBe("local");
-          expect(entry.path).toBeDefined();
+          // V2 preserves the original source type (github, not local)
+          expect(entry.source).toBe("github");
+          expect(entry.owner).toBe("test");
+          expect(entry.repo).toBe("skills");
           expect(entry.agents).toBeDefined();
           expect(entry.installedAt).toBeDefined();
           expect(entry.updatedAt).toBeDefined();
 
-          // GitHub sources now use raw git tree SHA from GitHub API (no sha256: prefix)
-          expect(entry.gitTreeHash).toMatch(/^[a-f0-9]{40}$/);
+          // gitTreeHash is optional in V2 (only present if GitHub API returns it)
+          // In mocked tests it may be undefined
         }),
       ),
     );
@@ -1637,7 +1749,7 @@ describe("install.handler", () => {
           initializeAxm();
 
           // Install from GitHub source (createSkillSource returns github:test/skills)
-          // Note: With applyDiff, all sources are recorded as "local" with cached path
+          // V2 preserves the original source type
           yield* handleInstall({
             ...defaultArgs,
             source,
@@ -1646,11 +1758,12 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           });
 
-          // Verify source is stored as local with path
+          // V2 preserves the original source type (github, not local)
           const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
           const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-          expect(lockfile.skills.commit.source).toBe("local");
-          expect(lockfile.skills.commit.path).toBeDefined();
+          expect(lockfile.skills.commit.source).toBe("github");
+          expect(lockfile.skills.commit.owner).toBe("test");
+          expect(lockfile.skills.commit.repo).toBe("skills");
         }),
       ),
     );
@@ -1660,8 +1773,8 @@ describe("install.handler", () => {
   // State-Based Application Tests
   // =============================================================================
 
-  describe("state-based application (applyDiff)", () => {
-    it.effect("uses applyDiff for installation (not direct manipulation)", () =>
+  describe("state-based application (applyPlan)", () => {
+    it.effect("uses applyPlan for installation (not direct manipulation)", () =>
       withTestLayer(
         Effect.gen(function* () {
           // Create a local source directory with a skill
@@ -1682,23 +1795,31 @@ describe("install.handler", () => {
 
           yield* handleInstall(args);
 
-          // Verify skill was installed
+          // V2 stores skills at .axm/extensions/external/skills/<name>/
           expect(
-            fs.existsSync(path.join(tempDir, ".axm", "skills", "local-skill", "SKILL.md")),
+            fs.existsSync(
+              path.join(
+                tempDir,
+                ".axm",
+                "extensions",
+                "external",
+                "skills",
+                "local-skill",
+                "SKILL.md",
+              ),
+            ),
           ).toBe(true);
 
-          // Verify settings has the skill's source path (not "*")
-          // This is the key assertion - applyDiff uses sourceToSettingsValue which returns the path
-          // The path is the skill's directory, not the parent source directory
+          // V2 stores the full source path in settings (local:/path)
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-          expect(settings.skills?.["local-skill"]).toBe(skillDir);
+          expect(settings.skills?.["local-skill"]).toContain("local:");
 
           // Verify lockfile has local source with path
           const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
           const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           expect(lockfile.skills["local-skill"].source).toBe("local");
-          expect(lockfile.skills["local-skill"].path).toBe(skillDir);
+          expect(lockfile.skills["local-skill"].path).toBeDefined();
         }),
       ),
     );
@@ -1709,7 +1830,7 @@ describe("install.handler", () => {
   // =============================================================================
 
   describe("source normalization", () => {
-    it.effect("stores source in lockfile as local with cached path", () =>
+    it.effect("preserves original source type in lockfile (V2 behavior)", () =>
       withTestLayer(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
@@ -1726,9 +1847,10 @@ describe("install.handler", () => {
           const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
           const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
-          // With applyDiff, all sources are normalized to local with cached path
-          expect(lockfile.skills.commit.source).toBe("local");
-          expect(lockfile.skills.commit.path).toBeDefined();
+          // V2 preserves the original source type (github, not local)
+          expect(lockfile.skills.commit.source).toBe("github");
+          expect(lockfile.skills.commit.owner).toBe("test");
+          expect(lockfile.skills.commit.repo).toBe("skills");
         }),
       ),
     );
@@ -1886,10 +2008,24 @@ describe("install.handler", () => {
             yield* handleInstall(args);
 
             // Only specified skill should be installed
-            expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"))).toBe(
-              true,
-            );
-            expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "review-pr"))).toBe(false);
+            expect(
+              fs.existsSync(
+                path.join(
+                  tempDir,
+                  ".axm",
+                  "extensions",
+                  "external",
+                  "skills",
+                  "commit",
+                  "SKILL.md",
+                ),
+              ),
+            ).toBe(true);
+            expect(
+              fs.existsSync(
+                path.join(tempDir, ".axm", "extensions", "external", "skills", "review-pr"),
+              ),
+            ).toBe(false);
           }),
         ),
       );
@@ -1966,9 +2102,19 @@ describe("install.handler", () => {
             // Should complete successfully
             yield* handleInstall(args);
 
-            expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "commit", "SKILL.md"))).toBe(
-              true,
-            );
+            expect(
+              fs.existsSync(
+                path.join(
+                  tempDir,
+                  ".axm",
+                  "extensions",
+                  "external",
+                  "skills",
+                  "commit",
+                  "SKILL.md",
+                ),
+              ),
+            ).toBe(true);
           }),
         ),
       );

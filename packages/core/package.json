@@ -38,6 +38,10 @@
     "./experimental/agents": {
       "types": "./dist/experimental/agents/index.d.ts",
       "import": "./dist/experimental/agents/index.js"
+    },
+    "./experimental/workspace": {
+      "types": "./dist/experimental/workspace/index.d.ts",
+      "import": "./dist/experimental/workspace/index.js"
     }
   },
   "scripts": {

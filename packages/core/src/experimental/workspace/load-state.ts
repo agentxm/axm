@@ -60,19 +60,22 @@ export class WorkspaceError extends Data.TaggedError("WorkspaceError")<{
 // Internal Types
 // =============================================================================
 
+/**
+ * Raw lockfile entry - supports both V1 nested format and V2 flat format.
+ * V1: source: { _tag: "GitHub", owner, repo, ... }
+ * V2: source: "github", owner, repo, ...
+ */
 interface RawLockEntry {
-  source: {
-    _tag: string;
-    owner?: string;
-    repo?: string;
-    ref?: string;
-    path?: string;
-    scope?: string;
-    name?: string;
-    version?: string;
-    location?: { _tag: string; url?: string; path?: string };
-  };
+  // V2 flat format fields
+  source: string; // "github" | "local" | "registry"
+  owner?: string;
+  repo?: string;
+  ref?: string;
+  path?: string;
+  scope?: string;
+  name?: string;
   version?: string;
+  location?: { _tag: string; url?: string; path?: string };
   gitTreeHash?: string;
   agents: string[];
   installedAt: string;
@@ -141,7 +144,7 @@ const readLockfile = (
     // Convert raw entries to LockedSkillV2
     const result: Record<string, LockedSkillV2> = {};
     for (const [name, entry] of Object.entries(parsed.skills)) {
-      const source = parseSource(entry.source);
+      const source = parseSourceFromEntry(entry);
       result[name] = {
         name,
         source,
@@ -157,43 +160,43 @@ const readLockfile = (
   });
 
 /**
- * Convert raw source object to SkillSourceV2.
+ * Convert raw lock entry to SkillSourceV2.
+ * Handles the V2 flat format where source is a string like "github".
  */
-const parseSource = (raw: RawLockEntry["source"]): SkillSourceV2 => {
-  switch (raw._tag) {
-    case "GitHub":
+const parseSourceFromEntry = (entry: RawLockEntry): SkillSourceV2 => {
+  const sourceType = entry.source.toLowerCase();
+
+  switch (sourceType) {
+    case "github":
       return {
         _tag: "GitHub",
-        owner: raw.owner ?? "",
-        repo: raw.repo ?? "",
-        ref: Option.fromNullable(raw.ref),
-        path: Option.fromNullable(raw.path),
+        owner: entry.owner ?? "",
+        repo: entry.repo ?? "",
+        ref: Option.fromNullable(entry.ref),
+        path: Option.fromNullable(entry.path),
       };
-    case "Local":
+    case "local":
       return {
         _tag: "Local",
-        path: raw.path ?? "",
+        path: entry.path ?? "",
       };
-    case "Registry":
+    case "registry":
       return {
         _tag: "Registry",
-        location: raw.location
-          ? raw.location._tag === "Remote"
-            ? { _tag: "Remote", url: raw.location.url ?? "" }
-            : { _tag: "FileSystem", path: raw.location.path ?? "" }
+        location: entry.location
+          ? entry.location._tag === "Remote"
+            ? { _tag: "Remote", url: entry.location.url ?? "" }
+            : { _tag: "FileSystem", path: entry.location.path ?? "" }
           : { _tag: "Remote", url: "" },
-        scope: raw.scope ?? "",
-        name: raw.name ?? "",
-        version: Option.fromNullable(raw.version),
+        scope: entry.scope ?? "",
+        name: entry.name ?? "",
+        version: Option.fromNullable(entry.version),
       };
     default:
-      // Fallback to GitHub with empty values
+      // Fallback to Local with empty path
       return {
-        _tag: "GitHub",
-        owner: "",
-        repo: "",
-        ref: Option.none(),
-        path: Option.none(),
+        _tag: "Local",
+        path: entry.path ?? "",
       };
   }
 };

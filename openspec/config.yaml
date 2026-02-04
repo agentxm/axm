@@ -19,7 +19,7 @@ rules:
   tasks:
     - "TDD: add (design) or update tests prior to implementation step: red, green, refactor until a good design"
     - "Add a typecheck verification steps immediatly proceeding any implementation task, fix any issues found"
-    - "Add step to fix any typecheck errors after every task"
-    - "Add step to fix any linting errors after every task"
-    - "Add step to fix any testing errors after every task"
+    - "Add step to fix any typecheck errors on all packages after every task"
+    - "Add step to fix any linting errors on all packages after every task"
+    - "Add step to fix any testing errors on all packages after every task"
     - "Add a step to kill any vitest worker processes after testing verification"

@@ -16,6 +16,7 @@ or async/await.
 - All async operations return `Effect<A, E, R>`, never `Promise<T>`
 - Use typed errors (`E`) instead of thrown exceptions
 - Use dependency injection via Effect services (`R`)
+- **Prefer type inference** — let Effect infer `Effect<A, E, R>` signatures
 
 ---
 
@@ -35,9 +36,8 @@ justified.
 
 ```typescript
 // Just a function returning an Effect—no service needed
-export const computeIntegrity = (
-  dir: string,
-): Effect.Effect<string, FileSystemError, FileSystem> =>
+// Let Effect infer the return type (dependencies auto-tracked)
+export const computeIntegrity = (dir: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem;
     const files = yield* fs.readDirectory(dir);
@@ -121,6 +121,42 @@ const result =
 | Tests           | `Effect.runPromise` within test functions   |
 | Business logic  | **Never** — compose Effects, don't run them |
 
+---
+
+## Type Inference
+
+**Let Effect infer return types.** Effect's covariant `R` parameter enables automatic dependency tracking—explicit annotations can impair this.
+
+```typescript
+// Good: dependencies auto-tracked as you add services
+const fetchUser = (id: string) =>
+  Effect.gen(function* () {
+    const db = yield* Database;
+    const logger = yield* Logger;  // R automatically includes Logger
+    // ...
+  });
+
+// Avoid: explicit annotation requires manual updates
+const fetchUser = (id: string): Effect.Effect<User, DbError, Database> =>
+  // Adding Logger above would require updating this annotation
+```
+
+**Avoid tacit (point-free) usage:**
+
+```typescript
+// Bad: loses type info
+Effect.forEach(ids, fetchUser);
+
+// Good: preserves inference
+Effect.forEach(ids, (id) => fetchUser(id));
+```
+
+**Use explicit annotations when:**
+
+- Public API boundaries (documentation clarity)
+- `Effect.async` (TypeScript can't infer callback types)
+- Recursive functions (TypeScript requirement)
+
 ### Effect Basics Checklist
 
 - [ ] **No raw Promises** — All async operations use Effect
@@ -129,3 +165,5 @@ const result =
 - [ ] **Concurrent when independent** — Use `Effect.all` with concurrency
 - [ ] **Services for I/O** — Use `@effect/platform` services
 - [ ] **No runPromise in logic** — Only at entry points
+- [ ] **Prefer inference** — Let Effect infer `Effect<A, E, R>` signatures
+- [ ] **No tacit usage** — Use explicit arrow functions, not point-free

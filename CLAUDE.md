@@ -72,6 +72,41 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 - [ ] Use concurrency (Effect.all, Effect.forEach) where parallelization is possible
 - [ ] Wrap Promise-based APIs with Effect conventions (see /effect-wrapping skill)
 
+### Type Inference
+
+**Prefer inference over explicit return type annotations.** Effect's covariant `R` parameter enables automatic dependency tracking—explicit annotations can impair this.
+
+```typescript
+// Good: let Effect infer return type (dependencies auto-tracked)
+const fetchUser = (id: string) =>
+  Effect.gen(function* () {
+    const db = yield* Database;
+    const logger = yield* Logger;
+    // ...
+  });
+
+// Avoid: explicit annotation prevents automatic R tracking
+const fetchUser = (id: string): Effect.Effect<User, DbError, Database> =>
+  // If you add Logger above, you must manually update this annotation
+```
+
+**Avoid tacit (point-free) usage** — breaks inference and can erase generics:
+
+```typescript
+// Bad: tacit usage loses type info
+const results = yield * Effect.forEach(ids, fetchUser);
+
+// Good: explicit arrow function preserves inference
+const results = yield * Effect.forEach(ids, (id) => fetchUser(id));
+```
+
+**When explicit annotations help:**
+
+- Public API boundaries (documentation clarity)
+- `Effect.async` (TypeScript can't infer callback types)
+- Recursive functions (TypeScript requirement)
+- Complex service interfaces (for clarity)
+
 ### Handlers
 
 Handlers are effectful entry points that wire together business logic:

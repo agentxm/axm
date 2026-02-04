@@ -28,6 +28,21 @@ Effect for all business logic and I/O.
 
 ---
 
+## Type Inference
+
+**Prefer inference over explicit return type annotations.** Effect's architecture
+enables powerful type inference—the covariant `R` parameter automatically tracks
+dependencies as you compose effects.
+
+- Let Effect infer `Effect<A, E, R>` signatures
+- Avoid tacit (point-free) usage which breaks inference
+- Add explicit annotations only at public API boundaries or when TypeScript
+  requires them (`Effect.async`, recursive functions)
+
+See [CLAUDE.md#type-inference](../../CLAUDE.md#type-inference) for examples.
+
+---
+
 ## Why Effect?
 
 Effect serves as this project's standard library, replacing raw Promises and

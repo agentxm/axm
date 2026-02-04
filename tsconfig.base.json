@@ -1,6 +1,15 @@
 {
   "compilerOptions": {
-    "plugins": [{ "name": "@effect/language-service" }],
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "diagnosticSeverity": {
+          "preferSchemaOverJson": "off",
+          "unnecessaryFailYieldableError": "off",
+          "multipleEffectProvide": "suggestion"
+        }
+      }
+    ],
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",

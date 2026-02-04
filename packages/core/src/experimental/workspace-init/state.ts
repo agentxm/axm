@@ -69,19 +69,22 @@ export const loadActualInitState = (
     const content = contentResult.right;
 
     // Parse JSON
-    let json: unknown;
-    try {
-      json = JSON.parse(content);
-    } catch (error) {
-      return {
-        validity: InitValidity.Invalid(
+    const jsonResult = yield* Effect.try({
+      try: () => JSON.parse(content) as unknown,
+      catch: (error) =>
+        InitValidity.Invalid(
           `Failed to parse settings JSON: ${error instanceof Error ? error.message : String(error)}`,
         ),
-      };
+    }).pipe(Effect.either);
+
+    if (jsonResult._tag === "Left") {
+      return { validity: jsonResult.left };
     }
 
     // Validate schema
-    const parseResult = yield* Schema.decodeUnknown(SettingsSchema)(json).pipe(Effect.either);
+    const parseResult = yield* Schema.decodeUnknown(SettingsSchema)(jsonResult.right).pipe(
+      Effect.either,
+    );
 
     if (parseResult._tag === "Left") {
       return {

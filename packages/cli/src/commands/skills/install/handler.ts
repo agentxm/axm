@@ -41,7 +41,6 @@ import {
   type InstallCommand,
   loadCurrentState,
   makeWorkspaceContext,
-  type Plan,
   type PlanJson,
   type PlanStep,
   type PlanSummary,

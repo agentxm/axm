@@ -61,13 +61,30 @@ export class WorkspaceError extends Data.TaggedError("WorkspaceError")<{
 // =============================================================================
 
 /**
+ * V1 nested source format.
+ */
+interface V1NestedSource {
+  _tag: "GitHub" | "Local" | "Registry";
+  owner?: string;
+  repo?: string;
+  ref?: string;
+  path?: string;
+  scope?: string;
+  name?: string;
+  version?: string;
+  location?: { _tag: string; url?: string; path?: string };
+}
+
+/**
  * Raw lockfile entry - supports both V1 nested format and V2 flat format.
  * V1: source: { _tag: "GitHub", owner, repo, ... }
  * V2: source: "github", owner, repo, ...
  */
 interface RawLockEntry {
-  // V2 flat format fields
-  source: string; // "github" | "local" | "registry"
+  // V2 flat format: source is a string
+  // V1 nested format: source is an object with _tag
+  source: string | V1NestedSource;
+  // V2 flat format fields (when source is a string)
   owner?: string;
   repo?: string;
   ref?: string;
@@ -161,10 +178,51 @@ const readLockfile = (
 
 /**
  * Convert raw lock entry to SkillSourceV2.
- * Handles the V2 flat format where source is a string like "github".
+ * Handles both V1 nested format (source is object with _tag) and V2 flat format (source is string).
  */
 const parseSourceFromEntry = (entry: RawLockEntry): SkillSourceV2 => {
-  const sourceType = entry.source.toLowerCase();
+  const source = entry.source;
+
+  // V1 nested format: source is an object with _tag
+  if (typeof source === "object" && source !== null && "_tag" in source) {
+    const nested = source as V1NestedSource;
+    switch (nested._tag) {
+      case "GitHub":
+        return {
+          _tag: "GitHub",
+          owner: nested.owner ?? "",
+          repo: nested.repo ?? "",
+          ref: Option.fromNullable(nested.ref),
+          path: Option.fromNullable(nested.path),
+        };
+      case "Local":
+        return {
+          _tag: "Local",
+          path: nested.path ?? "",
+        };
+      case "Registry":
+        return {
+          _tag: "Registry",
+          location: nested.location
+            ? nested.location._tag === "Remote"
+              ? { _tag: "Remote", url: nested.location.url ?? "" }
+              : { _tag: "FileSystem", path: nested.location.path ?? "" }
+            : { _tag: "Remote", url: "" },
+          scope: nested.scope ?? "",
+          name: nested.name ?? "",
+          version: Option.fromNullable(nested.version),
+        };
+      default:
+        // Fallback to Local
+        return {
+          _tag: "Local",
+          path: nested.path ?? "",
+        };
+    }
+  }
+
+  // V2 flat format: source is a string
+  const sourceType = (source as string).toLowerCase();
 
   switch (sourceType) {
     case "github":

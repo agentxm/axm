@@ -103,8 +103,8 @@ describe("axm skills install", () => {
         expect(lock.skills).toHaveProperty("my-skill");
         expect(lock.skills).toHaveProperty("another-skill");
 
-        // Verify canonical skills directory
-        const skillsDir = path.join(axmDir, "skills");
+        // Verify canonical skills directory (V2 uses extensions/external/skills/)
+        const skillsDir = path.join(axmDir, "extensions", "external", "skills");
         expect(fs.existsSync(skillsDir)).toBe(true);
         expect(fs.existsSync(path.join(skillsDir, "my-skill"))).toBe(true);
         expect(fs.existsSync(path.join(skillsDir, "another-skill"))).toBe(true);
@@ -352,7 +352,8 @@ describe("axm skills install", () => {
         const axmDir = path.join(temp.path, ".axm");
         const settingsPath = path.join(axmDir, "settings.json");
         const lockPath = path.join(axmDir, "axm-lock.yaml");
-        const canonicalSkillDir = path.join(axmDir, "skills", "my-skill");
+        // V2 uses extensions/external/skills/ directory structure
+        const canonicalSkillDir = path.join(axmDir, "extensions", "external", "skills", "my-skill");
         const canonicalSkillMd = path.join(canonicalSkillDir, "SKILL.md");
 
         expect(fs.existsSync(settingsPath)).toBe(true);
@@ -470,7 +471,15 @@ describe("axm skills install", () => {
         for (const skillName of ["my-skill", "another-skill"]) {
           // claude-code skillsDir is ".claude/skills"
           const agentSkillDir = path.join(temp.path, ".claude", "skills", skillName);
-          const canonicalSkillDir = path.join(temp.path, ".axm", "skills", skillName);
+          // V2 uses extensions/external/skills/ directory structure
+          const canonicalSkillDir = path.join(
+            temp.path,
+            ".axm",
+            "extensions",
+            "external",
+            "skills",
+            skillName,
+          );
 
           expect(fs.lstatSync(agentSkillDir).isSymbolicLink()).toBe(true);
 
@@ -525,8 +534,8 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        // Local sources always trigger repair (no stable identifier for comparison)
-        expect(result.stdout).toMatch(/repair/i);
+        // V2 plan: reinstalling same skill shows "already up to date" or update (no repair in V2)
+        expect(result.stdout).toMatch(/already up to date|update|install/i);
       } finally {
         temp.cleanup();
       }
@@ -656,8 +665,8 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        // Should show summary with add count
-        expect(result.stdout).toMatch(/\d+ to add/);
+        // Should show summary with install count (V2 format: "to install")
+        expect(result.stdout).toMatch(/\d+ to install/);
       } finally {
         temp.cleanup();
       }
@@ -686,7 +695,16 @@ describe("axm skills install", () => {
         );
 
         // Modify the installed skill to simulate local changes (creates hash mismatch)
-        const skillMdPath = path.join(temp.path, ".axm", "skills", "my-skill", "SKILL.md");
+        // V2 uses extensions/external/skills/ directory structure
+        const skillMdPath = path.join(
+          temp.path,
+          ".axm",
+          "extensions",
+          "external",
+          "skills",
+          "my-skill",
+          "SKILL.md",
+        );
         const originalContent = fs.readFileSync(skillMdPath, "utf-8");
         fs.writeFileSync(skillMdPath, `${originalContent}\n# Modified locally`);
 
@@ -707,8 +725,9 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        // Should show repair indicator (! for repair) since local content differs from locked
-        expect(result.stdout).toMatch(/!.*my-skill|repair/i);
+        // V2 shows update (~ symbol) when local content differs from source
+        // (there's no separate "repair" action in V2, updates handle both version changes and content diffs)
+        expect(result.stdout).toMatch(/~.*my-skill|update/i);
         expect(result.stdout).toContain("Dry-run complete. No changes made.");
       } finally {
         temp.cleanup();
@@ -788,15 +807,15 @@ describe("axm skills install", () => {
         // Should be valid JSON
         const json = JSON.parse(result.stdout);
         expect(json).toBeDefined();
-        expect(json.changes).toBeDefined();
-        expect(Array.isArray(json.changes)).toBe(true);
+        expect(json.steps).toBeDefined();
+        expect(Array.isArray(json.steps)).toBe(true);
         expect(json.summary).toBeDefined();
       } finally {
         temp.cleanup();
       }
     });
 
-    it("includes _tag and name for each change", async () => {
+    it("includes _tag and skill for each step", async () => {
       const temp = createTempDir();
       try {
         await runCli(["init", "--yes", "--agent", "claude-code"], {
@@ -820,12 +839,12 @@ describe("axm skills install", () => {
         expect(result.exitCode).toBe(0);
 
         const json = JSON.parse(result.stdout);
-        expect(json.changes.length).toBeGreaterThan(0);
+        expect(json.steps.length).toBeGreaterThan(0);
 
-        for (const change of json.changes) {
-          expect(change).toHaveProperty("_tag");
-          expect(change).toHaveProperty("name");
-          expect(["Add", "Update", "Remove", "Unchanged", "Repair"]).toContain(change._tag);
+        for (const step of json.steps) {
+          expect(step).toHaveProperty("_tag");
+          expect(step).toHaveProperty("skill");
+          expect(["InstallSkill", "UpdateSkill", "UninstallSkill"]).toContain(step._tag);
         }
       } finally {
         temp.cleanup();
@@ -856,19 +875,17 @@ describe("axm skills install", () => {
         expect(result.exitCode).toBe(0);
 
         const json = JSON.parse(result.stdout);
-        expect(json.summary).toHaveProperty("add");
-        expect(json.summary).toHaveProperty("update");
-        expect(json.summary).toHaveProperty("remove");
-        expect(json.summary).toHaveProperty("unchanged");
-        expect(json.summary).toHaveProperty("repair");
-        expect(typeof json.summary.add).toBe("number");
-        expect(json.summary.add).toBe(2); // my-skill and another-skill
+        expect(json.summary).toHaveProperty("installed");
+        expect(json.summary).toHaveProperty("updated");
+        expect(json.summary).toHaveProperty("uninstalled");
+        expect(typeof json.summary.installed).toBe("number");
+        expect(json.summary.installed).toBe(2); // my-skill and another-skill
       } finally {
         temp.cleanup();
       }
     });
 
-    it("shows Add changes with skill details", async () => {
+    it("shows InstallSkill step with skill details", async () => {
       const temp = createTempDir();
       try {
         await runCli(["init", "--yes", "--agent", "claude-code"], {
@@ -893,13 +910,13 @@ describe("axm skills install", () => {
         expect(result.exitCode).toBe(0);
 
         const json = JSON.parse(result.stdout);
-        const addChange = json.changes.find(
-          (c: { _tag: string; name: string }) => c._tag === "Add" && c.name === "my-skill",
+        const installStep = json.steps.find(
+          (c: { _tag: string; skill: string }) =>
+            c._tag === "InstallSkill" && c.skill === "my-skill",
         );
-        expect(addChange).toBeDefined();
-        expect(addChange.skill).toBeDefined();
-        expect(addChange.skill.name).toBe("my-skill");
-        expect(addChange.skill.source).toBeDefined();
+        expect(installStep).toBeDefined();
+        expect(installStep.skill).toBe("my-skill");
+        expect(installStep.source).toBeDefined();
       } finally {
         temp.cleanup();
       }
@@ -1350,13 +1367,12 @@ describe("axm skills install", () => {
         const json = JSON.parse(result.stdout);
 
         // New format uses PlanStep with _tag: InstallSkill/UpdateSkill/UninstallSkill
-        expect(json.changes).toBeDefined();
-        expect(Array.isArray(json.changes)).toBe(true);
+        expect(json.steps).toBeDefined();
+        expect(Array.isArray(json.steps)).toBe(true);
 
-        const installStep = json.changes.find(
-          (c: { _tag: string; name?: string; skillName?: string }) =>
-            (c._tag === "InstallSkill" || c._tag === "Add") &&
-            (c.name === "my-skill" || c.skillName === "my-skill"),
+        const installStep = json.steps.find(
+          (c: { _tag: string; skill: string }) =>
+            c._tag === "InstallSkill" && c.skill === "my-skill",
         );
         expect(installStep).toBeDefined();
       } finally {

@@ -79,6 +79,7 @@ describe("uninstall.handler", () => {
 
   /**
    * Installs a skill directly by creating files (bypasses install handler).
+   * Uses V2 directory structure: .axm/extensions/external/skills/<skillName>/
    */
   const installSkillDirectly = (
     skillName: string,
@@ -87,8 +88,8 @@ describe("uninstall.handler", () => {
   ): void => {
     const axmDir = path.join(tempDir, ".axm");
 
-    // Create canonical skill directory
-    const skillDir = path.join(axmDir, "skills", skillName);
+    // Create canonical skill directory using V2 structure
+    const skillDir = path.join(axmDir, "extensions", "external", "skills", skillName);
     fs.mkdirSync(skillDir, { recursive: true });
     fs.writeFileSync(path.join(skillDir, "SKILL.md"), content);
 
@@ -144,7 +145,11 @@ describe("uninstall.handler", () => {
           yield* handleUninstall(args);
 
           // Canonical skill directory should be removed
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "my-skill"))).toBe(false);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
+            ),
+          ).toBe(false);
 
           // Settings should not have the skill
           const settings: Settings = JSON.parse(
@@ -208,7 +213,11 @@ describe("uninstall.handler", () => {
           yield* handleUninstall(args);
 
           // Skill should NOT be removed in dry-run mode
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "my-skill"))).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
+            ),
+          ).toBe(true);
 
           // Settings should still have the skill
           const settings: Settings = JSON.parse(
@@ -247,7 +256,11 @@ describe("uninstall.handler", () => {
           yield* handleUninstall(args);
 
           // Skill should be removed
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "my-skill"))).toBe(false);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
+            ),
+          ).toBe(false);
         }),
       ),
     );
@@ -281,7 +294,11 @@ describe("uninstall.handler", () => {
           expect(lockfile.skills["my-skill"].agents).toEqual(["cursor"]);
 
           // Canonical copy should still exist (other agents still have it)
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "my-skill"))).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
+            ),
+          ).toBe(true);
         }),
       ),
     );
@@ -302,7 +319,11 @@ describe("uninstall.handler", () => {
           yield* handleUninstall(args);
 
           // Canonical should be removed (last agent)
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "my-skill"))).toBe(false);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
+            ),
+          ).toBe(false);
 
           // Lockfile entry should be removed
           const lockfile = YAML.parse(
@@ -361,7 +382,11 @@ describe("uninstall.handler", () => {
           yield* handleUninstall(args);
 
           // Skill should be removed
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "my-skill"))).toBe(false);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
+            ),
+          ).toBe(false);
         }),
       ),
     );
@@ -444,7 +469,11 @@ describe("uninstall.handler", () => {
           yield* handleUninstall(args);
 
           // Skill should be removed
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "my-skill"))).toBe(false);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
+            ),
+          ).toBe(false);
         }),
       ),
     );
@@ -465,7 +494,11 @@ describe("uninstall.handler", () => {
           yield* handleUninstall(args);
 
           // Skill should still exist (dry-run)
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "my-skill"))).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
+            ),
+          ).toBe(true);
         }),
       ),
     );
@@ -493,9 +526,11 @@ describe("uninstall.handler", () => {
 
           // Verify the outcome is correct (state-based pattern produces same result)
           // Canonical skill directory should be removed
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "state-test-skill"))).toBe(
-            false,
-          );
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "state-test-skill"),
+            ),
+          ).toBe(false);
 
           // Settings should not have the skill
           const settings: Settings = JSON.parse(
@@ -528,9 +563,11 @@ describe("uninstall.handler", () => {
           yield* handleUninstall(args);
 
           // Canonical should still exist (other agents still use it)
-          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "partial-state-skill"))).toBe(
-            true,
-          );
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "partial-state-skill"),
+            ),
+          ).toBe(true);
 
           // Lockfile should have reduced agents
           const lockfile = YAML.parse(

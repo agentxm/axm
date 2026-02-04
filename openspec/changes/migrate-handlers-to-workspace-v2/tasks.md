@@ -1,60 +1,60 @@
 ## 1. Create workspace/plan.ts with buildPlan using V2 types
 
-- [ ] 1.1 Create `workspace/plan.ts` with `buildPlan(current: CurrentState, ideal: IdealState): Plan` using V2 types from `types.ts`
-- [ ] 1.2 Port tests from `pure-functions.test.ts` (buildPlan tests only) to `workspace/plan.test.ts`
-- [ ] 1.3 Add `planHasChanges(plan: Plan): boolean` utility function
-- [ ] 1.4 Add `getPlanSummary(plan: Plan): PlanSummary` (extract from `formatSummary` in apply.ts)
-- [ ] 1.5 Add `planToJson(plan: Plan): PlanJson` for `--json` flag support
-- [ ] 1.6 Run `pnpm typecheck` and fix any errors
-- [ ] 1.7 Run `pnpm test packages/core/src/experimental/workspace/` and fix any failures
+- [x] 1.1 Create `workspace/plan.ts` with `buildPlan(current: CurrentState, ideal: IdealState): Plan` using V2 types from `types.ts`
+- [x] 1.2 Port tests from `pure-functions.test.ts` (buildPlan tests only) to `workspace/plan.test.ts`
+- [x] 1.3 Add `planHasChanges(plan: Plan): boolean` utility function
+- [x] 1.4 Add `getPlanSummary(plan: Plan): PlanSummary` (extract from `formatSummary` in apply.ts)
+- [x] 1.5 Add `planToJson(plan: Plan): PlanJson` for `--json` flag support
+- [x] 1.6 Run `pnpm typecheck` and fix any errors
+- [x] 1.7 Run `pnpm test packages/core/src/experimental/workspace/` and fix any failures
 
 ## 2. Create workspace barrel file
 
-- [ ] 2.1 Create `workspace/index.ts` barrel file
-- [ ] 2.2 Export: `WorkspaceContext`, `loadCurrentState`, `buildIdealState`, `buildIdealForInstall`, `buildIdealForUninstall`, `buildPlan`, `planHasChanges`, `applyPlan`, `displayPlan`, `planToJson`, `getPlanSummary`
-- [ ] 2.3 Run `pnpm typecheck` and fix any errors
+- [x] 2.1 Create `workspace/index.ts` barrel file
+- [x] 2.2 Export: `WorkspaceContext`, `loadCurrentState`, `buildIdealState`, `buildIdealForInstall`, `buildIdealForUninstall`, `buildPlan`, `planHasChanges`, `applyPlan`, `displayPlan`, `planToJson`, `getPlanSummary`
+- [x] 2.3 Run `pnpm typecheck` and fix any errors
 
 ## 3. Migrate install handler
 
-- [ ] 3.1 Update imports in `install/handler.ts` to use workspace module
-- [ ] 3.2 Remove legacy imports (`loadSkillsState`, `buildIdealForInstall`, `computeDiff`, `applyDiff`, `skillsDiffToJson`, `hasChanges`)
-- [ ] 3.3 Replace `loadSkillsState` with `loadCurrentState`
-- [ ] 3.4 Replace `buildIdealForInstall` (legacy) with `buildIdealForInstall` (workspace)
-- [ ] 3.5 Replace `computeDiff` with `buildPlan`
-- [ ] 3.6 Replace `hasChanges(diff)` with `planHasChanges(plan)`
-- [ ] 3.7 Replace `applyDiff` with `applyPlan`
-- [ ] 3.8 Replace `skillsDiffToJson` with `planToJson`
-- [ ] 3.9 Replace `diff.summary.*` counts with `getPlanSummary(plan)`
-- [ ] 3.10 Update handler tests in `install/handler.test.ts` with new mock structure
-- [ ] 3.11 Run `pnpm typecheck` and fix any errors
-- [ ] 3.12 Run `pnpm test packages/cli/src/commands/skills/install/` and fix any failures
-- [ ] 3.13 Run `pnpm test:e2e -- --grep install` and fix any failures
+- [x] 3.1 Update imports in `install/handler.ts` to use workspace module
+- [x] 3.2 Remove legacy imports (`loadSkillsState`, `buildIdealForInstall`, `computeDiff`, `applyDiff`, `skillsDiffToJson`, `hasChanges`)
+- [x] 3.3 Replace `loadSkillsState` with `loadCurrentState`
+- [x] 3.4 Replace `buildIdealForInstall` (legacy) with `buildIdealForInstall` (workspace)
+- [x] 3.5 Replace `computeDiff` with `buildPlan`
+- [x] 3.6 Replace `hasChanges(diff)` with `planHasChanges(plan)`
+- [x] 3.7 Replace `applyDiff` with `applyPlan`
+- [x] 3.8 Replace `skillsDiffToJson` with `planToJson`
+- [x] 3.9 Replace `diff.summary.*` counts with `getPlanSummary(plan)`
+- [x] 3.10 Update handler tests in `install/handler.test.ts` with new mock structure
+- [x] 3.11 Run `pnpm typecheck` and fix any errors
+- [x] 3.12 Run `pnpm test packages/cli/src/commands/skills/install/` and fix any failures
+- [x] 3.13 Run `pnpm test:e2e -- --grep install` and fix any failures
 
 ## 4. Migrate uninstall handler
 
-- [ ] 4.1 Update imports in `uninstall/handler.ts` to use workspace module
-- [ ] 4.2 Remove legacy imports (`loadSkillsState`, `buildIdealForUninstall`, `computeDiff`, `applyDiff`, `hasChanges`)
-- [ ] 4.3 Replace dynamic import (line 362-364) with static imports for `readLockfile`, `updateLockEntry`
-- [ ] 4.4 Replace `loadSkillsState` with `loadCurrentState`
-- [ ] 4.5 Replace `buildIdealForUninstall` (legacy) with `buildIdealForUninstall` (workspace)
-- [ ] 4.6 Replace `computeDiff` with `buildPlan`
-- [ ] 4.7 Replace `hasChanges(diff)` with `planHasChanges(plan)`
-- [ ] 4.8 Replace `applyDiff` with `applyPlan`
-- [ ] 4.9 Refactor `handlePartialUninstall` to construct `Plan` with targeted steps and use `applyPlan`
-- [ ] 4.10 Update handler tests in `uninstall/handler.test.ts` with new mock structure
-- [ ] 4.11 Run `pnpm typecheck` and fix any errors
-- [ ] 4.12 Run `pnpm test packages/cli/src/commands/skills/uninstall/` and fix any failures
-- [ ] 4.13 Run `pnpm test:e2e -- --grep uninstall` and fix any failures
+- [x] 4.1 Update imports in `uninstall/handler.ts` to use workspace module
+- [x] 4.2 Remove legacy imports (`loadSkillsState`, `buildIdealForUninstall`, `computeDiff`, `applyDiff`, `hasChanges`)
+- [x] 4.3 Replace dynamic import (line 362-364) with static imports for `readLockfile`, `updateLockEntry`
+- [x] 4.4 Replace `loadSkillsState` with `loadCurrentState`
+- [x] 4.5 Replace `buildIdealForUninstall` (legacy) with `buildIdealForUninstall` (workspace)
+- [x] 4.6 Replace `computeDiff` with `buildPlan`
+- [x] 4.7 Replace `hasChanges(diff)` with `planHasChanges(plan)`
+- [x] 4.8 Replace `applyDiff` with `applyPlan`
+- [x] 4.9 Refactor `handlePartialUninstall` to construct `Plan` with targeted steps and use `applyPlan`
+- [x] 4.10 Update handler tests in `uninstall/handler.test.ts` with new mock structure
+- [x] 4.11 Run `pnpm typecheck` and fix any errors
+- [x] 4.12 Run `pnpm test packages/cli/src/commands/skills/uninstall/` and fix any failures
+- [x] 4.13 Run `pnpm test:e2e -- --grep uninstall` and fix any failures
 
 ## 5. Clean up pure-functions.ts
 
-- [ ] 5.1 Delete `*New` types: `CurrentStateNew`, `SkillStateNew`, `ActualSkillNew`, `IdealStateNew`, `IdealSkillNew`, `LockedSkillNew`, `SkillSourceNew`
-- [ ] 5.2 Delete `PlanStep` and `Plan` types (duplicates of types.ts)
-- [ ] 5.3 Delete `buildPlan` function (replaced by workspace version)
-- [ ] 5.4 Delete `toSettingsEntry` function and `SkillSettingsEntry` type (dead code - workspace has `sourceV2ToSettingsValue`)
-- [ ] 5.5 Delete `collectIssues` function (dead code - only had tests, never imported in production)
-- [ ] 5.6 Delete tests for removed code from `pure-functions.test.ts` (keep `computeInstallPath` and `versionsEqual` tests)
-- [ ] 5.7 Run `pnpm typecheck` and fix any errors
+- [x] 5.1 Delete `*New` types: `CurrentStateNew`, `SkillStateNew`, `ActualSkillNew`, `IdealStateNew`, `IdealSkillNew`, `LockedSkillNew`, `SkillSourceNew`
+- [x] 5.2 Delete `PlanStep` and `Plan` types (duplicates of types.ts)
+- [x] 5.3 Delete `buildPlan` function (replaced by workspace version)
+- [x] 5.4 Delete `toSettingsEntry` function and `SkillSettingsEntry` type (dead code - workspace has `sourceV2ToSettingsValue`)
+- [x] 5.5 Delete `collectIssues` function (dead code - only had tests, never imported in production)
+- [x] 5.6 Delete tests for removed code from `pure-functions.test.ts` (keep `computeInstallPath` and `versionsEqual` tests)
+- [x] 5.7 Run `pnpm typecheck` and fix any errors
 
 ## 6. Delete legacy modules
 

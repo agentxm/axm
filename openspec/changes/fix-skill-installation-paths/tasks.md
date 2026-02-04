@@ -49,27 +49,27 @@
 
 ## 6. Enhance workspace/apply.ts - Lockfile and Settings Updates
 
-- [ ] 6.1 Write tests for updateLockfileForPlan function
-- [ ] 6.2 Extract updateLockfileForPlan from skills/state/apply.ts into workspace/apply.ts
-- [ ] 6.3 Write tests for updateSettingsForPlan function
-- [ ] 6.4 Extract updateSettingsForPlan from skills/state/apply.ts into workspace/apply.ts
-- [ ] 6.5 Update applyPlan to use built-in lockfile/settings updates instead of injected deps
-- [ ] 6.6 Run `pnpm typecheck` and fix any errors
-- [ ] 6.7 Run `pnpm lint` and fix any errors
-- [ ] 6.8 Run `pnpm test packages/core/src/experimental/workspace/` and fix any failures
-- [ ] 6.9 Kill any vitest worker processes
+- [x] 6.1 Write tests for updateLockfileForPlan function
+- [x] 6.2 Extract updateLockfileForPlan from skills/state/apply.ts into workspace/apply.ts
+- [x] 6.3 Write tests for updateSettingsForPlan function
+- [x] 6.4 Extract updateSettingsForPlan from skills/state/apply.ts into workspace/apply.ts
+- [x] 6.5 Update applyPlan to use built-in lockfile/settings updates instead of injected deps
+- [x] 6.6 Run `pnpm typecheck` and fix any errors
+- [x] 6.7 Run `pnpm lint` and fix any errors
+- [x] 6.8 Run `pnpm test packages/core/src/experimental/workspace/` and fix any failures
+- [x] 6.9 Kill any vitest worker processes
 
 ## 7. Enhance workspace/apply.ts - Agent Path Resolution
 
-- [ ] 7.1 Write test: verify all agents in plan receive skill installation (no silent skips)
-- [ ] 7.2 Update AgentConfig import in workspace/apply.ts to use agents/ module
-- [ ] 7.3 Change syncToAgents to use agent.skills.projectDir instead of agent.skillsDir
-- [ ] 7.4 Change removeFromAgents to use agent.skills.projectDir instead of agent.skillsDir
-- [ ] 7.5 Remove silent skip for agents without skillsDir (now required)
-- [ ] 7.6 Run `pnpm typecheck` and fix any errors
-- [ ] 7.7 Run `pnpm lint` and fix any errors
-- [ ] 7.8 Run `pnpm test packages/core/src/experimental/workspace/` and fix any failures
-- [ ] 7.9 Kill any vitest worker processes
+- [x] 7.1 Write test: verify all agents in plan receive skill installation (no silent skips)
+- [x] 7.2 Update AgentConfig import in workspace/apply.ts to use agents/ module
+- [x] 7.3 Change syncToAgents to use agent.skills.projectDir instead of agent.skillsDir
+- [x] 7.4 Change removeFromAgents to use agent.skills.projectDir instead of agent.skillsDir
+- [x] 7.5 Remove silent skip for agents without skillsDir (now required)
+- [x] 7.6 Run `pnpm typecheck` and fix any errors
+- [x] 7.7 Run `pnpm lint` and fix any errors
+- [x] 7.8 Run `pnpm test packages/core/src/experimental/workspace/` and fix any failures
+- [x] 7.9 Kill any vitest worker processes
 
 ## 8. Enhance workspace/apply.ts - Comprehensive Tests
 

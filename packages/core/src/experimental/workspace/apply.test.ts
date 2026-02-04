@@ -560,10 +560,12 @@ describe("applyStep - InstallSkill", () => {
         workspacePath,
         agents: [
           {
-            id: "claude-code",
+            id: "claude-code" as const,
             name: "Claude Code",
-            detectPath: claudeDir,
-            skillsDir: nodePath.join(claudeDir, "commands"),
+            skills: {
+              projectDir: nodePath.join(claudeDir, "commands"),
+              globalDir: Option.none(),
+            },
           },
         ],
       }),
@@ -577,6 +579,68 @@ describe("applyStep - InstallSkill", () => {
       }),
     );
     expect(exists).toBe(true);
+  });
+
+  it("installs skill to all specified agents without silent skips", async () => {
+    const skillSourcePath = nodePath.join(sourceDir, "my-skill");
+    const claudeDir = nodePath.join(tempDir, ".claude");
+    const cursorDir = nodePath.join(tempDir, ".cursor");
+
+    await runWithFs(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.makeDirectory(skillSourcePath, { recursive: true });
+        yield* fs.writeFileString(nodePath.join(skillSourcePath, "SKILL.md"), "# My Skill");
+        yield* fs.makeDirectory(claudeDir, { recursive: true });
+        yield* fs.makeDirectory(cursorDir, { recursive: true });
+      }),
+    );
+
+    const step: PlanStep = PlanStepConstructor.InstallSkill({
+      skill: "my-skill",
+      source: makeLocalSource(skillSourcePath),
+      version: Option.none(),
+      gitTreeHash: Option.none(),
+      agents: ["claude-code", "cursor"],
+    });
+
+    await runWithFs(
+      applyStep(step, {
+        workspacePath,
+        agents: [
+          {
+            id: "claude-code" as const,
+            name: "Claude Code",
+            skills: {
+              projectDir: nodePath.join(claudeDir, "commands"),
+              globalDir: Option.none(),
+            },
+          },
+          {
+            id: "cursor" as const,
+            name: "Cursor",
+            skills: {
+              projectDir: nodePath.join(cursorDir, "commands"),
+              globalDir: Option.none(),
+            },
+          },
+        ],
+      }),
+    );
+
+    // Verify skill was installed to BOTH agents - no silent skips
+    const [claudeExists, cursorExists] = await runWithFs(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const claudeSkillPath = nodePath.join(claudeDir, "commands", "my-skill", "SKILL.md");
+        const cursorSkillPath = nodePath.join(cursorDir, "commands", "my-skill", "SKILL.md");
+        const claude = yield* fs.exists(claudeSkillPath);
+        const cursor = yield* fs.exists(cursorSkillPath);
+        return [claude, cursor] as const;
+      }),
+    );
+    expect(claudeExists).toBe(true);
+    expect(cursorExists).toBe(true);
   });
 
   it("fails with ApplyError when source does not exist", async () => {
@@ -778,10 +842,12 @@ describe("applyStep - UninstallSkill", () => {
         workspacePath,
         agents: [
           {
-            id: "claude-code",
+            id: "claude-code" as const,
             name: "Claude Code",
-            detectPath: claudeDir,
-            skillsDir: nodePath.join(claudeDir, "commands"),
+            skills: {
+              projectDir: nodePath.join(claudeDir, "commands"),
+              globalDir: Option.none(),
+            },
           },
         ],
       }),
@@ -807,5 +873,508 @@ describe("applyStep - UninstallSkill", () => {
 
     // Should not throw
     await runWithFs(applyStep(step, { workspacePath, agents: [] }));
+  });
+});
+
+// =============================================================================
+// updateLockfileForPlan Tests
+// =============================================================================
+
+describe("updateLockfileForPlan", () => {
+  let tempDir: string;
+  let axmDir: string;
+
+  beforeEach(async () => {
+    tempDir = await runWithFs(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const tmpBase = os.tmpdir();
+        const dir = nodePath.join(
+          tmpBase,
+          `axm-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        );
+        yield* fs.makeDirectory(dir, { recursive: true });
+        return dir;
+      }),
+    );
+    axmDir = nodePath.join(tempDir, ".axm");
+
+    await runWithFs(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.makeDirectory(axmDir, { recursive: true });
+      }),
+    );
+  });
+
+  afterEach(async () => {
+    await runWithFs(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.remove(tempDir, { recursive: true });
+      }),
+    );
+  });
+
+  it("adds new skill entries for InstallSkill steps", async () => {
+    const plan = makePlan([
+      PlanStepConstructor.InstallSkill({
+        skill: "my-skill",
+        source: { _tag: "Local", path: "/path/to/skill" },
+        version: Option.some("1.0.0"),
+        gitTreeHash: Option.some("abc123"),
+        agents: ["claude-code"],
+      }),
+    ]);
+
+    const { updateLockfileForPlan } = await import("./apply.js");
+    await runWithFs(updateLockfileForPlan(axmDir, plan));
+
+    // Verify lockfile was created with the skill
+    const { readLockfile } = await import("../skills/lockfile.js");
+    const lockfile = await runWithFs(readLockfile(axmDir));
+
+    const entry = lockfile.skills["my-skill"];
+    expect(entry).toBeDefined();
+    expect(entry?.source).toBe("local");
+    // Type narrowing for local source entry
+    if (entry?.source === "local") {
+      expect(entry.path).toBe("/path/to/skill");
+    }
+    expect(entry?.gitTreeHash).toBe("abc123");
+    expect(entry?.agents).toEqual(["claude-code"]);
+  });
+
+  it("adds GitHub source entries correctly", async () => {
+    const plan = makePlan([
+      PlanStepConstructor.InstallSkill({
+        skill: "github-skill",
+        source: {
+          _tag: "GitHub",
+          owner: "anthropics",
+          repo: "skills",
+          ref: Option.some("main"),
+          path: Option.some("skills/commit"),
+        },
+        version: Option.none(),
+        gitTreeHash: Option.some("def456"),
+        agents: [],
+      }),
+    ]);
+
+    const { updateLockfileForPlan } = await import("./apply.js");
+    await runWithFs(updateLockfileForPlan(axmDir, plan));
+
+    const { readLockfile } = await import("../skills/lockfile.js");
+    const lockfile = await runWithFs(readLockfile(axmDir));
+
+    expect(lockfile.skills["github-skill"]).toBeDefined();
+    expect(lockfile.skills["github-skill"]?.source).toBe("github");
+    const entry = lockfile.skills["github-skill"] as {
+      owner: string;
+      repo: string;
+      ref?: string;
+      path?: string;
+    };
+    expect(entry.owner).toBe("anthropics");
+    expect(entry.repo).toBe("skills");
+    expect(entry.ref).toBe("main");
+    expect(entry.path).toBe("skills/commit");
+  });
+
+  it("updates existing skill entries for UpdateSkill steps", async () => {
+    // First, create an existing lockfile
+    const { writeLockfile } = await import("../skills/lockfile.js");
+    await runWithFs(
+      writeLockfile(axmDir, {
+        lockfileVersion: 1,
+        skills: {
+          "my-skill": {
+            source: "local" as const,
+            path: "/old/path",
+            agents: ["old-agent"],
+            installedAt: new Date("2024-01-01"),
+            updatedAt: new Date("2024-01-01"),
+            gitTreeHash: "old-hash",
+          },
+        },
+      }),
+    );
+
+    const plan = makePlan([
+      PlanStepConstructor.UpdateSkill({
+        skill: "my-skill",
+        source: { _tag: "Local", path: "/new/path" },
+        fromVersion: Option.some("1.0.0"),
+        toVersion: Option.some("2.0.0"),
+        fromHash: Option.some("old-hash"),
+        toHash: Option.some("new-hash"),
+        agents: ["claude-code"],
+      }),
+    ]);
+
+    const { updateLockfileForPlan } = await import("./apply.js");
+    await runWithFs(updateLockfileForPlan(axmDir, plan));
+
+    const { readLockfile } = await import("../skills/lockfile.js");
+    const lockfile = await runWithFs(readLockfile(axmDir));
+
+    const entry = lockfile.skills["my-skill"];
+    expect(entry).toBeDefined();
+    // Type narrowing for local source entry
+    if (entry?.source === "local") {
+      expect(entry.path).toBe("/new/path");
+    }
+    expect(entry?.gitTreeHash).toBe("new-hash");
+    expect(entry?.agents).toEqual(["claude-code"]);
+    // installedAt should be preserved
+    expect(entry?.installedAt.toISOString()).toBe("2024-01-01T00:00:00.000Z");
+  });
+
+  it("removes skill entries for UninstallSkill steps", async () => {
+    // First, create an existing lockfile with a skill
+    const { writeLockfile } = await import("../skills/lockfile.js");
+    await runWithFs(
+      writeLockfile(axmDir, {
+        lockfileVersion: 1,
+        skills: {
+          "skill-to-remove": {
+            source: "local" as const,
+            path: "/path/to/skill",
+            agents: [],
+            installedAt: new Date(),
+            updatedAt: new Date(),
+          },
+          "skill-to-keep": {
+            source: "local" as const,
+            path: "/path/to/other",
+            agents: [],
+            installedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        },
+      }),
+    );
+
+    const plan = makePlan([
+      PlanStepConstructor.UninstallSkill({
+        skill: "skill-to-remove",
+        agents: [],
+      }),
+    ]);
+
+    const { updateLockfileForPlan } = await import("./apply.js");
+    await runWithFs(updateLockfileForPlan(axmDir, plan));
+
+    const { readLockfile } = await import("../skills/lockfile.js");
+    const lockfile = await runWithFs(readLockfile(axmDir));
+
+    expect(lockfile.skills["skill-to-remove"]).toBeUndefined();
+    expect(lockfile.skills["skill-to-keep"]).toBeDefined();
+  });
+
+  it("handles multiple steps in a single plan", async () => {
+    const plan = makePlan([
+      PlanStepConstructor.InstallSkill({
+        skill: "new-skill",
+        source: { _tag: "Local", path: "/path/to/new" },
+        version: Option.none(),
+        gitTreeHash: Option.none(),
+        agents: [],
+      }),
+      PlanStepConstructor.UninstallSkill({
+        skill: "old-skill",
+        agents: [],
+      }),
+    ]);
+
+    // Set up existing lockfile with old-skill
+    const { writeLockfile } = await import("../skills/lockfile.js");
+    await runWithFs(
+      writeLockfile(axmDir, {
+        lockfileVersion: 1,
+        skills: {
+          "old-skill": {
+            source: "local" as const,
+            path: "/path/to/old",
+            agents: [],
+            installedAt: new Date(),
+            updatedAt: new Date(),
+          },
+        },
+      }),
+    );
+
+    const { updateLockfileForPlan } = await import("./apply.js");
+    await runWithFs(updateLockfileForPlan(axmDir, plan));
+
+    const { readLockfile } = await import("../skills/lockfile.js");
+    const lockfile = await runWithFs(readLockfile(axmDir));
+
+    expect(lockfile.skills["new-skill"]).toBeDefined();
+    expect(lockfile.skills["old-skill"]).toBeUndefined();
+  });
+
+  it("creates lockfile if it does not exist", async () => {
+    const plan = makePlan([
+      PlanStepConstructor.InstallSkill({
+        skill: "first-skill",
+        source: { _tag: "Local", path: "/path/to/skill" },
+        version: Option.none(),
+        gitTreeHash: Option.none(),
+        agents: [],
+      }),
+    ]);
+
+    const { updateLockfileForPlan } = await import("./apply.js");
+    await runWithFs(updateLockfileForPlan(axmDir, plan));
+
+    const { readLockfile } = await import("../skills/lockfile.js");
+    const lockfile = await runWithFs(readLockfile(axmDir));
+
+    expect(lockfile.lockfileVersion).toBe(1);
+    expect(lockfile.skills["first-skill"]).toBeDefined();
+  });
+});
+
+// =============================================================================
+// updateSettingsForPlan Tests
+// =============================================================================
+
+describe("updateSettingsForPlan", () => {
+  let tempDir: string;
+  let axmDir: string;
+
+  beforeEach(async () => {
+    tempDir = await runWithFs(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const tmpBase = os.tmpdir();
+        const dir = nodePath.join(
+          tmpBase,
+          `axm-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        );
+        yield* fs.makeDirectory(dir, { recursive: true });
+        return dir;
+      }),
+    );
+    axmDir = nodePath.join(tempDir, ".axm");
+
+    await runWithFs(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.makeDirectory(axmDir, { recursive: true });
+      }),
+    );
+  });
+
+  afterEach(async () => {
+    await runWithFs(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.remove(tempDir, { recursive: true });
+      }),
+    );
+  });
+
+  it("adds new skill entries for InstallSkill steps", async () => {
+    // Create initial settings
+    const { writeSettings } = await import("../skills/settings.js");
+    await runWithFs(writeSettings(axmDir, {}));
+
+    const plan = makePlan([
+      PlanStepConstructor.InstallSkill({
+        skill: "my-skill",
+        source: { _tag: "Local", path: "/path/to/skill" },
+        version: Option.some("1.0.0"),
+        gitTreeHash: Option.none(),
+        agents: [],
+      }),
+    ]);
+
+    const { updateSettingsForPlan } = await import("./apply.js");
+    await runWithFs(updateSettingsForPlan(axmDir, plan));
+
+    const { readSettings } = await import("../skills/settings.js");
+    const settings = await runWithFs(readSettings(axmDir));
+
+    expect(settings.skills?.["my-skill"]).toBe("local:/path/to/skill");
+  });
+
+  it("converts GitHub source to settings value", async () => {
+    const { writeSettings } = await import("../skills/settings.js");
+    await runWithFs(writeSettings(axmDir, {}));
+
+    const plan = makePlan([
+      PlanStepConstructor.InstallSkill({
+        skill: "github-skill",
+        source: {
+          _tag: "GitHub",
+          owner: "anthropics",
+          repo: "skills",
+          ref: Option.some("main"),
+          path: Option.some("skills/commit"),
+        },
+        version: Option.none(),
+        gitTreeHash: Option.none(),
+        agents: [],
+      }),
+    ]);
+
+    const { updateSettingsForPlan } = await import("./apply.js");
+    await runWithFs(updateSettingsForPlan(axmDir, plan));
+
+    const { readSettings } = await import("../skills/settings.js");
+    const settings = await runWithFs(readSettings(axmDir));
+
+    expect(settings.skills?.["github-skill"]).toBe("github:anthropics/skills/skills/commit#main");
+  });
+
+  it("removes skill entries for UninstallSkill steps", async () => {
+    // Create initial settings with a skill
+    const { writeSettings } = await import("../skills/settings.js");
+    await runWithFs(
+      writeSettings(axmDir, {
+        skills: {
+          "skill-to-remove": "local:/path/to/skill",
+          "skill-to-keep": "local:/path/to/other",
+        },
+      }),
+    );
+
+    const plan = makePlan([
+      PlanStepConstructor.UninstallSkill({
+        skill: "skill-to-remove",
+        agents: [],
+      }),
+    ]);
+
+    const { updateSettingsForPlan } = await import("./apply.js");
+    await runWithFs(updateSettingsForPlan(axmDir, plan));
+
+    const { readSettings } = await import("../skills/settings.js");
+    const settings = await runWithFs(readSettings(axmDir));
+
+    expect(settings.skills?.["skill-to-remove"]).toBeUndefined();
+    expect(settings.skills?.["skill-to-keep"]).toBe("local:/path/to/other");
+  });
+
+  it("updates skill entries for UpdateSkill steps", async () => {
+    const { writeSettings } = await import("../skills/settings.js");
+    await runWithFs(
+      writeSettings(axmDir, {
+        skills: {
+          "my-skill": "local:/old/path",
+        },
+      }),
+    );
+
+    const plan = makePlan([
+      PlanStepConstructor.UpdateSkill({
+        skill: "my-skill",
+        source: { _tag: "Local", path: "/new/path" },
+        fromVersion: Option.some("1.0.0"),
+        toVersion: Option.some("2.0.0"),
+        fromHash: Option.none(),
+        toHash: Option.none(),
+        agents: [],
+      }),
+    ]);
+
+    const { updateSettingsForPlan } = await import("./apply.js");
+    await runWithFs(updateSettingsForPlan(axmDir, plan));
+
+    const { readSettings } = await import("../skills/settings.js");
+    const settings = await runWithFs(readSettings(axmDir));
+
+    expect(settings.skills?.["my-skill"]).toBe("local:/new/path");
+  });
+
+  it("handles multiple steps in a single plan", async () => {
+    const { writeSettings } = await import("../skills/settings.js");
+    await runWithFs(
+      writeSettings(axmDir, {
+        skills: {
+          "old-skill": "local:/path/to/old",
+        },
+      }),
+    );
+
+    const plan = makePlan([
+      PlanStepConstructor.InstallSkill({
+        skill: "new-skill",
+        source: { _tag: "Local", path: "/path/to/new" },
+        version: Option.none(),
+        gitTreeHash: Option.none(),
+        agents: [],
+      }),
+      PlanStepConstructor.UninstallSkill({
+        skill: "old-skill",
+        agents: [],
+      }),
+    ]);
+
+    const { updateSettingsForPlan } = await import("./apply.js");
+    await runWithFs(updateSettingsForPlan(axmDir, plan));
+
+    const { readSettings } = await import("../skills/settings.js");
+    const settings = await runWithFs(readSettings(axmDir));
+
+    expect(settings.skills?.["new-skill"]).toBe("local:/path/to/new");
+    expect(settings.skills?.["old-skill"]).toBeUndefined();
+  });
+
+  it("creates settings if it does not exist", async () => {
+    const plan = makePlan([
+      PlanStepConstructor.InstallSkill({
+        skill: "first-skill",
+        source: { _tag: "Local", path: "/path/to/skill" },
+        version: Option.none(),
+        gitTreeHash: Option.none(),
+        agents: [],
+      }),
+    ]);
+
+    const { updateSettingsForPlan } = await import("./apply.js");
+    await runWithFs(updateSettingsForPlan(axmDir, plan));
+
+    const { readSettings } = await import("../skills/settings.js");
+    const settings = await runWithFs(readSettings(axmDir));
+
+    expect(settings.skills?.["first-skill"]).toBe("local:/path/to/skill");
+  });
+
+  it("preserves other settings fields", async () => {
+    const { writeSettings } = await import("../skills/settings.js");
+    await runWithFs(
+      writeSettings(axmDir, {
+        scope: "@myorg",
+        agents: ["claude-code"],
+        skills: {
+          "existing-skill": "local:/existing",
+        },
+      }),
+    );
+
+    const plan = makePlan([
+      PlanStepConstructor.InstallSkill({
+        skill: "new-skill",
+        source: { _tag: "Local", path: "/path/to/new" },
+        version: Option.none(),
+        gitTreeHash: Option.none(),
+        agents: [],
+      }),
+    ]);
+
+    const { updateSettingsForPlan } = await import("./apply.js");
+    await runWithFs(updateSettingsForPlan(axmDir, plan));
+
+    const { readSettings } = await import("../skills/settings.js");
+    const settings = await runWithFs(readSettings(axmDir));
+
+    expect(settings.scope).toBe("@myorg");
+    expect(settings.agents).toEqual(["claude-code"]);
+    expect(settings.skills?.["existing-skill"]).toBe("local:/existing");
+    expect(settings.skills?.["new-skill"]).toBe("local:/path/to/new");
   });
 });

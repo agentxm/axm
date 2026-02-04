@@ -16,6 +16,7 @@ export interface UninstallArgs {
   "dry-run"?: boolean;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
 export const uninstallCommand: CommandModule<{}, UninstallArgs> = {
   command: "uninstall <skill>",
   describe: "Uninstall a skill from agents",

@@ -17,6 +17,7 @@ interface InstallArgs {
   "dry-run"?: boolean;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
 export const installCommand: CommandModule<{}, InstallArgs> = {
   command: "install <source>",
   describe: "Install skills from a GitHub repo, local path, or URL",

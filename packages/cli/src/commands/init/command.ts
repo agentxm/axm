@@ -1,5 +1,5 @@
 import { NodeFileSystem } from "@effect/platform-node";
-import * as Effect from "effect/Effect"
+import * as Effect from "effect/Effect";
 import type { CommandModule } from "yargs";
 import { handleInit } from "./handler.js";
 
@@ -12,6 +12,7 @@ interface InitArgs {
   "dry-run"?: boolean;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
 export const initCommand: CommandModule<{}, InitArgs> = {
   command: "init",
   describe: "Initialize axm by detecting installed agents and creating .axm/settings.json",

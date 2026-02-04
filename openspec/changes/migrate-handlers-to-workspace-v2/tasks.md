@@ -60,21 +60,21 @@
 
 _Deleting ideal.ts also removes dead code: `buildIdealForSync`, `buildIdealForUpdate`, `buildIdealForUninstallV2` (only had tests, never called from CLI)._
 
-- [ ] 6.1 Delete `skills/state/apply.ts` and `skills/state/apply.test.ts`
-- [ ] 6.2 Delete `skills/state/load.ts` and `skills/state/load.test.ts`
-- [ ] 6.3 Delete `skills/state/ideal.ts` and `skills/state/ideal.test.ts`
-- [ ] 6.4 Delete `skills/state/diff.ts` and `skills/state/diff.test.ts`
-- [ ] 6.5 Run `pnpm typecheck` and fix any errors
+- [x] 6.1 Delete `skills/state/apply.ts` and `skills/state/apply.test.ts`
+- [x] 6.2 Delete `skills/state/load.ts` and `skills/state/load.test.ts`
+- [x] 6.3 Delete `skills/state/ideal.ts` and `skills/state/ideal.test.ts`
+- [x] 6.4 Delete `skills/state/diff.ts` and `skills/state/diff.test.ts`
+- [x] 6.5 Run `pnpm typecheck` and fix any errors
 
 ## 7. Update exports
 
-- [ ] 7.1 Update `skills/state/index.ts` to remove deleted module exports
-- [ ] 7.2 Verify no remaining imports from deleted modules across codebase
-- [ ] 7.3 Run `pnpm typecheck` and fix any errors
+- [x] 7.1 Update `skills/state/index.ts` to remove deleted module exports
+- [x] 7.2 Verify no remaining imports from deleted modules across codebase
+- [x] 7.3 Run `pnpm typecheck` and fix any errors
 
 ## 8. Final verification
 
-- [ ] 8.1 Run `pnpm typecheck` - full project type check
-- [ ] 8.2 Run `pnpm lint` - full project lint
-- [ ] 8.3 Run `pnpm test` - full test suite
-- [ ] 8.4 Run `pnpm test:e2e` - full E2E suite
+- [x] 8.1 Run `pnpm typecheck` - full project type check
+- [x] 8.2 Run `pnpm lint` - full project lint
+- [x] 8.3 Run `pnpm test` - full test suite
+- [x] 8.4 Run `pnpm test:e2e` - full E2E suite

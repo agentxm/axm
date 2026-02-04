@@ -1,91 +1,49 @@
 /**
- * Skills state module - state-based architecture for dry-run and validation.
+ * Skills state types module - V2 types for workspace-based architecture.
  *
- * This module provides an Arborist-style state model:
+ * This module provides types for the state-based reconciliation model:
  * - **Actual state** - What exists on disk (.axm/skills/)
  * - **Locked state** - What the lockfile says should exist (axm-lock.yaml)
  * - **Ideal state** - Desired state after an operation
- * - **Diff/Plan** - Changes to transform actual to ideal
+ * - **Plan** - Changes to transform actual to ideal
  *
- * See docs/designs/dry-run.md for the reconciliation pattern.
+ * For the implementation, use the workspace module:
+ * @see {@link @agentxm/core/experimental/workspace}
  *
  * @example
  * ```typescript
  * import {
- *   loadSkillsState,
+ *   loadCurrentState,
  *   buildIdealForInstall,
- *   computeDiff,
- *   hasChanges,
- * } from "@agentxm/core/experimental/skills/state";
+ *   buildPlan,
+ *   planHasChanges,
+ *   applyPlan,
+ * } from "@agentxm/core/experimental/workspace";
  *
  * const program = Effect.gen(function* () {
  *   // Load current state
- *   const current = yield* loadSkillsState(axmDir);
+ *   const current = yield* loadCurrentState(axmDir);
  *
  *   // Build ideal state for install
  *   const ideal = yield* buildIdealForInstall(current, source, options);
  *
- *   // Compute diff (the plan)
- *   const diff = computeDiff(current, ideal);
+ *   // Build plan
+ *   const plan = buildPlan(current, ideal);
  *
  *   // Check if there are changes
- *   if (!hasChanges(diff)) {
+ *   if (!planHasChanges(plan)) {
  *     console.log("Already up to date");
  *     return;
  *   }
  *
- *   // Display plan (for dry-run) or apply changes
- *   displayDiff(diff);
+ *   // Apply plan
+ *   yield* applyPlan(plan);
  * });
  * ```
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
-
-// Apply logic
-export type {
-  AgentInstallResult,
-  ApplyAction,
-  ApplyFailure,
-  ApplyOptions,
-  ApplyProgressEvent,
-  ApplyResult,
-  ApplySkillResult,
-  RemoveSkillResult,
-} from "./apply.js";
-export { ApplyError, applyAdd, applyDiff, applyRemove, applyUpdate } from "./apply.js";
-
-// Diff computation
-export { computeDiff, getChangesToApply, hasChanges } from "./diff.js";
-
-// Ideal state builders
-export type {
-  FetchLatestVersion,
-  InstallOptions,
-  LatestVersionResult,
-  ResolvedSource,
-  SkillsUpdateCommand,
-  UninstallOptionsV2,
-} from "./ideal.js";
-export {
-  BuildIdealError,
-  buildIdealForInstall,
-  buildIdealForSync,
-  buildIdealForUninstall,
-  buildIdealForUninstallV2,
-  buildIdealForUpdate,
-  CommandError,
-} from "./ideal.js";
-
-// Loading
-export {
-  computeValidity,
-  LoadError,
-  loadActualSkills,
-  loadLockedSkills,
-  loadSkillsState,
-} from "./load.js";
 
 // =============================================================================
 // Types

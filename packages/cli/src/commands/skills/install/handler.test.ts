@@ -453,12 +453,11 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           };
 
-          // Local source parsing works but CLI handler doesn't support it yet
+          // Local source directory exists but has no skills
           const error = yield* handleInstall(args).pipe(Effect.flip);
 
           expect(error._tag).toBe("InstallError");
-          expect((error as InstallError).message).toContain("local");
-          expect((error as InstallError).message).toContain("not yet supported");
+          expect((error as InstallError).message).toContain("No skills found");
         }),
       ),
     );
@@ -475,12 +474,11 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           };
 
-          // Local source parsing works but CLI handler doesn't support it yet
+          // Local source path doesn't exist
           const error = yield* handleInstall(args).pipe(Effect.flip);
 
           expect(error._tag).toBe("InstallError");
-          expect((error as InstallError).message).toContain("local");
-          expect((error as InstallError).message).toContain("not yet supported");
+          expect((error as InstallError).message).toContain("Failed to discover skills");
         }),
       ),
     );
@@ -1075,7 +1073,7 @@ describe("install.handler", () => {
       ),
     );
 
-    it.effect("local source type not yet supported error", () =>
+    it.effect("local source empty directory error", () =>
       withTestLayer(
         Effect.gen(function* () {
           fs.mkdirSync(sourceDir, { recursive: true });
@@ -1092,9 +1090,8 @@ describe("install.handler", () => {
 
           expect(error._tag).toBe("InstallError");
           const message = (error as InstallError).message;
-          // Local source parsing works but CLI handler doesn't support it yet
-          expect(message).toContain("local");
-          expect(message).toContain("not yet supported");
+          // Local source directory exists but has no skills
+          expect(message).toContain("No skills found");
         }),
       ),
     );

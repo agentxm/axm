@@ -4,11 +4,22 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { Option } from "effect";
 import { describe, expect, it } from "vitest";
+import type { AgentConfig, AgentId } from "../agents/types.js";
 import type { Settings } from "../schemas/settings.js";
-import type { AgentConfig } from "../skills/types.js";
 import type { ActualInitState, IdealInitState, InitDiff } from "./types.js";
 import { hasInitChanges, InitChange, InitValidity } from "./types.js";
+
+// Shared helper for creating test AgentConfig objects
+const makeAgent = (id: AgentId): AgentConfig => ({
+  id,
+  name: id.charAt(0).toUpperCase() + id.slice(1),
+  skills: {
+    projectDir: `.${id}/skills`,
+    globalDir: Option.none(),
+  },
+});
 
 describe("InitValidity constructors", () => {
   it("creates Valid variant with settings", () => {
@@ -96,12 +107,6 @@ describe("ActualInitState", () => {
 });
 
 describe("IdealInitState", () => {
-  const makeAgent = (id: string): AgentConfig => ({
-    id,
-    name: id.charAt(0).toUpperCase() + id.slice(1),
-    detectPath: `~/.${id}`,
-  });
-
   it("represents desired workspace configuration", () => {
     const ideal: IdealInitState = {
       agents: [makeAgent("claude-code"), makeAgent("cursor")],
@@ -133,12 +138,6 @@ describe("IdealInitState", () => {
 });
 
 describe("InitChange constructors", () => {
-  const makeAgent = (id: string): AgentConfig => ({
-    id,
-    name: id.charAt(0).toUpperCase() + id.slice(1),
-    detectPath: `~/.${id}`,
-  });
-
   const makeIdealState = (): IdealInitState => ({
     agents: [makeAgent("claude-code")],
     scope: "@community",
@@ -179,12 +178,6 @@ describe("InitChange constructors", () => {
 });
 
 describe("InitChange type narrowing", () => {
-  const makeAgent = (id: string): AgentConfig => ({
-    id,
-    name: id.charAt(0).toUpperCase() + id.slice(1),
-    detectPath: `~/.${id}`,
-  });
-
   it("allows exhaustive switch on _tag", () => {
     const describeChange = (change: InitChange): string => {
       switch (change._tag) {
@@ -210,12 +203,6 @@ describe("InitChange type narrowing", () => {
 });
 
 describe("InitDiff", () => {
-  const makeAgent = (id: string): AgentConfig => ({
-    id,
-    name: id.charAt(0).toUpperCase() + id.slice(1),
-    detectPath: `~/.${id}`,
-  });
-
   it("represents a diff with Add change", () => {
     const ideal: IdealInitState = {
       agents: [makeAgent("claude-code")],
@@ -252,12 +239,6 @@ describe("InitDiff", () => {
 });
 
 describe("hasInitChanges", () => {
-  const makeAgent = (id: string): AgentConfig => ({
-    id,
-    name: id.charAt(0).toUpperCase() + id.slice(1),
-    detectPath: `~/.${id}`,
-  });
-
   it("returns true for Add change", () => {
     const diff: InitDiff = {
       change: InitChange.Add({

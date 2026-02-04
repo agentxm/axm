@@ -8,10 +8,18 @@ import * as os from "node:os";
 import * as nodePath from "node:path";
 import { FileSystem } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { AgentConfig, AgentId } from "../agents/types.js";
 import { applyInitDiff } from "./apply.js";
 import { InitChange } from "./types.js";
+
+// Helper to create test AgentConfig
+const makeAgent = (id: AgentId, name: string, projectDir: string): AgentConfig => ({
+  id,
+  name,
+  skills: { projectDir, globalDir: Option.none() },
+});
 
 // Test helpers
 const runEffect = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
@@ -49,7 +57,7 @@ describe("applyInitDiff", () => {
   describe("Add change", () => {
     it("creates .axm directory and settings.json", async () => {
       const change = InitChange.Add({
-        agents: [{ id: "claude-code", name: "Claude Code", detectPath: "~/.claude" }],
+        agents: [makeAgent("claude-code", "Claude Code", ".claude/skills")],
         scope: "@community",
       });
 
@@ -67,8 +75,8 @@ describe("applyInitDiff", () => {
     it("writes settings with agents array containing agent IDs", async () => {
       const change = InitChange.Add({
         agents: [
-          { id: "claude-code", name: "Claude Code", detectPath: "~/.claude" },
-          { id: "cursor", name: "Cursor", detectPath: "~/.cursor" },
+          makeAgent("claude-code", "Claude Code", ".claude/skills"),
+          makeAgent("cursor", "Cursor", ".cursor/skills"),
         ],
         scope: "@community",
       });
@@ -87,7 +95,7 @@ describe("applyInitDiff", () => {
 
     it("writes settings with scope set to @community", async () => {
       const change = InitChange.Add({
-        agents: [{ id: "claude-code", name: "Claude Code", detectPath: "~/.claude" }],
+        agents: [makeAgent("claude-code", "Claude Code", ".claude/skills")],
         scope: "@community",
       });
 
@@ -105,7 +113,7 @@ describe("applyInitDiff", () => {
 
     it("writes valid JSON with pretty formatting", async () => {
       const change = InitChange.Add({
-        agents: [{ id: "claude-code", name: "Claude Code", detectPath: "~/.claude" }],
+        agents: [makeAgent("claude-code", "Claude Code", ".claude/skills")],
         scope: "@community",
       });
 
@@ -141,7 +149,7 @@ describe("applyInitDiff", () => {
       const change = InitChange.Update(
         { agents: ["cursor"], scope: "@old" },
         {
-          agents: [{ id: "claude-code", name: "Claude Code", detectPath: "~/.claude" }],
+          agents: [makeAgent("claude-code", "Claude Code", ".claude/skills")],
           scope: "@community",
         },
       );
@@ -179,7 +187,7 @@ describe("applyInitDiff", () => {
       const change = InitChange.Update(
         { agents: ["cursor"], scope: "@old", skills: { "my-skill": "/path/to/skill" } },
         {
-          agents: [{ id: "claude-code", name: "Claude Code", detectPath: "~/.claude" }],
+          agents: [makeAgent("claude-code", "Claude Code", ".claude/skills")],
           scope: "@community",
         },
       );

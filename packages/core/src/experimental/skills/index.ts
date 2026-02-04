@@ -8,14 +8,6 @@
 export type { SourceType as LockSourceType } from "../schemas/extension-sources.js";
 export type { Lockfile, SkillLockEntry } from "../schemas/lockfile.js";
 export type { Settings } from "../schemas/settings.js";
-// Agent Detection
-export {
-  DetectionError,
-  detectAgents,
-  getAgentById,
-  getSupportedAgentIds,
-  SUPPORTED_AGENTS,
-} from "./agent-detection.js";
 // Git
 export {
   cloneRepo,
@@ -67,7 +59,6 @@ export {
 } from "./source-parser.js";
 // Types
 export type {
-  AgentConfig,
   LockEntry,
   ParsedSource,
   Skill,

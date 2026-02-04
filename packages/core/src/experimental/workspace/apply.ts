@@ -13,9 +13,13 @@
 import * as nodePath from "node:path";
 import { FileSystem } from "@effect/platform";
 import { Console, Data, Effect, Either, Option, pipe } from "effect";
+import type { AgentConfig } from "../agents/index.js";
+import type { Lockfile, SkillLockEntry } from "../schemas/lockfile.js";
+import type { Settings } from "../schemas/settings.js";
+import { readLockfile, writeLockfile } from "../skills/lockfile.js";
+import { readSettings, writeSettings } from "../skills/settings.js";
 import { computeInstallPath } from "../skills/state/pure-functions.js";
 import type { ApplyResult, Plan, PlanStep, SkillSourceV2 } from "../skills/state/types.js";
-import type { AgentConfig } from "../skills/types.js";
 import type { WorkspaceContext } from "./context.js";
 
 // Re-export types for consumers
@@ -460,9 +464,9 @@ const syncToAgents = (
 
     for (const agentId of agentIds) {
       const agent = availableAgents.find((a) => a.id === agentId);
-      if (!agent || !agent.skillsDir) continue;
+      if (!agent) continue;
 
-      const agentSkillsDir = agent.skillsDir;
+      const agentSkillsDir = agent.skills.projectDir;
       const agentSkillPath = nodePath.join(agentSkillsDir, skillName);
 
       // Ensure agent skills directory exists
@@ -513,9 +517,9 @@ const removeFromAgents = (
 
     for (const agentId of agentIds) {
       const agent = availableAgents.find((a) => a.id === agentId);
-      if (!agent || !agent.skillsDir) continue;
+      if (!agent) continue;
 
-      const agentSkillPath = nodePath.join(agent.skillsDir, skillName);
+      const agentSkillPath = nodePath.join(agent.skills.projectDir, skillName);
 
       const exists = yield* fs
         .exists(agentSkillPath)
@@ -717,3 +721,240 @@ export const applyStep = (
       return uninstallSkill(step, options);
   }
 };
+
+// =============================================================================
+// Lockfile and Settings Update Functions
+// =============================================================================
+
+/**
+ * Convert SkillSourceV2 to a lockfile entry.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+const sourceV2ToLockEntry = (
+  source: SkillSourceV2,
+  version: Option.Option<string>,
+  gitTreeHash: Option.Option<string>,
+  agents: ReadonlyArray<string>,
+  installedAt: Date,
+): SkillLockEntry => {
+  const now = new Date();
+  const hash = Option.getOrUndefined(gitTreeHash);
+
+  switch (source._tag) {
+    case "Local":
+      return {
+        source: "local" as const,
+        path: source.path,
+        agents: [...agents],
+        installedAt,
+        updatedAt: now,
+        ...(hash && { gitTreeHash: hash }),
+      };
+    case "GitHub":
+      return {
+        source: "github" as const,
+        owner: source.owner,
+        repo: source.repo,
+        ...(Option.isSome(source.ref) && { ref: source.ref.value }),
+        ...(Option.isSome(source.path) && { path: source.path.value }),
+        agents: [...agents],
+        installedAt,
+        updatedAt: now,
+        ...(hash && { gitTreeHash: hash }),
+      };
+    case "Registry":
+      return {
+        source: "registry" as const,
+        scope: source.scope,
+        name: source.name,
+        ...(Option.isSome(source.version) && { version: source.version.value }),
+        agents: [...agents],
+        installedAt,
+        updatedAt: now,
+        ...(hash && { gitTreeHash: hash }),
+      };
+  }
+};
+
+/**
+ * Convert SkillSourceV2 to a settings value string.
+ *
+ * Formats:
+ * - Local: `local:/path/to/skill`
+ * - GitHub: `github:owner/repo[/path][#ref]`
+ * - Registry: `@scope/name[@version]`
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+const sourceV2ToSettingsValue = (source: SkillSourceV2): string => {
+  switch (source._tag) {
+    case "Local":
+      return `local:${source.path}`;
+    case "GitHub": {
+      let value = `github:${source.owner}/${source.repo}`;
+      if (Option.isSome(source.path)) {
+        value += `/${source.path.value}`;
+      }
+      if (Option.isSome(source.ref)) {
+        value += `#${source.ref.value}`;
+      }
+      return value;
+    }
+    case "Registry": {
+      let value = `@${source.scope}/${source.name}`;
+      if (Option.isSome(source.version)) {
+        value += `@${source.version.value}`;
+      }
+      return value;
+    }
+  }
+};
+
+/**
+ * Update the lockfile based on a plan.
+ *
+ * Processes each step in the plan and updates the lockfile accordingly:
+ * - InstallSkill: Adds a new entry
+ * - UpdateSkill: Updates an existing entry (preserves installedAt)
+ * - UninstallSkill: Removes the entry
+ *
+ * @param axmDir - Path to the .axm directory
+ * @param plan - The execution plan
+ * @returns Effect that completes when lockfile is updated
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const updateLockfileForPlan = (
+  axmDir: string,
+  plan: Plan,
+): Effect.Effect<void, ApplyError, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    // Read current lockfile (creates empty one if not exists)
+    const lockfile = yield* readLockfile(axmDir).pipe(
+      Effect.mapError(
+        (error) =>
+          new ApplyError({
+            message: `Failed to read lockfile: ${error.message}`,
+            step: Option.none(),
+            cause: Option.some(error),
+          }),
+      ),
+    );
+
+    // Build updated skills map
+    const updatedSkills: Record<string, SkillLockEntry> = { ...lockfile.skills };
+    const now = new Date();
+
+    for (const step of plan.steps) {
+      switch (step._tag) {
+        case "InstallSkill": {
+          const entry = sourceV2ToLockEntry(
+            step.source,
+            step.version,
+            step.gitTreeHash,
+            step.agents,
+            now,
+          );
+          updatedSkills[step.skill] = entry;
+          break;
+        }
+        case "UpdateSkill": {
+          // Preserve original installedAt if exists
+          const existingEntry = lockfile.skills[step.skill];
+          const installedAt = existingEntry?.installedAt ?? now;
+          const entry = sourceV2ToLockEntry(
+            step.source,
+            step.toVersion,
+            step.toHash,
+            step.agents,
+            installedAt,
+          );
+          updatedSkills[step.skill] = entry;
+          break;
+        }
+        case "UninstallSkill":
+          delete updatedSkills[step.skill];
+          break;
+      }
+    }
+
+    // Write updated lockfile
+    const updatedLockfile: Lockfile = {
+      ...lockfile,
+      skills: updatedSkills,
+    };
+
+    yield* writeLockfile(axmDir, updatedLockfile).pipe(
+      Effect.mapError(
+        (error) =>
+          new ApplyError({
+            message: `Failed to write lockfile: ${error.message}`,
+            step: Option.none(),
+            cause: Option.some(error),
+          }),
+      ),
+    );
+  });
+
+/**
+ * Update the settings based on a plan.
+ *
+ * Processes each step in the plan and updates the settings accordingly:
+ * - InstallSkill: Adds/updates the skill entry
+ * - UpdateSkill: Updates the skill entry
+ * - UninstallSkill: Removes the skill entry
+ *
+ * @param axmDir - Path to the .axm directory
+ * @param plan - The execution plan
+ * @returns Effect that completes when settings are updated
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const updateSettingsForPlan = (
+  axmDir: string,
+  plan: Plan,
+): Effect.Effect<void, ApplyError, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    // Read current settings (use empty if not exists)
+    const settings = yield* readSettings(axmDir).pipe(
+      Effect.catchTag("SettingsNotFoundError", () => Effect.succeed<Settings>({})),
+      Effect.mapError(
+        (error) =>
+          new ApplyError({
+            message: `Failed to read settings: ${(error as { message: string }).message}`,
+            step: Option.none(),
+            cause: Option.some(error),
+          }),
+      ),
+    );
+
+    // Build updated skills map
+    const updatedSkills: Record<string, string> = { ...(settings.skills ?? {}) };
+
+    for (const step of plan.steps) {
+      switch (step._tag) {
+        case "InstallSkill":
+          updatedSkills[step.skill] = sourceV2ToSettingsValue(step.source);
+          break;
+        case "UpdateSkill":
+          updatedSkills[step.skill] = sourceV2ToSettingsValue(step.source);
+          break;
+        case "UninstallSkill":
+          delete updatedSkills[step.skill];
+          break;
+      }
+    }
+
+    // Write updated settings
+    yield* writeSettings(axmDir, { ...settings, skills: updatedSkills }).pipe(
+      Effect.mapError(
+        (error) =>
+          new ApplyError({
+            message: `Failed to write settings: ${error.message}`,
+            step: Option.none(),
+            cause: Option.some(error),
+          }),
+      ),
+    );
+  });

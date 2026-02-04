@@ -17,7 +17,7 @@ import {
 } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { Effect, Fiber, Layer, TestClock, TestContext } from "effect";
+import { Effect, Fiber, Layer, TestClock } from "effect";
 import { afterEach, beforeEach } from "vitest";
 import type { WellKnownIndex } from "./types.js";
 import {

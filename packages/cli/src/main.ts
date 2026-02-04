@@ -38,7 +38,7 @@ export const program = Effect.promise(() =>
     .example("$0 init", "Initialize axm in current project")
     .example("$0 skills install owner/repo", "Install skills from a GitHub repository")
     .demandCommand(1)
-    .fail((msg, err, yargs) => {
+    .fail((msg, _err, yargs) => {
       if (msg?.includes("Not enough non-option arguments")) {
         yargs.showHelp();
         process.exit(0);

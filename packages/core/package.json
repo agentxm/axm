@@ -15,6 +15,10 @@
       "types": "./dist/experimental/skills/index.d.ts",
       "import": "./dist/experimental/skills/index.js"
     },
+    "./experimental/skills/github-api": {
+      "types": "./dist/experimental/skills/github-api.d.ts",
+      "import": "./dist/experimental/skills/github-api.js"
+    },
     "./experimental/skills/state": {
       "types": "./dist/experimental/skills/state/index.d.ts",
       "import": "./dist/experimental/skills/state/index.js"

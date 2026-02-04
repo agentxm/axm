@@ -9,7 +9,6 @@ import * as nodePath from "node:path";
 import { FileSystem, type Path } from "@effect/platform";
 import { Array as Arr, Data, Effect, Option, pipe, Record } from "effect";
 import type { SkillLockEntry } from "../../schemas/lockfile.js";
-import { computeFolderHash } from "../folder-hash.js";
 import { readLockfile } from "../lockfile.js";
 import {
   type ActualSkill,
@@ -284,28 +283,17 @@ export const loadActualSkills = (
             // List files in skill directory
             const files = yield* listSkillFiles(skillDir);
 
-            // Compute folder hash
-            const hashResult = yield* computeFolderHash(skillDir).pipe(
-              Effect.mapError(
-                (error) =>
-                  new LoadError({
-                    message: `Failed to compute folder hash for skill ${entry}`,
-                    path: skillDir,
-                    cause: error,
-                    retryable: false,
-                  }),
-              ),
-            );
-
             // Get last modified time (mtime is Option<Date>)
             const lastModified = Option.getOrElse(stat.value.mtime, () => new Date());
 
+            // Hash is not computed locally - it comes from lockfile (GitHub API hash)
+            // Local sources have no stable identifier and always update
             const actualSkill: ActualSkill = {
               name: entry,
               path: skillDir,
               frontmatter,
               content,
-              gitTreeFolderHash: hashResult.hash,
+              gitTreeFolderHash: "", // Hash comes from lockfile, not computed locally
               files,
               lastModified,
             };

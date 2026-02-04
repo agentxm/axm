@@ -16,11 +16,6 @@ export {
   getSupportedAgentIds,
   SUPPORTED_AGENTS,
 } from "./agent-detection.js";
-// Content Hash
-export { computeContentHash, HashError } from "./content-hash.js";
-// Folder Hash
-export type { FolderHashResult, FolderHashSource } from "./folder-hash.js";
-export { computeFolderHash } from "./folder-hash.js";
 // Git
 export {
   cloneRepo,

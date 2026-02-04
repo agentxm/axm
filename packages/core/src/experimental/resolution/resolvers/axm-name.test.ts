@@ -322,7 +322,7 @@ describe("resolveAxmName", () => {
         Effect.gen(function* () {
           // Create skill in default location relative to process.cwd()
           const processCwd = process.cwd();
-          const skillPath = path.join(processCwd, ".axm", "skills", "@test", "skill");
+          const _skillPath = path.join(processCwd, ".axm", "skills", "@test", "skill");
 
           // Only create if we can safely test (avoid polluting real filesystem)
           // For this test, we'll just verify empty result since we're not setting up the real cwd
@@ -340,7 +340,7 @@ describe("resolveAxmName", () => {
       withFileSystem(
         Effect.gen(function* () {
           const homeDir = os.homedir();
-          const expandedGlobalDir = path.join(homeDir, ".axm-test-" + Date.now());
+          const expandedGlobalDir = path.join(homeDir, `.axm-test-${Date.now()}`);
           const skillPath = path.join(expandedGlobalDir, "skills", "@wayne", "grappling-hook");
 
           // Create temporary skill in home directory
@@ -349,7 +349,7 @@ describe("resolveAxmName", () => {
 
           try {
             // Use ~ path instead of absolute
-            const relativePath = "~/" + path.relative(homeDir, expandedGlobalDir);
+            const relativePath = `~/${path.relative(homeDir, expandedGlobalDir)}`;
             const result = yield* resolveAxmName("@wayne/grappling-hook", {
               projectDir,
               globalDir: relativePath,

@@ -17,7 +17,6 @@ import * as nodePath from "node:path";
 import { FileSystem, type Path } from "@effect/platform";
 import { Data, Effect } from "effect";
 import type { SkillLockEntry } from "../../schemas/lockfile.js";
-import { computeFolderHash } from "../folder-hash.js";
 import { readLockfile, writeLockfile } from "../lockfile.js";
 import { readSettings, writeSettings } from "../settings.js";
 import type { AgentConfig, Settings } from "../types.js";
@@ -457,26 +456,13 @@ export const applyAdd = (
       });
     }
 
-    // Recompute hash from canonical location to ensure consistency
-    // (source may be in git repo with tree SHA, canonical may use content hash)
-    const hashResult = yield* computeFolderHash(canonicalPath).pipe(
-      Effect.mapError(
-        (error) =>
-          new ApplyError({
-            message: `Failed to compute hash for canonical location`,
-            skillName: ideal.name,
-            operation: "add",
-            cause: error,
-            retryable: false,
-          }),
-      ),
-    );
-
+    // Use the hash from ideal state (GitHub API hash for GitHub sources, empty for local sources)
+    // Local sources have no stable identifier and always update
     return {
       skillName: ideal.name,
       canonicalPath,
       agentResults,
-      gitTreeFolderHash: hashResult.hash,
+      gitTreeFolderHash: ideal.gitTreeFolderHash,
     };
   });
 
@@ -817,8 +803,10 @@ const updateLockfileForChanges = (
                 }),
             ),
           );
-          // Use recomputed hash if available (ensures hash is from canonical location)
-          updatedSkills[name] = recomputedHash ? { ...entry, gitTreeHash: recomputedHash } : entry;
+          // Use hash from ideal skill (GitHub API hash) if available, otherwise use recomputed hash
+          // GitHub sources get their hash from the API, local sources compute locally
+          const effectiveHash = entry.gitTreeHash || recomputedHash;
+          updatedSkills[name] = effectiveHash ? { ...entry, gitTreeHash: effectiveHash } : entry;
           break;
         }
         case "Update": {
@@ -834,10 +822,11 @@ const updateLockfileForChanges = (
                 }),
             ),
           );
-          // Use recomputed hash if available
+          // Use hash from ideal skill (GitHub API hash) if available, otherwise use recomputed hash
+          const updateEffectiveHash = entry.gitTreeHash || recomputedHash;
           updatedSkills[name] = {
             ...entry,
-            ...(recomputedHash && { gitTreeHash: recomputedHash }),
+            ...(updateEffectiveHash && { gitTreeHash: updateEffectiveHash }),
             installedAt: lockfile.skills[name]?.installedAt ?? new Date(),
           };
           break;
@@ -855,10 +844,11 @@ const updateLockfileForChanges = (
                 }),
             ),
           );
-          // Use recomputed hash if available
+          // Use hash from ideal skill (GitHub API hash) if available, otherwise use recomputed hash
+          const repairEffectiveHash = entry.gitTreeHash || recomputedHash;
           updatedSkills[name] = {
             ...entry,
-            ...(recomputedHash && { gitTreeHash: recomputedHash }),
+            ...(repairEffectiveHash && { gitTreeHash: repairEffectiveHash }),
             installedAt: lockfile.skills[name]?.installedAt ?? new Date(),
           };
           break;

@@ -13,12 +13,14 @@ Each lock entry SHALL have the following fields:
 | `scope`       | string   | No       | Registry scope (registry source only)             |
 | `name`        | string   | No       | Registry package name (registry source only)      |
 | `version`     | string   | No       | Semver version (registry source only)             |
-| `gitTreeHash` | string   | No       | Git tree SHA of source folder (git sources)       |
+| `gitTreeHash` | string   | No       | Git tree SHA from GitHub API (github source only) |
 | `agents`      | string[] | Yes      | Agent IDs this skill is installed for             |
 | `installedAt` | string   | Yes      | ISO 8601 timestamp of initial installation        |
 | `updatedAt`   | string   | Yes      | ISO 8601 timestamp of last update                 |
 
 The `source` field SHALL use `SourceSchema` imported from `extension-sources`.
+
+The `gitTreeHash` field SHALL only be present for `github` sources. It contains the raw Git tree SHA fetched from GitHub's Trees API, not a content hash.
 
 #### Scenario: Valid GitHub skill lock entry
 
@@ -39,6 +41,24 @@ The `source` field SHALL use `SourceSchema` imported from `extension-sources`.
   ```
 - **THEN** validation succeeds and lock entry fields are accessible with correct types
 
+#### Scenario: Valid GitHub skill lock entry without gitTreeHash
+
+- **WHEN** parsing YAML content for a GitHub skill without gitTreeHash (API unavailable):
+  ```yaml
+  lockfileVersion: 1
+  skills:
+    my-skill:
+      source: github
+      owner: wayne-industries
+      repo: skills
+      ref: main
+      path: skills/my-skill
+      agents: [claude-code]
+      installedAt: "2025-01-15T10:30:00Z"
+      updatedAt: "2025-01-15T10:30:00Z"
+  ```
+- **THEN** validation succeeds and gitTreeHash is undefined
+
 #### Scenario: Valid local skill lock entry
 
 - **WHEN** parsing YAML content:
@@ -53,6 +73,23 @@ The `source` field SHALL use `SourceSchema` imported from `extension-sources`.
       updatedAt: "2025-01-15T10:30:00Z"
   ```
 - **THEN** validation succeeds and path field is accessible
+
+#### Scenario: Valid git skill lock entry without gitTreeHash
+
+- **WHEN** parsing YAML content for a generic git skill:
+  ```yaml
+  lockfileVersion: 1
+  skills:
+    my-skill:
+      source: git
+      url: https://gitlab.com/acme/skills.git
+      ref: main
+      path: skills/my-skill
+      agents: [claude-code]
+      installedAt: "2025-01-15T10:30:00Z"
+      updatedAt: "2025-01-15T10:30:00Z"
+  ```
+- **THEN** validation succeeds and gitTreeHash is undefined (not supported for git sources)
 
 #### Scenario: Valid registry skill lock entry
 

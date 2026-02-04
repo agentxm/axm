@@ -14,7 +14,7 @@
  */
 
 import type { Option } from "effect";
-import { Schema } from "effect";
+import * as Schema from "effect/Schema"
 
 // =============================================================================
 // Skill Frontmatter
@@ -1135,7 +1135,6 @@ export interface SkillsDiffJson {
  * @experimental This API is unstable and may change without notice.
  */
 export const skillsDiffToJson = (diff: SkillsDiff): SkillsDiffJson => ({
-  // biome-ignore lint/suspicious/useIterableCallbackReturn: switch is exhaustive
   changes: Object.entries(diff.changes).map(([name, change]): SkillChangeWithName => {
     switch (change._tag) {
       case "Add":

@@ -5,7 +5,7 @@
  * ensuring all agents are validated without hardcoding agent lists.
  */
 
-import { Option } from "effect";
+import * as Option from "effect/Option"
 import { describe, expect, it } from "vitest";
 import { AGENTS, getAgentById, getAgentIds, getAllAgents } from "./registry.js";
 
@@ -18,13 +18,14 @@ describe("AGENTS registry", () => {
     expect(config.skills.projectDir.length).toBeGreaterThan(0);
   });
 
-  it.each(
-    agents,
-  )("agent $id projectDir ends with /skills or /rules (per reference spec)", (config) => {
-    // Most agents use /skills, but augment uses /rules per vercel-labs/skills spec
-    // openclaw uses bare "skills" directory (no leading dot-folder)
-    expect(config.skills.projectDir).toMatch(/(\/skills$|\/rules$|^skills$)/);
-  });
+  it.each(agents)(
+    "agent $id projectDir ends with /skills or /rules (per reference spec)",
+    (config) => {
+      // Most agents use /skills, but augment uses /rules per vercel-labs/skills spec
+      // openclaw uses bare "skills" directory (no leading dot-folder)
+      expect(config.skills.projectDir).toMatch(/(\/skills$|\/rules$|^skills$)/);
+    },
+  );
 
   it.each(agents)("agent $id globalDir is Option (not undefined)", (config) => {
     expect(Option.isOption(config.skills.globalDir)).toBe(true);

@@ -54,9 +54,4 @@ export {
 // State loading
 export { loadCurrentState } from "./load-state.js";
 // Plan building
-export {
-  buildPlan,
-  getPlanSummary,
-  type PlanSummary,
-  planHasChanges,
-} from "./plan.js";
+export { buildPlan, getPlanSummary, type PlanSummary, planHasChanges } from "./plan.js";

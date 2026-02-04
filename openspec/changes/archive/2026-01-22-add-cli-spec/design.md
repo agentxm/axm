@@ -27,9 +27,7 @@ import { Effect, TestConsole } from "effect";
 import { program } from "./main.js";
 
 it("displays startup message", async () => {
-  const result = await Effect.runPromise(
-    program.pipe(Effect.provide(TestConsole.layer)),
-  );
+  const result = await Effect.runPromise(program.pipe(Effect.provide(TestConsole.layer)));
   const output = yield * TestConsole.output;
   expect(output).toContain("AgentXM CLI ready");
 });

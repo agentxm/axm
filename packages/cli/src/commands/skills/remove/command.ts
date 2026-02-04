@@ -4,11 +4,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { Effect } from "effect";
+import * as Effect from "effect/Effect"
 import type { CommandModule } from "yargs";
 import { handleRemove } from "./handler.js";
 
-// biome-ignore lint/complexity/noBannedTypes: {} is the yargs convention for no parent args
 export const removeCommand: CommandModule<{}, {}> = {
   command: "remove",
   describe: "Remove installed skills (placeholder)",

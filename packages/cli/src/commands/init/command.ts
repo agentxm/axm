@@ -1,5 +1,5 @@
 import { NodeFileSystem } from "@effect/platform-node";
-import { Effect } from "effect";
+import * as Effect from "effect/Effect"
 import type { CommandModule } from "yargs";
 import { handleInit } from "./handler.js";
 
@@ -12,7 +12,6 @@ interface InitArgs {
   "dry-run"?: boolean;
 }
 
-// biome-ignore lint/complexity/noBannedTypes: {} is the yargs convention for no parent args
 export const initCommand: CommandModule<{}, InitArgs> = {
   command: "init",
   describe: "Initialize axm by detecting installed agents and creating .axm/settings.json",

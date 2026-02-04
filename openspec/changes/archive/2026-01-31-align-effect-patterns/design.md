@@ -68,12 +68,7 @@ const retryPolicy = Schedule.exponential(Duration.seconds(1)).pipe(
 );
 
 const response =
-  yield *
-  pipe(
-    client.get(url),
-    Effect.mapError(mapHttpError),
-    Effect.retry(retryPolicy),
-  );
+  yield * pipe(client.get(url), Effect.mapError(mapHttpError), Effect.retry(retryPolicy));
 ```
 
 ### Decision: Parallelize skill installation loop
@@ -120,9 +115,7 @@ const parseError = (input: string) =>
 
 ```typescript
 const parseError = async (input: string) => {
-  const result = await Effect.runPromise(
-    parseSource(input).pipe(Effect.either),
-  );
+  const result = await Effect.runPromise(parseSource(input).pipe(Effect.either));
   expect(result._tag).toBe("Left");
   if (result._tag === "Left") return result.left;
   throw new Error("Expected failure");

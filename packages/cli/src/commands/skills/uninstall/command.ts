@@ -16,7 +16,6 @@ export interface UninstallArgs {
   "dry-run"?: boolean;
 }
 
-// biome-ignore lint/complexity/noBannedTypes: {} is the yargs convention for no parent args
 export const uninstallCommand: CommandModule<{}, UninstallArgs> = {
   command: "uninstall <skill>",
   describe: "Uninstall a skill from agents",

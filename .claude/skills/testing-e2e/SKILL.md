@@ -46,15 +46,7 @@ describe("axm skills add", () => {
 
       // Install skills
       const result = await runCli(
-        [
-          "skills",
-          "add",
-          SKILLS_REPO_FIXTURE,
-          "--all",
-          "--yes",
-          "--agent",
-          "claude-code",
-        ],
+        ["skills", "add", SKILLS_REPO_FIXTURE, "--all", "--yes", "--agent", "claude-code"],
         { cwd: temp.path },
       );
 
@@ -80,14 +72,7 @@ describe("axm skills add", () => {
       });
 
       const result = await runCli(
-        [
-          "skills",
-          "add",
-          SKILLS_REPO_FIXTURE,
-          "--list",
-          "--agent",
-          "claude-code",
-        ],
+        ["skills", "add", SKILLS_REPO_FIXTURE, "--list", "--agent", "claude-code"],
         { cwd: temp.path },
       );
 

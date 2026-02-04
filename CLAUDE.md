@@ -20,7 +20,8 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 - **CLI parsing**: yargs
 - **CLI UI**: Bombshell (prompts, forms, validation)
 - **Testing**: Vitest
-- **Formatting/Linting**: Biome (code), Prettier (markdown)
+- **Linting**: ESLint with @effect/eslint-plugin
+- **Formatting**: Prettier
 
 ## Commands
 
@@ -31,7 +32,7 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 | `pnpm test:e2e`  | Run E2E tests only          |
 | `pnpm typecheck` | Type check without emitting |
 | `pnpm format`    | Format code and markdown    |
-| `pnpm lint`      | Lint with Biome             |
+| `pnpm lint`      | Lint with ESLint            |
 | `pnpm lint:fix`  | Lint and auto-fix           |
 
 ## Testing

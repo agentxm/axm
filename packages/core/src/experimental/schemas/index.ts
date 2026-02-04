@@ -8,13 +8,7 @@
  */
 
 // Common schemas and types
-export type {
-  AgentId,
-  Author,
-  ExtensionType,
-  FullyQualifiedName,
-  SourceType,
-} from "./common.js";
+export type { AgentId, Author, ExtensionType, FullyQualifiedName, SourceType } from "./common.js";
 export {
   AgentIdSchema,
   AuthorSchema,

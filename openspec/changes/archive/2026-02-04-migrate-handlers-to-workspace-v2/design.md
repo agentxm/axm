@@ -31,8 +31,7 @@ The `buildPlan` function exists in `skills/state/pure-functions.ts` but uses inc
 
 ```typescript
 const { readLockfile, updateLockEntry } =
-  yield *
-  Effect.promise(async () => import("@agentxm/core/experimental/skills"));
+  yield * Effect.promise(async () => import("@agentxm/core/experimental/skills"));
 ```
 
 Dynamic import should be replaced with static imports.

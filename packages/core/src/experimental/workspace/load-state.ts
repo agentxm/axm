@@ -337,7 +337,6 @@ const listSkillFiles = (
 
     const files = yield* pipe(
       entries,
-      // biome-ignore lint/suspicious/useIterableCallbackReturn: Effect.forEach is not Array.forEach
       Effect.forEach(
         (entry) =>
           Effect.gen(function* () {
@@ -452,7 +451,6 @@ const scanSkillsDir = (
 
     const skills = yield* pipe(
       entries,
-      // biome-ignore lint/suspicious/useIterableCallbackReturn: Effect.forEach is not Array.forEach
       Effect.forEach(
         (entry) =>
           Effect.gen(function* () {
@@ -512,7 +510,6 @@ const scanRegistryScopes = (
 
     const allSkills = yield* pipe(
       scopes,
-      // biome-ignore lint/suspicious/useIterableCallbackReturn: Effect.forEach is not Array.forEach
       Effect.forEach(
         (scope) =>
           Effect.gen(function* () {

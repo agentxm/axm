@@ -416,7 +416,6 @@ export const buildIdealForUpdate = (
     // Fetch latest versions for skills being updated
     const updated = yield* pipe(
       toUpdate,
-      // biome-ignore lint/suspicious/useIterableCallbackReturn: Effect.forEach is not Array.forEach
       Effect.forEach(
         (skill) =>
           Effect.gen(function* () {

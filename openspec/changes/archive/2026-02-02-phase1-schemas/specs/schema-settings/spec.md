@@ -49,10 +49,7 @@ To disable a source, remove it from the configuration entirely.
   ```json
   {
     "sources": {
-      "registry": [
-        { "path": "./.axm/registry" },
-        { "url": "https://registry.agentxm.ai" }
-      ]
+      "registry": [{ "path": "./.axm/registry" }, { "url": "https://registry.agentxm.ai" }]
     }
   }
   ```

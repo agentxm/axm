@@ -22,9 +22,7 @@ const hasErrors = pipe(
   Array.some((i) => i.severity === "error"),
 );
 if (hasErrors && !force) {
-  return (
-    yield * Effect.fail(new UnhealthyWorkspaceError({ issues: allIssues }))
-  );
+  return yield * Effect.fail(new UnhealthyWorkspaceError({ issues: allIssues }));
 }
 
 // Resolve agents before building ideal state (handler responsibility)
@@ -103,19 +101,14 @@ class ApplyError extends Data.TaggedError("ApplyError")<{
   readonly cause: Option.Option<unknown>;
 }> {}
 
-class UnhealthyWorkspaceError extends Data.TaggedError(
-  "UnhealthyWorkspaceError",
-)<{
+class UnhealthyWorkspaceError extends Data.TaggedError("UnhealthyWorkspaceError")<{
   readonly issues: Array.Array<AnyIssue>;
 }> {}
 
 interface ApplyOptions {
   readonly dryRun: boolean;
   /** Optional progress callback - UI rendering is handler responsibility */
-  readonly onProgress?: (
-    step: PlanStep,
-    status: "starting" | "completed",
-  ) => void;
+  readonly onProgress?: (step: PlanStep, status: "starting" | "completed") => void;
 }
 
 /** Workspace context - passed to workspace functions */
@@ -141,9 +134,7 @@ const makeWorkspaceContext = (options: {
  * If interactive and not initialized, walks user through setup.
  * If non-interactive and not initialized, fails with WorkspaceNotInitialized.
  */
-declare const ensureInit: (
-  ws: WorkspaceContext,
-) => Effect.Effect<void, WorkspaceError>;
+declare const ensureInit: (ws: WorkspaceContext) => Effect.Effect<void, WorkspaceError>;
 
 /**
  * Load current state - merges actual (disk) with locked (lockfile).
@@ -205,10 +196,7 @@ const collectIssues = (current: CurrentState): Array.Array<AnyIssue> =>
   );
 
 /** Compare versions using semver for registry sources, with fallback for non-semver */
-const versionsEqual = (
-  a: Option.Option<string>,
-  b: Option.Option<string>,
-): boolean =>
+const versionsEqual = (a: Option.Option<string>, b: Option.Option<string>): boolean =>
   pipe(
     Option.all([a, b]),
     Option.match({
@@ -262,10 +250,7 @@ const buildPlan = (current: CurrentState, ideal: IdealState): Plan => {
                   (idealSkill.source._tag === "Registry" &&
                     !versionsEqual(idealSkill.version, locked.version)) ||
                   (idealSkill.source._tag !== "Registry" &&
-                    !Option.equals(
-                      idealSkill.gitTreeHash,
-                      locked.gitTreeHash,
-                    )) ||
+                    !Option.equals(idealSkill.gitTreeHash, locked.gitTreeHash)) ||
                   idealSkill.source._tag === "Local"; // Local always updates
 
                 return needsUpdate
@@ -443,9 +428,7 @@ import { Array, Effect, Option, pipe } from "effect";
 // --- Helper function signatures (implementation elsewhere) ---
 
 /** Parse source string into SkillSource. */
-declare const parseSource: (
-  source: string,
-) => Effect.Effect<SkillSource, CommandError>;
+declare const parseSource: (source: string) => Effect.Effect<SkillSource, CommandError>;
 
 /** Discover skills available from a source (may clone/fetch). */
 declare const discoverSkills: (
@@ -624,9 +607,7 @@ const buildIdealForUpdate = (
           )
         : pipe(
             current.skills,
-            Array.filter(
-              (s) => cmd.skills.includes(s.name) && Option.isSome(s.locked),
-            ),
+            Array.filter((s) => cmd.skills.includes(s.name) && Option.isSome(s.locked)),
           );
 
     // Validate requested skills exist
@@ -1040,11 +1021,7 @@ const updateSettingsFromPlan = (settings: Settings, plan: Plan): Settings =>
         case "UpdateSkill":
           return {
             ...acc,
-            skills: Record.set(
-              acc.skills,
-              step.skill,
-              toSettingsEntry(step.source),
-            ),
+            skills: Record.set(acc.skills, step.skill, toSettingsEntry(step.source)),
           };
         case "UninstallSkill":
           return {
@@ -1188,10 +1165,7 @@ High-level implementation outline (guidance, not prescriptive):
 import { Array, Effect, Either, pipe } from "effect";
 
 /** Apply a plan - display if dryRun, execute otherwise */
-const applyPlan = (
-  plan: Plan,
-  opts: ApplyOptions,
-): Effect.Effect<ApplyResult, ApplyError> =>
+const applyPlan = (plan: Plan, opts: ApplyOptions): Effect.Effect<ApplyResult, ApplyError> =>
   Effect.gen(function* () {
     if (opts.dryRun) {
       yield* displayPlan(plan);

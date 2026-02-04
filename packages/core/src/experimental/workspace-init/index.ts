@@ -8,11 +8,7 @@
  */
 
 export { ApplyInitError, type ApplyInitOptions, applyInitDiff } from "./apply.js";
-export {
-  type ComputeInitDiffOptions,
-  computeInitDiff,
-  InvalidWorkspaceError,
-} from "./diff.js";
+export { type ComputeInitDiffOptions, computeInitDiff, InvalidWorkspaceError } from "./diff.js";
 
 export { buildIdealInitState, loadActualInitState } from "./state.js";
 // Types

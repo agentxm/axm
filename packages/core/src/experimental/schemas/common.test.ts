@@ -266,10 +266,10 @@ describe("common schemas", () => {
       "cursor",
       "windsurf",
       "codex",
-      "copilot",
-      "gemini",
-      "vscode",
+      "github-copilot",
+      "gemini-cli",
       "opencode",
+      "antigravity",
     ] as const)("accepts valid agent id: %s", (agentId) => {
       const result = Schema.decodeUnknownEither(AgentIdSchema)(agentId);
 

@@ -102,17 +102,50 @@ export type SourceType = typeof SourceTypeSchema.Type;
 /**
  * Agent identifier enumeration for supported coding agents.
  *
+ * Must be kept in sync with AgentId in agents/types.ts.
+ *
  * @experimental This API is unstable and may change without notice.
  */
 export const AgentIdSchema = Schema.Union(
+  Schema.Literal("adal"),
+  Schema.Literal("amp"),
+  Schema.Literal("antigravity"),
+  Schema.Literal("augment"),
   Schema.Literal("claude-code"),
-  Schema.Literal("cursor"),
-  Schema.Literal("windsurf"),
+  Schema.Literal("cline"),
+  Schema.Literal("codebuddy"),
   Schema.Literal("codex"),
-  Schema.Literal("copilot"),
-  Schema.Literal("gemini"),
-  Schema.Literal("vscode"),
+  Schema.Literal("command-code"),
+  Schema.Literal("continue"),
+  Schema.Literal("crush"),
+  Schema.Literal("cursor"),
+  Schema.Literal("droid"),
+  Schema.Literal("gemini-cli"),
+  Schema.Literal("github-copilot"),
+  Schema.Literal("goose"),
+  Schema.Literal("iflow-cli"),
+  Schema.Literal("junie"),
+  Schema.Literal("kilo"),
+  Schema.Literal("kimi-cli"),
+  Schema.Literal("kiro-cli"),
+  Schema.Literal("kode"),
+  Schema.Literal("mcpjam"),
+  Schema.Literal("mistral-vibe"),
+  Schema.Literal("mux"),
+  Schema.Literal("neovate"),
+  Schema.Literal("openclaw"),
   Schema.Literal("opencode"),
+  Schema.Literal("openhands"),
+  Schema.Literal("pi"),
+  Schema.Literal("pochi"),
+  Schema.Literal("qoder"),
+  Schema.Literal("qwen-code"),
+  Schema.Literal("replit"),
+  Schema.Literal("roo"),
+  Schema.Literal("trae"),
+  Schema.Literal("trae-cn"),
+  Schema.Literal("windsurf"),
+  Schema.Literal("zencoder"),
 );
 
 /**

@@ -118,6 +118,16 @@ const buildLocalSource = (original: string, path: string): ParsedSource => ({
 });
 
 /**
+ * Build a ParsedSource for well-known HTTP(S) sources.
+ */
+const buildWellKnownSource = (original: string, baseUrl: string): ParsedSource => ({
+  type: "wellknown",
+  original,
+  canonical: `wellknown:${baseUrl}`,
+  baseUrl,
+});
+
+/**
  * Build a ParsedSource for GitHub/GitLab/Bitbucket sources.
  */
 const buildGitSource = (
@@ -334,6 +344,8 @@ export const getOriginFromParsed = (parsed: ParsedSource): string => {
       return `https://bitbucket.org/${parsed.owner}/${parsed.repo}`;
     case "local":
       return parsed.original;
+    case "wellknown":
+      return parsed.baseUrl ?? parsed.original;
     case "git":
     case "registry":
       return parsed.original;
@@ -414,14 +426,9 @@ export const parseSource = (input: string): Effect.Effect<ParsedSource, ParseErr
     return parseBitbucketSshUrl(trimmed);
   }
 
-  // Check for other HTTPS URLs (not supported)
+  // Check for other HTTPS URLs - use well-known discovery
   if (URL_PATTERN.test(trimmed)) {
-    return Effect.fail(
-      new ParseError({
-        message: `Unsupported URL: "${trimmed}". Only GitHub, GitLab, and Bitbucket URLs are supported.`,
-        input: trimmed,
-      }),
-    );
+    return Effect.succeed(buildWellKnownSource(trimmed, trimmed));
   }
 
   // Check for local paths (now supported)

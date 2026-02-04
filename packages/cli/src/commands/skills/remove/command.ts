@@ -4,10 +4,11 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Effect from "effect/Effect"
+import * as Effect from "effect/Effect";
 import type { CommandModule } from "yargs";
 import { handleRemove } from "./handler.js";
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
 export const removeCommand: CommandModule<{}, {}> = {
   command: "remove",
   describe: "Remove installed skills (placeholder)",

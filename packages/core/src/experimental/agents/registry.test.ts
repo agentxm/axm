@@ -5,7 +5,7 @@
  * ensuring all agents are validated without hardcoding agent lists.
  */
 
-import * as Option from "effect/Option"
+import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import { AGENTS, getAgentById, getAgentIds, getAllAgents } from "./registry.js";
 

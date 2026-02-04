@@ -25,13 +25,22 @@ export default tseslint.config(
           varsIgnorePattern: "^_",
         },
       ],
-      // Relax some strict rules for pragmatic development
-      "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-empty-object-type": "off",
-      "@typescript-eslint/ban-ts-comment": "off",
+      // Warn on explicit any - use eslint-disable when truly needed
+      "@typescript-eslint/no-explicit-any": "warn",
+      // Namespaces rarely needed but not harmful
       "@typescript-eslint/no-namespace": "off",
-      "no-fallthrough": "off",
-      "require-yield": "off",
+      // Prefer @ts-expect-error over @ts-ignore, require description
+      "@typescript-eslint/ban-ts-comment": [
+        "error",
+        {
+          "ts-expect-error": "allow-with-description",
+          "ts-ignore": true,
+          "ts-nocheck": true,
+          "ts-check": false,
+        },
+      ],
+      // Catch unintentional fallthrough - use "// falls through" comment for intentional
+      "no-fallthrough": "error",
     },
   },
   {

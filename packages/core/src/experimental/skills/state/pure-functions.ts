@@ -555,23 +555,29 @@ export const buildPlan = (current: CurrentStateNew, ideal: IdealStateNew): Plan 
                     agents: idealSkill.agents,
                   }),
                 onSome: (locked) => {
-                  // Compare git tree hashes for equality
-                  const hashesEqual = pipe(
-                    Option.all([idealSkill.gitTreeHash, locked.gitTreeHash]),
-                    Option.match({
-                      onNone: () =>
-                        Option.isNone(idealSkill.gitTreeHash) && Option.isNone(locked.gitTreeHash),
-                      onSome: ([h1, h2]) => h1 === h2,
-                    }),
-                  );
+                  // Determine if update is needed based on source type
+                  const needsUpdate = (() => {
+                    switch (idealSkill.source._tag) {
+                      case "Registry":
+                        // Registry: compare versions
+                        return !versionsEqual(idealSkill.version, locked.version);
 
-                  const needsUpdate =
-                    (idealSkill.source._tag === "Registry" &&
-                      !versionsEqual(idealSkill.version, locked.version)) ||
-                    (idealSkill.source._tag !== "Registry" &&
-                      idealSkill.source._tag !== "Local" &&
-                      !hashesEqual) ||
-                    idealSkill.source._tag === "Local"; // Local always updates
+                      case "GitHub":
+                        // GitHub with hash: compare hashes, update if different
+                        // GitHub without hash (API unavailable): always update (no stable identifier)
+                        return pipe(
+                          Option.all([idealSkill.gitTreeHash, locked.gitTreeHash]),
+                          Option.match({
+                            onNone: () => true, // No hash available -> always update
+                            onSome: ([h1, h2]) => h1 !== h2, // Hashes differ -> update
+                          }),
+                        );
+
+                      case "Local":
+                        // Local: always update (no stable identifier)
+                        return true;
+                    }
+                  })();
 
                   return needsUpdate
                     ? Option.some<PlanStep>({

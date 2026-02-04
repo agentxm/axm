@@ -62,6 +62,34 @@ vi.mock("@agentxm/core/experimental/skills", async (importOriginal) => {
   };
 });
 
+// Mock GitHub API to return fake tree hashes
+// Track call count to return different hashes for different installs
+let gitHubApiCallCount = 0;
+
+vi.mock("@agentxm/core/experimental/skills/github-api", async (importOriginal) => {
+  const original =
+    await importOriginal<typeof import("@agentxm/core/experimental/skills/github-api")>();
+
+  return {
+    ...original,
+    // Mock fetchGitHubTreeHash to return unique fake hashes for each call
+    fetchGitHubTreeHash: vi.fn(
+      (_owner: string, _repo: string, _ref: string, _skillPath: string) => {
+        // Increment call counter and generate unique hash based on call number
+        gitHubApiCallCount++;
+        // Generate a valid 40-character hex hash with varying content
+        const hexPart = gitHubApiCallCount.toString(16).padStart(8, "0");
+        const hash = `${hexPart}00000000000000000000000000000000`.slice(0, 40);
+        return Effect.succeed(hash);
+      },
+    ),
+    // Allow tests to reset the call counter
+    __resetGitHubApiCallCount: () => {
+      gitHubApiCallCount = 0;
+    },
+  };
+});
+
 /**
  * Helper to recursively copy a directory.
  */
@@ -837,7 +865,8 @@ describe("install.handler", () => {
           expect(lockContent.skills.commit).toBeDefined();
           expect(lockContent.skills.commit.source).toBe("local");
           expect(lockContent.skills.commit.path).toBeDefined();
-          expect(lockContent.skills.commit.gitTreeHash).toMatch(/^sha256:/);
+          // GitHub sources now use raw git tree SHA from GitHub API (no sha256: prefix)
+          expect(lockContent.skills.commit.gitTreeHash).toMatch(/^[a-f0-9]{40}$/);
           expect(lockContent.skills.commit.agents).toBeDefined();
           expect(lockContent.skills.commit.installedAt).toBeDefined();
           expect(lockContent.skills.commit.updatedAt).toBeDefined();
@@ -1511,8 +1540,8 @@ describe("install.handler", () => {
           expect(entry.installedAt).toBeDefined();
           expect(entry.updatedAt).toBeDefined();
 
-          // gitTreeHash should be a sha256 hash
-          expect(entry.gitTreeHash).toMatch(/^sha256:/);
+          // GitHub sources now use raw git tree SHA from GitHub API (no sha256: prefix)
+          expect(entry.gitTreeHash).toMatch(/^[a-f0-9]{40}$/);
         }),
       ),
     );

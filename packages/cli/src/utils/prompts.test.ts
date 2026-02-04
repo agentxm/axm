@@ -1,4 +1,4 @@
-import { Cause, Effect, Exit } from "effect";
+import { Effect, Exit } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**

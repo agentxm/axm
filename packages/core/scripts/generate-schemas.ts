@@ -33,7 +33,7 @@ fs.mkdirSync(OUTPUT_DIR, { recursive: true });
 for (const { name, schema } of schemas) {
   const jsonSchema = JSONSchema.make(schema);
   const outputPath = path.join(OUTPUT_DIR, name);
-  fs.writeFileSync(outputPath, JSON.stringify(jsonSchema, null, 2) + "\n");
+  fs.writeFileSync(outputPath, `${JSON.stringify(jsonSchema, null, 2)}\n`);
   console.log(`Generated: ${name}`);
 }
 

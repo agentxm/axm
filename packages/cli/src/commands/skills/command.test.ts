@@ -23,7 +23,7 @@ describe("skills subcommand help", () => {
     const parser = yargs().command(skillsCommand).exitProcess(false);
 
     // Get help for the skills command specifically
-    const argv = await parser.parse(["skills", "--help"]);
+    await parser.parse(["skills", "--help"]);
     // yargs will have shown help, we verify by checking the command structure
     expect(skillsCommand.describe).toBe("Manage skills (extensions) for AI coding agents");
   });

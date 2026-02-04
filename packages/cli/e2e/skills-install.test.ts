@@ -487,7 +487,7 @@ describe("axm skills install", () => {
   });
 
   describe("conflict detection", () => {
-    it("skips already installed skill by default", async () => {
+    it("repairs already installed local skill (local sources always update)", async () => {
       const temp = createTempDir();
       try {
         await runCli(["init", "--yes", "--agent", "claude-code"], {
@@ -509,7 +509,7 @@ describe("axm skills install", () => {
           { cwd: temp.path },
         );
 
-        // Second install of same skill should skip
+        // Second install of same local skill triggers repair (no stable identifier)
         const result = await runCli(
           [
             "skills",
@@ -525,8 +525,8 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        // Should indicate the skill was skipped (state-based: already up to date)
-        expect(result.stdout).toMatch(/already up to date|already installed|skipping/i);
+        // Local sources always trigger repair (no stable identifier for comparison)
+        expect(result.stdout).toMatch(/repair/i);
       } finally {
         temp.cleanup();
       }

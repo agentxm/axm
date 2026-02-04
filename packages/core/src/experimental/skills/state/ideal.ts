@@ -18,7 +18,7 @@ import * as nodePath from "node:path";
 import type { FileSystem, Path } from "@effect/platform";
 import { Array as Arr, Data, Effect, Option, pipe, Record } from "effect";
 
-import { computeFolderHash } from "../folder-hash.js";
+import { fetchGitHubTreeHash } from "../github-api.js";
 import { discoverSkills } from "../skill-discovery.js";
 import type { ParsedSource, Skill } from "../types.js";
 import {
@@ -227,22 +227,40 @@ export const buildIdealForInstall = (
               return Option.none();
             }
 
-            // Compute hash for the skill directory
-            const skillDir = nodePath.dirname(skill.path);
-            const hashResult = yield* computeFolderHash(skillDir).pipe(
-              Effect.mapError(
-                (error) =>
-                  new BuildIdealError({
-                    message: `Failed to compute hash for skill ${skill.name}`,
-                    cause: error,
-                    retryable: false,
-                  }),
-              ),
-            );
+            // Compute hash based on source type
+            // Only GitHub sources get a hash via API - other sources always update
+            let hash: string;
+
+            if (source.parsed.type === "github" && source.parsed.owner && source.parsed.repo) {
+              // GitHub sources: fetch tree hash from GitHub API
+              const ref = source.parsed.ref ?? "HEAD";
+              // Build path within repo: subpath (if any) + skill name
+              const pathInRepo = source.parsed.path
+                ? `${source.parsed.path}/${skill.name}`
+                : skill.name;
+
+              const gitHubHash = yield* fetchGitHubTreeHash(
+                source.parsed.owner,
+                source.parsed.repo,
+                ref,
+                pathInRepo,
+              ).pipe(
+                // On API failure, gracefully degrade to undefined hash
+                // (skill will always update on next check - safe default)
+                Effect.catchAll(() => Effect.succeed(null)),
+              );
+
+              // Use GitHub hash if available, otherwise empty string (will trigger update)
+              hash = gitHubHash ?? "";
+            } else {
+              // Non-GitHub sources (local, generic git): no hash computed
+              // These sources have no stable identifier and always update
+              hash = "";
+            }
 
             return Option.some([
               skill.name,
-              skillToIdeal(skill, source, hashResult.hash, options.agents),
+              skillToIdeal(skill, source, hash, options.agents),
             ] as const);
           }),
         { concurrency: "unbounded" },

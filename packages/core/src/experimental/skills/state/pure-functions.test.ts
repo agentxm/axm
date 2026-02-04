@@ -789,6 +789,137 @@ describe("buildPlan", () => {
 
       expect(plan.steps).toHaveLength(0);
     });
+
+    it("always creates UpdateSkill when ideal GitHub source has no hash (API unavailable)", () => {
+      const locked = makeLockedSkillNew("git-skill", {
+        source: {
+          _tag: "GitHub",
+          owner: "user",
+          repo: "repo",
+          ref: Option.some("main"),
+          subpath: Option.none(),
+        },
+        version: Option.none(),
+        gitTreeHash: Option.some("existing-hash"),
+        agents: ["claude"],
+      });
+      const current: CurrentStateNew = {
+        skills: [makeSkillStateForBuildPlan("git-skill", { locked })],
+        issues: [],
+      };
+      const ideal: IdealStateNew = {
+        skills: [
+          makeIdealSkillNew("git-skill", {
+            source: {
+              _tag: "GitHub",
+              owner: "user",
+              repo: "repo",
+              ref: Option.some("main"),
+              subpath: Option.none(),
+            },
+            version: Option.none(),
+            gitTreeHash: Option.none(), // API unavailable
+            agents: ["claude"],
+          }),
+        ],
+      };
+
+      const plan = buildPlan(current, ideal);
+
+      // No hash available on ideal -> always update (no stable identifier for comparison)
+      expect(plan.steps).toHaveLength(1);
+      expect(plan.steps[0]?._tag).toBe("UpdateSkill");
+      const step = plan.steps[0] as PlanStep & { _tag: "UpdateSkill" };
+      expect(step.skill).toBe("git-skill");
+      expect(step.fromHash).toEqual(Option.some("existing-hash"));
+      expect(step.toHash).toEqual(Option.none());
+    });
+
+    it("always creates UpdateSkill when locked GitHub source has no hash", () => {
+      const locked = makeLockedSkillNew("git-skill", {
+        source: {
+          _tag: "GitHub",
+          owner: "user",
+          repo: "repo",
+          ref: Option.some("main"),
+          subpath: Option.none(),
+        },
+        version: Option.none(),
+        gitTreeHash: Option.none(), // Previously installed without hash
+        agents: ["claude"],
+      });
+      const current: CurrentStateNew = {
+        skills: [makeSkillStateForBuildPlan("git-skill", { locked })],
+        issues: [],
+      };
+      const ideal: IdealStateNew = {
+        skills: [
+          makeIdealSkillNew("git-skill", {
+            source: {
+              _tag: "GitHub",
+              owner: "user",
+              repo: "repo",
+              ref: Option.some("main"),
+              subpath: Option.none(),
+            },
+            version: Option.none(),
+            gitTreeHash: Option.some("new-hash"),
+            agents: ["claude"],
+          }),
+        ],
+      };
+
+      const plan = buildPlan(current, ideal);
+
+      // No hash available on locked -> always update (no stable identifier for comparison)
+      expect(plan.steps).toHaveLength(1);
+      expect(plan.steps[0]?._tag).toBe("UpdateSkill");
+      const step = plan.steps[0] as PlanStep & { _tag: "UpdateSkill" };
+      expect(step.skill).toBe("git-skill");
+      expect(step.fromHash).toEqual(Option.none());
+      expect(step.toHash).toEqual(Option.some("new-hash"));
+    });
+
+    it("always creates UpdateSkill when both ideal and locked GitHub sources have no hash", () => {
+      const locked = makeLockedSkillNew("git-skill", {
+        source: {
+          _tag: "GitHub",
+          owner: "user",
+          repo: "repo",
+          ref: Option.some("main"),
+          subpath: Option.none(),
+        },
+        version: Option.none(),
+        gitTreeHash: Option.none(),
+        agents: ["claude"],
+      });
+      const current: CurrentStateNew = {
+        skills: [makeSkillStateForBuildPlan("git-skill", { locked })],
+        issues: [],
+      };
+      const ideal: IdealStateNew = {
+        skills: [
+          makeIdealSkillNew("git-skill", {
+            source: {
+              _tag: "GitHub",
+              owner: "user",
+              repo: "repo",
+              ref: Option.some("main"),
+              subpath: Option.none(),
+            },
+            version: Option.none(),
+            gitTreeHash: Option.none(),
+            agents: ["claude"],
+          }),
+        ],
+      };
+
+      const plan = buildPlan(current, ideal);
+
+      // No hashes available -> always update (no stable identifier for comparison)
+      expect(plan.steps).toHaveLength(1);
+      expect(plan.steps[0]?._tag).toBe("UpdateSkill");
+    });
   });
 
   describe("UpdateSkill for Local sources", () => {

@@ -9,8 +9,6 @@
 
 import { Schema } from "effect";
 
-import { SourceSchema, type SourceType } from "./extension-sources.js";
-
 // =============================================================================
 // Date Transform
 // =============================================================================

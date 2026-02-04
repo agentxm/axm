@@ -682,7 +682,25 @@ export const handleInstall = (
       const result = yield* resolveGitSource(parsed, axmDir);
       skills = result.skills;
       resolvedSource = { parsed, skillsDir: result.skillsDir, commitSha: result.commitSha };
-    } else if (parsed.type === "git" || parsed.type === "registry" || parsed.type === "local") {
+    } else if (parsed.type === "local") {
+      // Local sources: discover skills directly from the filesystem path
+      const skillsDir = parsed.localPath!;
+      skills = yield* discoverSkills(skillsDir).pipe(
+        Effect.mapError(
+          (error) =>
+            new InstallError({
+              message: formatError(
+                `Failed to discover skills: ${error.message}`,
+                [`Path: ${skillsDir}`],
+                "Verify the path exists and contains directories with SKILL.md files.",
+              ),
+              cause: error,
+              retryable: false,
+            }),
+        ),
+      );
+      resolvedSource = { parsed, skillsDir };
+    } else if (parsed.type === "git" || parsed.type === "registry") {
       if (showOutput) spinnerHelper.stop("Source type not yet supported");
       return yield* new InstallError({
         message: `Source type "${parsed.type}" is not yet supported`,

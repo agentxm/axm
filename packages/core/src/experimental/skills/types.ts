@@ -24,26 +24,6 @@ export interface Skill {
 }
 
 // -----------------------------------------------------------------------------
-// Agent Types
-// -----------------------------------------------------------------------------
-
-/**
- * Agent configuration for detection.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface AgentConfig {
-  /** Unique identifier (e.g., "claude-code", "cursor") */
-  readonly id: string;
-  /** Human-readable display name */
-  readonly name: string;
-  /** Path to check for agent detection (e.g., "~/.claude") */
-  readonly detectPath: string;
-  /** Directory where agent loads skills from */
-  readonly skillsDir?: string;
-}
-
-// -----------------------------------------------------------------------------
 // Source Parsing Types
 // -----------------------------------------------------------------------------
 

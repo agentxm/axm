@@ -10,8 +10,8 @@
  * @packageDocumentation
  */
 
+import type { AgentConfig } from "../agents/types.js";
 import type { Settings } from "../schemas/settings.js";
-import type { AgentConfig } from "../skills/types.js";
 
 // =============================================================================
 // Init Validity (discriminated union for settings state)

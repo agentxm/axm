@@ -12,9 +12,9 @@
 import { FileSystem } from "@effect/platform";
 import { Effect, Schema } from "effect";
 
+import type { AgentConfig } from "../agents/types.js";
 import { SettingsSchema } from "../schemas/settings.js";
 import { DEFAULT_SCOPE } from "../skills/settings.js";
-import type { AgentConfig } from "../skills/types.js";
 import { type ActualInitState, type IdealInitState, InitValidity } from "./types.js";
 
 // =============================================================================

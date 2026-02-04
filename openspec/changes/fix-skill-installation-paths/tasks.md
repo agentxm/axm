@@ -132,30 +132,30 @@ _Depends on Phase 9 completing - legacy apply must accept new AgentConfig first.
 - [x] 11.5 Run `pnpm typecheck` and fix any errors
 - [x] 11.6 Run `pnpm lint` and fix any errors
 - [x] 11.7 Run `pnpm test packages/cli/src/commands/skills/uninstall/` and fix any failures (16 tests pass)
-- [ ] 11.8 Run `pnpm test:e2e -- --grep uninstall` and fix any failures
-- [ ] 11.9 Kill any vitest worker processes
+- [x] 11.8 Run `pnpm test:e2e -- --grep uninstall` and fix any failures
+- [x] 11.9 Kill any vitest worker processes
 
 ## 12. Migrate Init Handler (if applicable)
 
-- [ ] 12.1 Check if init/handler.ts uses skills/state functions or AgentConfig
-- [ ] 12.2 Update to use agents/ module if needed
-- [ ] 12.3 Run `pnpm typecheck` and fix any errors
-- [ ] 12.4 Run `pnpm lint` and fix any errors
-- [ ] 12.5 Run `pnpm test` and fix any failures
-- [ ] 12.6 Kill any vitest worker processes
+- [x] 12.1 Check if init/handler.ts uses skills/state functions or AgentConfig
+- [x] 12.2 Update to use agents/ module if needed
+- [x] 12.3 Run `pnpm typecheck` and fix any errors
+- [x] 12.4 Run `pnpm lint` and fix any errors
+- [x] 12.5 Run `pnpm test` and fix any failures
+- [x] 12.6 Kill any vitest worker processes
 
 ## 13. Delete Superseded Agent Code
 
 _After handlers migrate to agents/ module, remove old agent code from skills/._
 
-- [ ] 13.1 Remove AgentConfig interface from `skills/types.ts`
-- [ ] 13.2 Remove agent exports from `skills/index.ts` (SUPPORTED_AGENTS, detectAgents, getAgentById, DetectionError)
-- [ ] 13.3 Delete `skills/agent-detection.ts`
-- [ ] 13.4 Delete `skills/agent-detection.test.ts`
-- [ ] 13.5 Run `pnpm typecheck` and fix any errors
-- [ ] 13.6 Run `pnpm lint` and fix any errors
-- [ ] 13.7 Run `pnpm test` and fix any failures
-- [ ] 13.8 Kill any vitest worker processes
+- [x] 13.1 Remove AgentConfig interface from `skills/types.ts`
+- [x] 13.2 Remove agent exports from `skills/index.ts` (SUPPORTED_AGENTS, detectAgents, getAgentById, DetectionError)
+- [x] 13.3 Delete `skills/agent-detection.ts`
+- [x] 13.4 Delete `skills/agent-detection.test.ts`
+- [x] 13.5 Run `pnpm typecheck` and fix any errors
+- [x] 13.6 Run `pnpm lint` and fix any errors
+- [x] 13.7 Run `pnpm test` and fix any failures
+- [x] 13.8 Kill any vitest worker processes
 
 ## 14. Clean Up Types
 

@@ -8,10 +8,17 @@ import * as os from "node:os";
 import * as nodePath from "node:path";
 import { FileSystem } from "@effect/platform";
 import { NodeContext } from "@effect/platform-node";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { AgentConfig } from "../skills/types.js";
+import type { AgentConfig, AgentId } from "../agents/types.js";
 import { buildIdealInitState, loadActualInitState } from "./state.js";
+
+// Helper to create test AgentConfig
+const makeAgent = (id: AgentId, name: string, projectDir: string): AgentConfig => ({
+  id,
+  name,
+  skills: { projectDir, globalDir: Option.none() },
+});
 
 // Test helpers
 const runEffect = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
@@ -136,8 +143,8 @@ describe("loadActualInitState", () => {
 describe("buildIdealInitState", () => {
   it("uses detected agents", () => {
     const agents: AgentConfig[] = [
-      { id: "claude-code", name: "Claude Code", detectPath: "~/.claude" },
-      { id: "cursor", name: "Cursor", detectPath: "~/.cursor" },
+      makeAgent("claude-code", "Claude Code", ".claude/skills"),
+      makeAgent("cursor", "Cursor", ".cursor/skills"),
     ];
 
     const result = buildIdealInitState(agents);
@@ -147,9 +154,7 @@ describe("buildIdealInitState", () => {
   });
 
   it("uses @community as default scope", () => {
-    const agents: AgentConfig[] = [
-      { id: "claude-code", name: "Claude Code", detectPath: "~/.claude" },
-    ];
+    const agents: AgentConfig[] = [makeAgent("claude-code", "Claude Code", ".claude/skills")];
 
     const result = buildIdealInitState(agents);
 
@@ -157,9 +162,7 @@ describe("buildIdealInitState", () => {
   });
 
   it("accepts custom scope", () => {
-    const agents: AgentConfig[] = [
-      { id: "claude-code", name: "Claude Code", detectPath: "~/.claude" },
-    ];
+    const agents: AgentConfig[] = [makeAgent("claude-code", "Claude Code", ".claude/skills")];
 
     const result = buildIdealInitState(agents, "@myorg");
 
@@ -175,9 +178,9 @@ describe("buildIdealInitState", () => {
 
   it("preserves agent ordering", () => {
     const agents: AgentConfig[] = [
-      { id: "cursor", name: "Cursor", detectPath: "~/.cursor" },
-      { id: "claude-code", name: "Claude Code", detectPath: "~/.claude" },
-      { id: "windsurf", name: "Windsurf", detectPath: "~/.windsurf" },
+      makeAgent("cursor", "Cursor", ".cursor/skills"),
+      makeAgent("claude-code", "Claude Code", ".claude/skills"),
+      makeAgent("windsurf", "Windsurf", ".windsurf/skills"),
     ];
 
     const result = buildIdealInitState(agents);

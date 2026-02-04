@@ -18,8 +18,8 @@ import {
   type AgentConfig,
   detectAgents,
   getAgentById,
-  getSupportedAgentIds,
-} from "@agentxm/core/experimental/skills";
+  getAgentIds,
+} from "@agentxm/core/experimental/agents";
 import {
   type ApplyInitError,
   applyInitDiff,
@@ -33,7 +33,7 @@ import {
 } from "@agentxm/core/experimental/workspace-init";
 import * as p from "@clack/prompts";
 import type { FileSystem } from "@effect/platform";
-import { Data, Effect, pipe } from "effect";
+import { Array as Arr, Data, Effect, Option, pipe } from "effect";
 import { formatError } from "../../utils/errors.js";
 import { promptMultiselect } from "../../utils/prompts.js";
 import { createSpinnerHelper } from "../../utils/spinner.js";
@@ -96,7 +96,7 @@ const getAxmDir = (global: boolean): string =>
  * Validates that specified agent IDs exist in the supported list.
  */
 const validateAgentIds = (agentIds: readonly string[]): Effect.Effect<void, InitError> => {
-  const supportedIds = getSupportedAgentIds();
+  const supportedIds: readonly string[] = getAgentIds();
   const invalidIds = agentIds.filter((id) => !supportedIds.includes(id));
 
   if (invalidIds.length > 0) {
@@ -150,9 +150,7 @@ const selectAgents = (
     return pipe(
       validateAgentIds(args.agent),
       Effect.map(() => {
-        const agents = [...args.agent]
-          .map((id) => getAgentById(id))
-          .filter((a): a is AgentConfig => a !== undefined);
+        const agents = Arr.filterMap([...args.agent], (id) => getAgentById(id));
         p.log.info(`Using specified agents: ${agents.map((a) => a.name).join(", ")}`);
         return agents;
       }),
@@ -193,16 +191,11 @@ const selectAgents = (
   }
 
   return promptMultiselect("Select agents to configure", detectedAgents, {
-    toOption: (a) => {
-      const opt: { value: string; label: string; hint?: string } = {
-        value: a.id,
-        label: a.name,
-      };
-      if (a.skillsDir) {
-        opt.hint = `skills: ${a.skillsDir}`;
-      }
-      return opt;
-    },
+    toOption: (a) => ({
+      value: a.id,
+      label: a.name,
+      hint: `skills: ${a.skills.projectDir}`,
+    }),
     initialValues: detectedAgents.map((a) => a.id),
     required: false,
   }).pipe(
@@ -345,7 +338,12 @@ export const handleInit = (
       const agentNames =
         actualState.validity._tag === "Valid"
           ? (actualState.validity.settings.agents ?? [])
-              .map((id: string) => getAgentById(id)?.name ?? id)
+              .map((id: string) =>
+                Option.getOrElse(
+                  Option.map(getAgentById(id), (a) => a.name),
+                  () => id,
+                ),
+              )
               .join(", ")
           : "";
       p.log.info(`Already initialized with agents: ${agentNames || "(none)"}`);

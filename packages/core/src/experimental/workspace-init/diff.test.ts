@@ -4,11 +4,11 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { Effect, Exit } from "effect";
+import { Effect, Exit, Option } from "effect";
 import { describe, expect, it } from "vitest";
-import type { AgentId } from "../schemas/common.js";
+import type { AgentConfig, AgentId } from "../agents/types.js";
+import type { AgentId as SettingsAgentId } from "../schemas/common.js";
 import type { Settings } from "../schemas/settings.js";
-import type { AgentConfig } from "../skills/types.js";
 import { computeInitDiff } from "./diff.js";
 import type { ActualInitState, IdealInitState } from "./types.js";
 import { InitValidity } from "./types.js";
@@ -17,13 +17,16 @@ import { InitValidity } from "./types.js";
 // Test Helpers
 // =============================================================================
 
-const makeAgentConfig = (id: string): AgentConfig => ({
+const makeAgentConfig = (id: AgentId): AgentConfig => ({
   id,
   name: id.charAt(0).toUpperCase() + id.slice(1),
-  detectPath: `~/.${id}`,
+  skills: {
+    projectDir: `.${id}/skills`,
+    globalDir: Option.some(`~/.${id}/skills`),
+  },
 });
 
-const makeSettings = (agents: readonly AgentId[] = []): Settings => ({
+const makeSettings = (agents: readonly SettingsAgentId[] = []): Settings => ({
   agents: [...agents],
   scope: "@community",
 });
@@ -125,9 +128,9 @@ describe("computeInitDiff", () => {
     });
 
     it("returns Unchanged with existing settings even if ideal differs", async () => {
-      const settings = makeSettings(["copilot"]);
+      const settings = makeSettings(["codex"]);
       const actual = makeActualState(InitValidity.Valid(settings));
-      const ideal = makeIdealState([makeAgentConfig("gemini")], "@different");
+      const ideal = makeIdealState([makeAgentConfig("windsurf")], "@different");
 
       const result = await Effect.runPromiseExit(computeInitDiff(actual, ideal, { force: false }));
 
@@ -135,7 +138,7 @@ describe("computeInitDiff", () => {
       if (Exit.isSuccess(result)) {
         expect(result.value.change._tag).toBe("Unchanged");
         if (result.value.change._tag === "Unchanged") {
-          expect(result.value.change.settings.agents).toEqual(["copilot"]);
+          expect(result.value.change.settings.agents).toEqual(["codex"]);
         }
       }
     });

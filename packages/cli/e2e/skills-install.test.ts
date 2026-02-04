@@ -140,18 +140,16 @@ describe("axm skills install", () => {
         expect(lock.lockfileVersion).toBe(1);
         expect(lock.skills).toBeDefined();
 
-        // Each skill entry should have required fields per new schema
+        // Each skill entry should have required fields per flat schema
         for (const skillName of ["my-skill", "another-skill"]) {
           const entry = lock.skills[skillName];
           expect(entry).toBeDefined();
-          expect(entry).toHaveProperty("name");
-          expect(entry).toHaveProperty("source");
+          // Flat schema: source is a string discriminator, not nested object
+          expect(entry.source).toBe("local");
+          expect(entry.path).toBeDefined();
           expect(entry).toHaveProperty("agents");
           expect(entry).toHaveProperty("installedAt");
           expect(entry).toHaveProperty("updatedAt");
-          // Source should be a structured object with _tag
-          expect(entry.source).toHaveProperty("_tag");
-          expect(entry.source._tag).toBe("Local");
         }
       } finally {
         temp.cleanup();
@@ -441,9 +439,9 @@ describe("axm skills install", () => {
         expect(lock.skills["my-skill"]).toBeDefined();
 
         const entry = lock.skills["my-skill"];
-        expect(entry.name).toBe("my-skill");
-        expect(entry.source).toBeDefined();
-        expect(entry.source._tag).toBe("Local");
+        // Flat schema: source is a string discriminator, path is at top level
+        expect(entry.source).toBe("local");
+        expect(entry.path).toBeDefined();
         expect(entry.agents).toBeDefined();
         expect(Array.isArray(entry.agents)).toBe(true);
         expect(entry.installedAt).toBeDefined();

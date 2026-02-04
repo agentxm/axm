@@ -13,8 +13,6 @@ interface InstallArgs {
   list: boolean;
   all: boolean;
   force: boolean;
-  verbose?: boolean;
-  quiet?: boolean;
   "non-interactive"?: boolean;
   "dry-run"?: boolean;
 }
@@ -108,8 +106,6 @@ export const installCommand: CommandModule<{}, InstallArgs> = {
       list: argv.list,
       all: argv.all,
       force: argv.force,
-      verbose: argv.verbose,
-      quiet: argv.quiet,
       nonInteractive: argv["non-interactive"],
       dryRun: argv["dry-run"],
     }).pipe(

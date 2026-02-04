@@ -57,10 +57,6 @@ export interface InitArgs {
   readonly force: boolean;
   /** Preview initialization plan without making changes */
   readonly dryRun: boolean;
-  /** Increase output detail */
-  readonly verbose?: boolean | undefined;
-  /** Suppress non-essential output */
-  readonly quiet?: boolean | undefined;
   /** Output as JSON */
   readonly json?: boolean | undefined;
   /** Disable all prompts */

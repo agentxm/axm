@@ -81,10 +81,6 @@ export interface InstallArgs {
   readonly all: boolean;
   /** Overwrite existing skills */
   readonly force: boolean;
-  /** Increase output detail */
-  readonly verbose?: boolean | undefined;
-  /** Suppress non-essential output */
-  readonly quiet?: boolean | undefined;
   /** Disable all prompts */
   readonly nonInteractive?: boolean | undefined;
   /** Preview installation plan without making changes */

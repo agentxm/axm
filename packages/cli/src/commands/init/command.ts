@@ -8,8 +8,6 @@ interface InitArgs {
   agent: string[];
   yes: boolean;
   force: boolean;
-  verbose?: boolean;
-  quiet?: boolean;
   "non-interactive"?: boolean;
   "dry-run"?: boolean;
 }
@@ -61,8 +59,6 @@ export const initCommand: CommandModule<{}, InitArgs> = {
       yes: argv.yes,
       force: argv.force,
       dryRun: argv["dry-run"] ?? false,
-      verbose: argv.verbose,
-      quiet: argv.quiet,
       nonInteractive: argv["non-interactive"],
     }).pipe(
       Effect.catchAll((error) =>

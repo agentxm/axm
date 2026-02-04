@@ -57,17 +57,6 @@ CLI commands SHALL follow the project structure defined in CLAUDE.md, organizing
 
 The CLI SHALL support standard flags for controlling output and interactivity.
 
-#### Scenario: Verbose flag increases output detail
-
-- **WHEN** the user runs any command with `--verbose` or `-v`
-- **THEN** the CLI displays additional diagnostic information
-
-#### Scenario: Quiet flag suppresses non-essential output
-
-- **WHEN** the user runs any command with `--quiet` or `-q`
-- **THEN** the CLI suppresses progress indicators and informational messages
-- **AND** only errors and primary output are displayed
-
 #### Scenario: JSON flag outputs machine-readable format
 
 - **WHEN** the user runs any command with `--json`

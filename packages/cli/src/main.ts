@@ -15,16 +15,6 @@ export const program = Effect.promise(() =>
     .version(version)
     .help()
     .strict()
-    .option("verbose", {
-      alias: "v",
-      type: "boolean",
-      describe: "Increase output detail",
-    })
-    .option("quiet", {
-      alias: "q",
-      type: "boolean",
-      describe: "Suppress non-essential output",
-    })
     .option("non-interactive", {
       type: "boolean",
       describe: "Disable all prompts",

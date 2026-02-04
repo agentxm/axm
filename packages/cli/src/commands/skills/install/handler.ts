@@ -161,11 +161,8 @@ const createLockEntryFromParsed = (
       };
     case "local":
       // Local sources use the path directly
-      // Note: Local source support in install command is not yet implemented
       return {
-        source: "github" as const, // Placeholder - local sources not yet supported
-        owner: "",
-        repo: "",
+        source: "local" as const,
         path: parsed.localPath ?? parsed.canonical,
         ...commonFields,
       };

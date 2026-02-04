@@ -507,7 +507,8 @@ export const handleInstall = (
       resolvedSource = { parsed, skillsDir: result.skillsDir, commitSha: result.commitSha };
     } else if (parsed.type === "local") {
       // Local sources: discover skills directly from the filesystem path
-      const skillsDir = parsed.localPath!;
+      // localPath is always present for local sources (set by buildLocalSource)
+      const skillsDir = parsed.localPath ?? parsed.original;
       skills = yield* discoverSkills(skillsDir).pipe(
         Effect.mapError(
           (error) =>

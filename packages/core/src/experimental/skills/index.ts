@@ -25,17 +25,6 @@ export {
   isGitRepository,
   resolveRef,
 } from "./git.js";
-// Installer
-export type { InstallMethod, InstallResult } from "./installer.js";
-export {
-  copySkillToCanonical,
-  copyToAgent,
-  createAgentSymlink,
-  InstallError,
-  installSkill,
-  installSkillToAgents,
-  removeSkillFromAgents,
-} from "./installer.js";
 // Lockfile
 export type { LockfileError } from "./lockfile.js";
 export {

@@ -1,51 +1,51 @@
 ## 1. Delete Dead Code (installer.ts)
 
-- [ ] 1.1 Delete `packages/core/src/experimental/skills/installer.ts`
-- [ ] 1.2 Delete `packages/core/src/experimental/skills/installer.test.ts`
-- [ ] 1.3 Remove installer exports from `skills/index.ts` (InstallMethod, InstallResult, copySkillToCanonical, copyToAgent, createAgentSymlink, InstallError, installSkill, installSkillToAgents, removeSkillFromAgents)
-- [ ] 1.4 Run `pnpm typecheck` to confirm nothing imports deleted code
-- [ ] 1.5 Run `pnpm lint` and fix any errors
-- [ ] 1.6 Run `pnpm test` and fix any failures
-- [ ] 1.7 Kill any vitest worker processes
+- [x] 1.1 Delete `packages/core/src/experimental/skills/installer.ts`
+- [x] 1.2 Delete `packages/core/src/experimental/skills/installer.test.ts`
+- [x] 1.3 Remove installer exports from `skills/index.ts` (InstallMethod, InstallResult, copySkillToCanonical, copyToAgent, createAgentSymlink, InstallError, installSkill, installSkillToAgents, removeSkillFromAgents)
+- [x] 1.4 Run `pnpm typecheck` to confirm nothing imports deleted code
+- [x] 1.5 Run `pnpm lint` and fix any errors
+- [x] 1.6 Run `pnpm test` and fix any failures
+- [x] 1.7 Kill any vitest worker processes
 
 ## 2. Create agents/ Module - Types and Constants
 
-- [ ] 2.1 Create `packages/core/src/experimental/agents/` directory
-- [ ] 2.2 Create `agents/types.ts` with AgentConfig, AgentSkillsConfig, AgentId union type, and AgentRegistry type
-- [ ] 2.3 Create `agents/constants.ts` with shared path constants (home, configHome, claudeHome, codexHome)
-- [ ] 2.4 Run `pnpm typecheck` and fix any errors
-- [ ] 2.5 Run `pnpm lint` and fix any errors
+- [x] 2.1 Create `packages/core/src/experimental/agents/` directory
+- [x] 2.2 Create `agents/types.ts` with AgentConfig, AgentSkillsConfig, AgentId union type, and AgentRegistry type
+- [x] 2.3 Create `agents/constants.ts` with shared path constants (home, configHome, claudeHome, codexHome)
+- [x] 2.4 Run `pnpm typecheck` and fix any errors
+- [x] 2.5 Run `pnpm lint` and fix any errors
 
 ## 3. Create agents/ Module - Registry
 
-- [ ] 3.1 Write `agents/registry.test.ts` with dynamic tests: all agents have projectDir, projectDir ends with /skills, globalDir is Option, id matches key
-- [ ] 3.2 Create `agents/registry.ts` with AGENTS Record sourced from vercel-labs/skills reference
-- [ ] 3.3 Implement getAgentById returning Option<AgentConfig>
-- [ ] 3.4 Implement getAgentIds and getAllAgents helper functions
-- [ ] 3.5 Run `pnpm typecheck` and fix any errors
-- [ ] 3.6 Run `pnpm lint` and fix any errors
-- [ ] 3.7 Run `pnpm test packages/core/src/experimental/agents/` and fix any failures
-- [ ] 3.8 Kill any vitest worker processes
+- [x] 3.1 Write `agents/registry.test.ts` with dynamic tests: all agents have projectDir, projectDir ends with /skills, globalDir is Option, id matches key
+- [x] 3.2 Create `agents/registry.ts` with AGENTS Record sourced from vercel-labs/skills reference
+- [x] 3.3 Implement getAgentById returning Option<AgentConfig>
+- [x] 3.4 Implement getAgentIds and getAllAgents helper functions
+- [x] 3.5 Run `pnpm typecheck` and fix any errors
+- [x] 3.6 Run `pnpm lint` and fix any errors
+- [x] 3.7 Run `pnpm test packages/core/src/experimental/agents/` and fix any failures
+- [x] 3.8 Kill any vitest worker processes
 
 ## 4. Create agents/ Module - Detection
 
-- [ ] 4.1 Write `agents/detection.test.ts` with tests for detectAgent and detectAgents
-- [ ] 4.2 Create `agents/detection.ts` with DetectionError class
-- [ ] 4.3 Implement detectAgent(agent) with per-agent detection logic
-- [ ] 4.4 Implement detectAgents() with concurrent detection
-- [ ] 4.5 Run `pnpm typecheck` and fix any errors
-- [ ] 4.6 Run `pnpm lint` and fix any errors
-- [ ] 4.7 Run `pnpm test packages/core/src/experimental/agents/` and fix any failures
-- [ ] 4.8 Kill any vitest worker processes
+- [x] 4.1 Write `agents/detection.test.ts` with tests for detectAgent and detectAgents
+- [x] 4.2 Create `agents/detection.ts` with DetectionError class
+- [x] 4.3 Implement detectAgent(agent) with per-agent detection logic
+- [x] 4.4 Implement detectAgents() with concurrent detection
+- [x] 4.5 Run `pnpm typecheck` and fix any errors
+- [x] 4.6 Run `pnpm lint` and fix any errors
+- [x] 4.7 Run `pnpm test packages/core/src/experimental/agents/` and fix any failures
+- [x] 4.8 Kill any vitest worker processes
 
 ## 5. Create agents/ Module - Exports
 
-- [ ] 5.1 Create `agents/index.ts` barrel file exporting types, registry, and detection
-- [ ] 5.2 Update `experimental/index.ts` to export agents module
-- [ ] 5.3 Run `pnpm typecheck` and fix any errors
-- [ ] 5.4 Run `pnpm lint` and fix any errors
-- [ ] 5.5 Run `pnpm test` and fix any failures
-- [ ] 5.6 Kill any vitest worker processes
+- [x] 5.1 Create `agents/index.ts` barrel file exporting types, registry, and detection
+- [x] 5.2 Update `experimental/index.ts` to export agents module
+- [x] 5.3 Run `pnpm typecheck` and fix any errors
+- [x] 5.4 Run `pnpm lint` and fix any errors
+- [x] 5.5 Run `pnpm test` and fix any failures
+- [x] 5.6 Kill any vitest worker processes
 
 ## 6. Enhance workspace/apply.ts - Lockfile and Settings Updates
 

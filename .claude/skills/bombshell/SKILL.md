@@ -31,9 +31,7 @@ export const text = (opts: Parameters<typeof p.text>[0]) =>
     });
 
     if (p.isCancel(result)) {
-      return yield* Effect.fail(
-        new UserCancelled({ prompt: opts.message ?? "text" }),
-      );
+      return yield* Effect.fail(new UserCancelled({ prompt: opts.message ?? "text" }));
     }
 
     return result;
@@ -62,9 +60,7 @@ export class PromptError extends Data.TaggedError("PromptError")<{
   readonly cause: unknown;
 }> {}
 
-export class NotInteractiveError extends Data.TaggedError(
-  "NotInteractiveError",
-)<{
+export class NotInteractiveError extends Data.TaggedError("NotInteractiveError")<{
   readonly message: string;
 }> {}
 ```

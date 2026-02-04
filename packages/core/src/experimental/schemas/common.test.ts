@@ -195,19 +195,17 @@ describe("common schemas", () => {
   });
 
   describe("ExtensionType", () => {
-    it.each([
-      "skill",
-      "command",
-      "pack",
-      "mcp-server",
-    ] as const)("accepts valid extension type: %s", (type) => {
-      const result = Schema.decodeUnknownEither(ExtensionTypeSchema)(type);
+    it.each(["skill", "command", "pack", "mcp-server"] as const)(
+      "accepts valid extension type: %s",
+      (type) => {
+        const result = Schema.decodeUnknownEither(ExtensionTypeSchema)(type);
 
-      expect(Either.isRight(result)).toBe(true);
-      if (Either.isRight(result)) {
-        expect(result.right).toBe(type);
-      }
-    });
+        expect(Either.isRight(result)).toBe(true);
+        if (Either.isRight(result)) {
+          expect(result.right).toBe(type);
+        }
+      },
+    );
 
     it("rejects invalid extension type", () => {
       const result = Schema.decodeUnknownEither(ExtensionTypeSchema)("invalid");

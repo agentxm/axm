@@ -104,9 +104,7 @@ const result =
   yield *
   fetchData(url).pipe(
     Effect.catchTag("FetchError", (error) =>
-      error.retryable
-        ? Effect.retry(fetchData(url), retryPolicy)
-        : Effect.fail(error),
+      error.retryable ? Effect.retry(fetchData(url), retryPolicy) : Effect.fail(error),
     ),
   );
 ```

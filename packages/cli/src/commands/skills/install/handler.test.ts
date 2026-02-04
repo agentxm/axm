@@ -117,7 +117,6 @@ vi.mock("../../../utils/tty.js", () => ({
 }));
 
 // Import the mock helpers after vi.mock
-// eslint-disable-next-line @typescript-eslint/consistent-type-imports
 type SkillsModule = typeof import("@agentxm/core/experimental/skills") & {
   __setFixturePath: (path: string) => void;
   __clearFixturePath: () => void;

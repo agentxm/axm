@@ -11,9 +11,7 @@ The dry-run.md design defines canonical types that `schemas/lockfile.ts` must im
 **Add RegistryLocation schema** (missing entirely):
 
 ```typescript
-type RegistryLocation =
-  | { _tag: "Remote"; url: string }
-  | { _tag: "FileSystem"; path: string };
+type RegistryLocation = { _tag: "Remote"; url: string } | { _tag: "FileSystem"; path: string };
 ```
 
 **Update SkillSource to match design** (currently has 5 variants, design has 3):
@@ -64,9 +62,7 @@ const validateLockfile = (data: unknown): Effect.Effect<Lockfile, never> =>
   );
 
 // Target (GOOD): Typed errors, no silent fallback
-const decodeLockfile = (
-  data: unknown,
-): Effect.Effect<Lockfile, LockfileParseError> =>
+const decodeLockfile = (data: unknown): Effect.Effect<Lockfile, LockfileParseError> =>
   Schema.decodeUnknown(LockfileSchema)(data).pipe(
     Effect.mapError(
       (e) =>

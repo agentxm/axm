@@ -102,9 +102,7 @@ export const MyServiceLive = Layer.effect(
   Effect.gen(function* () {
     const apiKey = process.env.API_KEY;
     if (!apiKey) {
-      return yield* Effect.fail(
-        new ConfigError({ message: "API_KEY is required" }),
-      );
+      return yield* Effect.fail(new ConfigError({ message: "API_KEY is required" }));
     }
     return make({ apiKey });
   }),
@@ -114,9 +112,7 @@ export const MyServiceLive = Layer.effect(
 Test layer with explicit config:
 
 ```typescript
-export const makeMyServiceLayer = (
-  config: Partial<Config> & { apiKey: string },
-) =>
+export const makeMyServiceLayer = (config: Partial<Config> & { apiKey: string }) =>
   Layer.succeed(
     MyService,
     make({

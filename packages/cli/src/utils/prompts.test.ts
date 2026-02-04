@@ -88,7 +88,6 @@ describe("canPrompt", () => {
 });
 
 describe("promptConfirm", () => {
-  // biome-ignore lint/suspicious/noExplicitAny: vi.spyOn type is complex
   let mockProcessExit: any;
 
   beforeEach(() => {
@@ -165,7 +164,6 @@ describe("promptConfirm", () => {
 });
 
 describe("promptSelect", () => {
-  // biome-ignore lint/suspicious/noExplicitAny: vi.spyOn type is complex
   let mockProcessExit: any;
 
   beforeEach(() => {
@@ -282,7 +280,6 @@ describe("promptSelect", () => {
 });
 
 describe("promptMultiselect", () => {
-  // biome-ignore lint/suspicious/noExplicitAny: vi.spyOn type is complex
   let mockProcessExit: any;
 
   beforeEach(() => {

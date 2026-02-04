@@ -171,10 +171,7 @@ const detectAgent = (
       case "cursor":
         return yield* fs.exists(path.join(home, ".cursor"));
       case "codex": {
-        const [a, b] = yield* Effect.all([
-          fs.exists(codexHome),
-          fs.exists("/etc/codex"),
-        ]);
+        const [a, b] = yield* Effect.all([fs.exists(codexHome), fs.exists("/etc/codex")]);
         return a || b;
       }
       case "opencode":
@@ -222,13 +219,7 @@ interface AgentSkillsConfig {
 }
 
 /** Agent identifier type for type-safe lookups (exhaustive list from vercel-labs/skills) */
-type AgentId =
-  | "claude-code"
-  | "cursor"
-  | "codex"
-  | "opencode"
-  | "windsurf"
-  | "continue";
+type AgentId = "claude-code" | "cursor" | "codex" | "opencode" | "windsurf" | "continue";
 /* ... 40+ total */
 
 interface AgentConfig {
@@ -368,8 +359,7 @@ export interface ApplyDeps {
 
 ```typescript
 // BEFORE: Handlers must provide deps
-yield *
-  applyPlan(ws, plan, opts, { applyStep, updateLockfile, updateSettings });
+yield * applyPlan(ws, plan, opts, { applyStep, updateLockfile, updateSettings });
 
 // AFTER: Built-in implementations
 yield * applyPlan(ws, plan, opts);
@@ -397,28 +387,19 @@ describe("AGENTS registry", () => {
   // Dynamic: test ALL agents automatically
   const agentEntries = Record.toEntries(AGENTS);
 
-  it.each(agentEntries)(
-    "agent %s has required skills.projectDir",
-    ([id, config]) => {
-      expect(config.skills.projectDir).toBeDefined();
-      expect(config.skills.projectDir.length).toBeGreaterThan(0);
-    },
-  );
+  it.each(agentEntries)("agent %s has required skills.projectDir", ([id, config]) => {
+    expect(config.skills.projectDir).toBeDefined();
+    expect(config.skills.projectDir.length).toBeGreaterThan(0);
+  });
 
-  it.each(agentEntries)(
-    "agent %s projectDir ends with /skills",
-    ([id, config]) => {
-      // Exception: some agents use .agents/skills
-      expect(config.skills.projectDir).toMatch(/\/skills$/);
-    },
-  );
+  it.each(agentEntries)("agent %s projectDir ends with /skills", ([id, config]) => {
+    // Exception: some agents use .agents/skills
+    expect(config.skills.projectDir).toMatch(/\/skills$/);
+  });
 
-  it.each(agentEntries)(
-    "agent %s globalDir is Option (not undefined)",
-    ([id, config]) => {
-      expect(Option.isOption(config.skills.globalDir)).toBe(true);
-    },
-  );
+  it.each(agentEntries)("agent %s globalDir is Option (not undefined)", ([id, config]) => {
+    expect(Option.isOption(config.skills.globalDir)).toBe(true);
+  });
 
   it.each(agentEntries)("agent %s id matches registry key", ([id, config]) => {
     expect(config.id).toBe(id);
@@ -472,17 +453,12 @@ describe("skill installation paths", () => {
 
     it(`installs to ${agent.skills.projectDir}`, async () => {
       // Run axm install with --agent flag
-      const result = await runCli(
-        ["skills", "install", "test-skill", "--agent", agent.id],
-        { cwd: tmpDir },
-      );
+      const result = await runCli(["skills", "install", "test-skill", "--agent", agent.id], {
+        cwd: tmpDir,
+      });
 
       // Verify skill appears in correct location
-      const expectedPath = path.join(
-        tmpDir,
-        agent.skills.projectDir,
-        "test-skill",
-      );
+      const expectedPath = path.join(tmpDir, agent.skills.projectDir, "test-skill");
       expect(fs.existsSync(expectedPath)).toBe(true);
     });
 
@@ -498,11 +474,7 @@ describe("skill installation paths", () => {
       });
 
       // Verify skill removed
-      const expectedPath = path.join(
-        tmpDir,
-        agent.skills.projectDir,
-        "test-skill",
-      );
+      const expectedPath = path.join(tmpDir, agent.skills.projectDir, "test-skill");
       expect(fs.existsSync(expectedPath)).toBe(false);
     });
   });
@@ -670,10 +642,8 @@ import * as path from "node:path";
 
 // Pre-expanded paths at module init (no tilde expansion needed at runtime)
 export const home = os.homedir();
-export const configHome =
-  process.env.XDG_CONFIG_HOME ?? path.join(home, ".config");
-export const claudeHome =
-  process.env.CLAUDE_CONFIG_DIR ?? path.join(home, ".claude");
+export const configHome = process.env.XDG_CONFIG_HOME ?? path.join(home, ".config");
+export const claudeHome = process.env.CLAUDE_CONFIG_DIR ?? path.join(home, ".claude");
 export const codexHome = process.env.CODEX_HOME ?? path.join(home, ".codex");
 ```
 
@@ -709,10 +679,7 @@ export const detectAgent = (
       case "cursor":
         return yield* fs.exists(path.join(home, ".cursor"));
       case "codex": {
-        const [a, b] = yield* Effect.all([
-          fs.exists(codexHome),
-          fs.exists("/etc/codex"),
-        ]);
+        const [a, b] = yield* Effect.all([fs.exists(codexHome), fs.exists("/etc/codex")]);
         return a || b;
       }
       case "opencode":
@@ -743,9 +710,7 @@ export const detectAgents = (): Effect.Effect<
     const agents = Record.values(AGENTS);
     const results = yield* Effect.all(
       agents.map((agent) =>
-        detectAgent(agent).pipe(
-          Effect.map((detected) => (detected ? agent : null)),
-        ),
+        detectAgent(agent).pipe(Effect.map((detected) => (detected ? agent : null))),
       ),
       { concurrency: "unbounded" },
     );
@@ -759,12 +724,7 @@ export const detectAgents = (): Effect.Effect<
 
 ```typescript
 // Types
-export type {
-  AgentConfig,
-  AgentId,
-  AgentRegistry,
-  AgentSkillsConfig,
-} from "./types.js";
+export type { AgentConfig, AgentId, AgentRegistry, AgentSkillsConfig } from "./types.js";
 
 // Registry (pure data)
 export { AGENTS, getAgentById, getAgentIds, getAllAgents } from "./registry.js";
@@ -883,11 +843,7 @@ export * as Agents from "./agents/index.js";
 
 ```typescript
 // Import from agents module (only option)
-import {
-  AGENTS,
-  detectAgents,
-  type AgentConfig,
-} from "@agentxm/core/experimental/agents";
+import { AGENTS, detectAgents, type AgentConfig } from "@agentxm/core/experimental/agents";
 ```
 
 ## Integration with State Management
@@ -931,11 +887,7 @@ The CLI handler orchestrates the flow:
 
 ```typescript
 // Import from agents module
-import {
-  detectAgents,
-  getAgentById,
-  type AgentConfig,
-} from "@agentxm/core/experimental/agents";
+import { detectAgents, getAgentById, type AgentConfig } from "@agentxm/core/experimental/agents";
 
 // Step 1: Detect or resolve agents
 const agents: AgentConfig[] =
@@ -999,8 +951,7 @@ This change completes the migration from `skills/state/*` to `workspace/*`. The 
 
 ```typescript
 // OLD: Fallback logic using detectPath (causes bugs with unexpanded tildes)
-const agentSkillsDir =
-  agent.skillsDir ?? nodePath.join(agent.detectPath, SKILLS_DIR);
+const agentSkillsDir = agent.skillsDir ?? nodePath.join(agent.detectPath, SKILLS_DIR);
 
 // NEW: Direct access to required property
 const agentSkillsDir = agent.skills.projectDir;
@@ -1087,9 +1038,7 @@ const applyPlan = (ws, plan, opts): Effect.Effect<void, ApplyError, FileSystem> 
 ```typescript
 // OLD: Consume stream
 yield *
-  Stream.runForEach(applyDiff(diff, opts), (event) =>
-    Effect.sync(() => renderProgress(event)),
-  );
+  Stream.runForEach(applyDiff(diff, opts), (event) => Effect.sync(() => renderProgress(event)));
 
 // NEW: Pass callback
 yield *
@@ -1115,9 +1064,7 @@ The state loader reads from canonical `.axm/skills/` location - **no agent confi
 
 ```typescript
 // In handler: resolve agent IDs to full configs
-const resolveAgents = (
-  agentIds: readonly string[],
-): Effect.Effect<AgentConfig[], InstallError> =>
+const resolveAgents = (agentIds: readonly string[]): Effect.Effect<AgentConfig[], InstallError> =>
   Effect.gen(function* () {
     const resolved = pipe(
       agentIds,
@@ -1161,18 +1108,10 @@ skills:
 
 ```typescript
 // BEFORE: Import from skills module
-import {
-  detectAgents,
-  getAgentById,
-  type AgentConfig,
-} from "@agentxm/core/experimental/skills";
+import { detectAgents, getAgentById, type AgentConfig } from "@agentxm/core/experimental/skills";
 
 // AFTER: Import from agents module
-import {
-  detectAgents,
-  getAgentById,
-  type AgentConfig,
-} from "@agentxm/core/experimental/agents";
+import { detectAgents, getAgentById, type AgentConfig } from "@agentxm/core/experimental/agents";
 ```
 
 ### Summary of Changes by File
@@ -1461,8 +1400,7 @@ The `handlePartialUninstall()` function (uninstall/handler.ts lines 497-536) byp
 
 ```typescript
 // Line 502 - BROKEN: uses unexpanded tilde path
-const agentSkillsDir =
-  agent.skillsDir ?? nodePath.join(agent.detectPath, "skills");
+const agentSkillsDir = agent.skillsDir ?? nodePath.join(agent.detectPath, "skills");
 ```
 
 **Required fix** (in scope for this change):

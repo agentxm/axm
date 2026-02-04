@@ -17,7 +17,6 @@ interface InstallArgs {
   "dry-run"?: boolean;
 }
 
-// biome-ignore lint/complexity/noBannedTypes: {} is the yargs convention for no parent args
 export const installCommand: CommandModule<{}, InstallArgs> = {
   command: "install <source>",
   describe: "Install skills from a GitHub repo, local path, or URL",

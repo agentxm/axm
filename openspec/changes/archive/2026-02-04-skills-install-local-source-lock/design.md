@@ -71,8 +71,7 @@ if (showOutput) {
   spinnerHelper.start(`Installing ${skillsToInstall.length} skill(s)...`);
 }
 
-const results =
-  yield * installSkillsFromFileSystem(skillsToInstall, agents, axmDir, parsed);
+const results = yield * installSkillsFromFileSystem(skillsToInstall, agents, axmDir, parsed);
 
 if (showOutput) spinnerHelper.stop(`Installed ${results.length} skill(s)`);
 
@@ -91,9 +90,7 @@ if (showOutput) {
 ```typescript
 // Step 13: Apply changes
 if (showOutput) {
-  spinnerHelper.start(
-    `Applying ${diff.summary.add + diff.summary.update} change(s)...`,
-  );
+  spinnerHelper.start(`Applying ${diff.summary.add + diff.summary.update} change(s)...`);
 }
 
 const applyResult =
@@ -109,8 +106,7 @@ const applyResult =
     ),
   );
 
-if (showOutput)
-  spinnerHelper.stop(`Applied ${applyResult.applied.length} change(s)`);
+if (showOutput) spinnerHelper.stop(`Applied ${applyResult.applied.length} change(s)`);
 
 // Show results summary using ApplyResult
 if (showOutput) {
@@ -142,10 +138,7 @@ if (showOutput) {
 #### New import needed
 
 ```typescript
-import {
-  applyDiff,
-  type ApplyResult,
-} from "@agentxm/core/experimental/skills/state";
+import { applyDiff, type ApplyResult } from "@agentxm/core/experimental/skills/state";
 ```
 
 **Rationale**: `applyDiff()` already implements the correct behavior. The handler's `installSkillsFromFileSystem` duplicates this logic but with bugs. Removing the duplication fixes the bug and simplifies the codebase.

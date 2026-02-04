@@ -277,11 +277,7 @@ Skills functionality is exported via subpath:
 
 ```typescript
 // CLI imports skills from dedicated subpath
-import {
-  parseSource,
-  detectAgents,
-  installSkill,
-} from "@agentxm/core/experimental/skills";
+import { parseSource, detectAgents, installSkill } from "@agentxm/core/experimental/skills";
 ```
 
 This requires adding the subpath export to `packages/core/package.json`:

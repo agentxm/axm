@@ -44,9 +44,7 @@ Check TTY before interactive prompts and fancy output:
 ```typescript
 // Before prompting
 if (!process.stdin.isTTY && !args.yes) {
-  return Effect.fail(
-    new Error("Interactive mode requires TTY. Use --yes or --non-interactive."),
-  );
+  return Effect.fail(new Error("Interactive mode requires TTY. Use --yes or --non-interactive."));
 }
 
 // Before fancy output
@@ -76,8 +74,7 @@ Rationale: Reduces user friction by providing actionable recovery steps.
 Test yargs validation separately from Effect handlers:
 
 ```typescript
-const createParser = () =>
-  yargs().command(initCommand).exitProcess(false).fail(false);
+const createParser = () => yargs().command(initCommand).exitProcess(false).fail(false);
 
 it("requires source argument", () => {
   expect(() => createParser().parse("skills add")).toThrow();

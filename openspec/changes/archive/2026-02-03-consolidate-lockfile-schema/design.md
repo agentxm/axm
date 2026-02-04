@@ -85,9 +85,7 @@ type SkillSource =
 **Schema:**
 
 ```typescript
-type RegistryLocation =
-  | { _tag: "Remote"; url: string }
-  | { _tag: "FileSystem"; path: string };
+type RegistryLocation = { _tag: "Remote"; url: string } | { _tag: "FileSystem"; path: string };
 ```
 
 ### D4: Date Handling — ISO Strings with Schema Transform

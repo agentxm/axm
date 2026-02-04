@@ -28,11 +28,7 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import { type AddArgs, handleAdd } from "./handler.js";
 
 // Multi-service layer using Layer.mergeAll
-const TestLayer = Layer.mergeAll(
-  NodeFileSystem.layer,
-  NodePath.layer,
-  FetchHttpClient.layer,
-);
+const TestLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, FetchHttpClient.layer);
 
 describe("add.handler", () => {
   let tempDir: string;
@@ -63,9 +59,7 @@ describe("add.handler", () => {
 
   it.effect("fails with AddError for invalid source", () =>
     Effect.gen(function* () {
-      const error = yield* handleAdd({ ...defaultArgs, source: "" }).pipe(
-        Effect.flip,
-      );
+      const error = yield* handleAdd({ ...defaultArgs, source: "" }).pipe(Effect.flip);
       expect(error._tag).toBe("AddError");
     }).pipe(Effect.provide(TestLayer)),
   );

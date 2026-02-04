@@ -79,10 +79,7 @@ With:
 ```typescript
 it.effect("fails with MyError", () =>
   Effect.gen(function* () {
-    const error = yield* effectThatFails.pipe(
-      Effect.provide(TestLayer),
-      Effect.flip,
-    );
+    const error = yield* effectThatFails.pipe(Effect.provide(TestLayer), Effect.flip);
     expect(error._tag).toBe("MyError");
   }),
 );
@@ -122,12 +119,10 @@ Tests that create temp directories still use `beforeEach`/`afterEach` for setup/
 Tests that depend on actual timing (e.g., checking file modification timestamps) must use `it.live` instead of `it.effect`:
 
 ```typescript
-it.live(
-  "does not modify settings file timestamp when already initialized",
-  () =>
-    Effect.gen(function* () {
-      // ... test with real file mtimes
-    }),
+it.live("does not modify settings file timestamp when already initialized", () =>
+  Effect.gen(function* () {
+    // ... test with real file mtimes
+  }),
 );
 ```
 
@@ -140,11 +135,7 @@ it.live(
 For handler tests requiring multiple services, compose test layers:
 
 ```typescript
-const TestLayer = Layer.mergeAll(
-  NodeFileSystem.layer,
-  NodePath.layer,
-  FetchHttpClient.layer,
-);
+const TestLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, FetchHttpClient.layer);
 
 it.effect("test name", () =>
   Effect.gen(function* () {

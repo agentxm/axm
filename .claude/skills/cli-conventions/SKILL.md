@@ -206,8 +206,7 @@ Test yargs validation and Effect handlers separately:
 
 ```typescript
 // yargs validation test
-const createParser = () =>
-  yargs().command(deployCommand).exitProcess(false).fail(false);
+const createParser = () => yargs().command(deployCommand).exitProcess(false).fail(false);
 
 it("requires target", () => {
   expect(() => createParser().parse("deploy")).toThrow();
@@ -217,9 +216,7 @@ it("requires target", () => {
 it("deploys to target", async () => {
   const TestLayer = Layer.succeed(DeployService, mockService);
   const result = await Effect.runPromise(
-    handleDeploy({ target: "prod", env: "staging" }).pipe(
-      Effect.provide(TestLayer),
-    ),
+    handleDeploy({ target: "prod", env: "staging" }).pipe(Effect.provide(TestLayer)),
   );
   expect(result).toEqual({ deployed: true });
 });

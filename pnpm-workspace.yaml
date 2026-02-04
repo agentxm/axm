@@ -2,8 +2,8 @@ packages:
   - packages/*
 
 catalog:
-  '@types/bun': ^1.2.4
-  '@types/yargs': ^17.0.33
+  "@types/bun": ^1.2.4
+  "@types/yargs": ^17.0.33
   effect: ^3.19.15
   typescript: ^5.9.3
   vitest: ^3.2.4

@@ -1,10 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": [
-    "lockfileVersion",
-    "extensions"
-  ],
+  "required": ["lockfileVersion", "extensions"],
   "properties": {
     "lockfileVersion": {
       "type": "number"
@@ -19,13 +16,7 @@
           "properties": {},
           "additionalProperties": {
             "type": "object",
-            "required": [
-              "source",
-              "origin",
-              "folderHash",
-              "installedAt",
-              "updatedAt"
-            ],
+            "required": ["source", "origin", "folderHash", "installedAt", "updatedAt"],
             "properties": {
               "source": {
                 "type": "string"
@@ -69,13 +60,7 @@
           "properties": {},
           "additionalProperties": {
             "type": "object",
-            "required": [
-              "source",
-              "origin",
-              "folderHash",
-              "installedAt",
-              "updatedAt"
-            ],
+            "required": ["source", "origin", "folderHash", "installedAt", "updatedAt"],
             "properties": {
               "source": {
                 "type": "string"
@@ -119,13 +104,7 @@
           "properties": {},
           "additionalProperties": {
             "type": "object",
-            "required": [
-              "source",
-              "origin",
-              "folderHash",
-              "installedAt",
-              "updatedAt"
-            ],
+            "required": ["source", "origin", "folderHash", "installedAt", "updatedAt"],
             "properties": {
               "source": {
                 "type": "string"
@@ -169,13 +148,7 @@
           "properties": {},
           "additionalProperties": {
             "type": "object",
-            "required": [
-              "source",
-              "origin",
-              "folderHash",
-              "installedAt",
-              "updatedAt"
-            ],
+            "required": ["source", "origin", "folderHash", "installedAt", "updatedAt"],
             "properties": {
               "source": {
                 "type": "string"

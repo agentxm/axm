@@ -174,7 +174,13 @@ Content here.
     const result = await runEffect(
       applyAdd(idealSkill, {
         axmDir,
-        agents: [{ id: "claude", name: "Claude Code", detectPath: agentDir }],
+        agents: [
+          {
+            id: "claude-code",
+            name: "Claude Code",
+            skills: { projectDir: nodePath.join(agentDir, "skills"), globalDir: Option.none() },
+          },
+        ],
       }),
     );
 
@@ -283,7 +289,13 @@ describe("applyRemove", () => {
     const result = await runEffect(
       applyRemove(skillState, {
         axmDir,
-        agents: [{ id: "claude", name: "Claude Code", detectPath: agentDir }],
+        agents: [
+          {
+            id: "claude-code",
+            name: "Claude Code",
+            skills: { projectDir: agentSkillsDir, globalDir: Option.none() },
+          },
+        ],
       }),
     );
 
@@ -413,7 +425,13 @@ describe("applyUpdate", () => {
     const result = await runEffect(
       applyUpdate(fromState, toIdeal, {
         axmDir,
-        agents: [{ id: "claude", name: "Claude Code", detectPath: agentDir }],
+        agents: [
+          {
+            id: "claude-code",
+            name: "Claude Code",
+            skills: { projectDir: agentSkillsDir, globalDir: Option.none() },
+          },
+        ],
       }),
     );
 

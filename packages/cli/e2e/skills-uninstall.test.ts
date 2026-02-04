@@ -50,7 +50,7 @@ describe("axm skills uninstall", () => {
         expect(fs.existsSync(canonicalSkillDir)).toBe(false);
 
         // Verify symlink in agent directory is removed
-        const agentSkillDir = path.join(temp.path, ".claude", "commands", "my-skill");
+        const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
         expect(fs.existsSync(agentSkillDir)).toBe(false);
 
         // Verify skill is removed from lockfile
@@ -89,7 +89,7 @@ describe("axm skills uninstall", () => {
         );
 
         // Verify symlink exists before uninstall
-        const agentSkillDir = path.join(temp.path, ".claude", "commands", "my-skill");
+        const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
         expect(fs.existsSync(agentSkillDir)).toBe(true);
         expect(fs.lstatSync(agentSkillDir).isSymbolicLink()).toBe(true);
 
@@ -179,7 +179,7 @@ describe("axm skills uninstall", () => {
         const canonicalSkillDir = path.join(temp.path, ".axm", "skills", "my-skill");
         expect(fs.existsSync(canonicalSkillDir)).toBe(true);
 
-        const agentSkillDir = path.join(temp.path, ".claude", "commands", "my-skill");
+        const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
         expect(fs.existsSync(agentSkillDir)).toBe(true);
       } finally {
         temp.cleanup();
@@ -395,11 +395,11 @@ describe("axm skills uninstall", () => {
         expect(result.exitCode).toBe(0);
 
         // Symlink should be removed from claude-code
-        const claudeSkillDir = path.join(temp.path, ".claude", "commands", "my-skill");
+        const claudeSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
         expect(fs.existsSync(claudeSkillDir)).toBe(false);
 
         // Symlink should remain in cursor
-        const cursorSkillDir = path.join(temp.path, ".cursor", "rules", "my-skill");
+        const cursorSkillDir = path.join(temp.path, ".cursor", "skills", "my-skill");
         expect(fs.existsSync(cursorSkillDir)).toBe(true);
 
         // Canonical copy should still exist (still used by cursor)

@@ -16,10 +16,11 @@
 import * as nodePath from "node:path";
 import { FileSystem, type Path } from "@effect/platform";
 import { Data, Effect } from "effect";
+import type { AgentConfig } from "../../agents/index.js";
 import type { SkillLockEntry } from "../../schemas/lockfile.js";
 import { readLockfile, writeLockfile } from "../lockfile.js";
 import { readSettings, writeSettings } from "../settings.js";
-import type { AgentConfig, Settings } from "../types.js";
+import type { Settings } from "../types.js";
 import { getChangesToApply } from "./diff.js";
 import type {
   IdealSkillLegacy as IdealSkill,
@@ -413,7 +414,7 @@ export const applyAdd = (
     // Sync to agents
     const agentResults: AgentInstallResult[] = [];
     for (const agent of agents) {
-      const agentSkillsDir = agent.skillsDir ?? nodePath.join(agent.detectPath, SKILLS_DIR);
+      const agentSkillsDir = agent.skills.projectDir;
       const symlinkPath = nodePath.join(agentSkillsDir, ideal.name);
 
       // Ensure agent skills directory exists
@@ -488,7 +489,7 @@ export const applyRemove = (
 
     // Remove from agents first
     for (const agent of agents) {
-      const agentSkillsDir = agent.skillsDir ?? nodePath.join(agent.detectPath, SKILLS_DIR);
+      const agentSkillsDir = agent.skills.projectDir;
       const agentSkillPath = nodePath.join(agentSkillsDir, state.name);
 
       const exists = yield* fs

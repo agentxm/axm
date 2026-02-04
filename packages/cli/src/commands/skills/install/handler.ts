@@ -16,15 +16,13 @@
  */
 
 import * as nodePath from "node:path";
+import { type AgentConfig, detectAgents, getAgentById } from "@agentxm/core/experimental/agents";
 import { getAxmDir } from "@agentxm/core/experimental/paths";
 import {
-  type AgentConfig,
   buildCloneUrl,
   cloneRepo,
-  detectAgents,
   discoverSkills,
   ensureInitialized,
-  getAgentById,
   getCurrentCommit,
   type ParsedSource,
   parseSource,
@@ -380,14 +378,14 @@ export const handleInstall = (
 
     if (args.agent.length > 0) {
       // Use explicitly specified agents
-      // Try new agents module first, fall back to legacy for compatibility with applyDiff
       agents = args.agent
         .map((id) => getAgentById(id))
-        .filter((a): a is AgentConfig => a !== undefined);
+        .filter(Option.isSome)
+        .map((opt) => opt.value);
 
       if (agents.length !== args.agent.length) {
-        const validIds = args.agent.filter((id) => getAgentById(id) !== undefined);
-        const invalidIds = args.agent.filter((id) => getAgentById(id) === undefined);
+        const validIds = args.agent.filter((id) => Option.isSome(getAgentById(id)));
+        const invalidIds = args.agent.filter((id) => Option.isNone(getAgentById(id)));
         if (showOutput)
           spinnerHelper.stop(`Found ${validIds.length} agent(s), ${invalidIds.length} invalid`);
 
@@ -441,16 +439,11 @@ export const handleInstall = (
           "Select agents to install skills for",
           detectedAgents,
           {
-            toOption: (a) => {
-              const opt: { value: string; label: string; hint?: string } = {
-                value: a.id,
-                label: a.name,
-              };
-              if (a.skillsDir) {
-                opt.hint = `skills: ${a.skillsDir}`;
-              }
-              return opt;
-            },
+            toOption: (a) => ({
+              value: a.id,
+              label: a.name,
+              hint: `skills: ${a.skills.projectDir}`,
+            }),
             initialValues: detectedAgents.map((a) => a.id),
             required: true,
           },

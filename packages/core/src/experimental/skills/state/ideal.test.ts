@@ -51,6 +51,7 @@ const makeLockedSkill = (hash = "abc123"): LockedSkill => ({
   ref: Option.none(),
   version: Option.none(),
   gitTreeFolderHash: hash,
+  agents: ["claude-code"],
   installedAt: new Date(),
   updatedAt: new Date(),
 });
@@ -139,7 +140,8 @@ description: A new skill
 
     expect(Object.keys(result.skills)).toEqual(["new-skill"]);
     expect(result.skills["new-skill"]?.name).toBe("new-skill");
-    expect(result.skills["new-skill"]?.source._tag).toBe("Git");
+    // Source is always Local (pointing to cached skill path) for applyDiff compatibility
+    expect(result.skills["new-skill"]?.source._tag).toBe("Local");
     expect(result.removals).toEqual([]);
   });
 

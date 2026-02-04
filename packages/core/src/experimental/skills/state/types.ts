@@ -97,6 +97,7 @@ export interface LockedSkill {
   readonly ref: Option.Option<string>;
   readonly version: Option.Option<string>;
   readonly gitTreeFolderHash: string;
+  readonly agents: readonly string[];
   readonly installedAt: Date;
   readonly updatedAt: Date;
 }
@@ -113,6 +114,7 @@ export const LockedSkillSchema = Schema.Struct({
   ref: Schema.OptionFromNullOr(Schema.String),
   version: Schema.OptionFromNullOr(Schema.String),
   gitTreeFolderHash: Schema.String,
+  agents: Schema.Array(Schema.String),
   installedAt: Schema.Date,
   updatedAt: Schema.Date,
 });

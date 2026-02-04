@@ -21,22 +21,17 @@ import {
   type AgentConfig,
   buildCloneUrl,
   cloneRepo,
-  computeContentHash,
   detectAgents,
   discoverSkills,
   ensureInitialized,
   getAgentById,
   getCurrentCommit,
-  type InstallResult,
-  installSkillToAgents,
   type ParsedSource,
   parseSource,
   type Skill,
-  type SkillLockEntry,
-  updateLockEntry,
-  updateSettings,
 } from "@agentxm/core/experimental/skills";
 import {
+  applyDiff,
   buildIdealForInstall,
   computeDiff,
   type DiffSummary,
@@ -106,68 +101,6 @@ export class InstallError extends Data.TaggedError("InstallError")<{
   readonly cause?: unknown;
   readonly retryable: boolean;
 }> {}
-
-// -----------------------------------------------------------------------------
-// Lockfile Helpers
-// -----------------------------------------------------------------------------
-
-/**
- * Create a partial SkillLockEntry from ParsedSource.
- *
- * Returns flat fields that can be spread into a full SkillLockEntry.
- * The returned object contains source-specific fields based on the parsed source type.
- */
-const createLockEntryFromParsed = (
-  parsed: ParsedSource,
-  agents: string[],
-  contentHash: string,
-  now: Date,
-): SkillLockEntry => {
-  const commonFields = {
-    gitTreeHash: contentHash,
-    agents,
-    installedAt: now,
-    updatedAt: now,
-  };
-
-  switch (parsed.type) {
-    case "github":
-    case "gitlab":
-    case "bitbucket":
-      return {
-        source: "github" as const,
-        owner: parsed.owner ?? "",
-        repo: parsed.repo ?? "",
-        ref: parsed.ref,
-        path: parsed.path,
-        ...commonFields,
-      };
-    case "git":
-      return {
-        source: "git" as const,
-        url: parsed.url ?? parsed.canonical,
-        ref: parsed.ref,
-        path: parsed.path,
-        ...commonFields,
-      };
-    case "registry":
-      // Registry sources require scope and name from the parsed source
-      // For now, extract from canonical form (e.g., "@scope/name")
-      return {
-        source: "registry" as const,
-        scope: parsed.owner ?? "",
-        name: parsed.repo ?? parsed.canonical,
-        ...commonFields,
-      };
-    case "local":
-      // Local sources use the path directly
-      return {
-        source: "local" as const,
-        path: parsed.localPath ?? parsed.canonical,
-        ...commonFields,
-      };
-  }
-};
 
 // -----------------------------------------------------------------------------
 // Source Resolution
@@ -371,113 +304,6 @@ const outputDiffJson = (diff: SkillsDiff): void => {
   const json = skillsDiffToJson(diff);
   console.log(JSON.stringify(json, null, 2));
 };
-
-// -----------------------------------------------------------------------------
-// Installation
-// -----------------------------------------------------------------------------
-
-/**
- * Installs a single skill and returns its install results and metadata for lockfile/settings updates.
- */
-const installSingleSkillFromFileSystem = (
-  skill: Skill,
-  agents: AgentConfig[],
-  axmDir: string,
-): Effect.Effect<
-  { results: readonly InstallResult[]; skillName: string; skillPath: string; contentHash: string },
-  InstallError,
-  FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    // Install skill to all agents
-    const results = yield* installSkillToAgents(skill, agents, axmDir).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: `Failed to install skill ${skill.name}: ${error.message}`,
-            cause: error,
-            retryable: false,
-          }),
-      ),
-    );
-
-    // Compute content hash for lockfile
-    const canonicalSkillPath = nodePath.join(axmDir, "skills", skill.name);
-    const contentHash = yield* computeContentHash(canonicalSkillPath).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: `Failed to compute content hash for ${skill.name}: ${error.message}`,
-            cause: error,
-            retryable: false,
-          }),
-      ),
-    );
-
-    return { results, skillName: skill.name, skillPath: skill.path, contentHash };
-  });
-
-/**
- * Installs skills from a local or git source.
- */
-const installSkillsFromFileSystem = (
-  skills: Skill[],
-  agents: AgentConfig[],
-  axmDir: string,
-  parsed: ParsedSource,
-): Effect.Effect<InstallResult[], InstallError, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    // Install all skills in parallel
-    const installResults = yield* Effect.all(
-      skills.map((skill) => installSingleSkillFromFileSystem(skill, agents, axmDir)),
-      { concurrency: "unbounded" },
-    );
-
-    // Collect all results
-    const allResults: InstallResult[] = installResults.flatMap((r) => r.results);
-
-    // Update lockfile entries sequentially (lockfile is a shared file)
-    const now = new Date();
-    yield* Effect.forEach(
-      installResults,
-      ({ skillName, contentHash }) => {
-        const lockEntry = createLockEntryFromParsed(
-          parsed,
-          agents.map((a) => a.id),
-          contentHash,
-          now,
-        );
-        return updateLockEntry(axmDir, skillName, lockEntry).pipe(
-          Effect.mapError(
-            (error) =>
-              new InstallError({
-                message: `Failed to update lockfile for ${skillName}: ${error.message}`,
-                cause: error,
-                retryable: false,
-              }),
-          ),
-        );
-      },
-      { concurrency: 1 },
-    );
-
-    // Batch all settings updates into a single call (settings.json is a shared file)
-    const skillsToAdd = Object.fromEntries(
-      installResults.map(({ skillName }) => [skillName, "*"] as const),
-    );
-    yield* updateSettings(axmDir, { skills: skillsToAdd }).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: `Failed to update settings: ${error.message}`,
-            cause: error,
-            retryable: false,
-          }),
-      ),
-    );
-
-    return allResults;
-  });
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -881,66 +707,54 @@ export const handleInstall = (
     }
 
     // Step 13: Apply changes
-    // Get skills to install from the diff (Add and Update changes)
-    const skillsToInstall = Object.entries(diff.changes)
-      .filter(
-        (entry): entry is [string, SkillChange] =>
-          entry[1]._tag === "Add" || entry[1]._tag === "Update",
-      )
-      .map(([name]) => skills.find((s) => s.name === name))
-      .filter((s): s is Skill => s !== undefined);
-
-    if (skillsToInstall.length === 0) {
-      if (showOutput) {
-        p.log.info("No skills to install.");
-        p.outro("Nothing to do.");
-      }
-      return;
-    }
-
     if (showOutput) {
-      spinnerHelper.start(
-        `Installing ${skillsToInstall.length} skill(s) to ${agents.length} agent(s)...`,
-      );
+      spinnerHelper.start(`Applying ${diff.summary.add + diff.summary.update} change(s)...`);
     }
 
-    const results = yield* installSkillsFromFileSystem(skillsToInstall, agents, axmDir, parsed);
+    const applyResult = yield* applyDiff(diff, { axmDir, agents }).pipe(
+      Effect.mapError(
+        (error) =>
+          new InstallError({
+            message: `Failed to apply changes: ${error.message}`,
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
 
-    if (showOutput) spinnerHelper.stop(`Installed ${results.length} skill(s)`);
+    if (showOutput) spinnerHelper.stop(`Applied ${applyResult.applied.length} change(s)`);
 
     // Show results summary
     if (showOutput) {
-      const byMethod = {
-        symlink: results.filter((r) => r.method === "symlink").length,
-        copy: results.filter((r) => r.method === "copy").length,
-      };
+      for (const result of applyResult.applied) {
+        const methods = result.agentResults.map((r) => r.method);
+        const symlinkCount = methods.filter((m) => m === "symlink").length;
+        const copyCount = methods.filter((m) => m === "copy").length;
 
-      if (byMethod.symlink > 0) {
-        p.log.info(`Created ${byMethod.symlink} symlink(s)`);
-      }
-      if (byMethod.copy > 0) {
-        p.log.info(`Copied ${byMethod.copy} skill(s) (symlink fallback)`);
-      }
+        const methodInfo: string[] = [];
+        if (symlinkCount > 0) methodInfo.push(`${symlinkCount} symlink(s)`);
+        if (copyCount > 0) methodInfo.push(`${copyCount} copy(ies)`);
 
-      // List installed skills
-      const uniqueSkillNames = [...new Set(results.map((r) => r.skillName))];
-      for (const skillName of uniqueSkillNames) {
-        const skillResults = results.filter((r) => r.skillName === skillName);
-        const agentNames = skillResults
+        const agentNames = result.agentResults
           .map((r) => {
-            const agentId = agents.find(
-              (a) =>
-                r.agentPath.includes(a.detectPath) ||
-                (a.skillsDir && r.agentPath.includes(a.skillsDir)),
-            )?.name;
-            return agentId ?? "unknown";
+            const agent = agents.find((a) => a.id === r.agentId);
+            return agent?.name ?? r.agentId;
           })
           .join(", ");
-        p.log.success(`${skillName} -> ${agentNames}`);
+
+        p.log.success(
+          `${result.skillName} -> ${agentNames}${methodInfo.length > 0 ? ` (${methodInfo.join(", ")})` : ""}`,
+        );
+      }
+
+      if (applyResult.failed.length > 0) {
+        for (const failure of applyResult.failed) {
+          p.log.error(`${failure.skillName}: ${failure.error.message}`);
+        }
       }
 
       p.outro(
-        `Successfully installed ${uniqueSkillNames.length} skill(s) to ${agents.length} agent(s)`,
+        `Successfully installed ${applyResult.applied.length} skill(s) to ${agents.length} agent(s)`,
       );
     }
   });

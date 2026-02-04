@@ -64,6 +64,7 @@ const makeLockedSkill = (hash = "abc123"): LockedSkill => ({
   ref: Option.none(),
   version: Option.none(),
   gitTreeFolderHash: hash,
+  agents: ["claude-code"],
   installedAt: new Date(),
   updatedAt: new Date(),
 });
@@ -688,6 +689,41 @@ description: New skill
       }),
     );
     expect(settingsContent).toContain("new-skill");
+  });
+
+  it("stores local source as plain path in settings (no local: prefix)", async () => {
+    // Create source skill
+    const skillSourceDir = nodePath.join(sourceDir, "local-skill");
+    await runEffect(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.makeDirectory(skillSourceDir, { recursive: true });
+        yield* fs.writeFileString(nodePath.join(skillSourceDir, "SKILL.md"), "# Local Skill");
+      }),
+    );
+
+    const current: SkillsState = { skills: {} };
+    const ideal: IdealSkillsState = {
+      skills: {
+        "local-skill": makeIdealSkill("local-skill", "hash123", skillSourceDir),
+      },
+      removals: [],
+    };
+
+    const diff = computeDiff(current, ideal);
+    await runEffect(applyDiff(diff, { axmDir, agents: [] }));
+
+    // Verify settings stores plain path, not local:<path>
+    const settingsContent = await runEffect(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        return yield* fs.readFileString(nodePath.join(axmDir, "settings.json"));
+      }),
+    );
+    const settings = JSON.parse(settingsContent);
+    // Should be the plain path, not "local:<path>"
+    expect(settings.skills["local-skill"]).toBe(skillSourceDir);
+    expect(settings.skills["local-skill"]).not.toContain("local:");
   });
 
   it("continues on individual failure and reports in result", async () => {

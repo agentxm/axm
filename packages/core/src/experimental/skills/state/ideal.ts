@@ -92,55 +92,62 @@ export interface ResolvedSource {
 /**
  * Convert existing skill state to ideal representation.
  */
-const stateToIdeal = (state: SkillState): IdealSkill =>
-  Option.match(state.locked, {
-    onNone: () => {
-      // Orphaned skill - use actual data to build ideal
-      const actual = Option.getOrThrow(state.actual);
-      return {
-        name: state.name,
-        source: SkillSource.Local({ path: actual.path }),
-        gitTreeFolderHash: actual.gitTreeFolderHash,
-        description: pipe(
-          actual.frontmatter,
-          Option.flatMap((fm) => Option.fromNullable(fm.description)),
-        ),
-        agents: [],
-      };
-    },
-    onSome: (locked) => ({
+const stateToIdeal = (state: SkillState): IdealSkill => {
+  // When actual skill exists on disk, use its path as Local source.
+  // This ensures applyDiff can copy files regardless of original source type.
+  if (Option.isSome(state.actual)) {
+    const actual = state.actual.value;
+    return {
       name: state.name,
-      source: SkillSource.Git({
-        url: locked.source,
-        ref: locked.ref,
-        subpath: locked.path,
+      source: SkillSource.Local({ path: actual.path }),
+      gitTreeFolderHash: actual.gitTreeFolderHash,
+      description: pipe(
+        actual.frontmatter,
+        Option.flatMap((fm) => Option.fromNullable(fm.description)),
+      ),
+      agents: Option.match(state.locked, {
+        onNone: () => [] as string[],
+        onSome: (locked) => locked.agents,
       }),
-      gitTreeFolderHash: locked.gitTreeFolderHash,
-      description: Option.none(),
-      agents: [],
+    };
+  }
+
+  // Locked-only skill (no files on disk) - use locked data
+  const locked = Option.getOrThrow(state.locked);
+  return {
+    name: state.name,
+    source: SkillSource.Git({
+      url: locked.source,
+      ref: locked.ref,
+      subpath: locked.path,
     }),
-  });
+    gitTreeFolderHash: locked.gitTreeFolderHash,
+    description: Option.none(),
+    agents: locked.agents,
+  };
+};
 
 /**
  * Convert discovered skill to ideal representation.
+ *
+ * For all source types, uses Local source pointing to the discovered skill's
+ * directory. This ensures applyDiff can copy the files regardless of the
+ * original source type (github, local, etc.).
+ *
+ * Note: The lockfile will record "local" as the source type with the cached
+ * path. This is accurate for the apply operation but loses the original
+ * source metadata (github owner/repo, etc.). A future enhancement should
+ * separate "where to copy from" from "where it came from" in IdealSkill.
  */
 const skillToIdeal = (
   skill: Skill,
-  source: ResolvedSource,
+  _source: ResolvedSource,
   hash: string,
   agents: readonly string[],
 ): IdealSkill => {
-  const skillSource =
-    source.parsed.type === "github" ||
-    source.parsed.type === "gitlab" ||
-    source.parsed.type === "bitbucket" ||
-    source.parsed.type === "git"
-      ? SkillSource.Git({
-          url: source.parsed.canonical,
-          ref: Option.fromNullable(source.parsed.ref),
-          subpath: Option.fromNullable(source.parsed.path),
-        })
-      : SkillSource.Local({ path: nodePath.dirname(skill.path) });
+  // Always use Local source with the skill's directory path.
+  // This works for both local sources and cached git sources.
+  const skillSource = SkillSource.Local({ path: nodePath.dirname(skill.path) });
 
   return {
     name: skill.name,

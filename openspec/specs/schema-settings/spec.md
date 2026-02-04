@@ -1,3 +1,5 @@
+## MODIFIED Requirements
+
 ### Requirement: Settings schema validates .axm/settings.json files
 
 The schema SHALL validate settings files with the following top-level fields:
@@ -42,7 +44,7 @@ Source strings SHALL follow the format defined in the `extension-sources` capabi
   ```json
   {
     "skills": {
-      "dev-skill": "local:./my-skills/dev-skill"
+      "dev-skill": "./my-skills/dev-skill"
     }
   }
   ```

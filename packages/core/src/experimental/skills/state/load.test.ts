@@ -214,6 +214,7 @@ describe("computeValidity", () => {
     ref: Option.none(),
     version: Option.none(),
     gitTreeFolderHash: "abc123",
+    agents: ["claude-code"],
     installedAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

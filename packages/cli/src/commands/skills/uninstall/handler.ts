@@ -19,16 +19,19 @@ import {
   type AgentConfig,
   ensureInitialized,
   getAgentById,
-  readLockfile,
-  removeLockEntry,
-  removeSkillFromAgents,
-  type SkillLockEntry,
-  updateLockEntry,
-  updateSettings,
 } from "@agentxm/core/experimental/skills";
+import {
+  applyDiff,
+  buildIdealForUninstall,
+  computeDiff,
+  hasChanges,
+  loadSkillsState,
+  type SkillsDiff,
+  type SkillsState,
+} from "@agentxm/core/experimental/skills/state";
 import * as p from "@clack/prompts";
 import { FileSystem, type Path } from "@effect/platform";
-import { Data, Effect } from "effect";
+import { Data, Effect, Option } from "effect";
 import { formatError } from "../../../utils/errors.js";
 import { promptConfirm } from "../../../utils/prompts.js";
 import { createSpinnerHelper } from "../../../utils/spinner.js";
@@ -74,7 +77,31 @@ export class UninstallError extends Data.TaggedError("UninstallError")<{
 // -----------------------------------------------------------------------------
 
 /**
- * Display the uninstall plan in human-readable format.
+ * Display the uninstall plan in human-readable format using diff structure.
+ */
+const displayPlanFromDiff = (diff: SkillsDiff): void => {
+  p.log.info("Plan:");
+  p.log.message("");
+  p.log.message("  Skills:");
+
+  for (const [name, change] of Object.entries(diff.changes)) {
+    if (change._tag === "Remove") {
+      // Get agent names from locked state if available
+      const agents = Option.match(change.skill.locked, {
+        onNone: () => [] as readonly string[],
+        onSome: (locked) => locked.agents,
+      });
+      const agentInfo = agents.length > 0 ? ` @ ${agents.join(", ")}` : "";
+      p.log.message(`  - ${name}${agentInfo} (uninstall)`);
+    }
+  }
+
+  p.log.message("");
+  p.log.message(`  Summary: ${diff.summary.remove} skill(s) to uninstall`);
+};
+
+/**
+ * Display the uninstall plan in human-readable format (for partial uninstall).
  */
 const displayPlan = (skillName: string, agents: readonly string[]): void => {
   p.log.info("Plan:");
@@ -157,13 +184,13 @@ export const handleUninstall = (
     );
     if (showOutput) spinnerHelper.stop("Initialized");
 
-    // Step 2: Load lockfile to check installed skills
+    // Step 2: Load current state using state-based pattern
     if (showOutput) spinnerHelper.start("Loading current state...");
-    const lockfile = yield* readLockfile(axmDir).pipe(
+    const currentState = yield* loadSkillsState(axmDir).pipe(
       Effect.mapError(
         (error) =>
           new UninstallError({
-            message: `Failed to read lockfile: ${error.message}`,
+            message: `Failed to load state: ${error.message}`,
             cause: error,
             retryable: false,
           }),
@@ -171,9 +198,9 @@ export const handleUninstall = (
     );
     if (showOutput) spinnerHelper.stop("Loaded current state");
 
-    // Step 3: Validate skill exists in lockfile
-    const lockEntry = lockfile.skills[args.skill];
-    if (!lockEntry) {
+    // Step 3: Validate skill exists in current state
+    const skillState = currentState.skills[args.skill];
+    if (!skillState || Option.isNone(skillState.locked)) {
       return yield* new UninstallError({
         message: formatError(
           `Skill '${args.skill}' is not installed`,
@@ -184,33 +211,71 @@ export const handleUninstall = (
       });
     }
 
-    // Get the current agents from the lockfile
-    const currentAgents = lockEntry.agents;
+    // Get the current agents from the locked state
+    // The locked state doesn't track agents directly - check lockfile for that
+    // We need to determine if this is a partial or full uninstall
+    const isPartialUninstall = args.agent.length > 0;
 
-    // Determine target agents for removal
-    const targetAgents: readonly string[] = args.agent.length > 0 ? args.agent : currentAgents;
+    // For partial uninstall, we need to handle it differently since the
+    // legacy state-based pattern doesn't support partial agent removal.
+    // Only use the full state-based pattern for complete uninstalls.
+    if (isPartialUninstall) {
+      yield* handlePartialUninstall(args, axmDir, showOutput, spinnerHelper);
+    } else {
+      yield* handleFullUninstall(args, currentState, axmDir, showOutput, spinnerHelper);
+    }
+  });
+};
 
-    // Compute remaining agents after uninstall
-    const remainingAgents =
-      args.agent.length > 0 ? currentAgents.filter((a) => !args.agent.includes(a)) : [];
-
-    // Step 4: Build uninstall plan
+/**
+ * Handle full uninstall using the state-based reconciliation pattern.
+ */
+const handleFullUninstall = (
+  args: UninstallArgs,
+  currentState: SkillsState,
+  axmDir: string,
+  showOutput: boolean,
+  spinnerHelper: ReturnType<typeof createSpinnerHelper>,
+): Effect.Effect<void, UninstallError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    // Step 4: Build ideal state with skill removed
     if (showOutput) spinnerHelper.start("Building uninstall plan...");
-    const isFullRemoval = remainingAgents.length === 0;
+    const idealState = yield* buildIdealForUninstall(currentState, [args.skill]).pipe(
+      Effect.mapError(
+        (error) =>
+          new UninstallError({
+            message: `Failed to build ideal state: ${error.message}`,
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
     if (showOutput) spinnerHelper.stop("Built uninstall plan");
 
-    // Step 5: Display plan
-    const displayAgents = isFullRemoval ? currentAgents : targetAgents;
+    // Step 5: Compute diff
+    const diff = computeDiff(currentState, idealState);
+
+    // Check if there are changes
+    if (!hasChanges(diff)) {
+      if (showOutput) {
+        p.log.info("No changes needed.");
+        p.outro("Nothing to do.");
+      }
+      return;
+    }
+
+    // Step 6: Display plan
     if (args.json) {
-      outputPlanJson(args.skill, displayAgents);
+      // For JSON output, use the simple format with empty agents (full uninstall)
+      outputPlanJson(args.skill, []);
       if (args.dryRun) {
         return;
       }
     } else {
-      displayPlan(args.skill, displayAgents);
+      displayPlanFromDiff(diff);
     }
 
-    // Step 6: Dry-run stops here
+    // Dry-run stops here
     if (args.dryRun) {
       if (showOutput) {
         p.outro("Dry-run complete. No changes made.");
@@ -246,7 +311,143 @@ export const handleUninstall = (
       }
     }
 
-    // Step 8: Apply changes
+    // Step 8: Apply changes using applyDiff
+    if (showOutput) {
+      spinnerHelper.start(`Uninstalling ${args.skill}...`);
+    }
+
+    // Get agent configs for the apply operation
+    // The applyRemove function uses the agents from ApplyOptions to remove symlinks
+    // For full uninstall, applyDiff handles settings/lockfile cleanup
+    const agentConfigs: AgentConfig[] = [];
+
+    const applyResult = yield* applyDiff(diff, { axmDir, agents: agentConfigs }).pipe(
+      Effect.mapError(
+        (error) =>
+          new UninstallError({
+            message: `Failed to apply changes: ${error.message}`,
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
+
+    if (showOutput) spinnerHelper.stop(`Uninstalled ${args.skill}`);
+
+    // Show completion
+    if (showOutput) {
+      if (applyResult.failed.length > 0) {
+        for (const failure of applyResult.failed) {
+          p.log.error(`${failure.skillName}: ${failure.error.message}`);
+        }
+      }
+      p.log.success(`Successfully uninstalled ${args.skill}`);
+      p.outro("Done.");
+    }
+  });
+
+/**
+ * Handle partial uninstall (--agent flag) - removes skill from specific agents only.
+ *
+ * Note: The legacy state-based pattern doesn't support partial agent removal,
+ * so we handle this case manually for now.
+ */
+const handlePartialUninstall = (
+  args: UninstallArgs,
+  axmDir: string,
+  showOutput: boolean,
+  spinnerHelper: ReturnType<typeof createSpinnerHelper>,
+): Effect.Effect<void, UninstallError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+
+    // Import the lockfile functions for partial uninstall
+    const { readLockfile, updateLockEntry } = yield* Effect.promise(
+      async () => import("@agentxm/core/experimental/skills"),
+    );
+
+    // Read lockfile to get current agents
+    const lockfile = yield* readLockfile(axmDir).pipe(
+      Effect.mapError(
+        (error) =>
+          new UninstallError({
+            message: `Failed to read lockfile: ${error.message}`,
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
+
+    const lockEntry = lockfile.skills[args.skill];
+    if (!lockEntry) {
+      return yield* new UninstallError({
+        message: formatError(
+          `Skill '${args.skill}' is not installed`,
+          [],
+          "Use 'axm skills list' to see installed skills.",
+        ),
+        retryable: false,
+      });
+    }
+
+    const currentAgents = lockEntry.agents;
+    const targetAgents = args.agent;
+    const remainingAgents = currentAgents.filter((a) => !targetAgents.includes(a));
+
+    // Check if this will become a full removal
+    const isFullRemoval = remainingAgents.length === 0;
+
+    // Build plan
+    if (showOutput) spinnerHelper.start("Building uninstall plan...");
+    if (showOutput) spinnerHelper.stop("Built uninstall plan");
+
+    // Display plan
+    if (args.json) {
+      outputPlanJson(args.skill, targetAgents);
+      if (args.dryRun) {
+        return;
+      }
+    } else {
+      displayPlan(args.skill, targetAgents);
+    }
+
+    // Dry-run stops here
+    if (args.dryRun) {
+      if (showOutput) {
+        p.outro("Dry-run complete. No changes made.");
+      }
+      return;
+    }
+
+    // Confirm uninstallation (unless --yes)
+    if (!args.yes) {
+      if (!isInteractive()) {
+        return yield* new UninstallError({
+          message: formatError(
+            "Cannot prompt for confirmation",
+            ["stdin is not a TTY"],
+            "Use --yes to run without prompts.",
+          ),
+          retryable: false,
+        });
+      }
+      const confirmed = yield* promptConfirm("Apply changes?").pipe(
+        Effect.mapError(
+          (error) =>
+            new UninstallError({
+              message: "Failed to prompt for confirmation",
+              cause: error,
+              retryable: false,
+            }),
+        ),
+      );
+      if (!confirmed) {
+        p.cancel("Uninstallation cancelled.");
+        return;
+      }
+    }
+
+    // Apply changes
     if (showOutput) {
       spinnerHelper.start(`Uninstalling ${args.skill}...`);
     }
@@ -257,37 +458,37 @@ export const handleUninstall = (
       .filter((a): a is AgentConfig => a !== undefined);
 
     if (isFullRemoval) {
-      // Full removal - remove from all agents and delete canonical
-      yield* removeSkillFromAgents(args.skill, agentConfigs, axmDir).pipe(
+      // This became a full removal - use state-based pattern
+      // Re-load state and use applyDiff
+      const currentState = yield* loadSkillsState(axmDir).pipe(
         Effect.mapError(
           (error) =>
             new UninstallError({
-              message: `Failed to remove skill files: ${error.message}`,
+              message: `Failed to load state: ${error.message}`,
               cause: error,
               retryable: false,
             }),
         ),
       );
 
-      // Remove from settings (null = remove skill, per JSON merge-patch semantics)
-      const skillsUpdate = { [args.skill]: null } as Record<string, string | null>;
-      yield* updateSettings(axmDir, { skills: skillsUpdate }).pipe(
+      const idealState = yield* buildIdealForUninstall(currentState, [args.skill]).pipe(
         Effect.mapError(
           (error) =>
             new UninstallError({
-              message: `Failed to update settings: ${error.message}`,
+              message: `Failed to build ideal state: ${error.message}`,
               cause: error,
               retryable: false,
             }),
         ),
       );
 
-      // Remove from lockfile
-      yield* removeLockEntry(axmDir, args.skill).pipe(
+      const diff = computeDiff(currentState, idealState);
+
+      yield* applyDiff(diff, { axmDir, agents: agentConfigs }).pipe(
         Effect.mapError(
           (error) =>
             new UninstallError({
-              message: `Failed to update lockfile: ${error.message}`,
+              message: `Failed to apply changes: ${error.message}`,
               cause: error,
               retryable: false,
             }),
@@ -295,9 +496,6 @@ export const handleUninstall = (
       );
     } else {
       // Partial removal - remove symlinks from target agents but keep canonical
-      const fs = yield* FileSystem.FileSystem;
-
-      // Remove symlinks from target agents
       yield* Effect.all(
         agentConfigs.map((agent) =>
           Effect.gen(function* () {
@@ -323,12 +521,10 @@ export const handleUninstall = (
       );
 
       // Update lockfile with remaining agents
-      const updatedEntry: SkillLockEntry = {
+      yield* updateLockEntry(axmDir, args.skill, {
         ...lockEntry,
         agents: remainingAgents,
-      };
-
-      yield* updateLockEntry(axmDir, args.skill, updatedEntry).pipe(
+      }).pipe(
         Effect.mapError(
           (error) =>
             new UninstallError({
@@ -353,4 +549,3 @@ export const handleUninstall = (
       p.outro("Done.");
     }
   });
-};

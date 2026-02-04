@@ -17,6 +17,7 @@ import * as nodePath from "node:path";
 import { FileSystem, type Path } from "@effect/platform";
 import { Data, Effect } from "effect";
 import type { SkillLockEntry } from "../../schemas/lockfile.js";
+import { computeFolderHash } from "../folder-hash.js";
 import { readLockfile, writeLockfile } from "../lockfile.js";
 import { readSettings, writeSettings } from "../settings.js";
 import type { AgentConfig, Settings } from "../types.js";
@@ -101,6 +102,8 @@ export interface ApplySkillResult {
   readonly skillName: string;
   readonly canonicalPath: string;
   readonly agentResults: readonly AgentInstallResult[];
+  /** Hash recomputed from canonical location after copying */
+  readonly gitTreeFolderHash: string;
 }
 
 /**
@@ -185,12 +188,12 @@ const getSourcePath = (source: SkillSource): Effect.Effect<string, UnsupportedSo
  * - Registry: `@scope/name` or `@scope/name@version`
  * - GitHub: `github:owner/repo[/path][#ref]`
  * - Git: `git:url[#ref]`
- * - Local: `local:path`
+ * - Local: `/path/to/skill` (plain path, no prefix)
  */
 const sourceToSettingsValue = (source: SkillSource): string => {
   switch (source._tag) {
     case "Local":
-      return `local:${source.path}`;
+      return source.path;
     case "Git":
       return `git:${source.url}`;
     case "WellKnown":
@@ -351,7 +354,7 @@ const copyDirectory = (
 export const applyAdd = (
   ideal: IdealSkill,
   options: Pick<ApplyOptions, "axmDir" | "agents">,
-): Effect.Effect<ApplySkillResult, ApplyError, FileSystem.FileSystem> =>
+): Effect.Effect<ApplySkillResult, ApplyError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const { axmDir, agents } = options;
@@ -454,10 +457,26 @@ export const applyAdd = (
       });
     }
 
+    // Recompute hash from canonical location to ensure consistency
+    // (source may be in git repo with tree SHA, canonical may use content hash)
+    const hashResult = yield* computeFolderHash(canonicalPath).pipe(
+      Effect.mapError(
+        (error) =>
+          new ApplyError({
+            message: `Failed to compute hash for canonical location`,
+            skillName: ideal.name,
+            operation: "add",
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
+
     return {
       skillName: ideal.name,
       canonicalPath,
       agentResults,
+      gitTreeFolderHash: hashResult.hash,
     };
   });
 
@@ -536,7 +555,7 @@ export const applyUpdate = (
   _from: SkillState,
   to: IdealSkill,
   options: Pick<ApplyOptions, "axmDir" | "agents">,
-): Effect.Effect<ApplySkillResult, ApplyError, FileSystem.FileSystem> =>
+): Effect.Effect<ApplySkillResult, ApplyError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const { axmDir } = options;
@@ -651,7 +670,7 @@ const changeToAction = (change: SkillChange): ApplyAction => {
 const applyChange = (
   change: SkillChange,
   options: Pick<ApplyOptions, "axmDir" | "agents">,
-): Effect.Effect<ApplySkillResult, ApplyError, FileSystem.FileSystem> => {
+): Effect.Effect<ApplySkillResult, ApplyError, FileSystem.FileSystem | Path.Path> => {
   switch (change._tag) {
     case "Add":
       return applyAdd(change.skill, options);
@@ -661,6 +680,7 @@ const applyChange = (
           skillName: result.skillName,
           canonicalPath: "",
           agentResults: [],
+          gitTreeFolderHash: "",
         })),
       );
     case "Update":
@@ -673,6 +693,7 @@ const applyChange = (
         skillName: change.skill.name,
         canonicalPath: "",
         agentResults: [],
+        gitTreeFolderHash: "",
       });
   }
 };
@@ -768,11 +789,19 @@ const updateLockfileForChanges = (
       ),
     );
 
+    // Build map of applied results by skill name for hash lookup
+    const appliedByName = new Map(applied.map((r) => [r.skillName, r]));
+
     // Build updated skills
     const updatedSkills = { ...lockfile.skills };
 
     for (const [name, change] of changes) {
       if (!appliedNames.has(name)) continue;
+
+      // Get the recomputed hash from apply result (ensures consistency between
+      // source hash type and canonical hash type)
+      const applyResult = appliedByName.get(name);
+      const recomputedHash = applyResult?.gitTreeFolderHash;
 
       switch (change._tag) {
         case "Add": {
@@ -788,7 +817,8 @@ const updateLockfileForChanges = (
                 }),
             ),
           );
-          updatedSkills[name] = entry;
+          // Use recomputed hash if available (ensures hash is from canonical location)
+          updatedSkills[name] = recomputedHash ? { ...entry, gitTreeHash: recomputedHash } : entry;
           break;
         }
         case "Update": {
@@ -804,8 +834,10 @@ const updateLockfileForChanges = (
                 }),
             ),
           );
+          // Use recomputed hash if available
           updatedSkills[name] = {
             ...entry,
+            ...(recomputedHash && { gitTreeHash: recomputedHash }),
             installedAt: lockfile.skills[name]?.installedAt ?? new Date(),
           };
           break;
@@ -823,8 +855,10 @@ const updateLockfileForChanges = (
                 }),
             ),
           );
+          // Use recomputed hash if available
           updatedSkills[name] = {
             ...entry,
+            ...(recomputedHash && { gitTreeHash: recomputedHash }),
             installedAt: lockfile.skills[name]?.installedAt ?? new Date(),
           };
           break;

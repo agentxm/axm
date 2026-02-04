@@ -14,7 +14,6 @@ export interface UninstallArgs {
   agent: string[];
   yes: boolean;
   "dry-run"?: boolean;
-  json?: boolean;
 }
 
 // biome-ignore lint/complexity/noBannedTypes: {} is the yargs convention for no parent args
@@ -45,11 +44,6 @@ export const uninstallCommand: CommandModule<{}, UninstallArgs> = {
         describe: "Show what would be uninstalled without making changes",
         default: false,
       })
-      .option("json", {
-        type: "boolean",
-        describe: "Output the plan as JSON (useful with --dry-run)",
-        default: false,
-      })
       .example("$0 skills uninstall my-skill", "Uninstall a skill from all agents")
       .example(
         "$0 skills uninstall my-skill --agent claude",
@@ -63,7 +57,6 @@ export const uninstallCommand: CommandModule<{}, UninstallArgs> = {
       agent: argv.agent,
       yes: argv.yes,
       dryRun: argv["dry-run"] ?? false,
-      json: argv.json ?? false,
     }).pipe(
       Effect.catchAll((error) =>
         Effect.sync(() => {

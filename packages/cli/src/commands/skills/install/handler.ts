@@ -41,11 +41,9 @@ import {
   type InstallCommand,
   loadCurrentState,
   makeWorkspaceContext,
-  type PlanJson,
   type PlanStep,
   type PlanSummary,
   planHasChanges,
-  planToJson,
   SkillSourceV2,
   updateLockfileForPlan,
   updateSettingsForPlan,
@@ -87,8 +85,6 @@ export interface InstallArgs {
   readonly verbose?: boolean | undefined;
   /** Suppress non-essential output */
   readonly quiet?: boolean | undefined;
-  /** Output as JSON */
-  readonly json?: boolean | undefined;
   /** Disable all prompts */
   readonly nonInteractive?: boolean | undefined;
   /** Preview installation plan without making changes */
@@ -327,14 +323,6 @@ const displayPlanOutput = (steps: ReadonlyArray<PlanStep>, displaySource?: strin
   p.log.message(`  Summary: ${formatPlanSummary(summary)}`);
 };
 
-/**
- * Output plan as JSON.
- */
-const outputPlanJson = (steps: ReadonlyArray<PlanStep>): void => {
-  const json: PlanJson = planToJson({ steps });
-  console.log(JSON.stringify(json, null, 2));
-};
-
 // -----------------------------------------------------------------------------
 // V2 Dependencies
 // -----------------------------------------------------------------------------
@@ -459,9 +447,6 @@ export const handleInstall = (
   const scopeLabel = args.global ? "global" : "project";
 
   return Effect.gen(function* () {
-    // JSON mode should suppress non-JSON output
-    const showOutput = !args.json;
-
     // Create workspace context (V2)
     const ws: WorkspaceContext = makeWorkspaceContext({
       global: args.global,
@@ -469,15 +454,13 @@ export const handleInstall = (
     });
 
     // Show intro
-    if (showOutput) {
-      p.intro(`axm skills install (${scopeLabel})`);
-    }
+    p.intro(`axm skills install (${scopeLabel})`);
 
     // Create spinner helper (auto-detects TTY)
     const spinnerHelper = createSpinnerHelper();
 
     // Step 1: Parse source
-    if (showOutput) spinnerHelper.start("Parsing source...");
+    spinnerHelper.start("Parsing source...");
     const parsed = yield* parseSource(args.source).pipe(
       Effect.mapError(
         (error) =>
@@ -492,10 +475,10 @@ export const handleInstall = (
           }),
       ),
     );
-    if (showOutput) spinnerHelper.stop(`Source: ${parsed.canonical} (${parsed.type})`);
+    spinnerHelper.stop(`Source: ${parsed.canonical} (${parsed.type})`);
 
     // Step 2: Ensure initialized
-    if (showOutput) spinnerHelper.start("Checking initialization...");
+    spinnerHelper.start("Checking initialization...");
     yield* ensureInitialized({ axmDir: ws.path }).pipe(
       Effect.mapError(
         (error) =>
@@ -506,10 +489,10 @@ export const handleInstall = (
           }),
       ),
     );
-    if (showOutput) spinnerHelper.stop("Initialized");
+    spinnerHelper.stop("Initialized");
 
     // Step 3: Detect or select agents
-    if (showOutput) spinnerHelper.start("Detecting agents...");
+    spinnerHelper.start("Detecting agents...");
     let agents: AgentConfig[];
 
     if (args.agent.length > 0) {
@@ -522,14 +505,13 @@ export const handleInstall = (
       if (agents.length !== args.agent.length) {
         const validIds = args.agent.filter((id) => Option.isSome(getAgentById(id)));
         const invalidIds = args.agent.filter((id) => Option.isNone(getAgentById(id)));
-        if (showOutput)
-          spinnerHelper.stop(`Found ${validIds.length} agent(s), ${invalidIds.length} invalid`);
+        spinnerHelper.stop(`Found ${validIds.length} agent(s), ${invalidIds.length} invalid`);
 
-        if (invalidIds.length > 0 && showOutput) {
+        if (invalidIds.length > 0) {
           p.log.warn(`Unknown agents: ${invalidIds.join(", ")}`);
         }
       } else {
-        if (showOutput) spinnerHelper.stop(`Using ${agents.length} specified agent(s)`);
+        spinnerHelper.stop(`Using ${agents.length} specified agent(s)`);
       }
     } else {
       // Detect installed agents
@@ -545,21 +527,18 @@ export const handleInstall = (
       );
 
       if (detectedAgents.length === 0) {
-        if (showOutput) {
-          spinnerHelper.stop("No agents detected");
-          p.log.error("No AI coding agents detected. Use --agent to specify agents manually.");
-          p.outro("No agents available.");
-        }
+        spinnerHelper.stop("No agents detected");
+        p.log.error("No AI coding agents detected. Use --agent to specify agents manually.");
+        p.outro("No agents available.");
         return;
       }
 
-      if (showOutput) spinnerHelper.stop(`Found ${detectedAgents.length} agent(s)`);
+      spinnerHelper.stop(`Found ${detectedAgents.length} agent(s)`);
 
       // Select agents (interactive or auto)
       if (args.yes || args.nonInteractive || args.dryRun) {
         agents = detectedAgents;
-        if (showOutput)
-          p.log.info(`Auto-selecting all detected agents: ${agents.map((a) => a.name).join(", ")}`);
+        p.log.info(`Auto-selecting all detected agents: ${agents.map((a) => a.name).join(", ")}`);
       } else if (!isInteractive()) {
         // Not interactive and no --yes/--non-interactive flag
         return yield* new InstallError({
@@ -598,15 +577,13 @@ export const handleInstall = (
     }
 
     if (agents.length === 0) {
-      if (showOutput) {
-        p.log.error("No agents selected.");
-        p.outro("Nothing to do.");
-      }
+      p.log.error("No agents selected.");
+      p.outro("Nothing to do.");
       return;
     }
 
     // Step 4: Load current state (V2)
-    if (showOutput) spinnerHelper.start("Loading current state...");
+    spinnerHelper.start("Loading current state...");
     const currentState = yield* loadCurrentState(ws).pipe(
       Effect.mapError(
         (error: { message: string }) =>
@@ -617,18 +594,16 @@ export const handleInstall = (
           }),
       ),
     );
-    if (showOutput) spinnerHelper.stop("Loaded current state");
+    spinnerHelper.stop("Loaded current state");
 
     // Step 5: Discover skills based on source type
     let skills: Skill[];
     let resolvedSource: ResolvedSource;
 
-    if (showOutput) {
-      if (parsed.type === "github" || parsed.type === "gitlab" || parsed.type === "bitbucket") {
-        spinnerHelper.start("Fetching source to analyze contents...");
-      } else {
-        spinnerHelper.start("Discovering skills...");
-      }
+    if (parsed.type === "github" || parsed.type === "gitlab" || parsed.type === "bitbucket") {
+      spinnerHelper.start("Fetching source to analyze contents...");
+    } else {
+      spinnerHelper.start("Discovering skills...");
     }
 
     if (parsed.type === "github" || parsed.type === "gitlab" || parsed.type === "bitbucket") {
@@ -674,7 +649,7 @@ export const handleInstall = (
       // For wellknown sources, skillsDir is the base URL since files are fetched over HTTP
       resolvedSource = { parsed, skillsDir: baseUrl };
     } else if (parsed.type === "git" || parsed.type === "registry") {
-      if (showOutput) spinnerHelper.stop("Source type not yet supported");
+      spinnerHelper.stop("Source type not yet supported");
       return yield* new InstallError({
         message: `Source type "${parsed.type}" is not yet supported`,
         retryable: false,
@@ -682,7 +657,7 @@ export const handleInstall = (
     } else {
       // Exhaustive check - should never reach here
       const _exhaustive: never = parsed.type;
-      if (showOutput) spinnerHelper.stop("Unsupported source type");
+      spinnerHelper.stop("Unsupported source type");
       return yield* new InstallError({
         message: `Unsupported source type: ${_exhaustive}`,
         retryable: false,
@@ -690,7 +665,7 @@ export const handleInstall = (
     }
 
     if (skills.length === 0) {
-      if (showOutput) spinnerHelper.stop("No skills found");
+      spinnerHelper.stop("No skills found");
       return yield* new InstallError({
         message: formatError(
           "No skills found in source",
@@ -701,18 +676,16 @@ export const handleInstall = (
       });
     }
 
-    if (showOutput) spinnerHelper.stop(`Found ${skills.length} skill(s)`);
+    spinnerHelper.stop(`Found ${skills.length} skill(s)`);
 
     // Step 5b: List mode - just show skills and exit
     if (args.list) {
-      if (showOutput) {
-        p.log.info("Available skills:");
-        for (const skill of skills) {
-          const desc = skill.description ? ` - ${skill.description}` : "";
-          p.log.message(`  ${skill.name}${desc}`);
-        }
-        p.outro(`${skills.length} skill(s) available`);
+      p.log.info("Available skills:");
+      for (const skill of skills) {
+        const desc = skill.description ? ` - ${skill.description}` : "";
+        p.log.message(`  ${skill.name}${desc}`);
       }
+      p.outro(`${skills.length} skill(s) available`);
       return;
     }
 
@@ -724,13 +697,13 @@ export const handleInstall = (
       selectedSkillNames = args.skill.filter((name) => skills.some((s) => s.name === name));
       const invalidSkills = args.skill.filter((name) => !skills.some((s) => s.name === name));
 
-      if (invalidSkills.length > 0 && showOutput) {
+      if (invalidSkills.length > 0) {
         p.log.warn(`Unknown skills: ${invalidSkills.join(", ")}`);
       }
     } else if (args.all || args.dryRun) {
       // Install all skills (dry-run auto-selects all)
       selectedSkillNames = skills.map((s) => s.name);
-      if (showOutput && args.all) p.log.info(`Installing all ${skills.length} skill(s)`);
+      if (args.all) p.log.info(`Installing all ${skills.length} skill(s)`);
     } else if (!canPrompt({ yes: args.yes, nonInteractive: args.nonInteractive ?? false })) {
       // Need to prompt but can't
       return yield* new InstallError({
@@ -770,10 +743,8 @@ export const handleInstall = (
     }
 
     if (selectedSkillNames.length === 0) {
-      if (showOutput) {
-        p.log.warn("No skills selected.");
-        p.outro("Nothing to install.");
-      }
+      p.log.warn("No skills selected.");
+      p.outro("Nothing to install.");
       return;
     }
 
@@ -781,7 +752,7 @@ export const handleInstall = (
     const filteredSkills = skills.filter((s) => selectedSkillNames.includes(s.name));
 
     // Step 7: Build ideal state (V2)
-    if (showOutput) spinnerHelper.start("Building installation plan...");
+    spinnerHelper.start("Building installation plan...");
 
     // Create the InstallCommand for V2 API
     const installCmd: InstallCommand = {
@@ -805,38 +776,26 @@ export const handleInstall = (
           }),
       ),
     );
-    if (showOutput) spinnerHelper.stop("Built installation plan");
+    spinnerHelper.stop("Built installation plan");
 
     // Step 8: Build plan (V2)
     const plan = buildPlan(currentState, ideal);
 
-    // Step 9: Display plan or output JSON
+    // Step 9: Display plan
     // Use the original parsed.canonical for display (e.g., "github:owner/repo")
     // instead of the cached local path
-    if (args.json) {
-      outputPlanJson(plan.steps);
-      if (args.dryRun) {
-        // JSON output for dry-run doesn't include text message
-        return;
-      }
-    } else {
-      displayPlanOutput(plan.steps, parsed.canonical);
-    }
+    displayPlanOutput(plan.steps, parsed.canonical);
 
     // Step 10: Check if there are changes
     if (!planHasChanges(plan)) {
-      if (showOutput) {
-        p.log.info("Already up to date.");
-        p.outro("No changes needed.");
-      }
+      p.log.info("Already up to date.");
+      p.outro("No changes needed.");
       return;
     }
 
     // Step 11: Dry-run stops here
     if (args.dryRun) {
-      if (showOutput) {
-        p.outro("Dry-run complete. No changes made.");
-      }
+      p.outro("Dry-run complete. No changes made.");
       return;
     }
 
@@ -870,9 +829,7 @@ export const handleInstall = (
 
     // Step 13: Apply changes (V2)
     const summary = getPlanSummary(plan);
-    if (showOutput) {
-      spinnerHelper.start(`Applying ${summary.installed + summary.updated} change(s)...`);
-    }
+    spinnerHelper.start(`Applying ${summary.installed + summary.updated} change(s)...`);
 
     // Create a modified applyStep that ensures source paths point to the specific skill folder.
     // The plan stores source pointing to the skillsDir root (for lockfile/settings),
@@ -912,24 +869,22 @@ export const handleInstall = (
       ),
     );
 
-    if (showOutput) spinnerHelper.stop(`Applied ${applyResult.applied.length} change(s)`);
+    spinnerHelper.stop(`Applied ${applyResult.applied.length} change(s)`);
 
     // Show results summary
-    if (showOutput) {
-      for (const step of applyResult.applied) {
-        const agentNames = step.agents.join(", ");
-        p.log.success(`${step.skill} -> ${agentNames}`);
-      }
-
-      if (applyResult.failed.length > 0) {
-        for (const failure of applyResult.failed) {
-          p.log.error(`${failure.step.skill}: ${failure.error.message}`);
-        }
-      }
-
-      p.outro(
-        `Successfully installed ${applyResult.summary.installed} skill(s) to ${agents.length} agent(s)`,
-      );
+    for (const step of applyResult.applied) {
+      const agentNames = step.agents.join(", ");
+      p.log.success(`${step.skill} -> ${agentNames}`);
     }
+
+    if (applyResult.failed.length > 0) {
+      for (const failure of applyResult.failed) {
+        p.log.error(`${failure.step.skill}: ${failure.error.message}`);
+      }
+    }
+
+    p.outro(
+      `Successfully installed ${applyResult.summary.installed} skill(s) to ${agents.length} agent(s)`,
+    );
   });
 };

@@ -32,7 +32,6 @@ import {
   type Plan,
   type PlanStep,
   planHasChanges,
-  planToJson,
   type UninstallCommand,
   updateLockfileForPlan,
   updateSettingsForPlan,
@@ -62,8 +61,6 @@ export interface UninstallArgs {
   readonly yes: boolean;
   /** Preview uninstall plan without making changes */
   readonly dryRun: boolean;
-  /** Output as JSON */
-  readonly json: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -117,32 +114,6 @@ const displayPartialPlan = (skillName: string, agents: readonly string[]): void 
   p.log.message("  Summary: 1 skill to uninstall");
 };
 
-/**
- * Output plan as JSON using V2 format.
- */
-const outputPlanJsonV2 = (plan: Plan): void => {
-  const json = planToJson(plan);
-  console.log(JSON.stringify(json, null, 2));
-};
-
-/**
- * Output partial uninstall plan as JSON using V2 format.
- */
-const outputPartialPlanJson = (skillName: string, agents: readonly string[]): void => {
-  // Create a Plan with an UninstallSkill step for consistency
-  const plan: Plan = {
-    steps: [
-      {
-        _tag: "UninstallSkill",
-        skill: skillName,
-        agents: [...agents],
-      },
-    ],
-  };
-  const json = planToJson(plan);
-  console.log(JSON.stringify(json, null, 2));
-};
-
 // -----------------------------------------------------------------------------
 // Main Handler
 // -----------------------------------------------------------------------------
@@ -165,9 +136,6 @@ export const handleUninstall = (
   args: UninstallArgs,
 ): Effect.Effect<void, UninstallError, FileSystem.FileSystem | Path.Path> => {
   return Effect.gen(function* () {
-    // JSON mode should suppress non-JSON output
-    const showOutput = !args.json;
-
     // Create workspace context (V2) - always local for uninstall
     const ws: WorkspaceContext = makeWorkspaceContext({
       global: false,
@@ -175,15 +143,13 @@ export const handleUninstall = (
     });
 
     // Show intro
-    if (showOutput) {
-      p.intro("axm skills uninstall");
-    }
+    p.intro("axm skills uninstall");
 
     // Create spinner helper (auto-detects TTY)
     const spinnerHelper = createSpinnerHelper();
 
     // Step 1: Ensure initialized
-    if (showOutput) spinnerHelper.start("Checking initialization...");
+    spinnerHelper.start("Checking initialization...");
     yield* ensureInitialized({ axmDir: ws.path }).pipe(
       Effect.mapError(
         (error) =>
@@ -194,10 +160,10 @@ export const handleUninstall = (
           }),
       ),
     );
-    if (showOutput) spinnerHelper.stop("Initialized");
+    spinnerHelper.stop("Initialized");
 
     // Step 2: Load current state using V2 API
-    if (showOutput) spinnerHelper.start("Loading current state...");
+    spinnerHelper.start("Loading current state...");
     const currentState = yield* loadCurrentState(ws).pipe(
       Effect.mapError(
         (error: { message: string }) =>
@@ -208,7 +174,7 @@ export const handleUninstall = (
           }),
       ),
     );
-    if (showOutput) spinnerHelper.stop("Loaded current state");
+    spinnerHelper.stop("Loaded current state");
 
     // Step 3: Validate skill exists in current state
     // Find skill by name in the skills array
@@ -232,9 +198,9 @@ export const handleUninstall = (
     // the V2 buildIdealForUninstall doesn't support partial agent removal.
     // Only use the full state-based pattern for complete uninstalls.
     if (isPartialUninstall) {
-      yield* handlePartialUninstall(args, ws, showOutput, spinnerHelper);
+      yield* handlePartialUninstall(args, ws, spinnerHelper);
     } else {
-      yield* handleFullUninstall(args, ws, showOutput, spinnerHelper);
+      yield* handleFullUninstall(args, ws, spinnerHelper);
     }
   });
 };
@@ -245,7 +211,6 @@ export const handleUninstall = (
 const handleFullUninstall = (
   args: UninstallArgs,
   ws: WorkspaceContext,
-  showOutput: boolean,
   spinnerHelper: ReturnType<typeof createSpinnerHelper>,
 ): Effect.Effect<void, UninstallError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
@@ -262,7 +227,7 @@ const handleFullUninstall = (
     );
 
     // Step 4: Build ideal state with skill removed using V2 API
-    if (showOutput) spinnerHelper.start("Building uninstall plan...");
+    spinnerHelper.start("Building uninstall plan...");
     const uninstallCmd: UninstallCommand = {
       _tag: "skills-uninstall",
       skills: [args.skill],
@@ -277,35 +242,24 @@ const handleFullUninstall = (
           }),
       ),
     );
-    if (showOutput) spinnerHelper.stop("Built uninstall plan");
+    spinnerHelper.stop("Built uninstall plan");
 
     // Step 5: Build plan using V2 API
     const plan = buildPlan(currentState, idealState);
 
     // Check if there are changes
     if (!planHasChanges(plan)) {
-      if (showOutput) {
-        p.log.info("No changes needed.");
-        p.outro("Nothing to do.");
-      }
+      p.log.info("No changes needed.");
+      p.outro("Nothing to do.");
       return;
     }
 
     // Step 6: Display plan
-    if (args.json) {
-      outputPlanJsonV2(plan);
-      if (args.dryRun) {
-        return;
-      }
-    } else {
-      displayPlanFromPlan(plan);
-    }
+    displayPlanFromPlan(plan);
 
     // Dry-run stops here
     if (args.dryRun) {
-      if (showOutput) {
-        p.outro("Dry-run complete. No changes made.");
-      }
+      p.outro("Dry-run complete. No changes made.");
       return;
     }
 
@@ -338,9 +292,7 @@ const handleFullUninstall = (
     }
 
     // Step 8: Apply changes using V2 applyPlan
-    if (showOutput) {
-      spinnerHelper.start(`Uninstalling ${args.skill}...`);
-    }
+    spinnerHelper.start(`Uninstalling ${args.skill}...`);
 
     // Get agent configs for the apply operation
     // For full uninstall, we need agents from the plan step
@@ -373,18 +325,16 @@ const handleFullUninstall = (
       ),
     );
 
-    if (showOutput) spinnerHelper.stop(`Uninstalled ${args.skill}`);
+    spinnerHelper.stop(`Uninstalled ${args.skill}`);
 
     // Show completion
-    if (showOutput) {
-      if (applyResult.failed.length > 0) {
-        for (const failure of applyResult.failed) {
-          p.log.error(`${failure.step.skill}: ${failure.error.message}`);
-        }
+    if (applyResult.failed.length > 0) {
+      for (const failure of applyResult.failed) {
+        p.log.error(`${failure.step.skill}: ${failure.error.message}`);
       }
-      p.log.success(`Successfully uninstalled ${args.skill}`);
-      p.outro("Done.");
     }
+    p.log.success(`Successfully uninstalled ${args.skill}`);
+    p.outro("Done.");
   });
 
 /**
@@ -396,7 +346,6 @@ const handleFullUninstall = (
 const handlePartialUninstall = (
   args: UninstallArgs,
   ws: WorkspaceContext,
-  showOutput: boolean,
   spinnerHelper: ReturnType<typeof createSpinnerHelper>,
 ): Effect.Effect<void, UninstallError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
@@ -434,24 +383,15 @@ const handlePartialUninstall = (
     const isFullRemoval = remainingAgents.length === 0;
 
     // Build plan
-    if (showOutput) spinnerHelper.start("Building uninstall plan...");
-    if (showOutput) spinnerHelper.stop("Built uninstall plan");
+    spinnerHelper.start("Building uninstall plan...");
+    spinnerHelper.stop("Built uninstall plan");
 
     // Display plan
-    if (args.json) {
-      outputPartialPlanJson(args.skill, targetAgents);
-      if (args.dryRun) {
-        return;
-      }
-    } else {
-      displayPartialPlan(args.skill, targetAgents);
-    }
+    displayPartialPlan(args.skill, targetAgents);
 
     // Dry-run stops here
     if (args.dryRun) {
-      if (showOutput) {
-        p.outro("Dry-run complete. No changes made.");
-      }
+      p.outro("Dry-run complete. No changes made.");
       return;
     }
 
@@ -484,9 +424,7 @@ const handlePartialUninstall = (
     }
 
     // Apply changes
-    if (showOutput) {
-      spinnerHelper.start(`Uninstalling ${args.skill}...`);
-    }
+    spinnerHelper.start(`Uninstalling ${args.skill}...`);
 
     // Get agent configs for removal
     const agentConfigs: AgentConfig[] = targetAgents
@@ -584,16 +522,14 @@ const handlePartialUninstall = (
       );
     }
 
-    if (showOutput) spinnerHelper.stop(`Uninstalled ${args.skill}`);
+    spinnerHelper.stop(`Uninstalled ${args.skill}`);
 
     // Show completion
-    if (showOutput) {
-      if (isFullRemoval) {
-        p.log.success(`Successfully uninstalled ${args.skill}`);
-      } else {
-        p.log.success(`Successfully removed ${args.skill} from ${targetAgents.join(", ")}`);
-        p.log.info(`Skill remains installed for: ${remainingAgents.join(", ")}`);
-      }
-      p.outro("Done.");
+    if (isFullRemoval) {
+      p.log.success(`Successfully uninstalled ${args.skill}`);
+    } else {
+      p.log.success(`Successfully removed ${args.skill} from ${targetAgents.join(", ")}`);
+      p.log.info(`Skill remains installed for: ${remainingAgents.join(", ")}`);
     }
+    p.outro("Done.");
   });

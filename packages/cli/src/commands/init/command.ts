@@ -10,7 +10,6 @@ interface InitArgs {
   force: boolean;
   verbose?: boolean;
   quiet?: boolean;
-  json?: boolean;
   "non-interactive"?: boolean;
   "dry-run"?: boolean;
 }
@@ -64,7 +63,6 @@ export const initCommand: CommandModule<{}, InitArgs> = {
       dryRun: argv["dry-run"] ?? false,
       verbose: argv.verbose,
       quiet: argv.quiet,
-      json: argv.json,
       nonInteractive: argv["non-interactive"],
     }).pipe(
       Effect.catchAll((error) =>

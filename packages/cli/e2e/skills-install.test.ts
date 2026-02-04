@@ -602,7 +602,6 @@ describe("axm skills install", () => {
       expect(result.stdout).toContain("--global");
       expect(result.stdout).toContain("--force");
       expect(result.stdout).toContain("--dry-run");
-      expect(result.stdout).toContain("--json");
     });
   });
 
@@ -774,149 +773,6 @@ describe("axm skills install", () => {
         expect(result.exitCode).toBe(0);
         // Should indicate no changes
         expect(result.stdout).toMatch(/already up to date|already installed|no changes/i);
-      } finally {
-        temp.cleanup();
-      }
-    });
-  });
-
-  describe("--dry-run --json", () => {
-    it("outputs plan as valid JSON", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        const result = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--all",
-            "--dry-run",
-            "--json",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
-
-        expect(result.exitCode).toBe(0);
-
-        // Should be valid JSON
-        const json = JSON.parse(result.stdout);
-        expect(json).toBeDefined();
-        expect(json.steps).toBeDefined();
-        expect(Array.isArray(json.steps)).toBe(true);
-        expect(json.summary).toBeDefined();
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("includes _tag and skill for each step", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        const result = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--all",
-            "--dry-run",
-            "--json",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
-
-        expect(result.exitCode).toBe(0);
-
-        const json = JSON.parse(result.stdout);
-        expect(json.steps.length).toBeGreaterThan(0);
-
-        for (const step of json.steps) {
-          expect(step).toHaveProperty("_tag");
-          expect(step).toHaveProperty("skill");
-          expect(["InstallSkill", "UpdateSkill", "UninstallSkill"]).toContain(step._tag);
-        }
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("includes summary counts", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        const result = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--all",
-            "--dry-run",
-            "--json",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
-
-        expect(result.exitCode).toBe(0);
-
-        const json = JSON.parse(result.stdout);
-        expect(json.summary).toHaveProperty("installed");
-        expect(json.summary).toHaveProperty("updated");
-        expect(json.summary).toHaveProperty("uninstalled");
-        expect(typeof json.summary.installed).toBe("number");
-        expect(json.summary.installed).toBe(2); // my-skill and another-skill
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("shows InstallSkill step with skill details", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        const result = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--dry-run",
-            "--json",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
-
-        expect(result.exitCode).toBe(0);
-
-        const json = JSON.parse(result.stdout);
-        const installStep = json.steps.find(
-          (c: { _tag: string; skill: string }) =>
-            c._tag === "InstallSkill" && c.skill === "my-skill",
-        );
-        expect(installStep).toBeDefined();
-        expect(installStep.skill).toBe("my-skill");
-        expect(installStep.source).toBeDefined();
       } finally {
         temp.cleanup();
       }
@@ -1335,46 +1191,6 @@ describe("axm skills install", () => {
 
         // Plan output should include agent information
         expect(result.stdout).toContain("claude-code");
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it.skip("dry-run JSON output includes new PlanStep format", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        const result = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--dry-run",
-            "--json",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
-
-        expect(result.exitCode).toBe(0);
-
-        const json = JSON.parse(result.stdout);
-
-        // New format uses PlanStep with _tag: InstallSkill/UpdateSkill/UninstallSkill
-        expect(json.steps).toBeDefined();
-        expect(Array.isArray(json.steps)).toBe(true);
-
-        const installStep = json.steps.find(
-          (c: { _tag: string; skill: string }) =>
-            c._tag === "InstallSkill" && c.skill === "my-skill",
-        );
-        expect(installStep).toBeDefined();
       } finally {
         temp.cleanup();
       }

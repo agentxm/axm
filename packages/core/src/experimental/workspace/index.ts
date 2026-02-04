@@ -57,10 +57,6 @@ export { loadCurrentState } from "./load-state.js";
 export {
   buildPlan,
   getPlanSummary,
-  type PlanJson,
-  type PlanStepJson,
   type PlanSummary,
   planHasChanges,
-  planToJson,
-  type SkillSourceJson,
 } from "./plan.js";

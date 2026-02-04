@@ -19,6 +19,7 @@ import {
   InstallError,
   installSkill,
   installSkillToAgents,
+  removeSkillFromAgents,
 } from "./installer.js";
 import type { AgentConfig, Skill } from "./types.js";
 
@@ -567,5 +568,209 @@ describe("installer", () => {
         expect(error.operation).toBe(operation);
       }
     });
+  });
+
+  describe("removeSkillFromAgents", () => {
+    it.effect("removes skill symlink from a single agent", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          // Setup: install skill first
+          const { skill } = createSkillSource("commit");
+          const agent = createAgent("claude-code");
+          yield* installSkillToAgents(skill, [agent], axmDir);
+
+          // Verify skill is installed
+          const agentSkillPath = path.join(agent.detectPath, "skills", "commit");
+          expect(fs.existsSync(agentSkillPath)).toBe(true);
+
+          // Act: remove skill from agent
+          yield* removeSkillFromAgents("commit", [agent], axmDir);
+
+          // Assert: symlink is removed
+          expect(fs.existsSync(agentSkillPath)).toBe(false);
+        }),
+      ),
+    );
+
+    it.effect("removes skill from multiple agents", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          // Setup: install skill to multiple agents
+          const { skill } = createSkillSource("review-pr");
+          const agents = [createAgent("claude-code"), createAgent("cursor"), createAgent("codex")];
+          yield* installSkillToAgents(skill, agents, axmDir);
+
+          // Verify all are installed
+          for (const agent of agents) {
+            const agentSkillPath = path.join(agent.detectPath, "skills", "review-pr");
+            expect(fs.existsSync(agentSkillPath)).toBe(true);
+          }
+
+          // Act: remove skill from all agents
+          yield* removeSkillFromAgents("review-pr", agents, axmDir);
+
+          // Assert: all symlinks are removed
+          for (const agent of agents) {
+            const agentSkillPath = path.join(agent.detectPath, "skills", "review-pr");
+            expect(fs.existsSync(agentSkillPath)).toBe(false);
+          }
+        }),
+      ),
+    );
+
+    it.effect("deletes canonical copy from .axm/skills/<name>/", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          // Setup: install skill
+          const { skill } = createSkillSource("commit");
+          const agent = createAgent("claude-code");
+          yield* installSkillToAgents(skill, [agent], axmDir);
+
+          // Verify canonical exists
+          const canonicalPath = path.join(axmDir, "skills", "commit");
+          expect(fs.existsSync(canonicalPath)).toBe(true);
+          expect(fs.existsSync(path.join(canonicalPath, "SKILL.md"))).toBe(true);
+
+          // Act: remove skill
+          yield* removeSkillFromAgents("commit", [agent], axmDir);
+
+          // Assert: canonical is removed
+          expect(fs.existsSync(canonicalPath)).toBe(false);
+        }),
+      ),
+    );
+
+    it.effect("handles copied skill (non-symlink) removal", () =>
+      Effect.gen(function* () {
+        const { skill } = createSkillSource("commit-copy");
+        const agent = createAgent("copy-agent");
+        const agentSkillsDir = path.join(agent.detectPath, "skills");
+        const targetPath = path.join(agentSkillsDir, "commit-copy");
+
+        // Create a FileSystem layer that fails on symlink to force copy fallback
+        const failingSymlinkLayer = Layer.effect(
+          FileSystem.FileSystem,
+          Effect.gen(function* () {
+            const realFs = yield* Effect.provide(FileSystem.FileSystem, NodeFileSystem.layer);
+            return {
+              ...realFs,
+              symlink: () =>
+                Effect.fail(
+                  new PlatformError.SystemError({
+                    module: "FileSystem",
+                    method: "symlink",
+                    pathOrDescriptor: "test",
+                    reason: "PermissionDenied",
+                  }),
+                ),
+            } as FileSystem.FileSystem;
+          }),
+        );
+
+        // Install with copy fallback
+        yield* installSkillToAgents(skill, [agent], axmDir).pipe(
+          Effect.provide(failingSymlinkLayer),
+        );
+
+        // Verify it's a copy, not a symlink
+        expect(fs.existsSync(targetPath)).toBe(true);
+        expect(fs.lstatSync(targetPath).isDirectory()).toBe(true);
+        expect(fs.lstatSync(targetPath).isSymbolicLink()).toBe(false);
+
+        // Act: remove skill (uses real filesystem)
+        yield* removeSkillFromAgents("commit-copy", [agent], axmDir).pipe(
+          Effect.provide(NodeFileSystem.layer),
+        );
+
+        // Assert: copied directory is removed
+        expect(fs.existsSync(targetPath)).toBe(false);
+      }),
+    );
+
+    it.effect("fails with InstallError when skill not found in canonical location", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const agent = createAgent("claude-code");
+
+          const error = yield* removeSkillFromAgents("nonexistent-skill", [agent], axmDir).pipe(
+            Effect.flip,
+          );
+
+          expect(error).toBeInstanceOf(InstallError);
+          expect(error.operation).toBe("remove");
+          expect(error.message).toContain("nonexistent-skill");
+        }),
+      ),
+    );
+
+    it.effect("handles empty agents array (only removes canonical)", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          // Setup: install skill to an agent first
+          const { skill } = createSkillSource("orphan-skill");
+          const agent = createAgent("temp-agent");
+          yield* installSkillToAgents(skill, [agent], axmDir);
+
+          // Verify canonical exists
+          const canonicalPath = path.join(axmDir, "skills", "orphan-skill");
+          expect(fs.existsSync(canonicalPath)).toBe(true);
+
+          // Act: remove with empty agents (simulates all agents already removed)
+          yield* removeSkillFromAgents("orphan-skill", [], axmDir);
+
+          // Assert: canonical is still removed
+          expect(fs.existsSync(canonicalPath)).toBe(false);
+        }),
+      ),
+    );
+
+    it.effect("handles agent skills directory that does not exist", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          // Setup: install skill
+          const { skill } = createSkillSource("commit");
+          const agent = createAgent("claude-code");
+          yield* installSkillToAgents(skill, [agent], axmDir);
+
+          // Manually delete agent's skills directory to simulate missing state
+          const agentSkillsDir = path.join(agent.detectPath, "skills");
+          fs.rmSync(agentSkillsDir, { recursive: true, force: true });
+
+          // Act: remove skill (should not fail even if agent path doesn't exist)
+          yield* removeSkillFromAgents("commit", [agent], axmDir);
+
+          // Assert: canonical is removed
+          const canonicalPath = path.join(axmDir, "skills", "commit");
+          expect(fs.existsSync(canonicalPath)).toBe(false);
+        }),
+      ),
+    );
+
+    it.effect("uses custom skillsDir if provided", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          // Setup: install skill with custom skillsDir
+          const { skill } = createSkillSource("custom-skill");
+          const customSkillsDir = path.join(tempDir, "custom-skills");
+          const agent: AgentConfig = {
+            id: "custom",
+            name: "Custom Agent",
+            detectPath: path.join(tempDir, "agents", "custom"),
+            skillsDir: customSkillsDir,
+          };
+          yield* installSkillToAgents(skill, [agent], axmDir);
+
+          // Verify skill is in custom location
+          const skillPath = path.join(customSkillsDir, "custom-skill");
+          expect(fs.existsSync(skillPath)).toBe(true);
+
+          // Act: remove skill
+          yield* removeSkillFromAgents("custom-skill", [agent], axmDir);
+
+          // Assert: skill is removed from custom location
+          expect(fs.existsSync(skillPath)).toBe(false);
+        }),
+      ),
+    );
   });
 });

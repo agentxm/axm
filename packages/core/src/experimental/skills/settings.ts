@@ -6,8 +6,33 @@
  */
 
 import { FileSystem } from "@effect/platform";
-import { Data, Effect, Schema } from "effect";
+import { Data, Effect, Record, Schema } from "effect";
 import { type Settings, SettingsSchema } from "../schemas/settings.js";
+
+// -----------------------------------------------------------------------------
+// Update Types
+// -----------------------------------------------------------------------------
+
+/**
+ * Skills update map that supports null values for removal.
+ *
+ * - string values add or update the skill
+ * - null values remove the skill
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type SkillsUpdate = Readonly<Record<string, string | null>>;
+
+/**
+ * Settings update that supports null values for skill removal.
+ *
+ * Uses JSON merge-patch semantics: null values indicate removal.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface SettingsUpdate extends Omit<Partial<Settings>, "skills"> {
+  readonly skills?: SkillsUpdate;
+}
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -214,27 +239,50 @@ export const writeSettings = (
 /**
  * Update settings by reading, merging, and writing back.
  *
+ * Supports JSON merge-patch semantics for skills:
+ * - string values add or update the skill
+ * - null values remove the skill from settings
+ *
  * @param axmDir - Path to the .axm directory
- * @param update - Partial settings to merge
+ * @param update - Settings update to merge (skills can have null values for removal)
  * @returns Updated settings object
+ *
+ * @example
+ * ```typescript
+ * // Add a skill
+ * updateSettings(axmDir, { skills: { "my-skill": "^1.0.0" } });
+ *
+ * // Remove a skill
+ * updateSettings(axmDir, { skills: { "my-skill": null } });
+ *
+ * // Add and remove in one update
+ * updateSettings(axmDir, { skills: { "old-skill": null, "new-skill": "^2.0.0" } });
+ * ```
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const updateSettings = (
   axmDir: string,
-  update: Partial<Settings>,
+  update: SettingsUpdate,
 ): Effect.Effect<Settings, SettingsError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const current = yield* readSettings(axmDir);
 
+    // Merge skills with null-removal support
+    let mergedSkills = current.skills;
+    if (update.skills !== undefined) {
+      const baseSkills = current.skills ?? {};
+      const updateSkills = update.skills;
+
+      // Merge and filter out null values
+      const merged = { ...baseSkills, ...updateSkills };
+      mergedSkills = Record.filter(merged, (value): value is string => value !== null);
+    }
+
     const updated: Settings = {
       ...current,
       ...update,
-      // Merge skills if update provides skills (handle undefined current.skills)
-      skills:
-        update.skills !== undefined
-          ? { ...(current.skills ?? {}), ...update.skills }
-          : current.skills,
+      skills: mergedSkills,
     };
 
     yield* writeSettings(axmDir, updated);

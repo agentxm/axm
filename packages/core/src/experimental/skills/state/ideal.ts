@@ -470,3 +470,87 @@ export const buildIdealForUpdate = (
 
     return { skills: Arr.appendAll(unchanged, updated) };
   });
+
+/**
+ * Options for building ideal state for uninstall operation (V2).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface UninstallOptionsV2 {
+  /** Target agents to uninstall from. If empty or undefined, uninstall from all agents. */
+  readonly agents?: ReadonlyArray<string>;
+}
+
+/**
+ * Build ideal state for uninstall operation (V2 - new reconciliation design).
+ *
+ * Algorithm:
+ * 1. Find the target skill in current state
+ * 2. If agents specified, remove skill from only those agents
+ * 3. If no agents specified, remove skill entirely
+ * 4. If skill has no remaining agents after partial uninstall, remove entirely
+ * 5. Keep all other skills unchanged
+ *
+ * @param current - Current workspace state (V2)
+ * @param skillName - Name of skill to uninstall
+ * @param options - Uninstall options (agents to uninstall from)
+ * @returns Ideal state with skill removed/modified
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const buildIdealForUninstallV2 = (
+  current: CurrentState,
+  skillName: string,
+  options?: UninstallOptionsV2,
+): IdealState => {
+  const targetAgents = options?.agents ?? [];
+  const isPartialUninstall = targetAgents.length > 0;
+
+  const skills = pipe(
+    current.skills,
+    // Only include skills with locked state (orphans are not in ideal)
+    Arr.filter((s) => Option.isSome(s.locked)),
+    Arr.filterMap((skill) => {
+      const locked = Option.getOrThrow(skill.locked); // Safe: filtered above
+
+      // Not the target skill - keep unchanged
+      if (skill.name !== skillName) {
+        return Option.some({
+          name: skill.name,
+          source: locked.source,
+          version: locked.version,
+          gitTreeHash: locked.gitTreeHash,
+          agents: [...locked.agents],
+        } satisfies IdealSkillV2);
+      }
+
+      // Target skill found
+      if (!isPartialUninstall) {
+        // Full uninstall - exclude from ideal state
+        return Option.none();
+      }
+
+      // Partial uninstall - remove specified agents
+      const remainingAgents = pipe(
+        locked.agents,
+        Arr.filter((agent) => !targetAgents.includes(agent)),
+      );
+
+      // If no agents remain, remove skill entirely
+      if (remainingAgents.length === 0) {
+        return Option.none();
+      }
+
+      // Keep skill with reduced agents
+      return Option.some({
+        name: skill.name,
+        source: locked.source,
+        version: locked.version,
+        gitTreeHash: locked.gitTreeHash,
+        agents: remainingAgents,
+      } satisfies IdealSkillV2);
+    }),
+  );
+
+  return { skills };
+};

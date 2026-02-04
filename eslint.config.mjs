@@ -17,41 +17,10 @@ export default tseslint.config(
       sourceType: "module",
     },
     rules: {
-      // Allow unused vars with _ prefix
-      "@typescript-eslint/no-unused-vars": [
-        "error",
-        {
-          argsIgnorePattern: "^_",
-          varsIgnorePattern: "^_",
-        },
-      ],
-      // Warn on explicit any - use eslint-disable when truly needed
-      "@typescript-eslint/no-explicit-any": "warn",
-      // Namespaces rarely needed but not harmful
-      "@typescript-eslint/no-namespace": "off",
-      // Prefer @ts-expect-error over @ts-ignore, require description
-      "@typescript-eslint/ban-ts-comment": [
-        "error",
-        {
-          "ts-expect-error": "allow-with-description",
-          "ts-ignore": true,
-          "ts-nocheck": true,
-          "ts-check": false,
-        },
-      ],
-      // Catch unintentional fallthrough - use "// falls through" comment for intentional
-      "no-fallthrough": "error",
-    },
-  },
-  {
-    files: ["packages/*/src/**/*", "packages/*/e2e/**/*"],
-    rules: {
-      // Effect-specific rules for source files (warn for now, enable as error when ready)
+      // Enforce direct imports from Effect submodules
       "@effect/no-import-from-barrel-package": [
-        "warn",
-        {
-          packageNames: ["effect"],
-        },
+        "error",
+        { packageNames: ["effect", "@effect/platform", "@effect/platform-node", "@effect/vitest"] },
       ],
     },
   },

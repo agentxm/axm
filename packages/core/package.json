@@ -34,6 +34,10 @@
     "./experimental/workspace-init": {
       "types": "./dist/experimental/workspace-init/index.d.ts",
       "import": "./dist/experimental/workspace-init/index.js"
+    },
+    "./experimental/agents": {
+      "types": "./dist/experimental/agents/index.d.ts",
+      "import": "./dist/experimental/agents/index.js"
     }
   },
   "scripts": {

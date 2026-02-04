@@ -472,6 +472,78 @@ describe("uninstall.handler", () => {
   });
 
   // =============================================================================
+  // State-based Reconciliation Tests
+  // =============================================================================
+
+  describe("state-based reconciliation pattern", () => {
+    it.effect("uses loadSkillsState, buildIdealForUninstall, computeDiff, and applyDiff", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          initializeAxm(["claude-code"]);
+          installSkillDirectly("state-test-skill", ["claude-code"]);
+
+          const args: UninstallArgs = {
+            ...defaultArgs,
+            skill: "state-test-skill",
+            yes: true,
+          };
+
+          // Execute uninstall - should use state-based pattern internally
+          yield* handleUninstall(args);
+
+          // Verify the outcome is correct (state-based pattern produces same result)
+          // Canonical skill directory should be removed
+          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "state-test-skill"))).toBe(
+            false,
+          );
+
+          // Settings should not have the skill
+          const settings: Settings = JSON.parse(
+            fs.readFileSync(path.join(tempDir, ".axm", "settings.json"), "utf-8"),
+          );
+          expect(settings.skills?.["state-test-skill"]).toBeUndefined();
+
+          // Lockfile should not have the skill
+          const lockfile = YAML.parse(
+            fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8"),
+          );
+          expect(lockfile.skills["state-test-skill"]).toBeUndefined();
+        }),
+      ),
+    );
+
+    it.effect("handles partial uninstall via state-based pattern", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          initializeAxm(["claude-code", "cursor"]);
+          installSkillDirectly("partial-state-skill", ["claude-code", "cursor"]);
+
+          const args: UninstallArgs = {
+            ...defaultArgs,
+            skill: "partial-state-skill",
+            agent: ["claude-code"],
+            yes: true,
+          };
+
+          yield* handleUninstall(args);
+
+          // Canonical should still exist (other agents still use it)
+          expect(fs.existsSync(path.join(tempDir, ".axm", "skills", "partial-state-skill"))).toBe(
+            true,
+          );
+
+          // Lockfile should have reduced agents
+          const lockfile = YAML.parse(
+            fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8"),
+          );
+          expect(lockfile.skills["partial-state-skill"]).toBeDefined();
+          expect(lockfile.skills["partial-state-skill"].agents).toEqual(["cursor"]);
+        }),
+      ),
+    );
+  });
+
+  // =============================================================================
   // UninstallError Tests
   // =============================================================================
 

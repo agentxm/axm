@@ -155,6 +155,7 @@ const lockEntryToLockedSkill = (entry: SkillLockEntry): LockedSkill => {
     ref: refOpt,
     version: versionOpt,
     gitTreeFolderHash: entry.gitTreeHash ?? "",
+    agents: entry.agents,
     installedAt: entry.installedAt,
     updatedAt: entry.updatedAt,
   };

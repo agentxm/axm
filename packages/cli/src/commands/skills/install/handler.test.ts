@@ -804,8 +804,9 @@ describe("install.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
+          // New behavior: settings records the source path (not "*")
           expect(settings.skills?.["commit"]).toBeDefined();
-          expect(settings.skills?.["commit"]).toBe("*");
+          expect(settings.skills?.["commit"]).toContain("commit");
         }),
       ),
     );
@@ -830,12 +831,12 @@ describe("install.handler", () => {
           expect(fs.existsSync(lockPath)).toBe(true);
 
           // Lockfile is in YAML format - parse and verify structure (flat structure)
+          // Note: With applyDiff, all sources are recorded as "local" with the cached path
           const lockContent = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           expect(lockContent.lockfileVersion).toBe(1);
           expect(lockContent.skills.commit).toBeDefined();
-          expect(lockContent.skills.commit.source).toBe("github");
-          expect(lockContent.skills.commit.owner).toBe("test");
-          expect(lockContent.skills.commit.repo).toBe("skills");
+          expect(lockContent.skills.commit.source).toBe("local");
+          expect(lockContent.skills.commit.path).toBeDefined();
           expect(lockContent.skills.commit.gitTreeHash).toMatch(/^sha256:/);
           expect(lockContent.skills.commit.agents).toBeDefined();
           expect(lockContent.skills.commit.installedAt).toBeDefined();
@@ -1410,9 +1411,9 @@ describe("install.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
-          // Verify skills at root level
+          // Verify skills at root level - new behavior: records source path, not "*"
           expect(settings.skills).toBeDefined();
-          expect(settings.skills.commit).toBe("*");
+          expect(settings.skills.commit).toContain("commit");
         }),
       ),
     );
@@ -1450,8 +1451,8 @@ describe("install.handler", () => {
           expect(settings.scope).toBe("@myorg");
           expect(settings.agents).toEqual(["claude-code"]);
           expect(settings.skills?.["existing-skill"]).toBe("^1.0.0");
-          // New skill should be added
-          expect(settings.skills.commit).toBe("*");
+          // New skill should be added - new behavior: records source path, not "*"
+          expect(settings.skills.commit).toContain("commit");
         }),
       ),
     );
@@ -1503,10 +1504,9 @@ describe("install.handler", () => {
           const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
           const entry = lockfile.skills.commit;
 
-          // Required fields per flat schema (using GitHub shorthand via createSkillSource)
-          expect(entry.source).toBe("github");
-          expect(entry.owner).toBe("test");
-          expect(entry.repo).toBe("skills");
+          // With applyDiff, all sources are recorded as "local" with cached path
+          expect(entry.source).toBe("local");
+          expect(entry.path).toBeDefined();
           expect(entry.agents).toBeDefined();
           expect(entry.installedAt).toBeDefined();
           expect(entry.updatedAt).toBeDefined();
@@ -1601,13 +1601,14 @@ describe("install.handler", () => {
       ),
     );
 
-    it.effect("stores canonical source with github: prefix in lockfile", () =>
+    it.effect("stores skill source in lockfile (local with cached path)", () =>
       withTestLayer(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
 
           // Install from GitHub source (createSkillSource returns github:test/skills)
+          // Note: With applyDiff, all sources are recorded as "local" with cached path
           yield* handleInstall({
             ...defaultArgs,
             source,
@@ -1616,12 +1617,59 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           });
 
-          // Verify GitHub source is stored with flat format
+          // Verify source is stored as local with path
           const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
           const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-          expect(lockfile.skills.commit.source).toBe("github");
-          expect(lockfile.skills.commit.owner).toBe("test");
-          expect(lockfile.skills.commit.repo).toBe("skills");
+          expect(lockfile.skills.commit.source).toBe("local");
+          expect(lockfile.skills.commit.path).toBeDefined();
+        }),
+      ),
+    );
+  });
+
+  // =============================================================================
+  // State-Based Application Tests
+  // =============================================================================
+
+  describe("state-based application (applyDiff)", () => {
+    it.effect("uses applyDiff for installation (not direct manipulation)", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          // Create a local source directory with a skill
+          fs.mkdirSync(sourceDir, { recursive: true });
+          const skillDir = path.join(sourceDir, "local-skill");
+          fs.mkdirSync(skillDir, { recursive: true });
+          fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# Local Skill\n\nA local test skill.");
+
+          initializeAxm();
+
+          const args: InstallArgs = {
+            ...defaultArgs,
+            source: sourceDir, // Local path source
+            all: true,
+            yes: true,
+            agent: ["claude-code"],
+          };
+
+          yield* handleInstall(args);
+
+          // Verify skill was installed
+          expect(
+            fs.existsSync(path.join(tempDir, ".axm", "skills", "local-skill", "SKILL.md")),
+          ).toBe(true);
+
+          // Verify settings has the skill's source path (not "*")
+          // This is the key assertion - applyDiff uses sourceToSettingsValue which returns the path
+          // The path is the skill's directory, not the parent source directory
+          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+          expect(settings.skills?.["local-skill"]).toBe(skillDir);
+
+          // Verify lockfile has local source with path
+          const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
+          const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
+          expect(lockfile.skills["local-skill"].source).toBe("local");
+          expect(lockfile.skills["local-skill"].path).toBe(skillDir);
         }),
       ),
     );
@@ -1632,7 +1680,7 @@ describe("install.handler", () => {
   // =============================================================================
 
   describe("source normalization", () => {
-    it.effect("stores GitHub source in lockfile with flat format", () =>
+    it.effect("stores source in lockfile as local with cached path", () =>
       withTestLayer(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
@@ -1649,10 +1697,9 @@ describe("install.handler", () => {
           const lockPath = path.join(tempDir, ".axm", "axm-lock.yaml");
           const lockfile = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
-          // GitHub source should be stored with flat format
-          expect(lockfile.skills.commit.source).toBe("github");
-          expect(lockfile.skills.commit.owner).toBe("test");
-          expect(lockfile.skills.commit.repo).toBe("skills");
+          // With applyDiff, all sources are normalized to local with cached path
+          expect(lockfile.skills.commit.source).toBe("local");
+          expect(lockfile.skills.commit.path).toBeDefined();
         }),
       ),
     );

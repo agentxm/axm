@@ -1,21 +1,4 @@
-### Requirement: Source type schema
-
-The `SourceSchema` SHALL define the canonical source types as a literal union:
-
-- `"github"` - GitHub repository source
-- `"git"` - Generic git repository source
-- `"local"` - Local filesystem source
-- `"registry"` - Package registry source
-
-#### Scenario: Valid source types
-
-- **WHEN** validating source type `"github"`
-- **THEN** validation succeeds
-
-#### Scenario: Invalid source type
-
-- **WHEN** validating source type `"invalid"`
-- **THEN** validation fails with error indicating invalid literal
+## MODIFIED Requirements
 
 ### Requirement: Source string format
 
@@ -26,9 +9,9 @@ Source strings SHALL follow these formats:
 | registry | `@scope/name` or `@scope/name@version` | `@acme/my-skill`, `@acme/my-skill@1.0.0`         |
 | github   | `github:owner/repo[/path][#ref]`       | `github:acme/skills`, `github:acme/repo/path#v1` |
 | git      | `git:url[#ref]`                        | `git:https://example.com/repo.git#main`          |
-| local    | `local:path` or bare path              | `local:./skills`, `~/my-skills`, `./dev-skill`   |
+| local    | bare path (no prefix)                  | `./skills`, `~/my-skills`, `/absolute/path`      |
 
-Bare paths starting with `./`, `../`, `/`, `~/`, or Windows drive letters (e.g., `C:\`) are recognized as local sources and normalized to `local:path` format internally.
+Bare paths starting with `./`, `../`, `/`, `~/`, or Windows drive letters (e.g., `C:\`) are recognized as local sources and stored as-is (not normalized with a prefix).
 
 The `~` prefix represents the user's home directory and is expanded at resolution time.
 
@@ -47,15 +30,15 @@ The `~` prefix represents the user's home directory and is expanded at resolutio
 - **WHEN** parsing source string `git:https://example.com/repo.git#v2.0.0`
 - **THEN** source type is `git` with url `https://example.com/repo.git`, ref `v2.0.0`
 
-#### Scenario: Local source string with explicit prefix
+#### Scenario: Local source string stored without prefix
 
-- **WHEN** parsing source string `local:./my-skills/dev-skill`
-- **THEN** source type is `local` with path `./my-skills/dev-skill`
+- **WHEN** installing a skill from local path `./my-skills/dev-skill`
+- **THEN** settings records `./my-skills/dev-skill` (not `local:./my-skills/dev-skill`)
 
-#### Scenario: Local source string with bare path
+#### Scenario: Local source string with absolute path
 
-- **WHEN** parsing source string `~/my-skills/dev-skill`
-- **THEN** source type is `local` with path `~/my-skills/dev-skill`
+- **WHEN** installing a skill from local path `/Users/dev/skills`
+- **THEN** settings records `/Users/dev/skills`
 
 #### Scenario: Local source string with home directory
 

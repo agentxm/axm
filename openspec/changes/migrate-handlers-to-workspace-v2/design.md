@@ -10,7 +10,7 @@ The authoritative V2 pipeline exists in `workspace/`:
 - `loadCurrentState` → `buildIdealState` → `buildPlan` → `applyPlan`
 - Types: `CurrentState`, `IdealState`, `Plan`
 
-The `buildPlan` function exists in `skills/state/pure-functions.ts` but uses local types (`CurrentStateNew`, `IdealStateNew`) that closely mirror the V2 types. This function is tested but not exported.
+The `buildPlan` function exists in `skills/state/pure-functions.ts` but uses incomplete placeholder types (`CurrentStateNew`, `IdealStateNew`) that were never integrated with the V2 pipeline. This function is tested but not used in production.
 
 ### Code Audit Findings
 
@@ -43,10 +43,24 @@ Dynamic import should be replaced with static imports.
 - When stored in lockfile, WellKnown sources are converted to Git sources (`skills/state/apply.ts:244-253`)
 - V2 type system correctly omits WellKnown variant
 
+**Incomplete placeholder types in pure-functions.ts**:
+
+The `*New` types in `pure-functions.ts` are incomplete duplicates of the V2 types in `types.ts`:
+
+| pure-functions.ts                       | types.ts                                     | Issue                            |
+| --------------------------------------- | -------------------------------------------- | -------------------------------- |
+| `SkillStateNew.locked: Option<unknown>` | `SkillStateV2.locked: Option<LockedSkillV2>` | `unknown` placeholder            |
+| `SkillSourceNew.Registry`               | `SkillSourceV2.Registry`                     | Missing `location`, `scope`      |
+| `IdealSkillNew`                         | `IdealSkillV2`                               | Uses incomplete `SkillSourceNew` |
+
+These types were created before V2 types were finalized and never updated. The `buildPlan` function uses them but is not imported anywhere in production code.
+
 **Module dependencies after migration**:
 
-- **Keep**: `pure-functions.ts` (has `computeInstallPath`, `buildPlan`), `types.ts` (V2 types)
+- **Keep**: `pure-functions.ts` (utilities only: `computeInstallPath`, `toSettingsEntry`, `versionsEqual`, `collectIssues`), `types.ts` (V2 types)
 - **Delete**: `apply.ts`, `load.ts`, `ideal.ts`, `diff.ts`
+- **Move to workspace**: `buildPlan` (rewritten to use V2 types)
+- **Delete from pure-functions.ts**: `*New` types, old `buildPlan`
 
 ## Goals / Non-Goals
 
@@ -61,40 +75,45 @@ Dynamic import should be replaced with static imports.
 
 - Changing user-facing behavior (internal refactor only)
 - Migrating `skills-update` command (keep using legacy if needed, or migrate opportunistically)
-- Creating a workspace module barrel file
-- Refactoring type naming conventions
 
 ## Decisions
 
-### Decision 1: Wire buildPlan through workspace module
+### Decision 1: Move buildPlan to workspace, use V2 types directly
 
-**Approach**: Export `buildPlan` from `pure-functions.ts` via `skills/state/index.ts`, then re-export from workspace.
+**Approach**: Rewrite `buildPlan` in `workspace/plan.ts` using the V2 types (`CurrentState`, `IdealState`) from `types.ts`. Delete the incomplete `*New` types from `pure-functions.ts`.
 
-**Alternative considered**: Move `buildPlan` to workspace module. Rejected because it's a pure function that belongs with the type definitions, and moving would require updating test imports.
+**Rationale**:
 
-### Decision 2: Adapt handler types at call site
+- The `*New` types in `pure-functions.ts` are incomplete placeholders (e.g., `locked: Option<unknown>`)
+- The V2 types in `types.ts` are complete and already used throughout `workspace/`
+- Creating adapters between incomplete and complete types adds complexity for no benefit
+- `buildPlan` logically belongs in `workspace/` alongside `buildIdealState` and `applyPlan`
 
-The V2 types (`CurrentState`, `IdealState`) and pure-functions types (`CurrentStateNew`, `IdealStateNew`) are structurally compatible but not identical.
+**Alternative rejected**: Wire `buildPlan` through adapters. This perpetuates legacy patterns and adds unnecessary complexity.
 
-**Approach**: Create thin adapter functions in handlers that map between types. These are temporary until types are unified.
+### Decision 2: Clean up pure-functions.ts
 
-**Key type mappings:**
-| Legacy | V2 | Notes |
-|--------|-----|-------|
-| `SkillsState` | `CurrentState` | Different field structure |
-| `IdealSkillsState` | `IdealState` | Array vs Record |
-| `SkillsDiff` | `Plan` | Entirely different shape |
-| `diff.summary.add` | `plan.steps.filter(...)` | Summary computed from steps |
+**Keep** (genuine utilities used by workspace):
 
-**Alternative considered**: Unify all type aliases in `types.ts`. Rejected as scope creep - type cleanup is a separate concern.
+- `computeInstallPath` - used by `workspace/apply.ts`
+- `toSettingsEntry` - converts source to settings format
+- `versionsEqual` - semver-aware comparison
+- `collectIssues` - flattens issue hierarchy
 
-### Decision 5: Create workspace barrel file
+**Delete** (incomplete placeholders):
+
+- `CurrentStateNew`, `SkillStateNew`, `ActualSkillNew`
+- `IdealStateNew`, `IdealSkillNew`, `LockedSkillNew`
+- `SkillSourceNew`, `PlanStep`, `Plan` (duplicates of types.ts)
+- `buildPlan` (replaced by workspace version)
+
+### Decision 3: Create workspace barrel file
 
 The workspace module has no `index.ts`. Create one for clean handler imports.
 
-**Exports**: `WorkspaceContext`, `loadCurrentState`, `buildIdealState`, `applyPlan`, `displayPlan`, `buildPlanFromState`, `planToJson`, `getPlanSummary`
+**Exports**: `WorkspaceContext`, `loadCurrentState`, `buildIdealState`, `buildPlan`, `applyPlan`, `displayPlan`, `planToJson`, `getPlanSummary`
 
-### Decision 6: Add JSON output support to V2 pipeline
+### Decision 4: Add JSON output support to V2 pipeline
 
 Handlers use `--json` flag with `skillsDiffToJson()`. V2 pipeline needs equivalent.
 
@@ -105,13 +124,13 @@ Handlers use `--json` flag with `skillsDiffToJson()`. V2 pipeline needs equivale
 
 `formatSummary` in apply.ts already computes counts internally - extract and export.
 
-### Decision 3: Sequential handler migration
+### Decision 5: Sequential handler migration
 
 Migrate install handler first, verify E2E, then uninstall. This isolates failures.
 
 **Alternative considered**: Parallel migration. Rejected because handlers share testing infrastructure and simultaneous changes complicate debugging.
 
-### Decision 4: Keep partial uninstall bypass
+### Decision 6: Keep partial uninstall bypass
 
 The uninstall handler has a special path for removing skills from specific agents without full uninstall. This uses `applyDiff` internally.
 
@@ -119,8 +138,8 @@ The uninstall handler has a special path for removing skills from specific agent
 
 ## Risks / Trade-offs
 
-**Risk**: Type adapter complexity could introduce subtle bugs
-→ Mitigation: E2E tests provide behavioral verification; add integration tests for adapters
+**Risk**: Rewriting `buildPlan` may introduce behavioral differences
+→ Mitigation: Port existing `pure-functions.test.ts` tests to workspace; E2E tests verify end-to-end behavior
 
 **Risk**: Handler tests coupled to legacy mock structure may break
 → Mitigation: Update mocks incrementally; handler tests are primarily about orchestration, not apply logic
@@ -130,12 +149,15 @@ The uninstall handler has a special path for removing skills from specific agent
 
 ## Migration Plan
 
-1. Export `buildPlan` from `skills/state/index.ts`
-2. Create workspace adapter: `buildPlanFromState(current: CurrentState, ideal: IdealState): Plan`
-3. Migrate install handler
-4. Run E2E: `pnpm test:e2e -- --grep install`
-5. Migrate uninstall handler (including partial uninstall)
-6. Run E2E: `pnpm test:e2e -- --grep uninstall`
-7. Delete legacy modules
-8. Update index exports
-9. Full verification: `pnpm test && pnpm test:e2e`
+1. Create `workspace/plan.ts` with `buildPlan` using V2 types
+2. Port tests from `pure-functions.test.ts` to `workspace/plan.test.ts`
+3. Add `planToJson` and `getPlanSummary` to `workspace/plan.ts`
+4. Create workspace barrel file (`workspace/index.ts`)
+5. Migrate install handler to V2 pipeline
+6. Run E2E: `pnpm test:e2e -- --grep install`
+7. Migrate uninstall handler (including partial uninstall)
+8. Run E2E: `pnpm test:e2e -- --grep uninstall`
+9. Delete `*New` types and old `buildPlan` from `pure-functions.ts`
+10. Delete legacy modules: `apply.ts`, `load.ts`, `ideal.ts`, `diff.ts`
+11. Update index exports
+12. Full verification: `pnpm test && pnpm test:e2e`

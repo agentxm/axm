@@ -64,13 +64,7 @@ const handleInit = (...): Effect.Effect<void, InitError, Clack> =>
 
 **Migration for cancel handling:** The utilities call `p.cancel(message)` before failing. In `Clack`, cancellation returns `PromptCancelled`. Handlers can catch this and call `clack.outro()` or let it propagate.
 
-### Decision 4: Remove `interaction` from `OperationContext`
-
-**Choice:** Remove the `interaction: Option<InteractionContext>` field entirely.
-
-**Rationale:** `OperationContext` should contain operation metadata (cwd, config paths), not UI dependencies. Prompts are a separate concern provided via the Effect layer system.
-
-### Decision 5: Test migration to `makeClackTestLayer()`
+### Decision 4: Test migration to `makeClackTestLayer()`
 
 **Choice:** Replace `vi.mock("@clack/prompts")` with Effect test layers.
 
@@ -98,11 +92,10 @@ const TestClack = makeClackTestLayer({
 
 ## Migration Plan
 
-1. **Update `OperationContext`** — Remove `interaction` field
-2. **Update `workspace-context`** — Change from `InteractionContext` to `Clack`
-3. **Refactor handlers** — One at a time: `init`, `install`, `uninstall`
-4. **Delete utilities** — `prompts.ts`, `spinner.ts` and their tests
-5. **Delete `InteractionContext`** — Service folder and spec
-6. **Verify** — `pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e`
+1. **Update `workspace-context`** — Change from `InteractionContext` to `Clack`
+2. **Refactor handlers** — One at a time: `init`, `install`, `uninstall`
+3. **Delete utilities** — `prompts.ts`, `spinner.ts` and their tests
+4. **Delete `InteractionContext`** — Service folder and spec
+5. **Verify** — `pnpm typecheck && pnpm lint && pnpm test && pnpm test:e2e`
 
 No rollback needed—this is a code simplification with no runtime behavior change for users.

@@ -5,7 +5,6 @@ The `InteractionContext` service adds an unnecessary layer of indirection. The `
 ## What Changes
 
 - **BREAKING**: Remove `InteractionContext` service (`packages/cli/src/services/interaction-context/`)
-- **BREAKING**: Remove `interaction` field from `OperationContext`
 - **BREAKING**: Remove clack utility helpers (`packages/cli/src/utils/prompts.ts`, `packages/cli/src/utils/spinner.ts`)
 - Refactor `init` handler to use `Clack` service directly
 - Refactor `skills install` handler to use `Clack` service directly
@@ -28,7 +27,6 @@ None.
 **Code affected:**
 
 - `packages/cli/src/services/interaction-context/` — deleted
-- `packages/cli/src/services/operation-context/` — remove `interaction` field
 - `packages/cli/src/services/workspace-context/` — use Clack directly
 - `packages/cli/src/utils/prompts.ts` — deleted
 - `packages/cli/src/utils/spinner.ts` — deleted

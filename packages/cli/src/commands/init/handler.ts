@@ -9,10 +9,9 @@
 
 import { getAgentById } from "@agentxm/core/experimental/agents";
 import type { FileSystem } from "@effect/platform";
-import * as p from "@clack/prompts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { InteractionContext } from "../../services/interaction-context/index.js";
+import { Clack } from "../../services/clack-effect/index.js";
 import {
   make,
   type WorkspaceContextError,

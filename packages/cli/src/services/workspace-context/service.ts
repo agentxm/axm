@@ -25,8 +25,8 @@ import { getAxmDir } from "@agentxm/core/experimental/paths";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { Clack } from "../clack-effect/service.js";
 import { PromptCancelled } from "../clack-effect/errors.js";
-import { InteractionContext } from "../interaction-context/service.js";
 import { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./errors.js";
 import type { WorkspaceContextService } from "./types.js";
 
@@ -89,7 +89,7 @@ const initializeProjectWorkspace = (
 ): Effect.Effect<
   readonly string[],
   WorkspaceInitializationError | PromptCancelled,
-  FileSystem.FileSystem | InteractionContext
+  FileSystem.FileSystem | Clack
 > =>
   Effect.gen(function* () {
     // Select agents based on options
@@ -126,14 +126,14 @@ const initializeProjectWorkspace = (
         );
       } else {
         // Interactive mode - prompt for agent selection
-        const interaction = yield* InteractionContext;
+        const clack = yield* Clack;
 
         if (detectedAgents.length === 0) {
           // No agents detected - proceed with empty selection
           selectedAgents = [];
         } else {
           // Prompt for agent selection
-          selectedAgents = yield* interaction.p
+          selectedAgents = yield* clack
             .multiselect<AgentConfig>("Select agents to configure", detectedAgents, {
               toOption: (agent) => ({
                 value: agent.id,
@@ -206,11 +206,7 @@ const initializeProjectWorkspace = (
  */
 export const make = (
   options: WorkspaceContextOptions,
-): Effect.Effect<
-  WorkspaceContextService,
-  WorkspaceContextError,
-  FileSystem.FileSystem | InteractionContext
-> =>
+): Effect.Effect<WorkspaceContextService, WorkspaceContextError, FileSystem.FileSystem | Clack> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const globalDir = getAxmDir(true);
@@ -316,7 +312,7 @@ export const make = (
  * Create a layer that loads workspace context from disk.
  *
  * When project initialization is needed and `yes=false` and `nonInteractive=false`,
- * InteractionContext is required for agent selection prompts.
+ * Clack is required for agent selection prompts.
  *
  * @param options - Workspace context options
  * @returns Layer providing WorkspaceContext
@@ -325,8 +321,5 @@ export const make = (
  */
 export const layer = (
   options: WorkspaceContextOptions,
-): Layer.Layer<
-  WorkspaceContext,
-  WorkspaceContextError,
-  FileSystem.FileSystem | InteractionContext
-> => Layer.effect(WorkspaceContext, make(options));
+): Layer.Layer<WorkspaceContext, WorkspaceContextError, FileSystem.FileSystem | Clack> =>
+  Layer.effect(WorkspaceContext, make(options));

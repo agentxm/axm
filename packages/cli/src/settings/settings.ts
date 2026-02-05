@@ -42,7 +42,7 @@ export const DEFAULT_SCOPE = "@community";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SkillsUpdate = Readonly<Record<string, string | null>>;
+export type SkillsUpdate = Readonly<Record.ReadonlyRecord<string, string | null>>;
 
 /**
  * Settings update that supports null values for skill removal.

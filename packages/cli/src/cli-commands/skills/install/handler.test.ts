@@ -15,7 +15,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Settings } from "../../../extensions/skills/index.js";
+import type { Settings } from "../../../settings/index.js";
 import * as FetchHttpClient from "@effect/platform/FetchHttpClient";
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
@@ -23,6 +23,7 @@ import * as NodePath from "@effect/platform-node/NodePath";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import YAML from "yaml";
 import { type Clack, makeClackTestLayer } from "../../../clack-effect/index.js";
@@ -111,8 +112,9 @@ function copyDirSync(src: string, dest: string): void {
 
 // Create mock Clack layer for tests (default: confirm returns true, multiselect returns first item)
 const [ClackTestLayer] = makeClackTestLayer({
-  confirmBehavior: { type: "return", value: true },
-  multiselectBehavior: { type: "return", indices: [0] },
+  confirmBehavior: Option.some({ type: "return", value: true }),
+  selectBehavior: Option.none(),
+  multiselectBehavior: Option.some({ type: "return", indices: [0] }),
 });
 
 // Layer providing all required services for tests
@@ -1233,6 +1235,7 @@ describe("install.handler", () => {
     it("is a tagged error with correct tag", () => {
       const error = new InstallError({
         message: "Test error message",
+        cause: Option.none(),
         retryable: false,
       });
 
@@ -1244,11 +1247,12 @@ describe("install.handler", () => {
       const cause = new Error("Original error");
       const error = new InstallError({
         message: "Wrapped error",
-        cause,
+        cause: Option.some(cause),
         retryable: false,
       });
 
-      expect(error.cause).toBe(cause);
+      expect(Option.isSome(error.cause)).toBe(true);
+      expect(Option.getOrNull(error.cause)).toBe(cause);
     });
   });
 

@@ -15,7 +15,7 @@
 
 import * as nodePath from "node:path";
 import { type AgentConfig, getAgentById } from "../../../agents/index.js";
-import { readLockfile, updateLockEntry } from "../../../extensions/skills/index.js";
+import { readLockfile, updateLockEntry } from "../../../lockfile/index.js";
 import {
   type ApplyDeps,
   applyPlan,
@@ -73,7 +73,7 @@ export interface UninstallArgs {
  */
 export class UninstallError extends Data.TaggedError("UninstallError")<{
   readonly message: string;
-  readonly cause?: unknown;
+  readonly cause: Option.Option<unknown>;
   readonly retryable: boolean;
 }> {}
 
@@ -124,7 +124,7 @@ export const handleUninstall = (
         (error) =>
           new UninstallError({
             message: error.message,
-            cause: error,
+            cause: Option.some(error),
             retryable: false,
           }),
       ),
@@ -138,7 +138,7 @@ export const handleUninstall = (
         (error: { message: string }) =>
           new UninstallError({
             message: `Failed to load state: ${error.message}`,
-            cause: error,
+            cause: Option.some(error),
             retryable: false,
           }),
       ),
@@ -156,6 +156,7 @@ export const handleUninstall = (
             [],
             "Use 'axm skills list' to see installed skills.",
           ),
+          cause: Option.none(),
           retryable: false,
         }),
       );
@@ -196,7 +197,7 @@ const handleFullUninstall = (
         (error: { message: string }) =>
           new UninstallError({
             message: `Failed to load state: ${error.message}`,
-            cause: error,
+            cause: Option.some(error),
             retryable: false,
           }),
       ),
@@ -213,7 +214,7 @@ const handleFullUninstall = (
         (error: { message: string }) =>
           new UninstallError({
             message: `Failed to build ideal state: ${error.message}`,
-            cause: error,
+            cause: Option.some(error),
             retryable: false,
           }),
       ),
@@ -249,6 +250,7 @@ const handleFullUninstall = (
               ["stdin is not a TTY"],
               "Use --yes to run without prompts.",
             ),
+            cause: Option.none(),
             retryable: false,
           }),
         );
@@ -288,7 +290,7 @@ const handleFullUninstall = (
         (error: { message: string }) =>
           new UninstallError({
             message: `Failed to apply changes: ${error.message}`,
-            cause: error,
+            cause: Option.some(error),
             retryable: false,
           }),
       ),
@@ -331,7 +333,7 @@ const handlePartialUninstall = (
         (error) =>
           new UninstallError({
             message: `Failed to read lockfile: ${error.message}`,
-            cause: error,
+            cause: Option.some(error),
             retryable: false,
           }),
       ),
@@ -346,6 +348,7 @@ const handlePartialUninstall = (
             [],
             "Use 'axm skills list' to see installed skills.",
           ),
+          cause: Option.none(),
           retryable: false,
         }),
       );
@@ -384,6 +387,7 @@ const handlePartialUninstall = (
               ["stdin is not a TTY"],
               "Use --yes to run without prompts.",
             ),
+            cause: Option.none(),
             retryable: false,
           }),
         );
@@ -411,7 +415,7 @@ const handlePartialUninstall = (
           (error: { message: string }) =>
             new UninstallError({
               message: `Failed to load state: ${error.message}`,
-              cause: error,
+              cause: Option.some(error),
               retryable: false,
             }),
         ),
@@ -426,7 +430,7 @@ const handlePartialUninstall = (
           (error: { message: string }) =>
             new UninstallError({
               message: `Failed to build ideal state: ${error.message}`,
-              cause: error,
+              cause: Option.some(error),
               retryable: false,
             }),
         ),
@@ -447,7 +451,7 @@ const handlePartialUninstall = (
           (error: { message: string }) =>
             new UninstallError({
               message: `Failed to apply changes: ${error.message}`,
-              cause: error,
+              cause: Option.some(error),
               retryable: false,
             }),
         ),
@@ -472,7 +476,7 @@ const handlePartialUninstall = (
           (error) =>
             new UninstallError({
               message: `Failed to remove skill from agents: ${String(error)}`,
-              cause: error,
+              cause: Option.some(error),
               retryable: false,
             }),
         ),
@@ -487,7 +491,7 @@ const handlePartialUninstall = (
           (error) =>
             new UninstallError({
               message: `Failed to update lockfile: ${error.message}`,
-              cause: error,
+              cause: Option.some(error),
               retryable: false,
             }),
         ),

@@ -18,6 +18,7 @@ import * as Effect from "effect/Effect";
 import * as Either from "effect/Either";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
+import * as Record from "effect/Record";
 import type { AgentConfig } from "../agents/index.js";
 import type { Lockfile, SkillLockEntry } from "../lockfile/index.js";
 import { readLockfile, writeLockfile } from "../lockfile/index.js";

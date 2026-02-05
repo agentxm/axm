@@ -6,7 +6,7 @@
 
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import type { PlanStep, SkillSourceV2 } from "../../workspace/index.js";
+import type { PlanStep, SkillSourceV2 } from "../../extensions/skills/state/types.js";
 import {
   formatHash,
   formatPlanStep,

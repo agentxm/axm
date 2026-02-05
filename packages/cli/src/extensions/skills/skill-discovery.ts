@@ -23,8 +23,8 @@ import type { Skill } from "./types.js";
  */
 export class DiscoveryError extends Data.TaggedError("DiscoveryError")<{
   readonly message: string;
-  readonly path?: string;
-  readonly cause?: unknown;
+  readonly path: Option.Option<string>;
+  readonly cause: Option.Option<unknown>;
   readonly retryable: boolean;
 }> {}
 
@@ -55,8 +55,8 @@ const walkDirectory = (
         (error) =>
           new DiscoveryError({
             message: `Failed to read directory: ${dir}`,
-            path: dir,
-            cause: error,
+            path: Option.some(dir),
+            cause: Option.some(error),
             retryable: false,
           }),
       ),
@@ -143,8 +143,8 @@ export const discoverSkills = (
         (error) =>
           new DiscoveryError({
             message: `Directory does not exist or is not accessible: ${directory}`,
-            path: directory,
-            cause: error,
+            path: Option.some(directory),
+            cause: Option.some(error),
             retryable: false,
           }),
       ),
@@ -153,7 +153,8 @@ export const discoverSkills = (
     if (stat.type !== "Directory") {
       return yield* new DiscoveryError({
         message: `Path is not a directory: ${directory}`,
-        path: directory,
+        path: Option.some(directory),
+        cause: Option.none(),
         retryable: false,
       });
     }
@@ -168,6 +169,7 @@ export const discoverSkills = (
     const skills: Skill[] = skillFiles.map((skillPath) => ({
       name: extractSkillName(skillPath),
       path: skillPath,
+      description: Option.none(),
     }));
 
     return skills;

@@ -12,7 +12,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Settings } from "../../extensions/skills/index.js";
+import type { Settings } from "../../settings/index.js";
 import type { FileSystem } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { describe, expect, it } from "@effect/vitest";

@@ -7,6 +7,7 @@
 
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import simpleGit, { type SimpleGit, type SimpleGitOptions } from "simple-git";
 
 // -----------------------------------------------------------------------------
@@ -30,7 +31,7 @@ export class GitError extends Data.TaggedError("GitError")<{
   /** Human-readable error message */
   readonly message: string;
   /** Original error cause */
-  readonly cause?: unknown;
+  readonly cause: Option.Option<unknown>;
 }> {}
 
 // -----------------------------------------------------------------------------
@@ -64,14 +65,14 @@ const mapGitError =
       return new GitError({
         operation,
         message: `${baseMessage}: ${error.message}`,
-        cause: error,
+        cause: Option.some(error),
       });
     }
 
     return new GitError({
       operation,
       message: `${baseMessage}: ${String(error)}`,
-      cause: error,
+      cause: Option.some(error),
     });
   };
 

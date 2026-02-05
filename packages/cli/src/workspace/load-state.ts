@@ -22,6 +22,8 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
+import * as Record from "effect/Record";
+import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import {
   type ActualSkillIssue,
@@ -104,10 +106,60 @@ interface RawLockEntry {
   updatedAt: string;
 }
 
-interface RawLockfile {
-  lockfileVersion: number;
-  skills: Record<string, RawLockEntry>;
-}
+// =============================================================================
+// Internal Schemas
+// =============================================================================
+
+/**
+ * Schema for V1 nested source location.
+ */
+const V1LocationSchema = Schema.Struct({
+  _tag: Schema.String,
+  url: Schema.optional(Schema.String),
+  path: Schema.optional(Schema.String),
+});
+
+/**
+ * Schema for V1 nested source format.
+ */
+const V1NestedSourceSchema = Schema.Struct({
+  _tag: Schema.Union(Schema.Literal("GitHub"), Schema.Literal("Local"), Schema.Literal("Registry")),
+  owner: Schema.optional(Schema.String),
+  repo: Schema.optional(Schema.String),
+  ref: Schema.optional(Schema.String),
+  path: Schema.optional(Schema.String),
+  scope: Schema.optional(Schema.String),
+  name: Schema.optional(Schema.String),
+  version: Schema.optional(Schema.String),
+  location: Schema.optional(V1LocationSchema),
+});
+
+/**
+ * Schema for raw lockfile entry - supports both V1 nested and V2 flat format.
+ */
+const RawLockEntrySchema = Schema.Struct({
+  source: Schema.Union(Schema.String, V1NestedSourceSchema),
+  owner: Schema.optional(Schema.String),
+  repo: Schema.optional(Schema.String),
+  ref: Schema.optional(Schema.String),
+  path: Schema.optional(Schema.String),
+  scope: Schema.optional(Schema.String),
+  name: Schema.optional(Schema.String),
+  version: Schema.optional(Schema.String),
+  location: Schema.optional(V1LocationSchema),
+  gitTreeHash: Schema.optional(Schema.String),
+  agents: Schema.Array(Schema.String),
+  installedAt: Schema.String,
+  updatedAt: Schema.String,
+});
+
+/**
+ * Schema for raw lockfile structure.
+ */
+const RawLockfileSchema = Schema.Struct({
+  lockfileVersion: Schema.Number,
+  skills: Schema.Record({ key: Schema.String, value: RawLockEntrySchema }),
+});
 
 // =============================================================================
 // Internal Helpers - Lockfile
@@ -118,7 +170,11 @@ interface RawLockfile {
  */
 const readLockfile = (
   axmDir: string,
-): Effect.Effect<Record<string, LockedSkillV2>, WorkspaceError, FileSystem.FileSystem> =>
+): Effect.Effect<
+  Record.ReadonlyRecord<string, LockedSkillV2>,
+  WorkspaceError,
+  FileSystem.FileSystem
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const lockfilePath = nodePath.join(axmDir, LOCKFILE_NAME);
@@ -150,8 +206,8 @@ const readLockfile = (
     );
 
     // Parse YAML
-    const parsed = yield* Effect.try({
-      try: () => YAML.parse(content) as RawLockfile | null,
+    const json = yield* Effect.try({
+      try: () => YAML.parse(content) as unknown,
       catch: (error) =>
         new WorkspaceError({
           message: `Failed to parse lockfile YAML at ${lockfilePath}`,
@@ -159,14 +215,32 @@ const readLockfile = (
         }),
     });
 
-    if (!parsed || !parsed.skills) {
+    // Handle null/undefined/empty YAML
+    if (json === null || json === undefined) {
+      return {};
+    }
+
+    // Validate against schema
+    const parsed = yield* Schema.decodeUnknown(RawLockfileSchema)(json).pipe(
+      Effect.mapError(
+        (error) =>
+          new WorkspaceError({
+            message: `Invalid lockfile format at ${lockfilePath}: ${error.message}`,
+            cause: Option.some(error),
+          }),
+      ),
+    );
+
+    if (!parsed.skills || Object.keys(parsed.skills).length === 0) {
       return {};
     }
 
     // Convert raw entries to LockedSkillV2
+    // Cast needed: Schema produces `string | undefined` for optional fields,
+    // but interface uses `prop?: string`. Values are structurally identical.
     const result: Record<string, LockedSkillV2> = {};
     for (const [name, entry] of Object.entries(parsed.skills)) {
-      const source = parseSourceFromEntry(entry);
+      const source = parseSourceFromEntry(entry as RawLockEntry);
       result[name] = {
         name,
         source,

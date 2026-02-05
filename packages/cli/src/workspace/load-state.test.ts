@@ -400,6 +400,62 @@ describe("loadCurrentState", () => {
     });
   });
 
+  describe("invalid lockfile YAML", () => {
+    it("fails with WorkspaceError when lockfile contains invalid YAML syntax", async () => {
+      await runEffect(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          yield* fs.makeDirectory(ws.path, { recursive: true });
+          // Invalid YAML - unclosed bracket
+          yield* fs.writeFileString(
+            nodePath.join(ws.path, "axm-lock.yaml"),
+            "lockfileVersion: 1\nskills: {\n  foo: [unclosed\n",
+          );
+        }),
+      );
+
+      await expect(runEffect(loadCurrentState(ws))).rejects.toThrow(
+        "Failed to parse lockfile YAML",
+      );
+    });
+
+    it("fails with WorkspaceError when lockfile has invalid structure", async () => {
+      await runEffect(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          yield* fs.makeDirectory(ws.path, { recursive: true });
+          // Invalid structure - lockfileVersion should be number, not string
+          yield* fs.writeFileString(
+            nodePath.join(ws.path, "axm-lock.yaml"),
+            'lockfileVersion: "one"\nskills: {}\n',
+          );
+        }),
+      );
+
+      await expect(runEffect(loadCurrentState(ws))).rejects.toThrow("Invalid lockfile format");
+    });
+
+    it("fails with WorkspaceError when skill entry has missing required fields", async () => {
+      await runEffect(
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          yield* fs.makeDirectory(ws.path, { recursive: true });
+          // Missing required 'agents', 'installedAt', 'updatedAt' fields
+          yield* fs.writeFileString(
+            nodePath.join(ws.path, "axm-lock.yaml"),
+            `lockfileVersion: 1
+skills:
+  my-skill:
+    source: local
+`,
+          );
+        }),
+      );
+
+      await expect(runEffect(loadCurrentState(ws))).rejects.toThrow("Invalid lockfile format");
+    });
+  });
+
   describe("scoped registry paths", () => {
     it("scans registry skills from @<scope>/skills/ paths", async () => {
       await runEffect(

@@ -8,6 +8,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { PromptCancelled, PromptError } from "./errors.js";
 import { Clack, type ClackService } from "./service.js";
 import type { Spinner } from "./types.js";
@@ -56,9 +57,9 @@ export type MultiselectBehavior<T> =
  * Mock clack service configuration.
  */
 export interface MockClackConfig {
-  readonly confirmBehavior?: ConfirmBehavior;
-  readonly selectBehavior?: SelectBehavior<unknown>;
-  readonly multiselectBehavior?: MultiselectBehavior<unknown>;
+  readonly confirmBehavior: Option.Option<ConfirmBehavior>;
+  readonly selectBehavior: Option.Option<SelectBehavior<unknown>>;
+  readonly multiselectBehavior: Option.Option<MultiselectBehavior<unknown>>;
 }
 
 /**
@@ -82,7 +83,15 @@ export interface MockClackService extends ClackService {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export function makeMockClackService(config: MockClackConfig = {}): MockClackService {
+const defaultMockClackConfig: MockClackConfig = {
+  confirmBehavior: Option.none(),
+  selectBehavior: Option.none(),
+  multiselectBehavior: Option.none(),
+};
+
+export function makeMockClackService(
+  config: MockClackConfig = defaultMockClackConfig,
+): MockClackService {
   const logs: LogRecords = {
     intro: [],
     outro: [],
@@ -135,7 +144,10 @@ export function makeMockClackService(config: MockClackConfig = {}): MockClackSer
     },
 
     confirm: () => {
-      const behavior = config.confirmBehavior ?? { type: "return", value: true };
+      const behavior = Option.getOrElse(config.confirmBehavior, () => ({
+        type: "return" as const,
+        value: true,
+      }));
       if (behavior.type === "cancel") {
         return Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
       }
@@ -143,7 +155,10 @@ export function makeMockClackService(config: MockClackConfig = {}): MockClackSer
     },
 
     select: <T>(_message: string, items: readonly T[]) => {
-      const behavior = config.selectBehavior ?? { type: "return", index: 0 };
+      const behavior = Option.getOrElse(config.selectBehavior, () => ({
+        type: "return" as const,
+        index: 0,
+      }));
       if (behavior.type === "cancel") {
         return Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
       }
@@ -152,13 +167,18 @@ export function makeMockClackService(config: MockClackConfig = {}): MockClackSer
       }
       const selected = items[behavior.index];
       if (selected === undefined) {
-        return Effect.fail(new PromptError({ message: "Invalid selection index in mock" }));
+        return Effect.fail(
+          new PromptError({ message: "Invalid selection index in mock", cause: Option.none() }),
+        );
       }
       return Effect.succeed(selected);
     },
 
     multiselect: <T>(_message: string, items: readonly T[]) => {
-      const behavior = config.multiselectBehavior ?? { type: "return", indices: [0] };
+      const behavior = Option.getOrElse(config.multiselectBehavior, () => ({
+        type: "return" as const,
+        indices: [0] as readonly number[],
+      }));
       if (behavior.type === "cancel") {
         return Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
       }
@@ -192,7 +212,7 @@ export function makeMockClackService(config: MockClackConfig = {}): MockClackSer
  * @experimental This API is unstable and may change without notice.
  */
 export function makeClackTestLayer(
-  config: MockClackConfig = {},
+  config: MockClackConfig = defaultMockClackConfig,
 ): [Layer.Layer<Clack>, MockClackService] {
   const mockService = makeMockClackService(config);
   const layer = Layer.succeed(Clack, mockService);

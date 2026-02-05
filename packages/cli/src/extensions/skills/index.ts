@@ -6,8 +6,6 @@
  */
 
 export type { SourceType as LockSourceType } from "../sources.js";
-export type { Lockfile, SkillLockEntry } from "../../lockfile/index.js";
-export type { Settings } from "../../settings/index.js";
 // Git
 export {
   cloneRepo,
@@ -17,36 +15,6 @@ export {
   isGitRepository,
   resolveRef,
 } from "./git.js";
-// Lockfile (re-exported from lockfile feature)
-export type { LockfileError } from "../../lockfile/index.js";
-export {
-  LockfileParseError,
-  LockfileWriteError,
-  readLockfile,
-  removeLockEntry,
-  updateLockEntry,
-  writeLockfile,
-} from "../../lockfile/index.js";
-// Settings (re-exported from settings feature)
-export type {
-  EnsureInitializedOptions,
-  SettingsError,
-  SettingsUpdate,
-  SkillsUpdate,
-} from "../../settings/index.js";
-export {
-  addSkill,
-  createDefaultSettings,
-  DEFAULT_SCOPE,
-  ensureInitialized,
-  getEffectiveScope,
-  readSettings,
-  SettingsNotFoundError,
-  SettingsParseError,
-  SettingsWriteError,
-  updateSettings,
-  writeSettings,
-} from "../../settings/index.js";
 // Skill Discovery
 export { DiscoveryError, discoverSkills } from "./skill-discovery.js";
 // Source Parser

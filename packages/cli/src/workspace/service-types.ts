@@ -5,7 +5,8 @@
  * @packageDocumentation
  */
 
-import type { Lockfile, Settings } from "../extensions/skills/index.js";
+import type { Lockfile } from "../lockfile/index.js";
+import type { Settings } from "../settings/index.js";
 
 /**
  * Service interface for workspace context.

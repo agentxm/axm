@@ -18,6 +18,7 @@ import {
   LOCKFILE_NAME,
 } from "../lockfile/index.js";
 import {
+  createDefaultSettings,
   readSettings,
   type SettingsError,
   SettingsParseError,
@@ -142,10 +143,10 @@ const initializeProjectWorkspace = (
               toOption: (agent) => ({
                 value: agent.id,
                 label: agent.name,
-                hint: `skills: ${agent.skills.projectDir}`,
+                hint: Option.some(`skills: ${agent.skills.projectDir}`),
               }),
-              initialValues: detectedAgents.map((a) => a.id),
-              required: false,
+              initialValues: Option.some(detectedAgents.map((a) => a.id)),
+              required: Option.some(false),
             })
             .pipe(
               Effect.map((agents) => [...agents]),
@@ -166,8 +167,8 @@ const initializeProjectWorkspace = (
     // Extract agent IDs for settings
     const agentIds = selectedAgents.map((a) => a.id);
 
-    // Create settings with selected agents
-    const settings: Settings = { agents: agentIds as Settings["agents"] };
+    // Create settings with selected agents (satisfies ensures type safety without cast)
+    const settings = { agents: agentIds } satisfies Settings;
     yield* writeSettings(localDir, settings).pipe(
       Effect.mapError(
         (error) =>
@@ -277,7 +278,8 @@ export const make = (
       const localSettingsResult = yield* readSettings(localDir).pipe(
         Effect.map((s) => ({ found: true as const, settings: s })),
         Effect.catchTag("SettingsNotFoundError", () =>
-          Effect.succeed({ found: false as const, settings: {} as Settings }),
+          // Use createDefaultSettings() instead of unsafe cast
+          Effect.succeed({ found: false as const, settings: createDefaultSettings() }),
         ),
       );
 

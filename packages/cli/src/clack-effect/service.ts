@@ -11,6 +11,7 @@ import * as p from "@clack/prompts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { PromptCancelled, PromptError } from "./errors.js";
 import type { MultiselectConfig, PromptOption, Spinner } from "./types.js";
 
@@ -92,7 +93,10 @@ const makeLiveClackService = (): ClackService => ({
       const result = yield* Effect.tryPromise({
         try: () => p.confirm({ message, initialValue }),
         catch: (error) =>
-          new PromptError({ message: "Failed to prompt for confirmation", cause: error }),
+          new PromptError({
+            message: "Failed to prompt for confirmation",
+            cause: Option.some(error),
+          }),
       });
 
       if (p.isCancel(result)) {
@@ -104,15 +108,19 @@ const makeLiveClackService = (): ClackService => ({
 
   select: <T>(message: string, items: readonly T[], toOption: (item: T) => PromptOption) =>
     Effect.gen(function* () {
-      const options = items.map((item, index) => ({
-        ...toOption(item),
-        value: index,
-      }));
+      const options = items.map((item, index) => {
+        const opt = toOption(item);
+        return {
+          value: index,
+          label: opt.label,
+          ...(Option.isSome(opt.hint) && { hint: opt.hint.value }),
+        };
+      });
 
       const result = yield* Effect.tryPromise({
         try: () => p.select({ message, options }),
         catch: (error) =>
-          new PromptError({ message: "Failed to prompt for selection", cause: error }),
+          new PromptError({ message: "Failed to prompt for selection", cause: Option.some(error) }),
       });
 
       if (p.isCancel(result)) {
@@ -121,7 +129,9 @@ const makeLiveClackService = (): ClackService => ({
 
       const selected = items[result];
       if (selected === undefined) {
-        return yield* Effect.fail(new PromptError({ message: "Invalid selection index" }));
+        return yield* Effect.fail(
+          new PromptError({ message: "Invalid selection index", cause: Option.none() }),
+        );
       }
 
       return selected;
@@ -129,16 +139,26 @@ const makeLiveClackService = (): ClackService => ({
 
   multiselect: <T>(message: string, items: readonly T[], config: MultiselectConfig<T>) =>
     Effect.gen(function* () {
-      const promptOptions = items.map((item, index) => ({
-        ...config.toOption(item),
-        value: index,
-      }));
+      const promptOptions = items.map((item, index) => {
+        const opt = config.toOption(item);
+        return {
+          value: index,
+          label: opt.label,
+          ...(Option.isSome(opt.hint) && { hint: opt.hint.value }),
+        };
+      });
 
       // Map initialValues (string values) to indices
-      const initialIndices = config.initialValues
+      const initialIndices = Option.isSome(config.initialValues)
         ? items
             .map((item, index) => ({ item, index }))
-            .filter(({ item }) => config.initialValues?.includes(config.toOption(item).value))
+            .filter(({ item }) => {
+              const initVals = Option.getOrElse(
+                config.initialValues,
+                () => [] as readonly string[],
+              );
+              return initVals.includes(config.toOption(item).value);
+            })
             .map(({ index }) => index)
         : undefined;
 
@@ -150,14 +170,17 @@ const makeLiveClackService = (): ClackService => ({
       if (initialIndices !== undefined) {
         multiselectConfig.initialValues = initialIndices;
       }
-      if (config.required !== undefined) {
-        multiselectConfig.required = config.required;
+      if (Option.isSome(config.required)) {
+        multiselectConfig.required = config.required.value;
       }
 
       const result = yield* Effect.tryPromise({
         try: () => p.multiselect(multiselectConfig),
         catch: (error) =>
-          new PromptError({ message: "Failed to prompt for multiselect", cause: error }),
+          new PromptError({
+            message: "Failed to prompt for multiselect",
+            cause: Option.some(error),
+          }),
       });
 
       if (p.isCancel(result)) {

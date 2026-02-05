@@ -13,7 +13,8 @@
  * @packageDocumentation
  */
 
-import type { Option } from "effect";
+import * as Option from "effect/Option";
+import * as Record from "effect/Record";
 import * as Schema from "effect/Schema";
 
 // =============================================================================
@@ -26,10 +27,10 @@ import * as Schema from "effect/Schema";
  * @experimental This API is unstable and may change without notice.
  */
 export interface SkillFrontmatter {
-  readonly name?: string;
-  readonly description?: string;
-  readonly version?: string;
-  readonly triggers?: readonly string[];
+  readonly name: Option.Option<string>;
+  readonly description: Option.Option<string>;
+  readonly version: Option.Option<string>;
+  readonly triggers: Option.Option<readonly string[]>;
 }
 
 /**
@@ -38,10 +39,10 @@ export interface SkillFrontmatter {
  * @experimental This API is unstable and may change without notice.
  */
 export const SkillFrontmatterSchema = Schema.Struct({
-  name: Schema.optional(Schema.String),
-  description: Schema.optional(Schema.String),
-  version: Schema.optional(Schema.String),
-  triggers: Schema.optional(Schema.Array(Schema.String)),
+  name: Schema.OptionFromNullOr(Schema.String),
+  description: Schema.OptionFromNullOr(Schema.String),
+  version: Schema.OptionFromNullOr(Schema.String),
+  triggers: Schema.OptionFromNullOr(Schema.Array(Schema.String)),
 });
 
 // =============================================================================
@@ -834,7 +835,7 @@ export const SkillStateSchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export interface SkillsState {
-  readonly skills: Readonly<Record<string, SkillState>>;
+  readonly skills: Readonly<Record.ReadonlyRecord<string, SkillState>>;
 }
 
 /**
@@ -967,7 +968,7 @@ export const IdealSkillLegacySchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export interface IdealSkillsState {
-  readonly skills: Readonly<Record<string, IdealSkillLegacy>>;
+  readonly skills: Readonly<Record.ReadonlyRecord<string, IdealSkillLegacy>>;
   readonly removals: readonly string[];
 }
 
@@ -1086,7 +1087,7 @@ export const DiffSummarySchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export interface SkillsDiff {
-  readonly changes: Readonly<Record<string, SkillChange>>;
+  readonly changes: Readonly<Record.ReadonlyRecord<string, SkillChange>>;
   readonly summary: DiffSummary;
 }
 
@@ -1112,10 +1113,10 @@ export const SkillsDiffSchema = Schema.Struct({
 export interface SkillChangeWithName {
   readonly name: string;
   readonly _tag: SkillChange["_tag"];
-  readonly skill?: IdealSkillLegacy | SkillState;
-  readonly from?: SkillState;
-  readonly to?: IdealSkillLegacy;
-  readonly target?: IdealSkillLegacy;
+  readonly skill: Option.Option<IdealSkillLegacy | SkillState>;
+  readonly from: Option.Option<SkillState>;
+  readonly to: Option.Option<IdealSkillLegacy>;
+  readonly target: Option.Option<IdealSkillLegacy>;
 }
 
 /**
@@ -1138,15 +1139,50 @@ export const skillsDiffToJson = (diff: SkillsDiff): SkillsDiffJson => ({
   changes: Object.entries(diff.changes).map(([name, change]): SkillChangeWithName => {
     switch (change._tag) {
       case "Add":
-        return { name, _tag: change._tag, skill: change.skill };
+        return {
+          name,
+          _tag: change._tag,
+          skill: Option.some(change.skill),
+          from: Option.none(),
+          to: Option.none(),
+          target: Option.none(),
+        };
       case "Update":
-        return { name, _tag: change._tag, from: change.from, to: change.to };
+        return {
+          name,
+          _tag: change._tag,
+          skill: Option.none(),
+          from: Option.some(change.from),
+          to: Option.some(change.to),
+          target: Option.none(),
+        };
       case "Remove":
-        return { name, _tag: change._tag, skill: change.skill };
+        return {
+          name,
+          _tag: change._tag,
+          skill: Option.some(change.skill),
+          from: Option.none(),
+          to: Option.none(),
+          target: Option.none(),
+        };
       case "Unchanged":
-        return { name, _tag: change._tag, skill: change.skill };
+        return {
+          name,
+          _tag: change._tag,
+          skill: Option.some(change.skill),
+          from: Option.none(),
+          to: Option.none(),
+          target: Option.none(),
+        };
       case "Repair":
-        return { name, _tag: change._tag, skill: change.skill, target: change.target };
+        return {
+          name,
+          _tag: change._tag,
+          skill: Option.some(change.skill),
+          from: Option.none(),
+          to: Option.none(),
+          target: Option.some(change.target),
+        };
     }
   }),
   summary: diff.summary,

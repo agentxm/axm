@@ -65,7 +65,9 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 ## Effect
 
 - [ ] Use `Array.Array`, `Record.Record`, and `Option.Option` from Effect, not built-in types
-- [ ] Prefer `Option<T>` over `T | undefined` or optional properties (`prop?: T`)
+- [ ] Prefer `Option<T>` over `T | undefined` or optional properties (`prop?: T`) (see /effect-optional skill)
+      → Convert at boundaries: `fromNullable` at entry, `getOrNull` at exit
+      → Use nullable for interop: external APIs, JSON serialization, DOM
 - [ ] No raw Promises or async/await (use Effect.promise to wrap)
 - [ ] Errors are typed in the Effect signature
 - [ ] Dependencies use services, not direct imports

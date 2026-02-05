@@ -18,6 +18,7 @@ export type {
   GitSource,
   LocalSource,
   RegistrySource,
+  Source,
   SourceType,
 } from "./types.js";
 // ParsedSource is both a type and value - export it properly

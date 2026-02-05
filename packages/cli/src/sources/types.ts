@@ -47,19 +47,9 @@ export type SourceType = typeof SourceTypeSchema.Type;
 // -----------------------------------------------------------------------------
 
 /**
- * Base interface for common fields shared by all source types.
- */
-interface SourceBase {
-  /** Original input string */
-  readonly original: string;
-  /** Normalized canonical form (e.g., "github:owner/repo") */
-  readonly canonical: string;
-}
-
-/**
  * GitHub repository source.
  */
-export interface GitHubSource extends SourceBase {
+export interface GitHubSource {
   readonly source: "github";
   /** Repository owner (user or organization) */
   readonly owner: string;
@@ -74,7 +64,7 @@ export interface GitHubSource extends SourceBase {
 /**
  * GitLab repository source.
  */
-export interface GitLabSource extends SourceBase {
+export interface GitLabSource {
   readonly source: "gitlab";
   /** Repository owner (user or group) */
   readonly owner: string;
@@ -89,7 +79,7 @@ export interface GitLabSource extends SourceBase {
 /**
  * Bitbucket repository source.
  */
-export interface BitbucketSource extends SourceBase {
+export interface BitbucketSource {
   readonly source: "bitbucket";
   /** Workspace (formerly team or user) */
   readonly owner: string;
@@ -111,7 +101,7 @@ export type GitSource = GitHubSource | GitLabSource | BitbucketSource;
  *
  * URL format: https://dev.azure.com/{organization}/{project}/_git/{repo}
  */
-export interface AzureDevOpsSource extends SourceBase {
+export interface AzureDevOpsSource {
   readonly source: "azuredevops";
   /** Azure DevOps organization */
   readonly organization: string;
@@ -134,7 +124,7 @@ export interface AzureDevOpsSource extends SourceBase {
  * - Git protocol: git://server/repo.git
  * - File URI: file:///path/to/repo.git
  */
-export interface GenericGitSource extends SourceBase {
+export interface GenericGitSource {
   readonly source: "git";
   /** Full git URL */
   readonly url: string;
@@ -147,26 +137,26 @@ export interface GenericGitSource extends SourceBase {
 /**
  * Package registry source (placeholder for future implementation).
  */
-export type RegistrySource = SourceBase & {
+export type RegistrySource = {
   readonly source: "registry";
 } & ({ readonly url: string } | { readonly path: string });
 
 /**
  * Local filesystem path source.
  */
-export interface LocalSource extends SourceBase {
+export interface LocalSource {
   readonly source: "local";
   /** Absolute path for local sources (after ~ expansion) */
   readonly path: string;
 }
 
 /**
- * Result of parsing a source string.
+ * Union of all source types.
  * Discriminated union based on the `source` field.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type ParsedSource =
+export type Source =
   | GitHubSource
   | GitLabSource
   | BitbucketSource
@@ -174,6 +164,17 @@ export type ParsedSource =
   | GenericGitSource
   | RegistrySource
   | LocalSource;
+
+/**
+ * Result of parsing a source string.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type ParsedSource = {
+  readonly original: string;
+  readonly canonical: string;
+  readonly source: Source;
+};
 
 // -----------------------------------------------------------------------------
 // ParsedSource Namespace with Constructors
@@ -192,14 +193,16 @@ export const ParsedSource = {
     repo: string;
     ref?: string | undefined;
     subPath?: string | undefined;
-  }): GitHubSource => ({
-    source: "github",
+  }): ParsedSource => ({
     original: args.original,
     canonical: `github:${args.owner}/${args.repo}`,
-    owner: args.owner,
-    repo: args.repo,
-    ref: Option.fromNullable(args.ref),
-    subPath: Option.fromNullable(args.subPath),
+    source: {
+      source: "github",
+      owner: args.owner,
+      repo: args.repo,
+      ref: Option.fromNullable(args.ref),
+      subPath: Option.fromNullable(args.subPath),
+    },
   }),
 
   /**
@@ -211,14 +214,16 @@ export const ParsedSource = {
     repo: string;
     ref?: string | undefined;
     subPath?: string | undefined;
-  }): GitLabSource => ({
-    source: "gitlab",
+  }): ParsedSource => ({
     original: args.original,
     canonical: `gitlab:${args.owner}/${args.repo}`,
-    owner: args.owner,
-    repo: args.repo,
-    ref: Option.fromNullable(args.ref),
-    subPath: Option.fromNullable(args.subPath),
+    source: {
+      source: "gitlab",
+      owner: args.owner,
+      repo: args.repo,
+      ref: Option.fromNullable(args.ref),
+      subPath: Option.fromNullable(args.subPath),
+    },
   }),
 
   /**
@@ -230,23 +235,27 @@ export const ParsedSource = {
     repo: string;
     ref?: string | undefined;
     subPath?: string | undefined;
-  }): BitbucketSource => ({
-    source: "bitbucket",
+  }): ParsedSource => ({
     original: args.original,
     canonical: `bitbucket:${args.owner}/${args.repo}`,
-    owner: args.owner,
-    repo: args.repo,
-    ref: Option.fromNullable(args.ref),
-    subPath: Option.fromNullable(args.subPath),
+    source: {
+      source: "bitbucket",
+      owner: args.owner,
+      repo: args.repo,
+      ref: Option.fromNullable(args.ref),
+      subPath: Option.fromNullable(args.subPath),
+    },
   }),
 
   /**
    * Create a local filesystem source.
    */
-  Local: (args: { original: string; path: string }): LocalSource => ({
-    source: "local",
+  Local: (args: { original: string; path: string }): ParsedSource => ({
     original: args.original,
     canonical: `local:${args.path}`,
-    path: args.path,
+    source: {
+      source: "local",
+      path: args.path,
+    },
   }),
 } as const;

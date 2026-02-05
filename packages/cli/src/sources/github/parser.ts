@@ -8,13 +8,13 @@
 import * as Effect from "effect/Effect";
 
 import { ParseError } from "../errors.js";
-import { type GitHubSource, ParsedSource } from "../types.js";
+import { type ParsedSource, ParsedSource as PS } from "../types.js";
 import { GITHUB_HTTPS_PATTERN, GITHUB_SSH_PATTERN } from "./patterns.js";
 
 /**
  * Parse a GitHub HTTPS URL.
  */
-export const parseGitHubHttpsUrl = (input: string): Effect.Effect<GitHubSource, ParseError> => {
+export const parseGitHubHttpsUrl = (input: string): Effect.Effect<ParsedSource, ParseError> => {
   const match = input.match(GITHUB_HTTPS_PATTERN);
   if (!match || !match[1] || !match[2]) {
     return Effect.fail(new ParseError({ message: "Invalid GitHub URL format", input }));
@@ -25,13 +25,13 @@ export const parseGitHubHttpsUrl = (input: string): Effect.Effect<GitHubSource, 
   const ref = match[3];
   const subPath = match[4];
 
-  return Effect.succeed(ParsedSource.GitHub({ original: input, owner, repo, ref, subPath }));
+  return Effect.succeed(PS.GitHub({ original: input, owner, repo, ref, subPath }));
 };
 
 /**
  * Parse a GitHub SSH URL.
  */
-export const parseGitHubSshUrl = (input: string): Effect.Effect<GitHubSource, ParseError> => {
+export const parseGitHubSshUrl = (input: string): Effect.Effect<ParsedSource, ParseError> => {
   const match = input.match(GITHUB_SSH_PATTERN);
   if (!match || !match[1] || !match[2]) {
     return Effect.fail(new ParseError({ message: "Invalid GitHub SSH URL format", input }));
@@ -40,5 +40,5 @@ export const parseGitHubSshUrl = (input: string): Effect.Effect<GitHubSource, Pa
   const owner = match[1];
   const repo = match[2];
 
-  return Effect.succeed(ParsedSource.GitHub({ original: input, owner, repo }));
+  return Effect.succeed(PS.GitHub({ original: input, owner, repo }));
 };

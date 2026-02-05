@@ -20,18 +20,19 @@ import type { ParsedSource } from "./types.js";
  * @returns Effect containing the HTTPS clone URL or CloneUrlError
  */
 export const buildCloneUrl = (parsed: ParsedSource): Effect.Effect<string, CloneUrlError> => {
-  switch (parsed.source) {
+  const src = parsed.source;
+  switch (src.source) {
     case "github":
-      return Effect.succeed(`https://github.com/${parsed.owner}/${parsed.repo}.git`);
+      return Effect.succeed(`https://github.com/${src.owner}/${src.repo}.git`);
     case "gitlab":
-      return Effect.succeed(`https://gitlab.com/${parsed.owner}/${parsed.repo}.git`);
+      return Effect.succeed(`https://gitlab.com/${src.owner}/${src.repo}.git`);
     case "bitbucket":
-      return Effect.succeed(`https://bitbucket.org/${parsed.owner}/${parsed.repo}.git`);
+      return Effect.succeed(`https://bitbucket.org/${src.owner}/${src.repo}.git`);
     default:
       return Effect.fail(
         new CloneUrlError({
-          message: `Cannot build clone URL for source type: ${parsed.source}`,
-          sourceType: parsed.source,
+          message: `Cannot build clone URL for source type: ${src.source}`,
+          sourceType: src.source,
         }),
       );
   }
@@ -51,17 +52,17 @@ export const buildCloneUrl = (parsed: ParsedSource): Effect.Effect<string, Clone
  * @returns The origin URL or path
  */
 export const getOriginFromParsed = (parsed: ParsedSource): string => {
-  switch (parsed.source) {
+  const src = parsed.source;
+  switch (src.source) {
     case "github":
-      return `https://github.com/${parsed.owner}/${parsed.repo}`;
+      return `https://github.com/${src.owner}/${src.repo}`;
     case "gitlab":
-      return `https://gitlab.com/${parsed.owner}/${parsed.repo}`;
+      return `https://gitlab.com/${src.owner}/${src.repo}`;
     case "bitbucket":
-      return `https://bitbucket.org/${parsed.owner}/${parsed.repo}`;
+      return `https://bitbucket.org/${src.owner}/${src.repo}`;
     case "azuredevops":
-      return `https://dev.azure.com/${parsed.organization}/${parsed.project}/_git/${parsed.repo}`;
+      return `https://dev.azure.com/${src.organization}/${src.project}/_git/${src.repo}`;
     case "local":
-      return parsed.original;
     case "git":
     case "registry":
       return parsed.original;

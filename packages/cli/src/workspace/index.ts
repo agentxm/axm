@@ -11,11 +11,6 @@
  * @packageDocumentation
  */
 
-// Re-export V2 types from extensions/skills/state/types.ts
-export type { CurrentState, IdealState } from "../extensions/skills/state/types.js";
-// SkillSourceV2 is both a type and a value (constructors object)
-// Export only once - the value export makes the type available too
-export { SkillSourceV2 } from "../extensions/skills/state/types.js";
 // Re-export types from apply.ts (which re-exports from types.ts)
 export type { ApplyResult, Plan, PlanStep } from "./apply.js";
 // Plan execution
@@ -58,42 +53,6 @@ export { buildPlan, getPlanSummary, type PlanSummary, planHasChanges } from "./p
 
 // Path utilities
 export { getAxmDir, getGlobalDir, getProjectDir } from "./paths.js";
-
-// Re-export from lockfile feature module
-export type { Lockfile, SkillLockEntry, SkillsLockMap } from "../lockfile/index.js";
-export type { LockfileError } from "../lockfile/index.js";
-export {
-  LOCKFILE_NAME,
-  LockfileParseError,
-  LockfileWriteError,
-  readLockfile,
-  removeLockEntry,
-  updateLockEntry,
-  writeLockfile,
-} from "../lockfile/index.js";
-
-// Re-export from settings feature module
-export type { Settings } from "../settings/index.js";
-export type {
-  EnsureInitializedOptions,
-  SettingsError,
-  SettingsUpdate,
-  SkillsUpdate,
-} from "../settings/index.js";
-export {
-  addSkill,
-  createDefaultSettings,
-  DEFAULT_SCOPE,
-  ensureInitialized,
-  getEffectiveScope,
-  readSettings,
-  SETTINGS_FILENAME,
-  SettingsNotFoundError,
-  SettingsParseError,
-  SettingsWriteError,
-  updateSettings,
-  writeSettings,
-} from "../settings/index.js";
 
 // Workspace context service (for CLI commands)
 export { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./errors.js";

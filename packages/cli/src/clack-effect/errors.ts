@@ -5,6 +5,7 @@
  */
 
 import * as Data from "effect/Data";
+import type * as Option from "effect/Option";
 
 /**
  * Error that occurs during prompt operations.
@@ -13,7 +14,7 @@ import * as Data from "effect/Data";
  */
 export class PromptError extends Data.TaggedError("PromptError")<{
   readonly message: string;
-  readonly cause?: unknown;
+  readonly cause: Option.Option<unknown>;
 }> {}
 
 /**

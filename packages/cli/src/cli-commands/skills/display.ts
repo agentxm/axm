@@ -6,16 +6,13 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Effect from "effect/Effect";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
-import * as Effect from "effect/Effect";
 import type { Clack } from "../../clack-effect/index.js";
-import type { Plan, PlanStep, SkillSourceV2 } from "../../workspace/index.js";
+import type { SkillSourceV2 } from "../../extensions/skills/state/types.js";
+import type { Plan, PlanStep } from "../../workspace/index.js";
 import { getPlanSummary, type PlanSummary } from "../../workspace/index.js";
-
-// Re-export types from workspace (single source of truth)
-export type { Plan, PlanStep, PlanSummary } from "../../workspace/index.js";
-export { getPlanSummary, planHasChanges } from "../../workspace/index.js";
 
 // =============================================================================
 // Formatting Functions

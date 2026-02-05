@@ -5,6 +5,9 @@
  * @packageDocumentation
  */
 
+import * as Option from "effect/Option";
+import * as Record from "effect/Record";
+
 // -----------------------------------------------------------------------------
 // Skill Types
 // -----------------------------------------------------------------------------
@@ -20,7 +23,7 @@ export interface Skill {
   /** Path to SKILL.md file */
   readonly path: string;
   /** Optional description of the skill */
-  readonly description?: string;
+  readonly description: Option.Option<string>;
 }
 
 // -----------------------------------------------------------------------------
@@ -62,19 +65,19 @@ export interface ParsedSource {
   /** Normalized canonical form (e.g., "github:owner/repo") */
   readonly canonical: string;
   /** Repository owner (for github/gitlab/bitbucket) */
-  readonly owner?: string;
+  readonly owner: Option.Option<string>;
   /** Repository name (for github/gitlab/bitbucket) */
-  readonly repo?: string;
+  readonly repo: Option.Option<string>;
   /** Git ref (tag, branch, or SHA) */
-  readonly ref?: string;
+  readonly ref: Option.Option<string>;
   /** Subpath within the repository */
-  readonly path?: string;
+  readonly path: Option.Option<string>;
   /** URL (for git sources) */
-  readonly url?: string;
+  readonly url: Option.Option<string>;
   /** Absolute path for local sources (after ~ expansion) */
-  readonly localPath?: string;
+  readonly localPath: Option.Option<string>;
   /** Base URL for wellknown sources */
-  readonly baseUrl?: string;
+  readonly baseUrl: Option.Option<string>;
 }
 
 // -----------------------------------------------------------------------------
@@ -106,7 +109,7 @@ export interface LockEntry {
  */
 export interface LockfileExtensions {
   /** Skills keyed by name */
-  readonly skills: Readonly<Record<string, LockEntry>>;
+  readonly skills: Readonly<Record.ReadonlyRecord<string, LockEntry>>;
 }
 
 /**

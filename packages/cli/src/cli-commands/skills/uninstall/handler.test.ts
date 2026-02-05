@@ -13,13 +13,15 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Settings, SkillLockEntry } from "../../../extensions/skills/index.js";
+import type { SkillLockEntry } from "../../../lockfile/index.js";
+import type { Settings } from "../../../settings/index.js";
 import type { FileSystem, Path } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import * as NodePath from "@effect/platform-node/NodePath";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import YAML from "yaml";
 import { type Clack, makeClackTestLayer } from "../../../clack-effect/index.js";
@@ -559,6 +561,7 @@ describe("uninstall.handler", () => {
     it("is a tagged error with correct tag", () => {
       const error = new UninstallError({
         message: "Test error message",
+        cause: Option.none(),
         retryable: false,
       });
 
@@ -570,11 +573,12 @@ describe("uninstall.handler", () => {
       const cause = new Error("Original error");
       const error = new UninstallError({
         message: "Wrapped error",
-        cause,
+        cause: Option.some(cause),
         retryable: false,
       });
 
-      expect(error.cause).toBe(cause);
+      expect(Option.isSome(error.cause)).toBe(true);
+      expect(Option.getOrNull(error.cause)).toBe(cause);
     });
   });
 });

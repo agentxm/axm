@@ -5,6 +5,8 @@
  * @packageDocumentation
  */
 
+import type { Option } from "effect";
+
 /**
  * Discriminator for extension kinds.
  *
@@ -26,13 +28,13 @@ export type SourceType = "github" | "gitlab" | "bitbucket" | "git" | "registry" 
  */
 export interface ExtensionMetadata {
   /** Resolved version of the extension */
-  readonly version?: string;
+  readonly version: Option.Option<string>;
   /** Human-readable description */
-  readonly description?: string;
+  readonly description: Option.Option<string>;
   /** List of files included in the extension */
-  readonly files?: readonly string[];
+  readonly files: Option.Option<readonly string[]>;
   /** Version constraint from the original input */
-  readonly versionConstraint?: string;
+  readonly versionConstraint: Option.Option<string>;
 }
 
 /**
@@ -48,11 +50,11 @@ export interface ExtensionRef {
   /** Fully resolved URL or path */
   readonly origin: string;
   /** Git ref if applicable (branch, tag, commit) */
-  readonly ref?: string;
+  readonly ref: Option.Option<string>;
   /** Scoped name if resolved (e.g., @scope/name) */
-  readonly name?: string;
+  readonly name: Option.Option<string>;
   /** Subpath within repo */
-  readonly path?: string;
+  readonly path: Option.Option<string>;
   /** Original input string preserved for debugging */
   readonly originalInput: string;
   /** Additional metadata about the extension */
@@ -66,17 +68,17 @@ export interface ExtensionRef {
  */
 export interface ResolutionOptions {
   /** Filter by extension types */
-  readonly types?: readonly ExtensionType[];
+  readonly types: Option.Option<readonly ExtensionType[]>;
   /** Filter by source types */
-  readonly sources?: readonly SourceType[];
+  readonly sources: Option.Option<readonly SourceType[]>;
   /** Filter by agent names */
-  readonly agents?: readonly string[];
+  readonly agents: Option.Option<readonly string[]>;
   /** Current working directory */
-  readonly cwd?: string;
+  readonly cwd: Option.Option<string>;
   /** Implied scope from settings */
-  readonly scope?: string;
+  readonly scope: Option.Option<string>;
   /** Project .axm directory location */
-  readonly projectDir?: string;
+  readonly projectDir: Option.Option<string>;
   /** Global ~/.axm directory location */
-  readonly globalDir?: string;
+  readonly globalDir: Option.Option<string>;
 }

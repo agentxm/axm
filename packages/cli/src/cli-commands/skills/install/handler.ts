@@ -22,14 +22,14 @@ import {
   cloneRepo,
   discoverSkills,
   discoverWellKnownSkills,
-  ensureInitialized,
   getCurrentCommit,
   type ParsedSource,
   parseSource,
-  readSettings,
   type Skill,
 } from "../../../extensions/skills/index.js";
+import { ensureInitialized, readSettings } from "../../../settings/index.js";
 import { fetchGitHubTreeHash } from "../../../extensions/skills/github-api.js";
+import { SkillSourceV2 } from "../../../extensions/skills/state/types.js";
 import {
   applyPlan,
   applyStep,
@@ -44,7 +44,6 @@ import {
   makeWorkspaceContext,
   type PlanStep,
   planHasChanges,
-  SkillSourceV2,
   updateLockfileForPlan,
   updateSettingsForPlan,
   type WorkspaceContext,
@@ -99,7 +98,7 @@ export interface InstallArgs {
  */
 export class InstallError extends Data.TaggedError("InstallError")<{
   readonly message: string;
-  readonly cause?: unknown;
+  readonly cause: Option.Option<unknown>;
   readonly retryable: boolean;
 }> {}
 
@@ -141,7 +140,7 @@ const resolveGitSource = (
         (error) =>
           new InstallError({
             message: error.message,
-            cause: error,
+            cause: Option.some(error),
             retryable: false,
           }),
       ),
@@ -158,7 +157,7 @@ const resolveGitSource = (
               [`URL: ${cloneUrl}`],
               "Check your network connection and repository access credentials.",
             ),
-            cause: error,
+            cause: Option.some(error),
             retryable: true,
           }),
       ),
@@ -170,7 +169,7 @@ const resolveGitSource = (
         (error) =>
           new InstallError({
             message: `Failed to get commit SHA: ${error.message}`,
-            cause: error,
+            cause: Option.some(error),
             retryable: false,
           }),
       ),
@@ -185,7 +184,7 @@ const resolveGitSource = (
         (error) =>
           new InstallError({
             message: `Failed to discover skills in ${skillsDir}: ${error.message}`,
-            cause: error,
+            cause: Option.some(error),
             retryable: false,
           }),
       ),
@@ -347,7 +346,7 @@ export const handleInstall = (
               [`Provided: ${args.source || "(empty)"}`],
               "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
             ),
-            cause: error,
+            cause: Option.some(error),
             retryable: false,
           }),
       ),
@@ -361,7 +360,7 @@ export const handleInstall = (
         (error) =>
           new InstallError({
             message: `Failed to initialize: ${error.message}`,
-            cause: error,
+            cause: Option.some(error),
             retryable: false,
           }),
       ),
@@ -397,7 +396,7 @@ export const handleInstall = (
           (error) =>
             new InstallError({
               message: `Failed to read settings: ${error.message}`,
-              cause: error,
+              cause: Option.some(error),
               retryable: false,
             }),
         ),
@@ -427,7 +426,7 @@ export const handleInstall = (
         (error: { message: string }) =>
           new InstallError({
             message: `Failed to load current state: ${error.message}`,
-            cause: error,
+            cause: Option.some(error),
             retryable: false,
           }),
       ),
@@ -461,7 +460,7 @@ export const handleInstall = (
                 [`Path: ${skillsDir}`],
                 "Verify the path exists and contains directories with SKILL.md files.",
               ),
-              cause: error,
+              cause: Option.some(error),
               retryable: false,
             }),
         ),
@@ -479,7 +478,7 @@ export const handleInstall = (
                 [`URL: ${baseUrl}`],
                 "Verify the URL serves a valid skills index at /.well-known/skills/index.json",
               ),
-              cause: error,
+              cause: Option.some(error),
               retryable: error._tag === "WellKnownFetchError" && error.retryable,
             }),
         ),
@@ -491,6 +490,7 @@ export const handleInstall = (
       return yield* Effect.fail(
         new InstallError({
           message: `Source type "${parsed.type}" is not yet supported`,
+          cause: Option.none(),
           retryable: false,
         }),
       );
@@ -501,6 +501,7 @@ export const handleInstall = (
       return yield* Effect.fail(
         new InstallError({
           message: `Unsupported source type: ${_exhaustive}`,
+          cause: Option.none(),
           retryable: false,
         }),
       );
@@ -515,6 +516,7 @@ export const handleInstall = (
             [`Source: ${parsed.canonical}`],
             "Verify the source path contains directories with SKILL.md files.",
           ),
+          cause: Option.none(),
           retryable: false,
         }),
       );
@@ -565,6 +567,7 @@ export const handleInstall = (
             ["stdin is not a TTY"],
             "Use --yes, --all, or --non-interactive to run without prompts.",
           ),
+          cause: Option.none(),
           retryable: false,
         }),
       );
@@ -572,24 +575,20 @@ export const handleInstall = (
       // Interactive selection
       const selectedSkills = yield* clack
         .multiselect("Select skills to install", skills, {
-          toOption: (s) => {
-            const opt: { value: string; label: string; hint?: string } = {
-              value: s.name,
-              label: s.name,
-            };
-            if (s.description) {
-              opt.hint = s.description;
-            }
-            return opt;
-          },
-          initialValues: skills.map((s) => s.name),
-          required: true,
+          toOption: (s) => ({
+            value: s.name,
+            label: s.name,
+            hint: Option.fromNullable(s.description),
+          }),
+          initialValues: Option.some(skills.map((s) => s.name)),
+          required: Option.some(true),
         })
         .pipe(
           Effect.catchTag("PromptCancelled", () =>
             Effect.fail(
               new InstallError({
                 message: "Operation cancelled.",
+                cause: Option.none(),
                 retryable: false,
               }),
             ),
@@ -599,7 +598,7 @@ export const handleInstall = (
               ? error
               : new InstallError({
                   message: "Failed to prompt for skill selection",
-                  cause: error,
+                  cause: Option.some(error),
                   retryable: false,
                 }),
           ),
@@ -636,7 +635,7 @@ export const handleInstall = (
         (error: { message: string }) =>
           new InstallError({
             message: `Failed to build ideal state: ${error.message}`,
-            cause: error,
+            cause: Option.some(error),
             retryable: false,
           }),
       ),
@@ -674,6 +673,7 @@ export const handleInstall = (
               ["stdin is not a TTY"],
               "Use --yes, --all, or --non-interactive to run without prompts.",
             ),
+            cause: Option.none(),
             retryable: false,
           }),
         );
@@ -683,6 +683,7 @@ export const handleInstall = (
           Effect.fail(
             new InstallError({
               message: "Installation cancelled.",
+              cause: Option.none(),
               retryable: false,
             }),
           ),
@@ -692,7 +693,7 @@ export const handleInstall = (
             ? error
             : new InstallError({
                 message: "Failed to prompt for confirmation",
-                cause: error,
+                cause: Option.some(error),
                 retryable: false,
               }),
         ),
@@ -739,7 +740,7 @@ export const handleInstall = (
         (error: { message: string }) =>
           new InstallError({
             message: `Failed to apply changes: ${error.message}`,
-            cause: error,
+            cause: Option.some(error),
             retryable: false,
           }),
       ),

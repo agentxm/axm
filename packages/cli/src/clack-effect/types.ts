@@ -4,6 +4,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as Option from "effect/Option";
+
 /**
  * Option for select/multiselect prompts.
  *
@@ -12,7 +14,7 @@
 export interface PromptOption {
   readonly value: string;
   readonly label: string;
-  readonly hint?: string;
+  readonly hint: Option.Option<string>;
 }
 
 /**
@@ -22,8 +24,8 @@ export interface PromptOption {
  */
 export interface MultiselectConfig<T> {
   readonly toOption: (item: T) => PromptOption;
-  readonly initialValues?: readonly string[];
-  readonly required?: boolean;
+  readonly initialValues: Option.Option<readonly string[]>;
+  readonly required: Option.Option<boolean>;
 }
 
 /**

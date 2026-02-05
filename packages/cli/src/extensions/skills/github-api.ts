@@ -7,6 +7,7 @@
 
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 
 // -----------------------------------------------------------------------------
 // Error Types
@@ -19,11 +20,11 @@ import * as Effect from "effect/Effect";
  */
 export class GitHubApiError extends Data.TaggedError("GitHubApiError")<{
   /** HTTP status code (if applicable) */
-  readonly status?: number;
+  readonly status: Option.Option<number>;
   /** Human-readable error message */
   readonly message: string;
   /** Original error cause */
-  readonly cause?: unknown;
+  readonly cause: Option.Option<unknown>;
 }> {}
 
 // -----------------------------------------------------------------------------
@@ -38,7 +39,7 @@ interface GitHubTreeEntry {
   readonly mode: string;
   readonly type: "blob" | "tree";
   readonly sha: string;
-  readonly size?: number;
+  readonly size: Option.Option<number>;
 }
 
 /**
@@ -88,8 +89,9 @@ export const fetchGitHubTreeHash = (
         }),
       catch: (error) =>
         new GitHubApiError({
+          status: Option.none(),
           message: `Failed to fetch GitHub tree: ${error instanceof Error ? error.message : String(error)}`,
-          cause: error,
+          cause: Option.some(error),
         }),
     });
 
@@ -103,13 +105,15 @@ export const fetchGitHubTreeHash = (
         try: () => response.text(),
         catch: () =>
           new GitHubApiError({
-            status: response.status,
+            status: Option.some(response.status),
             message: `GitHub API returned ${response.status}`,
+            cause: Option.none(),
           }),
       });
       return yield* new GitHubApiError({
-        status: response.status,
+        status: Option.some(response.status),
         message: `GitHub API returned ${response.status}: ${body}`,
+        cause: Option.none(),
       });
     }
 
@@ -118,8 +122,9 @@ export const fetchGitHubTreeHash = (
       try: () => response.json() as Promise<GitHubTreeResponse>,
       catch: (error) =>
         new GitHubApiError({
+          status: Option.none(),
           message: `Failed to parse GitHub API response: ${error instanceof Error ? error.message : String(error)}`,
-          cause: error,
+          cause: Option.some(error),
         }),
     });
 

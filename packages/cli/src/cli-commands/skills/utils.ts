@@ -10,6 +10,7 @@
 import type { ExtensionRef } from "../../resolution/index.js";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { Clack } from "../../clack-effect/index.js";
 import { formatEmptyResolutionError, formatError } from "../../utils/errors.js";
 
@@ -97,7 +98,7 @@ export function selectExtensionRef(
       .select("Multiple matches found. Select the source to install from:", refs, (ref) => ({
         value: ref.origin,
         label: ref.name ?? ref.origin,
-        hint: `${ref.source}${ref.ref ? `@${ref.ref}` : ""}`,
+        hint: Option.some(`${ref.source}${ref.ref ? `@${ref.ref}` : ""}`),
       }))
       .pipe(
         Effect.mapError(

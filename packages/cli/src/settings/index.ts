@@ -32,7 +32,8 @@ export {
 
 // Settings I/O
 export type {
-  EnsureInitializedOptions,
+  /** @deprecated Use WorkspaceContext from workspace/service.ts instead */
+  EnsureInitializedLegacyOptions,
   SettingsError,
   SettingsErrorTag,
   SettingsUpdate,
@@ -42,7 +43,8 @@ export {
   addSkill,
   createDefaultSettings,
   DEFAULT_SCOPE,
-  ensureInitialized,
+  /** @deprecated Use WorkspaceContext from workspace/service.ts instead */
+  ensureInitializedLegacy,
   getEffectiveScope,
   readSettings,
   SETTINGS_FILENAME,

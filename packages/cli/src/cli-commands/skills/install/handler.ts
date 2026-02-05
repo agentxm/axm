@@ -27,7 +27,7 @@ import {
   parseSource,
   type Skill,
 } from "../../../extensions/skills/index.js";
-import { ensureInitialized, readSettings } from "../../../settings/index.js";
+import { ensureInitializedLegacy, readSettings } from "../../../settings/index.js";
 import { fetchGitHubTreeHash } from "../../../extensions/skills/github-api.js";
 import { SkillSourceV2 } from "../../../extensions/skills/state/types.js";
 import {
@@ -361,7 +361,7 @@ export const handleInstall = (
 
     // Step 2: Ensure initialized
     spinner.start("Checking initialization...");
-    yield* ensureInitialized({ axmDir: ws.path }).pipe(
+    yield* ensureInitializedLegacy({ axmDir: ws.path }).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({

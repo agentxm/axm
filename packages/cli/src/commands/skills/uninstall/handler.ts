@@ -23,7 +23,6 @@ import {
   buildIdealForUninstall,
   buildPlan,
   ensureInit,
-  getPlanSummary,
   loadCurrentState,
   makeWorkspaceContext,
   type Plan,
@@ -34,6 +33,7 @@ import {
   updateSettingsForPlan,
   type WorkspaceContext,
 } from "../../../workspace/index.js";
+import { displayPlan } from "../display.js";
 import * as FileSystem from "@effect/platform/FileSystem";
 import type { Path } from "@effect/platform";
 import * as Data from "effect/Data";
@@ -76,48 +76,6 @@ export class UninstallError extends Data.TaggedError("UninstallError")<{
   readonly cause?: unknown;
   readonly retryable: boolean;
 }> {}
-
-// -----------------------------------------------------------------------------
-// Plan Display
-// -----------------------------------------------------------------------------
-
-/**
- * Display the uninstall plan in human-readable format using V2 plan structure.
- */
-const displayPlanFromPlan = (plan: Plan, clack: Clack["Type"]): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    yield* clack.log.info("Plan:");
-    yield* clack.log.message("");
-    yield* clack.log.message("  Skills:");
-
-    for (const step of plan.steps) {
-      if (step._tag === "UninstallSkill") {
-        const agentInfo = step.agents.length > 0 ? ` @ ${step.agents.join(", ")}` : "";
-        yield* clack.log.message(`  - ${step.skill}${agentInfo} (uninstall)`);
-      }
-    }
-
-    const summary = getPlanSummary(plan);
-    yield* clack.log.message("");
-    yield* clack.log.message(`  Summary: ${summary.uninstalled} skill(s) to uninstall`);
-  });
-
-/**
- * Display the uninstall plan in human-readable format (for partial uninstall).
- */
-const displayPartialPlan = (
-  skillName: string,
-  agents: readonly string[],
-  clack: Clack["Type"],
-): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    yield* clack.log.info("Plan:");
-    yield* clack.log.message("");
-    yield* clack.log.message("  Skills:");
-    yield* clack.log.message(`  - ${skillName} @ ${agents.join(", ")} (uninstall)`);
-    yield* clack.log.message("");
-    yield* clack.log.message("  Summary: 1 skill to uninstall");
-  });
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -273,7 +231,7 @@ const handleFullUninstall = (
     }
 
     // Step 6: Display plan
-    yield* displayPlanFromPlan(plan, clack);
+    yield* displayPlan(clack, plan);
 
     // Dry-run stops here
     if (args.dryRun) {
@@ -404,8 +362,11 @@ const handlePartialUninstall = (
     spinner.start("Building uninstall plan...");
     spinner.stop("Built uninstall plan");
 
-    // Display plan
-    yield* displayPartialPlan(args.skill, targetAgents, clack);
+    // Display plan - construct a synthetic plan for partial uninstall
+    const partialPlan: Plan = {
+      steps: [{ _tag: "UninstallSkill", skill: args.skill, agents: [...targetAgents] }],
+    };
+    yield* displayPlan(clack, partialPlan);
 
     // Dry-run stops here
     if (args.dryRun) {

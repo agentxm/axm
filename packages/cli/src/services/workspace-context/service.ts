@@ -14,11 +14,12 @@ import {
   readSettings,
   type Settings,
   type SettingsError,
-  SettingsNotFoundError,
 } from "@agentxm/core/experimental/skills";
+import { getAxmDir } from "@agentxm/core/experimental/paths";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import { WorkspaceNotInitializedError } from "./errors.js";
 import type { WorkspaceContextService } from "./types.js";
 
 /**
@@ -42,69 +43,82 @@ export class WorkspaceContext extends Context.Tag("@agentxm/cli/WorkspaceContext
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type WorkspaceContextError = SettingsError | LockfileError;
+export type WorkspaceContextError =
+  | WorkspaceNotInitializedError
+  | Exclude<SettingsError, { _tag: "SettingsNotFoundError" }>
+  | LockfileError;
 
 /**
- * Create a live layer that loads settings and lockfile from disk.
+ * Options for creating workspace context.
  *
- * @param axmDir - Path to the .axm directory
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface WorkspaceContextOptions {
+  /** Whether to use global workspace (~/.axm) or local (.axm) */
+  readonly global: boolean;
+}
+
+/**
+ * Create workspace context effect.
+ *
+ * Loads settings and lockfile based on workspace scope:
+ * - Global mode: reads only global settings (fallback to {} if not found)
+ * - Local mode: merges global and local settings (local overrides global),
+ *   fails with WorkspaceNotInitializedError if local settings don't exist
+ *
+ * @param options - Workspace context options
+ * @returns Effect yielding WorkspaceContextService
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const make = (
+  options: WorkspaceContextOptions,
+): Effect.Effect<WorkspaceContextService, WorkspaceContextError, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const globalDir = getAxmDir(true);
+    const localDir = getAxmDir(false);
+    const workspaceDir = options.global ? globalDir : localDir;
+
+    // Global settings: optional (fallback to {})
+    const globalSettings = yield* readSettings(globalDir).pipe(
+      Effect.catchTag("SettingsNotFoundError", () => Effect.succeed<Settings>({})),
+    );
+
+    // Local settings: required when global=false
+    let localSettings: Settings = {};
+    if (!options.global) {
+      localSettings = yield* readSettings(localDir).pipe(
+        Effect.catchTag("SettingsNotFoundError", () =>
+          Effect.fail(new WorkspaceNotInitializedError({ path: localDir })),
+        ),
+      );
+    }
+
+    // Merge: local overrides global
+    const settings: Settings = options.global
+      ? globalSettings
+      : { ...globalSettings, ...localSettings };
+
+    // Lockfile from workspace dir
+    const lockfile = yield* readLockfile(workspaceDir);
+
+    return {
+      global: options.global,
+      settings,
+      lockfile,
+      path: workspaceDir,
+    };
+  });
+
+/**
+ * Create a layer that loads workspace context from disk.
+ *
+ * @param options - Workspace context options
  * @returns Layer providing WorkspaceContext
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const makeWorkspaceContextLayer = (
-  axmDir: string,
+export const layer = (
+  options: WorkspaceContextOptions,
 ): Layer.Layer<WorkspaceContext, WorkspaceContextError, FileSystem.FileSystem> =>
-  Layer.effect(
-    WorkspaceContext,
-    Effect.gen(function* () {
-      const [settings, lockfile] = yield* Effect.all([readSettings(axmDir), readLockfile(axmDir)]);
-
-      return {
-        settings,
-        lockfile,
-        path: axmDir,
-      };
-    }),
-  );
-
-/**
- * Create a live layer that loads settings and lockfile, with optional settings fallback.
- *
- * If settings.json doesn't exist, uses empty settings. Lockfile errors still propagate.
- *
- * @param axmDir - Path to the .axm directory
- * @returns Layer providing WorkspaceContext
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const makeWorkspaceContextLayerOptional = (
-  axmDir: string,
-): Layer.Layer<
-  WorkspaceContext,
-  Exclude<WorkspaceContextError, SettingsNotFoundError>,
-  FileSystem.FileSystem
-> =>
-  Layer.effect(
-    WorkspaceContext,
-    Effect.gen(function* () {
-      const settingsResult = yield* readSettings(axmDir).pipe(Effect.either);
-
-      let settings: Settings;
-      if (settingsResult._tag === "Right") {
-        settings = settingsResult.right;
-      } else if (settingsResult.left._tag === "SettingsNotFoundError") {
-        settings = {};
-      } else {
-        return yield* Effect.fail(settingsResult.left);
-      }
-
-      const lockfile = yield* readLockfile(axmDir);
-
-      return {
-        settings,
-        lockfile,
-        path: axmDir,
-      };
-    }),
-  );
+  Layer.effect(WorkspaceContext, make(options));

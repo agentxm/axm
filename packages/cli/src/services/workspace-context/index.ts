@@ -5,10 +5,12 @@
  * @packageDocumentation
  */
 
+export { WorkspaceNotInitializedError } from "./errors.js";
 export {
-  makeWorkspaceContextLayer,
-  makeWorkspaceContextLayerOptional,
+  layer,
+  make,
   WorkspaceContext,
   type WorkspaceContextError,
+  type WorkspaceContextOptions,
 } from "./service.js";
 export type { WorkspaceContextService } from "./types.js";

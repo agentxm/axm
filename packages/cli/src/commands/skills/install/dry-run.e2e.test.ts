@@ -14,7 +14,7 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "./utils.js";
+import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 
 describe("axm skills install --dry-run integration", () => {
   describe("dry-run matches real install", () => {

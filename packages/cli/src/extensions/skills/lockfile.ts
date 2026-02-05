@@ -15,7 +15,11 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 
-import { type Lockfile, LockfileSchema, type SkillLockEntry } from "../../lockfile/schema.js";
+import {
+  type Lockfile,
+  LockfileSchema,
+  type SkillLockEntry,
+} from "../../workspace/lockfile-schema.js";
 
 // -----------------------------------------------------------------------------
 // Constants

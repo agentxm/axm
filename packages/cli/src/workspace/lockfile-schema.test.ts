@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
-import { LockfileSchema, SkillLockEntrySchema, SkillsLockMapSchema } from "./schema.js";
+import { LockfileSchema, SkillLockEntrySchema, SkillsLockMapSchema } from "./lockfile-schema.js";
 
 describe("lockfile schema", () => {
   describe("Lockfile", () => {

@@ -9,7 +9,7 @@ import * as http from "node:http";
 import * as path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import YAML from "yaml";
-import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "./utils.js";
+import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 
 describe("axm skills install", () => {
   describe("with local source --list", () => {

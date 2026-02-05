@@ -13,7 +13,7 @@ import { execa } from "execa";
 /**
  * Path to the CLI entry point.
  */
-const CLI_PATH = path.resolve(import.meta.dirname, "../src/main.ts");
+const CLI_PATH = path.resolve(import.meta.dirname, "../main.ts");
 
 /**
  * Result from running the CLI.

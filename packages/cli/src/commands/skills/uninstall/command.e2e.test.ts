@@ -8,7 +8,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
-import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "./utils.js";
+import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 
 describe("axm skills uninstall", () => {
   describe("basic uninstall flow", () => {

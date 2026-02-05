@@ -6,7 +6,6 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 
 import { CloneUrlError } from "./errors.js";
 import type { ParsedSource } from "./types.js";
@@ -21,23 +20,21 @@ import type { ParsedSource } from "./types.js";
  * @returns Effect containing the HTTPS clone URL or CloneUrlError
  */
 export const buildCloneUrl = (parsed: ParsedSource): Effect.Effect<string, CloneUrlError> => {
-  const owner = Option.getOrElse(parsed.owner, () => "");
-  const repo = Option.getOrElse(parsed.repo, () => "");
-  if (parsed.type === "github") {
-    return Effect.succeed(`https://github.com/${owner}/${repo}.git`);
+  switch (parsed.source) {
+    case "github":
+      return Effect.succeed(`https://github.com/${parsed.owner}/${parsed.repo}.git`);
+    case "gitlab":
+      return Effect.succeed(`https://gitlab.com/${parsed.owner}/${parsed.repo}.git`);
+    case "bitbucket":
+      return Effect.succeed(`https://bitbucket.org/${parsed.owner}/${parsed.repo}.git`);
+    default:
+      return Effect.fail(
+        new CloneUrlError({
+          message: `Cannot build clone URL for source type: ${parsed.source}`,
+          sourceType: parsed.source,
+        }),
+      );
   }
-  if (parsed.type === "gitlab") {
-    return Effect.succeed(`https://gitlab.com/${owner}/${repo}.git`);
-  }
-  if (parsed.type === "bitbucket") {
-    return Effect.succeed(`https://bitbucket.org/${owner}/${repo}.git`);
-  }
-  return Effect.fail(
-    new CloneUrlError({
-      message: `Cannot build clone URL for source type: ${parsed.type}`,
-      sourceType: parsed.type,
-    }),
-  );
 };
 
 /**
@@ -54,21 +51,19 @@ export const buildCloneUrl = (parsed: ParsedSource): Effect.Effect<string, Clone
  * @returns The origin URL or path
  */
 export const getOriginFromParsed = (parsed: ParsedSource): string => {
-  const owner = Option.getOrElse(parsed.owner, () => "");
-  const repo = Option.getOrElse(parsed.repo, () => "");
-  switch (parsed.type) {
+  switch (parsed.source) {
     case "github":
-      return `https://github.com/${owner}/${repo}`;
+      return `https://github.com/${parsed.owner}/${parsed.repo}`;
     case "gitlab":
-      return `https://gitlab.com/${owner}/${repo}`;
+      return `https://gitlab.com/${parsed.owner}/${parsed.repo}`;
     case "bitbucket":
-      return `https://bitbucket.org/${owner}/${repo}`;
+      return `https://bitbucket.org/${parsed.owner}/${parsed.repo}`;
     case "azuredevops":
-      return `https://dev.azure.com/${owner}/${repo}`;
+      return `https://dev.azure.com/${parsed.owner}/${parsed.repo}`;
     case "local":
       return parsed.original;
     case "wellknown":
-      return Option.getOrElse(parsed.baseUrl, () => parsed.original);
+      return parsed.baseUrl;
     case "git":
     case "registry":
       return parsed.original;

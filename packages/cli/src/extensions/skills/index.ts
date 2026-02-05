@@ -33,7 +33,14 @@ export {
 export type { LockEntry, Skill } from "./types.js";
 
 // Re-export source types from canonical location
-export type { ParsedSource, Source, WellKnownIndex, WellKnownSkill } from "../../sources/index.js";
+export type {
+  AzureDevOpsSource,
+  GitSource,
+  ParsedSource,
+  Source,
+  WellKnownIndex,
+  WellKnownSkill,
+} from "../../sources/index.js";
 
 // Well-Known Discovery - re-exported from sources/
 export type { WellKnownError } from "../../sources/index.js";

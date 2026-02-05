@@ -18,11 +18,13 @@
 import * as nodePath from "node:path";
 import { type AgentConfig, getAgentById } from "../../../agents/index.js";
 import {
+  type AzureDevOpsSource,
   buildCloneUrl,
   cloneRepo,
   discoverSkills,
   discoverWellKnownSkills,
   getCurrentCommit,
+  type GitSource,
   type ParsedSource,
   parseSource,
   type Skill,
@@ -125,10 +127,15 @@ interface ResolvedSource {
 // -----------------------------------------------------------------------------
 
 /**
- * Resolves skills from a GitHub/GitLab/Bitbucket git hosting source.
+ * Source types that have owner/repo fields for git cloning.
+ */
+type GitHostingSource = GitSource | AzureDevOpsSource;
+
+/**
+ * Resolves skills from a GitHub/GitLab/Bitbucket/AzureDevOps git hosting source.
  */
 const resolveGitSource = (
-  parsed: ParsedSource,
+  parsed: GitHostingSource,
   axmDir: string,
 ): Effect.Effect<
   { skills: Skill[]; skillsDir: string; commitSha: string },
@@ -146,9 +153,7 @@ const resolveGitSource = (
           }),
       ),
     );
-    const owner = Option.getOrElse(parsed.owner, () => "unknown");
-    const repo = Option.getOrElse(parsed.repo, () => "unknown");
-    const cacheDir = nodePath.join(axmDir, "cache", "git", `${owner}-${repo}`);
+    const cacheDir = nodePath.join(axmDir, "cache", "git", `${parsed.owner}-${parsed.repo}`);
 
     // Clone repository
     yield* cloneRepo(cloneUrl, cacheDir, Option.getOrUndefined(parsed.ref)).pipe(
@@ -215,14 +220,14 @@ const parsedSourceToV2 = (
   parsed: ParsedSource,
   skillsDir: string,
 ): Effect.Effect<SkillSourceV2, CommandError> => {
-  switch (parsed.type) {
+  switch (parsed.source) {
     case "local":
       return Effect.succeed(SkillSourceV2.Local({ path: skillsDir }));
     case "github":
       return Effect.succeed(
         SkillSourceV2.GitHub({
-          owner: Option.getOrElse(parsed.owner, () => ""),
-          repo: Option.getOrElse(parsed.repo, () => ""),
+          owner: parsed.owner,
+          repo: parsed.repo,
           ref: parsed.ref,
           path: parsed.path,
         }),
@@ -238,7 +243,7 @@ const parsedSourceToV2 = (
     default:
       return Effect.fail(
         new CommandError({
-          message: `Unsupported source type: ${parsed.type}`,
+          message: `Unsupported source type: ${parsed.source}`,
           cause: Option.none(),
         }),
       );
@@ -258,11 +263,8 @@ const createBuildIdealDeps = (
   discoverSkills: (source: SkillSourceV2) =>
     Effect.gen(function* () {
       // For GitHub sources, fetch git tree hash from API for each skill
-      const isGitHubSource =
-        source._tag === "GitHub" &&
-        resolvedSource.parsed.type === "github" &&
-        Option.isSome(resolvedSource.parsed.owner) &&
-        Option.isSome(resolvedSource.parsed.repo);
+      const parsed = resolvedSource.parsed;
+      const isGitHubSource = source._tag === "GitHub" && parsed.source === "github";
 
       return yield* Effect.forEach(
         discoveredSkills,
@@ -270,17 +272,17 @@ const createBuildIdealDeps = (
           Effect.gen(function* () {
             let gitTreeHash: Option.Option<string> = Option.none();
 
-            if (isGitHubSource) {
+            if (isGitHubSource && parsed.source === "github") {
               // Build path within repo: subpath (if any) + skill name
-              const pathInRepo = Option.match(resolvedSource.parsed.path, {
+              const pathInRepo = Option.match(parsed.path, {
                 onNone: () => skill.name,
                 onSome: (p) => `${p}/${skill.name}`,
               });
 
               gitTreeHash = yield* fetchGitHubTreeHash(
-                resolvedSource.parsed.owner.value,
-                resolvedSource.parsed.repo.value,
-                Option.getOrElse(resolvedSource.parsed.ref, () => "HEAD"),
+                parsed.owner,
+                parsed.repo,
+                Option.getOrElse(parsed.ref, () => "HEAD"),
                 pathInRepo,
               ).pipe(
                 Effect.map(
@@ -362,7 +364,7 @@ export const handleInstall = (
           }),
       ),
     );
-    spinner.stop(`Source: ${parsed.canonical} (${parsed.type})`);
+    spinner.stop(`Source: ${parsed.canonical} (${parsed.source})`);
 
     // Step 2: Ensure initialized
     spinner.start("Checking initialization...");
@@ -452,84 +454,83 @@ export const handleInstall = (
     let skills: Skill[];
     let resolvedSource: ResolvedSource;
 
-    if (
-      parsed.type === "github" ||
-      parsed.type === "gitlab" ||
-      parsed.type === "bitbucket" ||
-      parsed.type === "azuredevops"
-    ) {
-      spinner.start("Fetching source to analyze contents...");
-    } else {
-      spinner.start("Discovering skills...");
+    // Determine spinner message based on source type
+    switch (parsed.source) {
+      case "github":
+      case "gitlab":
+      case "bitbucket":
+      case "azuredevops":
+        spinner.start("Fetching source to analyze contents...");
+        break;
+      default:
+        spinner.start("Discovering skills...");
     }
 
-    if (
-      parsed.type === "github" ||
-      parsed.type === "gitlab" ||
-      parsed.type === "bitbucket" ||
-      parsed.type === "azuredevops"
-    ) {
-      const result = yield* resolveGitSource(parsed, ws.path);
-      skills = result.skills;
-      resolvedSource = { parsed, skillsDir: result.skillsDir, commitSha: result.commitSha };
-    } else if (parsed.type === "local") {
-      // Local sources: discover skills directly from the filesystem path
-      // localPath is always present for local sources (set by buildLocalSource)
-      const skillsDir = Option.getOrElse(parsed.localPath, () => parsed.original);
-      skills = yield* discoverSkills(skillsDir).pipe(
-        Effect.mapError(
-          (error) =>
-            new InstallError({
-              message: formatError(
-                `Failed to discover skills: ${error.message}`,
-                [`Path: ${skillsDir}`],
-                "Verify the path exists and contains directories with SKILL.md files.",
-              ),
-              cause: Option.some(error),
-              retryable: false,
-            }),
-        ),
-      );
-      resolvedSource = { parsed, skillsDir };
-    } else if (parsed.type === "wellknown") {
-      // Well-known URL sources: discover skills from /.well-known/skills/index.json
-      const baseUrl = Option.getOrElse(parsed.baseUrl, () => parsed.original);
-      skills = yield* discoverWellKnownSkills(baseUrl).pipe(
-        Effect.mapError(
-          (error) =>
-            new InstallError({
-              message: formatError(
-                `Failed to discover skills from well-known URL: ${error.message}`,
-                [`URL: ${baseUrl}`],
-                "Verify the URL serves a valid skills index at /.well-known/skills/index.json",
-              ),
-              cause: Option.some(error),
-              retryable: error._tag === "WellKnownFetchError" && error.retryable,
-            }),
-        ),
-      );
-      // For wellknown sources, skillsDir is the base URL since files are fetched over HTTP
-      resolvedSource = { parsed, skillsDir: baseUrl };
-    } else if (parsed.type === "git" || parsed.type === "registry") {
-      spinner.stop("Source type not yet supported");
-      return yield* Effect.fail(
-        new InstallError({
-          message: `Source type "${parsed.type}" is not yet supported`,
-          cause: Option.none(),
-          retryable: false,
-        }),
-      );
-    } else {
-      // Exhaustive check - should never reach here
-      const _exhaustive: never = parsed.type;
-      spinner.stop("Unsupported source type");
-      return yield* Effect.fail(
-        new InstallError({
-          message: `Unsupported source type: ${_exhaustive}`,
-          cause: Option.none(),
-          retryable: false,
-        }),
-      );
+    // Handle each source type
+    switch (parsed.source) {
+      case "github":
+      case "gitlab":
+      case "bitbucket":
+      case "azuredevops": {
+        const result = yield* resolveGitSource(parsed, ws.path);
+        skills = result.skills;
+        resolvedSource = { parsed, skillsDir: result.skillsDir, commitSha: result.commitSha };
+        break;
+      }
+
+      case "local": {
+        // Local sources: discover skills directly from the filesystem path
+        const skillsDir = parsed.localPath;
+        skills = yield* discoverSkills(skillsDir).pipe(
+          Effect.mapError(
+            (error) =>
+              new InstallError({
+                message: formatError(
+                  `Failed to discover skills: ${error.message}`,
+                  [`Path: ${skillsDir}`],
+                  "Verify the path exists and contains directories with SKILL.md files.",
+                ),
+                cause: Option.some(error),
+                retryable: false,
+              }),
+          ),
+        );
+        resolvedSource = { parsed, skillsDir };
+        break;
+      }
+
+      case "wellknown": {
+        // Well-known URL sources: discover skills from /.well-known/skills/index.json
+        const baseUrl = parsed.baseUrl;
+        skills = yield* discoverWellKnownSkills(baseUrl).pipe(
+          Effect.mapError(
+            (error) =>
+              new InstallError({
+                message: formatError(
+                  `Failed to discover skills from well-known URL: ${error.message}`,
+                  [`URL: ${baseUrl}`],
+                  "Verify the URL serves a valid skills index at /.well-known/skills/index.json",
+                ),
+                cause: Option.some(error),
+                retryable: error._tag === "WellKnownFetchError" && error.retryable,
+              }),
+          ),
+        );
+        // For wellknown sources, skillsDir is the base URL since files are fetched over HTTP
+        resolvedSource = { parsed, skillsDir: baseUrl };
+        break;
+      }
+
+      case "git":
+      case "registry":
+        spinner.stop("Source type not yet supported");
+        return yield* Effect.fail(
+          new InstallError({
+            message: `Source type "${parsed.source}" is not yet supported`,
+            cause: Option.none(),
+            retryable: false,
+          }),
+        );
     }
 
     if (skills.length === 0) {

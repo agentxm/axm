@@ -15,8 +15,13 @@ import { ParseError } from "./errors.js";
 import { parseGitHubHttpsUrl, parseGitHubSshUrl } from "./github/index.js";
 import { parseGitLabHttpsUrl, parseGitLabSshUrl } from "./gitlab/index.js";
 import { LOCAL_PATH_PATTERN, parseLocalPath } from "./local/index.js";
-import type { ParsedSource } from "./types.js";
-import { buildGitSource, buildWellKnownSource } from "./utils.js";
+import {
+  type BitbucketSource,
+  type GitHubSource,
+  type GitLabSource,
+  type ParsedSource,
+  ParsedSource as PS,
+} from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Regex Patterns
@@ -48,7 +53,9 @@ const URL_PATTERN = /^https?:\/\/.+/;
 /**
  * Parse a prefixed shorthand (github:owner/repo, gitlab:owner/repo, or bitbucket:owner/repo).
  */
-const parsePrefixedShorthand = (input: string): Effect.Effect<ParsedSource, ParseError> => {
+const parsePrefixedShorthand = (
+  input: string,
+): Effect.Effect<GitHubSource | GitLabSource | BitbucketSource, ParseError> => {
   const match = input.match(PREFIXED_SHORTHAND_PATTERN);
   if (!match || !match[1] || !match[2] || !match[3]) {
     return Effect.fail(new ParseError({ message: "Invalid prefixed shorthand format", input }));
@@ -60,14 +67,21 @@ const parsePrefixedShorthand = (input: string): Effect.Effect<ParsedSource, Pars
   const path = match[4];
   const ref = match[5];
 
-  return Effect.succeed(buildGitSource(prefix, input, owner, repo, ref, path));
+  switch (prefix) {
+    case "github":
+      return Effect.succeed(PS.GitHub({ original: input, owner, repo, ref, path }));
+    case "gitlab":
+      return Effect.succeed(PS.GitLab({ original: input, owner, repo, ref, path }));
+    case "bitbucket":
+      return Effect.succeed(PS.Bitbucket({ original: input, owner, repo, ref, path }));
+  }
 };
 
 /**
  * Parse GitHub shorthand (owner/repo[/path][@ref]).
  * Defaults to GitHub when no prefix is specified.
  */
-const parseShorthand = (input: string): Effect.Effect<ParsedSource, ParseError> => {
+const parseShorthand = (input: string): Effect.Effect<GitHubSource, ParseError> => {
   const match = input.match(SHORTHAND_PATTERN);
   if (!match || !match[1] || !match[2]) {
     return Effect.fail(new ParseError({ message: "Invalid shorthand format", input }));
@@ -78,7 +92,7 @@ const parseShorthand = (input: string): Effect.Effect<ParsedSource, ParseError> 
   const path = match[3];
   const ref = match[4];
 
-  return Effect.succeed(buildGitSource("github", input, owner, repo, ref, path));
+  return Effect.succeed(PS.GitHub({ original: input, owner, repo, ref, path }));
 };
 
 // -----------------------------------------------------------------------------
@@ -157,7 +171,7 @@ export const parseSource = (input: string): Effect.Effect<ParsedSource, ParseErr
 
   // Check for other HTTPS URLs - use well-known discovery
   if (URL_PATTERN.test(trimmed)) {
-    return Effect.succeed(buildWellKnownSource(trimmed, trimmed));
+    return Effect.succeed(PS.WellKnown({ original: trimmed, baseUrl: trimmed }));
   }
 
   // Check for local paths (now supported)

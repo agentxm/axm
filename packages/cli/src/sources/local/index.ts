@@ -7,4 +7,3 @@
 
 export { LOCAL_PATH_PATTERN } from "./patterns.js";
 export { parseLocalPath } from "./parser.js";
-export { buildLocalSource } from "../utils.js";

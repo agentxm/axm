@@ -18,7 +18,6 @@
 import * as nodePath from "node:path";
 import { type AgentConfig, getAgentById } from "../../../agents/index.js";
 import {
-  type AzureDevOpsSource,
   buildCloneUrl,
   cloneRepo,
   discoverSkills,
@@ -127,12 +126,12 @@ interface ResolvedSource {
 // -----------------------------------------------------------------------------
 
 /**
- * Source types that have owner/repo fields for git cloning.
+ * Source types with owner/repo structure for git cloning.
  */
-type GitHostingSource = GitSource | AzureDevOpsSource;
+type GitHostingSource = GitSource;
 
 /**
- * Resolves skills from a GitHub/GitLab/Bitbucket/AzureDevOps git hosting source.
+ * Resolves skills from a GitHub/GitLab/Bitbucket git hosting source.
  */
 const resolveGitSource = (
   parsed: GitHostingSource,
@@ -470,13 +469,23 @@ export const handleInstall = (
     switch (parsed.source) {
       case "github":
       case "gitlab":
-      case "bitbucket":
-      case "azuredevops": {
+      case "bitbucket": {
         const result = yield* resolveGitSource(parsed, ws.path);
         skills = result.skills;
         resolvedSource = { parsed, skillsDir: result.skillsDir, commitSha: result.commitSha };
         break;
       }
+
+      case "azuredevops":
+        return yield* new InstallError({
+          message: formatError(
+            "Azure DevOps sources are not yet supported",
+            [`Source: ${parsed.canonical}`],
+            "Use GitHub, GitLab, Bitbucket, or a local path instead.",
+          ),
+          cause: Option.none(),
+          retryable: false,
+        });
 
       case "local": {
         // Local sources: discover skills directly from the filesystem path

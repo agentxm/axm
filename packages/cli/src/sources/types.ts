@@ -66,10 +66,11 @@ interface SourceBase {
 }
 
 /**
- * Base interface for git hosting providers (GitHub, GitLab, Bitbucket).
+ * GitHub repository source.
  */
-interface GitSourceBase extends SourceBase {
-  /** Repository owner */
+export interface GitHubSource extends SourceBase {
+  readonly source: "github";
+  /** Repository owner (user or organization) */
   readonly owner: string;
   /** Repository name */
   readonly repo: string;
@@ -80,24 +81,33 @@ interface GitSourceBase extends SourceBase {
 }
 
 /**
- * GitHub repository source.
- */
-export interface GitHubSource extends GitSourceBase {
-  readonly source: "github";
-}
-
-/**
  * GitLab repository source.
  */
-export interface GitLabSource extends GitSourceBase {
+export interface GitLabSource extends SourceBase {
   readonly source: "gitlab";
+  /** Repository owner (user or group) */
+  readonly owner: string;
+  /** Repository name */
+  readonly repo: string;
+  /** Git ref (tag, branch, or SHA) */
+  readonly ref: Option.Option<string>;
+  /** Subpath within the repository */
+  readonly path: Option.Option<string>;
 }
 
 /**
  * Bitbucket repository source.
  */
-export interface BitbucketSource extends GitSourceBase {
+export interface BitbucketSource extends SourceBase {
   readonly source: "bitbucket";
+  /** Workspace (formerly team or user) */
+  readonly owner: string;
+  /** Repository slug */
+  readonly repo: string;
+  /** Git ref (tag, branch, or SHA) */
+  readonly ref: Option.Option<string>;
+  /** Subpath within the repository */
+  readonly path: Option.Option<string>;
 }
 
 /**
@@ -107,22 +117,40 @@ export type GitSource = GitHubSource | GitLabSource | BitbucketSource;
 
 /**
  * Azure DevOps repository source (placeholder for future implementation).
+ *
+ * URL format: https://dev.azure.com/{organization}/{project}/_git/{repo}
  */
 export interface AzureDevOpsSource extends SourceBase {
   readonly source: "azuredevops";
-  readonly owner: string;
+  /** Azure DevOps organization */
+  readonly organization: string;
+  /** Azure DevOps project */
+  readonly project: string;
+  /** Repository name */
   readonly repo: string;
+  /** Git ref (tag, branch, or SHA) */
   readonly ref: Option.Option<string>;
+  /** Subpath within the repository */
   readonly path: Option.Option<string>;
 }
 
 /**
  * Generic git repository source (placeholder for future implementation).
+ *
+ * Supports any git URL format without owner semantics:
+ * - SCP-style SSH: git@server:path/repo.git
+ * - Standard SSH: ssh://git@server/path/repo.git
+ * - Git protocol: git://server/repo.git
+ * - File URI: file:///path/to/repo.git
  */
 export interface GenericGitSource extends SourceBase {
   readonly source: "git";
+  /** Full git URL */
   readonly url: string;
+  /** Git ref (tag, branch, or SHA) */
   readonly ref: Option.Option<string>;
+  /** Subpath within the repository */
+  readonly path: Option.Option<string>;
 }
 
 /**

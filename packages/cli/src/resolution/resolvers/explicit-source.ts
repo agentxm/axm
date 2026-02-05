@@ -109,19 +109,20 @@ export const resolveExplicitSource = (input: string): Effect.Effect<ExtensionRef
   // Use existing parseSource for the heavy lifting
   return parseSource(trimmed).pipe(
     Effect.map((parsed) => {
+      const src = parsed.source;
       // Only handle github/gitlab types (bitbucket/azure not yet implemented in parser)
-      if (parsed.source !== "github" && parsed.source !== "gitlab") {
+      if (src.source !== "github" && src.source !== "gitlab") {
         return [];
       }
 
       const ref: ExtensionRef = {
         type: "skill", // Infer as skill for now (will be enhanced later with manifest fetch)
-        source: parsed.source,
-        origin: buildOriginUrl(parsed.source, parsed.owner, parsed.repo),
+        source: src.source,
+        origin: buildOriginUrl(src.source, src.owner, src.repo),
         originalInput: input,
         name: Option.none(),
-        ref: parsed.ref,
-        path: parsed.subPath,
+        ref: src.ref,
+        path: src.subPath,
         metadata: {
           version: Option.none(),
           description: Option.none(),

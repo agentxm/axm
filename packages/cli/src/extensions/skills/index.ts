@@ -25,6 +25,7 @@ export {
   buildCloneUrl,
   CloneUrlError,
   getOriginFromParsed,
+  isGitSource,
   ParseError,
   parseSource,
 } from "../../sources/index.js";
@@ -37,5 +38,6 @@ export type {
   AzureDevOpsSource,
   GitSource,
   ParsedSource,
+  Source,
   SourceType,
 } from "../../sources/index.js";

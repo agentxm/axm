@@ -125,15 +125,10 @@ interface ResolvedSource {
 // -----------------------------------------------------------------------------
 
 /**
- * Source types with owner/repo structure for git cloning.
- */
-type GitHostingSource = GitSource;
-
-/**
  * Resolves skills from a GitHub/GitLab/Bitbucket git hosting source.
  */
 const resolveGitSource = (
-  parsed: GitHostingSource,
+  parsed: ParsedSource & { readonly source: GitSource },
   axmDir: string,
 ): Effect.Effect<
   { skills: Skill[]; skillsDir: string; commitSha: string },
@@ -141,6 +136,7 @@ const resolveGitSource = (
   FileSystem.FileSystem
 > =>
   Effect.gen(function* () {
+    const src = parsed.source;
     const cloneUrl = yield* buildCloneUrl(parsed).pipe(
       Effect.mapError(
         (error) =>
@@ -151,10 +147,10 @@ const resolveGitSource = (
           }),
       ),
     );
-    const cacheDir = nodePath.join(axmDir, "cache", "git", `${parsed.owner}-${parsed.repo}`);
+    const cacheDir = nodePath.join(axmDir, "cache", "git", `${src.owner}-${src.repo}`);
 
     // Clone repository
-    yield* cloneRepo(cloneUrl, cacheDir, Option.getOrUndefined(parsed.ref)).pipe(
+    yield* cloneRepo(cloneUrl, cacheDir, Option.getOrUndefined(src.ref)).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({
@@ -182,7 +178,7 @@ const resolveGitSource = (
     );
 
     // Determine skills directory (with optional subpath)
-    const skillsDir = Option.match(parsed.subPath, {
+    const skillsDir = Option.match(src.subPath, {
       onNone: () => cacheDir,
       onSome: (p) => nodePath.join(cacheDir, p),
     });
@@ -218,16 +214,17 @@ const parsedSourceToV2 = (
   parsed: ParsedSource,
   skillsDir: string,
 ): Effect.Effect<SkillSourceV2, CommandError> => {
-  switch (parsed.source) {
+  const src = parsed.source;
+  switch (src.source) {
     case "local":
       return Effect.succeed(SkillSourceV2.Local({ path: skillsDir }));
     case "github":
       return Effect.succeed(
         SkillSourceV2.GitHub({
-          owner: parsed.owner,
-          repo: parsed.repo,
-          ref: parsed.ref,
-          path: parsed.subPath,
+          owner: src.owner,
+          repo: src.repo,
+          ref: src.ref,
+          path: src.subPath,
         }),
       );
     case "gitlab":
@@ -238,7 +235,7 @@ const parsedSourceToV2 = (
     default:
       return Effect.fail(
         new CommandError({
-          message: `Unsupported source type: ${parsed.source}`,
+          message: `Unsupported source type: ${src.source}`,
           cause: Option.none(),
         }),
       );
@@ -258,8 +255,8 @@ const createBuildIdealDeps = (
   discoverSkills: (source: SkillSourceV2) =>
     Effect.gen(function* () {
       // For GitHub sources, fetch git tree hash from API for each skill
-      const parsed = resolvedSource.parsed;
-      const isGitHubSource = source._tag === "GitHub" && parsed.source === "github";
+      const src = resolvedSource.parsed.source;
+      const isGitHubSource = source._tag === "GitHub" && src.source === "github";
 
       return yield* Effect.forEach(
         discoveredSkills,
@@ -267,17 +264,17 @@ const createBuildIdealDeps = (
           Effect.gen(function* () {
             let gitTreeHash: Option.Option<string> = Option.none();
 
-            if (isGitHubSource && parsed.source === "github") {
+            if (isGitHubSource && src.source === "github") {
               // Build path within repo: subpath (if any) + skill name
-              const pathInRepo = Option.match(parsed.subPath, {
+              const pathInRepo = Option.match(src.subPath, {
                 onNone: () => skill.name,
                 onSome: (p) => `${p}/${skill.name}`,
               });
 
               gitTreeHash = yield* fetchGitHubTreeHash(
-                parsed.owner,
-                parsed.repo,
-                Option.getOrElse(parsed.ref, () => "HEAD"),
+                src.owner,
+                src.repo,
+                Option.getOrElse(src.ref, () => "HEAD"),
                 pathInRepo,
               ).pipe(
                 Effect.map(
@@ -359,7 +356,7 @@ export const handleInstall = (
           }),
       ),
     );
-    spinner.stop(`Source: ${parsed.canonical} (${parsed.source})`);
+    spinner.stop(`Source: ${parsed.canonical} (${parsed.source.source})`);
 
     // Step 2: Ensure initialized
     spinner.start("Checking initialization...");
@@ -450,7 +447,8 @@ export const handleInstall = (
     let resolvedSource: ResolvedSource;
 
     // Determine spinner message based on source type
-    switch (parsed.source) {
+    const src = parsed.source;
+    switch (src.source) {
       case "github":
       case "gitlab":
       case "bitbucket":
@@ -462,11 +460,12 @@ export const handleInstall = (
     }
 
     // Handle each source type
-    switch (parsed.source) {
+    switch (src.source) {
       case "github":
       case "gitlab":
       case "bitbucket": {
-        const result = yield* resolveGitSource(parsed, ws.path);
+        const gitParsed = parsed as ParsedSource & { readonly source: GitSource };
+        const result = yield* resolveGitSource(gitParsed, ws.path);
         skills = result.skills;
         resolvedSource = { parsed, skillsDir: result.skillsDir, commitSha: result.commitSha };
         break;
@@ -485,7 +484,7 @@ export const handleInstall = (
 
       case "local": {
         // Local sources: discover skills directly from the filesystem path
-        const skillsDir = parsed.path;
+        const skillsDir = src.path;
         skills = yield* discoverSkills(skillsDir).pipe(
           Effect.mapError(
             (error) =>
@@ -509,7 +508,7 @@ export const handleInstall = (
         spinner.stop("Source type not yet supported");
         return yield* Effect.fail(
           new InstallError({
-            message: `Source type "${parsed.source}" is not yet supported`,
+            message: `Source type "${src.source}" is not yet supported`,
             cause: Option.none(),
             retryable: false,
           }),

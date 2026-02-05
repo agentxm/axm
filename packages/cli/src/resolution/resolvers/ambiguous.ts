@@ -123,25 +123,26 @@ const trySourceParser = (
 ): Effect.Effect<ExtensionRef[], never> => {
   return parseSource(input).pipe(
     Effect.map((parsed) => {
+      const src = parsed.source;
       // Only handle github/gitlab types
-      if (parsed.source !== "github" && parsed.source !== "gitlab") {
+      if (src.source !== "github" && src.source !== "gitlab") {
         return [];
       }
 
       // Check source filter if provided
       const sources = Option.getOrUndefined(options.sources);
-      if (sources && !sources.includes(parsed.source)) {
+      if (sources && !sources.includes(src.source)) {
         return [];
       }
 
       const ref: ExtensionRef = {
         type: "skill",
-        source: parsed.source,
-        origin: buildOriginUrl(parsed.source, parsed.owner, parsed.repo),
+        source: src.source,
+        origin: buildOriginUrl(src.source, src.owner, src.repo),
         originalInput: input,
         name: Option.none(),
-        ref: parsed.ref,
-        path: parsed.subPath,
+        ref: src.ref,
+        path: src.subPath,
         metadata: {
           version: Option.none(),
           description: Option.none(),

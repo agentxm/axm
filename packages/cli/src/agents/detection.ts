@@ -9,12 +9,19 @@
  */
 
 import * as path from "node:path";
+import type * as PlatformError from "@effect/platform/Error";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
-import { claudeHome, codexHome, configHome, home } from "./constants.js";
+import { detect as detectClaudeCode } from "./claude-code/index.js";
+import { detect as detectCodex } from "./codex/index.js";
+import { home } from "./constants.js";
+import { detect as detectContinue } from "./continue/index.js";
+import { detect as detectCursor } from "./cursor/index.js";
+import { detect as detectOpencode } from "./opencode/index.js";
 import { getAllAgents } from "./registry.js";
-import type { AgentConfig } from "./types.js";
+import type { AgentConfig, AgentId } from "./types.js";
+import { detect as detectWindsurf } from "./windsurf/index.js";
 
 // -----------------------------------------------------------------------------
 // Errors
@@ -29,6 +36,53 @@ export class DetectionError extends Data.TaggedError("DetectionError")<{
   readonly message: string;
   readonly cause?: unknown;
 }> {}
+
+// -----------------------------------------------------------------------------
+// Agent-specific detection registry
+// -----------------------------------------------------------------------------
+
+/**
+ * Map of agent IDs to their specific detection functions.
+ * Agents not in this map use the default heuristic detection.
+ */
+const agentDetectors: Partial<
+  Record<AgentId, () => Effect.Effect<boolean, PlatformError.PlatformError, FileSystem.FileSystem>>
+> = {
+  "claude-code": detectClaudeCode,
+  codex: detectCodex,
+  continue: detectContinue,
+  cursor: detectCursor,
+  opencode: detectOpencode,
+  windsurf: detectWindsurf,
+};
+
+// -----------------------------------------------------------------------------
+// Default Detection Heuristic
+// -----------------------------------------------------------------------------
+
+/**
+ * Default heuristic detection for agents without specific detection logic.
+ * Checks common patterns: ~/.{agent-id} or first segment of projectDir.
+ */
+const defaultDetect = (agent: AgentConfig) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+
+    // Try common patterns for detection
+    const patterns = [
+      // ~/.{agent-id} pattern
+      path.join(home, `.${agent.id}`),
+      // Project-level directory pattern (first segment without leading dot)
+      path.join(home, agent.skills.projectDir.split("/")[0]?.replace(/^\./, "") ?? ""),
+    ];
+
+    for (const pattern of patterns) {
+      if (pattern && (yield* fs.exists(pattern))) {
+        return true;
+      }
+    }
+    return false;
+  });
 
 // -----------------------------------------------------------------------------
 // Detection Functions
@@ -63,54 +117,9 @@ export class DetectionError extends Data.TaggedError("DetectionError")<{
  */
 export const detectAgent = (
   agent: AgentConfig,
-): Effect.Effect<boolean, DetectionError, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-
-    switch (agent.id) {
-      case "claude-code":
-        return yield* fs.exists(claudeHome);
-
-      case "cursor":
-        return yield* fs.exists(path.join(home, ".cursor"));
-
-      case "codex": {
-        const [codexExists, etcExists] = yield* Effect.all([
-          fs.exists(codexHome),
-          fs.exists("/etc/codex"),
-        ]);
-        return codexExists || etcExists;
-      }
-
-      case "opencode":
-        return yield* fs.exists(path.join(configHome, "opencode"));
-
-      case "windsurf":
-        return yield* fs.exists(path.join(home, ".codeium"));
-
-      case "continue":
-        return yield* fs.exists(path.join(home, ".continue"));
-
-      // For other agents, check if their typical config directory exists
-      // based on a heuristic: most agents use ~/.{agent-id} or projectDir pattern
-      default: {
-        // Try common patterns for detection
-        const patterns = [
-          // ~/.{agent-id} pattern
-          path.join(home, `.${agent.id}`),
-          // Project-level directory pattern (first segment without leading dot)
-          path.join(home, agent.skills.projectDir.split("/")[0]?.replace(/^\./, "") ?? ""),
-        ];
-
-        for (const pattern of patterns) {
-          if (pattern && (yield* fs.exists(pattern))) {
-            return true;
-          }
-        }
-        return false;
-      }
-    }
-  }).pipe(
+): Effect.Effect<boolean, DetectionError, FileSystem.FileSystem> => {
+  const detector = agentDetectors[agent.id] ?? (() => defaultDetect(agent));
+  return detector().pipe(
     Effect.mapError(
       (error) =>
         new DetectionError({
@@ -119,6 +128,7 @@ export const detectAgent = (
         }),
     ),
   );
+};
 
 /**
  * Detect all installed agents concurrently.

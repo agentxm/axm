@@ -33,4 +33,9 @@ export {
 export type { LockEntry, Skill } from "./types.js";
 
 // Re-export source types from canonical location
-export type { AzureDevOpsSource, GitSource, ParsedSource, Source } from "../../sources/index.js";
+export type {
+  AzureDevOpsSource,
+  GitSource,
+  ParsedSource,
+  SourceType,
+} from "../../sources/index.js";

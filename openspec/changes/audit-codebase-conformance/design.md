@@ -147,14 +147,15 @@ Effect.runPromise(program).catch((error) => {
 });
 
 // After
-program.pipe(
-  Effect.catchAllCause((cause) =>
-    Effect.sync(() => {
-      console.error(Cause.pretty(cause));
-      process.exit(1);
-    }),
+Effect.runPromise(
+  program.pipe(
+    Effect.catchAllCause((cause) =>
+      Effect.sync(() => {
+        console.error(Cause.pretty(cause));
+        process.exit(1);
+      }),
+    ),
   ),
-  Effect.runPromise,
 );
 ```
 
@@ -405,10 +406,6 @@ program.pipe(
 - Line 837: `Readonly<Record<string, SkillState>>`
 - Line 970: `Readonly<Record<string, IdealSkillLegacy>>`
 - Line 1089: `Readonly<Record<string, SkillChange>>`
-
-**e2e/utils.ts**
-
-- Line 37: `env?: Record<string, string>`
 
 ### 4. Re-exports to Remove
 

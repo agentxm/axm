@@ -6,9 +6,9 @@ The codebase has drifted from CLAUDE.md conventions over time. Key Effect patter
 
 ### High Priority
 
-- **Convert optional properties to Option<T>** across type definitions in extensions, resolution, clack-effect, workspace, and handler modules (~25+ instances including `| undefined` patterns)
-- **Convert `T[]` to `Array.Array<T>`** across type definitions and schemas (~25+ instances of `readonly string[]`, `T[]`)
-- **Convert `Record<K,V>` to `Record.Record<K,V>`** in type definitions (~4+ instances)
+- **Convert optional properties to Option<T>** across type definitions in extensions, resolution, clack-effect, workspace, agents, lockfile, settings, and handler modules (~80 instances including `| undefined` patterns across 17 files)
+- **Convert `T[]` to `Array.Array<T>`** across type definitions and schemas (~60 instances of `readonly string[]`, `T[]` across 12 files)
+- **Convert `Record<K,V>` to `Record.Record<K,V>`** in type definitions (~10 instances across 5 files)
 - **Remove type re-exports** from barrel files—imports must come from the owning module:
   - `extensions/skills/index.ts` re-exports 21 items from lockfile + settings
   - `workspace/index.ts` re-exports 24+ items from lockfile + settings + state/types
@@ -37,10 +37,10 @@ None—internal implementation only, no spec-level behavior changes.
 
 ## Impact
 
-- **Type definitions**: `extensions/skills/types.ts`, `extensions/skills/state/types.ts`, `resolution/types.ts`, `clack-effect/types.ts`, `workspace/service.ts`, `workspace/load-state.ts`
-- **Handler args**: `cli-commands/skills/install/handler.ts`, `cli-commands/init/handler.ts`
+- **Type definitions**: `extensions/skills/types.ts`, `extensions/skills/state/types.ts`, `extensions/skills/github-api.ts`, `extensions/skills/git.ts`, `extensions/skills/skill-discovery.ts`, `resolution/types.ts`, `clack-effect/types.ts`, `clack-effect/errors.ts`, `clack-effect/test.ts`, `workspace/service.ts`, `workspace/load-state.ts`, `workspace/errors.ts`, `workspace/apply.ts`, `agents/types.ts`, `agents/detection.ts`, `lockfile/lockfile.ts`, `settings/settings.ts`
+- **Handler args**: `cli-commands/skills/install/handler.ts`, `cli-commands/skills/uninstall/handler.ts`, `cli-commands/init/handler.ts`
 - **Barrel files**: `extensions/skills/index.ts`, `workspace/index.ts`, `cli-commands/skills/display.ts`
 - **Error handling**: `workspace/apply.ts`, `main.ts`
-- **Schema validation**: `workspace/load-state.ts`, `workspace/service.ts`
+- **Schema validation**: `workspace/load-state.ts`, `workspace/service.ts`, `extensions/skills/wellknown.ts`
 - **Imports**: All files importing re-exported types must update to import from owning modules
 - **Tests**: May need updates where optional properties or array types are accessed

@@ -89,19 +89,17 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 // BAD: sequential, mutable, misses parallelization
 const results: T[] = [];
 for (const item of items) {
-  const result = yield* processItem(item);  // I/O operation
+  const result = yield * processItem(item); // I/O operation
   results.push(result);
 }
 
 // GOOD: concurrent, immutable, faster
-const results = yield* Effect.forEach(
-  items,
-  (item) => processItem(item),
-  { concurrency: "unbounded" },
-);
+const results =
+  yield * Effect.forEach(items, (item) => processItem(item), { concurrency: "unbounded" });
 ```
 
 **Exceptions** (keep sequential):
+
 - Early break/return on condition (e.g., stop on first failure)
 - Iterations depend on previous results
 - Ordered output required (e.g., console logging)

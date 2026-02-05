@@ -16,8 +16,8 @@ import {
   getTreeSha,
   isGitRepository,
   resolveRef,
-} from "../../sources/index.js";
-import { GitError } from "../../sources/git/index.js";
+} from "./operations.js";
+import { GitError } from "./errors.js";
 
 describe("git", () => {
   let tempDir: string;

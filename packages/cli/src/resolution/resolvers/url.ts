@@ -10,7 +10,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { parseSource } from "../../extensions/skills/source-parser.js";
+import { parseSource } from "../../sources/index.js";
 import type { ExtensionRef } from "../types.js";
 
 /**

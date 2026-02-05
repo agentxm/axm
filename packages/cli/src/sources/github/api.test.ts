@@ -7,8 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { fetchGitHubTreeHash } from "../../sources/index.js";
-import { GitHubApiError } from "../../sources/github/index.js";
+import { fetchGitHubTreeHash, GitHubApiError } from "./api.js";
 
 describe("github-api", () => {
   const originalFetch = global.fetch;

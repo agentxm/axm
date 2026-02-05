@@ -5,38 +5,38 @@
  * @packageDocumentation
  */
 
-export type { Source as LockSourceType } from "../sources.js";
-// Git
+export type { BaseSource as LockSourceType } from "../../sources/index.js";
+
+// Git - re-exported from sources/
 export {
   cloneRepo,
-  GitError,
   getCurrentCommit,
   getTreeSha,
   isGitRepository,
   resolveRef,
-} from "./git.js";
+} from "../../sources/index.js";
+export type { GitError } from "../../sources/index.js";
+
 // Skill Discovery
 export { DiscoveryError, discoverSkills } from "./skill-discovery.js";
-// Source Parser
+
+// Source Parser - re-exported from sources/
 export {
   buildCloneUrl,
   CloneUrlError,
   getOriginFromParsed,
   ParseError,
   parseSource,
-} from "./source-parser.js";
-// Types
-export type {
-  LockEntry,
-  ParsedSource,
-  Skill,
-  Source,
-  WellKnownIndex,
-  WellKnownSkill,
-} from "./types.js";
+} from "../../sources/index.js";
 
-// Well-Known Discovery
-export type { WellKnownError } from "./wellknown.js";
+// Types
+export type { LockEntry, Skill } from "./types.js";
+
+// Re-export source types from canonical location
+export type { ParsedSource, Source, WellKnownIndex, WellKnownSkill } from "../../sources/index.js";
+
+// Well-Known Discovery - re-exported from sources/
+export type { WellKnownError } from "../../sources/index.js";
 export {
   discoverWellKnownSkills,
   fetchSkillFiles,
@@ -45,4 +45,4 @@ export {
   WellKnownFetchError,
   WellKnownInvalidIndexError,
   WellKnownNotFoundError,
-} from "./wellknown.js";
+} from "../../sources/index.js";

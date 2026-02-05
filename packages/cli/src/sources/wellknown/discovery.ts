@@ -1,73 +1,25 @@
 /**
  * Well-known skills discovery per RFC 8615.
  *
- * This module provides functionality to discover and fetch skills from
- * HTTP(S) hosts using the well-known URI pattern:
- * `{baseUrl}/.well-known/skills/index.json`
- *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
 import * as HttpClient from "@effect/platform/HttpClient";
 import type * as HttpClientError from "@effect/platform/HttpClientError";
-import { FileSystem } from "@effect/platform/FileSystem";
-import * as Array from "effect/Array";
-import * as Data from "effect/Data";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import * as Schedule from "effect/Schedule";
 
-import type { Skill, WellKnownIndex, WellKnownSkill } from "./types.js";
-
-// -----------------------------------------------------------------------------
-// Error Types
-// -----------------------------------------------------------------------------
-
-/**
- * Base error class for well-known discovery errors.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type WellKnownError =
-  | WellKnownFetchError
-  | WellKnownNotFoundError
-  | WellKnownInvalidIndexError;
-
-/**
- * Network error during well-known discovery.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class WellKnownFetchError extends Data.TaggedError("WellKnownFetchError")<{
-  readonly message: string;
-  readonly url: string;
-  readonly cause?: unknown;
-  readonly retryable: boolean;
-}> {}
-
-/**
- * Well-known endpoint not found (404).
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class WellKnownNotFoundError extends Data.TaggedError("WellKnownNotFoundError")<{
-  readonly message: string;
-  readonly url: string;
-}> {}
-
-/**
- * Malformed or invalid index JSON.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class WellKnownInvalidIndexError extends Data.TaggedError("WellKnownInvalidIndexError")<{
-  readonly message: string;
-  readonly url: string;
-  readonly cause?: unknown;
-}> {}
+import {
+  type WellKnownError,
+  WellKnownFetchError,
+  WellKnownInvalidIndexError,
+  WellKnownNotFoundError,
+} from "./errors.js";
+import type { WellKnownIndex } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -117,7 +69,7 @@ const isExcludedHost = (baseUrl: string): boolean => {
 /**
  * Normalizes the base URL by removing trailing slashes.
  */
-const normalizeBaseUrl = (baseUrl: string): string => {
+export const normalizeBaseUrl = (baseUrl: string): string => {
   return baseUrl.replace(/\/+$/, "");
 };
 
@@ -231,7 +183,7 @@ const validateIndex = (
               }
               return Effect.void;
             },
-            { discard: true },
+            { concurrency: "unbounded", discard: true },
           );
         }),
       { concurrency: "unbounded", discard: true },
@@ -299,117 +251,6 @@ export const fetchWellKnownIndex = (
   });
 
 /**
- * Fetches all files for a well-known skill and saves them to the destination directory.
- *
- * @param baseUrl - The base URL of the host
- * @param skill - The WellKnownSkill with files to fetch
- * @param destination - The directory to save files to
- * @returns The Skill object with the path to the SKILL.md file
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const fetchSkillFiles = (
-  baseUrl: string,
-  skill: WellKnownSkill,
-  destination: string,
-): Effect.Effect<Skill, WellKnownError, HttpClient.HttpClient | FileSystem> =>
-  Effect.gen(function* () {
-    const normalizedUrl = normalizeBaseUrl(baseUrl);
-    const client = yield* HttpClient.HttpClient;
-    const fs = yield* FileSystem;
-
-    // Ensure destination directory exists
-    yield* pipe(
-      fs.makeDirectory(destination, { recursive: true }),
-      Effect.mapError(
-        (error) =>
-          new WellKnownFetchError({
-            message: `Failed to create directory ${destination}: ${error}`,
-            url: normalizedUrl,
-            cause: error,
-            retryable: false,
-          }),
-      ),
-    );
-
-    // Fetch each file listed in the skill
-    for (const file of skill.files) {
-      const fileUrl = `${normalizedUrl}${WELL_KNOWN_PATH}/${skill.name}/${file}`;
-
-      const response = yield* pipe(
-        client.get(fileUrl),
-        Effect.mapError((error) => mapHttpError(fileUrl, error)),
-        Effect.retry(retryPolicy),
-      );
-
-      const content = yield* pipe(
-        response.text,
-        Effect.mapError(
-          (error) =>
-            new WellKnownFetchError({
-              message: `Failed to read content from ${fileUrl}: ${error}`,
-              url: fileUrl,
-              cause: error,
-              retryable: false,
-            }),
-        ),
-      );
-
-      // Determine the file path within the destination
-      const filePath = `${destination}/${file}`;
-
-      // Create parent directories if needed (for nested files like "references/commands.md")
-      const parentDir = filePath.substring(0, filePath.lastIndexOf("/"));
-      if (parentDir !== destination) {
-        yield* pipe(
-          fs.makeDirectory(parentDir, { recursive: true }),
-          Effect.mapError(
-            (error) =>
-              new WellKnownFetchError({
-                message: `Failed to create directory ${parentDir}: ${error}`,
-                url: fileUrl,
-                cause: error,
-                retryable: false,
-              }),
-          ),
-        );
-      }
-
-      // Write the file content
-      yield* pipe(
-        fs.writeFileString(filePath, content),
-        Effect.mapError(
-          (error) =>
-            new WellKnownFetchError({
-              message: `Failed to write file ${filePath}: ${error}`,
-              url: fileUrl,
-              cause: error,
-              retryable: false,
-            }),
-        ),
-      );
-    }
-
-    // Find the SKILL.md path (it should be in the files list)
-    const skillMdPath = pipe(
-      Array.findFirst(
-        skill.files,
-        (f) => f.toLowerCase() === "skill.md" || f.endsWith("/SKILL.md"),
-      ),
-      Option.match({
-        onNone: () => `${destination}/SKILL.md`,
-        onSome: (file) => `${destination}/${file}`,
-      }),
-    );
-
-    return {
-      name: skill.name,
-      path: skillMdPath,
-      description: Option.some(skill.description),
-    };
-  });
-
-/**
  * Discovers available skills from a well-known endpoint.
  *
  * This fetches the index and returns the array of available skills
@@ -422,11 +263,11 @@ export const fetchSkillFiles = (
  */
 export const discoverWellKnownSkills = (
   baseUrl: string,
-): Effect.Effect<Skill[], WellKnownError, HttpClient.HttpClient> =>
+): Effect.Effect<DiscoveredSkill[], WellKnownError, HttpClient.HttpClient> =>
   Effect.gen(function* () {
     const index = yield* fetchWellKnownIndex(baseUrl);
 
-    // Map WellKnownSkill to Skill (without downloading files)
+    // Map WellKnownSkill to discovered Skill (without downloading files)
     // The path will be the expected location when fetched
     const normalizedUrl = normalizeBaseUrl(baseUrl);
 
@@ -436,3 +277,14 @@ export const discoverWellKnownSkills = (
       description: Option.some(wkSkill.description),
     }));
   });
+
+/**
+ * Skill discovered from a well-known endpoint.
+ * Similar to the Skill type in extensions/skills/types.ts but defined here
+ * to avoid circular dependencies.
+ */
+export interface DiscoveredSkill {
+  readonly name: string;
+  readonly path: string;
+  readonly description: Option.Option<string>;
+}

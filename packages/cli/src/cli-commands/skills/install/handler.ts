@@ -28,7 +28,7 @@ import {
   type Skill,
 } from "../../../extensions/skills/index.js";
 import { ensureInitializedLegacy, readSettings } from "../../../settings/index.js";
-import { fetchGitHubTreeHash } from "../../../extensions/skills/github-api.js";
+import { fetchGitHubTreeHash } from "../../../sources/index.js";
 import { SkillSourceV2 } from "../../../extensions/skills/state/types.js";
 import {
   applyPlan,

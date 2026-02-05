@@ -1,0 +1,12 @@
+{
+  "scope": "acme",
+  "sources": {
+    "github": { "url": "https://github.com" },
+    "registry": { "url": "https://registry.agentskills.io" }
+  },
+  "agents": ["claude-code", "cursor"],
+  "skills": {
+    "code-review": "github:acme/code-review#v1.0.0",
+    "test-runner": "@acme/test-runner@^2.0.0"
+  }
+}

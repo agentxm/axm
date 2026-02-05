@@ -145,10 +145,12 @@ const resolveGitSource = (
           }),
       ),
     );
-    const cacheDir = nodePath.join(axmDir, "cache", "git", `${parsed.owner}-${parsed.repo}`);
+    const owner = Option.getOrElse(parsed.owner, () => "unknown");
+    const repo = Option.getOrElse(parsed.repo, () => "unknown");
+    const cacheDir = nodePath.join(axmDir, "cache", "git", `${owner}-${repo}`);
 
     // Clone repository
-    yield* cloneRepo(cloneUrl, cacheDir, parsed.ref).pipe(
+    yield* cloneRepo(cloneUrl, cacheDir, Option.getOrUndefined(parsed.ref)).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({
@@ -176,7 +178,10 @@ const resolveGitSource = (
     );
 
     // Determine skills directory (with optional subpath)
-    const skillsDir = parsed.path ? nodePath.join(cacheDir, parsed.path) : cacheDir;
+    const skillsDir = Option.match(parsed.path, {
+      onNone: () => cacheDir,
+      onSome: (p) => nodePath.join(cacheDir, p),
+    });
 
     // Discover skills
     const skills = yield* discoverSkills(skillsDir).pipe(
@@ -215,10 +220,10 @@ const parsedSourceToV2 = (
     case "github":
       return Effect.succeed(
         SkillSourceV2.GitHub({
-          owner: parsed.owner ?? "",
-          repo: parsed.repo ?? "",
-          ref: Option.fromNullable(parsed.ref),
-          path: Option.fromNullable(parsed.path),
+          owner: Option.getOrElse(parsed.owner, () => ""),
+          repo: Option.getOrElse(parsed.repo, () => ""),
+          ref: parsed.ref,
+          path: parsed.path,
         }),
       );
     case "gitlab":
@@ -260,18 +265,19 @@ const createBuildIdealDeps = (
         if (
           source._tag === "GitHub" &&
           resolvedSource.parsed.type === "github" &&
-          resolvedSource.parsed.owner &&
-          resolvedSource.parsed.repo
+          Option.isSome(resolvedSource.parsed.owner) &&
+          Option.isSome(resolvedSource.parsed.repo)
         ) {
           // Build path within repo: subpath (if any) + skill name
-          const pathInRepo = resolvedSource.parsed.path
-            ? `${resolvedSource.parsed.path}/${skill.name}`
-            : skill.name;
+          const pathInRepo = Option.match(resolvedSource.parsed.path, {
+            onNone: () => skill.name,
+            onSome: (p) => `${p}/${skill.name}`,
+          });
 
           gitTreeHash = yield* fetchGitHubTreeHash(
-            resolvedSource.parsed.owner,
-            resolvedSource.parsed.repo,
-            resolvedSource.parsed.ref ?? "HEAD",
+            resolvedSource.parsed.owner.value,
+            resolvedSource.parsed.repo.value,
+            Option.getOrElse(resolvedSource.parsed.ref, () => "HEAD"),
             pathInRepo,
           ).pipe(
             Effect.map((h): Option.Option<string> => (h === null ? Option.none() : Option.some(h))),
@@ -450,7 +456,7 @@ export const handleInstall = (
     } else if (parsed.type === "local") {
       // Local sources: discover skills directly from the filesystem path
       // localPath is always present for local sources (set by buildLocalSource)
-      const skillsDir = parsed.localPath ?? parsed.original;
+      const skillsDir = Option.getOrElse(parsed.localPath, () => parsed.original);
       skills = yield* discoverSkills(skillsDir).pipe(
         Effect.mapError(
           (error) =>
@@ -468,7 +474,7 @@ export const handleInstall = (
       resolvedSource = { parsed, skillsDir };
     } else if (parsed.type === "wellknown") {
       // Well-known URL sources: discover skills from /.well-known/skills/index.json
-      const baseUrl = parsed.baseUrl ?? parsed.original;
+      const baseUrl = Option.getOrElse(parsed.baseUrl, () => parsed.original);
       skills = yield* discoverWellKnownSkills(baseUrl).pipe(
         Effect.mapError(
           (error) =>
@@ -578,7 +584,7 @@ export const handleInstall = (
           toOption: (s) => ({
             value: s.name,
             label: s.name,
-            hint: Option.fromNullable(s.description),
+            hint: s.description,
           }),
           initialValues: Option.some(skills.map((s) => s.name)),
           required: Option.some(true),

@@ -16,6 +16,7 @@ import * as Data from "effect/Data";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import { pipe } from "effect/Function";
+import * as Option from "effect/Option";
 import * as Schedule from "effect/Schedule";
 
 import type { Skill, WellKnownIndex, WellKnownSkill } from "./types.js";
@@ -397,7 +398,7 @@ export const fetchSkillFiles = (
     return {
       name: skill.name,
       path: skillMdPath,
-      description: skill.description,
+      description: Option.some(skill.description),
     };
   });
 
@@ -425,6 +426,6 @@ export const discoverWellKnownSkills = (
     return index.skills.map((wkSkill) => ({
       name: wkSkill.name,
       path: `${normalizedUrl}${WELL_KNOWN_PATH}/${wkSkill.name}/SKILL.md`,
-      description: wkSkill.description,
+      description: Option.some(wkSkill.description),
     }));
   });

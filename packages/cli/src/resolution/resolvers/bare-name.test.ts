@@ -12,8 +12,32 @@ import type { FileSystem } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import type { ResolutionOptions } from "../types.js";
+import * as Option from "effect/Option";
+import { defaultResolutionOptions } from "../resolver.js";
+import type { ExtensionType, ResolutionOptions, SourceType } from "../types.js";
 import { resolveBareName } from "./bare-name.js";
+
+/**
+ * Helper to create ResolutionOptions for tests.
+ */
+const makeOptions = (opts: {
+  cwd?: string;
+  projectDir?: string;
+  globalDir?: string;
+  scope?: string;
+  types?: readonly ExtensionType[];
+  sources?: readonly SourceType[];
+  agents?: readonly string[];
+}): ResolutionOptions => ({
+  ...defaultResolutionOptions,
+  cwd: Option.fromNullable(opts.cwd),
+  projectDir: Option.fromNullable(opts.projectDir),
+  globalDir: Option.fromNullable(opts.globalDir),
+  scope: Option.fromNullable(opts.scope),
+  types: Option.fromNullable(opts.types),
+  sources: Option.fromNullable(opts.sources),
+  agents: Option.fromNullable(opts.agents),
+});
 
 describe("bare-name resolver", () => {
   let tempDir: string;
@@ -33,7 +57,7 @@ describe("bare-name resolver", () => {
     it.effect("returns empty array for input with /", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveBareName("owner/repo", { scope: "myscope" });
+          const result = yield* resolveBareName("owner/repo", makeOptions({ scope: "myscope" }));
           expect(result).toEqual([]);
         }),
       ),
@@ -42,7 +66,7 @@ describe("bare-name resolver", () => {
     it.effect("returns empty array for input with @ at start", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveBareName("@scope/name", { scope: "myscope" });
+          const result = yield* resolveBareName("@scope/name", makeOptions({ scope: "myscope" }));
           expect(result).toEqual([]);
         }),
       ),
@@ -51,7 +75,7 @@ describe("bare-name resolver", () => {
     it.effect("returns empty array for GitHub shorthand", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveBareName("user/repo", { scope: "myscope" });
+          const result = yield* resolveBareName("user/repo", makeOptions({ scope: "myscope" }));
           expect(result).toEqual([]);
         }),
       ),
@@ -60,7 +84,10 @@ describe("bare-name resolver", () => {
     it.effect("returns empty array for explicit source prefix", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveBareName("github:owner/repo", { scope: "myscope" });
+          const result = yield* resolveBareName(
+            "github:owner/repo",
+            makeOptions({ scope: "myscope" }),
+          );
           expect(result).toEqual([]);
         }),
       ),
@@ -69,7 +96,7 @@ describe("bare-name resolver", () => {
     it.effect("returns empty array for local path with ./", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveBareName("./local/path", { scope: "myscope" });
+          const result = yield* resolveBareName("./local/path", makeOptions({ scope: "myscope" }));
           expect(result).toEqual([]);
         }),
       ),
@@ -78,7 +105,10 @@ describe("bare-name resolver", () => {
     it.effect("returns empty array for local path with ../", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveBareName("../parent/path", { scope: "myscope" });
+          const result = yield* resolveBareName(
+            "../parent/path",
+            makeOptions({ scope: "myscope" }),
+          );
           expect(result).toEqual([]);
         }),
       ),
@@ -87,7 +117,10 @@ describe("bare-name resolver", () => {
     it.effect("returns empty array for absolute POSIX path", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveBareName("/absolute/path", { scope: "myscope" });
+          const result = yield* resolveBareName(
+            "/absolute/path",
+            makeOptions({ scope: "myscope" }),
+          );
           expect(result).toEqual([]);
         }),
       ),
@@ -98,7 +131,7 @@ describe("bare-name resolver", () => {
     it.effect("returns empty array when no scope configured", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveBareName("my-skill", {});
+          const result = yield* resolveBareName("my-skill", makeOptions({}));
           expect(result).toEqual([]);
         }),
       ),
@@ -107,7 +140,7 @@ describe("bare-name resolver", () => {
     it.effect("returns empty array when scope is empty string", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveBareName("my-skill", { scope: "" });
+          const result = yield* resolveBareName("my-skill", makeOptions({ scope: "" }));
           expect(result).toEqual([]);
         }),
       ),
@@ -116,8 +149,7 @@ describe("bare-name resolver", () => {
     it.effect("returns empty array when scope is undefined", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const options: ResolutionOptions = {};
-          const result = yield* resolveBareName("my-skill", options);
+          const result = yield* resolveBareName("my-skill", makeOptions({}));
           expect(result).toEqual([]);
         }),
       ),
@@ -133,19 +165,18 @@ describe("bare-name resolver", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "SKILL.md"), "# My Skill");
 
-          const result = yield* resolveBareName("my-skill", {
-            scope: "myscope",
-            cwd: tempDir,
-            projectDir: ".axm",
-          });
+          const result = yield* resolveBareName(
+            "my-skill",
+            makeOptions({ scope: "myscope", cwd: tempDir, projectDir: ".axm" }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]).toMatchObject({
             type: "skill",
             source: "registry",
-            name: "@myscope/my-skill",
             originalInput: "my-skill",
           });
+          expect(Option.getOrNull(result[0]!.name)).toBe("@myscope/my-skill");
         }),
       ),
     );
@@ -158,20 +189,19 @@ describe("bare-name resolver", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "SKILL.md"), "# Grappling Hook");
 
-          const result = yield* resolveBareName("grappling-hook", {
-            scope: "wayne",
-            cwd: tempDir,
-            projectDir: ".axm",
-          });
+          const result = yield* resolveBareName(
+            "grappling-hook",
+            makeOptions({ scope: "wayne", cwd: tempDir, projectDir: ".axm" }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]).toMatchObject({
             type: "skill",
             source: "registry",
             origin: axmDir,
-            name: "@wayne/grappling-hook",
             originalInput: "grappling-hook",
           });
+          expect(Option.getOrNull(result[0]!.name)).toBe("@wayne/grappling-hook");
         }),
       ),
     );
@@ -185,21 +215,24 @@ describe("bare-name resolver", () => {
           fs.mkdirSync(skillDir, { recursive: true });
           fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# Global Tool");
 
-          const result = yield* resolveBareName("tool", {
-            scope: "global",
-            cwd: tempDir,
-            projectDir: ".axm", // Project dir doesn't have the skill
-            globalDir: globalAxmDir,
-          });
+          const result = yield* resolveBareName(
+            "tool",
+            makeOptions({
+              scope: "global",
+              cwd: tempDir,
+              projectDir: ".axm",
+              globalDir: globalAxmDir,
+            }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]).toMatchObject({
             type: "skill",
             source: "registry",
             origin: skillDir,
-            name: "@global/tool",
             originalInput: "tool",
           });
+          expect(Option.getOrNull(result[0]!.name)).toBe("@global/tool");
         }),
       ),
     );
@@ -208,11 +241,10 @@ describe("bare-name resolver", () => {
       withFileSystem(
         Effect.gen(function* () {
           // No skill directory created
-          const result = yield* resolveBareName("nonexistent", {
-            scope: "myscope",
-            cwd: tempDir,
-            projectDir: ".axm",
-          });
+          const result = yield* resolveBareName(
+            "nonexistent",
+            makeOptions({ scope: "myscope", cwd: tempDir, projectDir: ".axm" }),
+          );
 
           expect(result).toEqual([]);
         }),
@@ -226,14 +258,13 @@ describe("bare-name resolver", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "SKILL.md"), "# My Test Skill");
 
-          const result = yield* resolveBareName("my-test-skill", {
-            scope: "scope",
-            cwd: tempDir,
-            projectDir: ".axm",
-          });
+          const result = yield* resolveBareName(
+            "my-test-skill",
+            makeOptions({ scope: "scope", cwd: tempDir, projectDir: ".axm" }),
+          );
 
           expect(result).toHaveLength(1);
-          expect(result[0]?.name).toBe("@scope/my-test-skill");
+          expect(Option.getOrNull(result[0]!.name)).toBe("@scope/my-test-skill");
         }),
       ),
     );
@@ -245,14 +276,13 @@ describe("bare-name resolver", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "SKILL.md"), "# My Skill");
 
-          const result = yield* resolveBareName("my_skill", {
-            scope: "scope",
-            cwd: tempDir,
-            projectDir: ".axm",
-          });
+          const result = yield* resolveBareName(
+            "my_skill",
+            makeOptions({ scope: "scope", cwd: tempDir, projectDir: ".axm" }),
+          );
 
           expect(result).toHaveLength(1);
-          expect(result[0]?.name).toBe("@scope/my_skill");
+          expect(Option.getOrNull(result[0]!.name)).toBe("@scope/my_skill");
         }),
       ),
     );
@@ -264,14 +294,13 @@ describe("bare-name resolver", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "SKILL.md"), "# Tool 2");
 
-          const result = yield* resolveBareName("tool2", {
-            scope: "scope",
-            cwd: tempDir,
-            projectDir: ".axm",
-          });
+          const result = yield* resolveBareName(
+            "tool2",
+            makeOptions({ scope: "scope", cwd: tempDir, projectDir: ".axm" }),
+          );
 
           expect(result).toHaveLength(1);
-          expect(result[0]?.name).toBe("@scope/tool2");
+          expect(Option.getOrNull(result[0]!.name)).toBe("@scope/tool2");
         }),
       ),
     );
@@ -281,7 +310,7 @@ describe("bare-name resolver", () => {
     it.effect("handles empty string input", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveBareName("", { scope: "myscope" });
+          const result = yield* resolveBareName("", makeOptions({ scope: "myscope" }));
           expect(result).toEqual([]);
         }),
       ),
@@ -290,7 +319,7 @@ describe("bare-name resolver", () => {
     it.effect("handles whitespace-only input", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveBareName("   ", { scope: "myscope" });
+          const result = yield* resolveBareName("   ", makeOptions({ scope: "myscope" }));
           expect(result).toEqual([]);
         }),
       ),
@@ -303,14 +332,13 @@ describe("bare-name resolver", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "SKILL.md"), "# Skill");
 
-          const result = yield* resolveBareName("skill", {
-            scope: "my-scope",
-            cwd: tempDir,
-            projectDir: ".axm",
-          });
+          const result = yield* resolveBareName(
+            "skill",
+            makeOptions({ scope: "my-scope", cwd: tempDir, projectDir: ".axm" }),
+          );
 
           expect(result).toHaveLength(1);
-          expect(result[0]?.name).toBe("@my-scope/skill");
+          expect(Option.getOrNull(result[0]!.name)).toBe("@my-scope/skill");
         }),
       ),
     );
@@ -328,12 +356,15 @@ describe("bare-name resolver", () => {
           fs.mkdirSync(globalSkillDir, { recursive: true });
           fs.writeFileSync(path.join(globalSkillDir, "SKILL.md"), "# Global Version");
 
-          const result = yield* resolveBareName("shared", {
-            scope: "scope",
-            cwd: tempDir,
-            projectDir: ".axm",
-            globalDir: globalAxmDir,
-          });
+          const result = yield* resolveBareName(
+            "shared",
+            makeOptions({
+              scope: "scope",
+              cwd: tempDir,
+              projectDir: ".axm",
+              globalDir: globalAxmDir,
+            }),
+          );
 
           expect(result).toHaveLength(1);
           // Should use project version
@@ -351,11 +382,10 @@ describe("bare-name resolver", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "SKILL.md"), "# Test");
 
-          const result = yield* resolveBareName("preserve-test", {
-            scope: "scope",
-            cwd: tempDir,
-            projectDir: ".axm",
-          });
+          const result = yield* resolveBareName(
+            "preserve-test",
+            makeOptions({ scope: "scope", cwd: tempDir, projectDir: ".axm" }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]?.originalInput).toBe("preserve-test");

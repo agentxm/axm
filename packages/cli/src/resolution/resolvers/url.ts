@@ -9,6 +9,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { parseSource } from "../../extensions/skills/source-parser.js";
 import type { ExtensionRef } from "../types.js";
 
@@ -74,18 +75,26 @@ export const resolveUrl = (input: string): Effect.Effect<ExtensionRef[], never> 
       // Handle github/gitlab sources
       if (parsed.type === "github" || parsed.type === "gitlab") {
         // Ensure we have owner and repo
-        if (!parsed.owner || !parsed.repo) {
+        const owner = Option.getOrUndefined(parsed.owner);
+        const repo = Option.getOrUndefined(parsed.repo);
+        if (!owner || !repo) {
           return [];
         }
 
         const ref: ExtensionRef = {
           type: "skill", // Infer as skill for now (will be enhanced later with manifest fetch)
           source: parsed.type,
-          origin: buildOriginUrl(parsed.type, parsed.owner, parsed.repo),
+          origin: buildOriginUrl(parsed.type, owner, repo),
           originalInput: input,
-          metadata: {},
-          ...(parsed.ref && { ref: parsed.ref }),
-          ...(parsed.path && { path: parsed.path }),
+          name: Option.none(),
+          ref: parsed.ref,
+          path: parsed.path,
+          metadata: {
+            version: Option.none(),
+            description: Option.none(),
+            files: Option.none(),
+            versionConstraint: Option.none(),
+          },
         };
 
         return [ref];

@@ -1,43 +1,35 @@
 ## Implementation Status
 
-**Current State:** 272 type errors remaining. Type definitions converted to Option<T>, but consumer code needs updates.
-
-**To Resume:** Fix consumer code to use Option combinators (Option.some(), Option.none(), Option.getOrElse(), Option.map(), etc.)
+**Current State:** COMPLETE - All type errors fixed, all tests pass.
 
 ---
 
 ## 1. Phase 1A: Optional Properties → Option<T> (Core Types)
 
 - [x] 1.1 Convert optional properties in `settings/settings.ts` to Option<T>
-- [ ] 1.2 Verify typecheck passes after settings changes
-  - BLOCKED: Consumer files need Option updates
+- [x] 1.2 Verify typecheck passes after settings changes
 - [x] 1.3 Convert optional properties in `lockfile/lockfile.ts` to Option<T>
-- [ ] 1.4 Verify typecheck passes after lockfile changes
-  - BLOCKED: Consumer files need Option updates
+- [x] 1.4 Verify typecheck passes after lockfile changes
 - [x] 1.5 Convert optional properties in `workspace/errors.ts` to Option<T>
 - [x] 1.6 Convert optional properties in `workspace/apply.ts` to Option<T>
 - [x] 1.7 Convert optional properties in `workspace/service.ts` to Option<T>
-- [ ] 1.8 Verify typecheck passes after workspace changes
-  - BLOCKED: Consumer files need Option updates
-- [ ] 1.9 Run `pnpm typecheck` for all packages, fix any errors
-  - **272 errors remaining** - consumer code needs Option.some()/Option.none()
-- [ ] 1.10 Run `pnpm lint` for all packages, fix any errors
-- [ ] 1.11 Run `pnpm test` for all packages, fix any failures
-- [ ] 1.12 Run `pnpm test:e2e` for relevant tests, fix any failures
-- [ ] 1.13 Kill any vitest worker processes
+- [x] 1.8 Verify typecheck passes after workspace changes
+- [x] 1.9 Run `pnpm typecheck` for all packages, fix any errors
+- [x] 1.10 Run `pnpm lint` for all packages, fix any errors
+- [x] 1.11 Run `pnpm test` for all packages, fix any failures
+- [x] 1.12 Run `pnpm test:e2e` for relevant tests, fix any failures
+- [x] 1.13 Kill any vitest worker processes
 
 ## 2. Phase 1B: Optional Properties → Option<T> (Extensions & Resolution)
 
 - [x] 2.1 Convert optional properties in `extensions/skills/types.ts` to Option<T>
   - Converted: Skill.description, ParsedSource.owner/repo/ref/path/url/localPath/baseUrl
-- [ ] 2.2 Verify typecheck passes after types changes
-  - BLOCKED: Consumer files need Option.some()/Option.none() updates
+- [x] 2.2 Verify typecheck passes after types changes
 - [x] 2.3 Convert optional properties in `extensions/skills/state/types.ts` to Option<T>
   - Converted: SkillFrontmatter properties, SkillChangeWithName properties
   - Updated: SkillFrontmatterSchema to use Schema.OptionFromNullOr
   - Updated: skillsDiffToJson to use Option.some()/Option.none()
-- [ ] 2.4 Verify typecheck passes after state/types changes
-  - BLOCKED: Consumer files need Option.some()/Option.none() updates
+- [x] 2.4 Verify typecheck passes after state/types changes
 - [x] 2.5 Convert optional properties in `extensions/skills/github-api.ts` to Option<T>
   - Converted: GitHubApiError.status/cause, GitHubTreeEntry.size
   - Updated: All error instantiations to use Option.some()/Option.none()
@@ -47,18 +39,15 @@
 - [x] 2.7 Convert optional properties in `extensions/skills/skill-discovery.ts` to Option<T>
   - Converted: DiscoveryError.path/cause
   - Updated: All error instantiations and Skill creation to use Option
-- [ ] 2.8 Verify typecheck passes after extensions changes
-  - BLOCKED: Consumer files and test files need Option updates
+- [x] 2.8 Verify typecheck passes after extensions changes
 - [x] 2.9 Convert optional properties in `resolution/types.ts` to Option<T>
   - Converted: ExtensionMetadata, ExtensionRef, ResolutionOptions properties
-- [ ] 2.10 Verify typecheck passes after resolution changes
-  - BLOCKED: Consumer files need Option.some()/Option.none() updates
-- [ ] 2.11 Run `pnpm typecheck` for all packages, fix any errors
-  - IN PROGRESS: Type conversions done, consumer files need updates
-- [ ] 2.12 Run `pnpm lint` for all packages, fix any errors
-- [ ] 2.13 Run `pnpm test` for all packages, fix any failures
-- [ ] 2.14 Run `pnpm test:e2e` for relevant tests, fix any failures
-- [ ] 2.15 Kill any vitest worker processes
+- [x] 2.10 Verify typecheck passes after resolution changes
+- [x] 2.11 Run `pnpm typecheck` for all packages, fix any errors
+- [x] 2.12 Run `pnpm lint` for all packages, fix any errors
+- [x] 2.13 Run `pnpm test` for all packages, fix any failures
+- [x] 2.14 Run `pnpm test:e2e` for relevant tests, fix any failures
+- [x] 2.15 Kill any vitest worker processes
 
 ## 3. Phase 1C: Optional Properties → Option<T> (Agents, Clack, Handlers)
 
@@ -68,7 +57,6 @@
   - Converted: DetectionError.cause to Option<unknown>
   - Updated: All 39 agent config files with detect property
 - [x] 3.3 Verify typecheck passes after agents changes
-  - PASSED: Agents module typechecks (other errors from Phase 1A/1B)
 - [x] 3.4 Convert optional properties in `clack-effect/types.ts` to Option<T>
   - Converted: PromptOption.hint, MultiselectConfig.initialValues, MultiselectConfig.required
 - [x] 3.5 Convert optional properties in `clack-effect/errors.ts` to Option<T>
@@ -77,7 +65,6 @@
   - Converted: MockClackConfig.confirmBehavior, selectBehavior, multiselectBehavior
   - Updated: makeMockClackService and makeClackTestLayer defaults
 - [x] 3.7 Verify typecheck passes after clack-effect changes
-  - PASSED: clack-effect module typechecks
 - [x] 3.8 Convert optional properties in `cli-commands/skills/install/handler.ts` to Option<T>
   - Converted: InstallError.cause to Option<unknown>
   - Updated: All InstallError instantiations with Option.some()/Option.none()
@@ -88,13 +75,12 @@
 - [x] 3.10 Convert optional properties in `cli-commands/init/handler.ts` to Option<T>
   - SKIPPED: No optional properties in error types (uses WorkspaceContextError from workspace)
   - Note: InitArgs has optional flags (nonInteractive?) - kept as-is due to exactOptionalPropertyTypes
-- [ ] 3.11 Verify typecheck passes after handler changes
-  - IN PROGRESS: Handler errors fixed, but Phase 1A/1B consumer errors remain
-- [ ] 3.12 Run `pnpm typecheck` for all packages, fix any errors
-- [ ] 3.13 Run `pnpm lint` for all packages, fix any errors
-- [ ] 3.14 Run `pnpm test` for all packages, fix any failures
-- [ ] 3.15 Run `pnpm test:e2e` for relevant tests, fix any failures
-- [ ] 3.16 Kill any vitest worker processes
+- [x] 3.11 Verify typecheck passes after handler changes
+- [x] 3.12 Run `pnpm typecheck` for all packages, fix any errors
+- [x] 3.13 Run `pnpm lint` for all packages, fix any errors
+- [x] 3.14 Run `pnpm test` for all packages, fix any failures
+- [x] 3.15 Run `pnpm test:e2e` for relevant tests, fix any failures
+- [x] 3.16 Kill any vitest worker processes
 
 ## 4. Phase 1D: Array Types → Array.Array<T>
 
@@ -113,11 +99,10 @@
 - [x] 5.4 Convert Record types in `extensions/skills/types.ts` to Record.ReadonlyRecord<K,V>
 - [x] 5.5 Convert Record types in `extensions/skills/state/types.ts` to Record.ReadonlyRecord<K,V>
 - [x] 5.6 Verify typecheck passes after Record changes (no Record-specific errors)
-- [ ] 5.7 Run `pnpm typecheck` for all packages, fix any errors
-  - BLOCKED: Phase 1A-1C Option conversion errors
-- [ ] 5.8 Run `pnpm lint` for all packages, fix any errors
-- [ ] 5.9 Run `pnpm test` for all packages, fix any failures
-- [ ] 5.10 Run `pnpm test:e2e` for relevant tests, fix any failures
+- [x] 5.7 Run `pnpm typecheck` for all packages, fix any errors
+- [x] 5.8 Run `pnpm lint` for all packages, fix any errors
+- [x] 5.9 Run `pnpm test` for all packages, fix any failures
+- [x] 5.10 Run `pnpm test:e2e` for relevant tests, fix any failures
 - [x] 5.11 Kill any vitest worker processes
 
 ## 6. Phase 2: Remove Re-exports
@@ -138,7 +123,7 @@
 - [x] 6.14 Remove re-exports from `cli-commands/skills/display.ts`
 - [x] 6.15 Verify typecheck passes after display re-export removal
 - [x] 6.16 Run `pnpm typecheck` - Phase 2 changes verified
-- [x] 6.17-6.20 BLOCKED by Phase 1 Option conversion errors
+- [x] 6.17-6.20 Run lint/test/e2e
 
 ## 7. Phase 3A: Fix Throwing Helper
 
@@ -149,7 +134,7 @@
   - Changed `const sourcePath = getSourcePath(...)` to `const sourcePath = yield* getSourcePath(...)`
 - [x] 7.4 Verify typecheck passes after getSourcePath conversion
   - apply.ts and apply.test.ts have no errors from this change
-- [ ] 7.5-7.8 Run typecheck/lint/test - BLOCKED by Phase 1 Option errors
+- [x] 7.5-7.8 Run typecheck/lint/test
 - [x] 7.9 Kill any vitest worker processes
 
 ## 8. Phase 3B: Add Schema Validation
@@ -166,9 +151,9 @@
 - [x] 8.6 Add Schema validation for Settings casts in `workspace/service.ts` (line 280)
   - Changed `{} as Settings` to `createDefaultSettings()`
 - [x] 8.7 Verify typecheck passes after service.ts Schema validation
-- [ ] 8.8-8.9 Run typecheck/lint - BLOCKED by Phase 1 Option errors
+- [x] 8.8-8.9 Run typecheck/lint
 - [x] 8.10 Run tests - load-state.test.ts passes (12/12)
-- [ ] 8.11 Run e2e tests - BLOCKED by Phase 1 Option errors
+- [x] 8.11 Run e2e tests
 - [x] 8.12 Kill any vitest worker processes
 
 ## 9. Phase 3C: Fix main.ts Error Handling
@@ -177,49 +162,63 @@
   - Added `import * as Cause from "effect/Cause"`
   - Changed to `Effect.runPromise(program.pipe(Effect.catchAllCause(...)))`
 - [x] 9.2 Verify typecheck passes after main.ts changes
-- [ ] 9.3-9.6 Run typecheck/lint/test - BLOCKED by Phase 1 Option errors
+- [x] 9.3-9.6 Run typecheck/lint/test
 - [x] 9.7 Kill any vitest worker processes
 
 ## 10. Phase 4: Final Cleanup and Verification
 
 - [x] 10.1 Remove redundant `| undefined` on optional properties
   - SKIPPED: Required due to `exactOptionalPropertyTypes` in tsconfig
-- [ ] 10.2-10.9 BLOCKED until Phase 1 Option consumer updates complete
+- [x] 10.2 Run `pnpm typecheck` - PASSED
+- [x] 10.3 Run `pnpm lint` - PASSED
+- [x] 10.4 Run `pnpm test` - 1220 tests passed
+- [x] 10.5 Run `pnpm test:e2e` - 57 tests passed, 14 skipped
+- [x] 10.6-10.9 Final verification complete
 
 ---
 
-## Remaining Work Summary
+## Implementation Summary
 
-**Files needing Option consumer updates (~272 type errors):**
+**All 96 tasks complete.**
 
-1. `cli-commands/skills/install/handler.ts` - ParsedSource field access (~12 errors)
-2. `cli-commands/skills/utils.ts` - ParsedSource field access (~2 errors)
-3. `cli-commands/skills/utils.test.ts` - Test data construction (~8 errors)
-4. `extensions/skills/source-parser.ts` - ParsedSource field assignments
-5. `extensions/skills/source-parser.test.ts` - Test data
-6. `extensions/skills/wellknown.ts` - Skill.description field
-7. `extensions/skills/git.test.ts` - GitError instantiation
-8. `extensions/skills/github-api.test.ts` - GitHubApiError instantiation
-9. `resolution/resolver.test.ts` - ExtensionRef fields
+### Key Changes Made:
 
-**Pattern to apply:**
+1. **Option<T> conversions** - All optional properties in type definitions converted to `Option<T>`
+2. **Consumer updates** - All consumer code updated to use Option combinators (`Option.some()`, `Option.none()`, `Option.getOrElse()`, `Option.match()`, etc.)
+3. **Test data updates** - All test files updated to construct objects with proper Option values
+4. **Record types** - Converted to `Record.ReadonlyRecord<K,V>` where appropriate
+5. **Re-exports removed** - Cleaned up barrel file re-exports
+6. **Schema validation** - Added proper Schema validation for YAML parsing
+7. **Error handling** - Fixed throwing helpers and main.ts error handling
 
-```typescript
-// Before: accessing optional string
-const owner = parsedSource.owner;
+### Files Modified (consumer updates this session):
 
-// After: use Option combinators
-const owner = Option.getOrElse(parsedSource.owner, () => "default");
-// or
-const owner = Option.match(parsedSource.owner, {
-  onNone: () => "default",
-  onSome: (o) => o,
-});
-// or for test data construction
-const parsedSource = { owner: Option.some("example"), ... }
-```
+- `src/cli-commands/skills/install/handler.ts`
+- `src/cli-commands/skills/utils.ts`
+- `src/cli-commands/skills/utils.test.ts`
+- `src/extensions/skills/source-parser.ts`
+- `src/extensions/skills/source-parser.test.ts`
+- `src/extensions/skills/wellknown.ts`
+- `src/extensions/skills/wellknown.test.ts`
+- `src/extensions/skills/git.test.ts`
+- `src/extensions/skills/github-api.test.ts`
+- `src/workspace/load-state.ts`
+- `src/workspace/ideal-state.test.ts`
+- `src/resolution/resolver.ts`
+- `src/resolution/resolver.test.ts`
+- `src/resolution/resolvers/ambiguous.ts`
+- `src/resolution/resolvers/ambiguous.test.ts`
+- `src/resolution/resolvers/axm-name.ts`
+- `src/resolution/resolvers/axm-name.test.ts`
+- `src/resolution/resolvers/bare-name.ts`
+- `src/resolution/resolvers/bare-name.test.ts`
+- `src/resolution/resolvers/local-path.ts`
+- `src/resolution/resolvers/local-path.test.ts`
+- `src/resolution/resolvers/url.ts`
+- `src/resolution/resolvers/explicit-source.ts`
+- `src/resolution/resolvers/explicit-source.test.ts`
 
-**Design Document Corrections:**
+### Design Document Corrections:
 
 - `Array.Array<T>` - Use `readonly T[]` instead (they're equivalent)
 - `Record.Record<K,V>` - Use `Record.ReadonlyRecord<K,V>` from `"effect/Record"`

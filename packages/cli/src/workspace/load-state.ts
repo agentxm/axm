@@ -353,7 +353,12 @@ const parseFrontmatter = (content: string): Option.Option<SkillFrontmatter> => {
   try {
     const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n---/);
     if (!frontmatterMatch) {
-      return Option.some({});
+      return Option.some({
+        name: Option.none(),
+        description: Option.none(),
+        version: Option.none(),
+        triggers: Option.none(),
+      });
     }
 
     const yamlContent = frontmatterMatch[1] ?? "";
@@ -381,12 +386,18 @@ const parseFrontmatter = (content: string): Option.Option<SkillFrontmatter> => {
     }
 
     const frontmatter: SkillFrontmatter = {
-      ...(typeof data["name"] === "string" && { name: data["name"] }),
-      ...(typeof data["description"] === "string" && { description: data["description"] }),
-      ...(typeof data["version"] === "string" && { version: data["version"] }),
-      ...(globalThis.Array.isArray(data["triggers"]) && {
-        triggers: (data["triggers"] as unknown[]).filter((t): t is string => typeof t === "string"),
-      }),
+      name: Option.fromNullable(typeof data["name"] === "string" ? data["name"] : undefined),
+      description: Option.fromNullable(
+        typeof data["description"] === "string" ? data["description"] : undefined,
+      ),
+      version: Option.fromNullable(
+        typeof data["version"] === "string" ? data["version"] : undefined,
+      ),
+      triggers: Option.fromNullable(
+        globalThis.Array.isArray(data["triggers"])
+          ? (data["triggers"] as unknown[]).filter((t): t is string => typeof t === "string")
+          : undefined,
+      ),
     };
 
     return Option.some(frontmatter);
@@ -478,7 +489,7 @@ const loadSkillFromDisk = (
       }
 
       // Check for missing description
-      if (Option.isSome(frontmatter) && !frontmatter.value.description) {
+      if (Option.isSome(frontmatter) && Option.isNone(frontmatter.value.description)) {
         issues.push(ActualSkillIssueConstructor.MissingDescription());
       }
     }

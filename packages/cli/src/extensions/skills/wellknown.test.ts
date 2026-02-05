@@ -18,6 +18,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as TestClock from "effect/TestClock";
 import { afterEach, beforeEach } from "vitest";
 import type { WellKnownIndex } from "./types.js";
@@ -452,7 +453,7 @@ describe("wellknown", () => {
         );
 
         expect(result.name).toBe("commit");
-        expect(result.description).toBe("Create commits");
+        expect(Option.getOrNull(result.description)).toBe("Create commits");
         expect(fs.existsSync(path.join(destination, "SKILL.md"))).toBe(true);
         expect(fs.readFileSync(path.join(destination, "SKILL.md"), "utf-8")).toBe(fileContent);
       });
@@ -602,7 +603,7 @@ describe("wellknown", () => {
 
         expect(result).toHaveLength(2);
         expect(result[0]?.name).toBe("commit");
-        expect(result[0]?.description).toBe("Create commits");
+        expect(Option.getOrNull(result[0]!.description)).toBe("Create commits");
         expect(result[1]?.name).toBe("review-pr");
       });
     });

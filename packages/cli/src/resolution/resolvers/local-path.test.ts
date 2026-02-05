@@ -5,7 +5,32 @@ import type { FileSystem } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { defaultResolutionOptions } from "../resolver.js";
+import type { ExtensionType, ResolutionOptions, SourceType } from "../types.js";
 import { isLocalPath, resolveLocalPath } from "./local-path.js";
+
+/**
+ * Helper to create ResolutionOptions for tests.
+ */
+const makeOptions = (opts: {
+  cwd?: string;
+  projectDir?: string;
+  globalDir?: string;
+  scope?: string;
+  types?: readonly ExtensionType[];
+  sources?: readonly SourceType[];
+  agents?: readonly string[];
+}): ResolutionOptions => ({
+  ...defaultResolutionOptions,
+  cwd: Option.fromNullable(opts.cwd),
+  projectDir: Option.fromNullable(opts.projectDir),
+  globalDir: Option.fromNullable(opts.globalDir),
+  scope: Option.fromNullable(opts.scope),
+  types: Option.fromNullable(opts.types),
+  sources: Option.fromNullable(opts.sources),
+  agents: Option.fromNullable(opts.agents),
+});
 
 describe("isLocalPath", () => {
   it("returns true for relative path with ./", () => {
@@ -75,7 +100,7 @@ describe("resolveLocalPath", () => {
     it.effect("returns empty array for non-local path input", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveLocalPath("owner/repo", { cwd: tempDir });
+          const result = yield* resolveLocalPath("owner/repo", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
         }),
       ),
@@ -84,7 +109,7 @@ describe("resolveLocalPath", () => {
     it.effect("returns empty array for AXM name input", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveLocalPath("@scope/name", { cwd: tempDir });
+          const result = yield* resolveLocalPath("@scope/name", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
         }),
       ),
@@ -95,7 +120,7 @@ describe("resolveLocalPath", () => {
     it.effect("returns empty array if path does not exist", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveLocalPath("./nonexistent", { cwd: tempDir });
+          const result = yield* resolveLocalPath("./nonexistent", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
         }),
       ),
@@ -108,7 +133,7 @@ describe("resolveLocalPath", () => {
           fs.mkdirSync(skillDir);
           fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# My Skill");
 
-          const result = yield* resolveLocalPath("./my-skill", { cwd: tempDir });
+          const result = yield* resolveLocalPath("./my-skill", makeOptions({ cwd: tempDir }));
 
           expect(result).toHaveLength(1);
           expect(result[0]?.origin).toBe(skillDir);
@@ -123,7 +148,7 @@ describe("resolveLocalPath", () => {
           fs.mkdirSync(skillDir);
           fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# My Skill");
 
-          const result = yield* resolveLocalPath(skillDir, { cwd: "/some/other/dir" });
+          const result = yield* resolveLocalPath(skillDir, makeOptions({ cwd: "/some/other/dir" }));
 
           expect(result).toHaveLength(1);
           expect(result[0]?.origin).toBe(skillDir);
@@ -140,7 +165,7 @@ describe("resolveLocalPath", () => {
           fs.mkdirSync(nestedDir);
           fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# My Skill");
 
-          const result = yield* resolveLocalPath("../my-skill", { cwd: nestedDir });
+          const result = yield* resolveLocalPath("../my-skill", makeOptions({ cwd: nestedDir }));
 
           expect(result).toHaveLength(1);
           expect(result[0]?.origin).toBe(skillDir);
@@ -162,7 +187,10 @@ describe("resolveLocalPath", () => {
             fs.mkdirSync(testSkillDir, { recursive: true });
             fs.writeFileSync(path.join(testSkillDir, "SKILL.md"), "# Test Skill");
 
-            const result = yield* resolveLocalPath("~/.axm-test-skill-temp", { cwd: tempDir });
+            const result = yield* resolveLocalPath(
+              "~/.axm-test-skill-temp",
+              makeOptions({ cwd: tempDir }),
+            );
 
             expect(result).toHaveLength(1);
             expect(result[0]?.origin).toBe(testSkillDir);
@@ -183,7 +211,7 @@ describe("resolveLocalPath", () => {
           fs.mkdirSync(skillDir);
           fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# My Skill");
 
-          const result = yield* resolveLocalPath("./my-skill", { cwd: tempDir });
+          const result = yield* resolveLocalPath("./my-skill", makeOptions({ cwd: tempDir }));
 
           expect(result).toHaveLength(1);
           expect(result[0]).toMatchObject({
@@ -191,8 +219,8 @@ describe("resolveLocalPath", () => {
             source: "local",
             origin: skillDir,
             originalInput: "./my-skill",
-            metadata: { files: ["SKILL.md"] },
           });
+          expect(Option.getOrNull(result[0]!.metadata.files)).toEqual(["SKILL.md"]);
         }),
       ),
     );
@@ -203,7 +231,7 @@ describe("resolveLocalPath", () => {
           const emptyDir = path.join(tempDir, "empty");
           fs.mkdirSync(emptyDir);
 
-          const result = yield* resolveLocalPath("./empty", { cwd: tempDir });
+          const result = yield* resolveLocalPath("./empty", makeOptions({ cwd: tempDir }));
 
           expect(result).toEqual([]);
         }),

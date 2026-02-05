@@ -11,7 +11,7 @@
 // Re-export errors
 export { ResolutionError, type ResolutionErrorCode } from "./errors.js";
 // Re-export resolver
-export { resolveExtension } from "./resolver.js";
+export { defaultResolutionOptions, resolveExtension } from "./resolver.js";
 // Re-export types
 export type {
   ExtensionMetadata,

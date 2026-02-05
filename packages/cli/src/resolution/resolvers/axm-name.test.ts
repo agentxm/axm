@@ -5,7 +5,32 @@ import type { FileSystem } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { defaultResolutionOptions } from "../resolver.js";
+import type { ExtensionType, ResolutionOptions, SourceType } from "../types.js";
 import { isAxmName, resolveAxmName } from "./axm-name.js";
+
+/**
+ * Helper to create ResolutionOptions for tests.
+ */
+const makeOptions = (opts: {
+  cwd?: string;
+  projectDir?: string;
+  globalDir?: string;
+  scope?: string;
+  types?: readonly ExtensionType[];
+  sources?: readonly SourceType[];
+  agents?: readonly string[];
+}): ResolutionOptions => ({
+  ...defaultResolutionOptions,
+  cwd: Option.fromNullable(opts.cwd),
+  projectDir: Option.fromNullable(opts.projectDir),
+  globalDir: Option.fromNullable(opts.globalDir),
+  scope: Option.fromNullable(opts.scope),
+  types: Option.fromNullable(opts.types),
+  sources: Option.fromNullable(opts.sources),
+  agents: Option.fromNullable(opts.agents),
+});
 
 describe("isAxmName", () => {
   it("returns true for @scope/name", () => {
@@ -79,11 +104,10 @@ describe("resolveAxmName", () => {
     it.effect("returns empty array for non-AXM input", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveAxmName("owner/repo", {
-            projectDir,
-            globalDir,
-            cwd: path.join(tempDir, "project"),
-          });
+          const result = yield* resolveAxmName(
+            "owner/repo",
+            makeOptions({ projectDir, globalDir, cwd: path.join(tempDir, "project") }),
+          );
           expect(result).toEqual([]);
         }),
       ),
@@ -92,11 +116,10 @@ describe("resolveAxmName", () => {
     it.effect("returns empty array for local path input", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveAxmName("./local/path", {
-            projectDir,
-            globalDir,
-            cwd: path.join(tempDir, "project"),
-          });
+          const result = yield* resolveAxmName(
+            "./local/path",
+            makeOptions({ projectDir, globalDir, cwd: path.join(tempDir, "project") }),
+          );
           expect(result).toEqual([]);
         }),
       ),
@@ -105,11 +128,10 @@ describe("resolveAxmName", () => {
     it.effect("returns empty array for bare name", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveAxmName("bare-name", {
-            projectDir,
-            globalDir,
-            cwd: path.join(tempDir, "project"),
-          });
+          const result = yield* resolveAxmName(
+            "bare-name",
+            makeOptions({ projectDir, globalDir, cwd: path.join(tempDir, "project") }),
+          );
           expect(result).toEqual([]);
         }),
       ),
@@ -124,21 +146,19 @@ describe("resolveAxmName", () => {
           fs.mkdirSync(skillPath, { recursive: true });
           fs.writeFileSync(path.join(skillPath, "SKILL.md"), "# Grappling Hook");
 
-          const result = yield* resolveAxmName("@wayne/grappling-hook", {
-            projectDir,
-            globalDir,
-            cwd: path.join(tempDir, "project"),
-          });
+          const result = yield* resolveAxmName(
+            "@wayne/grappling-hook",
+            makeOptions({ projectDir, globalDir, cwd: path.join(tempDir, "project") }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]).toMatchObject({
             type: "skill",
             source: "registry",
             origin: skillPath,
-            name: "@wayne/grappling-hook",
             originalInput: "@wayne/grappling-hook",
-            metadata: {},
           });
+          expect(Option.getOrNull(result[0]!.name)).toBe("@wayne/grappling-hook");
         }),
       ),
     );
@@ -150,14 +170,13 @@ describe("resolveAxmName", () => {
           fs.mkdirSync(skillPath, { recursive: true });
           fs.writeFileSync(path.join(skillPath, "SKILL.md"), "# Grappling Hook");
 
-          const result = yield* resolveAxmName("@wayne/grappling-hook@^1.0.0", {
-            projectDir,
-            globalDir,
-            cwd: path.join(tempDir, "project"),
-          });
+          const result = yield* resolveAxmName(
+            "@wayne/grappling-hook@^1.0.0",
+            makeOptions({ projectDir, globalDir, cwd: path.join(tempDir, "project") }),
+          );
 
           expect(result).toHaveLength(1);
-          expect(result[0]?.metadata).toEqual({ versionConstraint: "^1.0.0" });
+          expect(Option.getOrNull(result[0]!.metadata.versionConstraint)).toBe("^1.0.0");
           expect(result[0]?.originalInput).toBe("@wayne/grappling-hook@^1.0.0");
         }),
       ),
@@ -171,11 +190,10 @@ describe("resolveAxmName", () => {
           fs.mkdirSync(skillPath, { recursive: true });
           fs.writeFileSync(path.join(skillPath, "SKILL.md"), "# Grappling Hook");
 
-          const result = yield* resolveAxmName("@wayne/grappling-hook", {
-            projectDir: ".axm",
-            globalDir,
-            cwd: projectCwd,
-          });
+          const result = yield* resolveAxmName(
+            "@wayne/grappling-hook",
+            makeOptions({ projectDir: ".axm", globalDir, cwd: projectCwd }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]?.origin).toBe(skillPath);
@@ -192,20 +210,19 @@ describe("resolveAxmName", () => {
           fs.mkdirSync(skillPath, { recursive: true });
           fs.writeFileSync(path.join(skillPath, "SKILL.md"), "# Grappling Hook");
 
-          const result = yield* resolveAxmName("@wayne/grappling-hook", {
-            projectDir,
-            globalDir,
-            cwd: path.join(tempDir, "project"),
-          });
+          const result = yield* resolveAxmName(
+            "@wayne/grappling-hook",
+            makeOptions({ projectDir, globalDir, cwd: path.join(tempDir, "project") }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]).toMatchObject({
             type: "skill",
             source: "registry",
             origin: skillPath,
-            name: "@wayne/grappling-hook",
             originalInput: "@wayne/grappling-hook",
           });
+          expect(Option.getOrNull(result[0]!.name)).toBe("@wayne/grappling-hook");
         }),
       ),
     );
@@ -217,14 +234,13 @@ describe("resolveAxmName", () => {
           fs.mkdirSync(skillPath, { recursive: true });
           fs.writeFileSync(path.join(skillPath, "SKILL.md"), "# Grappling Hook");
 
-          const result = yield* resolveAxmName("@wayne/grappling-hook@~2.0.0", {
-            projectDir,
-            globalDir,
-            cwd: path.join(tempDir, "project"),
-          });
+          const result = yield* resolveAxmName(
+            "@wayne/grappling-hook@~2.0.0",
+            makeOptions({ projectDir, globalDir, cwd: path.join(tempDir, "project") }),
+          );
 
           expect(result).toHaveLength(1);
-          expect(result[0]?.metadata).toEqual({ versionConstraint: "~2.0.0" });
+          expect(Option.getOrNull(result[0]!.metadata.versionConstraint)).toBe("~2.0.0");
         }),
       ),
     );
@@ -242,11 +258,10 @@ describe("resolveAxmName", () => {
           fs.writeFileSync(path.join(projectSkillPath, "SKILL.md"), "# Project Skill");
           fs.writeFileSync(path.join(globalSkillPath, "SKILL.md"), "# Global Skill");
 
-          const result = yield* resolveAxmName("@wayne/grappling-hook", {
-            projectDir,
-            globalDir,
-            cwd: path.join(tempDir, "project"),
-          });
+          const result = yield* resolveAxmName(
+            "@wayne/grappling-hook",
+            makeOptions({ projectDir, globalDir, cwd: path.join(tempDir, "project") }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]?.origin).toBe(projectSkillPath);
@@ -259,11 +274,10 @@ describe("resolveAxmName", () => {
     it.effect("returns empty array when skill not found in either location", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveAxmName("@wayne/nonexistent", {
-            projectDir,
-            globalDir,
-            cwd: path.join(tempDir, "project"),
-          });
+          const result = yield* resolveAxmName(
+            "@wayne/nonexistent",
+            makeOptions({ projectDir, globalDir, cwd: path.join(tempDir, "project") }),
+          );
 
           expect(result).toEqual([]);
         }),
@@ -277,11 +291,10 @@ describe("resolveAxmName", () => {
           const skillPath = path.join(projectDir, "skills", "@wayne", "empty");
           fs.mkdirSync(skillPath, { recursive: true });
 
-          const result = yield* resolveAxmName("@wayne/empty", {
-            projectDir,
-            globalDir,
-            cwd: path.join(tempDir, "project"),
-          });
+          const result = yield* resolveAxmName(
+            "@wayne/empty",
+            makeOptions({ projectDir, globalDir, cwd: path.join(tempDir, "project") }),
+          );
 
           // Current implementation only checks directory exists, not contents
           // This test documents current behavior - may need adjustment if validation is added
@@ -307,9 +320,10 @@ describe("resolveAxmName", () => {
           fs.mkdirSync(defaultProjectPath, { recursive: true });
           fs.writeFileSync(path.join(defaultProjectPath, "SKILL.md"), "# Skill");
 
-          const result = yield* resolveAxmName("@wayne/grappling-hook", {
-            cwd: projectCwd,
-          });
+          const result = yield* resolveAxmName(
+            "@wayne/grappling-hook",
+            makeOptions({ cwd: projectCwd }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]?.origin).toBe(defaultProjectPath);
@@ -327,7 +341,7 @@ describe("resolveAxmName", () => {
 
           // Only create if we can safely test (avoid polluting real filesystem)
           // For this test, we'll just verify empty result since we're not setting up the real cwd
-          const result = yield* resolveAxmName("@test/skill", {});
+          const result = yield* resolveAxmName("@test/skill", makeOptions({}));
 
           // This will be empty unless .axm/skills/@test/skill exists in actual cwd
           expect(Array.isArray(result)).toBe(true);
@@ -351,11 +365,14 @@ describe("resolveAxmName", () => {
           try {
             // Use ~ path instead of absolute
             const relativePath = `~/${path.relative(homeDir, expandedGlobalDir)}`;
-            const result = yield* resolveAxmName("@wayne/grappling-hook", {
-              projectDir,
-              globalDir: relativePath,
-              cwd: path.join(tempDir, "project"),
-            });
+            const result = yield* resolveAxmName(
+              "@wayne/grappling-hook",
+              makeOptions({
+                projectDir,
+                globalDir: relativePath,
+                cwd: path.join(tempDir, "project"),
+              }),
+            );
 
             expect(result).toHaveLength(1);
             expect(result[0]?.origin).toBe(skillPath);
@@ -376,14 +393,13 @@ describe("resolveAxmName", () => {
           fs.mkdirSync(skillPath, { recursive: true });
           fs.writeFileSync(path.join(skillPath, "SKILL.md"), "# Skill");
 
-          const result = yield* resolveAxmName("@my-scope/my-skill-name", {
-            projectDir,
-            globalDir,
-            cwd: path.join(tempDir, "project"),
-          });
+          const result = yield* resolveAxmName(
+            "@my-scope/my-skill-name",
+            makeOptions({ projectDir, globalDir, cwd: path.join(tempDir, "project") }),
+          );
 
           expect(result).toHaveLength(1);
-          expect(result[0]?.name).toBe("@my-scope/my-skill-name");
+          expect(Option.getOrNull(result[0]!.name)).toBe("@my-scope/my-skill-name");
         }),
       ),
     );
@@ -395,14 +411,13 @@ describe("resolveAxmName", () => {
           fs.mkdirSync(skillPath, { recursive: true });
           fs.writeFileSync(path.join(skillPath, "SKILL.md"), "# Skill");
 
-          const result = yield* resolveAxmName("@wayne/grappling-hook@>=1.0.0 <2.0.0", {
-            projectDir,
-            globalDir,
-            cwd: path.join(tempDir, "project"),
-          });
+          const result = yield* resolveAxmName(
+            "@wayne/grappling-hook@>=1.0.0 <2.0.0",
+            makeOptions({ projectDir, globalDir, cwd: path.join(tempDir, "project") }),
+          );
 
           expect(result).toHaveLength(1);
-          expect(result[0]?.metadata.versionConstraint).toBe(">=1.0.0 <2.0.0");
+          expect(Option.getOrNull(result[0]!.metadata.versionConstraint)).toBe(">=1.0.0 <2.0.0");
         }),
       ),
     );
@@ -410,11 +425,10 @@ describe("resolveAxmName", () => {
     it.effect("returns empty for malformed input with multiple @", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveAxmName("@scope/@name", {
-            projectDir,
-            globalDir,
-            cwd: path.join(tempDir, "project"),
-          });
+          const result = yield* resolveAxmName(
+            "@scope/@name",
+            makeOptions({ projectDir, globalDir, cwd: path.join(tempDir, "project") }),
+          );
 
           expect(result).toEqual([]);
         }),

@@ -79,7 +79,9 @@ export function selectExtensionRef(
 
     // Multiple results - prompt for selection or fail if non-interactive
     if (!canPrompt) {
-      const sources = refs.map((r) => `  • ${r.name ?? r.origin} (${r.source})`).join("\n");
+      const sources = refs
+        .map((r) => `  • ${Option.getOrElse(r.name, () => r.origin)} (${r.source})`)
+        .join("\n");
       return yield* Effect.fail(
         new SkillsError({
           message: formatError(
@@ -97,8 +99,10 @@ export function selectExtensionRef(
     const selected = yield* clack
       .select("Multiple matches found. Select the source to install from:", refs, (ref) => ({
         value: ref.origin,
-        label: ref.name ?? ref.origin,
-        hint: Option.some(`${ref.source}${ref.ref ? `@${ref.ref}` : ""}`),
+        label: Option.getOrElse(ref.name, () => ref.origin),
+        hint: Option.some(
+          `${ref.source}${Option.match(ref.ref, { onNone: () => "", onSome: (r) => `@${r}` })}`,
+        ),
       }))
       .pipe(
         Effect.mapError(

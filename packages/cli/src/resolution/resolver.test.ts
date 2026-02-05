@@ -14,7 +14,32 @@ import type { FileSystem } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { resolveExtension } from "./resolver.js";
+import * as Option from "effect/Option";
+import { defaultResolutionOptions, resolveExtension } from "./resolver.js";
+import type { ExtensionType, ResolutionOptions, SourceType } from "./types.js";
+
+/**
+ * Helper to create ResolutionOptions for tests.
+ * Merges provided options with defaults.
+ */
+const makeOptions = (opts: {
+  cwd?: string;
+  projectDir?: string;
+  globalDir?: string;
+  scope?: string;
+  types?: readonly ExtensionType[];
+  sources?: readonly SourceType[];
+  agents?: readonly string[];
+}): ResolutionOptions => ({
+  ...defaultResolutionOptions,
+  cwd: Option.fromNullable(opts.cwd),
+  projectDir: Option.fromNullable(opts.projectDir),
+  globalDir: Option.fromNullable(opts.globalDir),
+  scope: Option.fromNullable(opts.scope),
+  types: Option.fromNullable(opts.types),
+  sources: Option.fromNullable(opts.sources),
+  agents: Option.fromNullable(opts.agents),
+});
 
 const withFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
   effect.pipe(Effect.provide(NodeFileSystem.layer));
@@ -38,9 +63,7 @@ describe("resolveExtension - integration tests", () => {
     it.effect("ambiguous pattern owner/repo resolves to GitHub", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveExtension("owner/repo", {
-            cwd: tempDir,
-          });
+          const result = yield* resolveExtension("owner/repo", makeOptions({ cwd: tempDir }));
 
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("github");
@@ -52,7 +75,7 @@ describe("resolveExtension - integration tests", () => {
     it.effect("explicit source github:owner/repo is resolved correctly", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveExtension("github:owner/repo", {});
+          const result = yield* resolveExtension("github:owner/repo", makeOptions({}));
 
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("github");
@@ -65,7 +88,7 @@ describe("resolveExtension - integration tests", () => {
     it.effect("explicit source gitlab:owner/repo is resolved correctly", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveExtension("gitlab:owner/repo", {});
+          const result = yield* resolveExtension("gitlab:owner/repo", makeOptions({}));
 
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("gitlab");
@@ -77,7 +100,7 @@ describe("resolveExtension - integration tests", () => {
     it.effect("URL https://github.com/owner/repo is resolved correctly", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveExtension("https://github.com/owner/repo", {});
+          const result = yield* resolveExtension("https://github.com/owner/repo", makeOptions({}));
 
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("github");
@@ -93,15 +116,15 @@ describe("resolveExtension - integration tests", () => {
           const axmDir = path.join(tempDir, ".axm", "skills", "@scope", "name");
           fs.mkdirSync(axmDir, { recursive: true });
 
-          const result = yield* resolveExtension("@scope/name", {
-            cwd: tempDir,
-            projectDir: ".axm",
-          });
+          const result = yield* resolveExtension(
+            "@scope/name",
+            makeOptions({ cwd: tempDir, projectDir: ".axm" }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("registry");
           expect(result[0]?.origin).toBe(axmDir);
-          expect(result[0]?.name).toBe("@scope/name");
+          expect(Option.getOrNull(result[0]!.name)).toBe("@scope/name");
         }),
       ),
     );
@@ -113,15 +136,14 @@ describe("resolveExtension - integration tests", () => {
           const axmDir = path.join(tempDir, ".axm", "skills", "@myscope", "myskill");
           fs.mkdirSync(axmDir, { recursive: true });
 
-          const result = yield* resolveExtension("myskill", {
-            cwd: tempDir,
-            projectDir: ".axm",
-            scope: "myscope",
-          });
+          const result = yield* resolveExtension(
+            "myskill",
+            makeOptions({ cwd: tempDir, projectDir: ".axm", scope: "myscope" }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("registry");
-          expect(result[0]?.name).toBe("@myscope/myskill");
+          expect(Option.getOrNull(result[0]!.name)).toBe("@myscope/myskill");
         }),
       ),
     );
@@ -143,11 +165,10 @@ describe("resolveExtension - integration tests", () => {
           const skillDir = path.join(tempDir, ".axm", "skills", "@scope", "my-skill");
           fs.mkdirSync(skillDir, { recursive: true });
 
-          const result = yield* resolveExtension("@scope/my-skill", {
-            cwd: tempDir,
-            projectDir: ".axm",
-            types: ["skill"],
-          });
+          const result = yield* resolveExtension(
+            "@scope/my-skill",
+            makeOptions({ cwd: tempDir, projectDir: ".axm", types: ["skill"] }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]?.type).toBe("skill");
@@ -163,11 +184,10 @@ describe("resolveExtension - integration tests", () => {
           fs.mkdirSync(skillDir, { recursive: true });
 
           // Filter for commands - should be empty since resolver returns skill
-          const result = yield* resolveExtension("@scope/my-skill", {
-            cwd: tempDir,
-            projectDir: ".axm",
-            types: ["command"],
-          });
+          const result = yield* resolveExtension(
+            "@scope/my-skill",
+            makeOptions({ cwd: tempDir, projectDir: ".axm", types: ["command"] }),
+          );
 
           expect(result).toEqual([]);
         }),
@@ -181,10 +201,10 @@ describe("resolveExtension - integration tests", () => {
           const skillDir = path.join(tempDir, ".axm", "skills", "@scope", "my-skill");
           fs.mkdirSync(skillDir, { recursive: true });
 
-          const result = yield* resolveExtension("@scope/my-skill", {
-            cwd: tempDir,
-            projectDir: ".axm",
-          });
+          const result = yield* resolveExtension(
+            "@scope/my-skill",
+            makeOptions({ cwd: tempDir, projectDir: ".axm" }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]?.type).toBe("skill");
@@ -202,10 +222,10 @@ describe("resolveExtension - integration tests", () => {
       withFileSystem(
         Effect.gen(function* () {
           // Ambiguous pattern resolves to GitHub
-          const result = yield* resolveExtension("owner/repo", {
-            cwd: tempDir,
-            sources: ["github"],
-          });
+          const result = yield* resolveExtension(
+            "owner/repo",
+            makeOptions({ cwd: tempDir, sources: ["github"] }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("github");
@@ -218,9 +238,7 @@ describe("resolveExtension - integration tests", () => {
       withFileSystem(
         Effect.gen(function* () {
           // Ambiguous pattern resolves to GitHub
-          const result = yield* resolveExtension("owner/repo", {
-            cwd: tempDir,
-          });
+          const result = yield* resolveExtension("owner/repo", makeOptions({ cwd: tempDir }));
 
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("github");
@@ -232,9 +250,10 @@ describe("resolveExtension - integration tests", () => {
       withFileSystem(
         Effect.gen(function* () {
           // Explicit gitlab source
-          const result = yield* resolveExtension("gitlab:owner/repo", {
-            sources: ["gitlab"],
-          });
+          const result = yield* resolveExtension(
+            "gitlab:owner/repo",
+            makeOptions({ sources: ["gitlab"] }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("gitlab");
@@ -246,9 +265,10 @@ describe("resolveExtension - integration tests", () => {
       withFileSystem(
         Effect.gen(function* () {
           // GitHub URL but filter for git only
-          const result = yield* resolveExtension("https://github.com/owner/repo", {
-            sources: ["git"],
-          });
+          const result = yield* resolveExtension(
+            "https://github.com/owner/repo",
+            makeOptions({ sources: ["git"] }),
+          );
 
           expect(result).toEqual([]);
         }),
@@ -262,11 +282,10 @@ describe("resolveExtension - integration tests", () => {
           const axmDir = path.join(tempDir, ".axm", "skills", "@scope", "name");
           fs.mkdirSync(axmDir, { recursive: true });
 
-          const result = yield* resolveExtension("@scope/name", {
-            cwd: tempDir,
-            projectDir: ".axm",
-            sources: ["registry"],
-          });
+          const result = yield* resolveExtension(
+            "@scope/name",
+            makeOptions({ cwd: tempDir, projectDir: ".axm", sources: ["registry"] }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("registry");
@@ -278,9 +297,10 @@ describe("resolveExtension - integration tests", () => {
       withFileSystem(
         Effect.gen(function* () {
           // GitHub URL should pass through github/gitlab filter
-          const result = yield* resolveExtension("https://github.com/owner/repo", {
-            sources: ["github", "gitlab"],
-          });
+          const result = yield* resolveExtension(
+            "https://github.com/owner/repo",
+            makeOptions({ sources: ["github", "gitlab"] }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("github");
@@ -297,7 +317,7 @@ describe("resolveExtension - integration tests", () => {
     it.effect("empty input returns empty array", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveExtension("", { cwd: tempDir });
+          const result = yield* resolveExtension("", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
         }),
       ),
@@ -306,7 +326,7 @@ describe("resolveExtension - integration tests", () => {
     it.effect("whitespace-only input returns empty array", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveExtension("   ", { cwd: tempDir });
+          const result = yield* resolveExtension("   ", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
         }),
       ),
@@ -315,10 +335,10 @@ describe("resolveExtension - integration tests", () => {
     it.effect("unknown AXM name returns empty array", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveExtension("@scope/nonexistent", {
-            cwd: tempDir,
-            projectDir: ".axm",
-          });
+          const result = yield* resolveExtension(
+            "@scope/nonexistent",
+            makeOptions({ cwd: tempDir, projectDir: ".axm" }),
+          );
           expect(result).toEqual([]);
         }),
       ),
@@ -327,7 +347,7 @@ describe("resolveExtension - integration tests", () => {
     it.effect("bare name without scope returns empty array", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveExtension("myskill", { cwd: tempDir });
+          const result = yield* resolveExtension("myskill", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
         }),
       ),
@@ -336,9 +356,7 @@ describe("resolveExtension - integration tests", () => {
     it.effect("invalid input returns empty array", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveExtension("not@valid@input", {
-            cwd: tempDir,
-          });
+          const result = yield* resolveExtension("not@valid@input", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
         }),
       ),
@@ -348,7 +366,7 @@ describe("resolveExtension - integration tests", () => {
       withFileSystem(
         Effect.gen(function* () {
           const input = "github:owner/repo";
-          const result = yield* resolveExtension(input, {});
+          const result = yield* resolveExtension(input, makeOptions({}));
 
           expect(result).toHaveLength(1);
           expect(result[0]?.originalInput).toBe(input);
@@ -363,13 +381,13 @@ describe("resolveExtension - integration tests", () => {
           const axmDir = path.join(tempDir, ".axm", "skills", "@scope", "name");
           fs.mkdirSync(axmDir, { recursive: true });
 
-          const result = yield* resolveExtension("@scope/name@^1.0.0", {
-            cwd: tempDir,
-            projectDir: ".axm",
-          });
+          const result = yield* resolveExtension(
+            "@scope/name@^1.0.0",
+            makeOptions({ cwd: tempDir, projectDir: ".axm" }),
+          );
 
           expect(result).toHaveLength(1);
-          expect(result[0]?.metadata.versionConstraint).toBe("^1.0.0");
+          expect(Option.getOrNull(result[0]!.metadata.versionConstraint)).toBe("^1.0.0");
         }),
       ),
     );
@@ -377,10 +395,10 @@ describe("resolveExtension - integration tests", () => {
     it.effect("handles git refs in GitHub URLs", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveExtension("github:owner/repo@v1.0.0", {});
+          const result = yield* resolveExtension("github:owner/repo@v1.0.0", makeOptions({}));
 
           expect(result).toHaveLength(1);
-          expect(result[0]?.ref).toBe("v1.0.0");
+          expect(Option.getOrNull(result[0]!.ref)).toBe("v1.0.0");
         }),
       ),
     );
@@ -388,10 +406,10 @@ describe("resolveExtension - integration tests", () => {
     it.effect("handles subpaths in GitHub URLs", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveExtension("github:owner/repo/some/path", {});
+          const result = yield* resolveExtension("github:owner/repo/some/path", makeOptions({}));
 
           expect(result).toHaveLength(1);
-          expect(result[0]?.path).toBe("some/path");
+          expect(Option.getOrNull(result[0]!.path)).toBe("some/path");
         }),
       ),
     );
@@ -402,7 +420,7 @@ describe("resolveExtension - integration tests", () => {
           // Non-git URLs (like https://example.com) are resolved by URL resolver
           // as "direct-url" or "well-known" source types, which are not in SourceType
           // and get filtered out by the resolver pipeline
-          const result = yield* resolveExtension("https://example.com/skill.md", {});
+          const result = yield* resolveExtension("https://example.com/skill.md", makeOptions({}));
 
           expect(result).toEqual([]);
         }),
@@ -412,7 +430,7 @@ describe("resolveExtension - integration tests", () => {
     it.effect("handles SSH URLs", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveExtension("git@github.com:owner/repo.git", {});
+          const result = yield* resolveExtension("git@github.com:owner/repo.git", makeOptions({}));
 
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("github");
@@ -434,7 +452,7 @@ describe("resolveExtension - integration tests", () => {
           fs.mkdirSync(skillDir);
           fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# My Skill");
 
-          const result = yield* resolveExtension("./my-skill", { cwd: tempDir });
+          const result = yield* resolveExtension("./my-skill", makeOptions({ cwd: tempDir }));
 
           expect(result).toHaveLength(1);
           expect(result[0]).toMatchObject({
@@ -454,7 +472,7 @@ describe("resolveExtension - integration tests", () => {
           fs.mkdirSync(skillDir);
           fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# My Skill");
 
-          const result = yield* resolveExtension(skillDir, { cwd: "/other/dir" });
+          const result = yield* resolveExtension(skillDir, makeOptions({ cwd: "/other/dir" }));
 
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("local");
@@ -466,7 +484,7 @@ describe("resolveExtension - integration tests", () => {
     it.effect("returns empty array for non-existent local path", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* resolveExtension("./nonexistent", { cwd: tempDir });
+          const result = yield* resolveExtension("./nonexistent", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
         }),
       ),
@@ -480,10 +498,10 @@ describe("resolveExtension - integration tests", () => {
           fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# My Skill");
 
           // Filter to only github sources - should exclude local
-          const result = yield* resolveExtension("./my-skill", {
-            cwd: tempDir,
-            sources: ["github"],
-          });
+          const result = yield* resolveExtension(
+            "./my-skill",
+            makeOptions({ cwd: tempDir, sources: ["github"] }),
+          );
 
           expect(result).toEqual([]);
         }),
@@ -505,12 +523,15 @@ describe("resolveExtension - integration tests", () => {
           fs.writeFileSync(path.join(mixedDir, "SKILL.md"), "# Skill");
           fs.writeFileSync(path.join(mixedDir, "axm-command.json"), "{}");
 
-          const result = yield* resolveExtension("@scope/mixed", {
-            cwd: tempDir,
-            projectDir: ".axm",
-            types: ["skill"],
-            sources: ["registry"],
-          });
+          const result = yield* resolveExtension(
+            "@scope/mixed",
+            makeOptions({
+              cwd: tempDir,
+              projectDir: ".axm",
+              types: ["skill"],
+              sources: ["registry"],
+            }),
+          );
 
           expect(result).toHaveLength(1);
           expect(result[0]?.type).toBe("skill");
@@ -527,12 +548,15 @@ describe("resolveExtension - integration tests", () => {
           fs.mkdirSync(skillDir, { recursive: true });
           fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# Skill");
 
-          const result = yield* resolveExtension("@scope/my-skill", {
-            cwd: tempDir,
-            projectDir: ".axm",
-            types: ["skill"],
-            sources: ["github"],
-          });
+          const result = yield* resolveExtension(
+            "@scope/my-skill",
+            makeOptions({
+              cwd: tempDir,
+              projectDir: ".axm",
+              types: ["skill"],
+              sources: ["github"],
+            }),
+          );
 
           expect(result).toEqual([]);
         }),
@@ -547,12 +571,15 @@ describe("resolveExtension - integration tests", () => {
           fs.mkdirSync(skillDir, { recursive: true });
           fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# Skill");
 
-          const result = yield* resolveExtension("@scope/my-skill", {
-            cwd: tempDir,
-            projectDir: ".axm",
-            types: ["command"],
-            sources: ["registry"],
-          });
+          const result = yield* resolveExtension(
+            "@scope/my-skill",
+            makeOptions({
+              cwd: tempDir,
+              projectDir: ".axm",
+              types: ["command"],
+              sources: ["registry"],
+            }),
+          );
 
           expect(result).toEqual([]);
         }),

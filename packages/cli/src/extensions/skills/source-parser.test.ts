@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { buildCloneUrl, getOriginFromParsed, ParseError, parseSource } from "./source-parser.js";
 import type { ParsedSource } from "./types.js";
 
@@ -17,10 +18,10 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("github");
         expect(result.canonical).toBe("github:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
-        expect(result.ref).toBeUndefined();
-        expect(result.path).toBeUndefined();
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
+        expect(Option.isNone(result.ref)).toBe(true);
+        expect(Option.isNone(result.path)).toBe(true);
       }),
     );
 
@@ -30,10 +31,10 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("github");
         expect(result.canonical).toBe("github:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
-        expect(result.ref).toBe("v1.0.0");
-        expect(result.path).toBeUndefined();
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
+        expect(result.ref).toEqual(Option.some("v1.0.0"));
+        expect(Option.isNone(result.path)).toBe(true);
       }),
     );
 
@@ -43,10 +44,10 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("github");
         expect(result.canonical).toBe("github:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
-        expect(result.ref).toBeUndefined();
-        expect(result.path).toBe("skills/my-skill");
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
+        expect(Option.isNone(result.ref)).toBe(true);
+        expect(result.path).toEqual(Option.some("skills/my-skill"));
       }),
     );
 
@@ -56,10 +57,10 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("github");
         expect(result.canonical).toBe("github:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
-        expect(result.ref).toBe("main");
-        expect(result.path).toBe("skills/my-skill");
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
+        expect(result.ref).toEqual(Option.some("main"));
+        expect(result.path).toEqual(Option.some("skills/my-skill"));
       }),
     );
 
@@ -68,7 +69,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("owner/repo@feature/branch");
 
         expect(result.type).toBe("github");
-        expect(result.ref).toBe("feature/branch");
+        expect(result.ref).toEqual(Option.some("feature/branch"));
       }),
     );
 
@@ -77,7 +78,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("owner/repo@abc123def456");
 
         expect(result.type).toBe("github");
-        expect(result.ref).toBe("abc123def456");
+        expect(result.ref).toEqual(Option.some("abc123def456"));
       }),
     );
   });
@@ -89,8 +90,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("github");
         expect(result.canonical).toBe("github:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
       }),
     );
 
@@ -100,8 +101,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("gitlab");
         expect(result.canonical).toBe("gitlab:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
       }),
     );
 
@@ -111,10 +112,10 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("github");
         expect(result.canonical).toBe("github:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
-        expect(result.path).toBe("skills/my-skill");
-        expect(result.ref).toBe("v1.0.0");
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
+        expect(result.path).toEqual(Option.some("skills/my-skill"));
+        expect(result.ref).toEqual(Option.some("v1.0.0"));
       }),
     );
 
@@ -124,7 +125,7 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("gitlab");
         expect(result.canonical).toBe("gitlab:owner/repo");
-        expect(result.ref).toBe("main");
+        expect(result.ref).toEqual(Option.some("main"));
       }),
     );
   });
@@ -136,8 +137,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("github");
         expect(result.canonical).toBe("github:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
         expect(result.original).toBe("https://github.com/owner/repo");
       }),
     );
@@ -148,8 +149,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("github");
         expect(result.canonical).toBe("github:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
       }),
     );
 
@@ -159,8 +160,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("github");
         expect(result.canonical).toBe("github:owner/repo");
-        expect(result.ref).toBe("main");
-        expect(result.path).toBeUndefined();
+        expect(result.ref).toEqual(Option.some("main"));
+        expect(Option.isNone(result.path)).toBe(true);
       }),
     );
 
@@ -172,8 +173,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("github");
         expect(result.canonical).toBe("github:owner/repo");
-        expect(result.ref).toBe("main");
-        expect(result.path).toBe("skills/my-skill");
+        expect(result.ref).toEqual(Option.some("main"));
+        expect(result.path).toEqual(Option.some("skills/my-skill"));
       }),
     );
 
@@ -194,8 +195,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("gitlab");
         expect(result.canonical).toBe("gitlab:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
       }),
     );
 
@@ -214,7 +215,7 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("gitlab");
         expect(result.canonical).toBe("gitlab:owner/repo");
-        expect(result.ref).toBe("main");
+        expect(result.ref).toEqual(Option.some("main"));
       }),
     );
 
@@ -226,8 +227,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("gitlab");
         expect(result.canonical).toBe("gitlab:owner/repo");
-        expect(result.ref).toBe("main");
-        expect(result.path).toBe("skills/my-skill");
+        expect(result.ref).toEqual(Option.some("main"));
+        expect(result.path).toEqual(Option.some("skills/my-skill"));
       }),
     );
   });
@@ -239,8 +240,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("github");
         expect(result.canonical).toBe("github:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
       }),
     );
 
@@ -261,8 +262,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("gitlab");
         expect(result.canonical).toBe("gitlab:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
       }),
     );
 
@@ -283,8 +284,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("bitbucket");
         expect(result.canonical).toBe("bitbucket:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
       }),
     );
 
@@ -294,8 +295,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("bitbucket");
         expect(result.canonical).toBe("bitbucket:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
       }),
     );
 
@@ -305,8 +306,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("bitbucket");
         expect(result.canonical).toBe("bitbucket:owner/repo");
-        expect(result.ref).toBe("main");
-        expect(result.path).toBeUndefined();
+        expect(result.ref).toEqual(Option.some("main"));
+        expect(Option.isNone(result.path)).toBe(true);
       }),
     );
 
@@ -318,8 +319,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("bitbucket");
         expect(result.canonical).toBe("bitbucket:owner/repo");
-        expect(result.ref).toBe("main");
-        expect(result.path).toBe("skills/my-skill");
+        expect(result.ref).toEqual(Option.some("main"));
+        expect(result.path).toEqual(Option.some("skills/my-skill"));
       }),
     );
   });
@@ -331,8 +332,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("bitbucket");
         expect(result.canonical).toBe("bitbucket:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
       }),
     );
 
@@ -353,8 +354,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("bitbucket");
         expect(result.canonical).toBe("bitbucket:owner/repo");
-        expect(result.owner).toBe("owner");
-        expect(result.repo).toBe("repo");
+        expect(result.owner).toEqual(Option.some("owner"));
+        expect(result.repo).toEqual(Option.some("repo"));
       }),
     );
 
@@ -364,7 +365,7 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("bitbucket");
         expect(result.canonical).toBe("bitbucket:owner/repo");
-        expect(result.ref).toBe("v1.0.0");
+        expect(result.ref).toEqual(Option.some("v1.0.0"));
       }),
     );
 
@@ -374,8 +375,8 @@ describe("source-parser", () => {
 
         expect(result.type).toBe("bitbucket");
         expect(result.canonical).toBe("bitbucket:owner/repo");
-        expect(result.path).toBe("skills/my-skill");
-        expect(result.ref).toBe("main");
+        expect(result.path).toEqual(Option.some("skills/my-skill"));
+        expect(result.ref).toEqual(Option.some("main"));
       }),
     );
   });
@@ -453,7 +454,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("https://example.com");
 
         expect(result.type).toBe("wellknown");
-        expect(result.baseUrl).toBe("https://example.com");
+        expect(result.baseUrl).toEqual(Option.some("https://example.com"));
         expect(result.canonical).toBe("wellknown:https://example.com");
       }),
     );
@@ -463,7 +464,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("https://example.com/skills");
 
         expect(result.type).toBe("wellknown");
-        expect(result.baseUrl).toBe("https://example.com/skills");
+        expect(result.baseUrl).toEqual(Option.some("https://example.com/skills"));
       }),
     );
 
@@ -472,7 +473,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("https://example.com/path/");
 
         expect(result.type).toBe("wellknown");
-        expect(result.baseUrl).toBe("https://example.com/path/");
+        expect(result.baseUrl).toEqual(Option.some("https://example.com/path/"));
       }),
     );
 
@@ -481,7 +482,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("http://localhost:3000");
 
         expect(result.type).toBe("wellknown");
-        expect(result.baseUrl).toBe("http://localhost:3000");
+        expect(result.baseUrl).toEqual(Option.some("http://localhost:3000"));
       }),
     );
   });
@@ -537,7 +538,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("owner/repo.js");
 
         expect(result.type).toBe("github");
-        expect(result.repo).toBe("repo.js");
+        expect(result.repo).toEqual(Option.some("repo.js"));
       }),
     );
 
@@ -546,7 +547,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("owner/my-awesome-repo");
 
         expect(result.type).toBe("github");
-        expect(result.repo).toBe("my-awesome-repo");
+        expect(result.repo).toEqual(Option.some("my-awesome-repo"));
       }),
     );
 
@@ -555,7 +556,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("my-org/repo");
 
         expect(result.type).toBe("github");
-        expect(result.owner).toBe("my-org");
+        expect(result.owner).toEqual(Option.some("my-org"));
       }),
     );
 
@@ -591,8 +592,13 @@ describe("source-parser", () => {
         type: "github",
         original: "owner/repo",
         canonical: "github:owner/repo",
-        owner: "owner",
-        repo: "repo",
+        owner: Option.some("owner"),
+        repo: Option.some("repo"),
+        ref: Option.none(),
+        path: Option.none(),
+        url: Option.none(),
+        localPath: Option.none(),
+        baseUrl: Option.none(),
       };
 
       const result = await Effect.runPromise(buildCloneUrl(parsed));
@@ -605,8 +611,13 @@ describe("source-parser", () => {
         type: "gitlab",
         original: "gitlab:owner/repo",
         canonical: "gitlab:owner/repo",
-        owner: "owner",
-        repo: "repo",
+        owner: Option.some("owner"),
+        repo: Option.some("repo"),
+        ref: Option.none(),
+        path: Option.none(),
+        url: Option.none(),
+        localPath: Option.none(),
+        baseUrl: Option.none(),
       };
 
       const result = await Effect.runPromise(buildCloneUrl(parsed));
@@ -619,8 +630,13 @@ describe("source-parser", () => {
         type: "bitbucket",
         original: "bitbucket:owner/repo",
         canonical: "bitbucket:owner/repo",
-        owner: "owner",
-        repo: "repo",
+        owner: Option.some("owner"),
+        repo: Option.some("repo"),
+        ref: Option.none(),
+        path: Option.none(),
+        url: Option.none(),
+        localPath: Option.none(),
+        baseUrl: Option.none(),
       };
 
       const result = await Effect.runPromise(buildCloneUrl(parsed));
@@ -635,8 +651,13 @@ describe("source-parser", () => {
         type: "github",
         original: "owner/repo",
         canonical: "github:owner/repo",
-        owner: "owner",
-        repo: "repo",
+        owner: Option.some("owner"),
+        repo: Option.some("repo"),
+        ref: Option.none(),
+        path: Option.none(),
+        url: Option.none(),
+        localPath: Option.none(),
+        baseUrl: Option.none(),
       };
 
       const result = getOriginFromParsed(parsed);
@@ -649,8 +670,13 @@ describe("source-parser", () => {
         type: "gitlab",
         original: "gitlab:owner/repo",
         canonical: "gitlab:owner/repo",
-        owner: "owner",
-        repo: "repo",
+        owner: Option.some("owner"),
+        repo: Option.some("repo"),
+        ref: Option.none(),
+        path: Option.none(),
+        url: Option.none(),
+        localPath: Option.none(),
+        baseUrl: Option.none(),
       };
 
       const result = getOriginFromParsed(parsed);
@@ -663,8 +689,13 @@ describe("source-parser", () => {
         type: "bitbucket",
         original: "bitbucket:owner/repo",
         canonical: "bitbucket:owner/repo",
-        owner: "owner",
-        repo: "repo",
+        owner: Option.some("owner"),
+        repo: Option.some("repo"),
+        ref: Option.none(),
+        path: Option.none(),
+        url: Option.none(),
+        localPath: Option.none(),
+        baseUrl: Option.none(),
       };
 
       const result = getOriginFromParsed(parsed);

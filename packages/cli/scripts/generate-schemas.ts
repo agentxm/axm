@@ -9,8 +9,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as JSONSchema from "effect/JSONSchema";
-import { LockfileSchema } from "../src/workspace/lockfile-schema.js";
-import { SettingsSchema } from "../src/workspace/settings-schema.js";
+import { LockfileSchema } from "../src/lockfile/schema.js";
+import { SettingsSchema } from "../src/settings/schema.js";
 import { SkillManifestSchema } from "../src/extensions/skills/manifest-schema.js";
 import { CommandManifestSchema } from "../src/extensions/commands/manifest-schema.js";
 import { McpServerManifestSchema } from "../src/extensions/mcp-servers/manifest-schema.js";
@@ -22,12 +22,12 @@ const schemas = [
   {
     name: "axm-lock.schema.json",
     schema: LockfileSchema,
-    outputDir: path.join(CLI_SRC, "workspace/__generated__"),
+    outputDir: path.join(CLI_SRC, "lockfile/__generated__"),
   },
   {
     name: "settings.schema.json",
     schema: SettingsSchema,
-    outputDir: path.join(CLI_SRC, "workspace/__generated__"),
+    outputDir: path.join(CLI_SRC, "settings/__generated__"),
   },
   {
     name: "axm-skill.schema.json",

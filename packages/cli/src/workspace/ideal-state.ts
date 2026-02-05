@@ -433,7 +433,7 @@ export const buildIdealForUpdate = (
               agents: locked.agents,
             } satisfies IdealSkillV2;
           }),
-        { concurrency: "inherit" },
+        { concurrency: "unbounded" },
       ),
     );
 

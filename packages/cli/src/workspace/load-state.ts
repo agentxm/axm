@@ -625,10 +625,12 @@ const loadActualSkills = (
     const externalSkillsDir = nodePath.join(extensionsDir, EXTERNAL_SKILLS_DIR);
 
     // Load skills from both locations in parallel
-    const [externalSkills, registrySkills] = yield* Effect.all([
-      scanSkillsDir(externalSkillsDir),
-      scanRegistryScopes(extensionsDir),
-    ]);
+    const [externalSkills, registrySkills] = yield* Effect.all(
+      [scanSkillsDir(externalSkillsDir), scanRegistryScopes(extensionsDir)],
+      {
+        concurrency: "unbounded",
+      },
+    );
 
     return [...externalSkills, ...registrySkills];
   });
@@ -659,10 +661,10 @@ export const loadCurrentState = (
 ): Effect.Effect<CurrentState, WorkspaceError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     // Load actual and locked in parallel
-    const [actualSkills, lockedSkills] = yield* Effect.all([
-      loadActualSkills(ws.path),
-      readLockfile(ws.path),
-    ]);
+    const [actualSkills, lockedSkills] = yield* Effect.all(
+      [loadActualSkills(ws.path), readLockfile(ws.path)],
+      { concurrency: "unbounded" },
+    );
 
     // Detect duplicates in actual skills
     const workspaceIssues: WorkspaceIssue[] = [];

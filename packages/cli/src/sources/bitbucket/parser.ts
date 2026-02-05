@@ -8,13 +8,15 @@
 import * as Effect from "effect/Effect";
 
 import { ParseError } from "../errors.js";
-import { type ParsedSource, ParsedSource as PS } from "../types.js";
+import { type BitbucketSource, type ParsedSource, ParsedSource as PS } from "../types.js";
 import { BITBUCKET_HTTPS_PATTERN, BITBUCKET_SSH_PATTERN } from "./patterns.js";
 
 /**
  * Parse a Bitbucket HTTPS URL.
  */
-export const parseBitbucketHttpsUrl = (input: string): Effect.Effect<ParsedSource, ParseError> => {
+export const parseBitbucketHttpsUrl = (
+  input: string,
+): Effect.Effect<ParsedSource<BitbucketSource>, ParseError> => {
   const match = input.match(BITBUCKET_HTTPS_PATTERN);
   if (!match || !match[1] || !match[2]) {
     return Effect.fail(new ParseError({ message: "Invalid Bitbucket URL format", input }));
@@ -31,7 +33,9 @@ export const parseBitbucketHttpsUrl = (input: string): Effect.Effect<ParsedSourc
 /**
  * Parse a Bitbucket SSH URL.
  */
-export const parseBitbucketSshUrl = (input: string): Effect.Effect<ParsedSource, ParseError> => {
+export const parseBitbucketSshUrl = (
+  input: string,
+): Effect.Effect<ParsedSource<BitbucketSource>, ParseError> => {
   const match = input.match(BITBUCKET_SSH_PATTERN);
   if (!match || !match[1] || !match[2]) {
     return Effect.fail(new ParseError({ message: "Invalid Bitbucket SSH URL format", input }));

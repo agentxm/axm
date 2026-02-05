@@ -10,11 +10,12 @@
 
 // Types (these are interface types distinct from the ParsedSource namespace)
 export type {
-  AzureDevOpsSource,
+  AzureReposSource,
   BitbucketSource,
-  GenericGitSource,
   GitHubSource,
+  GitHostingProviderSource,
   GitLabSource,
+  GitRepositorySource,
   GitSource,
   LocalSource,
   RegistrySource,
@@ -27,7 +28,7 @@ export { ParsedSource, SourceTypeSchema } from "./types.js";
 export type { ParsedSource as ParsedSourceUnion } from "./types.js";
 
 // Type guards
-export { isGitSource } from "./utils.js";
+export { isGitHostingProviderSource } from "./utils.js";
 
 // Errors
 export { CloneUrlError, ParseError } from "./errors.js";

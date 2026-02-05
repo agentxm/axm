@@ -22,12 +22,13 @@ import {
   cloneRepo,
   discoverSkills,
   getCurrentCommit,
-  type GitSource,
   type ParsedSource,
   parseSource,
   type Skill,
+  type Source,
 } from "../../../extensions/skills/index.js";
 import { ensureInitializedLegacy, readSettings } from "../../../settings/index.js";
+import type { BitbucketSource, GitHubSource, GitLabSource } from "../../../sources/index.js";
 import { fetchGitHubTreeHash } from "../../../sources/index.js";
 import { SkillSourceV2 } from "../../../extensions/skills/state/types.js";
 import {
@@ -113,7 +114,7 @@ export class InstallError extends Data.TaggedError("InstallError")<{
  */
 interface ResolvedSource {
   /** Parsed source information */
-  readonly parsed: ParsedSource;
+  readonly parsed: ParsedSource<Source>;
   /** Path to directory containing skills */
   readonly skillsDir: string;
   /** Git commit SHA (for git sources) */
@@ -127,8 +128,8 @@ interface ResolvedSource {
 /**
  * Resolves skills from a GitHub/GitLab/Bitbucket git hosting source.
  */
-const resolveGitSource = (
-  parsed: ParsedSource & { readonly source: GitSource },
+const resolveGitHostingProviderSource = (
+  parsed: ParsedSource<GitHubSource | GitLabSource | BitbucketSource>,
   axmDir: string,
 ): Effect.Effect<
   { skills: Skill[]; skillsDir: string; commitSha: string },
@@ -211,7 +212,7 @@ const resolveGitSource = (
  * operations is provided separately to the applyStep callback.
  */
 const parsedSourceToV2 = (
-  parsed: ParsedSource,
+  parsed: ParsedSource<Source>,
   skillsDir: string,
 ): Effect.Effect<SkillSourceV2, CommandError> => {
   const src = parsed.source;
@@ -452,7 +453,7 @@ export const handleInstall = (
       case "github":
       case "gitlab":
       case "bitbucket":
-      case "azuredevops":
+      case "azurerepos":
         spinner.start("Fetching source to analyze contents...");
         break;
       default:
@@ -464,17 +465,17 @@ export const handleInstall = (
       case "github":
       case "gitlab":
       case "bitbucket": {
-        const gitParsed = parsed as ParsedSource & { readonly source: GitSource };
-        const result = yield* resolveGitSource(gitParsed, ws.path);
+        const gitParsed = parsed as ParsedSource<GitHubSource | GitLabSource | BitbucketSource>;
+        const result = yield* resolveGitHostingProviderSource(gitParsed, ws.path);
         skills = result.skills;
         resolvedSource = { parsed, skillsDir: result.skillsDir, commitSha: result.commitSha };
         break;
       }
 
-      case "azuredevops":
+      case "azurerepos":
         return yield* new InstallError({
           message: formatError(
-            "Azure DevOps sources are not yet supported",
+            "Azure Repos sources are not yet supported",
             [`Source: ${parsed.canonical}`],
             "Use GitHub, GitLab, Bitbucket, or a local path instead.",
           ),

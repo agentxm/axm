@@ -8,7 +8,7 @@
 import * as Effect from "effect/Effect";
 
 import { CloneUrlError } from "./errors.js";
-import type { ParsedSource } from "./types.js";
+import type { ParsedSource, Source } from "./types.js";
 
 /**
  * Build a git clone URL from a parsed source.
@@ -19,7 +19,9 @@ import type { ParsedSource } from "./types.js";
  * @param parsed - The parsed source to build a clone URL for
  * @returns Effect containing the HTTPS clone URL or CloneUrlError
  */
-export const buildCloneUrl = (parsed: ParsedSource): Effect.Effect<string, CloneUrlError> => {
+export const buildCloneUrl = (
+  parsed: ParsedSource<Source>,
+): Effect.Effect<string, CloneUrlError> => {
   const src = parsed.source;
   switch (src.source) {
     case "github":
@@ -51,7 +53,7 @@ export const buildCloneUrl = (parsed: ParsedSource): Effect.Effect<string, Clone
  * @param parsed - The parsed source to get the origin from
  * @returns The origin URL or path
  */
-export const getOriginFromParsed = (parsed: ParsedSource): string => {
+export const getOriginFromParsed = (parsed: ParsedSource<Source>): string => {
   const src = parsed.source;
   switch (src.source) {
     case "github":
@@ -60,7 +62,7 @@ export const getOriginFromParsed = (parsed: ParsedSource): string => {
       return `https://gitlab.com/${src.owner}/${src.repo}`;
     case "bitbucket":
       return `https://bitbucket.org/${src.owner}/${src.repo}`;
-    case "azuredevops":
+    case "azurerepos":
       return `https://dev.azure.com/${src.organization}/${src.project}/_git/${src.repo}`;
     case "local":
     case "git":

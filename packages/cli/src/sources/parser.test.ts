@@ -699,16 +699,22 @@ describe("source-parser", () => {
 
 describe("parseSourceV2", () => {
   describe("parseInputPattern", () => {
-    const expectPattern = (input: string, expected: InputPattern | undefined) => {
-      expect(parseInputPattern(input)).toEqual(expected);
+    const expectSome = (input: string, expected: InputPattern) => {
+      const result = parseInputPattern(input);
+      expect(Option.isSome(result)).toBe(true);
+      expect(Option.getOrThrow(result)).toEqual(expected);
+    };
+
+    const expectNone = (input: string) => {
+      expect(Option.isNone(parseInputPattern(input))).toBe(true);
     };
 
     it("classifies simple name as NameInput", () => {
-      expectPattern("some-name", { _tag: "NameInput", name: "some-name" });
+      expectSome("some-name", { _tag: "NameInput", name: "some-name" });
     });
 
     it("classifies @scope/name as RegistrySourceInput", () => {
-      expectPattern("@myorg/some-name", {
+      expectSome("@myorg/some-name", {
         _tag: "RegistrySourceInput",
         scope: "myorg",
         name: "some-name",
@@ -716,41 +722,85 @@ describe("parseSourceV2", () => {
     });
 
     it("classifies https URL as UrlInput", () => {
-      expectPattern("https://github.com/owner/repo", {
+      expectSome("https://github.com/owner/repo", {
         _tag: "UrlInput",
-        url: "https://github.com/owner/repo",
+        url: new URL("https://github.com/owner/repo"),
       });
     });
 
-    it("classifies git@ SSH URL as UrlInput", () => {
-      expectPattern("git@github.com:owner/repo", {
-        _tag: "UrlInput",
-        url: "git@github.com:owner/repo",
+    it("classifies git@ SCP-style address as ScpAddress", () => {
+      expectSome("git@github.com:owner/repo", {
+        _tag: "ScpAddress",
+        input: "git@github.com:owner/repo",
       });
     });
 
     it("classifies owner/repo as SlashPattern", () => {
-      expectPattern("owner/repo", { _tag: "SlashPattern", input: "owner/repo" });
+      expectSome("owner/repo", { _tag: "SlashPattern", input: "owner/repo" });
     });
 
-    it("classifies owner/repo/sub/path as SlashPattern", () => {
-      expectPattern("owner/repo/sub/path", { _tag: "SlashPattern", input: "owner/repo/sub/path" });
+    it("returns None for slash pattern with more than two segments", () => {
+      expectNone("owner/repo/sub/path");
+    });
+
+    it("returns None for slash pattern with invalid segment", () => {
+      expectNone("owner/-repo");
+    });
+
+    it("returns None for slash pattern with trailing hyphen segment", () => {
+      expectNone("owner/repo-");
+    });
+
+    it("classifies leading slash as FilePathPattern (not SlashPattern)", () => {
+      expectSome("/owner/repo", { _tag: "FilePathPattern", path: "/owner/repo" });
+    });
+
+    it("returns None for slash pattern with trailing slash", () => {
+      expectNone("owner/repo/");
+    });
+
+    it("returns None for slash pattern with empty segment", () => {
+      expectNone("owner//repo");
+    });
+
+    it("returns None for slash pattern with special character segment", () => {
+      expectNone("owner/repo_name");
     });
 
     it("classifies ./local/path as FilePathPattern", () => {
-      expectPattern("./local/path", { _tag: "FilePathPattern", path: "./local/path" });
+      expectSome("./local/path", { _tag: "FilePathPattern", path: "./local/path" });
     });
 
     it("classifies /absolute/path as FilePathPattern", () => {
-      expectPattern("/absolute/path", { _tag: "FilePathPattern", path: "/absolute/path" });
+      expectSome("/absolute/path", { _tag: "FilePathPattern", path: "/absolute/path" });
     });
 
     it("classifies ~/home/path as FilePathPattern", () => {
-      expectPattern("~/home/path", { _tag: "FilePathPattern", path: "~/home/path" });
+      expectSome("~/home/path", { _tag: "FilePathPattern", path: "~/home/path" });
     });
 
-    it("returns undefined for empty string", () => {
-      expectPattern("", undefined);
+    it("classifies single character name as NameInput", () => {
+      expectSome("a", { _tag: "NameInput", name: "a" });
+    });
+
+    it("returns None for name with leading hyphen", () => {
+      expectNone("-foo");
+    });
+
+    it("returns None for name with trailing hyphen", () => {
+      expectNone("foo-");
+    });
+
+    it("returns None for name with special characters", () => {
+      expectNone("foo_bar");
+    });
+
+    it("returns None for empty string", () => {
+      expectNone("");
+    });
+
+    it("returns None for whitespace-only string", () => {
+      expectNone("   ");
     });
   });
 
@@ -787,11 +837,52 @@ describe("parseSourceV2", () => {
       }),
     );
 
-    it.effect("fails with 'not yet supported' for UrlInput", () =>
+    it.effect("parses GitHub HTTPS URL via UrlInput", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceV2("https://github.com/owner/repo"));
+        const result = yield* parseSourceV2("https://github.com/owner/repo");
+        expect(result.source).toMatchObject({ source: "github", owner: "owner", repo: "repo" });
+      }),
+    );
+
+    it.effect("parses GitLab HTTPS URL via UrlInput", () =>
+      Effect.gen(function* () {
+        const result = yield* parseSourceV2("https://gitlab.com/owner/repo");
+        expect(result.source).toMatchObject({ source: "gitlab", owner: "owner", repo: "repo" });
+      }),
+    );
+
+    it.effect("parses Bitbucket HTTPS URL via UrlInput", () =>
+      Effect.gen(function* () {
+        const result = yield* parseSourceV2("https://bitbucket.org/owner/repo");
+        expect(result.source).toMatchObject({
+          source: "bitbucket",
+          owner: "owner",
+          repo: "repo",
+        });
+      }),
+    );
+
+    it.effect("fails with 'not yet supported' for ScpAddress", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSourceV2("git@github.com:owner/repo.git"));
         expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toBe("URL input is not yet supported");
+        expect(error.message).toBe("SCP-style git addresses are not yet supported");
+      }),
+    );
+
+    it.effect("fails for unsupported URL host", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSourceV2("https://example.com/owner/repo"));
+        expect(error).toBeInstanceOf(ParseError);
+        expect(error.message).toContain("Unsupported URL host");
+      }),
+    );
+
+    it.effect("rejects invalid URL with unrecognized segments", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSourceV2("http://"));
+        expect(error).toBeInstanceOf(ParseError);
+        expect(error.message).toBe("Unable to parse source");
       }),
     );
 

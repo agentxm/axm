@@ -9,6 +9,8 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 
 import { parseBitbucketHttpsUrl, parseBitbucketSshUrl } from "./bitbucket/index.js";
 import { ParseError } from "./errors.js";
@@ -37,8 +39,11 @@ type RegistrySourceInput = {
   readonly name: string;
 };
 
-/** A URL starting with `http://`, `https://`, or `git@`. */
-type UrlInput = { readonly _tag: "UrlInput"; readonly url: string };
+/** A valid URL (validated via `Schema.URL`). */
+type UrlInput = { readonly _tag: "UrlInput"; readonly url: URL };
+
+/** An SCP-style git address: `user@host:path` (e.g. `git@github.com:owner/repo.git`). */
+type ScpAddress = { readonly _tag: "ScpAddress"; readonly input: string };
 
 /** An `owner/repo` style pattern containing `/` (not a URL or file path). */
 type SlashPattern = { readonly _tag: "SlashPattern"; readonly input: string };
@@ -51,42 +56,67 @@ export type InputPattern =
   | NameInput
   | RegistrySourceInput
   | UrlInput
+  | ScpAddress
   | SlashPattern
   | FilePathPattern;
 
 const REGISTRY_SOURCE_PATTERN = /^@([^/]+)\/(.+)$/;
 
+/** SCP-style: `user@host:path` — no `://` scheme. */
+const SCP_PATTERN = /^[^@]+@[^:]+:.+$/;
+
+/** Simple name: alphanumeric with hyphens, no leading/trailing hyphen. */
+const NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
+
 /**
  * Classify an input string into an InputPattern.
  *
- * Pure function — no effects, no trimming. Returns `undefined` for empty/whitespace-only input.
+ * Pure function — no effects, no trimming. Returns `None` for empty/whitespace-only input.
  */
-export const parseInputPattern = (input: string): InputPattern | undefined => {
-  if (!input || !input.trim()) return undefined;
+export const parseInputPattern = (input: string): Option.Option<InputPattern> => {
+  if (!input || !input.trim()) return Option.none();
 
-  // 1. URL
-  if (input.startsWith("http://") || input.startsWith("https://") || input.startsWith("git@")) {
-    return { _tag: "UrlInput", url: input };
+  // 1. SCP-style git address (user@host:path) — must check before URL
+  if (SCP_PATTERN.test(input)) {
+    return Option.some({ _tag: "ScpAddress", input });
   }
 
-  // 2. Registry source (@scope/name)
+  // 2. URL (validated via Schema.URL)
+  const urlOption = Schema.decodeUnknownOption(Schema.URL)(input);
+  if (Option.isSome(urlOption)) {
+    return Option.some({ _tag: "UrlInput", url: urlOption.value });
+  }
+
+  // 3. Registry source (@scope/name)
   const registryMatch = input.match(REGISTRY_SOURCE_PATTERN);
   if (registryMatch && registryMatch[1] && registryMatch[2]) {
-    return { _tag: "RegistrySourceInput", scope: registryMatch[1], name: registryMatch[2] };
+    return Option.some({
+      _tag: "RegistrySourceInput",
+      scope: registryMatch[1],
+      name: registryMatch[2],
+    });
   }
 
-  // 3. File path
+  // 4. File path
   if (LOCAL_PATH_PATTERN.test(input)) {
-    return { _tag: "FilePathPattern", path: input };
+    return Option.some({ _tag: "FilePathPattern", path: input });
   }
 
-  // 4. Slash pattern (contains `/` — URLs and file paths already handled above)
+  // 5. Slash pattern (exactly two valid-name segments: `owner/repo`)
   if (input.includes("/")) {
-    return { _tag: "SlashPattern", input };
+    const segments = input.split("/");
+    if (segments.length === 2 && segments.every((s) => NAME_PATTERN.test(s))) {
+      return Option.some({ _tag: "SlashPattern", input });
+    }
+    return Option.none();
   }
 
-  // 5. Simple name
-  return { _tag: "NameInput", name: input };
+  // 6. Simple name (alphanumeric with hyphens, no leading/trailing hyphen)
+  if (NAME_PATTERN.test(input)) {
+    return Option.some({ _tag: "NameInput", name: input });
+  }
+
+  return Option.none();
 };
 
 // -----------------------------------------------------------------------------
@@ -106,11 +136,13 @@ export const parseSourceV2 = (input: string): Effect.Effect<ParsedSource<Source>
     return Effect.fail(new ParseError({ message: "Source string cannot be empty", input }));
   }
 
-  const pattern = parseInputPattern(trimmed);
+  const patternOption = parseInputPattern(trimmed);
 
-  if (!pattern) {
+  if (Option.isNone(patternOption)) {
     return Effect.fail(new ParseError({ message: "Unable to parse source", input: trimmed }));
   }
+
+  const pattern = patternOption.value;
 
   switch (pattern._tag) {
     case "NameInput":
@@ -121,10 +153,29 @@ export const parseSourceV2 = (input: string): Effect.Effect<ParsedSource<Source>
       return Effect.fail(
         new ParseError({ message: "Registry source input is not yet supported", input: trimmed }),
       );
-    case "UrlInput":
+    case "ScpAddress":
       return Effect.fail(
-        new ParseError({ message: "URL input is not yet supported", input: trimmed }),
+        new ParseError({
+          message: "SCP-style git addresses are not yet supported",
+          input: trimmed,
+        }),
       );
+    case "UrlInput":
+      switch (pattern.url.hostname) {
+        case "github.com":
+          return parseGitHubHttpsUrl(trimmed);
+        case "gitlab.com":
+          return parseGitLabHttpsUrl(trimmed);
+        case "bitbucket.org":
+          return parseBitbucketHttpsUrl(trimmed);
+        default:
+          return Effect.fail(
+            new ParseError({
+              message: `Unsupported URL host: "${pattern.url.hostname}"`,
+              input: trimmed,
+            }),
+          );
+      }
     case "SlashPattern":
       return Effect.fail(
         new ParseError({ message: "Slash pattern is not yet supported", input: trimmed }),

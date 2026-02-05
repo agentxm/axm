@@ -1,8 +1,5 @@
 /**
  * TTY detection utilities for CLI handlers.
- *
- * These functions help handlers determine whether they can use
- * interactive prompts and fancy output (spinners, colors, etc.).
  */
 
 /**
@@ -14,15 +11,4 @@
  */
 export function isInteractive(): boolean {
   return process.stdin.isTTY === true;
-}
-
-/**
- * Returns true if stdout is a TTY, meaning we can use fancy output
- * like spinners, colors, and progress bars.
- *
- * Use this before using spinners or other TTY-dependent output.
- * When false, use plain text logging instead.
- */
-export function isFancyOutput(): boolean {
-  return process.stdout.isTTY === true;
 }

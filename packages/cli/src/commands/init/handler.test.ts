@@ -829,50 +829,5 @@ describe("init.handler", () => {
         ),
       );
     });
-
-    describe("when stdout is not a TTY (non-fancy output)", () => {
-      beforeEach(() => {
-        vi.spyOn(tty, "isFancyOutput").mockReturnValue(false);
-      });
-
-      afterEach(() => {
-        vi.restoreAllMocks();
-      });
-
-      it.effect("succeeds without errors when spinner would normally be used", () =>
-        withFileSystem(
-          Effect.gen(function* () {
-            const args: InitArgs = {
-              ...defaultArgs,
-              yes: true,
-            };
-
-            yield* handleInit(args);
-
-            // Should succeed - plain text logging used instead of spinner
-            const settingsPath = path.join(tempDir, ".axm", "settings.json");
-            expect(fs.existsSync(settingsPath)).toBe(true);
-          }),
-        ),
-      );
-
-      it.effect("creates settings file correctly without fancy output", () =>
-        withFileSystem(
-          Effect.gen(function* () {
-            const args: InitArgs = {
-              ...defaultArgs,
-              agent: ["claude-code", "cursor"],
-            };
-
-            yield* handleInit(args);
-
-            const settingsPath = path.join(tempDir, ".axm", "settings.json");
-            const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-            expect(settings.agents).toEqual(["claude-code", "cursor"]);
-            expect(settings.skills).toBeUndefined();
-          }),
-        ),
-      );
-    });
   });
 });

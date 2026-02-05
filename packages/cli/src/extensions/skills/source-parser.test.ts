@@ -507,49 +507,13 @@ describe("source-parser", () => {
     );
   });
 
-  describe("well-known URLs", () => {
-    it.effect("parses https://example.com as wellknown", () =>
+  describe("unsupported URLs", () => {
+    it.effect("fails on unknown HTTPS URLs", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("https://example.com");
+        const error = yield* Effect.flip(parseSource("https://example.com"));
 
-        expect(result.source).toBe("wellknown");
-        if (result.source === "wellknown") {
-          expect(result.baseUrl).toBe("https://example.com");
-        }
-        expect(result.canonical).toBe("wellknown:https://example.com");
-      }),
-    );
-
-    it.effect("parses https://example.com/skills as wellknown", () =>
-      Effect.gen(function* () {
-        const result = yield* parseSource("https://example.com/skills");
-
-        expect(result.source).toBe("wellknown");
-        if (result.source === "wellknown") {
-          expect(result.baseUrl).toBe("https://example.com/skills");
-        }
-      }),
-    );
-
-    it.effect("parses https://example.com/path/ as wellknown", () =>
-      Effect.gen(function* () {
-        const result = yield* parseSource("https://example.com/path/");
-
-        expect(result.source).toBe("wellknown");
-        if (result.source === "wellknown") {
-          expect(result.baseUrl).toBe("https://example.com/path/");
-        }
-      }),
-    );
-
-    it.effect("parses http://localhost:3000 as wellknown", () =>
-      Effect.gen(function* () {
-        const result = yield* parseSource("http://localhost:3000");
-
-        expect(result.source).toBe("wellknown");
-        if (result.source === "wellknown") {
-          expect(result.baseUrl).toBe("http://localhost:3000");
-        }
+        expect(error).toBeInstanceOf(ParseError);
+        expect(error.message).toContain("Unable to parse source");
       }),
     );
   });

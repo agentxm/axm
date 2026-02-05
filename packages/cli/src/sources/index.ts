@@ -20,7 +20,6 @@ export type {
   LocalSource,
   RegistrySource,
   Source,
-  WellKnownSource,
 } from "./types.js";
 // ParsedSource is both a type and value - export it properly
 export { ParsedSource, SourceSchema } from "./types.js";
@@ -52,18 +51,3 @@ export {
 // GitHub API
 export type { GitHubApiError } from "./github/index.js";
 export { fetchGitHubTreeHash } from "./github/index.js";
-
-// Well-known discovery
-export type { WellKnownError } from "./wellknown/index.js";
-export {
-  discoverWellKnownSkills,
-  fetchSkillFiles,
-  fetchWellKnownIndex,
-  isWellKnownEligible,
-  WellKnownFetchError,
-  WellKnownInvalidIndexError,
-  WellKnownNotFoundError,
-} from "./wellknown/index.js";
-
-// Well-known types
-export type { WellKnownIndex, WellKnownSkill } from "./wellknown/index.js";

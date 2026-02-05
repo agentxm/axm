@@ -43,13 +43,11 @@ export const SourceSchema = Schema.Literal(
 export type BaseSource = typeof SourceSchema.Type;
 
 /**
- * Extended source type discriminator including "wellknown".
- *
- * Extends BaseSource with `"wellknown"` for HTTP(S) URLs with well-known skills index.
+ * Source type alias.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type Source = BaseSource | "wellknown";
+export type Source = BaseSource;
 
 // -----------------------------------------------------------------------------
 // Discriminated Union Types
@@ -171,15 +169,6 @@ export interface LocalSource extends SourceBase {
 }
 
 /**
- * Well-known HTTP(S) source with skills index discovery.
- */
-export interface WellKnownSource extends SourceBase {
-  readonly source: "wellknown";
-  /** Base URL for well-known discovery */
-  readonly baseUrl: string;
-}
-
-/**
  * Result of parsing a source string.
  * Discriminated union based on the `source` field.
  *
@@ -192,8 +181,7 @@ export type ParsedSource =
   | AzureDevOpsSource
   | GenericGitSource
   | RegistrySource
-  | LocalSource
-  | WellKnownSource;
+  | LocalSource;
 
 // -----------------------------------------------------------------------------
 // ParsedSource Namespace with Constructors
@@ -268,15 +256,5 @@ export const ParsedSource = {
     original: args.original,
     canonical: `local:${args.localPath}`,
     localPath: args.localPath,
-  }),
-
-  /**
-   * Create a well-known HTTP(S) source.
-   */
-  WellKnown: (args: { original: string; baseUrl: string }): WellKnownSource => ({
-    source: "wellknown",
-    original: args.original,
-    canonical: `wellknown:${args.baseUrl}`,
-    baseUrl: args.baseUrl,
   }),
 } as const;

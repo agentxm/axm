@@ -5,9 +5,8 @@
  */
 
 import * as fs from "node:fs";
-import * as http from "node:http";
 import * as path from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 
@@ -204,114 +203,6 @@ describe("axm skills install", () => {
       } finally {
         temp.cleanup();
         emptyDir.cleanup();
-      }
-    });
-  });
-
-  describe("with well-known URL --list", () => {
-    let server: http.Server;
-    let serverPort: number;
-    let serverUrl: string;
-
-    beforeAll(async () => {
-      // Create a simple HTTP server that serves a well-known skills index
-      server = http.createServer((req, res) => {
-        if (req.url === "/.well-known/skills/index.json") {
-          res.writeHead(200, { "Content-Type": "application/json" });
-          res.end(
-            JSON.stringify({
-              skills: [
-                {
-                  name: "remote-skill",
-                  description: "A skill from a well-known URL",
-                  files: ["SKILL.md"],
-                },
-                {
-                  name: "another-remote",
-                  description: "Another remote skill",
-                  files: ["SKILL.md"],
-                },
-              ],
-            }),
-          );
-        } else {
-          res.writeHead(404);
-          res.end("Not Found");
-        }
-      });
-
-      // Start server on random available port
-      await new Promise<void>((resolve) => {
-        server.listen(0, "127.0.0.1", () => {
-          const address = server.address();
-          if (typeof address === "object" && address !== null) {
-            serverPort = address.port;
-            serverUrl = `http://127.0.0.1:${serverPort}`;
-          }
-          resolve();
-        });
-      });
-    });
-
-    afterAll(async () => {
-      await new Promise<void>((resolve) => {
-        server.close(() => resolve());
-      });
-    });
-
-    it("discovers skills from index.json", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        const result = await runCli(
-          ["skills", "install", serverUrl, "--list", "--agent", "claude-code"],
-          { cwd: temp.path },
-        );
-
-        expect(result.exitCode).toBe(0);
-        expect(result.stdout).toContain("remote-skill");
-        expect(result.stdout).toContain("another-remote");
-        expect(result.stdout).toContain("A skill from a well-known URL");
-        expect(result.stdout).toMatch(/2 skill\(s\) available/);
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("shows error for URL without well-known index", async () => {
-      const temp = createTempDir();
-      // Create server that always returns 404
-      const errorServer = http.createServer((_, res) => {
-        res.writeHead(404);
-        res.end("Not Found");
-      });
-
-      await new Promise<void>((resolve) => {
-        errorServer.listen(0, "127.0.0.1", () => resolve());
-      });
-
-      const address = errorServer.address();
-      const errorPort = typeof address === "object" && address !== null ? address.port : 0;
-      const errorUrl = `http://127.0.0.1:${errorPort}`;
-
-      try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        const result = await runCli(
-          ["skills", "install", errorUrl, "--list", "--agent", "claude-code"],
-          { cwd: temp.path },
-        );
-
-        expect(result.exitCode).not.toBe(0);
-        expect(result.stderr).toContain("Error");
-      } finally {
-        temp.cleanup();
-        errorServer.close();
       }
     });
   });

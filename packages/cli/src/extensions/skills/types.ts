@@ -9,13 +9,7 @@ import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 
 // Re-export Source and ParsedSource from canonical location
-export type {
-  GitSource,
-  ParsedSource,
-  Source,
-  WellKnownIndex,
-  WellKnownSkill,
-} from "../../sources/index.js";
+export type { GitSource, ParsedSource, Source } from "../../sources/index.js";
 export { isGitSource } from "../../sources/index.js";
 
 // -----------------------------------------------------------------------------

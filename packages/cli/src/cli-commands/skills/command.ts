@@ -13,7 +13,6 @@ export const skillsCommand: CommandModule = {
       .example("$0 skills install owner/repo", "Install skills from a GitHub repository")
       .example("$0 skills install owner/repo@v1.0.0", "Install skills from a specific version")
       .example("$0 skills install ./local/path", "Install skills from a local directory")
-      .example("$0 skills install https://example.com", "Install skills via well-known discovery")
       .fail((msg, _err, yargs) => {
         if (msg?.includes("Not enough non-option arguments")) {
           yargs.showHelp("log");

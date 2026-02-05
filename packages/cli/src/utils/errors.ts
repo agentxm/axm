@@ -78,7 +78,6 @@ export function formatEmptyResolutionError(input: string): string {
       "  • Local path: ./path/to/skill or /absolute/path",
       "  • GitHub: github:owner/repo or owner/repo",
       "  • GitLab: gitlab:owner/repo",
-      "  • URL: https://example.com/.well-known/axm.json",
       "  • AXM name: @scope/name (if installed)",
     ].join("\n"),
   );

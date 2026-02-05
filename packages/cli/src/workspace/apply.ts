@@ -362,8 +362,9 @@ export interface ApplyStepOptions {
  * Get source path from a SkillSourceV2.
  * For Local sources, returns the path directly.
  * For other sources, they should have been fetched to a local path first.
+ * @throws Error if source is a remote type that hasn't been fetched.
  */
-const getSourcePath = (source: SkillSourceV2): string => {
+const getSourcePathOrThrow = (source: SkillSourceV2): string => {
   switch (source._tag) {
     case "Local":
       return source.path;
@@ -567,7 +568,7 @@ const installSkill = (
     const fs = yield* FileSystem.FileSystem;
     const { workspacePath, agents } = options;
 
-    const sourcePath = getSourcePath(step.source);
+    const sourcePath = getSourcePathOrThrow(step.source);
     const canonicalPath = getCanonicalPath(workspacePath, step.source, step.skill);
 
     // Check if source exists

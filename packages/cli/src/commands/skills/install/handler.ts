@@ -16,7 +16,7 @@
  */
 
 import * as nodePath from "node:path";
-import { type AgentConfig, detectAgents, getAgentById } from "@agentxm/core/experimental/agents";
+import { type AgentConfig, getAgentById } from "@agentxm/core/experimental/agents";
 import {
   buildCloneUrl,
   cloneRepo,
@@ -26,6 +26,7 @@ import {
   getCurrentCommit,
   type ParsedSource,
   parseSource,
+  readSettings,
   type Skill,
 } from "@agentxm/core/experimental/skills";
 import { fetchGitHubTreeHash } from "@agentxm/core/experimental/skills/github-api";
@@ -59,7 +60,6 @@ import { formatError } from "../../../utils/errors.js";
 import { canPrompt, promptConfirm, promptMultiselect } from "../../../utils/prompts.js";
 import { createSpinnerHelper } from "../../../utils/spinner.js";
 import { isInteractive } from "../../../utils/tty.js";
-import { OperationContext } from "../../../services/operation-context.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -442,11 +442,7 @@ const createBuildIdealDeps = (
  */
 export const handleInstall = (
   args: InstallArgs,
-): Effect.Effect<
-  void,
-  InstallError,
-  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | OperationContext
-> => {
+): Effect.Effect<void, InstallError, FileSystem.FileSystem | HttpClient.HttpClient | Path.Path> => {
   const scopeLabel = args.global ? "global" : "project";
 
   return Effect.gen(function* () {
@@ -455,8 +451,6 @@ export const handleInstall = (
       global: args.global,
       interactive: isInteractive() && !args.nonInteractive,
     });
-
-    yield* OperationContext;
 
     // Show intro
     p.intro(`axm skills install (${scopeLabel})`);
@@ -496,12 +490,12 @@ export const handleInstall = (
     );
     spinnerHelper.stop("Initialized");
 
-    // Step 3: Detect or select agents
-    spinnerHelper.start("Detecting agents...");
+    // Step 3: Get agents from settings or --agent flag
+    spinnerHelper.start("Loading agents...");
     let agents: AgentConfig[];
 
     if (args.agent.length > 0) {
-      // Use explicitly specified agents
+      // Use explicitly specified agents via --agent flag
       agents = args.agent
         .map((id) => getAgentById(id))
         .filter(Option.isSome)
@@ -519,70 +513,29 @@ export const handleInstall = (
         spinnerHelper.stop(`Using ${agents.length} specified agent(s)`);
       }
     } else {
-      // Detect installed agents
-      const detectedAgents = yield* detectAgents().pipe(
+      // Read agents from settings (selected during init)
+      const settings = yield* readSettings(ws.path).pipe(
         Effect.mapError(
           (error) =>
             new InstallError({
-              message: `Failed to detect agents: ${error.message}`,
+              message: `Failed to read settings: ${error.message}`,
               cause: error,
               retryable: false,
             }),
         ),
       );
 
-      if (detectedAgents.length === 0) {
-        spinnerHelper.stop("No agents detected");
-        p.log.error("No AI coding agents detected. Use --agent to specify agents manually.");
-        p.outro("No agents available.");
-        return;
-      }
+      const settingsAgents = settings.agents ?? [];
+      agents = settingsAgents
+        .map((id) => getAgentById(id))
+        .filter(Option.isSome)
+        .map((opt) => opt.value);
 
-      spinnerHelper.stop(`Found ${detectedAgents.length} agent(s)`);
-
-      // Select agents (interactive or auto)
-      if (args.yes || args.nonInteractive || args.dryRun) {
-        agents = detectedAgents;
-        p.log.info(`Auto-selecting all detected agents: ${agents.map((a) => a.name).join(", ")}`);
-      } else if (!isInteractive()) {
-        // Not interactive and no --yes/--non-interactive flag
-        return yield* new InstallError({
-          message: formatError(
-            "Cannot prompt for agent selection",
-            ["stdin is not a TTY"],
-            "Use --yes, --all, or --non-interactive to run without prompts.",
-          ),
-          retryable: false,
-        });
-      } else {
-        const selectedAgents = yield* promptMultiselect(
-          "Select agents to install skills for",
-          detectedAgents,
-          {
-            toOption: (a) => ({
-              value: a.id,
-              label: a.name,
-              hint: `skills: ${a.skills.projectDir}`,
-            }),
-            initialValues: detectedAgents.map((a) => a.id),
-            required: true,
-          },
-        ).pipe(
-          Effect.mapError(
-            (error) =>
-              new InstallError({
-                message: "Failed to prompt for agent selection",
-                cause: error,
-                retryable: false,
-              }),
-          ),
-        );
-        agents = selectedAgents;
-      }
+      spinnerHelper.stop(`Using ${agents.length} agent(s) from settings`);
     }
 
     if (agents.length === 0) {
-      p.log.error("No agents selected.");
+      p.log.error("No agents configured. Run 'axm init' first or use --agent to specify agents.");
       p.outro("Nothing to do.");
       return;
     }

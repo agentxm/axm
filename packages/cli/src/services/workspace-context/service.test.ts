@@ -28,9 +28,36 @@ import type { FileSystem } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { WorkspaceNotInitializedError } from "./errors.js";
+import type { ClackService } from "../clack-effect/service.js";
+import { InteractionContext } from "../interaction-context/service.js";
+import { WorkspaceInitializationError } from "./errors.js";
 import { make, WorkspaceContext } from "./service.js";
+
+/**
+ * Mock ClackService for testing.
+ */
+const mockClackService: ClackService = {
+  intro: () => Effect.void,
+  outro: () => Effect.void,
+  log: {
+    info: () => Effect.void,
+    warn: () => Effect.void,
+    error: () => Effect.void,
+    success: () => Effect.void,
+    message: () => Effect.void,
+  },
+  confirm: () => Effect.succeed(true),
+  select: <T>(_msg: string, items: readonly T[]) => Effect.succeed(items[0] as T),
+  multiselect: <T>(_msg: string, items: readonly T[]) => Effect.succeed(items),
+  spinner: () => Effect.succeed({ start: () => {}, stop: () => {} }),
+};
+
+/**
+ * Mock InteractionContext layer for testing.
+ */
+const MockInteractionContext = InteractionContext.layer({ p: mockClackService });
 
 describe("WorkspaceContext", () => {
   let tempDir: string;
@@ -38,8 +65,11 @@ describe("WorkspaceContext", () => {
   let globalAxmDir: string;
   let localAxmDir: string;
 
-  const withFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
-    effect.pipe(Effect.provide(NodeFileSystem.layer));
+  const TestLayer = Layer.merge(NodeFileSystem.layer, MockInteractionContext);
+
+  const withTestLayer = <A, E>(
+    effect: Effect.Effect<A, E, FileSystem.FileSystem | InteractionContext>,
+  ) => effect.pipe(Effect.provide(TestLayer));
 
   beforeEach(() => {
     // Save original values
@@ -67,7 +97,7 @@ describe("WorkspaceContext", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  describe("make({ global: true })", () => {
+  describe("make({ global: true, yes: false, nonInteractive: false })", () => {
     let existedBefore: boolean;
     let backupSettings: string | undefined;
 
@@ -92,7 +122,7 @@ describe("WorkspaceContext", () => {
     });
 
     it.effect("returns empty settings when global settings file does not exist", () =>
-      withFileSystem(
+      withTestLayer(
         Effect.gen(function* () {
           // Ensure no global settings
           const settingsPath = path.join(globalAxmDir, "settings.json");
@@ -100,7 +130,7 @@ describe("WorkspaceContext", () => {
             fs.rmSync(settingsPath);
           }
 
-          const ctx = yield* make({ global: true });
+          const ctx = yield* make({ global: true, yes: false, nonInteractive: false });
 
           expect(ctx.global).toBe(true);
           expect(ctx.settings).toEqual({});
@@ -110,7 +140,7 @@ describe("WorkspaceContext", () => {
     );
 
     it.effect("returns global settings when they exist", () =>
-      withFileSystem(
+      withTestLayer(
         Effect.gen(function* () {
           // Create global settings
           fs.mkdirSync(globalAxmDir, { recursive: true });
@@ -123,7 +153,7 @@ describe("WorkspaceContext", () => {
             JSON.stringify(globalSettings),
           );
 
-          const ctx = yield* make({ global: true });
+          const ctx = yield* make({ global: true, yes: false, nonInteractive: false });
 
           expect(ctx.global).toBe(true);
           expect(ctx.settings.scope).toBe("@global-org");
@@ -134,7 +164,7 @@ describe("WorkspaceContext", () => {
     );
 
     it.effect("does not read local settings in global mode", () =>
-      withFileSystem(
+      withTestLayer(
         Effect.gen(function* () {
           // Ensure no global settings
           const globalSettingsPath = path.join(globalAxmDir, "settings.json");
@@ -149,7 +179,7 @@ describe("WorkspaceContext", () => {
           };
           fs.writeFileSync(path.join(localAxmDir, "settings.json"), JSON.stringify(localSettings));
 
-          const ctx = yield* make({ global: true });
+          const ctx = yield* make({ global: true, yes: false, nonInteractive: false });
 
           // Should not have local settings
           expect(ctx.settings).toEqual({});
@@ -159,7 +189,179 @@ describe("WorkspaceContext", () => {
     );
   });
 
-  describe("make({ global: false })", () => {
+  describe("global workspace auto-initialization", () => {
+    let existedBefore: boolean;
+    let backupSettings: string | undefined;
+    let existedLockfileBefore: boolean;
+    let backupLockfile: string | undefined;
+
+    beforeEach(() => {
+      // Backup global settings if they exist
+      const settingsPath = path.join(globalAxmDir, "settings.json");
+      existedBefore = fs.existsSync(settingsPath);
+      if (existedBefore) {
+        backupSettings = fs.readFileSync(settingsPath, "utf-8");
+      }
+
+      // Backup global lockfile if it exists
+      const lockfilePath = path.join(globalAxmDir, "axm-lock.yaml");
+      existedLockfileBefore = fs.existsSync(lockfilePath);
+      if (existedLockfileBefore) {
+        backupLockfile = fs.readFileSync(lockfilePath, "utf-8");
+      }
+    });
+
+    afterEach(() => {
+      // Restore global settings
+      const settingsPath = path.join(globalAxmDir, "settings.json");
+      if (existedBefore && backupSettings) {
+        fs.mkdirSync(globalAxmDir, { recursive: true });
+        fs.writeFileSync(settingsPath, backupSettings);
+      } else if (!existedBefore && fs.existsSync(settingsPath)) {
+        fs.rmSync(settingsPath);
+      }
+
+      // Restore global lockfile
+      const lockfilePath = path.join(globalAxmDir, "axm-lock.yaml");
+      if (existedLockfileBefore && backupLockfile) {
+        fs.mkdirSync(globalAxmDir, { recursive: true });
+        fs.writeFileSync(lockfilePath, backupLockfile);
+      } else if (!existedLockfileBefore && fs.existsSync(lockfilePath)) {
+        fs.rmSync(lockfilePath);
+      }
+    });
+
+    it.effect("creates settings.json with {} when global=true and file is missing", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          // Ensure no global settings
+          const settingsPath = path.join(globalAxmDir, "settings.json");
+          if (fs.existsSync(settingsPath)) {
+            fs.rmSync(settingsPath);
+          }
+
+          // Ensure lockfile exists so we isolate the settings test
+          const lockfilePath = path.join(globalAxmDir, "axm-lock.yaml");
+          fs.mkdirSync(globalAxmDir, { recursive: true });
+          fs.writeFileSync(lockfilePath, "lockfileVersion: 1\nskills: {}\n");
+
+          yield* make({ global: true, yes: false, nonInteractive: false });
+
+          // Verify settings.json was created
+          expect(fs.existsSync(settingsPath)).toBe(true);
+          const content = fs.readFileSync(settingsPath, "utf-8");
+          expect(JSON.parse(content)).toEqual({});
+        }),
+      ),
+    );
+
+    it.effect("creates axm-lock.yaml with version 1 when global=true and file is missing", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          // Ensure no global lockfile
+          const lockfilePath = path.join(globalAxmDir, "axm-lock.yaml");
+          if (fs.existsSync(lockfilePath)) {
+            fs.rmSync(lockfilePath);
+          }
+
+          // Ensure settings exists so we isolate the lockfile test
+          const settingsPath = path.join(globalAxmDir, "settings.json");
+          fs.mkdirSync(globalAxmDir, { recursive: true });
+          fs.writeFileSync(settingsPath, "{}");
+
+          yield* make({ global: true, yes: false, nonInteractive: false });
+
+          // Verify axm-lock.yaml was created
+          expect(fs.existsSync(lockfilePath)).toBe(true);
+          const content = fs.readFileSync(lockfilePath, "utf-8");
+          expect(content).toContain("lockfileVersion: 1");
+          expect(content).toContain("skills:");
+        }),
+      ),
+    );
+
+    it.effect("creates both files when global=true and neither exists", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          // Remove entire .axm directory
+          if (fs.existsSync(globalAxmDir)) {
+            fs.rmSync(globalAxmDir, { recursive: true });
+          }
+
+          yield* make({ global: true, yes: false, nonInteractive: false });
+
+          // Verify both files were created
+          const settingsPath = path.join(globalAxmDir, "settings.json");
+          const lockfilePath = path.join(globalAxmDir, "axm-lock.yaml");
+
+          expect(fs.existsSync(settingsPath)).toBe(true);
+          expect(fs.existsSync(lockfilePath)).toBe(true);
+
+          const settingsContent = fs.readFileSync(settingsPath, "utf-8");
+          expect(JSON.parse(settingsContent)).toEqual({});
+
+          const lockfileContent = fs.readFileSync(lockfilePath, "utf-8");
+          expect(lockfileContent).toContain("lockfileVersion: 1");
+        }),
+      ),
+    );
+
+    it.effect("does not modify existing files when both exist", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          // Create existing files with custom content
+          fs.mkdirSync(globalAxmDir, { recursive: true });
+
+          const settingsPath = path.join(globalAxmDir, "settings.json");
+          const existingSettings: Settings = { scope: "@existing-scope" };
+          fs.writeFileSync(settingsPath, JSON.stringify(existingSettings));
+
+          const lockfilePath = path.join(globalAxmDir, "axm-lock.yaml");
+          const existingLockfileContent = `lockfileVersion: 1
+skills:
+  existing-skill:
+    source: local
+    path: /test/path
+    agents:
+      - claude-code
+    installedAt: "2024-01-01T00:00:00.000Z"
+    updatedAt: "2024-01-01T00:00:00.000Z"
+`;
+          fs.writeFileSync(lockfilePath, existingLockfileContent);
+
+          const ctx = yield* make({ global: true, yes: false, nonInteractive: false });
+
+          // Verify files were not modified
+          const settingsContent = fs.readFileSync(settingsPath, "utf-8");
+          expect(JSON.parse(settingsContent)).toEqual(existingSettings);
+          expect(ctx.settings.scope).toBe("@existing-scope");
+
+          const lockfileContent = fs.readFileSync(lockfilePath, "utf-8");
+          expect(lockfileContent).toContain("existing-skill");
+          expect(ctx.lockfile.skills["existing-skill"]).toBeDefined();
+        }),
+      ),
+    );
+
+    it.effect("creates ~/.axm directory if it does not exist", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          // Remove entire .axm directory
+          if (fs.existsSync(globalAxmDir)) {
+            fs.rmSync(globalAxmDir, { recursive: true });
+          }
+
+          yield* make({ global: true, yes: false, nonInteractive: false });
+
+          // Verify directory was created
+          expect(fs.existsSync(globalAxmDir)).toBe(true);
+          expect(fs.statSync(globalAxmDir).isDirectory()).toBe(true);
+        }),
+      ),
+    );
+  });
+
+  describe("make({ global: false, yes: false, nonInteractive: false })", () => {
     let existedBefore: boolean;
     let backupSettings: string | undefined;
 
@@ -183,26 +385,37 @@ describe("WorkspaceContext", () => {
       }
     });
 
-    it.effect("fails with WorkspaceNotInitializedError when local settings do not exist", () =>
-      withFileSystem(
+    it.effect("auto-initializes workspace when local settings do not exist (interactive)", () =>
+      withTestLayer(
         Effect.gen(function* () {
           // Ensure no local settings
           if (fs.existsSync(localAxmDir)) {
             fs.rmSync(localAxmDir, { recursive: true });
           }
 
-          const error = yield* make({ global: false }).pipe(Effect.flip);
+          // Ensure global settings/lockfile exist so global read works
+          fs.mkdirSync(globalAxmDir, { recursive: true });
+          fs.writeFileSync(path.join(globalAxmDir, "settings.json"), "{}");
+          fs.writeFileSync(
+            path.join(globalAxmDir, "axm-lock.yaml"),
+            "lockfileVersion: 1\nskills: {}\n",
+          );
 
-          expect(error._tag).toBe("WorkspaceNotInitializedError");
-          // Path should end with .axm in the project dir (ignore /private prefix on macOS)
-          expect((error as WorkspaceNotInitializedError).path).toContain(".axm");
-          expect((error as WorkspaceNotInitializedError).message).toContain("axm init");
+          // With mock InteractionContext, make() should auto-initialize
+          const ctx = yield* make({ global: false, yes: false, nonInteractive: false });
+
+          expect(ctx.global).toBe(false);
+          expect(normalizePath(ctx.path)).toBe(normalizePath(localAxmDir));
+
+          // Verify settings.json was created
+          const settingsPath = path.join(localAxmDir, "settings.json");
+          expect(fs.existsSync(settingsPath)).toBe(true);
         }),
       ),
     );
 
     it.effect("returns local settings when they exist", () =>
-      withFileSystem(
+      withTestLayer(
         Effect.gen(function* () {
           // Ensure no global settings
           const globalSettingsPath = path.join(globalAxmDir, "settings.json");
@@ -218,7 +431,7 @@ describe("WorkspaceContext", () => {
           };
           fs.writeFileSync(path.join(localAxmDir, "settings.json"), JSON.stringify(localSettings));
 
-          const ctx = yield* make({ global: false });
+          const ctx = yield* make({ global: false, yes: false, nonInteractive: false });
 
           expect(ctx.global).toBe(false);
           expect(ctx.settings.scope).toBe("@local-org");
@@ -229,7 +442,7 @@ describe("WorkspaceContext", () => {
     );
 
     it.effect("merges global and local settings (local overrides global)", () =>
-      withFileSystem(
+      withTestLayer(
         Effect.gen(function* () {
           // Create global settings
           fs.mkdirSync(globalAxmDir, { recursive: true });
@@ -249,7 +462,7 @@ describe("WorkspaceContext", () => {
           };
           fs.writeFileSync(path.join(localAxmDir, "settings.json"), JSON.stringify(localSettings));
 
-          const ctx = yield* make({ global: false });
+          const ctx = yield* make({ global: false, yes: false, nonInteractive: false });
 
           // Local scope should override global
           expect(ctx.settings.scope).toBe("@local-org");
@@ -260,7 +473,7 @@ describe("WorkspaceContext", () => {
     );
 
     it.effect("uses empty global settings when global does not exist", () =>
-      withFileSystem(
+      withTestLayer(
         Effect.gen(function* () {
           // Ensure no global settings
           const globalSettingsPath = path.join(globalAxmDir, "settings.json");
@@ -275,7 +488,7 @@ describe("WorkspaceContext", () => {
           };
           fs.writeFileSync(path.join(localAxmDir, "settings.json"), JSON.stringify(localSettings));
 
-          const ctx = yield* make({ global: false });
+          const ctx = yield* make({ global: false, yes: false, nonInteractive: false });
 
           expect(ctx.settings.scope).toBe("@local-only");
           expect(normalizePath(ctx.path)).toBe(normalizePath(localAxmDir));
@@ -300,5 +513,165 @@ describe("WorkspaceContext", () => {
         expect(ctx.path).toBe("/mock/path");
       }).pipe(Effect.provide(WorkspaceContext.layer(mockService)));
     });
+  });
+
+  describe("project workspace initialization", () => {
+    let existedBefore: boolean;
+    let backupSettings: string | undefined;
+    let existedLockfileBefore: boolean;
+    let backupLockfile: string | undefined;
+
+    beforeEach(() => {
+      // Backup global settings if they exist
+      const settingsPath = path.join(globalAxmDir, "settings.json");
+      existedBefore = fs.existsSync(settingsPath);
+      if (existedBefore) {
+        backupSettings = fs.readFileSync(settingsPath, "utf-8");
+      }
+
+      // Backup global lockfile if it exists
+      const lockfilePath = path.join(globalAxmDir, "axm-lock.yaml");
+      existedLockfileBefore = fs.existsSync(lockfilePath);
+      if (existedLockfileBefore) {
+        backupLockfile = fs.readFileSync(lockfilePath, "utf-8");
+      }
+    });
+
+    afterEach(() => {
+      // Restore global settings
+      const settingsPath = path.join(globalAxmDir, "settings.json");
+      if (existedBefore && backupSettings) {
+        fs.mkdirSync(globalAxmDir, { recursive: true });
+        fs.writeFileSync(settingsPath, backupSettings);
+      } else if (!existedBefore && fs.existsSync(settingsPath)) {
+        fs.rmSync(settingsPath);
+      }
+
+      // Restore global lockfile
+      const lockfilePath = path.join(globalAxmDir, "axm-lock.yaml");
+      if (existedLockfileBefore && backupLockfile) {
+        fs.mkdirSync(globalAxmDir, { recursive: true });
+        fs.writeFileSync(lockfilePath, backupLockfile);
+      } else if (!existedLockfileBefore && fs.existsSync(lockfilePath)) {
+        fs.rmSync(lockfilePath);
+      }
+    });
+
+    it.effect(
+      "initializes project workspace with yes=true (auto-selects all detected agents)",
+      () =>
+        withTestLayer(
+          Effect.gen(function* () {
+            // Ensure no local settings exist
+            if (fs.existsSync(localAxmDir)) {
+              fs.rmSync(localAxmDir, { recursive: true });
+            }
+
+            // Create global settings/lockfile so global read works
+            fs.mkdirSync(globalAxmDir, { recursive: true });
+            fs.writeFileSync(path.join(globalAxmDir, "settings.json"), "{}");
+            fs.writeFileSync(
+              path.join(globalAxmDir, "axm-lock.yaml"),
+              "lockfileVersion: 1\nskills: {}\n",
+            );
+
+            const ctx = yield* make({ global: false, yes: true, nonInteractive: false });
+
+            // Should have initialized the workspace
+            expect(ctx.global).toBe(false);
+            expect(normalizePath(ctx.path)).toBe(normalizePath(localAxmDir));
+
+            // Verify settings.json was created
+            const settingsPath = path.join(localAxmDir, "settings.json");
+            expect(fs.existsSync(settingsPath)).toBe(true);
+
+            // Verify axm-lock.yaml was created
+            const lockfilePath = path.join(localAxmDir, "axm-lock.yaml");
+            expect(fs.existsSync(lockfilePath)).toBe(true);
+          }),
+        ),
+    );
+
+    it.effect(
+      "fails with WorkspaceInitializationError when nonInteractive=true and agents detected",
+      () =>
+        withTestLayer(
+          Effect.gen(function* () {
+            // Ensure no local settings exist
+            if (fs.existsSync(localAxmDir)) {
+              fs.rmSync(localAxmDir, { recursive: true });
+            }
+
+            // Create global settings/lockfile so global read works
+            fs.mkdirSync(globalAxmDir, { recursive: true });
+            fs.writeFileSync(path.join(globalAxmDir, "settings.json"), "{}");
+            fs.writeFileSync(
+              path.join(globalAxmDir, "axm-lock.yaml"),
+              "lockfileVersion: 1\nskills: {}\n",
+            );
+
+            const error = yield* make({ global: false, yes: false, nonInteractive: true }).pipe(
+              Effect.flip,
+            );
+
+            expect(error._tag).toBe("WorkspaceInitializationError");
+            expect((error as WorkspaceInitializationError).message).toContain("non-interactive");
+          }),
+        ),
+    );
+
+    it.effect("creates settings.json with detected agents when yes=true", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          // Ensure no local settings exist
+          if (fs.existsSync(localAxmDir)) {
+            fs.rmSync(localAxmDir, { recursive: true });
+          }
+
+          // Create global settings/lockfile so global read works
+          fs.mkdirSync(globalAxmDir, { recursive: true });
+          fs.writeFileSync(path.join(globalAxmDir, "settings.json"), "{}");
+          fs.writeFileSync(
+            path.join(globalAxmDir, "axm-lock.yaml"),
+            "lockfileVersion: 1\nskills: {}\n",
+          );
+
+          yield* make({ global: false, yes: true, nonInteractive: false });
+
+          // Verify settings.json was created with agents array
+          const settingsPath = path.join(localAxmDir, "settings.json");
+          const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+          // agents should be an array (may be empty if no agents detected)
+          expect(Array.isArray(settings.agents)).toBe(true);
+        }),
+      ),
+    );
+
+    it.effect("creates axm-lock.yaml after project initialization", () =>
+      withTestLayer(
+        Effect.gen(function* () {
+          // Ensure no local settings exist
+          if (fs.existsSync(localAxmDir)) {
+            fs.rmSync(localAxmDir, { recursive: true });
+          }
+
+          // Create global settings/lockfile so global read works
+          fs.mkdirSync(globalAxmDir, { recursive: true });
+          fs.writeFileSync(path.join(globalAxmDir, "settings.json"), "{}");
+          fs.writeFileSync(
+            path.join(globalAxmDir, "axm-lock.yaml"),
+            "lockfileVersion: 1\nskills: {}\n",
+          );
+
+          yield* make({ global: false, yes: true, nonInteractive: false });
+
+          // Verify axm-lock.yaml was created
+          const lockfilePath = path.join(localAxmDir, "axm-lock.yaml");
+          expect(fs.existsSync(lockfilePath)).toBe(true);
+          const content = fs.readFileSync(lockfilePath, "utf-8");
+          expect(content).toContain("lockfileVersion: 1");
+        }),
+      ),
+    );
   });
 });

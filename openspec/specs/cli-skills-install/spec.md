@@ -1,3 +1,9 @@
+# cli-skills-install Specification
+
+## Purpose
+
+The `axm skills install` command for installing skills to agent workspaces.
+
 ## Requirements
 
 ### Requirement: Local Source Recording
@@ -21,7 +27,19 @@ The CLI SHALL record the actual local path when installing skills from a local s
 
 ### Requirement: Workspace Pipeline Integration
 
-The install handler SHALL use the workspace V2 pipeline for all operations.
+The install handler SHALL use WorkspaceContext for initialization and workspace access.
+
+#### Scenario: WorkspaceContext provides initialization
+
+- **WHEN** starting installation in uninitialized workspace
+- **THEN** yielding WorkspaceContext SHALL trigger automatic initialization
+- **AND** the handler SHALL NOT contain separate initialization logic
+
+#### Scenario: No OperationContext dependency
+
+- **WHEN** install handler executes
+- **THEN** it SHALL NOT yield or depend on OperationContext
+- **AND** interactive behavior SHALL be controlled via WorkspaceContext options
 
 #### Scenario: Load current state via workspace
 
@@ -72,3 +90,13 @@ Skills SHALL be installed to paths matching the Agent Skills specification.
 - **WHEN** determining installation path for an agent
 - **THEN** the path SHALL be `agent.skills.projectDir` directly
 - **AND** there SHALL be no fallback to `agent.detectPath + "/skills"` pattern
+
+### Requirement: Agent Selection from Settings
+
+The install handler SHALL use agents from workspace settings.
+
+#### Scenario: Agents from settings
+
+- **WHEN** install handler executes without `--agent` flag
+- **THEN** agents SHALL be read from workspace settings (configured during init)
+- **AND** the handler SHALL NOT prompt for agent selection

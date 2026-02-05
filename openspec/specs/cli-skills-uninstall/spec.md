@@ -1,8 +1,26 @@
+# cli-skills-uninstall Specification
+
+## Purpose
+
+The `axm skills uninstall` command for removing skills from agent workspaces.
+
 ## Requirements
 
 ### Requirement: State-Based Uninstall
 
-The CLI SHALL use the workspace reconciliation pattern for uninstallation.
+The CLI SHALL use WorkspaceContext for initialization and the workspace reconciliation pattern for uninstallation.
+
+#### Scenario: WorkspaceContext provides initialization
+
+- **WHEN** starting uninstallation in uninitialized workspace
+- **THEN** yielding WorkspaceContext SHALL trigger automatic initialization
+- **AND** the handler SHALL NOT contain separate initialization logic
+
+#### Scenario: No OperationContext dependency
+
+- **WHEN** uninstall handler executes
+- **THEN** it SHALL NOT yield or depend on OperationContext
+- **AND** interactive behavior SHALL be controlled via WorkspaceContext options
 
 #### Scenario: Load current state
 

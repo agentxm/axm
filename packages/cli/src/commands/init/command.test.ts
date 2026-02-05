@@ -89,6 +89,20 @@ describe("init command options", () => {
     }
   });
 
+  it("defines --non-interactive option with boolean type and default false", () => {
+    const { mockYargs, capturedOptions } = createOptionCapturingMock();
+
+    if (typeof initCommand.builder === "function") {
+      initCommand.builder(mockYargs as unknown as Argv);
+      expect(capturedOptions["non-interactive"]).toEqual(
+        expect.objectContaining({
+          type: "boolean",
+          default: false,
+        }),
+      );
+    }
+  });
+
   it("includes description for --yes option", () => {
     const { mockYargs, capturedOptions } = createOptionCapturingMock();
 
@@ -119,6 +133,17 @@ describe("init command options", () => {
       const agentOption = capturedOptions["agent"] as Options;
       expect(agentOption.describe).toBeDefined();
       expect(agentOption.describe).toContain("agent");
+    }
+  });
+
+  it("includes description for --non-interactive option", () => {
+    const { mockYargs, capturedOptions } = createOptionCapturingMock();
+
+    if (typeof initCommand.builder === "function") {
+      initCommand.builder(mockYargs as unknown as Argv);
+      const nonInteractiveOption = capturedOptions["non-interactive"] as Options;
+      expect(nonInteractiveOption.describe).toBeDefined();
+      expect(nonInteractiveOption.describe).toContain("prompts");
     }
   });
 });
@@ -170,6 +195,7 @@ describe("init command parser", () => {
     expect(argv["global"]).toBe(false);
     expect(argv["yes"]).toBe(false);
     expect(argv["agent"]).toEqual([]);
+    expect(argv["non-interactive"]).toBe(false);
   });
 
   it("parses --global flag", async () => {
@@ -208,11 +234,25 @@ describe("init command parser", () => {
     expect(argv["agent"]).toEqual(["claude-code", "cursor"]);
   });
 
+  it("parses --non-interactive flag", async () => {
+    const argv = await createParser().parse(["init", "--non-interactive"]);
+
+    expect(argv["non-interactive"]).toBe(true);
+  });
+
   it("parses combination of flags", async () => {
-    const argv = await createParser().parse(["init", "--global", "-y", "--agent", "claude-code"]);
+    const argv = await createParser().parse([
+      "init",
+      "--global",
+      "-y",
+      "--agent",
+      "claude-code",
+      "--non-interactive",
+    ]);
 
     expect(argv["global"]).toBe(true);
     expect(argv["yes"]).toBe(true);
     expect(argv["agent"]).toEqual(["claude-code"]);
+    expect(argv["non-interactive"]).toBe(true);
   });
 });

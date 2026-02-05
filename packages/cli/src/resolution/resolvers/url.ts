@@ -73,18 +73,11 @@ export const resolveUrl = (input: string): Effect.Effect<ExtensionRef[], never> 
   return parseSource(trimmed).pipe(
     Effect.map((parsed) => {
       // Handle github/gitlab sources
-      if (parsed.type === "github" || parsed.type === "gitlab") {
-        // Ensure we have owner and repo
-        const owner = Option.getOrUndefined(parsed.owner);
-        const repo = Option.getOrUndefined(parsed.repo);
-        if (!owner || !repo) {
-          return [];
-        }
-
+      if (parsed.source === "github" || parsed.source === "gitlab") {
         const ref: ExtensionRef = {
           type: "skill", // Infer as skill for now (will be enhanced later with manifest fetch)
-          source: parsed.type,
-          origin: buildOriginUrl(parsed.type, owner, repo),
+          source: parsed.source,
+          origin: buildOriginUrl(parsed.source, parsed.owner, parsed.repo),
           originalInput: input,
           name: Option.none(),
           ref: parsed.ref,

@@ -8,9 +8,27 @@
  * @packageDocumentation
  */
 
-// Types
-export type { BaseSource, ParsedSource, Source } from "./types.js";
-export { SourceSchema } from "./types.js";
+// Types (these are interface types distinct from the ParsedSource namespace)
+export type {
+  AzureDevOpsSource,
+  BaseSource,
+  BitbucketSource,
+  GenericGitSource,
+  GitHubSource,
+  GitLabSource,
+  GitSource,
+  LocalSource,
+  RegistrySource,
+  Source,
+  WellKnownSource,
+} from "./types.js";
+// ParsedSource is both a type and value - export it properly
+export { ParsedSource, SourceSchema } from "./types.js";
+// Re-export the ParsedSource type alias separately for type-only imports
+export type { ParsedSource as ParsedSourceUnion } from "./types.js";
+
+// Type guards
+export { isGitSource } from "./utils.js";
 
 // Errors
 export { CloneUrlError, ParseError } from "./errors.js";

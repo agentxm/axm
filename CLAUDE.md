@@ -41,8 +41,9 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 - [ ] Write tests first to define desired behavior
 - [ ] Implement until tests pass
 - [ ] Bug fix → regression test first
-- [ ] **Unit tests** for pure functions, handlers, business logic, error paths
-- [ ] **E2E tests** for CLI parsing, file system integration, user-facing behavior
+- [ ] **Unit tests** (`*.test.ts`) for pure functions, handlers, business logic, error paths
+- [ ] **E2E tests** (`command.e2e.test.ts`) for CLI parsing, file system integration, user-facing behavior
+      → Co-located with command handlers, not in separate `e2e/` folder
 
 ### Test Quality
 
@@ -336,14 +337,13 @@ const data =
 ```
 packages/           # All packages live here
   cli/              # @agentxm/cli - Thin CLI layer (yargs parsing, Effect handler wiring)
-    e2e/              # End-to-end tests
-      init.test.ts
     src/
       commands/
         <command>/
           <subcommand>/
             handler.ts
-            handler.test.ts
+            handler.test.ts      # Unit/handler tests
+            command.e2e.test.ts  # E2E tests (co-located)
           utils.ts  # Shared within this command module
       utils/        # Shared across cli modules
   core/             # @agentxm/core - Domain logic, types, and utilities (no CLI concerns)

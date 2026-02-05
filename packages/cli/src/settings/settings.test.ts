@@ -9,7 +9,7 @@ import { afterEach, beforeEach } from "vitest";
 import {
   addSkill,
   createDefaultSettings,
-  ensureInitialized,
+  ensureInitializedLegacy,
   readSettings,
   updateSettings,
   writeSettings,
@@ -405,7 +405,7 @@ describe("settings", () => {
     );
   });
 
-  describe("ensureInitialized", () => {
+  describe("ensureInitializedLegacy", () => {
     it.effect("returns existing settings if they exist", () =>
       withFileSystem(
         Effect.gen(function* () {
@@ -415,7 +415,7 @@ describe("settings", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existing));
 
-          const result = yield* ensureInitialized({ axmDir });
+          const result = yield* ensureInitializedLegacy({ axmDir });
 
           expect(result.agents).toEqual(["claude-code"]);
         }),
@@ -425,7 +425,7 @@ describe("settings", () => {
     it.effect("creates default settings if they do not exist", () =>
       withFileSystem(
         Effect.gen(function* () {
-          const result = yield* ensureInitialized({ axmDir });
+          const result = yield* ensureInitializedLegacy({ axmDir });
 
           expect(result).toEqual({});
         }),
@@ -435,7 +435,7 @@ describe("settings", () => {
     it.effect("writes default settings to disk when creating", () =>
       withFileSystem(
         Effect.gen(function* () {
-          yield* ensureInitialized({ axmDir });
+          yield* ensureInitializedLegacy({ axmDir });
 
           const exists = fs.existsSync(path.join(axmDir, "settings.json"));
           expect(exists).toBe(true);
@@ -449,7 +449,7 @@ describe("settings", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "settings.json"), "invalid json");
 
-          const error = yield* ensureInitialized({ axmDir }).pipe(Effect.flip);
+          const error = yield* ensureInitializedLegacy({ axmDir }).pipe(Effect.flip);
           expect(error._tag).toBe("SettingsParseError");
         }),
       ),

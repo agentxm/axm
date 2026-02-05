@@ -21,7 +21,6 @@ import {
   buildCloneUrl,
   cloneRepo,
   discoverSkills,
-  discoverWellKnownSkills,
   getCurrentCommit,
   type GitSource,
   type ParsedSource,
@@ -235,9 +234,6 @@ const parsedSourceToV2 = (
     case "bitbucket":
       // For non-GitHub git sources, store as Local with the cached path
       // The original source info is preserved in the lockfile via separate mechanism
-      return Effect.succeed(SkillSourceV2.Local({ path: skillsDir }));
-    case "wellknown":
-      // For wellknown, store as Local with the cached path
       return Effect.succeed(SkillSourceV2.Local({ path: skillsDir }));
     default:
       return Effect.fail(
@@ -505,28 +501,6 @@ export const handleInstall = (
           ),
         );
         resolvedSource = { parsed, skillsDir };
-        break;
-      }
-
-      case "wellknown": {
-        // Well-known URL sources: discover skills from /.well-known/skills/index.json
-        const baseUrl = parsed.baseUrl;
-        skills = yield* discoverWellKnownSkills(baseUrl).pipe(
-          Effect.mapError(
-            (error) =>
-              new InstallError({
-                message: formatError(
-                  `Failed to discover skills from well-known URL: ${error.message}`,
-                  [`URL: ${baseUrl}`],
-                  "Verify the URL serves a valid skills index at /.well-known/skills/index.json",
-                ),
-                cause: Option.some(error),
-                retryable: error._tag === "WellKnownFetchError" && error.retryable,
-              }),
-          ),
-        );
-        // For wellknown sources, skillsDir is the base URL since files are fetched over HTTP
-        resolvedSource = { parsed, skillsDir: baseUrl };
         break;
       }
 

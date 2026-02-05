@@ -77,10 +77,6 @@ export const installCommand: CommandModule<{}, InstallArgs> = {
         "Install from a specific tag, branch, or commit",
       )
       .example("$0 skills install ./path/to/skills", "Install from a local directory")
-      .example(
-        "$0 skills install https://example.com",
-        "Discover skills via /.well-known/skills/index.json",
-      )
       .example("$0 skills install owner/repo --list", "List available skills without installing")
       .example(
         "$0 skills install owner/repo --all --yes",

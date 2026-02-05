@@ -81,7 +81,6 @@ describe("formatEmptyResolutionError", () => {
     expect(result).toContain("Local path:");
     expect(result).toContain("GitHub:");
     expect(result).toContain("GitLab:");
-    expect(result).toContain("URL:");
     expect(result).toContain("AXM name:");
   });
 

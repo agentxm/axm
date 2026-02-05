@@ -62,8 +62,6 @@ export const getOriginFromParsed = (parsed: ParsedSource): string => {
       return `https://dev.azure.com/${parsed.organization}/${parsed.project}/_git/${parsed.repo}`;
     case "local":
       return parsed.original;
-    case "wellknown":
-      return parsed.baseUrl;
     case "git":
     case "registry":
       return parsed.original;

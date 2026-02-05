@@ -41,11 +41,6 @@ const SHORTHAND_PATTERN = /^([^/@.][^/@]*)\/([^/@]+)(?:\/([^@]+))?(?:@(.+))?$/;
 const PREFIXED_SHORTHAND_PATTERN =
   /^(github|gitlab|bitbucket):([^/@]+)\/([^/@]+)(?:\/([^@]+))?(?:@(.+))?$/;
 
-/**
- * URL pattern for detecting HTTPS URLs.
- */
-const URL_PATTERN = /^https?:\/\/.+/;
-
 // -----------------------------------------------------------------------------
 // Parser Functions
 // -----------------------------------------------------------------------------
@@ -169,12 +164,7 @@ export const parseSource = (input: string): Effect.Effect<ParsedSource, ParseErr
     return parseBitbucketSshUrl(trimmed);
   }
 
-  // Check for other HTTPS URLs - use well-known discovery
-  if (URL_PATTERN.test(trimmed)) {
-    return Effect.succeed(PS.WellKnown({ original: trimmed, baseUrl: trimmed }));
-  }
-
-  // Check for local paths (now supported)
+  // Check for local paths
   if (LOCAL_PATH_PATTERN.test(trimmed)) {
     return parseLocalPath(trimmed);
   }

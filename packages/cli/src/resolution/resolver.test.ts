@@ -414,11 +414,10 @@ describe("resolveExtension - integration tests", () => {
       ),
     );
 
-    it.effect("non-git URLs return empty (direct-url source not in Source)", () =>
+    it.effect("non-git URLs return empty (unsupported)", () =>
       withFileSystem(
         Effect.gen(function* () {
-          // Non-git URLs (like https://example.com) are resolved by URL resolver
-          // as "direct-url" or "well-known" source types, which are not in Source
+          // Non-git URLs (like https://example.com) are not supported
           // and get filtered out by the resolver pipeline
           const result = yield* resolveExtension("https://example.com/skill.md", makeOptions({}));
 

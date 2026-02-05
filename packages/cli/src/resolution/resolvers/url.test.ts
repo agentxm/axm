@@ -148,9 +148,8 @@ describe("url resolver", () => {
   });
 
   describe("non-git URLs", () => {
-    // Note: Non-git URLs (direct files, well-known endpoints) are not currently
-    // supported by the resolution pipeline as their source types are not in SourceType.
-    // These tests verify the current behavior of returning empty arrays.
+    // Note: Non-git URLs are not supported. Only GitHub, GitLab, and Bitbucket
+    // URLs are recognized. These tests verify the current behavior of returning empty arrays.
 
     it.effect("returns empty for URL with file extension (not a git host)", () =>
       Effect.gen(function* () {

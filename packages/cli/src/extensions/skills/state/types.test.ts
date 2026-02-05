@@ -189,14 +189,6 @@ describe("SkillSource constructors", () => {
     }
   });
 
-  it("creates WellKnown source", () => {
-    const source = SkillSource.WellKnown({
-      baseUrl: "https://example.com",
-      skillName: "my-skill",
-    });
-    expect(source._tag).toBe("WellKnown");
-  });
-
   it("creates Registry source", () => {
     const source = SkillSource.Registry({
       name: "@community/my-skill",

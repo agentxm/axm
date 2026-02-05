@@ -870,11 +870,6 @@ export type SkillSource =
       readonly subpath: Option.Option<string>;
     }
   | {
-      readonly _tag: "WellKnown";
-      readonly baseUrl: string;
-      readonly skillName: string;
-    }
-  | {
       readonly _tag: "Registry";
       readonly name: string;
       readonly version: string;
@@ -892,10 +887,6 @@ export const SkillSource = {
     ref: Option.Option<string>;
     subpath: Option.Option<string>;
   }): SkillSource => ({ _tag: "Git", ...args }),
-  WellKnown: (args: { baseUrl: string; skillName: string }): SkillSource => ({
-    _tag: "WellKnown",
-    ...args,
-  }),
   Registry: (args: { name: string; version: string }): SkillSource => ({
     _tag: "Registry",
     ...args,
@@ -913,10 +904,6 @@ export const SkillSourceSchema = Schema.Union(
     url: Schema.String,
     ref: Schema.OptionFromNullOr(Schema.String),
     subpath: Schema.OptionFromNullOr(Schema.String),
-  }),
-  Schema.TaggedStruct("WellKnown", {
-    baseUrl: Schema.String,
-    skillName: Schema.String,
   }),
   Schema.TaggedStruct("Registry", {
     name: Schema.String,

@@ -25,7 +25,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach, vi } from "vitest";
 import YAML from "yaml";
-import { OperationContext } from "../../../services/operation-context.js";
 import { handleInstall, type InstallArgs, InstallError } from "./handler.js";
 
 // Mock git operations to use local fixtures instead of cloning
@@ -110,12 +109,7 @@ function copyDirSync(src: string, dest: string): void {
 }
 
 // Layer providing all required services for tests
-const TestLayer = Layer.mergeAll(
-  NodeFileSystem.layer,
-  NodePath.layer,
-  FetchHttpClient.layer,
-  OperationContext.defaultLayer,
-);
+const TestLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, FetchHttpClient.layer);
 
 // Mock TTY utilities
 vi.mock("../../../utils/tty.js", () => ({
@@ -155,11 +149,7 @@ describe("install.handler", () => {
    * Helper function to provide the test layer to an effect.
    */
   const withTestLayer = <A, E>(
-    effect: Effect.Effect<
-      A,
-      E,
-      FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | OperationContext
-    >,
+    effect: Effect.Effect<A, E, FileSystem.FileSystem | HttpClient.HttpClient | Path.Path>,
   ) => effect.pipe(Effect.provide(TestLayer));
 
   const defaultArgs: InstallArgs = {
@@ -1885,33 +1875,36 @@ describe("install.handler", () => {
       vi.clearAllMocks();
     });
 
-    describe("agent selection in non-interactive mode", () => {
-      it.effect("fails with InstallError when stdin is not TTY and no --yes/--agent flag", () =>
+    describe("agent handling in non-interactive mode", () => {
+      it.effect("exits gracefully when no agents in settings and no --agent flag", () =>
         withTestLayer(
           Effect.gen(function* () {
             isInteractiveMock.mockReturnValue(false);
             const source = createSkillSource([{ name: "commit" }]);
-            initializeAxm();
+            initializeAxm(); // Creates settings with empty agents array
 
             const args: InstallArgs = {
               ...defaultArgs,
               source,
-              // No --yes, no --agent, no --non-interactive
+              // No --agent flag - will use agents from settings (which is empty)
+              all: true,
+              yes: true,
             };
 
-            const error = yield* handleInstall(args).pipe(Effect.flip);
+            // Should complete without error (early exit when no agents configured)
+            yield* handleInstall(args);
 
-            expect(error._tag).toBe("InstallError");
-            expect((error as InstallError).message).toContain("Cannot prompt for agent selection");
-            expect((error as InstallError).message).toContain("stdin is not a TTY");
-            expect((error as InstallError).message).toContain("--yes");
-            expect((error as InstallError).message).toContain("--all");
-            expect((error as InstallError).message).toContain("--non-interactive");
+            // Skill should NOT be installed because no agents were configured
+            expect(
+              fs.existsSync(
+                path.join(tempDir, ".axm", "extensions", "external", "skills", "commit"),
+              ),
+            ).toBe(false);
           }),
         ),
       );
 
-      it.effect("succeeds when stdin is not TTY but --yes flag is set", () =>
+      it.effect("succeeds when --agent flag is explicitly set", () =>
         withTestLayer(
           Effect.gen(function* () {
             isInteractiveMock.mockReturnValue(false);
@@ -1927,26 +1920,56 @@ describe("install.handler", () => {
             };
 
             yield* handleInstall(args);
+
+            // Skill should be installed
+            expect(
+              fs.existsSync(
+                path.join(
+                  tempDir,
+                  ".axm",
+                  "extensions",
+                  "external",
+                  "skills",
+                  "commit",
+                  "SKILL.md",
+                ),
+              ),
+            ).toBe(true);
           }),
         ),
       );
 
-      it.effect("succeeds when stdin is not TTY but --non-interactive flag is set", () =>
+      it.effect("uses agents from settings when available", () =>
         withTestLayer(
           Effect.gen(function* () {
             isInteractiveMock.mockReturnValue(false);
             const source = createSkillSource([{ name: "commit" }]);
-            initializeAxm();
+            initializeAxm(["claude-code"]); // Initialize with an agent
 
             const args: InstallArgs = {
               ...defaultArgs,
               source,
-              nonInteractive: true,
-              agent: ["claude-code"],
+              // No --agent flag - will use agents from settings
               all: true,
+              yes: true,
             };
 
             yield* handleInstall(args);
+
+            // Skill should be installed because agents were in settings
+            expect(
+              fs.existsSync(
+                path.join(
+                  tempDir,
+                  ".axm",
+                  "extensions",
+                  "external",
+                  "skills",
+                  "commit",
+                  "SKILL.md",
+                ),
+              ),
+            ).toBe(true);
           }),
         ),
       );

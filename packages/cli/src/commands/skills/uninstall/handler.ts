@@ -15,17 +15,14 @@
 
 import * as nodePath from "node:path";
 import { type AgentConfig, getAgentById } from "@agentxm/core/experimental/agents";
-import {
-  ensureInitialized,
-  readLockfile,
-  updateLockEntry,
-} from "@agentxm/core/experimental/skills";
+import { readLockfile, updateLockEntry } from "@agentxm/core/experimental/skills";
 import {
   type ApplyDeps,
   applyPlan,
   applyStep,
   buildIdealForUninstall,
   buildPlan,
+  ensureInit,
   getPlanSummary,
   loadCurrentState,
   makeWorkspaceContext,
@@ -151,13 +148,13 @@ export const handleUninstall = (
     // Create spinner helper (auto-detects TTY)
     const spinnerHelper = createSpinnerHelper();
 
-    // Step 1: Ensure initialized
+    // Step 1: Ensure initialized via WorkspaceContext
     spinnerHelper.start("Checking initialization...");
-    yield* ensureInitialized({ axmDir: ws.path }).pipe(
+    yield* ensureInit(ws).pipe(
       Effect.mapError(
         (error) =>
           new UninstallError({
-            message: `Workspace not initialized: ${error.message}`,
+            message: error.message,
             cause: error,
             retryable: false,
           }),

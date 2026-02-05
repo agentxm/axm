@@ -22,3 +22,16 @@ export class WorkspaceNotInitializedError extends Data.TaggedError("WorkspaceNot
     return `Workspace not initialized at ${this.path}. Run 'axm init' first.`;
   }
 }
+
+/**
+ * Error during workspace initialization.
+ *
+ * Thrown when workspace initialization fails (e.g., when non-interactive mode
+ * is enabled but user input would be required).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export class WorkspaceInitializationError extends Data.TaggedError("WorkspaceInitializationError")<{
+  readonly message: string;
+  readonly cause?: unknown;
+}> {}

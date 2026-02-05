@@ -796,6 +796,38 @@ describe("parseSourceV2", () => {
       expectNone("foo_bar");
     });
 
+    it("classifies github:owner/repo as ShorthandInput", () => {
+      expectSome("github:owner/repo", {
+        _tag: "ShorthandInput",
+        prefix: "github",
+        input: "github:owner/repo",
+      });
+    });
+
+    it("classifies gitlab:owner/repo@ref as ShorthandInput", () => {
+      expectSome("gitlab:owner/repo@ref", {
+        _tag: "ShorthandInput",
+        prefix: "gitlab",
+        input: "gitlab:owner/repo@ref",
+      });
+    });
+
+    it("classifies bitbucket:owner/repo/path@ref as ShorthandInput", () => {
+      expectSome("bitbucket:owner/repo/path@ref", {
+        _tag: "ShorthandInput",
+        prefix: "bitbucket",
+        input: "bitbucket:owner/repo/path@ref",
+      });
+    });
+
+    it("classifies local:./path as ShorthandInput", () => {
+      expectSome("local:./path", {
+        _tag: "ShorthandInput",
+        prefix: "local",
+        input: "local:./path",
+      });
+    });
+
     it("returns None for empty string", () => {
       expectNone("");
     });
@@ -991,5 +1023,48 @@ describe("parseSourceV2", () => {
         expect(error.message).toBe("File path pattern is not yet supported");
       }),
     );
+
+    describe("ShorthandInput resolution", () => {
+      it.effect("resolves github:owner/repo to GitHub source", () =>
+        Effect.gen(function* () {
+          const result = yield* parseSourceV2("github:owner/repo");
+          expect(result.source).toMatchObject({ source: "github", owner: "owner", repo: "repo" });
+          expect(result.canonical).toBe("github:owner/repo");
+        }),
+      );
+
+      it.effect("resolves gitlab:owner/repo@main to GitLab source with ref", () =>
+        Effect.gen(function* () {
+          const result = yield* parseSourceV2("gitlab:owner/repo@main");
+          expect(result.source).toMatchObject({ source: "gitlab", owner: "owner", repo: "repo" });
+          if (result.source.source === "gitlab") {
+            expect(result.source.ref).toEqual(Option.some("main"));
+          }
+        }),
+      );
+
+      it.effect("resolves bitbucket:owner/repo/path@ref to Bitbucket source", () =>
+        Effect.gen(function* () {
+          const result = yield* parseSourceV2("bitbucket:owner/repo/skills/my-skill@v1.0.0");
+          expect(result.source).toMatchObject({
+            source: "bitbucket",
+            owner: "owner",
+            repo: "repo",
+          });
+          if (result.source.source === "bitbucket") {
+            expect(result.source.subPath).toEqual(Option.some("skills/my-skill"));
+            expect(result.source.ref).toEqual(Option.some("v1.0.0"));
+          }
+        }),
+      );
+
+      it.effect("resolves local:./my-skill to local source", () =>
+        Effect.gen(function* () {
+          const result = yield* parseSourceV2("local:./my-skill");
+          expect(result.source.source).toBe("local");
+          expect(result.canonical).toBe("local:./my-skill");
+        }),
+      );
+    });
   });
 });

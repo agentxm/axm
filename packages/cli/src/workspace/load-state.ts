@@ -37,13 +37,13 @@ import {
   WorkspaceIssue as WorkspaceIssueConstructor,
 } from "../extensions/skills/state/types.js";
 import type { WorkspaceContext } from "./context.js";
+import { LOCKFILE_NAME } from "./paths.js";
 
 // =============================================================================
 // Constants
 // =============================================================================
 
 const SKILL_FILE = "SKILL.md";
-const LOCKFILE_NAME = "axm-lock.yaml";
 const EXTENSIONS_DIR = "extensions";
 const EXTERNAL_SKILLS_DIR = "external/skills";
 

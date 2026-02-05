@@ -11,17 +11,10 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import { type AgentConfig, detectAgents, getAgentById } from "../agents/index.js";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
-import {
-  type LockfileError,
-  readLockfile,
-  readSettings,
-  type Settings,
-  type SettingsError,
-  SettingsParseError,
-  writeLockfile,
-  writeSettings,
-} from "../extensions/skills/index.js";
-import { getAxmDir } from "./paths.js";
+import { type LockfileError, readLockfile, writeLockfile } from "./lockfile.js";
+import { readSettings, type SettingsError, SettingsParseError, writeSettings } from "./settings.js";
+import type { Settings } from "./settings-schema.js";
+import { getAxmDir, LOCKFILE_NAME, SETTINGS_FILENAME } from "./paths.js";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -215,8 +208,8 @@ export const make = (
 
     // Global workspace auto-initialization
     if (options.global) {
-      const settingsPath = `${globalDir}/settings.json`;
-      const lockfilePath = `${globalDir}/axm-lock.yaml`;
+      const settingsPath = `${globalDir}/${SETTINGS_FILENAME}`;
+      const lockfilePath = `${globalDir}/${LOCKFILE_NAME}`;
 
       const settingsExists = yield* fs.exists(settingsPath).pipe(
         Effect.mapError(

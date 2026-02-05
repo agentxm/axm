@@ -56,8 +56,46 @@ export { loadCurrentState } from "./load-state.js";
 // Plan building
 export { buildPlan, getPlanSummary, type PlanSummary, planHasChanges } from "./plan.js";
 
-// Path utilities
-export { getAxmDir, getGlobalDir, getProjectDir } from "./paths.js";
+// Path utilities and constants
+export {
+  getAxmDir,
+  getGlobalDir,
+  getProjectDir,
+  LOCKFILE_NAME,
+  SETTINGS_FILENAME,
+} from "./paths.js";
+
+// Lockfile I/O
+export type { LockfileError } from "./lockfile.js";
+export {
+  LockfileParseError,
+  LockfileWriteError,
+  readLockfile,
+  removeLockEntry,
+  updateLockEntry,
+  writeLockfile,
+} from "./lockfile.js";
+
+// Settings I/O
+export type {
+  EnsureInitializedOptions,
+  SettingsError,
+  SettingsUpdate,
+  SkillsUpdate,
+} from "./settings.js";
+export {
+  addSkill,
+  createDefaultSettings,
+  DEFAULT_SCOPE,
+  ensureInitialized,
+  getEffectiveScope,
+  readSettings,
+  SettingsNotFoundError,
+  SettingsParseError,
+  SettingsWriteError,
+  updateSettings,
+  writeSettings,
+} from "./settings.js";
 
 // Workspace context service (for CLI commands)
 export { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./errors.js";

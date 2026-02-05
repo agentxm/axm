@@ -9,6 +9,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
@@ -120,6 +121,65 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
 };
 
 // -----------------------------------------------------------------------------
+// SlashPattern Resolution
+// -----------------------------------------------------------------------------
+
+const PROVIDER_URLS = {
+  github: "https://github.com",
+  gitlab: "https://gitlab.com",
+  bitbucket: "https://bitbucket.org",
+} as const;
+
+type SlashPatternProvider = keyof typeof PROVIDER_URLS;
+
+const checkProviderExists = (
+  owner: string,
+  repo: string,
+  provider: SlashPatternProvider,
+): Effect.Effect<void, ParseError> =>
+  Effect.tryPromise({
+    try: () => fetch(`${PROVIDER_URLS[provider]}/${owner}/${repo}`, { method: "HEAD" }),
+    catch: (error) =>
+      new ParseError({
+        message: `Failed to check ${provider}: ${error instanceof Error ? error.message : String(error)}`,
+        input: `${owner}/${repo}`,
+      }),
+  }).pipe(
+    Effect.flatMap((response) =>
+      response.ok
+        ? Effect.void
+        : Effect.fail(
+            new ParseError({ message: `Not found on ${provider}`, input: `${owner}/${repo}` }),
+          ),
+    ),
+  );
+
+const resolveSlashPattern = (input: string): Effect.Effect<ParsedSource<Source>, ParseError> => {
+  const [owner, repo] = input.split("/") as [string, string];
+
+  return checkProviderExists(owner, repo, "github").pipe(
+    Effect.map(() => PS.GitHub({ original: input, owner, repo })),
+    Effect.orElse(() =>
+      checkProviderExists(owner, repo, "gitlab").pipe(
+        Effect.map(() => PS.GitLab({ original: input, owner, repo })),
+      ),
+    ),
+    Effect.orElse(() =>
+      checkProviderExists(owner, repo, "bitbucket").pipe(
+        Effect.map(() => PS.Bitbucket({ original: input, owner, repo })),
+      ),
+    ),
+    Effect.mapError(
+      () =>
+        new ParseError({
+          message: `Repository '${input}' not found on GitHub, GitLab, or Bitbucket`,
+          input,
+        }),
+    ),
+  );
+};
+
+// -----------------------------------------------------------------------------
 // v2 Parser
 // -----------------------------------------------------------------------------
 
@@ -129,63 +189,44 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
  * Currently stubs all branches with ParseError — individual pattern handlers
  * will be wired in follow-up work.
  */
-export const parseSourceV2 = (input: string): Effect.Effect<ParsedSource<Source>, ParseError> => {
-  const trimmed = input.trim();
-
-  if (!trimmed) {
-    return Effect.fail(new ParseError({ message: "Source string cannot be empty", input }));
-  }
-
-  const patternOption = parseInputPattern(trimmed);
-
-  if (Option.isNone(patternOption)) {
-    return Effect.fail(new ParseError({ message: "Unable to parse source", input: trimmed }));
-  }
-
-  const pattern = patternOption.value;
-
-  switch (pattern._tag) {
-    case "NameInput":
-      return Effect.fail(
-        new ParseError({ message: "Name input is not yet supported", input: trimmed }),
-      );
-    case "RegistrySourceInput":
-      return Effect.fail(
-        new ParseError({ message: "Registry source input is not yet supported", input: trimmed }),
-      );
-    case "ScpAddress":
-      return Effect.fail(
-        new ParseError({
-          message: "SCP-style git addresses are not yet supported",
-          input: trimmed,
-        }),
-      );
-    case "UrlInput":
-      switch (pattern.url.hostname) {
-        case "github.com":
-          return parseGitHubHttpsUrl(trimmed);
-        case "gitlab.com":
-          return parseGitLabHttpsUrl(trimmed);
-        case "bitbucket.org":
-          return parseBitbucketHttpsUrl(trimmed);
-        default:
-          return Effect.fail(
-            new ParseError({
-              message: `Unsupported URL host: "${pattern.url.hostname}"`,
-              input: trimmed,
-            }),
-          );
-      }
-    case "SlashPattern":
-      return Effect.fail(
-        new ParseError({ message: "Slash pattern is not yet supported", input: trimmed }),
-      );
-    case "FilePathPattern":
-      return Effect.fail(
-        new ParseError({ message: "File path pattern is not yet supported", input: trimmed }),
-      );
-  }
-};
+export const parseSourceV2 = (input: string): Effect.Effect<ParsedSource<Source>, ParseError> =>
+  parseInputPattern(input).pipe(
+    Option.match({
+      onNone: () => Effect.fail(new ParseError({ message: "Unable to parse source", input })),
+      onSome: Match.type<InputPattern>().pipe(
+        Match.tag("NameInput", () =>
+          Effect.fail(new ParseError({ message: "Name input is not yet supported", input })),
+        ),
+        Match.tag("RegistrySourceInput", () =>
+          Effect.fail(
+            new ParseError({ message: "Registry source input is not yet supported", input }),
+          ),
+        ),
+        Match.tag("ScpAddress", () =>
+          Effect.fail(
+            new ParseError({ message: "SCP-style git addresses are not yet supported", input }),
+          ),
+        ),
+        Match.tag("UrlInput", ({ url }) =>
+          Match.value(url.hostname).pipe(
+            Match.when("github.com", () => parseGitHubHttpsUrl(input)),
+            Match.when("gitlab.com", () => parseGitLabHttpsUrl(input)),
+            Match.when("bitbucket.org", () => parseBitbucketHttpsUrl(input)),
+            Match.orElse(() =>
+              Effect.fail(
+                new ParseError({ message: `Unsupported URL host: "${url.hostname}"`, input }),
+              ),
+            ),
+          ),
+        ),
+        Match.tag("SlashPattern", ({ input: slashInput }) => resolveSlashPattern(slashInput)),
+        Match.tag("FilePathPattern", () =>
+          Effect.fail(new ParseError({ message: "File path pattern is not yet supported", input })),
+        ),
+        Match.exhaustive,
+      ),
+    }),
+  );
 
 // -----------------------------------------------------------------------------
 // Regex Patterns

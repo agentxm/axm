@@ -3,8 +3,8 @@ import * as Effect from "effect/Effect";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
-import { initCommand } from "./commands/init/command.js";
-import { skillsCommand } from "./commands/skills/command.js";
+import { initCommand } from "./cli-commands/init/command.js";
+import { skillsCommand } from "./cli-commands/skills/command.js";
 
 const version = "0.0.1";
 

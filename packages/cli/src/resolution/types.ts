@@ -7,6 +7,8 @@
 
 import type { Option } from "effect";
 
+import type { Source } from "../extensions/sources.js";
+
 /**
  * Discriminator for extension kinds.
  *
@@ -17,9 +19,11 @@ export type ExtensionType = "skill" | "command" | "pack" | "mcp-server";
 /**
  * Where the extension comes from.
  *
+ * Re-exported from canonical location at extensions/sources.ts.
+ *
  * @experimental This API is unstable and may change without notice.
  */
-export type SourceType = "github" | "gitlab" | "bitbucket" | "git" | "registry" | "local";
+export type { Source };
 
 /**
  * Additional info about the extension.
@@ -46,7 +50,7 @@ export interface ExtensionRef {
   /** The kind of extension */
   readonly type: ExtensionType;
   /** Where the extension comes from */
-  readonly source: SourceType;
+  readonly source: Source;
   /** Fully resolved URL or path */
   readonly origin: string;
   /** Git ref if applicable (branch, tag, commit) */
@@ -70,7 +74,7 @@ export interface ResolutionOptions {
   /** Filter by extension types */
   readonly types: Option.Option<readonly ExtensionType[]>;
   /** Filter by source types */
-  readonly sources: Option.Option<readonly SourceType[]>;
+  readonly sources: Option.Option<readonly Source[]>;
   /** Filter by agent names */
   readonly agents: Option.Option<readonly string[]>;
   /** Current working directory */

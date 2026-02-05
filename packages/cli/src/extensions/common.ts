@@ -77,29 +77,6 @@ export const ExtensionTypeSchema = Schema.Union(
 export type ExtensionType = typeof ExtensionTypeSchema.Type;
 
 /**
- * Source type enumeration for extension origins.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const SourceTypeSchema = Schema.Union(
-  Schema.Literal("github"),
-  Schema.Literal("gitlab"),
-  Schema.Literal("bitbucket"),
-  Schema.Literal("azuredevops"),
-  Schema.Literal("git"),
-  Schema.Literal("url"),
-  Schema.Literal("path"),
-  Schema.Literal("registry"),
-);
-
-/**
- * Inferred type for SourceType schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type SourceType = typeof SourceTypeSchema.Type;
-
-/**
  * Agent identifier enumeration for supported coding agents.
  *
  * Must be kept in sync with AgentId in agents/types.ts.

@@ -18,7 +18,7 @@ import {
   resolveLocalPath,
   resolveUrl,
 } from "./resolvers/index.js";
-import type { ExtensionRef, ExtensionType, ResolutionOptions, SourceType } from "./types.js";
+import type { ExtensionRef, ExtensionType, ResolutionOptions, Source } from "./types.js";
 
 /**
  * Default resolution options with all fields set to None.
@@ -57,7 +57,7 @@ type Resolver = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-const filterBySource = (refs: ExtensionRef[], sources?: readonly SourceType[]): ExtensionRef[] => {
+const filterBySource = (refs: ExtensionRef[], sources?: readonly Source[]): ExtensionRef[] => {
   if (!sources || sources.length === 0) return refs;
   const sourceSet = new Set(sources);
   return refs.filter((ref) => sourceSet.has(ref.source));

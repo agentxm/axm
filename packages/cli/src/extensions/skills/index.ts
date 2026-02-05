@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-export type { SourceType as LockSourceType } from "../sources.js";
+export type { Source as LockSourceType } from "../sources.js";
 // Git
 export {
   cloneRepo,
@@ -30,7 +30,7 @@ export type {
   LockEntry,
   ParsedSource,
   Skill,
-  SourceType,
+  Source,
   WellKnownIndex,
   WellKnownSkill,
 } from "./types.js";

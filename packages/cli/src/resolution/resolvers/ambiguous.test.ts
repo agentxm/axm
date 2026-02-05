@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { defaultResolutionOptions } from "../resolver.js";
-import type { ExtensionType, ResolutionOptions, SourceType } from "../types.js";
+import type { ExtensionType, ResolutionOptions, Source } from "../types.js";
 import { resolveAmbiguous } from "./ambiguous.js";
 
 /**
@@ -19,7 +19,7 @@ const makeOptions = (opts: {
   globalDir?: string;
   scope?: string;
   types?: readonly ExtensionType[];
-  sources?: readonly SourceType[];
+  sources?: readonly Source[];
   agents?: readonly string[];
 }): ResolutionOptions => ({
   ...defaultResolutionOptions,

@@ -8,6 +8,8 @@
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 
+import type { Source as BaseSource } from "../sources.js";
+
 // -----------------------------------------------------------------------------
 // Skill Types
 // -----------------------------------------------------------------------------
@@ -33,24 +35,11 @@ export interface Skill {
 /**
  * Source type discriminator for ParsedSource.
  *
- * - `"github"` - GitHub repository source
- * - `"gitlab"` - GitLab repository source
- * - `"bitbucket"` - Bitbucket repository source
- * - `"git"` - Generic git repository source
- * - `"registry"` - Package registry source
- * - `"local"` - Local filesystem path
- * - `"wellknown"` - HTTP(S) URL with well-known skills index
+ * Extends base Source with `"wellknown"` for HTTP(S) URLs with well-known skills index.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SourceType =
-  | "github"
-  | "gitlab"
-  | "bitbucket"
-  | "git"
-  | "registry"
-  | "local"
-  | "wellknown";
+export type Source = BaseSource | "wellknown";
 
 /**
  * Result of parsing a source string.
@@ -59,7 +48,7 @@ export type SourceType =
  */
 export interface ParsedSource {
   /** Type of the source */
-  readonly type: SourceType;
+  readonly type: Source;
   /** Original input string */
   readonly original: string;
   /** Normalized canonical form (e.g., "github:owner/repo") */

@@ -2,7 +2,7 @@
  * Unit tests for common schema definitions.
  *
  * Tests validation behavior for AuthorSchema, FullyQualifiedNameSchema,
- * ExtensionTypeSchema, SourceTypeSchema, and AgentIdSchema schemas.
+ * ExtensionTypeSchema, and AgentIdSchema schemas.
  */
 
 import * as Either from "effect/Either";
@@ -14,7 +14,6 @@ import {
   CommonManifestFields,
   ExtensionTypeSchema,
   FullyQualifiedNameSchema,
-  SourceTypeSchema,
 } from "./common.js";
 
 describe("common schemas", () => {
@@ -222,38 +221,6 @@ describe("common schemas", () => {
 
     it("rejects non-string value", () => {
       const result = Schema.decodeUnknownEither(ExtensionTypeSchema)(123);
-
-      expect(Either.isLeft(result)).toBe(true);
-    });
-  });
-
-  describe("SourceType", () => {
-    it.each([
-      "github",
-      "gitlab",
-      "bitbucket",
-      "azuredevops",
-      "git",
-      "url",
-      "path",
-      "registry",
-    ] as const)("accepts valid source type: %s", (type) => {
-      const result = Schema.decodeUnknownEither(SourceTypeSchema)(type);
-
-      expect(Either.isRight(result)).toBe(true);
-      if (Either.isRight(result)) {
-        expect(result.right).toBe(type);
-      }
-    });
-
-    it("rejects invalid source type", () => {
-      const result = Schema.decodeUnknownEither(SourceTypeSchema)("npm");
-
-      expect(Either.isLeft(result)).toBe(true);
-    });
-
-    it("rejects case variations", () => {
-      const result = Schema.decodeUnknownEither(SourceTypeSchema)("GitHub");
 
       expect(Either.isLeft(result)).toBe(true);
     });

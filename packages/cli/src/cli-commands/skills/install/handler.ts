@@ -449,13 +449,23 @@ export const handleInstall = (
     let skills: Skill[];
     let resolvedSource: ResolvedSource;
 
-    if (parsed.type === "github" || parsed.type === "gitlab" || parsed.type === "bitbucket") {
+    if (
+      parsed.type === "github" ||
+      parsed.type === "gitlab" ||
+      parsed.type === "bitbucket" ||
+      parsed.type === "azuredevops"
+    ) {
       spinner.start("Fetching source to analyze contents...");
     } else {
       spinner.start("Discovering skills...");
     }
 
-    if (parsed.type === "github" || parsed.type === "gitlab" || parsed.type === "bitbucket") {
+    if (
+      parsed.type === "github" ||
+      parsed.type === "gitlab" ||
+      parsed.type === "bitbucket" ||
+      parsed.type === "azuredevops"
+    ) {
       const result = yield* resolveGitSource(parsed, ws.path);
       skills = result.skills;
       resolvedSource = { parsed, skillsDir: result.skillsDir, commitSha: result.commitSha };

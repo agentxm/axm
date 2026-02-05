@@ -18,5 +18,5 @@ export type {
   ExtensionRef,
   ExtensionType,
   ResolutionOptions,
-  SourceType,
+  Source,
 } from "./types.js";

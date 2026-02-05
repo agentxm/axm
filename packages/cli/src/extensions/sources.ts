@@ -15,6 +15,7 @@ import * as Schema from "effect/Schema";
  * - `"github"` - GitHub repository source
  * - `"gitlab"` - GitLab repository source
  * - `"bitbucket"` - Bitbucket repository source
+ * - `"azuredevops"` - Azure DevOps repository source
  * - `"git"` - Generic git repository source
  * - `"registry"` - Package registry source
  * - `"local"` - Local filesystem path source
@@ -25,6 +26,7 @@ export const SourceSchema = Schema.Literal(
   "github",
   "gitlab",
   "bitbucket",
+  "azuredevops",
   "git",
   "registry",
   "local",
@@ -35,4 +37,4 @@ export const SourceSchema = Schema.Literal(
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SourceType = typeof SourceSchema.Type;
+export type Source = typeof SourceSchema.Type;

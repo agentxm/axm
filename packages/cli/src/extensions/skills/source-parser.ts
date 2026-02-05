@@ -363,6 +363,8 @@ export const getOriginFromParsed = (parsed: ParsedSource): string => {
       return `https://gitlab.com/${owner}/${repo}`;
     case "bitbucket":
       return `https://bitbucket.org/${owner}/${repo}`;
+    case "azuredevops":
+      return `https://dev.azure.com/${owner}/${repo}`;
     case "local":
       return parsed.original;
     case "wellknown":

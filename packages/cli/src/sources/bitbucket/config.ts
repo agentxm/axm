@@ -12,13 +12,14 @@ import {
 
 export const config: SourceConfig<"bitbucket", BitbucketSource> = {
   id: "bitbucket",
-  shorthandPrefix: Option.some("bitbucket"),
-  parseShorthand: Option.some(
-    (input: string): Effect.Effect<ParsedSource<BitbucketSource>, ParseError> =>
+  shorthand: Option.some({
+    prefix: "bitbucket",
+    parse: (input: string): Effect.Effect<ParsedSource<BitbucketSource>, ParseError> =>
       Effect.gen(function* () {
         const body = input.slice("bitbucket:".length);
         const parts = yield* parseProviderShorthand(body, input);
         return PS.Bitbucket({ original: input, ...parts });
       }),
-  ),
+    print: (source) => `bitbucket:${source.owner}/${source.repo}`,
+  }),
 };

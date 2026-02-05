@@ -5,6 +5,9 @@ import { parseLocalPath } from "./parser.js";
 
 export const config: SourceConfig<"local", LocalSource> = {
   id: "local",
-  shorthandPrefix: Option.some("local"),
-  parseShorthand: Option.some((input: string) => parseLocalPath(input.slice("local:".length))),
+  shorthand: Option.some({
+    prefix: "local",
+    parse: (input: string) => parseLocalPath(input.slice("local:".length)),
+    print: (source) => `local:${source.path}`,
+  }),
 };

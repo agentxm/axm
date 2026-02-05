@@ -120,7 +120,6 @@ const TestLayer = Layer.mergeAll(
 // Mock TTY utilities
 vi.mock("../../../utils/tty.js", () => ({
   isInteractive: vi.fn(() => true),
-  isFancyOutput: vi.fn(() => true),
 }));
 
 // Import the mock helpers after vi.mock
@@ -1873,16 +1872,13 @@ describe("install.handler", () => {
   describe("non-TTY scenarios", () => {
     // Import the mocked module dynamically to control mock behavior
     let isInteractiveMock: ReturnType<typeof vi.fn>;
-    let isFancyOutputMock: ReturnType<typeof vi.fn>;
 
     beforeEach(async () => {
       // Get references to the mocked functions
       const ttyModule = await import("../../../utils/tty.js");
       isInteractiveMock = ttyModule.isInteractive as ReturnType<typeof vi.fn>;
-      isFancyOutputMock = ttyModule.isFancyOutput as ReturnType<typeof vi.fn>;
       // Reset to default TTY behavior
       isInteractiveMock.mockReturnValue(true);
-      isFancyOutputMock.mockReturnValue(true);
     });
 
     afterEach(() => {
@@ -2062,69 +2058,6 @@ describe("install.handler", () => {
             expect(error._tag).toBe("InstallError");
             expect((error as InstallError).message).toContain("Cannot prompt for confirmation");
             expect((error as InstallError).message).toContain("stdin is not a TTY");
-          }),
-        ),
-      );
-    });
-
-    describe("output formatting", () => {
-      it.effect("uses plain text output when stdout is not TTY", () =>
-        withTestLayer(
-          Effect.gen(function* () {
-            // This test verifies the handler doesn't crash when fancy output is disabled
-            isInteractiveMock.mockReturnValue(true);
-            isFancyOutputMock.mockReturnValue(false);
-
-            const source = createSkillSource([{ name: "commit" }]);
-            initializeAxm();
-
-            const args: InstallArgs = {
-              ...defaultArgs,
-              source,
-              agent: ["claude-code"],
-              all: true,
-              yes: true,
-            };
-
-            // Should complete successfully with plain text output
-            yield* handleInstall(args);
-          }),
-        ),
-      );
-
-      it.effect("handles both non-TTY stdin and stdout", () =>
-        withTestLayer(
-          Effect.gen(function* () {
-            isInteractiveMock.mockReturnValue(false);
-            isFancyOutputMock.mockReturnValue(false);
-
-            const source = createSkillSource([{ name: "commit" }]);
-            initializeAxm();
-
-            const args: InstallArgs = {
-              ...defaultArgs,
-              source,
-              agent: ["claude-code"],
-              all: true,
-              yes: true,
-            };
-
-            // Should complete successfully
-            yield* handleInstall(args);
-
-            expect(
-              fs.existsSync(
-                path.join(
-                  tempDir,
-                  ".axm",
-                  "extensions",
-                  "external",
-                  "skills",
-                  "commit",
-                  "SKILL.md",
-                ),
-              ),
-            ).toBe(true);
           }),
         ),
       );

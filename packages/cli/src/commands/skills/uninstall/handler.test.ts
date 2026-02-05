@@ -30,7 +30,6 @@ const TestLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer);
 // Mock TTY utilities
 vi.mock("../../../utils/tty.js", () => ({
   isInteractive: vi.fn(() => true),
-  isFancyOutput: vi.fn(() => true),
 }));
 
 describe("uninstall.handler", () => {

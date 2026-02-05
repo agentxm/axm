@@ -7,11 +7,13 @@ Current state: All 7 functions work correctly but run slower than necessary due 
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Refactor all 7 identified functions to use `Effect.forEach` with concurrency
 - Eliminate mutable array patterns in favor of immutable returns
 - Improve I/O throughput for file system and HTTP operations
 
 **Non-Goals:**
+
 - Changing any external behavior or API signatures
 - Adding new tests (existing tests should continue to pass)
 - Optimizing pure synchronous loops (those are fine as-is)
@@ -21,6 +23,7 @@ Current state: All 7 functions work correctly but run slower than necessary due 
 ### 1. Concurrency Level: `"unbounded"` for all refactored locations
 
 **Rationale:** All 7 locations process small, bounded collections:
+
 - Agent syncing: typically 1-3 agents
 - File copying: skill directories have ~5-20 files
 - GitHub API calls: typically 1-10 skills
@@ -31,36 +34,33 @@ Current state: All 7 functions work correctly but run slower than necessary due 
 ### 2. Refactoring Pattern
 
 Transform this:
+
 ```typescript
 const results: T[] = [];
 for (const item of items) {
-  const result = yield* processItem(item);
+  const result = yield * processItem(item);
   results.push(result);
 }
 return results;
 ```
 
 To this:
+
 ```typescript
-return yield* Effect.forEach(
-  items,
-  (item) => processItem(item),
-  { concurrency: "unbounded" },
-);
+return yield * Effect.forEach(items, (item) => processItem(item), { concurrency: "unbounded" });
 ```
 
 For side-effect-only loops (no return value), add `{ discard: true }`:
+
 ```typescript
-yield* Effect.forEach(
-  items,
-  (item) => processItem(item),
-  { concurrency: "unbounded", discard: true },
-);
+yield *
+  Effect.forEach(items, (item) => processItem(item), { concurrency: "unbounded", discard: true });
 ```
 
 ### 3. Recursive `copyDirectory` handling
 
 The `copyDirectory` function is recursive (directories contain subdirectories). Strategy:
+
 - Parallelize file operations within each directory level
 - Keep recursion sequential (depth-first) to avoid complex coordination
 - This still provides significant speedup for wide directories
@@ -68,6 +68,7 @@ The `copyDirectory` function is recursive (directories contain subdirectories). 
 ### 4. Well-known file fetches: preserve directory creation order
 
 Files may have nested paths (e.g., `references/commands.md`). Current code creates parent directories before writing files. With parallelization:
+
 - Use `Effect.forEach` with `{ concurrency: "unbounded" }`
 - Each file operation creates its own parent directory with `{ recursive: true }`
 - No ordering dependency since `mkdir -p` is idempotent

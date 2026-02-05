@@ -71,9 +71,8 @@ vi.mock("../../../extensions/skills/index.js", async (importOriginal) => {
 // Track call count to return different hashes for different installs
 let gitHubApiCallCount = 0;
 
-vi.mock("../../../extensions/skills/github-api.js", async (importOriginal) => {
-  const original =
-    await importOriginal<typeof import("../../../extensions/skills/github-api.js")>();
+vi.mock("../../../sources/index.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../../sources/index.js")>();
 
   return {
     ...original,

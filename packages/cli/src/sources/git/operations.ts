@@ -6,34 +6,11 @@
  */
 
 import * as Array from "effect/Array";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import simpleGit, { type SimpleGit, type SimpleGitOptions } from "simple-git";
 
-// -----------------------------------------------------------------------------
-// Error Types
-// -----------------------------------------------------------------------------
-
-/**
- * Error type for git operations.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class GitError extends Data.TaggedError("GitError")<{
-  /** What operation failed */
-  readonly operation:
-    | "clone"
-    | "checkout"
-    | "resolve-ref"
-    | "get-commit"
-    | "get-tree-sha"
-    | "is-git-repo";
-  /** Human-readable error message */
-  readonly message: string;
-  /** Original error cause */
-  readonly cause: Option.Option<unknown>;
-}> {}
+import { GitError } from "./errors.js";
 
 // -----------------------------------------------------------------------------
 // Internal Helpers

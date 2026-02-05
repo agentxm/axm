@@ -226,14 +226,16 @@ const limited = Effect.forEach(items, (item) => sem.withPermits(1)(processItem(i
 // ❌ Sequential, mutable, slow
 const results: T[] = [];
 for (const item of items) {
-  const result = yield* processItem(item);  // I/O operation
+  const result = yield * processItem(item); // I/O operation
   results.push(result);
 }
 
 // ✅ Concurrent, immutable, fast
-const results = yield* Effect.forEach(items, (item) => processItem(item), {
-  concurrency: "unbounded",
-});
+const results =
+  yield *
+  Effect.forEach(items, (item) => processItem(item), {
+    concurrency: "unbounded",
+  });
 ```
 
 **Using `Promise.all` or `async`/`await` inside Effect pipelines.** Wrap Promise-based APIs at the boundary with `Effect.tryPromise`.

@@ -11,7 +11,7 @@
 import type { FileSystem } from "@effect/platform";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { parseSource } from "../../extensions/skills/source-parser.js";
+import { parseSource } from "../../sources/index.js";
 import type { ExtensionRef, ResolutionOptions } from "../types.js";
 import { resolveAxmName } from "./axm-name.js";
 

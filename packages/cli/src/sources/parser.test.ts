@@ -7,13 +7,10 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import {
-  buildCloneUrl,
-  getOriginFromParsed,
-  ParseError,
-  parseSource,
-} from "../../sources/index.js";
-import type { ParsedSource } from "../../sources/index.js";
+import { buildCloneUrl, getOriginFromParsed } from "./clone-url.js";
+import { ParseError } from "./errors.js";
+import { parseSource } from "./parser.js";
+import type { ParsedSource } from "./types.js";
 
 describe("source-parser", () => {
   describe("GitHub shorthand", () => {

@@ -7,7 +7,7 @@
 
 import type { Option } from "effect";
 
-import type { Source } from "../extensions/sources.js";
+import type { BaseSource as Source } from "../sources/index.js";
 
 /**
  * Discriminator for extension kinds.
@@ -19,7 +19,7 @@ export type ExtensionType = "skill" | "command" | "pack" | "mcp-server";
 /**
  * Where the extension comes from.
  *
- * Re-exported from canonical location at extensions/sources.ts.
+ * Re-exported from canonical location at sources/types.ts.
  *
  * @experimental This API is unstable and may change without notice.
  */

@@ -21,7 +21,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as TestClock from "effect/TestClock";
 import { afterEach, beforeEach } from "vitest";
-import type { WellKnownIndex } from "./types.js";
+import type { WellKnownIndex } from "../../sources/index.js";
 import {
   discoverWellKnownSkills,
   fetchSkillFiles,
@@ -30,7 +30,7 @@ import {
   WellKnownFetchError,
   WellKnownInvalidIndexError,
   WellKnownNotFoundError,
-} from "./wellknown.js";
+} from "../../sources/index.js";
 
 describe("wellknown", () => {
   let tempDir: string;

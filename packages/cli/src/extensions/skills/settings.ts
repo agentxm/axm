@@ -10,7 +10,7 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Record from "effect/Record";
 import * as Schema from "effect/Schema";
-import { type Settings, SettingsSchema } from "../../settings/schema.js";
+import { type Settings, SettingsSchema } from "../../workspace/settings-schema.js";
 
 // -----------------------------------------------------------------------------
 // Update Types

@@ -335,32 +335,29 @@ const data =
 ## Project Structure
 
 ```
-packages/           # All packages live here
-  cli/              # @agentxm/cli - Thin CLI layer (yargs parsing, Effect handler wiring)
+packages/
+  cli/              # @agentxm/cli - CLI and domain logic
     src/
-      commands/
+      e2e/          # E2E test utilities and fixtures
+        fixtures/
+        utils.ts
+      commands/     # CLI commands (nested by subcommand)
         <command>/
           <subcommand>/
-            handler.ts
-            handler.test.ts      # Unit/handler tests
+            handler.ts           # Business logic
+            handler.test.ts      # Handler tests
+            command.ts           # yargs definition
+            command.test.ts      # Command parsing tests
             command.e2e.test.ts  # E2E tests (co-located)
-          utils.ts  # Shared within this command module
-      utils/        # Shared across cli modules
-  core/             # @agentxm/core - Domain logic, types, and utilities (no CLI concerns)
-    src/
-      experimental/   # All code lives here (no barrel file; @experimental TSDoc required)
-        <feature>.ts            # Single-file modules
-        <feature>/              # Feature folders (barrel file allowed)
-          index.ts
-          <submodule>.ts
-        <lib>-effect/           # Effect-wrapped third-party libraries
-          index.ts
-          errors.ts
+      agents/       # Agent definitions
+      extensions/   # Extension type definitions
+      lockfile/     # Lockfile parsing and schemas
+      resolution/   # Extension resolution
+      settings/     # Settings management
+      utils/        # Shared utilities
+      workspace/    # Workspace state management
 openspec/           # Spec-driven development
   specs/            # Implemented capabilities
-    <capability>/
-    <capability>-<sub>/
-    <capability>-<sub>-<subsub>/
   changes/          # Proposed changes
 ```
 

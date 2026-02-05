@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { runCli } from "./utils.js";
+import { runCli } from "./e2e/utils.js";
 
 /**
  * Get combined output from CLI result.

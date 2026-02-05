@@ -6,8 +6,8 @@
  */
 
 export type { SourceType as LockSourceType } from "../sources.js";
-export type { Lockfile, SkillLockEntry } from "../../lockfile/schema.js";
-export type { Settings } from "../../settings/schema.js";
+export type { Lockfile, SkillLockEntry } from "../../workspace/lockfile-schema.js";
+export type { Settings } from "../../workspace/settings-schema.js";
 // Git
 export {
   cloneRepo,

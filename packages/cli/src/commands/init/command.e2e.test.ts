@@ -5,7 +5,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import { createTempDir, runCli } from "./utils.js";
+import { createTempDir, runCli } from "../../e2e/utils.js";
 
 describe("axm init", () => {
   describe("with --yes flag", () => {

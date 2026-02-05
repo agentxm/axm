@@ -871,7 +871,7 @@ describe("updateLockfileForPlan", () => {
     await runWithFs(updateLockfileForPlan(axmDir, plan));
 
     // Verify lockfile was created with the skill
-    const { readLockfile } = await import("./lockfile.js");
+    const { readLockfile } = await import("../lockfile/index.js");
     const lockfile = await runWithFs(readLockfile(axmDir));
 
     const entry = lockfile.skills["my-skill"];
@@ -899,7 +899,7 @@ describe("updateLockfileForPlan", () => {
     const { updateLockfileForPlan } = await import("./apply.js");
     await runWithFs(updateLockfileForPlan(axmDir, plan));
 
-    const { readLockfile } = await import("./lockfile.js");
+    const { readLockfile } = await import("../lockfile/index.js");
     const lockfile = await runWithFs(readLockfile(axmDir));
 
     expect(lockfile.lockfileVersion).toBe(1);

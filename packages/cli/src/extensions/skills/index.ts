@@ -6,8 +6,8 @@
  */
 
 export type { SourceType as LockSourceType } from "../sources.js";
-export type { Lockfile, SkillLockEntry } from "../../workspace/lockfile-schema.js";
-export type { Settings } from "../../workspace/settings-schema.js";
+export type { Lockfile, SkillLockEntry } from "../../lockfile/index.js";
+export type { Settings } from "../../settings/index.js";
 // Git
 export {
   cloneRepo,
@@ -17,8 +17,8 @@ export {
   isGitRepository,
   resolveRef,
 } from "./git.js";
-// Lockfile (re-exported from workspace)
-export type { LockfileError } from "../../workspace/lockfile.js";
+// Lockfile (re-exported from lockfile feature)
+export type { LockfileError } from "../../lockfile/index.js";
 export {
   LockfileParseError,
   LockfileWriteError,
@@ -26,14 +26,14 @@ export {
   removeLockEntry,
   updateLockEntry,
   writeLockfile,
-} from "../../workspace/lockfile.js";
-// Settings (re-exported from workspace)
+} from "../../lockfile/index.js";
+// Settings (re-exported from settings feature)
 export type {
   EnsureInitializedOptions,
   SettingsError,
   SettingsUpdate,
   SkillsUpdate,
-} from "../../workspace/settings.js";
+} from "../../settings/index.js";
 export {
   addSkill,
   createDefaultSettings,
@@ -46,7 +46,7 @@ export {
   SettingsWriteError,
   updateSettings,
   writeSettings,
-} from "../../workspace/settings.js";
+} from "../../settings/index.js";
 // Skill Discovery
 export { DiscoveryError, discoverSkills } from "./skill-discovery.js";
 // Source Parser

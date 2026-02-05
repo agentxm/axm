@@ -10,8 +10,25 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Record from "effect/Record";
 import * as Schema from "effect/Schema";
-import { type Settings, SettingsSchema } from "./settings-schema.js";
-import { SETTINGS_FILENAME } from "./paths.js";
+import { type Settings, SettingsSchema } from "./schema.js";
+
+// -----------------------------------------------------------------------------
+// Constants
+// -----------------------------------------------------------------------------
+
+/**
+ * Filename for the settings file.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SETTINGS_FILENAME = "settings.json";
+
+/**
+ * Default scope for skill resolution when not specified in settings.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const DEFAULT_SCOPE = "@community";
 
 // -----------------------------------------------------------------------------
 // Update Types
@@ -37,17 +54,6 @@ export type SkillsUpdate = Readonly<Record<string, string | null>>;
 export interface SettingsUpdate extends Omit<Partial<Settings>, "skills"> {
   readonly skills?: SkillsUpdate;
 }
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-/**
- * Default scope for skill resolution when not specified in settings.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const DEFAULT_SCOPE = "@community";
 
 // -----------------------------------------------------------------------------
 // Error Types

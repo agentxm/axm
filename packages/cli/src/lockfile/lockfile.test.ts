@@ -6,7 +6,7 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import YAML from "yaml";
-import type { Lockfile, SkillLockEntry } from "./lockfile-schema.js";
+import type { Lockfile, SkillLockEntry } from "./schema.js";
 import {
   LockfileParseError,
   readLockfile,

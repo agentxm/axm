@@ -11,10 +11,21 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import { type AgentConfig, detectAgents, getAgentById } from "../agents/index.js";
 import * as Arr from "effect/Array";
 import * as Option from "effect/Option";
-import { type LockfileError, readLockfile, writeLockfile } from "./lockfile.js";
-import { readSettings, type SettingsError, SettingsParseError, writeSettings } from "./settings.js";
-import type { Settings } from "./settings-schema.js";
-import { getAxmDir, LOCKFILE_NAME, SETTINGS_FILENAME } from "./paths.js";
+import {
+  type LockfileError,
+  readLockfile,
+  writeLockfile,
+  LOCKFILE_NAME,
+} from "../lockfile/index.js";
+import {
+  readSettings,
+  type SettingsError,
+  SettingsParseError,
+  writeSettings,
+  SETTINGS_FILENAME,
+  type Settings,
+} from "../settings/index.js";
+import { getAxmDir } from "./paths.js";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";

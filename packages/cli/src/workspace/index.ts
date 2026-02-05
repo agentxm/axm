@@ -1,0 +1,95 @@
+/**
+ * Workspace module - desired-state reconciliation for skills management.
+ *
+ * This module implements an Arborist-style reconciliation pattern:
+ * - `loadCurrentState` - reads actual disk + lockfile state
+ * - `buildIdealState` - computes desired state from current + command
+ * - `buildPlan` - diffs current vs ideal to produce execution steps
+ * - `applyPlan` - executes or displays the plan
+ *
+ * @experimental This API is unstable and may change without notice.
+ * @packageDocumentation
+ */
+
+// Re-export V2 types from extensions/skills/state/types.ts
+export type { CurrentState, IdealState } from "../extensions/skills/state/types.js";
+// SkillSourceV2 is both a type and a value (constructors object)
+// Export only once - the value export makes the type available too
+export { SkillSourceV2 } from "../extensions/skills/state/types.js";
+// Re-export types from apply.ts (which re-exports from types.ts)
+export type { ApplyResult, Plan, PlanStep } from "./apply.js";
+// Plan execution
+export {
+  type ApplyDeps,
+  ApplyError,
+  type ApplyOptions,
+  type ApplyStepOptions,
+  applyPlan,
+  applyStep,
+  displayPlan,
+  emptyApplyResult,
+  updateLockfileForPlan,
+  updateSettingsForPlan,
+} from "./apply.js";
+export type { WorkspaceContext } from "./context.js";
+// Context
+export { ensureInit, makeWorkspaceContext, WorkspaceError } from "./context.js";
+// Ideal state building
+export {
+  type BuildIdealDeps,
+  type BuildIdealStateDeps,
+  type BuildIdealUpdateDeps,
+  buildIdealForInstall,
+  buildIdealForUninstall,
+  buildIdealForUpdate,
+  buildIdealState,
+  type Command,
+  CommandError,
+  type DiscoveredSkill,
+  type InstallCommand,
+  sourcesEqual,
+  type UninstallCommand,
+  type UpdateCommand,
+} from "./ideal-state.js";
+// State loading
+export { loadCurrentState } from "./load-state.js";
+// Plan building
+export { buildPlan, getPlanSummary, type PlanSummary, planHasChanges } from "./plan.js";
+
+// Path utilities
+export { getAxmDir, getGlobalDir, getProjectDir } from "./paths.js";
+
+// Workspace initialization types
+export type {
+  ActualInitState,
+  IdealInitState,
+  InitChange,
+  InitDiff,
+  InitValidity,
+} from "./init-types.js";
+// Workspace initialization constructors and utilities
+export {
+  hasInitChanges,
+  InitChange as InitChangeConstructors,
+  InitValidity as InitValidityConstructors,
+} from "./init-types.js";
+
+// Workspace initialization functions
+export { ApplyInitError, type ApplyInitOptions, applyInitDiff } from "./init-apply.js";
+export {
+  type ComputeInitDiffOptions,
+  computeInitDiff,
+  InvalidWorkspaceError,
+} from "./init-diff.js";
+export { buildIdealInitState, loadActualInitState } from "./init-state.js";
+
+// Workspace context service (for CLI commands)
+export { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./errors.js";
+export type { WorkspaceContextService } from "./service-types.js";
+export {
+  layer,
+  make,
+  WorkspaceContext as WorkspaceContextTag,
+  type WorkspaceContextError,
+  type WorkspaceContextOptions,
+} from "./service.js";

@@ -1,12 +1,59 @@
 {
-  "name": "@agentxm/cli",
+  "name": "@axm.sh/cli",
   "version": "0.0.1",
   "type": "module",
+  "exports": {
+    "./agents/index.js": {
+      "types": "./src/agents/index.ts",
+      "default": "./src/agents/index.js"
+    },
+    "./agents/types.js": {
+      "types": "./src/agents/types.ts",
+      "default": "./src/agents/types.js"
+    },
+    "./extensions/common.js": {
+      "types": "./src/extensions/common.ts",
+      "default": "./src/extensions/common.js"
+    },
+    "./extensions/sources.js": {
+      "types": "./src/extensions/sources.ts",
+      "default": "./src/extensions/sources.js"
+    },
+    "./schemas/lockfile.js": {
+      "types": "./src/schemas/lockfile.ts",
+      "default": "./src/schemas/lockfile.js"
+    },
+    "./schemas/settings.js": {
+      "types": "./src/schemas/settings.ts",
+      "default": "./src/schemas/settings.js"
+    },
+    "./extensions/skills": {
+      "types": "./src/extensions/skills/index.ts",
+      "default": "./src/extensions/skills/index.js"
+    },
+    "./extensions/skills/lockfile.js": {
+      "types": "./src/extensions/skills/lockfile.ts",
+      "default": "./src/extensions/skills/lockfile.js"
+    },
+    "./extensions/skills/settings.js": {
+      "types": "./src/extensions/skills/settings.ts",
+      "default": "./src/extensions/skills/settings.js"
+    },
+    "./extensions/skills/state/pure-functions.js": {
+      "types": "./src/extensions/skills/state/pure-functions.ts",
+      "default": "./src/extensions/skills/state/pure-functions.js"
+    },
+    "./extensions/skills/state/types.js": {
+      "types": "./src/extensions/skills/state/types.ts",
+      "default": "./src/extensions/skills/state/types.js"
+    }
+  },
   "bin": {
     "axm": "./src/main.ts"
   },
   "scripts": {
     "build": "tsc",
+    "generate:schemas": "bun scripts/generate-schemas.ts",
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "typecheck": "tsc --noEmit"
@@ -15,16 +62,18 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "@agentxm/core": "workspace:*",
     "@clack/prompts": "^1.0.0",
     "@effect/platform": "^0.94.2",
     "effect": "catalog:",
     "picocolors": "^1.1.1",
+    "semver": "^7.7.1",
+    "simple-git": "^3.27.0",
     "yargs": "catalog:"
   },
   "devDependencies": {
     "@effect/platform-node": "^0.104.1",
     "@types/bun": "catalog:",
+    "@types/semver": "^7.5.8",
     "@types/yargs": "catalog:",
     "execa": "^9.6.1",
     "typescript": "catalog:",

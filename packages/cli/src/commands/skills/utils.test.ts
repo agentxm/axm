@@ -4,12 +4,16 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { ExtensionRef } from "@agentxm/core/experimental/resolution";
+import type { ExtensionRef } from "../../resolution/index.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { makeClackTestLayer } from "../../clack-effect/index.js";
 import { SkillsError, selectExtensionRef } from "./utils.js";
 
 describe("selectExtensionRef", () => {
+  // Create a test layer for Clack - tests don't actually prompt since canPrompt=false
+  const [ClackTestLayer] = makeClackTestLayer();
+
   // Helper to create test ExtensionRef objects
   const createRef = (overrides: Partial<ExtensionRef> = {}): ExtensionRef => ({
     type: "skill",
@@ -28,7 +32,7 @@ describe("selectExtensionRef", () => {
         expect(error._tag).toBe("SkillsError");
         expect(error.message).toContain('Could not resolve "my-skill"');
         expect(error.retryable).toBe(false);
-      }),
+      }).pipe(Effect.provide(ClackTestLayer)),
     );
 
     it.effect("includes format suggestions in error message", () =>
@@ -40,7 +44,7 @@ describe("selectExtensionRef", () => {
         expect(error.message).toContain("Local path:");
         expect(error.message).toContain("GitHub:");
         expect(error.message).toContain("GitLab:");
-      }),
+      }).pipe(Effect.provide(ClackTestLayer)),
     );
 
     it.effect("uses formatEmptyResolutionError (has X marker)", () =>
@@ -48,7 +52,7 @@ describe("selectExtensionRef", () => {
         const error = yield* selectExtensionRef([], "test", false).pipe(Effect.flip);
 
         expect(error.message).toMatch(/^✗/);
-      }),
+      }).pipe(Effect.provide(ClackTestLayer)),
     );
   });
 
@@ -60,7 +64,7 @@ describe("selectExtensionRef", () => {
         const result = yield* selectExtensionRef([ref], "owner/repo", false);
 
         expect(result).toBe(ref);
-      }),
+      }).pipe(Effect.provide(ClackTestLayer)),
     );
 
     it.effect("works regardless of canPrompt value", () =>
@@ -74,7 +78,7 @@ describe("selectExtensionRef", () => {
         // Should work with canPrompt = false
         const result2 = yield* selectExtensionRef([ref], "skill", false);
         expect(result2).toBe(ref);
-      }),
+      }).pipe(Effect.provide(ClackTestLayer)),
     );
 
     it.effect("preserves all ref properties", () =>
@@ -99,7 +103,7 @@ describe("selectExtensionRef", () => {
         expect(result.name).toBe("@org/my-skill");
         expect(result.path).toBe("skills/my-skill");
         expect(result.metadata.description).toBe("A test skill");
-      }),
+      }).pipe(Effect.provide(ClackTestLayer)),
     );
   });
 
@@ -115,7 +119,7 @@ describe("selectExtensionRef", () => {
 
         expect(error._tag).toBe("SkillsError");
         expect(error.retryable).toBe(false);
-      }),
+      }).pipe(Effect.provide(ClackTestLayer)),
     );
 
     it.effect("error message mentions ambiguous input", () =>
@@ -129,7 +133,7 @@ describe("selectExtensionRef", () => {
 
         expect(error.message).toContain('Ambiguous input "my-input"');
         expect(error.message).toContain("matches multiple sources");
-      }),
+      }).pipe(Effect.provide(ClackTestLayer)),
     );
 
     it.effect("error message lists all matches", () =>
@@ -152,7 +156,7 @@ describe("selectExtensionRef", () => {
         expect(error.message).toContain("Found 2 matches:");
         expect(error.message).toContain("@scope/skill-a (github)");
         expect(error.message).toContain("@scope/skill-b (gitlab)");
-      }),
+      }).pipe(Effect.provide(ClackTestLayer)),
     );
 
     it.effect("error message uses origin when name is not available", () =>
@@ -166,7 +170,7 @@ describe("selectExtensionRef", () => {
 
         expect(error.message).toContain("https://github.com/owner/repo (github)");
         expect(error.message).toContain("/local/path/to/skills (git)");
-      }),
+      }).pipe(Effect.provide(ClackTestLayer)),
     );
 
     it.effect("error message includes recovery guidance", () =>
@@ -178,7 +182,7 @@ describe("selectExtensionRef", () => {
         expect(error.message).toContain("--yes");
         expect(error.message).toContain("--non-interactive");
         expect(error.message).toContain("more specific source identifier");
-      }),
+      }).pipe(Effect.provide(ClackTestLayer)),
     );
   });
 

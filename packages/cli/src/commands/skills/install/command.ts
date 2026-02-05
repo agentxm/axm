@@ -3,6 +3,7 @@ import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type { CommandModule } from "yargs";
+import { ClackLive } from "../../../clack-effect/index.js";
 import { handleInstall } from "./handler.js";
 
 interface InstallArgs {
@@ -116,7 +117,7 @@ export const installCommand: CommandModule<{}, InstallArgs> = {
           process.exit(1);
         }),
       ),
-      Effect.provide(Layer.mergeAll(NodeContext.layer, FetchHttpClient.layer)),
+      Effect.provide(Layer.mergeAll(NodeContext.layer, FetchHttpClient.layer, ClackLive)),
     );
 
     await Effect.runPromise(program);

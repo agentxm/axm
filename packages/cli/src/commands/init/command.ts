@@ -2,8 +2,7 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type { CommandModule } from "yargs";
-import { ClackLive } from "../../services/clack-effect/service.js";
-import { InteractionContextLive } from "../../services/interaction-context/service.js";
+import { ClackLive } from "../../clack-effect/service.js";
 import { handleInit } from "./handler.js";
 
 interface InitArgs {
@@ -46,9 +45,8 @@ export const initCommand: CommandModule<{}, InitArgs> = {
       .example("$0 init --global", "Initialize in ~/.axm/ for user-wide configuration")
       .example("$0 init --agent claude-code --agent cursor", "Initialize with specific agents"),
   handler: async (argv) => {
-    // Build layers: FileSystem + Clack -> InteractionContext
-    const InteractionLayer = Layer.provide(InteractionContextLive, ClackLive);
-    const MainLayer = Layer.merge(NodeFileSystem.layer, InteractionLayer);
+    // Build layers: FileSystem + Clack
+    const MainLayer = Layer.merge(NodeFileSystem.layer, ClackLive);
 
     const program = handleInit({
       global: argv.global,

@@ -7,11 +7,11 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { ExtensionRef } from "@agentxm/core/experimental/resolution";
+import type { ExtensionRef } from "../../resolution/index.js";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import { Clack } from "../../clack-effect/index.js";
 import { formatEmptyResolutionError, formatError } from "../../utils/errors.js";
-import { promptSelect } from "../../utils/prompts.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -50,59 +50,64 @@ export function selectExtensionRef(
   refs: readonly ExtensionRef[],
   input: string,
   canPrompt: boolean,
-): Effect.Effect<ExtensionRef, SkillsError> {
+) {
   return Effect.gen(function* () {
     // Empty results - fail with suggestions
     if (refs.length === 0) {
-      return yield* new SkillsError({
-        message: formatEmptyResolutionError(input),
-        retryable: false,
-      });
+      return yield* Effect.fail(
+        new SkillsError({
+          message: formatEmptyResolutionError(input),
+          retryable: false,
+        }),
+      );
     }
 
     // Single result - use it directly
     if (refs.length === 1) {
       const ref = refs[0];
       if (!ref) {
-        return yield* new SkillsError({
-          message: formatEmptyResolutionError(input),
-          retryable: false,
-        });
+        return yield* Effect.fail(
+          new SkillsError({
+            message: formatEmptyResolutionError(input),
+            retryable: false,
+          }),
+        );
       }
       return ref;
     }
 
     // Multiple results - prompt for selection or fail if non-interactive
     if (!canPrompt) {
-      const sources = refs.map((r) => `  \u2022 ${r.name ?? r.origin} (${r.source})`).join("\n");
-      return yield* new SkillsError({
-        message: formatError(
-          `Ambiguous input "${input}" matches multiple sources`,
-          [`Found ${refs.length} matches:\n${sources}`],
-          "Use --yes or --non-interactive with a more specific source identifier.",
-        ),
-        retryable: false,
-      });
+      const sources = refs.map((r) => `  • ${r.name ?? r.origin} (${r.source})`).join("\n");
+      return yield* Effect.fail(
+        new SkillsError({
+          message: formatError(
+            `Ambiguous input "${input}" matches multiple sources`,
+            [`Found ${refs.length} matches:\n${sources}`],
+            "Use --yes or --non-interactive with a more specific source identifier.",
+          ),
+          retryable: false,
+        }),
+      );
     }
 
     // Interactive selection
-    const selected = yield* promptSelect(
-      "Multiple matches found. Select the source to install from:",
-      refs,
-      (ref) => ({
+    const clack = yield* Clack;
+    const selected = yield* clack
+      .select("Multiple matches found. Select the source to install from:", refs, (ref) => ({
         value: ref.origin,
         label: ref.name ?? ref.origin,
         hint: `${ref.source}${ref.ref ? `@${ref.ref}` : ""}`,
-      }),
-    ).pipe(
-      Effect.mapError(
-        (error) =>
-          new SkillsError({
-            message: `Failed to prompt for extension selection: ${error.message}`,
-            retryable: false,
-          }),
-      ),
-    );
+      }))
+      .pipe(
+        Effect.mapError(
+          (error) =>
+            new SkillsError({
+              message: `Failed to prompt for extension selection: ${error.message}`,
+              retryable: false,
+            }),
+        ),
+      );
 
     return selected;
   });

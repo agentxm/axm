@@ -15,7 +15,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Settings } from "@agentxm/core/experimental/skills";
+import type { Settings } from "../../../extensions/skills/index.js";
 import * as FetchHttpClient from "@effect/platform/FetchHttpClient";
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
@@ -25,11 +25,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach, vi } from "vitest";
 import YAML from "yaml";
+import { type Clack, makeClackTestLayer } from "../../../clack-effect/index.js";
 import { handleInstall, type InstallArgs, InstallError } from "./handler.js";
 
 // Mock git operations to use local fixtures instead of cloning
-vi.mock("@agentxm/core/experimental/skills", async (importOriginal) => {
-  const original = await importOriginal<typeof import("@agentxm/core/experimental/skills")>();
+vi.mock("../../../extensions/skills/index.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../../../extensions/skills/index.js")>();
 
   // Track the fixture path for each mock call
   let currentFixturePath: string | undefined;
@@ -69,9 +70,9 @@ vi.mock("@agentxm/core/experimental/skills", async (importOriginal) => {
 // Track call count to return different hashes for different installs
 let gitHubApiCallCount = 0;
 
-vi.mock("@agentxm/core/experimental/skills/github-api", async (importOriginal) => {
+vi.mock("../../../extensions/skills/github-api.js", async (importOriginal) => {
   const original =
-    await importOriginal<typeof import("@agentxm/core/experimental/skills/github-api")>();
+    await importOriginal<typeof import("../../../extensions/skills/github-api.js")>();
 
   return {
     ...original,
@@ -108,8 +109,19 @@ function copyDirSync(src: string, dest: string): void {
   }
 }
 
+// Create mock Clack layer for tests (default: confirm returns true, multiselect returns first item)
+const [ClackTestLayer] = makeClackTestLayer({
+  confirmBehavior: { type: "return", value: true },
+  multiselectBehavior: { type: "return", indices: [0] },
+});
+
 // Layer providing all required services for tests
-const TestLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, FetchHttpClient.layer);
+const TestLayer = Layer.mergeAll(
+  NodeFileSystem.layer,
+  NodePath.layer,
+  FetchHttpClient.layer,
+  ClackTestLayer,
+);
 
 // Mock TTY utilities
 vi.mock("../../../utils/tty.js", () => ({
@@ -117,7 +129,7 @@ vi.mock("../../../utils/tty.js", () => ({
 }));
 
 // Import the mock helpers after vi.mock
-type SkillsModule = typeof import("@agentxm/core/experimental/skills") & {
+type SkillsModule = typeof import("../../../extensions/skills/index.js") & {
   __setFixturePath: (path: string) => void;
   __clearFixturePath: () => void;
 };
@@ -135,7 +147,7 @@ describe("install.handler", () => {
     // Change to temp dir so .axm is created there
     process.chdir(tempDir);
     // Import the mocked module to access helper functions
-    skillsModule = (await import("@agentxm/core/experimental/skills")) as unknown as SkillsModule;
+    skillsModule = (await import("../../../extensions/skills/index.js")) as unknown as SkillsModule;
   });
 
   afterEach(() => {
@@ -149,7 +161,7 @@ describe("install.handler", () => {
    * Helper function to provide the test layer to an effect.
    */
   const withTestLayer = <A, E>(
-    effect: Effect.Effect<A, E, FileSystem.FileSystem | HttpClient.HttpClient | Path.Path>,
+    effect: Effect.Effect<A, E, FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | Clack>,
   ) => effect.pipe(Effect.provide(TestLayer));
 
   const defaultArgs: InstallArgs = {

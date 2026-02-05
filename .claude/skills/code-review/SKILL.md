@@ -31,16 +31,14 @@ Review code changes against project conventions and suggest improvements.
 
 ---
 
-## Review Categories
+## Review Checklist
 
-| Category            | What to check                                                 |
-| ------------------- | ------------------------------------------------------------- |
-| **Effect patterns** | Typed errors, services, no raw promises, proper iteration     |
-| **Error handling**  | Tagged errors, cause preservation, Schema validation          |
-| **Type safety**     | Minimal assertions, inference over annotations, no `as` casts |
-| **Testing**         | Behavioral tests, isolation, determinism, co-location         |
-| **Code org**        | Feature grouping, barrel exports, no cross-feature re-exports |
-| **Conventions**     | Naming, Option over nullable, concurrency where possible      |
+- [ ] **Skills** — Code conforms to guidance in all relevant `.claude/skills/`
+      → Load applicable skills and check each convention
+- [ ] **Agent instructions** — Code conforms to all relevant `CLAUDE.md` guidance
+      → Check root and co-located `CLAUDE.md` files in affected directories
+- [ ] **Guides** — Code conforms to all relevant guidance in `docs/guides/`
+      → Consult domain guides (Effect, testing, CLI design, etc.)
 
 ---
 

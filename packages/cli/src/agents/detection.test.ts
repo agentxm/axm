@@ -14,7 +14,9 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { claudeHome, codexHome, configHome, home } from "./constants.js";
+import { claudeHome } from "./claude-code/index.js";
+import { codexHome } from "./codex/index.js";
+import { configHome, home } from "./constants.js";
 import { DetectionError, detectAgent, detectAgents } from "./detection.js";
 import { AGENTS } from "./registry.js";
 

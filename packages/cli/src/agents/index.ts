@@ -13,5 +13,10 @@ export { DetectionError, detectAgent, detectAgents } from "./detection.js";
 
 // Registry (pure data)
 export { AGENTS, getAgentById, getAgentIds, getAllAgents } from "./registry.js";
+
 // Types
 export type { AgentConfig, AgentId, AgentRegistry, AgentSkillsConfig } from "./types.js";
+
+// Agent-specific exports (for consumers that need direct access)
+export { claudeHome } from "./claude-code/index.js";
+export { codexHome } from "./codex/index.js";

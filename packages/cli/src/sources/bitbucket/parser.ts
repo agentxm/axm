@@ -25,9 +25,9 @@ export const parseBitbucketHttpsUrl = (
   const owner = match[1];
   const repo = match[2];
   const ref = match[3];
-  const path = match[4];
+  const subPath = match[4];
 
-  return Effect.succeed(ParsedSource.Bitbucket({ original: input, owner, repo, ref, path }));
+  return Effect.succeed(ParsedSource.Bitbucket({ original: input, owner, repo, ref, subPath }));
 };
 
 /**

@@ -23,9 +23,9 @@ export const parseGitHubHttpsUrl = (input: string): Effect.Effect<GitHubSource, 
   const owner = match[1];
   const repo = match[2];
   const ref = match[3];
-  const path = match[4];
+  const subPath = match[4];
 
-  return Effect.succeed(ParsedSource.GitHub({ original: input, owner, repo, ref, path }));
+  return Effect.succeed(ParsedSource.GitHub({ original: input, owner, repo, ref, subPath }));
 };
 
 /**

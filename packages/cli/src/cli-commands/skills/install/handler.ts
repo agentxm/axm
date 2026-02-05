@@ -182,7 +182,7 @@ const resolveGitSource = (
     );
 
     // Determine skills directory (with optional subpath)
-    const skillsDir = Option.match(parsed.path, {
+    const skillsDir = Option.match(parsed.subPath, {
       onNone: () => cacheDir,
       onSome: (p) => nodePath.join(cacheDir, p),
     });
@@ -227,7 +227,7 @@ const parsedSourceToV2 = (
           owner: parsed.owner,
           repo: parsed.repo,
           ref: parsed.ref,
-          path: parsed.path,
+          path: parsed.subPath,
         }),
       );
     case "gitlab":
@@ -269,7 +269,7 @@ const createBuildIdealDeps = (
 
             if (isGitHubSource && parsed.source === "github") {
               // Build path within repo: subpath (if any) + skill name
-              const pathInRepo = Option.match(parsed.path, {
+              const pathInRepo = Option.match(parsed.subPath, {
                 onNone: () => skill.name,
                 onSome: (p) => `${p}/${skill.name}`,
               });
@@ -485,7 +485,7 @@ export const handleInstall = (
 
       case "local": {
         // Local sources: discover skills directly from the filesystem path
-        const skillsDir = parsed.localPath;
+        const skillsDir = parsed.path;
         skills = yield* discoverSkills(skillsDir).pipe(
           Effect.mapError(
             (error) =>

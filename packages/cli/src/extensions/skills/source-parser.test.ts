@@ -27,7 +27,7 @@ describe("source-parser", () => {
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
           expect(Option.isNone(result.ref)).toBe(true);
-          expect(Option.isNone(result.path)).toBe(true);
+          expect(Option.isNone(result.subPath)).toBe(true);
         }
       }),
     );
@@ -42,7 +42,7 @@ describe("source-parser", () => {
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
           expect(result.ref).toEqual(Option.some("v1.0.0"));
-          expect(Option.isNone(result.path)).toBe(true);
+          expect(Option.isNone(result.subPath)).toBe(true);
         }
       }),
     );
@@ -57,7 +57,7 @@ describe("source-parser", () => {
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
           expect(Option.isNone(result.ref)).toBe(true);
-          expect(result.path).toEqual(Option.some("skills/my-skill"));
+          expect(result.subPath).toEqual(Option.some("skills/my-skill"));
         }
       }),
     );
@@ -72,7 +72,7 @@ describe("source-parser", () => {
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
           expect(result.ref).toEqual(Option.some("main"));
-          expect(result.path).toEqual(Option.some("skills/my-skill"));
+          expect(result.subPath).toEqual(Option.some("skills/my-skill"));
         }
       }),
     );
@@ -136,7 +136,7 @@ describe("source-parser", () => {
         if (result.source === "github") {
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
-          expect(result.path).toEqual(Option.some("skills/my-skill"));
+          expect(result.subPath).toEqual(Option.some("skills/my-skill"));
           expect(result.ref).toEqual(Option.some("v1.0.0"));
         }
       }),
@@ -191,7 +191,7 @@ describe("source-parser", () => {
         expect(result.canonical).toBe("github:owner/repo");
         if (result.source === "github") {
           expect(result.ref).toEqual(Option.some("main"));
-          expect(Option.isNone(result.path)).toBe(true);
+          expect(Option.isNone(result.subPath)).toBe(true);
         }
       }),
     );
@@ -206,7 +206,7 @@ describe("source-parser", () => {
         expect(result.canonical).toBe("github:owner/repo");
         if (result.source === "github") {
           expect(result.ref).toEqual(Option.some("main"));
-          expect(result.path).toEqual(Option.some("skills/my-skill"));
+          expect(result.subPath).toEqual(Option.some("skills/my-skill"));
         }
       }),
     );
@@ -266,7 +266,7 @@ describe("source-parser", () => {
         expect(result.canonical).toBe("gitlab:owner/repo");
         if (result.source === "gitlab") {
           expect(result.ref).toEqual(Option.some("main"));
-          expect(result.path).toEqual(Option.some("skills/my-skill"));
+          expect(result.subPath).toEqual(Option.some("skills/my-skill"));
         }
       }),
     );
@@ -355,7 +355,7 @@ describe("source-parser", () => {
         expect(result.canonical).toBe("bitbucket:owner/repo");
         if (result.source === "bitbucket") {
           expect(result.ref).toEqual(Option.some("main"));
-          expect(Option.isNone(result.path)).toBe(true);
+          expect(Option.isNone(result.subPath)).toBe(true);
         }
       }),
     );
@@ -370,7 +370,7 @@ describe("source-parser", () => {
         expect(result.canonical).toBe("bitbucket:owner/repo");
         if (result.source === "bitbucket") {
           expect(result.ref).toEqual(Option.some("main"));
-          expect(result.path).toEqual(Option.some("skills/my-skill"));
+          expect(result.subPath).toEqual(Option.some("skills/my-skill"));
         }
       }),
     );
@@ -433,7 +433,7 @@ describe("source-parser", () => {
         expect(result.source).toBe("bitbucket");
         expect(result.canonical).toBe("bitbucket:owner/repo");
         if (result.source === "bitbucket") {
-          expect(result.path).toEqual(Option.some("skills/my-skill"));
+          expect(result.subPath).toEqual(Option.some("skills/my-skill"));
           expect(result.ref).toEqual(Option.some("main"));
         }
       }),

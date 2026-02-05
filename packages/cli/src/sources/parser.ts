@@ -91,8 +91,11 @@ const REGISTRY_SOURCE_PATTERN = /^@([^/]+)\/(.+)$/;
 /** SCP-style: `user@host:path` — no `://` scheme. */
 const SCP_PATTERN = /^[^@]+@[^:]+:.+$/;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySourceConfig = SourceConfig<any, any>;
+
 /** All source configs, type-erased for map building. */
-const ALL_CONFIGS: ReadonlyArray<SourceConfig> = [
+const ALL_CONFIGS: ReadonlyArray<AnySourceConfig> = [
   githubConfig,
   gitlabConfig,
   bitbucketConfig,
@@ -100,9 +103,9 @@ const ALL_CONFIGS: ReadonlyArray<SourceConfig> = [
 ];
 
 /** Map from shorthand prefix to its config. */
-const CONFIG_BY_PREFIX = new Map<string, SourceConfig>(
+const CONFIG_BY_PREFIX = new Map<string, AnySourceConfig>(
   Array.getSomes(
-    Array.map(ALL_CONFIGS, (c) => Option.map(c.shorthandPrefix, (prefix) => [prefix, c] as const)),
+    Array.map(ALL_CONFIGS, (c) => Option.map(c.shorthand, (sh) => [sh.prefix, c] as const)),
   ),
 );
 
@@ -242,12 +245,12 @@ export const parseSourceV2 = (input: string): Effect.Effect<ParsedSource<Source>
         ),
         Match.tag("ShorthandInput", ({ prefix, input: shorthandInput }) => {
           const cfg = CONFIG_BY_PREFIX.get(prefix);
-          if (!cfg || Option.isNone(cfg.parseShorthand)) {
+          if (!cfg || Option.isNone(cfg.shorthand)) {
             return Effect.fail(
               new ParseError({ message: `Unknown shorthand prefix: "${prefix}"`, input }),
             );
           }
-          return cfg.parseShorthand.value(shorthandInput);
+          return cfg.shorthand.value.parse(shorthandInput);
         }),
         Match.exhaustive,
       ),

@@ -50,6 +50,17 @@ export type SourceType = typeof SourceTypeSchema.Type;
 // -----------------------------------------------------------------------------
 
 /**
+ * Shorthand configuration for a source provider (e.g. `github:owner/repo`).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface ShorthandConfig<T extends SourceType, T2 extends Source & { source: T }> {
+  readonly prefix: T;
+  readonly parse: (input: string) => Effect.Effect<ParsedSource<T2>, ParseError>;
+  readonly print: (source: T2) => string;
+}
+
+/**
  * Configuration for a source provider.
  *
  * @experimental This API is unstable and may change without notice.
@@ -59,10 +70,7 @@ export interface SourceConfig<
   T2 extends Source & { source: T } = Source & { source: T },
 > {
   readonly id: T;
-  readonly shorthandPrefix: Option.Option<T>;
-  readonly parseShorthand: Option.Option<
-    (input: string) => Effect.Effect<ParsedSource<T2>, ParseError>
-  >;
+  readonly shorthand: Option.Option<ShorthandConfig<T, T2>>;
 }
 
 // -----------------------------------------------------------------------------

@@ -12,13 +12,14 @@ import {
 
 export const config: SourceConfig<"github", GitHubSource> = {
   id: "github",
-  shorthandPrefix: Option.some("github"),
-  parseShorthand: Option.some(
-    (input: string): Effect.Effect<ParsedSource<GitHubSource>, ParseError> =>
+  shorthand: Option.some({
+    prefix: "github",
+    parse: (input: string): Effect.Effect<ParsedSource<GitHubSource>, ParseError> =>
       Effect.gen(function* () {
         const body = input.slice("github:".length);
         const parts = yield* parseProviderShorthand(body, input);
         return PS.GitHub({ original: input, ...parts });
       }),
-  ),
+    print: (source) => `github:${source.owner}/${source.repo}`,
+  }),
 };

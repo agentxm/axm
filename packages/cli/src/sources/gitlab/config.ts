@@ -12,13 +12,14 @@ import {
 
 export const config: SourceConfig<"gitlab", GitLabSource> = {
   id: "gitlab",
-  shorthandPrefix: Option.some("gitlab"),
-  parseShorthand: Option.some(
-    (input: string): Effect.Effect<ParsedSource<GitLabSource>, ParseError> =>
+  shorthand: Option.some({
+    prefix: "gitlab",
+    parse: (input: string): Effect.Effect<ParsedSource<GitLabSource>, ParseError> =>
       Effect.gen(function* () {
         const body = input.slice("gitlab:".length);
         const parts = yield* parseProviderShorthand(body, input);
         return PS.GitLab({ original: input, ...parts });
       }),
-  ),
+    print: (source) => `gitlab:${source.owner}/${source.repo}`,
+  }),
 };

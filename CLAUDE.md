@@ -127,6 +127,29 @@ Example: `handleInit(args: InitArgs)` is the entry point for the `init` command,
 
 ### Error Handling Patterns
 
+See /effect-errors skill for comprehensive error modeling guidance.
+
+**Expected errors vs defects:**
+
+- **Expected errors** (E channel): Validation failures, not-found, rate limits — caller can recover
+- **Defects**: Bugs, invariant violations — crash the program, no recovery
+- Use `Effect.orDie` only when no caller can sensibly recover (e.g., missing config at startup)
+
+**Defining errors with TaggedError:**
+
+- `Data.TaggedError` — internal errors, never serialized, include `cause: unknown`
+- `Schema.TaggedError` — API-facing errors, serializable, use `Schema.Defect` for cause
+
+```typescript
+// Internal: preserve original error
+class DbError extends Data.TaggedError("DbError")<{ cause: unknown }> {}
+
+// API-facing: safe serialization
+class UserNotFoundError extends Schema.TaggedError<UserNotFoundError>()("UserNotFoundError", {
+  id: Schema.String,
+}) {}
+```
+
 **Never throw in helper functions** — return typed Effect errors:
 
 ```typescript
@@ -154,6 +177,24 @@ yield * new WorkspaceError({ message: "Not found" });
 // Also valid: explicit Effect.fail
 yield * Effect.fail(new WorkspaceError({ message: "Not found" }));
 ```
+
+**Preserve error context** — always include `cause` when wrapping external errors:
+
+```typescript
+// Bad: original error lost
+Effect.tryPromise({
+  try: () => externalLib.call(),
+  catch: () => new MyError(), // Where did the real error go?
+});
+
+// Good: preserve cause
+Effect.tryPromise({
+  try: () => externalLib.call(),
+  catch: (error) => new MyError({ cause: error }),
+});
+```
+
+**Convert errors at source** — transform library errors to domain errors immediately, not far from where they occurred.
 
 **Always validate parsed data with Schema:**
 

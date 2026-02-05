@@ -98,6 +98,8 @@ const results =
 
 ### Error Handling
 
+See /effect-errors for comprehensive error modeling (TaggedError, defects, recovery).
+
 ```typescript
 // Typed error handling with catchTag
 const result =

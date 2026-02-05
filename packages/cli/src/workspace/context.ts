@@ -4,7 +4,7 @@
  * Provides a simple interface that encapsulates workspace location (local vs global)
  * and interaction mode. Passed to workspace functions to determine behavior.
  *
- * @experimental This API is unstable and may change without notice.
+ * @deprecated Use WorkspaceContext service from service.ts instead.
  * @packageDocumentation
  */
 
@@ -22,9 +22,9 @@ import { getAxmDir, SETTINGS_FILENAME } from "./paths.js";
 /**
  * Error representing a workspace-level problem.
  *
- * @experimental This API is unstable and may change without notice.
+ * @deprecated Use WorkspaceNotInitializedError or WorkspaceInitializationError from errors.ts instead.
  */
-export class WorkspaceError extends Data.TaggedError("WorkspaceError")<{
+export class WorkspaceErrorLegacy extends Data.TaggedError("WorkspaceError")<{
   readonly message: string;
   readonly cause?: Option.Option<unknown>;
 }> {}
@@ -37,11 +37,11 @@ export class WorkspaceError extends Data.TaggedError("WorkspaceError")<{
  * Workspace context - passed to workspace functions.
  *
  * Encapsulates the workspace root path and interaction mode. Created from
- * handler options via makeWorkspaceContext.
+ * handler options via makeWorkspaceContextLegacy.
  *
- * @experimental This API is unstable and may change without notice.
+ * @deprecated Use WorkspaceContextService from service-types.ts instead.
  */
-export interface WorkspaceContext {
+export interface WorkspaceContextLegacy {
   /** Workspace root path (e.g., .axm/ or ~/.axm/) */
   readonly path: string;
 
@@ -61,25 +61,25 @@ export interface WorkspaceContext {
  * - Global workspace: `~/.axm/`
  *
  * @param options - Handler options containing global and interactive flags
- * @returns WorkspaceContext for use with workspace functions
+ * @returns WorkspaceContextLegacy for use with workspace functions
  *
- * @experimental This API is unstable and may change without notice.
+ * @deprecated Use WorkspaceContext.layer() from service.ts instead.
  *
  * @example
  * ```typescript
- * import { makeWorkspaceContext } from "./workspace/context";
+ * import { makeWorkspaceContextLegacy } from "./workspace/context";
  *
  * // Local workspace with prompts enabled
- * const localCtx = makeWorkspaceContext({ global: false, interactive: true });
+ * const localCtx = makeWorkspaceContextLegacy({ global: false, interactive: true });
  *
  * // Global workspace in CI mode (no prompts)
- * const globalCtx = makeWorkspaceContext({ global: true, interactive: false });
+ * const globalCtx = makeWorkspaceContextLegacy({ global: true, interactive: false });
  * ```
  */
-export const makeWorkspaceContext = (options: {
+export const makeWorkspaceContextLegacy = (options: {
   global: boolean;
   interactive: boolean;
-}): WorkspaceContext => ({
+}): WorkspaceContextLegacy => ({
   path: getAxmDir(options.global),
   interactive: options.interactive,
 });
@@ -89,29 +89,29 @@ export const makeWorkspaceContext = (options: {
  *
  * Checks if the workspace path exists and contains a valid settings.json file.
  * If not initialized:
- * - In non-interactive mode: fails with WorkspaceError
- * - In interactive mode: fails with WorkspaceError (future: could prompt for initialization)
+ * - In non-interactive mode: fails with WorkspaceErrorLegacy
+ * - In interactive mode: fails with WorkspaceErrorLegacy (future: could prompt for initialization)
  *
  * @param ws - Workspace context containing path and interaction mode
- * @returns Effect that succeeds if initialized, fails with WorkspaceError if not
+ * @returns Effect that succeeds if initialized, fails with WorkspaceErrorLegacy if not
  *
- * @experimental This API is unstable and may change without notice.
+ * @deprecated Use WorkspaceContext service which handles initialization automatically.
  *
  * @example
  * ```typescript
- * import { ensureInit, makeWorkspaceContext } from "./workspace/context";
+ * import { ensureInitLegacy, makeWorkspaceContextLegacy } from "./workspace/context";
  * import { Effect } from "effect";
  *
  * const handler = Effect.gen(function* () {
- *   const ws = makeWorkspaceContext({ global: false, interactive: true });
- *   yield* ensureInit(ws);
+ *   const ws = makeWorkspaceContextLegacy({ global: false, interactive: true });
+ *   yield* ensureInitLegacy(ws);
  *   // ... proceed with workspace operations
  * });
  * ```
  */
-export const ensureInit = (
-  ws: WorkspaceContext,
-): Effect.Effect<void, WorkspaceError, FileSystem.FileSystem> =>
+export const ensureInitLegacy = (
+  ws: WorkspaceContextLegacy,
+): Effect.Effect<void, WorkspaceErrorLegacy, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const settingsPath = `${ws.path}/${SETTINGS_FILENAME}`;
@@ -122,7 +122,7 @@ export const ensureInit = (
       .pipe(Effect.catchAll(() => Effect.succeed(false)));
 
     if (!exists) {
-      return yield* new WorkspaceError({
+      return yield* new WorkspaceErrorLegacy({
         message: `Workspace not initialized. Run 'axm init' first. (${ws.path})`,
         cause: Option.none(),
       });

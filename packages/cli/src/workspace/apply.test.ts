@@ -27,13 +27,13 @@ import {
   displayPlan,
   emptyApplyResult,
 } from "./apply.js";
-import type { WorkspaceContext } from "./context.js";
+import type { WorkspaceContextLegacy } from "./context.js";
 
 // =============================================================================
 // Test Helpers
 // =============================================================================
 
-const makeWorkspaceContext = (): WorkspaceContext => ({
+const makeWorkspaceContext = (): WorkspaceContextLegacy => ({
   path: "/test/.axm",
   interactive: false,
 });
@@ -178,7 +178,7 @@ describe("displayPlan", () => {
 });
 
 describe("applyPlan", () => {
-  let ws: WorkspaceContext;
+  let ws: WorkspaceContextLegacy;
 
   beforeEach(() => {
     ws = makeWorkspaceContext();

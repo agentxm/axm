@@ -207,7 +207,7 @@ const initializeProjectWorkspace = (
  * @param options - Workspace context options
  * @returns Effect yielding WorkspaceContextService
  *
- * @experimental This API is unstable and may change without notice.
+ * @internal Not exported from barrel - use layer() for external access
  */
 export const make = (
   options: WorkspaceContextOptions,

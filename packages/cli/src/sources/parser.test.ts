@@ -9,7 +9,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { buildCloneUrl, getOriginFromParsed } from "./clone-url.js";
 import { ParseError } from "./errors.js";
-import { parseSource } from "./parser.js";
+import { type InputPattern, parseInputPattern, parseSource, parseSourceV2 } from "./parser.js";
 import { ParsedSource } from "./types.js";
 
 describe("source-parser", () => {
@@ -694,5 +694,121 @@ describe("source-parser", () => {
 
       expect(result).toBe("https://bitbucket.org/owner/repo");
     });
+  });
+});
+
+describe("parseSourceV2", () => {
+  describe("parseInputPattern", () => {
+    const expectPattern = (input: string, expected: InputPattern | undefined) => {
+      expect(parseInputPattern(input)).toEqual(expected);
+    };
+
+    it("classifies simple name as NameInput", () => {
+      expectPattern("some-name", { _tag: "NameInput", name: "some-name" });
+    });
+
+    it("classifies @scope/name as RegistrySourceInput", () => {
+      expectPattern("@myorg/some-name", {
+        _tag: "RegistrySourceInput",
+        scope: "myorg",
+        name: "some-name",
+      });
+    });
+
+    it("classifies https URL as UrlInput", () => {
+      expectPattern("https://github.com/owner/repo", {
+        _tag: "UrlInput",
+        url: "https://github.com/owner/repo",
+      });
+    });
+
+    it("classifies git@ SSH URL as UrlInput", () => {
+      expectPattern("git@github.com:owner/repo", {
+        _tag: "UrlInput",
+        url: "git@github.com:owner/repo",
+      });
+    });
+
+    it("classifies owner/repo as SlashPattern", () => {
+      expectPattern("owner/repo", { _tag: "SlashPattern", input: "owner/repo" });
+    });
+
+    it("classifies owner/repo/sub/path as SlashPattern", () => {
+      expectPattern("owner/repo/sub/path", { _tag: "SlashPattern", input: "owner/repo/sub/path" });
+    });
+
+    it("classifies ./local/path as FilePathPattern", () => {
+      expectPattern("./local/path", { _tag: "FilePathPattern", path: "./local/path" });
+    });
+
+    it("classifies /absolute/path as FilePathPattern", () => {
+      expectPattern("/absolute/path", { _tag: "FilePathPattern", path: "/absolute/path" });
+    });
+
+    it("classifies ~/home/path as FilePathPattern", () => {
+      expectPattern("~/home/path", { _tag: "FilePathPattern", path: "~/home/path" });
+    });
+
+    it("returns undefined for empty string", () => {
+      expectPattern("", undefined);
+    });
+  });
+
+  describe("stub errors", () => {
+    it.effect("fails on empty input", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSourceV2(""));
+        expect(error).toBeInstanceOf(ParseError);
+        expect(error.message).toBe("Source string cannot be empty");
+      }),
+    );
+
+    it.effect("fails on whitespace-only input", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSourceV2("   "));
+        expect(error).toBeInstanceOf(ParseError);
+        expect(error.message).toBe("Source string cannot be empty");
+      }),
+    );
+
+    it.effect("fails with 'not yet supported' for NameInput", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSourceV2("some-name"));
+        expect(error).toBeInstanceOf(ParseError);
+        expect(error.message).toBe("Name input is not yet supported");
+      }),
+    );
+
+    it.effect("fails with 'not yet supported' for RegistrySourceInput", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSourceV2("@myorg/some-name"));
+        expect(error).toBeInstanceOf(ParseError);
+        expect(error.message).toBe("Registry source input is not yet supported");
+      }),
+    );
+
+    it.effect("fails with 'not yet supported' for UrlInput", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSourceV2("https://github.com/owner/repo"));
+        expect(error).toBeInstanceOf(ParseError);
+        expect(error.message).toBe("URL input is not yet supported");
+      }),
+    );
+
+    it.effect("fails with 'not yet supported' for SlashPattern", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSourceV2("owner/repo"));
+        expect(error).toBeInstanceOf(ParseError);
+        expect(error.message).toBe("Slash pattern is not yet supported");
+      }),
+    );
+
+    it.effect("fails with 'not yet supported' for FilePathPattern", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSourceV2("./local/path"));
+        expect(error).toBeInstanceOf(ParseError);
+        expect(error.message).toBe("File path pattern is not yet supported");
+      }),
+    );
   });
 });

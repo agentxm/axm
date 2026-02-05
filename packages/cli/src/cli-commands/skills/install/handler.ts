@@ -27,7 +27,6 @@ import {
   type Skill,
   type Source,
 } from "../../../extensions/skills/index.js";
-import { ensureInitializedLegacy, readSettings } from "../../../settings/index.js";
 import type { BitbucketSource, GitHubSource, GitLabSource } from "../../../sources/index.js";
 import { fetchGitHubTreeHash } from "../../../sources/index.js";
 import { SkillSourceV2 } from "../../../extensions/skills/state/types.js";
@@ -41,13 +40,12 @@ import {
   getPlanSummary,
   type InstallCommand,
   loadCurrentState,
-  makeWorkspaceContextLegacy,
   type PlanStep,
   planHasChanges,
   updateLockfileForPlan,
   updateSettingsForPlan,
-  type WorkspaceContextLegacy,
 } from "../../../workspace/index.js";
+import { make } from "../../../workspace/service.js";
 import { displayPlan } from "../display.js";
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
 import * as Array from "effect/Array";
@@ -329,12 +327,6 @@ export const handleInstall = (
     // Get Clack service
     const clack = yield* Clack;
 
-    // Create workspace context (legacy)
-    const ws: WorkspaceContextLegacy = makeWorkspaceContextLegacy({
-      global: args.global,
-      interactive: isInteractive() && !args.nonInteractive,
-    });
-
     // Show intro
     yield* clack.intro(`axm skills install (${scopeLabel})`);
 
@@ -359,9 +351,14 @@ export const handleInstall = (
     );
     spinner.stop(`Source: ${parsed.canonical} (${parsed.source.source})`);
 
-    // Step 2: Ensure initialized
+    // Step 2: Initialize workspace (auto-creates settings + lockfile if needed)
     spinner.start("Checking initialization...");
-    yield* ensureInitializedLegacy({ axmDir: ws.path }).pipe(
+    const context = yield* make({
+      global: args.global,
+      yes: true,
+      nonInteractive: true,
+      ...(args.agent.length > 0 && { agents: args.agent }),
+    }).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({
@@ -399,19 +396,8 @@ export const handleInstall = (
         spinner.stop(`Using ${agents.length} specified agent(s)`);
       }
     } else {
-      // Read agents from settings (selected during init)
-      const settings = yield* readSettings(ws.path).pipe(
-        Effect.mapError(
-          (error) =>
-            new InstallError({
-              message: `Failed to read settings: ${error.message}`,
-              cause: Option.some(error),
-              retryable: false,
-            }),
-        ),
-      );
-
-      const settingsAgents = settings.agents ?? [];
+      // Read agents from settings (loaded by workspace service)
+      const settingsAgents = context.settings.agents ?? [];
       agents = pipe(
         settingsAgents,
         Array.map((id) => getAgentById(id)),
@@ -431,7 +417,7 @@ export const handleInstall = (
 
     // Step 4: Load current state (V2)
     spinner.start("Loading current state...");
-    const currentState = yield* loadCurrentState(ws).pipe(
+    const currentState = yield* loadCurrentState(context).pipe(
       Effect.mapError(
         (error: { message: string }) =>
           new InstallError({
@@ -466,7 +452,7 @@ export const handleInstall = (
       case "gitlab":
       case "bitbucket": {
         const gitParsed = parsed as ParsedSource<GitHubSource | GitLabSource | BitbucketSource>;
-        const result = yield* resolveGitHostingProviderSource(gitParsed, ws.path);
+        const result = yield* resolveGitHostingProviderSource(gitParsed, context.path);
         skills = result.skills;
         resolvedSource = { parsed, skillsDir: result.skillsDir, commitSha: result.commitSha };
         break;
@@ -731,21 +717,20 @@ export const handleInstall = (
         const skillPath = nodePath.join(resolvedSource.skillsDir, step.skill);
         const localSource = SkillSourceV2.Local({ path: skillPath });
         const localStep = { ...step, source: localSource };
-        return applyStep(localStep, { workspacePath: ws.path, agents });
+        return applyStep(localStep, { workspacePath: context.path, agents });
       }
-      return applyStep(step, { workspacePath: ws.path, agents });
+      return applyStep(step, { workspacePath: context.path, agents });
     };
 
     const applyResult = yield* applyPlan(
-      ws,
       plan,
       { dryRun: false },
       {
         applyStep: applyStepWithSkillPath,
         updateLockfile: (planData: { steps: ReadonlyArray<PlanStep> }) =>
-          updateLockfileForPlan(ws.path, planData),
+          updateLockfileForPlan(context.path, planData),
         updateSettings: (planData: { steps: ReadonlyArray<PlanStep> }) =>
-          updateSettingsForPlan(ws.path, planData),
+          updateSettingsForPlan(context.path, planData),
       },
     ).pipe(
       Effect.mapError(

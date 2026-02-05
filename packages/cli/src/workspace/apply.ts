@@ -32,7 +32,6 @@ import type {
   PlanStep,
   SkillSourceV2,
 } from "../extensions/skills/state/types.js";
-import type { WorkspaceContextLegacy } from "./context.js";
 
 // Re-export types for consumers
 export type { ApplyResult, Plan, PlanStep } from "../extensions/skills/state/types.js";
@@ -273,7 +272,6 @@ export const displayPlan = (plan: Plan): Effect.Effect<void> =>
  * - Only update lockfile/settings on full success
  * - Progress callback for UI updates
  *
- * @param _ws - Workspace context (used for path resolution)
  * @param plan - The execution plan
  * @param opts - Apply options (dryRun, onProgress)
  * @param deps - Dependencies for step execution and state updates
@@ -283,16 +281,14 @@ export const displayPlan = (plan: Plan): Effect.Effect<void> =>
  * ```typescript
  * import { Effect } from "effect";
  * import { applyPlan, type ApplyDeps } from "./workspace/apply";
- * import { makeWorkspaceContextLegacy } from "./workspace/context";
  *
- * const ws = makeWorkspaceContextLegacy({ global: false, interactive: true });
  * const plan = { steps: [...] };
  *
  * // Dry-run mode - displays plan without executing
- * const dryRunResult = yield* applyPlan(ws, plan, { dryRun: true }, deps);
+ * const dryRunResult = yield* applyPlan(plan, { dryRun: true }, deps);
  *
  * // Apply mode - executes plan
- * const result = yield* applyPlan(ws, plan, {
+ * const result = yield* applyPlan(plan, {
  *   dryRun: false,
  *   onProgress: (step, status) => console.log(`${step.skill}: ${status}`)
  * }, deps);
@@ -301,7 +297,6 @@ export const displayPlan = (plan: Plan): Effect.Effect<void> =>
  * @experimental This API is unstable and may change without notice.
  */
 export const applyPlan = <R>(
-  _ws: WorkspaceContextLegacy,
   plan: Plan,
   opts: ApplyOptions,
   deps: ApplyDeps<R>,

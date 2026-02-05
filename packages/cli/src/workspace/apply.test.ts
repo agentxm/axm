@@ -27,16 +27,9 @@ import {
   displayPlan,
   emptyApplyResult,
 } from "./apply.js";
-import type { WorkspaceContextLegacy } from "./context.js";
-
 // =============================================================================
 // Test Helpers
 // =============================================================================
-
-const makeWorkspaceContext = (): WorkspaceContextLegacy => ({
-  path: "/test/.axm",
-  interactive: false,
-});
 
 const makeLocalSource = (path: string): SkillSourceV2 => ({
   _tag: "Local",
@@ -178,12 +171,6 @@ describe("displayPlan", () => {
 });
 
 describe("applyPlan", () => {
-  let ws: WorkspaceContextLegacy;
-
-  beforeEach(() => {
-    ws = makeWorkspaceContext();
-  });
-
   describe("dry-run mode", () => {
     it("displays plan without side effects", async () => {
       const plan = makePlan([makeInstallStep("commit")]);
@@ -198,7 +185,7 @@ describe("applyPlan", () => {
       };
       const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
-      const result = await Effect.runPromise(applyPlan(ws, plan, opts, deps));
+      const result = await Effect.runPromise(applyPlan(plan, opts, deps));
 
       expect(result).toEqual(emptyApplyResult());
       expect(applyStepSpy).not.toHaveBeenCalled();
@@ -212,7 +199,7 @@ describe("applyPlan", () => {
       const opts: ApplyOptions = { dryRun: true };
       const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
-      const result = await Effect.runPromise(applyPlan(ws, plan, opts, makeSuccessDeps()));
+      const result = await Effect.runPromise(applyPlan(plan, opts, makeSuccessDeps()));
 
       expect(result).toEqual(emptyApplyResult());
       consoleSpy.mockRestore();
@@ -230,7 +217,7 @@ describe("applyPlan", () => {
         updateSettings: () => Effect.void,
       };
 
-      const result = await Effect.runPromise(applyPlan(ws, plan, opts, deps));
+      const result = await Effect.runPromise(applyPlan(plan, opts, deps));
 
       expect(applyStepSpy).toHaveBeenCalledTimes(2);
       expect(result.applied).toHaveLength(2);
@@ -249,7 +236,7 @@ describe("applyPlan", () => {
         updateSettings: updateSettingsSpy,
       };
 
-      await Effect.runPromise(applyPlan(ws, plan, opts, deps));
+      await Effect.runPromise(applyPlan(plan, opts, deps));
 
       expect(updateLockfileSpy).toHaveBeenCalledTimes(1);
       expect(updateSettingsSpy).toHaveBeenCalledTimes(1);
@@ -266,7 +253,7 @@ describe("applyPlan", () => {
         updateSettings: updateSettingsSpy,
       };
 
-      await Effect.runPromise(applyPlan(ws, plan, opts, deps));
+      await Effect.runPromise(applyPlan(plan, opts, deps));
 
       expect(updateLockfileSpy).not.toHaveBeenCalled();
       expect(updateSettingsSpy).not.toHaveBeenCalled();
@@ -280,7 +267,7 @@ describe("applyPlan", () => {
       ]);
       const opts: ApplyOptions = { dryRun: false };
 
-      const result = await Effect.runPromise(applyPlan(ws, plan, opts, makeSuccessDeps()));
+      const result = await Effect.runPromise(applyPlan(plan, opts, makeSuccessDeps()));
 
       expect(result.summary).toEqual({
         installed: 1,
@@ -300,7 +287,7 @@ describe("applyPlan", () => {
         onProgress: (step, status) => progressEvents.push({ skill: step.skill, status }),
       };
 
-      await Effect.runPromise(applyPlan(ws, plan, opts, makeSuccessDeps()));
+      await Effect.runPromise(applyPlan(plan, opts, makeSuccessDeps()));
 
       expect(progressEvents).toEqual([
         { skill: "skill-1", status: "starting" },
@@ -319,7 +306,7 @@ describe("applyPlan", () => {
       };
       const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
-      await Effect.runPromise(applyPlan(ws, plan, opts, makeSuccessDeps()));
+      await Effect.runPromise(applyPlan(plan, opts, makeSuccessDeps()));
 
       expect(progressEvents).toHaveLength(0);
       consoleSpy.mockRestore();
@@ -334,7 +321,7 @@ describe("applyPlan", () => {
       };
       const deps = makeFailingDeps("skill-1", "Install failed");
 
-      await Effect.runPromise(applyPlan(ws, plan, opts, deps));
+      await Effect.runPromise(applyPlan(plan, opts, deps));
 
       expect(progressEvents).toEqual([{ skill: "skill-1", status: "starting" }]);
     });
@@ -367,7 +354,7 @@ describe("applyPlan", () => {
         updateSettings: () => Effect.void,
       };
 
-      const result = await Effect.runPromise(applyPlan(ws, plan, opts, deps));
+      const result = await Effect.runPromise(applyPlan(plan, opts, deps));
 
       expect(applyStepCalls).toEqual(["skill-1", "skill-2"]);
       expect(result.applied).toHaveLength(1);
@@ -395,7 +382,7 @@ describe("applyPlan", () => {
         updateSettings: updateSettingsSpy,
       };
 
-      await Effect.runPromise(applyPlan(ws, plan, opts, deps));
+      await Effect.runPromise(applyPlan(plan, opts, deps));
 
       expect(updateLockfileSpy).not.toHaveBeenCalled();
       expect(updateSettingsSpy).not.toHaveBeenCalled();
@@ -406,7 +393,7 @@ describe("applyPlan", () => {
       const opts: ApplyOptions = { dryRun: false };
       const deps = makeFailingDeps("failing-skill", "Source not found");
 
-      const result = await Effect.runPromise(applyPlan(ws, plan, opts, deps));
+      const result = await Effect.runPromise(applyPlan(plan, opts, deps));
 
       expect(result.failed).toHaveLength(1);
       const failedItem = result.failed[0];

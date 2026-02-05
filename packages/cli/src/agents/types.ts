@@ -5,7 +5,9 @@
  * @packageDocumentation
  */
 
-import type { Option, Record } from "effect";
+import type * as PlatformError from "@effect/platform/Error";
+import type * as FileSystem from "@effect/platform/FileSystem";
+import type { Effect, Option, Record } from "effect";
 
 // -----------------------------------------------------------------------------
 // Agent Skills Configuration
@@ -82,6 +84,22 @@ export type AgentId =
  *
  * @experimental This API is unstable and may change without notice.
  */
+/**
+ * Detection function type for checking if an agent is installed.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type AgentDetectFn = () => Effect.Effect<
+  boolean,
+  PlatformError.PlatformError,
+  FileSystem.FileSystem
+>;
+
+/**
+ * Configuration for an AI coding agent.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
 export interface AgentConfig {
   /** Unique identifier (e.g., "claude-code") */
   readonly id: AgentId;
@@ -89,6 +107,8 @@ export interface AgentConfig {
   readonly name: string;
   /** Skills installation configuration */
   readonly skills: AgentSkillsConfig;
+  /** Optional custom detection function. If not provided, default heuristic is used. */
+  readonly detect?: AgentDetectFn;
 }
 
 // -----------------------------------------------------------------------------

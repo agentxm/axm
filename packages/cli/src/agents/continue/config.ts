@@ -9,6 +9,7 @@ import * as path from "node:path";
 import * as Option from "effect/Option";
 import { home } from "../constants.js";
 import type { AgentConfig } from "../types.js";
+import { detect } from "./detection.js";
 
 /**
  * Continue agent configuration.
@@ -22,4 +23,5 @@ export const config: AgentConfig = {
     projectDir: ".continue/skills",
     globalDir: Option.some(path.join(home, ".continue/skills")),
   },
+  detect,
 };

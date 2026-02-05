@@ -9,6 +9,7 @@ import * as path from "node:path";
 import * as Option from "effect/Option";
 import type { AgentConfig } from "../types.js";
 import { codexHome } from "./constants.js";
+import { detect } from "./detection.js";
 
 /**
  * Codex agent configuration.
@@ -22,4 +23,5 @@ export const config: AgentConfig = {
     projectDir: ".codex/skills",
     globalDir: Option.some(path.join(codexHome, "skills")),
   },
+  detect,
 };

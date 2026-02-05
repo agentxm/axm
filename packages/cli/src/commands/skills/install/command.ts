@@ -1,9 +1,5 @@
-import * as FetchHttpClient from "@effect/platform/FetchHttpClient";
-import * as NodeContext from "@effect/platform-node/NodeContext";
-import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import type { CommandModule } from "yargs";
-import { ClackLive } from "../../../clack-effect/index.js";
+import { run } from "../../../runtime/index.js";
 import { handleInstall } from "./handler.js";
 
 interface InstallArgs {
@@ -99,27 +95,19 @@ export const installCommand: CommandModule<{}, InstallArgs> = {
         "Preview installation plan without changes",
       ),
   handler: async (argv) => {
-    const program = handleInstall({
-      source: argv.source,
-      global: argv.global,
-      agent: argv.agent,
-      skill: argv.skill,
-      yes: argv.yes,
-      list: argv.list,
-      all: argv.all,
-      force: argv.force,
-      nonInteractive: argv["non-interactive"],
-      dryRun: argv["dry-run"],
-    }).pipe(
-      Effect.catchAll((error) =>
-        Effect.sync(() => {
-          console.error(`Error: ${error.message}`);
-          process.exit(1);
-        }),
-      ),
-      Effect.provide(Layer.mergeAll(NodeContext.layer, FetchHttpClient.layer, ClackLive)),
+    await run(
+      handleInstall({
+        source: argv.source,
+        global: argv.global,
+        agent: argv.agent,
+        skill: argv.skill,
+        yes: argv.yes,
+        list: argv.list,
+        all: argv.all,
+        force: argv.force,
+        nonInteractive: argv["non-interactive"],
+        dryRun: argv["dry-run"],
+      }),
     );
-
-    await Effect.runPromise(program);
   },
 };

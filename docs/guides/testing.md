@@ -1,7 +1,9 @@
 # Testing Guide
 
-Orientation for testing in this project: unit and e2e tests, when to use each,
-and what makes tests valuable.
+Testing strategy for this project: unit tests for pure functions, handler tests
+with Effect test layers, and E2E tests for CLI commands. Covers test quality
+principles, when to use each level, and Effect-specific patterns like service
+mocking and layer construction.
 
 > [Testing](../../CLAUDE.md#testing) — workflow and quality checklist
 
@@ -15,11 +17,14 @@ configuration.
 
 ## Skills
 
-- `/testing-basics` — Test quality principles
-- `/testing-unit` — Unit test patterns for pure functions
-- `/testing-e2e` — E2E test patterns for CLI commands
-- `/effect-testing` — Effect testing patterns (handlers typically need test layers)
-- `/effect-service` — Service patterns including test layer construction
+| Skill                                                            | Command | Description                                        |
+| ---------------------------------------------------------------- | ------- | -------------------------------------------------- |
+| [testing-basics](../../.claude/skills/testing-basics/SKILL.md)   | —       | Test quality principles and test level guidance    |
+| [testing-unit](../../.claude/skills/testing-unit/SKILL.md)       | —       | Unit test patterns for pure functions              |
+| [testing-handler](../../.claude/skills/testing-handler/SKILL.md) | —       | Handler test patterns with Effect test layers      |
+| [axm-testing-e2e](../../.claude/skills/axm-testing-e2e/SKILL.md) | —       | E2E test patterns for CLI commands                 |
+| [effect-testing](../../.claude/skills/effect-testing/SKILL.md)   | —       | Effect testing with @effect/vitest                 |
+| [effect-service](../../.claude/skills/effect-service/SKILL.md)   | —       | Service patterns including test layer construction |
 
 ---
 

@@ -1,8 +1,9 @@
 # CLI Design Guide
 
-Conventions for designing CLI commands in this project. Covers yargs + Effect
-architecture, command structure, interactive prompts with Bombshell, output
-formatting, and error handling.
+Conventions for designing CLI commands: yargs + Effect architecture, command
+naming and file organization, interactive prompts with Bombshell (Clack),
+standard flags, output formatting, error handling, CI/automation modes, and
+configuration hierarchy.
 
 > [Handlers](../../CLAUDE.md#handlers) — critical guidance
 
@@ -16,8 +17,10 @@ formatting, and error handling.
 
 ## Skills
 
-- `/cli-conventions` — yargs + Effect patterns, command structure, testing
-- `/bombshell` — Effect wrappers for prompts, TTY detection, spinners
+| Skill                                                            | Command | Description                                          |
+| ---------------------------------------------------------------- | ------- | ---------------------------------------------------- |
+| [cli-conventions](../../.claude/skills/cli-conventions/SKILL.md) | —       | yargs + Effect patterns, command structure, testing  |
+| [bombshell](../../.claude/skills/bombshell/SKILL.md)             | —       | Effect wrappers for prompts, TTY detection, spinners |
 
 **Not covered:** yargs API details (see
 [official docs](https://github.com/yargs/yargs/blob/main/docs/api.md)), shell

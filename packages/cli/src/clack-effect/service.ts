@@ -128,14 +128,11 @@ const makeLiveClackService = (): ClackService => ({
         return yield* Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
       }
 
-      const selected = items[result];
-      if (selected === undefined) {
-        return yield* Effect.fail(
-          new PromptError({ message: "Invalid selection index", cause: Option.none() }),
-        );
-      }
-
-      return selected;
+      return yield* Array.get(items, result).pipe(
+        Effect.mapError(
+          () => new PromptError({ message: "Invalid selection index", cause: Option.none() }),
+        ),
+      );
     }),
 
   multiselect: <T>(message: string, items: readonly T[], config: MultiselectConfig<T>) =>
@@ -154,9 +151,7 @@ const makeLiveClackService = (): ClackService => ({
         onNone: () => undefined,
         onSome: (initVals) =>
           Array.filterMap(items, (item, index) =>
-            initVals.includes(config.toOption(item).value)
-              ? Option.some(index)
-              : Option.none(),
+            initVals.includes(config.toOption(item).value) ? Option.some(index) : Option.none(),
           ),
       });
 
@@ -187,7 +182,7 @@ const makeLiveClackService = (): ClackService => ({
 
       // Cast needed: multiselect config loses generic type info due to dynamic construction
       const indices = result as number[];
-      return Array.filterMap(indices, (index) => Option.fromNullable(items[index]));
+      return Array.filterMap(indices, (index) => Array.get(items, index));
     }),
 
   spinner: () =>

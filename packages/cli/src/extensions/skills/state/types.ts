@@ -13,6 +13,7 @@
  * @packageDocumentation
  */
 
+import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 import * as Schema from "effect/Schema";
@@ -330,7 +331,10 @@ export const getValidityCode = (v: SkillValidity): SkillValidityCode | null => {
     case "Incomplete":
       return v.code;
     case "Multiple":
-      return v.issues[0] ? getValidityCode(v.issues[0]) : null;
+      return Option.match(Array.head(v.issues), {
+        onNone: () => null,
+        onSome: (first) => getValidityCode(first),
+      });
   }
 };
 

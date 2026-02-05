@@ -5,6 +5,7 @@
  * @packageDocumentation
  */
 
+import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -183,10 +184,10 @@ export const getTreeSha = (repoPath: string, subPath = "."): Effect.Effect<strin
       }
       // Parse the output: "040000 tree <sha>\t<path>" or "100644 blob <sha>\t<path>"
       const parts = trimmed.split(/\s+/);
-      const sha = parts[2];
-      if (parts.length < 3 || sha === undefined) {
-        throw new Error(`Unexpected ls-tree output: ${trimmed}`);
-      }
+      const sha = Option.getOrThrowWith(
+        Array.get(parts, 2),
+        () => new Error(`Unexpected ls-tree output: ${trimmed}`),
+      );
       return sha;
     },
     catch: mapGitError(

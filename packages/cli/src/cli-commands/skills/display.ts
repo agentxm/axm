@@ -50,9 +50,7 @@ export const formatHash = (hash: Option.Option<string>): string =>
     hash,
     Option.map((h) => {
       // Remove prefix like "sha256:" if present
-      const stripped = h.includes(":")
-        ? Option.getOrElse(Array.get(h.split(":"), 1), () => h)
-        : h;
+      const stripped = h.includes(":") ? Option.getOrElse(Array.get(h.split(":"), 1), () => h) : h;
       return stripped.slice(0, 7);
     }),
     Option.getOrElse(() => "???????"),

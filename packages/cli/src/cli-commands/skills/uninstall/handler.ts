@@ -149,14 +149,8 @@ export const handleUninstall = (
 
     // Step 3: Validate skill exists in current state
     // Find skill by name in the skills array
-    const skillStateOption = Array.findFirst(
-      currentState.skills,
-      (s) => s.name === args.skill,
-    );
-    if (
-      Option.isNone(skillStateOption) ||
-      Option.isNone(skillStateOption.value.locked)
-    ) {
+    const skillStateOption = Array.findFirst(currentState.skills, (s) => s.name === args.skill);
+    if (Option.isNone(skillStateOption) || Option.isNone(skillStateOption.value.locked)) {
       return yield* Effect.fail(
         new UninstallError({
           message: formatError(

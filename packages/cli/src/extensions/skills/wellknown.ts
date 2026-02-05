@@ -392,7 +392,10 @@ export const fetchSkillFiles = (
 
     // Find the SKILL.md path (it should be in the files list)
     const skillMdPath = pipe(
-      Array.findFirst(skill.files, (f) => f.toLowerCase() === "skill.md" || f.endsWith("/SKILL.md")),
+      Array.findFirst(
+        skill.files,
+        (f) => f.toLowerCase() === "skill.md" || f.endsWith("/SKILL.md"),
+      ),
       Option.match({
         onNone: () => `${destination}/SKILL.md`,
         onSome: (file) => `${destination}/${file}`,

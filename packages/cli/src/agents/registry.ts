@@ -154,5 +154,4 @@ export const getAgentIds = (): ReadonlyArray<AgentId> =>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const getAllAgents = (): ReadonlyArray<AgentConfig> =>
-  Object.values(AGENTS);
+export const getAllAgents = (): ReadonlyArray<AgentConfig> => Object.values(AGENTS);

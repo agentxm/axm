@@ -37,7 +37,6 @@ import {
   buildIdealForInstall,
   buildPlan,
   CommandError,
-  type DiscoveredSkill,
   getPlanSummary,
   type InstallCommand,
   loadCurrentState,
@@ -259,43 +258,47 @@ const createBuildIdealDeps = (
   discoverSkills: (source: SkillSourceV2) =>
     Effect.gen(function* () {
       // For GitHub sources, fetch git tree hash from API for each skill
-      const skills: DiscoveredSkill[] = [];
+      const isGitHubSource =
+        source._tag === "GitHub" &&
+        resolvedSource.parsed.type === "github" &&
+        Option.isSome(resolvedSource.parsed.owner) &&
+        Option.isSome(resolvedSource.parsed.repo);
 
-      for (const skill of discoveredSkills) {
-        let gitTreeHash: Option.Option<string> = Option.none();
+      return yield* Effect.forEach(
+        discoveredSkills,
+        (skill) =>
+          Effect.gen(function* () {
+            let gitTreeHash: Option.Option<string> = Option.none();
 
-        if (
-          source._tag === "GitHub" &&
-          resolvedSource.parsed.type === "github" &&
-          Option.isSome(resolvedSource.parsed.owner) &&
-          Option.isSome(resolvedSource.parsed.repo)
-        ) {
-          // Build path within repo: subpath (if any) + skill name
-          const pathInRepo = Option.match(resolvedSource.parsed.path, {
-            onNone: () => skill.name,
-            onSome: (p) => `${p}/${skill.name}`,
-          });
+            if (isGitHubSource) {
+              // Build path within repo: subpath (if any) + skill name
+              const pathInRepo = Option.match(resolvedSource.parsed.path, {
+                onNone: () => skill.name,
+                onSome: (p) => `${p}/${skill.name}`,
+              });
 
-          gitTreeHash = yield* fetchGitHubTreeHash(
-            resolvedSource.parsed.owner.value,
-            resolvedSource.parsed.repo.value,
-            Option.getOrElse(resolvedSource.parsed.ref, () => "HEAD"),
-            pathInRepo,
-          ).pipe(
-            Effect.map((h): Option.Option<string> => (h === null ? Option.none() : Option.some(h))),
-            Effect.catchAll(() => Effect.succeed<Option.Option<string>>(Option.none())),
-          );
-        }
+              gitTreeHash = yield* fetchGitHubTreeHash(
+                resolvedSource.parsed.owner.value,
+                resolvedSource.parsed.repo.value,
+                Option.getOrElse(resolvedSource.parsed.ref, () => "HEAD"),
+                pathInRepo,
+              ).pipe(
+                Effect.map(
+                  (h): Option.Option<string> => (h === null ? Option.none() : Option.some(h)),
+                ),
+                Effect.catchAll(() => Effect.succeed<Option.Option<string>>(Option.none())),
+              );
+            }
 
-        skills.push({
-          name: skill.name,
-          // Skills from discover don't have version; it's from the frontmatter which we don't use here
-          version: Option.none(),
-          gitTreeHash,
-        });
-      }
-
-      return skills;
+            return {
+              name: skill.name,
+              // Skills from discover don't have version; it's from the frontmatter which we don't use here
+              version: Option.none(),
+              gitTreeHash,
+            };
+          }),
+        { concurrency: "unbounded" },
+      );
     }),
 });
 

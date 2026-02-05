@@ -108,63 +108,66 @@ export const fetchSkillFiles = (
       ),
     );
 
-    // Fetch each file listed in the skill
-    for (const file of skill.files) {
-      const fileUrl = `${normalizedUrl}${WELL_KNOWN_PATH}/${skill.name}/${file}`;
+    // Fetch each file listed in the skill (concurrently)
+    yield* Effect.forEach(
+      skill.files,
+      (file) =>
+        Effect.gen(function* () {
+          const fileUrl = `${normalizedUrl}${WELL_KNOWN_PATH}/${skill.name}/${file}`;
 
-      const response = yield* pipe(
-        client.get(fileUrl),
-        Effect.mapError((error) => mapHttpError(fileUrl, error)),
-        Effect.retry(retryPolicy),
-      );
+          const response = yield* pipe(
+            client.get(fileUrl),
+            Effect.mapError((error) => mapHttpError(fileUrl, error)),
+            Effect.retry(retryPolicy),
+          );
 
-      const content = yield* pipe(
-        response.text,
-        Effect.mapError(
-          (error) =>
-            new WellKnownFetchError({
-              message: `Failed to read content from ${fileUrl}: ${error}`,
-              url: fileUrl,
-              cause: error,
-              retryable: false,
-            }),
-        ),
-      );
+          const content = yield* pipe(
+            response.text,
+            Effect.mapError(
+              (error) =>
+                new WellKnownFetchError({
+                  message: `Failed to read content from ${fileUrl}: ${error}`,
+                  url: fileUrl,
+                  cause: error,
+                  retryable: false,
+                }),
+            ),
+          );
 
-      // Determine the file path within the destination
-      const filePath = `${destination}/${file}`;
+          // Determine the file path within the destination
+          const filePath = `${destination}/${file}`;
 
-      // Create parent directories if needed (for nested files like "references/commands.md")
-      const parentDir = filePath.substring(0, filePath.lastIndexOf("/"));
-      if (parentDir !== destination) {
-        yield* pipe(
-          fs.makeDirectory(parentDir, { recursive: true }),
-          Effect.mapError(
-            (error) =>
-              new WellKnownFetchError({
-                message: `Failed to create directory ${parentDir}: ${error}`,
-                url: fileUrl,
-                cause: error,
-                retryable: false,
-              }),
-          ),
-        );
-      }
+          // Create parent directories if needed (for nested files like "references/commands.md")
+          const parentDir = filePath.substring(0, filePath.lastIndexOf("/"));
+          yield* pipe(
+            fs.makeDirectory(parentDir, { recursive: true }),
+            Effect.mapError(
+              (error) =>
+                new WellKnownFetchError({
+                  message: `Failed to create directory ${parentDir}: ${error}`,
+                  url: fileUrl,
+                  cause: error,
+                  retryable: false,
+                }),
+            ),
+          );
 
-      // Write the file content
-      yield* pipe(
-        fs.writeFileString(filePath, content),
-        Effect.mapError(
-          (error) =>
-            new WellKnownFetchError({
-              message: `Failed to write file ${filePath}: ${error}`,
-              url: fileUrl,
-              cause: error,
-              retryable: false,
-            }),
-        ),
-      );
-    }
+          // Write the file content
+          yield* pipe(
+            fs.writeFileString(filePath, content),
+            Effect.mapError(
+              (error) =>
+                new WellKnownFetchError({
+                  message: `Failed to write file ${filePath}: ${error}`,
+                  url: fileUrl,
+                  cause: error,
+                  retryable: false,
+                }),
+            ),
+          );
+        }),
+      { concurrency: "unbounded", discard: true },
+    );
 
     // Find the SKILL.md path (it should be in the files list)
     const skillMdPath = pipe(

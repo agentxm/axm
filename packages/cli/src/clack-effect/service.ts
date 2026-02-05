@@ -8,6 +8,7 @@
  */
 
 import * as p from "@clack/prompts";
+import * as Array from "effect/Array";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -149,18 +150,15 @@ const makeLiveClackService = (): ClackService => ({
       });
 
       // Map initialValues (string values) to indices
-      const initialIndices = Option.isSome(config.initialValues)
-        ? items
-            .map((item, index) => ({ item, index }))
-            .filter(({ item }) => {
-              const initVals = Option.getOrElse(
-                config.initialValues,
-                () => [] as readonly string[],
-              );
-              return initVals.includes(config.toOption(item).value);
-            })
-            .map(({ index }) => index)
-        : undefined;
+      const initialIndices = Option.match(config.initialValues, {
+        onNone: () => undefined,
+        onSome: (initVals) =>
+          Array.filterMap(items, (item, index) =>
+            initVals.includes(config.toOption(item).value)
+              ? Option.some(index)
+              : Option.none(),
+          ),
+      });
 
       // Build multiselect config
       const multiselectConfig: Parameters<typeof p.multiselect>[0] = {
@@ -189,7 +187,7 @@ const makeLiveClackService = (): ClackService => ({
 
       // Cast needed: multiselect config loses generic type info due to dynamic construction
       const indices = result as number[];
-      return indices.map((index) => items[index]).filter((item): item is T => item !== undefined);
+      return Array.filterMap(indices, (index) => Option.fromNullable(items[index]));
     }),
 
   spinner: () =>

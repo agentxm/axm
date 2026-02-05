@@ -8,6 +8,7 @@
  */
 
 import type { ExtensionRef } from "../../resolution/index.js";
+import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -65,16 +66,7 @@ export function selectExtensionRef(
 
     // Single result - use it directly
     if (refs.length === 1) {
-      const ref = refs[0];
-      if (!ref) {
-        return yield* Effect.fail(
-          new SkillsError({
-            message: formatEmptyResolutionError(input),
-            retryable: false,
-          }),
-        );
-      }
-      return ref;
+      return Option.getOrThrow(Array.head(refs));
     }
 
     // Multiple results - prompt for selection or fail if non-interactive

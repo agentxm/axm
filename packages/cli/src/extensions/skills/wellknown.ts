@@ -12,6 +12,7 @@
 import * as HttpClient from "@effect/platform/HttpClient";
 import type * as HttpClientError from "@effect/platform/HttpClientError";
 import { FileSystem } from "@effect/platform/FileSystem";
+import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -390,10 +391,13 @@ export const fetchSkillFiles = (
     }
 
     // Find the SKILL.md path (it should be in the files list)
-    const skillMdFile = skill.files.find(
-      (f) => f.toLowerCase() === "skill.md" || f.endsWith("/SKILL.md"),
+    const skillMdPath = pipe(
+      Array.findFirst(skill.files, (f) => f.toLowerCase() === "skill.md" || f.endsWith("/SKILL.md")),
+      Option.match({
+        onNone: () => `${destination}/SKILL.md`,
+        onSome: (file) => `${destination}/${file}`,
+      }),
     );
-    const skillMdPath = skillMdFile ? `${destination}/${skillMdFile}` : `${destination}/SKILL.md`;
 
     return {
       name: skill.name,

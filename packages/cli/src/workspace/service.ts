@@ -9,7 +9,7 @@
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import { type AgentConfig, detectAgents, getAgentById } from "../agents/index.js";
-import * as Arr from "effect/Array";
+import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import {
   type LockfileError,
@@ -102,7 +102,7 @@ const initializeProjectWorkspace = (
 
     // If explicit agents are provided, use those (no detection needed)
     if (options.agents && options.agents.length > 0) {
-      selectedAgents = Arr.filterMap([...options.agents], (id) =>
+      selectedAgents = Array.filterMap([...options.agents], (id) =>
         Option.map(getAgentById(id), (agent) => agent),
       );
     } else {
@@ -145,7 +145,7 @@ const initializeProjectWorkspace = (
                 label: agent.name,
                 hint: Option.some(`skills: ${agent.skills.projectDir}`),
               }),
-              initialValues: Option.some(detectedAgents.map((a) => a.id)),
+              initialValues: Option.some(Array.map(detectedAgents, (a) => a.id)),
               required: Option.some(false),
             })
             .pipe(
@@ -165,7 +165,7 @@ const initializeProjectWorkspace = (
     }
 
     // Extract agent IDs for settings
-    const agentIds = selectedAgents.map((a) => a.id);
+    const agentIds = Array.map(selectedAgents, (a) => a.id);
 
     // Create settings with selected agents (satisfies ensures type safety without cast)
     const settings = { agents: agentIds } satisfies Settings;

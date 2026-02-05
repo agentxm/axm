@@ -5,8 +5,8 @@ import { handleInstall } from "./handler.js";
 interface InstallArgs {
   source: string;
   global: boolean;
-  agent: string[];
-  skill: string[];
+  agent: ReadonlyArray<string>;
+  skill: ReadonlyArray<string>;
   yes: boolean;
   list: boolean;
   all: boolean;

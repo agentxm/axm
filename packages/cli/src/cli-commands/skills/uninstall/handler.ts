@@ -36,8 +36,10 @@ import {
 import { displayPlan } from "../display.js";
 import * as FileSystem from "@effect/platform/FileSystem";
 import type { Path } from "@effect/platform";
+import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import { Clack, PromptCancelled, PromptError } from "../../../clack-effect/index.js";
 import type { Spinner } from "../../../clack-effect/types.js";
@@ -147,8 +149,14 @@ export const handleUninstall = (
 
     // Step 3: Validate skill exists in current state
     // Find skill by name in the skills array
-    const skillState = currentState.skills.find((s) => s.name === args.skill);
-    if (!skillState || Option.isNone(skillState.locked)) {
+    const skillStateOption = Array.findFirst(
+      currentState.skills,
+      (s) => s.name === args.skill,
+    );
+    if (
+      Option.isNone(skillStateOption) ||
+      Option.isNone(skillStateOption.value.locked)
+    ) {
       return yield* Effect.fail(
         new UninstallError({
           message: formatError(
@@ -267,15 +275,19 @@ const handleFullUninstall = (
 
     // Get agent configs for the apply operation
     // For full uninstall, we need agents from the plan step
-    const uninstallStep = plan.steps.find(
+    const uninstallStepOption = Array.findFirst(
+      plan.steps,
       (s): s is PlanStep & { _tag: "UninstallSkill" } => s._tag === "UninstallSkill",
     );
-    const agentConfigs: AgentConfig[] = uninstallStep
-      ? uninstallStep.agents
-          .map((id) => getAgentById(id))
-          .filter(Option.isSome)
-          .map((opt) => opt.value)
-      : [];
+    const agentConfigs: AgentConfig[] = Option.match(uninstallStepOption, {
+      onNone: () => [],
+      onSome: (step) =>
+        pipe(
+          step.agents,
+          Array.map((id) => getAgentById(id)),
+          Array.getSomes,
+        ),
+    });
 
     // Create apply deps
     const deps: ApplyDeps<FileSystem.FileSystem> = {
@@ -356,7 +368,7 @@ const handlePartialUninstall = (
 
     const currentAgents = lockEntry.agents;
     const targetAgents = args.agent;
-    const remainingAgents = currentAgents.filter((a) => !targetAgents.includes(a));
+    const remainingAgents = Array.filter(currentAgents, (a) => !targetAgents.includes(a));
 
     // Check if this will become a full removal
     const isFullRemoval = remainingAgents.length === 0;
@@ -403,10 +415,11 @@ const handlePartialUninstall = (
     spinner.start(`Uninstalling ${args.skill}...`);
 
     // Get agent configs for removal
-    const agentConfigs: AgentConfig[] = targetAgents
-      .map((id) => getAgentById(id))
-      .filter(Option.isSome)
-      .map((opt) => opt.value);
+    const agentConfigs: AgentConfig[] = pipe(
+      targetAgents,
+      Array.map((id) => getAgentById(id)),
+      Array.getSomes,
+    );
 
     if (isFullRemoval) {
       // This became a full removal - use V2 state-based pattern with applyPlan

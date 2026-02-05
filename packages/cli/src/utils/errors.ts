@@ -32,7 +32,7 @@
  * )
  * // => "X Could not find configuration file\n  Looked for: .axm/settings.json\n  Run 'axm init' to create one."
  */
-export function formatError(what: string, details?: string[], howToFix?: string): string {
+export function formatError(what: string, details?: ReadonlyArray<string>, howToFix?: string): string {
   const lines: string[] = [];
 
   // Main error line with X marker

@@ -50,8 +50,10 @@ import {
 } from "../../../workspace/index.js";
 import { displayPlan } from "../display.js";
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
+import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import { Clack } from "../../../clack-effect/index.js";
 import { formatError } from "../../../utils/errors.js";
@@ -379,14 +381,17 @@ export const handleInstall = (
 
     if (args.agent.length > 0) {
       // Use explicitly specified agents via --agent flag
-      agents = args.agent
-        .map((id) => getAgentById(id))
-        .filter(Option.isSome)
-        .map((opt) => opt.value);
+      agents = pipe(
+        args.agent,
+        Array.map((id) => getAgentById(id)),
+        Array.getSomes,
+      );
 
       if (agents.length !== args.agent.length) {
-        const validIds = args.agent.filter((id) => Option.isSome(getAgentById(id)));
-        const invalidIds = args.agent.filter((id) => Option.isNone(getAgentById(id)));
+        // Array.partition returns [falseElements, trueElements]
+        const [invalidIds, validIds] = Array.partition(args.agent, (id) =>
+          Option.isSome(getAgentById(id)),
+        );
         spinner.stop(`Found ${validIds.length} agent(s), ${invalidIds.length} invalid`);
 
         if (invalidIds.length > 0) {
@@ -409,10 +414,11 @@ export const handleInstall = (
       );
 
       const settingsAgents = settings.agents ?? [];
-      agents = settingsAgents
-        .map((id) => getAgentById(id))
-        .filter(Option.isSome)
-        .map((opt) => opt.value);
+      agents = pipe(
+        settingsAgents,
+        Array.map((id) => getAgentById(id)),
+        Array.getSomes,
+      );
 
       spinner.stop(`Using ${agents.length} agent(s) from settings`);
     }
@@ -554,15 +560,15 @@ export const handleInstall = (
 
     if (args.skill.length > 0) {
       // Use explicitly specified skills
-      selectedSkillNames = args.skill.filter((name) => skills.some((s) => s.name === name));
-      const invalidSkills = args.skill.filter((name) => !skills.some((s) => s.name === name));
+      selectedSkillNames = Array.filter(args.skill, (name) => skills.some((s) => s.name === name));
+      const invalidSkills = Array.filter(args.skill, (name) => !skills.some((s) => s.name === name));
 
       if (invalidSkills.length > 0) {
         yield* clack.log.warn(`Unknown skills: ${invalidSkills.join(", ")}`);
       }
     } else if (args.all || args.dryRun) {
       // Install all skills (dry-run auto-selects all)
-      selectedSkillNames = skills.map((s) => s.name);
+      selectedSkillNames = Array.map(skills, (s) => s.name);
       if (args.all) yield* clack.log.info(`Installing all ${skills.length} skill(s)`);
     } else if (!canPrompt()) {
       // Need to prompt but can't
@@ -586,7 +592,7 @@ export const handleInstall = (
             label: s.name,
             hint: s.description,
           }),
-          initialValues: Option.some(skills.map((s) => s.name)),
+          initialValues: Option.some(Array.map(skills, (s) => s.name)),
           required: Option.some(true),
         })
         .pipe(
@@ -609,7 +615,7 @@ export const handleInstall = (
                 }),
           ),
         );
-      selectedSkillNames = selectedSkills.map((s) => s.name);
+      selectedSkillNames = Array.map(selectedSkills, (s) => s.name);
     }
 
     if (selectedSkillNames.length === 0) {
@@ -619,7 +625,7 @@ export const handleInstall = (
     }
 
     // Filter discovered skills to only those selected
-    const filteredSkills = skills.filter((s) => selectedSkillNames.includes(s.name));
+    const filteredSkills = Array.filter(skills, (s) => selectedSkillNames.includes(s.name));
 
     // Step 7: Build ideal state (V2)
     spinner.start("Building installation plan...");
@@ -628,7 +634,7 @@ export const handleInstall = (
     const installCmd: InstallCommand = {
       _tag: "skills-install",
       source: args.source,
-      agents: agents.map((a) => a.id),
+      agents: Array.map(agents, (a) => a.id),
       skills: args.all ? "all" : [...selectedSkillNames],
       force: args.force,
     };

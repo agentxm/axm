@@ -5,6 +5,7 @@
  * @packageDocumentation
  */
 
+import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -137,12 +138,11 @@ export const fetchGitHubTreeHash = (
     }
 
     // Find the tree entry matching the path
-    const entry = data.tree.find((e) => e.path === normalizedPath && e.type === "tree");
-
-    if (!entry) {
-      // Path not found in tree
-      return null;
-    }
-
-    return entry.sha;
+    return Option.match(
+      Array.findFirst(data.tree, (e) => e.path === normalizedPath && e.type === "tree"),
+      {
+        onNone: () => null,
+        onSome: (entry) => entry.sha,
+      },
+    );
   });

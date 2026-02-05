@@ -17,7 +17,7 @@
 import * as nodePath from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
 import type { Path } from "@effect/platform";
-import * as Arr from "effect/Array";
+import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import { pipe } from "effect/Function";
@@ -101,7 +101,7 @@ interface RawLockEntry {
   version?: string;
   location?: { _tag: string; url?: string; path?: string };
   gitTreeHash?: string;
-  agents: string[];
+  agents: ReadonlyArray<string>;
   installedAt: string;
   updatedAt: string;
 }
@@ -439,7 +439,7 @@ const listSkillFiles = (
           }),
         { concurrency: "unbounded" },
       ),
-      Effect.map(Arr.getSomes),
+      Effect.map(Array.getSomes),
     );
 
     return files;
@@ -556,7 +556,7 @@ const scanSkillsDir = (
           }),
         { concurrency: "unbounded" },
       ),
-      Effect.map(Arr.getSomes),
+      Effect.map(Array.getSomes),
     );
 
     return skills;
@@ -608,7 +608,7 @@ const scanRegistryScopes = (
           }),
         { concurrency: "unbounded" },
       ),
-      Effect.map(Arr.flatten),
+      Effect.map(Array.flatten),
     );
 
     return allSkills;
@@ -700,21 +700,21 @@ export const loadCurrentState = (
 
     for (const name of allNames) {
       const actualList = actualByName.get(name) ?? [];
-      const actual = actualList[0]; // Take first (duplicates are reported separately)
+      const actual = Array.head(actualList); // Take first (duplicates are reported separately)
       const locked = lockedSkills[name];
 
       const stateIssues: SkillStateIssue[] = [];
 
       // Determine state issues based on presence
-      if (actual && !locked) {
+      if (Option.isSome(actual) && !locked) {
         stateIssues.push(SkillStateIssue.NotInLockfile({ name }));
-      } else if (!actual && locked) {
+      } else if (Option.isNone(actual) && locked) {
         stateIssues.push(SkillStateIssue.MissingFromDisk({ name }));
       }
 
       skillStates.push({
         name,
-        actual: Option.fromNullable(actual),
+        actual,
         locked: Option.fromNullable(locked),
         issues: stateIssues,
       });

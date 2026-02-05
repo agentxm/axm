@@ -10,8 +10,10 @@
 
 import * as path from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
+import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { home } from "./constants.js";
 import { getAllAgents } from "./registry.js";
 import type { AgentConfig } from "./types.js";
@@ -47,7 +49,13 @@ const defaultDetect = (agent: AgentConfig) =>
       // ~/.{agent-id} pattern
       path.join(home, `.${agent.id}`),
       // Project-level directory pattern (first segment without leading dot)
-      path.join(home, agent.skills.projectDir.split("/")[0]?.replace(/^\./, "") ?? ""),
+      path.join(
+        home,
+        Option.getOrElse(
+          Option.map(Array.head(agent.skills.projectDir.split("/")), (s) => s.replace(/^\./, "")),
+          () => "",
+        ),
+      ),
     ];
 
     for (const pattern of patterns) {
@@ -138,13 +146,6 @@ export const detectAgents = (): Effect.Effect<
   DetectionError,
   FileSystem.FileSystem
 > =>
-  Effect.gen(function* () {
-    const agents = getAllAgents();
-    const results = yield* Effect.all(
-      agents.map((agent) =>
-        detectAgent(agent).pipe(Effect.map((detected) => (detected ? agent : null))),
-      ),
-      { concurrency: "unbounded" },
-    );
-    return results.filter((a): a is AgentConfig => a !== null);
+  Effect.filter(getAllAgents(), (agent) => detectAgent(agent), {
+    concurrency: "unbounded",
   });

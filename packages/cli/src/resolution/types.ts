@@ -7,7 +7,7 @@
 
 import type { Option } from "effect";
 
-import type { BaseSource as Source } from "../sources/index.js";
+import type { SourceType as Source } from "../sources/index.js";
 
 /**
  * Discriminator for extension kinds.

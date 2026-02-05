@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { defaultResolutionOptions, resolveExtension } from "./resolver.js";
-import type { ExtensionType, ResolutionOptions, SourceType } from "./types.js";
+import type { ExtensionType, ResolutionOptions, Source } from "./types.js";
 
 /**
  * Helper to create ResolutionOptions for tests.
@@ -28,7 +28,7 @@ const makeOptions = (opts: {
   globalDir?: string;
   scope?: string;
   types?: readonly ExtensionType[];
-  sources?: readonly SourceType[];
+  sources?: readonly Source[];
   agents?: readonly string[];
 }): ResolutionOptions => ({
   ...defaultResolutionOptions,
@@ -414,11 +414,11 @@ describe("resolveExtension - integration tests", () => {
       ),
     );
 
-    it.effect("non-git URLs return empty (direct-url source not in SourceType)", () =>
+    it.effect("non-git URLs return empty (direct-url source not in Source)", () =>
       withFileSystem(
         Effect.gen(function* () {
           // Non-git URLs (like https://example.com) are resolved by URL resolver
-          // as "direct-url" or "well-known" source types, which are not in SourceType
+          // as "direct-url" or "well-known" source types, which are not in Source
           // and get filtered out by the resolver pipeline
           const result = yield* resolveExtension("https://example.com/skill.md", makeOptions({}));
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
-import { SourceSchema, type SourceType } from "./sources.js";
+import { SourceSchema, type Source } from "./sources.js";
 
 describe("extension-sources schema", () => {
   describe("SourceSchema", () => {
@@ -51,15 +51,15 @@ describe("extension-sources schema", () => {
     });
   });
 
-  describe("SourceType", () => {
+  describe("Source", () => {
     it("type is correctly inferred as union", () => {
       // Type-level test: these should compile
-      const github: SourceType = "github";
-      const gitlab: SourceType = "gitlab";
-      const bitbucket: SourceType = "bitbucket";
-      const git: SourceType = "git";
-      const registry: SourceType = "registry";
-      const local: SourceType = "local";
+      const github: Source = "github";
+      const gitlab: Source = "gitlab";
+      const bitbucket: Source = "bitbucket";
+      const git: Source = "git";
+      const registry: Source = "registry";
+      const local: Source = "local";
 
       expect(github).toBe("github");
       expect(gitlab).toBe("gitlab");

@@ -137,7 +137,7 @@ export const handleUninstall = (
     spinner.start("Loading current state...");
     const currentState = yield* loadCurrentState(ws).pipe(
       Effect.mapError(
-        (error: { message: string }) =>
+        (error) =>
           new UninstallError({
             message: `Failed to load state: ${error.message}`,
             cause: Option.some(error),
@@ -196,7 +196,7 @@ const handleFullUninstall = (
     // Load current state again (needed for buildPlan)
     const currentState = yield* loadCurrentState(ws).pipe(
       Effect.mapError(
-        (error: { message: string }) =>
+        (error) =>
           new UninstallError({
             message: `Failed to load state: ${error.message}`,
             cause: Option.some(error),
@@ -213,7 +213,7 @@ const handleFullUninstall = (
     };
     const idealState = yield* buildIdealForUninstall(currentState, uninstallCmd).pipe(
       Effect.mapError(
-        (error: { message: string }) =>
+        (error) =>
           new UninstallError({
             message: `Failed to build ideal state: ${error.message}`,
             cause: Option.some(error),
@@ -293,7 +293,7 @@ const handleFullUninstall = (
 
     const applyResult = yield* applyPlan(ws, plan, { dryRun: false }, deps).pipe(
       Effect.mapError(
-        (error: { message: string }) =>
+        (error) =>
           new UninstallError({
             message: `Failed to apply changes: ${error.message}`,
             cause: Option.some(error),
@@ -419,7 +419,7 @@ const handlePartialUninstall = (
       // This became a full removal - use V2 state-based pattern with applyPlan
       const currentState = yield* loadCurrentState(ws).pipe(
         Effect.mapError(
-          (error: { message: string }) =>
+          (error) =>
             new UninstallError({
               message: `Failed to load state: ${error.message}`,
               cause: Option.some(error),
@@ -434,7 +434,7 @@ const handlePartialUninstall = (
       };
       const idealState = yield* buildIdealForUninstall(currentState, uninstallCmd).pipe(
         Effect.mapError(
-          (error: { message: string }) =>
+          (error) =>
             new UninstallError({
               message: `Failed to build ideal state: ${error.message}`,
               cause: Option.some(error),
@@ -455,7 +455,7 @@ const handlePartialUninstall = (
 
       yield* applyPlan(ws, plan, { dryRun: false }, deps).pipe(
         Effect.mapError(
-          (error: { message: string }) =>
+          (error) =>
             new UninstallError({
               message: `Failed to apply changes: ${error.message}`,
               cause: Option.some(error),

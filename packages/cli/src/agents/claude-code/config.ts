@@ -9,6 +9,7 @@ import * as path from "node:path";
 import * as Option from "effect/Option";
 import type { AgentConfig } from "../types.js";
 import { claudeHome } from "./constants.js";
+import { detect } from "./detection.js";
 
 /**
  * Claude Code agent configuration.
@@ -22,4 +23,5 @@ export const config: AgentConfig = {
     projectDir: ".claude/skills",
     globalDir: Option.some(path.join(claudeHome, "skills")),
   },
+  detect,
 };

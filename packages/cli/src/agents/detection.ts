@@ -9,19 +9,12 @@
  */
 
 import * as path from "node:path";
-import type * as PlatformError from "@effect/platform/Error";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
-import { detect as detectClaudeCode } from "./claude-code/index.js";
-import { detect as detectCodex } from "./codex/index.js";
 import { home } from "./constants.js";
-import { detect as detectContinue } from "./continue/index.js";
-import { detect as detectCursor } from "./cursor/index.js";
-import { detect as detectOpencode } from "./opencode/index.js";
 import { getAllAgents } from "./registry.js";
-import type { AgentConfig, AgentId } from "./types.js";
-import { detect as detectWindsurf } from "./windsurf/index.js";
+import type { AgentConfig } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Errors
@@ -36,25 +29,6 @@ export class DetectionError extends Data.TaggedError("DetectionError")<{
   readonly message: string;
   readonly cause?: unknown;
 }> {}
-
-// -----------------------------------------------------------------------------
-// Agent-specific detection registry
-// -----------------------------------------------------------------------------
-
-/**
- * Map of agent IDs to their specific detection functions.
- * Agents not in this map use the default heuristic detection.
- */
-const agentDetectors: Partial<
-  Record<AgentId, () => Effect.Effect<boolean, PlatformError.PlatformError, FileSystem.FileSystem>>
-> = {
-  "claude-code": detectClaudeCode,
-  codex: detectCodex,
-  continue: detectContinue,
-  cursor: detectCursor,
-  opencode: detectOpencode,
-  windsurf: detectWindsurf,
-};
 
 // -----------------------------------------------------------------------------
 // Default Detection Heuristic
@@ -118,7 +92,7 @@ const defaultDetect = (agent: AgentConfig) =>
 export const detectAgent = (
   agent: AgentConfig,
 ): Effect.Effect<boolean, DetectionError, FileSystem.FileSystem> => {
-  const detector = agentDetectors[agent.id] ?? (() => defaultDetect(agent));
+  const detector = agent.detect ?? (() => defaultDetect(agent));
   return detector().pipe(
     Effect.mapError(
       (error) =>

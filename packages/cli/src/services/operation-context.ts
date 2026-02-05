@@ -23,7 +23,7 @@ export interface OperationContextConfig {
   /** Whether to run in dry-run mode (no side effects) */
   readonly dryRun: boolean;
   /** Optional interaction context for prompts and UI */
-  readonly interaction: Option.Option<InteractionContextService>;
+  readonly interactive: Option.Option<InteractionContextService>;
 }
 
 /**
@@ -49,7 +49,7 @@ export class OperationContext extends Context.Tag("@agentxm/cli/OperationContext
     () => ({
       cwd: process.cwd(),
       dryRun: false,
-      interaction: Option.none(),
+      interactive: Option.none(),
     }),
   );
 }

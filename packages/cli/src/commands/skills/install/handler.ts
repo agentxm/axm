@@ -59,6 +59,7 @@ import { formatError } from "../../../utils/errors.js";
 import { canPrompt, promptConfirm, promptMultiselect } from "../../../utils/prompts.js";
 import { createSpinnerHelper } from "../../../utils/spinner.js";
 import { isInteractive } from "../../../utils/tty.js";
+import { OperationContext } from "../../../services/operation-context.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -441,7 +442,11 @@ const createBuildIdealDeps = (
  */
 export const handleInstall = (
   args: InstallArgs,
-): Effect.Effect<void, InstallError, FileSystem.FileSystem | HttpClient.HttpClient | Path.Path> => {
+): Effect.Effect<
+  void,
+  InstallError,
+  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | OperationContext
+> => {
   const scopeLabel = args.global ? "global" : "project";
 
   return Effect.gen(function* () {
@@ -450,6 +455,8 @@ export const handleInstall = (
       global: args.global,
       interactive: isInteractive() && !args.nonInteractive,
     });
+
+    yield* OperationContext;
 
     // Show intro
     p.intro(`axm skills install (${scopeLabel})`);

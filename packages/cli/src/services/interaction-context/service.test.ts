@@ -11,6 +11,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import { makeClackTestLayer } from "../clack-effect/test.js";
 import { InteractionContext, InteractionContextLive } from "./service.js";
 
@@ -29,7 +30,7 @@ describe("InteractionContext", () => {
         expect(ctx.p.select).toBeTypeOf("function");
         expect(ctx.p.multiselect).toBeTypeOf("function");
         expect(ctx.p.spinner).toBeTypeOf("function");
-      }).pipe(Effect.provide(InteractionContextLive), Effect.provide(makeClackTestLayer()[0])),
+      }).pipe(Effect.provide(Layer.provide(InteractionContextLive, makeClackTestLayer()[0]))),
     );
 
     it.effect("should delegate to underlying Clack service", () => {
@@ -45,7 +46,7 @@ describe("InteractionContext", () => {
         // Verify delegation
         expect(mockClack.logs.info).toContain("test info");
         expect(mockClack.logs.success).toContain("test success");
-      }).pipe(Effect.provide(InteractionContextLive), Effect.provide(clackLayer));
+      }).pipe(Effect.provide(Layer.provide(InteractionContextLive, clackLayer)));
     });
   });
 

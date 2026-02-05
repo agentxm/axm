@@ -1,6 +1,6 @@
 ---
 name: effect-concurrency
-description: Effect concurrency patterns - fibers, parallel execution, coordination primitives. Use when parallelizing operations, managing concurrent work, or coordinating between fibers.
+description: Effect concurrency patterns - fibers, parallel execution, coordination primitives. Use when parallelizing operations, seeing sequential for/while loops with I/O, managing concurrent work, or coordinating between fibers.
 user-invocable: false
 ---
 

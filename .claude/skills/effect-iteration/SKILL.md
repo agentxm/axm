@@ -1,6 +1,6 @@
 ---
 name: effect-iteration
-description: Effect iteration patterns - loops, forEach, all, Schedule. Use when processing finite collections or implementing retries/polling.
+description: Effect iteration patterns - forEach, all, Schedule. Use when writing for/while loops, processing collections, seeing `for` or `while` with `yield*`, or implementing retries/polling.
 user-invocable: false
 ---
 
@@ -117,6 +117,7 @@ const gentle = process.pipe(Effect.withConcurrency(2));
 Inside an `Effect.gen` generator, standard JavaScript control flow works with `yield*`:
 
 ```typescript
+// ⚠️ ANTI-PATTERN: for + yield* + push = missed parallelization
 const processItems = (items: number[]) =>
   Effect.gen(function* () {
     const results: number[] = [];
@@ -126,10 +127,23 @@ const processItems = (items: number[]) =>
     }
     return results;
   });
+
+// ✅ BETTER: Effect.forEach enables concurrency and is immutable
+const processItems = (items: number[]) =>
+  Effect.forEach(items, (item) => someEffectfulOperation(item), {
+    concurrency: "unbounded",
+  });
 ```
 
-**Prefer this pattern when** the loop body has complex branching, early breaks, or intermediate state.
-**Prefer `Effect.forEach` when** the per-element operation is clean and you want concurrency support.
+**The pattern `for` + `yield*` + `push` is a code smell.** If the effectful operations are independent, you're missing parallelization opportunities.
+
+**Only use `for...of` with `yield*` when:**
+
+- Loop body has **complex branching** or **early breaks**
+- Iterations **depend on previous results** (must be sequential)
+- You need **intermediate state** across iterations
+
+**Default to `Effect.forEach`** — it's cleaner, immutable, and concurrency-ready.
 
 ---
 
@@ -206,6 +220,22 @@ const limited = Effect.forEach(items, (item) => sem.withPermits(1)(processItem(i
 
 ## Anti-Patterns to Avoid
 
+**`for` + `yield*` + `push` when operations are independent.** This misses parallelization:
+
+```typescript
+// ❌ Sequential, mutable, slow
+const results: T[] = [];
+for (const item of items) {
+  const result = yield* processItem(item);  // I/O operation
+  results.push(result);
+}
+
+// ✅ Concurrent, immutable, fast
+const results = yield* Effect.forEach(items, (item) => processItem(item), {
+  concurrency: "unbounded",
+});
+```
+
 **Using `Promise.all` or `async`/`await` inside Effect pipelines.** Wrap Promise-based APIs at the boundary with `Effect.tryPromise`.
 
 **Forgetting concurrency options.** `Effect.all` and `Effect.forEach` are sequential by default—add `{ concurrency: N }` when needed.
@@ -234,6 +264,7 @@ const limited = Effect.forEach(items, (item) => sem.withPermits(1)(processItem(i
 
 - [ ] **Pure transforms use plain loops** — No Effect overhead for synchronous work
 - [ ] **Effect.forEach for effectful iteration** — With typed errors and optional concurrency
+- [ ] **No `for` + `yield*` + `push`** — Use Effect.forEach instead; exception: complex control flow
 - [ ] **Effect.all for heterogeneous effects** — Preserves tuple/struct shape
 - [ ] **Concurrency is opt-in** — Default is sequential; add `{ concurrency: N }` explicitly
 - [ ] **No Promise.all** — Use Effect combinators for structured concurrency

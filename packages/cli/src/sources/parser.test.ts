@@ -5,6 +5,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { buildCloneUrl, getOriginFromParsed } from "./clone-url.js";
@@ -809,7 +810,7 @@ describe("parseSourceV2", () => {
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseSourceV2(""));
         expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toBe("Source string cannot be empty");
+        expect(error.message).toBe("Unable to parse source");
       }),
     );
 
@@ -817,7 +818,7 @@ describe("parseSourceV2", () => {
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseSourceV2("   "));
         expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toBe("Source string cannot be empty");
+        expect(error.message).toBe("Unable to parse source");
       }),
     );
 
@@ -886,13 +887,102 @@ describe("parseSourceV2", () => {
       }),
     );
 
-    it.effect("fails with 'not yet supported' for SlashPattern", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceV2("owner/repo"));
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toBe("Slash pattern is not yet supported");
-      }),
-    );
+    describe("SlashPattern resolution", () => {
+      let originalFetch: typeof globalThis.fetch;
+
+      beforeEach(() => {
+        originalFetch = globalThis.fetch;
+      });
+
+      afterEach(() => {
+        globalThis.fetch = originalFetch;
+        vi.restoreAllMocks();
+      });
+
+      const mockFetch = (responses: Record<string, { ok: boolean } | "error">): void => {
+        globalThis.fetch = vi.fn((url: string | URL | Request) => {
+          const urlStr = typeof url === "string" ? url : url.toString();
+          const response = responses[urlStr];
+          if (response === "error") return Promise.reject(new Error("Network error"));
+          if (response)
+            return Promise.resolve(new Response(null, { status: response.ok ? 200 : 404 }));
+          return Promise.resolve(new Response(null, { status: 404 }));
+        }) as unknown as typeof globalThis.fetch;
+      };
+
+      it.effect("resolves to GitHub when GitHub returns 200", () =>
+        Effect.gen(function* () {
+          mockFetch({ "https://github.com/owner/repo": { ok: true } });
+          const result = yield* parseSourceV2("owner/repo");
+          expect(result.source.source).toBe("github");
+          expect(result.source).toMatchObject({ owner: "owner", repo: "repo" });
+          expect(result.original).toBe("owner/repo");
+          expect(result.canonical).toBe("github:owner/repo");
+        }),
+      );
+
+      it.effect("resolves to GitLab when GitHub 404, GitLab 200", () =>
+        Effect.gen(function* () {
+          mockFetch({
+            "https://github.com/owner/repo": { ok: false },
+            "https://gitlab.com/owner/repo": { ok: true },
+          });
+          const result = yield* parseSourceV2("owner/repo");
+          expect(result.source.source).toBe("gitlab");
+          expect(result.source).toMatchObject({ owner: "owner", repo: "repo" });
+          expect(result.canonical).toBe("gitlab:owner/repo");
+        }),
+      );
+
+      it.effect("resolves to Bitbucket when GitHub 404, GitLab 404, Bitbucket 200", () =>
+        Effect.gen(function* () {
+          mockFetch({
+            "https://github.com/owner/repo": { ok: false },
+            "https://gitlab.com/owner/repo": { ok: false },
+            "https://bitbucket.org/owner/repo": { ok: true },
+          });
+          const result = yield* parseSourceV2("owner/repo");
+          expect(result.source.source).toBe("bitbucket");
+          expect(result.source).toMatchObject({ owner: "owner", repo: "repo" });
+          expect(result.canonical).toBe("bitbucket:owner/repo");
+        }),
+      );
+
+      it.effect("fails when all providers return 404", () =>
+        Effect.gen(function* () {
+          mockFetch({
+            "https://github.com/owner/repo": { ok: false },
+            "https://gitlab.com/owner/repo": { ok: false },
+            "https://bitbucket.org/owner/repo": { ok: false },
+          });
+          const error = yield* Effect.flip(parseSourceV2("owner/repo"));
+          expect(error).toBeInstanceOf(ParseError);
+          expect(error.message).toBe(
+            "Repository 'owner/repo' not found on GitHub, GitLab, or Bitbucket",
+          );
+        }),
+      );
+
+      it.effect("falls through to GitLab on GitHub network error", () =>
+        Effect.gen(function* () {
+          mockFetch({
+            "https://github.com/owner/repo": "error",
+            "https://gitlab.com/owner/repo": { ok: true },
+          });
+          const result = yield* parseSourceV2("owner/repo");
+          expect(result.source.source).toBe("gitlab");
+        }),
+      );
+
+      it.effect("preserves original and canonical fields", () =>
+        Effect.gen(function* () {
+          mockFetch({ "https://github.com/my-org/my-repo": { ok: true } });
+          const result = yield* parseSourceV2("my-org/my-repo");
+          expect(result.original).toBe("my-org/my-repo");
+          expect(result.canonical).toBe("github:my-org/my-repo");
+        }),
+      );
+    });
 
     it.effect("fails with 'not yet supported' for FilePathPattern", () =>
       Effect.gen(function* () {

@@ -12,6 +12,7 @@ import * as os from "node:os";
 import * as nodePath from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import type { ExtensionRef, ResolutionOptions } from "../types.js";
 
 // -----------------------------------------------------------------------------
@@ -73,10 +74,15 @@ const buildExtensionRef = (
   type: "skill", // Default to skill, could be detected from manifest
   source: "registry",
   origin,
-  name: fullName,
+  name: Option.some(fullName),
+  ref: Option.none(),
+  path: Option.none(),
   originalInput,
   metadata: {
-    ...(versionConstraint ? { versionConstraint } : {}),
+    version: Option.none(),
+    description: Option.none(),
+    files: Option.none(),
+    versionConstraint: Option.fromNullable(versionConstraint),
   },
 });
 
@@ -137,9 +143,9 @@ export const resolveAxmName = (
     const fullName = `${scope}/${name}`;
 
     // Determine directories to check
-    const projectDir = options.projectDir ?? ".axm";
-    const globalDir = expandHome(options.globalDir ?? "~/.axm");
-    const cwd = options.cwd ?? process.cwd();
+    const projectDir = Option.getOrElse(options.projectDir, () => ".axm");
+    const globalDir = expandHome(Option.getOrElse(options.globalDir, () => "~/.axm"));
+    const cwd = Option.getOrElse(options.cwd, () => process.cwd());
 
     // Build paths to check
     const projectPath = nodePath.resolve(cwd, projectDir, "skills", scope, name);

@@ -12,6 +12,7 @@ import * as os from "node:os";
 import * as nodePath from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import type { ExtensionRef, ExtensionType, ResolutionOptions } from "../types.js";
 
 // -----------------------------------------------------------------------------
@@ -116,8 +117,14 @@ const scanDirectory = (
           source: "local",
           origin: dirPath,
           originalInput,
+          ref: Option.none(),
+          name: Option.none(),
+          path: Option.none(),
           metadata: {
-            files: [file],
+            version: Option.none(),
+            description: Option.none(),
+            files: Option.some([file]),
+            versionConstraint: Option.none(),
           },
         });
       }
@@ -163,8 +170,14 @@ const handleFilePath = (
         source: "local",
         origin: dirPath,
         originalInput,
+        ref: Option.none(),
+        name: Option.none(),
+        path: Option.none(),
         metadata: {
-          files: [nodePath.basename(filePath)],
+          version: Option.none(),
+          description: Option.none(),
+          files: Option.some([nodePath.basename(filePath)]),
+          versionConstraint: Option.none(),
         },
       },
     ];
@@ -204,7 +217,7 @@ export const resolveLocalPath = (
       return [];
     }
 
-    const cwd = options.cwd ?? process.cwd();
+    const cwd = Option.getOrElse(options.cwd, () => process.cwd());
     const absolutePath = resolvePath(input, cwd);
 
     // Check if path exists

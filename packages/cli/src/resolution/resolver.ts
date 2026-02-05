@@ -7,6 +7,7 @@
 
 import type { FileSystem } from "@effect/platform";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import type { ResolutionError } from "./errors.js";
 import {
   resolveAmbiguous,
@@ -17,6 +18,21 @@ import {
   resolveUrl,
 } from "./resolvers/index.js";
 import type { ExtensionRef, ExtensionType, ResolutionOptions, SourceType } from "./types.js";
+
+/**
+ * Default resolution options with all fields set to None.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const defaultResolutionOptions: ResolutionOptions = {
+  types: Option.none(),
+  sources: Option.none(),
+  agents: Option.none(),
+  cwd: Option.none(),
+  scope: Option.none(),
+  projectDir: Option.none(),
+  globalDir: Option.none(),
+};
 
 /**
  * Resolver function signature.
@@ -84,7 +100,7 @@ const filterByType = (refs: ExtensionRef[], types?: readonly ExtensionType[]): E
  */
 export const resolveExtension = (
   input: string,
-  options: ResolutionOptions = {},
+  options: ResolutionOptions = defaultResolutionOptions,
 ): Effect.Effect<ExtensionRef[], ResolutionError, FileSystem.FileSystem> => {
   const resolvers: Resolver[] = [
     resolveAxmName,
@@ -113,7 +129,7 @@ export const resolveExtension = (
 
   return Effect.gen(function* () {
     const results = yield* tryResolvers(resolvers);
-    const filteredBySource = filterBySource(results, options.sources);
-    return filterByType(filteredBySource, options.types);
+    const filteredBySource = filterBySource(results, Option.getOrUndefined(options.sources));
+    return filterByType(filteredBySource, Option.getOrUndefined(options.types));
   });
 };

@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { resolveUrl } from "./url.js";
 
 describe("url resolver", () => {
@@ -20,10 +21,9 @@ describe("url resolver", () => {
           source: "github",
           origin: "https://github.com/owner/repo",
           originalInput: "https://github.com/owner/repo",
-          metadata: {},
         });
-        expect(result[0]?.ref).toBeUndefined();
-        expect(result[0]?.path).toBeUndefined();
+        expect(Option.isNone(result[0]!.ref)).toBe(true);
+        expect(Option.isNone(result[0]!.path)).toBe(true);
       }),
     );
 
@@ -50,9 +50,9 @@ describe("url resolver", () => {
           type: "skill",
           source: "github",
           origin: "https://github.com/owner/repo",
-          ref: "main",
-          path: "skills/my-skill",
         });
+        expect(Option.getOrNull(result[0]!.ref)).toBe("main");
+        expect(Option.getOrNull(result[0]!.path)).toBe("skills/my-skill");
       }),
     );
 
@@ -64,9 +64,9 @@ describe("url resolver", () => {
         expect(result[0]).toMatchObject({
           type: "skill",
           source: "github",
-          ref: "v1.0.0",
         });
-        expect(result[0]?.path).toBeUndefined();
+        expect(Option.getOrNull(result[0]!.ref)).toBe("v1.0.0");
+        expect(Option.isNone(result[0]!.path)).toBe(true);
       }),
     );
   });
@@ -82,7 +82,6 @@ describe("url resolver", () => {
           source: "gitlab",
           origin: "https://gitlab.com/owner/repo",
           originalInput: "https://gitlab.com/owner/repo",
-          metadata: {},
         });
       }),
     );
@@ -96,9 +95,9 @@ describe("url resolver", () => {
           type: "skill",
           source: "gitlab",
           origin: "https://gitlab.com/owner/repo",
-          ref: "develop",
-          path: "src/skills",
         });
+        expect(Option.getOrNull(result[0]!.ref)).toBe("develop");
+        expect(Option.getOrNull(result[0]!.path)).toBe("src/skills");
       }),
     );
   });

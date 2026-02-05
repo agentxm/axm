@@ -10,6 +10,7 @@
 
 import type { FileSystem } from "@effect/platform";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import type { ExtensionRef, ResolutionOptions } from "../types.js";
 import { resolveAxmName } from "./axm-name.js";
 
@@ -57,12 +58,12 @@ export const resolveBareName = (
   }
 
   // No scope configured - cannot resolve bare name
-  if (!options.scope) {
+  if (Option.isNone(options.scope) || options.scope.value === "") {
     return Effect.succeed([]);
   }
 
   // Transform to scoped AXM name: name -> @scope/name
-  const scopedName = `@${options.scope}/${input}`;
+  const scopedName = `@${options.scope.value}/${input}`;
 
   // Delegate to AXM name resolver and preserve original bare name input
   return Effect.gen(function* () {

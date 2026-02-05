@@ -7,6 +7,7 @@
 import type { ExtensionRef } from "../../resolution/index.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { makeClackTestLayer } from "../../clack-effect/index.js";
 import { SkillsError, selectExtensionRef } from "./utils.js";
 
@@ -19,8 +20,16 @@ describe("selectExtensionRef", () => {
     type: "skill",
     source: "github",
     origin: "https://github.com/test/repo",
+    ref: Option.none(),
+    name: Option.none(),
+    path: Option.none(),
     originalInput: "test/repo",
-    metadata: {},
+    metadata: {
+      version: Option.none(),
+      description: Option.none(),
+      files: Option.none(),
+      versionConstraint: Option.none(),
+    },
     ...overrides,
   });
 
@@ -69,7 +78,7 @@ describe("selectExtensionRef", () => {
 
     it.effect("works regardless of canPrompt value", () =>
       Effect.gen(function* () {
-        const ref = createRef({ name: "@scope/skill" });
+        const ref = createRef({ name: Option.some("@scope/skill") });
 
         // Should work with canPrompt = true
         const result1 = yield* selectExtensionRef([ref], "skill", true);
@@ -87,11 +96,16 @@ describe("selectExtensionRef", () => {
           type: "skill",
           source: "github",
           origin: "https://github.com/org/repo",
-          ref: "v1.0.0",
-          name: "@org/my-skill",
-          path: "skills/my-skill",
+          ref: Option.some("v1.0.0"),
+          name: Option.some("@org/my-skill"),
+          path: Option.some("skills/my-skill"),
           originalInput: "github:org/repo/skills/my-skill@v1.0.0",
-          metadata: { description: "A test skill" },
+          metadata: {
+            version: Option.none(),
+            description: Option.some("A test skill"),
+            files: Option.none(),
+            versionConstraint: Option.none(),
+          },
         });
 
         const result = yield* selectExtensionRef([ref], "org/repo", false);
@@ -99,10 +113,10 @@ describe("selectExtensionRef", () => {
         expect(result.type).toBe("skill");
         expect(result.source).toBe("github");
         expect(result.origin).toBe("https://github.com/org/repo");
-        expect(result.ref).toBe("v1.0.0");
-        expect(result.name).toBe("@org/my-skill");
-        expect(result.path).toBe("skills/my-skill");
-        expect(result.metadata.description).toBe("A test skill");
+        expect(Option.getOrNull(result.ref)).toBe("v1.0.0");
+        expect(Option.getOrNull(result.name)).toBe("@org/my-skill");
+        expect(Option.getOrNull(result.path)).toBe("skills/my-skill");
+        expect(Option.getOrNull(result.metadata.description)).toBe("A test skill");
       }).pipe(Effect.provide(ClackTestLayer)),
     );
   });
@@ -140,12 +154,12 @@ describe("selectExtensionRef", () => {
       Effect.gen(function* () {
         const refs = [
           createRef({
-            name: "@scope/skill-a",
+            name: Option.some("@scope/skill-a"),
             origin: "https://github.com/org/a",
             source: "github",
           }),
           createRef({
-            name: "@scope/skill-b",
+            name: Option.some("@scope/skill-b"),
             origin: "https://gitlab.com/org/b",
             source: "gitlab",
           }),

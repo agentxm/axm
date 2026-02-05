@@ -6,6 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { fetchGitHubTreeHash, GitHubApiError } from "./github-api.js";
 
 describe("github-api", () => {
@@ -195,7 +196,7 @@ describe("github-api", () => {
 
           expect(error).toBeInstanceOf(GitHubApiError);
           expect(error._tag).toBe("GitHubApiError");
-          expect(error.status).toBe(403);
+          expect(Option.getOrNull(error.status)).toBe(403);
           expect(error.message).toContain("403");
         }),
       );
@@ -207,7 +208,7 @@ describe("github-api", () => {
           const error = yield* fetchGitHubTreeHash("owner", "repo", "main", "").pipe(Effect.flip);
 
           expect(error).toBeInstanceOf(GitHubApiError);
-          expect(error.status).toBe(500);
+          expect(Option.getOrNull(error.status)).toBe(500);
         }),
       );
 
@@ -219,7 +220,7 @@ describe("github-api", () => {
 
           expect(error).toBeInstanceOf(GitHubApiError);
           expect(error.message).toContain("Network request failed");
-          expect(error.cause).toBeInstanceOf(Error);
+          expect(Option.getOrNull(error.cause)).toBeInstanceOf(Error);
         }),
       );
 
@@ -248,6 +249,8 @@ describe("github-api", () => {
     it("is a tagged error with correct tag", () => {
       const error = new GitHubApiError({
         message: "Test error",
+        status: Option.none(),
+        cause: Option.none(),
       });
 
       expect(error._tag).toBe("GitHubApiError");
@@ -256,21 +259,23 @@ describe("github-api", () => {
 
     it("can include status code", () => {
       const error = new GitHubApiError({
-        status: 403,
+        status: Option.some(403),
         message: "Rate limited",
+        cause: Option.none(),
       });
 
-      expect(error.status).toBe(403);
+      expect(Option.getOrNull(error.status)).toBe(403);
     });
 
     it("can include a cause", () => {
       const cause = new Error("Original error");
       const error = new GitHubApiError({
         message: "Test error",
-        cause,
+        status: Option.none(),
+        cause: Option.some(cause),
       });
 
-      expect(error.cause).toBe(cause);
+      expect(Option.getOrNull(error.cause)).toBe(cause);
     });
   });
 });

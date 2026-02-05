@@ -9,6 +9,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import {
   cloneRepo,
   GitError,
@@ -392,6 +393,7 @@ describe("git", () => {
       const error = new GitError({
         operation: "clone",
         message: "Test error",
+        cause: Option.none(),
       });
 
       expect(error._tag).toBe("GitError");
@@ -404,10 +406,10 @@ describe("git", () => {
       const error = new GitError({
         operation: "clone",
         message: "Test error",
-        cause,
+        cause: Option.some(cause),
       });
 
-      expect(error.cause).toBe(cause);
+      expect(Option.getOrNull(error.cause)).toBe(cause);
     });
   });
 });

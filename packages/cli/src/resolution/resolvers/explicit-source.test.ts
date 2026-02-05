@@ -6,6 +6,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { resolveExplicitSource } from "./explicit-source.js";
 
 describe("explicit-source resolver", () => {
@@ -20,10 +21,9 @@ describe("explicit-source resolver", () => {
           source: "github",
           origin: "https://github.com/owner/repo",
           originalInput: "github:owner/repo",
-          metadata: {},
         });
-        expect(result[0]?.ref).toBeUndefined();
-        expect(result[0]?.path).toBeUndefined();
+        expect(Option.isNone(result[0]!.ref)).toBe(true);
+        expect(Option.isNone(result[0]!.path)).toBe(true);
       }),
     );
 
@@ -36,9 +36,9 @@ describe("explicit-source resolver", () => {
           type: "skill",
           source: "github",
           origin: "https://github.com/owner/repo",
-          ref: "v1.0.0",
           originalInput: "github:owner/repo@v1.0.0",
         });
+        expect(Option.getOrNull(result[0]!.ref)).toBe("v1.0.0");
       }),
     );
 
@@ -51,9 +51,9 @@ describe("explicit-source resolver", () => {
           type: "skill",
           source: "github",
           origin: "https://github.com/owner/repo",
-          path: "skills/my-skill",
           originalInput: "github:owner/repo/skills/my-skill",
         });
+        expect(Option.getOrNull(result[0]!.path)).toBe("skills/my-skill");
       }),
     );
 
@@ -66,10 +66,10 @@ describe("explicit-source resolver", () => {
           type: "skill",
           source: "github",
           origin: "https://github.com/owner/repo",
-          path: "skills/my-skill",
-          ref: "main",
           originalInput: "github:owner/repo/skills/my-skill@main",
         });
+        expect(Option.getOrNull(result[0]!.path)).toBe("skills/my-skill");
+        expect(Option.getOrNull(result[0]!.ref)).toBe("main");
       }),
     );
   });
@@ -85,7 +85,6 @@ describe("explicit-source resolver", () => {
           source: "gitlab",
           origin: "https://gitlab.com/owner/repo",
           originalInput: "gitlab:owner/repo",
-          metadata: {},
         });
       }),
     );
@@ -99,9 +98,9 @@ describe("explicit-source resolver", () => {
           type: "skill",
           source: "gitlab",
           origin: "https://gitlab.com/owner/repo",
-          ref: "develop",
           originalInput: "gitlab:owner/repo@develop",
         });
+        expect(Option.getOrNull(result[0]!.ref)).toBe("develop");
       }),
     );
 
@@ -114,9 +113,9 @@ describe("explicit-source resolver", () => {
           type: "skill",
           source: "gitlab",
           origin: "https://gitlab.com/owner/repo",
-          path: "skills/test",
-          ref: "v2.0.0",
         });
+        expect(Option.getOrNull(result[0]!.path)).toBe("skills/test");
+        expect(Option.getOrNull(result[0]!.ref)).toBe("v2.0.0");
       }),
     );
   });

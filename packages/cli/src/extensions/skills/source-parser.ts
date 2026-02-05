@@ -10,6 +10,7 @@
 
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import type { ParsedSource } from "./types.js";
 
 // -----------------------------------------------------------------------------
@@ -115,7 +116,13 @@ const buildLocalSource = (original: string, path: string): ParsedSource => ({
   type: "local",
   original,
   canonical: `local:${path}`,
-  localPath: path,
+  owner: Option.none(),
+  repo: Option.none(),
+  ref: Option.none(),
+  path: Option.none(),
+  url: Option.none(),
+  localPath: Option.some(path),
+  baseUrl: Option.none(),
 });
 
 /**
@@ -125,7 +132,13 @@ const buildWellKnownSource = (original: string, baseUrl: string): ParsedSource =
   type: "wellknown",
   original,
   canonical: `wellknown:${baseUrl}`,
-  baseUrl,
+  owner: Option.none(),
+  repo: Option.none(),
+  ref: Option.none(),
+  path: Option.none(),
+  url: Option.none(),
+  localPath: Option.none(),
+  baseUrl: Option.some(baseUrl),
 });
 
 /**
@@ -142,10 +155,13 @@ const buildGitSource = (
   type,
   original,
   canonical: `${type}:${owner}/${repo}`,
-  owner,
-  repo,
-  ...(ref && { ref }),
-  ...(path && { path }),
+  owner: Option.some(owner),
+  repo: Option.some(repo),
+  ref: Option.fromNullable(ref),
+  path: Option.fromNullable(path),
+  url: Option.none(),
+  localPath: Option.none(),
+  baseUrl: Option.none(),
 });
 
 // -----------------------------------------------------------------------------
@@ -305,14 +321,16 @@ const parseShorthand = (input: string): Effect.Effect<ParsedSource, ParseError> 
  * @returns Effect containing the HTTPS clone URL or CloneUrlError
  */
 export const buildCloneUrl = (parsed: ParsedSource): Effect.Effect<string, CloneUrlError> => {
+  const owner = Option.getOrElse(parsed.owner, () => "");
+  const repo = Option.getOrElse(parsed.repo, () => "");
   if (parsed.type === "github") {
-    return Effect.succeed(`https://github.com/${parsed.owner}/${parsed.repo}.git`);
+    return Effect.succeed(`https://github.com/${owner}/${repo}.git`);
   }
   if (parsed.type === "gitlab") {
-    return Effect.succeed(`https://gitlab.com/${parsed.owner}/${parsed.repo}.git`);
+    return Effect.succeed(`https://gitlab.com/${owner}/${repo}.git`);
   }
   if (parsed.type === "bitbucket") {
-    return Effect.succeed(`https://bitbucket.org/${parsed.owner}/${parsed.repo}.git`);
+    return Effect.succeed(`https://bitbucket.org/${owner}/${repo}.git`);
   }
   return Effect.fail(
     new CloneUrlError({
@@ -336,17 +354,19 @@ export const buildCloneUrl = (parsed: ParsedSource): Effect.Effect<string, Clone
  * @returns The origin URL or path
  */
 export const getOriginFromParsed = (parsed: ParsedSource): string => {
+  const owner = Option.getOrElse(parsed.owner, () => "");
+  const repo = Option.getOrElse(parsed.repo, () => "");
   switch (parsed.type) {
     case "github":
-      return `https://github.com/${parsed.owner}/${parsed.repo}`;
+      return `https://github.com/${owner}/${repo}`;
     case "gitlab":
-      return `https://gitlab.com/${parsed.owner}/${parsed.repo}`;
+      return `https://gitlab.com/${owner}/${repo}`;
     case "bitbucket":
-      return `https://bitbucket.org/${parsed.owner}/${parsed.repo}`;
+      return `https://bitbucket.org/${owner}/${repo}`;
     case "local":
       return parsed.original;
     case "wellknown":
-      return parsed.baseUrl ?? parsed.original;
+      return Option.getOrElse(parsed.baseUrl, () => parsed.original);
     case "git":
     case "registry":
       return parsed.original;

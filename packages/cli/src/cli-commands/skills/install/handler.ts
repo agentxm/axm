@@ -561,7 +561,10 @@ export const handleInstall = (
     if (args.skill.length > 0) {
       // Use explicitly specified skills
       selectedSkillNames = Array.filter(args.skill, (name) => skills.some((s) => s.name === name));
-      const invalidSkills = Array.filter(args.skill, (name) => !skills.some((s) => s.name === name));
+      const invalidSkills = Array.filter(
+        args.skill,
+        (name) => !skills.some((s) => s.name === name),
+      );
 
       if (invalidSkills.length > 0) {
         yield* clack.log.warn(`Unknown skills: ${invalidSkills.join(", ")}`);

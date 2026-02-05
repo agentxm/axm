@@ -12,6 +12,24 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 // -----------------------------------------------------------------------------
+// Constants
+// -----------------------------------------------------------------------------
+
+/**
+ * Filename for the settings file.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SETTINGS_FILENAME = "settings.json";
+
+/**
+ * Filename for the lockfile.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const LOCKFILE_NAME = "axm-lock.yaml";
+
+// -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
 

@@ -13,13 +13,7 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { getAxmDir } from "./paths.js";
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-const SETTINGS_FILENAME = "settings.json";
+import { getAxmDir, SETTINGS_FILENAME } from "./paths.js";
 
 // -----------------------------------------------------------------------------
 // Error Types

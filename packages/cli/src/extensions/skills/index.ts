@@ -17,8 +17,8 @@ export {
   isGitRepository,
   resolveRef,
 } from "./git.js";
-// Lockfile
-export type { LockfileError } from "./lockfile.js";
+// Lockfile (re-exported from workspace)
+export type { LockfileError } from "../../workspace/lockfile.js";
 export {
   LockfileParseError,
   LockfileWriteError,
@@ -26,14 +26,14 @@ export {
   removeLockEntry,
   updateLockEntry,
   writeLockfile,
-} from "./lockfile.js";
-// Settings
+} from "../../workspace/lockfile.js";
+// Settings (re-exported from workspace)
 export type {
   EnsureInitializedOptions,
   SettingsError,
   SettingsUpdate,
   SkillsUpdate,
-} from "./settings.js";
+} from "../../workspace/settings.js";
 export {
   addSkill,
   createDefaultSettings,
@@ -46,7 +46,7 @@ export {
   SettingsWriteError,
   updateSettings,
   writeSettings,
-} from "./settings.js";
+} from "../../workspace/settings.js";
 // Skill Discovery
 export { DiscoveryError, discoverSkills } from "./skill-discovery.js";
 // Source Parser

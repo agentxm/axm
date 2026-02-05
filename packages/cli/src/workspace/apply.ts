@@ -21,8 +21,8 @@ import * as Option from "effect/Option";
 import type { AgentConfig } from "../agents/index.js";
 import type { Lockfile, SkillLockEntry } from "./lockfile-schema.js";
 import type { Settings } from "./settings-schema.js";
-import { readLockfile, writeLockfile } from "../extensions/skills/lockfile.js";
-import { readSettings, writeSettings } from "../extensions/skills/settings.js";
+import { readLockfile, writeLockfile } from "./lockfile.js";
+import { readSettings, writeSettings } from "./settings.js";
 import { computeInstallPath } from "../extensions/skills/state/pure-functions.js";
 import type {
   ApplyResult,

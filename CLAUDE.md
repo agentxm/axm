@@ -210,6 +210,20 @@ Never guess at Effect patterns - check the guide first.
 
 ## TypeScript
 
+### Module Exports
+
+One barrel file (`index.ts`) per folder. Each type is exported from exactly one place—no re-exporting across modules.
+
+```typescript
+// Good: import from the module that owns it
+import { WorkspaceError } from "@/workspace";
+import { SettingsError } from "@/settings";
+
+// Bad: re-exporting types from other modules
+// src/errors.ts that re-exports WorkspaceError, SettingsError, etc.
+import { WorkspaceError } from "@/errors";
+```
+
 ### Minimize Type Assertions
 
 Avoid `as` casts. Prefer type-safe alternatives:
@@ -330,6 +344,29 @@ const data =
   Schema.decodeUnknown(ConfigSchema)(json).pipe(
     Effect.mapError((e) => new ParseError({ message: e.message })),
   );
+```
+
+## Code Organization
+
+Group by feature, not by type. Co-locate constants, errors, and types with the components that use them.
+
+- **Single-use** → in the component file
+- **Shared within feature** → in a dedicated file in the feature folder (e.g., `errors.ts`)
+- **Never** → cross-feature "constants.ts" or "errors.ts" at the root
+
+```typescript
+// Good: constant lives with its feature
+// settings/settings.ts
+export const SETTINGS_FILENAME = "settings.json";
+
+// Good: error shared across feature components
+// workspace/errors.ts (used by multiple workspace components)
+export class WorkspaceError extends Data.TaggedError("WorkspaceError")<{...}> {}
+
+// Bad: generic constants file far from usage
+// src/constants.ts
+export const SETTINGS_FILENAME = "settings.json";
+export const LOCKFILE_NAME = "axm-lock.yaml";
 ```
 
 ## Project Structure

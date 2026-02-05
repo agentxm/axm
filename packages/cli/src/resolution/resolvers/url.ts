@@ -81,7 +81,7 @@ export const resolveUrl = (input: string): Effect.Effect<ExtensionRef[], never> 
           originalInput: input,
           name: Option.none(),
           ref: parsed.ref,
-          path: parsed.path,
+          path: parsed.subPath,
           metadata: {
             version: Option.none(),
             description: Option.none(),

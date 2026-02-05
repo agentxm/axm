@@ -59,16 +59,16 @@ const parsePrefixedShorthand = (
   const prefix = match[1] as "github" | "gitlab" | "bitbucket";
   const owner = match[2];
   const repo = match[3];
-  const path = match[4];
+  const subPath = match[4];
   const ref = match[5];
 
   switch (prefix) {
     case "github":
-      return Effect.succeed(PS.GitHub({ original: input, owner, repo, ref, path }));
+      return Effect.succeed(PS.GitHub({ original: input, owner, repo, ref, subPath }));
     case "gitlab":
-      return Effect.succeed(PS.GitLab({ original: input, owner, repo, ref, path }));
+      return Effect.succeed(PS.GitLab({ original: input, owner, repo, ref, subPath }));
     case "bitbucket":
-      return Effect.succeed(PS.Bitbucket({ original: input, owner, repo, ref, path }));
+      return Effect.succeed(PS.Bitbucket({ original: input, owner, repo, ref, subPath }));
   }
 };
 
@@ -84,10 +84,10 @@ const parseShorthand = (input: string): Effect.Effect<GitHubSource, ParseError> 
 
   const owner = match[1];
   const repo = match[2];
-  const path = match[3];
+  const subPath = match[3];
   const ref = match[4];
 
-  return Effect.succeed(PS.GitHub({ original: input, owner, repo, ref, path }));
+  return Effect.succeed(PS.GitHub({ original: input, owner, repo, ref, subPath }));
 };
 
 // -----------------------------------------------------------------------------

@@ -75,7 +75,7 @@ export interface GitHubSource extends SourceBase {
   /** Git ref (tag, branch, or SHA) */
   readonly ref: Option.Option<string>;
   /** Subpath within the repository */
-  readonly path: Option.Option<string>;
+  readonly subPath: Option.Option<string>;
 }
 
 /**
@@ -90,7 +90,7 @@ export interface GitLabSource extends SourceBase {
   /** Git ref (tag, branch, or SHA) */
   readonly ref: Option.Option<string>;
   /** Subpath within the repository */
-  readonly path: Option.Option<string>;
+  readonly subPath: Option.Option<string>;
 }
 
 /**
@@ -105,7 +105,7 @@ export interface BitbucketSource extends SourceBase {
   /** Git ref (tag, branch, or SHA) */
   readonly ref: Option.Option<string>;
   /** Subpath within the repository */
-  readonly path: Option.Option<string>;
+  readonly subPath: Option.Option<string>;
 }
 
 /**
@@ -129,7 +129,7 @@ export interface AzureDevOpsSource extends SourceBase {
   /** Git ref (tag, branch, or SHA) */
   readonly ref: Option.Option<string>;
   /** Subpath within the repository */
-  readonly path: Option.Option<string>;
+  readonly subPath: Option.Option<string>;
 }
 
 /**
@@ -148,16 +148,15 @@ export interface GenericGitSource extends SourceBase {
   /** Git ref (tag, branch, or SHA) */
   readonly ref: Option.Option<string>;
   /** Subpath within the repository */
-  readonly path: Option.Option<string>;
+  readonly subPath: Option.Option<string>;
 }
 
 /**
  * Package registry source (placeholder for future implementation).
  */
-export interface RegistrySource extends SourceBase {
+export type RegistrySource = SourceBase & {
   readonly source: "registry";
-  readonly url: string;
-}
+} & ({ readonly url: string } | { readonly path: string });
 
 /**
  * Local filesystem path source.
@@ -165,7 +164,7 @@ export interface RegistrySource extends SourceBase {
 export interface LocalSource extends SourceBase {
   readonly source: "local";
   /** Absolute path for local sources (after ~ expansion) */
-  readonly localPath: string;
+  readonly path: string;
 }
 
 /**
@@ -199,7 +198,7 @@ export const ParsedSource = {
     owner: string;
     repo: string;
     ref?: string | undefined;
-    path?: string | undefined;
+    subPath?: string | undefined;
   }): GitHubSource => ({
     source: "github",
     original: args.original,
@@ -207,7 +206,7 @@ export const ParsedSource = {
     owner: args.owner,
     repo: args.repo,
     ref: Option.fromNullable(args.ref),
-    path: Option.fromNullable(args.path),
+    subPath: Option.fromNullable(args.subPath),
   }),
 
   /**
@@ -218,7 +217,7 @@ export const ParsedSource = {
     owner: string;
     repo: string;
     ref?: string | undefined;
-    path?: string | undefined;
+    subPath?: string | undefined;
   }): GitLabSource => ({
     source: "gitlab",
     original: args.original,
@@ -226,7 +225,7 @@ export const ParsedSource = {
     owner: args.owner,
     repo: args.repo,
     ref: Option.fromNullable(args.ref),
-    path: Option.fromNullable(args.path),
+    subPath: Option.fromNullable(args.subPath),
   }),
 
   /**
@@ -237,7 +236,7 @@ export const ParsedSource = {
     owner: string;
     repo: string;
     ref?: string | undefined;
-    path?: string | undefined;
+    subPath?: string | undefined;
   }): BitbucketSource => ({
     source: "bitbucket",
     original: args.original,
@@ -245,16 +244,16 @@ export const ParsedSource = {
     owner: args.owner,
     repo: args.repo,
     ref: Option.fromNullable(args.ref),
-    path: Option.fromNullable(args.path),
+    subPath: Option.fromNullable(args.subPath),
   }),
 
   /**
    * Create a local filesystem source.
    */
-  Local: (args: { original: string; localPath: string }): LocalSource => ({
+  Local: (args: { original: string; path: string }): LocalSource => ({
     source: "local",
     original: args.original,
-    canonical: `local:${args.localPath}`,
-    localPath: args.localPath,
+    canonical: `local:${args.path}`,
+    path: args.path,
   }),
 } as const;

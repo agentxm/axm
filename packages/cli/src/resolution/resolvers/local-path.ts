@@ -98,36 +98,41 @@ const scanDirectory = (
   originalInput: string,
 ): Effect.Effect<ExtensionRef[], never, FileSystem.FileSystem> =>
   Effect.gen(function* () {
+    // Check all extension files concurrently
+    const existsResults = yield* Effect.forEach(
+      EXTENSION_FILES,
+      ({ file }) => fileExists(nodePath.join(dirPath, file)),
+      { concurrency: "unbounded" },
+    );
+
+    // Build results, filtering duplicates for skill type
     const results: ExtensionRef[] = [];
+    for (let i = 0; i < EXTENSION_FILES.length; i++) {
+      const extensionFile = EXTENSION_FILES[i];
+      if (!existsResults[i] || !extensionFile) continue;
 
-    // Check for each extension file type
-    for (const { file, type } of EXTENSION_FILES) {
-      const filePath = nodePath.join(dirPath, file);
-      const exists = yield* fileExists(filePath);
+      const { file, type } = extensionFile;
 
-      if (exists) {
-        // For SKILL.md variants, only add one entry (avoid duplicates)
-        const hasSkillAlready = results.some((r) => r.type === "skill");
-        if (type === "skill" && hasSkillAlready) {
-          continue;
-        }
-
-        results.push({
-          type,
-          source: "local",
-          origin: dirPath,
-          originalInput,
-          ref: Option.none(),
-          name: Option.none(),
-          path: Option.none(),
-          metadata: {
-            version: Option.none(),
-            description: Option.none(),
-            files: Option.some([file]),
-            versionConstraint: Option.none(),
-          },
-        });
+      // For SKILL.md variants, only add one entry (avoid duplicates)
+      if (type === "skill" && results.some((r) => r.type === "skill")) {
+        continue;
       }
+
+      results.push({
+        type,
+        source: "local",
+        origin: dirPath,
+        originalInput,
+        ref: Option.none(),
+        name: Option.none(),
+        path: Option.none(),
+        metadata: {
+          version: Option.none(),
+          description: Option.none(),
+          files: Option.some([file]),
+          versionConstraint: Option.none(),
+        },
+      });
     }
 
     return results;

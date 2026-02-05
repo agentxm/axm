@@ -411,37 +411,42 @@ const copyDirectory = (
       ),
     );
 
-    // Process each entry
-    for (const entry of entries) {
-      const srcPath = nodePath.join(srcDir, entry);
-      const destPath = nodePath.join(destDir, entry);
+    // Process each entry concurrently
+    yield* Effect.forEach(
+      entries,
+      (entry) =>
+        Effect.gen(function* () {
+          const srcPath = nodePath.join(srcDir, entry);
+          const destPath = nodePath.join(destDir, entry);
 
-      const stat = yield* fs.stat(srcPath).pipe(
-        Effect.mapError(
-          (error) =>
-            new ApplyError({
-              message: `Failed to stat: ${srcPath}`,
-              step: Option.none(),
-              cause: Option.some(error),
-            }),
-        ),
-      );
+          const stat = yield* fs.stat(srcPath).pipe(
+            Effect.mapError(
+              (error) =>
+                new ApplyError({
+                  message: `Failed to stat: ${srcPath}`,
+                  step: Option.none(),
+                  cause: Option.some(error),
+                }),
+            ),
+          );
 
-      if (stat.type === "Directory") {
-        yield* copyDirectory(srcPath, destPath, _skillName);
-      } else {
-        yield* fs.copyFile(srcPath, destPath).pipe(
-          Effect.mapError(
-            (error) =>
-              new ApplyError({
-                message: `Failed to copy file: ${srcPath} -> ${destPath}`,
-                step: Option.none(),
-                cause: Option.some(error),
-              }),
-          ),
-        );
-      }
-    }
+          if (stat.type === "Directory") {
+            yield* copyDirectory(srcPath, destPath, _skillName);
+          } else {
+            yield* fs.copyFile(srcPath, destPath).pipe(
+              Effect.mapError(
+                (error) =>
+                  new ApplyError({
+                    message: `Failed to copy file: ${srcPath} -> ${destPath}`,
+                    step: Option.none(),
+                    cause: Option.some(error),
+                  }),
+              ),
+            );
+          }
+        }),
+      { concurrency: "unbounded" },
+    );
   });
 
 /**
@@ -479,47 +484,52 @@ const syncToAgents = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
 
-    for (const agentId of agentIds) {
-      const maybeAgent = Array.findFirst(availableAgents, (a) => a.id === agentId);
-      if (Option.isNone(maybeAgent)) continue;
-      const agent = maybeAgent.value;
+    yield* Effect.forEach(
+      agentIds,
+      (agentId) =>
+        Effect.gen(function* () {
+          const maybeAgent = Array.findFirst(availableAgents, (a) => a.id === agentId);
+          if (Option.isNone(maybeAgent)) return;
+          const agent = maybeAgent.value;
 
-      const agentSkillsDir = agent.skills.projectDir;
-      const agentSkillPath = nodePath.join(agentSkillsDir, skillName);
+          const agentSkillsDir = agent.skills.projectDir;
+          const agentSkillPath = nodePath.join(agentSkillsDir, skillName);
 
-      // Ensure agent skills directory exists
-      yield* fs.makeDirectory(agentSkillsDir, { recursive: true }).pipe(
-        Effect.mapError(
-          (error) =>
-            new ApplyError({
-              message: `Failed to create agent skills directory: ${agentSkillsDir}`,
-              step: Option.none(),
-              cause: Option.some(error),
-            }),
-        ),
-      );
+          // Ensure agent skills directory exists
+          yield* fs.makeDirectory(agentSkillsDir, { recursive: true }).pipe(
+            Effect.mapError(
+              (error) =>
+                new ApplyError({
+                  message: `Failed to create agent skills directory: ${agentSkillsDir}`,
+                  step: Option.none(),
+                  cause: Option.some(error),
+                }),
+            ),
+          );
 
-      // Remove existing if present
-      const exists = yield* fs
-        .exists(agentSkillPath)
-        .pipe(Effect.orElse(() => Effect.succeed(false)));
-      if (exists) {
-        yield* fs
-          .remove(agentSkillPath, { recursive: true })
-          .pipe(Effect.catchAll(() => Effect.void));
-      }
+          // Remove existing if present
+          const exists = yield* fs
+            .exists(agentSkillPath)
+            .pipe(Effect.orElse(() => Effect.succeed(false)));
+          if (exists) {
+            yield* fs
+              .remove(agentSkillPath, { recursive: true })
+              .pipe(Effect.catchAll(() => Effect.void));
+          }
 
-      // Calculate relative path from agent skills dir to canonical path
-      const relativeTarget = nodePath.relative(agentSkillsDir, canonicalPath);
+          // Calculate relative path from agent skills dir to canonical path
+          const relativeTarget = nodePath.relative(agentSkillsDir, canonicalPath);
 
-      // Try symlink first, fall back to copy
-      yield* fs.symlink(relativeTarget, agentSkillPath).pipe(
-        Effect.catchAll(() =>
-          // Symlink failed (e.g., Windows without admin), fall back to copy
-          copyDirectory(canonicalPath, agentSkillPath, skillName),
-        ),
-      );
-    }
+          // Try symlink first, fall back to copy
+          yield* fs.symlink(relativeTarget, agentSkillPath).pipe(
+            Effect.catchAll(() =>
+              // Symlink failed (e.g., Windows without admin), fall back to copy
+              copyDirectory(canonicalPath, agentSkillPath, skillName),
+            ),
+          );
+        }),
+      { concurrency: "unbounded", discard: true },
+    );
   });
 
 /**
@@ -533,22 +543,27 @@ const removeFromAgents = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
 
-    for (const agentId of agentIds) {
-      const maybeAgent = Array.findFirst(availableAgents, (a) => a.id === agentId);
-      if (Option.isNone(maybeAgent)) continue;
-      const agent = maybeAgent.value;
+    yield* Effect.forEach(
+      agentIds,
+      (agentId) =>
+        Effect.gen(function* () {
+          const maybeAgent = Array.findFirst(availableAgents, (a) => a.id === agentId);
+          if (Option.isNone(maybeAgent)) return;
+          const agent = maybeAgent.value;
 
-      const agentSkillPath = nodePath.join(agent.skills.projectDir, skillName);
+          const agentSkillPath = nodePath.join(agent.skills.projectDir, skillName);
 
-      const exists = yield* fs
-        .exists(agentSkillPath)
-        .pipe(Effect.orElse(() => Effect.succeed(false)));
-      if (exists) {
-        yield* fs
-          .remove(agentSkillPath, { recursive: true })
-          .pipe(Effect.catchAll(() => Effect.void));
-      }
-    }
+          const exists = yield* fs
+            .exists(agentSkillPath)
+            .pipe(Effect.orElse(() => Effect.succeed(false)));
+          if (exists) {
+            yield* fs
+              .remove(agentSkillPath, { recursive: true })
+              .pipe(Effect.catchAll(() => Effect.void));
+          }
+        }),
+      { concurrency: "unbounded", discard: true },
+    );
   });
 
 // =============================================================================

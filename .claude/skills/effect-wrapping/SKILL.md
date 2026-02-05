@@ -51,7 +51,7 @@ When wrapping an entire third-party library, create a dedicated wrapper module.
 ## Effect Wrapping Checklist
 
 - [ ] **Effect.tryPromise** — Wrap all Promise-returning functions
-- [ ] **Typed errors** — Define TaggedError types for failure cases
+- [ ] **Typed errors** — Define TaggedError types for failure cases (see /effect-errors)
 - [ ] **Preserve signatures** — Wrappers accept same options as originals
 - [ ] **Re-export via index** — Public API exported from index.ts (for library wrappers)
 - [ ] **Let Effect infer types** — Don't add explicit return type annotations

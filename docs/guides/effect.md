@@ -1,7 +1,9 @@
 # Effect Guide
 
-Patterns for typed errors, services, and async operations. This project uses
-Effect for all business logic and I/O.
+Comprehensive patterns for using Effect as this project's standard library.
+Covers typed errors, services, Option/nullable handling, collections (Array,
+Chunk, HashMap), iteration and streaming, schema validation, wrapping external
+APIs, and testing Effect programs.
 
 > [Effect](../../CLAUDE.md#effect) — critical guidance
 
@@ -20,16 +22,18 @@ Effect for all business logic and I/O.
 
 ## Skills
 
-- `/effect-basics` — Core patterns, when to use functions vs services
-- `/effect-errors` — Error modeling, TaggedError, defects, recovery strategies
-- `/effect-service` — Service interfaces, error types, layers, retry policies
-- `/effect-option` — Option vs nullable types, conversion at boundaries
-- `/effect-collections` — Arrays, Chunks, Records, HashMaps: when to use each
-- `/effect-iteration` — Loops, forEach, all, Schedule, retries and polling
-- `/effect-stream` — Stream for lazy, unbounded, or resource-scoped sequences
-- `/effect-schema` — Schema naming conventions and type inference
-- `/effect-wrapping` — Wrap Promise-based APIs with Effect conventions
-- `/effect-testing` — Testing patterns for Effect programs
+| Skill                                                                  | Command | Description                                               |
+| ---------------------------------------------------------------------- | ------- | --------------------------------------------------------- |
+| [effect-basics](../../.claude/skills/effect-basics/SKILL.md)           | —       | Core patterns, when to use functions vs services          |
+| [effect-errors](../../.claude/skills/effect-errors/SKILL.md)           | —       | Error modeling, TaggedError, defects, recovery strategies |
+| [effect-service](../../.claude/skills/effect-service/SKILL.md)         | —       | Service interfaces, error types, layers, retry policies   |
+| [effect-option](../../.claude/skills/effect-option/SKILL.md)           | —       | Option vs nullable types, conversion at boundaries        |
+| [effect-collections](../../.claude/skills/effect-collections/SKILL.md) | —       | Arrays, Chunks, Records, HashMaps: when to use each       |
+| [effect-iteration](../../.claude/skills/effect-iteration/SKILL.md)     | —       | Loops, forEach, all, Schedule, retries and polling        |
+| [effect-stream](../../.claude/skills/effect-stream/SKILL.md)           | —       | Stream for lazy, unbounded, or resource-scoped sequences  |
+| [effect-schema](../../.claude/skills/effect-schema/SKILL.md)           | —       | Schema naming conventions and type inference              |
+| [effect-wrapping](../../.claude/skills/effect-wrapping/SKILL.md)       | —       | Wrap Promise-based APIs with Effect conventions           |
+| [effect-testing](../../.claude/skills/effect-testing/SKILL.md)         | —       | Testing patterns for Effect programs                      |
 
 ---
 

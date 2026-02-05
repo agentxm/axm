@@ -26,6 +26,8 @@ Each guide is a single markdown file named after its topic:
       → Don't duplicate CLAUDE.md; link to critical guidance instead
 - [ ] **Collects references** — Aggregates resources, skills, and background
       → If nothing to collect, content may belong inline or in CLAUDE.md
+- [ ] **Skills index** — Lists related skills with file path, command, and description
+      → Use table format; include slash command only if user-invocable
 - [ ] **Project-specific** — Contextualizes how the topic applies here
       → If generic, link to external docs rather than duplicating
 
@@ -47,7 +49,10 @@ Purpose statement explaining what this guide covers and why it matters.
 
 ## Skills <!-- omit if none -->
 
-- `/skill-name` — What this skill provides
+| Skill                                                          | Command       | Description              |
+| -------------------------------------------------------------- | ------------- | ------------------------ |
+| [skill-name](../../.claude/skills/skill-name/SKILL.md)         | `/skill-name` | What this skill provides |
+| [internal-skill](../../.claude/skills/internal-skill/SKILL.md) | —             | Internal patterns for X  |
 
 ---
 

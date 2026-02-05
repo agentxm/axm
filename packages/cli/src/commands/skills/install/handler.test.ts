@@ -25,6 +25,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach, vi } from "vitest";
 import YAML from "yaml";
+import { OperationContext } from "../../../services/operation-context.js";
 import { handleInstall, type InstallArgs, InstallError } from "./handler.js";
 
 // Mock git operations to use local fixtures instead of cloning
@@ -109,7 +110,12 @@ function copyDirSync(src: string, dest: string): void {
 }
 
 // Layer providing all required services for tests
-const TestLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, FetchHttpClient.layer);
+const TestLayer = Layer.mergeAll(
+  NodeFileSystem.layer,
+  NodePath.layer,
+  FetchHttpClient.layer,
+  OperationContext.defaultLayer,
+);
 
 // Mock TTY utilities
 vi.mock("../../../utils/tty.js", () => ({
@@ -150,7 +156,11 @@ describe("install.handler", () => {
    * Helper function to provide the test layer to an effect.
    */
   const withTestLayer = <A, E>(
-    effect: Effect.Effect<A, E, FileSystem.FileSystem | HttpClient.HttpClient | Path.Path>,
+    effect: Effect.Effect<
+      A,
+      E,
+      FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | OperationContext
+    >,
   ) => effect.pipe(Effect.provide(TestLayer));
 
   const defaultArgs: InstallArgs = {

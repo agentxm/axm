@@ -18,7 +18,13 @@ import { PackManifestSchema } from "../src/extensions/packs/manifest-schema.js";
 
 const CLI_SRC = path.join(import.meta.dirname, "../src");
 
-const schemas = [
+interface SchemaConfig {
+  name: string;
+  schema: Parameters<typeof JSONSchema.make>[0];
+  outputDir: string;
+}
+
+const schemas: SchemaConfig[] = [
   {
     name: "axm-lock.schema.json",
     schema: LockfileSchema,
@@ -51,17 +57,16 @@ const schemas = [
   },
 ];
 
-let generatedCount = 0;
+let count = 0;
 
 for (const { name, schema, outputDir } of schemas) {
-  // Ensure output directory exists
   fs.mkdirSync(outputDir, { recursive: true });
 
   const jsonSchema = JSONSchema.make(schema);
   const outputPath = path.join(outputDir, name);
   fs.writeFileSync(outputPath, `${JSON.stringify(jsonSchema, null, 2)}\n`);
   console.log(`Generated: ${path.relative(CLI_SRC, outputPath)}`);
-  generatedCount++;
+  count++;
 }
 
-console.log(`\nGenerated ${generatedCount} JSON schemas`);
+console.log(`\nGenerated ${count} JSON schemas`);

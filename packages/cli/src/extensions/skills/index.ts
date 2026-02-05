@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-export type { BaseSource as LockSourceType } from "../../sources/index.js";
+export type { SourceType as LockSourceType } from "../../sources/index.js";
 
 // Git - re-exported from sources/
 export {

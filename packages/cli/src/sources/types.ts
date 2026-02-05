@@ -40,14 +40,7 @@ export const SourceTypeSchema = Schema.Literal(
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type BaseSource = typeof SourceTypeSchema.Type;
-
-/**
- * Source type alias.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type SourceType = BaseSource;
+export type SourceType = typeof SourceTypeSchema.Type;
 
 // -----------------------------------------------------------------------------
 // Discriminated Union Types

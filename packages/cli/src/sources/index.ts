@@ -11,7 +11,6 @@
 // Types (these are interface types distinct from the ParsedSource namespace)
 export type {
   AzureDevOpsSource,
-  BaseSource,
   BitbucketSource,
   GenericGitSource,
   GitHubSource,

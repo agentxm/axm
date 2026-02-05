@@ -1,10 +1,12 @@
 /**
- * Unit tests for workspace context module.
+ * Unit tests for workspace context module (legacy).
  *
- * Tests the makeWorkspaceContext function that creates workspace context
+ * Tests the makeWorkspaceContextLegacy function that creates workspace context
  * from handler options (global vs local scope, interactive mode).
  *
- * Also tests ensureInit which checks if a workspace is initialized.
+ * Also tests ensureInitLegacy which checks if a workspace is initialized.
+ *
+ * @deprecated These test legacy APIs. New code should use WorkspaceContext service.
  */
 
 import * as os from "node:os";
@@ -15,33 +17,33 @@ import * as Effect from "effect/Effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { getAxmDir } from "./paths.js";
 import {
-  ensureInit,
-  makeWorkspaceContext,
-  type WorkspaceContext,
-  WorkspaceError,
+  ensureInitLegacy,
+  makeWorkspaceContextLegacy,
+  type WorkspaceContextLegacy,
+  WorkspaceErrorLegacy,
 } from "./context.js";
 
 // Test helpers
 const runEffect = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
   Effect.runPromise(effect.pipe(Effect.provide(NodeContext.layer)));
 
-describe("makeWorkspaceContext", () => {
+describe("makeWorkspaceContextLegacy", () => {
   describe("path resolution", () => {
     it("returns local path when global is false", () => {
-      const ctx = makeWorkspaceContext({ global: false, interactive: true });
+      const ctx = makeWorkspaceContextLegacy({ global: false, interactive: true });
 
       expect(ctx.path).toBe(getAxmDir(false));
     });
 
     it("returns global path when global is true", () => {
-      const ctx = makeWorkspaceContext({ global: true, interactive: true });
+      const ctx = makeWorkspaceContextLegacy({ global: true, interactive: true });
 
       expect(ctx.path).toBe(getAxmDir(true));
     });
 
     it("returns path ending in .axm", () => {
-      const localCtx = makeWorkspaceContext({ global: false, interactive: true });
-      const globalCtx = makeWorkspaceContext({ global: true, interactive: true });
+      const localCtx = makeWorkspaceContextLegacy({ global: false, interactive: true });
+      const globalCtx = makeWorkspaceContextLegacy({ global: true, interactive: true });
 
       expect(localCtx.path.endsWith(".axm")).toBe(true);
       expect(globalCtx.path.endsWith(".axm")).toBe(true);
@@ -50,13 +52,13 @@ describe("makeWorkspaceContext", () => {
 
   describe("interactive mode", () => {
     it("passes through interactive true", () => {
-      const ctx = makeWorkspaceContext({ global: false, interactive: true });
+      const ctx = makeWorkspaceContextLegacy({ global: false, interactive: true });
 
       expect(ctx.interactive).toBe(true);
     });
 
     it("passes through interactive false", () => {
-      const ctx = makeWorkspaceContext({ global: false, interactive: false });
+      const ctx = makeWorkspaceContextLegacy({ global: false, interactive: false });
 
       expect(ctx.interactive).toBe(false);
     });
@@ -64,28 +66,28 @@ describe("makeWorkspaceContext", () => {
 
   describe("combinations", () => {
     it("local non-interactive", () => {
-      const ctx = makeWorkspaceContext({ global: false, interactive: false });
+      const ctx = makeWorkspaceContextLegacy({ global: false, interactive: false });
 
       expect(ctx.path).toBe(getAxmDir(false));
       expect(ctx.interactive).toBe(false);
     });
 
     it("local interactive", () => {
-      const ctx = makeWorkspaceContext({ global: false, interactive: true });
+      const ctx = makeWorkspaceContextLegacy({ global: false, interactive: true });
 
       expect(ctx.path).toBe(getAxmDir(false));
       expect(ctx.interactive).toBe(true);
     });
 
     it("global non-interactive", () => {
-      const ctx = makeWorkspaceContext({ global: true, interactive: false });
+      const ctx = makeWorkspaceContextLegacy({ global: true, interactive: false });
 
       expect(ctx.path).toBe(getAxmDir(true));
       expect(ctx.interactive).toBe(false);
     });
 
     it("global interactive", () => {
-      const ctx = makeWorkspaceContext({ global: true, interactive: true });
+      const ctx = makeWorkspaceContextLegacy({ global: true, interactive: true });
 
       expect(ctx.path).toBe(getAxmDir(true));
       expect(ctx.interactive).toBe(true);
@@ -94,13 +96,13 @@ describe("makeWorkspaceContext", () => {
 
   describe("return type", () => {
     it("returns object with readonly path", () => {
-      const ctx = makeWorkspaceContext({ global: false, interactive: true });
+      const ctx = makeWorkspaceContextLegacy({ global: false, interactive: true });
 
       expect(typeof ctx.path).toBe("string");
     });
 
     it("returns object with readonly interactive", () => {
-      const ctx = makeWorkspaceContext({ global: false, interactive: true });
+      const ctx = makeWorkspaceContextLegacy({ global: false, interactive: true });
 
       expect(typeof ctx.interactive).toBe("boolean");
     });
@@ -108,12 +110,12 @@ describe("makeWorkspaceContext", () => {
 });
 
 // =============================================================================
-// ensureInit tests
+// ensureInitLegacy tests
 // =============================================================================
 
-describe("WorkspaceError", () => {
+describe("WorkspaceErrorLegacy", () => {
   it("has correct _tag", () => {
-    const error = new WorkspaceError({
+    const error = new WorkspaceErrorLegacy({
       message: "test error",
     });
 
@@ -121,7 +123,7 @@ describe("WorkspaceError", () => {
   });
 
   it("contains message", () => {
-    const error = new WorkspaceError({
+    const error = new WorkspaceErrorLegacy({
       message: "workspace not found",
     });
 
@@ -129,7 +131,7 @@ describe("WorkspaceError", () => {
   });
 });
 
-describe("ensureInit", () => {
+describe("ensureInitLegacy", () => {
   let tempDir: string;
 
   beforeEach(async () => {
@@ -168,13 +170,13 @@ describe("ensureInit", () => {
         }),
       );
 
-      const ctx: WorkspaceContext = {
+      const ctx: WorkspaceContextLegacy = {
         path: axmDir,
         interactive: false,
       };
 
       // Act & Assert: Should succeed
-      await expect(runEffect(ensureInit(ctx))).resolves.toBeUndefined();
+      await expect(runEffect(ensureInitLegacy(ctx))).resolves.toBeUndefined();
     });
 
     it("succeeds when settings.json is empty object", async () => {
@@ -187,25 +189,25 @@ describe("ensureInit", () => {
         }),
       );
 
-      const ctx: WorkspaceContext = {
+      const ctx: WorkspaceContextLegacy = {
         path: axmDir,
         interactive: false,
       };
 
-      await expect(runEffect(ensureInit(ctx))).resolves.toBeUndefined();
+      await expect(runEffect(ensureInitLegacy(ctx))).resolves.toBeUndefined();
     });
   });
 
   describe("when workspace is not initialized", () => {
     it("fails when .axm directory does not exist (non-interactive)", async () => {
       const axmDir = nodePath.join(tempDir, ".axm");
-      const ctx: WorkspaceContext = {
+      const ctx: WorkspaceContextLegacy = {
         path: axmDir,
         interactive: false,
       };
 
-      // Act & Assert: Should fail with WorkspaceError
-      await expect(runEffect(ensureInit(ctx).pipe(Effect.flip))).resolves.toMatchObject({
+      // Act & Assert: Should fail with WorkspaceErrorLegacy
+      await expect(runEffect(ensureInitLegacy(ctx).pipe(Effect.flip))).resolves.toMatchObject({
         _tag: "WorkspaceError",
         message: expect.stringContaining("not initialized"),
       });
@@ -221,12 +223,12 @@ describe("ensureInit", () => {
         }),
       );
 
-      const ctx: WorkspaceContext = {
+      const ctx: WorkspaceContextLegacy = {
         path: axmDir,
         interactive: false,
       };
 
-      await expect(runEffect(ensureInit(ctx).pipe(Effect.flip))).resolves.toMatchObject({
+      await expect(runEffect(ensureInitLegacy(ctx).pipe(Effect.flip))).resolves.toMatchObject({
         _tag: "WorkspaceError",
         message: expect.stringContaining("not initialized"),
       });
@@ -234,12 +236,12 @@ describe("ensureInit", () => {
 
     it("fails when parent directory does not exist (non-interactive)", async () => {
       const nonExistentDir = nodePath.join(tempDir, "does", "not", "exist", ".axm");
-      const ctx: WorkspaceContext = {
+      const ctx: WorkspaceContextLegacy = {
         path: nonExistentDir,
         interactive: false,
       };
 
-      await expect(runEffect(ensureInit(ctx).pipe(Effect.flip))).resolves.toMatchObject({
+      await expect(runEffect(ensureInitLegacy(ctx).pipe(Effect.flip))).resolves.toMatchObject({
         _tag: "WorkspaceError",
       });
     });
@@ -250,12 +252,12 @@ describe("ensureInit", () => {
       // Note: For now, interactive mode behaves the same as non-interactive.
       // Future implementation could prompt for initialization.
       const axmDir = nodePath.join(tempDir, ".axm");
-      const ctx: WorkspaceContext = {
+      const ctx: WorkspaceContextLegacy = {
         path: axmDir,
         interactive: true,
       };
 
-      await expect(runEffect(ensureInit(ctx).pipe(Effect.flip))).resolves.toMatchObject({
+      await expect(runEffect(ensureInitLegacy(ctx).pipe(Effect.flip))).resolves.toMatchObject({
         _tag: "WorkspaceError",
         message: expect.stringContaining("not initialized"),
       });

@@ -41,12 +41,12 @@ import {
   getPlanSummary,
   type InstallCommand,
   loadCurrentState,
-  makeWorkspaceContext,
+  makeWorkspaceContextLegacy,
   type PlanStep,
   planHasChanges,
   updateLockfileForPlan,
   updateSettingsForPlan,
-  type WorkspaceContext,
+  type WorkspaceContextLegacy,
 } from "../../../workspace/index.js";
 import { displayPlan } from "../display.js";
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
@@ -329,8 +329,8 @@ export const handleInstall = (
     // Get Clack service
     const clack = yield* Clack;
 
-    // Create workspace context (V2)
-    const ws: WorkspaceContext = makeWorkspaceContext({
+    // Create workspace context (legacy)
+    const ws: WorkspaceContextLegacy = makeWorkspaceContextLegacy({
       global: args.global,
       interactive: isInteractive() && !args.nonInteractive,
     });

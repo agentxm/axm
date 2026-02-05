@@ -26,9 +26,9 @@ export {
   updateLockfileForPlan,
   updateSettingsForPlan,
 } from "./apply.js";
-export type { WorkspaceContext } from "./context.js";
-// Context
-export { ensureInit, makeWorkspaceContext, WorkspaceError } from "./context.js";
+export type { WorkspaceContextLegacy } from "./context.js";
+// Context (deprecated - use WorkspaceContext service instead)
+export { ensureInitLegacy, makeWorkspaceContextLegacy, WorkspaceErrorLegacy } from "./context.js";
 // Ideal state building
 export {
   type BuildIdealDeps,
@@ -59,7 +59,6 @@ export { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./er
 export type { WorkspaceContextService } from "./service-types.js";
 export {
   layer,
-  make,
   WorkspaceContext as WorkspaceContextTag,
   type WorkspaceContextError,
   type WorkspaceContextOptions,

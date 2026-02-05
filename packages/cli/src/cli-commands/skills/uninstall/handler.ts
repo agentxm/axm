@@ -22,16 +22,16 @@ import {
   applyStep,
   buildIdealForUninstall,
   buildPlan,
-  ensureInit,
+  ensureInitLegacy,
   loadCurrentState,
-  makeWorkspaceContext,
+  makeWorkspaceContextLegacy,
   type Plan,
   type PlanStep,
   planHasChanges,
   type UninstallCommand,
   updateLockfileForPlan,
   updateSettingsForPlan,
-  type WorkspaceContext,
+  type WorkspaceContextLegacy,
 } from "../../../workspace/index.js";
 import { displayPlan } from "../display.js";
 import * as FileSystem from "@effect/platform/FileSystem";
@@ -105,8 +105,8 @@ export const handleUninstall = (
   return Effect.gen(function* () {
     const clack = yield* Clack;
 
-    // Create workspace context (V2) - always local for uninstall
-    const ws: WorkspaceContext = makeWorkspaceContext({
+    // Create workspace context (legacy) - always local for uninstall
+    const ws: WorkspaceContextLegacy = makeWorkspaceContextLegacy({
       global: false,
       interactive: isInteractive(),
     });
@@ -117,9 +117,9 @@ export const handleUninstall = (
     // Create spinner
     const spinner = yield* clack.spinner();
 
-    // Step 1: Ensure initialized via WorkspaceContext
+    // Step 1: Ensure initialized via WorkspaceContextLegacy
     spinner.start("Checking initialization...");
-    yield* ensureInit(ws).pipe(
+    yield* ensureInitLegacy(ws).pipe(
       Effect.mapError(
         (error) =>
           new UninstallError({
@@ -182,7 +182,7 @@ export const handleUninstall = (
  */
 const handleFullUninstall = (
   args: UninstallArgs,
-  ws: WorkspaceContext,
+  ws: WorkspaceContextLegacy,
   clack: Clack["Type"],
   spinner: Spinner,
 ): Effect.Effect<
@@ -316,7 +316,7 @@ const handleFullUninstall = (
  */
 const handlePartialUninstall = (
   args: UninstallArgs,
-  ws: WorkspaceContext,
+  ws: WorkspaceContextLegacy,
   clack: Clack["Type"],
   spinner: Spinner,
 ): Effect.Effect<

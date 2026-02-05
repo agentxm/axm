@@ -38,7 +38,7 @@ import {
   type WorkspaceIssue,
   WorkspaceIssue as WorkspaceIssueConstructor,
 } from "../extensions/skills/state/types.js";
-import type { WorkspaceContext } from "./context.js";
+import type { WorkspaceContextLegacy } from "./context.js";
 import { LOCKFILE_NAME } from "./paths.js";
 
 // =============================================================================
@@ -655,7 +655,7 @@ const loadActualSkills = (
  * @experimental This API is unstable and may change without notice.
  */
 export const loadCurrentState = (
-  ws: WorkspaceContext,
+  ws: WorkspaceContextLegacy,
 ): Effect.Effect<CurrentState, WorkspaceError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     // Load actual and locked in parallel

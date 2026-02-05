@@ -12,11 +12,9 @@ import type { FileSystem } from "@effect/platform";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Clack } from "../../clack-effect/index.js";
-import {
-  make,
-  type WorkspaceContextError,
-  type WorkspaceContextOptions,
-} from "../../workspace/index.js";
+import { type WorkspaceContextError, type WorkspaceContextOptions } from "../../workspace/index.js";
+// Import make directly from service module (internal API for init command)
+import { make } from "../../workspace/service.js";
 
 // -----------------------------------------------------------------------------
 // Types

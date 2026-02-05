@@ -25,7 +25,7 @@ import * as Schema from "effect/Schema";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SourceSchema = Schema.Literal(
+export const SourceTypeSchema = Schema.Literal(
   "github",
   "gitlab",
   "bitbucket",
@@ -36,18 +36,18 @@ export const SourceSchema = Schema.Literal(
 );
 
 /**
- * Inferred type for SourceSchema.
+ * Inferred type for SourceTypeSchema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type BaseSource = typeof SourceSchema.Type;
+export type BaseSource = typeof SourceTypeSchema.Type;
 
 /**
  * Source type alias.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type Source = BaseSource;
+export type SourceType = BaseSource;
 
 // -----------------------------------------------------------------------------
 // Discriminated Union Types

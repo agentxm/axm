@@ -19,10 +19,10 @@ export type {
   GitSource,
   LocalSource,
   RegistrySource,
-  Source,
+  SourceType,
 } from "./types.js";
 // ParsedSource is both a type and value - export it properly
-export { ParsedSource, SourceSchema } from "./types.js";
+export { ParsedSource, SourceTypeSchema } from "./types.js";
 // Re-export the ParsedSource type alias separately for type-only imports
 export type { ParsedSource as ParsedSourceUnion } from "./types.js";
 

@@ -234,7 +234,7 @@ const validateIndex = (
             { discard: true },
           );
         }),
-      { discard: true },
+      { concurrency: "unbounded", discard: true },
     );
 
     return data as WellKnownIndex;

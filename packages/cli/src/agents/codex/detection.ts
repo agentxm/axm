@@ -24,9 +24,9 @@ export const detect = (): Effect.Effect<
 > =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const [codexExists, etcExists] = yield* Effect.all([
-      fs.exists(codexHome),
-      fs.exists("/etc/codex"),
-    ]);
+    const [codexExists, etcExists] = yield* Effect.all(
+      [fs.exists(codexHome), fs.exists("/etc/codex")],
+      { concurrency: "unbounded" },
+    );
     return codexExists || etcExists;
   });

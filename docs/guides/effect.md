@@ -21,12 +21,15 @@ Effect for all business logic and I/O.
 ## Skills
 
 - `/effect-basics` — Core patterns, when to use functions vs services
+- `/effect-errors` — Error modeling, TaggedError, defects, recovery strategies
 - `/effect-service` — Service interfaces, error types, layers, retry policies
-- `/effect-testing` — Testing patterns for Effect programs
-- `/effect-wrapping` — Wrap Promise-based APIs with Effect conventions
-- `/effect-schema` — Schema naming conventions and type inference
 - `/effect-option` — Option vs nullable types, conversion at boundaries
 - `/effect-collections` — Arrays, Chunks, Records, HashMaps: when to use each
+- `/effect-iteration` — Loops, forEach, all, Schedule, retries and polling
+- `/effect-stream` — Stream for lazy, unbounded, or resource-scoped sequences
+- `/effect-schema` — Schema naming conventions and type inference
+- `/effect-wrapping` — Wrap Promise-based APIs with Effect conventions
+- `/effect-testing` — Testing patterns for Effect programs
 
 ---
 

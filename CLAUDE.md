@@ -78,7 +78,33 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 - [ ] Resources use acquire/release patterns
 - [ ] Layers provide dependencies at the edge
 - [ ] Use concurrency (Effect.all, Effect.forEach) where parallelization is possible
+- [ ] Avoid `for`/`while` loops containing `yield*` — use `Effect.forEach` instead (see below)
 - [ ] Wrap Promise-based APIs with Effect conventions (see /effect-wrapping skill)
+
+### Effectful Iteration
+
+**`for` + `yield*` + `push` is a code smell.** When you see this pattern, ask: are these operations independent? If yes, use `Effect.forEach` with concurrency.
+
+```typescript
+// BAD: sequential, mutable, misses parallelization
+const results: T[] = [];
+for (const item of items) {
+  const result = yield* processItem(item);  // I/O operation
+  results.push(result);
+}
+
+// GOOD: concurrent, immutable, faster
+const results = yield* Effect.forEach(
+  items,
+  (item) => processItem(item),
+  { concurrency: "unbounded" },
+);
+```
+
+**Exceptions** (keep sequential):
+- Early break/return on condition (e.g., stop on first failure)
+- Iterations depend on previous results
+- Ordered output required (e.g., console logging)
 
 ### Type Inference
 

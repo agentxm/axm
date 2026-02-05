@@ -277,6 +277,113 @@ const HashMapSchema = Schema.HashMap({
 
 ---
 
+## Common Refactoring Patterns
+
+### Replace `.filter(Option.isSome).map(...)` with `Array.getSomes`
+
+```typescript
+// Before: verbose filter/map chain
+const agents = args.agent
+  .map((id) => getAgentById(id))
+  .filter(Option.isSome)
+  .map((opt) => opt.value);
+
+// After: single-pass extraction
+const agents = pipe(
+  args.agent,
+  Array.map((id) => getAgentById(id)),
+  Array.getSomes,
+);
+```
+
+### Replace `.find()` with `Array.findFirst` (returns Option)
+
+```typescript
+// Before: nullable result requires null checks
+const skill = skills.find((s) => s.name === args.skill);
+if (!skill) throw new Error("Not found");
+
+// After: explicit Option handling
+const skill = pipe(
+  skills,
+  Array.findFirst((s) => s.name === args.skill),
+  Option.getOrThrowWith(() => new Error("Not found")),
+);
+
+// Or with Option.match for safe handling
+const result = pipe(
+  skills,
+  Array.findFirst((s) => s.name === args.skill),
+  Option.match({
+    onNone: () => defaultSkill,
+    onSome: (skill) => skill,
+  }),
+);
+```
+
+### Replace unsafe index access with `Array.head`/`Array.get`
+
+```typescript
+// Before: unsafe access even after length check
+if (refs.length > 0) {
+  const ref = refs[0]; // still typed as T | undefined
+}
+
+// After: safe access with Option
+const ref = Array.head(refs); // Option<T>
+const result = Option.match(ref, {
+  onNone: () => handleEmpty(),
+  onSome: (r) => process(r),
+});
+
+// For arbitrary index
+const third = Array.get(items, 2); // Option<T>
+```
+
+### Fix double-call anti-pattern with `Array.partition`
+
+```typescript
+// Before: calls getAgentById twice per element
+const validIds = args.agent.filter((id) => Option.isSome(getAgentById(id)));
+const invalidIds = args.agent.filter((id) => Option.isNone(getAgentById(id)));
+
+// After: single pass with partition
+const [invalidIds, validIds] = Array.partition(args.agent, (id) => Option.isSome(getAgentById(id)));
+```
+
+### Replace `.map().filter().map()` with `Array.filterMap`
+
+```typescript
+// Before: multiple passes
+const indices = options
+  .map((opt, i) => (opt.selected ? i : undefined))
+  .filter((i) => i !== undefined)
+  .map((i) => i!);
+
+// After: single pass with Option
+const indices = Array.filterMap(options, (opt, i) =>
+  opt.selected ? Option.some(i) : Option.none(),
+);
+```
+
+### Replace array destructuring with Effect utilities
+
+```typescript
+// Before: destructuring loses type safety
+const [resolver, ...rest] = remaining;
+if (!resolver) throw new Error("Empty");
+
+// After: explicit head/tail with NonEmpty guarantees
+const head = Array.head(remaining);
+const tail = Array.tail(remaining);
+
+// Or use NonEmpty variants when you know the array isn't empty
+const head = Array.headNonEmpty(remaining); // T (not Option<T>)
+const tail = Array.tailNonEmpty(remaining); // Array<T>
+```
+
+---
+
 ## Effect Collections Checklist
 
 - [ ] **Default to native types** — Arrays and objects with Effect modules
@@ -286,3 +393,5 @@ const HashMapSchema = Schema.HashMap({
 - [ ] **Use Array utilities** — `filterMap`, `getSomes`, `separate` for Option/Either
 - [ ] **Use Record utilities** — `get`, `filterMap`, `collect` for object transforms
 - [ ] **Readonly types** — `Array.Array<T>` and `Record.ReadonlyRecord<K,V>` in signatures
+- [ ] **Safe access** — `Array.head`, `Array.get`, `Array.findFirst` instead of `[0]`, `.find()`
+- [ ] **Single-pass operations** — `Array.partition` instead of double filter, `Array.filterMap` instead of map/filter chains

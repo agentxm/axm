@@ -43,17 +43,16 @@ import {
   loadCurrentState,
   makeWorkspaceContext,
   type PlanStep,
-  type PlanSummary,
   planHasChanges,
   SkillSourceV2,
   updateLockfileForPlan,
   updateSettingsForPlan,
   type WorkspaceContext,
 } from "../../../workspace/index.js";
+import { displayPlan } from "../display.js";
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
-import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import { Clack } from "../../../clack-effect/index.js";
 import { formatError } from "../../../utils/errors.js";
@@ -193,137 +192,6 @@ const resolveGitSource = (
     );
 
     return { skills, skillsDir, commitSha };
-  });
-
-// -----------------------------------------------------------------------------
-// Plan Display
-// -----------------------------------------------------------------------------
-
-/**
- * Format source for display in plan output.
- * Uses V2 SkillSourceV2 type with Registry, GitHub, Local variants.
- */
-const formatSourceV2 = (source: SkillSourceV2): string => {
-  switch (source._tag) {
-    case "Local":
-      return source.path;
-    case "GitHub": {
-      let result = `github:${source.owner}/${source.repo}`;
-      if (Option.isSome(source.path)) {
-        result += `/${source.path.value}`;
-      }
-      if (Option.isSome(source.ref)) {
-        result += `@${source.ref.value}`;
-      }
-      return result;
-    }
-    case "Registry": {
-      let result = `@${source.scope}/${source.name}`;
-      if (Option.isSome(source.version)) {
-        result += `@${source.version.value}`;
-      }
-      return result;
-    }
-  }
-};
-
-/**
- * Format hash for display (first 7 characters).
- */
-const formatHash = (hash: Option.Option<string>): string =>
-  pipe(
-    hash,
-    Option.map((h) => {
-      // Remove prefix like "sha256:" if present
-      const stripped = h.includes(":") ? (h.split(":")[1] ?? h) : h;
-      return stripped.slice(0, 7);
-    }),
-    Option.getOrElse(() => "???????"),
-  );
-
-/**
- * Get symbol for plan step type.
- */
-const getStepSymbol = (tag: PlanStep["_tag"]): string => {
-  switch (tag) {
-    case "InstallSkill":
-      return "+";
-    case "UpdateSkill":
-      return "~";
-    case "UninstallSkill":
-      return "-";
-    default: {
-      // Exhaustive check
-      const _exhaustive: never = tag;
-      return _exhaustive;
-    }
-  }
-};
-
-/**
- * Format a single plan step for display.
- * @param step - The plan step to format
- * @param displaySource - Optional display source string (for showing original source instead of cached path)
- */
-const formatStep = (step: PlanStep, displaySource?: string): string => {
-  const symbol = getStepSymbol(step._tag);
-
-  switch (step._tag) {
-    case "InstallSkill": {
-      const source = displaySource ?? formatSourceV2(step.source);
-      return `  ${symbol} ${step.skill.padEnd(20)} ${source}`;
-    }
-    case "UpdateSkill": {
-      const fromHash = formatHash(step.fromHash);
-      const toHash = formatHash(step.toHash);
-      return `  ${symbol} ${step.skill.padEnd(20)} ${fromHash} -> ${toHash}`;
-    }
-    case "UninstallSkill":
-      return `  ${symbol} ${step.skill.padEnd(20)} (remove)`;
-    default: {
-      const _exhaustive: never = step;
-      return _exhaustive;
-    }
-  }
-};
-
-/**
- * Format summary line for plan.
- */
-const formatPlanSummary = (summary: PlanSummary): string => {
-  const parts: string[] = [];
-  if (summary.installed > 0) parts.push(`${summary.installed} to install`);
-  if (summary.updated > 0) parts.push(`${summary.updated} to update`);
-  if (summary.uninstalled > 0) parts.push(`${summary.uninstalled} to uninstall`);
-  return parts.length > 0 ? parts.join(", ") : "No changes";
-};
-
-/**
- * Display the plan in human-readable format.
- * @param steps - The plan steps to display
- * @param displaySource - Optional display source string (for showing original source instead of cached path)
- */
-const displayPlanOutput = (
-  clack: Clack["Type"],
-  steps: ReadonlyArray<PlanStep>,
-  displaySource?: string,
-): Effect.Effect<void> =>
-  Effect.gen(function* () {
-    if (steps.length === 0) {
-      return;
-    }
-
-    yield* clack.log.info("Plan:");
-    yield* clack.log.message("");
-    yield* clack.log.message("  Skills:");
-
-    for (const step of steps) {
-      yield* clack.log.message(formatStep(step, displaySource));
-    }
-
-    const summary = getPlanSummary({ steps });
-    yield* clack.log.message("");
-    yield* clack.log.message(`  Summary: ${formatPlanSummary(summary)}`);
   });
 
 // -----------------------------------------------------------------------------
@@ -781,7 +649,7 @@ export const handleInstall = (
     // Step 9: Display plan
     // Use the original parsed.canonical for display (e.g., "github:owner/repo")
     // instead of the cached local path
-    yield* displayPlanOutput(clack, plan.steps, parsed.canonical);
+    yield* displayPlan(clack, plan, parsed.canonical);
 
     // Step 10: Check if there are changes
     if (!planHasChanges(plan)) {

@@ -38,7 +38,6 @@ import {
   type WorkspaceIssue,
   WorkspaceIssue as WorkspaceIssueConstructor,
 } from "../extensions/skills/state/types.js";
-import type { WorkspaceContextLegacy } from "./context.js";
 import { LOCKFILE_NAME } from "./paths.js";
 
 // =============================================================================
@@ -651,14 +650,14 @@ const loadActualSkills = (
  *    - Skill only in lockfile -> SkillState with MissingFromDisk issue
  * 4. Detects duplicate names -> WorkspaceIssue (DuplicateName)
  *
- * @param ws - Workspace context
+ * @param ws - Object with workspace path (e.g., ".axm" directory)
  * @returns Effect yielding CurrentState with all skills and issues
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const loadCurrentState = (
-  ws: WorkspaceContextLegacy,
-): Effect.Effect<CurrentState, WorkspaceError, FileSystem.FileSystem | Path.Path> =>
+export const loadCurrentState = (ws: {
+  readonly path: string;
+}): Effect.Effect<CurrentState, WorkspaceError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     // Load actual and locked in parallel
     const [actualSkills, lockedSkills] = yield* Effect.all(

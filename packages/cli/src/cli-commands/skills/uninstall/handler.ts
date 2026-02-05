@@ -291,7 +291,7 @@ const handleFullUninstall = (
       updateSettings: (p: Plan) => updateSettingsForPlan(ws.path, p),
     };
 
-    const applyResult = yield* applyPlan(ws, plan, { dryRun: false }, deps).pipe(
+    const applyResult = yield* applyPlan(plan, { dryRun: false }, deps).pipe(
       Effect.mapError(
         (error) =>
           new UninstallError({
@@ -453,7 +453,7 @@ const handlePartialUninstall = (
         updateSettings: (p: Plan) => updateSettingsForPlan(ws.path, p),
       };
 
-      yield* applyPlan(ws, plan, { dryRun: false }, deps).pipe(
+      yield* applyPlan(plan, { dryRun: false }, deps).pipe(
         Effect.mapError(
           (error) =>
             new UninstallError({

@@ -25,6 +25,8 @@ Effect for all business logic and I/O.
 - `/effect-testing` — Testing patterns for Effect programs
 - `/effect-wrapping` — Wrap Promise-based APIs with Effect conventions
 - `/effect-schema` — Schema naming conventions and type inference
+- `/effect-option` — Option vs nullable types, conversion at boundaries
+- `/effect-collections` — Arrays, Chunks, Records, HashMaps: when to use each
 
 ---
 

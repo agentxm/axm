@@ -1,5 +1,5 @@
 ---
-name: effect-optional
+name: effect-option
 description: Option vs nullable types in Effect. Use when handling optional, nullable, or potentially undefined properties.
 user-invocable: false
 ---

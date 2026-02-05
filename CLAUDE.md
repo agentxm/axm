@@ -64,8 +64,12 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 
 ## Effect
 
-- [ ] Use `Array.Array`, `Record.Record`, and `Option.Option` from Effect, not built-in types
-- [ ] Prefer `Option<T>` over `T | undefined` or optional properties (`prop?: T`) (see /effect-optional skill)
+- [ ] Use Effect's collection types in signatures (see /effect-collections skill)
+      → `Array.Array<T>` (= `ReadonlyArray<T>`) for arrays
+      → `Record.ReadonlyRecord<K,V>` for string-keyed objects
+      → `Chunk` only for repeated concatenation or Streams
+      → `HashMap` only for complex keys or value-based equality
+- [ ] Prefer `Option<T>` over `T | undefined` or optional properties (`prop?: T`) (see /effect-option skill)
       → Convert at boundaries: `fromNullable` at entry, `getOrNull` at exit
       → Use nullable for interop: external APIs, JSON serialization, DOM
 - [ ] No raw Promises or async/await (use Effect.promise to wrap)

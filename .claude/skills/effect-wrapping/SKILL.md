@@ -33,7 +33,7 @@ export const wrappedFn = (opts: Parameters<typeof lib.fn>[0]) =>
 
 When wrapping an entire third-party library, create a dedicated wrapper module.
 
-**Location:** `packages/core/src/experimental/<lib>-effect/`
+**Location:** `packages/cli/src/<lib>-effect/`
 
 **Naming:** `<lib>-effect` (e.g., `clack-effect`, `octokit-effect`)
 

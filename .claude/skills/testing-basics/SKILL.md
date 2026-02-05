@@ -73,7 +73,6 @@ Tests should exhibit these qualities:
 ```bash
 pnpm test                              # All tests
 pnpm test -- --watch                   # Watch mode
-pnpm test packages/core/               # Unit tests only
 pnpm test packages/cli/e2e/            # E2E tests only
 pnpm test path/to/file.test.ts         # Specific file
 pnpm test -- --coverage                # With coverage

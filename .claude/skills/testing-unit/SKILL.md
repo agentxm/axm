@@ -1,6 +1,6 @@
 ---
 name: testing-unit
-description: Unit test patterns for pure functions and business logic. Use for *.test.ts colocated with source in packages/core/ or packages/cli/src/.
+description: Unit test patterns for pure functions and business logic. Use for *.test.ts colocated with source in packages/cli/src/.
 user-invocable: false
 ---
 
@@ -9,7 +9,7 @@ user-invocable: false
 Unit tests verify business logic. For pure functions, no dependencies are needed.
 For handlers, provide test layers—see `/effect-testing`.
 
-Location: colocated with source (e.g., `packages/core/src/**/*.test.ts`).
+Location: colocated with source (e.g., `packages/cli/src/**/*.test.ts`).
 
 ---
 

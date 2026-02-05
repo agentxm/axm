@@ -14,8 +14,8 @@
  */
 
 import * as nodePath from "node:path";
-import { type AgentConfig, getAgentById } from "@agentxm/core/experimental/agents";
-import { readLockfile, updateLockEntry } from "@agentxm/core/experimental/skills";
+import { type AgentConfig, getAgentById } from "../../../agents/index.js";
+import { readLockfile, updateLockEntry } from "../../../extensions/skills/index.js";
 import {
   type ApplyDeps,
   applyPlan,
@@ -33,16 +33,15 @@ import {
   updateLockfileForPlan,
   updateSettingsForPlan,
   type WorkspaceContext,
-} from "@agentxm/core/experimental/workspace";
-import * as p from "@clack/prompts";
+} from "../../../workspace/index.js";
 import * as FileSystem from "@effect/platform/FileSystem";
 import type { Path } from "@effect/platform";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { Clack, PromptCancelled, PromptError } from "../../../clack-effect/index.js";
+import type { Spinner } from "../../../clack-effect/types.js";
 import { formatError } from "../../../utils/errors.js";
-import { promptConfirm } from "../../../utils/prompts.js";
-import { createSpinnerHelper } from "../../../utils/spinner.js";
 import { isInteractive } from "../../../utils/tty.js";
 
 // -----------------------------------------------------------------------------
@@ -85,34 +84,40 @@ export class UninstallError extends Data.TaggedError("UninstallError")<{
 /**
  * Display the uninstall plan in human-readable format using V2 plan structure.
  */
-const displayPlanFromPlan = (plan: Plan): void => {
-  p.log.info("Plan:");
-  p.log.message("");
-  p.log.message("  Skills:");
+const displayPlanFromPlan = (plan: Plan, clack: Clack["Type"]): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    yield* clack.log.info("Plan:");
+    yield* clack.log.message("");
+    yield* clack.log.message("  Skills:");
 
-  for (const step of plan.steps) {
-    if (step._tag === "UninstallSkill") {
-      const agentInfo = step.agents.length > 0 ? ` @ ${step.agents.join(", ")}` : "";
-      p.log.message(`  - ${step.skill}${agentInfo} (uninstall)`);
+    for (const step of plan.steps) {
+      if (step._tag === "UninstallSkill") {
+        const agentInfo = step.agents.length > 0 ? ` @ ${step.agents.join(", ")}` : "";
+        yield* clack.log.message(`  - ${step.skill}${agentInfo} (uninstall)`);
+      }
     }
-  }
 
-  const summary = getPlanSummary(plan);
-  p.log.message("");
-  p.log.message(`  Summary: ${summary.uninstalled} skill(s) to uninstall`);
-};
+    const summary = getPlanSummary(plan);
+    yield* clack.log.message("");
+    yield* clack.log.message(`  Summary: ${summary.uninstalled} skill(s) to uninstall`);
+  });
 
 /**
  * Display the uninstall plan in human-readable format (for partial uninstall).
  */
-const displayPartialPlan = (skillName: string, agents: readonly string[]): void => {
-  p.log.info("Plan:");
-  p.log.message("");
-  p.log.message("  Skills:");
-  p.log.message(`  - ${skillName} @ ${agents.join(", ")} (uninstall)`);
-  p.log.message("");
-  p.log.message("  Summary: 1 skill to uninstall");
-};
+const displayPartialPlan = (
+  skillName: string,
+  agents: readonly string[],
+  clack: Clack["Type"],
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    yield* clack.log.info("Plan:");
+    yield* clack.log.message("");
+    yield* clack.log.message("  Skills:");
+    yield* clack.log.message(`  - ${skillName} @ ${agents.join(", ")} (uninstall)`);
+    yield* clack.log.message("");
+    yield* clack.log.message("  Summary: 1 skill to uninstall");
+  });
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -134,8 +139,14 @@ const displayPartialPlan = (skillName: string, agents: readonly string[]): void 
  */
 export const handleUninstall = (
   args: UninstallArgs,
-): Effect.Effect<void, UninstallError, FileSystem.FileSystem | Path.Path> => {
+): Effect.Effect<
+  void,
+  UninstallError | PromptCancelled | PromptError,
+  FileSystem.FileSystem | Path.Path | Clack
+> => {
   return Effect.gen(function* () {
+    const clack = yield* Clack;
+
     // Create workspace context (V2) - always local for uninstall
     const ws: WorkspaceContext = makeWorkspaceContext({
       global: false,
@@ -143,13 +154,13 @@ export const handleUninstall = (
     });
 
     // Show intro
-    p.intro("axm skills uninstall");
+    yield* clack.intro("axm skills uninstall");
 
-    // Create spinner helper (auto-detects TTY)
-    const spinnerHelper = createSpinnerHelper();
+    // Create spinner
+    const spinner = yield* clack.spinner();
 
     // Step 1: Ensure initialized via WorkspaceContext
-    spinnerHelper.start("Checking initialization...");
+    spinner.start("Checking initialization...");
     yield* ensureInit(ws).pipe(
       Effect.mapError(
         (error) =>
@@ -160,10 +171,10 @@ export const handleUninstall = (
           }),
       ),
     );
-    spinnerHelper.stop("Initialized");
+    spinner.stop("Initialized");
 
     // Step 2: Load current state using V2 API
-    spinnerHelper.start("Loading current state...");
+    spinner.start("Loading current state...");
     const currentState = yield* loadCurrentState(ws).pipe(
       Effect.mapError(
         (error: { message: string }) =>
@@ -174,20 +185,22 @@ export const handleUninstall = (
           }),
       ),
     );
-    spinnerHelper.stop("Loaded current state");
+    spinner.stop("Loaded current state");
 
     // Step 3: Validate skill exists in current state
     // Find skill by name in the skills array
     const skillState = currentState.skills.find((s) => s.name === args.skill);
     if (!skillState || Option.isNone(skillState.locked)) {
-      return yield* new UninstallError({
-        message: formatError(
-          `Skill '${args.skill}' is not installed`,
-          [],
-          "Use 'axm skills list' to see installed skills.",
-        ),
-        retryable: false,
-      });
+      return yield* Effect.fail(
+        new UninstallError({
+          message: formatError(
+            `Skill '${args.skill}' is not installed`,
+            [],
+            "Use 'axm skills list' to see installed skills.",
+          ),
+          retryable: false,
+        }),
+      );
     }
 
     // Get the current agents from the locked state
@@ -198,9 +211,9 @@ export const handleUninstall = (
     // the V2 buildIdealForUninstall doesn't support partial agent removal.
     // Only use the full state-based pattern for complete uninstalls.
     if (isPartialUninstall) {
-      yield* handlePartialUninstall(args, ws, spinnerHelper);
+      yield* handlePartialUninstall(args, ws, clack, spinner);
     } else {
-      yield* handleFullUninstall(args, ws, spinnerHelper);
+      yield* handleFullUninstall(args, ws, clack, spinner);
     }
   });
 };
@@ -211,8 +224,13 @@ export const handleUninstall = (
 const handleFullUninstall = (
   args: UninstallArgs,
   ws: WorkspaceContext,
-  spinnerHelper: ReturnType<typeof createSpinnerHelper>,
-): Effect.Effect<void, UninstallError, FileSystem.FileSystem | Path.Path> =>
+  clack: Clack["Type"],
+  spinner: Spinner,
+): Effect.Effect<
+  void,
+  UninstallError | PromptCancelled | PromptError,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     // Load current state again (needed for buildPlan)
     const currentState = yield* loadCurrentState(ws).pipe(
@@ -227,7 +245,7 @@ const handleFullUninstall = (
     );
 
     // Step 4: Build ideal state with skill removed using V2 API
-    spinnerHelper.start("Building uninstall plan...");
+    spinner.start("Building uninstall plan...");
     const uninstallCmd: UninstallCommand = {
       _tag: "skills-uninstall",
       skills: [args.skill],
@@ -242,57 +260,50 @@ const handleFullUninstall = (
           }),
       ),
     );
-    spinnerHelper.stop("Built uninstall plan");
+    spinner.stop("Built uninstall plan");
 
     // Step 5: Build plan using V2 API
     const plan = buildPlan(currentState, idealState);
 
     // Check if there are changes
     if (!planHasChanges(plan)) {
-      p.log.info("No changes needed.");
-      p.outro("Nothing to do.");
+      yield* clack.log.info("No changes needed.");
+      yield* clack.outro("Nothing to do.");
       return;
     }
 
     // Step 6: Display plan
-    displayPlanFromPlan(plan);
+    yield* displayPlanFromPlan(plan, clack);
 
     // Dry-run stops here
     if (args.dryRun) {
-      p.outro("Dry-run complete. No changes made.");
+      yield* clack.outro("Dry-run complete. No changes made.");
       return;
     }
 
     // Step 7: Confirm uninstallation (unless --yes)
     if (!args.yes) {
       if (!isInteractive()) {
-        return yield* new UninstallError({
-          message: formatError(
-            "Cannot prompt for confirmation",
-            ["stdin is not a TTY"],
-            "Use --yes to run without prompts.",
-          ),
-          retryable: false,
-        });
+        return yield* Effect.fail(
+          new UninstallError({
+            message: formatError(
+              "Cannot prompt for confirmation",
+              ["stdin is not a TTY"],
+              "Use --yes to run without prompts.",
+            ),
+            retryable: false,
+          }),
+        );
       }
-      const confirmed = yield* promptConfirm("Apply changes?").pipe(
-        Effect.mapError(
-          (error) =>
-            new UninstallError({
-              message: "Failed to prompt for confirmation",
-              cause: error,
-              retryable: false,
-            }),
-        ),
-      );
+      const confirmed = yield* clack.confirm("Apply changes?");
       if (!confirmed) {
-        p.cancel("Uninstallation cancelled.");
+        yield* clack.outro("Uninstallation cancelled.");
         return;
       }
     }
 
     // Step 8: Apply changes using V2 applyPlan
-    spinnerHelper.start(`Uninstalling ${args.skill}...`);
+    spinner.start(`Uninstalling ${args.skill}...`);
 
     // Get agent configs for the apply operation
     // For full uninstall, we need agents from the plan step
@@ -325,16 +336,16 @@ const handleFullUninstall = (
       ),
     );
 
-    spinnerHelper.stop(`Uninstalled ${args.skill}`);
+    spinner.stop(`Uninstalled ${args.skill}`);
 
     // Show completion
     if (applyResult.failed.length > 0) {
       for (const failure of applyResult.failed) {
-        p.log.error(`${failure.step.skill}: ${failure.error.message}`);
+        yield* clack.log.error(`${failure.step.skill}: ${failure.error.message}`);
       }
     }
-    p.log.success(`Successfully uninstalled ${args.skill}`);
-    p.outro("Done.");
+    yield* clack.log.success(`Successfully uninstalled ${args.skill}`);
+    yield* clack.outro("Done.");
   });
 
 /**
@@ -346,8 +357,13 @@ const handleFullUninstall = (
 const handlePartialUninstall = (
   args: UninstallArgs,
   ws: WorkspaceContext,
-  spinnerHelper: ReturnType<typeof createSpinnerHelper>,
-): Effect.Effect<void, UninstallError, FileSystem.FileSystem | Path.Path> =>
+  clack: Clack["Type"],
+  spinner: Spinner,
+): Effect.Effect<
+  void,
+  UninstallError | PromptCancelled | PromptError,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
 
@@ -365,14 +381,16 @@ const handlePartialUninstall = (
 
     const lockEntry = lockfile.skills[args.skill];
     if (!lockEntry) {
-      return yield* new UninstallError({
-        message: formatError(
-          `Skill '${args.skill}' is not installed`,
-          [],
-          "Use 'axm skills list' to see installed skills.",
-        ),
-        retryable: false,
-      });
+      return yield* Effect.fail(
+        new UninstallError({
+          message: formatError(
+            `Skill '${args.skill}' is not installed`,
+            [],
+            "Use 'axm skills list' to see installed skills.",
+          ),
+          retryable: false,
+        }),
+      );
     }
 
     const currentAgents = lockEntry.agents;
@@ -383,48 +401,41 @@ const handlePartialUninstall = (
     const isFullRemoval = remainingAgents.length === 0;
 
     // Build plan
-    spinnerHelper.start("Building uninstall plan...");
-    spinnerHelper.stop("Built uninstall plan");
+    spinner.start("Building uninstall plan...");
+    spinner.stop("Built uninstall plan");
 
     // Display plan
-    displayPartialPlan(args.skill, targetAgents);
+    yield* displayPartialPlan(args.skill, targetAgents, clack);
 
     // Dry-run stops here
     if (args.dryRun) {
-      p.outro("Dry-run complete. No changes made.");
+      yield* clack.outro("Dry-run complete. No changes made.");
       return;
     }
 
     // Confirm uninstallation (unless --yes)
     if (!args.yes) {
       if (!isInteractive()) {
-        return yield* new UninstallError({
-          message: formatError(
-            "Cannot prompt for confirmation",
-            ["stdin is not a TTY"],
-            "Use --yes to run without prompts.",
-          ),
-          retryable: false,
-        });
+        return yield* Effect.fail(
+          new UninstallError({
+            message: formatError(
+              "Cannot prompt for confirmation",
+              ["stdin is not a TTY"],
+              "Use --yes to run without prompts.",
+            ),
+            retryable: false,
+          }),
+        );
       }
-      const confirmed = yield* promptConfirm("Apply changes?").pipe(
-        Effect.mapError(
-          (error) =>
-            new UninstallError({
-              message: "Failed to prompt for confirmation",
-              cause: error,
-              retryable: false,
-            }),
-        ),
-      );
+      const confirmed = yield* clack.confirm("Apply changes?");
       if (!confirmed) {
-        p.cancel("Uninstallation cancelled.");
+        yield* clack.outro("Uninstallation cancelled.");
         return;
       }
     }
 
     // Apply changes
-    spinnerHelper.start(`Uninstalling ${args.skill}...`);
+    spinner.start(`Uninstalling ${args.skill}...`);
 
     // Get agent configs for removal
     const agentConfigs: AgentConfig[] = targetAgents
@@ -522,14 +533,16 @@ const handlePartialUninstall = (
       );
     }
 
-    spinnerHelper.stop(`Uninstalled ${args.skill}`);
+    spinner.stop(`Uninstalled ${args.skill}`);
 
     // Show completion
     if (isFullRemoval) {
-      p.log.success(`Successfully uninstalled ${args.skill}`);
+      yield* clack.log.success(`Successfully uninstalled ${args.skill}`);
     } else {
-      p.log.success(`Successfully removed ${args.skill} from ${targetAgents.join(", ")}`);
-      p.log.info(`Skill remains installed for: ${remainingAgents.join(", ")}`);
+      yield* clack.log.success(
+        `Successfully removed ${args.skill} from ${targetAgents.join(", ")}`,
+      );
+      yield* clack.log.info(`Skill remains installed for: ${remainingAgents.join(", ")}`);
     }
-    p.outro("Done.");
+    yield* clack.outro("Done.");
   });

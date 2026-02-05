@@ -16,7 +16,7 @@
  */
 
 import * as nodePath from "node:path";
-import { type AgentConfig, getAgentById } from "@agentxm/core/experimental/agents";
+import { type AgentConfig, getAgentById } from "../../../agents/index.js";
 import {
   buildCloneUrl,
   cloneRepo,
@@ -28,8 +28,8 @@ import {
   parseSource,
   readSettings,
   type Skill,
-} from "@agentxm/core/experimental/skills";
-import { fetchGitHubTreeHash } from "@agentxm/core/experimental/skills/github-api";
+} from "../../../extensions/skills/index.js";
+import { fetchGitHubTreeHash } from "../../../extensions/skills/github-api.js";
 import {
   applyPlan,
   applyStep,
@@ -49,16 +49,14 @@ import {
   updateLockfileForPlan,
   updateSettingsForPlan,
   type WorkspaceContext,
-} from "@agentxm/core/experimental/workspace";
-import * as p from "@clack/prompts";
+} from "../../../workspace/index.js";
 import type { FileSystem, HttpClient, Path } from "@effect/platform";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
+import { Clack } from "../../../clack-effect/index.js";
 import { formatError } from "../../../utils/errors.js";
-import { canPrompt, promptConfirm, promptMultiselect } from "../../../utils/prompts.js";
-import { createSpinnerHelper } from "../../../utils/spinner.js";
 import { isInteractive } from "../../../utils/tty.js";
 
 // -----------------------------------------------------------------------------
@@ -305,23 +303,28 @@ const formatPlanSummary = (summary: PlanSummary): string => {
  * @param steps - The plan steps to display
  * @param displaySource - Optional display source string (for showing original source instead of cached path)
  */
-const displayPlanOutput = (steps: ReadonlyArray<PlanStep>, displaySource?: string): void => {
-  if (steps.length === 0) {
-    return;
-  }
+const displayPlanOutput = (
+  clack: Clack["Type"],
+  steps: ReadonlyArray<PlanStep>,
+  displaySource?: string,
+): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    if (steps.length === 0) {
+      return;
+    }
 
-  p.log.info("Plan:");
-  p.log.message("");
-  p.log.message("  Skills:");
+    yield* clack.log.info("Plan:");
+    yield* clack.log.message("");
+    yield* clack.log.message("  Skills:");
 
-  for (const step of steps) {
-    p.log.message(formatStep(step, displaySource));
-  }
+    for (const step of steps) {
+      yield* clack.log.message(formatStep(step, displaySource));
+    }
 
-  const summary = getPlanSummary({ steps });
-  p.log.message("");
-  p.log.message(`  Summary: ${formatPlanSummary(summary)}`);
-};
+    const summary = getPlanSummary({ steps });
+    yield* clack.log.message("");
+    yield* clack.log.message(`  Summary: ${formatPlanSummary(summary)}`);
+  });
 
 // -----------------------------------------------------------------------------
 // V2 Dependencies
@@ -442,10 +445,17 @@ const createBuildIdealDeps = (
  */
 export const handleInstall = (
   args: InstallArgs,
-): Effect.Effect<void, InstallError, FileSystem.FileSystem | HttpClient.HttpClient | Path.Path> => {
+): Effect.Effect<
+  void,
+  InstallError,
+  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | Clack
+> => {
   const scopeLabel = args.global ? "global" : "project";
 
   return Effect.gen(function* () {
+    // Get Clack service
+    const clack = yield* Clack;
+
     // Create workspace context (V2)
     const ws: WorkspaceContext = makeWorkspaceContext({
       global: args.global,
@@ -453,13 +463,13 @@ export const handleInstall = (
     });
 
     // Show intro
-    p.intro(`axm skills install (${scopeLabel})`);
+    yield* clack.intro(`axm skills install (${scopeLabel})`);
 
-    // Create spinner helper (auto-detects TTY)
-    const spinnerHelper = createSpinnerHelper();
+    // Create spinner (auto-detects TTY)
+    const spinner = yield* clack.spinner();
 
     // Step 1: Parse source
-    spinnerHelper.start("Parsing source...");
+    spinner.start("Parsing source...");
     const parsed = yield* parseSource(args.source).pipe(
       Effect.mapError(
         (error) =>
@@ -474,10 +484,10 @@ export const handleInstall = (
           }),
       ),
     );
-    spinnerHelper.stop(`Source: ${parsed.canonical} (${parsed.type})`);
+    spinner.stop(`Source: ${parsed.canonical} (${parsed.type})`);
 
     // Step 2: Ensure initialized
-    spinnerHelper.start("Checking initialization...");
+    spinner.start("Checking initialization...");
     yield* ensureInitialized({ axmDir: ws.path }).pipe(
       Effect.mapError(
         (error) =>
@@ -488,10 +498,10 @@ export const handleInstall = (
           }),
       ),
     );
-    spinnerHelper.stop("Initialized");
+    spinner.stop("Initialized");
 
     // Step 3: Get agents from settings or --agent flag
-    spinnerHelper.start("Loading agents...");
+    spinner.start("Loading agents...");
     let agents: AgentConfig[];
 
     if (args.agent.length > 0) {
@@ -504,13 +514,13 @@ export const handleInstall = (
       if (agents.length !== args.agent.length) {
         const validIds = args.agent.filter((id) => Option.isSome(getAgentById(id)));
         const invalidIds = args.agent.filter((id) => Option.isNone(getAgentById(id)));
-        spinnerHelper.stop(`Found ${validIds.length} agent(s), ${invalidIds.length} invalid`);
+        spinner.stop(`Found ${validIds.length} agent(s), ${invalidIds.length} invalid`);
 
         if (invalidIds.length > 0) {
-          p.log.warn(`Unknown agents: ${invalidIds.join(", ")}`);
+          yield* clack.log.warn(`Unknown agents: ${invalidIds.join(", ")}`);
         }
       } else {
-        spinnerHelper.stop(`Using ${agents.length} specified agent(s)`);
+        spinner.stop(`Using ${agents.length} specified agent(s)`);
       }
     } else {
       // Read agents from settings (selected during init)
@@ -531,17 +541,19 @@ export const handleInstall = (
         .filter(Option.isSome)
         .map((opt) => opt.value);
 
-      spinnerHelper.stop(`Using ${agents.length} agent(s) from settings`);
+      spinner.stop(`Using ${agents.length} agent(s) from settings`);
     }
 
     if (agents.length === 0) {
-      p.log.error("No agents configured. Run 'axm init' first or use --agent to specify agents.");
-      p.outro("Nothing to do.");
+      yield* clack.log.error(
+        "No agents configured. Run 'axm init' first or use --agent to specify agents.",
+      );
+      yield* clack.outro("Nothing to do.");
       return;
     }
 
     // Step 4: Load current state (V2)
-    spinnerHelper.start("Loading current state...");
+    spinner.start("Loading current state...");
     const currentState = yield* loadCurrentState(ws).pipe(
       Effect.mapError(
         (error: { message: string }) =>
@@ -552,16 +564,16 @@ export const handleInstall = (
           }),
       ),
     );
-    spinnerHelper.stop("Loaded current state");
+    spinner.stop("Loaded current state");
 
     // Step 5: Discover skills based on source type
     let skills: Skill[];
     let resolvedSource: ResolvedSource;
 
     if (parsed.type === "github" || parsed.type === "gitlab" || parsed.type === "bitbucket") {
-      spinnerHelper.start("Fetching source to analyze contents...");
+      spinner.start("Fetching source to analyze contents...");
     } else {
-      spinnerHelper.start("Discovering skills...");
+      spinner.start("Discovering skills...");
     }
 
     if (parsed.type === "github" || parsed.type === "gitlab" || parsed.type === "bitbucket") {
@@ -607,48 +619,62 @@ export const handleInstall = (
       // For wellknown sources, skillsDir is the base URL since files are fetched over HTTP
       resolvedSource = { parsed, skillsDir: baseUrl };
     } else if (parsed.type === "git" || parsed.type === "registry") {
-      spinnerHelper.stop("Source type not yet supported");
-      return yield* new InstallError({
-        message: `Source type "${parsed.type}" is not yet supported`,
-        retryable: false,
-      });
+      spinner.stop("Source type not yet supported");
+      return yield* Effect.fail(
+        new InstallError({
+          message: `Source type "${parsed.type}" is not yet supported`,
+          retryable: false,
+        }),
+      );
     } else {
       // Exhaustive check - should never reach here
       const _exhaustive: never = parsed.type;
-      spinnerHelper.stop("Unsupported source type");
-      return yield* new InstallError({
-        message: `Unsupported source type: ${_exhaustive}`,
-        retryable: false,
-      });
+      spinner.stop("Unsupported source type");
+      return yield* Effect.fail(
+        new InstallError({
+          message: `Unsupported source type: ${_exhaustive}`,
+          retryable: false,
+        }),
+      );
     }
 
     if (skills.length === 0) {
-      spinnerHelper.stop("No skills found");
-      return yield* new InstallError({
-        message: formatError(
-          "No skills found in source",
-          [`Source: ${parsed.canonical}`],
-          "Verify the source path contains directories with SKILL.md files.",
-        ),
-        retryable: false,
-      });
+      spinner.stop("No skills found");
+      return yield* Effect.fail(
+        new InstallError({
+          message: formatError(
+            "No skills found in source",
+            [`Source: ${parsed.canonical}`],
+            "Verify the source path contains directories with SKILL.md files.",
+          ),
+          retryable: false,
+        }),
+      );
     }
 
-    spinnerHelper.stop(`Found ${skills.length} skill(s)`);
+    spinner.stop(`Found ${skills.length} skill(s)`);
 
     // Step 5b: List mode - just show skills and exit
     if (args.list) {
-      p.log.info("Available skills:");
+      yield* clack.log.info("Available skills:");
       for (const skill of skills) {
         const desc = skill.description ? ` - ${skill.description}` : "";
-        p.log.message(`  ${skill.name}${desc}`);
+        yield* clack.log.message(`  ${skill.name}${desc}`);
       }
-      p.outro(`${skills.length} skill(s) available`);
+      yield* clack.outro(`${skills.length} skill(s) available`);
       return;
     }
 
     // Step 6: Filter/select skills
     let selectedSkillNames: readonly string[];
+
+    // Helper function to check if prompts can be used
+    const canPrompt = (): boolean => {
+      if (args.yes || args.nonInteractive) {
+        return false;
+      }
+      return isInteractive();
+    };
 
     if (args.skill.length > 0) {
       // Use explicitly specified skills
@@ -656,53 +682,66 @@ export const handleInstall = (
       const invalidSkills = args.skill.filter((name) => !skills.some((s) => s.name === name));
 
       if (invalidSkills.length > 0) {
-        p.log.warn(`Unknown skills: ${invalidSkills.join(", ")}`);
+        yield* clack.log.warn(`Unknown skills: ${invalidSkills.join(", ")}`);
       }
     } else if (args.all || args.dryRun) {
       // Install all skills (dry-run auto-selects all)
       selectedSkillNames = skills.map((s) => s.name);
-      if (args.all) p.log.info(`Installing all ${skills.length} skill(s)`);
-    } else if (!canPrompt({ yes: args.yes, nonInteractive: args.nonInteractive ?? false })) {
+      if (args.all) yield* clack.log.info(`Installing all ${skills.length} skill(s)`);
+    } else if (!canPrompt()) {
       // Need to prompt but can't
-      return yield* new InstallError({
-        message: formatError(
-          "Cannot prompt for skill selection",
-          ["stdin is not a TTY"],
-          "Use --yes, --all, or --non-interactive to run without prompts.",
-        ),
-        retryable: false,
-      });
+      return yield* Effect.fail(
+        new InstallError({
+          message: formatError(
+            "Cannot prompt for skill selection",
+            ["stdin is not a TTY"],
+            "Use --yes, --all, or --non-interactive to run without prompts.",
+          ),
+          retryable: false,
+        }),
+      );
     } else {
       // Interactive selection
-      const selectedSkills = yield* promptMultiselect("Select skills to install", skills, {
-        toOption: (s) => {
-          const opt: { value: string; label: string; hint?: string } = {
-            value: s.name,
-            label: s.name,
-          };
-          if (s.description) {
-            opt.hint = s.description;
-          }
-          return opt;
-        },
-        initialValues: skills.map((s) => s.name),
-        required: true,
-      }).pipe(
-        Effect.mapError(
-          (error) =>
-            new InstallError({
-              message: "Failed to prompt for skill selection",
-              cause: error,
-              retryable: false,
-            }),
-        ),
-      );
+      const selectedSkills = yield* clack
+        .multiselect("Select skills to install", skills, {
+          toOption: (s) => {
+            const opt: { value: string; label: string; hint?: string } = {
+              value: s.name,
+              label: s.name,
+            };
+            if (s.description) {
+              opt.hint = s.description;
+            }
+            return opt;
+          },
+          initialValues: skills.map((s) => s.name),
+          required: true,
+        })
+        .pipe(
+          Effect.catchTag("PromptCancelled", () =>
+            Effect.fail(
+              new InstallError({
+                message: "Operation cancelled.",
+                retryable: false,
+              }),
+            ),
+          ),
+          Effect.mapError((error) =>
+            error._tag === "InstallError"
+              ? error
+              : new InstallError({
+                  message: "Failed to prompt for skill selection",
+                  cause: error,
+                  retryable: false,
+                }),
+          ),
+        );
       selectedSkillNames = selectedSkills.map((s) => s.name);
     }
 
     if (selectedSkillNames.length === 0) {
-      p.log.warn("No skills selected.");
-      p.outro("Nothing to install.");
+      yield* clack.log.warn("No skills selected.");
+      yield* clack.outro("Nothing to install.");
       return;
     }
 
@@ -710,7 +749,7 @@ export const handleInstall = (
     const filteredSkills = skills.filter((s) => selectedSkillNames.includes(s.name));
 
     // Step 7: Build ideal state (V2)
-    spinnerHelper.start("Building installation plan...");
+    spinner.start("Building installation plan...");
 
     // Create the InstallCommand for V2 API
     const installCmd: InstallCommand = {
@@ -734,7 +773,7 @@ export const handleInstall = (
           }),
       ),
     );
-    spinnerHelper.stop("Built installation plan");
+    spinner.stop("Built installation plan");
 
     // Step 8: Build plan (V2)
     const plan = buildPlan(currentState, ideal);
@@ -742,52 +781,63 @@ export const handleInstall = (
     // Step 9: Display plan
     // Use the original parsed.canonical for display (e.g., "github:owner/repo")
     // instead of the cached local path
-    displayPlanOutput(plan.steps, parsed.canonical);
+    yield* displayPlanOutput(clack, plan.steps, parsed.canonical);
 
     // Step 10: Check if there are changes
     if (!planHasChanges(plan)) {
-      p.log.info("Already up to date.");
-      p.outro("No changes needed.");
+      yield* clack.log.info("Already up to date.");
+      yield* clack.outro("No changes needed.");
       return;
     }
 
     // Step 11: Dry-run stops here
     if (args.dryRun) {
-      p.outro("Dry-run complete. No changes made.");
+      yield* clack.outro("Dry-run complete. No changes made.");
       return;
     }
 
     // Step 12: Confirm installation (unless --yes or --non-interactive)
     if (!args.yes && !args.nonInteractive) {
       if (!isInteractive()) {
-        return yield* new InstallError({
-          message: formatError(
-            "Cannot prompt for confirmation",
-            ["stdin is not a TTY"],
-            "Use --yes, --all, or --non-interactive to run without prompts.",
-          ),
-          retryable: false,
-        });
+        return yield* Effect.fail(
+          new InstallError({
+            message: formatError(
+              "Cannot prompt for confirmation",
+              ["stdin is not a TTY"],
+              "Use --yes, --all, or --non-interactive to run without prompts.",
+            ),
+            retryable: false,
+          }),
+        );
       }
-      const confirmed = yield* promptConfirm("Apply changes?").pipe(
-        Effect.mapError(
-          (error) =>
+      const confirmed = yield* clack.confirm("Apply changes?").pipe(
+        Effect.catchTag("PromptCancelled", () =>
+          Effect.fail(
             new InstallError({
-              message: "Failed to prompt for confirmation",
-              cause: error,
+              message: "Installation cancelled.",
               retryable: false,
             }),
+          ),
+        ),
+        Effect.mapError((error) =>
+          error._tag === "InstallError"
+            ? error
+            : new InstallError({
+                message: "Failed to prompt for confirmation",
+                cause: error,
+                retryable: false,
+              }),
         ),
       );
       if (!confirmed) {
-        p.cancel("Installation cancelled.");
+        yield* clack.log.warn("Installation cancelled.");
         return;
       }
     }
 
     // Step 13: Apply changes (V2)
     const summary = getPlanSummary(plan);
-    spinnerHelper.start(`Applying ${summary.installed + summary.updated} change(s)...`);
+    spinner.start(`Applying ${summary.installed + summary.updated} change(s)...`);
 
     // Create a modified applyStep that ensures source paths point to the specific skill folder.
     // The plan stores source pointing to the skillsDir root (for lockfile/settings),
@@ -811,10 +861,10 @@ export const handleInstall = (
       { dryRun: false },
       {
         applyStep: applyStepWithSkillPath,
-        updateLockfile: (p: { steps: ReadonlyArray<PlanStep> }) =>
-          updateLockfileForPlan(ws.path, p),
-        updateSettings: (p: { steps: ReadonlyArray<PlanStep> }) =>
-          updateSettingsForPlan(ws.path, p),
+        updateLockfile: (planData: { steps: ReadonlyArray<PlanStep> }) =>
+          updateLockfileForPlan(ws.path, planData),
+        updateSettings: (planData: { steps: ReadonlyArray<PlanStep> }) =>
+          updateSettingsForPlan(ws.path, planData),
       },
     ).pipe(
       Effect.mapError(
@@ -827,21 +877,21 @@ export const handleInstall = (
       ),
     );
 
-    spinnerHelper.stop(`Applied ${applyResult.applied.length} change(s)`);
+    spinner.stop(`Applied ${applyResult.applied.length} change(s)`);
 
     // Show results summary
     for (const step of applyResult.applied) {
       const agentNames = step.agents.join(", ");
-      p.log.success(`${step.skill} -> ${agentNames}`);
+      yield* clack.log.success(`${step.skill} -> ${agentNames}`);
     }
 
     if (applyResult.failed.length > 0) {
       for (const failure of applyResult.failed) {
-        p.log.error(`${failure.step.skill}: ${failure.error.message}`);
+        yield* clack.log.error(`${failure.step.skill}: ${failure.error.message}`);
       }
     }
 
-    p.outro(
+    yield* clack.outro(
       `Successfully installed ${applyResult.summary.installed} skill(s) to ${agents.length} agent(s)`,
     );
   });

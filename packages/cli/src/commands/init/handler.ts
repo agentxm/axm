@@ -7,16 +7,16 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { getAgentById } from "@agentxm/core/experimental/agents";
+import { getAgentById } from "../../agents/index.js";
 import type { FileSystem } from "@effect/platform";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Clack } from "../../services/clack-effect/index.js";
+import { Clack } from "../../clack-effect/index.js";
 import {
   make,
   type WorkspaceContextError,
   type WorkspaceContextOptions,
-} from "../../services/workspace-context/index.js";
+} from "../../workspace/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -51,7 +51,7 @@ export interface InitArgs {
  */
 export const handleInit = (
   args: InitArgs,
-): Effect.Effect<void, WorkspaceContextError, FileSystem.FileSystem | InteractionContext> => {
+): Effect.Effect<void, WorkspaceContextError, FileSystem.FileSystem | Clack> => {
   const scopeLabel = args.global ? "global" : "project";
 
   const options: WorkspaceContextOptions = {
@@ -62,8 +62,10 @@ export const handleInit = (
   };
 
   return Effect.gen(function* () {
+    const clack = yield* Clack;
+
     // Show intro
-    p.intro(`axm init (${scopeLabel})`);
+    yield* clack.intro(`axm init (${scopeLabel})`);
 
     // Yield WorkspaceContext - this triggers initialization via make()
     const context = yield* make(options);
@@ -80,10 +82,10 @@ export const handleInit = (
       .join(", ");
 
     if (agentIds.length > 0) {
-      p.log.info(`Agents: ${agentNames}`);
+      yield* clack.log.info(`Agents: ${agentNames}`);
     }
-    p.log.info(`Settings: ${context.path}/settings.json`);
-    p.outro(
+    yield* clack.log.info(`Settings: ${context.path}/settings.json`);
+    yield* clack.outro(
       agentIds.length > 0 ? `Initialized with agents: ${agentNames}` : "Workspace initialized",
     );
   }).pipe(Effect.asVoid);

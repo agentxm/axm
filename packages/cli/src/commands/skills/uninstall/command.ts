@@ -8,6 +8,7 @@ import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type { CommandModule } from "yargs";
+import { ClackLive } from "../../../clack-effect/service.js";
 import { handleUninstall } from "./handler.js";
 
 export interface UninstallArgs {
@@ -53,6 +54,9 @@ export const uninstallCommand: CommandModule<{}, UninstallArgs> = {
       .example("$0 skills uninstall my-skill --dry-run", "Preview what would be uninstalled")
       .example("$0 skills uninstall my-skill --yes", "Uninstall without confirmation prompt"),
   handler: async (argv) => {
+    // Build layers: FileSystem + Path + Clack
+    const MainLayer = Layer.merge(NodeContext.layer, ClackLive);
+
     const program = handleUninstall({
       skill: argv.skill,
       agent: argv.agent,
@@ -65,7 +69,7 @@ export const uninstallCommand: CommandModule<{}, UninstallArgs> = {
           process.exit(1);
         }),
       ),
-      Effect.provide(Layer.merge(NodeContext.layer, Layer.empty)),
+      Effect.provide(MainLayer),
     );
 
     await Effect.runPromise(program);

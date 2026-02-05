@@ -12,18 +12,14 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Settings } from "@agentxm/core/experimental/skills";
+import type { Settings } from "../../extensions/skills/index.js";
 import type { FileSystem } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { afterEach, beforeEach, vi } from "vitest";
-import { Clack } from "../../services/clack-effect/service.js";
-import {
-  InteractionContext,
-  InteractionContextLive,
-} from "../../services/interaction-context/service.js";
+import { afterEach, beforeEach } from "vitest";
+import { Clack, makeClackTestLayer } from "../../clack-effect/index.js";
 import { handleInit, type InitArgs } from "./handler.js";
 
 describe("init.handler", () => {
@@ -42,39 +38,11 @@ describe("init.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  // Mock Clack service for tests
-  const mockClack = {
-    intro: vi.fn().mockReturnValue(Effect.void),
-    outro: vi.fn().mockReturnValue(Effect.void),
-    log: {
-      info: vi.fn().mockReturnValue(Effect.void),
-      warn: vi.fn().mockReturnValue(Effect.void),
-      error: vi.fn().mockReturnValue(Effect.void),
-      success: vi.fn().mockReturnValue(Effect.void),
-      message: vi.fn().mockReturnValue(Effect.void),
-      step: vi.fn().mockReturnValue(Effect.void),
-    },
-    spinner: vi.fn().mockReturnValue(
-      Effect.succeed({
-        start: vi.fn().mockReturnValue(Effect.void),
-        stop: vi.fn().mockReturnValue(Effect.void),
-        message: vi.fn().mockReturnValue(Effect.void),
-      }),
-    ),
-    text: vi.fn().mockReturnValue(Effect.succeed("")),
-    confirm: vi.fn().mockReturnValue(Effect.succeed(true)),
-    select: vi.fn().mockReturnValue(Effect.succeed("")),
-    multiselect: vi.fn().mockReturnValue(Effect.succeed([])),
-    note: vi.fn().mockReturnValue(Effect.void),
-    cancel: vi.fn().mockReturnValue(Effect.void),
-  };
+  // Create mock Clack service for tests
+  const [TestClackLayer] = makeClackTestLayer();
 
-  const TestClackLayer = Layer.succeed(Clack, mockClack);
-  const TestInteractionLayer = Layer.provide(InteractionContextLive, TestClackLayer);
-
-  const withLayers = <A, E>(
-    effect: Effect.Effect<A, E, FileSystem.FileSystem | InteractionContext>,
-  ) => effect.pipe(Effect.provide(Layer.merge(NodeFileSystem.layer, TestInteractionLayer)));
+  const withLayers = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Clack>) =>
+    effect.pipe(Effect.provide(Layer.merge(NodeFileSystem.layer, TestClackLayer)));
 
   const defaultArgs: InitArgs = {
     global: false,

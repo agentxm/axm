@@ -13,7 +13,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Settings, SkillLockEntry } from "@agentxm/core/experimental/skills";
+import type { Settings, SkillLockEntry } from "../../../extensions/skills/index.js";
 import type { FileSystem, Path } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import * as NodePath from "@effect/platform-node/NodePath";
@@ -22,10 +22,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach, vi } from "vitest";
 import YAML from "yaml";
+import { type Clack, makeClackTestLayer } from "../../../clack-effect/index.js";
 import { handleUninstall, type UninstallArgs, UninstallError } from "./handler.js";
-
-// Layer providing all required services for tests
-const TestLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer);
 
 // Mock TTY utilities
 vi.mock("../../../utils/tty.js", () => ({
@@ -51,8 +49,13 @@ describe("uninstall.handler", () => {
   /**
    * Helper function to provide the test layer to an effect.
    */
-  const withTestLayer = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-    effect.pipe(Effect.provide(TestLayer));
+  const withTestLayer = <A, E>(
+    effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Clack>,
+  ) => {
+    const [clackLayer] = makeClackTestLayer();
+    const TestLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer, clackLayer);
+    return effect.pipe(Effect.provide(TestLayer));
+  };
 
   const defaultArgs: UninstallArgs = {
     skill: "",

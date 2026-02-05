@@ -124,15 +124,20 @@ export interface AzureDevOpsSource {
  * - Git protocol: git://server/repo.git
  * - File URI: file:///path/to/repo.git
  */
-export interface GenericGitSource {
+export type GenericGitSource = {
   readonly source: "git";
-  /** Full git URL */
-  readonly url: string;
   /** Git ref (tag, branch, or SHA) */
   readonly ref: Option.Option<string>;
-  /** Subpath within the repository */
-  readonly subPath: Option.Option<string>;
-}
+} & (
+  | {
+      /** Full git URL */
+      readonly url: string;
+    }
+  | {
+      /** Local path */
+      readonly path: string;
+    }
+);
 
 /**
  * Package registry source (placeholder for future implementation).

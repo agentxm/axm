@@ -330,11 +330,12 @@ export const addSkill = (
   });
 
 /**
- * Options for ensureInitialized.
+ * Options for ensureInitializedLegacy.
  *
  * @experimental This API is unstable and may change without notice.
+ * @deprecated Use WorkspaceContext from workspace/service.ts instead
  */
-export interface EnsureInitializedOptions {
+export interface EnsureInitializedLegacyOptions {
   /** Path to the .axm directory */
   readonly axmDir: string;
   /** Whether this is a global initialization (unused currently, reserved for future) */
@@ -356,9 +357,10 @@ export interface EnsureInitializedOptions {
  * @returns Existing or newly created settings
  *
  * @experimental This API is unstable and may change without notice.
+ * @deprecated Use WorkspaceContext from workspace/service.ts instead
  */
-export const ensureInitialized = (
-  options: EnsureInitializedOptions,
+export const ensureInitializedLegacy = (
+  options: EnsureInitializedLegacyOptions,
 ): Effect.Effect<Settings, SettingsError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const { axmDir } = options;

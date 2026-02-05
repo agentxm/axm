@@ -12,6 +12,7 @@
 
 import * as nodePath from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
+import * as Array from "effect/Array";
 import * as Console from "effect/Console";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
@@ -478,8 +479,9 @@ const syncToAgents = (
     const fs = yield* FileSystem.FileSystem;
 
     for (const agentId of agentIds) {
-      const agent = availableAgents.find((a) => a.id === agentId);
-      if (!agent) continue;
+      const maybeAgent = Array.findFirst(availableAgents, (a) => a.id === agentId);
+      if (Option.isNone(maybeAgent)) continue;
+      const agent = maybeAgent.value;
 
       const agentSkillsDir = agent.skills.projectDir;
       const agentSkillPath = nodePath.join(agentSkillsDir, skillName);
@@ -531,8 +533,9 @@ const removeFromAgents = (
     const fs = yield* FileSystem.FileSystem;
 
     for (const agentId of agentIds) {
-      const agent = availableAgents.find((a) => a.id === agentId);
-      if (!agent) continue;
+      const maybeAgent = Array.findFirst(availableAgents, (a) => a.id === agentId);
+      if (Option.isNone(maybeAgent)) continue;
+      const agent = maybeAgent.value;
 
       const agentSkillPath = nodePath.join(agent.skills.projectDir, skillName);
 

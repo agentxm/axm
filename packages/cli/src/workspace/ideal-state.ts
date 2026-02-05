@@ -8,7 +8,7 @@
  * @packageDocumentation
  */
 
-import * as Arr from "effect/Array";
+import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import { pipe } from "effect/Function";
@@ -196,7 +196,7 @@ const currentToIdeal = (skill: SkillStateV2): Option.Option<IdealSkillV2> =>
 const nameExists = (current: CurrentState, name: string): boolean =>
   pipe(
     current.skills,
-    Arr.some((s) => s.name === name),
+    Array.some((s) => s.name === name),
   );
 
 // =============================================================================
@@ -238,18 +238,18 @@ export const buildIdealForInstall = (
         ? discovered
         : pipe(
             discovered,
-            Arr.filter((s) => cmd.skills.includes(s.name)),
+            Array.filter((s) => cmd.skills.includes(s.name)),
           );
 
     // Step 4: Check for name conflicts (unique across all sources)
     const conflicts = pipe(
       toInstall,
-      Arr.filter((s) => nameExists(current, s.name)),
-      Arr.filter((s) => {
+      Array.filter((s) => nameExists(current, s.name)),
+      Array.filter((s) => {
         // Allow reinstall from same source, reject different source
         const existing = pipe(
           current.skills,
-          Arr.findFirst((cs) => cs.name === s.name),
+          Array.findFirst((cs) => cs.name === s.name),
           Option.flatMap((cs) => cs.locked),
         );
         return pipe(
@@ -262,7 +262,7 @@ export const buildIdealForInstall = (
       }),
     );
 
-    if (Arr.isNonEmptyArray(conflicts) && !cmd.force) {
+    if (Array.isNonEmptyArray(conflicts) && !cmd.force) {
       return yield* Effect.fail(
         new CommandError({
           message: `Skills already installed from different source: ${conflicts.map((s) => s.name).join(", ")}`,
@@ -275,10 +275,10 @@ export const buildIdealForInstall = (
     // Keep existing skills not being replaced
     const existing = pipe(
       current.skills,
-      Arr.filterMap((s) => {
+      Array.filterMap((s) => {
         const beingReplaced = pipe(
           toInstall,
-          Arr.some((i) => i.name === s.name),
+          Array.some((i) => i.name === s.name),
         );
         return beingReplaced ? Option.none() : currentToIdeal(s);
       }),
@@ -287,7 +287,7 @@ export const buildIdealForInstall = (
     // Add new/replacement skills
     const newSkills = pipe(
       toInstall,
-      Arr.map(
+      Array.map(
         (s): IdealSkillV2 => ({
           name: s.name,
           source,
@@ -298,7 +298,7 @@ export const buildIdealForInstall = (
       ),
     );
 
-    return { skills: Arr.appendAll(existing, newSkills) };
+    return { skills: Array.appendAll(existing, newSkills) };
   });
 
 // =============================================================================
@@ -331,10 +331,10 @@ export const buildIdealForUninstall = (
     // Validate all skills exist
     const notFound = pipe(
       cmd.skills,
-      Arr.filter((name) => !nameExists(current, name)),
+      Array.filter((name) => !nameExists(current, name)),
     );
 
-    if (Arr.isNonEmptyArray(notFound)) {
+    if (Array.isNonEmptyArray(notFound)) {
       return yield* Effect.fail(
         new CommandError({
           message: `Skills not found: ${notFound.join(", ")}`,
@@ -346,8 +346,8 @@ export const buildIdealForUninstall = (
     // Keep skills not being uninstalled
     const remaining = pipe(
       current.skills,
-      Arr.filter((s) => !cmd.skills.includes(s.name)),
-      Arr.filterMap(currentToIdeal),
+      Array.filter((s) => !cmd.skills.includes(s.name)),
+      Array.filterMap(currentToIdeal),
     );
 
     return { skills: remaining };
@@ -394,20 +394,20 @@ export const buildIdealForUpdate = (
       cmd.skills === "all"
         ? pipe(
             current.skills,
-            Arr.filter((s) => Option.isSome(s.locked)),
+            Array.filter((s) => Option.isSome(s.locked)),
           )
         : pipe(
             current.skills,
-            Arr.filter((s) => cmd.skills.includes(s.name) && Option.isSome(s.locked)),
+            Array.filter((s) => cmd.skills.includes(s.name) && Option.isSome(s.locked)),
           );
 
     // Validate requested skills exist
     if (cmd.skills !== "all") {
       const notFound = pipe(
         cmd.skills,
-        Arr.filter((name) => !nameExists(current, name)),
+        Array.filter((name) => !nameExists(current, name)),
       );
-      if (Arr.isNonEmptyArray(notFound)) {
+      if (Array.isNonEmptyArray(notFound)) {
         return yield* Effect.fail(
           new CommandError({
             message: `Skills not found: ${notFound.join(", ")}`,
@@ -440,17 +440,17 @@ export const buildIdealForUpdate = (
     // Keep skills not being updated
     const unchanged = pipe(
       current.skills,
-      Arr.filter(
+      Array.filter(
         (s) =>
           !pipe(
             toUpdate,
-            Arr.some((u) => u.name === s.name),
+            Array.some((u) => u.name === s.name),
           ),
       ),
-      Arr.filterMap(currentToIdeal),
+      Array.filterMap(currentToIdeal),
     );
 
-    return { skills: Arr.appendAll(unchanged, updated) };
+    return { skills: Array.appendAll(unchanged, updated) };
   });
 
 // =============================================================================

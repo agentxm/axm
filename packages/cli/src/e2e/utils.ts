@@ -52,7 +52,7 @@ export interface RunCliOptions {
  * expect(result.exitCode).toBe(0);
  * ```
  */
-export async function runCli(args: string[], options: RunCliOptions = {}): Promise<CliResult> {
+export async function runCli(args: ReadonlyArray<string>, options: RunCliOptions = {}): Promise<CliResult> {
   const { cwd = process.cwd(), env = {}, timeout = 30000 } = options;
 
   const result = await execa("bun", ["run", CLI_PATH, ...args], {

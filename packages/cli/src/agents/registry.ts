@@ -134,7 +134,8 @@ export const getAgentById = (id: string): Option.Option<AgentConfig> =>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const getAgentIds = (): AgentId[] => Object.keys(AGENTS) as AgentId[];
+export const getAgentIds = (): ReadonlyArray<AgentId> =>
+  Object.keys(AGENTS) as ReadonlyArray<AgentId>;
 
 /**
  * Get all registered agent configurations.
@@ -153,4 +154,5 @@ export const getAgentIds = (): AgentId[] => Object.keys(AGENTS) as AgentId[];
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const getAllAgents = (): AgentConfig[] => Object.values(AGENTS);
+export const getAllAgents = (): ReadonlyArray<AgentConfig> =>
+  Object.values(AGENTS);

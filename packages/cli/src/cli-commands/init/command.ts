@@ -4,7 +4,7 @@ import { handleInit } from "./handler.js";
 
 interface InitArgs {
   global: boolean;
-  agent: string[];
+  agent: ReadonlyArray<string>;
   yes: boolean;
   "non-interactive"?: boolean;
 }

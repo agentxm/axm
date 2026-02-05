@@ -6,6 +6,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
@@ -49,7 +50,9 @@ export const formatHash = (hash: Option.Option<string>): string =>
     hash,
     Option.map((h) => {
       // Remove prefix like "sha256:" if present
-      const stripped = h.includes(":") ? (h.split(":")[1] ?? h) : h;
+      const stripped = h.includes(":")
+        ? Option.getOrElse(Array.get(h.split(":"), 1), () => h)
+        : h;
       return stripped.slice(0, 7);
     }),
     Option.getOrElse(() => "???????"),

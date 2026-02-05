@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import * as Arr from "effect/Array";
+import * as Array from "effect/Array";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import { versionsEqual } from "../extensions/skills/state/pure-functions.js";
@@ -62,11 +62,11 @@ export const buildPlan = (current: CurrentState, ideal: IdealState): Plan => {
   // Find skills to install or update
   const installOrUpdateSteps = pipe(
     ideal.skills,
-    Arr.filterMap((idealSkill) => {
+    Array.filterMap((idealSkill) => {
       // Match by name - skill names are unique across all sources
       const currentSkill = pipe(
         current.skills,
-        Arr.findFirst((s) => s.name === idealSkill.name),
+        Array.findFirst((s) => s.name === idealSkill.name),
       );
 
       return pipe(
@@ -124,13 +124,13 @@ export const buildPlan = (current: CurrentState, ideal: IdealState): Plan => {
   // Match by name - consistent with install/update matching
   const uninstallSteps = pipe(
     current.skills,
-    Arr.filterMap((currentSkill) =>
+    Array.filterMap((currentSkill) =>
       pipe(
         Option.all([currentSkill.actual, currentSkill.locked]),
         Option.flatMap(([, locked]) => {
           const inIdeal = pipe(
             ideal.skills,
-            Arr.some((s) => s.name === currentSkill.name),
+            Array.some((s) => s.name === currentSkill.name),
           );
 
           return inIdeal
@@ -145,7 +145,7 @@ export const buildPlan = (current: CurrentState, ideal: IdealState): Plan => {
     ),
   );
 
-  const steps = Arr.appendAll(installOrUpdateSteps, uninstallSteps);
+  const steps = Array.appendAll(installOrUpdateSteps, uninstallSteps);
   return { steps };
 };
 

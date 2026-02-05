@@ -10,7 +10,7 @@ import { handleUninstall } from "./handler.js";
 
 export interface UninstallArgs {
   skill: string;
-  agent: string[];
+  agent: ReadonlyArray<string>;
   yes: boolean;
   "dry-run"?: boolean;
 }

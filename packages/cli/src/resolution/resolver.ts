@@ -6,6 +6,7 @@
  */
 
 import type { FileSystem } from "@effect/platform";
+import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { ResolutionError } from "./errors.js";
@@ -115,10 +116,11 @@ export const resolveExtension = (
     remaining: Resolver[],
   ): Effect.Effect<ExtensionRef[], ResolutionError, FileSystem.FileSystem> =>
     Effect.gen(function* () {
-      if (remaining.length === 0) return [];
+      const maybeResolver = Array.head(remaining);
+      if (Option.isNone(maybeResolver)) return [];
 
-      const [resolver, ...rest] = remaining;
-      if (!resolver) return [];
+      const resolver = maybeResolver.value;
+      const rest = Array.tailNonEmpty(remaining as Array.NonEmptyArray<Resolver>);
 
       const result = yield* resolver(input, options);
 

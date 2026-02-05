@@ -8,22 +8,39 @@
  * @packageDocumentation
  */
 
+import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { parseBitbucketHttpsUrl, parseBitbucketSshUrl } from "./bitbucket/index.js";
+import {
+  checkBitbucketRepoExists,
+  config as bitbucketConfig,
+  parseBitbucketHttpsUrl,
+  parseBitbucketSshUrl,
+} from "./bitbucket/index.js";
 import { ParseError } from "./errors.js";
-import { parseGitHubHttpsUrl, parseGitHubSshUrl } from "./github/index.js";
-import { parseGitLabHttpsUrl, parseGitLabSshUrl } from "./gitlab/index.js";
-import { LOCAL_PATH_PATTERN, parseLocalPath } from "./local/index.js";
+import {
+  checkGitHubRepoExists,
+  config as githubConfig,
+  parseGitHubHttpsUrl,
+  parseGitHubSshUrl,
+} from "./github/index.js";
+import {
+  checkGitLabRepoExists,
+  config as gitlabConfig,
+  parseGitLabHttpsUrl,
+  parseGitLabSshUrl,
+} from "./gitlab/index.js";
+import { config as localConfig, LOCAL_PATH_PATTERN, parseLocalPath } from "./local/index.js";
 import {
   type GitHubSource,
   type GitHostingProviderSource,
   type ParsedSource,
   ParsedSource as PS,
   type Source,
+  type SourceConfig,
 } from "./types.js";
 
 // -----------------------------------------------------------------------------
@@ -52,6 +69,13 @@ type SlashPattern = { readonly _tag: "SlashPattern"; readonly input: string };
 /** A local filesystem path matching `LOCAL_PATH_PATTERN`. */
 type FilePathPattern = { readonly _tag: "FilePathPattern"; readonly path: string };
 
+/** A shorthand prefixed input: `<prefix>:...` where prefix is a known source provider. */
+type ShorthandInput = {
+  readonly _tag: "ShorthandInput";
+  readonly prefix: string;
+  readonly input: string;
+};
+
 /** Discriminated union of all input patterns recognized by the v2 parser. */
 export type InputPattern =
   | NameInput
@@ -59,12 +83,31 @@ export type InputPattern =
   | UrlInput
   | ScpAddress
   | SlashPattern
-  | FilePathPattern;
+  | FilePathPattern
+  | ShorthandInput;
 
 const REGISTRY_SOURCE_PATTERN = /^@([^/]+)\/(.+)$/;
 
 /** SCP-style: `user@host:path` — no `://` scheme. */
 const SCP_PATTERN = /^[^@]+@[^:]+:.+$/;
+
+/** All source configs, type-erased for map building. */
+const ALL_CONFIGS: ReadonlyArray<SourceConfig> = [
+  githubConfig,
+  gitlabConfig,
+  bitbucketConfig,
+  localConfig,
+];
+
+/** Map from shorthand prefix to its config. */
+const CONFIG_BY_PREFIX = new Map<string, SourceConfig>(
+  Array.getSomes(
+    Array.map(ALL_CONFIGS, (c) => Option.map(c.shorthandPrefix, (prefix) => [prefix, c] as const)),
+  ),
+);
+
+/** Known shorthand prefixes from source configs. */
+const SHORTHAND_PREFIXES = new Set(CONFIG_BY_PREFIX.keys());
 
 /** Simple name: alphanumeric with hyphens, no leading/trailing hyphen. */
 const NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
@@ -75,20 +118,24 @@ const NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
  * Pure function — no effects, no trimming. Returns `None` for empty/whitespace-only input.
  */
 export const parseInputPattern = (input: string): Option.Option<InputPattern> => {
-  if (!input || !input.trim()) return Option.none();
-
   // 1. SCP-style git address (user@host:path) — must check before URL
   if (SCP_PATTERN.test(input)) {
     return Option.some({ _tag: "ScpAddress", input });
   }
 
-  // 2. URL (validated via Schema.URL)
+  // 2. Shorthand prefix (github:..., gitlab:..., etc.) — must check before URL
+  const colonIndex = input.indexOf(":");
+  if (colonIndex > 0 && SHORTHAND_PREFIXES.has(input.slice(0, colonIndex))) {
+    return Option.some({ _tag: "ShorthandInput", prefix: input.slice(0, colonIndex), input });
+  }
+
+  // 3. URL (validated via Schema.URL)
   const urlOption = Schema.decodeUnknownOption(Schema.URL)(input);
   if (Option.isSome(urlOption)) {
     return Option.some({ _tag: "UrlInput", url: urlOption.value });
   }
 
-  // 3. Registry source (@scope/name)
+  // 4. Registry source (@scope/name)
   const registryMatch = input.match(REGISTRY_SOURCE_PATTERN);
   if (registryMatch && registryMatch[1] && registryMatch[2]) {
     return Option.some({
@@ -98,12 +145,12 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
     });
   }
 
-  // 4. File path
+  // 5. File path
   if (LOCAL_PATH_PATTERN.test(input)) {
     return Option.some({ _tag: "FilePathPattern", path: input });
   }
 
-  // 5. Slash pattern (exactly two valid-name segments: `owner/repo`)
+  // 6. Slash pattern (exactly two valid-name segments: `owner/repo`)
   if (input.includes("/")) {
     const segments = input.split("/");
     if (segments.length === 2 && segments.every((s) => NAME_PATTERN.test(s))) {
@@ -112,7 +159,7 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
     return Option.none();
   }
 
-  // 6. Simple name (alphanumeric with hyphens, no leading/trailing hyphen)
+  // 7. Simple name (alphanumeric with hyphens, no leading/trailing hyphen)
   if (NAME_PATTERN.test(input)) {
     return Option.some({ _tag: "NameInput", name: input });
   }
@@ -124,48 +171,18 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
 // SlashPattern Resolution
 // -----------------------------------------------------------------------------
 
-const PROVIDER_URLS = {
-  github: "https://github.com",
-  gitlab: "https://gitlab.com",
-  bitbucket: "https://bitbucket.org",
-} as const;
-
-type SlashPatternProvider = keyof typeof PROVIDER_URLS;
-
-const checkProviderExists = (
-  owner: string,
-  repo: string,
-  provider: SlashPatternProvider,
-): Effect.Effect<void, ParseError> =>
-  Effect.tryPromise({
-    try: () => fetch(`${PROVIDER_URLS[provider]}/${owner}/${repo}`, { method: "HEAD" }),
-    catch: (error) =>
-      new ParseError({
-        message: `Failed to check ${provider}: ${error instanceof Error ? error.message : String(error)}`,
-        input: `${owner}/${repo}`,
-      }),
-  }).pipe(
-    Effect.flatMap((response) =>
-      response.ok
-        ? Effect.void
-        : Effect.fail(
-            new ParseError({ message: `Not found on ${provider}`, input: `${owner}/${repo}` }),
-          ),
-    ),
-  );
-
 const resolveSlashPattern = (input: string): Effect.Effect<ParsedSource<Source>, ParseError> => {
   const [owner, repo] = input.split("/") as [string, string];
 
-  return checkProviderExists(owner, repo, "github").pipe(
+  return checkGitHubRepoExists(owner, repo).pipe(
     Effect.map(() => PS.GitHub({ original: input, owner, repo })),
     Effect.orElse(() =>
-      checkProviderExists(owner, repo, "gitlab").pipe(
+      checkGitLabRepoExists(owner, repo).pipe(
         Effect.map(() => PS.GitLab({ original: input, owner, repo })),
       ),
     ),
     Effect.orElse(() =>
-      checkProviderExists(owner, repo, "bitbucket").pipe(
+      checkBitbucketRepoExists(owner, repo).pipe(
         Effect.map(() => PS.Bitbucket({ original: input, owner, repo })),
       ),
     ),
@@ -223,6 +240,15 @@ export const parseSourceV2 = (input: string): Effect.Effect<ParsedSource<Source>
         Match.tag("FilePathPattern", () =>
           Effect.fail(new ParseError({ message: "File path pattern is not yet supported", input })),
         ),
+        Match.tag("ShorthandInput", ({ prefix, input: shorthandInput }) => {
+          const cfg = CONFIG_BY_PREFIX.get(prefix);
+          if (!cfg || Option.isNone(cfg.parseShorthand)) {
+            return Effect.fail(
+              new ParseError({ message: `Unknown shorthand prefix: "${prefix}"`, input }),
+            );
+          }
+          return cfg.parseShorthand.value(shorthandInput);
+        }),
         Match.exhaustive,
       ),
     }),

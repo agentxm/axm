@@ -5,8 +5,11 @@
  * @packageDocumentation
  */
 
+import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+
+import type { ParseError } from "./errors.js";
 
 // -----------------------------------------------------------------------------
 // Source Type Schema
@@ -41,6 +44,26 @@ export const SourceTypeSchema = Schema.Literal(
  * @experimental This API is unstable and may change without notice.
  */
 export type SourceType = typeof SourceTypeSchema.Type;
+
+// -----------------------------------------------------------------------------
+// Source Config
+// -----------------------------------------------------------------------------
+
+/**
+ * Configuration for a source provider.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface SourceConfig<
+  T extends SourceType = SourceType,
+  T2 extends Source & { source: T } = Source & { source: T },
+> {
+  readonly id: T;
+  readonly shorthandPrefix: Option.Option<T>;
+  readonly parseShorthand: Option.Option<
+    (input: string) => Effect.Effect<ParsedSource<T2>, ParseError>
+  >;
+}
 
 // -----------------------------------------------------------------------------
 // Discriminated Union Types

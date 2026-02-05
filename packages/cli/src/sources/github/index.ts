@@ -8,3 +8,5 @@
 export { GITHUB_HTTPS_PATTERN, GITHUB_SSH_PATTERN } from "./patterns.js";
 export { parseGitHubHttpsUrl, parseGitHubSshUrl } from "./parser.js";
 export { fetchGitHubTreeHash, GitHubApiError } from "./api.js";
+export { checkGitHubRepoExists } from "./repo-exists.js";
+export { config } from "./config.js";

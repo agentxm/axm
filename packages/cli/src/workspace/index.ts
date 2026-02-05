@@ -59,30 +59,6 @@ export { buildPlan, getPlanSummary, type PlanSummary, planHasChanges } from "./p
 // Path utilities
 export { getAxmDir, getGlobalDir, getProjectDir } from "./paths.js";
 
-// Workspace initialization types
-export type {
-  ActualInitState,
-  IdealInitState,
-  InitChange,
-  InitDiff,
-  InitValidity,
-} from "./init-types.js";
-// Workspace initialization constructors and utilities
-export {
-  hasInitChanges,
-  InitChange as InitChangeConstructors,
-  InitValidity as InitValidityConstructors,
-} from "./init-types.js";
-
-// Workspace initialization functions
-export { ApplyInitError, type ApplyInitOptions, applyInitDiff } from "./init-apply.js";
-export {
-  type ComputeInitDiffOptions,
-  computeInitDiff,
-  InvalidWorkspaceError,
-} from "./init-diff.js";
-export { buildIdealInitState, loadActualInitState } from "./init-state.js";
-
 // Workspace context service (for CLI commands)
 export { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./errors.js";
 export type { WorkspaceContextService } from "./service-types.js";

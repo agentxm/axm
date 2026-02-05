@@ -83,5 +83,5 @@ pnpm test -- --coverage                # With coverage
 ## Related Skills
 
 - `/testing-unit` — Patterns for pure function tests
-- `/testing-e2e` — Patterns for CLI subprocess tests
+- `/axm-testing-e2e` — Patterns for CLI subprocess tests
 - `/effect-testing` — Effect testing patterns (handlers typically need test layers)

@@ -142,11 +142,10 @@ Exception: Functions named `unsafe*` or `*OrThrow` may throw intentionally (like
 **Yielding errors in Effect.gen** — `Data.TaggedError` is directly yieldable:
 
 ```typescript
-// Both valid: TaggedError extends YieldableError
+// Preferred: direct yield for conciseness (TaggedError extends YieldableError)
 yield * new WorkspaceError({ message: "Not found" });
-yield * Effect.fail(new WorkspaceError({ message: "Not found" }));
 
-// Preferred: explicit Effect.fail for clarity and consistency
+// Also valid: explicit Effect.fail
 yield * Effect.fail(new WorkspaceError({ message: "Not found" }));
 ```
 

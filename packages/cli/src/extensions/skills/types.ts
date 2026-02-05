@@ -153,4 +153,4 @@ export interface WellKnownIndex {
 // Re-exports from canonical schemas
 // -----------------------------------------------------------------------------
 
-export type { Settings } from "../../workspace/settings-schema.js";
+export type { Settings } from "../../settings/index.js";

@@ -15,12 +15,18 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 
-import { type Lockfile, LockfileSchema, type SkillLockEntry } from "./lockfile-schema.js";
-import { LOCKFILE_NAME } from "./paths.js";
+import { type Lockfile, LockfileSchema, type SkillLockEntry } from "./schema.js";
 
 // -----------------------------------------------------------------------------
 // Constants
 // -----------------------------------------------------------------------------
+
+/**
+ * Filename for the lockfile.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const LOCKFILE_NAME = "axm-lock.yaml";
 
 const LOCKFILE_VERSION = 1;
 

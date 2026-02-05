@@ -386,17 +386,34 @@ packages/
             command.ts           # yargs definition
             command.test.ts      # Command parsing tests
             command.e2e.test.ts  # E2E tests (co-located)
+      lockfile/     # Lockfile feature
+        lockfile.ts              # Core logic + LOCKFILE_NAME constant
+        lockfile.test.ts
+        schema.ts                # Lockfile schemas
+        errors.ts                # LockfileError (if shared across feature)
+        index.ts                 # Barrel: public API
+      settings/     # Settings feature
+        settings.ts              # Core logic + SETTINGS_FILENAME constant
+        schema.ts                # Settings schemas
+        index.ts                 # Barrel: public API
+      workspace/    # Workspace feature
+        workspace.ts             # Core logic
+        errors.ts                # WorkspaceError (shared across feature)
+        index.ts                 # Barrel: public API
       agents/       # Agent definitions
-      extensions/   # Extension type definitions
-      lockfile/     # Lockfile parsing and schemas
+        agent.ts                 # Agent types and logic
+        index.ts
+      extensions/   # Extension types
+        extension.ts             # Extension types and logic
+        index.ts
       resolution/   # Extension resolution
-      settings/     # Settings management
-      utils/        # Shared utilities
-      workspace/    # Workspace state management
+      utils/        # Shared utilities (truly cross-cutting only)
 openspec/           # Spec-driven development
   specs/            # Implemented capabilities
   changes/          # Proposed changes
 ```
+
+Each feature folder is self-contained: logic, constants, errors, schemas, and tests co-located. Only `utils/` holds truly cross-cutting utilities.
 
 ## Spec-Driven Development
 

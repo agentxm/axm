@@ -19,10 +19,10 @@ import * as Either from "effect/Either";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import type { AgentConfig } from "../agents/index.js";
-import type { Lockfile, SkillLockEntry } from "./lockfile-schema.js";
-import type { Settings } from "./settings-schema.js";
-import { readLockfile, writeLockfile } from "./lockfile.js";
-import { readSettings, writeSettings } from "./settings.js";
+import type { Lockfile, SkillLockEntry } from "../lockfile/index.js";
+import { readLockfile, writeLockfile } from "../lockfile/index.js";
+import type { Settings } from "../settings/index.js";
+import { readSettings, writeSettings } from "../settings/index.js";
 import { computeInstallPath } from "../extensions/skills/state/pure-functions.js";
 import type {
   ApplyResult,

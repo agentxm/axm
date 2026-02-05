@@ -11,7 +11,7 @@ import {
   SettingsSchema,
   SkillsMapSchema,
   SourcesConfigSchema,
-} from "./settings-schema.js";
+} from "./schema.js";
 
 describe("Settings schema", () => {
   describe("valid settings", () => {

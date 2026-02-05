@@ -56,33 +56,30 @@ export { loadCurrentState } from "./load-state.js";
 // Plan building
 export { buildPlan, getPlanSummary, type PlanSummary, planHasChanges } from "./plan.js";
 
-// Path utilities and constants
-export {
-  getAxmDir,
-  getGlobalDir,
-  getProjectDir,
-  LOCKFILE_NAME,
-  SETTINGS_FILENAME,
-} from "./paths.js";
+// Path utilities
+export { getAxmDir, getGlobalDir, getProjectDir } from "./paths.js";
 
-// Lockfile I/O
-export type { LockfileError } from "./lockfile.js";
+// Re-export from lockfile feature module
+export type { Lockfile, SkillLockEntry, SkillsLockMap } from "../lockfile/index.js";
+export type { LockfileError } from "../lockfile/index.js";
 export {
+  LOCKFILE_NAME,
   LockfileParseError,
   LockfileWriteError,
   readLockfile,
   removeLockEntry,
   updateLockEntry,
   writeLockfile,
-} from "./lockfile.js";
+} from "../lockfile/index.js";
 
-// Settings I/O
+// Re-export from settings feature module
+export type { Settings } from "../settings/index.js";
 export type {
   EnsureInitializedOptions,
   SettingsError,
   SettingsUpdate,
   SkillsUpdate,
-} from "./settings.js";
+} from "../settings/index.js";
 export {
   addSkill,
   createDefaultSettings,
@@ -90,12 +87,13 @@ export {
   ensureInitialized,
   getEffectiveScope,
   readSettings,
+  SETTINGS_FILENAME,
   SettingsNotFoundError,
   SettingsParseError,
   SettingsWriteError,
   updateSettings,
   writeSettings,
-} from "./settings.js";
+} from "../settings/index.js";
 
 // Workspace context service (for CLI commands)
 export { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./errors.js";

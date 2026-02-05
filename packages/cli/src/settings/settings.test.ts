@@ -14,7 +14,7 @@ import {
   updateSettings,
   writeSettings,
 } from "./settings.js";
-import type { Settings } from "./settings-schema.js";
+import type { Settings } from "./schema.js";
 
 describe("settings", () => {
   let tempDir: string;

@@ -205,6 +205,53 @@ const efficient = HashMap.mutate(HashMap.empty(), (draft) => {
 
 ---
 
+## Readonly Types
+
+Effect provides type aliases that signal immutability at the type level. Use these in function signatures and type definitions.
+
+### Type Equivalences
+
+| Effect Type                  | Equivalent To              | Notes                            |
+| ---------------------------- | -------------------------- | -------------------------------- |
+| `Array.Array<T>`             | `ReadonlyArray<T>`         | Same type, re-exported by Effect |
+| `readonly T[]`               | `ReadonlyArray<T>`         | TypeScript shorthand             |
+| `Record.ReadonlyRecord<K,V>` | `{ readonly [P in K]: V }` | Effect's readonly record type    |
+
+### Usage Guidelines
+
+```typescript
+import { Array, Record } from "effect";
+
+// Prefer Effect's type aliases in signatures
+interface UserState {
+  readonly users: Array.Array<User>; // = ReadonlyArray<User>
+  readonly byId: Record.ReadonlyRecord<string, User>; // readonly string-keyed
+}
+
+// Function signatures signal immutability
+const processUsers = (users: Array.Array<User>): Array.Array<ProcessedUser> =>
+  Array.map(users, transform);
+
+// All three are equivalent for arrays:
+type A = Array.Array<string>; // Effect alias (preferred)
+type B = ReadonlyArray<string>; // TypeScript built-in
+type C = readonly string[]; // TypeScript shorthand
+```
+
+### Immutable by Design
+
+`Chunk` and `HashMap` are **already immutable**—no readonly variants needed:
+
+```typescript
+// Chunk operations always return new Chunks
+const chunk2 = Chunk.append(chunk1, item); // chunk1 unchanged
+
+// HashMap operations always return new HashMaps
+const map2 = HashMap.set(map1, key, value); // map1 unchanged
+```
+
+---
+
 ## Schema Integration
 
 ```typescript
@@ -238,4 +285,4 @@ const HashMapSchema = Schema.HashMap({
 - [ ] **Convert at boundaries** — Native types for external APIs, JSON
 - [ ] **Use Array utilities** — `filterMap`, `getSomes`, `separate` for Option/Either
 - [ ] **Use Record utilities** — `get`, `filterMap`, `collect` for object transforms
-- [ ] **Readonly for immutability** — `ReadonlyArray`, `ReadonlyRecord` in signatures
+- [ ] **Readonly types** — `Array.Array<T>` and `Record.ReadonlyRecord<K,V>` in signatures

@@ -109,7 +109,7 @@ export type EmptySource = typeof EmptySourceSchema.Type;
  * - github: GitHub Enterprise or github.com
  * - gitlab: GitLab self-hosted or gitlab.com
  * - bitbucket: Bitbucket Server or bitbucket.org
- * - azuredevops: Azure DevOps Server or dev.azure.com
+ * - azurerepos: Azure Repos or dev.azure.com
  * - git: Generic git configuration (empty)
  * - registry: One or more extension registries
  *
@@ -119,7 +119,7 @@ export const SourcesConfigSchema = Schema.Struct({
   github: Schema.optional(UrlSourceSchema),
   gitlab: Schema.optional(UrlSourceSchema),
   bitbucket: Schema.optional(UrlSourceSchema),
-  azuredevops: Schema.optional(UrlSourceSchema),
+  azurerepos: Schema.optional(UrlSourceSchema),
   git: Schema.optional(EmptySourceSchema),
   registry: Schema.optional(Schema.Union(RegistrySourceSchema, Schema.Array(RegistrySourceSchema))),
 });

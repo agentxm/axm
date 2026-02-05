@@ -110,7 +110,7 @@ describe("Settings schema", () => {
           github: { url: "https://github.com" },
           gitlab: { url: "https://gitlab.com" },
           bitbucket: { url: "https://bitbucket.org" },
-          azuredevops: { url: "https://dev.azure.com" },
+          azurerepos: { url: "https://dev.azure.com" },
         },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
@@ -118,7 +118,7 @@ describe("Settings schema", () => {
       expect(result.sources?.github?.url).toBe("https://github.com");
       expect(result.sources?.gitlab?.url).toBe("https://gitlab.com");
       expect(result.sources?.bitbucket?.url).toBe("https://bitbucket.org");
-      expect(result.sources?.azuredevops?.url).toBe("https://dev.azure.com");
+      expect(result.sources?.azurerepos?.url).toBe("https://dev.azure.com");
     });
 
     it("accepts sources with empty git config", () => {

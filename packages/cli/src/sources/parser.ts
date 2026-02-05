@@ -15,7 +15,13 @@ import { ParseError } from "./errors.js";
 import { parseGitHubHttpsUrl, parseGitHubSshUrl } from "./github/index.js";
 import { parseGitLabHttpsUrl, parseGitLabSshUrl } from "./gitlab/index.js";
 import { LOCAL_PATH_PATTERN, parseLocalPath } from "./local/index.js";
-import { type ParsedSource, ParsedSource as PS } from "./types.js";
+import {
+  type GitHubSource,
+  type GitHostingProviderSource,
+  type ParsedSource,
+  ParsedSource as PS,
+  type Source,
+} from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Regex Patterns
@@ -42,7 +48,9 @@ const PREFIXED_SHORTHAND_PATTERN =
 /**
  * Parse a prefixed shorthand (github:owner/repo, gitlab:owner/repo, or bitbucket:owner/repo).
  */
-const parsePrefixedShorthand = (input: string): Effect.Effect<ParsedSource, ParseError> => {
+const parsePrefixedShorthand = (
+  input: string,
+): Effect.Effect<ParsedSource<GitHostingProviderSource>, ParseError> => {
   const match = input.match(PREFIXED_SHORTHAND_PATTERN);
   if (!match || !match[1] || !match[2] || !match[3]) {
     return Effect.fail(new ParseError({ message: "Invalid prefixed shorthand format", input }));
@@ -68,7 +76,7 @@ const parsePrefixedShorthand = (input: string): Effect.Effect<ParsedSource, Pars
  * Parse GitHub shorthand (owner/repo[/path][@ref]).
  * Defaults to GitHub when no prefix is specified.
  */
-const parseShorthand = (input: string): Effect.Effect<ParsedSource, ParseError> => {
+const parseShorthand = (input: string): Effect.Effect<ParsedSource<GitHubSource>, ParseError> => {
   const match = input.match(SHORTHAND_PATTERN);
   if (!match || !match[1] || !match[2]) {
     return Effect.fail(new ParseError({ message: "Invalid shorthand format", input }));
@@ -103,7 +111,7 @@ const parseShorthand = (input: string): Effect.Effect<ParsedSource, ParseError> 
  * @param input - The source string to parse
  * @returns Effect containing ParsedSource or ParseError
  */
-export const parseSource = (input: string): Effect.Effect<ParsedSource, ParseError> => {
+export const parseSource = (input: string): Effect.Effect<ParsedSource<Source>, ParseError> => {
   // Trim whitespace
   const trimmed = input.trim();
 

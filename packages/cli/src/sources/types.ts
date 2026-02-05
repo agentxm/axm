@@ -18,7 +18,7 @@ import * as Schema from "effect/Schema";
  * - `"github"` - GitHub repository source
  * - `"gitlab"` - GitLab repository source
  * - `"bitbucket"` - Bitbucket repository source
- * - `"azuredevops"` - Azure DevOps repository source
+ * - `"azurerepos"` - Azure Repos repository source
  * - `"git"` - Generic git repository source
  * - `"registry"` - Package registry source
  * - `"local"` - Local filesystem path source
@@ -29,7 +29,7 @@ export const SourceTypeSchema = Schema.Literal(
   "github",
   "gitlab",
   "bitbucket",
-  "azuredevops",
+  "azurerepos",
   "git",
   "registry",
   "local",
@@ -94,15 +94,24 @@ export interface BitbucketSource {
 /**
  * Union of all git hosting provider sources.
  */
-export type GitSource = GitHubSource | GitLabSource | BitbucketSource;
+export type GitHostingProviderSource =
+  | GitHubSource
+  | GitLabSource
+  | BitbucketSource
+  | AzureReposSource;
 
 /**
- * Azure DevOps repository source (placeholder for future implementation).
+ * Union of all git-based sources (hosting providers, Azure DevOps, and generic git).
+ */
+export type GitSource = GitHostingProviderSource | GitRepositorySource;
+
+/**
+ * Azure Repos repository source (placeholder for future implementation).
  *
  * URL format: https://dev.azure.com/{organization}/{project}/_git/{repo}
  */
-export interface AzureDevOpsSource {
-  readonly source: "azuredevops";
+export interface AzureReposSource {
+  readonly source: "azurerepos";
   /** Azure DevOps organization */
   readonly organization: string;
   /** Azure DevOps project */
@@ -124,7 +133,7 @@ export interface AzureDevOpsSource {
  * - Git protocol: git://server/repo.git
  * - File URI: file:///path/to/repo.git
  */
-export type GenericGitSource = {
+export type GitRepositorySource = {
   readonly source: "git";
   /** Git ref (tag, branch, or SHA) */
   readonly ref: Option.Option<string>;
@@ -165,8 +174,8 @@ export type Source =
   | GitHubSource
   | GitLabSource
   | BitbucketSource
-  | AzureDevOpsSource
-  | GenericGitSource
+  | AzureReposSource
+  | GitRepositorySource
   | RegistrySource
   | LocalSource;
 
@@ -175,10 +184,10 @@ export type Source =
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type ParsedSource = {
+export type ParsedSource<T extends Source> = {
   readonly original: string;
   readonly canonical: string;
-  readonly source: Source;
+  readonly source: T;
 };
 
 // -----------------------------------------------------------------------------
@@ -198,7 +207,7 @@ export const ParsedSource = {
     repo: string;
     ref?: string | undefined;
     subPath?: string | undefined;
-  }): ParsedSource => ({
+  }): ParsedSource<GitHubSource> => ({
     original: args.original,
     canonical: `github:${args.owner}/${args.repo}`,
     source: {
@@ -219,7 +228,7 @@ export const ParsedSource = {
     repo: string;
     ref?: string | undefined;
     subPath?: string | undefined;
-  }): ParsedSource => ({
+  }): ParsedSource<GitLabSource> => ({
     original: args.original,
     canonical: `gitlab:${args.owner}/${args.repo}`,
     source: {
@@ -240,7 +249,7 @@ export const ParsedSource = {
     repo: string;
     ref?: string | undefined;
     subPath?: string | undefined;
-  }): ParsedSource => ({
+  }): ParsedSource<BitbucketSource> => ({
     original: args.original,
     canonical: `bitbucket:${args.owner}/${args.repo}`,
     source: {
@@ -255,7 +264,7 @@ export const ParsedSource = {
   /**
    * Create a local filesystem source.
    */
-  Local: (args: { original: string; path: string }): ParsedSource => ({
+  Local: (args: { original: string; path: string }): ParsedSource<LocalSource> => ({
     original: args.original,
     canonical: `local:${args.path}`,
     source: {

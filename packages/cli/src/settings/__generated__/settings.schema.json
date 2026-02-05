@@ -40,7 +40,7 @@
           },
           "additionalProperties": false
         },
-        "azuredevops": {
+        "azurerepos": {
           "type": "object",
           "required": ["url"],
           "properties": {

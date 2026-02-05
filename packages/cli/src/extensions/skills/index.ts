@@ -25,7 +25,7 @@ export {
   buildCloneUrl,
   CloneUrlError,
   getOriginFromParsed,
-  isGitSource,
+  isGitHostingProviderSource,
   ParseError,
   parseSource,
 } from "../../sources/index.js";
@@ -35,8 +35,8 @@ export type { LockEntry, Skill } from "./types.js";
 
 // Re-export source types from canonical location
 export type {
-  AzureDevOpsSource,
-  GitSource,
+  AzureReposSource,
+  GitHostingProviderSource,
   ParsedSource,
   Source,
   SourceType,

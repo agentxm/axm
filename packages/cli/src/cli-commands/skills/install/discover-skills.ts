@@ -19,10 +19,12 @@ import {
   type Source,
 } from "../../../extensions/skills/index.js";
 import type { BitbucketSource, GitHubSource, GitLabSource } from "../../../sources/index.js";
+import { getAllAgents } from "../../../agents/index.js";
 import { InstallError } from "./handler.js";
 import { parseManifests } from "./parse-manifests.js";
 import { parseSkillMd } from "./parse-skill-md.js";
 import { formatError } from "../../../utils/errors.js";
+import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -105,20 +107,26 @@ export class DiscoveryError extends Data.TaggedError("DiscoveryError")<{
 const SKILL_FILENAME = "SKILL.md";
 
 /**
- * Well-known directories to scan in Phase 2 (priority scan).
- * Relative to the search root. Scanned one level deep for child directories
- * containing SKILL.md files.
+ * Non-agent static directories for Phase 2 priority scan.
  */
-export const PRIORITY_DIRECTORIES: readonly string[] = [
-  "skills",
+const STATIC_PRIORITY_DIRECTORIES: readonly string[] = [
   "skills/.curated",
-  ".claude/skills",
-  ".cursor/skills",
-  ".cline/skills",
-  ".copilot/skills",
-  ".windsurf/skills",
-  ".", // top-level folders
+  "skills/.experimental",
+  "skills/.system",
 ] as const;
+
+/**
+ * Derive the full Phase 2 priority directory list.
+ *
+ * Composition:
+ * 1. `.` (searchPath root) — always first, highest priority
+ * 2. Non-agent static dirs: skills/.curated, skills/.experimental, skills/.system
+ * 3. Agent dirs: unique `skills.dir` values from the AgentConfig registry
+ */
+export const getPriorityDirectories = (): ReadonlyArray<string> => {
+  const agentDirs = Array.dedupe(getAllAgents().map((agent) => agent.skills.dir));
+  return [".", ...STATIC_PRIORITY_DIRECTORIES, ...agentDirs];
+};
 
 /**
  * Directories to skip during recursive Phase 3 scan.
@@ -310,8 +318,9 @@ export const discoverSkillsInDir = (
     // Collect manifest-declared directories to append to priority scan
     const manifestDirs = yield* parseManifests(searchRoot);
 
-    // Build full list of directories to scan: static priority dirs + manifest dirs
-    const priorityFullDirs = PRIORITY_DIRECTORIES.map((priorityDir) =>
+    // Build full list of directories to scan: derived priority dirs + manifest dirs
+    const priorityDirs = getPriorityDirectories();
+    const priorityFullDirs = priorityDirs.map((priorityDir) =>
       priorityDir === "." ? searchRoot : nodePath.join(searchRoot, priorityDir),
     );
     // Deduplicate manifest dirs against static priority dirs

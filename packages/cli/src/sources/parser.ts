@@ -15,10 +15,13 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { config as azurereposConfig } from "./azurerepos/index.js";
-import { checkBitbucketRepoExists, config as bitbucketConfig } from "./bitbucket/index.js";
+import {
+  resolveRepo as resolveBitbucketRepo,
+  config as bitbucketConfig,
+} from "./bitbucket/index.js";
 import { ParseError } from "./errors.js";
-import { checkGitHubRepoExists, config as githubConfig } from "./github/index.js";
-import { checkGitLabRepoExists, config as gitlabConfig } from "./gitlab/index.js";
+import { resolveRepo as resolveGitHubRepo, config as githubConfig } from "./github/index.js";
+import { resolveRepo as resolveGitLabRepo, config as gitlabConfig } from "./gitlab/index.js";
 import { config as localConfig, LOCAL_PATH_PATTERN, parseLocalPath } from "./local/index.js";
 import type { Source, SourceConfig } from "./types.js";
 
@@ -180,30 +183,26 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
 // SlashPattern Resolution
 // -----------------------------------------------------------------------------
 
-const resolveSlashPattern = (pattern: SlashPattern): Effect.Effect<Source, ParseError> => {
-  const { owner, repo } = pattern;
-  const subPath = Option.getOrUndefined(pattern.subPath);
-  return checkGitHubRepoExists(owner, repo).pipe(
-    Effect.map(() => githubConfig.make({ owner, repo, subPath })),
-    Effect.orElse(() =>
-      checkGitLabRepoExists(owner, repo).pipe(
-        Effect.map(() => gitlabConfig.make({ owner, repo, subPath })),
-      ),
-    ),
-    Effect.orElse(() =>
-      checkBitbucketRepoExists(owner, repo).pipe(
-        Effect.map(() => bitbucketConfig.make({ owner, repo, subPath })),
-      ),
-    ),
-    Effect.mapError(
-      () =>
-        new ParseError({
-          message: `Repository '${owner}/${repo}' not found on GitHub, GitLab, or Bitbucket`,
-          input: `${owner}/${repo}`,
-        }),
-    ),
-  );
-};
+const resolveSlashPattern = (pattern: SlashPattern): Effect.Effect<Source, ParseError> =>
+  Effect.gen(function* () {
+    const { owner, repo } = pattern;
+    const subPath = Option.getOrUndefined(pattern.subPath);
+    const args = { owner, repo, subPath };
+
+    const github = yield* resolveGitHubRepo(args);
+    if (Option.isSome(github)) return github.value;
+
+    const gitlab = yield* resolveGitLabRepo(args);
+    if (Option.isSome(gitlab)) return gitlab.value;
+
+    const bitbucket = yield* resolveBitbucketRepo(args);
+    if (Option.isSome(bitbucket)) return bitbucket.value;
+
+    return yield* new ParseError({
+      message: `Repository '${owner}/${repo}' not found on GitHub, GitLab, or Bitbucket`,
+      input: `${owner}/${repo}`,
+    });
+  });
 
 // -----------------------------------------------------------------------------
 // Main Parser

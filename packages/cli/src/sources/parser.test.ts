@@ -1045,14 +1045,15 @@ describe("parseInputPattern", () => {
         }),
       );
 
-      it.effect("falls through to GitLab on GitHub network error", () =>
+      it.effect("fails on GitHub network error (does not fall through)", () =>
         Effect.gen(function* () {
           mockFetch({
             "https://github.com/owner/repo": "error",
             "https://gitlab.com/owner/repo": { ok: true },
           });
-          const result = yield* parseSource("owner/repo");
-          expect(result.source).toBe("gitlab");
+          const error = yield* Effect.flip(parseSource("owner/repo"));
+          expect(error).toBeInstanceOf(ParseError);
+          expect(error.message).toContain("Failed to check GitHub");
         }),
       );
 

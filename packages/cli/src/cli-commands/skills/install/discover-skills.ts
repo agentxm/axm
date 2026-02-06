@@ -16,7 +16,6 @@ import {
   getTreeSha,
   printSource,
   shallowClone,
-  type Skill,
   type Source,
 } from "../../../extensions/skills/index.js";
 import type { BitbucketSource, GitHubSource, GitLabSource } from "../../../sources/index.js";
@@ -27,29 +26,48 @@ import { formatError } from "../../../utils/errors.js";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Record from "effect/Record";
 
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
 
 /**
- * Resolved source with skills directory path.
- * Used internally by the handler and select-skills to track source resolution.
+ * Base skill metadata parsed from SKILL.md frontmatter.
  */
-export interface ResolvedSource {
-  /** Parsed source information */
-  readonly source: Source;
-  /** Path to directory containing skills */
-  readonly skillsDir: string;
+export interface Skill {
+  /** Unique name of the skill */
+  readonly name: string;
+  /** Description of the skill */
+  readonly description: string;
+  /** Optional metadata from SKILL.md frontmatter */
+  readonly metadata: Option.Option<Record.ReadonlyRecord<string, unknown>>;
 }
 
 /**
- * A discovered skill from a remote git source, enriched with its git tree SHA.
+ * A skill discovered from a local directory.
  */
-export interface RemoteDiscoveredSkill extends Skill {
+export interface LocalSkillDirectory extends Skill {
+  readonly _tag: "local";
+  /** Path to directory containing SKILL.md */
+  readonly path: string;
+}
+
+/**
+ * A skill discovered from a cloned git repository, enriched with its git tree SHA.
+ */
+export interface LocalGitSkillDirectory extends Skill {
+  readonly _tag: "local-git";
+  /** Path to directory containing SKILL.md */
+  readonly path: string;
   /** Git tree SHA of the skill's folder */
   readonly gitTreeSha: string;
 }
+
+/**
+ * Discriminated union of all discovered skill types.
+ */
+export type DiscoveredSkill = LocalSkillDirectory | LocalGitSkillDirectory;
 
 /**
  * Options controlling discovery behavior.
@@ -150,7 +168,7 @@ const tryParseSkillInDir = (dir: string) =>
     const content = yield* fs.readFileString(fullPath).pipe(Effect.option);
     if (Option.isNone(content)) return Option.none<Skill>();
 
-    return parseSkillMd(content.value, fullPath);
+    return parseSkillMd(content.value);
   });
 
 /**
@@ -161,7 +179,7 @@ const scanDirectory = (dir: string, seenNames: Set<string>, options: DiscoveryOp
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
-    if (Option.isNone(entries)) return [] as readonly Skill[];
+    if (Option.isNone(entries)) return [] as readonly LocalSkillDirectory[];
 
     return yield* Effect.forEach(
       entries.value,
@@ -169,15 +187,19 @@ const scanDirectory = (dir: string, seenNames: Set<string>, options: DiscoveryOp
         Effect.gen(function* () {
           const fullPath = nodePath.join(dir, entry);
           const stat = yield* fs.stat(fullPath).pipe(Effect.option);
-          if (Option.isNone(stat) || stat.value.type !== "Directory") return [] as readonly Skill[];
+          if (Option.isNone(stat) || stat.value.type !== "Directory")
+            return [] as readonly LocalSkillDirectory[];
 
           const skill = yield* tryParseSkillInDir(fullPath);
-          if (Option.isNone(skill)) return [] as readonly Skill[];
-          if (seenNames.has(skill.value.name)) return [] as readonly Skill[];
-          if (!shouldIncludeSkill(skill.value, options)) return [] as readonly Skill[];
+          if (Option.isNone(skill)) return [] as readonly LocalSkillDirectory[];
+          if (seenNames.has(skill.value.name)) return [] as readonly LocalSkillDirectory[];
+          if (!shouldIncludeSkill(skill.value, options))
+            return [] as readonly LocalSkillDirectory[];
 
           seenNames.add(skill.value.name);
-          return [skill.value] as readonly Skill[];
+          return [
+            { ...skill.value, _tag: "local" as const, path: fullPath },
+          ] as readonly LocalSkillDirectory[];
         }),
       { concurrency: "unbounded" },
     ).pipe(Effect.map((results) => results.flat()));
@@ -192,37 +214,38 @@ const recursiveScan = (
   seenNames: Set<string>,
   options: DiscoveryOptions,
   depth: number,
-): Effect.Effect<readonly Skill[], never, FileSystem.FileSystem> =>
+): Effect.Effect<readonly LocalSkillDirectory[], never, FileSystem.FileSystem> =>
   Effect.gen(function* () {
-    if (depth > MAX_DEPTH) return [] as readonly Skill[];
+    if (depth > MAX_DEPTH) return [] as readonly LocalSkillDirectory[];
     const fs = yield* FileSystem.FileSystem;
     const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
-    if (Option.isNone(entries)) return [] as readonly Skill[];
+    if (Option.isNone(entries)) return [] as readonly LocalSkillDirectory[];
 
     return yield* Effect.forEach(
       entries.value,
       (entry) =>
         Effect.gen(function* () {
-          if (SKIPPED_DIRECTORIES.has(entry)) return [] as readonly Skill[];
+          if (SKIPPED_DIRECTORIES.has(entry)) return [] as readonly LocalSkillDirectory[];
 
           const fullPath = nodePath.join(dir, entry);
           const stat = yield* fs.stat(fullPath).pipe(Effect.option);
-          if (Option.isNone(stat) || stat.value.type !== "Directory") return [] as readonly Skill[];
+          if (Option.isNone(stat) || stat.value.type !== "Directory")
+            return [] as readonly LocalSkillDirectory[];
 
-          const results: Skill[] = [];
+          const results: LocalSkillDirectory[] = [];
 
           // Try to parse a skill in this directory
           const skill = yield* tryParseSkillInDir(fullPath);
           if (Option.isSome(skill) && !seenNames.has(skill.value.name)) {
             if (shouldIncludeSkill(skill.value, options)) {
               seenNames.add(skill.value.name);
-              results.push(skill.value);
+              results.push({ ...skill.value, _tag: "local" as const, path: fullPath });
             }
           }
 
           // Recurse into subdirectories
           const subResults = yield* recursiveScan(fullPath, seenNames, options, depth + 1);
-          return [...results, ...subResults] as readonly Skill[];
+          return [...results, ...subResults] as readonly LocalSkillDirectory[];
         }),
       { concurrency: "unbounded" },
     ).pipe(Effect.map((results) => results.flat()));
@@ -248,7 +271,7 @@ export const discoverSkillsInDir = (
   basePath: string,
   subPath: Option.Option<string>,
   options: DiscoveryOptions,
-): Effect.Effect<ReadonlyArray<Skill>, DiscoveryError, FileSystem.FileSystem> =>
+): Effect.Effect<ReadonlyArray<LocalSkillDirectory>, DiscoveryError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
 
@@ -281,13 +304,13 @@ export const discoverSkillsInDir = (
     }
 
     const seenNames = new Set<string>();
-    const allSkills: Skill[] = [];
+    const allSkills: LocalSkillDirectory[] = [];
 
     // ── Phase 1: Direct Match ──────────────────────────────────────────
     const rootSkill = yield* tryParseSkillInDir(searchRoot);
     if (Option.isSome(rootSkill) && shouldIncludeSkill(rootSkill.value, options)) {
       seenNames.add(rootSkill.value.name);
-      allSkills.push(rootSkill.value);
+      allSkills.push({ ...rootSkill.value, _tag: "local" as const, path: searchRoot });
 
       if (!options.fullDepth) {
         return allSkills;
@@ -358,12 +381,11 @@ const discoverFromRemoteGitSource = (
       ),
     );
 
-    const skillsWithGitTreeSha = yield* Effect.forEach(
+    return yield* Effect.forEach(
       skills,
       (skill) =>
         Effect.gen(function* () {
-          const skillDir = nodePath.dirname(skill.path);
-          const relativeDir = nodePath.relative(tempDir, skillDir);
+          const relativeDir = nodePath.relative(tempDir, skill.path);
 
           const gitTreeSha = yield* getTreeSha(tempDir, relativeDir).pipe(
             Effect.mapError(
@@ -376,15 +398,15 @@ const discoverFromRemoteGitSource = (
             ),
           );
 
-          return {
+          const result: LocalGitSkillDirectory = {
             ...skill,
+            _tag: "local-git",
             gitTreeSha,
           };
+          return result;
         }),
       { concurrency: "unbounded" },
     );
-
-    return skillsWithGitTreeSha;
   });
 
 // -----------------------------------------------------------------------------
@@ -394,7 +416,7 @@ const discoverFromRemoteGitSource = (
 /**
  * Discovers skills from a parsed source.
  * Resolves the source (cloning if remote), then discovers available skills
- * within it. Returns discovered skills alongside resolved source metadata.
+ * within it. Returns an array of discovered skills.
  */
 export const discoverSkills = (source: Source) =>
   Effect.gen(function* () {
@@ -444,20 +466,10 @@ export const discoverSkills = (source: Source) =>
           ),
         );
 
-        const skills = yield* discoverFromRemoteGitSource(source, tempDir);
-
-        const skillsDir = Option.match(source.subPath, {
-          onNone: () => tempDir,
-          onSome: (p) => nodePath.join(tempDir, p),
-        });
-
-        return {
-          skills,
-          resolvedSource: {
-            source,
-            skillsDir,
-          } satisfies ResolvedSource,
-        };
+        return (yield* discoverFromRemoteGitSource(
+          source,
+          tempDir,
+        )) as ReadonlyArray<DiscoveredSkill>;
       }
 
       case "azurerepos":
@@ -472,8 +484,7 @@ export const discoverSkills = (source: Source) =>
         });
 
       case "local": {
-        const skillsDir = source.path;
-        const rawSkills = yield* discoverSkillsInDir(skillsDir, Option.none(), {
+        return (yield* discoverSkillsInDir(source.path, Option.none(), {
           fullDepth: false,
           includeInternal: false,
         }).pipe(
@@ -482,21 +493,14 @@ export const discoverSkills = (source: Source) =>
               new InstallError({
                 message: formatError(
                   `Failed to discover skills: ${error.message}`,
-                  [`Path: ${skillsDir}`],
+                  [`Path: ${source.path}`],
                   "Verify the path exists and contains directories with SKILL.md files.",
                 ),
                 cause: Option.some(error),
                 retryable: false,
               }),
           ),
-        );
-        return {
-          skills: rawSkills,
-          resolvedSource: {
-            source,
-            skillsDir,
-          } satisfies ResolvedSource,
-        };
+        )) as ReadonlyArray<DiscoveredSkill>;
       }
 
       case "git":

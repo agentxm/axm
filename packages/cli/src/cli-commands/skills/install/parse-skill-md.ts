@@ -9,7 +9,7 @@
 import matter from "gray-matter";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
-import type { Skill } from "../../../extensions/skills/index.js";
+import type { Skill } from "./discover-skills.js";
 
 /**
  * Parse a SKILL.md file's content and extract skill metadata from frontmatter.
@@ -18,7 +18,7 @@ import type { Skill } from "../../../extensions/skills/index.js";
  * non-empty `name` and `description` fields. Returns `Option.none()` for any
  * invalid input: missing frontmatter, invalid YAML, or missing/empty required fields.
  */
-export const parseSkillMd = (content: string, path: string): Option.Option<Skill> => {
+export const parseSkillMd = (content: string): Option.Option<Skill> => {
   try {
     const { data } = matter(content);
 
@@ -45,7 +45,6 @@ export const parseSkillMd = (content: string, path: string): Option.Option<Skill
     return Option.some({
       name,
       description,
-      path,
       metadata,
     });
   } catch {

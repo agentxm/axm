@@ -15,8 +15,9 @@ import * as Option from "effect/Option";
 import {
   discoverSkillsInDir,
   type DiscoveryOptions,
-  PRIORITY_DIRECTORIES,
+  getPriorityDirectories,
 } from "./discover-skills.js";
+import { getAllAgents } from "../../../agents/index.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -687,15 +688,53 @@ describe("discoverSkillsInDir", () => {
   });
 
   // ===========================================================================
-  // PRIORITY_DIRECTORIES constant
+  // Priority Directory Derivation
   // ===========================================================================
 
-  describe("PRIORITY_DIRECTORIES", () => {
-    it("contains expected well-known directories", () => {
-      expect(PRIORITY_DIRECTORIES).toContain("skills");
-      expect(PRIORITY_DIRECTORIES).toContain("skills/.curated");
-      expect(PRIORITY_DIRECTORIES).toContain(".claude/skills");
-      expect(PRIORITY_DIRECTORIES).toContain(".");
+  describe("getPriorityDirectories", () => {
+    it("starts with `.` then static dirs then agent dirs", () => {
+      const dirs = getPriorityDirectories();
+
+      // `.` is first (highest priority)
+      expect(dirs[0]).toBe(".");
+
+      // Static dirs follow
+      const staticDirs = ["skills/.curated", "skills/.experimental", "skills/.system"];
+      for (const staticDir of staticDirs) {
+        expect(dirs).toContain(staticDir);
+        expect(dirs.indexOf(staticDir)).toBeGreaterThan(0);
+        expect(dirs.indexOf(staticDir)).toBeLessThan(1 + staticDirs.length);
+      }
+
+      // Agent dirs derived from registry
+      const agents = getAllAgents();
+      const uniqueAgentDirs = [...new Set(agents.map((a) => a.skills.dir))];
+      for (const agentDir of uniqueAgentDirs) {
+        expect(dirs).toContain(agentDir);
+      }
+    });
+
+    it("does NOT contain stale .copilot/skills entry", () => {
+      const dirs = getPriorityDirectories();
+      expect(dirs).not.toContain(".copilot/skills");
+    });
+
+    it("deduplicates agent dirs that share the same skills.dir", () => {
+      const dirs = getPriorityDirectories();
+
+      // Multiple agents share `.agents/skills` (amp, kimi-cli, replit)
+      // and `.trae/skills` (trae, trae-cn) — each should appear only once
+      const agentSkillsCounts = dirs.reduce(
+        (acc, dir) => {
+          acc[dir] = (acc[dir] ?? 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>,
+      );
+
+      for (const count of Object.values(agentSkillsCounts)) {
+        expect(count).toBe(1);
+      }
     });
   });
 

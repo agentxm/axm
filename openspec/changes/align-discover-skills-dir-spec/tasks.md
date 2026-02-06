@@ -31,16 +31,16 @@
 
 ## 3. Priority Directory Derivation from AgentConfig Registry
 
-- [ ] 3.1 Write test: priority directories include `.` first, then static dirs, then agent dirs derived from registry
-- [ ] 3.2 Write test: `.copilot/skills` (stale) is NOT in priority directories
-- [ ] 3.3 Write test: agent dirs are deduplicated (agents sharing same `skills.dir` produce one entry)
-- [ ] 3.4 Replace hardcoded `PRIORITY_DIRECTORIES` with a function that derives the list: `.` first, then `skills/.curated`, `skills/.experimental`, `skills/.system`, then unique agent `skills.dir` values from `getAllAgents()`
-- [ ] 3.5 Remove stale `.copilot/skills` entry
-- [ ] 3.6 Run `pnpm typecheck` and fix any errors
-- [ ] 3.7 Run `pnpm lint` and fix any errors
-- [ ] 3.8 Run `pnpm test` and fix any failures
-- [ ] 3.9 Run `pnpm test:e2e` and fix any failures
-- [ ] 3.10 Kill any vitest worker processes
+- [x] 3.1 Write test: priority directories include `.` first, then static dirs, then agent dirs derived from registry
+- [x] 3.2 Write test: `.copilot/skills` (stale) is NOT in priority directories
+- [x] 3.3 Write test: agent dirs are deduplicated (agents sharing same `skills.dir` produce one entry)
+- [x] 3.4 Replace hardcoded `PRIORITY_DIRECTORIES` with a function that derives the list: `.` first, then `skills/.curated`, `skills/.experimental`, `skills/.system`, then unique agent `skills.dir` values from `getAllAgents()`
+- [x] 3.5 Remove stale `.copilot/skills` entry
+- [x] 3.6 Run `pnpm typecheck` and fix any errors
+- [x] 3.7 Run `pnpm lint` and fix any errors
+- [x] 3.8 Run `pnpm test` and fix any failures
+- [x] 3.9 Run `pnpm test:e2e` and fix any failures
+- [x] 3.10 Kill any vitest worker processes
 
 ## 4. INSTALL_INTERNAL_SKILLS Accepts "true"
 

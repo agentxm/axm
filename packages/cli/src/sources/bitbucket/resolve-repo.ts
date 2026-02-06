@@ -3,7 +3,6 @@ import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
 import type { BitbucketSource } from "../types.js";
-import { config } from "./config.js";
 
 export const resolveRepo = (args: {
   readonly owner: string;
@@ -20,7 +19,13 @@ export const resolveRepo = (args: {
   }).pipe(
     Effect.map((response) =>
       response.ok
-        ? Option.some(config.make({ owner: args.owner, repo: args.repo, subPath: args.subPath }))
+        ? Option.some({
+            source: "bitbucket",
+            owner: args.owner,
+            repo: args.repo,
+            ref: Option.none(),
+            subPath: Option.fromNullable(args.subPath),
+          } satisfies BitbucketSource)
         : Option.none(),
     ),
   );

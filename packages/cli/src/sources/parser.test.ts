@@ -8,10 +8,6 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach, vi } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { config as azurereposConfig } from "./azurerepos/config.js";
-import { config as githubConfig } from "./github/config.js";
-import { config as gitlabConfig } from "./gitlab/config.js";
-import { config as bitbucketConfig } from "./bitbucket/config.js";
 import { buildCloneUrl, getOrigin } from "./clone-url.js";
 import { ParseError } from "./errors.js";
 import { type InputPattern, parseInputPattern, parseSource, printSource } from "./parser.js";
@@ -622,7 +618,13 @@ describe("source-parser", () => {
 
   describe("buildCloneUrl", () => {
     it("builds GitHub clone URL", async () => {
-      const source = githubConfig.make({ owner: "owner", repo: "repo" });
+      const source = {
+        source: "github",
+        owner: "owner",
+        repo: "repo",
+        ref: Option.none(),
+        subPath: Option.none(),
+      } as const;
 
       const result = await Effect.runPromise(buildCloneUrl(source));
 
@@ -630,7 +632,13 @@ describe("source-parser", () => {
     });
 
     it("builds GitLab clone URL", async () => {
-      const source = gitlabConfig.make({ owner: "owner", repo: "repo" });
+      const source = {
+        source: "gitlab",
+        owner: "owner",
+        repo: "repo",
+        ref: Option.none(),
+        subPath: Option.none(),
+      } as const;
 
       const result = await Effect.runPromise(buildCloneUrl(source));
 
@@ -638,7 +646,13 @@ describe("source-parser", () => {
     });
 
     it("builds Bitbucket clone URL", async () => {
-      const source = bitbucketConfig.make({ owner: "owner", repo: "repo" });
+      const source = {
+        source: "bitbucket",
+        owner: "owner",
+        repo: "repo",
+        ref: Option.none(),
+        subPath: Option.none(),
+      } as const;
 
       const result = await Effect.runPromise(buildCloneUrl(source));
 
@@ -646,11 +660,14 @@ describe("source-parser", () => {
     });
 
     it("builds Azure Repos clone URL", async () => {
-      const source = azurereposConfig.make({
+      const source = {
+        source: "azurerepos",
         organization: "myorg",
         project: "myproject",
         repo: "myrepo",
-      });
+        ref: Option.none(),
+        subPath: Option.none(),
+      } as const;
 
       const result = await Effect.runPromise(buildCloneUrl(source));
 
@@ -660,7 +677,13 @@ describe("source-parser", () => {
 
   describe("getOrigin", () => {
     it("returns GitHub origin URL", () => {
-      const source = githubConfig.make({ owner: "owner", repo: "repo" });
+      const source = {
+        source: "github",
+        owner: "owner",
+        repo: "repo",
+        ref: Option.none(),
+        subPath: Option.none(),
+      } as const;
 
       const result = getOrigin(source);
 
@@ -668,7 +691,13 @@ describe("source-parser", () => {
     });
 
     it("returns GitLab origin URL", () => {
-      const source = gitlabConfig.make({ owner: "owner", repo: "repo" });
+      const source = {
+        source: "gitlab",
+        owner: "owner",
+        repo: "repo",
+        ref: Option.none(),
+        subPath: Option.none(),
+      } as const;
 
       const result = getOrigin(source);
 
@@ -676,7 +705,13 @@ describe("source-parser", () => {
     });
 
     it("returns Bitbucket origin URL", () => {
-      const source = bitbucketConfig.make({ owner: "owner", repo: "repo" });
+      const source = {
+        source: "bitbucket",
+        owner: "owner",
+        repo: "repo",
+        ref: Option.none(),
+        subPath: Option.none(),
+      } as const;
 
       const result = getOrigin(source);
 
@@ -684,11 +719,14 @@ describe("source-parser", () => {
     });
 
     it("returns Azure Repos origin URL", () => {
-      const source = azurereposConfig.make({
+      const source = {
+        source: "azurerepos",
         organization: "myorg",
         project: "myproject",
         repo: "myrepo",
-      });
+        ref: Option.none(),
+        subPath: Option.none(),
+      } as const;
 
       const result = getOrigin(source);
 

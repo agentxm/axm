@@ -80,8 +80,6 @@ export interface SourceConfig<
   T2 extends Source & { source: T } = Source & { source: T },
 > {
   readonly id: T;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  readonly make: (args: any) => T2;
   readonly print: (source: T2) => string;
   readonly shorthand: Option.Option<ShorthandConfig<T, T2>>;
   readonly parseFromUrl: Option.Option<UrlParseConfig<T, T2>>;

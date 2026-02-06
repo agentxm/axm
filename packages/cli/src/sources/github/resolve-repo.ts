@@ -3,7 +3,6 @@ import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
 import type { GitHubSource } from "../types.js";
-import { make } from "./make.js";
 
 export const resolveRepo = (args: {
   readonly owner: string;
@@ -20,7 +19,13 @@ export const resolveRepo = (args: {
   }).pipe(
     Effect.map((response) =>
       response.ok
-        ? Option.some(make({ owner: args.owner, repo: args.repo, subPath: args.subPath }))
+        ? Option.some({
+            source: "github",
+            owner: args.owner,
+            repo: args.repo,
+            ref: Option.none(),
+            subPath: Option.fromNullable(args.subPath),
+          } satisfies GitHubSource)
         : Option.none(),
     ),
   );

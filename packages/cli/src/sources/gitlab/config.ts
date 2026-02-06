@@ -6,20 +6,21 @@ import { parseProviderShorthand } from "../parse-provider-shorthand.js";
 import type { GitLabSource, SourceConfig } from "../types.js";
 import { GITLAB_HTTPS_PATTERN, GITLAB_SSH_PATTERN } from "./patterns.js";
 
+const makeSource = (args: {
+  owner: string;
+  repo: string;
+  ref?: string | undefined;
+  subPath?: string | undefined;
+}): GitLabSource => ({
+  source: "gitlab",
+  owner: args.owner,
+  repo: args.repo,
+  ref: Option.fromNullable(args.ref),
+  subPath: Option.fromNullable(args.subPath),
+});
+
 export const config: SourceConfig<"gitlab", GitLabSource> = {
   id: "gitlab",
-  make: (args: {
-    owner: string;
-    repo: string;
-    ref?: string | undefined;
-    subPath?: string | undefined;
-  }): GitLabSource => ({
-    source: "gitlab",
-    owner: args.owner,
-    repo: args.repo,
-    ref: Option.fromNullable(args.ref),
-    subPath: Option.fromNullable(args.subPath),
-  }),
   print: (source) => `gitlab:${source.owner}/${source.repo}`,
   shorthand: Option.some({
     prefix: "gitlab",
@@ -27,7 +28,7 @@ export const config: SourceConfig<"gitlab", GitLabSource> = {
       Effect.gen(function* () {
         const body = input.slice("gitlab:".length);
         const parts = yield* parseProviderShorthand(body, input);
-        return config.make(parts);
+        return makeSource(parts);
       }),
   }),
   parseFromUrl: Option.some({
@@ -40,7 +41,7 @@ export const config: SourceConfig<"gitlab", GitLabSource> = {
         );
       }
       return Effect.succeed(
-        config.make({ owner: match[1], repo: match[2], ref: match[3], subPath: match[4] }),
+        makeSource({ owner: match[1], repo: match[2], ref: match[3], subPath: match[4] }),
       );
     },
     parseScp: (input) => {
@@ -48,7 +49,7 @@ export const config: SourceConfig<"gitlab", GitLabSource> = {
       if (!match || !match[1] || !match[2]) {
         return Effect.fail(new ParseError({ message: "Invalid GitLab SSH URL format", input }));
       }
-      return Effect.succeed(config.make({ owner: match[1], repo: match[2] }));
+      return Effect.succeed(makeSource({ owner: match[1], repo: match[2] }));
     },
   }),
 };

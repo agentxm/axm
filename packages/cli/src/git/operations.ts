@@ -194,10 +194,7 @@ export const getTreeSha = (repoPath: string, subPath = "."): Effect.Effect<strin
       );
       return sha;
     },
-    catch: mapGitError(
-      "get-tree-sha" as GitError["operation"],
-      `Failed to get tree SHA for '${subPath}'`,
-    ),
+    catch: mapGitError("get-tree-sha", `Failed to get tree SHA for '${subPath}'`),
   });
 
 /**
@@ -210,10 +207,9 @@ export const getTreeSha = (repoPath: string, subPath = "."): Effect.Effect<strin
  */
 export const isGitRepository = (dirPath: string): Effect.Effect<boolean, never> =>
   Effect.tryPromise({
-    try: async () => {
-      const git = createGit(dirPath);
-      await git.revparse(["--git-dir"]);
-      return true;
-    },
-    catch: () => false,
-  }).pipe(Effect.catchAll(() => Effect.succeed(false)));
+    try: () => createGit(dirPath).revparse(["--git-dir"]),
+    catch: mapGitError("is-git-repo", `Failed to check git repository at '${dirPath}'`),
+  }).pipe(
+    Effect.as(true),
+    Effect.catchAll(() => Effect.succeed(false)),
+  );

@@ -40,6 +40,7 @@ export type {
   SkillsUpdate,
 } from "./settings.js";
 export {
+  addAgentToWorkspace,
   addSkill,
   createDefaultSettings,
   DEFAULT_SCOPE,

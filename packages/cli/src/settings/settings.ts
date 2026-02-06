@@ -330,6 +330,31 @@ export const addSkill = (
   });
 
 /**
+ * Add an agent to the workspace settings.
+ *
+ * Reads current settings, appends the agent ID if not already present,
+ * writes back, and returns the updated settings. No-op if already present.
+ *
+ * @param axmDir - Path to the .axm directory
+ * @param agentId - Agent identifier to add
+ * @returns Updated settings object
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const addAgentToWorkspace = (
+  axmDir: string,
+  agentId: NonNullable<Settings["agents"]>[number],
+): Effect.Effect<Settings, SettingsError, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const current = yield* readSettings(axmDir);
+    const currentAgents = current.agents ?? [];
+    if (currentAgents.includes(agentId)) return current;
+    const updated: Settings = { ...current, agents: [...currentAgents, agentId] };
+    yield* writeSettings(axmDir, updated);
+    return updated;
+  });
+
+/**
  * Options for ensureInitializedLegacy.
  *
  * @experimental This API is unstable and may change without notice.

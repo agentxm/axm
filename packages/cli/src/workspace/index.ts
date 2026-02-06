@@ -55,6 +55,13 @@ export { loadCurrentState } from "./load-state.js";
 // Plan building
 export { buildPlan, getPlanSummary, type PlanSummary, planHasChanges } from "./plan.js";
 
+// Agent resolution
+export {
+  ensureAgentsConfigured,
+  EnsureAgentsError,
+  type EnsureAgentsOptions,
+} from "./ensure-agents.js";
+
 // Path utilities
 export { getAxmDir, getGlobalDir, getProjectDir } from "./paths.js";
 

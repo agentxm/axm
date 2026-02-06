@@ -12,4 +12,5 @@ export {
   getTreeSha,
   isGitRepository,
   resolveRef,
+  shallowClone,
 } from "./operations.js";

@@ -6,20 +6,21 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { randomUUID } from "node:crypto";
+import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
 import type { ExtensionRef } from "../../../extensions/common.js";
 import {
   buildCloneUrl,
-  cloneRepo,
   type DiscoveredSkill,
   getCurrentCommit,
   printSource,
+  shallowClone,
   type Skill,
   type Source,
 } from "../../../extensions/skills/index.js";
 import type { BitbucketSource, GitHubSource, GitLabSource } from "../../../sources/index.js";
-import { WorkspaceContextTag } from "../../../workspace/index.js";
 import { InstallError } from "./handler.js";
 import { formatError } from "../../../utils/errors.js";
 import * as Array from "effect/Array";
@@ -187,12 +188,12 @@ export const discoverSkillsInDir = (
 // -----------------------------------------------------------------------------
 
 /**
- * Resolves skills from a GitHub/GitLab/Bitbucket git hosting source.
+ * Discovers skills from a GitHub/GitLab/Bitbucket git hosting source.
+ *
+ * Shallow-clones the repository into a scoped temp directory for performance.
+ * The temp directory is automatically cleaned up when the enclosing scope closes.
  */
-const resolveGitHostingProviderSource = (
-  source: GitHubSource | GitLabSource | BitbucketSource,
-  axmDir: string,
-) =>
+const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | BitbucketSource) =>
   Effect.gen(function* () {
     const cloneUrl = yield* buildCloneUrl(source).pipe(
       Effect.mapError(
@@ -204,10 +205,24 @@ const resolveGitHostingProviderSource = (
           }),
       ),
     );
-    const cacheDir = nodePath.join(axmDir, "cache", "git", `${source.owner}-${source.repo}`);
 
-    // Clone repository
-    yield* cloneRepo(cloneUrl, cacheDir, Option.getOrUndefined(source.ref)).pipe(
+    // Acquire scoped temp directory (cleaned up when scope closes)
+    const tempDir = yield* Effect.acquireRelease(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const dir = nodePath.join(tmpdir(), `axm-${randomUUID()}`);
+        yield* fs.makeDirectory(dir, { recursive: true });
+        return dir;
+      }),
+      (dir) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          yield* fs.remove(dir, { recursive: true });
+        }).pipe(Effect.ignoreLogged),
+    );
+
+    // Shallow clone for performance (depth 1, single branch)
+    yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(source.ref)).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({
@@ -223,7 +238,7 @@ const resolveGitHostingProviderSource = (
     );
 
     // Get current commit SHA
-    const commitSha = yield* getCurrentCommit(cacheDir).pipe(
+    const commitSha = yield* getCurrentCommit(tempDir).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({
@@ -236,8 +251,8 @@ const resolveGitHostingProviderSource = (
 
     // Determine skills directory (with optional subpath)
     const skillsDir = Option.match(source.subPath, {
-      onNone: () => cacheDir,
-      onSome: (p) => nodePath.join(cacheDir, p),
+      onNone: () => tempDir,
+      onSome: (p) => nodePath.join(tempDir, p),
     });
 
     // Discover skills
@@ -271,13 +286,11 @@ const resolveGitHostingProviderSource = (
  */
 export const discoverSkills = (source: Source) =>
   Effect.gen(function* () {
-    const { path: workspacePath } = yield* WorkspaceContextTag;
-
     switch (source.source) {
       case "github":
       case "gitlab":
       case "bitbucket": {
-        const result = yield* resolveGitHostingProviderSource(source, workspacePath);
+        const result = yield* discoverFromRemoteGitSource(source);
         return {
           skills: result.skills,
           resolvedSource: {

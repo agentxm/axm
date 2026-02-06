@@ -7,8 +7,10 @@
 
 import * as nodePath from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
+import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 
 // -----------------------------------------------------------------------------
 // Path Validation
@@ -37,6 +39,14 @@ const validatePath = (rawPath: string, basePath: string): Option.Option<string> 
 // -----------------------------------------------------------------------------
 // Manifest Parsers
 // -----------------------------------------------------------------------------
+
+const MarketplaceManifest = Schema.Struct({
+  plugins: Schema.Array(Schema.Struct({ skillPath: Schema.String })),
+});
+
+const PluginManifest = Schema.Struct({
+  skills: Schema.Array(Schema.String),
+});
 
 /**
  * Read a file and parse as JSON, returning None on any failure.
@@ -67,27 +77,12 @@ const parseMarketplaceJson = (
     const json = yield* readJsonFile(manifestPath);
     if (Option.isNone(json)) return [];
 
-    const data = json.value;
-    if (
-      typeof data !== "object" ||
-      data === null ||
-      !Array.isArray((data as { plugins?: unknown }).plugins)
-    ) {
-      return [];
-    }
+    const data = yield* Schema.decodeUnknown(MarketplaceManifest)(json.value).pipe(Effect.option);
+    if (Option.isNone(data)) return [];
 
-    const plugins = (data as { plugins: unknown[] }).plugins;
-    const dirs: string[] = [];
-    for (const plugin of plugins) {
-      if (typeof plugin !== "object" || plugin === null) continue;
-      const skillPath = (plugin as { skillPath?: unknown }).skillPath;
-      if (typeof skillPath !== "string") continue;
-      const validated = validatePath(skillPath, basePath);
-      if (Option.isSome(validated)) {
-        dirs.push(validated.value);
-      }
-    }
-    return dirs;
+    return Array.filterMap(data.value.plugins, (plugin) =>
+      validatePath(plugin.skillPath, basePath),
+    );
   });
 
 /**
@@ -103,25 +98,10 @@ const parsePluginJson = (
     const json = yield* readJsonFile(manifestPath);
     if (Option.isNone(json)) return [];
 
-    const data = json.value;
-    if (
-      typeof data !== "object" ||
-      data === null ||
-      !Array.isArray((data as { skills?: unknown }).skills)
-    ) {
-      return [];
-    }
+    const data = yield* Schema.decodeUnknown(PluginManifest)(json.value).pipe(Effect.option);
+    if (Option.isNone(data)) return [];
 
-    const skills = (data as { skills: unknown[] }).skills;
-    const dirs: string[] = [];
-    for (const skillPath of skills) {
-      if (typeof skillPath !== "string") continue;
-      const validated = validatePath(skillPath, basePath);
-      if (Option.isSome(validated)) {
-        dirs.push(validated.value);
-      }
-    }
-    return dirs;
+    return Array.filterMap(data.value.skills, (skillPath) => validatePath(skillPath, basePath));
   });
 
 // -----------------------------------------------------------------------------
@@ -137,17 +117,9 @@ export const parseManifests = (
   basePath: string,
 ): Effect.Effect<ReadonlyArray<string>, never, FileSystem.FileSystem> =>
   Effect.gen(function* () {
-    const marketplaceDirs = yield* parseMarketplaceJson(basePath);
-    const pluginDirs = yield* parsePluginJson(basePath);
-
-    // Deduplicate
-    const seen = new Set<string>();
-    const result: string[] = [];
-    for (const dir of [...marketplaceDirs, ...pluginDirs]) {
-      if (!seen.has(dir)) {
-        seen.add(dir);
-        result.push(dir);
-      }
-    }
-    return result;
+    const [marketplaceDirs, pluginDirs] = yield* Effect.all(
+      [parseMarketplaceJson(basePath), parsePluginJson(basePath)],
+      { concurrency: "unbounded" },
+    );
+    return Array.dedupe([...marketplaceDirs, ...pluginDirs]);
   });

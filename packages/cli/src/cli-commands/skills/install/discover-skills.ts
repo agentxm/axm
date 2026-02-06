@@ -14,7 +14,6 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import type { ExtensionRef } from "../../../extensions/common.js";
 import {
   buildCloneUrl,
-  type DiscoveredSkill,
   getCurrentCommit,
   printSource,
   shallowClone,
@@ -114,7 +113,10 @@ const MAX_DEPTH = 5;
 // -----------------------------------------------------------------------------
 
 const isInternalSkill = (skill: Skill): boolean =>
-  Option.isSome(skill.metadata) && skill.metadata.value["internal"] === true;
+  Option.match(skill.metadata, {
+    onNone: () => false,
+    onSome: (m) => m["internal"] === true,
+  });
 
 const shouldIncludeSkill = (skill: Skill, options: DiscoveryOptions): boolean => {
   if (!isInternalSkill(skill)) return true;
@@ -405,7 +407,7 @@ const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | Bitbu
       ),
     );
 
-    const discovered: DiscoveredSkill[] = skills.map((skill) => ({
+    const discovered = Array.map(skills, (skill) => ({
       ...skill,
       discoveryPath: Array.make({ name: skill.name, type: "skill" } satisfies ExtensionRef),
     }));
@@ -469,7 +471,7 @@ export const discoverSkills = (source: Source) =>
               }),
           ),
         );
-        const skills: DiscoveredSkill[] = rawSkills.map((skill) => ({
+        const skills = Array.map(rawSkills, (skill) => ({
           ...skill,
           discoveryPath: Array.make({ name: skill.name, type: "skill" } satisfies ExtensionRef),
         }));

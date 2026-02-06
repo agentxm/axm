@@ -32,7 +32,7 @@ export {
 } from "../../sources/index.js";
 
 // Types
-export type { LockEntry, Skill } from "./types.js";
+export type { DiscoveredSkill, LockEntry, Skill } from "./types.js";
 
 // Re-export source types from canonical location
 export type {

@@ -839,7 +839,7 @@ describe("install.handler", () => {
       ),
     );
 
-    it.effect("warns about unknown skill names", () =>
+    it.effect("errors when any specified skill names are unknown", () =>
       withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
@@ -853,19 +853,16 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           };
 
-          // Should still install the valid skill
-          yield* handleInstall(args);
+          const error = yield* handleInstall(args).pipe(Effect.flip);
 
-          expect(
-            fs.existsSync(
-              path.join(tempDir, ".axm", "extensions", "external", "skills", "commit", "SKILL.md"),
-            ),
-          ).toBe(true);
+          expect(error._tag).toBe("InstallError");
+          expect((error as InstallError).message).toContain("Unknown skill(s)");
+          expect((error as InstallError).message).toContain("nonexistent-skill");
         }),
       ),
     );
 
-    it.effect("handles empty result when all specified skills are invalid", () =>
+    it.effect("errors when all specified skills are invalid", () =>
       withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
@@ -879,8 +876,10 @@ describe("install.handler", () => {
             agent: ["claude-code"],
           };
 
-          // Should complete successfully but install nothing
-          yield* handleInstall(args);
+          const error = yield* handleInstall(args).pipe(Effect.flip);
+
+          expect(error._tag).toBe("InstallError");
+          expect((error as InstallError).message).toContain("Unknown skill(s)");
         }),
       ),
     );
@@ -2035,7 +2034,8 @@ describe("install.handler", () => {
         withTestLayer()(
           Effect.gen(function* () {
             isInteractiveMock.mockReturnValue(false);
-            const source = createSkillSource([{ name: "commit" }]);
+            // Multiple skills force the multiselect path (single skill auto-selects)
+            const source = createSkillSource([{ name: "commit" }, { name: "review-pr" }]);
             initializeAxm();
 
             const args: InstallHandlerArgs = {

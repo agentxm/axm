@@ -1,6 +1,6 @@
 ## Why
 
-Our `cli-skills-install-discover-skills-dir` spec has functional gaps compared to a reference implementation of the same algorithm. Two gaps are critical: undefined behavior when a root `SKILL.md` fails to parse (implementers could return empty instead of continuing search), and ambiguous depth semantics (could be off by one level). Additional important gaps include incomplete plugin manifest resolution, missing priority directories, unspecified processing order affecting deduplication determinism, and missing interaction between internal skill filtering and name deduplication. Aligning now prevents incorrect implementations and ensures parity with the proven reference.
+Our `cli-skills-install-discover-skills-dir` spec has functional gaps compared to a reference implementation of the same algorithm. Two gaps are critical: undefined behavior when a root `SKILL.md` fails to parse (implementers could return empty instead of continuing search), and ambiguous depth semantics (could be off by one level). Additional important gaps include incomplete plugin manifest resolution, missing priority directories (31 of 36 agent dirs absent from the priority list), priority directory ordering, and missing interaction between internal skill filtering and name deduplication. Aligning now prevents incorrect implementations and ensures parity with the proven reference.
 
 **Reference sources analyzed:**
 
@@ -20,10 +20,13 @@ Our spec says "max depth is 5" and that depth 6 is excluded, but doesn't clarify
 ### Important — Implementation ambiguity or missing functionality
 
 **Phase 2 — Missing priority directories:**
-Add `skills/.experimental/` and `skills/.system/` to the priority directory list. These exist in the reference implementation but are absent from our spec.
+Our `PRIORITY_DIRECTORIES` has 8 hardcoded entries, but the `AgentConfig` registry defines 39 agents with 36 unique `skills.dir` values — only 5 of which appear in the priority list (`skills`, `.claude/skills`, `.cursor/skills`, `.cline/skills`, `.windsurf/skills`). The remaining 31 agent directories (e.g., `.codex/skills`, `.gemini/skills`, `.roo/skills`, `.github/skills`, etc.) are missing, meaning skills installed for those agents are only discoverable via Phase 3 recursive fallback. Additionally, `.copilot/skills` is in the priority list but has no corresponding `AgentConfig` (stale entry). Non-agent directories `skills/.curated`, `skills/.experimental/`, and `skills/.system/` should remain as a static list. Agent-specific directories should be derived from the `AgentConfig` registry (`getAllAgents()` → unique `skills.dir` values) rather than hardcoded, so new agents automatically get priority directory coverage.
 
-**Phase 2 — Sequential processing order:**
-Our spec says Phase 2 "SHALL enumerate" directories but doesn't specify processing order. The reference implementation processes priority directories **sequentially** (not in parallel), and entries within each directory are also processed sequentially. This matters because `seenNames` deduplication is order-dependent — parallel processing could produce non-deterministic results when the same skill name appears in multiple priority directories.
+**Phase 2 — Priority directory ordering:**
+`.` (searchPath) must be FIRST in the priority directory list, not last. The current list has `.` at position 8 — this means a skill at the repo root loses dedup priority to the same skill found in `skills/` or `.claude/skills/`. The reference implementation treats the searchPath root as highest priority.
+
+**Phase 2 — Processing order and deduplication:**
+Our spec says Phase 2 "SHALL enumerate" directories but doesn't specify processing order. `Effect.forEach` preserves input order even with `concurrency: "unbounded"` — results are returned in the order of the input array regardless of completion timing. Post-hoc dedup over these ordered results is functionally equivalent to the reference implementation's inline sequential dedup. The current concurrent approach is correct and should be kept.
 
 **Phase 2 — Directory-type entries only:**
 Specify that only directory-type entries within each priority directory are checked for `SKILL.md`. Files at the priority directory root level are ignored.
@@ -58,14 +61,11 @@ Explicit skill paths from manifests are transformed via `dirname()` to produce p
 **SKILL.md Parsing — Case sensitivity:**
 **BREAKING**: Change `SKILL.md` matching from case-insensitive to case-sensitive (exact `SKILL.md`). The reference implementation uses a hardcoded literal `'SKILL.md'` with `stat()`. Case-insensitive matching would require `readdir()` on every directory to find case variants — added complexity with no real-world benefit since `SKILL.md` is the universal convention.
 
-**SKILL.md Parsing — `rawContent` field:**
-Add `rawContent` to the output skill object. This is the **entire file content** including the `---` frontmatter delimiters, not just the markdown body. It is used downstream for content hashing in the lock file. Without it, hash-based change detection cannot work.
-
 **SKILL.md Parsing — Regular file check:**
 `SKILL.md` must be verified as a regular file via `stat().isFile()`. A directory named `SKILL.md` (possible on some filesystems) should be rejected. The reference uses `stat` (follows symlinks), so a symlink to a valid file is accepted.
 
 **SKILL.md Parsing — Output type definition:**
-Formally define the output `Skill` interface: `name`, `description`, `path` (computed from `dirname` of SKILL.md path), `rawContent` (full file text), `metadata` (optional record from frontmatter).
+Formally define the output `Skill` interface: `name`, `description`, `path` (computed from `dirname` of SKILL.md path), `metadata` (optional record from frontmatter).
 
 **Post-discovery utilities (new capability):**
 
@@ -85,7 +85,7 @@ Document that Phase 3 starts from `searchPath` and may revisit directories alrea
 Path containment uses `resolve`/`normalize` (textual comparison with platform separator), not `realpath`. Symlinks are not resolved — a symlinked path textually within `basePath` but physically pointing elsewhere would pass the check.
 
 **Priority directory coverage note:**
-The priority list is a subset of all supported agent `skillsDir` values. Some agents (Augment, Crush, Droid, Kode, etc.) install to directories not in this list. Skills in those directories within a source repo are only found via Phase 3 recursive fallback.
+With agent dirs derived from the registry, all supported agent `skillsDir` values are covered as Phase 2 priority directories. Phase 3 remains as a fallback for directories outside the known set (e.g., custom layouts or future agents not yet in the registry).
 
 ## Capabilities
 
@@ -95,12 +95,11 @@ The priority list is a subset of all supported agent `skillsDir` values. Some ag
 
 ### Modified Capabilities
 
-- `cli-skills-install-discover-skills-dir`: Phase 1 parse-failure fallthrough, missing priority dirs (`skills/.experimental/`, `skills/.system/`), depth semantics clarification, sequential Phase 2 processing, Phase 3 concurrency model, SKIP_DIRS scope, internal skill / seenNames interaction, plugin manifest resolution gaps (pluginRoot validation, conventional skills/ dir, omitted source, object source, additive manifests, dirname transformation), case-sensitive SKILL.md matching (BREAKING), rawContent output field, regular file check, output type definition, INSTALL_INTERNAL_SKILLS accepts "true"
+- `cli-skills-install-discover-skills-dir`: Phase 1 parse-failure fallthrough, priority dirs derived from AgentConfig registry (31 missing agent dirs, 1 stale removal), priority dir ordering (`.` first), depth semantics clarification, Phase 3 concurrency model, SKIP_DIRS scope, internal skill / seenNames interaction, plugin manifest resolution gaps (pluginRoot validation, conventional skills/ dir, omitted source, object source, additive manifests, dirname transformation), case-sensitive SKILL.md matching (BREAKING), regular file check, output type definition, INSTALL_INTERNAL_SKILLS accepts "true"
 
 ## Impact
 
-- **`discoverSkillsInDir` implementation**: Phase 1 control flow (parse-failure fallthrough), priority directory list (+2 dirs), Phase 2 sequential processing, Phase 3 concurrency model, plugin manifest parser (6 behavioral additions)
-- **Output type**: `rawContent` field addition affects all downstream consumers (lock file hashing, content-based change detection)
+- **`discoverSkillsInDir` implementation**: Phase 1 control flow (parse-failure fallthrough), priority directory list (derived from AgentConfig registry, `.` moved to first position), Phase 3 concurrency model, plugin manifest parser (6 behavioral additions)
 - **BREAKING — Case sensitivity**: Any existing case-insensitive `SKILL.md` matching logic would need to change to exact `SKILL.md` match
 - **New module**: Post-discovery utilities (`getSkillDisplayName`, `filterSkills`, `sanitizeName`) needed by the install command handler and UI layer
 - **Test surface**: Significant new test scenarios needed for Phase 1 fallthrough, internal/seenNames interaction, plugin manifest edge cases

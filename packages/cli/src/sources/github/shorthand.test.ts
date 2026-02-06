@@ -2,23 +2,9 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { parseShorthand, printShorthand } from "./shorthand.js";
+import { parseShorthand } from "./shorthand.js";
 
 describe("shorthand", () => {
-  describe("printShorthand", () => {
-    it("formats owner/repo", () => {
-      const source = {
-        source: "github" as const,
-        owner: "acme",
-        repo: "widgets",
-        ref: Option.none(),
-        subPath: Option.none(),
-      };
-
-      expect(printShorthand(source)).toBe("github:acme/widgets");
-    });
-  });
-
   describe("parseShorthand", () => {
     it.effect("parses owner/repo", () =>
       Effect.gen(function* () {

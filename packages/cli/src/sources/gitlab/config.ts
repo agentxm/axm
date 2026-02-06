@@ -1,55 +1,21 @@
-import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { ParseError } from "../errors.js";
-import { parseProviderShorthand } from "../parse-provider-shorthand.js";
 import type { GitLabSource, SourceConfig } from "../types.js";
-import { GITLAB_HTTPS_PATTERN, GITLAB_SSH_PATTERN } from "./patterns.js";
-
-const makeSource = (args: {
-  owner: string;
-  repo: string;
-  ref?: string | undefined;
-  subPath?: string | undefined;
-}): GitLabSource => ({
-  source: "gitlab",
-  owner: args.owner,
-  repo: args.repo,
-  ref: Option.fromNullable(args.ref),
-  subPath: Option.fromNullable(args.subPath),
-});
+import { print } from "./print.js";
+import { parseScp } from "./scp.js";
+import { parseShorthand, shorthandPrefix } from "./shorthand.js";
+import { parseUrl } from "./url.js";
 
 export const config: SourceConfig<"gitlab", GitLabSource> = {
   id: "gitlab",
-  print: (source) => `gitlab:${source.owner}/${source.repo}`,
+  print,
   shorthand: Option.some({
-    prefix: "gitlab",
-    parse: (input: string): Effect.Effect<GitLabSource, ParseError> =>
-      Effect.gen(function* () {
-        const body = input.slice("gitlab:".length);
-        const parts = yield* parseProviderShorthand(body, input);
-        return makeSource(parts);
-      }),
+    prefix: shorthandPrefix,
+    parse: parseShorthand,
   }),
   parseFromUrl: Option.some({
     hostname: "gitlab.com",
-    parseUrl: (url) => {
-      const match = url.href.match(GITLAB_HTTPS_PATTERN);
-      if (!match || !match[1] || !match[2]) {
-        return Effect.fail(
-          new ParseError({ message: "Invalid GitLab URL format", input: url.href }),
-        );
-      }
-      return Effect.succeed(
-        makeSource({ owner: match[1], repo: match[2], ref: match[3], subPath: match[4] }),
-      );
-    },
-    parseScp: (input) => {
-      const match = input.match(GITLAB_SSH_PATTERN);
-      if (!match || !match[1] || !match[2]) {
-        return Effect.fail(new ParseError({ message: "Invalid GitLab SSH URL format", input }));
-      }
-      return Effect.succeed(makeSource({ owner: match[1], repo: match[2] }));
-    },
+    parseUrl: parseUrl,
+    parseScp: parseScp,
   }),
 };

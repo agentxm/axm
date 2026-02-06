@@ -107,11 +107,6 @@ const CONFIG_BY_HOSTNAME = new Map<string, AnySourceConfig>(
 // Azure Repos uses a different hostname for SCP-style SSH URLs
 CONFIG_BY_HOSTNAME.set("ssh.dev.azure.com", azurereposConfig);
 
-/** Map from source type to its config. */
-const CONFIG_BY_SOURCE_TYPE = new Map<string, AnySourceConfig>(
-  Array.map(ALL_CONFIGS, (c) => [c.id, c] as const),
-);
-
 /** Known shorthand prefixes from source configs. */
 const SHORTHAND_PREFIXES = new Set(CONFIG_BY_PREFIX.keys());
 
@@ -279,27 +274,4 @@ export const parseSource = (input: string): Effect.Effect<Source, ParseError> =>
       ),
     }),
   );
-};
-
-// -----------------------------------------------------------------------------
-// Print
-// -----------------------------------------------------------------------------
-
-/**
- * Print a source as its canonical shorthand string.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const printSource = (source: Source): string => {
-  const cfg = CONFIG_BY_SOURCE_TYPE.get(source.source);
-  if (cfg) return cfg.print(source);
-
-  // Fallback for types without a config
-  switch (source.source) {
-    case "git":
-    case "registry":
-      return "url" in source ? source.url : source.path;
-    default:
-      return source.source;
-  }
 };

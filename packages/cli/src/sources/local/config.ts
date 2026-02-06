@@ -10,4 +10,5 @@ export const config: SourceConfig<"local", LocalSource> = {
     parse: (input: string) => parseLocalPath(input.slice("local:".length)),
     print: (source) => `local:${source.path}`,
   }),
+  parseFromUrl: Option.none(),
 };

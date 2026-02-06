@@ -47,6 +47,7 @@ export {
   getTreeSha,
   isGitRepository,
   resolveRef,
+  shallowClone,
 } from "../git/index.js";
 
 // GitHub API

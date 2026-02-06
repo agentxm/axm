@@ -91,6 +91,33 @@ export const cloneRepo = (
   });
 
 /**
+ * Shallow clone a git repository (depth 1, single branch).
+ * Significantly faster than a full clone for read-only use cases like skill discovery.
+ *
+ * @param url - Repository URL (HTTPS or SSH)
+ * @param destination - Local path to clone to
+ * @param ref - Optional git ref (branch or tag) to clone
+ * @returns Effect that resolves on success or fails with GitError
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const shallowClone = (
+  url: string,
+  destination: string,
+  ref?: string,
+): Effect.Effect<void, GitError> =>
+  Effect.tryPromise({
+    try: () =>
+      createGit().clone(url, destination, [
+        "--depth",
+        "1",
+        "--single-branch",
+        ...(ref ? ["--branch", ref] : []),
+      ]),
+    catch: mapGitError("clone", `Failed to shallow clone ${url}`),
+  });
+
+/**
  * Resolve a ref (tag, branch, SHA) to a full commit SHA.
  *
  * @param repoPath - Path to the git repository

@@ -14,6 +14,7 @@ export {
   getTreeSha,
   isGitRepository,
   resolveRef,
+  shallowClone,
 } from "../../sources/index.js";
 export type { GitError } from "../../sources/index.js";
 

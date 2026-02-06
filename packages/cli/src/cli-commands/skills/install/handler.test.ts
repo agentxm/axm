@@ -50,8 +50,8 @@ vi.mock("../../../extensions/skills/index.js", async (importOriginal) => {
     __clearFixturePath: () => {
       currentFixturePath = undefined;
     },
-    // Mock cloneRepo to copy from fixture instead of actual git clone
-    cloneRepo: vi.fn((url: string, destination: string) => {
+    // Mock shallowClone to copy from fixture instead of actual git clone
+    shallowClone: vi.fn((url: string, destination: string) => {
       if (!currentFixturePath) {
         // Die with an error when no fixture is set (simulates failed clone)
         return Effect.die(`Failed to clone repository from ${url}`);

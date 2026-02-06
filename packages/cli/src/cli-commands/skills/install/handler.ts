@@ -220,264 +220,268 @@ const createBuildIdealDeps = (
 export const handleInstall = (args: InstallHandlerArgs) => {
   const scopeLabel = args.global ? "global" : "project";
 
-  return Effect.gen(function* () {
-    // Get Clack service
-    const clack = yield* Clack;
+  // Scoped to manage temp directory lifecycle from remote git source discovery.
+  // The scope keeps the temp clone dir alive until plan application completes.
+  return Effect.scoped(
+    Effect.gen(function* () {
+      // Get Clack service
+      const clack = yield* Clack;
 
-    // Show intro
-    yield* clack.intro(`axm skills install (${scopeLabel})`);
+      // Show intro
+      yield* clack.intro(`axm skills install (${scopeLabel})`);
 
-    // Create spinner (auto-detects TTY)
-    const spinner = yield* clack.spinner();
+      // Create spinner (auto-detects TTY)
+      const spinner = yield* clack.spinner();
 
-    // Step 1: Parse source
-    spinner.start("Parsing source...");
-    const source = yield* parseSource(args.source).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: formatError(
-              `Invalid source: ${error.message}`,
-              [`Provided: ${args.source || "(empty)"}`],
-              "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
-            ),
-            cause: Option.some(error),
-            retryable: false,
-          }),
-      ),
-    );
-    spinner.stop(`Source: ${printSource(source)} (${source.source})`);
-
-    // Step 2: Get workspace context (provided by runtime)
-    const context = yield* WorkspaceContextTag;
-
-    // Step 3: Get agents from settings or --agent flag
-    spinner.start("Loading agents...");
-    const agents: AgentConfig[] = yield* ensureAgentsConfigured({
-      agentFlags: args.agent,
-      workspacePath: context.path,
-      getSettings: () => context.getSettings(),
-      yes: args.yes,
-      nonInteractive: Option.getOrElse(args.nonInteractive, () => false),
-    }).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: error.message,
-            cause: Option.some(error),
-            retryable: false,
-          }),
-      ),
-    );
-    spinner.stop(`Using ${agents.length} agent(s)`);
-
-    // Step 4: Load current state (V2)
-    spinner.start("Loading current state...");
-    const currentState = yield* loadCurrentState(context).pipe(
-      Effect.mapError(
-        (error: { message: string }) =>
-          new InstallError({
-            message: `Failed to load current state: ${error.message}`,
-            cause: Option.some(error),
-            retryable: false,
-          }),
-      ),
-    );
-    spinner.stop("Loaded current state");
-
-    // Step 5: Discover skills from source
-    spinner.start("Discovering skills...");
-    const { skills: discoveredSkills, resolvedSource } = yield* discoverSkills(source).pipe(
-      Effect.tapError(() => Effect.sync(() => spinner.stop("Failed"))),
-    );
-
-    if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
-      spinner.stop("No skills found");
-      return yield* new InstallError({
-        message: formatError(
-          "No skills found in source",
-          [`Source: ${printSource(source)}`],
-          "Verify the source path contains directories with SKILL.md files.",
-        ),
-        cause: Option.none(),
-        retryable: false,
-      });
-    }
-    spinner.stop(`Found ${discoveredSkills.length} skill(s)`);
-
-    // Step 6: List mode -> display and exit
-    if (args.list) {
-      yield* clack.log.info("Available skills:");
-      for (const skill of discoveredSkills) {
-        const desc = Option.isSome(skill.description) ? ` - ${skill.description.value}` : "";
-        yield* clack.log.message(`  ${skill.name}${desc}`);
-      }
-      yield* clack.outro(`${discoveredSkills.length} skill(s) available`);
-      return;
-    }
-
-    // Step 7: Select skills to install
-    const selectedSkills = yield* determineSkillsToInstall(discoveredSkills, {
-      requestedSkills: args.skill,
-      all: args.all,
-      dryRun: Option.getOrElse(args.dryRun, () => false),
-      yes: args.yes,
-    });
-
-    const selectedSkillNames = Array.map(selectedSkills, (s) => s.name);
-
-    if (!Array.isNonEmptyReadonlyArray(selectedSkillNames)) {
-      yield* clack.log.warn("No skills selected.");
-      yield* clack.outro("Nothing to install.");
-      return;
-    }
-
-    const filteredSkills = selectedSkills;
-
-    // Step 8: Build ideal state (V2)
-    spinner.start("Building installation plan...");
-
-    // Create the InstallCommand for V2 API
-    const installCmd: InstallCommand = {
-      _tag: "skills-install",
-      source: args.source,
-      agents: Array.map(agents, (a) => a.id),
-      skills: selectedSkillNames,
-      force: args.force,
-    };
-
-    // Create deps for buildIdealForInstall
-    const buildIdealDeps = createBuildIdealDeps(resolvedSource, filteredSkills);
-
-    const ideal = yield* buildIdealForInstall(currentState, installCmd, buildIdealDeps).pipe(
-      Effect.mapError(
-        (error: { message: string }) =>
-          new InstallError({
-            message: `Failed to build ideal state: ${error.message}`,
-            cause: Option.some(error),
-            retryable: false,
-          }),
-      ),
-    );
-    spinner.stop("Built installation plan");
-
-    // Step 9: Build plan (V2)
-    const plan = buildPlan(currentState, ideal);
-
-    // Step 10: Display plan
-    yield* displayPlan(clack, plan, printSource(source));
-
-    // Step 11: Check if there are changes
-    if (!planHasChanges(plan)) {
-      yield* clack.log.info("Already up to date.");
-      yield* clack.outro("No changes needed.");
-      return;
-    }
-
-    // Step 12: Dry-run stops here
-    if (Option.getOrElse(args.dryRun, () => false)) {
-      yield* clack.outro("Dry-run complete. No changes made.");
-      return;
-    }
-
-    // Step 13: Confirm installation (unless --yes or --non-interactive)
-    if (!args.yes && !Option.getOrElse(args.nonInteractive, () => false)) {
-      if (!isInteractive()) {
-        return yield* Effect.fail(
-          new InstallError({
-            message: formatError(
-              "Cannot prompt for confirmation",
-              ["stdin is not a TTY"],
-              "Use --yes, --all, or --non-interactive to run without prompts.",
-            ),
-            cause: Option.none(),
-            retryable: false,
-          }),
-        );
-      }
-      const confirmed = yield* clack.confirm("Apply changes?").pipe(
+      // Step 1: Parse source
+      spinner.start("Parsing source...");
+      const source = yield* parseSource(args.source).pipe(
         Effect.mapError(
           (error) =>
-            new InstallError(
-              error._tag === "PromptCancelled"
-                ? { message: "Installation cancelled.", cause: Option.none(), retryable: false }
-                : {
-                    message: "Failed to prompt for confirmation",
-                    cause: Option.some(error),
-                    retryable: false,
-                  },
-            ),
+            new InstallError({
+              message: formatError(
+                `Invalid source: ${error.message}`,
+                [`Provided: ${args.source || "(empty)"}`],
+                "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
+              ),
+              cause: Option.some(error),
+              retryable: false,
+            }),
         ),
       );
-      if (!confirmed) {
-        yield* clack.log.warn("Installation cancelled.");
+      spinner.stop(`Source: ${printSource(source)} (${source.source})`);
+
+      // Step 2: Get workspace context (provided by runtime)
+      const context = yield* WorkspaceContextTag;
+
+      // Step 3: Get agents from settings or --agent flag
+      spinner.start("Loading agents...");
+      const agents: AgentConfig[] = yield* ensureAgentsConfigured({
+        agentFlags: args.agent,
+        workspacePath: context.path,
+        getSettings: () => context.getSettings(),
+        yes: args.yes,
+        nonInteractive: Option.getOrElse(args.nonInteractive, () => false),
+      }).pipe(
+        Effect.mapError(
+          (error) =>
+            new InstallError({
+              message: error.message,
+              cause: Option.some(error),
+              retryable: false,
+            }),
+        ),
+      );
+      spinner.stop(`Using ${agents.length} agent(s)`);
+
+      // Step 4: Load current state (V2)
+      spinner.start("Loading current state...");
+      const currentState = yield* loadCurrentState(context).pipe(
+        Effect.mapError(
+          (error: { message: string }) =>
+            new InstallError({
+              message: `Failed to load current state: ${error.message}`,
+              cause: Option.some(error),
+              retryable: false,
+            }),
+        ),
+      );
+      spinner.stop("Loaded current state");
+
+      // Step 5: Discover skills from source
+      spinner.start("Discovering skills...");
+      const { skills: discoveredSkills, resolvedSource } = yield* discoverSkills(source).pipe(
+        Effect.tapError(() => Effect.sync(() => spinner.stop("Failed"))),
+      );
+
+      if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
+        spinner.stop("No skills found");
+        return yield* new InstallError({
+          message: formatError(
+            "No skills found in source",
+            [`Source: ${printSource(source)}`],
+            "Verify the source path contains directories with SKILL.md files.",
+          ),
+          cause: Option.none(),
+          retryable: false,
+        });
+      }
+      spinner.stop(`Found ${discoveredSkills.length} skill(s)`);
+
+      // Step 6: List mode -> display and exit
+      if (args.list) {
+        yield* clack.log.info("Available skills:");
+        for (const skill of discoveredSkills) {
+          const desc = Option.isSome(skill.description) ? ` - ${skill.description.value}` : "";
+          yield* clack.log.message(`  ${skill.name}${desc}`);
+        }
+        yield* clack.outro(`${discoveredSkills.length} skill(s) available`);
         return;
       }
-    }
 
-    // Step 14: Apply changes (V2)
-    const summary = getPlanSummary(plan);
-    spinner.start(`Applying ${summary.installed + summary.updated} change(s)...`);
+      // Step 7: Select skills to install
+      const selectedSkills = yield* determineSkillsToInstall(discoveredSkills, {
+        requestedSkills: args.skill,
+        all: args.all,
+        dryRun: Option.getOrElse(args.dryRun, () => false),
+        yes: args.yes,
+      });
 
-    // Create a modified applyStep that ensures source paths point to the specific skill folder.
-    // The plan stores source pointing to the skillsDir root (for lockfile/settings),
-    // but file operations need the path to the specific skill folder.
-    const applyStepWithSkillPath = (step: PlanStep) => {
-      // For install/update steps, ensure source path includes the skill name
-      if (step._tag === "InstallSkill" || step._tag === "UpdateSkill") {
-        // For GitHub/Registry: use the cached skillsDir + skill name
-        // For Local: the source path is the skillsDir root, append skill name
-        const skillPath = nodePath.join(resolvedSource.skillsDir, step.skill);
-        const localSource = SkillSourceV2.Local({ path: skillPath });
-        const localStep = { ...step, source: localSource };
-        return applyStep(localStep, { workspacePath: context.path, agents });
+      const selectedSkillNames = Array.map(selectedSkills, (s) => s.name);
+
+      if (!Array.isNonEmptyReadonlyArray(selectedSkillNames)) {
+        yield* clack.log.warn("No skills selected.");
+        yield* clack.outro("Nothing to install.");
+        return;
       }
-      return applyStep(step, { workspacePath: context.path, agents });
-    };
 
-    const applyResult = yield* applyPlan(
-      plan,
-      { dryRun: false },
-      {
-        applyStep: applyStepWithSkillPath,
-        updateLockfile: (planData: { steps: ReadonlyArray<PlanStep> }) =>
-          updateLockfileForPlan(context.path, planData),
-        updateSettings: (planData: { steps: ReadonlyArray<PlanStep> }) =>
-          updateSettingsForPlan(context.path, planData),
-      },
-    ).pipe(
-      Effect.mapError(
-        (error: { message: string }) =>
-          new InstallError({
-            message: `Failed to apply changes: ${error.message}`,
-            cause: Option.some(error),
-            retryable: false,
-          }),
-      ),
-    );
+      const filteredSkills = selectedSkills;
 
-    spinner.stop(`Applied ${applyResult.applied.length} change(s)`);
+      // Step 8: Build ideal state (V2)
+      spinner.start("Building installation plan...");
 
-    // Show results summary
-    yield* Effect.forEach(
-      applyResult.applied,
-      (step) => {
-        const agentNames = step.agents.join(", ");
-        return clack.log.success(`${step.skill} -> ${agentNames}`);
-      },
-      { concurrency: 1 },
-    );
+      // Create the InstallCommand for V2 API
+      const installCmd: InstallCommand = {
+        _tag: "skills-install",
+        source: args.source,
+        agents: Array.map(agents, (a) => a.id),
+        skills: selectedSkillNames,
+        force: args.force,
+      };
 
-    if (applyResult.failed.length > 0) {
+      // Create deps for buildIdealForInstall
+      const buildIdealDeps = createBuildIdealDeps(resolvedSource, filteredSkills);
+
+      const ideal = yield* buildIdealForInstall(currentState, installCmd, buildIdealDeps).pipe(
+        Effect.mapError(
+          (error: { message: string }) =>
+            new InstallError({
+              message: `Failed to build ideal state: ${error.message}`,
+              cause: Option.some(error),
+              retryable: false,
+            }),
+        ),
+      );
+      spinner.stop("Built installation plan");
+
+      // Step 9: Build plan (V2)
+      const plan = buildPlan(currentState, ideal);
+
+      // Step 10: Display plan
+      yield* displayPlan(clack, plan, printSource(source));
+
+      // Step 11: Check if there are changes
+      if (!planHasChanges(plan)) {
+        yield* clack.log.info("Already up to date.");
+        yield* clack.outro("No changes needed.");
+        return;
+      }
+
+      // Step 12: Dry-run stops here
+      if (Option.getOrElse(args.dryRun, () => false)) {
+        yield* clack.outro("Dry-run complete. No changes made.");
+        return;
+      }
+
+      // Step 13: Confirm installation (unless --yes or --non-interactive)
+      if (!args.yes && !Option.getOrElse(args.nonInteractive, () => false)) {
+        if (!isInteractive()) {
+          return yield* Effect.fail(
+            new InstallError({
+              message: formatError(
+                "Cannot prompt for confirmation",
+                ["stdin is not a TTY"],
+                "Use --yes, --all, or --non-interactive to run without prompts.",
+              ),
+              cause: Option.none(),
+              retryable: false,
+            }),
+          );
+        }
+        const confirmed = yield* clack.confirm("Apply changes?").pipe(
+          Effect.mapError(
+            (error) =>
+              new InstallError(
+                error._tag === "PromptCancelled"
+                  ? { message: "Installation cancelled.", cause: Option.none(), retryable: false }
+                  : {
+                      message: "Failed to prompt for confirmation",
+                      cause: Option.some(error),
+                      retryable: false,
+                    },
+              ),
+          ),
+        );
+        if (!confirmed) {
+          yield* clack.log.warn("Installation cancelled.");
+          return;
+        }
+      }
+
+      // Step 14: Apply changes (V2)
+      const summary = getPlanSummary(plan);
+      spinner.start(`Applying ${summary.installed + summary.updated} change(s)...`);
+
+      // Create a modified applyStep that ensures source paths point to the specific skill folder.
+      // The plan stores source pointing to the skillsDir root (for lockfile/settings),
+      // but file operations need the path to the specific skill folder.
+      const applyStepWithSkillPath = (step: PlanStep) => {
+        // For install/update steps, ensure source path includes the skill name
+        if (step._tag === "InstallSkill" || step._tag === "UpdateSkill") {
+          // For GitHub/Registry: use the cached skillsDir + skill name
+          // For Local: the source path is the skillsDir root, append skill name
+          const skillPath = nodePath.join(resolvedSource.skillsDir, step.skill);
+          const localSource = SkillSourceV2.Local({ path: skillPath });
+          const localStep = { ...step, source: localSource };
+          return applyStep(localStep, { workspacePath: context.path, agents });
+        }
+        return applyStep(step, { workspacePath: context.path, agents });
+      };
+
+      const applyResult = yield* applyPlan(
+        plan,
+        { dryRun: false },
+        {
+          applyStep: applyStepWithSkillPath,
+          updateLockfile: (planData: { steps: ReadonlyArray<PlanStep> }) =>
+            updateLockfileForPlan(context.path, planData),
+          updateSettings: (planData: { steps: ReadonlyArray<PlanStep> }) =>
+            updateSettingsForPlan(context.path, planData),
+        },
+      ).pipe(
+        Effect.mapError(
+          (error: { message: string }) =>
+            new InstallError({
+              message: `Failed to apply changes: ${error.message}`,
+              cause: Option.some(error),
+              retryable: false,
+            }),
+        ),
+      );
+
+      spinner.stop(`Applied ${applyResult.applied.length} change(s)`);
+
+      // Show results summary
       yield* Effect.forEach(
-        applyResult.failed,
-        (failure) => clack.log.error(`${failure.step.skill}: ${failure.error.message}`),
+        applyResult.applied,
+        (step) => {
+          const agentNames = step.agents.join(", ");
+          return clack.log.success(`${step.skill} -> ${agentNames}`);
+        },
         { concurrency: 1 },
       );
-    }
 
-    yield* clack.outro(
-      `Successfully installed ${applyResult.summary.installed} skill(s) to ${agents.length} agent(s)`,
-    );
-  });
+      if (applyResult.failed.length > 0) {
+        yield* Effect.forEach(
+          applyResult.failed,
+          (failure) => clack.log.error(`${failure.step.skill}: ${failure.error.message}`),
+          { concurrency: 1 },
+        );
+      }
+
+      yield* clack.outro(
+        `Successfully installed ${applyResult.summary.installed} skill(s) to ${agents.length} agent(s)`,
+      );
+    }),
+  );
 };

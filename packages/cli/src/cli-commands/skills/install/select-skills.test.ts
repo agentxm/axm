@@ -28,7 +28,8 @@ const makeSkill = (name: string, pathLength = 1): DiscoveredSkill => {
   return {
     name,
     path: `/fake/${name}/SKILL.md`,
-    description: Option.none(),
+    description: "",
+    metadata: Option.none(),
     discoveryPath: refs as unknown as Array.NonEmptyReadonlyArray<ExtensionRef>,
   };
 };

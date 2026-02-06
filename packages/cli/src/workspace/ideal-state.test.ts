@@ -431,7 +431,7 @@ const makeFullSkillState = (
     files: ["SKILL.md"],
     frontmatter: Option.some({
       name: Option.some(name),
-      description: `${name} description`,
+      description: Option.some(`${name} description`),
       version: Option.none(),
       triggers: Option.none(),
     }),

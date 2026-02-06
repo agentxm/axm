@@ -552,8 +552,7 @@ describe("applyStep - InstallSkill", () => {
             id: "claude-code" as const,
             name: "Claude Code",
             skills: {
-              projectDir: nodePath.join(claudeDir, "commands"),
-              globalDir: Option.none(),
+              dir: nodePath.join(claudeDir, "commands"),
             },
           },
         ],
@@ -772,8 +771,7 @@ describe("applyStep - UninstallSkill", () => {
             id: "claude-code" as const,
             name: "Claude Code",
             skills: {
-              projectDir: nodePath.join(claudeDir, "commands"),
-              globalDir: Option.none(),
+              dir: nodePath.join(claudeDir, "commands"),
             },
           },
         ],

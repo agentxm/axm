@@ -5,9 +5,6 @@
  * @packageDocumentation
  */
 
-import * as path from "node:path";
-import * as Option from "effect/Option";
-import { configHome } from "../constants.js";
 import type { AgentConfig } from "../types.js";
 import { detect } from "./detection.js";
 
@@ -20,8 +17,7 @@ export const config: AgentConfig = {
   id: "opencode",
   name: "OpenCode",
   skills: {
-    projectDir: ".opencode/skills",
-    globalDir: Option.some(path.join(configHome, "opencode/skills")),
+    dir: ".opencode/skills",
   },
   detect,
 };

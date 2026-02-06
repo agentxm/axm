@@ -1,22 +1,22 @@
 ## 1. Spec Updates (spec-only fixes)
 
-- [ ] 1.1 Update `cli-skills-install-discover-skills-dir/spec.md` with Phase 1 parse-failure fallthrough scenarios
-- [ ] 1.2 Update spec with Phase 3 depth semantics clarification (0-indexed, `depth > maxDepth`, 6 levels inclusive)
-- [ ] 1.3 Update spec with Phase 3 concurrency model (concurrent per depth level, not DFS)
-- [ ] 1.4 Update spec with SKIP_DIRS scope (Phase 3 only)
-- [ ] 1.5 Update spec with Phase 2 directory-type entries only
-- [ ] 1.6 Update spec with internal skills / seenNames interaction (filtered internals do not consume names)
-- [ ] 1.7 Update spec with Phase 2 processing order note (concurrent, input-order-preserving)
-- [ ] 1.8 Update spec with plugin manifest additive behavior and dirname transformation
-- [ ] 1.9 Update spec with regular file check for SKILL.md
-- [ ] 1.10 Update spec with output Skill type definition (name, description, path, metadata)
-- [ ] 1.11 Update spec with path containment (`isContainedIn`) implementation note
-- [ ] 1.12 Update spec with Phase 3 re-scanning note (may revisit Phase 1/2 dirs, seenNames prevents dupes)
-- [ ] 1.13 Run `pnpm typecheck` and fix any errors
-- [ ] 1.14 Run `pnpm lint` and fix any errors
-- [ ] 1.15 Run `pnpm test` and fix any failures
-- [ ] 1.16 Run `pnpm test:e2e` and fix any failures
-- [ ] 1.17 Kill any vitest worker processes
+- [x] 1.1 Update `cli-skills-install-discover-skills-dir/spec.md` with Phase 1 parse-failure fallthrough scenarios
+- [x] 1.2 Update spec with Phase 3 depth semantics clarification (0-indexed, `depth > maxDepth`, 6 levels inclusive)
+- [x] 1.3 Update spec with Phase 3 concurrency model (concurrent per depth level, not DFS)
+- [x] 1.4 Update spec with SKIP_DIRS scope (Phase 3 only)
+- [x] 1.5 Update spec with Phase 2 directory-type entries only
+- [x] 1.6 Update spec with internal skills / seenNames interaction (filtered internals do not consume names)
+- [x] 1.7 Update spec with Phase 2 processing order note (concurrent, input-order-preserving)
+- [x] 1.8 Update spec with plugin manifest additive behavior and dirname transformation
+- [x] 1.9 Update spec with regular file check for SKILL.md
+- [x] 1.10 Update spec with output Skill type definition (name, description, path, metadata)
+- [x] 1.11 Update spec with path containment (`isContainedIn`) implementation note
+- [x] 1.12 Update spec with Phase 3 re-scanning note (may revisit Phase 1/2 dirs, seenNames prevents dupes)
+- [x] 1.13 Run `pnpm typecheck` and fix any errors
+- [x] 1.14 Run `pnpm lint` and fix any errors
+- [x] 1.15 Run `pnpm test` and fix any failures
+- [x] 1.16 Run `pnpm test:e2e` and fix any failures
+- [x] 1.17 Kill any vitest worker processes
 
 ## 2. Case-Sensitive SKILL.md Matching
 

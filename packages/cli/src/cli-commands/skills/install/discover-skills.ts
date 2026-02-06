@@ -14,9 +14,10 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import type { ExtensionRef } from "../../../extensions/common.js";
 import {
   buildCloneUrl,
-  getCurrentCommit,
+  getTreeSha,
   printSource,
   shallowClone,
+  type DiscoveredSkill,
   type Skill,
   type Source,
 } from "../../../extensions/skills/index.js";
@@ -43,8 +44,14 @@ export interface ResolvedSource {
   readonly source: Source;
   /** Path to directory containing skills */
   readonly skillsDir: string;
-  /** Git commit SHA (for git sources) */
-  readonly commitSha: Option.Option<string>;
+}
+
+/**
+ * A discovered skill from a remote git source, enriched with its git tree SHA.
+ */
+export interface RemoteDiscoveredSkill extends DiscoveredSkill {
+  /** Git tree SHA of the skill's folder */
+  readonly gitTreeSha: string;
 }
 
 /**
@@ -325,74 +332,21 @@ export const discoverSkillsInDir = (
 // -----------------------------------------------------------------------------
 
 /**
- * Discovers skills from a GitHub/GitLab/Bitbucket git hosting source.
+ * Discovers skills from a cloned git repository and computes git tree SHAs.
  *
- * Shallow-clones the repository into a scoped temp directory for performance.
- * The temp directory is automatically cleaned up when the enclosing scope closes.
+ * Expects the repository to already be cloned into `tempDir`.
+ * Returns an array of discovered skills, each enriched with its folder's git tree SHA.
  */
-const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | BitbucketSource) =>
+const discoverFromRemoteGitSource = (
+  source: GitHubSource | GitLabSource | BitbucketSource,
+  tempDir: string,
+) =>
   Effect.gen(function* () {
-    const cloneUrl = yield* buildCloneUrl(source).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: error.message,
-            cause: Option.some(error),
-            retryable: false,
-          }),
-      ),
-    );
-
-    // Acquire scoped temp directory (cleaned up when scope closes)
-    const tempDir = yield* Effect.acquireRelease(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const dir = nodePath.join(tmpdir(), `axm-${randomUUID()}`);
-        yield* fs.makeDirectory(dir, { recursive: true });
-        return dir;
-      }),
-      (dir) =>
-        Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem;
-          yield* fs.remove(dir, { recursive: true });
-        }).pipe(Effect.ignoreLogged),
-    );
-
-    // Shallow clone for performance (depth 1, single branch)
-    yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(source.ref)).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: formatError(
-              `Failed to clone repository: ${error.message}`,
-              [`URL: ${cloneUrl}`],
-              "Check your network connection and repository access credentials.",
-            ),
-            cause: Option.some(error),
-            retryable: true,
-          }),
-      ),
-    );
-
-    // Get current commit SHA
-    const commitSha = yield* getCurrentCommit(tempDir).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: `Failed to get commit SHA: ${error.message}`,
-            cause: Option.some(error),
-            retryable: false,
-          }),
-      ),
-    );
-
-    // Determine skills directory (with optional subpath)
     const skillsDir = Option.match(source.subPath, {
       onNone: () => tempDir,
       onSome: (p) => nodePath.join(tempDir, p),
     });
 
-    // Discover skills
     const skills = yield* discoverSkillsInDir(tempDir, source.subPath, {
       fullDepth: false,
       includeInternal: false,
@@ -407,12 +361,34 @@ const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | Bitbu
       ),
     );
 
-    const discovered = Array.map(skills, (skill) => ({
-      ...skill,
-      discoveryPath: Array.make({ name: skill.name, type: "skill" } satisfies ExtensionRef),
-    }));
+    const skillsWithGitTreeSha = yield* Effect.forEach(
+      skills,
+      (skill) =>
+        Effect.gen(function* () {
+          const skillDir = nodePath.dirname(skill.path);
+          const relativeDir = nodePath.relative(tempDir, skillDir);
 
-    return { skills: discovered, skillsDir, commitSha };
+          const gitTreeSha = yield* getTreeSha(tempDir, relativeDir).pipe(
+            Effect.mapError(
+              (error) =>
+                new InstallError({
+                  message: `Failed to get git tree SHA for skill "${skill.name}": ${error.message}`,
+                  cause: Option.some(error),
+                  retryable: false,
+                }),
+            ),
+          );
+
+          return {
+            ...skill,
+            discoveryPath: Array.make({ name: skill.name, type: "skill" } satisfies ExtensionRef),
+            gitTreeSha,
+          };
+        }),
+      { concurrency: "unbounded" },
+    );
+
+    return skillsWithGitTreeSha;
   });
 
 // -----------------------------------------------------------------------------
@@ -430,13 +406,60 @@ export const discoverSkills = (source: Source) =>
       case "github":
       case "gitlab":
       case "bitbucket": {
-        const result = yield* discoverFromRemoteGitSource(source);
+        const cloneUrl = yield* buildCloneUrl(source).pipe(
+          Effect.mapError(
+            (error) =>
+              new InstallError({
+                message: error.message,
+                cause: Option.some(error),
+                retryable: false,
+              }),
+          ),
+        );
+
+        // Acquire scoped temp directory (cleaned up when scope closes)
+        const tempDir = yield* Effect.acquireRelease(
+          Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const dir = nodePath.join(tmpdir(), `axm-${randomUUID()}`);
+            yield* fs.makeDirectory(dir, { recursive: true });
+            return dir;
+          }),
+          (dir) =>
+            Effect.gen(function* () {
+              const fs = yield* FileSystem.FileSystem;
+              yield* fs.remove(dir, { recursive: true });
+            }).pipe(Effect.ignoreLogged),
+        );
+
+        // Shallow clone for performance (depth 1, single branch)
+        yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(source.ref)).pipe(
+          Effect.mapError(
+            (error) =>
+              new InstallError({
+                message: formatError(
+                  `Failed to clone repository: ${error.message}`,
+                  [`URL: ${cloneUrl}`],
+                  "Check your network connection and repository access credentials.",
+                ),
+                cause: Option.some(error),
+                retryable: true,
+              }),
+          ),
+        );
+
+        const skills = yield* discoverFromRemoteGitSource(source, tempDir);
+
+        const skillsDir = Option.match(source.subPath, {
+          onNone: () => tempDir,
+          onSome: (p) => nodePath.join(tempDir, p),
+        });
+
         return {
-          skills: result.skills,
+          skills,
           resolvedSource: {
             source,
-            skillsDir: result.skillsDir,
-            commitSha: Option.some(result.commitSha),
+            skillsDir,
           } satisfies ResolvedSource,
         };
       }
@@ -480,7 +503,6 @@ export const discoverSkills = (source: Source) =>
           resolvedSource: {
             source,
             skillsDir,
-            commitSha: Option.none(),
           } satisfies ResolvedSource,
         };
       }

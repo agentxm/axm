@@ -65,9 +65,14 @@ vi.mock("../../../extensions/skills/index.js", async (importOriginal) => {
       fs.writeFileSync(path.join(gitDir, "HEAD"), "ref: refs/heads/main\n");
       return Effect.void;
     }),
-    // Mock getCurrentCommit to return a fake SHA
-    getCurrentCommit: vi.fn(() => {
-      return Effect.succeed("abc1234567890abcdef1234567890abcdef12345");
+    // Mock getTreeSha to return a deterministic hash based on the subPath
+    getTreeSha: vi.fn((_repoPath: string, subPath: string) => {
+      // Generate a stable 40-char hex hash from the subPath
+      const hash = Array.from(subPath)
+        .reduce((acc, c) => acc + c.charCodeAt(0), 0)
+        .toString(16)
+        .padStart(8, "0");
+      return Effect.succeed(`${hash}00000000000000000000000000000000`.slice(0, 40));
     }),
   };
 });

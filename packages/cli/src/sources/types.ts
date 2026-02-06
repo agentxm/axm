@@ -61,6 +61,17 @@ export interface ShorthandConfig<T extends SourceType, T2 extends Source & { sou
 }
 
 /**
+ * URL parse configuration for a source provider (e.g. `https://github.com/...`, `git@github.com:...`).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface UrlParseConfig<T extends SourceType, T2 extends Source & { source: T }> {
+  readonly hostname: string;
+  readonly parseUrl: (url: URL, original: string) => Effect.Effect<ParsedSource<T2>, ParseError>;
+  readonly parseScp: (input: string) => Effect.Effect<ParsedSource<T2>, ParseError>;
+}
+
+/**
  * Configuration for a source provider.
  *
  * @experimental This API is unstable and may change without notice.
@@ -71,6 +82,7 @@ export interface SourceConfig<
 > {
   readonly id: T;
   readonly shorthand: Option.Option<ShorthandConfig<T, T2>>;
+  readonly parseFromUrl: Option.Option<UrlParseConfig<T, T2>>;
 }
 
 // -----------------------------------------------------------------------------

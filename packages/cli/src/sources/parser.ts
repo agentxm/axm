@@ -14,25 +14,10 @@ import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import {
-  checkBitbucketRepoExists,
-  config as bitbucketConfig,
-  parseBitbucketHttpsUrl,
-  parseBitbucketSshUrl,
-} from "./bitbucket/index.js";
+import { checkBitbucketRepoExists, config as bitbucketConfig } from "./bitbucket/index.js";
 import { ParseError } from "./errors.js";
-import {
-  checkGitHubRepoExists,
-  config as githubConfig,
-  parseGitHubHttpsUrl,
-  parseGitHubSshUrl,
-} from "./github/index.js";
-import {
-  checkGitLabRepoExists,
-  config as gitlabConfig,
-  parseGitLabHttpsUrl,
-  parseGitLabSshUrl,
-} from "./gitlab/index.js";
+import { checkGitHubRepoExists, config as githubConfig } from "./github/index.js";
+import { checkGitLabRepoExists, config as gitlabConfig } from "./gitlab/index.js";
 import { config as localConfig, LOCAL_PATH_PATTERN, parseLocalPath } from "./local/index.js";
 import { type ParsedSource, ParsedSource as PS, type Source, type SourceConfig } from "./types.js";
 
@@ -99,6 +84,13 @@ const ALL_CONFIGS: ReadonlyArray<AnySourceConfig> = [
 const CONFIG_BY_PREFIX = new Map<string, AnySourceConfig>(
   Array.getSomes(
     Array.map(ALL_CONFIGS, (c) => Option.map(c.shorthand, (sh) => [sh.prefix, c] as const)),
+  ),
+);
+
+/** Map from hostname to its config. */
+const CONFIG_BY_HOSTNAME = new Map<string, AnySourceConfig>(
+  Array.getSomes(
+    Array.map(ALL_CONFIGS, (c) => Option.map(c.parseFromUrl, (url) => [url.hostname, c] as const)),
   ),
 );
 
@@ -235,34 +227,26 @@ export const parseSource = (input: string): Effect.Effect<ParsedSource<Source>, 
             );
           }
           const host = hostMatch[1];
-          switch (host) {
-            case "github.com":
-              return parseGitHubSshUrl(scpInput);
-            case "gitlab.com":
-              return parseGitLabSshUrl(scpInput);
-            case "bitbucket.org":
-              return parseBitbucketSshUrl(scpInput);
-            default:
-              return Effect.fail(
-                new ParseError({ message: `Unsupported SCP host: "${host}"`, input }),
-              );
+          const cfg = CONFIG_BY_HOSTNAME.get(host);
+          if (!cfg || Option.isNone(cfg.parseFromUrl)) {
+            return Effect.fail(
+              new ParseError({ message: `Unsupported SCP host: "${host}"`, input }),
+            );
           }
+          return cfg.parseFromUrl.value.parseScp(scpInput);
         }),
-        Match.tag("UrlInput", ({ url }) =>
-          Match.value(url.hostname).pipe(
-            Match.when("github.com", () => parseGitHubHttpsUrl(trimmed)),
-            Match.when("gitlab.com", () => parseGitLabHttpsUrl(trimmed)),
-            Match.when("bitbucket.org", () => parseBitbucketHttpsUrl(trimmed)),
-            Match.orElse(() =>
-              Effect.fail(
-                new ParseError({
-                  message: `Unsupported URL host: "${url.hostname}"`,
-                  input: trimmed,
-                }),
-              ),
-            ),
-          ),
-        ),
+        Match.tag("UrlInput", ({ url }) => {
+          const cfg = CONFIG_BY_HOSTNAME.get(url.hostname);
+          if (!cfg || Option.isNone(cfg.parseFromUrl)) {
+            return Effect.fail(
+              new ParseError({
+                message: `Unsupported URL host: "${url.hostname}"`,
+                input: trimmed,
+              }),
+            );
+          }
+          return cfg.parseFromUrl.value.parseUrl(url, trimmed);
+        }),
         Match.tag("SlashPattern", ({ input: slashInput }) => resolveSlashPattern(slashInput)),
         Match.tag("FilePathPattern", ({ path }) => parseLocalPath(path)),
         Match.tag("ShorthandInput", ({ prefix, input: shorthandInput }) => {

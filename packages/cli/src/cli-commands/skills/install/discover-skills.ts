@@ -1,7 +1,8 @@
 /**
  * Skill discovery from parsed sources.
  *
- * Resolves sources (cloning if remote), then discovers available skills.
+ * Resolves sources (cloning if remote), then discovers available skills
+ * using a 3-phase algorithm: direct match, priority directory scan, recursive fallback.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -22,6 +23,8 @@ import {
 } from "../../../extensions/skills/index.js";
 import type { BitbucketSource, GitHubSource, GitLabSource } from "../../../sources/index.js";
 import { InstallError } from "./handler.js";
+import { parseManifests } from "./parse-manifests.js";
+import { parseSkillMd } from "./parse-skill-md.js";
 import { formatError } from "../../../utils/errors.js";
 import * as Array from "effect/Array";
 import * as Data from "effect/Data";
@@ -45,6 +48,16 @@ export interface ResolvedSource {
   readonly commitSha: Option.Option<string>;
 }
 
+/**
+ * Options controlling discovery behavior.
+ */
+export interface DiscoveryOptions {
+  /** Exhaustive recursive search even if root skill found */
+  readonly fullDepth: boolean;
+  /** Include skills with metadata.internal: true */
+  readonly includeInternal: boolean;
+}
+
 // -----------------------------------------------------------------------------
 // Errors
 // -----------------------------------------------------------------------------
@@ -62,7 +75,7 @@ export class DiscoveryError extends Data.TaggedError("DiscoveryError")<{
 }> {}
 
 // -----------------------------------------------------------------------------
-// Directory Scanning
+// Constants
 // -----------------------------------------------------------------------------
 
 /**
@@ -71,87 +84,181 @@ export class DiscoveryError extends Data.TaggedError("DiscoveryError")<{
 const SKILL_FILE_PATTERN = /^skill\.md$/i;
 
 /**
- * Recursively walk a directory tree and collect all file paths.
+ * Well-known directories to scan in Phase 2 (priority scan).
+ * Relative to the search root. Scanned one level deep for child directories
+ * containing SKILL.md files.
  */
-const walkDirectory = (
-  dir: string,
-): Effect.Effect<string[], DiscoveryError, FileSystem.FileSystem> =>
+export const PRIORITY_DIRECTORIES: readonly string[] = [
+  "skills",
+  "skills/.curated",
+  ".claude/skills",
+  ".cursor/skills",
+  ".cline/skills",
+  ".copilot/skills",
+  ".windsurf/skills",
+  ".", // top-level folders
+] as const;
+
+/**
+ * Directories to skip during recursive Phase 3 scan.
+ */
+const SKIPPED_DIRECTORIES = new Set(["node_modules", ".git", "dist", "build", "__pycache__"]);
+
+/**
+ * Maximum recursion depth for Phase 3.
+ */
+const MAX_DEPTH = 5;
+
+// -----------------------------------------------------------------------------
+// Internal Skill Filtering
+// -----------------------------------------------------------------------------
+
+const isInternalSkill = (skill: Skill): boolean =>
+  Option.isSome(skill.metadata) && skill.metadata.value["internal"] === true;
+
+const shouldIncludeSkill = (skill: Skill, options: DiscoveryOptions): boolean => {
+  if (!isInternalSkill(skill)) return true;
+  return options.includeInternal || process.env["INSTALL_INTERNAL_SKILLS"] === "1";
+};
+
+// -----------------------------------------------------------------------------
+// Phase Helpers
+// -----------------------------------------------------------------------------
+
+/**
+ * Try to find and parse a SKILL.md in a given directory.
+ * Returns Option.some(Skill) if found and valid, Option.none() otherwise.
+ * All errors are silently swallowed.
+ */
+const tryParseSkillInDir = (dir: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
 
-    const entries = yield* fs.readDirectory(dir).pipe(
-      Effect.mapError(
-        (error) =>
-          new DiscoveryError({
-            message: `Failed to read directory: ${dir}`,
-            path: Option.some(dir),
-            cause: Option.some(error),
-            retryable: false,
-          }),
-      ),
-    );
+    const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
+    if (Option.isNone(entries)) return Option.none<Skill>();
 
-    const nestedResults = yield* Effect.forEach(
-      entries,
-      (entry) =>
-        Effect.gen(function* () {
-          const fullPath = nodePath.join(dir, entry);
-          const stat = yield* fs.stat(fullPath).pipe(
-            Effect.tapError(() => Effect.logDebug(`Skipping inaccessible path: ${fullPath}`)),
-            Effect.option,
-          );
-          if (Option.isNone(stat)) return [];
-          if (stat.value.type === "Directory") {
-            return yield* walkDirectory(fullPath);
-          }
-          if (stat.value.type === "File") {
-            return [fullPath];
-          }
-          return [];
-        }),
-      { concurrency: "unbounded" },
-    );
-    return nestedResults.flat();
+    const skillFile = entries.value.find((e) => SKILL_FILE_PATTERN.test(e));
+    if (!skillFile) return Option.none<Skill>();
+
+    const fullPath = nodePath.join(dir, skillFile);
+    const content = yield* fs.readFileString(fullPath).pipe(Effect.option);
+    if (Option.isNone(content)) return Option.none<Skill>();
+
+    return parseSkillMd(content.value, fullPath);
   });
 
 /**
- * Check if a filename matches the SKILL.md pattern (case-insensitive).
+ * Scan one level of children in a directory for skills.
+ * Each immediate subdirectory is checked for a SKILL.md.
  */
-const isSkillFile = (filePath: string): boolean => {
-  const basename = nodePath.basename(filePath);
-  return SKILL_FILE_PATTERN.test(basename);
-};
+const scanDirectory = (dir: string, seenNames: Set<string>, options: DiscoveryOptions) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
+    if (Option.isNone(entries)) return [] as readonly Skill[];
+
+    return yield* Effect.forEach(
+      entries.value,
+      (entry) =>
+        Effect.gen(function* () {
+          const fullPath = nodePath.join(dir, entry);
+          const stat = yield* fs.stat(fullPath).pipe(Effect.option);
+          if (Option.isNone(stat) || stat.value.type !== "Directory") return [] as readonly Skill[];
+
+          const skill = yield* tryParseSkillInDir(fullPath);
+          if (Option.isNone(skill)) return [] as readonly Skill[];
+          if (seenNames.has(skill.value.name)) return [] as readonly Skill[];
+          if (!shouldIncludeSkill(skill.value, options)) return [] as readonly Skill[];
+
+          seenNames.add(skill.value.name);
+          return [skill.value] as readonly Skill[];
+        }),
+      { concurrency: "unbounded" },
+    ).pipe(Effect.map((results) => results.flat()));
+  });
 
 /**
- * Extract the skill name from the SKILL.md file path.
- * The skill name is derived from the parent directory name.
+ * Recursive DFS scan with depth limit.
+ * Skips well-known non-skill directories.
  */
-const extractSkillName = (skillPath: string): string => {
-  const dirName = nodePath.basename(nodePath.dirname(skillPath));
-  return dirName;
-};
+const recursiveScan = (
+  dir: string,
+  seenNames: Set<string>,
+  options: DiscoveryOptions,
+  depth: number,
+): Effect.Effect<readonly Skill[], never, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    if (depth > MAX_DEPTH) return [] as readonly Skill[];
+    const fs = yield* FileSystem.FileSystem;
+    const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
+    if (Option.isNone(entries)) return [] as readonly Skill[];
+
+    return yield* Effect.forEach(
+      entries.value,
+      (entry) =>
+        Effect.gen(function* () {
+          if (SKIPPED_DIRECTORIES.has(entry)) return [] as readonly Skill[];
+
+          const fullPath = nodePath.join(dir, entry);
+          const stat = yield* fs.stat(fullPath).pipe(Effect.option);
+          if (Option.isNone(stat) || stat.value.type !== "Directory") return [] as readonly Skill[];
+
+          const results: Skill[] = [];
+
+          // Try to parse a skill in this directory
+          const skill = yield* tryParseSkillInDir(fullPath);
+          if (Option.isSome(skill) && !seenNames.has(skill.value.name)) {
+            if (shouldIncludeSkill(skill.value, options)) {
+              seenNames.add(skill.value.name);
+              results.push(skill.value);
+            }
+          }
+
+          // Recurse into subdirectories
+          const subResults = yield* recursiveScan(fullPath, seenNames, options, depth + 1);
+          return [...results, ...subResults] as readonly Skill[];
+        }),
+      { concurrency: "unbounded" },
+    ).pipe(Effect.map((results) => results.flat()));
+  });
+
+// -----------------------------------------------------------------------------
+// 3-Phase Discovery
+// -----------------------------------------------------------------------------
 
 /**
- * Discover all skills in a directory by finding SKILL.md files.
+ * Discover skills in a directory using a 3-phase algorithm:
  *
- * Recursively walks the directory tree and finds all files
- * named SKILL.md (case-insensitive).
+ * Phase 1 — Direct match: check if search root itself contains SKILL.md
+ * Phase 2 — Priority directory scan: scan well-known directories one level deep
+ * Phase 3 — Recursive fallback: bounded DFS when prior phases find nothing or fullDepth is true
+ *
+ * Skills are deduplicated by name (first-found wins). Internal skills are
+ * filtered unless opted in.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const discoverSkillsInDir = (
-  directory: string,
-): Effect.Effect<Skill[], DiscoveryError, FileSystem.FileSystem> =>
+  basePath: string,
+  subPath: Option.Option<string>,
+  options: DiscoveryOptions,
+): Effect.Effect<ReadonlyArray<Skill>, DiscoveryError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
 
-    // Verify the directory exists and is a directory
-    const stat = yield* fs.stat(directory).pipe(
+    // Compute effective search root
+    const searchRoot = Option.match(subPath, {
+      onNone: () => basePath,
+      onSome: (p) => nodePath.join(basePath, p),
+    });
+
+    // Verify the search root exists and is a directory
+    const stat = yield* fs.stat(searchRoot).pipe(
       Effect.mapError(
         (error) =>
           new DiscoveryError({
-            message: `Directory does not exist or is not accessible: ${directory}`,
-            path: Option.some(directory),
+            message: `Directory does not exist or is not accessible: ${searchRoot}`,
+            path: Option.some(searchRoot),
             cause: Option.some(error),
             retryable: false,
           }),
@@ -160,28 +267,55 @@ export const discoverSkillsInDir = (
 
     if (stat.type !== "Directory") {
       return yield* new DiscoveryError({
-        message: `Path is not a directory: ${directory}`,
-        path: Option.some(directory),
+        message: `Path is not a directory: ${searchRoot}`,
+        path: Option.some(searchRoot),
         cause: Option.none(),
         retryable: false,
       });
     }
 
-    // Walk the directory tree to find all files
-    const allFiles = yield* walkDirectory(directory);
+    const seenNames = new Set<string>();
+    const allSkills: Skill[] = [];
 
-    // Filter for SKILL.md files
-    const skillFiles = allFiles.filter(isSkillFile);
+    // ── Phase 1: Direct Match ──────────────────────────────────────────
+    const rootSkill = yield* tryParseSkillInDir(searchRoot);
+    if (Option.isSome(rootSkill) && shouldIncludeSkill(rootSkill.value, options)) {
+      seenNames.add(rootSkill.value.name);
+      allSkills.push(rootSkill.value);
 
-    // Convert to Skill objects
-    const skills: Skill[] = skillFiles.map((skillPath) => ({
-      name: extractSkillName(skillPath),
-      path: skillPath,
-      description: "",
-      metadata: Option.none(),
-    }));
+      if (!options.fullDepth) {
+        return allSkills;
+      }
+    }
 
-    return skills;
+    // ── Phase 2: Priority Directory Scan ───────────────────────────────
+    // Collect manifest-declared directories to append to priority scan
+    const manifestDirs = yield* parseManifests(searchRoot);
+
+    // Build full list of directories to scan: static priority dirs + manifest dirs
+    const priorityFullDirs = PRIORITY_DIRECTORIES.map((priorityDir) =>
+      priorityDir === "." ? searchRoot : nodePath.join(searchRoot, priorityDir),
+    );
+    // Deduplicate manifest dirs against static priority dirs
+    const manifestDirsToAdd = manifestDirs.filter((d) => !priorityFullDirs.includes(d));
+    const allPriorityDirs = [...priorityFullDirs, ...manifestDirsToAdd];
+
+    const phase2Results = yield* Effect.forEach(
+      allPriorityDirs,
+      (fullDir) => scanDirectory(fullDir, seenNames, options),
+      { concurrency: "unbounded" },
+    ).pipe(Effect.map((results) => results.flat()));
+
+    allSkills.push(...phase2Results);
+
+    // ── Phase 3: Recursive Fallback ────────────────────────────────────
+    const shouldRunPhase3 = allSkills.length === 0 || options.fullDepth;
+    if (shouldRunPhase3) {
+      const phase3Results = yield* recursiveScan(searchRoot, seenNames, options, 0);
+      allSkills.push(...phase3Results);
+    }
+
+    return allSkills;
   });
 
 // -----------------------------------------------------------------------------
@@ -257,7 +391,10 @@ const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | Bitbu
     });
 
     // Discover skills
-    const skills = yield* discoverSkillsInDir(skillsDir).pipe(
+    const skills = yield* discoverSkillsInDir(tempDir, source.subPath, {
+      fullDepth: false,
+      includeInternal: false,
+    }).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({
@@ -315,7 +452,10 @@ export const discoverSkills = (source: Source) =>
 
       case "local": {
         const skillsDir = source.path;
-        const rawSkills = yield* discoverSkillsInDir(skillsDir).pipe(
+        const rawSkills = yield* discoverSkillsInDir(skillsDir, Option.none(), {
+          fullDepth: false,
+          includeInternal: false,
+        }).pipe(
           Effect.mapError(
             (error) =>
               new InstallError({

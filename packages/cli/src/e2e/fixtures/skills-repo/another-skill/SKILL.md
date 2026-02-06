@@ -1,3 +1,8 @@
+---
+name: "another-skill"
+description: "A second mock skill for E2E testing multiple skill discovery."
+---
+
 # Another Skill
 
 A second mock skill for E2E testing multiple skill discovery.

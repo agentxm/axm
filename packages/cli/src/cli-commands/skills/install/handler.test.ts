@@ -223,7 +223,8 @@ describe("install.handler", () => {
       const skillDir = path.join(sourceDir, name);
       fs.mkdirSync(skillDir, { recursive: true });
 
-      const content = description ? `# ${name}\n\n${description}` : `# ${name}\n\nA test skill.`;
+      const desc = description ?? "A test skill.";
+      const content = `---\nname: "${name}"\ndescription: "${desc}"\n---\n\n# ${name}\n\n${desc}`;
 
       fs.writeFileSync(path.join(skillDir, "SKILL.md"), content);
     }
@@ -385,7 +386,10 @@ describe("install.handler", () => {
             const sourceDir1 = path.join(tempDir, "source-1");
             fs.mkdirSync(sourceDir1, { recursive: true });
             fs.mkdirSync(path.join(sourceDir1, "commit"));
-            fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# Original commit");
+            fs.writeFileSync(
+              path.join(sourceDir1, "commit", "SKILL.md"),
+              '---\nname: "commit"\ndescription: "Original commit"\n---\n\n# Original commit',
+            );
 
             skillsModule.__setFixturePath(sourceDir1);
             initializeAxm();
@@ -404,13 +408,16 @@ describe("install.handler", () => {
               path.join(tempDir, ".axm", "extensions", "external", "skills", "commit", "SKILL.md"),
               "utf-8",
             );
-            expect(content).toBe("# Original commit");
+            expect(content).toContain("Original commit");
 
             // Create second source with updated skill
             const sourceDir2 = path.join(tempDir, "source-2");
             fs.mkdirSync(sourceDir2, { recursive: true });
             fs.mkdirSync(path.join(sourceDir2, "commit"));
-            fs.writeFileSync(path.join(sourceDir2, "commit", "SKILL.md"), "# Updated commit");
+            fs.writeFileSync(
+              path.join(sourceDir2, "commit", "SKILL.md"),
+              '---\nname: "commit"\ndescription: "Updated commit"\n---\n\n# Updated commit',
+            );
 
             // Update mock to use new fixture
             skillsModule.__setFixturePath(sourceDir2);
@@ -430,7 +437,7 @@ describe("install.handler", () => {
               path.join(tempDir, ".axm", "extensions", "external", "skills", "commit", "SKILL.md"),
               "utf-8",
             );
-            expect(content).toBe("# Updated commit");
+            expect(content).toContain("Updated commit");
           }),
         ),
       );
@@ -1033,7 +1040,10 @@ describe("install.handler", () => {
           fs.mkdirSync(sourceDir, { recursive: true });
           const skillDir = path.join(sourceDir, "complex-skill");
           fs.mkdirSync(skillDir, { recursive: true });
-          fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# Complex Skill");
+          fs.writeFileSync(
+            path.join(skillDir, "SKILL.md"),
+            '---\nname: "complex-skill"\ndescription: "A complex skill"\n---\n\n# Complex Skill',
+          );
           fs.mkdirSync(path.join(skillDir, "references"), { recursive: true });
           fs.writeFileSync(path.join(skillDir, "references", "commands.md"), "# Commands");
 
@@ -1307,7 +1317,10 @@ describe("install.handler", () => {
           const sourceDir1 = path.join(tempDir, "source-1");
           fs.mkdirSync(sourceDir1, { recursive: true });
           fs.mkdirSync(path.join(sourceDir1, "commit"));
-          fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# Original");
+          fs.writeFileSync(
+            path.join(sourceDir1, "commit", "SKILL.md"),
+            '---\nname: "commit"\ndescription: "Original"\n---\n\n# Original',
+          );
 
           skillsModule.__setFixturePath(sourceDir1);
           initializeAxm();
@@ -1332,7 +1345,10 @@ describe("install.handler", () => {
           const sourceDir2 = path.join(tempDir, "source-2");
           fs.mkdirSync(sourceDir2, { recursive: true });
           fs.mkdirSync(path.join(sourceDir2, "commit"));
-          fs.writeFileSync(path.join(sourceDir2, "commit", "SKILL.md"), "# Modified");
+          fs.writeFileSync(
+            path.join(sourceDir2, "commit", "SKILL.md"),
+            '---\nname: "commit"\ndescription: "Modified"\n---\n\n# Modified',
+          );
 
           // Update mock to use new fixture
           skillsModule.__setFixturePath(sourceDir2);
@@ -1351,7 +1367,7 @@ describe("install.handler", () => {
             path.join(tempDir, ".axm", "extensions", "external", "skills", "commit", "SKILL.md"),
             "utf-8",
           );
-          expect(content).toBe("# Modified");
+          expect(content).toContain("Modified");
         }),
       ),
     );
@@ -1363,7 +1379,10 @@ describe("install.handler", () => {
           const sourceDir1 = path.join(tempDir, "source-1");
           fs.mkdirSync(sourceDir1, { recursive: true });
           fs.mkdirSync(path.join(sourceDir1, "commit"));
-          fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# commit");
+          fs.writeFileSync(
+            path.join(sourceDir1, "commit", "SKILL.md"),
+            '---\nname: "commit"\ndescription: "A commit skill"\n---\n\n# commit',
+          );
 
           skillsModule.__setFixturePath(sourceDir1);
           initializeAxm();
@@ -1382,9 +1401,15 @@ describe("install.handler", () => {
           const sourceDir2 = path.join(tempDir, "source-2");
           fs.mkdirSync(sourceDir2, { recursive: true });
           fs.mkdirSync(path.join(sourceDir2, "commit"));
-          fs.writeFileSync(path.join(sourceDir2, "commit", "SKILL.md"), "# commit v2");
+          fs.writeFileSync(
+            path.join(sourceDir2, "commit", "SKILL.md"),
+            '---\nname: "commit"\ndescription: "commit v2"\n---\n\n# commit v2',
+          );
           fs.mkdirSync(path.join(sourceDir2, "review-pr"));
-          fs.writeFileSync(path.join(sourceDir2, "review-pr", "SKILL.md"), "# review-pr");
+          fs.writeFileSync(
+            path.join(sourceDir2, "review-pr", "SKILL.md"),
+            '---\nname: "review-pr"\ndescription: "A review-pr skill"\n---\n\n# review-pr',
+          );
 
           // Update mock to use new fixture
           skillsModule.__setFixturePath(sourceDir2);
@@ -1404,7 +1429,7 @@ describe("install.handler", () => {
             path.join(tempDir, ".axm", "extensions", "external", "skills", "commit", "SKILL.md"),
             "utf-8",
           );
-          expect(commitContent).toBe("# commit v2"); // Updated, not original
+          expect(commitContent).toContain("commit v2"); // Updated, not original
 
           // New skill should be installed
           expect(
@@ -1468,7 +1493,10 @@ describe("install.handler", () => {
           const sourceDir1 = path.join(tempDir, "source-1");
           fs.mkdirSync(sourceDir1, { recursive: true });
           fs.mkdirSync(path.join(sourceDir1, "commit"));
-          fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# Original");
+          fs.writeFileSync(
+            path.join(sourceDir1, "commit", "SKILL.md"),
+            '---\nname: "commit"\ndescription: "Original"\n---\n\n# Original',
+          );
 
           skillsModule.__setFixturePath(sourceDir1);
           initializeAxm();
@@ -1491,7 +1519,10 @@ describe("install.handler", () => {
           const sourceDir2 = path.join(tempDir, "source-2");
           fs.mkdirSync(sourceDir2, { recursive: true });
           fs.mkdirSync(path.join(sourceDir2, "commit"));
-          fs.writeFileSync(path.join(sourceDir2, "commit", "SKILL.md"), "# Updated content");
+          fs.writeFileSync(
+            path.join(sourceDir2, "commit", "SKILL.md"),
+            '---\nname: "commit"\ndescription: "Updated content"\n---\n\n# Updated content',
+          );
 
           // Update mock to use new fixture
           skillsModule.__setFixturePath(sourceDir2);
@@ -1520,7 +1551,10 @@ describe("install.handler", () => {
           const sourceDir1 = path.join(tempDir, "source-1");
           fs.mkdirSync(sourceDir1, { recursive: true });
           fs.mkdirSync(path.join(sourceDir1, "commit"));
-          fs.writeFileSync(path.join(sourceDir1, "commit", "SKILL.md"), "# commit v1");
+          fs.writeFileSync(
+            path.join(sourceDir1, "commit", "SKILL.md"),
+            '---\nname: "commit"\ndescription: "commit v1"\n---\n\n# commit v1',
+          );
 
           skillsModule.__setFixturePath(sourceDir1);
           initializeAxm();
@@ -1538,9 +1572,15 @@ describe("install.handler", () => {
           const sourceDir2 = path.join(tempDir, "source-2");
           fs.mkdirSync(sourceDir2, { recursive: true });
           fs.mkdirSync(path.join(sourceDir2, "commit"));
-          fs.writeFileSync(path.join(sourceDir2, "commit", "SKILL.md"), "# commit v2");
+          fs.writeFileSync(
+            path.join(sourceDir2, "commit", "SKILL.md"),
+            '---\nname: "commit"\ndescription: "commit v2"\n---\n\n# commit v2',
+          );
           fs.mkdirSync(path.join(sourceDir2, "review-pr"));
-          fs.writeFileSync(path.join(sourceDir2, "review-pr", "SKILL.md"), "# review-pr");
+          fs.writeFileSync(
+            path.join(sourceDir2, "review-pr", "SKILL.md"),
+            '---\nname: "review-pr"\ndescription: "A review-pr skill"\n---\n\n# review-pr',
+          );
 
           // Update mock to use new fixture
           skillsModule.__setFixturePath(sourceDir2);
@@ -1560,7 +1600,7 @@ describe("install.handler", () => {
             path.join(tempDir, ".axm", "extensions", "external", "skills", "commit", "SKILL.md"),
             "utf-8",
           );
-          expect(commitContent).toBe("# commit v2");
+          expect(commitContent).toContain("commit v2");
           expect(
             fs.existsSync(
               path.join(
@@ -1833,7 +1873,10 @@ describe("install.handler", () => {
           fs.mkdirSync(sourceDir, { recursive: true });
           const skillDir = path.join(sourceDir, "local-skill");
           fs.mkdirSync(skillDir, { recursive: true });
-          fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# Local Skill\n\nA local test skill.");
+          fs.writeFileSync(
+            path.join(skillDir, "SKILL.md"),
+            '---\nname: "local-skill"\ndescription: "A local test skill"\n---\n\n# Local Skill\n\nA local test skill.',
+          );
 
           initializeAxm();
 

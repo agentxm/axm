@@ -1,3 +1,8 @@
+---
+name: "my-skill"
+description: "A mock skill for E2E testing."
+---
+
 # My Skill
 
 A mock skill for E2E testing.

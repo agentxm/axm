@@ -238,6 +238,15 @@ describe("source-parser", () => {
       }),
     );
 
+    it.effect("parses git@github.com:owner/repo.git", () =>
+      Effect.gen(function* () {
+        const result = yield* parseSource("git@github.com:owner/repo.git");
+
+        expect(result.source).toBe("github");
+        expect(printSource(result)).toBe("github:owner/repo");
+      }),
+    );
+
     it.effect("parses git@github.com:owner/repo (without .git)", () =>
       Effect.gen(function* () {
         const result = yield* parseSource("git@github.com:owner/repo");
@@ -387,9 +396,9 @@ describe("source-parser", () => {
   });
 
   describe("Azure Repos SSH URLs", () => {
-    it.effect("parses git@ssh.dev.azure.com:v3/org/project/repo", () =>
+    it.effect("parses git@ssh.dev.azure.com:v3/org/project/repo.git", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo");
+        const result = yield* parseSource("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo.git");
 
         expect(result.source).toBe("azurerepos");
         expect(printSource(result)).toBe("azurerepos:myorg/myproject/myrepo");
@@ -398,6 +407,15 @@ describe("source-parser", () => {
           expect(result.project).toBe("myproject");
           expect(result.repo).toBe("myrepo");
         }
+      }),
+    );
+
+    it.effect("parses git@ssh.dev.azure.com:v3/org/project/repo (without .git)", () =>
+      Effect.gen(function* () {
+        const result = yield* parseSource("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo");
+
+        expect(result.source).toBe("azurerepos");
+        expect(printSource(result)).toBe("azurerepos:myorg/myproject/myrepo");
       }),
     );
   });
@@ -767,10 +785,21 @@ describe("parseInputPattern", () => {
       });
     });
 
-    it("classifies git@ SCP-style address as ScpAddress", () => {
+    it("classifies git@ SCP-style address with .git suffix as GitScpAddress", () => {
+      expectSome("git@github.com:owner/repo.git", {
+        _tag: "GitScpAddress",
+        user: "git",
+        host: "github.com",
+        path: "owner/repo.git",
+      });
+    });
+
+    it("classifies git@ SCP-style address without .git suffix as GitScpAddress", () => {
       expectSome("git@github.com:owner/repo", {
-        _tag: "ScpAddress",
-        input: "git@github.com:owner/repo",
+        _tag: "GitScpAddress",
+        user: "git",
+        host: "github.com",
+        path: "owner/repo",
       });
     });
 
@@ -971,7 +1000,7 @@ describe("parseInputPattern", () => {
       }),
     );
 
-    it.effect("parses GitHub SSH via ScpAddress", () =>
+    it.effect("parses GitHub SSH via GitScpAddress", () =>
       Effect.gen(function* () {
         const result = yield* parseSource("git@github.com:owner/repo.git");
         expect(result.source).toBe("github");
@@ -979,7 +1008,7 @@ describe("parseInputPattern", () => {
       }),
     );
 
-    it.effect("parses GitLab SSH via ScpAddress", () =>
+    it.effect("parses GitLab SSH via GitScpAddress", () =>
       Effect.gen(function* () {
         const result = yield* parseSource("git@gitlab.com:owner/repo.git");
         expect(result.source).toBe("gitlab");
@@ -987,7 +1016,7 @@ describe("parseInputPattern", () => {
       }),
     );
 
-    it.effect("parses Bitbucket SSH via ScpAddress", () =>
+    it.effect("parses Bitbucket SSH via GitScpAddress", () =>
       Effect.gen(function* () {
         const result = yield* parseSource("git@bitbucket.org:owner/repo.git");
         expect(result.source).toBe("bitbucket");
@@ -995,9 +1024,9 @@ describe("parseInputPattern", () => {
       }),
     );
 
-    it.effect("parses Azure Repos SSH via ScpAddress", () =>
+    it.effect("parses Azure Repos SSH via GitScpAddress", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo");
+        const result = yield* parseSource("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo.git");
         expect(result.source).toBe("azurerepos");
         expect(result).toMatchObject({
           organization: "myorg",

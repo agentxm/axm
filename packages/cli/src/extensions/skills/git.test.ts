@@ -17,7 +17,7 @@ import {
   isGitRepository,
   resolveRef,
 } from "../../sources/index.js";
-import { GitError } from "../../sources/git/index.js";
+import { GitError } from "../../git/index.js";
 
 describe("git", () => {
   let tempDir: string;

@@ -40,14 +40,14 @@ export { printSource } from "./printer.js";
 export { buildCloneUrl, getOrigin } from "./clone-url.js";
 
 // Git operations
-export type { GitError } from "./git/index.js";
+export type { GitError } from "../git/index.js";
 export {
   cloneRepo,
   getCurrentCommit,
   getTreeSha,
   isGitRepository,
   resolveRef,
-} from "./git/index.js";
+} from "../git/index.js";
 
 // GitHub API
 export type { GitHubApiError } from "./github/index.js";

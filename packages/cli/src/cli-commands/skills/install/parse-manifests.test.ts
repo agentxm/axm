@@ -38,7 +38,7 @@ describe("parseManifests", () => {
   });
 
   describe("marketplace.json", () => {
-    it.effect("returns parent directories from valid skill paths", () =>
+    it.effect("returns conventional skills/ dir for each plugin with string source", () =>
       withFileSystem(
         Effect.gen(function* () {
           const pluginDir = path.join(tempDir, ".claude-plugin");
@@ -46,16 +46,258 @@ describe("parseManifests", () => {
           fs.writeFileSync(
             path.join(pluginDir, "marketplace.json"),
             JSON.stringify({
-              plugins: [{ skillPath: "./skills/my-skill" }, { skillPath: "./tools/other-skill" }],
+              plugins: [{ source: "./my-plugin" }, { source: "./other-plugin" }],
             }),
           );
 
           const result = yield* parseManifests(tempDir);
 
-          expect(result).toEqual([path.resolve(tempDir, "skills"), path.resolve(tempDir, "tools")]);
+          expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "skills"));
+          expect(result).toContainEqual(path.resolve(tempDir, "other-plugin", "skills"));
         }),
       ),
     );
+
+    describe("metadata.pluginRoot", () => {
+      it.effect("uses pluginRoot as base for plugin source resolution", () =>
+        withFileSystem(
+          Effect.gen(function* () {
+            const pluginDir = path.join(tempDir, ".claude-plugin");
+            fs.mkdirSync(pluginDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(pluginDir, "marketplace.json"),
+              JSON.stringify({
+                metadata: { pluginRoot: "./packages" },
+                plugins: [{ source: "./my-plugin" }],
+              }),
+            );
+
+            const result = yield* parseManifests(tempDir);
+
+            expect(result).toContainEqual(path.resolve(tempDir, "packages", "my-plugin", "skills"));
+          }),
+        ),
+      );
+
+      it.effect("skips entire manifest when pluginRoot does not start with ./", () =>
+        withFileSystem(
+          Effect.gen(function* () {
+            const pluginDir = path.join(tempDir, ".claude-plugin");
+            fs.mkdirSync(pluginDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(pluginDir, "marketplace.json"),
+              JSON.stringify({
+                metadata: { pluginRoot: "packages" },
+                plugins: [{ source: "./my-plugin" }],
+              }),
+            );
+
+            const result = yield* parseManifests(tempDir);
+
+            expect(result).toEqual([]);
+          }),
+        ),
+      );
+
+      it.effect("skips entire manifest when pluginRoot is absolute path", () =>
+        withFileSystem(
+          Effect.gen(function* () {
+            const pluginDir = path.join(tempDir, ".claude-plugin");
+            fs.mkdirSync(pluginDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(pluginDir, "marketplace.json"),
+              JSON.stringify({
+                metadata: { pluginRoot: "/etc/evil" },
+                plugins: [{ source: "./my-plugin" }],
+              }),
+            );
+
+            const result = yield* parseManifests(tempDir);
+
+            expect(result).toEqual([]);
+          }),
+        ),
+      );
+    });
+
+    describe("plugins[].source", () => {
+      it.effect("resolves string source relative to basePath", () =>
+        withFileSystem(
+          Effect.gen(function* () {
+            const pluginDir = path.join(tempDir, ".claude-plugin");
+            fs.mkdirSync(pluginDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(pluginDir, "marketplace.json"),
+              JSON.stringify({
+                plugins: [{ source: "./my-plugin" }],
+              }),
+            );
+
+            const result = yield* parseManifests(tempDir);
+
+            expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "skills"));
+          }),
+        ),
+      );
+
+      it.effect("resolves omitted source to basePath (root-level plugin)", () =>
+        withFileSystem(
+          Effect.gen(function* () {
+            const pluginDir = path.join(tempDir, ".claude-plugin");
+            fs.mkdirSync(pluginDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(pluginDir, "marketplace.json"),
+              JSON.stringify({
+                plugins: [{}],
+              }),
+            );
+
+            const result = yield* parseManifests(tempDir);
+
+            expect(result).toContainEqual(path.resolve(tempDir, "skills"));
+          }),
+        ),
+      );
+
+      it.effect("resolves omitted source with pluginRoot", () =>
+        withFileSystem(
+          Effect.gen(function* () {
+            const pluginDir = path.join(tempDir, ".claude-plugin");
+            fs.mkdirSync(pluginDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(pluginDir, "marketplace.json"),
+              JSON.stringify({
+                metadata: { pluginRoot: "./packages" },
+                plugins: [{}],
+              }),
+            );
+
+            const result = yield* parseManifests(tempDir);
+
+            expect(result).toContainEqual(path.resolve(tempDir, "packages", "skills"));
+          }),
+        ),
+      );
+
+      it.effect("skips plugins with object source (remote)", () =>
+        withFileSystem(
+          Effect.gen(function* () {
+            const pluginDir = path.join(tempDir, ".claude-plugin");
+            fs.mkdirSync(pluginDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(pluginDir, "marketplace.json"),
+              JSON.stringify({
+                plugins: [
+                  { source: { url: "https://example.com/plugin.git" } },
+                  { source: "./local-plugin" },
+                ],
+              }),
+            );
+
+            const result = yield* parseManifests(tempDir);
+
+            // Only the local plugin should be processed
+            expect(result).toEqual([path.resolve(tempDir, "local-plugin", "skills")]);
+          }),
+        ),
+      );
+    });
+
+    describe("conventional {pluginBase}/skills/", () => {
+      it.effect("adds skills/ dir even with empty skills array", () =>
+        withFileSystem(
+          Effect.gen(function* () {
+            const pluginDir = path.join(tempDir, ".claude-plugin");
+            fs.mkdirSync(pluginDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(pluginDir, "marketplace.json"),
+              JSON.stringify({
+                plugins: [{ source: "./my-plugin", skills: [] }],
+              }),
+            );
+
+            const result = yield* parseManifests(tempDir);
+
+            expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "skills"));
+          }),
+        ),
+      );
+
+      it.effect("adds skills/ dir when skills array is missing", () =>
+        withFileSystem(
+          Effect.gen(function* () {
+            const pluginDir = path.join(tempDir, ".claude-plugin");
+            fs.mkdirSync(pluginDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(pluginDir, "marketplace.json"),
+              JSON.stringify({
+                plugins: [{ source: "./my-plugin" }],
+              }),
+            );
+
+            const result = yield* parseManifests(tempDir);
+
+            expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "skills"));
+          }),
+        ),
+      );
+    });
+
+    describe("plugins[].skills dirname transformation", () => {
+      it.effect("transforms skill paths via dirname", () =>
+        withFileSystem(
+          Effect.gen(function* () {
+            const pluginDir = path.join(tempDir, ".claude-plugin");
+            fs.mkdirSync(pluginDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(pluginDir, "marketplace.json"),
+              JSON.stringify({
+                plugins: [
+                  {
+                    source: "./my-plugin",
+                    skills: ["./custom-skills/skill-a", "./other/skill-b"],
+                  },
+                ],
+              }),
+            );
+
+            const result = yield* parseManifests(tempDir);
+
+            // conventional skills/ dir + dirname of each skill path
+            expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "skills"));
+            expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "custom-skills"));
+            expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "other"));
+          }),
+        ),
+      );
+
+      it.effect("rejects skill paths not starting with ./", () =>
+        withFileSystem(
+          Effect.gen(function* () {
+            const pluginDir = path.join(tempDir, ".claude-plugin");
+            fs.mkdirSync(pluginDir, { recursive: true });
+            fs.writeFileSync(
+              path.join(pluginDir, "marketplace.json"),
+              JSON.stringify({
+                plugins: [
+                  {
+                    source: "./my-plugin",
+                    skills: ["skills/bad-path", "./valid/skill-a"],
+                  },
+                ],
+              }),
+            );
+
+            const result = yield* parseManifests(tempDir);
+
+            // conventional + valid skill path only
+            expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "skills"));
+            expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "valid"));
+            expect(result).not.toContainEqual(path.resolve(tempDir, "my-plugin"));
+          }),
+        ),
+      );
+    });
   });
 
   describe("plugin.json", () => {
@@ -132,7 +374,7 @@ describe("parseManifests", () => {
   });
 
   describe("path traversal rejected", () => {
-    it.effect("excludes paths containing ..", () =>
+    it.effect("excludes marketplace plugins with source containing ..", () =>
       withFileSystem(
         Effect.gen(function* () {
           const pluginDir = path.join(tempDir, ".claude-plugin");
@@ -140,14 +382,14 @@ describe("parseManifests", () => {
           fs.writeFileSync(
             path.join(pluginDir, "marketplace.json"),
             JSON.stringify({
-              plugins: [{ skillPath: "./../escape/my-skill" }, { skillPath: "./valid/my-skill" }],
+              plugins: [{ source: "./../escape" }, { source: "./valid" }],
             }),
           );
 
           const result = yield* parseManifests(tempDir);
 
-          // Only the valid path should be included
-          expect(result).toEqual([path.resolve(tempDir, "valid")]);
+          // Only the valid plugin's conventional skills/ dir should be included
+          expect(result).toEqual([path.resolve(tempDir, "valid", "skills")]);
         }),
       ),
     );
@@ -176,16 +418,16 @@ describe("parseManifests", () => {
   });
 
   describe("resolved path outside basePath", () => {
-    it.effect("excludes paths that resolve outside basePath", () =>
+    it.effect("excludes marketplace plugins with source that escapes basePath", () =>
       withFileSystem(
         Effect.gen(function* () {
           const pluginDir = path.join(tempDir, ".claude-plugin");
           fs.mkdirSync(pluginDir, { recursive: true });
-          // A path that starts with ./ but contains .. to escape
+          // A source that starts with ./ but contains .. to escape
           fs.writeFileSync(
             path.join(pluginDir, "marketplace.json"),
             JSON.stringify({
-              plugins: [{ skillPath: "./../../../etc/skill" }],
+              plugins: [{ source: "./../../../etc" }],
             }),
           );
 
@@ -206,7 +448,7 @@ describe("parseManifests", () => {
           fs.writeFileSync(
             path.join(pluginDir, "marketplace.json"),
             JSON.stringify({
-              plugins: [{ skillPath: "./skills/skill-a" }],
+              plugins: [{ source: "./my-plugin" }],
             }),
           );
           fs.writeFileSync(
@@ -218,7 +460,9 @@ describe("parseManifests", () => {
 
           const result = yield* parseManifests(tempDir);
 
-          expect(result).toEqual([path.resolve(tempDir, "skills"), path.resolve(tempDir, "tools")]);
+          // marketplace: my-plugin/skills, plugin.json: tools
+          expect(result).toContainEqual(path.resolve(tempDir, "my-plugin", "skills"));
+          expect(result).toContainEqual(path.resolve(tempDir, "tools"));
         }),
       ),
     );
@@ -263,29 +507,29 @@ describe("parseManifests", () => {
         Effect.gen(function* () {
           const pluginDir = path.join(tempDir, ".claude-plugin");
           fs.mkdirSync(pluginDir, { recursive: true });
+          // marketplace produces ./my-plugin/skills, plugin.json also produces ./my-plugin/skills (via dirname)
           fs.writeFileSync(
             path.join(pluginDir, "marketplace.json"),
             JSON.stringify({
-              plugins: [{ skillPath: "./skills/skill-a" }, { skillPath: "./skills/skill-b" }],
+              plugins: [{ source: "./my-plugin" }],
             }),
           );
           fs.writeFileSync(
             path.join(pluginDir, "plugin.json"),
             JSON.stringify({
-              skills: ["./skills/skill-c"],
+              skills: ["./my-plugin/skills/skill-c"],
             }),
           );
 
           const result = yield* parseManifests(tempDir);
 
-          // ./skills/skill-a and ./skills/skill-b and ./skills/skill-c
-          // all have parent dir "skills", so should be deduplicated to one entry
-          expect(result).toEqual([path.resolve(tempDir, "skills")]);
+          // Both produce my-plugin/skills -> deduplicated to one entry
+          expect(result).toEqual([path.resolve(tempDir, "my-plugin", "skills")]);
         }),
       ),
     );
 
-    it.effect("deduplicates paths within a single manifest", () =>
+    it.effect("deduplicates conventional skills/ dirs from multiple plugins with same base", () =>
       withFileSystem(
         Effect.gen(function* () {
           const pluginDir = path.join(tempDir, ".claude-plugin");
@@ -293,14 +537,15 @@ describe("parseManifests", () => {
           fs.writeFileSync(
             path.join(pluginDir, "marketplace.json"),
             JSON.stringify({
-              plugins: [{ skillPath: "./skills/skill-a" }, { skillPath: "./skills/skill-b" }],
+              // Two plugins with the same source produce the same skills/ dir
+              plugins: [{ source: "./my-plugin" }, { source: "./my-plugin" }],
             }),
           );
 
           const result = yield* parseManifests(tempDir);
 
-          // Both have parent dir "skills" -> deduplicated
-          expect(result).toEqual([path.resolve(tempDir, "skills")]);
+          // Both produce my-plugin/skills -> deduplicated
+          expect(result).toEqual([path.resolve(tempDir, "my-plugin", "skills")]);
         }),
       ),
     );

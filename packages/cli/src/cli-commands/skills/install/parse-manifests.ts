@@ -40,8 +40,14 @@ const validatePath = (rawPath: string, basePath: string): Option.Option<string> 
 // Manifest Parsers
 // -----------------------------------------------------------------------------
 
+const MarketplacePlugin = Schema.Struct({
+  source: Schema.optional(Schema.Unknown),
+  skills: Schema.optional(Schema.Array(Schema.String)),
+});
+
 const MarketplaceManifest = Schema.Struct({
-  plugins: Schema.Array(Schema.Struct({ skillPath: Schema.String })),
+  metadata: Schema.optional(Schema.Struct({ pluginRoot: Schema.optional(Schema.String) })),
+  plugins: Schema.Array(MarketplacePlugin),
 });
 
 const PluginManifest = Schema.Struct({
@@ -65,9 +71,50 @@ const readJsonFile = (
   });
 
 /**
+ * Validate a directory path from a manifest (not a skill path — no dirname).
+ * Must start with `./`, must not contain `..`, and must resolve within basePath.
+ * Returns the resolved directory path on success.
+ */
+const validateDirPath = (rawPath: string, basePath: string): Option.Option<string> => {
+  if (!rawPath.startsWith("./")) return Option.none();
+  if (rawPath.includes("..")) return Option.none();
+  const resolved = nodePath.resolve(basePath, rawPath);
+  const normalizedBase = nodePath.resolve(basePath);
+  if (!resolved.startsWith(normalizedBase + nodePath.sep) && resolved !== normalizedBase) {
+    return Option.none();
+  }
+  return Option.some(resolved);
+};
+
+/**
+ * Resolve a plugin's base directory from its source field and pluginRoot.
+ * - string source: must start with `./`, resolve relative to basePath + pluginRoot
+ * - omitted source: resolve to basePath + pluginRoot (or basePath if no pluginRoot)
+ * - object source: skip (remote plugin)
+ */
+const resolvePluginBase = (
+  source: unknown | undefined,
+  basePath: string,
+  pluginRoot: string | undefined,
+): Option.Option<string> => {
+  const rootBase = pluginRoot ? nodePath.resolve(basePath, pluginRoot) : nodePath.resolve(basePath);
+
+  // Object source → skip plugin
+  if (typeof source === "object" && source !== null) return Option.none();
+
+  if (typeof source === "string") {
+    return validateDirPath(source, rootBase);
+  }
+
+  // Omitted source → root-level plugin
+  return Option.some(rootBase);
+};
+
+/**
  * Parse .claude-plugin/marketplace.json and return validated skill parent directories.
  *
- * Expected shape: { plugins: Array<{ skillPath: string }> }
+ * Supports metadata.pluginRoot, per-plugin source (string/omitted/object),
+ * per-plugin skills array, and conventional {pluginBase}/skills/ directory.
  */
 const parseMarketplaceJson = (
   basePath: string,
@@ -80,9 +127,31 @@ const parseMarketplaceJson = (
     const data = yield* Schema.decodeUnknown(MarketplaceManifest)(json.value).pipe(Effect.option);
     if (Option.isNone(data)) return [];
 
-    return Array.filterMap(data.value.plugins, (plugin) =>
-      validatePath(plugin.skillPath, basePath),
-    );
+    // pluginRoot validation: if present and doesn't start with ./, skip entire manifest
+    const pluginRoot = data.value.metadata?.pluginRoot;
+    if (pluginRoot !== undefined && !pluginRoot.startsWith("./")) return [];
+
+    const dirs: string[] = [];
+
+    for (const plugin of data.value.plugins) {
+      const pluginBase = resolvePluginBase(plugin.source, basePath, pluginRoot);
+      if (Option.isNone(pluginBase)) continue;
+
+      // Conventional {pluginBase}/skills/ always added
+      dirs.push(nodePath.join(pluginBase.value, "skills"));
+
+      // Explicit skill paths transformed via dirname
+      if (plugin.skills) {
+        for (const skillPath of plugin.skills) {
+          const validated = validatePath(skillPath, pluginBase.value);
+          if (Option.isSome(validated)) {
+            dirs.push(validated.value);
+          }
+        }
+      }
+    }
+
+    return dirs;
   });
 
 /**

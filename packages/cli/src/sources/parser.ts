@@ -46,7 +46,12 @@ type RegistrySourceInput = {
 type UrlInput = { readonly _tag: "UrlInput"; readonly url: URL };
 
 /** An SCP-style git address: `user@host:path` (e.g. `git@github.com:owner/repo.git`). */
-type ScpAddress = { readonly _tag: "ScpAddress"; readonly input: string };
+type GitScpAddress = {
+  readonly _tag: "GitScpAddress";
+  readonly user: string;
+  readonly host: string;
+  readonly path: string;
+};
 
 /** An `owner/repo` style pattern containing `/` (not a URL or file path). */
 type SlashPattern = {
@@ -71,7 +76,7 @@ export type InputPattern =
   | NameInput
   | RegistrySourceInput
   | UrlInput
-  | ScpAddress
+  | GitScpAddress
   | SlashPattern
   | FilePathPattern
   | ShorthandInput;
@@ -79,7 +84,7 @@ export type InputPattern =
 const REGISTRY_SOURCE_PATTERN = /^@([^/]+)\/(.+)$/;
 
 /** SCP-style: `user@host:path` — no `://` scheme. */
-const SCP_PATTERN = /^[^@]+@[^:]+:.+$/;
+const SCP_PATTERN = /^([^@]+)@([^:]+):(.+)$/;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySourceConfig = SourceConfig<any, any>;
@@ -123,8 +128,14 @@ const NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
  */
 export const parseInputPattern = (input: string): Option.Option<InputPattern> => {
   // 1. SCP-style git address (user@host:path) — must check before URL
-  if (SCP_PATTERN.test(input)) {
-    return Option.some({ _tag: "ScpAddress", input });
+  const scpMatch = input.match(SCP_PATTERN);
+  if (scpMatch && scpMatch[1] && scpMatch[2] && scpMatch[3]) {
+    return Option.some({
+      _tag: "GitScpAddress",
+      user: scpMatch[1],
+      host: scpMatch[2],
+      path: scpMatch[3],
+    });
   }
 
   // 2. Shorthand prefix (github:..., gitlab:..., etc.) — must check before URL
@@ -234,21 +245,14 @@ export const parseSource = (input: string): Effect.Effect<Source, ParseError> =>
             new ParseError({ message: "Registry source input is not yet supported", input }),
           ),
         ),
-        Match.tag("ScpAddress", ({ input: scpInput }) => {
-          const hostMatch = scpInput.match(/@([^:]+):/);
-          if (!hostMatch || !hostMatch[1]) {
-            return Effect.fail(
-              new ParseError({ message: `Unable to extract host from SCP address`, input }),
-            );
-          }
-          const host = hostMatch[1];
-          const cfg = CONFIG_BY_HOSTNAME.get(host);
+        Match.tag("GitScpAddress", (scp) => {
+          const cfg = CONFIG_BY_HOSTNAME.get(scp.host);
           if (!cfg || Option.isNone(cfg.parseFromUrl)) {
             return Effect.fail(
-              new ParseError({ message: `Unsupported SCP host: "${host}"`, input }),
+              new ParseError({ message: `Unsupported SCP host: "${scp.host}"`, input }),
             );
           }
-          return cfg.parseFromUrl.value.parseScp(scpInput);
+          return cfg.parseFromUrl.value.parseScp(`${scp.user}@${scp.host}:${scp.path}`);
         }),
         Match.tag("UrlInput", ({ url }) => {
           const cfg = CONFIG_BY_HOSTNAME.get(url.hostname);

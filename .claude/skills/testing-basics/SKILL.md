@@ -11,17 +11,28 @@ qualities regardless of level.
 
 ---
 
+## Test Organization
+
+**Co-locate tests with the code they test.** Test structure mirrors code structure:
+
+- `feature.ts` → `feature.test.ts` in the same directory
+- `handler.ts` → `handler.test.ts` in the same directory
+- Minimize testing code in separate files/folders — helpers and fixtures live near their tests
+- Reading the test suite should give a clear map of the codebase's functionality
+
+**Tests as documentation:** A well-organized test suite doubles as a behavior catalog. Test file names, describe blocks, and test names should read naturally and convey what the system does.
+
 ## Test Levels
 
-| Level | Location                     | Tests                                     |
-| ----- | ---------------------------- | ----------------------------------------- |
-| Unit  | `packages/**/*.test.ts`      | Business logic (pure functions, handlers) |
-| E2E   | `packages/cli/e2e/*.test.ts` | Full CLI as subprocess                    |
+| Level | Location                    | Tests                                     |
+| ----- | --------------------------- | ----------------------------------------- |
+| Unit  | `packages/**/*.test.ts`     | Business logic (pure functions, handlers) |
+| E2E   | `packages/**/*.e2e.test.ts` | User-visible functional behavior          |
 
 **When to use each:**
 
 - **Unit** — All meaningful business logic: pure functions, data transformations, handlers, error paths
-- **E2E** — CLI parsing/output, file system integration, user-facing behavior
+- **E2E** — User-visible functional behavior: CLI commands produce correct output, files are created/modified as expected, error messages are helpful
 
 Handler tests are unit tests. They may need test layers for service dependencies—see `/effect-testing`.
 

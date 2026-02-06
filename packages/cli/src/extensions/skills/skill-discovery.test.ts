@@ -100,7 +100,7 @@ describe("discoverSkills", () => {
     ),
   );
 
-  it.effect("handles case-insensitive SKILL.md matching", () =>
+  it.effect("only recognizes exact SKILL.md (case-sensitive)", () =>
     withFileSystem(
       Effect.gen(function* () {
         // Create skills with different SKILL.md casings
@@ -115,7 +115,7 @@ describe("discoverSkills", () => {
           '---\nname: "skill-lower"\ndescription: "Lower"\n---\n',
         );
         fs.writeFileSync(
-          path.join(skill2Dir, "SKILL.MD"),
+          path.join(skill2Dir, "SKILL.md"),
           '---\nname: "skill-upper"\ndescription: "Upper"\n---\n',
         );
         fs.writeFileSync(
@@ -125,9 +125,9 @@ describe("discoverSkills", () => {
 
         const result = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
-        expect(result).toHaveLength(3);
-        const names = result.map((s) => s.name).sort();
-        expect(names).toEqual(["skill-lower", "skill-mixed", "skill-upper"]);
+        // Only exact "SKILL.md" should be recognized
+        expect(result).toHaveLength(1);
+        expect(result[0]?.name).toBe("skill-upper");
       }),
     ),
   );

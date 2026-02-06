@@ -315,6 +315,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       const selectedSkills = yield* determineSkillsToInstall(discoveredSkills, {
         requestedSkills: args.skill,
         all: args.all,
+        // TODO: why is dry-run here? Is it needed?
         dryRun: Option.getOrElse(args.dryRun, () => false),
         yes: args.yes,
       });

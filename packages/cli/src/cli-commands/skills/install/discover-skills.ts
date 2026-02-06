@@ -100,9 +100,9 @@ export class DiscoveryError extends Data.TaggedError("DiscoveryError")<{
 // -----------------------------------------------------------------------------
 
 /**
- * Pattern to match SKILL.md files (case-insensitive).
+ * Exact filename for skill definition files.
  */
-const SKILL_FILE_PATTERN = /^skill\.md$/i;
+const SKILL_FILENAME = "SKILL.md";
 
 /**
  * Well-known directories to scan in Phase 2 (priority scan).
@@ -161,10 +161,9 @@ const tryParseSkillInDir = (dir: string) =>
     const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
     if (Option.isNone(entries)) return Option.none<Skill>();
 
-    const skillFile = entries.value.find((e) => SKILL_FILE_PATTERN.test(e));
-    if (!skillFile) return Option.none<Skill>();
+    if (!entries.value.includes(SKILL_FILENAME)) return Option.none<Skill>();
 
-    const fullPath = nodePath.join(dir, skillFile);
+    const fullPath = nodePath.join(dir, SKILL_FILENAME);
     const content = yield* fs.readFileString(fullPath).pipe(Effect.option);
     if (Option.isNone(content)) return Option.none<Skill>();
 

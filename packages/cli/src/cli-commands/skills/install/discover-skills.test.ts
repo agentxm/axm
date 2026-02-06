@@ -643,6 +643,39 @@ describe("discoverSkillsInDir", () => {
       ),
     );
 
+    it.effect("includes internal skills when INSTALL_INTERNAL_SKILLS=true", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          createSkillMd(
+            path.join(tempDir, "skills", "internal-skill"),
+            "internal-skill",
+            "Secret",
+            {
+              internal: true,
+            },
+          );
+
+          const originalEnv = process.env["INSTALL_INTERNAL_SKILLS"];
+          process.env["INSTALL_INTERNAL_SKILLS"] = "true";
+          try {
+            const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+              ...defaultOptions,
+              includeInternal: false,
+            });
+
+            const names = skills.map((s) => s.name);
+            expect(names).toContain("internal-skill");
+          } finally {
+            if (originalEnv === undefined) {
+              delete process.env["INSTALL_INTERNAL_SKILLS"];
+            } else {
+              process.env["INSTALL_INTERNAL_SKILLS"] = originalEnv;
+            }
+          }
+        }),
+      ),
+    );
+
     it.effect("includes non-internal skills regardless of includeInternal setting", () =>
       withFileSystem(
         Effect.gen(function* () {

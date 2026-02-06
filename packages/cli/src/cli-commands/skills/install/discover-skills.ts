@@ -192,11 +192,7 @@ export const discoverSkillsInDir = (
 const resolveGitHostingProviderSource = (
   source: GitHubSource | GitLabSource | BitbucketSource,
   axmDir: string,
-): Effect.Effect<
-  { skills: DiscoveredSkill[]; skillsDir: string; commitSha: string },
-  InstallError,
-  FileSystem.FileSystem
-> =>
+) =>
   Effect.gen(function* () {
     const cloneUrl = yield* buildCloneUrl(source).pipe(
       Effect.mapError(
@@ -258,7 +254,7 @@ const resolveGitHostingProviderSource = (
 
     const discovered: DiscoveredSkill[] = skills.map((skill) => ({
       ...skill,
-      discoveryPath: Array.of<ExtensionRef>({ name: skill.name, type: "skill" }),
+      discoveryPath: Array.make({ name: skill.name, type: "skill" } satisfies ExtensionRef),
     }));
 
     return { skills: discovered, skillsDir, commitSha };
@@ -321,7 +317,7 @@ export const discoverSkills = (source: Source) =>
         );
         const skills: DiscoveredSkill[] = rawSkills.map((skill) => ({
           ...skill,
-          discoveryPath: Array.of<ExtensionRef>({ name: skill.name, type: "skill" }),
+          discoveryPath: Array.make({ name: skill.name, type: "skill" } satisfies ExtensionRef),
         }));
         return {
           skills,
@@ -335,12 +331,14 @@ export const discoverSkills = (source: Source) =>
 
       case "git":
       case "registry":
-        return yield* Effect.fail(
-          new InstallError({
-            message: `Source type "${source.source}" is not yet supported`,
-            cause: Option.none(),
-            retryable: false,
-          }),
-        );
+        return yield* new InstallError({
+          message: formatError(
+            `Source type "${source.source}" is not yet supported`,
+            [`Source: ${printSource(source)}`],
+            "Use GitHub, GitLab, Bitbucket, or a local path instead.",
+          ),
+          cause: Option.none(),
+          retryable: false,
+        });
     }
   });

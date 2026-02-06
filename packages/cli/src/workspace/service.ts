@@ -13,7 +13,6 @@ import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import {
   type LockfileError,
-  LockfileNotFoundError,
   readLockfile,
   writeLockfile,
   LOCKFILE_NAME,
@@ -93,7 +92,7 @@ const initializeProjectWorkspace = (
   localDir: string,
   options: WorkspaceContextOptions,
 ): Effect.Effect<
-  readonly string[],
+  Settings,
   WorkspaceInitializationError | PromptCancelled,
   FileSystem.FileSystem | Clack
 > =>
@@ -103,9 +102,7 @@ const initializeProjectWorkspace = (
 
     // If explicit agents are provided, use those (no detection needed)
     if (options.agents && options.agents.length > 0) {
-      selectedAgents = Array.filterMap([...options.agents], (id) =>
-        Option.map(getAgentById(id), (agent) => agent),
-      );
+      selectedAgents = Array.filterMap([...options.agents], (id) => getAgentById(id));
     } else {
       // Detect installed agents
       const detectedAgents = yield* detectAgents().pipe(
@@ -191,7 +188,7 @@ const initializeProjectWorkspace = (
       ),
     );
 
-    return agentIds;
+    return settings;
   });
 
 /**
@@ -222,8 +219,7 @@ const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
     const lockfileExists = yield* fs.exists(lockfilePath).pipe(
       Effect.mapError(
         (error) =>
-          new SettingsParseError({
-            path: lockfilePath,
+          new WorkspaceInitializationError({
             message: `Failed to check if lockfile exists: ${lockfilePath}`,
             cause: error,
           }),
@@ -275,15 +271,8 @@ const ensureProjectWorkspaceInitialized = (localDir: string, options: WorkspaceC
     );
 
     if (!localSettingsResult.found) {
-      // Initialize project workspace
-      yield* initializeProjectWorkspace(localDir, options);
-
-      // Re-read settings after initialization
-      return yield* readSettings(localDir).pipe(
-        Effect.catchTag("SettingsNotFoundError", () =>
-          Effect.fail(new WorkspaceNotInitializedError({ path: localDir })),
-        ),
-      );
+      // Initialize project workspace and return the settings it wrote
+      return yield* initializeProjectWorkspace(localDir, options);
     }
 
     return localSettingsResult.settings;
@@ -326,26 +315,7 @@ const make = (
       global: options.global,
       path: workspaceDir,
       getSettings: () => readSettings(workspaceDir).pipe(Effect.provide(fsLayer)),
-      getLockfile: () =>
-        Effect.gen(function* () {
-          const lockfilePath = `${workspaceDir}/${LOCKFILE_NAME}`;
-          const exists = yield* fs.exists(lockfilePath).pipe(
-            Effect.mapError(
-              () =>
-                new LockfileNotFoundError({
-                  path: lockfilePath,
-                  message: `Failed to check if lockfile exists: ${lockfilePath}`,
-                }),
-            ),
-          );
-          if (!exists) {
-            return yield* new LockfileNotFoundError({
-              path: lockfilePath,
-              message: `Lockfile not found at ${lockfilePath}`,
-            });
-          }
-          return yield* readLockfile(workspaceDir).pipe(Effect.provide(fsLayer));
-        }),
+      getLockfile: () => readLockfile(workspaceDir).pipe(Effect.provide(fsLayer)),
     };
   });
 

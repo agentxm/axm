@@ -736,7 +736,12 @@ describe("parseInputPattern", () => {
     });
 
     it("classifies owner/repo as SlashPattern", () => {
-      expectSome("owner/repo", { _tag: "SlashPattern", input: "owner/repo" });
+      expectSome("owner/repo", {
+        _tag: "SlashPattern",
+        owner: "owner",
+        repo: "repo",
+        subPath: Option.none(),
+      });
     });
 
     it("returns None for slash pattern with more than two segments", () => {

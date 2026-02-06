@@ -43,7 +43,12 @@ type UrlInput = { readonly _tag: "UrlInput"; readonly url: URL };
 type ScpAddress = { readonly _tag: "ScpAddress"; readonly input: string };
 
 /** An `owner/repo` style pattern containing `/` (not a URL or file path). */
-type SlashPattern = { readonly _tag: "SlashPattern"; readonly input: string };
+type SlashPattern = {
+  readonly _tag: "SlashPattern";
+  readonly owner: string;
+  readonly repo: string;
+  readonly subPath: Option.Option<string>;
+};
 
 /** A local filesystem path matching `LOCAL_PATH_PATTERN`. */
 type FilePathPattern = { readonly _tag: "FilePathPattern"; readonly path: string };
@@ -152,7 +157,13 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
   if (input.includes("/")) {
     const segments = input.split("/");
     if (segments.length === 2 && segments.every((s) => NAME_PATTERN.test(s))) {
-      return Option.some({ _tag: "SlashPattern", input });
+      const subPathStr = segments.slice(2).join("/");
+      return Option.some({
+        _tag: "SlashPattern",
+        owner: segments[0]!,
+        repo: segments[1]!,
+        subPath: Option.fromNullable(subPathStr || undefined),
+      });
     }
     return Option.none();
   }
@@ -169,24 +180,26 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
 // SlashPattern Resolution
 // -----------------------------------------------------------------------------
 
-const resolveSlashPattern = (input: string): Effect.Effect<Source, ParseError> => {
-  const [owner, repo] = input.split("/") as [string, string];
-
+const resolveSlashPattern = (pattern: SlashPattern): Effect.Effect<Source, ParseError> => {
+  const { owner, repo } = pattern;
+  const subPath = Option.getOrUndefined(pattern.subPath);
   return checkGitHubRepoExists(owner, repo).pipe(
-    Effect.map(() => githubConfig.make({ owner, repo })),
+    Effect.map(() => githubConfig.make({ owner, repo, subPath })),
     Effect.orElse(() =>
-      checkGitLabRepoExists(owner, repo).pipe(Effect.map(() => gitlabConfig.make({ owner, repo }))),
+      checkGitLabRepoExists(owner, repo).pipe(
+        Effect.map(() => gitlabConfig.make({ owner, repo, subPath })),
+      ),
     ),
     Effect.orElse(() =>
       checkBitbucketRepoExists(owner, repo).pipe(
-        Effect.map(() => bitbucketConfig.make({ owner, repo })),
+        Effect.map(() => bitbucketConfig.make({ owner, repo, subPath })),
       ),
     ),
     Effect.mapError(
       () =>
         new ParseError({
-          message: `Repository '${input}' not found on GitHub, GitLab, or Bitbucket`,
-          input,
+          message: `Repository '${owner}/${repo}' not found on GitHub, GitLab, or Bitbucket`,
+          input: `${owner}/${repo}`,
         }),
     ),
   );
@@ -255,7 +268,7 @@ export const parseSource = (input: string): Effect.Effect<Source, ParseError> =>
           }
           return cfg.parseFromUrl.value.parseUrl(url);
         }),
-        Match.tag("SlashPattern", ({ input: slashInput }) => resolveSlashPattern(slashInput)),
+        Match.tag("SlashPattern", (pattern) => resolveSlashPattern(pattern)),
         Match.tag("FilePathPattern", ({ path }) => parseLocalPath(path)),
         Match.tag("ShorthandInput", ({ prefix, input: shorthandInput }) => {
           const cfg = CONFIG_BY_PREFIX.get(prefix);

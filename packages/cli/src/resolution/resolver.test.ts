@@ -13,6 +13,7 @@ import * as path from "node:path";
 import type { FileSystem } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
+import { vi } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { defaultResolutionOptions, resolveExtension } from "./resolver.js";
@@ -46,14 +47,28 @@ const withFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>
 
 describe("resolveExtension - integration tests", () => {
   let tempDir: string;
+  let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "resolver-integration-test-"));
+    originalFetch = globalThis.fetch;
   });
 
   afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
+
+  const mockFetch = (responses: Record<string, { ok: boolean } | "error">): void => {
+    globalThis.fetch = vi.fn((url: string | URL | Request) => {
+      const urlStr = typeof url === "string" ? url : url.toString();
+      const response = responses[urlStr];
+      if (response === "error") return Promise.reject(new Error("Network error"));
+      if (response) return Promise.resolve(new Response(null, { status: response.ok ? 200 : 404 }));
+      return Promise.resolve(new Response(null, { status: 404 }));
+    }) as unknown as typeof globalThis.fetch;
+  };
 
   // ---------------------------------------------------------------------------
   // Resolver Order (Early Exit)
@@ -63,6 +78,7 @@ describe("resolveExtension - integration tests", () => {
     it.effect("ambiguous pattern owner/repo resolves to GitHub", () =>
       withFileSystem(
         Effect.gen(function* () {
+          mockFetch({ "https://github.com/owner/repo": { ok: true } });
           const result = yield* resolveExtension("owner/repo", makeOptions({ cwd: tempDir }));
 
           expect(result).toHaveLength(1);
@@ -221,6 +237,7 @@ describe("resolveExtension - integration tests", () => {
     it.effect("returns only github sources when sources: ['github']", () =>
       withFileSystem(
         Effect.gen(function* () {
+          mockFetch({ "https://github.com/owner/repo": { ok: true } });
           // Ambiguous pattern resolves to GitHub
           const result = yield* resolveExtension(
             "owner/repo",
@@ -237,6 +254,7 @@ describe("resolveExtension - integration tests", () => {
     it.effect("returns github for ambiguous pattern when sources not specified", () =>
       withFileSystem(
         Effect.gen(function* () {
+          mockFetch({ "https://github.com/owner/repo": { ok: true } });
           // Ambiguous pattern resolves to GitHub
           const result = yield* resolveExtension("owner/repo", makeOptions({ cwd: tempDir }));
 

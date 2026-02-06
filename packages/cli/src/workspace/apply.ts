@@ -487,7 +487,7 @@ const syncToAgents = (
           if (Option.isNone(maybeAgent)) return;
           const agent = maybeAgent.value;
 
-          const agentSkillsDir = agent.skills.projectDir;
+          const agentSkillsDir = agent.skills.dir;
           const agentSkillPath = nodePath.join(agentSkillsDir, skillName);
 
           // Ensure agent skills directory exists
@@ -546,7 +546,7 @@ const removeFromAgents = (
           if (Option.isNone(maybeAgent)) return;
           const agent = maybeAgent.value;
 
-          const agentSkillPath = nodePath.join(agent.skills.projectDir, skillName);
+          const agentSkillPath = nodePath.join(agent.skills.dir, skillName);
 
           const exists = yield* fs
             .exists(agentSkillPath)

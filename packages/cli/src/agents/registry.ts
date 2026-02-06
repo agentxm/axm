@@ -148,7 +148,7 @@ export const getAgentIds = (): ReadonlyArray<AgentId> =>
  * ```typescript
  * const agents = getAllAgents();
  * for (const agent of agents) {
- *   console.log(`${agent.name}: ${agent.skills.projectDir}`);
+ *   console.log(`${agent.name}: ${agent.skills.dir}`);
  * }
  * ```
  *

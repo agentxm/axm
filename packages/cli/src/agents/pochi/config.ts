@@ -5,9 +5,6 @@
  * @packageDocumentation
  */
 
-import * as path from "node:path";
-import * as Option from "effect/Option";
-import { home } from "../constants.js";
 import type { AgentConfig } from "../types.js";
 
 /**
@@ -19,7 +16,6 @@ export const config: AgentConfig = {
   id: "pochi",
   name: "Pochi",
   skills: {
-    projectDir: ".pochi/skills",
-    globalDir: Option.some(path.join(home, ".pochi/skills")),
+    dir: ".pochi/skills",
   },
 };

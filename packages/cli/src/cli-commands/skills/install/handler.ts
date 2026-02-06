@@ -312,7 +312,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       if (args.list) {
         yield* clack.log.info("Available skills:");
         for (const skill of discoveredSkills) {
-          const desc = Option.isSome(skill.description) ? ` - ${skill.description.value}` : "";
+          const desc = skill.description ? ` - ${skill.description}` : "";
           yield* clack.log.message(`  ${skill.name}${desc}`);
         }
         yield* clack.outro(`${discoveredSkills.length} skill(s) available`);

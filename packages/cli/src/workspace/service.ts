@@ -138,7 +138,7 @@ const initializeProjectWorkspace = (
               toOption: (agent) => ({
                 value: agent.id,
                 label: agent.name,
-                hint: Option.some(`skills: ${agent.skills.projectDir}`),
+                hint: Option.some(`skills: ${agent.skills.dir}`),
               }),
               initialValues: initialIds,
               required: Option.some(false),

@@ -468,7 +468,7 @@ const handlePartialUninstall = (
       yield* Effect.all(
         agentConfigs.map((agent) =>
           Effect.gen(function* () {
-            const agentSkillsDir = agent.skills.projectDir;
+            const agentSkillsDir = agent.skills.dir;
             const skillPath = nodePath.join(agentSkillsDir, args.skill);
 
             const exists = yield* fs.exists(skillPath);

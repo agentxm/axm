@@ -131,13 +131,3 @@ export const AgentIdSchema = Schema.Union(
  * @experimental This API is unstable and may change without notice.
  */
 export type AgentId = typeof AgentIdSchema.Type;
-
-/**
- * Reference to an extension by name and type.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface ExtensionRef {
-  readonly name: string;
-  readonly type: ExtensionType;
-}

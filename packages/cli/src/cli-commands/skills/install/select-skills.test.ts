@@ -9,8 +9,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeClackTestLayer } from "../../../clack-effect/index.js";
-import type { DiscoveredSkill } from "../../../extensions/skills/index.js";
-import type { ExtensionRef } from "../../../extensions/common.js";
+import type { Skill } from "../../../extensions/skills/index.js";
 import { InstallError } from "./handler.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 
@@ -18,21 +17,12 @@ import { determineSkillsToInstall } from "./select-skills.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeSkill = (name: string, pathLength = 1): DiscoveredSkill => {
-  const refs: ExtensionRef[] = [];
-  for (let i = 0; i < pathLength - 1; i++) {
-    refs.push({ name: `pack-${i}`, type: "pack" });
-  }
-  refs.push({ name, type: "skill" });
-
-  return {
-    name,
-    path: `/fake/${name}/SKILL.md`,
-    description: "",
-    metadata: Option.none(),
-    discoveryPath: refs as unknown as Array.NonEmptyReadonlyArray<ExtensionRef>,
-  };
-};
+const makeSkill = (name: string): Skill => ({
+  name,
+  path: `/fake/${name}/SKILL.md`,
+  description: "",
+  metadata: Option.none(),
+});
 
 const [ClackTestLayer] = makeClackTestLayer({
   confirmBehavior: Option.some({ type: "return", value: true }),
@@ -45,8 +35,8 @@ const provide = <A, E>(
 ) => effect.pipe(Effect.provide(ClackTestLayer));
 
 /** Helper to create a NonEmptyReadonlyArray of skills. */
-const skills = (...names: [string, ...string[]]): Array.NonEmptyReadonlyArray<DiscoveredSkill> =>
-  names.map((n) => makeSkill(n)) as unknown as Array.NonEmptyReadonlyArray<DiscoveredSkill>;
+const skills = (...names: [string, ...string[]]): Array.NonEmptyReadonlyArray<Skill> =>
+  names.map((n) => makeSkill(n)) as unknown as Array.NonEmptyReadonlyArray<Skill>;
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -156,24 +146,6 @@ describe("determineSkillsToInstall", () => {
       provide(
         Effect.gen(function* () {
           const result = yield* determineSkillsToInstall(skills("commit"), {
-            requestedSkills: [],
-            all: false,
-            dryRun: false,
-            yes: false,
-          });
-
-          expect(result.map((s) => s.name)).toEqual(["commit"]);
-        }),
-      ),
-    );
-
-    it.effect("auto-selects single skill from pack without prompting", () =>
-      provide(
-        Effect.gen(function* () {
-          const packSkills = [
-            makeSkill("commit", 2),
-          ] as unknown as Array.NonEmptyReadonlyArray<DiscoveredSkill>;
-          const result = yield* determineSkillsToInstall(packSkills, {
             requestedSkills: [],
             all: false,
             dryRun: false,

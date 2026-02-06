@@ -11,13 +11,11 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
-import type { ExtensionRef } from "../../../extensions/common.js";
 import {
   buildCloneUrl,
   getTreeSha,
   printSource,
   shallowClone,
-  type DiscoveredSkill,
   type Skill,
   type Source,
 } from "../../../extensions/skills/index.js";
@@ -26,7 +24,6 @@ import { InstallError } from "./handler.js";
 import { parseManifests } from "./parse-manifests.js";
 import { parseSkillMd } from "./parse-skill-md.js";
 import { formatError } from "../../../utils/errors.js";
-import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -49,7 +46,7 @@ export interface ResolvedSource {
 /**
  * A discovered skill from a remote git source, enriched with its git tree SHA.
  */
-export interface RemoteDiscoveredSkill extends DiscoveredSkill {
+export interface RemoteDiscoveredSkill extends Skill {
   /** Git tree SHA of the skill's folder */
   readonly gitTreeSha: string;
 }
@@ -381,7 +378,6 @@ const discoverFromRemoteGitSource = (
 
           return {
             ...skill,
-            discoveryPath: Array.make({ name: skill.name, type: "skill" } satisfies ExtensionRef),
             gitTreeSha,
           };
         }),
@@ -494,12 +490,8 @@ export const discoverSkills = (source: Source) =>
               }),
           ),
         );
-        const skills = Array.map(rawSkills, (skill) => ({
-          ...skill,
-          discoveryPath: Array.make({ name: skill.name, type: "skill" } satisfies ExtensionRef),
-        }));
         return {
-          skills,
+          skills: rawSkills,
           resolvedSource: {
             source,
             skillsDir,

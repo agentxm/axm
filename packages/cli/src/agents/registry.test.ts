@@ -13,22 +13,15 @@ describe("AGENTS registry", () => {
   // Get all agents for iteration in tests
   const agents = getAllAgents();
 
-  it.each(agents)("agent $id has required skills.projectDir", (config) => {
-    expect(config.skills.projectDir).toBeDefined();
-    expect(config.skills.projectDir.length).toBeGreaterThan(0);
+  it.each(agents)("agent $id has required skills.dir", (config) => {
+    expect(config.skills.dir).toBeDefined();
+    expect(config.skills.dir.length).toBeGreaterThan(0);
   });
 
-  it.each(agents)(
-    "agent $id projectDir ends with /skills or /rules (per reference spec)",
-    (config) => {
-      // Most agents use /skills, but augment uses /rules per vercel-labs/skills spec
-      // openclaw uses bare "skills" directory (no leading dot-folder)
-      expect(config.skills.projectDir).toMatch(/(\/skills$|\/rules$|^skills$)/);
-    },
-  );
-
-  it.each(agents)("agent $id globalDir is Option (not undefined)", (config) => {
-    expect(Option.isOption(config.skills.globalDir)).toBe(true);
+  it.each(agents)("agent $id dir ends with /skills or /rules (per reference spec)", (config) => {
+    // Most agents use /skills, but augment uses /rules per vercel-labs/skills spec
+    // openclaw uses bare "skills" directory (no leading dot-folder)
+    expect(config.skills.dir).toMatch(/(\/skills$|\/rules$|^skills$)/);
   });
 
   it.each(agents)("agent $id id exists in AGENTS registry", (config) => {
@@ -51,16 +44,9 @@ describe("AGENTS registry", () => {
     expect(uniqueNames.size).toBe(names.length);
   });
 
-  it.each(agents)("agent $id projectDir is relative (not absolute)", (config) => {
-    expect(config.skills.projectDir.startsWith("/")).toBe(false);
-    expect(config.skills.projectDir.startsWith("~")).toBe(false);
-  });
-
-  it.each(agents)("agent $id globalDir when Some is absolute path", (config) => {
-    if (Option.isSome(config.skills.globalDir)) {
-      const globalDir = config.skills.globalDir.value;
-      expect(globalDir.startsWith("/")).toBe(true);
-    }
+  it.each(agents)("agent $id dir is relative (not absolute)", (config) => {
+    expect(config.skills.dir.startsWith("/")).toBe(false);
+    expect(config.skills.dir.startsWith("~")).toBe(false);
   });
 });
 
@@ -79,7 +65,7 @@ describe("getAgentById", () => {
     expect(Option.isSome(result)).toBe(true);
     if (Option.isSome(result)) {
       expect(result.value.name).toBe("Claude Code");
-      expect(result.value.skills.projectDir).toBe(".claude/skills");
+      expect(result.value.skills.dir).toBe(".claude/skills");
     }
   });
 
@@ -123,8 +109,7 @@ describe("getAllAgents", () => {
       expect(agent.id).toBeTruthy();
       expect(agent.name).toBeTruthy();
       expect(agent.skills).toBeDefined();
-      expect(agent.skills.projectDir).toBeTruthy();
-      expect(Option.isOption(agent.skills.globalDir)).toBe(true);
+      expect(agent.skills.dir).toBeTruthy();
     }
   });
 

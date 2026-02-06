@@ -177,7 +177,8 @@ export const discoverSkillsInDir = (
     const skills: Skill[] = skillFiles.map((skillPath) => ({
       name: extractSkillName(skillPath),
       path: skillPath,
-      description: Option.none(),
+      description: "",
+      metadata: Option.none(),
     }));
 
     return skills;

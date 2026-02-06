@@ -7,7 +7,7 @@
 
 import type * as PlatformError from "@effect/platform/Error";
 import type * as FileSystem from "@effect/platform/FileSystem";
-import type { Effect, Option, Record } from "effect";
+import type { Effect, Record } from "effect";
 
 // -----------------------------------------------------------------------------
 // Agent Skills Configuration
@@ -19,10 +19,8 @@ import type { Effect, Option, Record } from "effect";
  * @experimental This API is unstable and may change without notice.
  */
 export interface AgentSkillsConfig {
-  /** Project-level skills directory, relative to cwd (e.g., ".claude/skills") */
-  readonly projectDir: string;
-  /** Global skills directory, absolute path. None if agent doesn't support global installation. */
-  readonly globalDir: Option.Option<string>;
+  /** Skills directory, relative to cwd (e.g., ".claude/skills") */
+  readonly dir: string;
 }
 
 // -----------------------------------------------------------------------------

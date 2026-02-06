@@ -98,7 +98,7 @@ export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<Disco
         toOption: (s) => ({
           value: s.name,
           label: s.name,
-          hint: s.description,
+          hint: Option.some(s.description),
         }),
         initialValues: Option.some(Array.map(skills, (s) => s.name)),
         required: Option.some(true),

@@ -52,7 +52,7 @@ const defaultDetect = (agent: AgentConfig) =>
       path.join(
         home,
         Option.getOrElse(
-          Option.map(Array.head(agent.skills.projectDir.split("/")), (s) => s.replace(/^\./, "")),
+          Option.map(Array.head(agent.skills.dir.split("/")), (s) => s.replace(/^\./, "")),
           () => "",
         ),
       ),

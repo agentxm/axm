@@ -28,8 +28,10 @@ export interface Skill {
   readonly name: string;
   /** Path to SKILL.md file */
   readonly path: string;
-  /** Optional description of the skill */
-  readonly description: Option.Option<string>;
+  /** Description of the skill */
+  readonly description: string;
+  /** Optional metadata from SKILL.md frontmatter */
+  readonly metadata: Option.Option<Record.ReadonlyRecord<string, unknown>>;
 }
 
 /**

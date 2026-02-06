@@ -36,7 +36,8 @@ export const handleInit = () =>
     yield* clack.intro(`axm init (${scopeLabel})`);
 
     // Display result
-    const agentIds = context.settings.agents ?? [];
+    const settings = yield* context.getSettings();
+    const agentIds = settings.agents ?? [];
     const agentNames = agentIds
       .map((id) =>
         Option.getOrElse(

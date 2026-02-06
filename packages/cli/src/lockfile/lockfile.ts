@@ -35,6 +35,16 @@ const LOCKFILE_VERSION = 1;
 // -----------------------------------------------------------------------------
 
 /**
+ * Error when lockfile does not exist.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export class LockfileNotFoundError extends Data.TaggedError("LockfileNotFoundError")<{
+  readonly path: string;
+  readonly message: string;
+}> {}
+
+/**
  * Error parsing the lockfile YAML content.
  *
  * @experimental This API is unstable and may change without notice.
@@ -61,7 +71,7 @@ export class LockfileWriteError extends Data.TaggedError("LockfileWriteError")<{
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type LockfileError = LockfileParseError | LockfileWriteError;
+export type LockfileError = LockfileNotFoundError | LockfileParseError | LockfileWriteError;
 
 // -----------------------------------------------------------------------------
 // Internal Helpers

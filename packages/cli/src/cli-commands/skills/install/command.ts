@@ -107,9 +107,8 @@ export const installCommand: CommandModule<{}, InstallArgs> = {
       {
         workspace: {
           global: argv.global,
-          yes: true,
-          nonInteractive: true,
-          ...(argv.agent.length > 0 && { agents: argv.agent }),
+          yes: false,
+          nonInteractive: argv["non-interactive"] ?? false,
         },
       },
     );

@@ -5,7 +5,10 @@ import type { FileSystem } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { DiscoveryError, discoverSkills } from "./skill-discovery.js";
+import {
+  DiscoveryError,
+  discoverSkillsInDir as discoverSkills,
+} from "../../cli-commands/skills/install/discover-skills.js";
 
 describe("discoverSkills", () => {
   let tempDir: string;

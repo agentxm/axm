@@ -56,8 +56,7 @@ export type SourceType = typeof SourceTypeSchema.Type;
  */
 export interface ShorthandConfig<T extends SourceType, T2 extends Source & { source: T }> {
   readonly prefix: T;
-  readonly parse: (input: string) => Effect.Effect<ParsedSource<T2>, ParseError>;
-  readonly print: (source: T2) => string;
+  readonly parse: (input: string) => Effect.Effect<T2, ParseError>;
 }
 
 /**
@@ -67,8 +66,8 @@ export interface ShorthandConfig<T extends SourceType, T2 extends Source & { sou
  */
 export interface UrlParseConfig<T extends SourceType, T2 extends Source & { source: T }> {
   readonly hostname: string;
-  readonly parseUrl: (url: URL, original: string) => Effect.Effect<ParsedSource<T2>, ParseError>;
-  readonly parseScp: (input: string) => Effect.Effect<ParsedSource<T2>, ParseError>;
+  readonly parseUrl: (url: URL, original: string) => Effect.Effect<T2, ParseError>;
+  readonly parseScp: (input: string) => Effect.Effect<T2, ParseError>;
 }
 
 /**
@@ -81,6 +80,9 @@ export interface SourceConfig<
   T2 extends Source & { source: T } = Source & { source: T },
 > {
   readonly id: T;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  readonly make: (args: any) => T2;
+  readonly print: (source: T2) => string;
   readonly shorthand: Option.Option<ShorthandConfig<T, T2>>;
   readonly parseFromUrl: Option.Option<UrlParseConfig<T, T2>>;
 }
@@ -221,98 +223,3 @@ export type Source =
   | GitRepositorySource
   | RegistrySource
   | LocalSource;
-
-/**
- * Result of parsing a source string.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type ParsedSource<T extends Source> = {
-  readonly original: string;
-  readonly canonical: string;
-  readonly source: T;
-};
-
-// -----------------------------------------------------------------------------
-// ParsedSource Namespace with Constructors
-// -----------------------------------------------------------------------------
-
-/**
- * Namespace containing constructors for ParsedSource types.
- */
-export const ParsedSource = {
-  /**
-   * Create a GitHub source.
-   */
-  GitHub: (args: {
-    original: string;
-    owner: string;
-    repo: string;
-    ref?: string | undefined;
-    subPath?: string | undefined;
-  }): ParsedSource<GitHubSource> => ({
-    original: args.original,
-    canonical: `github:${args.owner}/${args.repo}`,
-    source: {
-      source: "github",
-      owner: args.owner,
-      repo: args.repo,
-      ref: Option.fromNullable(args.ref),
-      subPath: Option.fromNullable(args.subPath),
-    },
-  }),
-
-  /**
-   * Create a GitLab source.
-   */
-  GitLab: (args: {
-    original: string;
-    owner: string;
-    repo: string;
-    ref?: string | undefined;
-    subPath?: string | undefined;
-  }): ParsedSource<GitLabSource> => ({
-    original: args.original,
-    canonical: `gitlab:${args.owner}/${args.repo}`,
-    source: {
-      source: "gitlab",
-      owner: args.owner,
-      repo: args.repo,
-      ref: Option.fromNullable(args.ref),
-      subPath: Option.fromNullable(args.subPath),
-    },
-  }),
-
-  /**
-   * Create a Bitbucket source.
-   */
-  Bitbucket: (args: {
-    original: string;
-    owner: string;
-    repo: string;
-    ref?: string | undefined;
-    subPath?: string | undefined;
-  }): ParsedSource<BitbucketSource> => ({
-    original: args.original,
-    canonical: `bitbucket:${args.owner}/${args.repo}`,
-    source: {
-      source: "bitbucket",
-      owner: args.owner,
-      repo: args.repo,
-      ref: Option.fromNullable(args.ref),
-      subPath: Option.fromNullable(args.subPath),
-    },
-  }),
-
-  /**
-   * Create a local filesystem source.
-   */
-  Local: (args: { original: string; path: string }): ParsedSource<LocalSource> => ({
-    original: args.original,
-    canonical: `local:${args.path}`,
-    source: {
-      source: "local",
-      path: args.path,
-    },
-  }),
-} as const;

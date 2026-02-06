@@ -5,10 +5,14 @@ import { parseLocalPath } from "./parser.js";
 
 export const config: SourceConfig<"local", LocalSource> = {
   id: "local",
+  make: (args: { path: string }): LocalSource => ({
+    source: "local",
+    path: args.path,
+  }),
+  print: (source) => `local:${source.path}`,
   shorthand: Option.some({
     prefix: "local",
     parse: (input: string) => parseLocalPath(input.slice("local:".length)),
-    print: (source) => `local:${source.path}`,
   }),
   parseFromUrl: Option.none(),
 };

@@ -122,8 +122,7 @@ const trySourceParser = (
   options: ResolutionOptions,
 ): Effect.Effect<ExtensionRef[], never> => {
   return parseSource(input).pipe(
-    Effect.map((parsed) => {
-      const src = parsed.source;
+    Effect.map((src) => {
       // Only handle github/gitlab types
       if (src.source !== "github" && src.source !== "gitlab") {
         return [];

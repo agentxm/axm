@@ -108,8 +108,7 @@ export const resolveExplicitSource = (input: string): Effect.Effect<ExtensionRef
 
   // Use existing parseSource for the heavy lifting
   return parseSource(trimmed).pipe(
-    Effect.map((parsed) => {
-      const src = parsed.source;
+    Effect.map((src) => {
       // Only handle github/gitlab types (bitbucket/azure not yet implemented in parser)
       if (src.source !== "github" && src.source !== "gitlab") {
         return [];

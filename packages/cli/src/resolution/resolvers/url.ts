@@ -71,8 +71,7 @@ export const resolveUrl = (input: string): Effect.Effect<ExtensionRef[], never> 
 
   // Use existing parseSource for the heavy lifting
   return parseSource(trimmed).pipe(
-    Effect.map((parsed) => {
-      const src = parsed.source;
+    Effect.map((src) => {
       // Handle github/gitlab sources
       if (src.source === "github" || src.source === "gitlab") {
         const ref: ExtensionRef = {

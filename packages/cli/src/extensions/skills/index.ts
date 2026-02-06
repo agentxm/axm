@@ -24,10 +24,11 @@ export { DiscoveryError, discoverSkills } from "./skill-discovery.js";
 export {
   buildCloneUrl,
   CloneUrlError,
-  getOriginFromParsed,
+  getOrigin,
   isGitHostingProviderSource,
   ParseError,
   parseSource,
+  printSource,
 } from "../../sources/index.js";
 
 // Types
@@ -37,7 +38,6 @@ export type { LockEntry, Skill } from "./types.js";
 export type {
   AzureReposSource,
   GitHostingProviderSource,
-  ParsedSource,
   Source,
   SourceType,
 } from "../../sources/index.js";

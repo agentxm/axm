@@ -22,8 +22,8 @@ import {
   cloneRepo,
   discoverSkills,
   getCurrentCommit,
-  type ParsedSource,
   parseSource,
+  printSource,
   type Skill,
   type Source,
 } from "../../../extensions/skills/index.js";
@@ -112,7 +112,7 @@ export class InstallError extends Data.TaggedError("InstallError")<{
  */
 interface ResolvedSource {
   /** Parsed source information */
-  readonly parsed: ParsedSource<Source>;
+  readonly source: Source;
   /** Path to directory containing skills */
   readonly skillsDir: string;
   /** Git commit SHA (for git sources) */
@@ -127,7 +127,7 @@ interface ResolvedSource {
  * Resolves skills from a GitHub/GitLab/Bitbucket git hosting source.
  */
 const resolveGitHostingProviderSource = (
-  parsed: ParsedSource<GitHubSource | GitLabSource | BitbucketSource>,
+  source: GitHubSource | GitLabSource | BitbucketSource,
   axmDir: string,
 ): Effect.Effect<
   { skills: Skill[]; skillsDir: string; commitSha: string },
@@ -135,8 +135,7 @@ const resolveGitHostingProviderSource = (
   FileSystem.FileSystem
 > =>
   Effect.gen(function* () {
-    const src = parsed.source;
-    const cloneUrl = yield* buildCloneUrl(parsed).pipe(
+    const cloneUrl = yield* buildCloneUrl(source).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({
@@ -146,10 +145,10 @@ const resolveGitHostingProviderSource = (
           }),
       ),
     );
-    const cacheDir = nodePath.join(axmDir, "cache", "git", `${src.owner}-${src.repo}`);
+    const cacheDir = nodePath.join(axmDir, "cache", "git", `${source.owner}-${source.repo}`);
 
     // Clone repository
-    yield* cloneRepo(cloneUrl, cacheDir, Option.getOrUndefined(src.ref)).pipe(
+    yield* cloneRepo(cloneUrl, cacheDir, Option.getOrUndefined(source.ref)).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({
@@ -177,7 +176,7 @@ const resolveGitHostingProviderSource = (
     );
 
     // Determine skills directory (with optional subpath)
-    const skillsDir = Option.match(src.subPath, {
+    const skillsDir = Option.match(source.subPath, {
       onNone: () => cacheDir,
       onSome: (p) => nodePath.join(cacheDir, p),
     });
@@ -202,28 +201,27 @@ const resolveGitHostingProviderSource = (
 // -----------------------------------------------------------------------------
 
 /**
- * Convert ParsedSource to SkillSourceV2.
+ * Convert Source to SkillSourceV2.
  * Used to create a source for buildIdealForInstall.
  *
  * This preserves the original source info (e.g., GitHub owner/repo) for
  * storage in the lockfile and settings. The actual local path for file
  * operations is provided separately to the applyStep callback.
  */
-const parsedSourceToV2 = (
-  parsed: ParsedSource<Source>,
+const sourceToV2 = (
+  source: Source,
   skillsDir: string,
 ): Effect.Effect<SkillSourceV2, CommandError> => {
-  const src = parsed.source;
-  switch (src.source) {
+  switch (source.source) {
     case "local":
       return Effect.succeed(SkillSourceV2.Local({ path: skillsDir }));
     case "github":
       return Effect.succeed(
         SkillSourceV2.GitHub({
-          owner: src.owner,
-          repo: src.repo,
-          ref: src.ref,
-          path: src.subPath,
+          owner: source.owner,
+          repo: source.repo,
+          ref: source.ref,
+          path: source.subPath,
         }),
       );
     case "gitlab":
@@ -234,7 +232,7 @@ const parsedSourceToV2 = (
     default:
       return Effect.fail(
         new CommandError({
-          message: `Unsupported source type: ${src.source}`,
+          message: `Unsupported source type: ${source.source}`,
           cause: Option.none(),
         }),
       );
@@ -249,13 +247,13 @@ const createBuildIdealDeps = (
   resolvedSource: ResolvedSource,
   discoveredSkills: readonly Skill[],
 ): BuildIdealDeps => ({
-  parseSource: () => parsedSourceToV2(resolvedSource.parsed, resolvedSource.skillsDir),
+  parseSource: () => sourceToV2(resolvedSource.source, resolvedSource.skillsDir),
 
-  discoverSkills: (source: SkillSourceV2) =>
+  discoverSkills: (v2Source: SkillSourceV2) =>
     Effect.gen(function* () {
       // For GitHub sources, fetch git tree hash from API for each skill
-      const src = resolvedSource.parsed.source;
-      const isGitHubSource = source._tag === "GitHub" && src.source === "github";
+      const src = resolvedSource.source;
+      const isGitHubSource = v2Source._tag === "GitHub" && src.source === "github";
 
       return yield* Effect.forEach(
         discoveredSkills,
@@ -335,7 +333,7 @@ export const handleInstall = (
 
     // Step 1: Parse source
     spinner.start("Parsing source...");
-    const parsed = yield* parseSource(args.source).pipe(
+    const source = yield* parseSource(args.source).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({
@@ -349,7 +347,7 @@ export const handleInstall = (
           }),
       ),
     );
-    spinner.stop(`Source: ${parsed.canonical} (${parsed.source.source})`);
+    spinner.stop(`Source: ${printSource(source)} (${source.source})`);
 
     // Step 2: Initialize workspace (auto-creates settings + lockfile if needed)
     spinner.start("Checking initialization...");
@@ -434,8 +432,7 @@ export const handleInstall = (
     let resolvedSource: ResolvedSource;
 
     // Determine spinner message based on source type
-    const src = parsed.source;
-    switch (src.source) {
+    switch (source.source) {
       case "github":
       case "gitlab":
       case "bitbucket":
@@ -447,14 +444,13 @@ export const handleInstall = (
     }
 
     // Handle each source type
-    switch (src.source) {
+    switch (source.source) {
       case "github":
       case "gitlab":
       case "bitbucket": {
-        const gitParsed = parsed as ParsedSource<GitHubSource | GitLabSource | BitbucketSource>;
-        const result = yield* resolveGitHostingProviderSource(gitParsed, context.path);
+        const result = yield* resolveGitHostingProviderSource(source, context.path);
         skills = result.skills;
-        resolvedSource = { parsed, skillsDir: result.skillsDir, commitSha: result.commitSha };
+        resolvedSource = { source, skillsDir: result.skillsDir, commitSha: result.commitSha };
         break;
       }
 
@@ -462,7 +458,7 @@ export const handleInstall = (
         return yield* new InstallError({
           message: formatError(
             "Azure Repos sources are not yet supported",
-            [`Source: ${parsed.canonical}`],
+            [`Source: ${printSource(source)}`],
             "Use GitHub, GitLab, Bitbucket, or a local path instead.",
           ),
           cause: Option.none(),
@@ -471,7 +467,7 @@ export const handleInstall = (
 
       case "local": {
         // Local sources: discover skills directly from the filesystem path
-        const skillsDir = src.path;
+        const skillsDir = source.path;
         skills = yield* discoverSkills(skillsDir).pipe(
           Effect.mapError(
             (error) =>
@@ -486,7 +482,7 @@ export const handleInstall = (
               }),
           ),
         );
-        resolvedSource = { parsed, skillsDir };
+        resolvedSource = { source, skillsDir };
         break;
       }
 
@@ -495,7 +491,7 @@ export const handleInstall = (
         spinner.stop("Source type not yet supported");
         return yield* Effect.fail(
           new InstallError({
-            message: `Source type "${src.source}" is not yet supported`,
+            message: `Source type "${source.source}" is not yet supported`,
             cause: Option.none(),
             retryable: false,
           }),
@@ -508,7 +504,7 @@ export const handleInstall = (
         new InstallError({
           message: formatError(
             "No skills found in source",
-            [`Source: ${parsed.canonical}`],
+            [`Source: ${printSource(source)}`],
             "Verify the source path contains directories with SKILL.md files.",
           ),
           cause: Option.none(),
@@ -644,9 +640,7 @@ export const handleInstall = (
     const plan = buildPlan(currentState, ideal);
 
     // Step 9: Display plan
-    // Use the original parsed.canonical for display (e.g., "github:owner/repo")
-    // instead of the cached local path
-    yield* displayPlan(clack, plan, parsed.canonical);
+    yield* displayPlan(clack, plan, printSource(source));
 
     // Step 10: Check if there are changes
     if (!planHasChanges(plan)) {

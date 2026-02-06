@@ -7,6 +7,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import {
+  addAgentToWorkspace,
   addSkill,
   createDefaultSettings,
   ensureInitializedLegacy,
@@ -400,6 +401,47 @@ describe("settings", () => {
           const updated = yield* addSkill(axmDir, "commit", "^1.0.0");
 
           expect(updated.skills?.["commit"]).toBe("^1.0.0");
+        }),
+      ),
+    );
+  });
+
+  describe("addAgentToWorkspace", () => {
+    it.effect("adds agent to empty agents array", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const initial = {} as Settings;
+          yield* writeSettings(axmDir, initial);
+
+          const updated = yield* addAgentToWorkspace(axmDir, "claude-code");
+
+          expect(updated.agents).toEqual(["claude-code"]);
+        }),
+      ),
+    );
+
+    it.effect("adds agent to existing agents array", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const initial = { agents: ["cursor"] } as Settings;
+          yield* writeSettings(axmDir, initial);
+
+          const updated = yield* addAgentToWorkspace(axmDir, "claude-code");
+
+          expect(updated.agents).toEqual(["cursor", "claude-code"]);
+        }),
+      ),
+    );
+
+    it.effect("no-op when agent already present", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const initial = { agents: ["claude-code"] } as Settings;
+          yield* writeSettings(axmDir, initial);
+
+          const updated = yield* addAgentToWorkspace(axmDir, "claude-code");
+
+          expect(updated.agents).toEqual(["claude-code"]);
         }),
       ),
     );

@@ -618,7 +618,7 @@ describe("install.handler", () => {
       ),
     );
 
-    it.effect("warns about invalid agent IDs", () =>
+    it.effect("fails with InstallError when all agent IDs are invalid", () =>
       withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
@@ -632,9 +632,10 @@ describe("install.handler", () => {
             yes: true,
           };
 
-          // With invalid agent, should complete but not install to any agent
-          // Handler completes without error (just warns about invalid agents)
-          yield* handleInstall(args);
+          // All agents invalid → no valid agents → InstallError
+          const error = yield* handleInstall(args).pipe(Effect.flip);
+          expect(error._tag).toBe("InstallError");
+          expect((error as InstallError).message).toContain("No agents configured");
         }),
       ),
     );
@@ -1927,7 +1928,7 @@ describe("install.handler", () => {
     });
 
     describe("agent handling in non-interactive mode", () => {
-      it.effect("exits gracefully when no agents in settings and no --agent flag", () =>
+      it.effect("fails with InstallError when no agents in settings and no --agent flag", () =>
         withBaseTestLayer(
           Effect.gen(function* () {
             isInteractiveMock.mockReturnValue(false);
@@ -1948,15 +1949,10 @@ describe("install.handler", () => {
               TestLayer,
             );
 
-            // Should complete without error (early exit when no agents configured)
-            yield* handleInstall(args).pipe(Effect.provide(WsLayer));
-
-            // Skill should NOT be installed because no agents were configured
-            expect(
-              fs.existsSync(
-                path.join(tempDir, ".axm", "extensions", "external", "skills", "commit"),
-              ),
-            ).toBe(false);
+            // No agents configured → InstallError
+            const error = yield* handleInstall(args).pipe(Effect.provide(WsLayer), Effect.flip);
+            expect(error._tag).toBe("InstallError");
+            expect((error as InstallError).message).toContain("No agents configured");
           }),
         ),
       );

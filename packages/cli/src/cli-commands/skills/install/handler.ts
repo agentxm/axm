@@ -16,7 +16,7 @@
  */
 
 import * as nodePath from "node:path";
-import { type AgentConfig, getAgentById } from "../../../agents/index.js";
+import type { AgentConfig } from "../../../agents/index.js";
 import {
   buildCloneUrl,
   cloneRepo,
@@ -37,6 +37,7 @@ import {
   buildIdealForInstall,
   buildPlan,
   CommandError,
+  ensureAgentsConfigured,
   getPlanSummary,
   type InstallCommand,
   loadCurrentState,
@@ -51,7 +52,6 @@ import type { FileSystem } from "@effect/platform";
 import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
-import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import { Clack } from "../../../clack-effect/index.js";
 import { formatError } from "../../../utils/errors.js";
@@ -348,49 +348,23 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
     // Step 3: Get agents from settings or --agent flag
     spinner.start("Loading agents...");
-    let agents: AgentConfig[];
-
-    if (args.agent.length > 0) {
-      // Use explicitly specified agents via --agent flag
-      agents = pipe(
-        args.agent,
-        Array.map((id) => getAgentById(id)),
-        Array.getSomes,
-      );
-
-      if (agents.length !== args.agent.length) {
-        // Array.partition returns [falseElements, trueElements]
-        const [invalidIds, validIds] = Array.partition(args.agent, (id) =>
-          Option.isSome(getAgentById(id)),
-        );
-        spinner.stop(`Found ${validIds.length} agent(s), ${invalidIds.length} invalid`);
-
-        if (invalidIds.length > 0) {
-          yield* clack.log.warn(`Unknown agents: ${invalidIds.join(", ")}`);
-        }
-      } else {
-        spinner.stop(`Using ${agents.length} specified agent(s)`);
-      }
-    } else {
-      // Read agents from settings (fresh read from disk)
-      const settings = yield* context.getSettings();
-      const settingsAgents = settings.agents ?? [];
-      agents = pipe(
-        settingsAgents,
-        Array.map((id) => getAgentById(id)),
-        Array.getSomes,
-      );
-
-      spinner.stop(`Using ${agents.length} agent(s) from settings`);
-    }
-
-    if (agents.length === 0) {
-      yield* clack.log.error(
-        "No agents configured. Run 'axm init' first or use --agent to specify agents.",
-      );
-      yield* clack.outro("Nothing to do.");
-      return;
-    }
+    const agents: AgentConfig[] = yield* ensureAgentsConfigured({
+      agentFlags: args.agent,
+      workspacePath: context.path,
+      getSettings: () => context.getSettings(),
+      yes: args.yes,
+      nonInteractive: args.nonInteractive ?? false,
+    }).pipe(
+      Effect.mapError(
+        (error) =>
+          new InstallError({
+            message: error.message,
+            cause: Option.some(error),
+            retryable: false,
+          }),
+      ),
+    );
+    spinner.stop(`Using ${agents.length} agent(s)`);
 
     // Step 4: Load current state (V2)
     spinner.start("Loading current state...");

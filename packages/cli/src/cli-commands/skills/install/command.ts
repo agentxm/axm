@@ -108,7 +108,7 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
       {
         workspace: {
           global: argv.global,
-          yes: false,
+          yes: argv.yes,
           nonInteractive: Option.getOrElse(
             Option.fromNullable(argv["non-interactive"]),
             () => false,

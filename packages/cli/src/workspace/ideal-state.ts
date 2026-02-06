@@ -55,8 +55,8 @@ export interface InstallCommand {
   readonly source: string;
   /** Target agents (already resolved by handler) */
   readonly agents: ReadonlyArray<string>;
-  /** "all" to install all discovered skills, or specific skill names */
-  readonly skills: "all" | ReadonlyArray<string>;
+  /** Skill names to install (resolved before command construction) */
+  readonly skills: Array.NonEmptyReadonlyArray<string>;
   /** Skip confirmation when replacing skill from different source */
   readonly force: boolean;
 }
@@ -233,13 +233,10 @@ export const buildIdealForInstall = (
     const discovered = yield* deps.discoverSkills(source);
 
     // Step 3: Filter by skills parameter
-    const toInstall =
-      cmd.skills === "all"
-        ? discovered
-        : pipe(
-            discovered,
-            Array.filter((s) => cmd.skills.includes(s.name)),
-          );
+    const toInstall = pipe(
+      discovered,
+      Array.filter((s) => cmd.skills.includes(s.name)),
+    );
 
     // Step 4: Check for name conflicts (unique across all sources)
     const conflicts = pipe(

@@ -1,7 +1,7 @@
 /**
  * Unit tests for determineSkillsToInstall.
  *
- * Tests the simplified skill selection logic.
+ * Tests the skill selection logic given already-discovered skills.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -11,15 +11,12 @@ import * as Option from "effect/Option";
 import { makeClackTestLayer } from "../../../clack-effect/index.js";
 import type { DiscoveredSkill } from "../../../extensions/skills/index.js";
 import type { ExtensionRef } from "../../../extensions/common.js";
-import type { ResolvedSource } from "./handler.js";
 import { InstallError } from "./handler.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
-
-const localSource = { source: "local" as const, path: "/fake" };
 
 const makeSkill = (name: string, pathLength = 1): DiscoveredSkill => {
   const refs: ExtensionRef[] = [];
@@ -36,19 +33,6 @@ const makeSkill = (name: string, pathLength = 1): DiscoveredSkill => {
   };
 };
 
-const fakeResolvedSource: ResolvedSource = {
-  source: localSource,
-  skillsDir: "/fake",
-  commitSha: Option.none(),
-};
-
-/** Create a discover effect that returns the given skills. */
-const makeDiscover = (...skills: DiscoveredSkill[]) =>
-  Effect.succeed({
-    skills,
-    resolvedSource: fakeResolvedSource,
-  });
-
 const [ClackTestLayer] = makeClackTestLayer({
   confirmBehavior: Option.some({ type: "return", value: true }),
   selectBehavior: Option.none(),
@@ -59,70 +43,27 @@ const provide = <A, E>(
   effect: Effect.Effect<A, E, import("../../../clack-effect/index.js").Clack>,
 ) => effect.pipe(Effect.provide(ClackTestLayer));
 
+/** Helper to create a NonEmptyReadonlyArray of skills. */
+const skills = (...names: [string, ...string[]]): Array.NonEmptyReadonlyArray<DiscoveredSkill> =>
+  names.map((n) => makeSkill(n)) as unknown as Array.NonEmptyReadonlyArray<DiscoveredSkill>;
+
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
 
 describe("determineSkillsToInstall", () => {
-  describe("discovery", () => {
-    it.effect("errors when no skills found", () =>
-      provide(
-        Effect.gen(function* () {
-          const error = yield* determineSkillsToInstall({
-            discover: makeDiscover(),
-            sourceLabel: "test",
-            requestedSkills: [],
-            all: false,
-            dryRun: false,
-            yes: false,
-            list: false,
-          }).pipe(Effect.flip);
-
-          expect(error._tag).toBe("InstallError");
-          expect((error as InstallError).message).toContain("No skills found");
-        }),
-      ),
-    );
-  });
-
-  describe("--list flag", () => {
-    it.effect("returns all skills with list: true", () =>
-      provide(
-        Effect.gen(function* () {
-          const result = yield* determineSkillsToInstall({
-            discover: makeDiscover(makeSkill("commit"), makeSkill("review-pr")),
-            sourceLabel: "test",
-            requestedSkills: [],
-            all: false,
-            dryRun: false,
-            yes: false,
-            list: true,
-          });
-
-          expect(result.list).toBe(true);
-          expect(result.selectedSkills.map((s) => s.name)).toEqual(["commit", "review-pr"]);
-          expect(result.resolvedSource).toBe(fakeResolvedSource);
-        }),
-      ),
-    );
-  });
-
   describe("--skill flag (rule 1)", () => {
     it.effect("returns matching skills when all names are valid", () =>
       provide(
         Effect.gen(function* () {
-          const result = yield* determineSkillsToInstall({
-            discover: makeDiscover(makeSkill("commit"), makeSkill("review-pr"), makeSkill("debug")),
-            sourceLabel: "test",
+          const result = yield* determineSkillsToInstall(skills("commit", "review-pr", "debug"), {
             requestedSkills: ["commit", "debug"],
             all: false,
             dryRun: false,
             yes: false,
-            list: false,
           });
 
-          expect(result.selectedSkills.map((s) => s.name)).toEqual(["commit", "debug"]);
-          expect(result.list).toBe(false);
+          expect(result.map((s) => s.name)).toEqual(["commit", "debug"]);
         }),
       ),
     );
@@ -130,14 +71,11 @@ describe("determineSkillsToInstall", () => {
     it.effect("errors when any requested skill name is unknown", () =>
       provide(
         Effect.gen(function* () {
-          const error = yield* determineSkillsToInstall({
-            discover: makeDiscover(makeSkill("commit")),
-            sourceLabel: "test",
+          const error = yield* determineSkillsToInstall(skills("commit"), {
             requestedSkills: ["commit", "nonexistent"],
             all: false,
             dryRun: false,
             yes: false,
-            list: false,
           }).pipe(Effect.flip);
 
           expect(error._tag).toBe("InstallError");
@@ -150,14 +88,11 @@ describe("determineSkillsToInstall", () => {
     it.effect("errors when all requested skills are unknown", () =>
       provide(
         Effect.gen(function* () {
-          const error = yield* determineSkillsToInstall({
-            discover: makeDiscover(makeSkill("commit")),
-            sourceLabel: "test",
+          const error = yield* determineSkillsToInstall(skills("commit"), {
             requestedSkills: ["foo", "bar"],
             all: false,
             dryRun: false,
             yes: false,
-            list: false,
           }).pipe(Effect.flip);
 
           expect(error._tag).toBe("InstallError");
@@ -172,17 +107,14 @@ describe("determineSkillsToInstall", () => {
     it.effect("returns all skills with --all", () =>
       provide(
         Effect.gen(function* () {
-          const result = yield* determineSkillsToInstall({
-            discover: makeDiscover(makeSkill("commit"), makeSkill("review-pr")),
-            sourceLabel: "test",
+          const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
             requestedSkills: [],
             all: true,
             dryRun: false,
             yes: false,
-            list: false,
           });
 
-          expect(result.selectedSkills.map((s) => s.name)).toEqual(["commit", "review-pr"]);
+          expect(result.map((s) => s.name)).toEqual(["commit", "review-pr"]);
         }),
       ),
     );
@@ -190,17 +122,14 @@ describe("determineSkillsToInstall", () => {
     it.effect("returns all skills with --dry-run", () =>
       provide(
         Effect.gen(function* () {
-          const result = yield* determineSkillsToInstall({
-            discover: makeDiscover(makeSkill("commit"), makeSkill("review-pr")),
-            sourceLabel: "test",
+          const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
             requestedSkills: [],
             all: false,
             dryRun: true,
             yes: false,
-            list: false,
           });
 
-          expect(result.selectedSkills.map((s) => s.name)).toEqual(["commit", "review-pr"]);
+          expect(result.map((s) => s.name)).toEqual(["commit", "review-pr"]);
         }),
       ),
     );
@@ -208,17 +137,14 @@ describe("determineSkillsToInstall", () => {
     it.effect("returns all skills with --yes", () =>
       provide(
         Effect.gen(function* () {
-          const result = yield* determineSkillsToInstall({
-            discover: makeDiscover(makeSkill("commit"), makeSkill("review-pr")),
-            sourceLabel: "test",
+          const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
             requestedSkills: [],
             all: false,
             dryRun: false,
             yes: true,
-            list: false,
           });
 
-          expect(result.selectedSkills.map((s) => s.name)).toEqual(["commit", "review-pr"]);
+          expect(result.map((s) => s.name)).toEqual(["commit", "review-pr"]);
         }),
       ),
     );
@@ -228,17 +154,14 @@ describe("determineSkillsToInstall", () => {
     it.effect("auto-selects single skill without prompting", () =>
       provide(
         Effect.gen(function* () {
-          const result = yield* determineSkillsToInstall({
-            discover: makeDiscover(makeSkill("commit")),
-            sourceLabel: "test",
+          const result = yield* determineSkillsToInstall(skills("commit"), {
             requestedSkills: [],
             all: false,
             dryRun: false,
             yes: false,
-            list: false,
           });
 
-          expect(result.selectedSkills.map((s) => s.name)).toEqual(["commit"]);
+          expect(result.map((s) => s.name)).toEqual(["commit"]);
         }),
       ),
     );
@@ -246,17 +169,17 @@ describe("determineSkillsToInstall", () => {
     it.effect("auto-selects single skill from pack without prompting", () =>
       provide(
         Effect.gen(function* () {
-          const result = yield* determineSkillsToInstall({
-            discover: makeDiscover(makeSkill("commit", 2)),
-            sourceLabel: "test",
+          const packSkills = [
+            makeSkill("commit", 2),
+          ] as unknown as Array.NonEmptyReadonlyArray<DiscoveredSkill>;
+          const result = yield* determineSkillsToInstall(packSkills, {
             requestedSkills: [],
             all: false,
             dryRun: false,
             yes: false,
-            list: false,
           });
 
-          expect(result.selectedSkills.map((s) => s.name)).toEqual(["commit"]);
+          expect(result.map((s) => s.name)).toEqual(["commit"]);
         }),
       ),
     );
@@ -266,17 +189,14 @@ describe("determineSkillsToInstall", () => {
     it.effect("prompts multiselect for multiple skills", () =>
       provide(
         Effect.gen(function* () {
-          const result = yield* determineSkillsToInstall({
-            discover: makeDiscover(makeSkill("commit"), makeSkill("review-pr")),
-            sourceLabel: "test",
+          const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
             requestedSkills: [],
             all: false,
             dryRun: false,
             yes: false,
-            list: false,
           });
 
-          expect(result.selectedSkills.map((s) => s.name)).toEqual(["commit", "review-pr"]);
+          expect(result.map((s) => s.name)).toEqual(["commit", "review-pr"]);
         }),
       ),
     );

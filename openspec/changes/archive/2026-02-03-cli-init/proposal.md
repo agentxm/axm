@@ -26,5 +26,5 @@ The `skills install` command currently contains workspace initialization logic t
 
 - **New files**: `packages/cli/src/commands/init/` (command, handler), `packages/core/src/experimental/workspace-init/` (state types, diff, apply)
 - **Modified files**: `packages/cli/src/commands/skills/install/handler.ts` (use shared init logic)
-- **Dependencies**: Uses existing agent detection from `@agentxm/core`
+- **Dependencies**: Uses existing agent detection from `@axm.sh/core`
 - **User-facing**: New `axm init` command available

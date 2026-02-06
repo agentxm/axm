@@ -1,16 +1,16 @@
 # Core
 
-The `@agentxm/core` package provides domain logic, types, and utilities for AgentXM. It is consumed by the CLI and other packages that need agent extension functionality.
+The `@axm.sh/core` package provides domain logic, types, and utilities for AgentXM. It is consumed by the CLI and other packages that need agent extension functionality.
 
 ## ADDED Requirements
 
 ### Requirement: Package Structure
 
-The core package SHALL be located at `packages/core` and published as `@agentxm/core`.
+The core package SHALL be located at `packages/core` and published as `@axm.sh/core`.
 
 #### Scenario: Package discovery
 
-- **WHEN** a consumer adds `@agentxm/core` as a dependency
+- **WHEN** a consumer adds `@axm.sh/core` as a dependency
 - **THEN** the package resolves via pnpm workspace protocol
 
 ### Requirement: TypeScript Configuration
@@ -47,8 +47,8 @@ The core package SHALL expose experimental APIs via a separate `/experimental` s
 #### Scenario: Importing experimental APIs
 
 - **WHEN** a consumer wants to use experimental APIs
-- **THEN** they MUST import from `@agentxm/core/experimental`
-- **AND** importing from `@agentxm/core` does NOT include experimental exports
+- **THEN** they MUST import from `@axm.sh/core/experimental`
+- **AND** importing from `@axm.sh/core` does NOT include experimental exports
 
 #### Scenario: JSDoc documentation
 
@@ -62,5 +62,5 @@ The core package SHALL NOT depend on CLI-specific concerns (yargs, process argum
 #### Scenario: Dependency direction
 
 - **WHEN** inspecting package.json dependencies
-- **THEN** `@agentxm/cli` depends on `@agentxm/core`
-- **AND** `@agentxm/core` does NOT depend on `@agentxm/cli`
+- **THEN** `@axm.sh/cli` depends on `@axm.sh/core`
+- **AND** `@axm.sh/core` does NOT depend on `@axm.sh/cli`

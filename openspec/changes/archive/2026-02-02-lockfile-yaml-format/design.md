@@ -2,7 +2,7 @@
 
 The lockfile (`axm.lock`) stores resolved extension state as JSON. JSON diffs are noisy—adding a single extension can produce large diffs due to brace positioning and lack of trailing commas. YAML produces cleaner, more reviewable diffs.
 
-The `yaml` library (v2.8.2) is already a dependency in both `@agentxm/core` and `@agentxm/cli`.
+The `yaml` library (v2.8.2) is already a dependency in both `@axm.sh/core` and `@axm.sh/cli`.
 
 ## Goals / Non-Goals
 

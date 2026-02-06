@@ -70,7 +70,7 @@ Process one source directory at a time:
 
 After all moves complete:
 
-1. Remove `@agentxm/core` from cli's dependencies
+1. Remove `@axm.sh/core` from cli's dependencies
 2. Delete `packages/core/`
 3. Update pnpm-workspace.yaml if needed
 

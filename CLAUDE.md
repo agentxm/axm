@@ -443,7 +443,7 @@ export const LOCKFILE_NAME = "axm-lock.yaml";
 
 ```
 packages/
-  cli/              # @agentxm/cli - CLI and domain logic
+  cli/              # @axm.sh/cli - CLI and domain logic
     src/
       e2e/          # E2E test utilities and fixtures
         fixtures/

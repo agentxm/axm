@@ -25,7 +25,7 @@ None. No behavioral or API changes.
 
 ## Impact
 
-- **Import paths**: All imports from `@agentxm/core` become relative imports within `@agentxm/cli`
+- **Import paths**: All imports from `@axm.sh/core` become relative imports within `@axm.sh/cli`
 - **Package dependencies**: `packages/core/` is removed from the monorepo
 - **pnpm workspace**: Remove `core` from workspace configuration
 - **tsconfig**: Update path mappings if any exist

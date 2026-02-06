@@ -12,7 +12,7 @@
 ## 2. Move schemas
 
 - [x] 2.1 Move `core/src/experimental/schemas/` to `cli/src/schemas/`
-- [x] 2.2 Update imports in moved files (change `@agentxm/core` to relative)
+- [x] 2.2 Update imports in moved files (change `@axm.sh/core` to relative)
 - [x] 2.3 Update imports in dependent files
 - [x] 2.4 Run `pnpm typecheck` and fix errors
 - [x] 2.5 Run `pnpm lint` and fix errors
@@ -69,7 +69,7 @@
 
 ## 7. Delete core package
 
-- [x] 7.1 Remove `@agentxm/core` from cli's package.json dependencies
+- [x] 7.1 Remove `@axm.sh/core` from cli's package.json dependencies
 - [x] 7.2 Delete `packages/core/` directory
 - [x] 7.3 Delete empty `cli/src/services/` directory
 - [x] 7.4 Update pnpm-workspace.yaml if needed

@@ -3,7 +3,7 @@
 ## 1. Package Setup
 
 - [x] 1.1 Create `packages/core/` directory structure
-- [x] 1.2 Create `packages/core/package.json` with `@agentxm/core` name
+- [x] 1.2 Create `packages/core/package.json` with `@axm.sh/core` name
 - [x] 1.3 Create `packages/core/tsconfig.json` extending base config
 - [x] 1.4 Create `packages/core/src/index.ts` as entry point
 - [x] 1.5 Create `packages/core/vitest.config.ts` for tests
@@ -23,7 +23,7 @@
 
 ## 4. CLI Integration
 
-- [x] 4.1 Add `@agentxm/core` as dependency in CLI package.json
+- [x] 4.1 Add `@axm.sh/core` as dependency in CLI package.json
 
 ## 5. Validation
 

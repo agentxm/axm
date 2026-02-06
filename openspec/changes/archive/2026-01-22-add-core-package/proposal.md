@@ -1,8 +1,8 @@
-# Change: Add @agentxm/core package
+# Change: Add @axm.sh/core package
 
 ## Why
 
-The CLI architecture separates argument parsing (yargs) from business logic (Effect). Domain logic and utilities should live in a dedicated `@agentxm/core` package so the CLI remains a thin integration layer. This separation enables:
+The CLI architecture separates argument parsing (yargs) from business logic (Effect). Domain logic and utilities should live in a dedicated `@axm.sh/core` package so the CLI remains a thin integration layer. This separation enables:
 
 - Reuse of domain logic across multiple consumers (CLI, SDK, tests)
 - Clearer boundaries between I/O orchestration and pure business logic
@@ -10,10 +10,10 @@ The CLI architecture separates argument parsing (yargs) from business logic (Eff
 
 ## What Changes
 
-- **NEW** `packages/core` directory with `@agentxm/core` package
-- **NEW** Experimental APIs exposed via `@agentxm/core/experimental` subpath
+- **NEW** `packages/core` directory with `@axm.sh/core` package
+- **NEW** Experimental APIs exposed via `@axm.sh/core/experimental` subpath
 - **NEW** Core package exports domain types, utilities, and Effect services
-- CLI depends on `@agentxm/core` for domain logic
+- CLI depends on `@axm.sh/core` for domain logic
 - CLI retains top-level Effect handler functions that wire services together
 
 ## Impact

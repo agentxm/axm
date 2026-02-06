@@ -83,7 +83,7 @@ const defaultDetect = (agent: AgentConfig) =>
  * ```typescript
  * import { Effect } from "effect";
  * import { NodeFileSystem } from "@effect/platform-node";
- * import { detectAgent, AGENTS } from "@agentxm/core/experimental/agents";
+ * import { detectAgent, AGENTS } from "@axm.sh/core/experimental/agents";
  *
  * const program = Effect.gen(function* () {
  *   const isInstalled = yield* detectAgent(AGENTS["claude-code"]);
@@ -124,7 +124,7 @@ export const detectAgent = (
  * ```typescript
  * import { Effect } from "effect";
  * import { NodeFileSystem } from "@effect/platform-node";
- * import { detectAgents } from "@agentxm/core/experimental/agents";
+ * import { detectAgents } from "@axm.sh/core/experimental/agents";
  *
  * const program = Effect.gen(function* () {
  *   const installed = yield* detectAgents();

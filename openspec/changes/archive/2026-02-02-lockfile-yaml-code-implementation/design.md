@@ -2,7 +2,7 @@
 
 The lockfile (`axm.lock`) currently stores resolved extension state as JSON. The `schema-lockfile` spec has been updated to require YAML format with filename `axm-lock.yaml`, but the implementation still uses JSON.
 
-The `yaml` library (v2.8.2) is already a dependency in both `@agentxm/core` and `@agentxm/cli`.
+The `yaml` library (v2.8.2) is already a dependency in both `@axm.sh/core` and `@axm.sh/cli`.
 
 ## Goals / Non-Goals
 

@@ -700,6 +700,61 @@ describe("discoverSkillsInDir", () => {
   });
 
   // ===========================================================================
+  // Case-Sensitive SKILL.md Matching
+  // ===========================================================================
+
+  describe("case-sensitive SKILL.md matching", () => {
+    it.effect("recognizes exact SKILL.md filename", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          createSkillMd(path.join(tempDir, "skills", "exact-skill"), "exact-skill", "Exact match");
+
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
+
+          expect(skills).toHaveLength(1);
+          expect(skills[0]!.name).toBe("exact-skill");
+        }),
+      ),
+    );
+
+    it.effect("does NOT recognize skill.md (lowercase)", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const skillDir = path.join(tempDir, "skills", "lower-skill");
+          fs.mkdirSync(skillDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(skillDir, "skill.md"),
+            '---\nname: "lower-skill"\ndescription: "Lowercase"\n---\n',
+          );
+
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
+
+          const names = skills.map((s) => s.name);
+          expect(names).not.toContain("lower-skill");
+        }),
+      ),
+    );
+
+    it.effect("does NOT recognize Skill.md (mixed case)", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const skillDir = path.join(tempDir, "skills", "mixed-skill");
+          fs.mkdirSync(skillDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(skillDir, "Skill.md"),
+            '---\nname: "mixed-skill"\ndescription: "Mixed case"\n---\n',
+          );
+
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
+
+          const names = skills.map((s) => s.name);
+          expect(names).not.toContain("mixed-skill");
+        }),
+      ),
+    );
+  });
+
+  // ===========================================================================
   // Empty results
   // ===========================================================================
 

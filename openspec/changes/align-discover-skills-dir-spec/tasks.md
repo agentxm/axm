@@ -20,14 +20,14 @@
 
 ## 2. Case-Sensitive SKILL.md Matching
 
-- [ ] 2.1 Write test: `SKILL.md` exact match is recognized; `skill.md` and `Skill.md` are not
-- [ ] 2.2 Change `SKILL_FILE_PATTERN` from `/^skill\.md$/i` regex to exact string `"SKILL.md"` comparison in `discover-skills.ts`
-- [ ] 2.3 Update all call sites that use `SKILL_FILE_PATTERN` regex matching to use exact string comparison
-- [ ] 2.4 Run `pnpm typecheck` and fix any errors
-- [ ] 2.5 Run `pnpm lint` and fix any errors
-- [ ] 2.6 Run `pnpm test` and fix any failures
-- [ ] 2.7 Run `pnpm test:e2e` and fix any failures
-- [ ] 2.8 Kill any vitest worker processes
+- [x] 2.1 Write test: `SKILL.md` exact match is recognized; `skill.md` and `Skill.md` are not
+- [x] 2.2 Change `SKILL_FILE_PATTERN` from `/^skill\.md$/i` regex to exact string `"SKILL.md"` comparison in `discover-skills.ts`
+- [x] 2.3 Update all call sites that use `SKILL_FILE_PATTERN` regex matching to use exact string comparison
+- [x] 2.4 Run `pnpm typecheck` and fix any errors
+- [x] 2.5 Run `pnpm lint` and fix any errors
+- [x] 2.6 Run `pnpm test` and fix any failures
+- [x] 2.7 Run `pnpm test:e2e` and fix any failures
+- [x] 2.8 Kill any vitest worker processes
 
 ## 3. Priority Directory Derivation from AgentConfig Registry
 

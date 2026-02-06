@@ -35,6 +35,11 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 | `pnpm lint`      | Lint with ESLint            |
 | `pnpm lint:fix`  | Lint and auto-fix           |
 
+## CLI Conventions
+
+- `--yes` — Auto-accept all prompts (skip confirmations)
+- `--dry-run` — Show what would happen without applying changes
+
 ## Code Organization
 
 Group by feature, not by type. Co-locate constants, errors, and types with the components that use them.

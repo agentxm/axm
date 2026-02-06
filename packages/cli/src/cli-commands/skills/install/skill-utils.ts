@@ -8,7 +8,8 @@
  */
 
 import * as nodePath from "node:path";
-import type { DiscoveredSkill } from "./discover-skills.js";
+import * as Option from "effect/Option";
+import type { SkillRef } from "./discover-skills.js";
 
 // -----------------------------------------------------------------------------
 // Display Name
@@ -17,10 +18,14 @@ import type { DiscoveredSkill } from "./discover-skills.js";
 /**
  * Returns the display name for a skill.
  *
- * Uses `skill.name` when present, falls back to `basename(skill.path)`.
+ * Uses `skill.name` when present, falls back to `basename(path)`.
  */
-export const getSkillDisplayName = (skill: DiscoveredSkill): string =>
-  skill.name || nodePath.basename(skill.path);
+export const getSkillDisplayName = (ref: SkillRef): string =>
+  ref.skill.name ||
+  Option.match(ref.path, {
+    onNone: () => "unnamed",
+    onSome: (p) => nodePath.basename(p),
+  });
 
 // -----------------------------------------------------------------------------
 // Filtering
@@ -29,16 +34,16 @@ export const getSkillDisplayName = (skill: DiscoveredSkill): string =>
 /**
  * Filters skills by input names (case-insensitive).
  *
- * Matches against both `skill.name` and `getSkillDisplayName(skill)`.
+ * Matches against both `skill.name` and `getSkillDisplayName(ref)`.
  */
 export const filterSkills = (
-  skills: ReadonlyArray<DiscoveredSkill>,
+  skills: ReadonlyArray<SkillRef>,
   inputNames: ReadonlyArray<string>,
-): ReadonlyArray<DiscoveredSkill> => {
+): ReadonlyArray<SkillRef> => {
   const lowerNames = inputNames.map((n) => n.toLowerCase());
-  return skills.filter((skill) => {
-    const name = skill.name.toLowerCase();
-    const displayName = getSkillDisplayName(skill).toLowerCase();
+  return skills.filter((ref) => {
+    const name = ref.skill.name.toLowerCase();
+    const displayName = getSkillDisplayName(ref).toLowerCase();
     return lowerNames.some((input) => input === name || input === displayName);
   });
 };

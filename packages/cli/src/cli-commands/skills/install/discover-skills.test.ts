@@ -83,8 +83,8 @@ describe("discoverSkillsInDir", () => {
           });
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.name).toBe("root-skill");
-          expect(skills[0]!.description).toBe("A root skill");
+          expect(skills[0]!.skill.name).toBe("root-skill");
+          expect(skills[0]!.skill.description).toBe("A root skill");
         }),
       ),
     );
@@ -101,7 +101,7 @@ describe("discoverSkillsInDir", () => {
           });
 
           expect(skills.length).toBeGreaterThanOrEqual(2);
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).toContain("root-skill");
           expect(names).toContain("child-skill");
         }),
@@ -117,7 +117,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.name).toBe("my-skill");
+          expect(skills[0]!.skill.name).toBe("my-skill");
         }),
       ),
     );
@@ -136,7 +136,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.name).toBe("my-skill");
+          expect(skills[0]!.skill.name).toBe("my-skill");
         }),
       ),
     );
@@ -153,7 +153,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.name).toBe("claude-skill");
+          expect(skills[0]!.skill.name).toBe("claude-skill");
         }),
       ),
     );
@@ -170,7 +170,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.name).toBe("curated-skill");
+          expect(skills[0]!.skill.name).toBe("curated-skill");
         }),
       ),
     );
@@ -184,7 +184,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.name).toBe("only-skill");
+          expect(skills[0]!.skill.name).toBe("only-skill");
         }),
       ),
     );
@@ -202,7 +202,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.name).toBe("top-level-skill");
+          expect(skills[0]!.skill.name).toBe("top-level-skill");
         }),
       ),
     );
@@ -220,7 +220,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(2);
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).toContain("skill-a");
           expect(names).toContain("skill-b");
         }),
@@ -255,7 +255,7 @@ describe("discoverSkillsInDir", () => {
 
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).toContain("my-tool");
         }),
       ),
@@ -283,7 +283,7 @@ describe("discoverSkillsInDir", () => {
 
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).toContain("my-extension");
         }),
       ),
@@ -298,7 +298,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.name).toBe("normal-skill");
+          expect(skills[0]!.skill.name).toBe("normal-skill");
         }),
       ),
     );
@@ -322,7 +322,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.name).toBe("deep-skill");
+          expect(skills[0]!.skill.name).toBe("deep-skill");
         }),
       ),
     );
@@ -346,7 +346,7 @@ describe("discoverSkillsInDir", () => {
             fullDepth: true,
           });
 
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).toContain("priority-skill");
           expect(names).toContain("deep-skill");
         }),
@@ -365,7 +365,7 @@ describe("discoverSkillsInDir", () => {
             fullDepth: true,
           });
 
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("too-deep-skill");
         }),
       ),
@@ -383,7 +383,7 @@ describe("discoverSkillsInDir", () => {
             fullDepth: true,
           });
 
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).toContain("depth5-skill");
         }),
       ),
@@ -403,7 +403,7 @@ describe("discoverSkillsInDir", () => {
             fullDepth: true,
           });
 
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("hidden-skill");
         }),
       ),
@@ -423,7 +423,7 @@ describe("discoverSkillsInDir", () => {
             fullDepth: true,
           });
 
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("git-skill");
         }),
       ),
@@ -443,7 +443,7 @@ describe("discoverSkillsInDir", () => {
             fullDepth: true,
           });
 
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("dist-skill");
         }),
       ),
@@ -463,7 +463,7 @@ describe("discoverSkillsInDir", () => {
             fullDepth: true,
           });
 
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("build-skill");
         }),
       ),
@@ -483,7 +483,7 @@ describe("discoverSkillsInDir", () => {
             fullDepth: true,
           });
 
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("py-skill");
         }),
       ),
@@ -501,7 +501,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.name).toBe("my-skill");
+          expect(skills[0]!.skill.name).toBe("my-skill");
         }),
       ),
     );
@@ -526,7 +526,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           // Only one instance should be returned
-          const matchingSkills = skills.filter((s) => s.name === "my-skill");
+          const matchingSkills = skills.filter((s) => s.skill.name === "my-skill");
           expect(matchingSkills).toHaveLength(1);
         }),
       ),
@@ -548,10 +548,10 @@ describe("discoverSkillsInDir", () => {
             fullDepth: true,
           });
 
-          const found = skills.filter((s) => s.name === "dup-skill");
+          const found = skills.filter((s) => s.skill.name === "dup-skill");
           expect(found).toHaveLength(1);
           // The priority directory version should win (discovered first in phase 2)
-          expect(found[0]!.description).toBe("Priority version");
+          expect(found[0]!.skill.description).toBe("Priority version");
         }),
       ),
     );
@@ -580,7 +580,7 @@ describe("discoverSkillsInDir", () => {
             includeInternal: false,
           });
 
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("internal-skill");
           expect(names).toContain("public-skill");
         }),
@@ -604,7 +604,7 @@ describe("discoverSkillsInDir", () => {
             includeInternal: true,
           });
 
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).toContain("internal-skill");
         }),
       ),
@@ -630,7 +630,7 @@ describe("discoverSkillsInDir", () => {
               includeInternal: false,
             });
 
-            const names = skills.map((s) => s.name);
+            const names = skills.map((s) => s.skill.name);
             expect(names).toContain("internal-skill");
           } finally {
             if (originalEnv === undefined) {
@@ -663,7 +663,7 @@ describe("discoverSkillsInDir", () => {
               includeInternal: false,
             });
 
-            const names = skills.map((s) => s.name);
+            const names = skills.map((s) => s.skill.name);
             expect(names).toContain("internal-skill");
           } finally {
             if (originalEnv === undefined) {
@@ -686,7 +686,7 @@ describe("discoverSkillsInDir", () => {
             includeInternal: false,
           });
 
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).toContain("normal-skill");
         }),
       ),
@@ -714,7 +714,7 @@ describe("discoverSkillsInDir", () => {
           );
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.name).toBe("my-skill");
+          expect(skills[0]!.skill.name).toBe("my-skill");
         }),
       ),
     );
@@ -784,7 +784,7 @@ describe("discoverSkillsInDir", () => {
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
-          expect(skills[0]!.name).toBe("exact-skill");
+          expect(skills[0]!.skill.name).toBe("exact-skill");
         }),
       ),
     );
@@ -801,7 +801,7 @@ describe("discoverSkillsInDir", () => {
 
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("lower-skill");
         }),
       ),
@@ -819,7 +819,7 @@ describe("discoverSkillsInDir", () => {
 
           const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
-          const names = skills.map((s) => s.name);
+          const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("mixed-skill");
         }),
       ),

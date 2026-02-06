@@ -62,8 +62,8 @@ describe("discoverSkills", () => {
         const result = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
         expect(result).toHaveLength(1);
-        expect(result[0]?.name).toBe("my-skill");
-        expect(result[0]?.path).toBe(skillDir);
+        expect(result[0]?.skill.name).toBe("my-skill");
+        expect(Option.getOrThrow(result[0]!.path)).toBe(skillDir);
       }),
     ),
   );
@@ -77,7 +77,7 @@ describe("discoverSkills", () => {
         const result = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
         expect(result).toHaveLength(2);
-        const names = result.map((s) => s.name).sort();
+        const names = result.map((s) => s.skill.name).sort();
         expect(names).toEqual(["commit", "review-pr"]);
       }),
     ),
@@ -95,7 +95,7 @@ describe("discoverSkills", () => {
         const result = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
         expect(result).toHaveLength(1);
-        expect(result[0]?.name).toBe("nested-skill");
+        expect(result[0]?.skill.name).toBe("nested-skill");
       }),
     ),
   );
@@ -127,7 +127,7 @@ describe("discoverSkills", () => {
 
         // Only exact "SKILL.md" should be recognized
         expect(result).toHaveLength(1);
-        expect(result[0]?.name).toBe("skill-upper");
+        expect(result[0]?.skill.name).toBe("skill-upper");
       }),
     ),
   );
@@ -142,7 +142,7 @@ describe("discoverSkills", () => {
         const result = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
         expect(result).toHaveLength(1);
-        expect(result[0]?.name).toBe("my-skill");
+        expect(result[0]?.skill.name).toBe("my-skill");
       }),
     ),
   );
@@ -192,7 +192,7 @@ describe("discoverSkills", () => {
         const result = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
         expect(result).toHaveLength(1);
-        expect(result[0]?.name).toBe("accessible-skill");
+        expect(result[0]?.skill.name).toBe("accessible-skill");
       }),
     ),
   );

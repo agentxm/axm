@@ -9,7 +9,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeClackTestLayer } from "../../../clack-effect/index.js";
-import type { DiscoveredSkill } from "./discover-skills.js";
+import type { SkillRef } from "./discover-skills.js";
 import { InstallError } from "./handler.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 
@@ -17,12 +17,11 @@ import { determineSkillsToInstall } from "./select-skills.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeSkill = (name: string): DiscoveredSkill => ({
-  _tag: "local",
-  name,
-  path: `/fake/${name}`,
-  description: "",
-  metadata: Option.none(),
+const makeSkill = (name: string): SkillRef => ({
+  skill: { name, description: "", metadata: Option.none() },
+  path: Option.some(`/fake/${name}`),
+  gitTreeSha: Option.none(),
+  registry: Option.none(),
 });
 
 const [ClackTestLayer] = makeClackTestLayer({
@@ -36,8 +35,8 @@ const provide = <A, E>(
 ) => effect.pipe(Effect.provide(ClackTestLayer));
 
 /** Helper to create a NonEmptyReadonlyArray of skills. */
-const skills = (...names: [string, ...string[]]): Array.NonEmptyReadonlyArray<DiscoveredSkill> =>
-  names.map((n) => makeSkill(n)) as unknown as Array.NonEmptyReadonlyArray<DiscoveredSkill>;
+const skills = (...names: [string, ...string[]]): Array.NonEmptyReadonlyArray<SkillRef> =>
+  names.map((n) => makeSkill(n)) as unknown as Array.NonEmptyReadonlyArray<SkillRef>;
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -55,7 +54,7 @@ describe("determineSkillsToInstall", () => {
             yes: false,
           });
 
-          expect(result.map((s) => s.name)).toEqual(["commit", "debug"]);
+          expect(result.map((s) => s.skill.name)).toEqual(["commit", "debug"]);
         }),
       ),
     );
@@ -106,7 +105,7 @@ describe("determineSkillsToInstall", () => {
             yes: false,
           });
 
-          expect(result.map((s) => s.name)).toEqual(["commit", "review-pr"]);
+          expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
         }),
       ),
     );
@@ -121,7 +120,7 @@ describe("determineSkillsToInstall", () => {
             yes: false,
           });
 
-          expect(result.map((s) => s.name)).toEqual(["commit", "review-pr"]);
+          expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
         }),
       ),
     );
@@ -136,7 +135,7 @@ describe("determineSkillsToInstall", () => {
             yes: true,
           });
 
-          expect(result.map((s) => s.name)).toEqual(["commit", "review-pr"]);
+          expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
         }),
       ),
     );
@@ -153,7 +152,7 @@ describe("determineSkillsToInstall", () => {
             yes: false,
           });
 
-          expect(result.map((s) => s.name)).toEqual(["commit"]);
+          expect(result.map((s) => s.skill.name)).toEqual(["commit"]);
         }),
       ),
     );
@@ -170,7 +169,7 @@ describe("determineSkillsToInstall", () => {
             yes: false,
           });
 
-          expect(result.map((s) => s.name)).toEqual(["commit", "review-pr"]);
+          expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
         }),
       ),
     );

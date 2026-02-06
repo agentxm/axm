@@ -29,7 +29,7 @@ import {
   type Skill,
   type Source,
 } from "../../../extensions/skills/index.js";
-import { selectSkills } from "./select-skills.js";
+import { determineSkillsToInstall } from "./select-skills.js";
 import type { BitbucketSource, GitHubSource, GitLabSource } from "../../../sources/index.js";
 import { fetchGitHubTreeHash } from "../../../sources/index.js";
 import { SkillSourceV2 } from "../../../extensions/skills/state/types.js";
@@ -512,16 +512,12 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     }
 
     // Step 6: Filter/select skills
-    const canPrompt =
-      !args.yes && !Option.getOrElse(args.nonInteractive, () => false) && isInteractive();
-
-    const selectedSkills = yield* selectSkills({
+    const selectedSkills = yield* determineSkillsToInstall({
       skills,
-      source,
       requestedSkills: args.skill,
       all: args.all,
       dryRun: Option.getOrElse(args.dryRun, () => false),
-      canPrompt,
+      yes: args.yes,
     });
 
     if (selectedSkills.length === 0) {

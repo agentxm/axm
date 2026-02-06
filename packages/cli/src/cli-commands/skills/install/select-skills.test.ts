@@ -1,7 +1,7 @@
 /**
- * Unit tests for selectSkills.
+ * Unit tests for determineSkillsToInstall.
  *
- * Tests the priority-ordered skill selection logic extracted from the handler.
+ * Tests the simplified skill selection logic.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -11,9 +11,8 @@ import * as Option from "effect/Option";
 import { makeClackTestLayer } from "../../../clack-effect/index.js";
 import type { DiscoveredSkill } from "../../../extensions/skills/index.js";
 import type { ExtensionRef } from "../../../extensions/common.js";
-import type { LocalSource, RegistrySource } from "../../../sources/index.js";
 import { InstallError } from "./handler.js";
-import { selectSkills } from "./select-skills.js";
+import { determineSkillsToInstall } from "./select-skills.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -40,10 +39,6 @@ const makeSkills = (
   ...rest: DiscoveredSkill[]
 ): Array.NonEmptyReadonlyArray<DiscoveredSkill> => [first, ...rest];
 
-const localSource: LocalSource = { source: "local", path: "/fake/source" };
-
-const registrySource: RegistrySource = { source: "registry", url: "https://example.com" };
-
 const [ClackTestLayer] = makeClackTestLayer({
   confirmBehavior: Option.some({ type: "return", value: true }),
   selectBehavior: Option.none(),
@@ -58,18 +53,17 @@ const provide = <A, E>(
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("selectSkills", () => {
-  describe("--skill flag (priority 1)", () => {
+describe("determineSkillsToInstall", () => {
+  describe("--skill flag (rule 1)", () => {
     it.effect("returns matching skills when all names are valid", () =>
       provide(
         Effect.gen(function* () {
-          const result = yield* selectSkills({
+          const result = yield* determineSkillsToInstall({
             skills: makeSkills(makeSkill("commit"), makeSkill("review-pr"), makeSkill("debug")),
-            source: localSource,
             requestedSkills: ["commit", "debug"],
             all: false,
             dryRun: false,
-            canPrompt: true,
+            yes: false,
           });
 
           expect(result.map((s) => s.name)).toEqual(["commit", "debug"]);
@@ -80,13 +74,12 @@ describe("selectSkills", () => {
     it.effect("errors when any requested skill name is unknown", () =>
       provide(
         Effect.gen(function* () {
-          const error = yield* selectSkills({
+          const error = yield* determineSkillsToInstall({
             skills: makeSkills(makeSkill("commit")),
-            source: localSource,
             requestedSkills: ["commit", "nonexistent"],
             all: false,
             dryRun: false,
-            canPrompt: true,
+            yes: false,
           }).pipe(Effect.flip);
 
           expect(error._tag).toBe("InstallError");
@@ -99,13 +92,12 @@ describe("selectSkills", () => {
     it.effect("errors when all requested skills are unknown", () =>
       provide(
         Effect.gen(function* () {
-          const error = yield* selectSkills({
+          const error = yield* determineSkillsToInstall({
             skills: makeSkills(makeSkill("commit")),
-            source: localSource,
             requestedSkills: ["foo", "bar"],
             all: false,
             dryRun: false,
-            canPrompt: true,
+            yes: false,
           }).pipe(Effect.flip);
 
           expect(error._tag).toBe("InstallError");
@@ -116,17 +108,16 @@ describe("selectSkills", () => {
     );
   });
 
-  describe("--all / --dry-run (priority 2)", () => {
+  describe("--all / --dry-run / --yes (rule 2)", () => {
     it.effect("returns all skills with --all", () =>
       provide(
         Effect.gen(function* () {
-          const result = yield* selectSkills({
+          const result = yield* determineSkillsToInstall({
             skills: makeSkills(makeSkill("commit"), makeSkill("review-pr")),
-            source: localSource,
             requestedSkills: [],
             all: true,
             dryRun: false,
-            canPrompt: false,
+            yes: false,
           });
 
           expect(result.map((s) => s.name)).toEqual(["commit", "review-pr"]);
@@ -137,13 +128,28 @@ describe("selectSkills", () => {
     it.effect("returns all skills with --dry-run", () =>
       provide(
         Effect.gen(function* () {
-          const result = yield* selectSkills({
+          const result = yield* determineSkillsToInstall({
             skills: makeSkills(makeSkill("commit"), makeSkill("review-pr")),
-            source: localSource,
             requestedSkills: [],
             all: false,
             dryRun: true,
-            canPrompt: false,
+            yes: false,
+          });
+
+          expect(result.map((s) => s.name)).toEqual(["commit", "review-pr"]);
+        }),
+      ),
+    );
+
+    it.effect("returns all skills with --yes", () =>
+      provide(
+        Effect.gen(function* () {
+          const result = yield* determineSkillsToInstall({
+            skills: makeSkills(makeSkill("commit"), makeSkill("review-pr")),
+            requestedSkills: [],
+            all: false,
+            dryRun: false,
+            yes: true,
           });
 
           expect(result.map((s) => s.name)).toEqual(["commit", "review-pr"]);
@@ -152,70 +158,16 @@ describe("selectSkills", () => {
     );
   });
 
-  describe("registry source (priorities 3-4)", () => {
-    it.effect("auto-selects single skill not from pack", () =>
+  describe("single skill (rule 3)", () => {
+    it.effect("auto-selects single skill without prompting", () =>
       provide(
         Effect.gen(function* () {
-          const result = yield* selectSkills({
-            skills: makeSkills(makeSkill("commit", 1)),
-            source: registrySource,
-            requestedSkills: [],
-            all: false,
-            dryRun: false,
-            canPrompt: true,
-          });
-
-          expect(result.map((s) => s.name)).toEqual(["commit"]);
-        }),
-      ),
-    );
-
-    it.effect("confirms single skill from pack", () =>
-      provide(
-        Effect.gen(function* () {
-          const result = yield* selectSkills({
-            skills: makeSkills(makeSkill("commit", 2)),
-            source: registrySource,
-            requestedSkills: [],
-            all: false,
-            dryRun: false,
-            canPrompt: true,
-          });
-
-          expect(result.map((s) => s.name)).toEqual(["commit"]);
-        }),
-      ),
-    );
-
-    it.effect("prompts multiselect for multiple skills from pack", () =>
-      provide(
-        Effect.gen(function* () {
-          const result = yield* selectSkills({
-            skills: makeSkills(makeSkill("commit", 2), makeSkill("review-pr", 2)),
-            source: registrySource,
-            requestedSkills: [],
-            all: false,
-            dryRun: false,
-            canPrompt: true,
-          });
-
-          expect(result.map((s) => s.name)).toEqual(["commit", "review-pr"]);
-        }),
-      ),
-    );
-  });
-
-  describe("non-registry source (priorities 5-7)", () => {
-    it.effect("auto-selects single skill", () =>
-      provide(
-        Effect.gen(function* () {
-          const result = yield* selectSkills({
+          const result = yield* determineSkillsToInstall({
             skills: makeSkills(makeSkill("commit")),
-            source: localSource,
             requestedSkills: [],
             all: false,
             dryRun: false,
-            canPrompt: false,
+            yes: false,
           });
 
           expect(result.map((s) => s.name)).toEqual(["commit"]);
@@ -223,34 +175,33 @@ describe("selectSkills", () => {
       ),
     );
 
-    it.effect("errors when multiple skills and can't prompt", () =>
+    it.effect("auto-selects single skill from pack without prompting", () =>
       provide(
         Effect.gen(function* () {
-          const error = yield* selectSkills({
-            skills: makeSkills(makeSkill("commit"), makeSkill("review-pr")),
-            source: localSource,
+          const result = yield* determineSkillsToInstall({
+            skills: makeSkills(makeSkill("commit", 2)),
             requestedSkills: [],
             all: false,
             dryRun: false,
-            canPrompt: false,
-          }).pipe(Effect.flip);
+            yes: false,
+          });
 
-          expect(error._tag).toBe("InstallError");
-          expect((error as InstallError).message).toContain("Cannot prompt for skill selection");
+          expect(result.map((s) => s.name)).toEqual(["commit"]);
         }),
       ),
     );
+  });
 
-    it.effect("prompts multiselect when multiple skills and can prompt", () =>
+  describe("multiple skills (rule 4)", () => {
+    it.effect("prompts multiselect for multiple skills", () =>
       provide(
         Effect.gen(function* () {
-          const result = yield* selectSkills({
+          const result = yield* determineSkillsToInstall({
             skills: makeSkills(makeSkill("commit"), makeSkill("review-pr")),
-            source: localSource,
             requestedSkills: [],
             all: false,
             dryRun: false,
-            canPrompt: true,
+            yes: false,
           });
 
           expect(result.map((s) => s.name)).toEqual(["commit", "review-pr"]);

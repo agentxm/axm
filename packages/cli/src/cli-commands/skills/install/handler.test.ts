@@ -2030,28 +2030,30 @@ describe("install.handler", () => {
     });
 
     describe("skill selection in non-interactive mode", () => {
-      it.effect("fails with InstallError when stdin is not TTY and no --all/--skill flag", () =>
-        withTestLayer()(
-          Effect.gen(function* () {
-            isInteractiveMock.mockReturnValue(false);
-            // Multiple skills force the multiselect path (single skill auto-selects)
-            const source = createSkillSource([{ name: "commit" }, { name: "review-pr" }]);
-            initializeAxm();
+      it.effect(
+        "fails with InstallError when stdin is not TTY and no --all/--skill/--yes flag",
+        () =>
+          withTestLayer()(
+            Effect.gen(function* () {
+              isInteractiveMock.mockReturnValue(false);
+              // Multiple skills force the multiselect path (single skill auto-selects)
+              const source = createSkillSource([{ name: "commit" }, { name: "review-pr" }]);
+              initializeAxm();
 
-            const args: InstallHandlerArgs = {
-              ...defaultArgs,
-              source,
-              agent: ["claude-code"], // Explicit agent avoids agent selection prompt
-              // No --all, no --skill
-            };
+              const args: InstallHandlerArgs = {
+                ...defaultArgs,
+                source,
+                agent: ["claude-code"], // Explicit agent avoids agent selection prompt
+                // No --all, no --skill, no --yes
+              };
 
-            const error = yield* handleInstall(args).pipe(Effect.flip);
+              const error = yield* handleInstall(args).pipe(Effect.flip);
 
-            expect(error._tag).toBe("InstallError");
-            expect((error as InstallError).message).toContain("Cannot prompt for skill selection");
-            expect((error as InstallError).message).toContain("stdin is not a TTY");
-          }),
-        ),
+              expect(error._tag).toBe("InstallError");
+              expect((error as InstallError).message).toContain("Cannot prompt for confirmation");
+              expect((error as InstallError).message).toContain("stdin is not a TTY");
+            }),
+          ),
       );
 
       it.effect("succeeds when stdin is not TTY but --all flag is set", () =>

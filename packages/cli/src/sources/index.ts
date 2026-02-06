@@ -2,13 +2,13 @@
  * Source parsing and identification module.
  *
  * Provides functionality to parse various source formats (GitHub shorthand, URLs, etc.)
- * into normalized ParsedSource structures.
+ * into normalized Source structures.
  *
  * @experimental All exports from this module are unstable and may change without notice.
  * @packageDocumentation
  */
 
-// Types (these are interface types distinct from the ParsedSource namespace)
+// Types
 export type {
   AzureReposSource,
   BitbucketSource,
@@ -22,10 +22,7 @@ export type {
   Source,
   SourceType,
 } from "./types.js";
-// ParsedSource is both a type and value - export it properly
-export { ParsedSource, SourceTypeSchema } from "./types.js";
-// Re-export the ParsedSource type alias separately for type-only imports
-export type { ParsedSource as ParsedSourceUnion } from "./types.js";
+export { SourceTypeSchema } from "./types.js";
 
 // Type guards
 export { isGitHostingProviderSource } from "./utils.js";
@@ -36,8 +33,11 @@ export { CloneUrlError, ParseError } from "./errors.js";
 // Main parser
 export { parseSource } from "./parser.js";
 
+// Print
+export { printSource } from "./print.js";
+
 // Clone URL utilities
-export { buildCloneUrl, getOriginFromParsed } from "./clone-url.js";
+export { buildCloneUrl, getOrigin } from "./clone-url.js";
 
 // Git operations
 export type { GitError } from "./git/index.js";

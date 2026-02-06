@@ -2,7 +2,7 @@
  * Source string parser for skills.
  *
  * Parses various source formats (GitHub shorthand, URLs)
- * into a normalized ParsedSource structure.
+ * into a normalized Source structure.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -19,7 +19,7 @@ import { ParseError } from "./errors.js";
 import { checkGitHubRepoExists, config as githubConfig } from "./github/index.js";
 import { checkGitLabRepoExists, config as gitlabConfig } from "./gitlab/index.js";
 import { config as localConfig, LOCAL_PATH_PATTERN, parseLocalPath } from "./local/index.js";
-import { type ParsedSource, ParsedSource as PS, type Source, type SourceConfig } from "./types.js";
+import type { Source, SourceConfig } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Input Pattern Types
@@ -159,19 +159,17 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
 // SlashPattern Resolution
 // -----------------------------------------------------------------------------
 
-const resolveSlashPattern = (input: string): Effect.Effect<ParsedSource<Source>, ParseError> => {
+const resolveSlashPattern = (input: string): Effect.Effect<Source, ParseError> => {
   const [owner, repo] = input.split("/") as [string, string];
 
   return checkGitHubRepoExists(owner, repo).pipe(
-    Effect.map(() => PS.GitHub({ original: input, owner, repo })),
+    Effect.map(() => githubConfig.make({ owner, repo })),
     Effect.orElse(() =>
-      checkGitLabRepoExists(owner, repo).pipe(
-        Effect.map(() => PS.GitLab({ original: input, owner, repo })),
-      ),
+      checkGitLabRepoExists(owner, repo).pipe(Effect.map(() => gitlabConfig.make({ owner, repo }))),
     ),
     Effect.orElse(() =>
       checkBitbucketRepoExists(owner, repo).pipe(
-        Effect.map(() => PS.Bitbucket({ original: input, owner, repo })),
+        Effect.map(() => bitbucketConfig.make({ owner, repo })),
       ),
     ),
     Effect.mapError(
@@ -189,7 +187,7 @@ const resolveSlashPattern = (input: string): Effect.Effect<ParsedSource<Source>,
 // -----------------------------------------------------------------------------
 
 /**
- * Parse a source string into a ParsedSource.
+ * Parse a source string into a Source.
  *
  * Supported formats:
  * - Slash pattern: `owner/repo` (probes GitHub → GitLab → Bitbucket)
@@ -200,9 +198,9 @@ const resolveSlashPattern = (input: string): Effect.Effect<ParsedSource<Source>,
  *
  * @experimental This API is unstable and may change without notice.
  * @param input - The source string to parse
- * @returns Effect containing ParsedSource or ParseError
+ * @returns Effect containing Source or ParseError
  */
-export const parseSource = (input: string): Effect.Effect<ParsedSource<Source>, ParseError> => {
+export const parseSource = (input: string): Effect.Effect<Source, ParseError> => {
   const trimmed = input.trim();
   if (!trimmed) {
     return Effect.fail(new ParseError({ message: "Source string cannot be empty", input }));

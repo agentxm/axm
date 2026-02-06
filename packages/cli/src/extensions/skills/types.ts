@@ -8,13 +8,8 @@
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 
-// Re-export Source and ParsedSource from canonical location
-export type {
-  GitHostingProviderSource,
-  ParsedSource,
-  Source,
-  SourceType,
-} from "../../sources/index.js";
+// Re-export Source types from canonical location
+export type { GitHostingProviderSource, Source, SourceType } from "../../sources/index.js";
 export { isGitHostingProviderSource } from "../../sources/index.js";
 
 // -----------------------------------------------------------------------------

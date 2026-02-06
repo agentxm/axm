@@ -209,7 +209,7 @@ const initializeProjectWorkspace = (
  *
  * @internal Not exported from barrel - use layer() for external access
  */
-export const make = (
+const make = (
   options: WorkspaceContextOptions,
 ): Effect.Effect<WorkspaceContextService, WorkspaceContextError, FileSystem.FileSystem | Clack> =>
   Effect.gen(function* () {

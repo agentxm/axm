@@ -13,6 +13,11 @@ import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 
 import { ClackLive, type Clack } from "../clack-effect/service.js";
+import {
+  WorkspaceContextTag,
+  layer as workspaceLayer,
+  type WorkspaceContextOptions,
+} from "../workspace/index.js";
 
 /**
  * Standard dependencies available to all CLI commands:
@@ -40,9 +45,25 @@ export const Runtime = ManagedRuntime.make(AppLayer);
 /**
  * Run an Effect program with CLI dependencies and error handling.
  * Exits process with code 1 on failure.
+ *
+ * When workspace options are provided, the WorkspaceContext layer is
+ * composed into the runtime so handlers can yield WorkspaceContextTag
+ * directly.
  */
-export const run = <A, E>(program: Effect.Effect<A, E, AppLayer>): Promise<A> =>
-  program.pipe(
+export function run<A, E>(program: Effect.Effect<A, E, AppLayer>): Promise<A>;
+export function run<A, E>(
+  program: Effect.Effect<A, E, AppLayer | WorkspaceContextTag>,
+  options: { readonly workspace: WorkspaceContextOptions },
+): Promise<A>;
+export function run<A, E>(
+  program: Effect.Effect<A, E, AppLayer | WorkspaceContextTag>,
+  options?: { readonly workspace: WorkspaceContextOptions },
+): Promise<A> {
+  const provided = options?.workspace
+    ? program.pipe(Effect.provide(workspaceLayer(options.workspace)))
+    : (program as Effect.Effect<A, E, AppLayer>);
+
+  return provided.pipe(
     Effect.catchAll((error) =>
       Effect.sync(() => {
         console.error(error);
@@ -51,3 +72,4 @@ export const run = <A, E>(program: Effect.Effect<A, E, AppLayer>): Promise<A> =>
     ),
     Runtime.runPromise,
   );
+}

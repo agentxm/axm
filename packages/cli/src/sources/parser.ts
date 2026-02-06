@@ -185,22 +185,19 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
 
 const resolveSlashPattern = (pattern: SlashPattern): Effect.Effect<Source, ParseError> =>
   Effect.gen(function* () {
-    const { owner, repo } = pattern;
-    const subPath = Option.getOrUndefined(pattern.subPath);
-    const args = { owner, repo, subPath };
-
-    const github = yield* resolveGitHubRepo(args);
+    const github = yield* resolveGitHubRepo(pattern);
     if (Option.isSome(github)) return github.value;
 
-    const gitlab = yield* resolveGitLabRepo(args);
+    const gitlab = yield* resolveGitLabRepo(pattern);
     if (Option.isSome(gitlab)) return gitlab.value;
 
-    const bitbucket = yield* resolveBitbucketRepo(args);
+    const bitbucket = yield* resolveBitbucketRepo(pattern);
     if (Option.isSome(bitbucket)) return bitbucket.value;
 
+    const fullPath = `${pattern.owner}/${pattern.repo}${Option.match(pattern.subPath, { onNone: () => "", onSome: (sp) => `/${sp}` })}`;
     return yield* new ParseError({
-      message: `Repository '${owner}/${repo}' not found on GitHub, GitLab, or Bitbucket`,
-      input: `${owner}/${repo}`,
+      message: `Repository '${fullPath}' not found on GitHub, GitLab, or Bitbucket`,
+      input: fullPath,
     });
   });
 

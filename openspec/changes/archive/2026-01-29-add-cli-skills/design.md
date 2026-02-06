@@ -247,7 +247,7 @@ packages/cli/src/commands/
 packages/core/src/
   experimental/
     skills/
-      index.ts                 # Public exports for @agentxm/core/experimental/skills
+      index.ts                 # Public exports for @axm.sh/core/experimental/skills
       source-parser.ts         # Parse source strings (including git refs)
       skill-discovery.ts       # Find SKILL.md files
       agent-detection.ts       # Detect installed agents
@@ -277,7 +277,7 @@ Skills functionality is exported via subpath:
 
 ```typescript
 // CLI imports skills from dedicated subpath
-import { parseSource, detectAgents, installSkill } from "@agentxm/core/experimental/skills";
+import { parseSource, detectAgents, installSkill } from "@axm.sh/core/experimental/skills";
 ```
 
 This requires adding the subpath export to `packages/core/package.json`:

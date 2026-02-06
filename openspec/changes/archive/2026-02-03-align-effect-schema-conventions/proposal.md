@@ -42,7 +42,7 @@ None - no spec-level behavior changes, only internal naming conventions.
 
 ## Impact
 
-- **Code**: All files importing schema constants from `@agentxm/core/experimental/schemas/*`
+- **Code**: All files importing schema constants from `@axm.sh/core/experimental/schemas/*`
 - **Tests**: Schema test files (`*.test.ts`) will need import updates
 - **Scripts**: `generate-schemas.ts` imports schemas for JSON Schema generation
 - **No runtime changes**: Type-only refactoring, same runtime behavior

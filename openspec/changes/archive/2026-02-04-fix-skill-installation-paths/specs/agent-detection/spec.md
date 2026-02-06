@@ -111,7 +111,7 @@ Agent types and registry SHALL be in a dedicated `agents/` module at the experim
 #### Scenario: Module structure
 
 - **WHEN** importing agent configuration
-- **THEN** the import path SHALL be `@agentxm/core/experimental/agents`
+- **THEN** the import path SHALL be `@axm.sh/core/experimental/agents`
 - **AND** the module SHALL NOT be nested under `skills/`
 
 #### Scenario: Module exports
@@ -168,7 +168,7 @@ The registry SHALL include all agents from the vercel-labs/skills reference impl
 
 **Reason**: Detection logic varies significantly per agent (single path check vs multiple paths, file vs directory, environment variables). Embedding detection in config conflates pure data with effectful operations.
 
-**Migration**: Detection is now a separate function `detectAgent(agent)` that uses agent-specific logic based on `agent.id`. Import from `@agentxm/core/experimental/agents`.
+**Migration**: Detection is now a separate function `detectAgent(agent)` that uses agent-specific logic based on `agent.id`. Import from `@axm.sh/core/experimental/agents`.
 
 ### Requirement: SUPPORTED_AGENTS array
 

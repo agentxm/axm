@@ -4,12 +4,12 @@ The `skills install` handler (`packages/cli/src/commands/skills/install/handler.
 
 ## What Changes
 
-### Core Package (`@agentxm/core`)
+### Core Package (`@axm.sh/core`)
 
 - **New `paths` module**: Add `getAxmDir()`, `getProjectDir()`, `getGlobalDir()` for AXM directory resolution
 - **Enhance `source-parser`**: Move `buildCloneUrl()` and `getOriginFromParsed()` from handler to source-parser module
 
-### CLI Package (`@agentxm/cli`)
+### CLI Package (`@axm.sh/cli`)
 
 - **New `spinner` utility**: Extract `createSpinnerHelper()` for consistent spinner/fallback-to-log pattern
 - **New `prompts` utility**: Extract Effect-wrapped @clack/prompts helpers:

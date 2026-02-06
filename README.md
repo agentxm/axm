@@ -8,7 +8,7 @@ Manage agent skills, commands, sub-agents, MCP servers, and rules for your Claud
 
 ## Packages
 
-- `@agentxm/cli` - Command-line interface for AgentXM
+- `@axm.sh/cli` - Command-line interface for AgentXM
 
 ## Development
 

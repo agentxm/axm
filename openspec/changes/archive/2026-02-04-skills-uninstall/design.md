@@ -46,7 +46,7 @@ The state system already defines `UninstallSkill` steps in the diff computation 
 
 ### 3. Apply Step: Remove from Agents
 
-**Decision:** Implement `removeSkillFromAgents(skillName, agents, axmDir)` in `@agentxm/core/experimental/skills`.
+**Decision:** Implement `removeSkillFromAgents(skillName, agents, axmDir)` in `@axm.sh/core/experimental/skills`.
 
 Inverse of `installSkillToAgents`:
 

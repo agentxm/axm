@@ -138,7 +138,7 @@ if (showOutput) {
 #### New import needed
 
 ```typescript
-import { applyDiff, type ApplyResult } from "@agentxm/core/experimental/skills/state";
+import { applyDiff, type ApplyResult } from "@axm.sh/core/experimental/skills/state";
 ```
 
 **Rationale**: `applyDiff()` already implements the correct behavior. The handler's `installSkillsFromFileSystem` duplicates this logic but with bugs. Removing the duplication fixes the bug and simplifies the codebase.
@@ -260,7 +260,7 @@ import {
   buildIdealForUninstall,
   computeDiff,
   applyDiff,
-} from "@agentxm/core/experimental/skills/state";
+} from "@axm.sh/core/experimental/skills/state";
 ```
 
 **Rationale**: The uninstall handler's docstring claims to use the reconciliation pattern but the implementation doesn't. This creates inconsistency and maintenance burden.

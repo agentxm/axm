@@ -40,7 +40,7 @@ import type { WorkspaceContextService } from "./service-types.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export class WorkspaceContext extends Context.Tag("@agentxm/cli/WorkspaceContext")<
+export class WorkspaceContext extends Context.Tag("@axm.sh/cli/WorkspaceContext")<
   WorkspaceContext,
   WorkspaceContextService
 >() {

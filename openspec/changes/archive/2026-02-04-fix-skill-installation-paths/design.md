@@ -430,7 +430,7 @@ E2E tests iterate over detected agents - automatically test all configured paths
 
 ```typescript
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { getAllAgents, detectAgents } from "@agentxm/core/experimental/agents";
+import { getAllAgents, detectAgents } from "@axm.sh/core/experimental/agents";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -549,7 +549,7 @@ packages/core/src/experimental/
 **Rationale**:
 
 - **Shared across extension types**: `AgentConfig` used by skills, commands, future extensions
-- **Import path**: `@agentxm/core/experimental/agents` (not nested under skills)
+- **Import path**: `@axm.sh/core/experimental/agents` (not nested under skills)
 - Pure config (`registry.ts`) separated from effectful detection (`detection.ts`)
 - Detection logic reusable by workspace-init, CLI commands, etc.
 
@@ -836,14 +836,14 @@ export * as Agents from "./agents/index.js";
 ```typescript
 // REMOVE all agent-related exports:
 // - AgentConfig, SUPPORTED_AGENTS, detectAgents, getAgentById, DetectionError
-// These now live exclusively in @agentxm/core/experimental/agents
+// These now live exclusively in @axm.sh/core/experimental/agents
 ```
 
 #### 6c. Consumer import paths
 
 ```typescript
 // Import from agents module (only option)
-import { AGENTS, detectAgents, type AgentConfig } from "@agentxm/core/experimental/agents";
+import { AGENTS, detectAgents, type AgentConfig } from "@axm.sh/core/experimental/agents";
 ```
 
 ## Integration with State Management
@@ -887,7 +887,7 @@ The CLI handler orchestrates the flow:
 
 ```typescript
 // Import from agents module
-import { detectAgents, getAgentById, type AgentConfig } from "@agentxm/core/experimental/agents";
+import { detectAgents, getAgentById, type AgentConfig } from "@axm.sh/core/experimental/agents";
 
 // Step 1: Detect or resolve agents
 const agents: AgentConfig[] =
@@ -1108,10 +1108,10 @@ skills:
 
 ```typescript
 // BEFORE: Import from skills module
-import { detectAgents, getAgentById, type AgentConfig } from "@agentxm/core/experimental/skills";
+import { detectAgents, getAgentById, type AgentConfig } from "@axm.sh/core/experimental/skills";
 
 // AFTER: Import from agents module
-import { detectAgents, getAgentById, type AgentConfig } from "@agentxm/core/experimental/agents";
+import { detectAgents, getAgentById, type AgentConfig } from "@axm.sh/core/experimental/agents";
 ```
 
 ### Summary of Changes by File

@@ -66,13 +66,13 @@ The install handler SHALL import agent configuration from the dedicated agents m
 #### Scenario: Agent detection import
 
 - **WHEN** detecting installed agents
-- **THEN** the handler SHALL import `detectAgents` from `@agentxm/core/experimental/agents`
-- **AND** the handler SHALL NOT import from `@agentxm/core/experimental/skills`
+- **THEN** the handler SHALL import `detectAgents` from `@axm.sh/core/experimental/agents`
+- **AND** the handler SHALL NOT import from `@axm.sh/core/experimental/skills`
 
 #### Scenario: Agent lookup import
 
 - **WHEN** resolving agent IDs to configurations
-- **THEN** the handler SHALL import `getAgentById` from `@agentxm/core/experimental/agents`
+- **THEN** the handler SHALL import `getAgentById` from `@axm.sh/core/experimental/agents`
 - **AND** `getAgentById` SHALL return `Option<AgentConfig>` (not `AgentConfig | undefined`)
 
 ### Requirement: Correct Installation Paths

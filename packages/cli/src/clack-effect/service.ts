@@ -70,7 +70,7 @@ export interface ClackService {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export class Clack extends Context.Tag("@agentxm/cli/Clack")<Clack, ClackService>() {}
+export class Clack extends Context.Tag("@axm.sh/cli/Clack")<Clack, ClackService>() {}
 
 // -----------------------------------------------------------------------------
 // Live Implementation

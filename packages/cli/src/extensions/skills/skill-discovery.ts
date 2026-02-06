@@ -117,7 +117,7 @@ const extractSkillName = (skillPath: string): string => {
  *
  * @example
  * ```typescript
- * import { discoverSkills } from "@agentxm/core/experimental/skills";
+ * import { discoverSkills } from "@axm.sh/core/experimental/skills";
  * import { NodeFileSystem } from "@effect/platform-node";
  * import { Effect } from "effect";
  *

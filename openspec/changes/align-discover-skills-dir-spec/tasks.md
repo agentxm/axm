@@ -1,0 +1,93 @@
+## 1. Spec Updates (spec-only fixes)
+
+- [ ] 1.1 Update `cli-skills-install-discover-skills-dir/spec.md` with Phase 1 parse-failure fallthrough scenarios
+- [ ] 1.2 Update spec with Phase 3 depth semantics clarification (0-indexed, `depth > maxDepth`, 6 levels inclusive)
+- [ ] 1.3 Update spec with Phase 3 concurrency model (concurrent per depth level, not DFS)
+- [ ] 1.4 Update spec with SKIP_DIRS scope (Phase 3 only)
+- [ ] 1.5 Update spec with Phase 2 directory-type entries only
+- [ ] 1.6 Update spec with internal skills / seenNames interaction (filtered internals do not consume names)
+- [ ] 1.7 Update spec with Phase 2 processing order note (concurrent, input-order-preserving)
+- [ ] 1.8 Update spec with plugin manifest additive behavior and dirname transformation
+- [ ] 1.9 Update spec with regular file check for SKILL.md
+- [ ] 1.10 Update spec with output Skill type definition (name, description, path, metadata)
+- [ ] 1.11 Update spec with path containment (`isContainedIn`) implementation note
+- [ ] 1.12 Update spec with Phase 3 re-scanning note (may revisit Phase 1/2 dirs, seenNames prevents dupes)
+- [ ] 1.13 Run `pnpm typecheck` and fix any errors
+- [ ] 1.14 Run `pnpm lint` and fix any errors
+- [ ] 1.15 Run `pnpm test` and fix any failures
+- [ ] 1.16 Run `pnpm test:e2e` and fix any failures
+- [ ] 1.17 Kill any vitest worker processes
+
+## 2. Case-Sensitive SKILL.md Matching
+
+- [ ] 2.1 Write test: `SKILL.md` exact match is recognized; `skill.md` and `Skill.md` are not
+- [ ] 2.2 Change `SKILL_FILE_PATTERN` from `/^skill\.md$/i` regex to exact string `"SKILL.md"` comparison in `discover-skills.ts`
+- [ ] 2.3 Update all call sites that use `SKILL_FILE_PATTERN` regex matching to use exact string comparison
+- [ ] 2.4 Run `pnpm typecheck` and fix any errors
+- [ ] 2.5 Run `pnpm lint` and fix any errors
+- [ ] 2.6 Run `pnpm test` and fix any failures
+- [ ] 2.7 Run `pnpm test:e2e` and fix any failures
+- [ ] 2.8 Kill any vitest worker processes
+
+## 3. Priority Directory Derivation from AgentConfig Registry
+
+- [ ] 3.1 Write test: priority directories include `.` first, then static dirs, then agent dirs derived from registry
+- [ ] 3.2 Write test: `.copilot/skills` (stale) is NOT in priority directories
+- [ ] 3.3 Write test: agent dirs are deduplicated (agents sharing same `skills.dir` produce one entry)
+- [ ] 3.4 Replace hardcoded `PRIORITY_DIRECTORIES` with a function that derives the list: `.` first, then `skills/.curated`, `skills/.experimental`, `skills/.system`, then unique agent `skills.dir` values from `getAllAgents()`
+- [ ] 3.5 Remove stale `.copilot/skills` entry
+- [ ] 3.6 Run `pnpm typecheck` and fix any errors
+- [ ] 3.7 Run `pnpm lint` and fix any errors
+- [ ] 3.8 Run `pnpm test` and fix any failures
+- [ ] 3.9 Run `pnpm test:e2e` and fix any failures
+- [ ] 3.10 Kill any vitest worker processes
+
+## 4. INSTALL_INTERNAL_SKILLS Accepts "true"
+
+- [ ] 4.1 Write test: `INSTALL_INTERNAL_SKILLS="true"` includes internal skills
+- [ ] 4.2 Update `shouldIncludeSkill` to accept both `"1"` and `"true"` for `INSTALL_INTERNAL_SKILLS` env var
+- [ ] 4.3 Run `pnpm typecheck` and fix any errors
+- [ ] 4.4 Run `pnpm lint` and fix any errors
+- [ ] 4.5 Run `pnpm test` and fix any failures
+- [ ] 4.6 Run `pnpm test:e2e` and fix any failures
+- [ ] 4.7 Kill any vitest worker processes
+
+## 5. Plugin Manifest Schema Expansion
+
+- [ ] 5.1 Write tests for `marketplace.json` with `metadata.pluginRoot` — valid (`./` prefix) and invalid (no `./` prefix silences entire manifest)
+- [ ] 5.2 Write tests for `plugins[].source` — string source, omitted source (root-level), object source (skipped)
+- [ ] 5.3 Write tests for conventional `{pluginBase}/skills/` always added per plugin (even with empty/missing `skills` array)
+- [ ] 5.4 Write tests for `plugins[].skills` array with dirname transformation
+- [ ] 5.5 Update `marketplace.json` schema in `parse-manifests.ts` to support `metadata.pluginRoot`, per-plugin `source` (string/omitted/object), per-plugin `skills` array
+- [ ] 5.6 Implement `pluginRoot` validation: if present and doesn't start with `./`, skip entire manifest
+- [ ] 5.7 Implement source handling: string (must start with `./`), omitted (resolve to basePath + pluginRoot), object (skip plugin)
+- [ ] 5.8 Implement conventional `{pluginBase}/skills/` addition for each processed plugin
+- [ ] 5.9 Implement `plugins[].skills` dirname transformation for explicit skill paths
+- [ ] 5.10 Run `pnpm typecheck` and fix any errors
+- [ ] 5.11 Run `pnpm lint` and fix any errors
+- [ ] 5.12 Run `pnpm test` and fix any failures
+- [ ] 5.13 Run `pnpm test:e2e` and fix any failures
+- [ ] 5.14 Kill any vitest worker processes
+
+## 6. Post-Discovery Utilities
+
+- [ ] 6.1 Write tests for `getSkillDisplayName`: returns `name` when present, falls back to `basename(path)` when name is empty/falsy
+- [ ] 6.2 Write tests for `filterSkills`: case-insensitive matching against both `skill.name` and display name, multiple input names, no match returns empty array
+- [ ] 6.3 Write tests for `sanitizeName`: lowercase, special chars replaced with hyphens, dots/underscores preserved, leading/trailing dots and hyphens stripped, truncation to 255 chars, empty result falls back to `"unnamed-skill"`
+- [ ] 6.4 Implement `getSkillDisplayName(skill)` in a new post-discovery utilities module
+- [ ] 6.5 Implement `filterSkills(skills, inputNames)` with case-insensitive matching against name and display name
+- [ ] 6.6 Implement `sanitizeName(name)` with the specified transformation pipeline
+- [ ] 6.7 Export utilities from the module barrel
+- [ ] 6.8 Run `pnpm typecheck` and fix any errors
+- [ ] 6.9 Run `pnpm lint` and fix any errors
+- [ ] 6.10 Run `pnpm test` and fix any failures
+- [ ] 6.11 Run `pnpm test:e2e` and fix any failures
+- [ ] 6.12 Kill any vitest worker processes
+
+## 7. Final Verification
+
+- [ ] 7.1 Run full `pnpm typecheck` across all packages
+- [ ] 7.2 Run full `pnpm lint` across all packages
+- [ ] 7.3 Run full `pnpm test` across all packages
+- [ ] 7.4 Run full `pnpm test:e2e` across all packages
+- [ ] 7.5 Kill any vitest worker processes

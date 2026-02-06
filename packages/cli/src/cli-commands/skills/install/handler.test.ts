@@ -32,7 +32,7 @@ import {
   layer as workspaceLayer,
   type WorkspaceContextOptions,
 } from "../../../workspace/index.js";
-import { handleInstall, type InstallArgs, InstallError } from "./handler.js";
+import { handleInstall, type InstallHandlerArgs, InstallError } from "./handler.js";
 
 // Mock git operations to use local fixtures instead of cloning
 vi.mock("../../../extensions/skills/index.js", async (importOriginal) => {
@@ -197,7 +197,7 @@ describe("install.handler", () => {
     effect: Effect.Effect<A, E, FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | Clack>,
   ) => effect.pipe(Effect.provide(TestLayer));
 
-  const defaultArgs: InstallArgs = {
+  const defaultArgs: InstallHandlerArgs = {
     source: "",
     global: false,
     agent: [],
@@ -265,7 +265,7 @@ describe("install.handler", () => {
             const source = createSkillSource([{ name: "commit" }]);
             // Don't call initializeAxm() - let handler create it
 
-            const args: InstallArgs = {
+            const args: InstallHandlerArgs = {
               ...defaultArgs,
               source,
               all: true,
@@ -289,7 +289,7 @@ describe("install.handler", () => {
             const source = createSkillSource([{ name: "commit" }]);
             initializeAxm();
 
-            const args: InstallArgs = {
+            const args: InstallHandlerArgs = {
               ...defaultArgs,
               source,
               all: true,
@@ -315,7 +315,7 @@ describe("install.handler", () => {
             const source = createSkillSource([{ name: "commit" }, { name: "review-pr" }]);
             initializeAxm();
 
-            const args: InstallArgs = {
+            const args: InstallHandlerArgs = {
               ...defaultArgs,
               source,
               dryRun: true,
@@ -348,7 +348,7 @@ describe("install.handler", () => {
             const source = createSkillSource([{ name: "commit" }]);
             initializeAxm();
 
-            const args: InstallArgs = {
+            const args: InstallHandlerArgs = {
               ...defaultArgs,
               source,
               all: true,
@@ -475,7 +475,7 @@ describe("install.handler", () => {
       withTestLayer()(
         Effect.gen(function* () {
           initializeAxm();
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source: "", // Empty source is invalid
             yes: true,
@@ -497,7 +497,7 @@ describe("install.handler", () => {
           initializeAxm();
 
           // Just verify it doesn't fail on parsing - we test list mode to avoid agent selection
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             list: true,
@@ -526,7 +526,7 @@ describe("install.handler", () => {
           initializeAxm();
 
           // Use list mode to see discovered skills without installing
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             list: true,
@@ -544,7 +544,7 @@ describe("install.handler", () => {
           fs.mkdirSync(sourceDir, { recursive: true });
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source: sourceDir,
             yes: true,
@@ -565,7 +565,7 @@ describe("install.handler", () => {
         Effect.gen(function* () {
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source: path.join(tempDir, "nonexistent-dir"),
             yes: true,
@@ -593,7 +593,7 @@ describe("install.handler", () => {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             agent: ["claude-code"],
@@ -624,7 +624,7 @@ describe("install.handler", () => {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             agent: ["invalid-agent-xyz"],
@@ -645,7 +645,7 @@ describe("install.handler", () => {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             agent: ["claude-code", "invalid-agent"],
@@ -671,7 +671,7 @@ describe("install.handler", () => {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             yes: true,
@@ -691,7 +691,7 @@ describe("install.handler", () => {
           const source = createSkillSource([{ name: "commit" }, { name: "review-pr" }]);
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             yes: true,
@@ -730,7 +730,7 @@ describe("install.handler", () => {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             yes: true,
@@ -759,7 +759,7 @@ describe("install.handler", () => {
           ]);
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             all: true,
@@ -805,7 +805,7 @@ describe("install.handler", () => {
           ]);
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             skill: ["commit", "debug"],
@@ -842,7 +842,7 @@ describe("install.handler", () => {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             skill: ["commit", "nonexistent-skill"],
@@ -868,7 +868,7 @@ describe("install.handler", () => {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             skill: ["nonexistent-1", "nonexistent-2"],
@@ -897,7 +897,7 @@ describe("install.handler", () => {
           ]);
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             list: true,
@@ -931,7 +931,7 @@ describe("install.handler", () => {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             all: true,
@@ -957,7 +957,7 @@ describe("install.handler", () => {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             all: true,
@@ -998,7 +998,7 @@ describe("install.handler", () => {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             all: true,
@@ -1039,7 +1039,7 @@ describe("install.handler", () => {
           skillsModule.__setFixturePath(sourceDir);
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source: "github:test/skills",
             all: true,
@@ -1111,7 +1111,7 @@ describe("install.handler", () => {
               fs.rmSync(skillsDir, { recursive: true });
             }
 
-            const args: InstallArgs = {
+            const args: InstallHandlerArgs = {
               ...defaultArgs,
               source,
               global: true,
@@ -1172,7 +1172,7 @@ describe("install.handler", () => {
         Effect.gen(function* () {
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source: "",
             yes: true,
@@ -1193,7 +1193,7 @@ describe("install.handler", () => {
           initializeAxm();
 
           // Source that doesn't exist
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source: "/nonexistent/path/to/skills",
             yes: true,
@@ -1218,7 +1218,7 @@ describe("install.handler", () => {
         Effect.gen(function* () {
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source: "", // Empty source is invalid
             yes: true,
@@ -1244,7 +1244,7 @@ describe("install.handler", () => {
           fs.mkdirSync(sourceDir, { recursive: true });
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source: sourceDir,
             yes: true,
@@ -1367,7 +1367,7 @@ describe("install.handler", () => {
           initializeAxm();
 
           // Install first skill
-          const args1: InstallArgs = {
+          const args1: InstallHandlerArgs = {
             ...defaultArgs,
             source: "github:test/skills",
             all: true,
@@ -1388,7 +1388,7 @@ describe("install.handler", () => {
           skillsModule.__setFixturePath(sourceDir2);
 
           // Install from same source - V2 updates commit, installs review-pr
-          const args2: InstallArgs = {
+          const args2: InstallHandlerArgs = {
             ...defaultArgs,
             source: "github:test/skills",
             all: true,
@@ -1429,7 +1429,7 @@ describe("install.handler", () => {
           initializeAxm();
 
           // First install
-          const args1: InstallArgs = {
+          const args1: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             all: true,
@@ -1439,7 +1439,7 @@ describe("install.handler", () => {
           yield* handleInstall(args1);
 
           // Second install - should complete without error but do nothing
-          const args2: InstallArgs = {
+          const args2: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             all: true,
@@ -1588,7 +1588,7 @@ describe("install.handler", () => {
           const source = createSkillSource([{ name: "commit" }]);
           // Don't initialize - let handler create fresh settings
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             all: true,
@@ -1750,7 +1750,7 @@ describe("install.handler", () => {
 
           // The source returned by createSkillSource is github:test/skills
           // which proves github: prefix is parsed correctly
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source,
             list: true, // Use list mode to avoid full install
@@ -1771,7 +1771,7 @@ describe("install.handler", () => {
           // gitlab: prefix should be recognized as GitLab source
           // Since we don't have a mock for gitlab, test that it fails at clone stage
           // (not parse stage) by checking the error is about the clone operation
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source: "gitlab:test/skills",
             yes: true,
@@ -1835,7 +1835,7 @@ describe("install.handler", () => {
 
           initializeAxm();
 
-          const args: InstallArgs = {
+          const args: InstallHandlerArgs = {
             ...defaultArgs,
             source: sourceDir, // Local path source
             all: true,
@@ -1934,7 +1934,7 @@ describe("install.handler", () => {
             const source = createSkillSource([{ name: "commit" }]);
             initializeAxm(); // Creates settings with empty agents array
 
-            const args: InstallArgs = {
+            const args: InstallHandlerArgs = {
               ...defaultArgs,
               source,
               // No --agent flag - will use agents from settings (which is empty)
@@ -1968,7 +1968,7 @@ describe("install.handler", () => {
             const source = createSkillSource([{ name: "commit" }]);
             initializeAxm();
 
-            const args: InstallArgs = {
+            const args: InstallHandlerArgs = {
               ...defaultArgs,
               source,
               yes: true,
@@ -2003,7 +2003,7 @@ describe("install.handler", () => {
             const source = createSkillSource([{ name: "commit" }]);
             initializeAxm(["claude-code"]); // Initialize with an agent
 
-            const args: InstallArgs = {
+            const args: InstallHandlerArgs = {
               ...defaultArgs,
               source,
               // No --agent flag - will use agents from settings
@@ -2040,7 +2040,7 @@ describe("install.handler", () => {
             const source = createSkillSource([{ name: "commit" }]);
             initializeAxm();
 
-            const args: InstallArgs = {
+            const args: InstallHandlerArgs = {
               ...defaultArgs,
               source,
               agent: ["claude-code"], // Explicit agent avoids agent selection prompt
@@ -2063,7 +2063,7 @@ describe("install.handler", () => {
             const source = createSkillSource([{ name: "commit" }]);
             initializeAxm();
 
-            const args: InstallArgs = {
+            const args: InstallHandlerArgs = {
               ...defaultArgs,
               source,
               agent: ["claude-code"],
@@ -2083,7 +2083,7 @@ describe("install.handler", () => {
             const source = createSkillSource([{ name: "commit" }, { name: "review-pr" }]);
             initializeAxm();
 
-            const args: InstallArgs = {
+            const args: InstallHandlerArgs = {
               ...defaultArgs,
               source,
               agent: ["claude-code"],
@@ -2125,7 +2125,7 @@ describe("install.handler", () => {
             const source = createSkillSource([{ name: "commit" }]);
             initializeAxm();
 
-            const args: InstallArgs = {
+            const args: InstallHandlerArgs = {
               ...defaultArgs,
               source,
               agent: ["claude-code"],

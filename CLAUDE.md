@@ -485,6 +485,11 @@ openspec/           # Spec-driven development
 
 Each feature folder is self-contained: logic, constants, errors, schemas, and tests co-located. Only `utils/` holds truly cross-cutting utilities.
 
+### Command Arg Type Naming
+
+- Command arg types (yargs): `<Command>CommandArgs` (e.g. `InstallCommandArgs`)
+- Handler arg types (Effect): `<Command>HandlerArgs` (e.g. `InstallHandlerArgs`)
+
 ## Spec-Driven Development
 
 User/API behavior is specified before implementation. Specs define _what_, designs define _how_.

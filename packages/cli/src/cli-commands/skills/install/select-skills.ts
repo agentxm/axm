@@ -71,12 +71,12 @@ export const determineSkillsToInstall = (
     // 2. --all / --dry-run / --yes -> return all
     if (args.all || args.dryRun || args.yes) {
       if (args.all) yield* clack.log.info(`Installing all ${skills.length} skill(s)`);
-      return Array.fromIterable(skills) as DiscoveredSkill[];
+      return skills;
     }
 
     // 3. Single skill -> auto-select
     if (skills.length === 1) {
-      return Array.fromIterable(skills) as DiscoveredSkill[];
+      return skills;
     }
 
     // 4. Multiple skills -> multiselect prompt

@@ -25,6 +25,7 @@ export {
 export type { LockfileError } from "./lockfile.js";
 export {
   LOCKFILE_NAME,
+  LockfileNotFoundError,
   LockfileParseError,
   LockfileWriteError,
   readLockfile,

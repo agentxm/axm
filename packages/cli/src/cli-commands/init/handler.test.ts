@@ -223,7 +223,7 @@ describe("init.handler", () => {
     );
 
     it.effect("does not create settings in project directory when --global is set", () =>
-      withLayers({ ...defaultWsOptions, global: true })(
+      withBaseLayers(
         Effect.gen(function* () {
           // Backup and cleanup global settings
           const globalAxmDir = path.join(os.homedir(), ".axm");
@@ -244,7 +244,12 @@ describe("init.handler", () => {
           }
 
           try {
-            yield* handleInit();
+            // Provide workspace layer after cleanup so it initializes fresh
+            const WsLayer = Layer.provide(
+              workspaceLayer({ ...defaultWsOptions, global: true }),
+              TestLayer,
+            );
+            yield* handleInit().pipe(Effect.provide(WsLayer));
 
             const projectSettingsPath = path.join(tempDir, ".axm", "settings.json");
             expect(fs.existsSync(projectSettingsPath)).toBe(false);

@@ -372,8 +372,9 @@ export const handleInstall = (args: InstallArgs) => {
         spinner.stop(`Using ${agents.length} specified agent(s)`);
       }
     } else {
-      // Read agents from settings (loaded by workspace service)
-      const settingsAgents = context.settings.agents ?? [];
+      // Read agents from settings (fresh read from disk)
+      const settings = yield* context.getSettings();
+      const settingsAgents = settings.agents ?? [];
       agents = pipe(
         settingsAgents,
         Array.map((id) => getAgentById(id)),

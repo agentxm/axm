@@ -13,6 +13,7 @@ import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import {
   type LockfileError,
+  LockfileNotFoundError,
   readLockfile,
   writeLockfile,
   LOCKFILE_NAME,
@@ -194,6 +195,101 @@ const initializeProjectWorkspace = (
   });
 
 /**
+ * Ensure global workspace directory has settings.json and axm-lock.yaml.
+ *
+ * Creates missing files with empty defaults.
+ *
+ * @param globalDir - Path to global .axm directory
+ *
+ * @internal
+ */
+const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const settingsPath = `${globalDir}/${SETTINGS_FILENAME}`;
+    const lockfilePath = `${globalDir}/${LOCKFILE_NAME}`;
+
+    const settingsExists = yield* fs.exists(settingsPath).pipe(
+      Effect.mapError(
+        (error) =>
+          new SettingsParseError({
+            path: settingsPath,
+            message: `Failed to check if settings file exists: ${settingsPath}`,
+            cause: error,
+          }),
+      ),
+    );
+    const lockfileExists = yield* fs.exists(lockfilePath).pipe(
+      Effect.mapError(
+        (error) =>
+          new SettingsParseError({
+            path: lockfilePath,
+            message: `Failed to check if lockfile exists: ${lockfilePath}`,
+            cause: error,
+          }),
+      ),
+    );
+
+    // Create settings.json with {} if missing
+    if (!settingsExists) {
+      // Note: writeSettings is typed as SettingsError but only throws SettingsWriteError
+      // We catch SettingsNotFoundError to satisfy TypeScript, though it never occurs
+      yield* writeSettings(globalDir, {}).pipe(
+        Effect.catchTag("SettingsNotFoundError", (e) =>
+          Effect.fail(
+            new SettingsParseError({
+              path: e.path,
+              message: `Unexpected error during settings creation: ${e.message}`,
+              cause: e,
+            }),
+          ),
+        ),
+      );
+    }
+
+    // Create axm-lock.yaml with version 1, empty skills if missing
+    if (!lockfileExists) {
+      yield* writeLockfile(globalDir, { lockfileVersion: 1, skills: {} });
+    }
+  });
+
+/**
+ * Ensure project workspace is initialized, returning local settings.
+ *
+ * Reads existing local settings or runs the initialization flow when missing.
+ *
+ * @param localDir - Path to local .axm directory
+ * @param options - Workspace context options
+ * @returns Effect yielding local Settings
+ *
+ * @internal
+ */
+const ensureProjectWorkspaceInitialized = (localDir: string, options: WorkspaceContextOptions) =>
+  Effect.gen(function* () {
+    const localSettingsResult = yield* readSettings(localDir).pipe(
+      Effect.map((s) => ({ found: true as const, settings: s })),
+      Effect.catchTag("SettingsNotFoundError", () =>
+        // Use createDefaultSettings() instead of unsafe cast
+        Effect.succeed({ found: false as const, settings: createDefaultSettings() }),
+      ),
+    );
+
+    if (!localSettingsResult.found) {
+      // Initialize project workspace
+      yield* initializeProjectWorkspace(localDir, options);
+
+      // Re-read settings after initialization
+      return yield* readSettings(localDir).pipe(
+        Effect.catchTag("SettingsNotFoundError", () =>
+          Effect.fail(new WorkspaceNotInitializedError({ path: localDir })),
+        ),
+      );
+    }
+
+    return localSettingsResult.settings;
+  });
+
+/**
  * Create workspace context effect.
  *
  * Loads settings and lockfile based on workspace scope:
@@ -218,99 +314,38 @@ const make = (
     const localDir = getAxmDir(false);
     const workspaceDir = options.global ? globalDir : localDir;
 
-    // Global workspace auto-initialization
     if (options.global) {
-      const settingsPath = `${globalDir}/${SETTINGS_FILENAME}`;
-      const lockfilePath = `${globalDir}/${LOCKFILE_NAME}`;
-
-      const settingsExists = yield* fs.exists(settingsPath).pipe(
-        Effect.mapError(
-          (error) =>
-            new SettingsParseError({
-              path: settingsPath,
-              message: `Failed to check if settings file exists: ${settingsPath}`,
-              cause: error,
-            }),
-        ),
-      );
-      const lockfileExists = yield* fs.exists(lockfilePath).pipe(
-        Effect.mapError(
-          (error) =>
-            new SettingsParseError({
-              path: lockfilePath,
-              message: `Failed to check if lockfile exists: ${lockfilePath}`,
-              cause: error,
-            }),
-        ),
-      );
-
-      // Create settings.json with {} if missing
-      if (!settingsExists) {
-        // Note: writeSettings is typed as SettingsError but only throws SettingsWriteError
-        // We catch SettingsNotFoundError to satisfy TypeScript, though it never occurs
-        yield* writeSettings(globalDir, {}).pipe(
-          Effect.catchTag("SettingsNotFoundError", (e) =>
-            Effect.fail(
-              new SettingsParseError({
-                path: e.path,
-                message: `Unexpected error during settings creation: ${e.message}`,
-                cause: e,
-              }),
-            ),
-          ),
-        );
-      }
-
-      // Create axm-lock.yaml with version 1, empty skills if missing
-      if (!lockfileExists) {
-        yield* writeLockfile(globalDir, { lockfileVersion: 1, skills: {} });
-      }
+      yield* ensureGlobalWorkspaceInitialized(globalDir);
+    } else {
+      yield* ensureProjectWorkspaceInitialized(localDir, options);
     }
 
-    // Global settings: optional (fallback to {})
-    const globalSettings = yield* readSettings(globalDir).pipe(
-      Effect.catchTag("SettingsNotFoundError", () => Effect.succeed<Settings>({})),
-    );
-
-    // Local settings: initialize if missing when global=false
-    let localSettings: Settings = {};
-    if (!options.global) {
-      const localSettingsResult = yield* readSettings(localDir).pipe(
-        Effect.map((s) => ({ found: true as const, settings: s })),
-        Effect.catchTag("SettingsNotFoundError", () =>
-          // Use createDefaultSettings() instead of unsafe cast
-          Effect.succeed({ found: false as const, settings: createDefaultSettings() }),
-        ),
-      );
-
-      if (!localSettingsResult.found) {
-        // Initialize project workspace
-        yield* initializeProjectWorkspace(localDir, options);
-
-        // Re-read settings after initialization
-        localSettings = yield* readSettings(localDir).pipe(
-          Effect.catchTag("SettingsNotFoundError", () =>
-            Effect.fail(new WorkspaceNotInitializedError({ path: localDir })),
-          ),
-        );
-      } else {
-        localSettings = localSettingsResult.settings;
-      }
-    }
-
-    // Merge: local overrides global
-    const settings: Settings = options.global
-      ? globalSettings
-      : { ...globalSettings, ...localSettings };
-
-    // Lockfile from workspace dir
-    const lockfile = yield* readLockfile(workspaceDir);
+    const fsLayer = Layer.succeed(FileSystem.FileSystem, fs);
 
     return {
       global: options.global,
-      settings,
-      lockfile,
       path: workspaceDir,
+      getSettings: () => readSettings(workspaceDir).pipe(Effect.provide(fsLayer)),
+      getLockfile: () =>
+        Effect.gen(function* () {
+          const lockfilePath = `${workspaceDir}/${LOCKFILE_NAME}`;
+          const exists = yield* fs.exists(lockfilePath).pipe(
+            Effect.mapError(
+              () =>
+                new LockfileNotFoundError({
+                  path: lockfilePath,
+                  message: `Failed to check if lockfile exists: ${lockfilePath}`,
+                }),
+            ),
+          );
+          if (!exists) {
+            return yield* new LockfileNotFoundError({
+              path: lockfilePath,
+              message: `Lockfile not found at ${lockfilePath}`,
+            });
+          }
+          return yield* readLockfile(workspaceDir).pipe(Effect.provide(fsLayer));
+        }),
     };
   });
 

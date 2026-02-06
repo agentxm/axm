@@ -17,20 +17,14 @@
 
 import * as nodePath from "node:path";
 import type { AgentConfig } from "../../../agents/index.js";
-import type { ExtensionRef } from "../../../extensions/common.js";
 import {
-  buildCloneUrl,
-  cloneRepo,
-  type DiscoveredSkill,
-  discoverSkills,
-  getCurrentCommit,
   parseSource,
   printSource,
   type Skill,
   type Source,
 } from "../../../extensions/skills/index.js";
+import { discoverSkills, type ResolvedSource } from "./discover-skills.js";
 import { determineSkillsToInstall } from "./select-skills.js";
-import type { BitbucketSource, GitHubSource, GitLabSource } from "../../../sources/index.js";
 import { fetchGitHubTreeHash } from "../../../sources/index.js";
 import { SkillSourceV2 } from "../../../extensions/skills/state/types.js";
 import {
@@ -51,7 +45,6 @@ import {
   WorkspaceContextTag,
 } from "../../../workspace/index.js";
 import { displayPlan } from "../display.js";
-import type { FileSystem } from "@effect/platform";
 import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
@@ -104,105 +97,6 @@ export class InstallError extends Data.TaggedError("InstallError")<{
   readonly cause: Option.Option<unknown>;
   readonly retryable: boolean;
 }> {}
-
-// -----------------------------------------------------------------------------
-// Internal Types
-// -----------------------------------------------------------------------------
-
-/**
- * Resolved source with skills directory path.
- * Used internally by the handler and select-skills to track source resolution.
- */
-export interface ResolvedSource {
-  /** Parsed source information */
-  readonly source: Source;
-  /** Path to directory containing skills */
-  readonly skillsDir: string;
-  /** Git commit SHA (for git sources) */
-  readonly commitSha: Option.Option<string>;
-}
-
-// -----------------------------------------------------------------------------
-// Source Resolution
-// -----------------------------------------------------------------------------
-
-/**
- * Resolves skills from a GitHub/GitLab/Bitbucket git hosting source.
- */
-const resolveGitHostingProviderSource = (
-  source: GitHubSource | GitLabSource | BitbucketSource,
-  axmDir: string,
-): Effect.Effect<
-  { skills: DiscoveredSkill[]; skillsDir: string; commitSha: string },
-  InstallError,
-  FileSystem.FileSystem
-> =>
-  Effect.gen(function* () {
-    const cloneUrl = yield* buildCloneUrl(source).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: error.message,
-            cause: Option.some(error),
-            retryable: false,
-          }),
-      ),
-    );
-    const cacheDir = nodePath.join(axmDir, "cache", "git", `${source.owner}-${source.repo}`);
-
-    // Clone repository
-    yield* cloneRepo(cloneUrl, cacheDir, Option.getOrUndefined(source.ref)).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: formatError(
-              `Failed to clone repository: ${error.message}`,
-              [`URL: ${cloneUrl}`],
-              "Check your network connection and repository access credentials.",
-            ),
-            cause: Option.some(error),
-            retryable: true,
-          }),
-      ),
-    );
-
-    // Get current commit SHA
-    const commitSha = yield* getCurrentCommit(cacheDir).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: `Failed to get commit SHA: ${error.message}`,
-            cause: Option.some(error),
-            retryable: false,
-          }),
-      ),
-    );
-
-    // Determine skills directory (with optional subpath)
-    const skillsDir = Option.match(source.subPath, {
-      onNone: () => cacheDir,
-      onSome: (p) => nodePath.join(cacheDir, p),
-    });
-
-    // Discover skills
-    const skills = yield* discoverSkills(skillsDir).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: `Failed to discover skills in ${skillsDir}: ${error.message}`,
-            cause: Option.some(error),
-            retryable: false,
-          }),
-      ),
-    );
-
-    const discovered: DiscoveredSkill[] = skills.map((skill) => ({
-      ...skill,
-      discoveryPath: Array.of<ExtensionRef>({ name: skill.name, type: "skill" }),
-    }));
-
-    return { skills: discovered, skillsDir, commitSha };
-  });
 
 // -----------------------------------------------------------------------------
 // V2 Dependencies
@@ -302,87 +196,6 @@ const createBuildIdealDeps = (
 });
 
 // -----------------------------------------------------------------------------
-// Source Discovery
-// -----------------------------------------------------------------------------
-
-/**
- * Discovers skills from a parsed source.
- * Resolves the source (cloning if remote), then discovers available skills
- * within it. Returns discovered skills alongside resolved source metadata.
- */
-const discoverSkillsFromSource = (source: Source) =>
-  Effect.gen(function* () {
-    const { path: workspacePath } = yield* WorkspaceContextTag;
-
-    switch (source.source) {
-      case "github":
-      case "gitlab":
-      case "bitbucket": {
-        const result = yield* resolveGitHostingProviderSource(source, workspacePath);
-        return {
-          skills: result.skills,
-          resolvedSource: {
-            source,
-            skillsDir: result.skillsDir,
-            commitSha: Option.some(result.commitSha),
-          } satisfies ResolvedSource,
-        };
-      }
-
-      case "azurerepos":
-        return yield* new InstallError({
-          message: formatError(
-            "Azure Repos sources are not yet supported",
-            [`Source: ${printSource(source)}`],
-            "Use GitHub, GitLab, Bitbucket, or a local path instead.",
-          ),
-          cause: Option.none(),
-          retryable: false,
-        });
-
-      case "local": {
-        const skillsDir = source.path;
-        const rawSkills = yield* discoverSkills(skillsDir).pipe(
-          Effect.mapError(
-            (error) =>
-              new InstallError({
-                message: formatError(
-                  `Failed to discover skills: ${error.message}`,
-                  [`Path: ${skillsDir}`],
-                  "Verify the path exists and contains directories with SKILL.md files.",
-                ),
-                cause: Option.some(error),
-                retryable: false,
-              }),
-          ),
-        );
-        const skills: DiscoveredSkill[] = rawSkills.map((skill) => ({
-          ...skill,
-          discoveryPath: Array.of<ExtensionRef>({ name: skill.name, type: "skill" }),
-        }));
-        return {
-          skills,
-          resolvedSource: {
-            source,
-            skillsDir,
-            commitSha: Option.none(),
-          } satisfies ResolvedSource,
-        };
-      }
-
-      case "git":
-      case "registry":
-        return yield* Effect.fail(
-          new InstallError({
-            message: `Source type "${source.source}" is not yet supported`,
-            cause: Option.none(),
-            retryable: false,
-          }),
-        );
-    }
-  });
-
-// -----------------------------------------------------------------------------
 // Main Handler
 // -----------------------------------------------------------------------------
 
@@ -474,9 +287,9 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
     // Step 5: Discover skills from source
     spinner.start("Discovering skills...");
-    const { skills: discoveredSkills, resolvedSource } = yield* discoverSkillsFromSource(
-      source,
-    ).pipe(Effect.tapError(() => Effect.sync(() => spinner.stop("Failed"))));
+    const { skills: discoveredSkills, resolvedSource } = yield* discoverSkills(source).pipe(
+      Effect.tapError(() => Effect.sync(() => spinner.stop("Failed"))),
+    );
 
     if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
       spinner.stop("No skills found");

@@ -17,9 +17,6 @@ export {
 } from "../../sources/index.js";
 export type { GitError } from "../../sources/index.js";
 
-// Skill Discovery
-export { DiscoveryError, discoverSkills } from "./skill-discovery.js";
-
 // Source Parser - re-exported from sources/
 export {
   buildCloneUrl,

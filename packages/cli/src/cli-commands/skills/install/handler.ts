@@ -82,9 +82,9 @@ export interface InstallHandlerArgs {
   /** Overwrite existing skills */
   readonly force: boolean;
   /** Disable all prompts */
-  readonly nonInteractive?: boolean | undefined;
+  readonly nonInteractive: Option.Option<boolean>;
   /** Preview installation plan without making changes */
-  readonly dryRun?: boolean | undefined;
+  readonly dryRun: Option.Option<boolean>;
 }
 
 // -----------------------------------------------------------------------------
@@ -353,7 +353,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       workspacePath: context.path,
       getSettings: () => context.getSettings(),
       yes: args.yes,
-      nonInteractive: args.nonInteractive ?? false,
+      nonInteractive: Option.getOrElse(args.nonInteractive, () => false),
     }).pipe(
       Effect.mapError(
         (error) =>
@@ -484,7 +484,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
     // Helper function to check if prompts can be used
     const canPrompt = (): boolean => {
-      if (args.yes || args.nonInteractive) {
+      if (args.yes || Option.getOrElse(args.nonInteractive, () => false)) {
         return false;
       }
       return isInteractive();
@@ -501,7 +501,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       if (invalidSkills.length > 0) {
         yield* clack.log.warn(`Unknown skills: ${invalidSkills.join(", ")}`);
       }
-    } else if (args.all || args.dryRun) {
+    } else if (args.all || Option.getOrElse(args.dryRun, () => false)) {
       // Install all skills (dry-run auto-selects all)
       selectedSkillNames = Array.map(skills, (s) => s.name);
       if (args.all) yield* clack.log.info(`Installing all ${skills.length} skill(s)`);
@@ -603,13 +603,13 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     }
 
     // Step 11: Dry-run stops here
-    if (args.dryRun) {
+    if (Option.getOrElse(args.dryRun, () => false)) {
       yield* clack.outro("Dry-run complete. No changes made.");
       return;
     }
 
     // Step 12: Confirm installation (unless --yes or --non-interactive)
-    if (!args.yes && !args.nonInteractive) {
+    if (!args.yes && !Option.getOrElse(args.nonInteractive, () => false)) {
       if (!isInteractive()) {
         return yield* Effect.fail(
           new InstallError({

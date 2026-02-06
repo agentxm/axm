@@ -8,7 +8,7 @@
  */
 
 import * as FileSystem from "@effect/platform/FileSystem";
-import { type AgentConfig, detectAgents, getAgentById } from "../agents/index.js";
+import { type AgentConfig, detectAgents, getAllAgents, getAgentById } from "../agents/index.js";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import {
@@ -130,20 +130,17 @@ const initializeProjectWorkspace = (
       } else {
         // Interactive mode - prompt for agent selection
         const clack = yield* Clack;
+        const allAgents = getAllAgents();
 
-        if (detectedAgents.length === 0) {
-          // No agents detected - proceed with empty selection
-          selectedAgents = [];
-        } else {
-          // Prompt for agent selection
-          selectedAgents = yield* clack
-            .multiselect<AgentConfig>("Select agents to configure", detectedAgents, {
+        const agentMultiselect = (initialIds: Option.Option<readonly string[]>) =>
+          clack
+            .multiselect<AgentConfig>("Select agents to configure", allAgents, {
               toOption: (agent) => ({
                 value: agent.id,
                 label: agent.name,
                 hint: Option.some(`skills: ${agent.skills.projectDir}`),
               }),
-              initialValues: Option.some(Array.map(detectedAgents, (a) => a.id)),
+              initialValues: initialIds,
               required: Option.some(false),
             })
             .pipe(
@@ -158,6 +155,48 @@ const initializeProjectWorkspace = (
                 });
               }),
             );
+
+        if (detectedAgents.length === 0) {
+          // No agents detected — go straight to multiselect of all agents, none pre-selected
+          selectedAgents = yield* agentMultiselect(Option.none());
+        } else {
+          // Show choice: use detected agents or pick manually
+          const detectedNames = Array.map(detectedAgents, (a) => a.name).join(", ");
+          type InitChoice = "auto" | "choose";
+          const items: readonly { id: InitChoice; label: string }[] = [
+            { id: "auto", label: `Setup with auto-detected agents (${detectedNames})` },
+            { id: "choose", label: "Let me choose" },
+          ];
+
+          const choice = yield* clack
+            .select<{ id: InitChoice; label: string }>(
+              "How would you like to configure agents?",
+              items,
+              (item) => ({
+                value: item.id,
+                label: item.label,
+                hint: item.id === "auto" ? Option.some("Recommended") : Option.none(),
+              }),
+            )
+            .pipe(
+              Effect.mapError((error) => {
+                if (error._tag === "PromptCancelled") {
+                  return error;
+                }
+                return new WorkspaceInitializationError({
+                  message: `Failed to prompt for agent selection: ${error.message}`,
+                  cause: error,
+                });
+              }),
+            );
+
+          if (choice.id === "auto") {
+            selectedAgents = detectedAgents;
+          } else {
+            // Show multiselect of ALL agents, detected ones pre-selected
+            const detectedIds = Array.map(detectedAgents, (a) => a.id);
+            selectedAgents = yield* agentMultiselect(Option.some(detectedIds));
+          }
         }
       }
     }

@@ -19,8 +19,9 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { Clack, makeClackTestLayer } from "../../clack-effect/index.js";
+import { Clack, makeClackTestLayer, type MockClackConfig } from "../../clack-effect/index.js";
 import {
   WorkspaceContextTag,
   layer as workspaceLayer,
@@ -306,6 +307,88 @@ describe("init.handler", () => {
 
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           expect(fs.existsSync(settingsPath)).toBe(true);
+        }),
+      ),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Interactive Agent Selection
+  // ---------------------------------------------------------------------------
+
+  describe("interactive agent selection", () => {
+    /**
+     * Create test layers with custom clack behavior for interactive tests.
+     */
+    const withInteractiveLayers = (
+      clackConfig: MockClackConfig,
+      wsOptions: Omit<WorkspaceContextOptions, "yes" | "nonInteractive"> = { global: false },
+    ) => {
+      const [InteractiveClackLayer] = makeClackTestLayer(clackConfig);
+      const BaseLayer = Layer.mergeAll(NodeFileSystem.layer, InteractiveClackLayer);
+      const WsLayer = Layer.provide(
+        workspaceLayer({ ...wsOptions, yes: false, nonInteractive: false }),
+        BaseLayer,
+      );
+      return <A, E>(
+        effect: Effect.Effect<A, E, FileSystem.FileSystem | Clack | WorkspaceContextTag>,
+      ) => effect.pipe(Effect.provide(Layer.merge(BaseLayer, WsLayer)));
+    };
+
+    it.effect("accepts auto-detected agents when user selects first option", () =>
+      withInteractiveLayers({
+        confirmBehavior: Option.none(),
+        // index 0 = "Setup with auto-detected agents (Recommended)"
+        selectBehavior: Option.some({ type: "return", index: 0 }),
+        multiselectBehavior: Option.none(),
+      })(
+        Effect.gen(function* () {
+          yield* handleInit();
+
+          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          expect(fs.existsSync(settingsPath)).toBe(true);
+        }),
+      ),
+    );
+
+    it.effect("shows all-agent multiselect when user selects 'Let me choose'", () =>
+      withInteractiveLayers({
+        confirmBehavior: Option.none(),
+        // index 1 = "Let me choose"
+        selectBehavior: Option.some({ type: "return", index: 1 }),
+        // Select first agent in the full list
+        multiselectBehavior: Option.some({ type: "return", indices: [0] }),
+      })(
+        Effect.gen(function* () {
+          yield* handleInit();
+
+          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          expect(fs.existsSync(settingsPath)).toBe(true);
+
+          // Should have agents from the multiselect (first agent in full list)
+          const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+          expect(settings.agents).toBeDefined();
+          expect(settings.agents!.length).toBeGreaterThan(0);
+        }),
+      ),
+    );
+
+    it.effect("allows selecting no agents via multiselect", () =>
+      withInteractiveLayers({
+        confirmBehavior: Option.none(),
+        // index 1 = "Let me choose"
+        selectBehavior: Option.some({ type: "return", index: 1 }),
+        // Select no agents
+        multiselectBehavior: Option.some({ type: "return", indices: [] }),
+      })(
+        Effect.gen(function* () {
+          yield* handleInit();
+
+          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          expect(fs.existsSync(settingsPath)).toBe(true);
+
+          const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+          expect(settings.agents).toEqual([]);
         }),
       ),
     );

@@ -16,7 +16,7 @@ import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Plan, PlanStep, SkillSourceV2 } from "../extensions/skills/state/types.js";
+import type { Plan, PlanStep, Source } from "../extensions/skills/state/types.js";
 import { PlanStep as PlanStepConstructor } from "../extensions/skills/state/types.js";
 import {
   type ApplyDeps,
@@ -31,8 +31,8 @@ import {
 // Test Helpers
 // =============================================================================
 
-const makeLocalSource = (path: string): SkillSourceV2 => ({
-  _tag: "Local",
+const makeLocalSource = (path: string): Source => ({
+  source: "local",
   path,
 });
 
@@ -845,7 +845,7 @@ describe("updateLockfileForPlan", () => {
     const plan = makePlan([
       PlanStepConstructor.InstallSkill({
         skill: "my-skill",
-        source: { _tag: "Local", path: "/path/to/skill" },
+        source: { source: "local", path: "/path/to/skill" },
         version: Option.some("1.0.0"),
         gitTreeHash: Option.some("abc123"),
         agents: ["claude-code"],
@@ -874,7 +874,7 @@ describe("updateLockfileForPlan", () => {
     const plan = makePlan([
       PlanStepConstructor.InstallSkill({
         skill: "first-skill",
-        source: { _tag: "Local", path: "/path/to/skill" },
+        source: { source: "local", path: "/path/to/skill" },
         version: Option.none(),
         gitTreeHash: Option.none(),
         agents: [],

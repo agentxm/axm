@@ -18,6 +18,8 @@ import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 import * as Schema from "effect/Schema";
 
+import type { Source } from "../../../sources/types.js";
+
 // =============================================================================
 // Skill Frontmatter
 // =============================================================================
@@ -530,105 +532,11 @@ export const AnyIssueSchema = Schema.Union(
 );
 
 // =============================================================================
-// SkillSourceV2 (new reconciliation design)
+// Source re-export (unified source type from sources/types.ts)
 // =============================================================================
 
-/**
- * Registry location - remote URL or local filesystem path.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type RegistryLocation =
-  | { readonly _tag: "Remote"; readonly url: string }
-  | { readonly _tag: "FileSystem"; readonly path: string };
-
-/**
- * Constructors for RegistryLocation variants.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const RegistryLocation = {
-  Remote: (args: { url: string }): RegistryLocation => ({ _tag: "Remote", url: args.url }),
-  FileSystem: (args: { path: string }): RegistryLocation => ({
-    _tag: "FileSystem",
-    path: args.path,
-  }),
-} as const;
-
-/**
- * Schema for RegistryLocation.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const RegistryLocationSchema = Schema.Union(
-  Schema.TaggedStruct("Remote", { url: Schema.String }),
-  Schema.TaggedStruct("FileSystem", { path: Schema.String }),
-);
-
-/**
- * Skill source types as discriminated union (V2 - new reconciliation design).
- * Matches the design doc SkillSource type with Registry, GitHub, Local variants.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type SkillSourceV2 =
-  | {
-      readonly _tag: "Registry";
-      readonly location: RegistryLocation;
-      readonly scope: string;
-      readonly name: string;
-      readonly version: Option.Option<string>;
-    }
-  | {
-      readonly _tag: "GitHub";
-      readonly owner: string;
-      readonly repo: string;
-      readonly ref: Option.Option<string>;
-      readonly path: Option.Option<string>;
-    }
-  | { readonly _tag: "Local"; readonly path: string };
-
-/**
- * Constructors for SkillSourceV2 variants.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const SkillSourceV2 = {
-  Registry: (args: {
-    location: RegistryLocation;
-    scope: string;
-    name: string;
-    version: Option.Option<string>;
-  }): SkillSourceV2 => ({ _tag: "Registry", ...args }),
-  GitHub: (args: {
-    owner: string;
-    repo: string;
-    ref: Option.Option<string>;
-    path: Option.Option<string>;
-  }): SkillSourceV2 => ({ _tag: "GitHub", ...args }),
-  Local: (args: { path: string }): SkillSourceV2 => ({ _tag: "Local", ...args }),
-} as const;
-
-/**
- * Schema for SkillSourceV2.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const SkillSourceV2Schema = Schema.Union(
-  Schema.TaggedStruct("Registry", {
-    location: RegistryLocationSchema,
-    scope: Schema.String,
-    name: Schema.String,
-    version: Schema.OptionFromNullOr(Schema.String),
-  }),
-  Schema.TaggedStruct("GitHub", {
-    owner: Schema.String,
-    repo: Schema.String,
-    ref: Schema.OptionFromNullOr(Schema.String),
-    path: Schema.OptionFromNullOr(Schema.String),
-  }),
-  Schema.TaggedStruct("Local", { path: Schema.String }),
-);
+// Re-export Source type from canonical location
+export type { Source } from "../../../sources/types.js";
 
 // =============================================================================
 // ActualSkillV2, LockedSkillV2, SkillStateV2, CurrentState (new reconciliation design)
@@ -661,13 +569,13 @@ export const ActualSkillV2Schema = Schema.Struct({
 });
 
 /**
- * Skill entry from lockfile (V2 - with SkillSourceV2 and agents).
+ * Skill entry from lockfile (V2 - with Source and agents).
  *
  * @experimental This API is unstable and may change without notice.
  */
 export interface LockedSkillV2 {
   readonly name: string;
-  readonly source: SkillSourceV2;
+  readonly source: Source;
   readonly version: Option.Option<string>;
   readonly gitTreeHash: Option.Option<string>;
   readonly agents: ReadonlyArray<string>;
@@ -682,7 +590,7 @@ export interface LockedSkillV2 {
  */
 export const LockedSkillV2Schema = Schema.Struct({
   name: Schema.String,
-  source: SkillSourceV2Schema,
+  source: Schema.Unknown,
   version: Schema.OptionFromNullOr(Schema.String),
   gitTreeHash: Schema.OptionFromNullOr(Schema.String),
   agents: Schema.Array(Schema.String),
@@ -740,13 +648,13 @@ export const CurrentStateSchema = Schema.Struct({
 // =============================================================================
 
 /**
- * Desired skill after a command (V2 - with SkillSourceV2).
+ * Desired skill after a command (V2 - with Source).
  *
  * @experimental This API is unstable and may change without notice.
  */
 export interface IdealSkillV2 {
   readonly name: string;
-  readonly source: SkillSourceV2;
+  readonly source: Source;
   readonly version: Option.Option<string>;
   readonly gitTreeHash: Option.Option<string>;
   readonly agents: ReadonlyArray<string>;
@@ -760,7 +668,7 @@ export interface IdealSkillV2 {
 export const IdealSkillV2 = {
   make: (args: {
     name: string;
-    source: SkillSourceV2;
+    source: Source;
     version: Option.Option<string>;
     gitTreeHash: Option.Option<string>;
     agents: ReadonlyArray<string>;
@@ -781,7 +689,7 @@ export const IdealSkill = IdealSkillV2;
  */
 export const IdealSkillV2Schema = Schema.Struct({
   name: Schema.String,
-  source: SkillSourceV2Schema,
+  source: Schema.Unknown,
   version: Schema.OptionFromNullOr(Schema.String),
   gitTreeHash: Schema.OptionFromNullOr(Schema.String),
   agents: Schema.Array(Schema.String),
@@ -1194,7 +1102,7 @@ export type PlanStep =
   | {
       readonly _tag: "InstallSkill";
       readonly skill: string;
-      readonly source: SkillSourceV2;
+      readonly source: Source;
       readonly version: Option.Option<string>;
       readonly gitTreeHash: Option.Option<string>;
       readonly agents: ReadonlyArray<string>;
@@ -1202,7 +1110,7 @@ export type PlanStep =
   | {
       readonly _tag: "UpdateSkill";
       readonly skill: string;
-      readonly source: SkillSourceV2;
+      readonly source: Source;
       readonly fromVersion: Option.Option<string>;
       readonly toVersion: Option.Option<string>;
       readonly fromHash: Option.Option<string>;
@@ -1223,7 +1131,7 @@ export type PlanStep =
 export const PlanStep = {
   InstallSkill: (args: {
     skill: string;
-    source: SkillSourceV2;
+    source: Source;
     version: Option.Option<string>;
     gitTreeHash: Option.Option<string>;
     agents: ReadonlyArray<string>;
@@ -1231,7 +1139,7 @@ export const PlanStep = {
 
   UpdateSkill: (args: {
     skill: string;
-    source: SkillSourceV2;
+    source: Source;
     fromVersion: Option.Option<string>;
     toVersion: Option.Option<string>;
     fromHash: Option.Option<string>;
@@ -1253,14 +1161,14 @@ export const PlanStep = {
 export const PlanStepSchema = Schema.Union(
   Schema.TaggedStruct("InstallSkill", {
     skill: Schema.String,
-    source: SkillSourceSchema,
+    source: Schema.Unknown,
     version: Schema.OptionFromNullOr(Schema.String),
     gitTreeHash: Schema.OptionFromNullOr(Schema.String),
     agents: Schema.Array(Schema.String),
   }),
   Schema.TaggedStruct("UpdateSkill", {
     skill: Schema.String,
-    source: SkillSourceSchema,
+    source: Schema.Unknown,
     fromVersion: Schema.OptionFromNullOr(Schema.String),
     toVersion: Schema.OptionFromNullOr(Schema.String),
     fromHash: Schema.OptionFromNullOr(Schema.String),

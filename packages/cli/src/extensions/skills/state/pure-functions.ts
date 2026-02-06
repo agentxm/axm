@@ -11,14 +11,14 @@
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import * as semver from "semver";
-import type { SkillSourceV2 } from "./types.js";
+import type { Source } from "../../../sources/types.js";
 
 /**
- * Skill source type re-exported from types.ts for convenience.
+ * Skill source type re-exported from sources/types.ts for convenience.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SkillSource = SkillSourceV2;
+export type SkillSource = Source;
 
 // =============================================================================
 // Install Path Computation
@@ -67,11 +67,11 @@ export type SkillSource = SkillSourceV2;
  * @experimental This API is unstable and may change without notice.
  */
 export const computeInstallPath = (source: SkillSource, name: string): string => {
-  switch (source._tag) {
-    case "Registry":
-      return `.axm/extensions/@${source.scope}/skills/${name}`;
-    case "GitHub":
-    case "Local":
+  switch (source.source) {
+    case "registry":
+      // Registry sources don't have scope in the unified Source type
+      return `.axm/extensions/external/skills/${name}`;
+    default:
       return `.axm/extensions/external/skills/${name}`;
   }
 };

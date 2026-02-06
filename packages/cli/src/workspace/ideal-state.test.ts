@@ -13,17 +13,20 @@ import { describe, expect, it } from "vitest";
 import type {
   CurrentState,
   LockedSkillV2,
-  SkillSourceV2,
+  Source,
   SkillStateV2,
 } from "../extensions/skills/state/types.js";
 import {
+  type AddSkillOperation,
   buildIdealForInstall,
   buildIdealForUninstall,
+  buildIdealFromOperations,
   buildIdealState,
   type Command,
   CommandError,
   type DiscoveredSkill,
   type InstallCommand,
+  type RemoveSkillOperation,
   sourcesEqual,
   type UninstallCommand,
   type UpdateCommand,
@@ -38,25 +41,25 @@ const makeGitHubSource = (
   owner: string,
   repo: string,
   ref: Option.Option<string> = Option.none(),
-  path: Option.Option<string> = Option.none(),
-): SkillSourceV2 => ({
-  _tag: "GitHub",
+  subPath: Option.Option<string> = Option.none(),
+): Source => ({
+  source: "github",
   owner,
   repo,
   ref,
-  path,
+  subPath,
 });
 
 /** Create a Local source for testing */
-const makeLocalSource = (path: string): SkillSourceV2 => ({
-  _tag: "Local",
+const makeLocalSource = (path: string): Source => ({
+  source: "local",
   path,
 });
 
 /** Create a locked skill for testing */
 const makeLockedSkill = (
   name: string,
-  source: SkillSourceV2,
+  source: Source,
   agents: ReadonlyArray<string> = [],
 ): LockedSkillV2 => ({
   name,
@@ -112,7 +115,7 @@ const mockParseSource = (_source: string) => Effect.succeed(makeGitHubSource("ow
 
 /** Mock discoverSkills that returns mock skills */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const mockDiscoverSkills = (_source: SkillSourceV2) => Effect.succeed(mockDiscoveredSkills);
+const mockDiscoverSkills = (_source: Source) => Effect.succeed(mockDiscoveredSkills);
 
 // =============================================================================
 // Tests
@@ -397,8 +400,8 @@ describe("buildIdealForInstall", () => {
 
       const otherSkill = result.skills.find((s) => s.name === "other-skill");
       expect(otherSkill).toBeDefined();
-      expect(otherSkill?.source._tag).toBe("GitHub");
-      if (otherSkill?.source._tag === "GitHub") {
+      expect(otherSkill?.source.source).toBe("github");
+      if (otherSkill?.source.source === "github") {
         expect(otherSkill.source.owner).toBe("other-owner");
         expect(otherSkill.source.repo).toBe("other-repo");
       }
@@ -421,7 +424,7 @@ const makeUninstallCommand = (
 /** Create a full skill state with both actual and locked */
 const makeFullSkillState = (
   name: string,
-  source: SkillSourceV2,
+  source: Source,
   agents: ReadonlyArray<string> = ["claude"],
 ): SkillStateV2 => ({
   name,
@@ -566,7 +569,7 @@ describe("buildIdealForUninstall", () => {
       expect(result.skills).toHaveLength(1);
       const remaining = result.skills[0];
       expect(remaining?.name).toBe("local-skill");
-      expect(remaining?.source._tag).toBe("Local");
+      expect(remaining?.source.source).toBe("local");
       expect(remaining?.agents).toEqual(["claude", "gemini"]);
     });
 
@@ -941,5 +944,239 @@ describe("CommandError", () => {
 
     expect(Option.isSome(error.cause)).toBe(true);
     expect(Option.getOrNull(error.cause)).toBe(originalError);
+  });
+});
+
+// =============================================================================
+// buildIdealFromOperations Tests (operation-based API)
+// =============================================================================
+
+/** Helper to create an add-skill operation */
+const makeAddOp = (
+  name: string,
+  source: Source,
+  agents: ReadonlyArray<string> = ["claude"],
+  force = false,
+  gitTreeHash: Option.Option<string> = Option.some("hash-" + name),
+): AddSkillOperation => ({
+  _tag: "add-skill",
+  source,
+  agents,
+  skill: { name, version: Option.none(), gitTreeHash },
+  force,
+});
+
+/** Helper to create a remove-skill operation */
+const makeRemoveOp = (name: string): RemoveSkillOperation => ({
+  _tag: "remove-skill",
+  name,
+});
+
+describe("buildIdealFromOperations", () => {
+  describe("add-skill operations", () => {
+    it("adds a new skill to empty state", async () => {
+      const current = makeCurrentState([]);
+      const source = makeGitHubSource("owner", "repo");
+      const ops = [makeAddOp("commit", source)];
+
+      const result = await Effect.runPromise(buildIdealFromOperations(current, ops));
+
+      expect(result.skills).toHaveLength(1);
+      expect(result.skills[0]?.name).toBe("commit");
+      expect(result.skills[0]?.agents).toEqual(["claude"]);
+    });
+
+    it("adds multiple skills", async () => {
+      const current = makeCurrentState([]);
+      const source = makeGitHubSource("owner", "repo");
+      const ops = [makeAddOp("commit", source), makeAddOp("review-pr", source)];
+
+      const result = await Effect.runPromise(buildIdealFromOperations(current, ops));
+
+      expect(result.skills).toHaveLength(2);
+      expect(result.skills.map((s) => s.name).sort()).toEqual(["commit", "review-pr"]);
+    });
+
+    it("preserves existing skills when adding new ones", async () => {
+      const existingSource = makeGitHubSource("existing-owner", "existing-repo");
+      const existingLocked = makeLockedSkill("existing-skill", existingSource, ["cursor"]);
+      const current = makeCurrentState([
+        makeSkillState("existing-skill", Option.some(existingLocked)),
+      ]);
+      const source = makeGitHubSource("owner", "repo");
+      const ops = [makeAddOp("commit", source)];
+
+      const result = await Effect.runPromise(buildIdealFromOperations(current, ops));
+
+      expect(result.skills).toHaveLength(2);
+      const existing = result.skills.find((s) => s.name === "existing-skill");
+      expect(existing).toBeDefined();
+      expect(existing?.agents).toEqual(["cursor"]);
+    });
+
+    it("allows reinstall from same source", async () => {
+      const source = makeGitHubSource("owner", "repo");
+      const locked = makeLockedSkill("commit", source, ["cursor"]);
+      const current = makeCurrentState([makeSkillState("commit", Option.some(locked))]);
+      const ops = [makeAddOp("commit", source, ["claude"])];
+
+      const result = await Effect.runPromise(buildIdealFromOperations(current, ops));
+
+      expect(result.skills).toHaveLength(1);
+      expect(result.skills[0]?.name).toBe("commit");
+      expect(result.skills[0]?.agents).toEqual(["claude"]);
+    });
+
+    it("fails when skill exists from different source without force", async () => {
+      const differentSource = makeGitHubSource("different-owner", "different-repo");
+      const locked = makeLockedSkill("commit", differentSource, ["cursor"]);
+      const current = makeCurrentState([makeSkillState("commit", Option.some(locked))]);
+      const source = makeGitHubSource("owner", "repo");
+      const ops = [makeAddOp("commit", source, ["claude"], false)];
+
+      const result = await Effect.runPromise(Effect.either(buildIdealFromOperations(current, ops)));
+
+      expect(result._tag).toBe("Left");
+      if (result._tag === "Left") {
+        expect(result.left).toBeInstanceOf(CommandError);
+        expect(result.left.message).toContain("commit");
+        expect(result.left.message).toContain("different source");
+      }
+    });
+
+    it("allows replacement from different source with force", async () => {
+      const differentSource = makeGitHubSource("different-owner", "different-repo");
+      const locked = makeLockedSkill("commit", differentSource, ["cursor"]);
+      const current = makeCurrentState([makeSkillState("commit", Option.some(locked))]);
+      const source = makeGitHubSource("owner", "repo");
+      const ops = [makeAddOp("commit", source, ["claude"], true)];
+
+      const result = await Effect.runPromise(buildIdealFromOperations(current, ops));
+
+      expect(result.skills).toHaveLength(1);
+      expect(result.skills[0]?.name).toBe("commit");
+      expect(result.skills[0]?.agents).toEqual(["claude"]);
+    });
+
+    it("assigns specified agents to installed skills", async () => {
+      const current = makeCurrentState([]);
+      const source = makeGitHubSource("owner", "repo");
+      const ops = [makeAddOp("commit", source, ["claude", "cursor", "codex"])];
+
+      const result = await Effect.runPromise(buildIdealFromOperations(current, ops));
+
+      expect(result.skills[0]?.agents).toEqual(["claude", "cursor", "codex"]);
+    });
+  });
+
+  describe("remove-skill operations", () => {
+    it("removes skill from ideal state", async () => {
+      const source = makeGitHubSource("owner", "repo");
+      const current = makeCurrentState([
+        makeFullSkillState("skill-a", source),
+        makeFullSkillState("skill-b", source),
+        makeFullSkillState("skill-c", source),
+      ]);
+      const ops = [makeRemoveOp("skill-b")];
+
+      const result = await Effect.runPromise(buildIdealFromOperations(current, ops));
+
+      expect(result.skills.map((s) => s.name).sort()).toEqual(["skill-a", "skill-c"]);
+    });
+
+    it("preserves remaining skills with correct data", async () => {
+      const source = makeGitHubSource("anthropic", "skills");
+      const current = makeCurrentState([
+        makeFullSkillState("keep-skill", source, ["claude", "cursor"]),
+        makeFullSkillState("remove-skill", makeGitHubSource("other", "repo")),
+      ]);
+      const ops = [makeRemoveOp("remove-skill")];
+
+      const result = await Effect.runPromise(buildIdealFromOperations(current, ops));
+
+      expect(result.skills).toHaveLength(1);
+      expect(result.skills[0]?.name).toBe("keep-skill");
+      expect(result.skills[0]?.agents).toEqual(["claude", "cursor"]);
+    });
+
+    it("fails when skill not found", async () => {
+      const current = makeCurrentState([
+        makeFullSkillState("existing-skill", makeGitHubSource("owner", "repo")),
+      ]);
+      const ops = [makeRemoveOp("non-existent")];
+
+      const result = await Effect.runPromise(Effect.either(buildIdealFromOperations(current, ops)));
+
+      expect(result._tag).toBe("Left");
+      if (result._tag === "Left") {
+        expect(result.left).toBeInstanceOf(CommandError);
+        expect(result.left.message).toContain("non-existent");
+        expect(result.left.message).toContain("not found");
+      }
+    });
+
+    it("removes multiple skills", async () => {
+      const source = makeGitHubSource("owner", "repo");
+      const current = makeCurrentState([
+        makeFullSkillState("skill-a", source),
+        makeFullSkillState("skill-b", source),
+        makeFullSkillState("skill-c", source),
+        makeFullSkillState("skill-d", source),
+      ]);
+      const ops = [makeRemoveOp("skill-a"), makeRemoveOp("skill-c")];
+
+      const result = await Effect.runPromise(buildIdealFromOperations(current, ops));
+
+      expect(result.skills.map((s) => s.name).sort()).toEqual(["skill-b", "skill-d"]);
+    });
+  });
+
+  describe("mixed operations", () => {
+    it("handles add and remove in same batch", async () => {
+      const source = makeGitHubSource("owner", "repo");
+      const current = makeCurrentState([makeFullSkillState("old-skill", source)]);
+      const newSource = makeGitHubSource("new-owner", "new-repo");
+      const ops = [makeRemoveOp("old-skill"), makeAddOp("new-skill", newSource)];
+
+      const result = await Effect.runPromise(buildIdealFromOperations(current, ops));
+
+      expect(result.skills).toHaveLength(1);
+      expect(result.skills[0]?.name).toBe("new-skill");
+    });
+
+    it("handles empty operations array", async () => {
+      const source = makeGitHubSource("owner", "repo");
+      const locked = makeLockedSkill("existing", source, ["claude"]);
+      const current = makeCurrentState([makeSkillState("existing", Option.some(locked))]);
+
+      const result = await Effect.runPromise(buildIdealFromOperations(current, []));
+
+      expect(result.skills).toHaveLength(1);
+      expect(result.skills[0]?.name).toBe("existing");
+    });
+  });
+
+  describe("edge cases", () => {
+    it("excludes orphaned skills (no locked data) from initial state", async () => {
+      const orphanedState: SkillStateV2 = {
+        name: "orphaned",
+        actual: Option.some({
+          name: "orphaned",
+          path: "/test/skills/orphaned",
+          files: ["SKILL.md"],
+          frontmatter: Option.none(),
+          issues: [],
+        }),
+        locked: Option.none(),
+        issues: [],
+      };
+      const source = makeGitHubSource("owner", "repo");
+      const current = makeCurrentState([orphanedState, makeFullSkillState("normal", source)]);
+
+      const result = await Effect.runPromise(buildIdealFromOperations(current, []));
+
+      expect(result.skills).toHaveLength(1);
+      expect(result.skills[0]?.name).toBe("normal");
+    });
   });
 });

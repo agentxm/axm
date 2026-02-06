@@ -55,6 +55,55 @@ export const GitHubLockEntrySchema = Schema.Struct({
 });
 
 /**
+ * GitLab source - skill from a GitLab repository.
+ * Required: owner, repo
+ * Optional: ref, path
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const GitLabLockEntrySchema = Schema.Struct({
+  source: Schema.Literal("gitlab"),
+  owner: Schema.String,
+  repo: Schema.String,
+  ref: Schema.optional(Schema.String),
+  path: Schema.optional(Schema.String),
+  ...CommonFields,
+});
+
+/**
+ * Bitbucket source - skill from a Bitbucket repository.
+ * Required: owner, repo
+ * Optional: ref, path
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const BitbucketLockEntrySchema = Schema.Struct({
+  source: Schema.Literal("bitbucket"),
+  owner: Schema.String,
+  repo: Schema.String,
+  ref: Schema.optional(Schema.String),
+  path: Schema.optional(Schema.String),
+  ...CommonFields,
+});
+
+/**
+ * Azure Repos source - skill from an Azure DevOps repository.
+ * Required: organization, project, repo
+ * Optional: ref, path
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const AzureReposLockEntrySchema = Schema.Struct({
+  source: Schema.Literal("azurerepos"),
+  organization: Schema.String,
+  project: Schema.String,
+  repo: Schema.String,
+  ref: Schema.optional(Schema.String),
+  path: Schema.optional(Schema.String),
+  ...CommonFields,
+});
+
+/**
  * Git source - skill from a generic git repository.
  * Required: url
  * Optional: ref, path
@@ -105,7 +154,7 @@ export const RegistryLockEntrySchema = Schema.Struct({
  * Discriminated union by the `source` field.
  *
  * Fields common to all entries:
- * - source: Source type ("github", "git", "local", "registry")
+ * - source: Source type ("github", "gitlab", "bitbucket", "azurerepos", "git", "local", "registry")
  * - agents: Agent IDs this skill is installed for (can be empty)
  * - installedAt: ISO 8601 timestamp of initial installation (Date in TS)
  * - updatedAt: ISO 8601 timestamp of last update (Date in TS)
@@ -117,6 +166,9 @@ export const RegistryLockEntrySchema = Schema.Struct({
  */
 export const SkillLockEntrySchema = Schema.Union(
   GitHubLockEntrySchema,
+  GitLabLockEntrySchema,
+  BitbucketLockEntrySchema,
+  AzureReposLockEntrySchema,
   GitLockEntrySchema,
   LocalLockEntrySchema,
   RegistryLockEntrySchema,

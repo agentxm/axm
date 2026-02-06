@@ -6,9 +6,9 @@
  * 2. Reads the lockfile for locked skills
  * 3. Merges them by skill name with appropriate issues
  *
- * Uses V2 types (SkillSourceV2, LockedSkillV2, ActualSkillV2) from skills/state/types.ts
+ * Uses V2 types (Source, LockedSkillV2, ActualSkillV2) from skills/state/types.ts
  * for the new reconciliation design. The internal parseSource function converts raw YAML
- * to the typed SkillSourceV2 discriminated union.
+ * to the typed Source discriminated union.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -32,12 +32,12 @@ import {
   type CurrentState,
   type LockedSkillV2,
   type SkillFrontmatter,
-  type SkillSourceV2,
   SkillStateIssue,
   type SkillStateV2,
   type WorkspaceIssue,
   WorkspaceIssue as WorkspaceIssueConstructor,
 } from "../extensions/skills/state/types.js";
+import type { Source } from "../sources/types.js";
 import { LOCKFILE_NAME } from "./paths.js";
 
 // =============================================================================
@@ -82,6 +82,11 @@ interface V1NestedSource {
 }
 
 /**
+ * V2 flat format source types (extended with new source types).
+ */
+type V2SourceType = "github" | "gitlab" | "bitbucket" | "azurerepos" | "git" | "registry" | "local";
+
+/**
  * Raw lockfile entry - supports both V1 nested format and V2 flat format.
  * V1: source: { _tag: "GitHub", owner, repo, ... }
  * V2: source: "github", owner, repo, ...
@@ -95,9 +100,12 @@ interface RawLockEntry {
   repo?: string;
   ref?: string;
   path?: string;
+  url?: string;
   scope?: string;
   name?: string;
   version?: string;
+  organization?: string;
+  project?: string;
   location?: { _tag: string; url?: string; path?: string };
   gitTreeHash?: string;
   agents: ReadonlyArray<string>;
@@ -142,9 +150,12 @@ const RawLockEntrySchema = Schema.Struct({
   repo: Schema.optional(Schema.String),
   ref: Schema.optional(Schema.String),
   path: Schema.optional(Schema.String),
+  url: Schema.optional(Schema.String),
   scope: Schema.optional(Schema.String),
   name: Schema.optional(Schema.String),
   version: Schema.optional(Schema.String),
+  organization: Schema.optional(Schema.String),
+  project: Schema.optional(Schema.String),
   location: Schema.optional(V1LocationSchema),
   gitTreeHash: Schema.optional(Schema.String),
   agents: Schema.Array(Schema.String),
@@ -255,10 +266,10 @@ const readLockfile = (
   });
 
 /**
- * Convert raw lock entry to SkillSourceV2.
+ * Convert raw lock entry to Source.
  * Handles both V1 nested format (source is object with _tag) and V2 flat format (source is string).
  */
-const parseSourceFromEntry = (entry: RawLockEntry): SkillSourceV2 => {
+const parseSourceFromEntry = (entry: RawLockEntry): Source => {
   const source = entry.source;
 
   // V1 nested format: source is an object with _tag
@@ -267,71 +278,98 @@ const parseSourceFromEntry = (entry: RawLockEntry): SkillSourceV2 => {
     switch (nested._tag) {
       case "GitHub":
         return {
-          _tag: "GitHub",
+          source: "github",
           owner: nested.owner ?? "",
           repo: nested.repo ?? "",
           ref: Option.fromNullable(nested.ref),
-          path: Option.fromNullable(nested.path),
+          subPath: Option.fromNullable(nested.path),
         };
       case "Local":
         return {
-          _tag: "Local",
+          source: "local",
           path: nested.path ?? "",
         };
       case "Registry":
         return {
-          _tag: "Registry",
-          location: nested.location
+          source: "registry",
+          ...(nested.location
             ? nested.location._tag === "Remote"
-              ? { _tag: "Remote", url: nested.location.url ?? "" }
-              : { _tag: "FileSystem", path: nested.location.path ?? "" }
-            : { _tag: "Remote", url: "" },
-          scope: nested.scope ?? "",
-          name: nested.name ?? "",
-          version: Option.fromNullable(nested.version),
+              ? { url: nested.location.url ?? "" }
+              : { path: nested.location.path ?? "" }
+            : { url: "" }),
         };
       default:
         // Fallback to Local
         return {
-          _tag: "Local",
+          source: "local",
           path: nested.path ?? "",
         };
     }
   }
 
   // V2 flat format: source is a string
-  const sourceType = (source as string).toLowerCase();
+  const sourceType = (source as string).toLowerCase() as V2SourceType;
 
   switch (sourceType) {
     case "github":
       return {
-        _tag: "GitHub",
+        source: "github",
         owner: entry.owner ?? "",
         repo: entry.repo ?? "",
         ref: Option.fromNullable(entry.ref),
-        path: Option.fromNullable(entry.path),
+        subPath: Option.fromNullable(entry.path),
       };
-    case "local":
+    case "gitlab":
       return {
-        _tag: "Local",
-        path: entry.path ?? "",
+        source: "gitlab",
+        owner: entry.owner ?? "",
+        repo: entry.repo ?? "",
+        ref: Option.fromNullable(entry.ref),
+        subPath: Option.fromNullable(entry.path),
+      };
+    case "bitbucket":
+      return {
+        source: "bitbucket",
+        owner: entry.owner ?? "",
+        repo: entry.repo ?? "",
+        ref: Option.fromNullable(entry.ref),
+        subPath: Option.fromNullable(entry.path),
+      };
+    case "azurerepos":
+      return {
+        source: "azurerepos",
+        organization: entry.organization ?? "",
+        project: entry.project ?? "",
+        repo: entry.repo ?? "",
+        ref: Option.fromNullable(entry.ref),
+        subPath: Option.fromNullable(entry.path),
+      };
+    case "git":
+      return {
+        source: "git",
+        ...(entry.url ? { url: entry.url } : { path: entry.path ?? "" }),
+        ref: Option.fromNullable(entry.ref),
       };
     case "registry":
       return {
-        _tag: "Registry",
-        location: entry.location
+        source: "registry",
+        ...(entry.location
           ? entry.location._tag === "Remote"
-            ? { _tag: "Remote", url: entry.location.url ?? "" }
-            : { _tag: "FileSystem", path: entry.location.path ?? "" }
-          : { _tag: "Remote", url: "" },
-        scope: entry.scope ?? "",
-        name: entry.name ?? "",
-        version: Option.fromNullable(entry.version),
+            ? { url: entry.location.url ?? "" }
+            : { path: entry.location.path ?? "" }
+          : entry.path
+            ? { path: entry.path }
+            : { url: "" }),
+      };
+    case "local":
+      return {
+        source: "local",
+        path: entry.path ?? "",
       };
     default:
       // Fallback to Local with empty path
       return {
-        _tag: "Local",
+        source: "local",
         path: entry.path ?? "",
       };
   }

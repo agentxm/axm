@@ -158,20 +158,24 @@ export const buildPlan = (current: CurrentState, ideal: IdealState): Plan => {
  */
 const determineNeedsUpdate = (
   idealSkill: {
-    readonly source: { readonly _tag: string };
+    readonly source: { readonly source: string };
     readonly version: Option.Option<string>;
     readonly gitTreeHash: Option.Option<string>;
   },
   locked: LockedSkillV2,
 ): boolean => {
-  switch (idealSkill.source._tag) {
-    case "Registry":
+  switch (idealSkill.source.source) {
+    case "registry":
       // Registry: compare versions
       return !versionsEqual(idealSkill.version, locked.version);
 
-    case "GitHub":
-      // GitHub with hash: compare hashes, update if different
-      // GitHub without hash (API unavailable): always update (no stable identifier)
+    case "github":
+    case "gitlab":
+    case "bitbucket":
+    case "azurerepos":
+    case "git":
+      // Git-based sources with hash: compare hashes, update if different
+      // Without hash (API unavailable): always update (no stable identifier)
       return pipe(
         Option.all([idealSkill.gitTreeHash, locked.gitTreeHash]),
         Option.match({
@@ -180,7 +184,7 @@ const determineNeedsUpdate = (
         }),
       );
 
-    case "Local":
+    case "local":
       // Local: always update (no stable identifier)
       return true;
 

@@ -11,8 +11,11 @@
 // Schema types and schemas
 export type { Lockfile, SkillLockEntry, SkillsLockMap } from "./schema.js";
 export {
+  AzureReposLockEntrySchema,
+  BitbucketLockEntrySchema,
   DateFromString,
   GitHubLockEntrySchema,
+  GitLabLockEntrySchema,
   GitLockEntrySchema,
   LocalLockEntrySchema,
   LockfileSchema,

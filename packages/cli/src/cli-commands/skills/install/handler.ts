@@ -20,17 +20,14 @@ import { parseSource, printSource, type Source } from "../../../extensions/skill
 import { discoverSkills, type DiscoveredSkill } from "./discover-skills.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 import { fetchGitHubTreeHash } from "../../../sources/index.js";
-import { SkillSourceV2 } from "../../../extensions/skills/state/types.js";
 import {
+  type AddSkillOperation,
   applyPlan,
   applyStep,
-  type BuildIdealDeps,
-  buildIdealForInstall,
+  buildIdealFromOperations,
   buildPlan,
-  CommandError,
   ensureAgentsConfigured,
   getPlanSummary,
-  type InstallCommand,
   loadCurrentState,
   type PlanStep,
   planHasChanges,
@@ -97,95 +94,52 @@ export class InstallError extends Data.TaggedError("InstallError")<{
 // -----------------------------------------------------------------------------
 
 /**
- * Convert Source to SkillSourceV2.
- * Used to create a source for buildIdealForInstall.
- *
- * This preserves the original source info (e.g., GitHub owner/repo) for
- * storage in the lockfile and settings. The actual local path for file
- * operations is provided separately to the applyStep callback.
+ * Build AddSkillOperations from discovered skills.
+ * For GitHub sources, fetches git tree hashes from the API.
  */
-const sourceToV2 = (source: Source): Effect.Effect<SkillSourceV2, CommandError> => {
-  switch (source.source) {
-    case "local":
-      return Effect.succeed(SkillSourceV2.Local({ path: source.path }));
-    case "github":
-      return Effect.succeed(
-        SkillSourceV2.GitHub({
-          owner: source.owner,
-          repo: source.repo,
-          ref: source.ref,
-          path: source.subPath,
-        }),
-      );
-    case "gitlab":
-    case "bitbucket":
-      // For non-GitHub git sources, store as Local with a placeholder path
-      // The original source info is preserved in the lockfile via separate mechanism
-      return Effect.succeed(
-        SkillSourceV2.Local({ path: source.subPath.pipe(Option.getOrElse(() => ".")) }),
-      );
-    default:
-      return Effect.fail(
-        new CommandError({
-          message: `Unsupported source type: ${source.source}`,
-          cause: Option.none(),
-        }),
-      );
-  }
-};
-
-/**
- * Create BuildIdealDeps for the V2 buildIdealForInstall.
- * This creates the parseSource and discoverSkills callbacks required by the V2 API.
- */
-const createBuildIdealDeps = (
+const buildAddOperations = (
   source: Source,
-  discoveredSkills: readonly DiscoveredSkill[],
-): BuildIdealDeps => ({
-  parseSource: () => sourceToV2(source),
+  skills: readonly DiscoveredSkill[],
+  agents: ReadonlyArray<string>,
+  force: boolean,
+) =>
+  Effect.forEach(
+    skills,
+    (skill) =>
+      Effect.gen(function* () {
+        let gitTreeHash: Option.Option<string> = Option.none();
 
-  discoverSkills: (v2Source: SkillSourceV2) =>
-    Effect.gen(function* () {
-      // For GitHub sources, fetch git tree hash from API for each skill
-      const isGitHubSource = v2Source._tag === "GitHub" && source.source === "github";
+        if (source.source === "github") {
+          const pathInRepo = Option.match(source.subPath, {
+            onNone: () => skill.name,
+            onSome: (p) => `${p}/${skill.name}`,
+          });
 
-      return yield* Effect.forEach(
-        discoveredSkills,
-        (skill) =>
-          Effect.gen(function* () {
-            let gitTreeHash: Option.Option<string> = Option.none();
+          gitTreeHash = yield* fetchGitHubTreeHash(
+            source.owner,
+            source.repo,
+            Option.getOrElse(source.ref, () => "HEAD"),
+            pathInRepo,
+          ).pipe(
+            Effect.map((h): Option.Option<string> => (h === null ? Option.none() : Option.some(h))),
+            Effect.catchAll(() => Effect.succeed<Option.Option<string>>(Option.none())),
+          );
+        }
 
-            if (isGitHubSource && source.source === "github") {
-              // Build path within repo: subpath (if any) + skill name
-              const pathInRepo = Option.match(source.subPath, {
-                onNone: () => skill.name,
-                onSome: (p) => `${p}/${skill.name}`,
-              });
-
-              gitTreeHash = yield* fetchGitHubTreeHash(
-                source.owner,
-                source.repo,
-                Option.getOrElse(source.ref, () => "HEAD"),
-                pathInRepo,
-              ).pipe(
-                Effect.map(
-                  (h): Option.Option<string> => (h === null ? Option.none() : Option.some(h)),
-                ),
-                Effect.catchAll(() => Effect.succeed<Option.Option<string>>(Option.none())),
-              );
-            }
-
-            return {
-              name: skill.name,
-              // Skills from discover don't have version; it's from the frontmatter which we don't use here
-              version: Option.none(),
-              gitTreeHash,
-            };
-          }),
-        { concurrency: "unbounded" },
-      );
-    }),
-});
+        return {
+          _tag: "add-skill",
+          source,
+          agents,
+          skill: {
+            name: skill.name,
+            version: Option.none(),
+            gitTreeHash,
+          },
+          force,
+        } satisfies AddSkillOperation;
+      }),
+    { concurrency: "unbounded" },
+  );
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -328,24 +282,22 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         return;
       }
 
-      const filteredSkills = selectedSkills;
-
-      // Step 8: Build ideal state (V2)
+      // Step 8: Build ideal state using operations
       spinner.start("Building installation plan...");
 
-      // Create the InstallCommand for V2 API
-      const installCmd: InstallCommand = {
-        _tag: "skills-install",
-        source: args.source,
-        agents: Array.map(agents, (a) => a.id),
-        skills: selectedSkillNames,
-        force: args.force,
-      };
+      const agentIds = Array.map(agents, (a) => a.id);
+      const ops = yield* buildAddOperations(source, selectedSkills, agentIds, args.force).pipe(
+        Effect.mapError(
+          (error: { message: string }) =>
+            new InstallError({
+              message: `Failed to build operations: ${error.message}`,
+              cause: Option.some(error),
+              retryable: false,
+            }),
+        ),
+      );
 
-      // Create deps for buildIdealForInstall
-      const buildIdealDeps = createBuildIdealDeps(source, filteredSkills);
-
-      const ideal = yield* buildIdealForInstall(currentState, installCmd, buildIdealDeps).pipe(
+      const ideal = yield* buildIdealFromOperations(currentState, ops).pipe(
         Effect.mapError(
           (error: { message: string }) =>
             new InstallError({
@@ -424,7 +376,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         if (step._tag === "InstallSkill" || step._tag === "UpdateSkill") {
           const skillPath = skillPathMap.get(step.skill);
           if (skillPath) {
-            const localSource = SkillSourceV2.Local({ path: skillPath });
+            const localSource: Source = { source: "local", path: skillPath };
             const localStep = { ...step, source: localSource };
             return applyStep(localStep, { workspacePath: context.path, agents });
           }

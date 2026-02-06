@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import type { Clack } from "../../clack-effect/index.js";
-import type { SkillSourceV2 } from "../../extensions/skills/state/types.js";
+import type { Source } from "../../sources/types.js";
 import type { Plan, PlanStep } from "../../workspace/index.js";
 import { getPlanSummary, type PlanSummary } from "../../workspace/index.js";
 
@@ -58,30 +58,47 @@ export const formatHash = (hash: Option.Option<string>): string =>
 
 /**
  * Format source for display in plan output.
- * Uses V2 SkillSourceV2 type with Registry, GitHub, Local variants.
+ * Uses unified Source type from sources/types.ts.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const formatSourceV2 = (source: SkillSourceV2): string => {
-  switch (source._tag) {
-    case "Local":
+export const formatSourceV2 = (source: Source): string => {
+  switch (source.source) {
+    case "local":
       return source.path;
-    case "GitHub": {
-      let result = `github:${source.owner}/${source.repo}`;
-      if (Option.isSome(source.path)) {
-        result += `/${source.path.value}`;
+    case "github":
+    case "gitlab":
+    case "bitbucket": {
+      let result = `${source.source}:${source.owner}/${source.repo}`;
+      if (Option.isSome(source.subPath)) {
+        result += `/${source.subPath.value}`;
       }
       if (Option.isSome(source.ref)) {
         result += `@${source.ref.value}`;
       }
       return result;
     }
-    case "Registry": {
-      let result = `@${source.scope}/${source.name}`;
-      if (Option.isSome(source.version)) {
-        result += `@${source.version.value}`;
+    case "azurerepos": {
+      let result = `azurerepos:${source.organization}/${source.project}/${source.repo}`;
+      if (Option.isSome(source.subPath)) {
+        result += `/${source.subPath.value}`;
+      }
+      if (Option.isSome(source.ref)) {
+        result += `@${source.ref.value}`;
       }
       return result;
+    }
+    case "git": {
+      const gitUrl = "url" in source ? source.url : source.path;
+      let result = `git:${gitUrl}`;
+      if (Option.isSome(source.ref)) {
+        result += `@${source.ref.value}`;
+      }
+      return result;
+    }
+    case "registry": {
+      const registryPath = "url" in source ? source.url : source.path;
+      return `registry:${registryPath}`;
     }
   }
 };

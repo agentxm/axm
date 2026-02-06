@@ -26,9 +26,13 @@ export {
   updateLockfileForPlan,
   updateSettingsForPlan,
 } from "./apply.js";
-export type { WorkspaceContextLegacy } from "./context.js";
+export type { WorkspaceContextLegacy } from "./context-legacy.js";
 // Context (deprecated - use WorkspaceContext service instead)
-export { ensureInitLegacy, makeWorkspaceContextLegacy, WorkspaceErrorLegacy } from "./context.js";
+export {
+  ensureInitLegacy,
+  makeWorkspaceContextLegacy,
+  WorkspaceErrorLegacy,
+} from "./context-legacy.js";
 // Ideal state building
 export {
   type BuildIdealDeps,

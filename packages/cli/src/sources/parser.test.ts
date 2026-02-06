@@ -468,7 +468,7 @@ describe("source-parser", () => {
         if (result.source === "local") {
           expect(result.path).toBe("./my-skill");
         }
-        expect(printSource(result)).toBe("local:./my-skill");
+        expect(printSource(result)).toBe("./my-skill");
       }),
     );
 
@@ -476,7 +476,7 @@ describe("source-parser", () => {
       Effect.gen(function* () {
         const result = yield* parseSource("../sibling-skill");
         expect(result.source).toBe("local");
-        expect(printSource(result)).toBe("local:../sibling-skill");
+        expect(printSource(result)).toBe("../sibling-skill");
       }),
     );
 
@@ -484,7 +484,7 @@ describe("source-parser", () => {
       Effect.gen(function* () {
         const result = yield* parseSource("/home/user/skills/my-skill");
         expect(result.source).toBe("local");
-        expect(printSource(result)).toBe("local:/home/user/skills/my-skill");
+        expect(printSource(result)).toBe("/home/user/skills/my-skill");
       }),
     );
 
@@ -492,7 +492,7 @@ describe("source-parser", () => {
       Effect.gen(function* () {
         const result = yield* parseSource("~/my-skills/dev-skill");
         expect(result.source).toBe("local");
-        expect(printSource(result)).toBe("local:~/my-skills/dev-skill");
+        expect(printSource(result)).toBe("~/my-skills/dev-skill");
       }),
     );
 
@@ -500,7 +500,7 @@ describe("source-parser", () => {
       Effect.gen(function* () {
         const result = yield* parseSource("~\\my-skills\\dev-skill");
         expect(result.source).toBe("local");
-        expect(printSource(result)).toBe("local:~\\my-skills\\dev-skill");
+        expect(printSource(result)).toBe("~\\my-skills\\dev-skill");
       }),
     );
 
@@ -508,7 +508,7 @@ describe("source-parser", () => {
       Effect.gen(function* () {
         const result = yield* parseSource("C:\\Users\\name\\skills");
         expect(result.source).toBe("local");
-        expect(printSource(result)).toBe("local:C:\\Users\\name\\skills");
+        expect(printSource(result)).toBe("C:\\Users\\name\\skills");
       }),
     );
 
@@ -516,7 +516,7 @@ describe("source-parser", () => {
       Effect.gen(function* () {
         const result = yield* parseSource("C:/Users/name/skills");
         expect(result.source).toBe("local");
-        expect(printSource(result)).toBe("local:C:/Users/name/skills");
+        expect(printSource(result)).toBe("C:/Users/name/skills");
       }),
     );
 
@@ -622,7 +622,7 @@ describe("source-parser", () => {
       Effect.gen(function* () {
         const result = yield* parseSource("./owner/repo");
         expect(result.source).toBe("local");
-        expect(printSource(result)).toBe("local:./owner/repo");
+        expect(printSource(result)).toBe("./owner/repo");
       }),
     );
 
@@ -630,7 +630,7 @@ describe("source-parser", () => {
       Effect.gen(function* () {
         const result = yield* parseSource("../owner/repo");
         expect(result.source).toBe("local");
-        expect(printSource(result)).toBe("local:../owner/repo");
+        expect(printSource(result)).toBe("../owner/repo");
       }),
     );
   });
@@ -1138,7 +1138,7 @@ describe("parseInputPattern", () => {
       Effect.gen(function* () {
         const result = yield* parseSource("./local/path");
         expect(result.source).toBe("local");
-        expect(printSource(result)).toBe("local:./local/path");
+        expect(printSource(result)).toBe("./local/path");
       }),
     );
 

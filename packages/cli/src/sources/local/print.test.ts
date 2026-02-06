@@ -6,11 +6,11 @@ import { print } from "./print.js";
 
 describe("print", () => {
   it("formats local path", () => {
-    expect(print({ source: "local", path: "./my/skills" })).toBe("local:./my/skills");
+    expect(print({ source: "local", path: "./my/skills" })).toBe("./my/skills");
   });
 
   it("formats absolute path", () => {
-    expect(print({ source: "local", path: "/home/user/skills" })).toBe("local:/home/user/skills");
+    expect(print({ source: "local", path: "/home/user/skills" })).toBe("/home/user/skills");
   });
 
   describe("round-trip", () => {
@@ -18,7 +18,7 @@ describe("print", () => {
       Effect.gen(function* () {
         const path = "./my/skills";
         const source = yield* parseLocalPath(path);
-        expect(print(source)).toBe(`local:${path}`);
+        expect(print(source)).toBe(path);
       }),
     );
 
@@ -26,7 +26,7 @@ describe("print", () => {
       Effect.gen(function* () {
         const path = "/home/user/skills";
         const source = yield* parseLocalPath(path);
-        expect(print(source)).toBe(`local:${path}`);
+        expect(print(source)).toBe(path);
       }),
     );
   });

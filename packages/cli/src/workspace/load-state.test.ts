@@ -12,7 +12,7 @@ import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { WorkspaceContextLegacy } from "./context.js";
+import type { WorkspaceContextLegacy } from "./context-legacy.js";
 import { loadCurrentState } from "./load-state.js";
 
 // Test helpers

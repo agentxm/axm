@@ -116,7 +116,7 @@ interface ResolvedSource {
   /** Path to directory containing skills */
   readonly skillsDir: string;
   /** Git commit SHA (for git sources) */
-  readonly commitSha?: string;
+  readonly commitSha: Option.Option<string>;
 }
 
 // -----------------------------------------------------------------------------
@@ -294,6 +294,81 @@ const createBuildIdealDeps = (
 });
 
 // -----------------------------------------------------------------------------
+// Source Discovery
+// -----------------------------------------------------------------------------
+
+/**
+ * Resolves a source and discovers available skills.
+ * Handles all source types (GitHub, GitLab, Bitbucket, local) and returns
+ * discovered skills with the resolved source information.
+ */
+const resolveSourceAndDiscover = (source: Source, axmDir: string) =>
+  Effect.gen(function* () {
+    switch (source.source) {
+      case "github":
+      case "gitlab":
+      case "bitbucket": {
+        const result = yield* resolveGitHostingProviderSource(source, axmDir);
+        return {
+          skills: result.skills,
+          resolvedSource: {
+            source,
+            skillsDir: result.skillsDir,
+            commitSha: Option.some(result.commitSha),
+          } satisfies ResolvedSource,
+        };
+      }
+
+      case "azurerepos":
+        return yield* new InstallError({
+          message: formatError(
+            "Azure Repos sources are not yet supported",
+            [`Source: ${printSource(source)}`],
+            "Use GitHub, GitLab, Bitbucket, or a local path instead.",
+          ),
+          cause: Option.none(),
+          retryable: false,
+        });
+
+      case "local": {
+        const skillsDir = source.path;
+        const skills = yield* discoverSkills(skillsDir).pipe(
+          Effect.mapError(
+            (error) =>
+              new InstallError({
+                message: formatError(
+                  `Failed to discover skills: ${error.message}`,
+                  [`Path: ${skillsDir}`],
+                  "Verify the path exists and contains directories with SKILL.md files.",
+                ),
+                cause: Option.some(error),
+                retryable: false,
+              }),
+          ),
+        );
+        return {
+          skills,
+          resolvedSource: {
+            source,
+            skillsDir,
+            commitSha: Option.none(),
+          } satisfies ResolvedSource,
+        };
+      }
+
+      case "git":
+      case "registry":
+        return yield* Effect.fail(
+          new InstallError({
+            message: `Source type "${source.source}" is not yet supported`,
+            cause: Option.none(),
+            retryable: false,
+          }),
+        );
+    }
+  });
+
+// -----------------------------------------------------------------------------
 // Main Handler
 // -----------------------------------------------------------------------------
 
@@ -381,75 +456,14 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     spinner.stop("Loaded current state");
 
     // Step 5: Discover skills based on source type
-    let skills: Skill[];
-    let resolvedSource: ResolvedSource;
-
-    // Determine spinner message based on source type
-    switch (source.source) {
-      case "github":
-      case "gitlab":
-      case "bitbucket":
-      case "azurerepos":
-        spinner.start("Fetching source to analyze contents...");
-        break;
-      default:
-        spinner.start("Discovering skills...");
-    }
-
-    // Handle each source type
-    switch (source.source) {
-      case "github":
-      case "gitlab":
-      case "bitbucket": {
-        const result = yield* resolveGitHostingProviderSource(source, context.path);
-        skills = result.skills;
-        resolvedSource = { source, skillsDir: result.skillsDir, commitSha: result.commitSha };
-        break;
-      }
-
-      case "azurerepos":
-        return yield* new InstallError({
-          message: formatError(
-            "Azure Repos sources are not yet supported",
-            [`Source: ${printSource(source)}`],
-            "Use GitHub, GitLab, Bitbucket, or a local path instead.",
-          ),
-          cause: Option.none(),
-          retryable: false,
-        });
-
-      case "local": {
-        // Local sources: discover skills directly from the filesystem path
-        const skillsDir = source.path;
-        skills = yield* discoverSkills(skillsDir).pipe(
-          Effect.mapError(
-            (error) =>
-              new InstallError({
-                message: formatError(
-                  `Failed to discover skills: ${error.message}`,
-                  [`Path: ${skillsDir}`],
-                  "Verify the path exists and contains directories with SKILL.md files.",
-                ),
-                cause: Option.some(error),
-                retryable: false,
-              }),
-          ),
-        );
-        resolvedSource = { source, skillsDir };
-        break;
-      }
-
-      case "git":
-      case "registry":
-        spinner.stop("Source type not yet supported");
-        return yield* Effect.fail(
-          new InstallError({
-            message: `Source type "${source.source}" is not yet supported`,
-            cause: Option.none(),
-            retryable: false,
-          }),
-        );
-    }
+    spinner.start(
+      ["github", "gitlab", "bitbucket", "azurerepos"].includes(source.source)
+        ? "Fetching source to analyze contents..."
+        : "Discovering skills...",
+    );
+    const { skills, resolvedSource } = yield* resolveSourceAndDiscover(source, context.path).pipe(
+      Effect.tapError(() => Effect.sync(() => spinner.stop("Failed"))),
+    );
 
     if (skills.length === 0) {
       spinner.stop("No skills found");
@@ -471,10 +485,14 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     // Step 5b: List mode - just show skills and exit
     if (args.list) {
       yield* clack.log.info("Available skills:");
-      for (const skill of skills) {
-        const desc = skill.description ? ` - ${skill.description}` : "";
-        yield* clack.log.message(`  ${skill.name}${desc}`);
-      }
+      yield* Effect.forEach(
+        skills,
+        (skill) => {
+          const desc = skill.description ? ` - ${skill.description}` : "";
+          return clack.log.message(`  ${skill.name}${desc}`);
+        },
+        { concurrency: 1 },
+      );
       yield* clack.outro(`${skills.length} skill(s) available`);
       return;
     }
@@ -482,13 +500,8 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     // Step 6: Filter/select skills
     let selectedSkillNames: readonly string[];
 
-    // Helper function to check if prompts can be used
-    const canPrompt = (): boolean => {
-      if (args.yes || Option.getOrElse(args.nonInteractive, () => false)) {
-        return false;
-      }
-      return isInteractive();
-    };
+    const canPrompt =
+      !args.yes && !Option.getOrElse(args.nonInteractive, () => false) && isInteractive();
 
     if (args.skill.length > 0) {
       // Use explicitly specified skills
@@ -502,10 +515,11 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         yield* clack.log.warn(`Unknown skills: ${invalidSkills.join(", ")}`);
       }
     } else if (args.all || Option.getOrElse(args.dryRun, () => false)) {
-      // Install all skills (dry-run auto-selects all)
+      // Install all skills; dry-run auto-selects all to preview full plan
+      // Note: --skill takes precedence (checked above) so --dry-run --skill foo only installs foo
       selectedSkillNames = Array.map(skills, (s) => s.name);
       if (args.all) yield* clack.log.info(`Installing all ${skills.length} skill(s)`);
-    } else if (!canPrompt()) {
+    } else if (!canPrompt) {
       // Need to prompt but can't
       return yield* Effect.fail(
         new InstallError({
@@ -531,23 +545,17 @@ export const handleInstall = (args: InstallHandlerArgs) => {
           required: Option.some(true),
         })
         .pipe(
-          Effect.catchTag("PromptCancelled", () =>
-            Effect.fail(
-              new InstallError({
-                message: "Operation cancelled.",
-                cause: Option.none(),
-                retryable: false,
-              }),
-            ),
-          ),
-          Effect.mapError((error) =>
-            error._tag === "InstallError"
-              ? error
-              : new InstallError({
-                  message: "Failed to prompt for skill selection",
-                  cause: Option.some(error),
-                  retryable: false,
-                }),
+          Effect.mapError(
+            (error) =>
+              new InstallError(
+                error._tag === "PromptCancelled"
+                  ? { message: "Operation cancelled.", cause: Option.none(), retryable: false }
+                  : {
+                      message: "Failed to prompt for skill selection",
+                      cause: Option.some(error),
+                      retryable: false,
+                    },
+              ),
           ),
         );
       selectedSkillNames = Array.map(selectedSkills, (s) => s.name);
@@ -624,23 +632,17 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         );
       }
       const confirmed = yield* clack.confirm("Apply changes?").pipe(
-        Effect.catchTag("PromptCancelled", () =>
-          Effect.fail(
-            new InstallError({
-              message: "Installation cancelled.",
-              cause: Option.none(),
-              retryable: false,
-            }),
-          ),
-        ),
-        Effect.mapError((error) =>
-          error._tag === "InstallError"
-            ? error
-            : new InstallError({
-                message: "Failed to prompt for confirmation",
-                cause: Option.some(error),
-                retryable: false,
-              }),
+        Effect.mapError(
+          (error) =>
+            new InstallError(
+              error._tag === "PromptCancelled"
+                ? { message: "Installation cancelled.", cause: Option.none(), retryable: false }
+                : {
+                    message: "Failed to prompt for confirmation",
+                    cause: Option.some(error),
+                    retryable: false,
+                  },
+            ),
         ),
       );
       if (!confirmed) {
@@ -693,15 +695,21 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     spinner.stop(`Applied ${applyResult.applied.length} change(s)`);
 
     // Show results summary
-    for (const step of applyResult.applied) {
-      const agentNames = step.agents.join(", ");
-      yield* clack.log.success(`${step.skill} -> ${agentNames}`);
-    }
+    yield* Effect.forEach(
+      applyResult.applied,
+      (step) => {
+        const agentNames = step.agents.join(", ");
+        return clack.log.success(`${step.skill} -> ${agentNames}`);
+      },
+      { concurrency: 1 },
+    );
 
     if (applyResult.failed.length > 0) {
-      for (const failure of applyResult.failed) {
-        yield* clack.log.error(`${failure.step.skill}: ${failure.error.message}`);
-      }
+      yield* Effect.forEach(
+        applyResult.failed,
+        (failure) => clack.log.error(`${failure.step.skill}: ${failure.error.message}`),
+        { concurrency: 1 },
+      );
     }
 
     yield* clack.outro(

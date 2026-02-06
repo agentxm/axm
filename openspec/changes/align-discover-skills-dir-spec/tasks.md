@@ -44,13 +44,13 @@
 
 ## 4. INSTALL_INTERNAL_SKILLS Accepts "true"
 
-- [ ] 4.1 Write test: `INSTALL_INTERNAL_SKILLS="true"` includes internal skills
-- [ ] 4.2 Update `shouldIncludeSkill` to accept both `"1"` and `"true"` for `INSTALL_INTERNAL_SKILLS` env var
-- [ ] 4.3 Run `pnpm typecheck` and fix any errors
-- [ ] 4.4 Run `pnpm lint` and fix any errors
-- [ ] 4.5 Run `pnpm test` and fix any failures
-- [ ] 4.6 Run `pnpm test:e2e` and fix any failures
-- [ ] 4.7 Kill any vitest worker processes
+- [x] 4.1 Write test: `INSTALL_INTERNAL_SKILLS="true"` includes internal skills
+- [x] 4.2 Update `shouldIncludeSkill` to accept both `"1"` and `"true"` for `INSTALL_INTERNAL_SKILLS` env var
+- [x] 4.3 Run `pnpm typecheck` and fix any errors
+- [x] 4.4 Run `pnpm lint` and fix any errors
+- [x] 4.5 Run `pnpm test` and fix any failures
+- [x] 4.6 Run `pnpm test:e2e` and fix any failures
+- [x] 4.7 Kill any vitest worker processes
 
 ## 5. Plugin Manifest Schema Expansion
 

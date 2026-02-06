@@ -150,7 +150,8 @@ const isInternalSkill = (skill: Skill): boolean =>
 
 const shouldIncludeSkill = (skill: Skill, options: DiscoveryOptions): boolean => {
   if (!isInternalSkill(skill)) return true;
-  return options.includeInternal || process.env["INSTALL_INTERNAL_SKILLS"] === "1";
+  const envVal = process.env["INSTALL_INTERNAL_SKILLS"];
+  return options.includeInternal || envVal === "1" || envVal === "true";
 };
 
 // -----------------------------------------------------------------------------

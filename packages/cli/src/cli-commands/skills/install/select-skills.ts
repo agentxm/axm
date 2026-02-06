@@ -1,14 +1,13 @@
 /**
  * Skill selection logic for the install command.
  *
- * Extracts the priority-ordered selection flow from the handler into a
- * dedicated function that returns a filtered list of `DiscoveredSkill`s.
+ * Determines which skills to install based on flags, then optionally
+ * prompts the user for confirmation via `confirmSkillsToInstall`.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import type { DiscoveredSkill } from "../../../extensions/skills/index.js";
-import type { Source } from "../../../sources/index.js";
 import { Clack } from "../../../clack-effect/index.js";
 import { InstallError } from "./handler.js";
 import { formatError } from "../../../utils/errors.js";
@@ -20,13 +19,12 @@ import * as Option from "effect/Option";
 // Types
 // -----------------------------------------------------------------------------
 
-interface SelectSkillsArgs {
+interface DetermineSkillsToInstallArgs {
   readonly skills: Array.NonEmptyReadonlyArray<DiscoveredSkill>;
-  readonly source: Source;
   readonly requestedSkills: readonly string[];
   readonly all: boolean;
   readonly dryRun: boolean;
-  readonly canPrompt: boolean;
+  readonly yes: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -34,18 +32,15 @@ interface SelectSkillsArgs {
 // -----------------------------------------------------------------------------
 
 /**
- * Selects which skills to install based on flags and source context.
+ * Determines which skills to install based on flags.
  *
- * Priority order:
- * 1. `--skill` specified -> validate ALL exist, error if any miss, return matches
- * 2. `--all` / `--dry-run` -> return all
- * 3. Registry source, single skill not from pack (`discoveryPath.length === 1`) -> auto-select
- * 4. Registry source, from pack -> confirm (single) or multiselect (multiple)
- * 5. Non-registry, single skill -> auto-select
- * 6. Non-registry, multiple skills, can't prompt -> error
- * 7. Non-registry, multiple skills, can prompt -> multiselect
+ * Selection logic:
+ * 1. `--skill` specified -> validate ALL exist, return matches
+ * 2. `--all` / `--dry-run` / `--yes` -> return all (no prompt)
+ * 3. Single skill -> auto-select (no prompt)
+ * 4. Multiple skills -> `confirmSkillsToInstall` (multiselect prompt)
  */
-export const selectSkills = (args: SelectSkillsArgs) =>
+export const determineSkillsToInstall = (args: DetermineSkillsToInstallArgs) =>
   Effect.gen(function* () {
     const clack = yield* Clack;
 
@@ -71,94 +66,53 @@ export const selectSkills = (args: SelectSkillsArgs) =>
       return Array.filter(args.skills, (s) => args.requestedSkills.includes(s.name));
     }
 
-    // 2. --all / --dry-run -> return all
-    if (args.all || args.dryRun) {
+    // 2. --all / --dry-run / --yes -> return all
+    if (args.all || args.dryRun || args.yes) {
       if (args.all) yield* clack.log.info(`Installing all ${args.skills.length} skill(s)`);
       return Array.fromIterable(args.skills);
     }
 
-    // 3. Registry source, single skill not from pack -> auto-select
-    if (args.source.source === "registry") {
-      const singleNonPack = Array.filter(args.skills, (s) => s.discoveryPath.length === 1);
-      if (singleNonPack.length === 1) {
-        return singleNonPack;
-      }
-
-      // 4. Registry source, from pack -> confirm (single) or multiselect (multiple)
-      if (args.skills.length === 1) {
-        const skill = Array.headNonEmpty(args.skills);
-        const confirmed = yield* clack.confirm(`Install ${skill.name}?`).pipe(
-          Effect.mapError(
-            (error) =>
-              new InstallError(
-                error._tag === "PromptCancelled"
-                  ? { message: "Operation cancelled.", cause: Option.none(), retryable: false }
-                  : {
-                      message: "Failed to prompt for confirmation",
-                      cause: Option.some(error),
-                      retryable: false,
-                    },
-              ),
-          ),
-        );
-        return confirmed ? [skill] : [];
-      }
-
-      // Multiple skills from registry pack -> multiselect
-      return yield* promptMultiselect(clack, args.skills);
-    }
-
-    // 5. Non-registry, single skill -> auto-select
+    // 3. Single skill -> auto-select
     if (args.skills.length === 1) {
       return Array.fromIterable(args.skills);
     }
 
-    // 6. Non-registry, multiple skills, can't prompt -> error
-    if (!args.canPrompt) {
-      return yield* new InstallError({
-        message: formatError(
-          "Cannot prompt for skill selection",
-          ["stdin is not a TTY"],
-          "Use --yes, --all, or --non-interactive to run without prompts.",
-        ),
-        cause: Option.none(),
-        retryable: false,
-      });
-    }
-
-    // 7. Non-registry, multiple skills, can prompt -> multiselect
-    return yield* promptMultiselect(clack, args.skills);
+    // 4. Multiple skills -> multiselect prompt
+    return yield* confirmSkillsToInstall(args.skills);
   });
 
-// -----------------------------------------------------------------------------
-// Internal
-// -----------------------------------------------------------------------------
+/**
+ * Prompts the user to select which skills to install from a list.
+ *
+ * Shows a multiselect prompt with all skills pre-selected.
+ * Maps prompt errors to `InstallError`.
+ */
+export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<DiscoveredSkill>) =>
+  Effect.gen(function* () {
+    const clack = yield* Clack;
 
-const promptMultiselect = (
-  clack: Clack["Type"],
-  skills: Array.NonEmptyReadonlyArray<DiscoveredSkill>,
-) =>
-  clack
-    .multiselect("Select skills to install", skills, {
-      toOption: (s) => ({
-        value: s.name,
-        label: s.name,
-        hint: s.description,
-      }),
-      initialValues: Option.some(Array.map(skills, (s) => s.name)),
-      required: Option.some(true),
-    })
-    .pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError(
-            error._tag === "PromptCancelled"
-              ? { message: "Operation cancelled.", cause: Option.none(), retryable: false }
-              : {
-                  message: "Failed to prompt for skill selection",
-                  cause: Option.some(error),
-                  retryable: false,
-                },
-          ),
-      ),
-    );
+    return yield* clack
+      .multiselect("Select skills to install", skills, {
+        toOption: (s) => ({
+          value: s.name,
+          label: s.name,
+          hint: s.description,
+        }),
+        initialValues: Option.some(Array.map(skills, (s) => s.name)),
+        required: Option.some(true),
+      })
+      .pipe(
+        Effect.mapError(
+          (error) =>
+            new InstallError(
+              error._tag === "PromptCancelled"
+                ? { message: "Operation cancelled.", cause: Option.none(), retryable: false }
+                : {
+                    message: "Failed to prompt for skill selection",
+                    cause: Option.some(error),
+                    retryable: false,
+                  },
+            ),
+        ),
+      );
+  });

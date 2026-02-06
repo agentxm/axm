@@ -5,10 +5,8 @@
  * @packageDocumentation
  */
 
-import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
-import type { ExtensionRef } from "../common.js";
 
 // Re-export Source types from canonical location
 export type { GitHostingProviderSource, Source, SourceType } from "../../sources/index.js";
@@ -32,22 +30,6 @@ export interface Skill {
   readonly description: string;
   /** Optional metadata from SKILL.md frontmatter */
   readonly metadata: Option.Option<Record.ReadonlyRecord<string, unknown>>;
-}
-
-/**
- * A skill augmented with its discovery path metadata.
- *
- * The `discoveryPath` is a non-empty array of `ExtensionRef` entries.
- * The last element is always the skill itself; preceding elements are
- * packs through which the skill was discovered.
- *
- * Note: `workspace/ideal-state.ts` also defines a `DiscoveredSkill`
- * (version/hash metadata for reconciliation). Different concept, different module.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface DiscoveredSkill extends Skill {
-  readonly discoveryPath: Array.NonEmptyReadonlyArray<ExtensionRef>;
 }
 
 // -----------------------------------------------------------------------------

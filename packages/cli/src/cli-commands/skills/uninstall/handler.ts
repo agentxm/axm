@@ -20,7 +20,7 @@ import {
   type ApplyDeps,
   applyPlan,
   applyStep,
-  buildIdealForUninstall,
+  buildIdealFromOperations,
   buildPlan,
   ensureInitLegacy,
   loadCurrentState,
@@ -28,7 +28,7 @@ import {
   type Plan,
   type PlanStep,
   planHasChanges,
-  type UninstallCommand,
+  type RemoveSkillOperation,
   updateLockfileForPlan,
   updateSettingsForPlan,
   type WorkspaceContextLegacy,
@@ -169,7 +169,7 @@ export const handleUninstall = (
     const isPartialUninstall = args.agent.length > 0;
 
     // For partial uninstall, we need to handle it differently since
-    // the V2 buildIdealForUninstall doesn't support partial agent removal.
+    // buildIdealFromOperations doesn't support partial agent removal.
     // Only use the full state-based pattern for complete uninstalls.
     if (isPartialUninstall) {
       yield* handlePartialUninstall(args, ws, clack, spinner);
@@ -205,13 +205,10 @@ const handleFullUninstall = (
       ),
     );
 
-    // Step 4: Build ideal state with skill removed using V2 API
+    // Step 4: Build ideal state with skill removed
     spinner.start("Building uninstall plan...");
-    const uninstallCmd: UninstallCommand = {
-      _tag: "skills-uninstall",
-      skills: [args.skill],
-    };
-    const idealState = yield* buildIdealForUninstall(currentState, uninstallCmd).pipe(
+    const ops: RemoveSkillOperation[] = [{ _tag: "remove-skill", name: args.skill }];
+    const idealState = yield* buildIdealFromOperations(currentState, ops).pipe(
       Effect.mapError(
         (error) =>
           new UninstallError({
@@ -428,11 +425,8 @@ const handlePartialUninstall = (
         ),
       );
 
-      const uninstallCmd: UninstallCommand = {
-        _tag: "skills-uninstall",
-        skills: [args.skill],
-      };
-      const idealState = yield* buildIdealForUninstall(currentState, uninstallCmd).pipe(
+      const removeOps: RemoveSkillOperation[] = [{ _tag: "remove-skill", name: args.skill }];
+      const idealState = yield* buildIdealFromOperations(currentState, removeOps).pipe(
         Effect.mapError(
           (error) =>
             new UninstallError({

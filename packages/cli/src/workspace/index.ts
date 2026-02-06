@@ -35,20 +35,24 @@ export {
 } from "./context-legacy.js";
 // Ideal state building
 export {
+  type AddSkillOperation,
   type BuildIdealDeps,
   type BuildIdealStateDeps,
   type BuildIdealUpdateDeps,
   buildIdealForInstall,
   buildIdealForUninstall,
   buildIdealForUpdate,
+  buildIdealFromOperations,
   buildIdealState,
   type Command,
   CommandError,
   type DiscoveredSkill,
   type InstallCommand,
+  type RemoveSkillOperation,
   sourcesEqual,
   type UninstallCommand,
   type UpdateCommand,
+  type WorkspaceOperation,
 } from "./ideal-state.js";
 // State loading
 export { loadCurrentState } from "./load-state.js";

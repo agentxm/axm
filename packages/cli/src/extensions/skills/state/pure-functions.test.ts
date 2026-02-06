@@ -10,57 +10,48 @@ import { computeInstallPath, type SkillSource, versionsEqual } from "./pure-func
 
 describe("computeInstallPath", () => {
   describe("Registry sources", () => {
-    it("computes path with scope for registry source", () => {
+    it("computes external path for registry source with URL", () => {
       const source: SkillSource = {
-        _tag: "Registry",
-        location: { _tag: "Remote", url: "https://registry.example.com" },
-        scope: "official",
-        name: "commit",
-        version: Option.some("1.0.0"),
+        source: "registry",
+        url: "https://registry.example.com",
       };
 
       const path = computeInstallPath(source, "commit");
 
-      expect(path).toBe(".axm/extensions/@official/skills/commit");
+      expect(path).toBe(".axm/extensions/external/skills/commit");
     });
 
-    it("computes path with different scope", () => {
+    it("computes external path for registry source with filesystem path", () => {
       const source: SkillSource = {
-        _tag: "Registry",
-        location: { _tag: "FileSystem", path: "/local/registry" },
-        scope: "my-org",
-        name: "review-pr",
-        version: Option.none(),
+        source: "registry",
+        path: "/local/registry",
       };
 
       const path = computeInstallPath(source, "review-pr");
 
-      expect(path).toBe(".axm/extensions/@my-org/skills/review-pr");
+      expect(path).toBe(".axm/extensions/external/skills/review-pr");
     });
 
-    it("uses skill name parameter, not source name", () => {
+    it("uses skill name parameter for path", () => {
       const source: SkillSource = {
-        _tag: "Registry",
-        location: { _tag: "Remote", url: "https://registry.example.com" },
-        scope: "scope",
-        name: "source-name",
-        version: Option.none(),
+        source: "registry",
+        url: "https://registry.example.com",
       };
 
       const path = computeInstallPath(source, "different-name");
 
-      expect(path).toBe(".axm/extensions/@scope/skills/different-name");
+      expect(path).toBe(".axm/extensions/external/skills/different-name");
     });
   });
 
   describe("GitHub sources", () => {
     it("computes external path for GitHub source", () => {
       const source: SkillSource = {
-        _tag: "GitHub",
+        source: "github",
         owner: "anthropics",
         repo: "claude-skills",
         ref: Option.some("main"),
-        path: Option.some("skills/commit"),
+        subPath: Option.some("skills/commit"),
       };
 
       const path = computeInstallPath(source, "commit");
@@ -70,11 +61,11 @@ describe("computeInstallPath", () => {
 
     it("computes external path regardless of ref and subpath", () => {
       const source: SkillSource = {
-        _tag: "GitHub",
+        source: "github",
         owner: "user",
         repo: "repo",
         ref: Option.none(),
-        path: Option.none(),
+        subPath: Option.none(),
       };
 
       const path = computeInstallPath(source, "my-skill");
@@ -86,7 +77,7 @@ describe("computeInstallPath", () => {
   describe("Local sources", () => {
     it("computes external path for local source", () => {
       const source: SkillSource = {
-        _tag: "Local",
+        source: "local",
         path: "/Users/dev/my-skill",
       };
 
@@ -97,7 +88,7 @@ describe("computeInstallPath", () => {
 
     it("computes external path for any local path", () => {
       const source: SkillSource = {
-        _tag: "Local",
+        source: "local",
         path: "../relative/path/to/skill",
       };
 
@@ -110,7 +101,7 @@ describe("computeInstallPath", () => {
   describe("edge cases", () => {
     it("handles skill names with hyphens", () => {
       const source: SkillSource = {
-        _tag: "Local",
+        source: "local",
         path: "/path",
       };
 
@@ -119,18 +110,15 @@ describe("computeInstallPath", () => {
       expect(path).toBe(".axm/extensions/external/skills/my-complex-skill-name");
     });
 
-    it("handles scope names with hyphens", () => {
+    it("handles registry source with URL containing hyphens", () => {
       const source: SkillSource = {
-        _tag: "Registry",
-        location: { _tag: "Remote", url: "https://registry.example.com" },
-        scope: "my-organization-name",
-        name: "skill",
-        version: Option.none(),
+        source: "registry",
+        url: "https://my-organization-registry.example.com",
       };
 
       const path = computeInstallPath(source, "skill");
 
-      expect(path).toBe(".axm/extensions/@my-organization-name/skills/skill");
+      expect(path).toBe(".axm/extensions/external/skills/skill");
     });
   });
 });

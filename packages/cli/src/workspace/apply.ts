@@ -26,12 +26,8 @@ import { readLockfile, writeLockfile } from "../lockfile/index.js";
 import type { Settings } from "../settings/index.js";
 import { readSettings, writeSettings } from "../settings/index.js";
 import { computeInstallPath } from "../extensions/skills/state/pure-functions.js";
-import type {
-  ApplyResult,
-  Plan,
-  PlanStep,
-  SkillSourceV2,
-} from "../extensions/skills/state/types.js";
+import type { Source } from "../sources/types.js";
+import type { ApplyResult, Plan, PlanStep } from "../extensions/skills/state/types.js";
 
 // Re-export types for consumers
 export type { ApplyResult, Plan, PlanStep } from "../extensions/skills/state/types.js";
@@ -354,20 +350,19 @@ export interface ApplyStepOptions {
 // =============================================================================
 
 /**
- * Get source path from a SkillSourceV2.
+ * Get source path from a Source.
  * For Local sources, returns the path directly.
  * For other sources, they should have been fetched to a local path first.
  * @throws Error if source is a remote type that hasn't been fetched.
  */
-const getSourcePathOrThrow = (source: SkillSourceV2): string => {
-  switch (source._tag) {
-    case "Local":
+const getSourcePathOrThrow = (source: Source): string => {
+  switch (source.source) {
+    case "local":
       return source.path;
-    case "GitHub":
-    case "Registry":
+    default:
       // Remote sources should be fetched to a local cache before apply
       // This is a programming error - caller should fetch first
-      throw new Error(`Source type ${source._tag} must be fetched to local path before apply`);
+      throw new Error(`Source type ${source.source} must be fetched to local path before apply`);
   }
 };
 
@@ -447,11 +442,7 @@ const copyDirectory = (
 /**
  * Get the canonical install path for a skill in the workspace.
  */
-const getCanonicalPath = (
-  workspacePath: string,
-  source: SkillSourceV2,
-  skillName: string,
-): string => {
+const getCanonicalPath = (workspacePath: string, source: Source, skillName: string): string => {
   // computeInstallPath returns relative path like ".axm/extensions/..."
   // We need to replace the ".axm" prefix with our workspace path
   const relativePath = computeInstallPath(source, skillName);
@@ -756,12 +747,12 @@ export const applyStep = (
 // =============================================================================
 
 /**
- * Convert SkillSourceV2 to a lockfile entry.
+ * Convert Source to a lockfile entry.
  *
  * @experimental This API is unstable and may change without notice.
  */
-const sourceV2ToLockEntry = (
-  source: SkillSourceV2,
+const sourceToLockEntry = (
+  source: Source,
   _version: Option.Option<string>,
   gitTreeHash: Option.Option<string>,
   agents: ReadonlyArray<string>,
@@ -770,8 +761,8 @@ const sourceV2ToLockEntry = (
   const now = new Date();
   const hash = Option.getOrUndefined(gitTreeHash);
 
-  switch (source._tag) {
-    case "Local":
+  switch (source.source) {
+    case "local":
       return {
         source: "local" as const,
         path: source.path,
@@ -780,62 +771,151 @@ const sourceV2ToLockEntry = (
         updatedAt: now,
         ...(hash && { gitTreeHash: hash }),
       };
-    case "GitHub":
+    case "github":
       return {
         source: "github" as const,
         owner: source.owner,
         repo: source.repo,
         ...(Option.isSome(source.ref) && { ref: source.ref.value }),
-        ...(Option.isSome(source.path) && { path: source.path.value }),
+        ...(Option.isSome(source.subPath) && { path: source.subPath.value }),
         agents: [...agents],
         installedAt,
         updatedAt: now,
         ...(hash && { gitTreeHash: hash }),
       };
-    case "Registry":
+    case "gitlab":
+      return {
+        source: "gitlab" as const,
+        owner: source.owner,
+        repo: source.repo,
+        ...(Option.isSome(source.ref) && { ref: source.ref.value }),
+        ...(Option.isSome(source.subPath) && { path: source.subPath.value }),
+        agents: [...agents],
+        installedAt,
+        updatedAt: now,
+        ...(hash && { gitTreeHash: hash }),
+      };
+    case "bitbucket":
+      return {
+        source: "bitbucket" as const,
+        owner: source.owner,
+        repo: source.repo,
+        ...(Option.isSome(source.ref) && { ref: source.ref.value }),
+        ...(Option.isSome(source.subPath) && { path: source.subPath.value }),
+        agents: [...agents],
+        installedAt,
+        updatedAt: now,
+        ...(hash && { gitTreeHash: hash }),
+      };
+    case "azurerepos":
+      return {
+        source: "azurerepos" as const,
+        organization: source.organization,
+        project: source.project,
+        repo: source.repo,
+        ...(Option.isSome(source.ref) && { ref: source.ref.value }),
+        ...(Option.isSome(source.subPath) && { path: source.subPath.value }),
+        agents: [...agents],
+        installedAt,
+        updatedAt: now,
+        ...(hash && { gitTreeHash: hash }),
+      };
+    case "git": {
+      const gitUrl = "url" in source ? source.url : source.path;
+      return {
+        source: "git" as const,
+        url: gitUrl,
+        ...(Option.isSome(source.ref) && { ref: source.ref.value }),
+        agents: [...agents],
+        installedAt,
+        updatedAt: now,
+        ...(hash && { gitTreeHash: hash }),
+      };
+    }
+    case "registry": {
+      const registryPath = "url" in source ? source.url : source.path;
       return {
         source: "registry" as const,
-        scope: source.scope,
-        name: source.name,
-        ...(Option.isSome(source.version) && { version: source.version.value }),
+        scope: "",
+        name: registryPath,
         agents: [...agents],
         installedAt,
         updatedAt: now,
         ...(hash && { gitTreeHash: hash }),
       };
+    }
   }
 };
 
 /**
- * Convert SkillSourceV2 to a settings value string.
+ * Convert Source to a settings value string.
  *
  * Formats:
  * - Local: `local:/path/to/skill`
  * - GitHub: `github:owner/repo[/path][#ref]`
- * - Registry: `@scope/name[@version]`
+ * - GitLab: `gitlab:owner/repo[/path][#ref]`
+ * - Bitbucket: `bitbucket:owner/repo[/path][#ref]`
+ * - AzureRepos: `azurerepos:org/project/repo[/path][#ref]`
+ * - Git: `git:url[#ref]`
+ * - Registry: `registry:url-or-path`
  *
  * @experimental This API is unstable and may change without notice.
  */
-const sourceV2ToSettingsValue = (source: SkillSourceV2): string => {
-  switch (source._tag) {
-    case "Local":
+const sourceToSettingsValue = (source: Source): string => {
+  switch (source.source) {
+    case "local":
       return `local:${source.path}`;
-    case "GitHub": {
+    case "github": {
       let value = `github:${source.owner}/${source.repo}`;
-      if (Option.isSome(source.path)) {
-        value += `/${source.path.value}`;
+      if (Option.isSome(source.subPath)) {
+        value += `/${source.subPath.value}`;
       }
       if (Option.isSome(source.ref)) {
         value += `#${source.ref.value}`;
       }
       return value;
     }
-    case "Registry": {
-      let value = `@${source.scope}/${source.name}`;
-      if (Option.isSome(source.version)) {
-        value += `@${source.version.value}`;
+    case "gitlab": {
+      let value = `gitlab:${source.owner}/${source.repo}`;
+      if (Option.isSome(source.subPath)) {
+        value += `/${source.subPath.value}`;
+      }
+      if (Option.isSome(source.ref)) {
+        value += `#${source.ref.value}`;
       }
       return value;
+    }
+    case "bitbucket": {
+      let value = `bitbucket:${source.owner}/${source.repo}`;
+      if (Option.isSome(source.subPath)) {
+        value += `/${source.subPath.value}`;
+      }
+      if (Option.isSome(source.ref)) {
+        value += `#${source.ref.value}`;
+      }
+      return value;
+    }
+    case "azurerepos": {
+      let value = `azurerepos:${source.organization}/${source.project}/${source.repo}`;
+      if (Option.isSome(source.subPath)) {
+        value += `/${source.subPath.value}`;
+      }
+      if (Option.isSome(source.ref)) {
+        value += `#${source.ref.value}`;
+      }
+      return value;
+    }
+    case "git": {
+      const gitUrl = "url" in source ? source.url : source.path;
+      let value = `git:${gitUrl}`;
+      if (Option.isSome(source.ref)) {
+        value += `#${source.ref.value}`;
+      }
+      return value;
+    }
+    case "registry": {
+      const registryPath = "url" in source ? source.url : source.path;
+      return `registry:${registryPath}`;
     }
   }
 };
@@ -878,7 +958,7 @@ export const updateLockfileForPlan = (
     for (const step of plan.steps) {
       switch (step._tag) {
         case "InstallSkill": {
-          const entry = sourceV2ToLockEntry(
+          const entry = sourceToLockEntry(
             step.source,
             step.version,
             step.gitTreeHash,
@@ -892,7 +972,7 @@ export const updateLockfileForPlan = (
           // Preserve original installedAt if exists
           const existingEntry = lockfile.skills[step.skill];
           const installedAt = existingEntry?.installedAt ?? now;
-          const entry = sourceV2ToLockEntry(
+          const entry = sourceToLockEntry(
             step.source,
             step.toVersion,
             step.toHash,
@@ -964,10 +1044,10 @@ export const updateSettingsForPlan = (
     for (const step of plan.steps) {
       switch (step._tag) {
         case "InstallSkill":
-          updatedSkills[step.skill] = sourceV2ToSettingsValue(step.source);
+          updatedSkills[step.skill] = sourceToSettingsValue(step.source);
           break;
         case "UpdateSkill":
-          updatedSkills[step.skill] = sourceV2ToSettingsValue(step.source);
+          updatedSkills[step.skill] = sourceToSettingsValue(step.source);
           break;
         case "UninstallSkill":
           delete updatedSkills[step.skill];

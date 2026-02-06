@@ -6,7 +6,7 @@
 
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import type { PlanStep, SkillSourceV2 } from "../../extensions/skills/state/types.js";
+import type { PlanStep, Source } from "../../extensions/skills/state/types.js";
 import {
   formatHash,
   formatPlanStep,
@@ -54,74 +54,68 @@ describe("display", () => {
 
   describe("formatSourceV2", () => {
     it("formats Local source", () => {
-      const source: SkillSourceV2 = { _tag: "Local", path: "/path/to/skills" };
+      const source: Source = { source: "local", path: "/path/to/skills" };
       expect(formatSourceV2(source)).toBe("/path/to/skills");
     });
 
     it("formats GitHub source with owner and repo", () => {
-      const source: SkillSourceV2 = {
-        _tag: "GitHub",
+      const source: Source = {
+        source: "github",
         owner: "owner",
         repo: "repo",
         ref: Option.none(),
-        path: Option.none(),
+        subPath: Option.none(),
       };
       expect(formatSourceV2(source)).toBe("github:owner/repo");
     });
 
     it("formats GitHub source with path", () => {
-      const source: SkillSourceV2 = {
-        _tag: "GitHub",
+      const source: Source = {
+        source: "github",
         owner: "owner",
         repo: "repo",
         ref: Option.none(),
-        path: Option.some("skills"),
+        subPath: Option.some("skills"),
       };
       expect(formatSourceV2(source)).toBe("github:owner/repo/skills");
     });
 
     it("formats GitHub source with ref", () => {
-      const source: SkillSourceV2 = {
-        _tag: "GitHub",
+      const source: Source = {
+        source: "github",
         owner: "owner",
         repo: "repo",
         ref: Option.some("v1.0.0"),
-        path: Option.none(),
+        subPath: Option.none(),
       };
       expect(formatSourceV2(source)).toBe("github:owner/repo@v1.0.0");
     });
 
     it("formats GitHub source with path and ref", () => {
-      const source: SkillSourceV2 = {
-        _tag: "GitHub",
+      const source: Source = {
+        source: "github",
         owner: "owner",
         repo: "repo",
         ref: Option.some("main"),
-        path: Option.some("packages/skills"),
+        subPath: Option.some("packages/skills"),
       };
       expect(formatSourceV2(source)).toBe("github:owner/repo/packages/skills@main");
     });
 
-    it("formats Registry source", () => {
-      const source: SkillSourceV2 = {
-        _tag: "Registry",
-        location: { _tag: "Remote", url: "https://registry.example.com" },
-        scope: "official",
-        name: "commit",
-        version: Option.none(),
+    it("formats Registry source with URL", () => {
+      const source: Source = {
+        source: "registry",
+        url: "https://registry.example.com",
       };
-      expect(formatSourceV2(source)).toBe("@official/commit");
+      expect(formatSourceV2(source)).toBe("registry:https://registry.example.com");
     });
 
-    it("formats Registry source with version", () => {
-      const source: SkillSourceV2 = {
-        _tag: "Registry",
-        location: { _tag: "Remote", url: "https://registry.example.com" },
-        scope: "official",
-        name: "commit",
-        version: Option.some("1.2.3"),
+    it("formats Registry source with path", () => {
+      const source: Source = {
+        source: "registry",
+        path: "/local/registry",
       };
-      expect(formatSourceV2(source)).toBe("@official/commit@1.2.3");
+      expect(formatSourceV2(source)).toBe("registry:/local/registry");
     });
   });
 
@@ -130,7 +124,7 @@ describe("display", () => {
       const step: PlanStep = {
         _tag: "InstallSkill",
         skill: "commit",
-        source: { _tag: "Local", path: "/path/to/skills" },
+        source: { source: "local", path: "/path/to/skills" },
         version: Option.none(),
         gitTreeHash: Option.none(),
         agents: ["claude"],
@@ -143,7 +137,7 @@ describe("display", () => {
       const step: PlanStep = {
         _tag: "InstallSkill",
         skill: "commit",
-        source: { _tag: "Local", path: "/cache/path" },
+        source: { source: "local", path: "/cache/path" },
         version: Option.none(),
         gitTreeHash: Option.none(),
         agents: ["claude"],
@@ -156,7 +150,7 @@ describe("display", () => {
       const step: PlanStep = {
         _tag: "UpdateSkill",
         skill: "review-pr",
-        source: { _tag: "Local", path: "/path" },
+        source: { source: "local", path: "/path" },
         fromVersion: Option.none(),
         toVersion: Option.none(),
         fromHash: Option.some("abc1234567890"),
@@ -171,7 +165,7 @@ describe("display", () => {
       const step: PlanStep = {
         _tag: "UpdateSkill",
         skill: "skill",
-        source: { _tag: "Local", path: "/path" },
+        source: { source: "local", path: "/path" },
         fromVersion: Option.none(),
         toVersion: Option.none(),
         fromHash: Option.none(),

@@ -15,8 +15,7 @@ import type {
   IdealState,
   LockedSkillV2,
   PlanStep,
-  RegistryLocation,
-  SkillSourceV2,
+  Source,
   SkillStateV2,
 } from "../extensions/skills/state/types.js";
 import { buildPlan, getPlanSummary, planHasChanges } from "./plan.js";
@@ -25,21 +24,18 @@ import { buildPlan, getPlanSummary, planHasChanges } from "./plan.js";
 // Test Helpers
 // =============================================================================
 
-/** Default registry location for tests */
-const defaultLocation: RegistryLocation = { _tag: "Remote", url: "https://registry.example.com" };
-
 /** Create a LockedSkillV2 for testing */
 const makeLockedSkill = (
   name: string,
   opts: {
-    source?: SkillSourceV2;
+    source?: Source;
     version?: Option.Option<string>;
     gitTreeHash?: Option.Option<string>;
     agents?: ReadonlyArray<string>;
   } = {},
 ): LockedSkillV2 => ({
   name,
-  source: opts.source ?? { _tag: "Local", path: `/path/to/${name}` },
+  source: opts.source ?? { source: "local", path: `/path/to/${name}` },
   version: opts.version ?? Option.none(),
   gitTreeHash: opts.gitTreeHash ?? Option.some(`hash-${name}`),
   agents: opts.agents ?? ["claude"],
@@ -75,14 +71,14 @@ const makeSkillState = (
 const makeIdealSkill = (
   name: string,
   opts: {
-    source?: SkillSourceV2;
+    source?: Source;
     version?: Option.Option<string>;
     gitTreeHash?: Option.Option<string>;
     agents?: ReadonlyArray<string>;
   } = {},
 ): IdealSkillV2 => ({
   name,
-  source: opts.source ?? { _tag: "Local", path: `/path/to/${name}` },
+  source: opts.source ?? { source: "local", path: `/path/to/${name}` },
   version: opts.version ?? Option.none(),
   gitTreeHash: opts.gitTreeHash ?? Option.some(`hash-${name}`),
   agents: opts.agents ?? ["claude"],
@@ -97,11 +93,8 @@ describe("buildPlan", () => {
     it("returns empty plan when current matches ideal exactly", () => {
       const locked = makeLockedSkill("my-skill", {
         source: {
-          _tag: "Registry",
-          location: defaultLocation,
-          scope: "default",
-          name: "my-skill",
-          version: Option.some("1.0.0"),
+          source: "registry",
+          url: "https://registry.example.com",
         },
         version: Option.some("1.0.0"),
         gitTreeHash: Option.some("hash123"),
@@ -114,11 +107,8 @@ describe("buildPlan", () => {
         skills: [
           makeIdealSkill("my-skill", {
             source: {
-              _tag: "Registry",
-              location: defaultLocation,
-              scope: "default",
-              name: "my-skill",
-              version: Option.some("1.0.0"),
+              source: "registry",
+              url: "https://registry.example.com",
             },
             version: Option.some("1.0.0"),
             gitTreeHash: Option.some("hash123"),
@@ -148,11 +138,11 @@ describe("buildPlan", () => {
         skills: [
           makeIdealSkill("new-skill", {
             source: {
-              _tag: "GitHub",
+              source: "github",
               owner: "user",
               repo: "repo",
               ref: Option.none(),
-              path: Option.none(),
+              subPath: Option.none(),
             },
             version: Option.none(),
             gitTreeHash: Option.some("abc123"),
@@ -167,7 +157,7 @@ describe("buildPlan", () => {
       expect(plan.steps[0]?._tag).toBe("InstallSkill");
       const step = plan.steps[0] as PlanStep & { _tag: "InstallSkill" };
       expect(step.skill).toBe("new-skill");
-      expect(step.source._tag).toBe("GitHub");
+      expect(step.source.source).toBe("github");
       expect(step.gitTreeHash).toEqual(Option.some("abc123"));
       expect(step.agents).toEqual(["claude", "cursor"]);
     });
@@ -240,11 +230,8 @@ describe("buildPlan", () => {
     it("creates UpdateSkill when version differs for registry source", () => {
       const locked = makeLockedSkill("pkg", {
         source: {
-          _tag: "Registry",
-          location: defaultLocation,
-          scope: "default",
-          name: "pkg",
-          version: Option.some("1.0.0"),
+          source: "registry",
+          url: "https://registry.example.com",
         },
         version: Option.some("1.0.0"),
         gitTreeHash: Option.some("old-hash"),
@@ -258,11 +245,8 @@ describe("buildPlan", () => {
         skills: [
           makeIdealSkill("pkg", {
             source: {
-              _tag: "Registry",
-              location: defaultLocation,
-              scope: "default",
-              name: "pkg",
-              version: Option.some("2.0.0"),
+              source: "registry",
+              url: "https://registry.example.com",
             },
             version: Option.some("2.0.0"),
             gitTreeHash: Option.some("new-hash"),
@@ -285,11 +269,8 @@ describe("buildPlan", () => {
     it("does not create UpdateSkill when version is same for registry source", () => {
       const locked = makeLockedSkill("pkg", {
         source: {
-          _tag: "Registry",
-          location: defaultLocation,
-          scope: "default",
-          name: "pkg",
-          version: Option.some("1.0.0"),
+          source: "registry",
+          url: "https://registry.example.com",
         },
         version: Option.some("1.0.0"),
         gitTreeHash: Option.some("hash1"),
@@ -303,11 +284,8 @@ describe("buildPlan", () => {
         skills: [
           makeIdealSkill("pkg", {
             source: {
-              _tag: "Registry",
-              location: defaultLocation,
-              scope: "default",
-              name: "pkg",
-              version: Option.some("1.0.0"),
+              source: "registry",
+              url: "https://registry.example.com",
             },
             version: Option.some("1.0.0"),
             gitTreeHash: Option.some("hash2"), // Different hash but same version
@@ -327,11 +305,11 @@ describe("buildPlan", () => {
     it("creates UpdateSkill when hash differs for GitHub source", () => {
       const locked = makeLockedSkill("git-skill", {
         source: {
-          _tag: "GitHub",
+          source: "github",
           owner: "user",
           repo: "repo",
           ref: Option.some("main"),
-          path: Option.none(),
+          subPath: Option.none(),
         },
         version: Option.none(),
         gitTreeHash: Option.some("old-hash"),
@@ -345,11 +323,11 @@ describe("buildPlan", () => {
         skills: [
           makeIdealSkill("git-skill", {
             source: {
-              _tag: "GitHub",
+              source: "github",
               owner: "user",
               repo: "repo",
               ref: Option.some("main"),
-              path: Option.none(),
+              subPath: Option.none(),
             },
             version: Option.none(),
             gitTreeHash: Option.some("new-hash"),
@@ -372,11 +350,11 @@ describe("buildPlan", () => {
       const hash = Option.some("same-hash");
       const locked = makeLockedSkill("git-skill", {
         source: {
-          _tag: "GitHub",
+          source: "github",
           owner: "user",
           repo: "repo",
           ref: Option.some("main"),
-          path: Option.none(),
+          subPath: Option.none(),
         },
         version: Option.none(),
         gitTreeHash: hash,
@@ -390,11 +368,11 @@ describe("buildPlan", () => {
         skills: [
           makeIdealSkill("git-skill", {
             source: {
-              _tag: "GitHub",
+              source: "github",
               owner: "user",
               repo: "repo",
               ref: Option.some("main"),
-              path: Option.none(),
+              subPath: Option.none(),
             },
             version: Option.none(),
             gitTreeHash: hash,
@@ -411,11 +389,11 @@ describe("buildPlan", () => {
     it("always creates UpdateSkill when ideal GitHub source has no hash (API unavailable)", () => {
       const locked = makeLockedSkill("git-skill", {
         source: {
-          _tag: "GitHub",
+          source: "github",
           owner: "user",
           repo: "repo",
           ref: Option.some("main"),
-          path: Option.none(),
+          subPath: Option.none(),
         },
         version: Option.none(),
         gitTreeHash: Option.some("existing-hash"),
@@ -429,11 +407,11 @@ describe("buildPlan", () => {
         skills: [
           makeIdealSkill("git-skill", {
             source: {
-              _tag: "GitHub",
+              source: "github",
               owner: "user",
               repo: "repo",
               ref: Option.some("main"),
-              path: Option.none(),
+              subPath: Option.none(),
             },
             version: Option.none(),
             gitTreeHash: Option.none(), // API unavailable
@@ -456,11 +434,11 @@ describe("buildPlan", () => {
     it("always creates UpdateSkill when locked GitHub source has no hash", () => {
       const locked = makeLockedSkill("git-skill", {
         source: {
-          _tag: "GitHub",
+          source: "github",
           owner: "user",
           repo: "repo",
           ref: Option.some("main"),
-          path: Option.none(),
+          subPath: Option.none(),
         },
         version: Option.none(),
         gitTreeHash: Option.none(), // Previously installed without hash
@@ -474,11 +452,11 @@ describe("buildPlan", () => {
         skills: [
           makeIdealSkill("git-skill", {
             source: {
-              _tag: "GitHub",
+              source: "github",
               owner: "user",
               repo: "repo",
               ref: Option.some("main"),
-              path: Option.none(),
+              subPath: Option.none(),
             },
             version: Option.none(),
             gitTreeHash: Option.some("new-hash"),
@@ -501,11 +479,11 @@ describe("buildPlan", () => {
     it("always creates UpdateSkill when both ideal and locked GitHub sources have no hash", () => {
       const locked = makeLockedSkill("git-skill", {
         source: {
-          _tag: "GitHub",
+          source: "github",
           owner: "user",
           repo: "repo",
           ref: Option.some("main"),
-          path: Option.none(),
+          subPath: Option.none(),
         },
         version: Option.none(),
         gitTreeHash: Option.none(),
@@ -519,11 +497,11 @@ describe("buildPlan", () => {
         skills: [
           makeIdealSkill("git-skill", {
             source: {
-              _tag: "GitHub",
+              source: "github",
               owner: "user",
               repo: "repo",
               ref: Option.some("main"),
-              path: Option.none(),
+              subPath: Option.none(),
             },
             version: Option.none(),
             gitTreeHash: Option.none(),
@@ -543,7 +521,7 @@ describe("buildPlan", () => {
   describe("UpdateSkill for Local sources", () => {
     it("always creates UpdateSkill for local sources", () => {
       const locked = makeLockedSkill("local-skill", {
-        source: { _tag: "Local", path: "/path/to/skill" },
+        source: { source: "local", path: "/path/to/skill" },
         version: Option.none(),
         gitTreeHash: Option.some("same-hash"),
         agents: ["claude"],
@@ -555,7 +533,7 @@ describe("buildPlan", () => {
       const ideal: IdealState = {
         skills: [
           makeIdealSkill("local-skill", {
-            source: { _tag: "Local", path: "/path/to/skill" },
+            source: { source: "local", path: "/path/to/skill" },
             version: Option.none(),
             gitTreeHash: Option.some("same-hash"), // Same hash
             agents: ["claude"],
@@ -575,11 +553,8 @@ describe("buildPlan", () => {
     it("handles install, update, and uninstall in same plan", () => {
       const lockedToUpdate = makeLockedSkill("update-me", {
         source: {
-          _tag: "Registry",
-          location: defaultLocation,
-          scope: "default",
-          name: "update-me",
-          version: Option.some("1.0.0"),
+          source: "registry",
+          url: "https://registry.example.com",
         },
         version: Option.some("1.0.0"),
         agents: ["claude"],
@@ -598,11 +573,8 @@ describe("buildPlan", () => {
         skills: [
           makeIdealSkill("update-me", {
             source: {
-              _tag: "Registry",
-              location: defaultLocation,
-              scope: "default",
-              name: "update-me",
-              version: Option.some("2.0.0"),
+              source: "registry",
+              url: "https://registry.example.com",
             },
             version: Option.some("2.0.0"),
             agents: ["claude"],
@@ -638,11 +610,11 @@ describe("buildPlan", () => {
       // Skill was installed from GitHub, now being reinstalled from Registry
       const locked = makeLockedSkill("my-skill", {
         source: {
-          _tag: "GitHub",
+          source: "github",
           owner: "old",
           repo: "repo",
           ref: Option.none(),
-          path: Option.none(),
+          subPath: Option.none(),
         },
         version: Option.none(),
         gitTreeHash: Option.some("old-hash"),
@@ -656,11 +628,8 @@ describe("buildPlan", () => {
         skills: [
           makeIdealSkill("my-skill", {
             source: {
-              _tag: "Registry",
-              location: defaultLocation,
-              scope: "default",
-              name: "my-skill",
-              version: Option.some("1.0.0"),
+              source: "registry",
+              url: "https://registry.example.com",
             },
             version: Option.some("1.0.0"),
             gitTreeHash: Option.some("new-hash"),
@@ -695,7 +664,7 @@ describe("planHasChanges", () => {
         {
           _tag: "InstallSkill" as const,
           skill: "test",
-          source: { _tag: "Local" as const, path: "/test" },
+          source: { source: "local" as const, path: "/test" },
           version: Option.none(),
           gitTreeHash: Option.none(),
           agents: ["claude"],
@@ -711,7 +680,7 @@ describe("planHasChanges", () => {
         {
           _tag: "UpdateSkill" as const,
           skill: "test",
-          source: { _tag: "Local" as const, path: "/test" },
+          source: { source: "local" as const, path: "/test" },
           fromVersion: Option.none(),
           toVersion: Option.none(),
           fromHash: Option.none(),
@@ -742,7 +711,7 @@ describe("planHasChanges", () => {
         {
           _tag: "InstallSkill" as const,
           skill: "test1",
-          source: { _tag: "Local" as const, path: "/test1" },
+          source: { source: "local" as const, path: "/test1" },
           version: Option.none(),
           gitTreeHash: Option.none(),
           agents: ["claude"],
@@ -778,7 +747,7 @@ describe("getPlanSummary", () => {
         {
           _tag: "InstallSkill" as const,
           skill: "test1",
-          source: { _tag: "Local" as const, path: "/test1" },
+          source: { source: "local" as const, path: "/test1" },
           version: Option.none(),
           gitTreeHash: Option.none(),
           agents: ["claude"],
@@ -786,7 +755,7 @@ describe("getPlanSummary", () => {
         {
           _tag: "InstallSkill" as const,
           skill: "test2",
-          source: { _tag: "Local" as const, path: "/test2" },
+          source: { source: "local" as const, path: "/test2" },
           version: Option.none(),
           gitTreeHash: Option.none(),
           agents: ["claude"],
@@ -806,7 +775,7 @@ describe("getPlanSummary", () => {
         {
           _tag: "UpdateSkill" as const,
           skill: "test",
-          source: { _tag: "Local" as const, path: "/test" },
+          source: { source: "local" as const, path: "/test" },
           fromVersion: Option.none(),
           toVersion: Option.none(),
           fromHash: Option.none(),
@@ -855,7 +824,7 @@ describe("getPlanSummary", () => {
         {
           _tag: "InstallSkill" as const,
           skill: "install1",
-          source: { _tag: "Local" as const, path: "/install1" },
+          source: { source: "local" as const, path: "/install1" },
           version: Option.none(),
           gitTreeHash: Option.none(),
           agents: ["claude"],
@@ -863,7 +832,7 @@ describe("getPlanSummary", () => {
         {
           _tag: "InstallSkill" as const,
           skill: "install2",
-          source: { _tag: "Local" as const, path: "/install2" },
+          source: { source: "local" as const, path: "/install2" },
           version: Option.none(),
           gitTreeHash: Option.none(),
           agents: ["claude"],
@@ -871,7 +840,7 @@ describe("getPlanSummary", () => {
         {
           _tag: "UpdateSkill" as const,
           skill: "update1",
-          source: { _tag: "Local" as const, path: "/update1" },
+          source: { source: "local" as const, path: "/update1" },
           fromVersion: Option.none(),
           toVersion: Option.none(),
           fromHash: Option.none(),

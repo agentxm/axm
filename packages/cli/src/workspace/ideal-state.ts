@@ -13,11 +13,11 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
+import type { Source } from "../sources/types.js";
 import type {
   CurrentState,
   IdealSkillV2,
   IdealState,
-  SkillSourceV2,
   SkillStateV2,
 } from "../extensions/skills/state/types.js";
 
@@ -36,17 +36,144 @@ export class CommandError extends Data.TaggedError("CommandError")<{
 }> {}
 
 // =============================================================================
-// Command Types
+// WorkspaceOperation Types
 // =============================================================================
 
 /**
- * Command discriminated union for skills operations.
+ * Discovered skill from a source.
  *
  * @experimental This API is unstable and may change without notice.
  */
+export interface DiscoveredSkill {
+  readonly name: string;
+  readonly version: Option.Option<string>;
+  readonly gitTreeHash: Option.Option<string>;
+}
+
+/**
+ * Add a skill to the workspace.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface AddSkillOperation {
+  readonly _tag: "add-skill";
+  readonly source: Source;
+  readonly agents: ReadonlyArray<string>;
+  readonly skill: DiscoveredSkill;
+  readonly force: boolean;
+}
+
+/**
+ * Remove a skill from the workspace.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface RemoveSkillOperation {
+  readonly _tag: "remove-skill";
+  readonly name: string;
+}
+
+/**
+ * A workspace operation that transforms the ideal state.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type WorkspaceOperation = AddSkillOperation | RemoveSkillOperation;
+
+// =============================================================================
+// buildIdealState (operation-based)
+// =============================================================================
+
+/**
+ * Build ideal state by folding operations over current state.
+ *
+ * Starts from the current state's locked skills, then applies each operation:
+ * - `add-skill`: Add or replace a skill (with conflict check unless force)
+ * - `remove-skill`: Remove a skill (with existence check)
+ *
+ * @param current - Current workspace state
+ * @param ops - Operations to apply
+ * @returns Effect yielding ideal state or CommandError
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const buildIdealFromOperations = (
+  current: CurrentState,
+  ops: ReadonlyArray<WorkspaceOperation>,
+): Effect.Effect<IdealState, CommandError> =>
+  Effect.gen(function* () {
+    // Start from current locked skills
+    let skills: IdealSkillV2[] = pipe(current.skills, Array.filterMap(currentToIdeal));
+
+    for (const op of ops) {
+      switch (op._tag) {
+        case "add-skill": {
+          // Check for conflict
+          const existingIndex = skills.findIndex((s) => s.name === op.skill.name);
+          if (existingIndex >= 0 && !op.force) {
+            const existing = skills[existingIndex]!;
+            if (!sourcesEqual(existing.source, op.source)) {
+              return yield* Effect.fail(
+                new CommandError({
+                  message: `Skills already installed from different source: ${op.skill.name}`,
+                  cause: Option.none(),
+                }),
+              );
+            }
+          }
+
+          const newSkill: IdealSkillV2 = {
+            name: op.skill.name,
+            source: op.source,
+            version: op.skill.version,
+            gitTreeHash: op.skill.gitTreeHash,
+            agents: op.agents,
+          };
+
+          if (existingIndex >= 0) {
+            // Replace existing
+            skills = [
+              ...skills.slice(0, existingIndex),
+              newSkill,
+              ...skills.slice(existingIndex + 1),
+            ];
+          } else {
+            skills = [...skills, newSkill];
+          }
+          break;
+        }
+        case "remove-skill": {
+          const exists =
+            skills.some((s) => s.name === op.name) ||
+            pipe(
+              current.skills,
+              Array.some((s) => s.name === op.name),
+            );
+          if (!exists) {
+            return yield* Effect.fail(
+              new CommandError({
+                message: `Skills not found: ${op.name}`,
+                cause: Option.none(),
+              }),
+            );
+          }
+          skills = skills.filter((s) => s.name !== op.name);
+          break;
+        }
+      }
+    }
+
+    return { skills };
+  });
+
+// =============================================================================
+// Command Types (legacy - used by handlers until migrated)
+// =============================================================================
+
 /**
  * Install command.
  *
+ * @deprecated Use AddSkillOperation with buildIdealFromOperations instead.
  * @experimental This API is unstable and may change without notice.
  */
 export interface InstallCommand {
@@ -91,19 +218,8 @@ export interface UpdateCommand {
 export type Command = InstallCommand | UninstallCommand | UpdateCommand;
 
 // =============================================================================
-// Helper Types
+// Helper Types (legacy)
 // =============================================================================
-
-/**
- * Discovered skill from a source.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface DiscoveredSkill {
-  readonly name: string;
-  readonly version: Option.Option<string>;
-  readonly gitTreeHash: Option.Option<string>;
-}
 
 /**
  * Dependencies for buildIdealForInstall.
@@ -112,11 +228,11 @@ export interface DiscoveredSkill {
  * @experimental This API is unstable and may change without notice.
  */
 export interface BuildIdealDeps {
-  /** Parse source string into SkillSource */
-  readonly parseSource: (source: string) => Effect.Effect<SkillSourceV2, CommandError>;
+  /** Parse source string into Source */
+  readonly parseSource: (source: string) => Effect.Effect<Source, CommandError>;
   /** Discover skills from a source */
   readonly discoverSkills: (
-    source: SkillSourceV2,
+    source: Source,
   ) => Effect.Effect<ReadonlyArray<DiscoveredSkill>, CommandError>;
 }
 
@@ -142,28 +258,44 @@ const optionStringEquals = (a: Option.Option<string>, b: Option.Option<string>):
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const sourcesEqual = (a: SkillSourceV2, b: SkillSourceV2): boolean => {
-  if (a._tag !== b._tag) return false;
+export const sourcesEqual = (a: Source, b: Source): boolean => {
+  if (a.source !== b.source) return false;
 
-  switch (a._tag) {
-    case "Registry": {
+  switch (a.source) {
+    case "github":
+    case "gitlab":
+    case "bitbucket": {
+      const bHosting = b as typeof a;
+      return (
+        a.owner === bHosting.owner &&
+        a.repo === bHosting.repo &&
+        optionStringEquals(a.ref, bHosting.ref) &&
+        optionStringEquals(a.subPath, bHosting.subPath)
+      );
+    }
+    case "azurerepos": {
+      const bAzure = b as typeof a;
+      return (
+        a.organization === bAzure.organization &&
+        a.project === bAzure.project &&
+        a.repo === bAzure.repo &&
+        optionStringEquals(a.ref, bAzure.ref) &&
+        optionStringEquals(a.subPath, bAzure.subPath)
+      );
+    }
+    case "git": {
+      const bGit = b as typeof a;
+      const aUrl = "url" in a ? a.url : a.path;
+      const bUrl = "url" in bGit ? bGit.url : bGit.path;
+      return aUrl === bUrl && optionStringEquals(a.ref, bGit.ref);
+    }
+    case "registry": {
       const bReg = b as typeof a;
-      return (
-        a.scope === bReg.scope &&
-        a.name === bReg.name &&
-        optionStringEquals(a.version, bReg.version)
-      );
+      const aPath = "url" in a ? a.url : a.path;
+      const bPath = "url" in bReg ? bReg.url : bReg.path;
+      return aPath === bPath;
     }
-    case "GitHub": {
-      const bGH = b as typeof a;
-      return (
-        a.owner === bGH.owner &&
-        a.repo === bGH.repo &&
-        optionStringEquals(a.ref, bGH.ref) &&
-        optionStringEquals(a.path, bGH.path)
-      );
-    }
-    case "Local": {
+    case "local": {
       const bLocal = b as typeof a;
       return a.path === bLocal.path;
     }
@@ -363,7 +495,7 @@ export const buildIdealForUninstall = (
 export interface BuildIdealUpdateDeps {
   /** Fetch latest version/hash for a source */
   readonly fetchLatestVersion: (
-    source: SkillSourceV2,
+    source: Source,
   ) => Effect.Effect<
     { version: Option.Option<string>; gitTreeHash: Option.Option<string> },
     CommandError

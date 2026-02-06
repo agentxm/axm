@@ -3,7 +3,9 @@ import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
 import type { BitbucketSource } from "../types.js";
-import { BITBUCKET_SSH_PATTERN } from "./patterns.js";
+
+/** Matches: git@bitbucket.org:owner/repo.git */
+const BITBUCKET_SSH_PATTERN = /^git@bitbucket\.org:([^/]+)\/([^/]+?)(?:\.git)?$/;
 
 export const parseScp = (input: string) => {
   const match = input.match(BITBUCKET_SSH_PATTERN);

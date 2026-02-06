@@ -22,7 +22,10 @@ import {
 import { ParseError } from "./errors.js";
 import { resolveRepo as resolveGitHubRepo, config as githubConfig } from "./github/index.js";
 import { resolveRepo as resolveGitLabRepo, config as gitlabConfig } from "./gitlab/index.js";
-import { config as localConfig, LOCAL_PATH_PATTERN, parseLocalPath } from "./local/index.js";
+import { config as localConfig, parseLocalPath } from "./local/index.js";
+
+/** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
+const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
 import type { Source, SourceConfig } from "./types.js";
 
 // -----------------------------------------------------------------------------

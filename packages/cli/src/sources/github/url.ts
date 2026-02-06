@@ -3,7 +3,10 @@ import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
 import type { GitHubSource } from "../types.js";
-import { GITHUB_HTTPS_PATTERN } from "./patterns.js";
+
+/** Matches: https://github.com/owner/repo[/tree/ref/path] */
+const GITHUB_HTTPS_PATTERN =
+  /^https?:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/tree\/([^/]+)(?:\/(.+))?)?$/;
 
 export const parseUrl = (url: URL) => {
   const match = url.href.match(GITHUB_HTTPS_PATTERN);

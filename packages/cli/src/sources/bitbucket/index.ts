@@ -5,7 +5,6 @@
  * @packageDocumentation
  */
 
-export { BITBUCKET_HTTPS_PATTERN, BITBUCKET_SSH_PATTERN } from "./patterns.js";
 export { resolveRepo } from "./resolve-repo.js";
 export { config } from "./config.js";
 export { print } from "./print.js";

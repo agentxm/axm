@@ -3,7 +3,9 @@ import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
 import type { GitLabSource } from "../types.js";
-import { GITLAB_SSH_PATTERN } from "./patterns.js";
+
+/** Matches: git@gitlab.com:owner/repo.git */
+const GITLAB_SSH_PATTERN = /^git@gitlab\.com:([^/]+)\/([^/]+?)(?:\.git)?$/;
 
 export const parseScp = (input: string) => {
   const match = input.match(GITLAB_SSH_PATTERN);

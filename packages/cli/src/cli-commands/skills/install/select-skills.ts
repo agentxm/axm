@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { DiscoveredSkill } from "./discover-skills.js";
+import type { SkillRef } from "./discover-skills.js";
 import { Clack } from "../../../clack-effect/index.js";
 import { InstallError } from "./handler.js";
 import { formatError } from "../../../utils/errors.js";
@@ -40,7 +40,7 @@ interface SelectSkillsArgs {
  * 4. Multiple skills -> `confirmSkillsToInstall` (multiselect prompt)
  */
 export const determineSkillsToInstall = (
-  skills: Array.NonEmptyReadonlyArray<DiscoveredSkill>,
+  skills: Array.NonEmptyReadonlyArray<SkillRef>,
   args: SelectSkillsArgs,
 ) =>
   Effect.gen(function* () {
@@ -50,14 +50,14 @@ export const determineSkillsToInstall = (
     if (args.requestedSkills.length > 0) {
       const invalidSkills = Array.filter(
         args.requestedSkills,
-        (name) => !skills.some((s) => s.name === name),
+        (name) => !skills.some((s) => s.skill.name === name),
       );
 
       if (invalidSkills.length > 0) {
         return yield* new InstallError({
           message: formatError(
             `Unknown skill(s): ${invalidSkills.join(", ")}`,
-            [`Available: ${skills.map((s) => s.name).join(", ")}`],
+            [`Available: ${skills.map((s) => s.skill.name).join(", ")}`],
             "Check the skill names and try again.",
           ),
           cause: Option.none(),
@@ -65,7 +65,7 @@ export const determineSkillsToInstall = (
         });
       }
 
-      return Array.filter(skills, (s) => args.requestedSkills.includes(s.name));
+      return Array.filter(skills, (s) => args.requestedSkills.includes(s.skill.name));
     }
 
     // 2. --all / --dry-run / --yes -> return all
@@ -89,18 +89,18 @@ export const determineSkillsToInstall = (
  * Shows a multiselect prompt with all skills pre-selected.
  * Maps prompt errors to `InstallError`.
  */
-export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<DiscoveredSkill>) =>
+export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<SkillRef>) =>
   Effect.gen(function* () {
     const clack = yield* Clack;
 
     return yield* clack
       .multiselect("Select skills to install", skills, {
         toOption: (s) => ({
-          value: s.name,
-          label: s.name,
-          hint: Option.some(s.description),
+          value: s.skill.name,
+          label: s.skill.name,
+          hint: Option.some(s.skill.description),
         }),
-        initialValues: Option.some(Array.map(skills, (s) => s.name)),
+        initialValues: Option.some(Array.map(skills, (s) => s.skill.name)),
         required: Option.some(true),
       })
       .pipe(

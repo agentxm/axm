@@ -17,7 +17,7 @@
 
 import type { AgentConfig } from "../../../agents/index.js";
 import { parseSource, printSource, type Source } from "../../../extensions/skills/index.js";
-import { discoverSkills, type DiscoveredSkill } from "./discover-skills.js";
+import { discoverSkills, type SkillRef } from "./discover-skills.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 import { fetchGitHubTreeHash } from "../../../sources/index.js";
 import {
@@ -99,7 +99,7 @@ export class InstallError extends Data.TaggedError("InstallError")<{
  */
 const buildAddOperations = (
   source: Source,
-  skills: readonly DiscoveredSkill[],
+  skills: readonly SkillRef[],
   agents: ReadonlyArray<string>,
   force: boolean,
 ) =>
@@ -111,8 +111,8 @@ const buildAddOperations = (
 
         if (source.source === "github") {
           const pathInRepo = Option.match(source.subPath, {
-            onNone: () => skill.name,
-            onSome: (p) => `${p}/${skill.name}`,
+            onNone: () => skill.skill.name,
+            onSome: (p) => `${p}/${skill.skill.name}`,
           });
 
           gitTreeHash = yield* fetchGitHubTreeHash(
@@ -131,7 +131,7 @@ const buildAddOperations = (
           source,
           agents,
           skill: {
-            name: skill.name,
+            name: skill.skill.name,
             version: Option.none(),
             gitTreeHash,
           },
@@ -257,9 +257,9 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       // Step 6: List mode -> display and exit
       if (args.list) {
         yield* clack.log.info("Available skills:");
-        for (const skill of discoveredSkills) {
-          const desc = skill.description ? ` - ${skill.description}` : "";
-          yield* clack.log.message(`  ${skill.name}${desc}`);
+        for (const ref of discoveredSkills) {
+          const desc = ref.skill.description ? ` - ${ref.skill.description}` : "";
+          yield* clack.log.message(`  ${ref.skill.name}${desc}`);
         }
         yield* clack.outro(`${discoveredSkills.length} skill(s) available`);
         return;
@@ -274,7 +274,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         yes: args.yes,
       });
 
-      const selectedSkillNames = Array.map(selectedSkills, (s) => s.name);
+      const selectedSkillNames = Array.map(selectedSkills, (s) => s.skill.name);
 
       if (!Array.isNonEmptyReadonlyArray(selectedSkillNames)) {
         yield* clack.log.warn("No skills selected.");
@@ -370,7 +370,11 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       // Build a name->path map from discovered skills for file operations.
       // The plan stores source info for lockfile/settings, but file operations
       // need the path to each specific skill folder.
-      const skillPathMap = new Map(discoveredSkills.map((s) => [s.name, s.path]));
+      const skillPathMap = new Map(
+        Array.filterMap(discoveredSkills, (s) =>
+          Option.map(s.path, (p) => [s.skill.name, p] as const),
+        ),
+      );
 
       const applyStepWithSkillPath = (step: PlanStep) => {
         if (step._tag === "InstallSkill" || step._tag === "UpdateSkill") {

@@ -27,6 +27,11 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import YAML from "yaml";
 import { type Clack, makeClackTestLayer } from "../../../clack-effect/index.js";
+import {
+  WorkspaceContextTag,
+  layer as workspaceLayer,
+  type WorkspaceContextOptions,
+} from "../../../workspace/index.js";
 import { handleInstall, type InstallArgs, InstallError } from "./handler.js";
 
 // Mock git operations to use local fixtures instead of cloning
@@ -159,9 +164,36 @@ describe("install.handler", () => {
   });
 
   /**
-   * Helper function to provide the test layer to an effect.
+   * Helper function to provide the test layer including WorkspaceContext.
+   * Workspace options default to { global: false, yes: true, nonInteractive: true }.
+   *
+   * NOTE: The workspace layer is built eagerly by Effect.provide, so it runs
+   * BEFORE the Effect.gen body. Tests that set up state before yielding
+   * WorkspaceContextTag should use withBaseTestLayer + inline workspace layer.
    */
-  const withTestLayer = <A, E>(
+  const withTestLayer = (wsOverrides?: { global?: boolean; agents?: readonly string[] }) => {
+    const wsOpts: WorkspaceContextOptions = {
+      global: wsOverrides?.global ?? false,
+      yes: true,
+      nonInteractive: true,
+      ...(wsOverrides?.agents && wsOverrides.agents.length > 0 && { agents: wsOverrides.agents }),
+    };
+    const WsLayer = Layer.provide(workspaceLayer(wsOpts), TestLayer);
+    const FullLayer = Layer.merge(TestLayer, WsLayer);
+    return <A, E>(
+      effect: Effect.Effect<
+        A,
+        E,
+        FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | Clack | WorkspaceContextTag
+      >,
+    ) => effect.pipe(Effect.provide(FullLayer));
+  };
+
+  /**
+   * Provide base test layers without WorkspaceContext.
+   * Use for tests that need to set up state before workspace layer construction.
+   */
+  const withBaseTestLayer = <A, E>(
     effect: Effect.Effect<A, E, FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | Clack>,
   ) => effect.pipe(Effect.provide(TestLayer));
 
@@ -215,6 +247,10 @@ describe("install.handler", () => {
     };
 
     fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings, null, 2));
+    // Create lockfile so workspace layer can read it
+    if (!fs.existsSync(path.join(axmDir, "axm-lock.yaml"))) {
+      fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
+    }
   };
 
   // =============================================================================
@@ -224,7 +260,7 @@ describe("install.handler", () => {
   describe("reconciliation pattern", () => {
     describe("workspace initialization", () => {
       it.effect("initializes .axm directory if not present", () =>
-        withTestLayer(
+        withTestLayer()(
           Effect.gen(function* () {
             const source = createSkillSource([{ name: "commit" }]);
             // Don't call initializeAxm() - let handler create it
@@ -248,7 +284,7 @@ describe("install.handler", () => {
 
     describe("dry-run mode", () => {
       it.effect("displays plan without making changes in dry-run mode", () =>
-        withTestLayer(
+        withTestLayer()(
           Effect.gen(function* () {
             const source = createSkillSource([{ name: "commit" }]);
             initializeAxm();
@@ -274,7 +310,7 @@ describe("install.handler", () => {
       );
 
       it.effect("auto-selects all skills in dry-run mode", () =>
-        withTestLayer(
+        withTestLayer()(
           Effect.gen(function* () {
             const source = createSkillSource([{ name: "commit" }, { name: "review-pr" }]);
             initializeAxm();
@@ -307,7 +343,7 @@ describe("install.handler", () => {
 
     describe("force flag for unhealthy workspace", () => {
       it.effect("proceeds with installation when --force is used", () =>
-        withTestLayer(
+        withTestLayer()(
           Effect.gen(function* () {
             const source = createSkillSource([{ name: "commit" }]);
             initializeAxm();
@@ -341,7 +377,7 @@ describe("install.handler", () => {
       );
 
       it.effect("overwrites existing skills with --force", () =>
-        withTestLayer(
+        withTestLayer()(
           Effect.gen(function* () {
             // Create initial source
             const sourceDir1 = path.join(tempDir, "source-1");
@@ -400,7 +436,7 @@ describe("install.handler", () => {
 
     describe("plan computation", () => {
       it.effect("reports 'already up to date' when no changes needed", () =>
-        withTestLayer(
+        withTestLayer()(
           Effect.gen(function* () {
             const source = createSkillSource([{ name: "commit" }]);
             initializeAxm();
@@ -436,7 +472,7 @@ describe("install.handler", () => {
 
   describe("source parsing", () => {
     it.effect("fails with InstallError for invalid source format", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           initializeAxm();
           const args: InstallArgs = {
@@ -455,7 +491,7 @@ describe("install.handler", () => {
     );
 
     it.effect("recognizes GitHub source type in list mode", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -481,7 +517,7 @@ describe("install.handler", () => {
 
   describe("source discovery", () => {
     it.effect("discovers skills from GitHub source via mock", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([
             { name: "commit", description: "Auto-commit helper" },
@@ -503,7 +539,7 @@ describe("install.handler", () => {
     );
 
     it.effect("handles local source directory (not yet supported)", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           fs.mkdirSync(sourceDir, { recursive: true });
           initializeAxm();
@@ -525,7 +561,7 @@ describe("install.handler", () => {
     );
 
     it.effect("handles non-existent local source path", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           initializeAxm();
 
@@ -552,7 +588,7 @@ describe("install.handler", () => {
 
   describe("agent handling", () => {
     it.effect("uses explicitly specified agents via --agent flag", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -583,7 +619,7 @@ describe("install.handler", () => {
     );
 
     it.effect("warns about invalid agent IDs", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -604,7 +640,7 @@ describe("install.handler", () => {
     );
 
     it.effect("handles mix of valid and invalid agent IDs", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -630,7 +666,7 @@ describe("install.handler", () => {
 
   describe("non-interactive mode with --yes flag", () => {
     it.effect("skips agent selection prompt with --yes", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -650,7 +686,7 @@ describe("install.handler", () => {
     );
 
     it.effect("skips skill selection prompt with --yes and --all", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }, { name: "review-pr" }]);
           initializeAxm();
@@ -689,7 +725,7 @@ describe("install.handler", () => {
     );
 
     it.effect("skips confirmation prompt with --yes", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -714,7 +750,7 @@ describe("install.handler", () => {
 
   describe("--all flag", () => {
     it.effect("installs all discovered skills with --all", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([
             { name: "skill-1" },
@@ -760,7 +796,7 @@ describe("install.handler", () => {
 
   describe("--skill flag for specific skills", () => {
     it.effect("installs only specified skills with --skill", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([
             { name: "commit" },
@@ -801,7 +837,7 @@ describe("install.handler", () => {
     );
 
     it.effect("warns about unknown skill names", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -827,7 +863,7 @@ describe("install.handler", () => {
     );
 
     it.effect("handles empty result when all specified skills are invalid", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -853,7 +889,7 @@ describe("install.handler", () => {
 
   describe("--list flag", () => {
     it.effect("lists available skills without installing", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([
             { name: "commit", description: "Auto-commit helper" },
@@ -890,7 +926,7 @@ describe("install.handler", () => {
 
   describe("settings and lockfile updates", () => {
     it.effect("updates settings.json with installed skill", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -916,7 +952,7 @@ describe("install.handler", () => {
     );
 
     it.effect("creates axm-lock.yaml with installed skill entry", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -957,7 +993,7 @@ describe("install.handler", () => {
   describe("canonical skill storage", () => {
     // V2 stores skills at .axm/extensions/external/skills/<name>/ for GitHub sources
     it.effect("copies skill to .axm/extensions/external/skills/<name>/", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -988,7 +1024,7 @@ describe("install.handler", () => {
     );
 
     it.effect("preserves skill directory structure", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           // Create skill with subdirectories via createSkillSource helper
           // which sets up the mock to use the local fixture
@@ -1035,7 +1071,7 @@ describe("install.handler", () => {
 
   describe("global flag", () => {
     it.effect("uses ~/.axm for global installations", () =>
-      withTestLayer(
+      withTestLayer({ global: true })(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
 
@@ -1132,7 +1168,7 @@ describe("install.handler", () => {
 
   describe("error scenarios", () => {
     it.effect("returns InstallError with descriptive message for parsing errors", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           initializeAxm();
 
@@ -1152,7 +1188,7 @@ describe("install.handler", () => {
     );
 
     it.effect("handles discovery errors gracefully", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           initializeAxm();
 
@@ -1178,7 +1214,7 @@ describe("install.handler", () => {
 
   describe("error messages with recovery guidance", () => {
     it.effect("invalid source error suggests valid source formats", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           initializeAxm();
 
@@ -1203,7 +1239,7 @@ describe("install.handler", () => {
     );
 
     it.effect("local source empty directory error", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           fs.mkdirSync(sourceDir, { recursive: true });
           initializeAxm();
@@ -1263,7 +1299,7 @@ describe("install.handler", () => {
     // V2 behavior: Re-installing from the same source updates the skill
     // (no skipping). Only different sources trigger conflicts requiring --force.
     it.effect("updates skill when reinstalling from same source (V2 behavior)", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           // Create initial source with specific content
           const sourceDir1 = path.join(tempDir, "source-1");
@@ -1319,7 +1355,7 @@ describe("install.handler", () => {
     );
 
     it.effect("updates existing and installs new skills from same source (V2 behavior)", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           // Create initial source with one skill
           const sourceDir1 = path.join(tempDir, "source-1");
@@ -1387,7 +1423,7 @@ describe("install.handler", () => {
     );
 
     it.effect("exits early when all selected skills already installed", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -1424,7 +1460,7 @@ describe("install.handler", () => {
 
   describe("--force flag", () => {
     it.effect("updates lockfile when overwriting with --force", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           // Create initial source
           const sourceDir1 = path.join(tempDir, "source-1");
@@ -1476,7 +1512,7 @@ describe("install.handler", () => {
     );
 
     it.effect("installs both existing and new skills with --force", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           // Create initial source
           const sourceDir1 = path.join(tempDir, "source-1");
@@ -1547,7 +1583,7 @@ describe("install.handler", () => {
 
   describe("settings schema", () => {
     it.effect("creates settings with skills at root level", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           // Don't initialize - let handler create fresh settings
@@ -1573,7 +1609,7 @@ describe("install.handler", () => {
     );
 
     it.effect("preserves existing settings when adding new skills", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           // Initialize with existing settings
           const axmDir = path.join(tempDir, ".axm");
@@ -1618,7 +1654,7 @@ describe("install.handler", () => {
 
   describe("lockfile schema", () => {
     it.effect("creates lockfile with lockfileVersion and extensions structure", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -1641,7 +1677,7 @@ describe("install.handler", () => {
     );
 
     it.effect("lockfile entry contains required fields", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -1673,7 +1709,7 @@ describe("install.handler", () => {
     );
 
     it.effect("lockfile timestamps are valid ISO strings", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -1706,7 +1742,7 @@ describe("install.handler", () => {
 
   describe("explicit source prefix patterns", () => {
     it.effect("parses github: prefix correctly", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           // Set up a valid fixture so we can verify parsing works
           const source = createSkillSource([{ name: "commit" }]);
@@ -1728,7 +1764,7 @@ describe("install.handler", () => {
     );
 
     it.effect("parses gitlab: prefix correctly", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           initializeAxm();
 
@@ -1757,7 +1793,7 @@ describe("install.handler", () => {
     );
 
     it.effect("stores skill source in lockfile (local with cached path)", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -1789,7 +1825,7 @@ describe("install.handler", () => {
 
   describe("state-based application (applyPlan)", () => {
     it.effect("uses applyPlan for installation (not direct manipulation)", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           // Create a local source directory with a skill
           fs.mkdirSync(sourceDir, { recursive: true });
@@ -1845,7 +1881,7 @@ describe("install.handler", () => {
 
   describe("source normalization", () => {
     it.effect("preserves original source type in lockfile (V2 behavior)", () =>
-      withTestLayer(
+      withTestLayer()(
         Effect.gen(function* () {
           const source = createSkillSource([{ name: "commit" }]);
           initializeAxm();
@@ -1892,7 +1928,7 @@ describe("install.handler", () => {
 
     describe("agent handling in non-interactive mode", () => {
       it.effect("exits gracefully when no agents in settings and no --agent flag", () =>
-        withTestLayer(
+        withBaseTestLayer(
           Effect.gen(function* () {
             isInteractiveMock.mockReturnValue(false);
             const source = createSkillSource([{ name: "commit" }]);
@@ -1906,8 +1942,14 @@ describe("install.handler", () => {
               yes: true,
             };
 
+            // Provide workspace layer after initializeAxm so it reads empty agents
+            const WsLayer = Layer.provide(
+              workspaceLayer({ global: false, yes: true, nonInteractive: true }),
+              TestLayer,
+            );
+
             // Should complete without error (early exit when no agents configured)
-            yield* handleInstall(args);
+            yield* handleInstall(args).pipe(Effect.provide(WsLayer));
 
             // Skill should NOT be installed because no agents were configured
             expect(
@@ -1920,7 +1962,7 @@ describe("install.handler", () => {
       );
 
       it.effect("succeeds when --agent flag is explicitly set", () =>
-        withTestLayer(
+        withTestLayer()(
           Effect.gen(function* () {
             isInteractiveMock.mockReturnValue(false);
             const source = createSkillSource([{ name: "commit" }]);
@@ -1955,7 +1997,7 @@ describe("install.handler", () => {
       );
 
       it.effect("uses agents from settings when available", () =>
-        withTestLayer(
+        withTestLayer()(
           Effect.gen(function* () {
             isInteractiveMock.mockReturnValue(false);
             const source = createSkillSource([{ name: "commit" }]);
@@ -1992,7 +2034,7 @@ describe("install.handler", () => {
 
     describe("skill selection in non-interactive mode", () => {
       it.effect("fails with InstallError when stdin is not TTY and no --all/--skill flag", () =>
-        withTestLayer(
+        withTestLayer()(
           Effect.gen(function* () {
             isInteractiveMock.mockReturnValue(false);
             const source = createSkillSource([{ name: "commit" }]);
@@ -2015,7 +2057,7 @@ describe("install.handler", () => {
       );
 
       it.effect("succeeds when stdin is not TTY but --all flag is set", () =>
-        withTestLayer(
+        withTestLayer()(
           Effect.gen(function* () {
             isInteractiveMock.mockReturnValue(false);
             const source = createSkillSource([{ name: "commit" }]);
@@ -2035,7 +2077,7 @@ describe("install.handler", () => {
       );
 
       it.effect("succeeds when stdin is not TTY but --skill flag is set", () =>
-        withTestLayer(
+        withTestLayer()(
           Effect.gen(function* () {
             isInteractiveMock.mockReturnValue(false);
             const source = createSkillSource([{ name: "commit" }, { name: "review-pr" }]);
@@ -2077,7 +2119,7 @@ describe("install.handler", () => {
 
     describe("confirmation in non-interactive mode", () => {
       it.effect("fails with InstallError when stdin is not TTY and confirmation needed", () =>
-        withTestLayer(
+        withTestLayer()(
           Effect.gen(function* () {
             isInteractiveMock.mockReturnValue(false);
             const source = createSkillSource([{ name: "commit" }]);

@@ -44,10 +44,10 @@ import {
   planHasChanges,
   updateLockfileForPlan,
   updateSettingsForPlan,
+  WorkspaceContextTag,
 } from "../../../workspace/index.js";
-import { make } from "../../../workspace/service.js";
 import { displayPlan } from "../display.js";
-import type { FileSystem, HttpClient, Path } from "@effect/platform";
+import type { FileSystem } from "@effect/platform";
 import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
@@ -312,13 +312,7 @@ const createBuildIdealDeps = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const handleInstall = (
-  args: InstallArgs,
-): Effect.Effect<
-  void,
-  InstallError,
-  FileSystem.FileSystem | HttpClient.HttpClient | Path.Path | Clack
-> => {
+export const handleInstall = (args: InstallArgs) => {
   const scopeLabel = args.global ? "global" : "project";
 
   return Effect.gen(function* () {
@@ -349,24 +343,8 @@ export const handleInstall = (
     );
     spinner.stop(`Source: ${printSource(source)} (${source.source})`);
 
-    // Step 2: Initialize workspace (auto-creates settings + lockfile if needed)
-    spinner.start("Checking initialization...");
-    const context = yield* make({
-      global: args.global,
-      yes: true,
-      nonInteractive: true,
-      ...(args.agent.length > 0 && { agents: args.agent }),
-    }).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: `Failed to initialize: ${error.message}`,
-            cause: Option.some(error),
-            retryable: false,
-          }),
-      ),
-    );
-    spinner.stop("Initialized");
+    // Step 2: Get workspace context (provided by runtime)
+    const context = yield* WorkspaceContextTag;
 
     // Step 3: Get agents from settings or --agent flag
     spinner.start("Loading agents...");

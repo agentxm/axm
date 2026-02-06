@@ -104,6 +104,14 @@ export const installCommand: CommandModule<{}, InstallArgs> = {
         nonInteractive: argv["non-interactive"],
         dryRun: argv["dry-run"],
       }),
+      {
+        workspace: {
+          global: argv.global,
+          yes: true,
+          nonInteractive: true,
+          ...(argv.agent.length > 0 && { agents: argv.agent }),
+        },
+      },
     );
   },
 };

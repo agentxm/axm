@@ -16,11 +16,17 @@ import type { Settings } from "../../settings/index.js";
 import type { FileSystem } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { describe, expect, it } from "@effect/vitest";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { Clack, makeClackTestLayer } from "../../clack-effect/index.js";
-import { handleInit, type InitArgs } from "./handler.js";
+import {
+  WorkspaceContextTag,
+  layer as workspaceLayer,
+  type WorkspaceContextOptions,
+} from "../../workspace/index.js";
+import { handleInit } from "./handler.js";
 
 describe("init.handler", () => {
   let tempDir: string;
@@ -41,13 +47,28 @@ describe("init.handler", () => {
   // Create mock Clack service for tests
   const [TestClackLayer] = makeClackTestLayer();
 
-  const withLayers = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Clack>) =>
-    effect.pipe(Effect.provide(Layer.merge(NodeFileSystem.layer, TestClackLayer)));
+  const TestLayer = Layer.mergeAll(NodeFileSystem.layer, TestClackLayer);
 
-  const defaultArgs: InitArgs = {
+  /**
+   * Create test layers including WorkspaceContext with the given options.
+   */
+  const withLayers = (wsOptions: WorkspaceContextOptions) => {
+    const WsLayer = Layer.provide(workspaceLayer(wsOptions), TestLayer);
+    return <A, E>(
+      effect: Effect.Effect<A, E, FileSystem.FileSystem | Clack | WorkspaceContextTag>,
+    ) => effect.pipe(Effect.provide(Layer.merge(TestLayer, WsLayer)));
+  };
+
+  /**
+   * Provide only base layers (FileSystem + Clack) without WorkspaceContext.
+   * Use for tests that need to catch workspace layer errors.
+   */
+  const withBaseLayers = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Clack>) =>
+    effect.pipe(Effect.provide(TestLayer));
+
+  const defaultWsOptions: WorkspaceContextOptions = {
     global: false,
-    agent: [],
-    yes: false,
+    yes: true,
     nonInteractive: false,
   };
 
@@ -57,11 +78,9 @@ describe("init.handler", () => {
 
   describe("workspace initialization", () => {
     it.effect("creates settings.json when no existing settings", () =>
-      withLayers(
+      withLayers(defaultWsOptions)(
         Effect.gen(function* () {
-          const args: InitArgs = { ...defaultArgs, yes: true };
-
-          yield* handleInit(args);
+          yield* handleInit();
 
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           expect(fs.existsSync(settingsPath)).toBe(true);
@@ -70,11 +89,9 @@ describe("init.handler", () => {
     );
 
     it.effect("creates .axm directory", () =>
-      withLayers(
+      withLayers(defaultWsOptions)(
         Effect.gen(function* () {
-          const args: InitArgs = { ...defaultArgs, yes: true };
-
-          yield* handleInit(args);
+          yield* handleInit();
 
           const axmDir = path.join(tempDir, ".axm");
           expect(fs.existsSync(axmDir)).toBe(true);
@@ -84,11 +101,9 @@ describe("init.handler", () => {
     );
 
     it.effect("creates lockfile when initializing", () =>
-      withLayers(
+      withLayers(defaultWsOptions)(
         Effect.gen(function* () {
-          const args: InitArgs = { ...defaultArgs, yes: true };
-
-          yield* handleInit(args);
+          yield* handleInit();
 
           const lockfilePath = path.join(tempDir, ".axm", "axm-lock.yaml");
           expect(fs.existsSync(lockfilePath)).toBe(true);
@@ -103,7 +118,7 @@ describe("init.handler", () => {
 
   describe("already-initialized workspace", () => {
     it.effect("succeeds when workspace already initialized", () =>
-      withLayers(
+      withLayers(defaultWsOptions)(
         Effect.gen(function* () {
           // Pre-create settings
           const axmDir = path.join(tempDir, ".axm");
@@ -115,8 +130,7 @@ describe("init.handler", () => {
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existingSettings));
           fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
 
-          const args: InitArgs = { ...defaultArgs, yes: true };
-          yield* handleInit(args);
+          yield* handleInit();
 
           // Should succeed without error
           expect(true).toBe(true);
@@ -125,7 +139,7 @@ describe("init.handler", () => {
     );
 
     it.effect("preserves existing settings", () =>
-      withLayers(
+      withLayers(defaultWsOptions)(
         Effect.gen(function* () {
           // Pre-create settings with specific data
           const axmDir = path.join(tempDir, ".axm");
@@ -140,8 +154,7 @@ describe("init.handler", () => {
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existingSettings));
           fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
 
-          const args: InitArgs = { ...defaultArgs, yes: true };
-          yield* handleInit(args);
+          yield* handleInit();
 
           // Settings should remain unchanged
           const settingsPath = path.join(axmDir, "settings.json");
@@ -160,10 +173,8 @@ describe("init.handler", () => {
 
   describe("global flag", () => {
     it.effect("creates settings in home directory when --global is set", () =>
-      withLayers(
+      withBaseLayers(
         Effect.gen(function* () {
-          const args: InitArgs = { ...defaultArgs, global: true, yes: true };
-
           // Clean up any existing global settings first
           const globalAxmDir = path.join(os.homedir(), ".axm");
           const settingsPath = path.join(globalAxmDir, "settings.json");
@@ -183,7 +194,12 @@ describe("init.handler", () => {
           }
 
           try {
-            yield* handleInit(args);
+            // Provide workspace layer after cleanup so it initializes fresh
+            const WsLayer = Layer.provide(
+              workspaceLayer({ ...defaultWsOptions, global: true }),
+              TestLayer,
+            );
+            yield* handleInit().pipe(Effect.provide(WsLayer));
 
             expect(fs.existsSync(settingsPath)).toBe(true);
           } finally {
@@ -207,10 +223,8 @@ describe("init.handler", () => {
     );
 
     it.effect("does not create settings in project directory when --global is set", () =>
-      withLayers(
+      withLayers({ ...defaultWsOptions, global: true })(
         Effect.gen(function* () {
-          const args: InitArgs = { ...defaultArgs, global: true, yes: true };
-
           // Backup and cleanup global settings
           const globalAxmDir = path.join(os.homedir(), ".axm");
           const globalSettingsPath = path.join(globalAxmDir, "settings.json");
@@ -230,7 +244,7 @@ describe("init.handler", () => {
           }
 
           try {
-            yield* handleInit(args);
+            yield* handleInit();
 
             const projectSettingsPath = path.join(tempDir, ".axm", "settings.json");
             expect(fs.existsSync(projectSettingsPath)).toBe(false);
@@ -261,31 +275,29 @@ describe("init.handler", () => {
 
   describe("non-interactive mode", () => {
     it.effect("fails when prompting is needed without --yes", () =>
-      withLayers(
+      withBaseLayers(
         Effect.gen(function* () {
-          const args: InitArgs = {
-            ...defaultArgs,
-            nonInteractive: true,
-            // No --yes, so prompting would be needed
-          };
+          const WsLayer = Layer.provide(
+            workspaceLayer({ global: false, yes: false, nonInteractive: true }),
+            TestLayer,
+          );
+          const error = yield* handleInit().pipe(
+            Effect.provide(WsLayer),
+            Effect.sandbox,
+            Effect.flip,
+          );
 
-          const error = yield* handleInit(args).pipe(Effect.flip);
-
-          expect(error._tag).toBe("WorkspaceInitializationError");
+          expect((Cause.squash(error) as { _tag: string })._tag).toBe(
+            "WorkspaceInitializationError",
+          );
         }),
       ),
     );
 
     it.effect("succeeds when --yes is provided with --non-interactive", () =>
-      withLayers(
+      withLayers({ global: false, yes: true, nonInteractive: true })(
         Effect.gen(function* () {
-          const args: InitArgs = {
-            ...defaultArgs,
-            yes: true,
-            nonInteractive: true,
-          };
-
-          yield* handleInit(args);
+          yield* handleInit();
 
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           expect(fs.existsSync(settingsPath)).toBe(true);
@@ -300,7 +312,7 @@ describe("init.handler", () => {
 
   describe("error handling", () => {
     it.effect("returns error when settings file is invalid JSON", () =>
-      withLayers(
+      withBaseLayers(
         Effect.gen(function* () {
           // Pre-create invalid settings file
           const axmDir = path.join(tempDir, ".axm");
@@ -308,10 +320,14 @@ describe("init.handler", () => {
           fs.writeFileSync(path.join(axmDir, "settings.json"), "not valid json {{{");
           fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
 
-          const args: InitArgs = { ...defaultArgs, yes: true };
-          const error = yield* handleInit(args).pipe(Effect.flip);
+          const WsLayer = Layer.provide(workspaceLayer(defaultWsOptions), TestLayer);
+          const error = yield* handleInit().pipe(
+            Effect.provide(WsLayer),
+            Effect.sandbox,
+            Effect.flip,
+          );
 
-          expect(error._tag).toBe("SettingsParseError");
+          expect((Cause.squash(error) as { _tag: string })._tag).toBe("SettingsParseError");
         }),
       ),
     );

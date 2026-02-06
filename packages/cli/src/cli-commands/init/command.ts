@@ -42,13 +42,13 @@ export const initCommand: CommandModule<{}, InitArgs> = {
       .example("$0 init --global", "Initialize in ~/.axm/ for user-wide configuration")
       .example("$0 init --agent claude-code --agent cursor", "Initialize with specific agents"),
   handler: async (argv) => {
-    await run(
-      handleInit({
+    await run(handleInit(), {
+      workspace: {
         global: argv.global,
-        agent: argv.agent,
         yes: argv.yes,
-        nonInteractive: argv["non-interactive"],
-      }),
-    );
+        nonInteractive: argv["non-interactive"] ?? false,
+        ...(argv.agent.length > 0 && { agents: argv.agent }),
+      },
+    });
   },
 };

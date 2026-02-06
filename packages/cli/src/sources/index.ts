@@ -30,8 +30,11 @@ export { isGitHostingProviderSource } from "./utils.js";
 // Errors
 export { CloneUrlError, ParseError } from "./errors.js";
 
-// Main parser + print
-export { parseSource, printSource } from "./parser.js";
+// Main parser
+export { parseSource } from "./parser.js";
+
+// Printer
+export { printSource } from "./printer.js";
 
 // Clone URL utilities
 export { buildCloneUrl, getOrigin } from "./clone-url.js";

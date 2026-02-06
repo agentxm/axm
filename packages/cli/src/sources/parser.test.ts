@@ -10,7 +10,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { buildCloneUrl, getOrigin } from "./clone-url.js";
 import { ParseError } from "./errors.js";
-import { type InputPattern, parseInputPattern, parseSource, printSource } from "./parser.js";
+import { type InputPattern, parseInputPattern, parseSource } from "./parser.js";
+import { printSource } from "./printer.js";
 
 describe("source-parser", () => {
   let originalFetch: typeof globalThis.fetch;
@@ -84,7 +85,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("github:owner/repo/skills/my-skill@v1.0.0");
 
         expect(result.source).toBe("github");
-        expect(printSource(result)).toBe("github:owner/repo");
+        expect(printSource(result)).toBe("github:owner/repo/skills/my-skill@v1.0.0");
         if (result.source === "github") {
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
@@ -99,7 +100,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("gitlab:owner/repo@main");
 
         expect(result.source).toBe("gitlab");
-        expect(printSource(result)).toBe("gitlab:owner/repo");
+        expect(printSource(result)).toBe("gitlab:owner/repo@main");
         if (result.source === "gitlab") {
           expect(result.ref).toEqual(Option.some("main"));
         }
@@ -139,7 +140,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("https://github.com/owner/repo/tree/main");
 
         expect(result.source).toBe("github");
-        expect(printSource(result)).toBe("github:owner/repo");
+        expect(printSource(result)).toBe("github:owner/repo@main");
         if (result.source === "github") {
           expect(result.ref).toEqual(Option.some("main"));
           expect(Option.isNone(result.subPath)).toBe(true);
@@ -154,7 +155,7 @@ describe("source-parser", () => {
         );
 
         expect(result.source).toBe("github");
-        expect(printSource(result)).toBe("github:owner/repo");
+        expect(printSource(result)).toBe("github:owner/repo/skills/my-skill@main");
         if (result.source === "github") {
           expect(result.ref).toEqual(Option.some("main"));
           expect(result.subPath).toEqual(Option.some("skills/my-skill"));
@@ -200,7 +201,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("https://gitlab.com/owner/repo/-/tree/main");
 
         expect(result.source).toBe("gitlab");
-        expect(printSource(result)).toBe("gitlab:owner/repo");
+        expect(printSource(result)).toBe("gitlab:owner/repo@main");
         if (result.source === "gitlab") {
           expect(result.ref).toEqual(Option.some("main"));
         }
@@ -214,7 +215,7 @@ describe("source-parser", () => {
         );
 
         expect(result.source).toBe("gitlab");
-        expect(printSource(result)).toBe("gitlab:owner/repo");
+        expect(printSource(result)).toBe("gitlab:owner/repo/skills/my-skill@main");
         if (result.source === "gitlab") {
           expect(result.ref).toEqual(Option.some("main"));
           expect(result.subPath).toEqual(Option.some("skills/my-skill"));
@@ -303,7 +304,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("https://bitbucket.org/owner/repo/src/main");
 
         expect(result.source).toBe("bitbucket");
-        expect(printSource(result)).toBe("bitbucket:owner/repo");
+        expect(printSource(result)).toBe("bitbucket:owner/repo@main");
         if (result.source === "bitbucket") {
           expect(result.ref).toEqual(Option.some("main"));
           expect(Option.isNone(result.subPath)).toBe(true);
@@ -318,7 +319,7 @@ describe("source-parser", () => {
         );
 
         expect(result.source).toBe("bitbucket");
-        expect(printSource(result)).toBe("bitbucket:owner/repo");
+        expect(printSource(result)).toBe("bitbucket:owner/repo/skills/my-skill@main");
         if (result.source === "bitbucket") {
           expect(result.ref).toEqual(Option.some("main"));
           expect(result.subPath).toEqual(Option.some("skills/my-skill"));
@@ -420,7 +421,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("bitbucket:owner/repo@v1.0.0");
 
         expect(result.source).toBe("bitbucket");
-        expect(printSource(result)).toBe("bitbucket:owner/repo");
+        expect(printSource(result)).toBe("bitbucket:owner/repo@v1.0.0");
         if (result.source === "bitbucket") {
           expect(result.ref).toEqual(Option.some("v1.0.0"));
         }
@@ -432,7 +433,7 @@ describe("source-parser", () => {
         const result = yield* parseSource("bitbucket:owner/repo/skills/my-skill@main");
 
         expect(result.source).toBe("bitbucket");
-        expect(printSource(result)).toBe("bitbucket:owner/repo");
+        expect(printSource(result)).toBe("bitbucket:owner/repo/skills/my-skill@main");
         if (result.source === "bitbucket") {
           expect(result.subPath).toEqual(Option.some("skills/my-skill"));
           expect(result.ref).toEqual(Option.some("main"));

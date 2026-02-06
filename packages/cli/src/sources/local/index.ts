@@ -8,3 +8,4 @@
 export { LOCAL_PATH_PATTERN } from "./patterns.js";
 export { parseLocalPath } from "./parser.js";
 export { config } from "./config.js";
+export { print } from "./print.js";

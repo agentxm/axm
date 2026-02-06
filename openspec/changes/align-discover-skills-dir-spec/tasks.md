@@ -54,20 +54,20 @@
 
 ## 5. Plugin Manifest Schema Expansion
 
-- [ ] 5.1 Write tests for `marketplace.json` with `metadata.pluginRoot` — valid (`./` prefix) and invalid (no `./` prefix silences entire manifest)
-- [ ] 5.2 Write tests for `plugins[].source` — string source, omitted source (root-level), object source (skipped)
-- [ ] 5.3 Write tests for conventional `{pluginBase}/skills/` always added per plugin (even with empty/missing `skills` array)
-- [ ] 5.4 Write tests for `plugins[].skills` array with dirname transformation
-- [ ] 5.5 Update `marketplace.json` schema in `parse-manifests.ts` to support `metadata.pluginRoot`, per-plugin `source` (string/omitted/object), per-plugin `skills` array
-- [ ] 5.6 Implement `pluginRoot` validation: if present and doesn't start with `./`, skip entire manifest
-- [ ] 5.7 Implement source handling: string (must start with `./`), omitted (resolve to basePath + pluginRoot), object (skip plugin)
-- [ ] 5.8 Implement conventional `{pluginBase}/skills/` addition for each processed plugin
-- [ ] 5.9 Implement `plugins[].skills` dirname transformation for explicit skill paths
-- [ ] 5.10 Run `pnpm typecheck` and fix any errors
-- [ ] 5.11 Run `pnpm lint` and fix any errors
-- [ ] 5.12 Run `pnpm test` and fix any failures
-- [ ] 5.13 Run `pnpm test:e2e` and fix any failures
-- [ ] 5.14 Kill any vitest worker processes
+- [x] 5.1 Write tests for `marketplace.json` with `metadata.pluginRoot` — valid (`./` prefix) and invalid (no `./` prefix silences entire manifest)
+- [x] 5.2 Write tests for `plugins[].source` — string source, omitted source (root-level), object source (skipped)
+- [x] 5.3 Write tests for conventional `{pluginBase}/skills/` always added per plugin (even with empty/missing `skills` array)
+- [x] 5.4 Write tests for `plugins[].skills` array with dirname transformation
+- [x] 5.5 Update `marketplace.json` schema in `parse-manifests.ts` to support `metadata.pluginRoot`, per-plugin `source` (string/omitted/object), per-plugin `skills` array
+- [x] 5.6 Implement `pluginRoot` validation: if present and doesn't start with `./`, skip entire manifest
+- [x] 5.7 Implement source handling: string (must start with `./`), omitted (resolve to basePath + pluginRoot), object (skip plugin)
+- [x] 5.8 Implement conventional `{pluginBase}/skills/` addition for each processed plugin
+- [x] 5.9 Implement `plugins[].skills` dirname transformation for explicit skill paths
+- [x] 5.10 Run `pnpm typecheck` and fix any errors
+- [x] 5.11 Run `pnpm lint` and fix any errors
+- [x] 5.12 Run `pnpm test` and fix any failures
+- [x] 5.13 Run `pnpm test:e2e` and fix any failures
+- [x] 5.14 Kill any vitest worker processes
 
 ## 6. Post-Discovery Utilities
 

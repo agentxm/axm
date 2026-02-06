@@ -20,6 +20,7 @@ import type {
   IdealState,
   SkillStateV2,
 } from "../extensions/skills/state/types.js";
+import type { Skill, SkillRef } from "../cli-commands/skills/install/discover-skills.js";
 
 // =============================================================================
 // Errors
@@ -55,13 +56,12 @@ export interface DiscoveredSkill {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface AddSkillOperation {
+export type AddSkillOperation = {
   readonly _tag: "add-skill";
   readonly source: Source;
   readonly agents: ReadonlyArray<string>;
-  readonly skill: DiscoveredSkill;
   readonly force: boolean;
-}
+} & SkillRef;
 
 /**
  * Remove a skill from the workspace.

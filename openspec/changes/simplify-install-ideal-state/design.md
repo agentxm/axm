@@ -50,7 +50,7 @@ interface DiscoveredSkill {
   readonly gitTreeHash: Option<string>;
 }
 
-interface AddSkillOperation {
+export interface AddSkillOperation {
   readonly _tag: "add-skill";
   readonly source: Source;
   readonly agents: ReadonlyArray<string>;

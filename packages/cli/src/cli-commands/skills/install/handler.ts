@@ -43,6 +43,7 @@ import * as Option from "effect/Option";
 import { Clack } from "../../../clack-effect/index.js";
 import { formatError } from "../../../utils/errors.js";
 import { isInteractive } from "../../../utils/tty.js";
+import { satisfies } from "semver";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -92,54 +93,6 @@ export class InstallError extends Data.TaggedError("InstallError")<{
 // -----------------------------------------------------------------------------
 // V2 Dependencies
 // -----------------------------------------------------------------------------
-
-/**
- * Build AddSkillOperations from discovered skills.
- * For GitHub sources, fetches git tree hashes from the API.
- */
-const buildAddOperations = (
-  source: Source,
-  skills: readonly SkillRef[],
-  agents: ReadonlyArray<string>,
-  force: boolean,
-) =>
-  Effect.forEach(
-    skills,
-    (skill) =>
-      Effect.gen(function* () {
-        let gitTreeHash: Option.Option<string> = Option.none();
-
-        if (source.source === "github") {
-          const pathInRepo = Option.match(source.subPath, {
-            onNone: () => skill.skill.name,
-            onSome: (p) => `${p}/${skill.skill.name}`,
-          });
-
-          gitTreeHash = yield* fetchGitHubTreeHash(
-            source.owner,
-            source.repo,
-            Option.getOrElse(source.ref, () => "HEAD"),
-            pathInRepo,
-          ).pipe(
-            Effect.map((h): Option.Option<string> => (h === null ? Option.none() : Option.some(h))),
-            Effect.catchAll(() => Effect.succeed<Option.Option<string>>(Option.none())),
-          );
-        }
-
-        return {
-          _tag: "add-skill",
-          source,
-          agents,
-          skill: {
-            name: skill.skill.name,
-            version: Option.none(),
-            gitTreeHash,
-          },
-          force,
-        } satisfies AddSkillOperation;
-      }),
-    { concurrency: "unbounded" },
-  );
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -286,15 +239,15 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       spinner.start("Building installation plan...");
 
       const agentIds = Array.map(agents, (a) => a.id);
-      const ops = yield* buildAddOperations(source, selectedSkills, agentIds, args.force).pipe(
-        Effect.mapError(
-          (error: { message: string }) =>
-            new InstallError({
-              message: `Failed to build operations: ${error.message}`,
-              cause: Option.some(error),
-              retryable: false,
-            }),
-        ),
+      const ops = selectedSkills.map(
+        (ref) =>
+          ({
+            ...ref,
+            _tag: "add-skill",
+            source,
+            force: args.force,
+            agents: agentIds,
+          }) satisfies AddSkillOperation,
       );
 
       const ideal = yield* buildIdealFromOperations(currentState, ops).pipe(

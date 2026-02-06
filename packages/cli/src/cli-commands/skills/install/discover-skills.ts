@@ -175,7 +175,7 @@ const tryParseSkillInDir = (dir: string) =>
  * Scan one level of children in a directory for skills.
  * Each immediate subdirectory is checked for a SKILL.md.
  */
-const scanDirectory = (dir: string, seenNames: Set<string>, options: DiscoveryOptions) =>
+const scanDirectory = (dir: string, options: DiscoveryOptions) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
@@ -192,11 +192,9 @@ const scanDirectory = (dir: string, seenNames: Set<string>, options: DiscoveryOp
 
           const skill = yield* tryParseSkillInDir(fullPath);
           if (Option.isNone(skill)) return [] as readonly LocalSkillDirectory[];
-          if (seenNames.has(skill.value.name)) return [] as readonly LocalSkillDirectory[];
           if (!shouldIncludeSkill(skill.value, options))
             return [] as readonly LocalSkillDirectory[];
 
-          seenNames.add(skill.value.name);
           return [
             { ...skill.value, _tag: "local" as const, path: fullPath },
           ] as readonly LocalSkillDirectory[];
@@ -211,7 +209,6 @@ const scanDirectory = (dir: string, seenNames: Set<string>, options: DiscoveryOp
  */
 const recursiveScan = (
   dir: string,
-  seenNames: Set<string>,
   options: DiscoveryOptions,
   depth: number,
 ): Effect.Effect<readonly LocalSkillDirectory[], never, FileSystem.FileSystem> =>
@@ -232,20 +229,16 @@ const recursiveScan = (
           if (Option.isNone(stat) || stat.value.type !== "Directory")
             return [] as readonly LocalSkillDirectory[];
 
-          const results: LocalSkillDirectory[] = [];
-
           // Try to parse a skill in this directory
           const skill = yield* tryParseSkillInDir(fullPath);
-          if (Option.isSome(skill) && !seenNames.has(skill.value.name)) {
-            if (shouldIncludeSkill(skill.value, options)) {
-              seenNames.add(skill.value.name);
-              results.push({ ...skill.value, _tag: "local" as const, path: fullPath });
-            }
-          }
+          const current: readonly LocalSkillDirectory[] =
+            Option.isSome(skill) && shouldIncludeSkill(skill.value, options)
+              ? [{ ...skill.value, _tag: "local" as const, path: fullPath }]
+              : [];
 
           // Recurse into subdirectories
-          const subResults = yield* recursiveScan(fullPath, seenNames, options, depth + 1);
-          return [...results, ...subResults] as readonly LocalSkillDirectory[];
+          const subResults = yield* recursiveScan(fullPath, options, depth + 1);
+          return [...current, ...subResults];
         }),
       { concurrency: "unbounded" },
     ).pipe(Effect.map((results) => results.flat()));
@@ -303,18 +296,15 @@ export const discoverSkillsInDir = (
       });
     }
 
-    const seenNames = new Set<string>();
-    const allSkills: LocalSkillDirectory[] = [];
-
     // ── Phase 1: Direct Match ──────────────────────────────────────────
     const rootSkill = yield* tryParseSkillInDir(searchRoot);
-    if (Option.isSome(rootSkill) && shouldIncludeSkill(rootSkill.value, options)) {
-      seenNames.add(rootSkill.value.name);
-      allSkills.push({ ...rootSkill.value, _tag: "local" as const, path: searchRoot });
+    const phase1Skills: readonly LocalSkillDirectory[] =
+      Option.isSome(rootSkill) && shouldIncludeSkill(rootSkill.value, options)
+        ? [{ ...rootSkill.value, _tag: "local" as const, path: searchRoot }]
+        : [];
 
-      if (!options.fullDepth) {
-        return allSkills;
-      }
+    if (phase1Skills.length > 0 && !options.fullDepth) {
+      return phase1Skills;
     }
 
     // ── Phase 2: Priority Directory Scan ───────────────────────────────
@@ -329,22 +319,24 @@ export const discoverSkillsInDir = (
     const manifestDirsToAdd = manifestDirs.filter((d) => !priorityFullDirs.includes(d));
     const allPriorityDirs = [...priorityFullDirs, ...manifestDirsToAdd];
 
-    const phase2Results = yield* Effect.forEach(
+    const phase2Skills = yield* Effect.forEach(
       allPriorityDirs,
-      (fullDir) => scanDirectory(fullDir, seenNames, options),
+      (fullDir) => scanDirectory(fullDir, options),
       { concurrency: "unbounded" },
     ).pipe(Effect.map((results) => results.flat()));
 
-    allSkills.push(...phase2Results);
-
     // ── Phase 3: Recursive Fallback ────────────────────────────────────
-    const shouldRunPhase3 = allSkills.length === 0 || options.fullDepth;
-    if (shouldRunPhase3) {
-      const phase3Results = yield* recursiveScan(searchRoot, seenNames, options, 0);
-      allSkills.push(...phase3Results);
-    }
+    const shouldRunPhase3 =
+      (phase1Skills.length === 0 && phase2Skills.length === 0) || options.fullDepth;
+    const phase3Skills = shouldRunPhase3 ? yield* recursiveScan(searchRoot, options, 0) : [];
 
-    return allSkills;
+    // Deduplicate by name (first-found wins across phases)
+    const seen = new Set<string>();
+    return [...phase1Skills, ...phase2Skills, ...phase3Skills].filter((skill) => {
+      if (seen.has(skill.name)) return false;
+      seen.add(skill.name);
+      return true;
+    });
   });
 
 // -----------------------------------------------------------------------------
@@ -403,11 +395,6 @@ const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | Bitbu
       ),
     );
 
-    const skillsDir = Option.match(source.subPath, {
-      onNone: () => tempDir,
-      onSome: (p) => nodePath.join(tempDir, p),
-    });
-
     const skills = yield* discoverSkillsInDir(tempDir, source.subPath, {
       fullDepth: false,
       includeInternal: false,
@@ -415,7 +402,7 @@ const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | Bitbu
       Effect.mapError(
         (error) =>
           new InstallError({
-            message: `Failed to discover skills in ${skillsDir}: ${error.message}`,
+            message: `Failed to discover skills in ${printSource(source)}: ${error.message}`,
             cause: Option.some(error),
             retryable: false,
           }),
@@ -464,8 +451,10 @@ export const discoverSkills = (source: Source) =>
     switch (source.source) {
       case "github":
       case "gitlab":
-      case "bitbucket":
-        return (yield* discoverFromRemoteGitSource(source)) as ReadonlyArray<DiscoveredSkill>;
+      case "bitbucket": {
+        const skills: ReadonlyArray<DiscoveredSkill> = yield* discoverFromRemoteGitSource(source);
+        return skills;
+      }
 
       case "azurerepos":
         return yield* new InstallError({
@@ -479,10 +468,14 @@ export const discoverSkills = (source: Source) =>
         });
 
       case "local": {
-        return (yield* discoverSkillsInDir(source.path, Option.none(), {
-          fullDepth: false,
-          includeInternal: false,
-        }).pipe(
+        const skills: ReadonlyArray<DiscoveredSkill> = yield* discoverSkillsInDir(
+          source.path,
+          Option.none(),
+          {
+            fullDepth: false,
+            includeInternal: false,
+          },
+        ).pipe(
           Effect.mapError(
             (error) =>
               new InstallError({
@@ -495,7 +488,8 @@ export const discoverSkills = (source: Source) =>
                 retryable: false,
               }),
           ),
-        )) as ReadonlyArray<DiscoveredSkill>;
+        );
+        return skills;
       }
 
       case "git":

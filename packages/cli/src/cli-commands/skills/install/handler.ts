@@ -17,9 +17,11 @@
 
 import * as nodePath from "node:path";
 import type { AgentConfig } from "../../../agents/index.js";
+import type { ExtensionRef } from "../../../extensions/common.js";
 import {
   buildCloneUrl,
   cloneRepo,
+  type DiscoveredSkill,
   discoverSkills,
   getCurrentCommit,
   parseSource,
@@ -27,6 +29,7 @@ import {
   type Skill,
   type Source,
 } from "../../../extensions/skills/index.js";
+import { selectSkills } from "./select-skills.js";
 import type { BitbucketSource, GitHubSource, GitLabSource } from "../../../sources/index.js";
 import { fetchGitHubTreeHash } from "../../../sources/index.js";
 import { SkillSourceV2 } from "../../../extensions/skills/state/types.js";
@@ -130,7 +133,7 @@ const resolveGitHostingProviderSource = (
   source: GitHubSource | GitLabSource | BitbucketSource,
   axmDir: string,
 ): Effect.Effect<
-  { skills: Skill[]; skillsDir: string; commitSha: string },
+  { skills: DiscoveredSkill[]; skillsDir: string; commitSha: string },
   InstallError,
   FileSystem.FileSystem
 > =>
@@ -193,7 +196,12 @@ const resolveGitHostingProviderSource = (
       ),
     );
 
-    return { skills, skillsDir, commitSha };
+    const discovered: DiscoveredSkill[] = skills.map((skill) => ({
+      ...skill,
+      discoveryPath: Array.of<ExtensionRef>({ name: skill.name, type: "skill" }),
+    }));
+
+    return { skills: discovered, skillsDir, commitSha };
   });
 
 // -----------------------------------------------------------------------------
@@ -298,17 +306,19 @@ const createBuildIdealDeps = (
 // -----------------------------------------------------------------------------
 
 /**
- * Resolves a source and discovers available skills.
- * Handles all source types (GitHub, GitLab, Bitbucket, local) and returns
- * discovered skills with the resolved source information.
+ * Discovers skills from a parsed source.
+ * Resolves the source (cloning if remote), then discovers available skills
+ * within it. Returns discovered skills alongside resolved source metadata.
  */
-const resolveSourceAndDiscover = (source: Source, axmDir: string) =>
+const discoverSkillsFromSource = (source: Source) =>
   Effect.gen(function* () {
+    const { path: workspacePath } = yield* WorkspaceContextTag;
+
     switch (source.source) {
       case "github":
       case "gitlab":
       case "bitbucket": {
-        const result = yield* resolveGitHostingProviderSource(source, axmDir);
+        const result = yield* resolveGitHostingProviderSource(source, workspacePath);
         return {
           skills: result.skills,
           resolvedSource: {
@@ -332,7 +342,7 @@ const resolveSourceAndDiscover = (source: Source, axmDir: string) =>
 
       case "local": {
         const skillsDir = source.path;
-        const skills = yield* discoverSkills(skillsDir).pipe(
+        const rawSkills = yield* discoverSkills(skillsDir).pipe(
           Effect.mapError(
             (error) =>
               new InstallError({
@@ -346,6 +356,10 @@ const resolveSourceAndDiscover = (source: Source, axmDir: string) =>
               }),
           ),
         );
+        const skills: DiscoveredSkill[] = rawSkills.map((skill) => ({
+          ...skill,
+          discoveryPath: Array.of<ExtensionRef>({ name: skill.name, type: "skill" }),
+        }));
         return {
           skills,
           resolvedSource: {
@@ -461,11 +475,11 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         ? "Fetching source to analyze contents..."
         : "Discovering skills...",
     );
-    const { skills, resolvedSource } = yield* resolveSourceAndDiscover(source, context.path).pipe(
+    const { skills, resolvedSource } = yield* discoverSkillsFromSource(source).pipe(
       Effect.tapError(() => Effect.sync(() => spinner.stop("Failed"))),
     );
 
-    if (skills.length === 0) {
+    if (!Array.isNonEmptyReadonlyArray(skills)) {
       spinner.stop("No skills found");
       return yield* Effect.fail(
         new InstallError({
@@ -498,77 +512,26 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     }
 
     // Step 6: Filter/select skills
-    let selectedSkillNames: readonly string[];
-
     const canPrompt =
       !args.yes && !Option.getOrElse(args.nonInteractive, () => false) && isInteractive();
 
-    if (args.skill.length > 0) {
-      // Use explicitly specified skills
-      selectedSkillNames = Array.filter(args.skill, (name) => skills.some((s) => s.name === name));
-      const invalidSkills = Array.filter(
-        args.skill,
-        (name) => !skills.some((s) => s.name === name),
-      );
+    const selectedSkills = yield* selectSkills({
+      skills,
+      source,
+      requestedSkills: args.skill,
+      all: args.all,
+      dryRun: Option.getOrElse(args.dryRun, () => false),
+      canPrompt,
+    });
 
-      if (invalidSkills.length > 0) {
-        yield* clack.log.warn(`Unknown skills: ${invalidSkills.join(", ")}`);
-      }
-    } else if (args.all || Option.getOrElse(args.dryRun, () => false)) {
-      // Install all skills; dry-run auto-selects all to preview full plan
-      // Note: --skill takes precedence (checked above) so --dry-run --skill foo only installs foo
-      selectedSkillNames = Array.map(skills, (s) => s.name);
-      if (args.all) yield* clack.log.info(`Installing all ${skills.length} skill(s)`);
-    } else if (!canPrompt) {
-      // Need to prompt but can't
-      return yield* Effect.fail(
-        new InstallError({
-          message: formatError(
-            "Cannot prompt for skill selection",
-            ["stdin is not a TTY"],
-            "Use --yes, --all, or --non-interactive to run without prompts.",
-          ),
-          cause: Option.none(),
-          retryable: false,
-        }),
-      );
-    } else {
-      // Interactive selection
-      const selectedSkills = yield* clack
-        .multiselect("Select skills to install", skills, {
-          toOption: (s) => ({
-            value: s.name,
-            label: s.name,
-            hint: s.description,
-          }),
-          initialValues: Option.some(Array.map(skills, (s) => s.name)),
-          required: Option.some(true),
-        })
-        .pipe(
-          Effect.mapError(
-            (error) =>
-              new InstallError(
-                error._tag === "PromptCancelled"
-                  ? { message: "Operation cancelled.", cause: Option.none(), retryable: false }
-                  : {
-                      message: "Failed to prompt for skill selection",
-                      cause: Option.some(error),
-                      retryable: false,
-                    },
-              ),
-          ),
-        );
-      selectedSkillNames = Array.map(selectedSkills, (s) => s.name);
-    }
-
-    if (selectedSkillNames.length === 0) {
+    if (selectedSkills.length === 0) {
       yield* clack.log.warn("No skills selected.");
       yield* clack.outro("Nothing to install.");
       return;
     }
 
-    // Filter discovered skills to only those selected
-    const filteredSkills = Array.filter(skills, (s) => selectedSkillNames.includes(s.name));
+    const selectedSkillNames = Array.map(selectedSkills, (s) => s.name);
+    const filteredSkills = selectedSkills;
 
     // Step 7: Build ideal state (V2)
     spinner.start("Building installation plan...");

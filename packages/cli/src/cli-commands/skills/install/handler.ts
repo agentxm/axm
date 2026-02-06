@@ -394,10 +394,13 @@ const discoverSkillsFromSource = (source: Source) =>
  * 2. Ensure .axm/ is initialized
  * 3. Detect installed agents (or use --agent flag)
  * 4. Load current state (actual + locked)
- * 5. Resolve source and build ideal state
- * 6. Build plan (diff current vs ideal)
- * 7. Display plan (dry-run stops here)
- * 8. Confirm and apply changes
+ * 5. Discover skills from source
+ * 6. List mode (--list stops here)
+ * 7. Select skills to install
+ * 8. Build ideal state
+ * 9. Build plan (diff current vs ideal)
+ * 10. Display plan (dry-run stops here)
+ * 11. Confirm and apply changes
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -469,34 +472,56 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     );
     spinner.stop("Loaded current state");
 
-    // Step 5: Discover + select skills
-    const result = yield* determineSkillsToInstall({
-      discover: discoverSkillsFromSource(source),
-      sourceLabel: printSource(source),
+    // Step 5: Discover skills from source
+    spinner.start("Discovering skills...");
+    const { skills: discoveredSkills, resolvedSource } = yield* discoverSkillsFromSource(
+      source,
+    ).pipe(Effect.tapError(() => Effect.sync(() => spinner.stop("Failed"))));
+
+    if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
+      spinner.stop("No skills found");
+      return yield* new InstallError({
+        message: formatError(
+          "No skills found in source",
+          [`Source: ${printSource(source)}`],
+          "Verify the source path contains directories with SKILL.md files.",
+        ),
+        cause: Option.none(),
+        retryable: false,
+      });
+    }
+    spinner.stop(`Found ${discoveredSkills.length} skill(s)`);
+
+    // Step 6: List mode -> display and exit
+    if (args.list) {
+      yield* clack.log.info("Available skills:");
+      for (const skill of discoveredSkills) {
+        const desc = Option.isSome(skill.description) ? ` - ${skill.description.value}` : "";
+        yield* clack.log.message(`  ${skill.name}${desc}`);
+      }
+      yield* clack.outro(`${discoveredSkills.length} skill(s) available`);
+      return;
+    }
+
+    // Step 7: Select skills to install
+    const selectedSkills = yield* determineSkillsToInstall(discoveredSkills, {
       requestedSkills: args.skill,
       all: args.all,
       dryRun: Option.getOrElse(args.dryRun, () => false),
       yes: args.yes,
-      list: args.list,
     });
 
-    if (result.list) {
-      yield* clack.outro(`${result.selectedSkills.length} skill(s) available`);
-      return;
-    }
+    const selectedSkillNames = Array.map(selectedSkills, (s) => s.name);
 
-    const { selectedSkills, resolvedSource } = result;
-
-    if (selectedSkills.length === 0) {
+    if (!Array.isNonEmptyReadonlyArray(selectedSkillNames)) {
       yield* clack.log.warn("No skills selected.");
       yield* clack.outro("Nothing to install.");
       return;
     }
 
-    const selectedSkillNames = Array.map(selectedSkills, (s) => s.name);
     const filteredSkills = selectedSkills;
 
-    // Step 7: Build ideal state (V2)
+    // Step 8: Build ideal state (V2)
     spinner.start("Building installation plan...");
 
     // Create the InstallCommand for V2 API
@@ -504,7 +529,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       _tag: "skills-install",
       source: args.source,
       agents: Array.map(agents, (a) => a.id),
-      skills: args.all ? "all" : [...selectedSkillNames],
+      skills: selectedSkillNames,
       force: args.force,
     };
 
@@ -523,26 +548,26 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     );
     spinner.stop("Built installation plan");
 
-    // Step 8: Build plan (V2)
+    // Step 9: Build plan (V2)
     const plan = buildPlan(currentState, ideal);
 
-    // Step 9: Display plan
+    // Step 10: Display plan
     yield* displayPlan(clack, plan, printSource(source));
 
-    // Step 10: Check if there are changes
+    // Step 11: Check if there are changes
     if (!planHasChanges(plan)) {
       yield* clack.log.info("Already up to date.");
       yield* clack.outro("No changes needed.");
       return;
     }
 
-    // Step 11: Dry-run stops here
+    // Step 12: Dry-run stops here
     if (Option.getOrElse(args.dryRun, () => false)) {
       yield* clack.outro("Dry-run complete. No changes made.");
       return;
     }
 
-    // Step 12: Confirm installation (unless --yes or --non-interactive)
+    // Step 13: Confirm installation (unless --yes or --non-interactive)
     if (!args.yes && !Option.getOrElse(args.nonInteractive, () => false)) {
       if (!isInteractive()) {
         return yield* Effect.fail(
@@ -577,7 +602,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       }
     }
 
-    // Step 13: Apply changes (V2)
+    // Step 14: Apply changes (V2)
     const summary = getPlanSummary(plan);
     spinner.start(`Applying ${summary.installed + summary.updated} change(s)...`);
 

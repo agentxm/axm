@@ -85,13 +85,13 @@ const makeCurrentState = (skills: ReadonlyArray<SkillStateV2>): CurrentState => 
 /** Create an install command for testing */
 const makeInstallCommand = (
   source: string,
-  skills: "all" | ReadonlyArray<string> = "all",
+  skills: ReadonlyArray<string> = ["commit", "review-pr"],
   agents: ReadonlyArray<string> = ["claude"],
   force = false,
 ): Command & { _tag: "skills-install" } => ({
   _tag: "skills-install",
   source,
-  skills,
+  skills: skills as import("effect/Array").NonEmptyReadonlyArray<string>,
   agents,
   force,
 });
@@ -179,7 +179,7 @@ describe("buildIdealForInstall", () => {
   describe("installing new skills", () => {
     it("installs new skill when not in current state", async () => {
       const current = makeCurrentState([]);
-      const cmd = makeInstallCommand("github:owner/repo", "all", ["claude"]);
+      const cmd = makeInstallCommand("github:owner/repo", ["commit", "review-pr"], ["claude"]);
 
       const result = await Effect.runPromise(
         buildIdealForInstall(current, cmd, {
@@ -199,7 +199,7 @@ describe("buildIdealForInstall", () => {
       const current = makeCurrentState([
         makeSkillState("existing-skill", Option.some(existingLocked)),
       ]);
-      const cmd = makeInstallCommand("github:owner/repo", "all", ["claude"]);
+      const cmd = makeInstallCommand("github:owner/repo", ["commit", "review-pr"], ["claude"]);
 
       const result = await Effect.runPromise(
         buildIdealForInstall(current, cmd, {
@@ -294,9 +294,9 @@ describe("buildIdealForInstall", () => {
       expect(result.skills[0]?.name).toBe("commit");
     });
 
-    it("installs all discovered skills when skills is 'all'", async () => {
+    it("installs all discovered skills when all names listed", async () => {
       const current = makeCurrentState([]);
-      const cmd = makeInstallCommand("github:owner/repo", "all", ["claude"]);
+      const cmd = makeInstallCommand("github:owner/repo", ["commit", "review-pr"], ["claude"]);
 
       const result = await Effect.runPromise(
         buildIdealForInstall(current, cmd, {
@@ -331,7 +331,11 @@ describe("buildIdealForInstall", () => {
   describe("agent assignment", () => {
     it("assigns specified agents to installed skills", async () => {
       const current = makeCurrentState([]);
-      const cmd = makeInstallCommand("github:owner/repo", "all", ["claude", "cursor", "codex"]);
+      const cmd = makeInstallCommand(
+        "github:owner/repo",
+        ["commit", "review-pr"],
+        ["claude", "cursor", "codex"],
+      );
 
       const result = await Effect.runPromise(
         buildIdealForInstall(current, cmd, {
@@ -350,7 +354,7 @@ describe("buildIdealForInstall", () => {
   describe("edge cases", () => {
     it("handles empty current state", async () => {
       const current = makeCurrentState([]);
-      const cmd = makeInstallCommand("github:owner/repo", "all", ["claude"]);
+      const cmd = makeInstallCommand("github:owner/repo", ["commit", "review-pr"], ["claude"]);
 
       const result = await Effect.runPromise(
         buildIdealForInstall(current, cmd, {
@@ -364,7 +368,7 @@ describe("buildIdealForInstall", () => {
 
     it("handles no skills discovered from source", async () => {
       const current = makeCurrentState([]);
-      const cmd = makeInstallCommand("github:owner/repo", "all", ["claude"]);
+      const cmd = makeInstallCommand("github:owner/repo", ["commit", "review-pr"], ["claude"]);
 
       const result = await Effect.runPromise(
         buildIdealForInstall(current, cmd, {
@@ -382,7 +386,7 @@ describe("buildIdealForInstall", () => {
       const current = makeCurrentState([
         makeSkillState("other-skill", Option.some(existingLocked)),
       ]);
-      const cmd = makeInstallCommand("github:owner/repo", "all", ["claude"]);
+      const cmd = makeInstallCommand("github:owner/repo", ["commit", "review-pr"], ["claude"]);
 
       const result = await Effect.runPromise(
         buildIdealForInstall(current, cmd, {
@@ -649,7 +653,7 @@ describe("buildIdealState", () => {
         _tag: "skills-install",
         source: "github:owner/repo",
         agents: ["claude"],
-        skills: "all",
+        skills: ["commit", "review-pr"],
         force: false,
       };
 
@@ -733,7 +737,7 @@ describe("buildIdealState", () => {
           _tag: "skills-install",
           source: "github:test/repo",
           agents: ["claude"],
-          skills: "all",
+          skills: ["commit", "review-pr"],
           force: false,
         },
         { _tag: "skills-uninstall", skills: ["my-skill"] },
@@ -759,7 +763,7 @@ describe("buildIdealState", () => {
         _tag: "skills-install",
         source: "github:owner/repo",
         agents: ["claude"],
-        skills: "all",
+        skills: ["commit", "review-pr"],
         force: false,
       };
 
@@ -845,22 +849,15 @@ describe("Command type", () => {
         _tag: "skills-install",
         source: "github:owner/repo",
         agents: [],
-        skills: "all",
+        skills: ["commit"],
         force: false,
       };
 
       expect(cmd._tag).toBe("skills-install");
     });
 
-    it("supports skills as 'all' or array", () => {
-      const cmdAll: InstallCommand = {
-        _tag: "skills-install",
-        source: "test",
-        agents: [],
-        skills: "all",
-        force: false,
-      };
-      const cmdArray: InstallCommand = {
+    it("skills is a non-empty array of names", () => {
+      const cmd: InstallCommand = {
         _tag: "skills-install",
         source: "test",
         agents: [],
@@ -868,8 +865,7 @@ describe("Command type", () => {
         force: false,
       };
 
-      expect(cmdAll.skills).toBe("all");
-      expect(cmdArray.skills).toEqual(["a", "b"]);
+      expect(cmd.skills).toEqual(["a", "b"]);
     });
   });
 

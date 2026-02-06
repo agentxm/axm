@@ -458,11 +458,10 @@ describe("source-parser", () => {
       }),
     );
 
-    it.effect("parses explicit local: prefix", () =>
+    it.effect("fails on local: prefix (no shorthand)", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("local:./my-skill");
-        expect(result.source).toBe("local");
-        expect(printSource(result)).toBe("local:./my-skill");
+        const error = yield* Effect.flip(parseSource("local:./my-skill"));
+        expect(error).toBeInstanceOf(ParseError);
       }),
     );
   });

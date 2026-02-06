@@ -27,6 +27,10 @@ export const buildCloneUrl = (source: Source): Effect.Effect<string, CloneUrlErr
       return Effect.succeed(`https://gitlab.com/${source.owner}/${source.repo}.git`);
     case "bitbucket":
       return Effect.succeed(`https://bitbucket.org/${source.owner}/${source.repo}.git`);
+    case "azurerepos":
+      return Effect.succeed(
+        `https://dev.azure.com/${source.organization}/${source.project}/_git/${source.repo}`,
+      );
     default:
       return Effect.fail(
         new CloneUrlError({

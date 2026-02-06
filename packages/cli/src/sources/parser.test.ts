@@ -8,13 +8,13 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach, vi } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { config as azurereposConfig } from "./azurerepos/config.js";
 import { config as githubConfig } from "./github/config.js";
 import { config as gitlabConfig } from "./gitlab/config.js";
 import { config as bitbucketConfig } from "./bitbucket/config.js";
 import { buildCloneUrl, getOrigin } from "./clone-url.js";
 import { ParseError } from "./errors.js";
-import { type InputPattern, parseInputPattern, parseSource } from "./parser.js";
-import { printSource } from "./print.js";
+import { type InputPattern, parseInputPattern, parseSource, printSource } from "./parser.js";
 
 describe("source-parser", () => {
   let originalFetch: typeof globalThis.fetch;
@@ -355,6 +355,56 @@ describe("source-parser", () => {
     );
   });
 
+  describe("Azure Repos HTTPS URLs", () => {
+    it.effect("parses https://dev.azure.com/org/project/_git/repo", () =>
+      Effect.gen(function* () {
+        const result = yield* parseSource("https://dev.azure.com/myorg/myproject/_git/myrepo");
+
+        expect(result.source).toBe("azurerepos");
+        expect(printSource(result)).toBe("azurerepos:myorg/myproject/myrepo");
+        if (result.source === "azurerepos") {
+          expect(result.organization).toBe("myorg");
+          expect(result.project).toBe("myproject");
+          expect(result.repo).toBe("myrepo");
+        }
+      }),
+    );
+
+    it.effect("parses https://dev.azure.com/org/project/_git/repo.git", () =>
+      Effect.gen(function* () {
+        const result = yield* parseSource("https://dev.azure.com/myorg/myproject/_git/myrepo.git");
+
+        expect(result.source).toBe("azurerepos");
+        expect(printSource(result)).toBe("azurerepos:myorg/myproject/myrepo");
+      }),
+    );
+
+    it.effect("parses http://dev.azure.com/org/project/_git/repo (HTTP)", () =>
+      Effect.gen(function* () {
+        const result = yield* parseSource("http://dev.azure.com/myorg/myproject/_git/myrepo");
+
+        expect(result.source).toBe("azurerepos");
+        expect(printSource(result)).toBe("azurerepos:myorg/myproject/myrepo");
+      }),
+    );
+  });
+
+  describe("Azure Repos SSH URLs", () => {
+    it.effect("parses git@ssh.dev.azure.com:v3/org/project/repo", () =>
+      Effect.gen(function* () {
+        const result = yield* parseSource("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo");
+
+        expect(result.source).toBe("azurerepos");
+        expect(printSource(result)).toBe("azurerepos:myorg/myproject/myrepo");
+        if (result.source === "azurerepos") {
+          expect(result.organization).toBe("myorg");
+          expect(result.project).toBe("myproject");
+          expect(result.repo).toBe("myrepo");
+        }
+      }),
+    );
+  });
+
   describe("Bitbucket shorthand", () => {
     it.effect("parses bitbucket:owner/repo", () =>
       Effect.gen(function* () {
@@ -455,11 +505,10 @@ describe("source-parser", () => {
       }),
     );
 
-    it.effect("parses explicit local: prefix", () =>
+    it.effect("fails on local: prefix (no shorthand)", () =>
       Effect.gen(function* () {
-        const result = yield* parseSource("local:./my-skill");
-        expect(result.source).toBe("local");
-        expect(printSource(result)).toBe("local:./my-skill");
+        const error = yield* Effect.flip(parseSource("local:./my-skill"));
+        expect(error).toBeInstanceOf(ParseError);
       }),
     );
   });
@@ -595,6 +644,18 @@ describe("source-parser", () => {
 
       expect(result).toBe("https://bitbucket.org/owner/repo.git");
     });
+
+    it("builds Azure Repos clone URL", async () => {
+      const source = azurereposConfig.make({
+        organization: "myorg",
+        project: "myproject",
+        repo: "myrepo",
+      });
+
+      const result = await Effect.runPromise(buildCloneUrl(source));
+
+      expect(result).toBe("https://dev.azure.com/myorg/myproject/_git/myrepo");
+    });
   });
 
   describe("getOrigin", () => {
@@ -620,6 +681,18 @@ describe("source-parser", () => {
       const result = getOrigin(source);
 
       expect(result).toBe("https://bitbucket.org/owner/repo");
+    });
+
+    it("returns Azure Repos origin URL", () => {
+      const source = azurereposConfig.make({
+        organization: "myorg",
+        project: "myproject",
+        repo: "myrepo",
+      });
+
+      const result = getOrigin(source);
+
+      expect(result).toBe("https://dev.azure.com/myorg/myproject/_git/myrepo");
     });
   });
 });
@@ -746,12 +819,11 @@ describe("parseInputPattern", () => {
       });
     });
 
-    it("classifies local:./path as ShorthandInput", () => {
-      expectSome("local:./path", {
-        _tag: "ShorthandInput",
-        prefix: "local",
-        input: "local:./path",
-      });
+    it("classifies local:./path as UrlInput (no longer a shorthand)", () => {
+      const result = parseInputPattern("local:./path");
+      expect(Option.isSome(result)).toBe(true);
+      // local: is parsed as a URL scheme, no longer a shorthand prefix
+      expect(Option.getOrThrow(result)._tag).toBe("UrlInput");
     });
 
     it("returns None for empty string", () => {
@@ -843,6 +915,18 @@ describe("parseInputPattern", () => {
       }),
     );
 
+    it.effect("parses Azure Repos HTTPS URL via UrlInput", () =>
+      Effect.gen(function* () {
+        const result = yield* parseSource("https://dev.azure.com/myorg/myproject/_git/myrepo");
+        expect(result).toMatchObject({
+          source: "azurerepos",
+          organization: "myorg",
+          project: "myproject",
+          repo: "myrepo",
+        });
+      }),
+    );
+
     it.effect("parses GitHub SSH via ScpAddress", () =>
       Effect.gen(function* () {
         const result = yield* parseSource("git@github.com:owner/repo.git");
@@ -864,6 +948,18 @@ describe("parseInputPattern", () => {
         const result = yield* parseSource("git@bitbucket.org:owner/repo.git");
         expect(result.source).toBe("bitbucket");
         expect(result).toMatchObject({ owner: "owner", repo: "repo" });
+      }),
+    );
+
+    it.effect("parses Azure Repos SSH via ScpAddress", () =>
+      Effect.gen(function* () {
+        const result = yield* parseSource("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo");
+        expect(result.source).toBe("azurerepos");
+        expect(result).toMatchObject({
+          organization: "myorg",
+          project: "myproject",
+          repo: "myrepo",
+        });
       }),
     );
 
@@ -1006,11 +1102,10 @@ describe("parseInputPattern", () => {
         }),
       );
 
-      it.effect("resolves local:./my-skill to local source", () =>
+      it.effect("fails on local:./my-skill (no shorthand)", () =>
         Effect.gen(function* () {
-          const result = yield* parseSource("local:./my-skill");
-          expect(result.source).toBe("local");
-          expect(printSource(result)).toBe("local:./my-skill");
+          const error = yield* Effect.flip(parseSource("local:./my-skill"));
+          expect(error).toBeInstanceOf(ParseError);
         }),
       );
     });

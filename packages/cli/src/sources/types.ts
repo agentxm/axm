@@ -66,7 +66,7 @@ export interface ShorthandConfig<T extends SourceType, T2 extends Source & { sou
  */
 export interface UrlParseConfig<T extends SourceType, T2 extends Source & { source: T }> {
   readonly hostname: string;
-  readonly parseUrl: (url: URL, original: string) => Effect.Effect<T2, ParseError>;
+  readonly parseUrl: (url: URL) => Effect.Effect<T2, ParseError>;
   readonly parseScp: (input: string) => Effect.Effect<T2, ParseError>;
 }
 

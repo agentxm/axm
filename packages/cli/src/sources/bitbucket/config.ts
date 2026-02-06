@@ -32,11 +32,11 @@ export const config: SourceConfig<"bitbucket", BitbucketSource> = {
   }),
   parseFromUrl: Option.some({
     hostname: "bitbucket.org",
-    parseUrl: (_url, original) => {
-      const match = original.match(BITBUCKET_HTTPS_PATTERN);
+    parseUrl: (url) => {
+      const match = url.href.match(BITBUCKET_HTTPS_PATTERN);
       if (!match || !match[1] || !match[2]) {
         return Effect.fail(
-          new ParseError({ message: "Invalid Bitbucket URL format", input: original }),
+          new ParseError({ message: "Invalid Bitbucket URL format", input: url.href }),
         );
       }
       return Effect.succeed(

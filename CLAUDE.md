@@ -65,7 +65,7 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 ## Effect
 
 - [ ] Use Effect's collection types in signatures (see /effect-collections skill)
-      → `Array.Array<T>` (= `ReadonlyArray<T>`) for arrays
+      → `ReadonlyArray<T>` (or `readonly T[]`) for arrays
       → `Record.ReadonlyRecord<K,V>` for string-keyed objects
       → `Chunk` only for repeated concatenation or Streams
       → `HashMap` only for complex keys or value-based equality
@@ -489,6 +489,8 @@ Each feature folder is self-contained: logic, constants, errors, schemas, and te
 
 - Command arg types (yargs): `<Command>CommandArgs` (e.g. `InstallCommandArgs`)
 - Handler arg types (Effect): `<Command>HandlerArgs` (e.g. `InstallHandlerArgs`)
+- Handler args use idiomatic Effect types (`Option`, `ReadonlyArray`, etc.) — not raw JS types
+- Commands map command args → handler args at the boundary (e.g. `Option.fromNullable(argv.name)`)
 
 ## Spec-Driven Development
 

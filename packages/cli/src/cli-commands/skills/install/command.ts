@@ -1,4 +1,5 @@
 import type { CommandModule } from "yargs";
+import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
 import { handleInstall } from "./handler.js";
 
@@ -101,14 +102,17 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
         list: argv.list,
         all: argv.all,
         force: argv.force,
-        nonInteractive: argv["non-interactive"],
-        dryRun: argv["dry-run"],
+        nonInteractive: Option.fromNullable(argv["non-interactive"]),
+        dryRun: Option.fromNullable(argv["dry-run"]),
       }),
       {
         workspace: {
           global: argv.global,
           yes: false,
-          nonInteractive: argv["non-interactive"] ?? false,
+          nonInteractive: Option.getOrElse(
+            Option.fromNullable(argv["non-interactive"]),
+            () => false,
+          ),
         },
       },
     );

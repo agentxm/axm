@@ -206,6 +206,8 @@ describe("install.handler", () => {
     list: false,
     all: false,
     force: false,
+    nonInteractive: Option.none(),
+    dryRun: Option.none(),
   };
 
   /**
@@ -293,7 +295,7 @@ describe("install.handler", () => {
               ...defaultArgs,
               source,
               all: true,
-              dryRun: true,
+              dryRun: Option.some(true),
               agent: ["claude-code"],
             };
 
@@ -318,7 +320,7 @@ describe("install.handler", () => {
             const args: InstallHandlerArgs = {
               ...defaultArgs,
               source,
-              dryRun: true,
+              dryRun: Option.some(true),
               agent: ["claude-code"],
             };
 

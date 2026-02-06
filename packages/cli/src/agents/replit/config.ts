@@ -5,7 +5,6 @@
  * @packageDocumentation
  */
 
-import * as Option from "effect/Option";
 import type { AgentConfig } from "../types.js";
 
 /**
@@ -19,7 +18,6 @@ export const config: AgentConfig = {
   id: "replit",
   name: "Replit",
   skills: {
-    projectDir: ".agents/skills",
-    globalDir: Option.none(),
+    dir: ".agents/skills",
   },
 };

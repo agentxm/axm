@@ -1,16 +1,16 @@
 ## 1. Dependencies and Type Changes
 
-- [ ] 1.1 Add `gray-matter` dependency to `packages/cli/package.json` and install
-- [ ] 1.2 Update `Skill` type in `extensions/skills/types.ts`: `description` from `Option<string>` to `string`, add `metadata: Option.Option<Record.ReadonlyRecord<string, unknown>>`
-- [ ] 1.3 Simplify `AgentSkillsConfig` in `agents/types.ts`: replace `projectDir` + `globalDir` with `dir: string`
-- [ ] 1.4 Update all ~40 agent configs (`agents/*/config.ts`) to new `AgentSkillsConfig` shape
-- [ ] 1.5 Update consumers of `agent.skills.projectDir` → `agent.skills.dir` (`workspace/apply.ts`, `workspace/service.ts`)
-- [ ] 1.6 Update consumers of `Skill.description` from `Option` to `string` (`workspace/load-state.ts`, `discover-skills.ts`)
-- [ ] 1.7 Run `pnpm typecheck` and fix any errors
-- [ ] 1.8 Run `pnpm lint` and fix any errors
-- [ ] 1.9 Run `pnpm test` and fix any failures
-- [ ] 1.10 Run `pnpm test:e2e` and fix any failures
-- [ ] 1.11 Kill any vitest worker processes
+- [x] 1.1 Add `gray-matter` dependency to `packages/cli/package.json` and install
+- [x] 1.2 Update `Skill` type in `extensions/skills/types.ts`: `description` from `Option<string>` to `string`, add `metadata: Option.Option<Record.ReadonlyRecord<string, unknown>>`
+- [x] 1.3 Simplify `AgentSkillsConfig` in `agents/types.ts`: replace `projectDir` + `globalDir` with `dir: string`
+- [x] 1.4 Update all ~40 agent configs (`agents/*/config.ts`) to new `AgentSkillsConfig` shape
+- [x] 1.5 Update consumers of `agent.skills.projectDir` → `agent.skills.dir` (`workspace/apply.ts`, `workspace/service.ts`)
+- [x] 1.6 Update consumers of `Skill.description` from `Option` to `string` (`workspace/load-state.ts`, `discover-skills.ts`)
+- [x] 1.7 Run `pnpm typecheck` and fix any errors
+- [x] 1.8 Run `pnpm lint` and fix any errors
+- [x] 1.9 Run `pnpm test` and fix any failures
+- [x] 1.10 Run `pnpm test:e2e` and fix any failures
+- [x] 1.11 Kill any vitest worker processes
 
 ## 2. SKILL.md Frontmatter Parsing
 

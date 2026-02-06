@@ -111,9 +111,9 @@ export class InstallError extends Data.TaggedError("InstallError")<{
 
 /**
  * Resolved source with skills directory path.
- * Used internally by the handler to track source resolution.
+ * Used internally by the handler and select-skills to track source resolution.
  */
-interface ResolvedSource {
+export interface ResolvedSource {
   /** Parsed source information */
   readonly source: Source;
   /** Path to directory containing skills */
@@ -469,56 +469,23 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     );
     spinner.stop("Loaded current state");
 
-    // Step 5: Discover skills based on source type
-    spinner.start(
-      ["github", "gitlab", "bitbucket", "azurerepos"].includes(source.source)
-        ? "Fetching source to analyze contents..."
-        : "Discovering skills...",
-    );
-    const { skills, resolvedSource } = yield* discoverSkillsFromSource(source).pipe(
-      Effect.tapError(() => Effect.sync(() => spinner.stop("Failed"))),
-    );
-
-    if (!Array.isNonEmptyReadonlyArray(skills)) {
-      spinner.stop("No skills found");
-      return yield* Effect.fail(
-        new InstallError({
-          message: formatError(
-            "No skills found in source",
-            [`Source: ${printSource(source)}`],
-            "Verify the source path contains directories with SKILL.md files.",
-          ),
-          cause: Option.none(),
-          retryable: false,
-        }),
-      );
-    }
-
-    spinner.stop(`Found ${skills.length} skill(s)`);
-
-    // Step 5b: List mode - just show skills and exit
-    if (args.list) {
-      yield* clack.log.info("Available skills:");
-      yield* Effect.forEach(
-        skills,
-        (skill) => {
-          const desc = skill.description ? ` - ${skill.description}` : "";
-          return clack.log.message(`  ${skill.name}${desc}`);
-        },
-        { concurrency: 1 },
-      );
-      yield* clack.outro(`${skills.length} skill(s) available`);
-      return;
-    }
-
-    // Step 6: Filter/select skills
-    const selectedSkills = yield* determineSkillsToInstall({
-      skills,
+    // Step 5: Discover + select skills
+    const result = yield* determineSkillsToInstall({
+      discover: discoverSkillsFromSource(source),
+      sourceLabel: printSource(source),
       requestedSkills: args.skill,
       all: args.all,
       dryRun: Option.getOrElse(args.dryRun, () => false),
       yes: args.yes,
+      list: args.list,
     });
+
+    if (result.list) {
+      yield* clack.outro(`${result.selectedSkills.length} skill(s) available`);
+      return;
+    }
+
+    const { selectedSkills, resolvedSource } = result;
 
     if (selectedSkills.length === 0) {
       yield* clack.log.warn("No skills selected.");

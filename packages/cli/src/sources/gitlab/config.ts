@@ -32,11 +32,11 @@ export const config: SourceConfig<"gitlab", GitLabSource> = {
   }),
   parseFromUrl: Option.some({
     hostname: "gitlab.com",
-    parseUrl: (_url, original) => {
-      const match = original.match(GITLAB_HTTPS_PATTERN);
+    parseUrl: (url) => {
+      const match = url.href.match(GITLAB_HTTPS_PATTERN);
       if (!match || !match[1] || !match[2]) {
         return Effect.fail(
-          new ParseError({ message: "Invalid GitLab URL format", input: original }),
+          new ParseError({ message: "Invalid GitLab URL format", input: url.href }),
         );
       }
       return Effect.succeed(

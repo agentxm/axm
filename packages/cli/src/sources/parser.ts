@@ -14,6 +14,7 @@ import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
+import { config as azurereposConfig } from "./azurerepos/index.js";
 import { checkBitbucketRepoExists, config as bitbucketConfig } from "./bitbucket/index.js";
 import { ParseError } from "./errors.js";
 import { checkGitHubRepoExists, config as githubConfig } from "./github/index.js";
@@ -77,6 +78,7 @@ const ALL_CONFIGS: ReadonlyArray<AnySourceConfig> = [
   githubConfig,
   gitlabConfig,
   bitbucketConfig,
+  azurereposConfig,
   localConfig,
 ];
 
@@ -92,6 +94,14 @@ const CONFIG_BY_HOSTNAME = new Map<string, AnySourceConfig>(
   Array.getSomes(
     Array.map(ALL_CONFIGS, (c) => Option.map(c.parseFromUrl, (url) => [url.hostname, c] as const)),
   ),
+);
+
+// Azure Repos uses a different hostname for SCP-style SSH URLs
+CONFIG_BY_HOSTNAME.set("ssh.dev.azure.com", azurereposConfig);
+
+/** Map from source type to its config. */
+const CONFIG_BY_SOURCE_TYPE = new Map<string, AnySourceConfig>(
+  Array.map(ALL_CONFIGS, (c) => [c.id, c] as const),
 );
 
 /** Known shorthand prefixes from source configs. */
@@ -243,7 +253,7 @@ export const parseSource = (input: string): Effect.Effect<Source, ParseError> =>
               }),
             );
           }
-          return cfg.parseFromUrl.value.parseUrl(url, trimmed);
+          return cfg.parseFromUrl.value.parseUrl(url);
         }),
         Match.tag("SlashPattern", ({ input: slashInput }) => resolveSlashPattern(slashInput)),
         Match.tag("FilePathPattern", ({ path }) => parseLocalPath(path)),
@@ -260,4 +270,27 @@ export const parseSource = (input: string): Effect.Effect<Source, ParseError> =>
       ),
     }),
   );
+};
+
+// -----------------------------------------------------------------------------
+// Print
+// -----------------------------------------------------------------------------
+
+/**
+ * Print a source as its canonical shorthand string.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const printSource = (source: Source): string => {
+  const cfg = CONFIG_BY_SOURCE_TYPE.get(source.source);
+  if (cfg) return cfg.print(source);
+
+  // Fallback for types without a config
+  switch (source.source) {
+    case "git":
+    case "registry":
+      return "url" in source ? source.url : source.path;
+    default:
+      return source.source;
+  }
 };

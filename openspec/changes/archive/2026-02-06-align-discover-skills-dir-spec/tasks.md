@@ -71,23 +71,23 @@
 
 ## 6. Post-Discovery Utilities
 
-- [ ] 6.1 Write tests for `getSkillDisplayName`: returns `name` when present, falls back to `basename(path)` when name is empty/falsy
-- [ ] 6.2 Write tests for `filterSkills`: case-insensitive matching against both `skill.name` and display name, multiple input names, no match returns empty array
-- [ ] 6.3 Write tests for `sanitizeName`: lowercase, special chars replaced with hyphens, dots/underscores preserved, leading/trailing dots and hyphens stripped, truncation to 255 chars, empty result falls back to `"unnamed-skill"`
-- [ ] 6.4 Implement `getSkillDisplayName(skill)` in a new post-discovery utilities module
-- [ ] 6.5 Implement `filterSkills(skills, inputNames)` with case-insensitive matching against name and display name
-- [ ] 6.6 Implement `sanitizeName(name)` with the specified transformation pipeline
-- [ ] 6.7 Export utilities from the module barrel
-- [ ] 6.8 Run `pnpm typecheck` and fix any errors
-- [ ] 6.9 Run `pnpm lint` and fix any errors
-- [ ] 6.10 Run `pnpm test` and fix any failures
-- [ ] 6.11 Run `pnpm test:e2e` and fix any failures
-- [ ] 6.12 Kill any vitest worker processes
+- [x] 6.1 Write tests for `getSkillDisplayName`: returns `name` when present, falls back to `basename(path)` when name is empty/falsy
+- [x] 6.2 Write tests for `filterSkills`: case-insensitive matching against both `skill.name` and display name, multiple input names, no match returns empty array
+- [x] 6.3 Write tests for `sanitizeName`: lowercase, special chars replaced with hyphens, dots/underscores preserved, leading/trailing dots and hyphens stripped, truncation to 255 chars, empty result falls back to `"unnamed-skill"`
+- [x] 6.4 Implement `getSkillDisplayName(skill)` in a new post-discovery utilities module
+- [x] 6.5 Implement `filterSkills(skills, inputNames)` with case-insensitive matching against name and display name
+- [x] 6.6 Implement `sanitizeName(name)` with the specified transformation pipeline
+- [x] 6.7 Export utilities from the module barrel
+- [x] 6.8 Run `pnpm typecheck` and fix any errors
+- [x] 6.9 Run `pnpm lint` and fix any errors
+- [x] 6.10 Run `pnpm test` and fix any failures
+- [x] 6.11 Run `pnpm test:e2e` and fix any failures
+- [x] 6.12 Kill any vitest worker processes
 
 ## 7. Final Verification
 
-- [ ] 7.1 Run full `pnpm typecheck` across all packages
-- [ ] 7.2 Run full `pnpm lint` across all packages
-- [ ] 7.3 Run full `pnpm test` across all packages
-- [ ] 7.4 Run full `pnpm test:e2e` across all packages
-- [ ] 7.5 Kill any vitest worker processes
+- [x] 7.1 Run full `pnpm typecheck` across all packages
+- [x] 7.2 Run full `pnpm lint` across all packages
+- [x] 7.3 Run full `pnpm test` across all packages
+- [x] 7.4 Run full `pnpm test:e2e` across all packages
+- [x] 7.5 Kill any vitest worker processes

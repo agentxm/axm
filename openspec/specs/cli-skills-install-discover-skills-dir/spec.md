@@ -1,24 +1,4 @@
-# cli-skills-install-discover-skills-dir Specification
-
-## Purpose
-
-Directory-based skill discovery algorithm for `axm skills install`. Discovers skills by scanning directories for `SKILL.md` files with valid YAML frontmatter, using a three-phase approach: direct match, priority directory scan, and recursive fallback.
-
-## Requirements
-
-### Requirement: Discovery Input
-
-`discoverSkillsInDir` SHALL accept a base directory, an optional subpath, and discovery options (`fullDepth`, `includeInternal`). The effective search root SHALL be `join(basePath, subpath)` when subpath is provided, otherwise `basePath`.
-
-#### Scenario: Base directory only
-
-- **WHEN** called with `basePath="/repo"` and no subpath
-- **THEN** the search root SHALL be `/repo`
-
-#### Scenario: Base directory with subpath
-
-- **WHEN** called with `basePath="/repo"` and `subpath="packages/skills"`
-- **THEN** the search root SHALL be `/repo/packages/skills`
+## MODIFIED Requirements
 
 ### Requirement: SKILL.md Frontmatter Parsing
 
@@ -344,6 +324,8 @@ The algorithm SHALL check for plugin manifests at `.claude-plugin/marketplace.js
 - **WHEN** a manifest declares skill path `./skills/my-skill`
 - **THEN** the search directory added to priority scan SHALL be `./skills/` (dirname of the declared path)
 
+## ADDED Requirements
+
 ### Requirement: Path Containment Check
 
 Path containment (`isContainedIn`) SHALL use `resolve`/`normalize` for textual comparison with platform separator. Symlinks are NOT resolved via `realpath` — a symlinked path textually within `basePath` but physically pointing elsewhere would pass the check.
@@ -357,22 +339,3 @@ Path containment (`isContainedIn`) SHALL use `resolve`/`normalize` for textual c
 
 - **WHEN** a path is a symlink that textually resolves within `basePath` but physically points outside
 - **THEN** the containment check SHALL pass (no realpath resolution)
-
-### Requirement: Error Resilience
-
-The discovery algorithm SHALL NOT propagate errors to the caller. All filesystem and parsing failures SHALL be caught and logged at debug level.
-
-#### Scenario: Unreadable SKILL.md
-
-- **WHEN** a `SKILL.md` file exists but cannot be read (permissions error)
-- **THEN** it SHALL be silently skipped
-
-#### Scenario: Unreadable directory
-
-- **WHEN** a directory cannot be listed during recursive search
-- **THEN** it SHALL return empty results for that branch
-
-#### Scenario: Zero skills found
-
-- **WHEN** discovery completes with no skills found across all phases
-- **THEN** the function SHALL return an empty array (caller decides how to handle)

@@ -5,22 +5,23 @@ import { ParseError } from "../errors.js";
 import type { AzureReposSource, SourceConfig } from "../types.js";
 import { AZUREREPOS_HTTPS_PATTERN, AZUREREPOS_SSH_PATTERN } from "./patterns.js";
 
+const makeSource = (args: {
+  organization: string;
+  project: string;
+  repo: string;
+  ref?: string | undefined;
+  subPath?: string | undefined;
+}): AzureReposSource => ({
+  source: "azurerepos",
+  organization: args.organization,
+  project: args.project,
+  repo: args.repo,
+  ref: Option.fromNullable(args.ref),
+  subPath: Option.fromNullable(args.subPath),
+});
+
 export const config: SourceConfig<"azurerepos", AzureReposSource> = {
   id: "azurerepos",
-  make: (args: {
-    organization: string;
-    project: string;
-    repo: string;
-    ref?: string | undefined;
-    subPath?: string | undefined;
-  }): AzureReposSource => ({
-    source: "azurerepos",
-    organization: args.organization,
-    project: args.project,
-    repo: args.repo,
-    ref: Option.fromNullable(args.ref),
-    subPath: Option.fromNullable(args.subPath),
-  }),
   print: (source) => `azurerepos:${source.organization}/${source.project}/${source.repo}`,
   shorthand: Option.none(),
   parseFromUrl: Option.some({
@@ -33,7 +34,7 @@ export const config: SourceConfig<"azurerepos", AzureReposSource> = {
         );
       }
       return Effect.succeed(
-        config.make({ organization: match[1], project: match[2], repo: match[3] }),
+        makeSource({ organization: match[1], project: match[2], repo: match[3] }),
       );
     },
     parseScp: (input) => {
@@ -44,7 +45,7 @@ export const config: SourceConfig<"azurerepos", AzureReposSource> = {
         );
       }
       return Effect.succeed(
-        config.make({ organization: match[1], project: match[2], repo: match[3] }),
+        makeSource({ organization: match[1], project: match[2], repo: match[3] }),
       );
     },
   }),

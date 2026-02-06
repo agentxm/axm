@@ -3,7 +3,9 @@ import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
 import type { GitHubSource } from "../types.js";
-import { GITHUB_SSH_PATTERN } from "./patterns.js";
+
+/** Matches: git@github.com:owner/repo.git */
+const GITHUB_SSH_PATTERN = /^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/;
 
 export const parseScp = (input: string) => {
   const match = input.match(GITHUB_SSH_PATTERN);

@@ -3,7 +3,10 @@ import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
 import type { AzureReposSource } from "../types.js";
-import { AZUREREPOS_SSH_PATTERN } from "./patterns.js";
+
+/** Matches: git@ssh.dev.azure.com:v3/{org}/{project}/{repo} */
+const AZUREREPOS_SSH_PATTERN =
+  /^git@ssh\.dev\.azure\.com:v3\/([^/]+)\/([^/]+)\/([^/]+?)(?:\.git)?$/;
 
 export const parseScp = (input: string) => {
   const match = input.match(AZUREREPOS_SSH_PATTERN);

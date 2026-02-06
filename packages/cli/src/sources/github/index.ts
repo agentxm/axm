@@ -5,7 +5,6 @@
  * @packageDocumentation
  */
 
-export { GITHUB_HTTPS_PATTERN, GITHUB_SSH_PATTERN } from "./patterns.js";
 export { fetchGitHubTreeHash, GitHubApiError } from "./api.js";
 export { resolveRepo } from "./resolve-repo.js";
 export { config } from "./config.js";

@@ -3,7 +3,10 @@ import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
 import type { GitLabSource } from "../types.js";
-import { GITLAB_HTTPS_PATTERN } from "./patterns.js";
+
+/** Matches: https://gitlab.com/owner/repo[/-/tree/ref/path] */
+const GITLAB_HTTPS_PATTERN =
+  /^https?:\/\/gitlab\.com\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/-\/tree\/([^/]+)(?:\/(.+))?)?$/;
 
 export const parseUrl = (url: URL) => {
   const match = url.href.match(GITLAB_HTTPS_PATTERN);

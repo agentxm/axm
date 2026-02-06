@@ -3,7 +3,10 @@ import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
 import type { AzureReposSource } from "../types.js";
-import { AZUREREPOS_HTTPS_PATTERN } from "./patterns.js";
+
+/** Matches: https://dev.azure.com/{org}/{project}/_git/{repo} */
+const AZUREREPOS_HTTPS_PATTERN =
+  /^https?:\/\/dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\/([^/]+?)(?:\.git)?$/;
 
 export const parseUrl = (url: URL) => {
   const match = url.href.match(AZUREREPOS_HTTPS_PATTERN);

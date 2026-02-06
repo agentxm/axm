@@ -3,7 +3,10 @@ import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
 import type { BitbucketSource } from "../types.js";
-import { BITBUCKET_HTTPS_PATTERN } from "./patterns.js";
+
+/** Matches: https://bitbucket.org/owner/repo[/src/ref/path] */
+const BITBUCKET_HTTPS_PATTERN =
+  /^https?:\/\/bitbucket\.org\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/src\/([^/]+)(?:\/(.+))?)?$/;
 
 export const parseUrl = (url: URL) => {
   const match = url.href.match(BITBUCKET_HTTPS_PATTERN);

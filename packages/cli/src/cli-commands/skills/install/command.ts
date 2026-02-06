@@ -2,7 +2,7 @@ import type { CommandModule } from "yargs";
 import { run } from "../../../runtime/index.js";
 import { handleInstall } from "./handler.js";
 
-interface InstallArgs {
+interface InstallCommandArgs {
   source: string;
   global: boolean;
   agent: ReadonlyArray<string>;
@@ -16,7 +16,7 @@ interface InstallArgs {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
-export const installCommand: CommandModule<{}, InstallArgs> = {
+export const installCommand: CommandModule<{}, InstallCommandArgs> = {
   command: "install <source>",
   describe: "Install skills from a GitHub repo, local path, or URL",
   builder: (yargs) =>

@@ -64,7 +64,7 @@ import { isInteractive } from "../../../utils/tty.js";
 /**
  * Arguments for the install command.
  */
-export interface InstallArgs {
+export interface InstallHandlerArgs {
   /** Source to install skills from */
   readonly source: string;
   /** Install to global ~/.axm/ instead of local .axm/ */
@@ -312,7 +312,7 @@ const createBuildIdealDeps = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const handleInstall = (args: InstallArgs) => {
+export const handleInstall = (args: InstallHandlerArgs) => {
   const scopeLabel = args.global ? "global" : "project";
 
   return Effect.gen(function* () {

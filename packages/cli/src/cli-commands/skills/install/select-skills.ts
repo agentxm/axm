@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { Skill } from "../../../extensions/skills/index.js";
+import type { DiscoveredSkill } from "./discover-skills.js";
 import { Clack } from "../../../clack-effect/index.js";
 import { InstallError } from "./handler.js";
 import { formatError } from "../../../utils/errors.js";
@@ -40,7 +40,7 @@ interface SelectSkillsArgs {
  * 4. Multiple skills -> `confirmSkillsToInstall` (multiselect prompt)
  */
 export const determineSkillsToInstall = (
-  skills: Array.NonEmptyReadonlyArray<Skill>,
+  skills: Array.NonEmptyReadonlyArray<DiscoveredSkill>,
   args: SelectSkillsArgs,
 ) =>
   Effect.gen(function* () {
@@ -89,7 +89,7 @@ export const determineSkillsToInstall = (
  * Shows a multiselect prompt with all skills pre-selected.
  * Maps prompt errors to `InstallError`.
  */
-export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<Skill>) =>
+export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<DiscoveredSkill>) =>
   Effect.gen(function* () {
     const clack = yield* Clack;
 

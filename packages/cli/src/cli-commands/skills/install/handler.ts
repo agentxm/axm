@@ -15,15 +15,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as nodePath from "node:path";
 import type { AgentConfig } from "../../../agents/index.js";
-import {
-  parseSource,
-  printSource,
-  type Skill,
-  type Source,
-} from "../../../extensions/skills/index.js";
-import { discoverSkills, type ResolvedSource } from "./discover-skills.js";
+import { parseSource, printSource, type Source } from "../../../extensions/skills/index.js";
+import { discoverSkills, type DiscoveredSkill } from "./discover-skills.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 import { fetchGitHubTreeHash } from "../../../sources/index.js";
 import { SkillSourceV2 } from "../../../extensions/skills/state/types.js";
@@ -110,13 +104,10 @@ export class InstallError extends Data.TaggedError("InstallError")<{
  * storage in the lockfile and settings. The actual local path for file
  * operations is provided separately to the applyStep callback.
  */
-const sourceToV2 = (
-  source: Source,
-  skillsDir: string,
-): Effect.Effect<SkillSourceV2, CommandError> => {
+const sourceToV2 = (source: Source): Effect.Effect<SkillSourceV2, CommandError> => {
   switch (source.source) {
     case "local":
-      return Effect.succeed(SkillSourceV2.Local({ path: skillsDir }));
+      return Effect.succeed(SkillSourceV2.Local({ path: source.path }));
     case "github":
       return Effect.succeed(
         SkillSourceV2.GitHub({
@@ -128,9 +119,11 @@ const sourceToV2 = (
       );
     case "gitlab":
     case "bitbucket":
-      // For non-GitHub git sources, store as Local with the cached path
+      // For non-GitHub git sources, store as Local with a placeholder path
       // The original source info is preserved in the lockfile via separate mechanism
-      return Effect.succeed(SkillSourceV2.Local({ path: skillsDir }));
+      return Effect.succeed(
+        SkillSourceV2.Local({ path: source.subPath.pipe(Option.getOrElse(() => ".")) }),
+      );
     default:
       return Effect.fail(
         new CommandError({
@@ -146,16 +139,15 @@ const sourceToV2 = (
  * This creates the parseSource and discoverSkills callbacks required by the V2 API.
  */
 const createBuildIdealDeps = (
-  resolvedSource: ResolvedSource,
-  discoveredSkills: readonly Skill[],
+  source: Source,
+  discoveredSkills: readonly DiscoveredSkill[],
 ): BuildIdealDeps => ({
-  parseSource: () => sourceToV2(resolvedSource.source, resolvedSource.skillsDir),
+  parseSource: () => sourceToV2(source),
 
   discoverSkills: (v2Source: SkillSourceV2) =>
     Effect.gen(function* () {
       // For GitHub sources, fetch git tree hash from API for each skill
-      const src = resolvedSource.source;
-      const isGitHubSource = v2Source._tag === "GitHub" && src.source === "github";
+      const isGitHubSource = v2Source._tag === "GitHub" && source.source === "github";
 
       return yield* Effect.forEach(
         discoveredSkills,
@@ -163,17 +155,17 @@ const createBuildIdealDeps = (
           Effect.gen(function* () {
             let gitTreeHash: Option.Option<string> = Option.none();
 
-            if (isGitHubSource && src.source === "github") {
+            if (isGitHubSource && source.source === "github") {
               // Build path within repo: subpath (if any) + skill name
-              const pathInRepo = Option.match(src.subPath, {
+              const pathInRepo = Option.match(source.subPath, {
                 onNone: () => skill.name,
                 onSome: (p) => `${p}/${skill.name}`,
               });
 
               gitTreeHash = yield* fetchGitHubTreeHash(
-                src.owner,
-                src.repo,
-                Option.getOrElse(src.ref, () => "HEAD"),
+                source.owner,
+                source.repo,
+                Option.getOrElse(source.ref, () => "HEAD"),
                 pathInRepo,
               ).pipe(
                 Effect.map(
@@ -290,7 +282,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
       // Step 5: Discover skills from source
       spinner.start("Discovering skills...");
-      const { skills: discoveredSkills, resolvedSource } = yield* discoverSkills(source).pipe(
+      const discoveredSkills = yield* discoverSkills(source).pipe(
         Effect.tapError(() => Effect.sync(() => spinner.stop("Failed"))),
       );
 
@@ -350,7 +342,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       };
 
       // Create deps for buildIdealForInstall
-      const buildIdealDeps = createBuildIdealDeps(resolvedSource, filteredSkills);
+      const buildIdealDeps = createBuildIdealDeps(source, filteredSkills);
 
       const ideal = yield* buildIdealForInstall(currentState, installCmd, buildIdealDeps).pipe(
         Effect.mapError(
@@ -422,18 +414,19 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       const summary = getPlanSummary(plan);
       spinner.start(`Applying ${summary.installed + summary.updated} change(s)...`);
 
-      // Create a modified applyStep that ensures source paths point to the specific skill folder.
-      // The plan stores source pointing to the skillsDir root (for lockfile/settings),
-      // but file operations need the path to the specific skill folder.
+      // Build a name->path map from discovered skills for file operations.
+      // The plan stores source info for lockfile/settings, but file operations
+      // need the path to each specific skill folder.
+      const skillPathMap = new Map(discoveredSkills.map((s) => [s.name, s.path]));
+
       const applyStepWithSkillPath = (step: PlanStep) => {
-        // For install/update steps, ensure source path includes the skill name
         if (step._tag === "InstallSkill" || step._tag === "UpdateSkill") {
-          // For GitHub/Registry: use the cached skillsDir + skill name
-          // For Local: the source path is the skillsDir root, append skill name
-          const skillPath = nodePath.join(resolvedSource.skillsDir, step.skill);
-          const localSource = SkillSourceV2.Local({ path: skillPath });
-          const localStep = { ...step, source: localSource };
-          return applyStep(localStep, { workspacePath: context.path, agents });
+          const skillPath = skillPathMap.get(step.skill);
+          if (skillPath) {
+            const localSource = SkillSourceV2.Local({ path: skillPath });
+            const localStep = { ...step, source: localSource };
+            return applyStep(localStep, { workspacePath: context.path, agents });
+          }
         }
         return applyStep(step, { workspacePath: context.path, agents });
       };

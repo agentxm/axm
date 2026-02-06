@@ -9,7 +9,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeClackTestLayer } from "../../../clack-effect/index.js";
-import type { Skill } from "../../../extensions/skills/index.js";
+import type { DiscoveredSkill } from "./discover-skills.js";
 import { InstallError } from "./handler.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 
@@ -17,9 +17,10 @@ import { determineSkillsToInstall } from "./select-skills.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeSkill = (name: string): Skill => ({
+const makeSkill = (name: string): DiscoveredSkill => ({
+  _tag: "local",
   name,
-  path: `/fake/${name}/SKILL.md`,
+  path: `/fake/${name}`,
   description: "",
   metadata: Option.none(),
 });
@@ -35,8 +36,8 @@ const provide = <A, E>(
 ) => effect.pipe(Effect.provide(ClackTestLayer));
 
 /** Helper to create a NonEmptyReadonlyArray of skills. */
-const skills = (...names: [string, ...string[]]): Array.NonEmptyReadonlyArray<Skill> =>
-  names.map((n) => makeSkill(n)) as unknown as Array.NonEmptyReadonlyArray<Skill>;
+const skills = (...names: [string, ...string[]]): Array.NonEmptyReadonlyArray<DiscoveredSkill> =>
+  names.map((n) => makeSkill(n)) as unknown as Array.NonEmptyReadonlyArray<DiscoveredSkill>;
 
 // -----------------------------------------------------------------------------
 // Tests

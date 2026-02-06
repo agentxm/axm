@@ -13,8 +13,6 @@ import { parseSkillMd } from "./parse-skill-md.js";
 // -----------------------------------------------------------------------------
 
 describe("parseSkillMd", () => {
-  const skillPath = "/fake/my-skill/SKILL.md";
-
   describe("valid frontmatter", () => {
     it("returns Some(Skill) with name and description", () => {
       const content = [
@@ -28,13 +26,12 @@ describe("parseSkillMd", () => {
         "Some documentation here.",
       ].join("\n");
 
-      const result = parseSkillMd(content, skillPath);
+      const result = parseSkillMd(content);
 
       expect(Option.isSome(result)).toBe(true);
       const skill = Option.getOrThrow(result);
       expect(skill.name).toBe("my-skill");
       expect(skill.description).toBe("A useful skill");
-      expect(skill.path).toBe(skillPath);
       expect(Option.isNone(skill.metadata)).toBe(true);
     });
   });
@@ -43,7 +40,7 @@ describe("parseSkillMd", () => {
     it("returns None when name is missing", () => {
       const content = ["---", "description: A useful skill", "---", "", "# My Skill"].join("\n");
 
-      const result = parseSkillMd(content, skillPath);
+      const result = parseSkillMd(content);
 
       expect(Option.isNone(result)).toBe(true);
     });
@@ -51,7 +48,7 @@ describe("parseSkillMd", () => {
     it("returns None when description is missing", () => {
       const content = ["---", "name: my-skill", "---", "", "# My Skill"].join("\n");
 
-      const result = parseSkillMd(content, skillPath);
+      const result = parseSkillMd(content);
 
       expect(Option.isNone(result)).toBe(true);
     });
@@ -68,7 +65,7 @@ describe("parseSkillMd", () => {
         "# My Skill",
       ].join("\n");
 
-      const result = parseSkillMd(content, skillPath);
+      const result = parseSkillMd(content);
 
       expect(Option.isNone(result)).toBe(true);
     });
@@ -78,7 +75,7 @@ describe("parseSkillMd", () => {
         "\n",
       );
 
-      const result = parseSkillMd(content, skillPath);
+      const result = parseSkillMd(content);
 
       expect(Option.isNone(result)).toBe(true);
     });
@@ -88,7 +85,7 @@ describe("parseSkillMd", () => {
     it("returns None when there is no frontmatter block", () => {
       const content = ["# My Skill", "", "Just plain markdown."].join("\n");
 
-      const result = parseSkillMd(content, skillPath);
+      const result = parseSkillMd(content);
 
       expect(Option.isNone(result)).toBe(true);
     });
@@ -100,7 +97,7 @@ describe("parseSkillMd", () => {
         "\n",
       );
 
-      const result = parseSkillMd(content, skillPath);
+      const result = parseSkillMd(content);
 
       expect(Option.isNone(result)).toBe(true);
     });
@@ -120,7 +117,7 @@ describe("parseSkillMd", () => {
         "# My Skill",
       ].join("\n");
 
-      const result = parseSkillMd(content, skillPath);
+      const result = parseSkillMd(content);
 
       expect(Option.isSome(result)).toBe(true);
       const skill = Option.getOrThrow(result);
@@ -139,7 +136,7 @@ describe("parseSkillMd", () => {
         "# My Skill",
       ].join("\n");
 
-      const result = parseSkillMd(content, skillPath);
+      const result = parseSkillMd(content);
 
       expect(Option.isSome(result)).toBe(true);
       const skill = Option.getOrThrow(result);

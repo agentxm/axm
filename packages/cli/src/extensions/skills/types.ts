@@ -24,8 +24,6 @@ export { isGitHostingProviderSource } from "../../sources/index.js";
 export interface Skill {
   /** Unique name of the skill */
   readonly name: string;
-  /** Path to SKILL.md file */
-  readonly path: string;
   /** Description of the skill */
   readonly description: string;
   /** Optional metadata from SKILL.md frontmatter */

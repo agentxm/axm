@@ -63,7 +63,7 @@ describe("discoverSkills", () => {
 
         expect(result).toHaveLength(1);
         expect(result[0]?.name).toBe("my-skill");
-        expect(result[0]?.path).toBe(path.join(skillDir, "SKILL.md"));
+        expect(result[0]?.path).toBe(skillDir);
       }),
     ),
   );

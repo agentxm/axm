@@ -4,6 +4,7 @@ import * as path from "node:path";
 import type { FileSystem } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
+import { vi } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { defaultResolutionOptions } from "../resolver.js";
@@ -35,16 +36,30 @@ const makeOptions = (opts: {
 describe("resolveAmbiguous", () => {
   let tempDir: string;
   let projectAxmDir: string;
+  let originalFetch: typeof globalThis.fetch;
 
   beforeEach(() => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "ambiguous-resolver-test-"));
     projectAxmDir = path.join(tempDir, ".axm");
     fs.mkdirSync(projectAxmDir, { recursive: true });
+    originalFetch = globalThis.fetch;
   });
 
   afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
+
+  const mockFetch = (responses: Record<string, { ok: boolean } | "error">): void => {
+    globalThis.fetch = vi.fn((url: string | URL | Request) => {
+      const urlStr = typeof url === "string" ? url : url.toString();
+      const response = responses[urlStr];
+      if (response === "error") return Promise.reject(new Error("Network error"));
+      if (response) return Promise.resolve(new Response(null, { status: response.ok ? 200 : 404 }));
+      return Promise.resolve(new Response(null, { status: 404 }));
+    }) as unknown as typeof globalThis.fetch;
+  };
 
   const withFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
     effect.pipe(Effect.provide(NodeFileSystem.layer));
@@ -205,6 +220,7 @@ describe("resolveAmbiguous", () => {
     it.effect("falls back to GitHub shorthand when AXM name not found", () =>
       withFileSystem(
         Effect.gen(function* () {
+          mockFetch({ "https://github.com/owner/repo": { ok: true } });
           const result = yield* resolveAmbiguous("owner/repo", makeOptions({ cwd: tempDir }));
 
           expect(result).toHaveLength(1);
@@ -245,6 +261,7 @@ describe("resolveAmbiguous", () => {
     it.effect("skips registry check when sources excludes registry", () =>
       withFileSystem(
         Effect.gen(function* () {
+          mockFetch({ "https://github.com/owner/repo": { ok: true } });
           // Create AXM directory (should be ignored)
           const axmSkillDir = path.join(projectAxmDir, "skills", "@owner", "repo");
           fs.mkdirSync(axmSkillDir, { recursive: true });
@@ -310,6 +327,7 @@ describe("resolveAmbiguous", () => {
     it.effect("respects sources filter with only github", () =>
       withFileSystem(
         Effect.gen(function* () {
+          mockFetch({ "https://github.com/owner/repo": { ok: true } });
           const result = yield* resolveAmbiguous(
             "owner/repo",
             makeOptions({ cwd: tempDir, sources: ["github"] }),
@@ -326,6 +344,7 @@ describe("resolveAmbiguous", () => {
     it.effect("returns GitHub ExtensionRef for owner/repo", () =>
       withFileSystem(
         Effect.gen(function* () {
+          mockFetch({ "https://github.com/owner/repo": { ok: true } });
           const result = yield* resolveAmbiguous("owner/repo", makeOptions({ cwd: tempDir }));
 
           expect(result).toHaveLength(1);
@@ -341,7 +360,7 @@ describe("resolveAmbiguous", () => {
       ),
     );
 
-    it.effect("handles owner/repo@ref pattern", () =>
+    it.effect("returns empty for owner/repo@ref (use prefixed form)", () =>
       withFileSystem(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
@@ -349,20 +368,13 @@ describe("resolveAmbiguous", () => {
             makeOptions({ cwd: tempDir }),
           );
 
-          expect(result).toHaveLength(1);
-          expect(result[0]).toMatchObject({
-            type: "skill",
-            source: "github",
-            origin: "https://github.com/owner/repo",
-            originalInput: "owner/repo@v1.0.0",
-          });
-          expect(Option.getOrNull(result[0]!.ref)).toBe("v1.0.0");
-          expect(Option.isNone(result[0]!.path)).toBe(true);
+          // v2 parser does not support bare shorthand with @ref — use github:owner/repo@v1.0.0
+          expect(result).toEqual([]);
         }),
       ),
     );
 
-    it.effect("handles owner/repo/path pattern", () =>
+    it.effect("returns empty for owner/repo/path (use prefixed form)", () =>
       withFileSystem(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
@@ -370,20 +382,13 @@ describe("resolveAmbiguous", () => {
             makeOptions({ cwd: tempDir }),
           );
 
-          expect(result).toHaveLength(1);
-          expect(result[0]).toMatchObject({
-            type: "skill",
-            source: "github",
-            origin: "https://github.com/owner/repo",
-            originalInput: "owner/repo/skills/my-skill",
-          });
-          expect(Option.getOrNull(result[0]!.path)).toBe("skills/my-skill");
-          expect(Option.isNone(result[0]!.ref)).toBe(true);
+          // v2 parser does not support bare shorthand with subpaths — use github:owner/repo/skills/my-skill
+          expect(result).toEqual([]);
         }),
       ),
     );
 
-    it.effect("handles owner/repo/path@ref pattern", () =>
+    it.effect("returns empty for owner/repo/path@ref (use prefixed form)", () =>
       withFileSystem(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
@@ -391,20 +396,13 @@ describe("resolveAmbiguous", () => {
             makeOptions({ cwd: tempDir }),
           );
 
-          expect(result).toHaveLength(1);
-          expect(result[0]).toMatchObject({
-            type: "skill",
-            source: "github",
-            origin: "https://github.com/owner/repo",
-            originalInput: "owner/repo/skills/my-skill@main",
-          });
-          expect(Option.getOrNull(result[0]!.ref)).toBe("main");
-          expect(Option.getOrNull(result[0]!.path)).toBe("skills/my-skill");
+          // v2 parser does not support bare shorthand with subpaths/refs — use github:owner/repo/skills/my-skill@main
+          expect(result).toEqual([]);
         }),
       ),
     );
 
-    it.effect("handles deeply nested path", () =>
+    it.effect("returns empty for deeply nested path (use prefixed form)", () =>
       withFileSystem(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
@@ -412,17 +410,12 @@ describe("resolveAmbiguous", () => {
             makeOptions({ cwd: tempDir }),
           );
 
-          expect(result).toHaveLength(1);
-          expect(result[0]).toMatchObject({
-            type: "skill",
-            source: "github",
-          });
-          expect(Option.getOrNull(result[0]!.path)).toBe("a/b/c/d");
+          expect(result).toEqual([]);
         }),
       ),
     );
 
-    it.effect("handles branch name with slashes in @ref", () =>
+    it.effect("returns empty for owner/repo@feature/branch (use prefixed form)", () =>
       withFileSystem(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
@@ -430,13 +423,7 @@ describe("resolveAmbiguous", () => {
             makeOptions({ cwd: tempDir }),
           );
 
-          expect(result).toHaveLength(1);
-          expect(result[0]).toMatchObject({
-            type: "skill",
-            source: "github",
-          });
-          expect(Option.getOrNull(result[0]!.ref)).toBe("feature/branch");
-          expect(Option.isNone(result[0]!.path)).toBe(true);
+          expect(result).toEqual([]);
         }),
       ),
     );
@@ -472,6 +459,7 @@ describe("resolveAmbiguous", () => {
     it.effect("handles input with leading/trailing whitespace", () =>
       withFileSystem(
         Effect.gen(function* () {
+          mockFetch({ "https://github.com/owner/repo": { ok: true } });
           const result = yield* resolveAmbiguous("  owner/repo  ", makeOptions({ cwd: tempDir }));
 
           expect(result).toHaveLength(1);
@@ -486,6 +474,7 @@ describe("resolveAmbiguous", () => {
     it.effect("handles owner/repo with numbers and hyphens", () =>
       withFileSystem(
         Effect.gen(function* () {
+          mockFetch({ "https://github.com/my-org-123/my-repo-456": { ok: true } });
           const result = yield* resolveAmbiguous(
             "my-org-123/my-repo-456",
             makeOptions({ cwd: tempDir }),
@@ -500,16 +489,13 @@ describe("resolveAmbiguous", () => {
       ),
     );
 
-    it.effect("handles owner/repo with underscores", () =>
+    it.effect("returns empty for owner/repo with underscores (not a valid name pattern)", () =>
       withFileSystem(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous("my_org/my_repo", makeOptions({ cwd: tempDir }));
 
-          expect(result).toHaveLength(1);
-          expect(result[0]).toMatchObject({
-            source: "github",
-            origin: "https://github.com/my_org/my_repo",
-          });
+          // v2 parser rejects underscores in NAME_PATTERN
+          expect(result).toEqual([]);
         }),
       ),
     );
@@ -565,6 +551,7 @@ describe("resolveAmbiguous", () => {
     it.effect("skips local path check for a/b pattern (not a local path format)", () =>
       withFileSystem(
         Effect.gen(function* () {
+          mockFetch({ "https://github.com/owner/repo": { ok: true } });
           // a/b doesn't match local path pattern (no ./, /, ~, etc.)
           // So it should fall through to AXM name or GitHub shorthand
           const result = yield* resolveAmbiguous("owner/repo", makeOptions({ cwd: tempDir }));

@@ -5,6 +5,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
@@ -16,9 +17,31 @@ import {
 import { ParsedSource } from "../../sources/types.js";
 
 describe("source-parser", () => {
-  describe("GitHub shorthand", () => {
-    it.effect("parses owner/repo", () =>
+  let originalFetch: typeof globalThis.fetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  const mockFetch = (responses: Record<string, { ok: boolean } | "error">): void => {
+    globalThis.fetch = vi.fn((url: string | URL | Request) => {
+      const urlStr = typeof url === "string" ? url : url.toString();
+      const response = responses[urlStr];
+      if (response === "error") return Promise.reject(new Error("Network error"));
+      if (response) return Promise.resolve(new Response(null, { status: response.ok ? 200 : 404 }));
+      return Promise.resolve(new Response(null, { status: 404 }));
+    }) as unknown as typeof globalThis.fetch;
+  };
+
+  describe("slash pattern (owner/repo)", () => {
+    it.effect("parses owner/repo (resolves via GitHub)", () =>
       Effect.gen(function* () {
+        mockFetch({ "https://github.com/owner/repo": { ok: true } });
         const result = yield* parseSource("owner/repo");
 
         expect(result.source.source).toBe("github");
@@ -28,73 +51,6 @@ describe("source-parser", () => {
           expect(result.source.repo).toBe("repo");
           expect(Option.isNone(result.source.ref)).toBe(true);
           expect(Option.isNone(result.source.subPath)).toBe(true);
-        }
-      }),
-    );
-
-    it.effect("parses owner/repo@ref", () =>
-      Effect.gen(function* () {
-        const result = yield* parseSource("owner/repo@v1.0.0");
-
-        expect(result.source.source).toBe("github");
-        expect(result.canonical).toBe("github:owner/repo");
-        if (result.source.source === "github") {
-          expect(result.source.owner).toBe("owner");
-          expect(result.source.repo).toBe("repo");
-          expect(result.source.ref).toEqual(Option.some("v1.0.0"));
-          expect(Option.isNone(result.source.subPath)).toBe(true);
-        }
-      }),
-    );
-
-    it.effect("parses owner/repo/path", () =>
-      Effect.gen(function* () {
-        const result = yield* parseSource("owner/repo/skills/my-skill");
-
-        expect(result.source.source).toBe("github");
-        expect(result.canonical).toBe("github:owner/repo");
-        if (result.source.source === "github") {
-          expect(result.source.owner).toBe("owner");
-          expect(result.source.repo).toBe("repo");
-          expect(Option.isNone(result.source.ref)).toBe(true);
-          expect(result.source.subPath).toEqual(Option.some("skills/my-skill"));
-        }
-      }),
-    );
-
-    it.effect("parses owner/repo/path@ref", () =>
-      Effect.gen(function* () {
-        const result = yield* parseSource("owner/repo/skills/my-skill@main");
-
-        expect(result.source.source).toBe("github");
-        expect(result.canonical).toBe("github:owner/repo");
-        if (result.source.source === "github") {
-          expect(result.source.owner).toBe("owner");
-          expect(result.source.repo).toBe("repo");
-          expect(result.source.ref).toEqual(Option.some("main"));
-          expect(result.source.subPath).toEqual(Option.some("skills/my-skill"));
-        }
-      }),
-    );
-
-    it.effect("parses owner/repo with branch ref", () =>
-      Effect.gen(function* () {
-        const result = yield* parseSource("owner/repo@feature/branch");
-
-        expect(result.source.source).toBe("github");
-        if (result.source.source === "github") {
-          expect(result.source.ref).toEqual(Option.some("feature/branch"));
-        }
-      }),
-    );
-
-    it.effect("parses owner/repo with commit SHA", () =>
-      Effect.gen(function* () {
-        const result = yield* parseSource("owner/repo@abc123def456");
-
-        expect(result.source.source).toBe("github");
-        if (result.source.source === "github") {
-          expect(result.source.ref).toEqual(Option.some("abc123def456"));
         }
       }),
     );
@@ -513,7 +469,7 @@ describe("source-parser", () => {
         const error = yield* Effect.flip(parseSource("https://example.com"));
 
         expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toContain("Unable to parse source");
+        expect(error.message).toContain("Unsupported URL host");
       }),
     );
   });
@@ -537,12 +493,12 @@ describe("source-parser", () => {
       }),
     );
 
-    it.effect("fails on invalid source format", () =>
+    it.effect("fails on name input (not yet supported)", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseSource("not-a-valid-source"));
 
         expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toContain("Unable to parse source");
+        expect(error.message).toBe("Name input is not yet supported");
       }),
     );
 
@@ -558,25 +514,16 @@ describe("source-parser", () => {
   describe("edge cases", () => {
     it.effect("trims whitespace from input", () =>
       Effect.gen(function* () {
+        mockFetch({ "https://github.com/owner/repo": { ok: true } });
         const result = yield* parseSource("  owner/repo  ");
 
         expect(result.canonical).toBe("github:owner/repo");
       }),
     );
 
-    it.effect("handles repo names with dots", () =>
-      Effect.gen(function* () {
-        const result = yield* parseSource("owner/repo.js");
-
-        expect(result.source.source).toBe("github");
-        if (result.source.source === "github") {
-          expect(result.source.repo).toBe("repo.js");
-        }
-      }),
-    );
-
     it.effect("handles repo names with dashes", () =>
       Effect.gen(function* () {
+        mockFetch({ "https://github.com/owner/my-awesome-repo": { ok: true } });
         const result = yield* parseSource("owner/my-awesome-repo");
 
         expect(result.source.source).toBe("github");
@@ -588,12 +535,21 @@ describe("source-parser", () => {
 
     it.effect("handles owner names with dashes", () =>
       Effect.gen(function* () {
+        mockFetch({ "https://github.com/my-org/repo": { ok: true } });
         const result = yield* parseSource("my-org/repo");
 
         expect(result.source.source).toBe("github");
         if (result.source.source === "github") {
           expect(result.source.owner).toBe("my-org");
         }
+      }),
+    );
+
+    it.effect("rejects repo names with dots (use prefixed form)", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(parseSource("owner/repo.js"));
+        expect(error).toBeInstanceOf(ParseError);
+        expect(error.message).toBe("Unable to parse source");
       }),
     );
 

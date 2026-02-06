@@ -6,5 +6,5 @@
  */
 
 export { GITLAB_HTTPS_PATTERN, GITLAB_SSH_PATTERN } from "./patterns.js";
-export { checkGitLabRepoExists } from "./repo-exists.js";
+export { resolveRepo } from "./resolve-repo.js";
 export { config } from "./config.js";

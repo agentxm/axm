@@ -352,16 +352,57 @@ export const discoverSkillsInDir = (
 // -----------------------------------------------------------------------------
 
 /**
- * Discovers skills from a cloned git repository and computes git tree SHAs.
+ * Discovers skills from a remote git source.
  *
- * Expects the repository to already be cloned into `tempDir`.
- * Returns an array of discovered skills, each enriched with its folder's git tree SHA.
+ * Clones the repository into a scoped temp directory, discovers skills,
+ * and enriches each with its folder's git tree SHA. Requires a `Scope` from
+ * the caller to manage temp directory lifetime — the caller controls when
+ * cleanup occurs (important when skill paths are used after discovery).
  */
-const discoverFromRemoteGitSource = (
-  source: GitHubSource | GitLabSource | BitbucketSource,
-  tempDir: string,
-) =>
+const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | BitbucketSource) =>
   Effect.gen(function* () {
+    const cloneUrl = yield* buildCloneUrl(source).pipe(
+      Effect.mapError(
+        (error) =>
+          new InstallError({
+            message: error.message,
+            cause: Option.some(error),
+            retryable: false,
+          }),
+      ),
+    );
+
+    // Acquire scoped temp directory (cleaned up when scope closes)
+    const tempDir = yield* Effect.acquireRelease(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const dir = nodePath.join(tmpdir(), `axm-${randomUUID()}`);
+        yield* fs.makeDirectory(dir, { recursive: true });
+        return dir;
+      }),
+      (dir) =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          yield* fs.remove(dir, { recursive: true });
+        }).pipe(Effect.ignoreLogged),
+    );
+
+    // Shallow clone for performance (depth 1, single branch)
+    yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(source.ref)).pipe(
+      Effect.mapError(
+        (error) =>
+          new InstallError({
+            message: formatError(
+              `Failed to clone repository: ${error.message}`,
+              [`URL: ${cloneUrl}`],
+              "Check your network connection and repository access credentials.",
+            ),
+            cause: Option.some(error),
+            retryable: true,
+          }),
+      ),
+    );
+
     const skillsDir = Option.match(source.subPath, {
       onNone: () => tempDir,
       onSome: (p) => nodePath.join(tempDir, p),
@@ -423,54 +464,8 @@ export const discoverSkills = (source: Source) =>
     switch (source.source) {
       case "github":
       case "gitlab":
-      case "bitbucket": {
-        const cloneUrl = yield* buildCloneUrl(source).pipe(
-          Effect.mapError(
-            (error) =>
-              new InstallError({
-                message: error.message,
-                cause: Option.some(error),
-                retryable: false,
-              }),
-          ),
-        );
-
-        // Acquire scoped temp directory (cleaned up when scope closes)
-        const tempDir = yield* Effect.acquireRelease(
-          Effect.gen(function* () {
-            const fs = yield* FileSystem.FileSystem;
-            const dir = nodePath.join(tmpdir(), `axm-${randomUUID()}`);
-            yield* fs.makeDirectory(dir, { recursive: true });
-            return dir;
-          }),
-          (dir) =>
-            Effect.gen(function* () {
-              const fs = yield* FileSystem.FileSystem;
-              yield* fs.remove(dir, { recursive: true });
-            }).pipe(Effect.ignoreLogged),
-        );
-
-        // Shallow clone for performance (depth 1, single branch)
-        yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(source.ref)).pipe(
-          Effect.mapError(
-            (error) =>
-              new InstallError({
-                message: formatError(
-                  `Failed to clone repository: ${error.message}`,
-                  [`URL: ${cloneUrl}`],
-                  "Check your network connection and repository access credentials.",
-                ),
-                cause: Option.some(error),
-                retryable: true,
-              }),
-          ),
-        );
-
-        return (yield* discoverFromRemoteGitSource(
-          source,
-          tempDir,
-        )) as ReadonlyArray<DiscoveredSkill>;
-      }
+      case "bitbucket":
+        return (yield* discoverFromRemoteGitSource(source)) as ReadonlyArray<DiscoveredSkill>;
 
       case "azurerepos":
         return yield* new InstallError({

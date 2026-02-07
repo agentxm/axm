@@ -70,7 +70,8 @@ describe("init.handler", () => {
   const defaultWsOptions: WorkspaceContextOptions = {
     global: false,
     yes: true,
-    nonInteractive: false,
+    nonInteractive: Option.some(false),
+    preview: false,
   };
 
   // ---------------------------------------------------------------------------
@@ -284,7 +285,12 @@ describe("init.handler", () => {
       withBaseLayers(
         Effect.gen(function* () {
           const WsLayer = Layer.provide(
-            workspaceLayer({ global: false, yes: false, nonInteractive: true }),
+            workspaceLayer({
+              global: false,
+              yes: false,
+              nonInteractive: Option.some(true),
+              preview: false,
+            }),
             TestLayer,
           );
           const error = yield* handleInit().pipe(
@@ -301,7 +307,7 @@ describe("init.handler", () => {
     );
 
     it.effect("succeeds when --yes is provided with --non-interactive", () =>
-      withLayers({ global: false, yes: true, nonInteractive: true })(
+      withLayers({ global: false, yes: true, nonInteractive: Option.some(true), preview: false })(
         Effect.gen(function* () {
           yield* handleInit();
 
@@ -322,12 +328,19 @@ describe("init.handler", () => {
      */
     const withInteractiveLayers = (
       clackConfig: MockClackConfig,
-      wsOptions: Omit<WorkspaceContextOptions, "yes" | "nonInteractive"> = { global: false },
+      wsOptions: Omit<WorkspaceContextOptions, "yes" | "nonInteractive" | "preview"> = {
+        global: false,
+      },
     ) => {
       const [InteractiveClackLayer] = makeClackTestLayer(clackConfig);
       const BaseLayer = Layer.mergeAll(NodeFileSystem.layer, InteractiveClackLayer);
       const WsLayer = Layer.provide(
-        workspaceLayer({ ...wsOptions, yes: false, nonInteractive: false }),
+        workspaceLayer({
+          ...wsOptions,
+          yes: false,
+          nonInteractive: Option.some(false),
+          preview: false,
+        }),
         BaseLayer,
       );
       return <A, E>(

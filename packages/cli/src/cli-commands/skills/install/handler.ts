@@ -7,7 +7,7 @@
  * 3. Load current state (actual from disk + locked from lockfile)
  * 4. Build ideal state from command
  * 5. Build plan (diff current vs ideal)
- * 6. Preview plan and confirm (or apply directly with --yes)
+ * 6. Resolve plan via workspace (display, confirm, apply based on flags)
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -21,11 +21,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Clack } from "../../../clack-effect/index.js";
 import { formatError } from "../../../utils/errors.js";
-import {
-  applyPlan,
-  displayPlan,
-  WorkspaceContextTag as Workspace,
-} from "../../../workspace/index.js";
+import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
 import type { AddSkillOperation } from "../operations.js";
 import { buildPlan } from "./build-plan.js";
 
@@ -89,7 +85,7 @@ export class InstallError extends Data.TaggedError("InstallError")<{
  * 7. Select skills to install
  * 8. Build ideal state
  * 9. Build plan (diff current vs ideal)
- * 10. Preview plan and confirm, or apply directly (--yes)
+ * 10. Resolve plan via workspace (display, confirm, apply based on flags)
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -197,19 +193,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         Option.some(`Install skills from ${printSource(source)}`),
       );
 
-      if (args.yes) {
-        // --yes: apply directly without preview
-        yield* applyPlan(plan);
-      } else {
-        // Preview: display plan, then prompt to apply
-        yield* displayPlan(plan);
-        const confirmed = yield* clack.confirm("Apply changes?");
-        if (!confirmed) {
-          yield* clack.outro("Cancelled.");
-          return;
-        }
-        yield* applyPlan(plan);
-      }
+      yield* ws.resolvePlan(plan);
 
       yield* clack.outro("Done");
     }),

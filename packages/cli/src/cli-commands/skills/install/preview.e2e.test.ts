@@ -1,13 +1,13 @@
 /**
- * E2E tests for the `axm skills install --dry-run` functionality.
+ * E2E tests for the `axm skills install --preview` functionality.
  *
- * These tests verify that the dry-run capability works correctly end-to-end:
- * - Dry-run completes successfully without installing skills
- * - Real install works after dry-run
- * - Multiple dry-runs produce consistent results
+ * These tests verify that the preview capability works correctly end-to-end:
+ * - Preview completes successfully without installing skills
+ * - Real install works after preview
+ * - Multiple previews produce consistent results
  *
- * Note: Basic dry-run tests (plan display) are in skills-install.test.ts.
- * This file focuses on integration scenarios that verify dry-run accuracy.
+ * Note: Basic preview tests (plan display) are in skills-install.test.ts.
+ * This file focuses on integration scenarios that verify preview accuracy.
  */
 
 import * as fs from "node:fs";
@@ -15,9 +15,9 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 
-describe("axm skills install --dry-run integration", () => {
-  describe("dry-run matches real install", () => {
-    it("dry-run completes without installing, then real install works", async () => {
+describe("axm skills install --preview integration", () => {
+  describe("preview matches real install", () => {
+    it("preview completes without installing, then real install works", async () => {
       const temp = createTempDir();
       try {
         // Initialize first
@@ -25,13 +25,13 @@ describe("axm skills install --dry-run integration", () => {
           cwd: temp.path,
         });
 
-        // Run dry-run (without --json)
-        const dryResult = await runCli(
+        // Run preview (without --json)
+        const previewResult = await runCli(
           [
             "skills",
             "install",
             SKILLS_REPO_FIXTURE,
-            "--dry-run",
+            "--preview",
             "--all",
             "--yes",
             "--agent",
@@ -40,9 +40,9 @@ describe("axm skills install --dry-run integration", () => {
           { cwd: temp.path },
         );
 
-        expect(dryResult.exitCode).toBe(0);
+        expect(previewResult.exitCode).toBe(0);
 
-        // Verify no skills were installed during dry-run
+        // Verify no skills were installed during preview
         // V2 uses extensions/external/skills/ directory structure
         const skillsDirBefore = path.join(temp.path, ".axm", "extensions", "external", "skills");
         expect(fs.existsSync(skillsDirBefore)).toBe(false);
@@ -66,20 +66,20 @@ describe("axm skills install --dry-run integration", () => {
       }
     });
 
-    it("running dry-run multiple times produces consistent results", async () => {
+    it("running preview multiple times produces consistent results", async () => {
       const temp = createTempDir();
       try {
         await runCli(["init", "--yes", "--agent", "claude-code"], {
           cwd: temp.path,
         });
 
-        // Run dry-run twice (without --json)
+        // Run preview twice (without --json)
         const result1 = await runCli(
           [
             "skills",
             "install",
             SKILLS_REPO_FIXTURE,
-            "--dry-run",
+            "--preview",
             "--all",
             "--yes",
             "--agent",
@@ -93,7 +93,7 @@ describe("axm skills install --dry-run integration", () => {
             "skills",
             "install",
             SKILLS_REPO_FIXTURE,
-            "--dry-run",
+            "--preview",
             "--all",
             "--yes",
             "--agent",

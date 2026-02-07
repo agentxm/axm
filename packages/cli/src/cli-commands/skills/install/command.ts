@@ -12,6 +12,7 @@ interface InstallCommandArgs {
   list: boolean;
   all: boolean;
   force: boolean;
+  preview: boolean;
   "non-interactive": boolean | undefined;
 }
 
@@ -66,6 +67,11 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
         describe: "Overwrite existing skills",
         default: false,
       })
+      .option("preview", {
+        type: "boolean",
+        describe: "Display installation plan without applying",
+        default: false,
+      })
       .option("non-interactive", {
         type: "boolean",
         describe: "Disable all interactive prompts",
@@ -102,10 +108,8 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
         workspace: {
           global: argv.global,
           yes: argv.yes,
-          nonInteractive: Option.getOrElse(
-            Option.fromNullable(argv["non-interactive"]),
-            () => false,
-          ),
+          nonInteractive: Option.fromNullable(argv["non-interactive"]),
+          preview: argv.preview,
         },
       },
     );

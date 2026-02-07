@@ -38,7 +38,7 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 ## CLI Conventions
 
 - `--yes` — Auto-accept all prompts (skip confirmations)
-- `--dry-run` — Show what would happen without applying changes
+- `--preview` — Display plan without applying (requires --yes or confirmation to apply)
 
 ## Code Organization
 

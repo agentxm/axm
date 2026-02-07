@@ -150,7 +150,7 @@ describe("axm skills uninstall", () => {
     });
   });
 
-  describe("--dry-run flag", () => {
+  describe("--preview flag", () => {
     it("shows plan without making changes", async () => {
       const temp = createTempDir();
       try {
@@ -172,13 +172,13 @@ describe("axm skills uninstall", () => {
           { cwd: temp.path },
         );
 
-        const result = await runCli(["skills", "uninstall", "my-skill", "--dry-run"], {
+        const result = await runCli(["skills", "uninstall", "my-skill", "--preview"], {
           cwd: temp.path,
         });
 
         expect(result.exitCode).toBe(0);
-        // Should show dry-run message
-        expect(result.stdout).toContain("Dry-run complete. No changes made.");
+        // Should show preview message
+        expect(result.stdout).toContain("Preview complete. No changes applied.");
         // Should show the skill in the plan
         expect(result.stdout).toContain("my-skill");
 
@@ -227,8 +227,8 @@ describe("axm skills uninstall", () => {
         const originalLock = fs.readFileSync(lockPath, "utf-8");
         const originalSettings = fs.readFileSync(settingsPath, "utf-8");
 
-        // Run dry-run
-        await runCli(["skills", "uninstall", "my-skill", "--dry-run"], {
+        // Run preview
+        await runCli(["skills", "uninstall", "my-skill", "--preview"], {
           cwd: temp.path,
         });
 
@@ -261,7 +261,7 @@ describe("axm skills uninstall", () => {
           { cwd: temp.path },
         );
 
-        const result = await runCli(["skills", "uninstall", "my-skill", "--dry-run"], {
+        const result = await runCli(["skills", "uninstall", "my-skill", "--preview"], {
           cwd: temp.path,
         });
 
@@ -295,7 +295,7 @@ describe("axm skills uninstall", () => {
           { cwd: temp.path },
         );
 
-        const result = await runCli(["skills", "uninstall", "my-skill", "--dry-run"], {
+        const result = await runCli(["skills", "uninstall", "my-skill", "--preview"], {
           cwd: temp.path,
         });
 
@@ -571,7 +571,7 @@ describe("axm skills uninstall", () => {
       expect(result.stdout).toContain("skills uninstall");
       expect(result.stdout).toContain("--agent");
       expect(result.stdout).toContain("--yes");
-      expect(result.stdout).toContain("--dry-run");
+      expect(result.stdout).toContain("--preview");
     });
   });
 

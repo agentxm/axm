@@ -492,11 +492,11 @@ describe("axm skills install", () => {
       expect(result.stdout).toContain("--agent");
       expect(result.stdout).toContain("--global");
       expect(result.stdout).toContain("--force");
-      expect(result.stdout).toContain("--dry-run");
+      expect(result.stdout).toContain("--preview");
     });
   });
 
-  describe("--dry-run", () => {
+  describe("--preview", () => {
     it("shows installation plan without making changes", async () => {
       const temp = createTempDir();
       try {
@@ -510,7 +510,8 @@ describe("axm skills install", () => {
             "install",
             SKILLS_REPO_FIXTURE,
             "--all",
-            "--dry-run",
+            "--preview",
+            "--non-interactive",
             "--agent",
             "claude-code",
           ],
@@ -523,8 +524,8 @@ describe("axm skills install", () => {
         expect(result.stdout).toContain("another-skill");
         // Should show plan indicators (+ for add)
         expect(result.stdout).toMatch(/\+.*my-skill|\+.*another-skill/);
-        // Should show dry-run message
-        expect(result.stdout).toContain("Dry-run complete. No changes made.");
+        // Should show preview message (non-interactive warns without applying)
+        expect(result.stdout).toContain("Previewing changes...");
 
         // Verify no files were created
         const skillsDir = path.join(temp.path, ".axm", "skills");
@@ -547,7 +548,8 @@ describe("axm skills install", () => {
             "install",
             SKILLS_REPO_FIXTURE,
             "--all",
-            "--dry-run",
+            "--preview",
+            "--non-interactive",
             "--agent",
             "claude-code",
           ],
@@ -598,7 +600,7 @@ describe("axm skills install", () => {
         const originalContent = fs.readFileSync(skillMdPath, "utf-8");
         fs.writeFileSync(skillMdPath, `${originalContent}\n# Modified locally`);
 
-        // Run dry-run with force - should show repair due to hash mismatch
+        // Run preview with force - should show repair due to hash mismatch
         const result = await runCli(
           [
             "skills",
@@ -606,7 +608,8 @@ describe("axm skills install", () => {
             SKILLS_REPO_FIXTURE,
             "--skill",
             "my-skill",
-            "--dry-run",
+            "--preview",
+            "--non-interactive",
             "--force",
             "--agent",
             "claude-code",
@@ -618,7 +621,8 @@ describe("axm skills install", () => {
         // V2 shows update (~ symbol) when local content differs from source
         // (there's no separate "repair" action in V2, updates handle both version changes and content diffs)
         expect(result.stdout).toMatch(/~.*my-skill|update/i);
-        expect(result.stdout).toContain("Dry-run complete. No changes made.");
+        // Should show preview message (non-interactive warns without applying)
+        expect(result.stdout).toContain("Previewing changes...");
       } finally {
         temp.cleanup();
       }
@@ -646,7 +650,7 @@ describe("axm skills install", () => {
           { cwd: temp.path },
         );
 
-        // Run dry-run for the same skill (without force - should skip)
+        // Run preview for the same skill (without force - should skip)
         const result = await runCli(
           [
             "skills",
@@ -654,7 +658,8 @@ describe("axm skills install", () => {
             SKILLS_REPO_FIXTURE,
             "--skill",
             "my-skill",
-            "--dry-run",
+            "--preview",
+            "--non-interactive",
             "--agent",
             "claude-code",
           ],
@@ -1023,8 +1028,8 @@ describe("axm skills install", () => {
     });
   });
 
-  describe("dry-run with new format (reconciliation)", () => {
-    it.skip("dry-run displays plan with new action labels", async () => {
+  describe("preview with new format (reconciliation)", () => {
+    it.skip("preview displays plan with new action labels", async () => {
       const temp = createTempDir();
       try {
         await runCli(["init", "--yes", "--agent", "claude-code"], {
@@ -1037,7 +1042,7 @@ describe("axm skills install", () => {
             "install",
             SKILLS_REPO_FIXTURE,
             "--all",
-            "--dry-run",
+            "--preview",
             "--agent",
             "claude-code",
           ],
@@ -1051,13 +1056,13 @@ describe("axm skills install", () => {
         expect(result.stdout).toContain("another-skill");
         // Should show + for install
         expect(result.stdout).toMatch(/\+.*my-skill|\+.*another-skill/);
-        expect(result.stdout).toContain("Dry-run complete. No changes made.");
+        expect(result.stdout).toContain("Previewing changes...");
       } finally {
         temp.cleanup();
       }
     });
 
-    it.skip("dry-run shows agents in plan output", async () => {
+    it.skip("preview shows agents in plan output", async () => {
       const temp = createTempDir();
       try {
         await runCli(["init", "--yes", "--agent", "claude-code"], {
@@ -1071,7 +1076,7 @@ describe("axm skills install", () => {
             SKILLS_REPO_FIXTURE,
             "--skill",
             "my-skill",
-            "--dry-run",
+            "--preview",
             "--agent",
             "claude-code",
           ],

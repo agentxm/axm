@@ -50,7 +50,7 @@
 // =============================================================================
 
 // Legacy types (still used by existing code)
-// New reconciliation types (see docs/designs/dry-run.md)
+// New reconciliation types (see openspec/specs/plan-confirm-apply/spec.md)
 export type {
   ActualSkill,
   ActualSkillIssue,

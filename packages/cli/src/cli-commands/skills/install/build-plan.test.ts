@@ -15,7 +15,7 @@ import { buildPlan } from "./build-plan.js";
 // -----------------------------------------------------------------------------
 
 const makeOp = (name: string): AddSkillOperation => ({
-  _tag: "add-skill",
+  _tag: "install-skill",
   source: { source: "local", path: "/fake" },
   agents: [],
   force: false,

@@ -16,13 +16,15 @@ import { buildPlan } from "./build-plan.js";
 
 const makeOp = (name: string): AddSkillOperation => ({
   name: "install-skill",
-  source: { source: "local", path: "/fake" },
-  agents: [],
-  force: false,
-  skill: { name, description: `${name} skill`, metadata: Option.none() },
-  path: Option.some(`/fake/${name}`),
-  gitTreeSha: Option.none(),
-  registry: Option.none(),
+  args: {
+    source: { source: "local", path: "/fake" },
+    agents: [],
+    force: false,
+    skill: { name, description: `${name} skill`, metadata: Option.none() },
+    path: Option.some(`/fake/${name}`),
+    gitTreeSha: Option.none(),
+    registry: Option.none(),
+  },
 });
 
 const emptyLockfile: Lockfile = {
@@ -106,7 +108,8 @@ describe("buildPlan", () => {
   });
 
   it("marks already-installed skills as execute when force is true", () => {
-    const op = { ...makeOp("commit"), force: true };
+    const base = makeOp("commit");
+    const op: AddSkillOperation = { ...base, args: { ...base.args, force: true } };
     const plan = buildPlan([op], lockfileWith("commit"), "Install", Option.none());
 
     expect(plan.jobs[0]!.steps[0]!.action).toBe("execute");

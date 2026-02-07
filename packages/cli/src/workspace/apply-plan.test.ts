@@ -9,15 +9,15 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { applyPlan, OperationError, type OperationResult } from "./apply-plan.js";
-import type { Plan } from "./plan.js";
+import type { Operation, Plan } from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-type TestOp = { readonly name: "test-op"; readonly label: string };
+type TestOp = Operation<"test-op", { label: string }>;
 
-const makeOp = (label: string): TestOp => ({ name: "test-op", label });
+const makeOp = (label: string): TestOp => ({ name: "test-op", args: { label } });
 
 const makePlan = (overrides: Partial<Plan<TestOp>> = {}): Plan<TestOp> => ({
   name: "Test plan",
@@ -27,19 +27,19 @@ const makePlan = (overrides: Partial<Plan<TestOp>> = {}): Plan<TestOp> => ({
 });
 
 const successHandler = (op: TestOp): Effect.Effect<OperationResult> =>
-  Effect.succeed({ action: "success", message: `Installed ${op.label}` });
+  Effect.succeed({ action: "success", message: `Installed ${op.args.label}` });
 
 const errorHandler = (op: TestOp): Effect.Effect<OperationResult, OperationError> =>
   Effect.fail(
     new OperationError({
       operation: "test-op",
-      message: `Failed to install ${op.label}`,
+      message: `Failed to install ${op.args.label}`,
       cause: null,
     }),
   );
 
 const noopResultHandler = (op: TestOp): Effect.Effect<OperationResult> =>
-  Effect.succeed({ action: "no-op", message: `Already installed ${op.label}` });
+  Effect.succeed({ action: "no-op", message: `Already installed ${op.args.label}` });
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -139,7 +139,7 @@ describe("applyPlan", () => {
       const order: string[] = [];
       const trackingHandler = (op: TestOp): Effect.Effect<OperationResult> =>
         Effect.sync(() => {
-          order.push(op.label);
+          order.push(op.args.label);
           return { action: "success" as const, message: `Installed ${op.name}` };
         });
 

@@ -27,21 +27,22 @@ const withServices = (axmDir: string) => {
 
 /** Creates a minimal AddSkillOperation for testing. */
 const makeOp = (
-  overrides: Partial<AddSkillOperation> & { skillName?: string; sourcePath?: string } = {},
+  overrides: Partial<AddSkillOperation["args"]> & { skillName?: string; sourcePath?: string } = {},
 ): AddSkillOperation => ({
   name: "install-skill",
-  source: { source: "local", path: "/tmp/source" },
-  agents: overrides.agents ?? ["claude-code"],
-  force: overrides.force ?? false,
-  skill: {
-    name: overrides.skillName ?? "my-skill",
-    description: "A test skill",
-    metadata: Option.none(),
+  args: {
+    source: overrides.source ?? { source: "local", path: "/tmp/source" },
+    agents: overrides.agents ?? ["claude-code"],
+    force: overrides.force ?? false,
+    skill: overrides.skill ?? {
+      name: overrides.skillName ?? "my-skill",
+      description: "A test skill",
+      metadata: Option.none(),
+    },
+    path: overrides.path ?? Option.fromNullable(overrides.sourcePath ?? undefined),
+    gitTreeSha: overrides.gitTreeSha ?? Option.none(),
+    registry: overrides.registry ?? Option.none(),
   },
-  path: Option.fromNullable(overrides.sourcePath ?? undefined),
-  gitTreeSha: Option.none(),
-  registry: Option.none(),
-  ...overrides,
 });
 
 describe("installSkill", () => {

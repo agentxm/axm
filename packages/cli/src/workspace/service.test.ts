@@ -17,7 +17,7 @@ import { afterEach, beforeEach } from "vitest";
 import { makeClackTestLayer, type MockClackService } from "../clack-effect/index.js";
 import { Clack } from "../clack-effect/service.js";
 import type { OperationResult } from "./apply-plan.js";
-import type { Plan } from "./plan.js";
+import type { Operation, Plan } from "./plan.js";
 import { Workspace, layer as workspaceLayer, type WorkspaceContextOptions } from "./service.js";
 
 describe("WorkspaceContextService", () => {
@@ -153,7 +153,7 @@ describe("WorkspaceContextService", () => {
   });
 
   describe("resolvePlan", () => {
-    type TestOp = { readonly name: "test-op" };
+    type TestOp = Operation<"test-op", Record<string, never>>;
     const testPlan: Plan<TestOp> = {
       name: "Test Plan",
       description: Option.none(),
@@ -161,7 +161,7 @@ describe("WorkspaceContextService", () => {
         {
           steps: [
             {
-              op: { name: "test-op" },
+              op: { name: "test-op", args: {} },
               action: "execute",
               reason: Option.none(),
               label: "test action",

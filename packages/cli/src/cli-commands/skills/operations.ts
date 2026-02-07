@@ -10,6 +10,7 @@
 import type { Option } from "effect/Option";
 import type { ReadonlyRecord } from "effect/Record";
 import type { Source } from "../../sources/types.js";
+import type { Operation } from "../../workspace/plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -39,23 +40,31 @@ export interface SkillRef {
 // -----------------------------------------------------------------------------
 
 /**
- * Add a skill to the workspace.
- *
- * @experimental This API is unstable and may change without notice.
+ * Args for the install-skill operation.
  */
-export type AddSkillOperation = {
-  readonly name: "install-skill";
+export type AddSkillArgs = {
   readonly source: Source;
   readonly agents: ReadonlyArray<string>;
   readonly force: boolean;
 } & SkillRef;
 
 /**
+ * Add a skill to the workspace.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type AddSkillOperation = Operation<"install-skill", AddSkillArgs>;
+
+/**
+ * Args for the uninstall-skill operation.
+ */
+export interface RemoveSkillArgs {
+  readonly skillName: string;
+}
+
+/**
  * Remove a skill from the workspace.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface RemoveSkillOperation {
-  readonly name: "uninstall-skill";
-  readonly skillName: string;
-}
+export type RemoveSkillOperation = Operation<"uninstall-skill", RemoveSkillArgs>;

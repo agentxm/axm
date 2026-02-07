@@ -14,9 +14,9 @@ The install handler builds `AddSkillOperation[]` and scaffolds a `Plan`, but nev
 
 ### New Capabilities
 
-- `install-plan-build`: Build a plan by diffing operations against lockfile state. Determines action (execute vs no-op) per operation.
-- `install-plan-display`: Format and display the plan to the user via Clack UI.
-- `install-plan-apply`: Execute plan actions — copy skill directories into the workspace skills dir and update the lockfile entry for each installed skill.
+- `skills-install-plan-build`: Build a plan by diffing operations against lockfile state. Determines action (execute vs no-op) per operation.
+- `skills-install-plan-display`: Format and display the plan to the user via Clack UI.
+- `skills-install-plan-apply`: Execute plan actions — copy skill directories into the workspace skills dir and update the lockfile entry for each installed skill.
 
 ### Modified Capabilities
 

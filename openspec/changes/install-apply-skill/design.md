@@ -17,7 +17,7 @@ Key existing pieces:
 
 **Goals:**
 
-- Make `applyPlan` extensible by accepting an executor callback
+- Make `applyPlan` extensible via a typed executor registry keyed by operation `_tag`
 - Implement the full skill installation pipeline as `executeAddSkill`
 - Write skill files to canonical location (`.agents/skills/<name>`)
 - Symlink from agent-specific directories to canonical
@@ -35,37 +35,51 @@ Key existing pieces:
 
 ## Decisions
 
-### 1. Executor callback on `applyPlan`
+### 1. Executor registry on `applyPlan`
 
-**Decision:** Add an `execute: (op: Op) => Effect<void, E, R>` parameter to `applyPlan`. The current hardcoded `clack.log.success` call moves into callers.
+**Decision:** `applyPlan` accepts a typed executor registry — a map from operation `_tag` to handler function. Operations must carry a `_tag: string` discriminant. `applyPlan` dispatches each action's `op` to the matching executor by `_tag`.
 
-**Rationale:** The plan system is generic over `Op`, but the _application_ of an operation is domain-specific. An executor callback keeps `applyPlan` generic while letting each command define what "execute" means.
+**Rationale:** Execution logic is a property of the operation _type_, not the individual instance — every `AddSkillOperation` is executed the same way. A registry keyed by `_tag` makes this relationship explicit and discoverable. The mapped type ensures exhaustiveness: TypeScript forces the caller to provide a handler for every `_tag` in the operation union.
 
 **Alternatives considered:**
 
-- _Subclass/service per operation type_ — over-engineered for two operation types (add/remove). A callback is simpler.
+- _Single callback `execute: (op: Op) => Effect`_ — works but treats execution as an opaque function. Doesn't express that execution is determined by operation type. Callers would need internal dispatch anyway for union operation types.
+- _Operations carry their own `execute` method_ — couples data and behavior at the instance level. Execution logic is identical across all instances of a type, so per-instance attachment is misleading.
 - _Pattern match on `_tag` inside applyPlan_ — breaks the generic `Plan<Op>` abstraction. applyPlan shouldn't know about skill-specific tags.
 
-**Signature change:**
+**Types and signature:**
 
 ```typescript
+// Executor registry: maps each _tag in the Op union to its handler
+type Executors<Op extends { _tag: string }, E, R> = {
+  [K in Op["_tag"]]: (op: Extract<Op, { _tag: K }>) => Effect.Effect<void, E, R>
+}
+
 // Before
 export const applyPlan = <Op>(plan: Plan<Op>) => ...
 
 // After
-export const applyPlan = <Op, E, R>(
+export const applyPlan = <Op extends { _tag: string }, E, R>(
   plan: Plan<Op>,
-  execute: (op: Op) => Effect.Effect<void, E, R>,
+  executors: Executors<Op, E, R>,
 ) => ...
 ```
 
-The `Clack` dependency is removed from `applyPlan` — it becomes the executor's responsibility to do any logging.
+The `Clack` dependency is removed from `applyPlan` — it becomes the executor's responsibility to do any logging. `applyPlan` looks up `executors[action.op._tag]` and calls it with the operation.
 
-### 2. Threading executor through `resolvePlan`
+**Caller usage (install handler):**
 
-**Decision:** `resolvePlan` on `WorkspaceContextService` gains the same executor parameter and forwards it to `applyPlan`.
+```typescript
+ws.resolvePlan(plan, {
+  "add-skill": (op) => executeAddSkill(op),
+});
+```
 
-**Rationale:** The handler calls `ws.resolvePlan(plan)` — that's where the preview/confirm/apply flow lives. The executor must reach `applyPlan` through this path.
+### 2. Threading executors through `resolvePlan`
+
+**Decision:** `resolvePlan` on `WorkspaceContextService` gains an `executors` parameter (same registry type) and forwards it to `applyPlan`.
+
+**Rationale:** The handler calls `ws.resolvePlan(plan)` — that's where the preview/confirm/apply flow lives. The executor registry must reach `applyPlan` through this path.
 
 **Signature change:**
 
@@ -74,7 +88,7 @@ The `Clack` dependency is removed from `applyPlan` — it becomes the executor's
 resolvePlan: <Op>(plan: Plan<Op>) => Effect<void, PromptCancelled | PromptError, Clack>;
 
 // After
-resolvePlan: <Op, E, R>(plan: Plan<Op>, execute: (op: Op) => Effect.Effect<void, E, R>) =>
+resolvePlan: <Op extends { _tag: string }, E, R>(plan: Plan<Op>, executors: Executors<Op, E, R>) =>
   Effect<void, PromptCancelled | PromptError | E, Clack | R>;
 ```
 

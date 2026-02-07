@@ -27,10 +27,10 @@ export const buildPlan = (
   description,
   jobs: [
     {
-      concurrency: "unbounded",
+      concurrency: 1,
       steps: ops.map((op) => {
         const installed = op.skill.name in lockfile.skills;
-        return installed
+        return installed && !op.force
           ? {
               op,
               action: "no-op" as const,

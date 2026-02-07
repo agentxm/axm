@@ -255,6 +255,70 @@ describe("install.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Executor integration
+  // ---------------------------------------------------------------------------
+
+  describe("executor integration", () => {
+    it.effect("passes installSkill executor to resolvePlan and installs files", () => {
+      const { provide } = makeLayers();
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstall(defaultArgs(skillsDir));
+
+          // Canonical directory should be created
+          const canonicalPath = path.join(tempDir, ".agents", "skills", "commit");
+          expect(fs.existsSync(canonicalPath)).toBe(true);
+          expect(fs.existsSync(path.join(canonicalPath, "SKILL.md"))).toBe(true);
+
+          // Agent symlink should be created (.claude/skills/commit → canonical)
+          const agentSkillPath = path.join(tempDir, ".claude", "skills", "commit");
+          expect(fs.existsSync(agentSkillPath)).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("reports success results via clack", () => {
+      const { provide, mockClack } = makeLayers();
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstall(defaultArgs(skillsDir));
+
+          expect(mockClack.logs.success.some((m) => m.includes("Installed commit"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("updates lockfile after installation", () => {
+      const { provide } = makeLayers();
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstall(defaultArgs(skillsDir));
+
+          const lockfileContent = fs.readFileSync(
+            path.join(tempDir, ".axm", "axm-lock.yaml"),
+            "utf-8",
+          );
+          const lockfile = YAML.parse(lockfileContent);
+          expect(lockfile.skills.commit).toBeDefined();
+          expect(lockfile.skills.commit.source).toBe("local");
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Summary
   // ---------------------------------------------------------------------------
 

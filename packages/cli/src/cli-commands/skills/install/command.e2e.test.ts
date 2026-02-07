@@ -77,21 +77,16 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        expect(result.stdout).toContain("Successfully installed");
-        expect(result.stdout).toContain("my-skill");
-        expect(result.stdout).toContain("another-skill");
+        expect(result.stdout).toContain("Installed my-skill");
+        expect(result.stdout).toContain("Installed another-skill");
 
         // Verify .axm structure
         const axmDir = path.join(temp.path, ".axm");
         expect(fs.existsSync(axmDir)).toBe(true);
 
-        // Verify settings.json exists and has skill entries in skills
+        // Verify settings.json exists
         const settingsPath = path.join(axmDir, "settings.json");
         expect(fs.existsSync(settingsPath)).toBe(true);
-        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings).toHaveProperty("skills");
-        expect(settings.skills).toHaveProperty("my-skill");
-        expect(settings.skills).toHaveProperty("another-skill");
 
         // Verify axm-lock.yaml exists and has entries (YAML format)
         const lockPath = path.join(axmDir, "axm-lock.yaml");
@@ -102,8 +97,8 @@ describe("axm skills install", () => {
         expect(lock.skills).toHaveProperty("my-skill");
         expect(lock.skills).toHaveProperty("another-skill");
 
-        // Verify canonical skills directory (V2 uses extensions/external/skills/)
-        const skillsDir = path.join(axmDir, "extensions", "external", "skills");
+        // Verify canonical skills directory (.agents/skills/)
+        const skillsDir = path.join(temp.path, ".agents", "skills");
         expect(fs.existsSync(skillsDir)).toBe(true);
         expect(fs.existsSync(path.join(skillsDir, "my-skill"))).toBe(true);
         expect(fs.existsSync(path.join(skillsDir, "another-skill"))).toBe(true);
@@ -233,18 +228,18 @@ describe("axm skills install", () => {
         // .axm/
         //   settings.json
         //   axm-lock.yaml
+        // .agents/
         //   skills/
         //     my-skill/
         //       SKILL.md
         // .claude/
-        //   commands/
-        //     my-skill -> ../../../.axm/skills/my-skill (symlink)
+        //   skills/
+        //     my-skill -> ../../.agents/skills/my-skill (symlink)
 
         const axmDir = path.join(temp.path, ".axm");
         const settingsPath = path.join(axmDir, "settings.json");
         const lockPath = path.join(axmDir, "axm-lock.yaml");
-        // V2 uses extensions/external/skills/ directory structure
-        const canonicalSkillDir = path.join(axmDir, "extensions", "external", "skills", "my-skill");
+        const canonicalSkillDir = path.join(temp.path, ".agents", "skills", "my-skill");
         const canonicalSkillMd = path.join(canonicalSkillDir, "SKILL.md");
 
         expect(fs.existsSync(settingsPath)).toBe(true);
@@ -265,7 +260,7 @@ describe("axm skills install", () => {
       }
     });
 
-    it("settings.json contains skill in skills with version specifier", async () => {
+    it("settings.json preserves agents after installation", async () => {
       const temp = createTempDir();
       try {
         await runCli(["init", "--yes", "--agent", "claude-code"], {
@@ -289,13 +284,9 @@ describe("axm skills install", () => {
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
 
-        // Verify new settings structure
+        // Settings should still have agents
         expect(settings).toHaveProperty("agents");
         expect(settings.agents).toContain("claude-code");
-        expect(settings).toHaveProperty("skills");
-        // Skills now store version specifier (e.g., "*" for unversioned sources)
-        expect(settings.skills["my-skill"]).toBeDefined();
-        expect(typeof settings.skills["my-skill"]).toBe("string");
       } finally {
         temp.cleanup();
       }
@@ -362,15 +353,7 @@ describe("axm skills install", () => {
         for (const skillName of ["my-skill", "another-skill"]) {
           // claude-code skillsDir is ".claude/skills"
           const agentSkillDir = path.join(temp.path, ".claude", "skills", skillName);
-          // V2 uses extensions/external/skills/ directory structure
-          const canonicalSkillDir = path.join(
-            temp.path,
-            ".axm",
-            "extensions",
-            "external",
-            "skills",
-            skillName,
-          );
+          const canonicalSkillDir = path.join(temp.path, ".agents", "skills", skillName);
 
           expect(fs.lstatSync(agentSkillDir).isSymbolicLink()).toBe(true);
 
@@ -471,8 +454,7 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        expect(result.stdout).toContain("Successfully installed");
-        expect(result.stdout).toContain("my-skill");
+        expect(result.stdout).toContain("Installed my-skill");
       } finally {
         temp.cleanup();
       }
@@ -587,16 +569,7 @@ describe("axm skills install", () => {
         );
 
         // Modify the installed skill to simulate local changes (creates hash mismatch)
-        // V2 uses extensions/external/skills/ directory structure
-        const skillMdPath = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-          "SKILL.md",
-        );
+        const skillMdPath = path.join(temp.path, ".agents", "skills", "my-skill", "SKILL.md");
         const originalContent = fs.readFileSync(skillMdPath, "utf-8");
         fs.writeFileSync(skillMdPath, `${originalContent}\n# Modified locally`);
 
@@ -618,9 +591,9 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        // V2 shows update (~ symbol) when local content differs from source
-        // (there's no separate "repair" action in V2, updates handle both version changes and content diffs)
-        expect(result.stdout).toMatch(/~.*my-skill|update/i);
+        // --force causes reinstall even when already installed (shows + for install)
+        expect(result.stdout).toContain("my-skill");
+        expect(result.stdout).toMatch(/\+.*my-skill|to install/);
         // Should show preview message (non-interactive warns without applying)
         expect(result.stdout).toContain("Previewing changes...");
       } finally {

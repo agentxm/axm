@@ -21,10 +21,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Clack } from "../../../clack-effect/index.js";
 import { formatError } from "../../../utils/errors.js";
-import type { OperationResult } from "../../../workspace/apply-plan.js";
 import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
 import type { AddSkillOperation } from "../operations.js";
 import { buildPlan } from "./build-plan.js";
+import { installSkill } from "./install-skill.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -194,17 +194,16 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         Option.some(`Install skills from ${printSource(source)}`),
       );
 
-      // Stub executor — will be replaced by installSkill in a future phase
-      const installSkillStub = (
-        op: AddSkillOperation,
-      ): Effect.Effect<OperationResult, never, Clack> =>
-        Effect.gen(function* () {
-          const c = yield* Clack;
-          yield* c.log.success(`Installed ${op.skill.name}`);
-          return { action: "success" as const, message: `Installed ${op.skill.name}` };
-        });
+      const results = yield* ws.resolvePlan(plan, { "install-skill": installSkill });
 
-      yield* ws.resolvePlan(plan, { "install-skill": installSkillStub });
+      // Report results
+      for (const result of results) {
+        if (result.action === "success") {
+          yield* clack.log.success(result.message);
+        } else if (result.action === "error") {
+          yield* clack.log.error(result.message);
+        }
+      }
 
       yield* clack.outro("Done");
     }),

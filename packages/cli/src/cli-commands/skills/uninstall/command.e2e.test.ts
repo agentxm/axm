@@ -36,14 +36,7 @@ describe("axm skills uninstall", () => {
         );
 
         // Verify skill is installed
-        const canonicalSkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-        );
+        const canonicalSkillDir = path.join(temp.path, ".agents", "skills", "my-skill");
         expect(fs.existsSync(canonicalSkillDir)).toBe(true);
 
         // Uninstall the skill
@@ -183,14 +176,7 @@ describe("axm skills uninstall", () => {
         expect(result.stdout).toContain("my-skill");
 
         // Verify skill files still exist (no changes made)
-        const canonicalSkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-        );
+        const canonicalSkillDir = path.join(temp.path, ".agents", "skills", "my-skill");
         expect(fs.existsSync(canonicalSkillDir)).toBe(true);
 
         const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
@@ -338,14 +324,7 @@ describe("axm skills uninstall", () => {
         expect(result.exitCode).toBe(0);
 
         // Skill should be removed
-        const canonicalSkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-        );
+        const canonicalSkillDir = path.join(temp.path, ".agents", "skills", "my-skill");
         expect(fs.existsSync(canonicalSkillDir)).toBe(false);
       } finally {
         temp.cleanup();
@@ -371,22 +350,8 @@ describe("axm skills uninstall", () => {
         expect(result.exitCode).toBe(0);
 
         // Only my-skill should be removed, another-skill should remain
-        const mySkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-        );
-        const anotherSkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "another-skill",
-        );
+        const mySkillDir = path.join(temp.path, ".agents", "skills", "my-skill");
+        const anotherSkillDir = path.join(temp.path, ".agents", "skills", "another-skill");
         expect(fs.existsSync(mySkillDir)).toBe(false);
         expect(fs.existsSync(anotherSkillDir)).toBe(true);
       } finally {
@@ -438,14 +403,7 @@ describe("axm skills uninstall", () => {
         expect(fs.existsSync(cursorSkillDir)).toBe(true);
 
         // Canonical copy should still exist (still used by cursor)
-        const canonicalSkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-        );
+        const canonicalSkillDir = path.join(temp.path, ".agents", "skills", "my-skill");
         expect(fs.existsSync(canonicalSkillDir)).toBe(true);
 
         // Lockfile should still have the skill but with updated agents
@@ -496,14 +454,7 @@ describe("axm skills uninstall", () => {
         expect(result.exitCode).toBe(0);
 
         // Canonical copy should be removed (no agents left)
-        const canonicalSkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-        );
+        const canonicalSkillDir = path.join(temp.path, ".agents", "skills", "my-skill");
         expect(fs.existsSync(canonicalSkillDir)).toBe(false);
 
         // Lockfile entry should be removed
@@ -544,14 +495,7 @@ describe("axm skills uninstall", () => {
         });
 
         // Canonical should still exist
-        const canonicalSkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-        );
+        const canonicalSkillDir = path.join(temp.path, ".agents", "skills", "my-skill");
         expect(fs.existsSync(canonicalSkillDir)).toBe(true);
 
         // SKILL.md should still be there
@@ -597,25 +541,11 @@ describe("axm skills uninstall", () => {
         expect(result.exitCode).toBe(0);
 
         // my-skill should be removed
-        const mySkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "my-skill",
-        );
+        const mySkillDir = path.join(temp.path, ".agents", "skills", "my-skill");
         expect(fs.existsSync(mySkillDir)).toBe(false);
 
         // another-skill should remain
-        const anotherSkillDir = path.join(
-          temp.path,
-          ".axm",
-          "extensions",
-          "external",
-          "skills",
-          "another-skill",
-        );
+        const anotherSkillDir = path.join(temp.path, ".agents", "skills", "another-skill");
         expect(fs.existsSync(anotherSkillDir)).toBe(true);
 
         // Lockfile should only have another-skill
@@ -656,8 +586,7 @@ describe("axm skills uninstall", () => {
         });
 
         // Skills directory should still exist (empty is fine) or be removed
-        // V2 uses .axm/extensions/external/skills/
-        const skillsDir = path.join(temp.path, ".axm", "extensions", "external", "skills");
+        const skillsDir = path.join(temp.path, ".agents", "skills");
         if (fs.existsSync(skillsDir)) {
           const contents = fs.readdirSync(skillsDir);
           expect(contents).toHaveLength(0);

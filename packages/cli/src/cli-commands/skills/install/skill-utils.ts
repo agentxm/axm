@@ -10,7 +10,7 @@
 import * as nodePath from "node:path";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
-import type { SkillRef } from "./discover-skills.js";
+import type { SkillRef } from "../operations.js";
 
 // -----------------------------------------------------------------------------
 // Display Name

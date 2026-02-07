@@ -25,7 +25,8 @@ import * as Option from "effect/Option";
 import { Clack } from "../../../clack-effect/index.js";
 import { formatError } from "../../../utils/errors.js";
 import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
-import type { AddSkillOperation, Plan, Action } from "../../../workspace/ideal-state.js";
+import type { AddSkillOperation } from "../operations.js";
+import type { Action, Plan } from "../../../workspace/plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -193,11 +194,11 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
       const _lockfile = yield* ws.getLockfile();
       const _settings = yield* ws.getSettings();
-      const _plan: Plan = {
+      const _plan: Plan<AddSkillOperation> = {
+        name: "Install skill(s)",
+        description: Option.none(),
         jobs: [
           {
-            name: "install skill",
-            description: Option.none(),
             steps: ops.map((op) => {
               // TODO: if not in lockfile, plan to execute
               // TODO: if in lockfile, no-op because it's already installed (unless force)
@@ -205,7 +206,8 @@ export const handleInstall = (args: InstallHandlerArgs) => {
                 op,
                 action: "execute",
                 reason: Option.none(),
-              } satisfies Action;
+                label: op.skill.name,
+              } satisfies Action<AddSkillOperation>;
             }),
             concurrency: "unbounded",
           },

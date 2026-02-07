@@ -8,6 +8,12 @@
 // Plan types
 export type { Action, Job, Plan } from "./plan.js";
 
+// Plan display
+export { displayPlan } from "./display-plan.js";
+
+// Plan apply
+export { applyPlan } from "./apply-plan.js";
+
 // Path utilities
 export { getAxmDir, getGlobalDir, getProjectDir } from "./paths.js";
 

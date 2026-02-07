@@ -8,6 +8,7 @@
  * @packageDocumentation
  */
 
+import type { Option } from "effect/Option";
 import type { SkillRef } from "../cli-commands/skills/install/discover-skills.js";
 import type { Source } from "../sources/types.js";
 
@@ -43,3 +44,20 @@ export interface RemoveSkillOperation {
  * @experimental This API is unstable and may change without notice.
  */
 export type WorkspaceOperation = AddSkillOperation | RemoveSkillOperation;
+
+export interface Action {
+  op: WorkspaceOperation;
+  action: "execute" | "no-op" | "error";
+  reason: Option<string>;
+}
+
+export interface Plan {
+  jobs: Job[];
+}
+
+export interface Job {
+  name: string;
+  description: Option<string>;
+  steps: Action[];
+  concurrency: "unbounded" | 1;
+}

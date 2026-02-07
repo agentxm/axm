@@ -25,6 +25,7 @@ import * as Option from "effect/Option";
 import { Clack } from "../../../clack-effect/index.js";
 import { formatError } from "../../../utils/errors.js";
 import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
+import type { AddSkillOperation, Plan, Action } from "../../../workspace/ideal-state.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -39,9 +40,9 @@ export interface InstallHandlerArgs {
   /** Install to global ~/.axm/ instead of local .axm/ */
   readonly global: boolean;
   /** Target agent(s) to install skills for */
-  readonly agent: readonly string[];
+  readonly agents: readonly string[];
   /** Specific skill(s) to install (by name) */
-  readonly skill: readonly string[];
+  readonly skills: readonly string[];
   /** Skip confirmations */
   readonly yes: boolean;
   /** List available skills without installing */
@@ -100,6 +101,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
   // The scope keeps the temp clone dir alive until plan application completes.
   return Effect.scoped(
     Effect.gen(function* () {
+      const ws = yield* Workspace;
       // Get Clack service
       const clack = yield* Clack;
 
@@ -128,7 +130,6 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       spinner.stop(`Source: ${printSource(source)} (${source.source})`);
 
       // Step 2: Get workspace context (provided by runtime)
-      yield* Workspace;
 
       // TODO: Step 3 — Get agents from settings or --agent flag
 
@@ -164,7 +165,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
       // Step 7: Select skills to install
       const selectedSkills = yield* determineSkillsToInstall(discoveredSkills, {
-        requestedSkills: args.skill,
+        requestedSkills: args.skills,
         all: args.all,
         // TODO: why is dry-run here? Is it needed?
         dryRun: Option.getOrElse(args.dryRun, () => false),
@@ -176,6 +177,38 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         yield* clack.outro("Nothing to install.");
         return;
       }
+
+      const agentIds: readonly string[] = [];
+
+      const ops = selectedSkills.map(
+        (s) =>
+          ({
+            _tag: "add-skill",
+            agents: agentIds,
+            force: args.force,
+            source,
+            ...s,
+          }) satisfies AddSkillOperation,
+      );
+
+      const _lockfile = yield* ws.getLockfile();
+      const _settings = yield* ws.getSettings();
+      const _plan: Plan = {
+        jobs: [
+          {
+            name: "install skill",
+            description: Option.none(),
+            steps: ops.map((op) => {
+              return {
+                op,
+                action: "execute",
+                reason: Option.none(),
+              } satisfies Action;
+            }),
+            concurrency: "unbounded",
+          },
+        ],
+      };
 
       // TODO: Step 8 — Build ideal state using operations (buildIdealState with AddSkillOperation[])
       // TODO: Step 11 — Check if there are changes (diff current vs ideal)

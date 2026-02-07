@@ -50,7 +50,6 @@ describe("determineSkillsToInstall", () => {
           const result = yield* determineSkillsToInstall(skills("commit", "review-pr", "debug"), {
             requestedSkills: ["commit", "debug"],
             all: false,
-            dryRun: false,
             yes: false,
           });
 
@@ -65,7 +64,6 @@ describe("determineSkillsToInstall", () => {
           const error = yield* determineSkillsToInstall(skills("commit"), {
             requestedSkills: ["commit", "nonexistent"],
             all: false,
-            dryRun: false,
             yes: false,
           }).pipe(Effect.flip);
 
@@ -82,7 +80,6 @@ describe("determineSkillsToInstall", () => {
           const error = yield* determineSkillsToInstall(skills("commit"), {
             requestedSkills: ["foo", "bar"],
             all: false,
-            dryRun: false,
             yes: false,
           }).pipe(Effect.flip);
 
@@ -94,29 +91,13 @@ describe("determineSkillsToInstall", () => {
     );
   });
 
-  describe("--all / --dry-run / --yes (rule 2)", () => {
+  describe("--all / --yes (rule 2)", () => {
     it.effect("returns all skills with --all", () =>
       provide(
         Effect.gen(function* () {
           const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
             requestedSkills: [],
             all: true,
-            dryRun: false,
-            yes: false,
-          });
-
-          expect(result.map((s) => s.skill.name)).toEqual(["commit", "review-pr"]);
-        }),
-      ),
-    );
-
-    it.effect("returns all skills with --dry-run", () =>
-      provide(
-        Effect.gen(function* () {
-          const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
-            requestedSkills: [],
-            all: false,
-            dryRun: true,
             yes: false,
           });
 
@@ -131,7 +112,6 @@ describe("determineSkillsToInstall", () => {
           const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
             requestedSkills: [],
             all: false,
-            dryRun: false,
             yes: true,
           });
 
@@ -148,7 +128,6 @@ describe("determineSkillsToInstall", () => {
           const result = yield* determineSkillsToInstall(skills("commit"), {
             requestedSkills: [],
             all: false,
-            dryRun: false,
             yes: false,
           });
 
@@ -165,7 +144,6 @@ describe("determineSkillsToInstall", () => {
           const result = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
             requestedSkills: [],
             all: false,
-            dryRun: false,
             yes: false,
           });
 

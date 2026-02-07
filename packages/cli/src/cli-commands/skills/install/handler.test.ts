@@ -59,7 +59,6 @@ const defaultArgs = (
   all: true,
   force: false,
   nonInteractive: Option.some(true),
-  dryRun: Option.none(),
   ...overrides,
 });
 
@@ -104,16 +103,20 @@ describe("install.handler", () => {
   // Plan build + display
   // ---------------------------------------------------------------------------
 
-  describe("plan build and display", () => {
+  describe("plan build and display (preview mode)", () => {
     it.effect("builds plan from operations and lockfile, displays it", () => {
-      const { provide, mockClack } = makeLayers();
+      const { provide, mockClack } = makeLayers({
+        confirmBehavior: Option.some({ type: "return", value: true }),
+        selectBehavior: Option.none(),
+        multiselectBehavior: Option.none(),
+      });
       const skillsDir = path.join(tempDir, "skills-source");
       createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstall(defaultArgs(skillsDir));
+          yield* handleInstall(defaultArgs(skillsDir, { yes: false }));
 
           // Plan was displayed — should show the skill to install
           const allLogs = [
@@ -127,7 +130,11 @@ describe("install.handler", () => {
     });
 
     it.effect("marks already-installed skills as no-op in display", () => {
-      const { provide, mockClack } = makeLayers();
+      const { provide, mockClack } = makeLayers({
+        confirmBehavior: Option.some({ type: "return", value: true }),
+        selectBehavior: Option.none(),
+        multiselectBehavior: Option.none(),
+      });
       const skillsDir = path.join(tempDir, "skills-source");
       createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
 
@@ -144,7 +151,7 @@ describe("install.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstall(defaultArgs(skillsDir));
+          yield* handleInstall(defaultArgs(skillsDir, { yes: false }));
 
           const allLogs = [
             ...mockClack.logs.warn,
@@ -152,30 +159,6 @@ describe("install.handler", () => {
             ...mockClack.logs.message,
           ];
           expect(allLogs.some((m) => m.includes("already installed"))).toBe(true);
-        }),
-      );
-    });
-  });
-
-  // ---------------------------------------------------------------------------
-  // --preview (dry-run) stops after display
-  // ---------------------------------------------------------------------------
-
-  describe("--preview", () => {
-    it.effect("stops after display without applying", () => {
-      const { provide, mockClack } = makeLayers();
-      const skillsDir = path.join(tempDir, "skills-source");
-      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
-      initWorkspace(path.join(tempDir, ".axm"));
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleInstall(defaultArgs(skillsDir, { dryRun: Option.some(true) }));
-
-          // Should show preview message
-          expect(mockClack.logs.outro.some((m) => m.includes("Preview"))).toBe(true);
-          // Should NOT show "Installed" success messages from applyPlan
-          expect(mockClack.logs.success.filter((m) => m.includes("Installed"))).toHaveLength(0);
         }),
       );
     });

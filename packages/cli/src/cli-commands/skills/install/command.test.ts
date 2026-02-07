@@ -234,20 +234,6 @@ describe("skills install command options", () => {
     }
   });
 
-  it("defines --dry-run option with boolean type and no default", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-
-    if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs);
-      expect(capturedOptions["dry-run"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-        }),
-      );
-      expect(capturedOptions["dry-run"]?.default).toBeUndefined();
-    }
-  });
-
   it("defines --non-interactive option with boolean type and no default", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
@@ -259,15 +245,6 @@ describe("skills install command options", () => {
         }),
       );
       expect(capturedOptions["non-interactive"]?.default).toBeUndefined();
-    }
-  });
-
-  it("includes description for --dry-run option", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-
-    if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs);
-      expect(capturedOptions["dry-run"]?.describe).toBeDefined();
     }
   });
 

@@ -44,7 +44,7 @@ export interface SkillRef {
  * @experimental This API is unstable and may change without notice.
  */
 export type AddSkillOperation = {
-  readonly _tag: "install-skill";
+  readonly name: "install-skill";
   readonly source: Source;
   readonly agents: ReadonlyArray<string>;
   readonly force: boolean;
@@ -56,6 +56,6 @@ export type AddSkillOperation = {
  * @experimental This API is unstable and may change without notice.
  */
 export interface RemoveSkillOperation {
-  readonly _tag: "uninstall-skill";
-  readonly name: string;
+  readonly name: "uninstall-skill";
+  readonly skillName: string;
 }

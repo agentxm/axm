@@ -2,7 +2,7 @@
  * Shared plan apply module.
  *
  * Iterates over plan jobs and their actions, dispatching each "execute"
- * action to the matching executor from a typed registry keyed by `_tag`.
+ * action to the matching executor from a typed registry keyed by `name`.
  * No-op actions are skipped.
  *
  * @experimental This API is unstable and may change without notice.
@@ -41,15 +41,15 @@ export type OperationHandler<Op, R = never> = (
 ) => Effect.Effect<OperationResult, OperationError, R>;
 
 /**
- * Executor registry — a handler for every `_tag` in the operation union.
+ * Executor registry — a handler for every `name` in the operation union.
  * TypeScript enforces exhaustiveness at compile time.
  *
  * R is left as a free parameter so concrete registries can carry requirements
  * (e.g. FileSystem, Clack). `ExecutionContext` extracts R from the concrete type.
  */
-export type Handlers<Op extends { _tag: string }> = {
-  [K in Op["_tag"]]: (
-    op: Extract<Op, { _tag: K }>,
+export type Handlers<Op extends { name: string }> = {
+  [K in Op["name"]]: (
+    op: Extract<Op, { name: K }>,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ) => Effect.Effect<OperationResult, OperationError, any>;
 };
@@ -70,15 +70,15 @@ export type ExecutionContext<T> = {
 // Implementation
 // -----------------------------------------------------------------------------
 
-const applyAction = <Op extends { _tag: string }, T extends Handlers<Op>>(
+const applyAction = <Op extends { name: string }, T extends Handlers<Op>>(
   action: Action<Op>,
   handlers: T,
 ): Effect.Effect<OperationResult, never, ExecutionContext<T>> => {
   if (action.action !== "execute") {
     return Effect.succeed({ action: "no-op" as const, message: `Skipped: ${action.label}` });
   }
-  // Cast needed: TS can't correlate dynamic _tag lookup with the Extract<Op, {_tag: K}> parameter
-  const handler = handlers[action.op._tag as Op["_tag"]] as unknown as (
+  // Cast needed: TS can't correlate dynamic name lookup with the Extract<Op, {name: K}> parameter
+  const handler = handlers[action.op.name as Op["name"]] as unknown as (
     op: Op,
   ) => Effect.Effect<OperationResult, OperationError, ExecutionContext<T>>;
   return handler(action.op).pipe(
@@ -98,7 +98,7 @@ const applyAction = <Op extends { _tag: string }, T extends Handlers<Op>>(
  * Only processes `"execute"` actions — `"no-op"` actions are skipped.
  * Never fails — catches OperationError and converts to error results.
  */
-export const applyPlan = <Op extends { _tag: string }, T extends Handlers<Op>>(
+export const applyPlan = <Op extends { name: string }, T extends Handlers<Op>>(
   plan: Plan<Op>,
   handlers: T,
 ): Effect.Effect<ReadonlyArray<OperationResult>, never, ExecutionContext<T>> =>

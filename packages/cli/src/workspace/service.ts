@@ -371,7 +371,7 @@ const make = (
       preview: options.preview,
       getSettings: () => readSettings(workspaceDir).pipe(Effect.provide(fsLayer)),
       getLockfile: () => readLockfile(workspaceDir).pipe(Effect.provide(fsLayer)),
-      resolvePlan: <Op extends { _tag: string }, T extends Handlers<Op>>(
+      resolvePlan: <Op extends { name: string }, T extends Handlers<Op>>(
         plan: Plan<Op>,
         handlers: T,
       ) =>
@@ -448,7 +448,7 @@ export interface WorkspaceContextService {
   /** Read fresh lockfile from disk. Fails if lockfile does not exist. */
   readonly getLockfile: () => Effect.Effect<Lockfile, LockfileError>;
   /** Display, confirm, and apply a plan based on preview/yes/nonInteractive flags. */
-  readonly resolvePlan: <Op extends { _tag: string }, T extends Handlers<Op>>(
+  readonly resolvePlan: <Op extends { name: string }, T extends Handlers<Op>>(
     plan: Plan<Op>,
     handlers: T,
   ) => Effect.Effect<

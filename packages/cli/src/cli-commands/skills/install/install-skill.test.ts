@@ -29,7 +29,7 @@ const withServices = (axmDir: string) => {
 const makeOp = (
   overrides: Partial<AddSkillOperation> & { skillName?: string; sourcePath?: string } = {},
 ): AddSkillOperation => ({
-  _tag: "install-skill",
+  name: "install-skill",
   source: { source: "local", path: "/tmp/source" },
   agents: overrides.agents ?? ["claude-code"],
   force: overrides.force ?? false,

@@ -153,7 +153,7 @@ describe("WorkspaceContextService", () => {
   });
 
   describe("resolvePlan", () => {
-    type TestOp = { readonly _tag: "test-op" };
+    type TestOp = { readonly name: "test-op" };
     const testPlan: Plan<TestOp> = {
       name: "Test Plan",
       description: Option.none(),
@@ -161,7 +161,7 @@ describe("WorkspaceContextService", () => {
         {
           steps: [
             {
-              op: { _tag: "test-op" },
+              op: { name: "test-op" },
               action: "execute",
               reason: Option.none(),
               label: "test action",

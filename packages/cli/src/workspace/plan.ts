@@ -20,20 +20,20 @@ export interface Operation<TName extends string, TArgs> {
   readonly args: TArgs;
 }
 
-export interface Action<Op> {
-  readonly op: Op;
+export interface JobStep<TOperation> {
+  readonly operation: TOperation;
   readonly action: "execute" | "no-op" | "error";
   readonly reason: Option<string>;
   readonly label: string;
 }
 
-export interface Job<Op> {
-  readonly steps: ReadonlyArray<Action<Op>>;
+export interface Job<TOperation> {
+  readonly steps: ReadonlyArray<JobStep<TOperation>>;
   readonly concurrency: "unbounded" | 1;
 }
 
-export interface Plan<Op> {
+export interface Plan<TOperation> {
   readonly name: string;
   readonly description: Option<string>;
-  readonly jobs: ReadonlyArray<Job<Op>>;
+  readonly jobs: ReadonlyArray<Job<TOperation>>;
 }

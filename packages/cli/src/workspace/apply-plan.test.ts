@@ -54,9 +54,14 @@ describe("applyPlan", () => {
             {
               concurrency: "unbounded",
               steps: [
-                { op: makeOp("commit"), action: "execute", reason: Option.none(), label: "commit" },
                 {
-                  op: makeOp("review-pr"),
+                  operation: makeOp("commit"),
+                  action: "execute",
+                  reason: Option.none(),
+                  label: "commit",
+                },
+                {
+                  operation: makeOp("review-pr"),
                   action: "execute",
                   reason: Option.none(),
                   label: "review-pr",
@@ -82,9 +87,14 @@ describe("applyPlan", () => {
             {
               concurrency: "unbounded",
               steps: [
-                { op: makeOp("commit"), action: "execute", reason: Option.none(), label: "commit" },
                 {
-                  op: makeOp("review-pr"),
+                  operation: makeOp("commit"),
+                  action: "execute",
+                  reason: Option.none(),
+                  label: "commit",
+                },
+                {
+                  operation: makeOp("review-pr"),
                   action: "no-op",
                   reason: Option.some("already installed"),
                   label: "review-pr",
@@ -111,13 +121,13 @@ describe("applyPlan", () => {
               concurrency: "unbounded",
               steps: [
                 {
-                  op: makeOp("commit"),
+                  operation: makeOp("commit"),
                   action: "no-op",
                   reason: Option.some("already installed"),
                   label: "commit",
                 },
                 {
-                  op: makeOp("review-pr"),
+                  operation: makeOp("review-pr"),
                   action: "no-op",
                   reason: Option.some("already installed"),
                   label: "review-pr",
@@ -149,9 +159,14 @@ describe("applyPlan", () => {
             {
               concurrency: 1,
               steps: [
-                { op: makeOp("first"), action: "execute", reason: Option.none(), label: "first" },
                 {
-                  op: makeOp("second"),
+                  operation: makeOp("first"),
+                  action: "execute",
+                  reason: Option.none(),
+                  label: "first",
+                },
+                {
+                  operation: makeOp("second"),
                   action: "execute",
                   reason: Option.none(),
                   label: "second",
@@ -175,14 +190,19 @@ describe("applyPlan", () => {
             {
               concurrency: "unbounded",
               steps: [
-                { op: makeOp("commit"), action: "execute", reason: Option.none(), label: "commit" },
+                {
+                  operation: makeOp("commit"),
+                  action: "execute",
+                  reason: Option.none(),
+                  label: "commit",
+                },
               ],
             },
             {
               concurrency: 1,
               steps: [
                 {
-                  op: makeOp("review-pr"),
+                  operation: makeOp("review-pr"),
                   action: "execute",
                   reason: Option.none(),
                   label: "review-pr",
@@ -208,7 +228,12 @@ describe("applyPlan", () => {
             {
               concurrency: 1,
               steps: [
-                { op: makeOp("bad"), action: "execute", reason: Option.none(), label: "bad" },
+                {
+                  operation: makeOp("bad"),
+                  action: "execute",
+                  reason: Option.none(),
+                  label: "bad",
+                },
               ],
             },
           ],
@@ -229,7 +254,12 @@ describe("applyPlan", () => {
             {
               concurrency: 1,
               steps: [
-                { op: makeOp("skip"), action: "execute", reason: Option.none(), label: "skip" },
+                {
+                  operation: makeOp("skip"),
+                  action: "execute",
+                  reason: Option.none(),
+                  label: "skip",
+                },
               ],
             },
           ],

@@ -32,12 +32,17 @@ export const buildPlan = (
         const installed = op.args.skill.name in lockfile.skills;
         return installed && !op.args.force
           ? {
-              op,
+              operation: op,
               action: "no-op" as const,
               reason: Option.some("already installed"),
               label: op.args.skill.name,
             }
-          : { op, action: "execute" as const, reason: Option.none(), label: op.args.skill.name };
+          : {
+              operation: op,
+              action: "execute" as const,
+              reason: Option.none(),
+              label: op.args.skill.name,
+            };
       }),
     },
   ],

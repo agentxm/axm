@@ -10,7 +10,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Clack } from "../clack-effect/index.js";
-import type { Action, Plan } from "./plan.js";
+import type { JobStep, Plan } from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Implementation
@@ -19,15 +19,15 @@ import type { Action, Plan } from "./plan.js";
 /**
  * Display a plan summary via Clack.
  *
- * Uses `action.label` for human-readable output — never inspects `action.op`.
+ * Uses `step.label` for human-readable output — never inspects `step.operation`.
  */
 export const displayPlan = <Op>(plan: Plan<Op>) =>
   Effect.gen(function* () {
     const clack = yield* Clack;
 
     const allActions = plan.jobs.flatMap((job) => [...job.steps]);
-    const executeActions = allActions.filter((a): a is Action<Op> => a.action === "execute");
-    const noopActions = allActions.filter((a): a is Action<Op> => a.action === "no-op");
+    const executeActions = allActions.filter((a): a is JobStep<Op> => a.action === "execute");
+    const noopActions = allActions.filter((a): a is JobStep<Op> => a.action === "no-op");
 
     // Heading
     const heading = Option.match(plan.description, {

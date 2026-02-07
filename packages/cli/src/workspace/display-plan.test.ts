@@ -41,7 +41,7 @@ describe("displayPlan", () => {
               concurrency: "unbounded",
               steps: [
                 {
-                  op: { name: "commit" },
+                  operation: { name: "commit" },
                   action: "execute",
                   reason: Option.none(),
                   label: "commit",
@@ -68,7 +68,7 @@ describe("displayPlan", () => {
               concurrency: "unbounded",
               steps: [
                 {
-                  op: { name: "commit" },
+                  operation: { name: "commit" },
                   action: "execute",
                   reason: Option.none(),
                   label: "commit",
@@ -96,13 +96,13 @@ describe("displayPlan", () => {
               concurrency: "unbounded",
               steps: [
                 {
-                  op: { name: "commit" },
+                  operation: { name: "commit" },
                   action: "execute",
                   reason: Option.none(),
                   label: "commit",
                 },
                 {
-                  op: { name: "review-pr" },
+                  operation: { name: "review-pr" },
                   action: "execute",
                   reason: Option.none(),
                   label: "review-pr",
@@ -130,7 +130,7 @@ describe("displayPlan", () => {
               concurrency: "unbounded",
               steps: [
                 {
-                  op: { name: "commit" },
+                  operation: { name: "commit" },
                   action: "no-op",
                   reason: Option.some("already installed"),
                   label: "commit",
@@ -159,13 +159,13 @@ describe("displayPlan", () => {
               concurrency: "unbounded",
               steps: [
                 {
-                  op: { name: "commit" },
+                  operation: { name: "commit" },
                   action: "execute",
                   reason: Option.none(),
                   label: "commit",
                 },
                 {
-                  op: { name: "review-pr" },
+                  operation: { name: "review-pr" },
                   action: "no-op",
                   reason: Option.some("already installed"),
                   label: "review-pr",
@@ -198,13 +198,13 @@ describe("displayPlan", () => {
               concurrency: "unbounded",
               steps: [
                 {
-                  op: { name: "commit" },
+                  operation: { name: "commit" },
                   action: "no-op",
                   reason: Option.some("already installed"),
                   label: "commit",
                 },
                 {
-                  op: { name: "review-pr" },
+                  operation: { name: "review-pr" },
                   action: "no-op",
                   reason: Option.some("already installed"),
                   label: "review-pr",

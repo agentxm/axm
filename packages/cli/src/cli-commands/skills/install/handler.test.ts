@@ -7,8 +7,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
-import type { FileSystem } from "@effect/platform";
+import * as NodeContext from "@effect/platform-node/NodeContext";
+import type { FileSystem, Path } from "@effect/platform";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -86,7 +86,7 @@ describe("install.handler", () => {
     wsOverrides?: Partial<WorkspaceContextOptions>,
   ) => {
     const [ClackLayer, mockClack] = makeClackTestLayer(clackConfig);
-    const BaseLayer = Layer.mergeAll(NodeFileSystem.layer, ClackLayer);
+    const BaseLayer = Layer.mergeAll(NodeContext.layer, ClackLayer);
     const wsOptions: WorkspaceContextOptions = {
       global: false,
       yes: true,
@@ -98,7 +98,7 @@ describe("install.handler", () => {
     const FullLayer = Layer.merge(BaseLayer, WsLayer);
 
     const provide = <A, E>(
-      effect: Effect.Effect<A, E, FileSystem.FileSystem | Clack | WorkspaceContextTag>,
+      effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Clack | WorkspaceContextTag>,
     ) => effect.pipe(Effect.provide(FullLayer));
 
     return { provide, mockClack };

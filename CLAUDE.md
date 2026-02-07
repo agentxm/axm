@@ -282,6 +282,10 @@ const data =
 - [ ] Use concurrency (Effect.all, Effect.forEach) where parallelization is possible
 - [ ] Avoid `for`/`while` loops containing `yield*` — use `Effect.forEach` instead (see below)
 - [ ] Wrap Promise-based APIs with Effect conventions (see /effect-wrapping skill)
+- [ ] Use `@effect/platform` for filesystem and path operations — never `node:fs` or `node:path` in production code (see /effect-filesystem skill)
+      → `FileSystem.FileSystem` for all file I/O (read, write, stat, mkdir, symlink)
+      → `Path.Path` for all path computation (join, dirname, resolve, relative)
+      → Both provided by `NodeContext.layer` (already wired in the CLI runtime)
 
 ### Effectful Iteration
 

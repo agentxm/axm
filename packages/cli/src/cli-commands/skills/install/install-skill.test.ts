@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -22,7 +22,7 @@ const withServices = (axmDir: string) => {
     getLockfile: () => Effect.succeed({ lockfileVersion: 1, skills: {} }),
     resolvePlan: () => Effect.succeed([]),
   };
-  return Layer.merge(NodeFileSystem.layer, Workspace.layer(mockWs));
+  return Layer.merge(NodeContext.layer, Workspace.layer(mockWs));
 };
 
 /** Creates a minimal AddSkillOperation for testing. */

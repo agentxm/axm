@@ -1,6 +1,6 @@
 ## Context
 
-The install command currently builds a plan of `AddSkillOperation` actions and displays them, but `applyPlan` is a stub that only logs "Installed {label}". The proposal defines the full installation pipeline: sanitize → validate paths → copy files → create symlinks → update lockfile.
+The install command currently builds a plan of `InstallSkillOperation` actions and displays them, but `applyPlan` is a stub that only logs "Installed {label}". The proposal defines the full installation pipeline: sanitize → validate paths → copy files → create symlinks → update lockfile.
 
 The codebase uses a desired-state reconciliation pattern (`loadCurrentState → buildIdealState → buildPlan → applyPlan`) with Effect throughout. Plans are generic over their operation type (`Plan<Op>`), and the workspace service's `resolvePlan` handles preview/confirm/apply flow.
 
@@ -8,7 +8,7 @@ Key existing pieces:
 
 - `applyPlan` in `workspace/apply-plan.ts` — iterates jobs/steps, currently logs only
 - `WorkspaceContextService.resolvePlan` in `workspace/service.ts` — display/confirm/apply orchestration
-- `AddSkillOperation` includes `source: Source`, `agents: ReadonlyArray<string>`, `skill: Skill`, `path: Option<string>`, `gitTreeSha: Option<string>`
+- `AddSkillOperation` (renamed to `InstallSkillOperation` in this change) includes `source: Source`, `agents: ReadonlyArray<string>`, `skill: Skill`, `path: Option<string>`, `gitTreeSha: Option<string>`
 - `updateLockEntry(axmDir, skillName, entry)` exists in `lockfile/lockfile.ts`
 - 44 agents registered, each with `skills.dir` (e.g., `.claude/skills`, `.cursor/skills`)
 - Source types use `Option<T>` for optional fields; lockfile schemas use `Schema.optional`
@@ -17,8 +17,8 @@ Key existing pieces:
 
 **Goals:**
 
-- Make `applyPlan` extensible via a typed executor registry keyed by operation `_tag`
-- Implement the full skill installation pipeline as `executeAddSkill`
+- Make `applyPlan` extensible via a typed handler registry keyed by operation `kind`
+- Implement the full skill installation pipeline as `installSkill`
 - Write skill files to canonical location (`.agents/skills/<name>`)
 - Symlink from agent-specific directories to canonical
 - Update lockfile entries after installation
@@ -35,51 +35,106 @@ Key existing pieces:
 
 ## Decisions
 
-### 1. Executor registry on `applyPlan`
+### 1. Handler registry on `applyPlan`
 
-**Decision:** `applyPlan` accepts a typed executor registry — a map from operation `_tag` to handler function. Operations must carry a `_tag: string` discriminant. `applyPlan` dispatches each action's `op` to the matching executor by `_tag`.
+**Decision:** `applyPlan` accepts a typed handler registry — a map from operation `kind` to handler function. Operations must carry a `kind: string` discriminant. Existing operations (`InstallSkillOperation`, `UninstallSkillOperation`) currently use `_tag` — migrate to `kind` to avoid collision with Effect's `Data.TaggedClass`/`Data.TaggedError` convention. Also rename `"add-skill"` → `"install-skill"` and `"remove-skill"` → `"uninstall-skill"` for consistency with command naming. `applyPlan` dispatches each action's `op` to the matching handler by `kind`. Handler errors are fixed to `OperationError`. Handler dependencies (R channel) are inferred from the handler functions provided — TypeScript bubbles up the union of all handler requirements automatically.
 
-**Rationale:** Execution logic is a property of the operation _type_, not the individual instance — every `AddSkillOperation` is executed the same way. A registry keyed by `_tag` makes this relationship explicit and discoverable. The mapped type ensures exhaustiveness: TypeScript forces the caller to provide a handler for every `_tag` in the operation union.
+**Rationale:** Execution logic is a property of the operation _type_, not the individual instance — every `InstallSkillOperation` is executed the same way. A registry keyed by `kind` makes this relationship explicit and discoverable. The mapped type ensures exhaustiveness: TypeScript forces the caller to provide a handler for every `kind` in the operation union.
+
+Handlers receive everything they need from two sources: (1) the operation object itself (source, agents, skill, paths, etc.), and (2) Effect services via `yield*` (FileSystem, Clack, Path, etc.). No factory functions or closures needed — handlers are plain functions. Service dependencies bubble up through `applyPlan` → `resolvePlan` → handler, where the runtime layer satisfies them.
 
 **Alternatives considered:**
 
 - _Single callback `execute: (op: Op) => Effect`_ — works but treats execution as an opaque function. Doesn't express that execution is determined by operation type. Callers would need internal dispatch anyway for union operation types.
 - _Operations carry their own `execute` method_ — couples data and behavior at the instance level. Execution logic is identical across all instances of a type, so per-instance attachment is misleading.
-- _Pattern match on `_tag` inside applyPlan_ — breaks the generic `Plan<Op>` abstraction. applyPlan shouldn't know about skill-specific tags.
+- _Pattern match on `kind` inside applyPlan_ — breaks the generic `Plan<Op>` abstraction. applyPlan shouldn't know about skill-specific tags.
+- _Fixed `R = never` with factory/closure injection_ — forces handlers to close over services via a factory function. Adds unnecessary indirection when Effect's service pattern already handles dependency propagation. The operation object carries domain data; Effect context carries infrastructure services.
 
 **Types and signature:**
 
 ```typescript
-// Executor registry: maps each _tag in the Op union to its handler
-type Executors<Op extends { _tag: string }, E, R> = {
-  [K in Op["_tag"]]: (op: Extract<Op, { _tag: K }>) => Effect.Effect<void, E, R>
+// Result type for all operation handlers
+type OperationResult = {
+  action: "no-op" | "success" | "error"
+  message: string
 }
+
+// Yielded by handlers for hard failures — applyPlan catches and converts to error result
+class OperationError extends Data.TaggedError("OperationError")<{
+  operation: string
+  message: string
+  cause: unknown
+}> {}
+
+// Handler: returns OperationResult, may yield OperationError for hard failures
+type OperationHandler<Op, R = never> = (op: Op) => Effect.Effect<OperationResult, OperationError, R>
+
+// Constraint shape for the registry (R = any to accept any handler)
+type Handlers<Op extends { kind: string }> = {
+  [K in Op["kind"]]: (op: Extract<Op, { kind: K }>) => Effect.Effect<OperationResult, OperationError, any>
+}
+
+// Extract the union of R from all handler functions
+type ExecutionContext<T> =
+  T[keyof T] extends (...args: any[]) => Effect.Effect<any, any, infer R> ? R : never
 
 // Before
 export const applyPlan = <Op>(plan: Plan<Op>) => ...
 
-// After
-export const applyPlan = <Op extends { _tag: string }, E, R>(
+// After — T is inferred from the literal handler object, R bubbles up
+// applyPlan catches OperationError and converts to { action: "error", message }
+export const applyPlan = <Op extends { kind: string }, T extends Handlers<Op>>(
   plan: Plan<Op>,
-  executors: Executors<Op, E, R>,
-) => ...
+  handlers: T,
+): Effect.Effect<ReadonlyArray<OperationResult>, never, ExecutionContext<T>> => ...
 ```
 
-The `Clack` dependency is removed from `applyPlan` — it becomes the executor's responsibility to do any logging. `applyPlan` looks up `executors[action.op._tag]` and calls it with the operation.
+The `Clack` dependency is removed from `applyPlan` — it becomes the handler's responsibility to do any logging. `applyPlan` looks up `handlers[action.op.kind]`, calls it with the operation, and catches any `OperationError` — converting it to `{ action: "error", message: error.message }`. This means `applyPlan` never fails — it always returns results, even for errors.
+
+**Handler implementation:** Plain functions — no factory, no closure. Domain data comes from the operation object, infrastructure services come from Effect context. Handlers return `OperationResult` directly for expected outcomes, or yield `OperationError` for hard failures that `applyPlan` catches.
+
+```typescript
+export const installSkill: OperationHandler<
+  InstallSkillOperation,
+  FileSystem.FileSystem | Path.Path
+> = (op) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+
+    // Hard failure — yield OperationError, applyPlan catches and converts
+    if (!isPathSafe(op.skill.name)) {
+      yield* new OperationError({
+        operation: "install-skill",
+        message: "Path traversal detected",
+        cause: null,
+      });
+    }
+
+    // Explicit error result — handler controls the message
+    if (alreadyInstalled) {
+      return { action: "no-op", message: "Already installed" };
+    }
+
+    // Success
+    return { action: "success", message: `Installed ${op.skill.name}` };
+  });
+```
 
 **Caller usage (install handler):**
 
 ```typescript
+// R = FileSystem | Path inferred from installSkill — no manual annotation
 ws.resolvePlan(plan, {
-  "add-skill": (op) => executeAddSkill(op),
+  "install-skill": installSkill,
 });
 ```
 
-### 2. Threading executors through `resolvePlan`
+### 2. Threading handlers through `resolvePlan`
 
-**Decision:** `resolvePlan` on `WorkspaceContextService` gains an `executors` parameter (same registry type) and forwards it to `applyPlan`.
+**Decision:** `resolvePlan` on `WorkspaceContextService` gains a `handlers` parameter (same registry type) and forwards it to `applyPlan`.
 
-**Rationale:** The handler calls `ws.resolvePlan(plan)` — that's where the preview/confirm/apply flow lives. The executor registry must reach `applyPlan` through this path.
+**Rationale:** The handler calls `ws.resolvePlan(plan)` — that's where the preview/confirm/apply flow lives. The handler registry must reach `applyPlan` through this path. Handler dependencies bubble up through `resolvePlan` automatically — TypeScript infers the R channel from the handlers provided.
 
 **Signature change:**
 
@@ -87,26 +142,35 @@ ws.resolvePlan(plan, {
 // Before
 resolvePlan: <Op>(plan: Plan<Op>) => Effect<void, PromptCancelled | PromptError, Clack>;
 
-// After
-resolvePlan: <Op extends { _tag: string }, E, R>(plan: Plan<Op>, executors: Executors<Op, E, R>) =>
-  Effect<void, PromptCancelled | PromptError | E, Clack | R>;
+// After — T inferred from handlers, R bubbles up via ExecutionContext<T>
+// OperationError is not in the error channel — applyPlan catches it and returns error results
+resolvePlan: <Op extends { kind: string }, T extends Handlers<Op>>(plan: Plan<Op>, handlers: T) =>
+  Effect<
+    ReadonlyArray<OperationResult>,
+    PromptCancelled | PromptError,
+    Clack | ExecutionContext<T>
+  >;
 ```
 
 ### 3. File layout: feature-grouped, not scattered
 
 **Decision:** Skill installation files go in `cli-commands/skills/install/`. Cross-cutting utilities (`isPathSafe`, `createSymlink`, `resolveParentSymlinks`) go in `utils/`.
 
-**Rationale:** Follows the project's "group by feature" convention. `executeAddSkill` is install-specific. Sanitize and copy are shared across install/uninstall so they live one level up in `cli-commands/skills/`. Path and symlink utilities are genuinely cross-cutting.
+**Rationale:** Follows the project's "group by feature" convention. `installSkill` is install-specific. Sanitize and copy are shared across install/uninstall so they live one level up in `cli-commands/skills/`. Path and symlink utilities are genuinely cross-cutting.
+
+**Existing code to reuse:**
+| What | Location | Notes |
+|------|----------|-------|
+| `sanitizeName` | `cli-commands/skills/install/skill-utils.ts` | Already exported, matches spec exactly. Consider moving up to `cli-commands/skills/` for shared use with uninstall. |
+| `validatePath` | `cli-commands/skills/install/parse-manifests.ts` | Module-private, manifest-specific. Pattern is reusable but needs a general-purpose public variant for install pipeline. |
 
 **New files:**
 | File | Location | Why |
 |------|----------|-----|
-| `execute.ts` | `cli-commands/skills/install/` | Install-specific orchestrator |
-| `install-result.ts` | `cli-commands/skills/install/` | Result type for per-agent outcomes |
-| `sanitize-name.ts` | `cli-commands/skills/` | Shared: install + uninstall need it |
+| `install-skill.ts` | `cli-commands/skills/install/` | Install-specific operation handler |
 | `copy-skill-directory.ts` | `cli-commands/skills/` | Shared: skill-specific exclusion rules |
 | `source-to-lock-entry.ts` | `cli-commands/skills/` | Shared: install + update need it |
-| `path-safety.ts` | `utils/` | Cross-cutting: any path validation |
+| `path-safety.ts` | `utils/` | Cross-cutting: general-purpose path traversal validation (extract pattern from `validatePath` in parse-manifests.ts) |
 | `create-symlink.ts` | `utils/` | Cross-cutting: symlink lifecycle |
 | `resolve-parent-symlinks.ts` | `utils/` | Cross-cutting: path resolution |
 
@@ -120,7 +184,7 @@ resolvePlan: <Op extends { _tag: string }, E, R>(plan: Plan<Op>, executors: Exec
 
 ### 5. Concurrency: serialized jobs, but concurrent agent symlinks within a skill
 
-**Decision:** Change `buildPlan`'s job concurrency from `"unbounded"` to `1` (serialize across skills). Within `executeAddSkill`, symlink creation for multiple agents runs concurrently.
+**Decision:** Change `buildPlan`'s job concurrency from `"unbounded"` to `1` (serialize across skills). Within `installSkill`, symlink creation for multiple agents runs concurrently.
 
 **Rationale:** `updateLockEntry` does read-modify-write on the lockfile. Concurrent skill installations would race on lockfile writes. However, symlinking to different agent directories within a single skill is independent and safe to parallelize.
 
@@ -141,10 +205,13 @@ resolvePlan: <Op extends { _tag: string }, E, R>(plan: Plan<Op>, executors: Exec
 
 ### 7. Error handling strategy
 
-**Decision:** `executeAddSkill` returns structured `InstallResult` per agent. Path safety and copy failures fail the skill. Symlink failures fall back to copy. Lockfile write failures are silently swallowed.
+**Decision:** `installSkill` returns `OperationResult`. Hard failures (path traversal, copy failure) yield `OperationError`, which `applyPlan` catches and converts to `{ action: "error" }`. Recoverable situations return results directly: `{ action: "no-op" }` for already-installed skills, `{ action: "success" }` for successful installs. Symlink failures fall back to copy. Lockfile write failures are silently swallowed.
 
 **Rationale:**
 
+- Two error paths: handlers yield `OperationError` for hard failures (caught by `applyPlan`), or return `{ action: "error" }` directly for expected/graceful errors
+- `operation` on `OperationError` identifies which operation failed, useful for reporting in multi-skill installs
+- `applyPlan` never fails — it always returns `ReadonlyArray<OperationResult>`, making downstream reporting straightforward
 - Path traversal is a hard failure — never write outside the base directory
 - Copy failure means the skill can't be installed — no point symlinking
 - Symlink failure is recoverable — copy the files instead
@@ -152,14 +219,15 @@ resolvePlan: <Op extends { _tag: string }, E, R>(plan: Plan<Op>, executors: Exec
 
 ### 8. Skill name sanitization
 
-**Decision:** Pure function with deterministic, filesystem-safe output:
+**Decision:** Already implemented in `sanitizeName` (`cli-commands/skills/install/skill-utils.ts`). Update the existing implementation to use `/[^a-z0-9._]+/g` (with `+` quantifier) so that any sequence of non-alphanumeric characters collapses to a single hyphen.
+
+Pipeline:
 
 1. Lowercase
-2. Replace `[^a-z0-9._]` with single hyphen
-3. Collapse consecutive hyphens
-4. Strip leading/trailing dots and hyphens
-5. Truncate to 255 characters
-6. Fall back to `"unnamed-skill"` if empty
+2. Replace `[^a-z0-9._]+` with single hyphen (the `+` quantifier collapses runs like `"a--b"` → `"a-b"`)
+3. Strip leading/trailing dots and hyphens
+4. Truncate to 255 characters
+5. Fall back to `"unnamed-skill"` if empty
 
 **Rationale:** Filesystem safety across platforms. The rules are simple, predictable, and match common conventions. No encoding or hashing — human-readable output.
 
@@ -167,7 +235,7 @@ resolvePlan: <Op extends { _tag: string }, E, R>(plan: Plan<Op>, executors: Exec
 
 **Serialized installation is slower for many skills** → Acceptable for now. Typical installs are 1-5 skills. Lockfile batching can be added later if needed.
 
-**Symlink fallback silently degrades** → The `InstallResult` records `symlinkFailed: true` and the reporter shows a warning. Users can investigate and fix permissions.
+**Symlink fallback silently degrades** → The handler returns `{ action: "success" }` with a warning message noting the fallback to copy. Users can investigate and fix permissions.
 
 **`rm -rf` on canonical directory before copy** → If interrupted mid-copy, the skill is in a broken state. Mitigation: atomic rename (write to temp, rename) could be added later. For now, re-running install fixes it.
 

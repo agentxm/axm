@@ -39,5 +39,7 @@ The plan infrastructure will be reused across extension types (commands, mcp-ser
 - `packages/cli/src/workspace/plan.ts` — new shared generic plan types
 - `packages/cli/src/workspace/display-plan.ts` — new shared plan display
 - `packages/cli/src/workspace/apply-plan.ts` — new shared plan apply stub
-- `packages/cli/src/cli-commands/skills/operations.ts` — skill operation types moved from workspace
+- `packages/cli/src/workspace/index.ts` — barrel updated to export plan, display-plan, apply-plan
+- `packages/cli/src/cli-commands/skills/operations.ts` — skill operation types and SkillRef moved from workspace/install
 - `packages/cli/src/cli-commands/skills/install/build-plan.ts` — new skills-specific plan builder
+- `packages/cli/src/cli-commands/skills/install/discover-skills.ts` — SkillRef removed (lifted to skills/operations.ts)

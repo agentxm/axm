@@ -5,8 +5,8 @@ The install handler builds `AddSkillOperation[]` and scaffolds a `Plan`, but nev
 ## What Changes
 
 - **Build plan with lockfile awareness**: Compare operations against lockfile state. Already-installed skills become `no-op`, new skills become `execute`.
-- **Display plan**: Format and show the plan summary (what will be installed, what will be skipped). Dry-run stops here.
-- **Confirm plan**: When not `--yes` and not `--dry-run`, prompt the user to confirm before executing.
+- **Display plan**: Format and show the plan summary (what will be installed, what will be skipped). Preview stops here.
+- **Confirm plan**: When not `--yes` and not `--preview`, prompt the user to confirm before executing.
 - **Execute plan**: Apply `execute` actions — log "skill installed" to console per action. Actual file copying and lockfile updates are out of scope.
 - **Replace sketch code**: The handler's inline `_plan` construction and TODO comments are replaced by calls to the new build, display, and apply modules. The `ideal-state.ts` file is deleted and its contents redistributed.
 

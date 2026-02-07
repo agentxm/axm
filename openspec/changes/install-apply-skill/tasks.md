@@ -52,18 +52,18 @@
 
 ## 5. Skill-Specific Shared Functions
 
-- [ ] 5.1 Update `sanitizeName` regex in `skill-utils.ts` to use `+` quantifier (`/[^a-z0-9._]+/g`), update or add tests for consecutive-character collapsing
-- [ ] 5.2 Write tests for `copySkillDirectory` in `cli-commands/skills/copy-skill-directory.ts` — excludes README.md, metadata.json, `_`-prefixed, `.git`; dereferences symlinks; copies recursively and concurrently
-- [ ] 5.3 Implement `copySkillDirectory` in `cli-commands/skills/copy-skill-directory.ts`
-- [ ] 5.4 Write tests for `sourceToLockEntry` in `cli-commands/skills/source-to-lock-entry.ts` — all 7 source types, Option→undefined conversion, field renaming (subPath→path)
-- [ ] 5.5 Implement `sourceToLockEntry` in `cli-commands/skills/source-to-lock-entry.ts`
-- [ ] 5.6 Define `InstallResult` type in `cli-commands/skills/install/install-result.ts`
-- [ ] 5.7 Update `cli-commands/skills/index.ts` barrel to export shared functions
-- [ ] 5.8 Run typecheck for all packages (`pnpm typecheck`), fix any errors
-- [ ] 5.9 Run linting for all packages (`pnpm lint`), fix any errors
-- [ ] 5.10 Run tests for all packages (`pnpm test`), fix any failures
-- [ ] 5.11 Run relevant e2e tests (`pnpm test:e2e`), fix any failures
-- [ ] 5.12 Kill any vitest worker processes
+- [x] 5.1 Update `sanitizeName` regex in `skill-utils.ts` to use `+` quantifier (`/[^a-z0-9._]+/g`), update or add tests for consecutive-character collapsing
+- [x] 5.2 Write tests for `copySkillDirectory` in `cli-commands/skills/copy-skill-directory.ts` — excludes README.md, metadata.json, `_`-prefixed, `.git`; dereferences symlinks; copies recursively and concurrently
+- [x] 5.3 Implement `copySkillDirectory` in `cli-commands/skills/copy-skill-directory.ts`
+- [x] 5.4 Write tests for `sourceToLockEntry` in `cli-commands/skills/source-to-lock-entry.ts` — all 7 source types, Option→undefined conversion, field renaming (subPath→path)
+- [x] 5.5 Implement `sourceToLockEntry` in `cli-commands/skills/source-to-lock-entry.ts`
+- [x] 5.6 Define `InstallResult` type in `cli-commands/skills/install/install-result.ts`
+- [x] 5.7 Update `cli-commands/skills/index.ts` barrel to export shared functions
+- [x] 5.8 Run typecheck for all packages (`pnpm typecheck`), fix any errors
+- [x] 5.9 Run linting for all packages (`pnpm lint`), fix any errors
+- [x] 5.10 Run tests for all packages (`pnpm test`), fix any failures
+- [x] 5.11 Run relevant e2e tests (`pnpm test:e2e`), fix any failures
+- [x] 5.12 Kill any vitest worker processes
 
 ## 6. Install Skill Executor
 

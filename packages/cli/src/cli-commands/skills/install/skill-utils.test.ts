@@ -92,6 +92,12 @@ describe("sanitizeName", () => {
     expect(sanitizeName("my skill@v2!")).toBe("my-skill-v2");
   });
 
+  it("collapses consecutive non-alphanumeric characters to a single hyphen", () => {
+    expect(sanitizeName("a--b")).toBe("a-b");
+    expect(sanitizeName("a @b")).toBe("a-b");
+    expect(sanitizeName("a---b")).toBe("a-b");
+  });
+
   it("preserves dots and underscores", () => {
     expect(sanitizeName("my_skill.v2")).toBe("my_skill.v2");
   });

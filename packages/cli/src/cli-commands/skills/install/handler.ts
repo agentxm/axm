@@ -177,7 +177,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       const ops = selectedSkills.map(
         (s) =>
           ({
-            _tag: "install-skill",
+            name: "install-skill",
             agents: agentIds,
             force: args.force,
             source,

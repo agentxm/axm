@@ -2,7 +2,7 @@
  * Unit tests for applyPlan.
  *
  * Tests the executor registry pattern: dispatches execute actions to handlers
- * keyed by _tag, skips no-op actions, catches OperationError.
+ * keyed by name, skips no-op actions, catches OperationError.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -15,9 +15,9 @@ import type { Plan } from "./plan.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-type TestOp = { readonly _tag: "test-op"; readonly name: string };
+type TestOp = { readonly name: "test-op"; readonly label: string };
 
-const makeOp = (name: string): TestOp => ({ _tag: "test-op", name });
+const makeOp = (label: string): TestOp => ({ name: "test-op", label });
 
 const makePlan = (overrides: Partial<Plan<TestOp>> = {}): Plan<TestOp> => ({
   name: "Test plan",
@@ -27,26 +27,26 @@ const makePlan = (overrides: Partial<Plan<TestOp>> = {}): Plan<TestOp> => ({
 });
 
 const successHandler = (op: TestOp): Effect.Effect<OperationResult> =>
-  Effect.succeed({ action: "success", message: `Installed ${op.name}` });
+  Effect.succeed({ action: "success", message: `Installed ${op.label}` });
 
 const errorHandler = (op: TestOp): Effect.Effect<OperationResult, OperationError> =>
   Effect.fail(
     new OperationError({
       operation: "test-op",
-      message: `Failed to install ${op.name}`,
+      message: `Failed to install ${op.label}`,
       cause: null,
     }),
   );
 
 const noopResultHandler = (op: TestOp): Effect.Effect<OperationResult> =>
-  Effect.succeed({ action: "no-op", message: `Already installed ${op.name}` });
+  Effect.succeed({ action: "no-op", message: `Already installed ${op.label}` });
 
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
 
 describe("applyPlan", () => {
-  it.effect("dispatches execute actions to handler by _tag", () =>
+  it.effect("dispatches execute actions to handler by name", () =>
     Effect.gen(function* () {
       const results = yield* applyPlan(
         makePlan({
@@ -139,7 +139,7 @@ describe("applyPlan", () => {
       const order: string[] = [];
       const trackingHandler = (op: TestOp): Effect.Effect<OperationResult> =>
         Effect.sync(() => {
-          order.push(op.name);
+          order.push(op.label);
           return { action: "success" as const, message: `Installed ${op.name}` };
         });
 

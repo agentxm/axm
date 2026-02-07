@@ -12,14 +12,14 @@
 
 ## 2. Modify `applyPlan` to Accept Executor Registry
 
-- [ ] 2.1 Write tests for new `applyPlan` signature: dispatches to executor by `_tag`, catches `OperationError` and converts to error result, skips `"no-op"` actions, returns `ReadonlyArray<OperationResult>`
-- [ ] 2.2 Implement new `applyPlan` with typed executor registry parameter, removing hardcoded Clack dependency
-- [ ] 2.3 Update existing `applyPlan` tests for new signature and return type
-- [ ] 2.4 Run typecheck for all packages (`pnpm typecheck`), fix any errors
-- [ ] 2.5 Run linting for all packages (`pnpm lint`), fix any errors
-- [ ] 2.6 Run tests for all packages (`pnpm test`), fix any failures
-- [ ] 2.7 Run relevant e2e tests (`pnpm test:e2e`), fix any failures
-- [ ] 2.8 Kill any vitest worker processes
+- [x] 2.1 Write tests for new `applyPlan` signature: dispatches to executor by `_tag`, catches `OperationError` and converts to error result, skips `"no-op"` actions, returns `ReadonlyArray<OperationResult>`
+- [x] 2.2 Implement new `applyPlan` with typed executor registry parameter, removing hardcoded Clack dependency
+- [x] 2.3 Update existing `applyPlan` tests for new signature and return type
+- [x] 2.4 Run typecheck for all packages (`pnpm typecheck`), fix any errors
+- [x] 2.5 Run linting for all packages (`pnpm lint`), fix any errors
+- [x] 2.6 Run tests for all packages (`pnpm test`), fix any failures
+- [x] 2.7 Run relevant e2e tests (`pnpm test:e2e`), fix any failures
+- [x] 2.8 Kill any vitest worker processes
 
 ## 3. Thread Executors Through `resolvePlan`
 

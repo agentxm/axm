@@ -16,6 +16,7 @@ import {
   readLockfile,
   writeLockfile,
   LOCKFILE_NAME,
+  type Lockfile,
 } from "../lockfile/index.js";
 import {
   createDefaultSettings,
@@ -33,22 +34,21 @@ import * as Layer from "effect/Layer";
 import { Clack } from "../clack-effect/service.js";
 import { PromptCancelled } from "../clack-effect/errors.js";
 import { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./errors.js";
-import type { WorkspaceContextService } from "./service-types.js";
 
 /**
  * Effect service tag for workspace context.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export class WorkspaceContext extends Context.Tag("@axm.sh/cli/WorkspaceContext")<
-  WorkspaceContext,
+export class Workspace extends Context.Tag("@axm.sh/cli/Workspace")<
+  Workspace,
   WorkspaceContextService
 >() {
   /**
    * Create a layer from a custom service implementation.
    */
-  static readonly layer = (service: WorkspaceContextService): Layer.Layer<WorkspaceContext> =>
-    Layer.succeed(WorkspaceContext, service);
+  static readonly layer = (service: WorkspaceContextService): Layer.Layer<Workspace> =>
+    Layer.succeed(Workspace, service);
 }
 
 /**
@@ -371,5 +371,30 @@ const make = (
  */
 export const layer = (
   options: WorkspaceContextOptions,
-): Layer.Layer<WorkspaceContext, WorkspaceContextError, FileSystem.FileSystem | Clack> =>
-  Layer.effect(WorkspaceContext, make(options));
+): Layer.Layer<Workspace, WorkspaceContextError, FileSystem.FileSystem | Clack> =>
+  Layer.effect(Workspace, make(options));
+
+/**
+ * Workspace context service types.
+ *
+ * @experimental This API is unstable and may change without notice.
+ * @packageDocumentation
+ */
+
+/**
+ * Service interface for workspace context.
+ *
+ * Provides access to parsed workspace settings and lockfile.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface WorkspaceContextService {
+  /** Whether this is a global workspace (~/.axm) or local (.axm) */
+  readonly global: boolean;
+  /** Path to the .axm directory */
+  readonly path: string;
+  /** Read fresh settings from disk. Fails if settings file does not exist. */
+  readonly getSettings: () => Effect.Effect<Settings, SettingsError>;
+  /** Read fresh lockfile from disk. Fails if lockfile does not exist. */
+  readonly getLockfile: () => Effect.Effect<Lockfile, LockfileError>;
+}

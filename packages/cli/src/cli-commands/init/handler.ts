@@ -30,7 +30,7 @@ export const handleInit = () =>
   Effect.gen(function* () {
     const clack = yield* Clack;
     const context = yield* WorkspaceContextTag;
-    const scopeLabel = context.global ? "global" : "project";
+    const scopeLabel = context.global ? "user" : "project";
 
     // Show intro
     yield* clack.intro(`axm init (${scopeLabel})`);

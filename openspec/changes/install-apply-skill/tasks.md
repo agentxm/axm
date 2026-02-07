@@ -1,14 +1,14 @@
 ## 1. Foundation Types and Operation Rename
 
-- [ ] 1.1 Add `OperationResult`, `OperationError`, `OperationHandler`, `Handlers`, and `ExecutionContext` types to `workspace/apply-plan.ts` (or a new `workspace/operation-types.ts` if cleaner)
-- [ ] 1.2 Write tests for `OperationResult` type usage and `OperationError` construction
-- [ ] 1.3 Rename `AddSkillOperation._tag` from `"add-skill"` to `"install-skill"` and `RemoveSkillOperation._tag` from `"remove-skill"` to `"uninstall-skill"` in `cli-commands/skills/operations.ts`
-- [ ] 1.4 Update all references to old `_tag` values across the codebase (build-plan, handler, tests, display-plan)
-- [ ] 1.5 Run typecheck for all packages (`pnpm typecheck`), fix any errors
-- [ ] 1.6 Run linting for all packages (`pnpm lint`), fix any errors
-- [ ] 1.7 Run tests for all packages (`pnpm test`), fix any failures
-- [ ] 1.8 Run relevant e2e tests (`pnpm test:e2e`), fix any failures
-- [ ] 1.9 Kill any vitest worker processes
+- [x] 1.1 Add `OperationResult`, `OperationError`, `OperationHandler`, `Handlers`, and `ExecutionContext` types to `workspace/apply-plan.ts` (or a new `workspace/operation-types.ts` if cleaner)
+- [x] 1.2 Write tests for `OperationResult` type usage and `OperationError` construction
+- [x] 1.3 Rename `AddSkillOperation._tag` from `"add-skill"` to `"install-skill"` and `RemoveSkillOperation._tag` from `"remove-skill"` to `"uninstall-skill"` in `cli-commands/skills/operations.ts`
+- [x] 1.4 Update all references to old `_tag` values across the codebase (build-plan, handler, tests, display-plan)
+- [x] 1.5 Run typecheck for all packages (`pnpm typecheck`), fix any errors
+- [x] 1.6 Run linting for all packages (`pnpm lint`), fix any errors
+- [x] 1.7 Run tests for all packages (`pnpm test`), fix any failures
+- [x] 1.8 Run relevant e2e tests (`pnpm test:e2e`), fix any failures
+- [x] 1.9 Kill any vitest worker processes
 
 ## 2. Modify `applyPlan` to Accept Executor Registry
 

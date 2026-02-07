@@ -36,7 +36,12 @@ import { PromptCancelled, PromptError } from "../clack-effect/errors.js";
 import { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./errors.js";
 import type { Plan } from "./plan.js";
 import { displayPlan } from "./display-plan.js";
-import { applyPlan } from "./apply-plan.js";
+import {
+  applyPlan,
+  type ExecutionContext,
+  type Handlers,
+  type OperationResult,
+} from "./apply-plan.js";
 
 /**
  * Effect service tag for workspace context.
@@ -366,7 +371,10 @@ const make = (
       preview: options.preview,
       getSettings: () => readSettings(workspaceDir).pipe(Effect.provide(fsLayer)),
       getLockfile: () => readLockfile(workspaceDir).pipe(Effect.provide(fsLayer)),
-      resolvePlan: <Op>(plan: Plan<Op>) =>
+      resolvePlan: <Op extends { _tag: string }, T extends Handlers<Op>>(
+        plan: Plan<Op>,
+        handlers: T,
+      ) =>
         Effect.gen(function* () {
           const clack = yield* Clack;
           if (options.preview) {
@@ -374,22 +382,23 @@ const make = (
             yield* displayPlan(plan);
             if (options.yes) {
               yield* clack.log.info("Pre-approved via --yes, applying changes...");
-              yield* applyPlan(plan);
+              return yield* applyPlan(plan, handlers);
             } else if (resolvedNonInteractive) {
               yield* clack.log.warn(
                 "Cannot prompt in non-interactive mode. Use --yes to apply, or remove --preview.",
               );
+              return [] as unknown as ReadonlyArray<OperationResult>;
             } else {
               const confirmed = yield* clack.confirm("Apply changes?");
               if (!confirmed) {
                 yield* clack.outro("Cancelled.");
-                return;
+                return [] as unknown as ReadonlyArray<OperationResult>;
               }
-              yield* applyPlan(plan);
+              return yield* applyPlan(plan, handlers);
             }
           } else {
             yield* displayPlan(plan);
-            yield* applyPlan(plan);
+            return yield* applyPlan(plan, handlers);
           }
         }),
     };
@@ -439,7 +448,12 @@ export interface WorkspaceContextService {
   /** Read fresh lockfile from disk. Fails if lockfile does not exist. */
   readonly getLockfile: () => Effect.Effect<Lockfile, LockfileError>;
   /** Display, confirm, and apply a plan based on preview/yes/nonInteractive flags. */
-  readonly resolvePlan: <Op>(
+  readonly resolvePlan: <Op extends { _tag: string }, T extends Handlers<Op>>(
     plan: Plan<Op>,
-  ) => Effect.Effect<void, PromptCancelled | PromptError, Clack>;
+    handlers: T,
+  ) => Effect.Effect<
+    ReadonlyArray<OperationResult>,
+    PromptCancelled | PromptError,
+    Clack | ExecutionContext<T>
+  >;
 }

@@ -99,8 +99,8 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
       handleInstall({
         source: argv.source,
         global: argv.global,
-        agent: argv.agent,
-        skill: argv.skill,
+        agents: argv.agent,
+        skills: argv.skill,
         yes: argv.yes,
         list: argv.list,
         all: argv.all,

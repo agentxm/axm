@@ -22,6 +22,11 @@ export default tseslint.config(
         "error",
         { packageNames: ["effect", "@effect/platform", "@effect/platform-node"] },
       ],
+      // Allow _-prefixed variables to be unused
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
     },
   },
 );

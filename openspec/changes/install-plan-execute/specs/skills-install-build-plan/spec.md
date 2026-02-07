@@ -2,7 +2,7 @@
 
 ### Requirement: Build plan from operations and lockfile
 
-The skills install plan builder SHALL accept `ReadonlyArray<AddSkillOperation>` and a `Lockfile`, and return a `Plan<AddSkillOperation>` with one action per operation.
+The skills install plan builder SHALL accept `ReadonlyArray<AddSkillOperation>`, a `Lockfile`, a plan `name`, and a plan `description: Option<string>`, and return a `Plan<AddSkillOperation>` with one action per operation.
 
 #### Scenario: New skill not in lockfile
 
@@ -35,14 +35,14 @@ The plan builder SHALL derive the `label` field for each action from the skill n
 
 ### Requirement: Plan name and description
 
-The plan builder SHALL set the plan `name` to a short action label and `description` to a richer summary of what is happening.
+The plan builder SHALL use the caller-provided `name` and `description` on the returned plan. The caller (handler) is responsible for constructing these values.
 
-#### Scenario: Plan name is a short action label
+#### Scenario: Plan uses provided name
 
-- **WHEN** building a plan for skills install
-- **THEN** the plan `name` SHALL be a concise label (e.g., "Install skill(s)")
+- **WHEN** building a plan
+- **THEN** the plan `name` SHALL be the `name` argument passed by the caller
 
-#### Scenario: Plan description provides context
+#### Scenario: Plan uses provided description
 
-- **WHEN** building a plan for skills install
-- **THEN** the plan `description` SHALL be `Option.some` with a summary including the source (e.g., "Install skills from github:owner/repo")
+- **WHEN** building a plan
+- **THEN** the plan `description` SHALL be the `description` argument passed by the caller

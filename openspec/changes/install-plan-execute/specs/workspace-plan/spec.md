@@ -62,7 +62,17 @@ The plan display module SHALL render a human-readable summary of any `Plan<Op>` 
 
 ### Requirement: Apply plan orchestration
 
-The plan apply module SHALL iterate over plan actions, executing those marked `"execute"` and skipping `"no-op"` actions. In this change, apply is a stub that logs results.
+The plan apply module SHALL iterate over plan jobs and their actions, using Effect concurrency based on each job's `concurrency` setting. Actions marked `"execute"` are applied; `"no-op"` actions are skipped. In this change, apply is a stub that logs results.
+
+#### Scenario: Job concurrency respected
+
+- **WHEN** applying a job with `concurrency: "unbounded"`
+- **THEN** the system SHALL execute actions concurrently using `Effect.forEach` with `{ concurrency: "unbounded" }`
+
+#### Scenario: Job sequential execution
+
+- **WHEN** applying a job with `concurrency: 1`
+- **THEN** the system SHALL execute actions sequentially
 
 #### Scenario: Log executed action
 

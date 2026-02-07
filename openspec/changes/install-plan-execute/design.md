@@ -41,15 +41,15 @@ Create `packages/cli/src/workspace/display-plan.ts` and `packages/cli/src/worksp
 
 **`displayPlan`**: Depends on `Clack` service. Uses `plan.name` as the heading, shows `plan.description` when present, lists execute actions, no-op actions with reasons under a "skip" heading, and shows a summary count line.
 
-**`applyPlan`**: Depends on `Clack` service. Iterates actions, logs `clack.log.success` for execute actions, skips no-ops. Stub only — no file system mutations.
+**`applyPlan`**: Depends on `Clack` service. Iterates jobs, executing each job's steps using `Effect.forEach` with the job's `concurrency` setting (`"unbounded"` or `1`). Logs `clack.log.success` for execute actions, skips no-ops. Stub only — no file system mutations.
 
 ### 3. Skills-specific plan build in install feature directory
 
 Create `packages/cli/src/cli-commands/skills/install/build-plan.ts`. This module knows how to compare `AddSkillOperation` against `Lockfile` entries by skill name.
 
-**Signature**: `buildPlan(ops: ReadonlyArray<AddSkillOperation>, lockfile: Lockfile) => Plan<AddSkillOperation>`
+**Signature**: `buildPlan(ops: ReadonlyArray<AddSkillOperation>, lockfile: Lockfile, name: string, description: Option<string>) => Plan<AddSkillOperation>`
 
-**Pure function** — no Effect needed. The comparison logic is synchronous: check if `op.skill.name` exists as a key in `lockfile.skills`. If present → `no-op` with reason "already installed". If absent → `execute`.
+**Pure function** — no Effect needed. The comparison logic is synchronous: check if `op.skill.name` exists as a key in `lockfile.skills`. If present → `no-op` with reason "already installed". If absent → `execute`. The `name` and `description` are passed through to the returned plan — the caller (handler) is responsible for constructing them.
 
 **Label derivation**: Use `op.skill.name` as the action label.
 
@@ -67,9 +67,9 @@ The handler calls skills-specific `buildPlan` → shared `displayPlan` → confi
 
 ### 5. Skill operation types in skills command directory
 
-Move `AddSkillOperation` and `RemoveSkillOperation` from `workspace/ideal-state.ts` to `cli-commands/skills/operations.ts`. Delete `WorkspaceOperation` union — it's meaningless once operations are feature-scoped.
+Move `AddSkillOperation`, `RemoveSkillOperation`, and `SkillRef` from their current locations to `cli-commands/skills/operations.ts`. Delete `WorkspaceOperation` union — it's meaningless once operations are feature-scoped. `SkillRef` is lifted from `install/discover-skills.ts` to the skills level since it will be useful across skill operations (install, uninstall, etc.), not just install.
 
-**Rationale**: `AddSkillOperation` depends on `SkillRef` (from install's `discover-skills.ts`), which is skills-specific. `Source` is a workspace-level concept that happens to only be used by skills today. Placing skill operations at the skills command level (not install-specific) lets both install and uninstall import them.
+**Rationale**: Placing skill operations and types at the skills command level lets both install and uninstall import them. `SkillRef` describes a reference to a discovered skill — a concept relevant to all skill operations.
 
 ### 6. Delete `workspace/ideal-state.ts`
 

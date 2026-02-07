@@ -37,12 +37,12 @@ The CLI SHALL use WorkspaceContext for initialization and the workspace reconcil
 - **WHEN** current and ideal states are ready
 - **THEN** the CLI calls `buildPlan()` from `workspace/` to compute the plan
 
-#### Scenario: Apply plan via applyPlan
+#### Scenario: Resolve plan via workspace
 
-- **WHEN** changes are confirmed
-- **THEN** the CLI calls `applyPlan(ws, plan, opts)` to remove skill files, update lockfile, and update settings
-- **AND** the handler does NOT call legacy `applyDiff()` from `skills/state/apply.ts`
-- **AND** the handler does NOT directly call `removeSkillFromAgents`, `updateSettings`, `removeLockEntry`, or `updateLockEntry`
+- **WHEN** the plan is built
+- **THEN** the handler SHALL call `ws.resolvePlan(plan)` from `WorkspaceContextService`
+- **AND** the handler SHALL NOT contain inline plan display, confirm, or apply logic
+- **AND** the handler SHALL NOT directly call `applyPlan` or `displayPlan`
 
 ### Requirement: Agent Import Path
 
@@ -85,3 +85,33 @@ The partial uninstall bypass path SHALL use correct agent paths.
 - **WHEN** performing partial uninstall (removing from specific agents only)
 - **THEN** the path SHALL be determined via `agent.skills.projectDir`
 - **AND** the path SHALL NOT use legacy `agent.skillsDir ?? path.join(agent.detectPath, "skills")` fallback
+
+### Requirement: Preview flag in uninstall CLI
+
+The uninstall command SHALL support `--preview` to display the plan without applying.
+
+#### Scenario: Preview flag available
+
+- **WHEN** a user invokes `axm skills uninstall <skill> --preview`
+- **THEN** the yargs builder SHALL accept the flag as a boolean option with `default: false`
+- **AND** the parsed value SHALL be passed to workspace options as `preview: true`
+
+#### Scenario: Preview flag omitted
+
+- **WHEN** a user invokes `axm skills uninstall <skill>` without `--preview`
+- **THEN** workspace options SHALL receive `preview: false`
+
+### Requirement: Non-interactive flag in uninstall CLI
+
+The uninstall command SHALL support `--non-interactive` to disable prompts.
+
+#### Scenario: Non-interactive flag available
+
+- **WHEN** a user invokes `axm skills uninstall <skill> --non-interactive`
+- **THEN** the yargs builder SHALL accept the flag as a boolean option (no default)
+- **AND** the parsed value SHALL be passed to workspace options as `nonInteractive: true`
+
+#### Scenario: Non-interactive flag omitted
+
+- **WHEN** a user invokes `axm skills uninstall <skill>` without `--non-interactive`
+- **THEN** workspace options SHALL receive `nonInteractive: false`

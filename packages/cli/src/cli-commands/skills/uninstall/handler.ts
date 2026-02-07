@@ -1,9 +1,7 @@
-import * as FileSystem from "@effect/platform/FileSystem";
-import type { Path } from "@effect/platform";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Clack, PromptCancelled, PromptError } from "../../../clack-effect/index.js";
+import { Clack } from "../../../clack-effect/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -19,8 +17,6 @@ export interface UninstallArgs {
   readonly agent: readonly string[];
   /** Skip confirmations */
   readonly yes: boolean;
-  /** Preview uninstall plan without making changes */
-  readonly dryRun: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -51,18 +47,12 @@ export class UninstallError extends Data.TaggedError("UninstallError")<{
  * 3. Validate skill exists
  * 4. Build ideal state with skill removed
  * 5. Build plan (diff current vs ideal)
- * 6. Display plan (dry-run stops here)
+ * 6. Display plan (preview stops here)
  * 7. Confirm and apply changes
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const handleUninstall = (
-  _args: UninstallArgs,
-): Effect.Effect<
-  void,
-  UninstallError | PromptCancelled | PromptError,
-  FileSystem.FileSystem | Path.Path | Clack
-> => {
+export const handleUninstall = (_args: UninstallArgs) => {
   return Effect.gen(function* () {
     const clack = yield* Clack;
     yield* clack.log.error(`not implemented ${JSON.stringify(_args)}`);

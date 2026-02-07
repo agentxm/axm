@@ -81,13 +81,18 @@ describe("install.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (clackConfig?: MockClackConfig) => {
+  const makeLayers = (
+    clackConfig?: MockClackConfig,
+    wsOverrides?: Partial<WorkspaceContextOptions>,
+  ) => {
     const [ClackLayer, mockClack] = makeClackTestLayer(clackConfig);
     const BaseLayer = Layer.mergeAll(NodeFileSystem.layer, ClackLayer);
     const wsOptions: WorkspaceContextOptions = {
       global: false,
       yes: true,
-      nonInteractive: true,
+      nonInteractive: Option.some(true),
+      preview: false,
+      ...wsOverrides,
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const FullLayer = Layer.merge(BaseLayer, WsLayer);
@@ -105,11 +110,14 @@ describe("install.handler", () => {
 
   describe("plan build and display (preview mode)", () => {
     it.effect("builds plan from operations and lockfile, displays it", () => {
-      const { provide, mockClack } = makeLayers({
-        confirmBehavior: Option.some({ type: "return", value: true }),
-        selectBehavior: Option.none(),
-        multiselectBehavior: Option.none(),
-      });
+      const { provide, mockClack } = makeLayers(
+        {
+          confirmBehavior: Option.some({ type: "return", value: true }),
+          selectBehavior: Option.none(),
+          multiselectBehavior: Option.none(),
+        },
+        { preview: true, yes: false },
+      );
       const skillsDir = path.join(tempDir, "skills-source");
       createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
       initWorkspace(path.join(tempDir, ".axm"));
@@ -130,11 +138,14 @@ describe("install.handler", () => {
     });
 
     it.effect("marks already-installed skills as no-op in display", () => {
-      const { provide, mockClack } = makeLayers({
-        confirmBehavior: Option.some({ type: "return", value: true }),
-        selectBehavior: Option.none(),
-        multiselectBehavior: Option.none(),
-      });
+      const { provide, mockClack } = makeLayers(
+        {
+          confirmBehavior: Option.some({ type: "return", value: true }),
+          selectBehavior: Option.none(),
+          multiselectBehavior: Option.none(),
+        },
+        { preview: true, yes: false },
+      );
       const skillsDir = path.join(tempDir, "skills-source");
       createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
 
@@ -192,13 +203,16 @@ describe("install.handler", () => {
   // Confirm prompt
   // ---------------------------------------------------------------------------
 
-  describe("confirm prompt", () => {
+  describe("confirm prompt (preview mode)", () => {
     it.effect("applies plan when user confirms", () => {
-      const { provide, mockClack } = makeLayers({
-        confirmBehavior: Option.some({ type: "return", value: true }),
-        selectBehavior: Option.none(),
-        multiselectBehavior: Option.none(),
-      });
+      const { provide, mockClack } = makeLayers(
+        {
+          confirmBehavior: Option.some({ type: "return", value: true }),
+          selectBehavior: Option.none(),
+          multiselectBehavior: Option.none(),
+        },
+        { preview: true, yes: false, nonInteractive: Option.some(false) },
+      );
       const skillsDir = path.join(tempDir, "skills-source");
       createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
       initWorkspace(path.join(tempDir, ".axm"));
@@ -215,11 +229,14 @@ describe("install.handler", () => {
     });
 
     it.effect("exits without applying when user declines", () => {
-      const { provide, mockClack } = makeLayers({
-        confirmBehavior: Option.some({ type: "return", value: false }),
-        selectBehavior: Option.none(),
-        multiselectBehavior: Option.none(),
-      });
+      const { provide, mockClack } = makeLayers(
+        {
+          confirmBehavior: Option.some({ type: "return", value: false }),
+          selectBehavior: Option.none(),
+          multiselectBehavior: Option.none(),
+        },
+        { preview: true, yes: false, nonInteractive: Option.some(false) },
+      );
       const skillsDir = path.join(tempDir, "skills-source");
       createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
       initWorkspace(path.join(tempDir, ".axm"));

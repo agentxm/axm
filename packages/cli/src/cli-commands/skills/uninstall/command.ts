@@ -5,6 +5,7 @@
  */
 
 import type { CommandModule } from "yargs";
+import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
 import { handleUninstall } from "./handler.js";
 
@@ -12,7 +13,8 @@ export interface UninstallArgs {
   skill: string;
   agent: ReadonlyArray<string>;
   yes: boolean;
-  "dry-run"?: boolean;
+  preview: boolean;
+  "non-interactive": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -38,17 +40,21 @@ export const uninstallCommand: CommandModule<{}, UninstallArgs> = {
         describe: "Skip confirmation prompt",
         default: false,
       })
-      .option("dry-run", {
+      .option("preview", {
         type: "boolean",
-        describe: "Show what would be uninstalled without making changes",
+        describe: "Display uninstall plan without applying",
         default: false,
+      })
+      .option("non-interactive", {
+        type: "boolean",
+        describe: "Disable all interactive prompts",
       })
       .example("$0 skills uninstall my-skill", "Uninstall a skill from all agents")
       .example(
         "$0 skills uninstall my-skill --agent claude",
         "Uninstall from a specific agent only",
       )
-      .example("$0 skills uninstall my-skill --dry-run", "Preview what would be uninstalled")
+      .example("$0 skills uninstall my-skill --preview", "Preview what would be uninstalled")
       .example("$0 skills uninstall my-skill --yes", "Uninstall without confirmation prompt"),
   handler: async (argv) => {
     await run(
@@ -56,8 +62,15 @@ export const uninstallCommand: CommandModule<{}, UninstallArgs> = {
         skill: argv.skill,
         agent: argv.agent,
         yes: argv.yes,
-        dryRun: argv["dry-run"] ?? false,
       }),
+      {
+        workspace: {
+          global: false,
+          yes: argv.yes,
+          nonInteractive: Option.fromNullable(argv["non-interactive"]),
+          preview: argv.preview,
+        },
+      },
     );
   },
 };

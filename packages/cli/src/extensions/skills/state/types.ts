@@ -7,7 +7,7 @@
  * - **Ideal** state is the desired state after an operation
  * - **Diff/Plan** is the set of changes to transform actual to ideal
  *
- * See docs/designs/dry-run.md for the reconciliation pattern.
+ * See openspec/specs/plan-confirm-apply/spec.md for the reconciliation pattern.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

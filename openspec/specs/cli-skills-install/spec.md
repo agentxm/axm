@@ -71,16 +71,16 @@ The install handler SHALL use WorkspaceContext for initialization and workspace 
 - **THEN** the parsed value SHALL be `undefined` (no yargs default)
 - **AND** the handler SHALL receive `nonInteractive: Option.none()`
 
-#### Scenario: Dry-run flag omitted
+#### Scenario: Preview flag omitted
 
-- **WHEN** a user invokes `axm skills install <source>` without `--dry-run`
+- **WHEN** a user invokes `axm skills install <source>` without `--preview`
 - **THEN** the parsed value SHALL be `undefined` (no yargs default)
-- **AND** the handler SHALL receive `dryRun: Option.none()`
+- **AND** the handler SHALL receive `preview: Option.none()`
 
-#### Scenario: Dry-run flag specified
+#### Scenario: Preview flag specified
 
-- **WHEN** a user invokes `axm skills install <source> --dry-run`
-- **THEN** the handler SHALL receive `dryRun: Option.some(true)`
+- **WHEN** a user invokes `axm skills install <source> --preview`
+- **THEN** the handler SHALL receive `preview: Option.some(true)`
 
 ### Requirement: Option-Mapped Flag Boundary Convention
 
@@ -93,7 +93,7 @@ Flags that map to `Option<boolean>` in handler args SHALL NOT have yargs default
 
 #### Scenario: Option boolean flag without default
 
-- **WHEN** a handler arg is typed as `Option<boolean>` (e.g., `dryRun`, `nonInteractive`)
+- **WHEN** a handler arg is typed as `Option<boolean>` (e.g., `preview`, `nonInteractive`)
 - **THEN** the yargs builder SHALL NOT specify a `default` value
 - **AND** `Option.fromNullable` at the boundary SHALL produce `Option.none()` when the flag is omitted
 

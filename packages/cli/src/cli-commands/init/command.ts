@@ -1,4 +1,5 @@
 import type { CommandModule } from "yargs";
+import * as Option from "effect/Option";
 import { run } from "../../runtime/index.js";
 import { handleInit } from "./handler.js";
 
@@ -46,7 +47,8 @@ export const initCommand: CommandModule<{}, InitArgs> = {
       workspace: {
         global: argv.global,
         yes: argv.yes,
-        nonInteractive: argv["non-interactive"] ?? false,
+        nonInteractive: Option.fromNullable(argv["non-interactive"]),
+        preview: false,
         ...(argv.agent.length > 0 && { agents: argv.agent }),
       },
     });

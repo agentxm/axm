@@ -32,8 +32,11 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { Clack } from "../clack-effect/service.js";
-import { PromptCancelled } from "../clack-effect/errors.js";
+import { PromptCancelled, PromptError } from "../clack-effect/errors.js";
 import { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./errors.js";
+import type { Plan } from "./plan.js";
+import { displayPlan } from "./display-plan.js";
+import { applyPlan } from "./apply-plan.js";
 
 /**
  * Effect service tag for workspace context.
@@ -73,8 +76,10 @@ export interface WorkspaceContextOptions {
   readonly global: boolean;
   /** Auto-accept detected agents without prompting */
   readonly yes: boolean;
-  /** Disable all prompts; fail if user input would be required */
-  readonly nonInteractive: boolean;
+  /** Disable all prompts; Option.none() falls back to CI detection */
+  readonly nonInteractive: Option.Option<boolean>;
+  /** Show plan without applying (preview mode) */
+  readonly preview: boolean;
   /** Explicit agent IDs to use (overrides detection and prompting) */
   readonly agents?: readonly string[];
 }
@@ -118,7 +123,7 @@ const initializeProjectWorkspace = (
       if (options.yes) {
         // Auto-select all detected agents
         selectedAgents = detectedAgents;
-      } else if (options.nonInteractive) {
+      } else if (Option.getOrElse(options.nonInteractive, () => process.env["CI"] === "true")) {
         // Non-interactive mode but would need selection - fail with error
         return yield* Effect.fail(
           new WorkspaceInitializationError({
@@ -349,12 +354,44 @@ const make = (
     }
 
     const fsLayer = Layer.succeed(FileSystem.FileSystem, fs);
+    const resolvedNonInteractive = Option.getOrElse(
+      options.nonInteractive,
+      () => process.env["CI"] === "true",
+    );
 
     return {
       global: options.global,
       path: workspaceDir,
+      nonInteractive: resolvedNonInteractive,
+      preview: options.preview,
       getSettings: () => readSettings(workspaceDir).pipe(Effect.provide(fsLayer)),
       getLockfile: () => readLockfile(workspaceDir).pipe(Effect.provide(fsLayer)),
+      resolvePlan: <Op>(plan: Plan<Op>) =>
+        Effect.gen(function* () {
+          const clack = yield* Clack;
+          if (options.preview) {
+            yield* clack.log.info("Previewing changes...");
+            yield* displayPlan(plan);
+            if (options.yes) {
+              yield* clack.log.info("Pre-approved via --yes, applying changes...");
+              yield* applyPlan(plan);
+            } else if (resolvedNonInteractive) {
+              yield* clack.log.warn(
+                "Cannot prompt in non-interactive mode. Use --yes to apply, or remove --preview.",
+              );
+            } else {
+              const confirmed = yield* clack.confirm("Apply changes?");
+              if (!confirmed) {
+                yield* clack.outro("Cancelled.");
+                return;
+              }
+              yield* applyPlan(plan);
+            }
+          } else {
+            yield* displayPlan(plan);
+            yield* applyPlan(plan);
+          }
+        }),
     };
   });
 
@@ -393,8 +430,16 @@ export interface WorkspaceContextService {
   readonly global: boolean;
   /** Path to the .axm directory */
   readonly path: string;
+  /** Resolved nonInteractive flag (explicit value or CI detection fallback) */
+  readonly nonInteractive: boolean;
+  /** Whether to show plan without applying (preview mode) */
+  readonly preview: boolean;
   /** Read fresh settings from disk. Fails if settings file does not exist. */
   readonly getSettings: () => Effect.Effect<Settings, SettingsError>;
   /** Read fresh lockfile from disk. Fails if lockfile does not exist. */
   readonly getLockfile: () => Effect.Effect<Lockfile, LockfileError>;
+  /** Display, confirm, and apply a plan based on preview/yes/nonInteractive flags. */
+  readonly resolvePlan: <Op>(
+    plan: Plan<Op>,
+  ) => Effect.Effect<void, PromptCancelled | PromptError, Clack>;
 }

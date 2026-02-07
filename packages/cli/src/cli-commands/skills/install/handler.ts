@@ -15,7 +15,6 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { AgentConfig } from "../../../agents/index.js";
 import { parseSource, printSource } from "../../../extensions/skills/index.js";
 import { discoverSkills } from "./discover-skills.js";
 import { determineSkillsToInstall } from "./select-skills.js";
@@ -25,9 +24,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Clack } from "../../../clack-effect/index.js";
 import { formatError } from "../../../utils/errors.js";
-import type { AddSkillOperation } from "../../../workspace/ideal-state.js";
 import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
-import * as Console from "effect/Console";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -73,10 +70,6 @@ export class InstallError extends Data.TaggedError("InstallError")<{
   readonly cause: Option.Option<unknown>;
   readonly retryable: boolean;
 }> {}
-
-// -----------------------------------------------------------------------------
-// V2 Dependencies
-// -----------------------------------------------------------------------------
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -137,10 +130,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       // Step 2: Get workspace context (provided by runtime)
       yield* Workspace;
 
-      // Step 3: Get agents from settings or --agent flag
-      spinner.start("Loading agents...");
-      const agents: AgentConfig[] = [];
-      spinner.stop(`Using ${agents.length} agent(s)`);
+      // TODO: Step 3 — Get agents from settings or --agent flag
 
       // Step 5: Discover skills from source
       spinner.start("Discovering skills...");
@@ -181,37 +171,17 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         yes: args.yes,
       });
 
-      const selectedSkillNames = Array.map(selectedSkills, (s) => s.skill.name);
-
-      if (!Array.isNonEmptyReadonlyArray(selectedSkillNames)) {
+      if (!Array.isNonEmptyReadonlyArray(selectedSkills)) {
         yield* clack.log.warn("No skills selected.");
         yield* clack.outro("Nothing to install.");
         return;
       }
 
-      // Step 8: Build ideal state using operations
-      spinner.start("Building installation plan...");
-
-      const agentIds = Array.map(agents, (a) => a.id);
-      const ops = selectedSkills.map(
-        (ref) =>
-          ({
-            ...ref,
-            _tag: "add-skill",
-            source,
-            force: args.force,
-            agents: agentIds,
-          }) satisfies AddSkillOperation,
-      );
-      yield* Console.log(`${JSON.stringify(ops)}`);
-
-      // Step 11: Check if there are changes
-
-      // Step 14: Apply changes (V2)
-
-      // Show results summary
-
-      yield* clack.outro(`Successfully installed `);
+      // TODO: Step 8 — Build ideal state using operations (buildIdealState with AddSkillOperation[])
+      // TODO: Step 11 — Check if there are changes (diff current vs ideal)
+      // TODO: Step 14 — Apply changes (applyPlan)
+      // TODO: Show results summary
+      yield* clack.outro("Done");
     }),
   );
 };

@@ -199,6 +199,8 @@ export const handleInstall = (args: InstallHandlerArgs) => {
             name: "install skill",
             description: Option.none(),
             steps: ops.map((op) => {
+              // TODO: if not in lockfile, plan to execute
+              // TODO: if in lockfile, no-op because it's already installed (unless force)
               return {
                 op,
                 action: "execute",
@@ -209,11 +211,17 @@ export const handleInstall = (args: InstallHandlerArgs) => {
           },
         ],
       };
+      /*
 
-      // TODO: Step 8 — Build ideal state using operations (buildIdealState with AddSkillOperation[])
-      // TODO: Step 11 — Check if there are changes (diff current vs ideal)
-      // TODO: Step 14 — Apply changes (applyPlan)
-      // TODO: Show results summary
+      TODO:
+      if dry run or preview, display plan
+
+      if preview and not dry-run, prompt to execute plan
+
+      if not preview and not dry run, execute plan
+
+      */
+
       yield* clack.outro("Done");
     }),
   );

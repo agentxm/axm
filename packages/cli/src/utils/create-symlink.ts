@@ -65,32 +65,28 @@ export const createSymlink = (opts: {
 
     // If something exists that needs replacing, remove it
     if (existingResult === "replace") {
-      yield* fs
-        .remove(opts.link, { recursive: true })
-        .pipe(
-          Effect.mapError(
-            (e) =>
-              new SymlinkError({
-                message: `Failed to remove existing path at ${opts.link}`,
-                cause: e,
-              }),
-          ),
-        );
-    }
-
-    // Create parent directories
-    const linkParent = nodePath.dirname(opts.link);
-    yield* fs
-      .makeDirectory(linkParent, { recursive: true })
-      .pipe(
+      yield* fs.remove(opts.link, { recursive: true }).pipe(
         Effect.mapError(
           (e) =>
             new SymlinkError({
-              message: `Failed to create parent directory ${linkParent}`,
+              message: `Failed to remove existing path at ${opts.link}`,
               cause: e,
             }),
         ),
       );
+    }
+
+    // Create parent directories
+    const linkParent = nodePath.dirname(opts.link);
+    yield* fs.makeDirectory(linkParent, { recursive: true }).pipe(
+      Effect.mapError(
+        (e) =>
+          new SymlinkError({
+            message: `Failed to create parent directory ${linkParent}`,
+            cause: e,
+          }),
+      ),
+    );
 
     // Create the symlink
     yield* fs

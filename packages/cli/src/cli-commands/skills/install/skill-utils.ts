@@ -66,7 +66,7 @@ export const filterSkills = (
 export const sanitizeName = (name: string): string => {
   let result = name
     .toLowerCase()
-    .replace(/[^a-z0-9._]/g, "-")
+    .replace(/[^a-z0-9._]+/g, "-")
     .replace(/^[.-]+/, "")
     .replace(/[.-]+$/, "");
 

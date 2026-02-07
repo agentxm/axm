@@ -12,8 +12,8 @@ interface InstallCommandArgs {
   list: boolean;
   all: boolean;
   force: boolean;
-  "non-interactive"?: boolean;
-  "dry-run"?: boolean;
+  "non-interactive": boolean | undefined;
+  "dry-run": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -70,7 +70,10 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
       .option("dry-run", {
         type: "boolean",
         describe: "Show what would be installed without making changes",
-        default: false,
+      })
+      .option("non-interactive", {
+        type: "boolean",
+        describe: "Disable all interactive prompts",
       })
       .example("$0 skills install owner/repo", "Clone GitHub repo and install skills interactively")
       .example(

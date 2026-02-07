@@ -8,6 +8,7 @@
  */
 
 import * as nodePath from "node:path";
+import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import type { SkillRef } from "./discover-skills.js";
 
@@ -40,8 +41,8 @@ export const filterSkills = (
   skills: ReadonlyArray<SkillRef>,
   inputNames: ReadonlyArray<string>,
 ): ReadonlyArray<SkillRef> => {
-  const lowerNames = inputNames.map((n) => n.toLowerCase());
-  return skills.filter((ref) => {
+  const lowerNames = Array.map(inputNames, (n) => n.toLowerCase());
+  return Array.filter(skills, (ref) => {
     const name = ref.skill.name.toLowerCase();
     const displayName = getSkillDisplayName(ref).toLowerCase();
     return lowerNames.some((input) => input === name || input === displayName);

@@ -59,6 +59,44 @@ The install handler SHALL use WorkspaceContext for initialization and workspace 
 - **THEN** the CLI SHALL call `applyPlan(ws, plan, opts)` from `workspace/apply.ts`
 - **AND** the CLI SHALL NOT call legacy `applyDiff()` from `skills/state/apply.ts`
 
+#### Scenario: Non-interactive flag available in CLI
+
+- **WHEN** a user invokes `axm skills install <source> --non-interactive`
+- **THEN** the yargs builder SHALL accept the flag as a boolean option
+- **AND** the parsed value SHALL be passed to the handler as `nonInteractive: Option.some(true)`
+
+#### Scenario: Non-interactive flag omitted
+
+- **WHEN** a user invokes `axm skills install <source>` without `--non-interactive`
+- **THEN** the parsed value SHALL be `undefined` (no yargs default)
+- **AND** the handler SHALL receive `nonInteractive: Option.none()`
+
+#### Scenario: Dry-run flag omitted
+
+- **WHEN** a user invokes `axm skills install <source>` without `--dry-run`
+- **THEN** the parsed value SHALL be `undefined` (no yargs default)
+- **AND** the handler SHALL receive `dryRun: Option.none()`
+
+#### Scenario: Dry-run flag specified
+
+- **WHEN** a user invokes `axm skills install <source> --dry-run`
+- **THEN** the handler SHALL receive `dryRun: Option.some(true)`
+
+### Requirement: Option-Mapped Flag Boundary Convention
+
+Flags that map to `Option<boolean>` in handler args SHALL NOT have yargs defaults. The yargs builder SHALL omit `default` for these flags so that `undefined` maps to `Option.none()` via `Option.fromNullable`. Flags that map to plain `boolean` in handler args SHALL retain their yargs defaults.
+
+#### Scenario: Boolean flag with default
+
+- **WHEN** a handler arg is typed as `boolean` (e.g., `yes`, `global`, `all`, `force`, `list`)
+- **THEN** the yargs builder SHALL specify `default: false`
+
+#### Scenario: Option boolean flag without default
+
+- **WHEN** a handler arg is typed as `Option<boolean>` (e.g., `dryRun`, `nonInteractive`)
+- **THEN** the yargs builder SHALL NOT specify a `default` value
+- **AND** `Option.fromNullable` at the boundary SHALL produce `Option.none()` when the flag is omitted
+
 ### Requirement: Agent Import Path
 
 The install handler SHALL import agent configuration from the dedicated agents module.

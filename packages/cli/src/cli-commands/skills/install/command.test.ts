@@ -17,6 +17,34 @@ import { installCommand } from "./command.js";
 type CapturedOptions = Record<string, Options>;
 type CapturedPositionals = Record<string, PositionalOptions>;
 
+/**
+ * Creates a mock yargs instance that records positional() and option() calls.
+ * Returns the mock along with helpers to retrieve captured options.
+ *
+ * Note: yargs Argv has complex overloaded signatures that mocks cannot satisfy.
+ * We cast to Argv at the boundary rather than using `as any` throughout.
+ */
+const createCapturingMock = () => {
+  const capturedPositionals: CapturedPositionals = {};
+  const capturedOptions: CapturedOptions = {};
+
+  // Build mock object - methods return self for chaining
+  const mock = {
+    positional: vi.fn((name: string, config: PositionalOptions) => {
+      capturedPositionals[name] = config;
+      return mock;
+    }),
+    option: vi.fn((name: string, config: Options) => {
+      capturedOptions[name] = config;
+      return mock;
+    }),
+    example: vi.fn().mockReturnThis(),
+  };
+
+  // Cast once at the boundary - yargs types are too complex for mocks
+  return { mockYargs: mock as unknown as Argv, capturedPositionals, capturedOptions };
+};
+
 describe("skills install command", () => {
   const createParser = () => yargs().command(installCommand).exitProcess(false);
 
@@ -32,34 +60,6 @@ describe("skills install command", () => {
 });
 
 describe("skills install command positional", () => {
-  /**
-   * Creates a mock yargs instance that records positional() and option() calls.
-   * Returns the mock along with helpers to retrieve captured options.
-   *
-   * Note: yargs Argv has complex overloaded signatures that mocks cannot satisfy.
-   * We cast to Argv at the boundary rather than using `as any` throughout.
-   */
-  const createCapturingMock = () => {
-    const capturedPositionals: CapturedPositionals = {};
-    const capturedOptions: CapturedOptions = {};
-
-    // Build mock object - methods return self for chaining
-    const mock = {
-      positional: vi.fn((name: string, config: PositionalOptions) => {
-        capturedPositionals[name] = config;
-        return mock;
-      }),
-      option: vi.fn((name: string, config: Options) => {
-        capturedOptions[name] = config;
-        return mock;
-      }),
-      example: vi.fn().mockReturnThis(),
-    };
-
-    // Cast once at the boundary - yargs types are too complex for mocks
-    return { mockYargs: mock as unknown as Argv, capturedPositionals, capturedOptions };
-  };
-
   it("defines source positional argument as required string", () => {
     const { mockYargs, capturedPositionals } = createCapturingMock();
 
@@ -86,34 +86,6 @@ describe("skills install command positional", () => {
 });
 
 describe("skills install command options", () => {
-  /**
-   * Creates a mock yargs instance that records positional() and option() calls.
-   * Returns the mock along with helpers to retrieve captured options.
-   *
-   * Note: yargs Argv has complex overloaded signatures that mocks cannot satisfy.
-   * We cast to Argv at the boundary rather than using `as any` throughout.
-   */
-  const createCapturingMock = () => {
-    const capturedPositionals: CapturedPositionals = {};
-    const capturedOptions: CapturedOptions = {};
-
-    // Build mock object - methods return self for chaining
-    const mock = {
-      positional: vi.fn((name: string, config: PositionalOptions) => {
-        capturedPositionals[name] = config;
-        return mock;
-      }),
-      option: vi.fn((name: string, config: Options) => {
-        capturedOptions[name] = config;
-        return mock;
-      }),
-      example: vi.fn().mockReturnThis(),
-    };
-
-    // Cast once at the boundary - yargs types are too complex for mocks
-    return { mockYargs: mock as unknown as Argv, capturedPositionals, capturedOptions };
-  };
-
   it("defines --global option with boolean type and default false", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
@@ -259,6 +231,52 @@ describe("skills install command options", () => {
       installCommand.builder(mockYargs);
       expect(capturedOptions["all"]?.describe).toBeDefined();
       expect(capturedOptions["all"]?.describe).toContain("all");
+    }
+  });
+
+  it("defines --dry-run option with boolean type and no default", () => {
+    const { mockYargs, capturedOptions } = createCapturingMock();
+
+    if (typeof installCommand.builder === "function") {
+      installCommand.builder(mockYargs);
+      expect(capturedOptions["dry-run"]).toEqual(
+        expect.objectContaining({
+          type: "boolean",
+        }),
+      );
+      expect(capturedOptions["dry-run"]?.default).toBeUndefined();
+    }
+  });
+
+  it("defines --non-interactive option with boolean type and no default", () => {
+    const { mockYargs, capturedOptions } = createCapturingMock();
+
+    if (typeof installCommand.builder === "function") {
+      installCommand.builder(mockYargs);
+      expect(capturedOptions["non-interactive"]).toEqual(
+        expect.objectContaining({
+          type: "boolean",
+        }),
+      );
+      expect(capturedOptions["non-interactive"]?.default).toBeUndefined();
+    }
+  });
+
+  it("includes description for --dry-run option", () => {
+    const { mockYargs, capturedOptions } = createCapturingMock();
+
+    if (typeof installCommand.builder === "function") {
+      installCommand.builder(mockYargs);
+      expect(capturedOptions["dry-run"]?.describe).toBeDefined();
+    }
+  });
+
+  it("includes description for --non-interactive option", () => {
+    const { mockYargs, capturedOptions } = createCapturingMock();
+
+    if (typeof installCommand.builder === "function") {
+      installCommand.builder(mockYargs);
+      expect(capturedOptions["non-interactive"]?.describe).toBeDefined();
     }
   });
 });

@@ -109,7 +109,7 @@ const STATIC_PRIORITY_DIRECTORIES: readonly string[] = [
  * 3. Agent dirs: unique `skills.dir` values from the AgentConfig registry
  */
 export const getPriorityDirectories = (): ReadonlyArray<string> => {
-  const agentDirs = Array.dedupe(getAllAgents().map((agent) => agent.skills.dir));
+  const agentDirs = Array.dedupe(Array.map(getAllAgents(), (agent) => agent.skills.dir));
   return [".", ...STATIC_PRIORITY_DIRECTORIES, ...agentDirs];
 };
 

@@ -67,13 +67,13 @@
 
 ## 6. Install Skill Executor
 
-- [ ] 6.1 Write tests for `installSkill` executor in `cli-commands/skills/install/install-skill.ts` — sanitize→validate→copy→symlink→lockfile pipeline, error cases (path traversal, copy failure), symlink fallback to copy, lockfile error swallowed, per-agent `InstallResult` returned
-- [ ] 6.2 Implement `installSkill` executor in `cli-commands/skills/install/install-skill.ts`
-- [ ] 6.3 Run typecheck for all packages (`pnpm typecheck`), fix any errors
-- [ ] 6.4 Run linting for all packages (`pnpm lint`), fix any errors
-- [ ] 6.5 Run tests for all packages (`pnpm test`), fix any failures
-- [ ] 6.6 Run relevant e2e tests (`pnpm test:e2e`), fix any failures
-- [ ] 6.7 Kill any vitest worker processes
+- [x] 6.1 Write tests for `installSkill` executor in `cli-commands/skills/install/install-skill.ts` — sanitize→validate→copy→symlink→lockfile pipeline, error cases (path traversal, copy failure), symlink fallback to copy, lockfile error swallowed, per-agent `InstallResult` returned
+- [x] 6.2 Implement `installSkill` executor in `cli-commands/skills/install/install-skill.ts`
+- [x] 6.3 Run typecheck for all packages (`pnpm typecheck`), fix any errors
+- [x] 6.4 Run linting for all packages (`pnpm lint`), fix any errors
+- [x] 6.5 Run tests for all packages (`pnpm test`), fix any failures
+- [x] 6.6 Run relevant e2e tests (`pnpm test:e2e`), fix any failures
+- [x] 6.7 Kill any vitest worker processes
 
 ## 7. Wire Install Handler and Build Plan
 

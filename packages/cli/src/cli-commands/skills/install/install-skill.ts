@@ -1,0 +1,251 @@
+/**
+ * Install skill executor — orchestrates the full per-skill installation pipeline.
+ *
+ * Pipeline: sanitize name → validate paths → remove old canonical → copy files →
+ * symlink from agent dirs (concurrent) → update lockfile.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
+import * as nodePath from "node:path";
+import type { PlatformError } from "@effect/platform/Error";
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { getAgentById } from "../../../agents/registry.js";
+import { updateLockEntry } from "../../../lockfile/lockfile.js";
+import { createSymlink } from "../../../utils/create-symlink.js";
+import { isPathSafe } from "../../../utils/path-safety.js";
+import {
+  OperationError,
+  type OperationHandler,
+  type OperationResult,
+} from "../../../workspace/apply-plan.js";
+import { Workspace } from "../../../workspace/service.js";
+import { copySkillDirectory } from "../copy-skill-directory.js";
+import type { AddSkillOperation } from "../operations.js";
+import { sourceToLockEntry } from "../source-to-lock-entry.js";
+import type { InstallResult } from "./install-result.js";
+import { sanitizeName } from "./skill-utils.js";
+
+// -----------------------------------------------------------------------------
+// Constants
+// -----------------------------------------------------------------------------
+
+const CANONICAL_SKILLS_DIR = ".agents/skills";
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+const installForAgent = (opts: {
+  readonly agentId: string;
+  readonly canonicalPath: string;
+  readonly sanitizedName: string;
+  readonly base: string;
+}): Effect.Effect<InstallResult, never, FileSystem.FileSystem> => {
+  const agent = Option.getOrUndefined(getAgentById(opts.agentId));
+  if (!agent) {
+    return Effect.succeed({
+      success: false,
+      mode: "symlink" as const,
+      symlinkFailed: false,
+      error: Option.some(`Unknown agent: ${opts.agentId}`),
+      path: "",
+      canonicalPath: opts.canonicalPath,
+    });
+  }
+
+  const agentSkillPath = nodePath.join(opts.base, agent.skills.dir, opts.sanitizedName);
+
+  // Self-reference detection: agent's skills.dir resolves to canonical location
+  const agentSkillsDir = nodePath.resolve(opts.base, agent.skills.dir);
+  const canonicalSkillsDir = nodePath.resolve(opts.base, CANONICAL_SKILLS_DIR);
+
+  if (agentSkillsDir === canonicalSkillsDir) {
+    // Universal agent — reads directly from canonical, no symlink needed
+    return Effect.succeed({
+      success: true,
+      mode: "symlink" as const,
+      symlinkFailed: false,
+      error: Option.none(),
+      path: agentSkillPath,
+      canonicalPath: opts.canonicalPath,
+    });
+  }
+
+  // Validate agent path safety
+  if (!isPathSafe(opts.base, agentSkillPath)) {
+    return Effect.succeed({
+      success: false,
+      mode: "symlink" as const,
+      symlinkFailed: false,
+      error: Option.some(`Path traversal detected for agent ${opts.agentId}`),
+      path: agentSkillPath,
+      canonicalPath: opts.canonicalPath,
+    });
+  }
+
+  // Try symlink, fall back to copy
+  return createSymlink({ target: opts.canonicalPath, link: agentSkillPath }).pipe(
+    Effect.map(
+      (): InstallResult => ({
+        success: true,
+        mode: "symlink",
+        symlinkFailed: false,
+        error: Option.none(),
+        path: agentSkillPath,
+        canonicalPath: opts.canonicalPath,
+      }),
+    ),
+    Effect.catchTag("SymlinkError", () =>
+      // Fallback: copy the canonical directory to the agent path
+      copySkillDirectory(opts.canonicalPath, agentSkillPath).pipe(
+        Effect.map(
+          (): InstallResult => ({
+            success: true,
+            mode: "copy",
+            symlinkFailed: true,
+            error: Option.none(),
+            path: agentSkillPath,
+            canonicalPath: opts.canonicalPath,
+          }),
+        ),
+        Effect.catchAll((copyErr: PlatformError) =>
+          Effect.succeed<InstallResult>({
+            success: false,
+            mode: "copy",
+            symlinkFailed: true,
+            error: Option.some(`Copy fallback failed: ${copyErr.message}`),
+            path: agentSkillPath,
+            canonicalPath: opts.canonicalPath,
+          }),
+        ),
+      ),
+    ),
+  );
+};
+
+// -----------------------------------------------------------------------------
+// Public API
+// -----------------------------------------------------------------------------
+
+/**
+ * Install-skill operation handler.
+ *
+ * Reads workspace paths from the Workspace service, then orchestrates:
+ * 1. Sanitize skill name for filesystem
+ * 2. Validate all paths stay within the workspace base
+ * 3. Remove existing canonical directory (clean slate)
+ * 4. Copy skill files to canonical location
+ * 5. Create symlinks from each agent's skills dir (concurrent)
+ * 6. Update lockfile entry (failures swallowed)
+ */
+export const installSkill: OperationHandler<
+  AddSkillOperation,
+  FileSystem.FileSystem | Workspace
+> = (op) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const ws = yield* Workspace;
+    const axmDir = ws.path;
+    const base = nodePath.dirname(axmDir);
+
+    const sanitizedName = sanitizeName(op.skill.name);
+    const canonicalPath = nodePath.join(base, CANONICAL_SKILLS_DIR, sanitizedName);
+
+    // Validate canonical path safety
+    if (!isPathSafe(base, canonicalPath)) {
+      return yield* new OperationError({
+        operation: "install-skill",
+        message: `Path traversal detected in skill name "${op.skill.name}"`,
+        cause: null,
+      });
+    }
+
+    // Resolve source path — the skill files to copy from
+    const sourcePath = Option.getOrUndefined(op.path);
+    if (!sourcePath) {
+      return yield* new OperationError({
+        operation: "install-skill",
+        message: `No source path available for skill "${op.skill.name}"`,
+        cause: null,
+      });
+    }
+
+    // Remove existing canonical directory for clean-slate copy
+    const canonicalExists = yield* fs
+      .exists(canonicalPath)
+      .pipe(Effect.catchAll(() => Effect.succeed(false)));
+    if (canonicalExists) {
+      yield* fs.remove(canonicalPath, { recursive: true }).pipe(
+        Effect.mapError(
+          (e) =>
+            new OperationError({
+              operation: "install-skill",
+              message: `Failed to remove existing canonical directory: ${canonicalPath}`,
+              cause: e,
+            }),
+        ),
+      );
+    }
+
+    // Copy skill files to canonical location
+    yield* copySkillDirectory(sourcePath, canonicalPath).pipe(
+      Effect.mapError(
+        (e) =>
+          new OperationError({
+            operation: "install-skill",
+            message: `Failed to copy skill files to ${canonicalPath}`,
+            cause: e,
+          }),
+      ),
+    );
+
+    // Create symlinks for each agent (concurrent)
+    const agentResults = yield* Effect.forEach(
+      op.agents,
+      (agentId) =>
+        installForAgent({
+          agentId,
+          canonicalPath,
+          sanitizedName,
+          base,
+        }),
+      { concurrency: "unbounded" },
+    );
+
+    // Update lockfile (swallow errors)
+    yield* updateLockEntry(
+      axmDir,
+      sanitizedName,
+      sourceToLockEntry({
+        source: op.source,
+        agents: [...op.agents],
+        gitTreeSha: op.gitTreeSha,
+        now: new Date(),
+        ...Option.match(op.registry, {
+          onNone: () => ({}),
+          onSome: (reg) => ({ registry: reg }),
+        }),
+      }),
+    ).pipe(Effect.catchAll(() => Effect.void));
+
+    // Determine overall result
+    const anyFailed = agentResults.some((r) => !r.success);
+
+    if (anyFailed) {
+      const failedAgents = agentResults
+        .filter((r) => !r.success)
+        .map((r) => Option.getOrElse(r.error, () => "unknown error"));
+      return {
+        action: "error" as const,
+        message: `Failed to install ${op.skill.name} for some agents: ${failedAgents.join(", ")}`,
+      } satisfies OperationResult;
+    }
+
+    return {
+      action: "success" as const,
+      message: `Installed ${op.skill.name}`,
+    } satisfies OperationResult;
+  });

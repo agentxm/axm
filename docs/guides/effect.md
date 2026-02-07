@@ -33,6 +33,7 @@ APIs, and testing Effect programs.
 | [effect-stream](../../.claude/skills/effect-stream/SKILL.md)           | —       | Stream for lazy, unbounded, or resource-scoped sequences  |
 | [effect-schema](../../.claude/skills/effect-schema/SKILL.md)           | —       | Schema naming conventions and type inference              |
 | [effect-wrapping](../../.claude/skills/effect-wrapping/SKILL.md)       | —       | Wrap Promise-based APIs with Effect conventions           |
+| [effect-filesystem](../../.claude/skills/effect-filesystem/SKILL.md)   | —       | FileSystem and Path services, never use node:fs/node:path |
 | [effect-testing](../../.claude/skills/effect-testing/SKILL.md)         | —       | Testing patterns for Effect programs                      |
 
 ---

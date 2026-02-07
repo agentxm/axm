@@ -57,6 +57,7 @@ export const computeIntegrity = (dir: string) =>
 | `Promise.all([a, b])`  | `Effect.all([a, b], { concurrency: "unbounded" })` |
 | `try/catch`            | Typed errors with `Effect.catchTag`                |
 | `fs.readFile`          | `@effect/platform` FileSystem service              |
+| `path.join`            | `@effect/platform` Path service                    |
 | `fetch`                | `@effect/platform` HttpClient service              |
 
 ---

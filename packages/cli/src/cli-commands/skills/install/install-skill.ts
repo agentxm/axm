@@ -7,9 +7,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as nodePath from "node:path";
 import type { PlatformError } from "@effect/platform/Error";
 import * as FileSystem from "@effect/platform/FileSystem";
+import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
@@ -43,88 +43,94 @@ const installForAgent = (opts: {
   readonly canonicalPath: string;
   readonly sanitizedName: string;
   readonly base: string;
-}): Effect.Effect<InstallResult, never, FileSystem.FileSystem> => {
-  const agent = Option.getOrUndefined(getAgentById(opts.agentId));
-  if (!agent) {
-    return Effect.succeed({
-      success: false,
-      mode: "symlink" as const,
-      symlinkFailed: false,
-      error: Option.some(`Unknown agent: ${opts.agentId}`),
-      path: "",
-      canonicalPath: opts.canonicalPath,
-    });
-  }
+}): Effect.Effect<InstallResult, never, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
 
-  const agentSkillPath = nodePath.join(opts.base, agent.skills.dir, opts.sanitizedName);
+    const maybeAgent = getAgentById(opts.agentId);
+    if (Option.isNone(maybeAgent)) {
+      return {
+        success: false,
+        mode: "symlink",
+        symlinkFailed: false,
+        error: Option.some(`Unknown agent: ${opts.agentId}`),
+        path: "",
+        canonicalPath: opts.canonicalPath,
+      } satisfies InstallResult;
+    }
+    const agent = maybeAgent.value;
 
-  // Self-reference detection: agent's skills.dir resolves to canonical location
-  const agentSkillsDir = nodePath.resolve(opts.base, agent.skills.dir);
-  const canonicalSkillsDir = nodePath.resolve(opts.base, CANONICAL_SKILLS_DIR);
+    const agentSkillPath = path.join(opts.base, agent.skills.dir, opts.sanitizedName);
 
-  if (agentSkillsDir === canonicalSkillsDir) {
-    // Universal agent — reads directly from canonical, no symlink needed
-    return Effect.succeed({
-      success: true,
-      mode: "symlink" as const,
-      symlinkFailed: false,
-      error: Option.none(),
-      path: agentSkillPath,
-      canonicalPath: opts.canonicalPath,
-    });
-  }
+    // Self-reference detection: agent's skills.dir resolves to canonical location
+    const agentSkillsDir = path.resolve(opts.base, agent.skills.dir);
+    const canonicalSkillsDir = path.resolve(opts.base, CANONICAL_SKILLS_DIR);
 
-  // Validate agent path safety
-  if (!isPathSafe(opts.base, agentSkillPath)) {
-    return Effect.succeed({
-      success: false,
-      mode: "symlink" as const,
-      symlinkFailed: false,
-      error: Option.some(`Path traversal detected for agent ${opts.agentId}`),
-      path: agentSkillPath,
-      canonicalPath: opts.canonicalPath,
-    });
-  }
-
-  // Try symlink, fall back to copy
-  return createSymlink({ target: opts.canonicalPath, link: agentSkillPath }).pipe(
-    Effect.map(
-      (): InstallResult => ({
+    if (agentSkillsDir === canonicalSkillsDir) {
+      // Universal agent — reads directly from canonical, no symlink needed
+      return {
         success: true,
         mode: "symlink",
         symlinkFailed: false,
         error: Option.none(),
         path: agentSkillPath,
         canonicalPath: opts.canonicalPath,
-      }),
-    ),
-    Effect.catchTag("SymlinkError", () =>
-      // Fallback: copy the canonical directory to the agent path
-      copySkillDirectory(opts.canonicalPath, agentSkillPath).pipe(
-        Effect.map(
-          (): InstallResult => ({
+      } satisfies InstallResult;
+    }
+
+    // Validate agent path safety
+    if (!isPathSafe(opts.base, agentSkillPath)) {
+      return {
+        success: false,
+        mode: "symlink",
+        symlinkFailed: false,
+        error: Option.some(`Path traversal detected for agent ${opts.agentId}`),
+        path: agentSkillPath,
+        canonicalPath: opts.canonicalPath,
+      } satisfies InstallResult;
+    }
+
+    // Try symlink, fall back to copy
+    return yield* createSymlink({ target: opts.canonicalPath, link: agentSkillPath }).pipe(
+      Effect.map(
+        () =>
+          ({
             success: true,
-            mode: "copy",
-            symlinkFailed: true,
+            mode: "symlink",
+            symlinkFailed: false,
             error: Option.none(),
             path: agentSkillPath,
             canonicalPath: opts.canonicalPath,
-          }),
-        ),
-        Effect.catchAll((copyErr: PlatformError) =>
-          Effect.succeed<InstallResult>({
-            success: false,
-            mode: "copy",
-            symlinkFailed: true,
-            error: Option.some(`Copy fallback failed: ${copyErr.message}`),
-            path: agentSkillPath,
-            canonicalPath: opts.canonicalPath,
-          }),
+          }) satisfies InstallResult,
+      ),
+      Effect.catchTag("SymlinkError", () =>
+        // Fallback: copy the canonical directory to the agent path
+        copySkillDirectory(opts.canonicalPath, agentSkillPath).pipe(
+          Effect.map(
+            () =>
+              ({
+                success: true,
+                mode: "copy",
+                symlinkFailed: true,
+                error: Option.none(),
+                path: agentSkillPath,
+                canonicalPath: opts.canonicalPath,
+              }) satisfies InstallResult,
+          ),
+          Effect.catchAll((copyErr: PlatformError) =>
+            Effect.succeed({
+              success: false,
+              mode: "copy",
+              symlinkFailed: true,
+              error: Option.some(`Copy fallback failed: ${copyErr.message}`),
+              path: agentSkillPath,
+              canonicalPath: opts.canonicalPath,
+            } satisfies InstallResult),
+          ),
         ),
       ),
-    ),
-  );
-};
+    );
+  });
 
 // -----------------------------------------------------------------------------
 // Public API
@@ -143,16 +149,17 @@ const installForAgent = (opts: {
  */
 export const installSkill: OperationHandler<
   AddSkillOperation,
-  FileSystem.FileSystem | Workspace
+  FileSystem.FileSystem | Path.Path | Workspace
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const ws = yield* Workspace;
     const axmDir = ws.path;
-    const base = nodePath.dirname(axmDir);
+    const base = path.dirname(axmDir);
 
     const sanitizedName = sanitizeName(op.skill.name);
-    const canonicalPath = nodePath.join(base, CANONICAL_SKILLS_DIR, sanitizedName);
+    const canonicalPath = path.join(base, CANONICAL_SKILLS_DIR, sanitizedName);
 
     // Validate canonical path safety
     if (!isPathSafe(base, canonicalPath)) {
@@ -164,14 +171,14 @@ export const installSkill: OperationHandler<
     }
 
     // Resolve source path — the skill files to copy from
-    const sourcePath = Option.getOrUndefined(op.path);
-    if (!sourcePath) {
+    if (Option.isNone(op.path)) {
       return yield* new OperationError({
         operation: "install-skill",
         message: `No source path available for skill "${op.skill.name}"`,
         cause: null,
       });
     }
+    const sourcePath = op.path.value;
 
     // Remove existing canonical directory for clean-slate copy
     const canonicalExists = yield* fs
@@ -221,7 +228,7 @@ export const installSkill: OperationHandler<
       sanitizedName,
       sourceToLockEntry({
         source: op.source,
-        agents: [...op.agents],
+        agents: op.agents,
         gitTreeSha: op.gitTreeSha,
         now: new Date(),
         ...Option.match(op.registry, {
@@ -239,13 +246,13 @@ export const installSkill: OperationHandler<
         .filter((r) => !r.success)
         .map((r) => Option.getOrElse(r.error, () => "unknown error"));
       return {
-        action: "error" as const,
+        action: "error",
         message: `Failed to install ${op.skill.name} for some agents: ${failedAgents.join(", ")}`,
       } satisfies OperationResult;
     }
 
     return {
-      action: "success" as const,
+      action: "success",
       message: `Installed ${op.skill.name}`,
     } satisfies OperationResult;
   });

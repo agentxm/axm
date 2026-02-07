@@ -4,23 +4,22 @@ The install handler builds `AddSkillOperation[]` and scaffolds a `Plan`, but nev
 
 ## What Changes
 
-- **Build plan with lockfile awareness**: Compare operations against lockfile state. Already-installed skills become `no-op` (unless `--force`), new skills become `execute`.
+- **Build plan with lockfile awareness**: Compare operations against lockfile state. Already-installed skills become `no-op`, new skills become `execute`.
 - **Display plan**: Format and show the plan summary (what will be installed, what will be skipped). Dry-run stops here.
 - **Confirm plan**: When not `--yes` and not `--dry-run`, prompt the user to confirm before executing.
 - **Execute plan**: Apply `execute` actions — log "skill installed" to console per action. Actual file copying and lockfile updates are out of scope.
-- **Remove legacy scaffolding**: Delete inline `_plan` construction, `buildIdealFromOperations`, and any dead code related to plan building or applying in the handler and ideal-state module. Replace with calls to new modules.
+- **Replace sketch code**: The handler's inline `_plan` construction and TODO comments are replaced by calls to the new build, display, and apply modules. The `ideal-state.ts` file is deleted and its contents redistributed.
 
 ## Design Considerations
 
-The plan infrastructure will be reused across extension types (commands, mcp-servers, rules, etc.). Operation construction is extension-specific — each extension type knows how to diff its operations against current state. Plan display and execution are generic — they operate on the plan structure regardless of what produced it. Design the plan types and display/apply modules to be extension-agnostic so they can be shared.
+The plan infrastructure will be reused across extension types (commands, mcp-servers, rules, etc.) and across operation types (install, uninstall). Operation construction and plan building are extension-specific — each extension type knows how to diff its operations against current state. Plan types, display, and apply orchestration are generic — they operate on the plan structure regardless of what produced it. These shared elements live in the workspace module from the start to avoid restructuring when the next consumer arrives.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `install-plan-build`: Build a plan by diffing operations against lockfile state. Determines action (execute vs no-op) per operation. Skills-specific for now, but plan types should be extension-agnostic.
-- `install-plan-display`: Format and display the plan to the user via Clack UI. Extension-agnostic — operates on plan structure only.
-- `install-plan-apply`: Execute plan actions — log installation result to console per action. Actual skill copying and lockfile writes are out of scope.
+- `workspace-plan`: Generic plan types (`Plan<Op>`, `Job<Op>`, `Action<Op>`), plan display via Clack, and apply orchestration (iterate execute actions, skip no-ops, log results). Shared across all extension types and operations.
+- `skills-install-build-plan`: Build a plan by diffing `AddSkillOperation[]` against lockfile state. Skills-specific — knows how to compare skill names against lockfile entries.
 
 ### Modified Capabilities
 
@@ -36,5 +35,9 @@ The plan infrastructure will be reused across extension types (commands, mcp-ser
 ## Impact
 
 - `packages/cli/src/cli-commands/skills/install/handler.ts` — major rewrite of post-selection flow
-- `packages/cli/src/workspace/ideal-state.ts` — Plan/Action types may need refinement
-- New modules in `packages/cli/src/cli-commands/skills/install/` for plan build, display, and apply
+- `packages/cli/src/workspace/ideal-state.ts` — deleted, contents redistributed
+- `packages/cli/src/workspace/plan.ts` — new shared generic plan types
+- `packages/cli/src/workspace/display-plan.ts` — new shared plan display
+- `packages/cli/src/workspace/apply-plan.ts` — new shared plan apply stub
+- `packages/cli/src/cli-commands/skills/operations.ts` — skill operation types moved from workspace
+- `packages/cli/src/cli-commands/skills/install/build-plan.ts` — new skills-specific plan builder

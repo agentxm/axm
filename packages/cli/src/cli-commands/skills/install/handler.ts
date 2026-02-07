@@ -171,7 +171,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         return;
       }
 
-      const agentIds: readonly string[] = [];
+      const agentIds: readonly string[] = (yield* ws.getSettings()).agents ?? [];
 
       const ops = selectedSkills.map(
         (s) =>

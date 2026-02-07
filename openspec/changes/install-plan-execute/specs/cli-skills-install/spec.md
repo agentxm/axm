@@ -15,20 +15,20 @@ The install handler SHALL use WorkspaceContext for initialization and workspace 
 - **WHEN** a plan has been built
 - **THEN** the handler SHALL call the shared `displayPlan(plan)` from the workspace plan module
 
-#### Scenario: Dry-run stops after display
+#### Scenario: Preview stops after display
 
-- **WHEN** `--dry-run` is active
+- **WHEN** `--preview` is active
 - **THEN** the handler SHALL display the plan and exit without applying
 
 #### Scenario: Confirm before apply
 
-- **WHEN** `--dry-run` is not active and `--yes` is not active
+- **WHEN** `--preview` is not active and `--yes` is not active
 - **THEN** the handler SHALL prompt the user to confirm before applying the plan
 - **AND** if the user declines, the handler SHALL exit without applying
 
 #### Scenario: Yes skips confirmation
 
-- **WHEN** `--yes` is active and `--dry-run` is not active
+- **WHEN** `--yes` is active and `--preview` is not active
 - **THEN** the handler SHALL apply the plan without prompting for confirmation
 
 #### Scenario: Apply plan via shared module

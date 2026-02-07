@@ -12,7 +12,7 @@ The `workspace/ideal-state.ts` file contains both operation types (`AddSkillOper
 - Make plan types generic so they can be reused for commands, mcp-servers, rules, etc.
 - Place shared plan infrastructure (types, display, apply) in the workspace module from the start
 - Display a human-readable plan summary via Clack
-- Support `--dry-run` (display only) and `--yes` (skip confirmation)
+- Support `--preview` (display only) and `--yes` (skip confirmation)
 - Stub apply to log "installed" per action (no real side effects)
 - Remove inline plan scaffolding and dead code from the handler
 
@@ -59,11 +59,47 @@ Create `packages/cli/src/cli-commands/skills/install/build-plan.ts`. This module
 
 After display, the handler checks:
 
-1. If `--dry-run` → exit after display
+1. If `--preview` → exit after display
 2. If `--yes` → apply immediately
 3. Otherwise → `clack.confirm()` → apply or exit
 
 The handler calls skills-specific `buildPlan` → shared `displayPlan` → confirm logic → shared `applyPlan`. The handler's existing inline `_plan` sketch code and TODO comments are replaced by calls to the new modules. The `_lockfile`/`_settings` bindings are replaced with a `lockfile` binding that feeds into `buildPlan`.
+
+**Updated handler logic** (replaces lines 193–225 of current handler.ts):
+
+```typescript
+// Build plan
+const lockfile = yield * ws.getLockfile();
+const plan = buildPlan(
+  ops,
+  lockfile,
+  "Install skill(s)",
+  Option.some(`Install skills from ${printSource(source)}`),
+);
+
+// Display plan
+yield * displayPlan(plan);
+
+// Preview stops here
+const isPreview = Option.getOrElse(args.preview, () => false);
+if (isPreview) {
+  yield * clack.outro("Preview complete — no changes applied.");
+  return;
+}
+
+// Confirm (unless --yes)
+if (!args.yes) {
+  const confirmed = yield * clack.confirm({ message: "Apply changes?" });
+  if (!confirmed) {
+    yield * clack.outro("Cancelled.");
+    return;
+  }
+}
+
+// Apply
+yield * applyPlan(plan);
+yield * clack.outro("Done");
+```
 
 ### 5. Skill operation types in skills command directory
 

@@ -1,0 +1,52 @@
+## 1. Relocate types and delete ideal-state
+
+- [ ] 1.1 Create `cli-commands/skills/operations.ts` with `SkillRef`, `AddSkillOperation`, `RemoveSkillOperation` moved from `workspace/ideal-state.ts` and `install/discover-skills.ts`
+- [ ] 1.2 Update all imports of `SkillRef` to point to `cli-commands/skills/operations.ts` (`discover-skills.ts`, `select-skills.ts`, `skill-utils.ts`, `parse-skill-md.ts`, `ideal-state.ts`, and their test files)
+- [ ] 1.3 Create `workspace/plan.ts` with generic `Action<Op>`, `Job<Op>`, `Plan<Op>` types (add `label` field to Action, add `name`/`description` to Plan)
+- [ ] 1.4 Update handler import of `AddSkillOperation`, `Plan`, `Action` to point to new locations (`operations.ts` and `plan.ts`)
+- [ ] 1.5 Delete `workspace/ideal-state.ts` and remove any references to it (including commented exports in `workspace/index.ts`)
+- [ ] 1.6 Update `workspace/index.ts` barrel to export from `plan.ts`
+- [ ] 1.7 Run `pnpm typecheck` — fix any errors
+- [ ] 1.8 Run `pnpm lint` — fix any errors
+- [ ] 1.9 Run `pnpm test` — fix any failures
+- [ ] 1.10 Run `pnpm test:e2e` — fix any failures
+- [ ] 1.11 Kill any vitest worker processes
+
+## 2. Build plan (skills-specific)
+
+- [ ] 2.1 Write tests for `buildPlan` in `cli-commands/skills/install/build-plan.test.ts` covering: new skill → execute, already installed → no-op, empty ops → empty plan, label derivation, caller-provided name/description pass-through
+- [ ] 2.2 Implement `buildPlan` in `cli-commands/skills/install/build-plan.ts` — pure function, `(ops, lockfile, name, description) => Plan<AddSkillOperation>`
+- [ ] 2.3 Run `pnpm typecheck` — fix any errors
+- [ ] 2.4 Run `pnpm lint` — fix any errors
+- [ ] 2.5 Run `pnpm test` — fix any failures
+- [ ] 2.6 Kill any vitest worker processes
+
+## 3. Display plan (shared)
+
+- [ ] 3.1 Write tests for `displayPlan` in `workspace/display-plan.test.ts` covering: plan name as heading, description shown when present, execute actions listed, no-op actions with reasons, summary counts, all no-ops case
+- [ ] 3.2 Implement `displayPlan` in `workspace/display-plan.ts` — depends on Clack service, operates on `Plan<Op>`
+- [ ] 3.3 Update `workspace/index.ts` barrel to export from `display-plan.ts`
+- [ ] 3.4 Run `pnpm typecheck` — fix any errors
+- [ ] 3.5 Run `pnpm lint` — fix any errors
+- [ ] 3.6 Run `pnpm test` — fix any failures
+- [ ] 3.7 Kill any vitest worker processes
+
+## 4. Apply plan (shared stub)
+
+- [ ] 4.1 Write tests for `applyPlan` in `workspace/apply-plan.test.ts` covering: log success for execute actions, skip no-op actions, all no-ops → no success logs, job concurrency respected (unbounded vs sequential)
+- [ ] 4.2 Implement `applyPlan` in `workspace/apply-plan.ts` — depends on Clack service, iterates jobs using `Effect.forEach` with job concurrency setting, stub only (no file system mutations)
+- [ ] 4.3 Update `workspace/index.ts` barrel to export from `apply-plan.ts`
+- [ ] 4.4 Run `pnpm typecheck` — fix any errors
+- [ ] 4.5 Run `pnpm lint` — fix any errors
+- [ ] 4.6 Run `pnpm test` — fix any failures
+- [ ] 4.7 Kill any vitest worker processes
+
+## 5. Wire handler
+
+- [ ] 5.1 Write/update handler tests in `cli-commands/skills/install/handler.test.ts` covering: build plan from ops + lockfile, display plan, --preview stops after display, --yes skips confirmation, confirm prompt → apply or exit, apply plan called after confirmation, summary outro
+- [ ] 5.2 Rewrite handler post-selection flow: replace inline `_plan` sketch with `buildPlan` → `displayPlan` → confirm logic → `applyPlan`, remove dead `_lockfile`/`_settings`/`_plan` bindings
+- [ ] 5.3 Run `pnpm typecheck` — fix any errors
+- [ ] 5.4 Run `pnpm lint` — fix any errors
+- [ ] 5.5 Run `pnpm test` — fix any failures
+- [ ] 5.6 Run `pnpm test:e2e` — fix any failures
+- [ ] 5.7 Kill any vitest worker processes

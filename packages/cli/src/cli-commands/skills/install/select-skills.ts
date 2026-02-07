@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { SkillRef } from "./discover-skills.js";
+import type { SkillRef } from "../operations.js";
 import { Clack } from "../../../clack-effect/index.js";
 import { InstallError } from "./handler.js";
 import { formatError } from "../../../utils/errors.js";

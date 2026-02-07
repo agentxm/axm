@@ -1,0 +1,61 @@
+/**
+ * Skill operation types and references.
+ *
+ * Shared across skill operations (install, uninstall, etc.).
+ *
+ * @experimental This API is unstable and may change without notice.
+ * @packageDocumentation
+ */
+
+import type { Option } from "effect/Option";
+import type { ReadonlyRecord } from "effect/Record";
+import type { Source } from "../../sources/types.js";
+
+// -----------------------------------------------------------------------------
+// Types
+// -----------------------------------------------------------------------------
+
+/**
+ * Base skill metadata parsed from SKILL.md frontmatter.
+ */
+export interface Skill {
+  /** Unique name of the skill */
+  readonly name: string;
+  /** Description of the skill */
+  readonly description: string;
+  /** Optional metadata from SKILL.md frontmatter */
+  readonly metadata: Option<ReadonlyRecord<string, unknown>>;
+}
+
+export interface SkillRef {
+  readonly skill: Skill;
+  readonly path: Option<string>;
+  readonly gitTreeSha: Option<string>;
+  readonly registry: Option<{ scope: string; name: string } & ({ path: string } | { url: string })>;
+}
+
+// -----------------------------------------------------------------------------
+// Operations
+// -----------------------------------------------------------------------------
+
+/**
+ * Add a skill to the workspace.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type AddSkillOperation = {
+  readonly _tag: "add-skill";
+  readonly source: Source;
+  readonly agents: ReadonlyArray<string>;
+  readonly force: boolean;
+} & SkillRef;
+
+/**
+ * Remove a skill from the workspace.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface RemoveSkillOperation {
+  readonly _tag: "remove-skill";
+  readonly name: string;
+}

@@ -24,37 +24,11 @@ import { InstallError } from "./handler.js";
 import { parseManifests } from "./parse-manifests.js";
 import { parseSkillMd } from "./parse-skill-md.js";
 import { formatError } from "../../../utils/errors.js";
+import type { Skill, SkillRef } from "../operations.js";
 import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Record from "effect/Record";
-
-// -----------------------------------------------------------------------------
-// Types
-// -----------------------------------------------------------------------------
-
-/**
- * Base skill metadata parsed from SKILL.md frontmatter.
- */
-
-export interface Skill {
-  /** Unique name of the skill */
-  readonly name: string;
-  /** Description of the skill */
-  readonly description: string;
-  /** Optional metadata from SKILL.md frontmatter */
-  readonly metadata: Option.Option<Record.ReadonlyRecord<string, unknown>>;
-}
-
-export interface SkillRef {
-  readonly skill: Skill;
-  readonly path: Option.Option<string>;
-  readonly gitTreeSha: Option.Option<string>;
-  readonly registry: Option.Option<
-    { scope: string; name: string } & ({ path: string } | { url: string })
-  >;
-}
 
 /**
  * Options controlling discovery behavior.

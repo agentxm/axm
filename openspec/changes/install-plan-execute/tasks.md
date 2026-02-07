@@ -1,16 +1,16 @@
 ## 1. Relocate types and delete ideal-state
 
-- [ ] 1.1 Create `cli-commands/skills/operations.ts` with `SkillRef`, `AddSkillOperation`, `RemoveSkillOperation` moved from `workspace/ideal-state.ts` and `install/discover-skills.ts`
-- [ ] 1.2 Update all imports of `SkillRef` to point to `cli-commands/skills/operations.ts` (`discover-skills.ts`, `select-skills.ts`, `skill-utils.ts`, `parse-skill-md.ts`, `ideal-state.ts`, and their test files)
-- [ ] 1.3 Create `workspace/plan.ts` with generic `Action<Op>`, `Job<Op>`, `Plan<Op>` types (add `label` field to Action, add `name`/`description` to Plan)
-- [ ] 1.4 Update handler import of `AddSkillOperation`, `Plan`, `Action` to point to new locations (`operations.ts` and `plan.ts`)
-- [ ] 1.5 Delete `workspace/ideal-state.ts` and remove any references to it (including commented exports in `workspace/index.ts`)
-- [ ] 1.6 Update `workspace/index.ts` barrel to export from `plan.ts`
-- [ ] 1.7 Run `pnpm typecheck` — fix any errors
-- [ ] 1.8 Run `pnpm lint` — fix any errors
-- [ ] 1.9 Run `pnpm test` — fix any failures
-- [ ] 1.10 Run `pnpm test:e2e` — fix any failures
-- [ ] 1.11 Kill any vitest worker processes
+- [x] 1.1 Create `cli-commands/skills/operations.ts` with `SkillRef`, `AddSkillOperation`, `RemoveSkillOperation` moved from `workspace/ideal-state.ts` and `install/discover-skills.ts`
+- [x] 1.2 Update all imports of `SkillRef` to point to `cli-commands/skills/operations.ts` (`discover-skills.ts`, `select-skills.ts`, `skill-utils.ts`, `parse-skill-md.ts`, `ideal-state.ts`, and their test files)
+- [x] 1.3 Create `workspace/plan.ts` with generic `Action<Op>`, `Job<Op>`, `Plan<Op>` types (add `label` field to Action, add `name`/`description` to Plan)
+- [x] 1.4 Update handler import of `AddSkillOperation`, `Plan`, `Action` to point to new locations (`operations.ts` and `plan.ts`)
+- [x] 1.5 Delete `workspace/ideal-state.ts` and remove any references to it (including commented exports in `workspace/index.ts`)
+- [x] 1.6 Update `workspace/index.ts` barrel to export from `plan.ts`
+- [x] 1.7 Run `pnpm typecheck` — fix any errors
+- [x] 1.8 Run `pnpm lint` — fix any errors
+- [x] 1.9 Run `pnpm test` — fix any failures
+- [x] 1.10 Run `pnpm test:e2e` — fix any failures
+- [x] 1.11 Kill any vitest worker processes
 
 ## 2. Build plan (skills-specific)
 

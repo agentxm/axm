@@ -9,7 +9,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeClackTestLayer } from "../../../clack-effect/index.js";
-import type { SkillRef } from "./discover-skills.js";
+import type { SkillRef } from "../operations.js";
 import { InstallError } from "./handler.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 

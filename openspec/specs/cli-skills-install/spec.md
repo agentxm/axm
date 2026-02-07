@@ -53,11 +53,12 @@ The install handler SHALL use WorkspaceContext for initialization and workspace 
 - **THEN** the CLI SHALL call `buildIdealState(currentState, operations)` from `workspace/ideal-state.ts`
 - **AND** operations SHALL be `AddSkillOperation[]` built from selected skills
 
-#### Scenario: Apply plan via workspace
+#### Scenario: Resolve plan via workspace
 
-- **WHEN** changes are confirmed
-- **THEN** the CLI SHALL call `applyPlan(ws, plan, opts)` from `workspace/apply.ts`
-- **AND** the CLI SHALL NOT call legacy `applyDiff()` from `skills/state/apply.ts`
+- **WHEN** the plan is built
+- **THEN** the handler SHALL call `ws.resolvePlan(plan)` from `WorkspaceContextService`
+- **AND** the handler SHALL NOT contain inline plan display, confirm, or apply logic
+- **AND** the handler SHALL NOT directly call `applyPlan` or `displayPlan`
 
 #### Scenario: Non-interactive flag available in CLI
 
@@ -71,16 +72,17 @@ The install handler SHALL use WorkspaceContext for initialization and workspace 
 - **THEN** the parsed value SHALL be `undefined` (no yargs default)
 - **AND** the handler SHALL receive `nonInteractive: Option.none()`
 
+#### Scenario: Preview flag available in CLI
+
+- **WHEN** a user invokes `axm skills install <source> --preview`
+- **THEN** the yargs builder SHALL accept the flag as a boolean option with `default: false`
+- **AND** the parsed value SHALL be passed to workspace options as `preview: true`
+
 #### Scenario: Preview flag omitted
 
 - **WHEN** a user invokes `axm skills install <source>` without `--preview`
-- **THEN** the parsed value SHALL be `undefined` (no yargs default)
-- **AND** the handler SHALL receive `preview: Option.none()`
-
-#### Scenario: Preview flag specified
-
-- **WHEN** a user invokes `axm skills install <source> --preview`
-- **THEN** the handler SHALL receive `preview: Option.some(true)`
+- **THEN** the parsed value SHALL default to `false`
+- **AND** workspace options SHALL receive `preview: false`
 
 ### Requirement: Option-Mapped Flag Boundary Convention
 
@@ -88,12 +90,12 @@ Flags that map to `Option<boolean>` in handler args SHALL NOT have yargs default
 
 #### Scenario: Boolean flag with default
 
-- **WHEN** a handler arg is typed as `boolean` (e.g., `yes`, `global`, `all`, `force`, `list`)
+- **WHEN** a handler arg is typed as `boolean` (e.g., `yes`, `global`, `all`, `force`, `list`, `preview`)
 - **THEN** the yargs builder SHALL specify `default: false`
 
 #### Scenario: Option boolean flag without default
 
-- **WHEN** a handler arg is typed as `Option<boolean>` (e.g., `preview`, `nonInteractive`)
+- **WHEN** a handler arg is typed as `Option<boolean>` (e.g., `nonInteractive`)
 - **THEN** the yargs builder SHALL NOT specify a `default` value
 - **AND** `Option.fromNullable` at the boundary SHALL produce `Option.none()` when the flag is omitted
 

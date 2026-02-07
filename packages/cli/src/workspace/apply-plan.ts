@@ -1,8 +1,8 @@
 /**
  * Shared plan apply module.
  *
- * Iterates over plan jobs and their actions, dispatching each "execute"
- * action to the matching executor from a typed registry keyed by `name`.
+ * Iterates over plan jobs and their steps, dispatching each "execute"
+ * step to the matching executor from a typed registry keyed by `name`.
  * No-op actions are skipped.
  *
  * @experimental This API is unstable and may change without notice.
@@ -10,7 +10,7 @@
 
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
-import type { Action, Operation, Plan } from "./plan.js";
+import type { JobStep, Operation, Plan } from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -71,17 +71,17 @@ export type ExecutionContext<T> = {
 // -----------------------------------------------------------------------------
 
 const applyAction = <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
-  action: Action<Op>,
+  step: JobStep<Op>,
   handlers: T,
 ): Effect.Effect<OperationResult, never, ExecutionContext<T>> => {
-  if (action.action !== "execute") {
-    return Effect.succeed({ action: "no-op" as const, message: `Skipped: ${action.label}` });
+  if (step.action !== "execute") {
+    return Effect.succeed({ action: "no-op" as const, message: `Skipped: ${step.label}` });
   }
   // Cast needed: TS can't correlate dynamic name lookup with the Extract<Op, {name: K}> parameter
-  const handler = handlers[action.op.name as Op["name"]] as unknown as (
+  const handler = handlers[step.operation.name as Op["name"]] as unknown as (
     op: Op,
   ) => Effect.Effect<OperationResult, OperationError, ExecutionContext<T>>;
-  return handler(action.op).pipe(
+  return handler(step.operation).pipe(
     Effect.catchTag("OperationError", (error) =>
       Effect.succeed({
         action: "error" as const,
@@ -106,7 +106,7 @@ export const applyPlan = <Op extends Operation<string, unknown>, T extends Handl
     Effect.forEach(
       plan.jobs,
       (job) =>
-        Effect.forEach(job.steps, (action) => applyAction(action, handlers), {
+        Effect.forEach(job.steps, (step) => applyAction(step, handlers), {
           concurrency: job.concurrency,
         }),
       { concurrency: 1 },

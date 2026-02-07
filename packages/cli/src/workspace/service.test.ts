@@ -161,7 +161,7 @@ describe("WorkspaceContextService", () => {
         {
           steps: [
             {
-              op: { name: "test-op", args: {} },
+              operation: { name: "test-op", args: {} },
               action: "execute",
               reason: Option.none(),
               label: "test action",

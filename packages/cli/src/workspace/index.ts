@@ -6,7 +6,7 @@
  */
 
 // Plan types
-export type { Action, Job, Operation, Plan } from "./plan.js";
+export type { Job, JobStep, Operation, Plan } from "./plan.js";
 
 // Plan display
 export { displayPlan } from "./display-plan.js";

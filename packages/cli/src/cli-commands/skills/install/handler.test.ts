@@ -1,0 +1,277 @@
+/**
+ * Unit tests for the install command handler.
+ *
+ * Tests the plan build → display → confirm → apply flow.
+ */
+
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import type { FileSystem } from "@effect/platform";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import YAML from "yaml";
+import { afterEach, beforeEach } from "vitest";
+import { Clack, makeClackTestLayer, type MockClackConfig } from "../../../clack-effect/index.js";
+import {
+  WorkspaceContextTag,
+  layer as workspaceLayer,
+  type WorkspaceContextOptions,
+} from "../../../workspace/index.js";
+import { handleInstall, type InstallHandlerArgs } from "./handler.js";
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+/** Create a SKILL.md with valid frontmatter in a directory. */
+const createSkillMd = (dir: string, name: string, description = "") => {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "SKILL.md"),
+    `---\nname: "${name}"\ndescription: "${description}"\n---\n\n# ${name}\n`,
+  );
+};
+
+/** Create an initialized workspace with settings + lockfile. */
+const initWorkspace = (axmDir: string, lockfileSkills: Record<string, unknown> = {}) => {
+  fs.mkdirSync(axmDir, { recursive: true });
+  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify({ agents: ["claude-code"] }));
+  fs.writeFileSync(
+    path.join(axmDir, "axm-lock.yaml"),
+    YAML.stringify({ lockfileVersion: 1, skills: lockfileSkills }),
+  );
+};
+
+const defaultArgs = (
+  source: string,
+  overrides: Partial<InstallHandlerArgs> = {},
+): InstallHandlerArgs => ({
+  source,
+  global: false,
+  agents: [],
+  skills: [],
+  yes: true,
+  list: false,
+  all: true,
+  force: false,
+  nonInteractive: Option.some(true),
+  dryRun: Option.none(),
+  ...overrides,
+});
+
+// -----------------------------------------------------------------------------
+// Tests
+// -----------------------------------------------------------------------------
+
+describe("install.handler", () => {
+  let tempDir: string;
+  let originalCwd: string;
+
+  beforeEach(() => {
+    originalCwd = process.cwd();
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "install-handler-test-"));
+    process.chdir(tempDir);
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  const makeLayers = (clackConfig?: MockClackConfig) => {
+    const [ClackLayer, mockClack] = makeClackTestLayer(clackConfig);
+    const BaseLayer = Layer.mergeAll(NodeFileSystem.layer, ClackLayer);
+    const wsOptions: WorkspaceContextOptions = {
+      global: false,
+      yes: true,
+      nonInteractive: true,
+    };
+    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
+    const FullLayer = Layer.merge(BaseLayer, WsLayer);
+
+    const provide = <A, E>(
+      effect: Effect.Effect<A, E, FileSystem.FileSystem | Clack | WorkspaceContextTag>,
+    ) => effect.pipe(Effect.provide(FullLayer));
+
+    return { provide, mockClack };
+  };
+
+  // ---------------------------------------------------------------------------
+  // Plan build + display
+  // ---------------------------------------------------------------------------
+
+  describe("plan build and display", () => {
+    it.effect("builds plan from operations and lockfile, displays it", () => {
+      const { provide, mockClack } = makeLayers();
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstall(defaultArgs(skillsDir));
+
+          // Plan was displayed — should show the skill to install
+          const allLogs = [
+            ...mockClack.logs.info,
+            ...mockClack.logs.success,
+            ...mockClack.logs.message,
+          ];
+          expect(allLogs.some((m) => m.includes("commit"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("marks already-installed skills as no-op in display", () => {
+      const { provide, mockClack } = makeLayers();
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
+
+      // Pre-install "commit" in lockfile
+      initWorkspace(path.join(tempDir, ".axm"), {
+        commit: {
+          source: "local",
+          path: "/old",
+          agents: [],
+          installedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstall(defaultArgs(skillsDir));
+
+          const allLogs = [
+            ...mockClack.logs.warn,
+            ...mockClack.logs.info,
+            ...mockClack.logs.message,
+          ];
+          expect(allLogs.some((m) => m.includes("already installed"))).toBe(true);
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // --preview (dry-run) stops after display
+  // ---------------------------------------------------------------------------
+
+  describe("--preview", () => {
+    it.effect("stops after display without applying", () => {
+      const { provide, mockClack } = makeLayers();
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstall(defaultArgs(skillsDir, { dryRun: Option.some(true) }));
+
+          // Should show preview message
+          expect(mockClack.logs.outro.some((m) => m.includes("Preview"))).toBe(true);
+          // Should NOT show "Installed" success messages from applyPlan
+          expect(mockClack.logs.success.filter((m) => m.includes("Installed"))).toHaveLength(0);
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // --yes skips confirmation
+  // ---------------------------------------------------------------------------
+
+  describe("--yes", () => {
+    it.effect("applies plan without confirmation prompt", () => {
+      const { provide, mockClack } = makeLayers();
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstall(defaultArgs(skillsDir, { yes: true }));
+
+          // Apply was called — should log installed
+          expect(mockClack.logs.success.some((m) => m.includes("Installed"))).toBe(true);
+          // Should end with Done
+          expect(mockClack.logs.outro.some((m) => m.includes("Done"))).toBe(true);
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Confirm prompt
+  // ---------------------------------------------------------------------------
+
+  describe("confirm prompt", () => {
+    it.effect("applies plan when user confirms", () => {
+      const { provide, mockClack } = makeLayers({
+        confirmBehavior: Option.some({ type: "return", value: true }),
+        selectBehavior: Option.none(),
+        multiselectBehavior: Option.none(),
+      });
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstall(defaultArgs(skillsDir, { yes: false }));
+
+          // Apply was called
+          expect(mockClack.logs.success.some((m) => m.includes("Installed"))).toBe(true);
+          expect(mockClack.logs.outro.some((m) => m.includes("Done"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("exits without applying when user declines", () => {
+      const { provide, mockClack } = makeLayers({
+        confirmBehavior: Option.some({ type: "return", value: false }),
+        selectBehavior: Option.none(),
+        multiselectBehavior: Option.none(),
+      });
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstall(defaultArgs(skillsDir, { yes: false }));
+
+          // Should show cancelled
+          expect(mockClack.logs.outro.some((m) => m.includes("Cancel"))).toBe(true);
+          // Should NOT apply
+          expect(mockClack.logs.success.filter((m) => m.includes("Installed"))).toHaveLength(0);
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Summary
+  // ---------------------------------------------------------------------------
+
+  describe("summary", () => {
+    it.effect("shows Done outro after apply", () => {
+      const { provide, mockClack } = makeLayers();
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstall(defaultArgs(skillsDir));
+
+          expect(mockClack.logs.outro.some((m) => m.includes("Done"))).toBe(true);
+        }),
+      );
+    });
+  });
+});

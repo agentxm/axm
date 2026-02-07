@@ -24,9 +24,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Clack } from "../../../clack-effect/index.js";
 import { formatError } from "../../../utils/errors.js";
-import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
+import {
+  applyPlan,
+  displayPlan,
+  WorkspaceContextTag as Workspace,
+} from "../../../workspace/index.js";
 import type { AddSkillOperation } from "../operations.js";
-import type { Action, Plan } from "../../../workspace/plan.js";
+import { buildPlan } from "./build-plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -192,38 +196,36 @@ export const handleInstall = (args: InstallHandlerArgs) => {
           }) satisfies AddSkillOperation,
       );
 
-      const _lockfile = yield* ws.getLockfile();
-      const _settings = yield* ws.getSettings();
-      const _plan: Plan<AddSkillOperation> = {
-        name: "Install skill(s)",
-        description: Option.none(),
-        jobs: [
-          {
-            steps: ops.map((op) => {
-              // TODO: if not in lockfile, plan to execute
-              // TODO: if in lockfile, no-op because it's already installed (unless force)
-              return {
-                op,
-                action: "execute",
-                reason: Option.none(),
-                label: op.skill.name,
-              } satisfies Action<AddSkillOperation>;
-            }),
-            concurrency: "unbounded",
-          },
-        ],
-      };
-      /*
+      // Build plan
+      const lockfile = yield* ws.getLockfile();
+      const plan = buildPlan(
+        ops,
+        lockfile,
+        "Install skill(s)",
+        Option.some(`Install skills from ${printSource(source)}`),
+      );
 
-      TODO:
-      if dry run or preview, display plan
+      // Display plan
+      yield* displayPlan(plan);
 
-      if preview and not dry-run, prompt to execute plan
+      // Preview stops here
+      const isPreview = Option.getOrElse(args.dryRun, () => false);
+      if (isPreview) {
+        yield* clack.outro("Preview complete — no changes applied.");
+        return;
+      }
 
-      if not preview and not dry run, execute plan
+      // Confirm (unless --yes)
+      if (!args.yes) {
+        const confirmed = yield* clack.confirm("Apply changes?");
+        if (!confirmed) {
+          yield* clack.outro("Cancelled.");
+          return;
+        }
+      }
 
-      */
-
+      // Apply
+      yield* applyPlan(plan);
       yield* clack.outro("Done");
     }),
   );

@@ -23,30 +23,30 @@
 
 ## 3. Display plan (shared)
 
-- [ ] 3.1 Write tests for `displayPlan` in `workspace/display-plan.test.ts` covering: plan name as heading, description shown when present, execute actions listed, no-op actions with reasons, summary counts, all no-ops case
-- [ ] 3.2 Implement `displayPlan` in `workspace/display-plan.ts` — depends on Clack service, operates on `Plan<Op>`
-- [ ] 3.3 Update `workspace/index.ts` barrel to export from `display-plan.ts`
-- [ ] 3.4 Run `pnpm typecheck` — fix any errors
-- [ ] 3.5 Run `pnpm lint` — fix any errors
-- [ ] 3.6 Run `pnpm test` — fix any failures
-- [ ] 3.7 Kill any vitest worker processes
+- [x] 3.1 Write tests for `displayPlan` in `workspace/display-plan.test.ts` covering: plan name as heading, description shown when present, execute actions listed, no-op actions with reasons, summary counts, all no-ops case
+- [x] 3.2 Implement `displayPlan` in `workspace/display-plan.ts` — depends on Clack service, operates on `Plan<Op>`
+- [x] 3.3 Update `workspace/index.ts` barrel to export from `display-plan.ts`
+- [x] 3.4 Run `pnpm typecheck` — fix any errors
+- [x] 3.5 Run `pnpm lint` — fix any errors
+- [x] 3.6 Run `pnpm test` — fix any failures
+- [x] 3.7 Kill any vitest worker processes
 
 ## 4. Apply plan (shared stub)
 
-- [ ] 4.1 Write tests for `applyPlan` in `workspace/apply-plan.test.ts` covering: log success for execute actions, skip no-op actions, all no-ops → no success logs, job concurrency respected (unbounded vs sequential)
-- [ ] 4.2 Implement `applyPlan` in `workspace/apply-plan.ts` — depends on Clack service, iterates jobs using `Effect.forEach` with job concurrency setting, stub only (no file system mutations)
-- [ ] 4.3 Update `workspace/index.ts` barrel to export from `apply-plan.ts`
-- [ ] 4.4 Run `pnpm typecheck` — fix any errors
-- [ ] 4.5 Run `pnpm lint` — fix any errors
-- [ ] 4.6 Run `pnpm test` — fix any failures
-- [ ] 4.7 Kill any vitest worker processes
+- [x] 4.1 Write tests for `applyPlan` in `workspace/apply-plan.test.ts` covering: log success for execute actions, skip no-op actions, all no-ops → no success logs, job concurrency respected (unbounded vs sequential)
+- [x] 4.2 Implement `applyPlan` in `workspace/apply-plan.ts` — depends on Clack service, iterates jobs using `Effect.forEach` with job concurrency setting, stub only (no file system mutations)
+- [x] 4.3 Update `workspace/index.ts` barrel to export from `apply-plan.ts`
+- [x] 4.4 Run `pnpm typecheck` — fix any errors
+- [x] 4.5 Run `pnpm lint` — fix any errors
+- [x] 4.6 Run `pnpm test` — fix any failures
+- [x] 4.7 Kill any vitest worker processes
 
 ## 5. Wire handler
 
-- [ ] 5.1 Write/update handler tests in `cli-commands/skills/install/handler.test.ts` covering: build plan from ops + lockfile, display plan, --preview stops after display, --yes skips confirmation, confirm prompt → apply or exit, apply plan called after confirmation, summary outro
-- [ ] 5.2 Rewrite handler post-selection flow: replace inline `_plan` sketch with `buildPlan` → `displayPlan` → confirm logic → `applyPlan`, remove dead `_lockfile`/`_settings`/`_plan` bindings
-- [ ] 5.3 Run `pnpm typecheck` — fix any errors
-- [ ] 5.4 Run `pnpm lint` — fix any errors
-- [ ] 5.5 Run `pnpm test` — fix any failures
-- [ ] 5.6 Run `pnpm test:e2e` — fix any failures
-- [ ] 5.7 Kill any vitest worker processes
+- [x] 5.1 Write/update handler tests in `cli-commands/skills/install/handler.test.ts` covering: build plan from ops + lockfile, display plan, --preview stops after display, --yes skips confirmation, confirm prompt → apply or exit, apply plan called after confirmation, summary outro
+- [x] 5.2 Rewrite handler post-selection flow: replace inline `_plan` sketch with `buildPlan` → `displayPlan` → confirm logic → `applyPlan`, remove dead `_lockfile`/`_settings`/`_plan` bindings
+- [x] 5.3 Run `pnpm typecheck` — fix any errors
+- [x] 5.4 Run `pnpm lint` — fix any errors
+- [x] 5.5 Run `pnpm test` — fix any failures
+- [x] 5.6 Run `pnpm test:e2e` — fix any failures
+- [x] 5.7 Kill any vitest worker processes

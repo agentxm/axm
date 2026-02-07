@@ -25,7 +25,7 @@ describe("axm skills install --preview integration", () => {
           cwd: temp.path,
         });
 
-        // Run preview (without --json)
+        // Run preview without --yes (non-interactive mode prevents confirmation)
         const previewResult = await runCli(
           [
             "skills",
@@ -33,7 +33,7 @@ describe("axm skills install --preview integration", () => {
             SKILLS_REPO_FIXTURE,
             "--preview",
             "--all",
-            "--yes",
+            "--non-interactive",
             "--agent",
             "claude-code",
           ],
@@ -42,9 +42,8 @@ describe("axm skills install --preview integration", () => {
 
         expect(previewResult.exitCode).toBe(0);
 
-        // Verify no skills were installed during preview
-        // V2 uses extensions/external/skills/ directory structure
-        const skillsDirBefore = path.join(temp.path, ".axm", "extensions", "external", "skills");
+        // Verify no skills were installed during preview (non-interactive skips apply)
+        const skillsDirBefore = path.join(temp.path, ".agents", "skills");
         expect(fs.existsSync(skillsDirBefore)).toBe(false);
 
         // Real install
@@ -56,7 +55,7 @@ describe("axm skills install --preview integration", () => {
         expect(installResult.exitCode).toBe(0);
 
         // Verify skills were installed
-        const skillsDir = path.join(temp.path, ".axm", "extensions", "external", "skills");
+        const skillsDir = path.join(temp.path, ".agents", "skills");
         expect(fs.existsSync(skillsDir)).toBe(true);
 
         const installed = fs.readdirSync(skillsDir);

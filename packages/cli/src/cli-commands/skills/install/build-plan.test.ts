@@ -98,11 +98,18 @@ describe("buildPlan", () => {
     expect(plan.description).toEqual(Option.some("Install skills from local:/fake"));
   });
 
-  it("creates a single job with unbounded concurrency", () => {
+  it("creates a single job with serial concurrency", () => {
     const plan = buildPlan([makeOp("a"), makeOp("b")], emptyLockfile, "Install", Option.none());
 
     expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.concurrency).toBe("unbounded");
+    expect(plan.jobs[0]!.concurrency).toBe(1);
+  });
+
+  it("marks already-installed skills as execute when force is true", () => {
+    const op = { ...makeOp("commit"), force: true };
+    const plan = buildPlan([op], lockfileWith("commit"), "Install", Option.none());
+
+    expect(plan.jobs[0]!.steps[0]!.action).toBe("execute");
   });
 
   it("handles mixed execute and no-op actions", () => {

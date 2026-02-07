@@ -77,12 +77,12 @@
 
 ## 7. Wire Install Handler and Build Plan
 
-- [ ] 7.1 Change `buildPlan` job concurrency from `"unbounded"` to `1` in `cli-commands/skills/install/build-plan.ts`, update corresponding test
-- [ ] 7.2 Write tests for install handler passing executor registry to `resolvePlan`
-- [ ] 7.3 Update install handler in `cli-commands/skills/install/handler.ts` to pass `{ "install-skill": installSkill }` to `ws.resolvePlan`
-- [ ] 7.4 Handle returned `OperationResult[]` for result reporting in the handler
-- [ ] 7.5 Run typecheck for all packages (`pnpm typecheck`), fix any errors
-- [ ] 7.6 Run linting for all packages (`pnpm lint`), fix any errors
-- [ ] 7.7 Run tests for all packages (`pnpm test`), fix any failures
-- [ ] 7.8 Run relevant e2e tests (`pnpm test:e2e`), fix any failures
-- [ ] 7.9 Kill any vitest worker processes
+- [x] 7.1 Change `buildPlan` job concurrency from `"unbounded"` to `1` in `cli-commands/skills/install/build-plan.ts`, update corresponding test
+- [x] 7.2 Write tests for install handler passing executor registry to `resolvePlan`
+- [x] 7.3 Update install handler in `cli-commands/skills/install/handler.ts` to pass `{ "install-skill": installSkill }` to `ws.resolvePlan`
+- [x] 7.4 Handle returned `OperationResult[]` for result reporting in the handler
+- [x] 7.5 Run typecheck for all packages (`pnpm typecheck`), fix any errors
+- [x] 7.6 Run linting for all packages (`pnpm lint`), fix any errors
+- [x] 7.7 Run tests for all packages (`pnpm test`), fix any failures
+- [x] 7.8 Run relevant e2e tests (`pnpm test:e2e`), fix any failures
+- [x] 7.9 Kill any vitest worker processes

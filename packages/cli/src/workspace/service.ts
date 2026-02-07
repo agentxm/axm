@@ -34,7 +34,7 @@ import * as Layer from "effect/Layer";
 import { Clack } from "../clack-effect/service.js";
 import { PromptCancelled, PromptError } from "../clack-effect/errors.js";
 import { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./errors.js";
-import type { Plan } from "./plan.js";
+import type { Operation, Plan } from "./plan.js";
 import { displayPlan } from "./display-plan.js";
 import {
   applyPlan,
@@ -371,7 +371,7 @@ const make = (
       preview: options.preview,
       getSettings: () => readSettings(workspaceDir).pipe(Effect.provide(fsLayer)),
       getLockfile: () => readLockfile(workspaceDir).pipe(Effect.provide(fsLayer)),
-      resolvePlan: <Op extends { name: string }, T extends Handlers<Op>>(
+      resolvePlan: <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
         plan: Plan<Op>,
         handlers: T,
       ) =>
@@ -448,7 +448,7 @@ export interface WorkspaceContextService {
   /** Read fresh lockfile from disk. Fails if lockfile does not exist. */
   readonly getLockfile: () => Effect.Effect<Lockfile, LockfileError>;
   /** Display, confirm, and apply a plan based on preview/yes/nonInteractive flags. */
-  readonly resolvePlan: <Op extends { name: string }, T extends Handlers<Op>>(
+  readonly resolvePlan: <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
     plan: Plan<Op>,
     handlers: T,
   ) => Effect.Effect<

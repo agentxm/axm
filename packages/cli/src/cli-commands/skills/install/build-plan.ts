@@ -29,15 +29,15 @@ export const buildPlan = (
     {
       concurrency: 1,
       steps: ops.map((op) => {
-        const installed = op.skill.name in lockfile.skills;
-        return installed && !op.force
+        const installed = op.args.skill.name in lockfile.skills;
+        return installed && !op.args.force
           ? {
               op,
               action: "no-op" as const,
               reason: Option.some("already installed"),
-              label: op.skill.name,
+              label: op.args.skill.name,
             }
-          : { op, action: "execute" as const, reason: Option.none(), label: op.skill.name };
+          : { op, action: "execute" as const, reason: Option.none(), label: op.args.skill.name };
       }),
     },
   ],

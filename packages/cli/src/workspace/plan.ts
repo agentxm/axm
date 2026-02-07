@@ -15,6 +15,11 @@ import type { Option } from "effect/Option";
 // Types
 // -----------------------------------------------------------------------------
 
+export interface Operation<TName extends string, TArgs> {
+  readonly name: TName;
+  readonly args: TArgs;
+}
+
 export interface Action<Op> {
   readonly op: Op;
   readonly action: "execute" | "no-op" | "error";

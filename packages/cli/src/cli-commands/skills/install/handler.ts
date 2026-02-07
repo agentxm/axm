@@ -178,10 +178,12 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         (s) =>
           ({
             name: "install-skill",
-            agents: agentIds,
-            force: args.force,
-            source,
-            ...s,
+            args: {
+              agents: agentIds,
+              force: args.force,
+              source,
+              ...s,
+            },
           }) satisfies AddSkillOperation,
       );
 

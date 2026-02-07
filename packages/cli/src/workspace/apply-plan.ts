@@ -10,7 +10,7 @@
 
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
-import type { Action, Plan } from "./plan.js";
+import type { Action, Operation, Plan } from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -47,7 +47,7 @@ export type OperationHandler<Op, R = never> = (
  * R is left as a free parameter so concrete registries can carry requirements
  * (e.g. FileSystem, Clack). `ExecutionContext` extracts R from the concrete type.
  */
-export type Handlers<Op extends { name: string }> = {
+export type Handlers<Op extends Operation<string, unknown>> = {
   [K in Op["name"]]: (
     op: Extract<Op, { name: K }>,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -70,7 +70,7 @@ export type ExecutionContext<T> = {
 // Implementation
 // -----------------------------------------------------------------------------
 
-const applyAction = <Op extends { name: string }, T extends Handlers<Op>>(
+const applyAction = <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
   action: Action<Op>,
   handlers: T,
 ): Effect.Effect<OperationResult, never, ExecutionContext<T>> => {
@@ -98,7 +98,7 @@ const applyAction = <Op extends { name: string }, T extends Handlers<Op>>(
  * Only processes `"execute"` actions — `"no-op"` actions are skipped.
  * Never fails — catches OperationError and converts to error results.
  */
-export const applyPlan = <Op extends { name: string }, T extends Handlers<Op>>(
+export const applyPlan = <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
   plan: Plan<Op>,
   handlers: T,
 ): Effect.Effect<ReadonlyArray<OperationResult>, never, ExecutionContext<T>> =>

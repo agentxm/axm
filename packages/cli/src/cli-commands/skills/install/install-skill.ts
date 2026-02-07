@@ -158,27 +158,27 @@ export const installSkill: OperationHandler<
     const axmDir = ws.path;
     const base = path.dirname(axmDir);
 
-    const sanitizedName = sanitizeName(op.skill.name);
+    const sanitizedName = sanitizeName(op.args.skill.name);
     const canonicalPath = path.join(base, CANONICAL_SKILLS_DIR, sanitizedName);
 
     // Validate canonical path safety
     if (!isPathSafe(base, canonicalPath)) {
       return yield* new OperationError({
         operation: "install-skill",
-        message: `Path traversal detected in skill name "${op.skill.name}"`,
+        message: `Path traversal detected in skill name "${op.args.skill.name}"`,
         cause: null,
       });
     }
 
     // Resolve source path — the skill files to copy from
-    if (Option.isNone(op.path)) {
+    if (Option.isNone(op.args.path)) {
       return yield* new OperationError({
         operation: "install-skill",
-        message: `No source path available for skill "${op.skill.name}"`,
+        message: `No source path available for skill "${op.args.skill.name}"`,
         cause: null,
       });
     }
-    const sourcePath = op.path.value;
+    const sourcePath = op.args.path.value;
 
     // Remove existing canonical directory for clean-slate copy
     const canonicalExists = yield* fs
@@ -211,7 +211,7 @@ export const installSkill: OperationHandler<
 
     // Create symlinks for each agent (concurrent)
     const agentResults = yield* Effect.forEach(
-      op.agents,
+      op.args.agents,
       (agentId) =>
         installForAgent({
           agentId,
@@ -227,11 +227,11 @@ export const installSkill: OperationHandler<
       axmDir,
       sanitizedName,
       sourceToLockEntry({
-        source: op.source,
-        agents: op.agents,
-        gitTreeSha: op.gitTreeSha,
+        source: op.args.source,
+        agents: op.args.agents,
+        gitTreeSha: op.args.gitTreeSha,
         now: new Date(),
-        ...Option.match(op.registry, {
+        ...Option.match(op.args.registry, {
           onNone: () => ({}),
           onSome: (reg) => ({ registry: reg }),
         }),
@@ -247,12 +247,12 @@ export const installSkill: OperationHandler<
         .map((r) => Option.getOrElse(r.error, () => "unknown error"));
       return {
         action: "error",
-        message: `Failed to install ${op.skill.name} for some agents: ${failedAgents.join(", ")}`,
+        message: `Failed to install ${op.args.skill.name} for some agents: ${failedAgents.join(", ")}`,
       } satisfies OperationResult;
     }
 
     return {
       action: "success",
-      message: `Installed ${op.skill.name}`,
+      message: `Installed ${op.args.skill.name}`,
     } satisfies OperationResult;
   });

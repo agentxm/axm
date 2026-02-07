@@ -23,17 +23,17 @@
 
 ## 3. Thread Executors Through `resolvePlan`
 
-- [ ] 3.1 Write tests for `resolvePlan` accepting and forwarding executor registry to `applyPlan`
-- [ ] 3.2 Update `WorkspaceContextService` interface to include `executors` parameter on `resolvePlan`
-- [ ] 3.3 Update `resolvePlan` implementation in `service.ts` to accept and forward executors
-- [ ] 3.4 Update return type of `resolvePlan` to `ReadonlyArray<OperationResult>`
-- [ ] 3.5 Update existing `resolvePlan` tests for new signature
-- [ ] 3.6 Update workspace barrel exports if needed
-- [ ] 3.7 Run typecheck for all packages (`pnpm typecheck`), fix any errors
-- [ ] 3.8 Run linting for all packages (`pnpm lint`), fix any errors
-- [ ] 3.9 Run tests for all packages (`pnpm test`), fix any failures
-- [ ] 3.10 Run relevant e2e tests (`pnpm test:e2e`), fix any failures
-- [ ] 3.11 Kill any vitest worker processes
+- [x] 3.1 Write tests for `resolvePlan` accepting and forwarding executor registry to `applyPlan`
+- [x] 3.2 Update `WorkspaceContextService` interface to include `executors` parameter on `resolvePlan`
+- [x] 3.3 Update `resolvePlan` implementation in `service.ts` to accept and forward executors
+- [x] 3.4 Update return type of `resolvePlan` to `ReadonlyArray<OperationResult>`
+- [x] 3.5 Update existing `resolvePlan` tests for new signature
+- [x] 3.6 Update workspace barrel exports if needed
+- [x] 3.7 Run typecheck for all packages (`pnpm typecheck`), fix any errors
+- [x] 3.8 Run linting for all packages (`pnpm lint`), fix any errors
+- [x] 3.9 Run tests for all packages (`pnpm test`), fix any failures
+- [x] 3.10 Run relevant e2e tests (`pnpm test:e2e`), fix any failures
+- [x] 3.11 Kill any vitest worker processes
 
 ## 4. Utility Functions
 

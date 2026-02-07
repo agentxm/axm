@@ -37,18 +37,18 @@
 
 ## 4. Utility Functions
 
-- [ ] 4.1 Write tests for `isPathSafe(base, target)` in `utils/path-safety.ts` — covers traversal, boundary matching, normalized paths
-- [ ] 4.2 Implement `isPathSafe` in `utils/path-safety.ts`
-- [ ] 4.3 Write tests for `resolveParentSymlinks` in `utils/resolve-parent-symlinks.ts` — resolves parent through symlinks, preserves final component
-- [ ] 4.4 Implement `resolveParentSymlinks` in `utils/resolve-parent-symlinks.ts`
-- [ ] 4.5 Write tests for `createSymlink` in `utils/create-symlink.ts` — new symlink, correct existing no-op, wrong target replace, ELOOP recovery, self-reference skip, relative path via resolved parent
-- [ ] 4.6 Implement `createSymlink` in `utils/create-symlink.ts`
-- [ ] 4.7 Update `utils/index.ts` barrel to export new utilities
-- [ ] 4.8 Run typecheck for all packages (`pnpm typecheck`), fix any errors
-- [ ] 4.9 Run linting for all packages (`pnpm lint`), fix any errors
-- [ ] 4.10 Run tests for all packages (`pnpm test`), fix any failures
-- [ ] 4.11 Run relevant e2e tests (`pnpm test:e2e`), fix any failures
-- [ ] 4.12 Kill any vitest worker processes
+- [x] 4.1 Write tests for `isPathSafe(base, target)` in `utils/path-safety.ts` — covers traversal, boundary matching, normalized paths
+- [x] 4.2 Implement `isPathSafe` in `utils/path-safety.ts`
+- [x] 4.3 Write tests for `resolveParentSymlinks` in `utils/resolve-parent-symlinks.ts` — resolves parent through symlinks, preserves final component
+- [x] 4.4 Implement `resolveParentSymlinks` in `utils/resolve-parent-symlinks.ts`
+- [x] 4.5 Write tests for `createSymlink` in `utils/create-symlink.ts` — new symlink, correct existing no-op, wrong target replace, ELOOP recovery, self-reference skip, relative path via resolved parent
+- [x] 4.6 Implement `createSymlink` in `utils/create-symlink.ts`
+- [x] 4.7 Update `utils/index.ts` barrel to export new utilities
+- [x] 4.8 Run typecheck for all packages (`pnpm typecheck`), fix any errors
+- [x] 4.9 Run linting for all packages (`pnpm lint`), fix any errors
+- [x] 4.10 Run tests for all packages (`pnpm test`), fix any failures
+- [x] 4.11 Run relevant e2e tests (`pnpm test:e2e`), fix any failures (pre-existing failures only)
+- [x] 4.12 Kill any vitest worker processes
 
 ## 5. Skill-Specific Shared Functions
 

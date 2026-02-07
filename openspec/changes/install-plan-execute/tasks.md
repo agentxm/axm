@@ -14,12 +14,12 @@
 
 ## 2. Build plan (skills-specific)
 
-- [ ] 2.1 Write tests for `buildPlan` in `cli-commands/skills/install/build-plan.test.ts` covering: new skill → execute, already installed → no-op, empty ops → empty plan, label derivation, caller-provided name/description pass-through
-- [ ] 2.2 Implement `buildPlan` in `cli-commands/skills/install/build-plan.ts` — pure function, `(ops, lockfile, name, description) => Plan<AddSkillOperation>`
-- [ ] 2.3 Run `pnpm typecheck` — fix any errors
-- [ ] 2.4 Run `pnpm lint` — fix any errors
-- [ ] 2.5 Run `pnpm test` — fix any failures
-- [ ] 2.6 Kill any vitest worker processes
+- [x] 2.1 Write tests for `buildPlan` in `cli-commands/skills/install/build-plan.test.ts` covering: new skill → execute, already installed → no-op, empty ops → empty plan, label derivation, caller-provided name/description pass-through
+- [x] 2.2 Implement `buildPlan` in `cli-commands/skills/install/build-plan.ts` — pure function, `(ops, lockfile, name, description) => Plan<AddSkillOperation>`
+- [x] 2.3 Run `pnpm typecheck` — fix any errors
+- [x] 2.4 Run `pnpm lint` — fix any errors
+- [x] 2.5 Run `pnpm test` — fix any failures
+- [x] 2.6 Kill any vitest worker processes
 
 ## 3. Display plan (shared)
 

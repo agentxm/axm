@@ -7,10 +7,7 @@
  * 3. Load current state (actual from disk + locked from lockfile)
  * 4. Build ideal state from command
  * 5. Build plan (diff current vs ideal)
- * 6. Display plan (dry-run stops here)
- * 7. Apply plan (if not dry-run)
- *
- * See docs/designs/dry-run.md for the reconciliation pattern.
+ * 6. Preview plan and confirm (or apply directly with --yes)
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -58,8 +55,6 @@ export interface InstallHandlerArgs {
   readonly force: boolean;
   /** Disable all prompts */
   readonly nonInteractive: Option.Option<boolean>;
-  /** Preview installation plan without making changes */
-  readonly dryRun: Option.Option<boolean>;
 }
 
 // -----------------------------------------------------------------------------
@@ -94,8 +89,7 @@ export class InstallError extends Data.TaggedError("InstallError")<{
  * 7. Select skills to install
  * 8. Build ideal state
  * 9. Build plan (diff current vs ideal)
- * 10. Display plan (dry-run stops here)
- * 11. Confirm and apply changes
+ * 10. Preview plan and confirm, or apply directly (--yes)
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -172,8 +166,6 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       const selectedSkills = yield* determineSkillsToInstall(discoveredSkills, {
         requestedSkills: args.skills,
         all: args.all,
-        // TODO: why is dry-run here? Is it needed?
-        dryRun: Option.getOrElse(args.dryRun, () => false),
         yes: args.yes,
       });
 
@@ -205,27 +197,20 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         Option.some(`Install skills from ${printSource(source)}`),
       );
 
-      // Display plan
-      yield* displayPlan(plan);
-
-      // Preview stops here
-      const isPreview = Option.getOrElse(args.dryRun, () => false);
-      if (isPreview) {
-        yield* clack.outro("Preview complete — no changes applied.");
-        return;
-      }
-
-      // Confirm (unless --yes)
-      if (!args.yes) {
+      if (args.yes) {
+        // --yes: apply directly without preview
+        yield* applyPlan(plan);
+      } else {
+        // Preview: display plan, then prompt to apply
+        yield* displayPlan(plan);
         const confirmed = yield* clack.confirm("Apply changes?");
         if (!confirmed) {
           yield* clack.outro("Cancelled.");
           return;
         }
+        yield* applyPlan(plan);
       }
 
-      // Apply
-      yield* applyPlan(plan);
       yield* clack.outro("Done");
     }),
   );

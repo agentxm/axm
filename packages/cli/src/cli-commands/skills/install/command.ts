@@ -13,7 +13,6 @@ interface InstallCommandArgs {
   all: boolean;
   force: boolean;
   "non-interactive": boolean | undefined;
-  "dry-run": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -67,10 +66,6 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
         describe: "Overwrite existing skills",
         default: false,
       })
-      .option("dry-run", {
-        type: "boolean",
-        describe: "Show what would be installed without making changes",
-      })
       .option("non-interactive", {
         type: "boolean",
         describe: "Disable all interactive prompts",
@@ -89,10 +84,6 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
       .example(
         "$0 skills install owner/repo --skill pr-review --agent claude-code",
         "Install specific skill to specific agent",
-      )
-      .example(
-        "$0 skills install owner/repo --dry-run",
-        "Preview installation plan without changes",
       ),
   handler: async (argv) => {
     await run(
@@ -106,7 +97,6 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
         all: argv.all,
         force: argv.force,
         nonInteractive: Option.fromNullable(argv["non-interactive"]),
-        dryRun: Option.fromNullable(argv["dry-run"]),
       }),
       {
         workspace: {

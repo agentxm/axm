@@ -22,7 +22,6 @@ import * as Option from "effect/Option";
 interface SelectSkillsArgs {
   readonly requestedSkills: readonly string[];
   readonly all: boolean;
-  readonly dryRun: boolean;
   readonly yes: boolean;
 }
 
@@ -35,7 +34,7 @@ interface SelectSkillsArgs {
  *
  * Selection logic:
  * 1. `--skill` specified -> validate ALL exist, return matches
- * 2. `--all` / `--dry-run` / `--yes` -> return all (no prompt)
+ * 2. `--all` / `--yes` -> return all (no prompt)
  * 3. Single skill -> auto-select (no prompt)
  * 4. Multiple skills -> `confirmSkillsToInstall` (multiselect prompt)
  */
@@ -68,8 +67,8 @@ export const determineSkillsToInstall = (
       return Array.filter(skills, (s) => args.requestedSkills.includes(s.skill.name));
     }
 
-    // 2. --all / --dry-run / --yes -> return all
-    if (args.all || args.dryRun || args.yes) {
+    // 2. --all / --yes -> return all
+    if (args.all || args.yes) {
       if (args.all) yield* clack.log.info(`Installing all ${skills.length} skill(s)`);
       return skills;
     }

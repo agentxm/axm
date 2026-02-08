@@ -5,8 +5,8 @@
  * to discover explicitly declared skill directories.
  */
 
-import * as nodePath from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
+import * as Path from "@effect/platform/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -21,19 +21,23 @@ import * as Schema from "effect/Schema";
  * Must start with `./`, must not contain `..`, and must resolve within basePath.
  * Returns the parent directory of the skill path on success.
  */
-const validatePath = (rawPath: string, basePath: string): Option.Option<string> => {
+const validatePath = (
+  rawPath: string,
+  basePath: string,
+  path: Path.Path,
+): Option.Option<string> => {
   // Must start with ./
   if (!rawPath.startsWith("./")) return Option.none();
   // Must not contain ..
   if (rawPath.includes("..")) return Option.none();
   // Resolve and check within basePath
-  const resolved = nodePath.resolve(basePath, rawPath);
-  const normalizedBase = nodePath.resolve(basePath);
-  if (!resolved.startsWith(normalizedBase + nodePath.sep) && resolved !== normalizedBase) {
+  const resolved = path.resolve(basePath, rawPath);
+  const normalizedBase = path.resolve(basePath);
+  if (!resolved.startsWith(normalizedBase + path.sep) && resolved !== normalizedBase) {
     return Option.none();
   }
   // Return parent directory of the skill path
-  return Option.some(nodePath.dirname(resolved));
+  return Option.some(path.dirname(resolved));
 };
 
 // -----------------------------------------------------------------------------
@@ -75,12 +79,16 @@ const readJsonFile = (
  * Must start with `./`, must not contain `..`, and must resolve within basePath.
  * Returns the resolved directory path on success.
  */
-const validateDirPath = (rawPath: string, basePath: string): Option.Option<string> => {
+const validateDirPath = (
+  rawPath: string,
+  basePath: string,
+  path: Path.Path,
+): Option.Option<string> => {
   if (!rawPath.startsWith("./")) return Option.none();
   if (rawPath.includes("..")) return Option.none();
-  const resolved = nodePath.resolve(basePath, rawPath);
-  const normalizedBase = nodePath.resolve(basePath);
-  if (!resolved.startsWith(normalizedBase + nodePath.sep) && resolved !== normalizedBase) {
+  const resolved = path.resolve(basePath, rawPath);
+  const normalizedBase = path.resolve(basePath);
+  if (!resolved.startsWith(normalizedBase + path.sep) && resolved !== normalizedBase) {
     return Option.none();
   }
   return Option.some(resolved);
@@ -96,14 +104,15 @@ const resolvePluginBase = (
   source: unknown | undefined,
   basePath: string,
   pluginRoot: string | undefined,
+  path: Path.Path,
 ): Option.Option<string> => {
-  const rootBase = pluginRoot ? nodePath.resolve(basePath, pluginRoot) : nodePath.resolve(basePath);
+  const rootBase = pluginRoot ? path.resolve(basePath, pluginRoot) : path.resolve(basePath);
 
   // Object source → skip plugin
   if (typeof source === "object" && source !== null) return Option.none();
 
   if (typeof source === "string") {
-    return validateDirPath(source, rootBase);
+    return validateDirPath(source, rootBase, path);
   }
 
   // Omitted source → root-level plugin
@@ -118,9 +127,10 @@ const resolvePluginBase = (
  */
 const parseMarketplaceJson = (
   basePath: string,
-): Effect.Effect<ReadonlyArray<string>, never, FileSystem.FileSystem> =>
+): Effect.Effect<ReadonlyArray<string>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const manifestPath = nodePath.join(basePath, ".claude-plugin", "marketplace.json");
+    const path = yield* Path.Path;
+    const manifestPath = path.join(basePath, ".claude-plugin", "marketplace.json");
     const json = yield* readJsonFile(manifestPath);
     if (Option.isNone(json)) return [];
 
@@ -134,16 +144,16 @@ const parseMarketplaceJson = (
     const dirs: string[] = [];
 
     for (const plugin of data.value.plugins) {
-      const pluginBase = resolvePluginBase(plugin.source, basePath, pluginRoot);
+      const pluginBase = resolvePluginBase(plugin.source, basePath, pluginRoot, path);
       if (Option.isNone(pluginBase)) continue;
 
       // Conventional {pluginBase}/skills/ always added
-      dirs.push(nodePath.join(pluginBase.value, "skills"));
+      dirs.push(path.join(pluginBase.value, "skills"));
 
       // Explicit skill paths transformed via dirname
       if (plugin.skills) {
         for (const skillPath of plugin.skills) {
-          const validated = validatePath(skillPath, pluginBase.value);
+          const validated = validatePath(skillPath, pluginBase.value, path);
           if (Option.isSome(validated)) {
             dirs.push(validated.value);
           }
@@ -161,16 +171,19 @@ const parseMarketplaceJson = (
  */
 const parsePluginJson = (
   basePath: string,
-): Effect.Effect<ReadonlyArray<string>, never, FileSystem.FileSystem> =>
+): Effect.Effect<ReadonlyArray<string>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const manifestPath = nodePath.join(basePath, ".claude-plugin", "plugin.json");
+    const path = yield* Path.Path;
+    const manifestPath = path.join(basePath, ".claude-plugin", "plugin.json");
     const json = yield* readJsonFile(manifestPath);
     if (Option.isNone(json)) return [];
 
     const data = yield* Schema.decodeUnknown(PluginManifest)(json.value).pipe(Effect.option);
     if (Option.isNone(data)) return [];
 
-    return Array.filterMap(data.value.skills, (skillPath) => validatePath(skillPath, basePath));
+    return Array.filterMap(data.value.skills, (skillPath) =>
+      validatePath(skillPath, basePath, path),
+    );
   });
 
 // -----------------------------------------------------------------------------
@@ -184,7 +197,7 @@ const parsePluginJson = (
  */
 export const parseManifests = (
   basePath: string,
-): Effect.Effect<ReadonlyArray<string>, never, FileSystem.FileSystem> =>
+): Effect.Effect<ReadonlyArray<string>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const [marketplaceDirs, pluginDirs] = yield* Effect.all(
       [parseMarketplaceJson(basePath), parsePluginJson(basePath)],

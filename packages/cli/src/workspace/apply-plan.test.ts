@@ -8,7 +8,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { applyPlan, OperationError, type OperationResult } from "./apply-plan.js";
+import { applyPlan, OperationError } from "./apply-plan.js";
+import type { OperationResult } from "./plan.js";
 import type { Operation, Plan, PlannedJobStep } from "./plan.js";
 
 // -----------------------------------------------------------------------------

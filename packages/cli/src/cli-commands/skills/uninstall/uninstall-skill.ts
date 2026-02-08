@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
 import { removeLockEntry, updateLockEntry } from "../../../lockfile/lockfile.js";
-import type { OperationHandler } from "../../../workspace/apply-plan.js";
+import { OperationError, type OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { SettingsService } from "../../../settings/index.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -55,12 +55,20 @@ export const uninstallSkill: OperationHandler<
     const sanitizedName = sanitizeName(op.args.skillName);
     const canonicalPath = path.join(base, CANONICAL_SKILLS_DIR, sanitizedName);
 
-    // Read lockfile to get agent list
-    const lockfile = yield* ws
-      .getLockfile()
-      .pipe(
-        Effect.catchAll(() => Effect.succeed({ lockfileVersion: 1, skills: {} as SkillsLockMap })),
-      );
+    // Read lockfile to get agent list (missing lockfile → empty, corrupt → propagate)
+    const lockfile = yield* ws.getLockfile().pipe(
+      Effect.catchTag("LockfileNotFoundError", () =>
+        Effect.succeed({ lockfileVersion: 1, skills: {} as SkillsLockMap }),
+      ),
+      Effect.mapError(
+        (e) =>
+          new OperationError({
+            operation: "uninstall-skill",
+            message: `Failed to read lockfile: ${e.message}`,
+            cause: e,
+          }),
+      ),
+    );
     const lockEntry = lockfile.skills[op.args.skillName];
 
     // Determine if skill is installed anywhere
@@ -108,7 +116,16 @@ export const uninstallSkill: OperationHandler<
         yield* updateLockEntry(axmDir, op.args.skillName, {
           ...lockEntry,
           agents: remainingAgents,
-        }).pipe(Effect.catchAll(() => Effect.void));
+        }).pipe(
+          Effect.mapError(
+            (e) =>
+              new OperationError({
+                operation: "uninstall-skill",
+                message: `Failed to update lockfile: ${e.message}`,
+                cause: e,
+              }),
+          ),
+        );
 
         const agentList = [...agentsToRemove].join(", ");
         return {
@@ -126,7 +143,16 @@ export const uninstallSkill: OperationHandler<
 
     // Remove lockfile entry
     if (lockEntry) {
-      yield* removeLockEntry(axmDir, op.args.skillName).pipe(Effect.catchAll(() => Effect.void));
+      yield* removeLockEntry(axmDir, op.args.skillName).pipe(
+        Effect.mapError(
+          (e) =>
+            new OperationError({
+              operation: "uninstall-skill",
+              message: `Failed to remove lockfile entry: ${e.message}`,
+              cause: e,
+            }),
+        ),
+      );
     }
 
     // Update settings (swallow errors) — only on full uninstall

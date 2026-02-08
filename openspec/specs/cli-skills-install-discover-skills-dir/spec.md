@@ -1,5 +1,3 @@
-## MODIFIED Requirements
-
 ### Requirement: SKILL.md Frontmatter Parsing
 
 A directory SHALL be recognized as a skill if and only if it contains a file named exactly `SKILL.md` (case-sensitive) that is a regular file (verified via `stat().isFile()`) with YAML frontmatter containing non-empty `name` and `description` fields. Frontmatter SHALL be parsed with `gray-matter`. Symlinks to valid regular files SHALL be accepted (stat follows symlinks).
@@ -65,6 +63,8 @@ The returned skill SHALL have the following shape:
 
 The algorithm SHALL first check if the search root itself contains a valid `SKILL.md`.
 
+The discovery functions SHALL use the `Path.Path` service from `@effect/platform` for all path computation (`join`, `resolve`, `relative`). They SHALL NOT import `node:path` directly.
+
 #### Scenario: Direct match with fullDepth false
 
 - **WHEN** the search root contains a valid `SKILL.md` and `fullDepth` is false
@@ -106,6 +106,8 @@ The priority directory list SHALL be composed as follows, in order:
 3. Agent-specific directories: derived from the `AgentConfig` registry (`getAllAgents()` → unique `skills.dir` values, deduplicated)
 
 Priority directories SHALL be processed concurrently. `Effect.forEach` with `concurrency: "unbounded"` preserves input order in results regardless of I/O completion timing, ensuring deduplication respects the priority ordering.
+
+All path operations within the scan (joining priority directory paths, resolving search roots) SHALL use the `Path.Path` service.
 
 #### Scenario: Skill in canonical directory
 
@@ -156,6 +158,8 @@ Max depth uses 0-indexed depth with `depth > maxDepth` (not `>=`), where `maxDep
 `SKIP_DIRS` (`node_modules`, `.git`, `dist`, `build`, `__pycache__`) SHALL only apply to Phase 3 recursive search. Phase 2 does NOT filter by these names.
 
 Phase 3 starts from `searchPath` and may revisit directories already scanned in Phases 1 and 2. The `seenNames` set prevents duplicate results. This redundant I/O is accepted as a simplicity trade-off.
+
+Flattening of concurrent scan results SHALL use `Array.flatten` from `effect/Array` (not native `.flat()`).
 
 #### Scenario: Recursive search triggers on empty results
 
@@ -245,6 +249,8 @@ Skills with `metadata.internal: true` SHALL be excluded from results unless opte
 
 The algorithm SHALL check for plugin manifests at `.claude-plugin/marketplace.json` and `.claude-plugin/plugin.json` and append declared skill parent directories to the priority scan list. Both manifests are read independently and their paths are accumulated (additive, not mutually exclusive).
 
+Path validation and resolution within manifest parsing SHALL use the `Path.Path` service (passed as a parameter to pure validation helpers). The manifest parsing functions SHALL NOT import `node:path` directly.
+
 **`marketplace.json` structure:**
 
 - MAY contain `metadata.pluginRoot` (string). If present and does NOT start with `./`, the entire manifest SHALL be silently ignored.
@@ -324,8 +330,6 @@ The algorithm SHALL check for plugin manifests at `.claude-plugin/marketplace.js
 - **WHEN** a manifest declares skill path `./skills/my-skill`
 - **THEN** the search directory added to priority scan SHALL be `./skills/` (dirname of the declared path)
 
-## ADDED Requirements
-
 ### Requirement: Path Containment Check
 
 Path containment (`isContainedIn`) SHALL use `resolve`/`normalize` for textual comparison with platform separator. Symlinks are NOT resolved via `realpath` — a symlinked path textually within `basePath` but physically pointing elsewhere would pass the check.
@@ -339,3 +343,38 @@ Path containment (`isContainedIn`) SHALL use `resolve`/`normalize` for textual c
 
 - **WHEN** a path is a symlink that textually resolves within `basePath` but physically points outside
 - **THEN** the containment check SHALL pass (no realpath resolution)
+
+### Requirement: Service dependency for path operations
+
+All discovery functions (`tryParseSkillInDir`, `scanDirectory`, `recursiveScan`, `discoverSkillsInDir`) and manifest parsing functions (`parseManifests`, `parseMarketplaceJson`, `parsePluginJson`) SHALL require the `Path.Path` service from `@effect/platform` in their Effect dependency channel alongside `FileSystem.FileSystem`.
+
+Pure validation helpers (`validatePath`, `validateDirPath`, `resolvePluginBase`) SHALL accept a `Path.Path` instance as a parameter rather than becoming effectful.
+
+#### Scenario: Discovery functions require Path.Path service
+
+- **WHEN** calling `discoverSkillsInDir`
+- **THEN** the Effect's `R` channel SHALL include `Path.Path`
+
+#### Scenario: Manifest parsing requires Path.Path service
+
+- **WHEN** calling `parseManifests`
+- **THEN** the Effect's `R` channel SHALL include `Path.Path`
+
+#### Scenario: Validation helpers accept path parameter
+
+- **WHEN** calling `validatePath` or `validateDirPath` from within an `Effect.gen`
+- **THEN** the yielded `Path.Path` instance SHALL be passed as a parameter
+
+### Requirement: Idiomatic array flattening
+
+Concurrent scan results SHALL be flattened using `Array.flatten` from `effect/Array` instead of native `.flat()`.
+
+#### Scenario: scanDirectory result flattening
+
+- **WHEN** `scanDirectory` collects results from concurrent child directory scans
+- **THEN** results SHALL be flattened with `Array.flatten`
+
+#### Scenario: recursiveScan result flattening
+
+- **WHEN** `recursiveScan` collects results from concurrent recursive scans
+- **THEN** results SHALL be flattened with `Array.flatten`

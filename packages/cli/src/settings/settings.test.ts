@@ -1,8 +1,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { FileSystem } from "@effect/platform";
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
@@ -22,8 +21,8 @@ describe("settings", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const withFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
-    effect.pipe(Effect.provide(NodeFileSystem.layer));
+  const withContext = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    effect.pipe(Effect.provide(NodeContext.layer));
 
   describe("createDefaultSettings", () => {
     it("returns empty object", () => {
@@ -34,7 +33,7 @@ describe("settings", () => {
 
   describe("readSettings", () => {
     it.effect("returns SettingsNotFoundError when file does not exist", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           const error = yield* readSettings(axmDir).pipe(Effect.flip);
           expect(error._tag).toBe("SettingsNotFoundError");
@@ -43,7 +42,7 @@ describe("settings", () => {
     );
 
     it.effect("reads and parses valid settings file with agents and skills", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           const settings: Settings = {
@@ -63,7 +62,7 @@ describe("settings", () => {
     );
 
     it.effect("reads and parses settings file that omits agents and skills", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           const settings = { scope: "@myorg" };
@@ -79,7 +78,7 @@ describe("settings", () => {
     );
 
     it.effect("reads and parses empty settings object", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify({}));
@@ -92,7 +91,7 @@ describe("settings", () => {
     );
 
     it.effect("returns SettingsParseError for invalid JSON", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "settings.json"), "not valid json");
@@ -106,7 +105,7 @@ describe("settings", () => {
 
   describe("writeSettings", () => {
     it.effect("creates directory if it does not exist", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           const settings = createDefaultSettings();
 
@@ -118,7 +117,7 @@ describe("settings", () => {
     );
 
     it.effect("writes settings with 2-space indentation", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           const settings = createDefaultSettings();
 
@@ -132,7 +131,7 @@ describe("settings", () => {
     );
 
     it.effect("overwrites existing settings file", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           const oldSettings = {

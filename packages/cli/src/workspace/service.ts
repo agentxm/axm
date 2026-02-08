@@ -8,6 +8,7 @@
  */
 
 import * as FileSystem from "@effect/platform/FileSystem";
+import * as Path from "@effect/platform/Path";
 import { type AgentConfig, detectAgents, getAllAgents, getAgentById } from "../agents/index.js";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
@@ -20,12 +21,13 @@ import {
 } from "../lockfile/index.js";
 import {
   createDefaultSettings,
+  readSettings,
   type SettingsError,
   SettingsParseError,
   SETTINGS_FILENAME,
   type Settings,
+  writeSettings,
 } from "../settings/index.js";
-import { readSettings, writeSettings } from "../settings/settings.js";
 import { getAxmDir } from "./paths.js";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -80,7 +82,7 @@ export interface WorkspaceContextOptions {
   /** Show plan without applying (preview mode) */
   readonly preview: boolean;
   /** Explicit agent IDs to use (overrides detection and prompting) */
-  readonly agents?: readonly string[];
+  readonly agents: Option.Option<readonly string[]>;
 }
 
 /**
@@ -98,15 +100,15 @@ const initializeProjectWorkspace = (
 ): Effect.Effect<
   Settings,
   WorkspaceInitializationError | PromptCancelled,
-  FileSystem.FileSystem | Clack
+  FileSystem.FileSystem | Path.Path | Clack
 > =>
   Effect.gen(function* () {
     // Select agents based on options
     let selectedAgents: AgentConfig[];
 
     // If explicit agents are provided, use those (no detection needed)
-    if (options.agents && options.agents.length > 0) {
-      selectedAgents = Array.filterMap([...options.agents], (id) => getAgentById(id));
+    if (Option.isSome(options.agents) && options.agents.value.length > 0) {
+      selectedAgents = Array.filterMap([...options.agents.value], (id) => getAgentById(id));
     } else {
       // Detect installed agents
       const detectedAgents = yield* detectAgents().pipe(
@@ -246,8 +248,9 @@ const initializeProjectWorkspace = (
 const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const settingsPath = `${globalDir}/${SETTINGS_FILENAME}`;
-    const lockfilePath = `${globalDir}/${LOCKFILE_NAME}`;
+    const path = yield* Path.Path;
+    const settingsPath = path.join(globalDir, SETTINGS_FILENAME);
+    const lockfilePath = path.join(globalDir, LOCKFILE_NAME);
 
     const settingsExists = yield* fs.exists(settingsPath).pipe(
       Effect.mapError(
@@ -271,19 +274,7 @@ const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
 
     // Create settings.json with {} if missing
     if (!settingsExists) {
-      // Note: writeSettings is typed as SettingsError but only throws SettingsWriteError
-      // We catch SettingsNotFoundError to satisfy TypeScript, though it never occurs
-      yield* writeSettings(globalDir, {}).pipe(
-        Effect.catchTag("SettingsNotFoundError", (e) =>
-          Effect.fail(
-            new SettingsParseError({
-              path: e.path,
-              message: `Unexpected error during settings creation: ${e.message}`,
-              cause: e,
-            }),
-          ),
-        ),
-      );
+      yield* writeSettings(globalDir, {});
     }
 
     // Create axm-lock.yaml with version 1, empty skills if missing
@@ -339,11 +330,15 @@ const ensureProjectWorkspaceInitialized = (localDir: string, options: WorkspaceC
  */
 const make = (
   options: WorkspaceContextOptions,
-): Effect.Effect<WorkspaceContextService, WorkspaceContextError, FileSystem.FileSystem | Clack> =>
+): Effect.Effect<
+  WorkspaceContextService,
+  WorkspaceContextError,
+  FileSystem.FileSystem | Path.Path | Clack
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const globalDir = getAxmDir(true);
-    const localDir = getAxmDir(false);
+    const globalDir = yield* getAxmDir(true);
+    const localDir = yield* getAxmDir(false);
     const workspaceDir = options.global ? globalDir : localDir;
 
     if (options.global) {
@@ -410,7 +405,7 @@ const make = (
  */
 export const layer = (
   options: WorkspaceContextOptions,
-): Layer.Layer<Workspace, WorkspaceContextError, FileSystem.FileSystem | Clack> =>
+): Layer.Layer<Workspace, WorkspaceContextError, FileSystem.FileSystem | Path.Path | Clack> =>
   Layer.effect(Workspace, make(options));
 
 /**

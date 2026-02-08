@@ -142,6 +142,20 @@ export type SourcesConfig = typeof SourcesConfigSchema.Type;
 const SKILL_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$|^[a-z0-9]$/;
 
 /**
+ * Shared validation callback for skill name keys per agentskills.io spec.
+ * Used by both ExtensionMapSchema and SkillsMapSchema via Schema.filter.
+ */
+const validateSkillNameKeys = (record: { readonly [x: string]: string }) => {
+  const invalidKeys = Object.keys(record).filter(
+    (key) => key.length > 64 || !SKILL_NAME_PATTERN.test(key),
+  );
+  if (invalidKeys.length > 0) {
+    return `Invalid skill name(s): ${invalidKeys.join(", ")}. Names must be max 64 chars, lowercase letters/numbers/hyphens, not starting or ending with hyphen.`;
+  }
+  return undefined;
+};
+
+/**
  * Extension map - maps skill names to version specifiers.
  *
  * Keys must be valid skill names per agentskills.io specification:
@@ -157,17 +171,7 @@ const SKILL_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$|^[a-z0-9]$/;
 export const ExtensionMapSchema = Schema.Record({
   key: Schema.String,
   value: Schema.String,
-}).pipe(
-  Schema.filter((record) => {
-    const invalidKeys = Object.keys(record).filter(
-      (key) => key.length > 64 || !SKILL_NAME_PATTERN.test(key),
-    );
-    if (invalidKeys.length > 0) {
-      return `Invalid skill name(s): ${invalidKeys.join(", ")}. Names must be max 64 chars, lowercase letters/numbers/hyphens, not starting or ending with hyphen.`;
-    }
-    return undefined;
-  }),
-);
+}).pipe(Schema.filter(validateSkillNameKeys));
 
 /**
  * Inferred type for ExtensionMap schema.
@@ -195,17 +199,7 @@ export type ExtensionMap = typeof ExtensionMapSchema.Type;
 export const SkillsMapSchema = Schema.Record({
   key: Schema.String,
   value: Schema.String,
-}).pipe(
-  Schema.filter((record) => {
-    const invalidKeys = Object.keys(record).filter(
-      (key) => key.length > 64 || !SKILL_NAME_PATTERN.test(key),
-    );
-    if (invalidKeys.length > 0) {
-      return `Invalid skill name(s): ${invalidKeys.join(", ")}. Names must be max 64 chars, lowercase letters/numbers/hyphens, not starting or ending with hyphen.`;
-    }
-    return undefined;
-  }),
-);
+}).pipe(Schema.filter(validateSkillNameKeys));
 
 /**
  * Inferred type for SkillsMap schema.

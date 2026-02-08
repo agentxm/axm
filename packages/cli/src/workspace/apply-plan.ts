@@ -8,11 +8,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import type { JobStepResult, Operation, OperationResult, Plan, PlannedJobStep } from "./plan.js";
-
-export type { JobStep, JobStepResult, OperationResult, PlannedJobStep } from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -113,7 +112,7 @@ export const applyPlan = <Op extends Operation<string, unknown>, T extends Handl
     ),
     (jobResults) => ({
       ...plan,
-      jobs: jobResults.map((steps, i) => ({
+      jobs: Array.map(jobResults, (steps, i) => ({
         ...plan.jobs[i]!,
         steps,
       })),

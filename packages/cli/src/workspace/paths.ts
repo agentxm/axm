@@ -9,11 +9,8 @@
  */
 
 import * as os from "node:os";
-import * as path from "node:path";
-
-// Re-export constants from feature modules for backwards compatibility
-export { LOCKFILE_NAME } from "../lockfile/index.js";
-export { SETTINGS_FILENAME } from "../settings/index.js";
+import * as Path from "@effect/platform/Path";
+import * as Effect from "effect/Effect";
 
 // -----------------------------------------------------------------------------
 // Public API
@@ -24,7 +21,7 @@ export { SETTINGS_FILENAME } from "../settings/index.js";
  *
  * The global directory stores user-level configuration and globally installed skills.
  *
- * @returns Absolute path to the global axm directory
+ * @returns Effect yielding absolute path to the global axm directory
  *
  * @experimental This API is unstable and may change without notice.
  *
@@ -32,21 +29,24 @@ export { SETTINGS_FILENAME } from "../settings/index.js";
  * ```typescript
  * import { getGlobalDir } from "./workspace/paths";
  *
- * const globalDir = getGlobalDir();
+ * const globalDir = yield* getGlobalDir();
  * // => "/Users/username/.axm" (macOS/Linux)
  * // => "C:\\Users\\username\\.axm" (Windows)
  * ```
  */
-export const getGlobalDir = (): string => {
-  return path.join(os.homedir(), ".axm");
-};
+export const getGlobalDir = (): Effect.Effect<string, never, Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const home = yield* Effect.sync(() => os.homedir());
+    return path.join(home, ".axm");
+  });
 
 /**
  * Returns the project-level axm directory path (./.axm).
  *
  * The project directory stores project-specific configuration and skills.
  *
- * @returns Absolute path to the project axm directory (relative to cwd)
+ * @returns Effect yielding absolute path to the project axm directory (relative to cwd)
  *
  * @experimental This API is unstable and may change without notice.
  *
@@ -54,13 +54,15 @@ export const getGlobalDir = (): string => {
  * ```typescript
  * import { getProjectDir } from "./workspace/paths";
  *
- * const projectDir = getProjectDir();
+ * const projectDir = yield* getProjectDir();
  * // => "/path/to/project/.axm"
  * ```
  */
-export const getProjectDir = (): string => {
-  return path.join(process.cwd(), ".axm");
-};
+export const getProjectDir = (): Effect.Effect<string, never, Path.Path> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    return path.join(process.cwd(), ".axm");
+  });
 
 /**
  * Returns the axm directory path based on scope.
@@ -69,7 +71,7 @@ export const getProjectDir = (): string => {
  * - When `global` is false, returns the project directory (./.axm)
  *
  * @param global - Whether to use global scope (true) or project scope (false)
- * @returns Absolute path to the appropriate axm directory
+ * @returns Effect yielding absolute path to the appropriate axm directory
  *
  * @experimental This API is unstable and may change without notice.
  *
@@ -78,14 +80,13 @@ export const getProjectDir = (): string => {
  * import { getAxmDir } from "./workspace/paths";
  *
  * // Project-level directory
- * const projectDir = getAxmDir(false);
+ * const projectDir = yield* getAxmDir(false);
  * // => "/path/to/project/.axm"
  *
  * // Global directory
- * const globalDir = getAxmDir(true);
+ * const globalDir = yield* getAxmDir(true);
  * // => "/Users/username/.axm"
  * ```
  */
-export const getAxmDir = (global: boolean): string => {
-  return global ? getGlobalDir() : getProjectDir();
-};
+export const getAxmDir = (global: boolean): Effect.Effect<string, never, Path.Path> =>
+  global ? getGlobalDir() : getProjectDir();

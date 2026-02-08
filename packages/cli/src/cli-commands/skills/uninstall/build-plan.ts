@@ -32,18 +32,18 @@ export const buildPlan = (
         const installed = op.args.skillName in lockfile.skills;
         return installed
           ? {
-              _tag: "PlannedJobStep" as const,
+              _tag: "PlannedJobStep",
               operation: op,
               expectedResult: {
-                result: "success" as const,
+                result: "success",
                 message: `Uninstalled ${op.args.skillName}`,
               },
               label: op.args.skillName,
             }
           : {
-              _tag: "PlannedJobStep" as const,
+              _tag: "PlannedJobStep",
               operation: op,
-              expectedResult: { result: "no-op" as const, message: "not installed" },
+              expectedResult: { result: "no-op", message: "not installed" },
               label: op.args.skillName,
             };
       }),

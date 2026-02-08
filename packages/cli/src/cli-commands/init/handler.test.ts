@@ -14,8 +14,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import type { Settings } from "../../settings/index.js";
 import { SettingsService, SettingsServiceLive } from "../../settings/index.js";
-import type { FileSystem } from "@effect/platform";
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import type { FileSystem, Path } from "@effect/platform";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import { describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
@@ -49,7 +49,7 @@ describe("init.handler", () => {
   // Create mock Clack service for tests
   const [TestClackLayer] = makeClackTestLayer();
 
-  const TestLayer = Layer.mergeAll(NodeFileSystem.layer, TestClackLayer);
+  const TestLayer = Layer.mergeAll(NodeContext.layer, TestClackLayer);
 
   /**
    * Create test layers including WorkspaceContext with the given options.
@@ -61,7 +61,7 @@ describe("init.handler", () => {
       effect: Effect.Effect<
         A,
         E,
-        FileSystem.FileSystem | Clack | WorkspaceContextTag | SettingsService
+        FileSystem.FileSystem | Path.Path | Clack | WorkspaceContextTag | SettingsService
       >,
     ) => effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer, SSLayer)));
   };
@@ -75,6 +75,7 @@ describe("init.handler", () => {
     yes: true,
     nonInteractive: Option.some(false),
     preview: false,
+    agents: Option.none(),
   };
 
   // ---------------------------------------------------------------------------
@@ -298,6 +299,7 @@ describe("init.handler", () => {
             yes: false,
             nonInteractive: Option.some(true),
             preview: false,
+            agents: Option.none(),
           }),
           TestLayer,
         );
@@ -312,7 +314,13 @@ describe("init.handler", () => {
     );
 
     it.effect("succeeds when --yes is provided with --non-interactive", () =>
-      withLayers({ global: false, yes: true, nonInteractive: Option.some(true), preview: false })(
+      withLayers({
+        global: false,
+        yes: true,
+        nonInteractive: Option.some(true),
+        preview: false,
+        agents: Option.none(),
+      })(
         Effect.gen(function* () {
           yield* handleInit();
 
@@ -335,10 +343,11 @@ describe("init.handler", () => {
       clackConfig: MockClackConfig,
       wsOptions: Omit<WorkspaceContextOptions, "yes" | "nonInteractive" | "preview"> = {
         global: false,
+        agents: Option.none(),
       },
     ) => {
       const [InteractiveClackLayer] = makeClackTestLayer(clackConfig);
-      const BaseLayer = Layer.mergeAll(NodeFileSystem.layer, InteractiveClackLayer);
+      const BaseLayer = Layer.mergeAll(NodeContext.layer, InteractiveClackLayer);
       const WsLayer = Layer.provide(
         workspaceLayer({
           ...wsOptions,
@@ -353,7 +362,7 @@ describe("init.handler", () => {
         effect: Effect.Effect<
           A,
           E,
-          FileSystem.FileSystem | Clack | WorkspaceContextTag | SettingsService
+          FileSystem.FileSystem | Path.Path | Clack | WorkspaceContextTag | SettingsService
         >,
       ) => effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer, SSLayer)));
     };

@@ -31,14 +31,16 @@ export {
 } from "./schema.js";
 
 // Settings I/O
-export type { SettingsError, SettingsErrorTag } from "./settings.js";
+export type { SettingsError } from "./settings.js";
 export {
   createDefaultSettings,
   DEFAULT_SCOPE,
+  readSettings,
   SETTINGS_FILENAME,
   SettingsNotFoundError,
   SettingsParseError,
   SettingsWriteError,
+  writeSettings,
 } from "./settings.js";
 
 // Settings service

@@ -59,7 +59,7 @@ export const determineSkillsToInstall = (
             [`Available: ${skills.map((s) => s.skill.name).join(", ")}`],
             "Check the skill names and try again.",
           ),
-          cause: Option.none(),
+          cause: undefined,
           retryable: false,
         });
       }
@@ -107,10 +107,10 @@ export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<Skill
           (error) =>
             new InstallError(
               error._tag === "PromptCancelled"
-                ? { message: "Operation cancelled.", cause: Option.none(), retryable: false }
+                ? { message: "Operation cancelled.", cause: undefined, retryable: false }
                 : {
                     message: "Failed to prompt for skill selection",
-                    cause: Option.some(error),
+                    cause: error,
                     retryable: false,
                   },
             ),

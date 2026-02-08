@@ -7,6 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Clack } from "../clack-effect/index.js";
@@ -25,7 +26,7 @@ export const displayPlan = <Op>(plan: Plan<Op>) =>
   Effect.gen(function* () {
     const clack = yield* Clack;
 
-    const allSteps = plan.jobs.flatMap((job) => [...job.steps]);
+    const allSteps = Array.flatMap(plan.jobs, (job) => [...job.steps]);
 
     // Extract the relevant result based on step phase
     const getResult = (step: JobStep<Op>): OperationResult =>
@@ -33,9 +34,9 @@ export const displayPlan = <Op>(plan: Plan<Op>) =>
 
     const isApplied = allSteps.length > 0 && allSteps[0]!._tag === "JobStepResult";
 
-    const successSteps = allSteps.filter((s) => getResult(s).result === "success");
-    const noopSteps = allSteps.filter((s) => getResult(s).result === "no-op");
-    const errorSteps = allSteps.filter((s) => getResult(s).result === "error");
+    const successSteps = Array.filter(allSteps, (s) => getResult(s).result === "success");
+    const noopSteps = Array.filter(allSteps, (s) => getResult(s).result === "no-op");
+    const errorSteps = Array.filter(allSteps, (s) => getResult(s).result === "error");
 
     // Heading
     const heading = Option.match(plan.description, {

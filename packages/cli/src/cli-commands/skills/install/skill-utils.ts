@@ -7,6 +7,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+// Boundary exception: pure string utility using basename — not filesystem I/O.
+// See design decision D1 in the install-command-cleanup change.
 import * as nodePath from "node:path";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";

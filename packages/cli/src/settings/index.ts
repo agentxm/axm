@@ -31,27 +31,16 @@ export {
 } from "./schema.js";
 
 // Settings I/O
-export type {
-  /** @deprecated Use WorkspaceContext from workspace/service.ts instead */
-  EnsureInitializedLegacyOptions,
-  SettingsError,
-  SettingsErrorTag,
-  SettingsUpdate,
-  SkillsUpdate,
-} from "./settings.js";
+export type { SettingsError, SettingsErrorTag } from "./settings.js";
 export {
-  addAgentToWorkspace,
-  addSkill,
   createDefaultSettings,
   DEFAULT_SCOPE,
-  /** @deprecated Use WorkspaceContext from workspace/service.ts instead */
-  ensureInitializedLegacy,
-  getEffectiveScope,
-  readSettings,
   SETTINGS_FILENAME,
   SettingsNotFoundError,
   SettingsParseError,
   SettingsWriteError,
-  updateSettings,
-  writeSettings,
 } from "./settings.js";
+
+// Settings service
+export type { SettingsServiceInterface } from "./service.js";
+export { SettingsService, SettingsServiceLive } from "./service.js";

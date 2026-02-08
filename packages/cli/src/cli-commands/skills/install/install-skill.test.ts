@@ -6,23 +6,49 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { afterEach, beforeEach } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
+import {
+  SettingsService,
+  SettingsWriteError,
+  type SettingsServiceInterface,
+} from "../../../settings/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import type { AddSkillOperation } from "../operations.js";
 import { installSkill } from "./install-skill.js";
 
-/** Creates a layer providing FileSystem + a minimal Workspace service. */
-const withServices = (axmDir: string) => {
+/** Creates a mock SettingsService with spy functions. */
+const makeSettingsServiceMock = () => {
+  const addSkillFn = vi.fn((_name: string, _source: string) => Effect.void);
+  const mock: SettingsServiceInterface = {
+    getScope: () => Effect.succeed("@community"),
+    getAgents: () => Effect.succeed<ReadonlyArray<string>>([]),
+    getSkills: () => Effect.succeed({}),
+    addSkill: (name, source) => addSkillFn(name, source),
+    removeSkill: () => Effect.void,
+    addAgent: () => Effect.void,
+  };
+  return { mock, addSkillFn };
+};
+
+/** Creates a layer providing FileSystem + a minimal Workspace service + SettingsService. */
+const withServices = (
+  axmDir: string,
+  ssMock?: { mock: SettingsServiceInterface; addSkillFn: ReturnType<typeof vi.fn> },
+) => {
   const mockWs: WorkspaceContextService = {
     global: false,
     path: axmDir,
     nonInteractive: true,
     preview: false,
-    getSettings: () => Effect.succeed({ agents: [] }),
     getLockfile: () => Effect.succeed({ lockfileVersion: 1, skills: {} }),
     resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
   };
-  return Layer.merge(NodeContext.layer, Workspace.layer(mockWs));
+  const ssService = ssMock?.mock ?? makeSettingsServiceMock().mock;
+  return Layer.mergeAll(
+    NodeContext.layer,
+    Workspace.layer(mockWs),
+    Layer.succeed(SettingsService, ssService),
+  );
 };
 
 /** Creates a minimal AddSkillOperation for testing. */
@@ -138,6 +164,40 @@ describe("installSkill", () => {
         // Should be sanitized to lowercase with hyphens
         const canonical = path.join(base, ".agents", "skills", "my-awesome-skill");
         expect(fs.existsSync(canonical)).toBe(true);
+      }),
+    );
+
+    it.effect("calls SettingsService.addSkill after successful installation", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir } = setupBase();
+        const { mock, addSkillFn } = makeSettingsServiceMock();
+
+        const result = yield* installSkill(
+          makeOp({ agents: ["claude-code"], sourcePath: src }),
+        ).pipe(Effect.provide(withServices(axmDir, { mock, addSkillFn })));
+
+        expect(result.result).toBe("success");
+        expect(addSkillFn).toHaveBeenCalledOnce();
+        expect(addSkillFn).toHaveBeenCalledWith("my-skill", expect.any(String));
+      }),
+    );
+
+    it.effect("swallows SettingsService.addSkill failure without failing installation", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir } = setupBase();
+        const failingMock: SettingsServiceInterface = {
+          ...makeSettingsServiceMock().mock,
+          addSkill: () =>
+            Effect.fail(new SettingsWriteError({ path: "", message: "write failed" })),
+        };
+
+        const result = yield* installSkill(
+          makeOp({ agents: ["claude-code"], sourcePath: src }),
+        ).pipe(Effect.provide(withServices(axmDir, { mock: failingMock, addSkillFn: vi.fn() })));
+
+        expect(result.result).toBe("success");
       }),
     );
   });

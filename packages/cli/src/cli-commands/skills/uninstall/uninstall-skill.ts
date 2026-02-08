@@ -15,6 +15,7 @@ import { getAgentById } from "../../../agents/registry.js";
 import { removeLockEntry, updateLockEntry } from "../../../lockfile/lockfile.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
+import { SettingsService } from "../../../settings/index.js";
 import { Workspace } from "../../../workspace/service.js";
 import type { SkillsLockMap } from "../../../lockfile/schema.js";
 import type { UninstallSkillOperation } from "../operations.js";
@@ -42,7 +43,7 @@ const CANONICAL_SKILLS_DIR = ".agents/skills";
  */
 export const uninstallSkill: OperationHandler<
   UninstallSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace
+  FileSystem.FileSystem | Path.Path | Workspace | SettingsService
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -127,6 +128,10 @@ export const uninstallSkill: OperationHandler<
     if (lockEntry) {
       yield* removeLockEntry(axmDir, op.args.skillName).pipe(Effect.catchAll(() => Effect.void));
     }
+
+    // Update settings (swallow errors) — only on full uninstall
+    const ss = yield* SettingsService;
+    yield* ss.removeSkill(op.args.skillName).pipe(Effect.catchAll(() => Effect.void));
 
     return {
       result: "success",

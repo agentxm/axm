@@ -14,6 +14,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
 import { updateLockEntry } from "../../../lockfile/lockfile.js";
+import { SettingsService } from "../../../settings/index.js";
+import { printSource } from "../../../sources/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
 import { isPathSafe } from "../../../utils/path-safety.js";
 import {
@@ -149,7 +151,7 @@ const installForAgent = (opts: {
  */
 export const installSkill: OperationHandler<
   AddSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace
+  FileSystem.FileSystem | Path.Path | Workspace | SettingsService
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -237,6 +239,12 @@ export const installSkill: OperationHandler<
         }),
       }),
     ).pipe(Effect.catchAll(() => Effect.void));
+
+    // Update settings (swallow errors)
+    const ss = yield* SettingsService;
+    yield* ss
+      .addSkill(op.args.skill.name, printSource(op.args.source))
+      .pipe(Effect.catchAll(() => Effect.void));
 
     // Determine overall result
     const anyFailed = agentResults.some((r) => !r.success);

@@ -1,0 +1,159 @@
+/**
+ * Settings service for centralized settings file I/O.
+ *
+ * Provides query and mutation methods backed by a Semaphore(1) to serialize
+ * mutations. Auto-creates `settings.json` with `{}` on first access.
+ *
+ * @experimental This API is unstable and may change without notice.
+ * @packageDocumentation
+ */
+
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+
+import type { AgentId } from "../extensions/common.js";
+import type { Settings, SkillsMap } from "./schema.js";
+import { DEFAULT_SCOPE, readSettings, type SettingsError, writeSettings } from "./settings.js";
+import { Workspace } from "../workspace/service.js";
+
+// -----------------------------------------------------------------------------
+// Service Interface
+// -----------------------------------------------------------------------------
+
+/**
+ * Settings service interface.
+ *
+ * Provides 3 query methods (no semaphore) and 3 mutation methods (serialized
+ * by a Semaphore(1) to prevent interleaving of read-modify-write cycles).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface SettingsServiceInterface {
+  /** Read settings and return the effective scope, defaulting to `"@community"`. */
+  readonly getScope: () => Effect.Effect<string, SettingsError>;
+  /** Read settings and return the configured agent IDs, defaulting to `[]`. */
+  readonly getAgents: () => Effect.Effect<ReadonlyArray<string>, SettingsError>;
+  /** Read settings and return the skills map, defaulting to `{}`. */
+  readonly getSkills: () => Effect.Effect<SkillsMap, SettingsError>;
+  /** Add or update a skill entry and write to disk. Serialized by semaphore. */
+  readonly addSkill: (name: string, source: string) => Effect.Effect<void, SettingsError>;
+  /** Remove a skill entry and write to disk. No-op if absent. Serialized by semaphore. */
+  readonly removeSkill: (name: string) => Effect.Effect<void, SettingsError>;
+  /** Append an agent ID if not already present and write to disk. Serialized by semaphore. */
+  readonly addAgent: (agentId: string) => Effect.Effect<void, SettingsError>;
+}
+
+// -----------------------------------------------------------------------------
+// Service Tag
+// -----------------------------------------------------------------------------
+
+/**
+ * Effect service tag for settings.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export class SettingsService extends Context.Tag("@axm.sh/cli/SettingsService")<
+  SettingsService,
+  SettingsServiceInterface
+>() {}
+
+// -----------------------------------------------------------------------------
+// Live Layer
+// -----------------------------------------------------------------------------
+
+/**
+ * Live layer for {@link SettingsService}.
+ *
+ * Depends on {@link Workspace} for the `.axm` directory path and
+ * `FileSystem` for disk I/O. Constructs a Semaphore(1) to serialize
+ * mutation methods.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SettingsServiceLive: Layer.Layer<
+  SettingsService,
+  never,
+  Workspace | FileSystem.FileSystem
+> = Layer.effect(
+  SettingsService,
+  Effect.gen(function* () {
+    const ws = yield* Workspace;
+    const fs = yield* FileSystem.FileSystem;
+    const semaphore = yield* Effect.makeSemaphore(1);
+
+    const axmDir = ws.path;
+    const fsLayer = Layer.succeed(FileSystem.FileSystem, fs);
+
+    // -------------------------------------------------------------------------
+    // Internal helper: read settings or create with {} if not found
+    // -------------------------------------------------------------------------
+
+    const readOrCreate = (): Effect.Effect<Settings, SettingsError> =>
+      readSettings(axmDir).pipe(
+        Effect.catchTag("SettingsNotFoundError", () =>
+          writeSettings(axmDir, {}).pipe(Effect.map(() => ({}) as Settings)),
+        ),
+        Effect.provide(fsLayer),
+      );
+
+    // -------------------------------------------------------------------------
+    // Mutation wrapper
+    // -------------------------------------------------------------------------
+
+    const withMutex = semaphore.withPermits(1);
+
+    // -------------------------------------------------------------------------
+    // Service implementation
+    // -------------------------------------------------------------------------
+
+    return {
+      getScope: () => readOrCreate().pipe(Effect.map((s) => s.scope ?? DEFAULT_SCOPE)),
+
+      getAgents: () => readOrCreate().pipe(Effect.map((s) => s.agents ?? [])),
+
+      getSkills: () => readOrCreate().pipe(Effect.map((s) => s.skills ?? ({} as SkillsMap))),
+
+      addSkill: (name, source) =>
+        withMutex(
+          Effect.gen(function* () {
+            const current = yield* readOrCreate();
+            const updated: Settings = {
+              ...current,
+              skills: { ...(current.skills ?? {}), [name]: source },
+            };
+            yield* writeSettings(axmDir, updated).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      removeSkill: (name) =>
+        withMutex(
+          Effect.gen(function* () {
+            const current = yield* readOrCreate();
+            if (!current.skills || !(name in current.skills)) return;
+            const { [name]: _, ...rest } = current.skills;
+            const updated: Settings = {
+              ...current,
+              skills: Object.keys(rest).length > 0 ? rest : undefined,
+            };
+            yield* writeSettings(axmDir, updated).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      addAgent: (agentId) =>
+        withMutex(
+          Effect.gen(function* () {
+            const current = yield* readOrCreate();
+            const agents: readonly string[] = current.agents ?? [];
+            if (agents.includes(agentId)) return;
+            const updated: Settings = {
+              ...current,
+              agents: [...(current.agents ?? []), agentId as AgentId],
+            };
+            yield* writeSettings(axmDir, updated).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+    };
+  }),
+);

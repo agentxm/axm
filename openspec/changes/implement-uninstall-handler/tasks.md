@@ -36,11 +36,11 @@
 
 ## 5. Uninstall handler
 
-- [ ] 5.1 Write tests for `handleUninstall` in `packages/cli/src/cli-commands/skills/uninstall/handler.test.ts` covering: full uninstall flow, glob expansion integration, literal name not in lockfile, glob matching no skills shows message, partial uninstall via --agent
-- [ ] 5.2 Replace stub in `packages/cli/src/cli-commands/skills/uninstall/handler.ts` with full implementation: load lockfile → expand glob → build ops → build plan → resolvePlan. Update `UninstallArgs` to include `nonInteractive: Option<boolean>`.
-- [ ] 5.3 Update `packages/cli/src/cli-commands/skills/uninstall/command.ts` to pass `nonInteractive` and `preview` through to handler args if needed
-- [ ] 5.4 Run `pnpm typecheck` and fix any errors
-- [ ] 5.5 Run `pnpm lint` and fix any errors
-- [ ] 5.6 Run `pnpm test` and fix any failures
-- [ ] 5.7 Run `pnpm test:e2e` and fix any failures
-- [ ] 5.8 Kill any vitest worker processes
+- [x] 5.1 Write tests for `handleUninstall` in `packages/cli/src/cli-commands/skills/uninstall/handler.test.ts` covering: full uninstall flow, glob expansion integration, literal name not in lockfile, glob matching no skills shows message, partial uninstall via --agent
+- [x] 5.2 Replace stub in `packages/cli/src/cli-commands/skills/uninstall/handler.ts` with full implementation: load lockfile → expand glob → build ops → build plan → resolvePlan. Update `UninstallArgs` to include `nonInteractive: Option<boolean>`.
+- [x] 5.3 Update `packages/cli/src/cli-commands/skills/uninstall/command.ts` to pass `nonInteractive` and `preview` through to handler args if needed
+- [x] 5.4 Run `pnpm typecheck` and fix any errors
+- [x] 5.5 Run `pnpm lint` and fix any errors
+- [x] 5.6 Run `pnpm test` and fix any failures
+- [x] 5.7 Run `pnpm test:e2e` and fix any failures
+- [x] 5.8 Kill any vitest worker processes

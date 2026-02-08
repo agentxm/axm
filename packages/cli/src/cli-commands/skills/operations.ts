@@ -58,8 +58,10 @@ export type AddSkillOperation = Operation<"install-skill", AddSkillArgs>;
 /**
  * Args for the uninstall-skill operation.
  */
-export interface RemoveSkillArgs {
+export interface UninstallSkillArgs {
   readonly skillName: string;
+  /** Agent filter for partial uninstall. Empty = all agents. */
+  readonly agents: ReadonlyArray<string>;
 }
 
 /**
@@ -67,4 +69,4 @@ export interface RemoveSkillArgs {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type RemoveSkillOperation = Operation<"uninstall-skill", RemoveSkillArgs>;
+export type UninstallSkillOperation = Operation<"uninstall-skill", UninstallSkillArgs>;

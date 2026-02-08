@@ -56,6 +56,7 @@
     "generate:schemas": "bun scripts/generate-schemas.ts",
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "tui": "bun src/dev/tui.ts",
     "typecheck": "tsc --noEmit"
   },
   "engines": {
@@ -66,7 +67,12 @@
     "@effect/platform": "^0.94.2",
     "effect": "catalog:",
     "gray-matter": "^4.0.3",
+    "ink": "^6.6.0",
+    "ink-select-input": "^6.2.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
     "picocolors": "^1.1.1",
+    "react": "^19.2.4",
     "semver": "^7.7.1",
     "simple-git": "^3.27.0",
     "yargs": "catalog:"
@@ -74,9 +80,11 @@
   "devDependencies": {
     "@effect/platform-node": "^0.104.1",
     "@types/bun": "catalog:",
+    "@types/react": "^19.2.13",
     "@types/semver": "^7.5.8",
     "@types/yargs": "catalog:",
     "execa": "^9.6.1",
+    "ink-testing-library": "^4.0.0",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "yaml": "^2.8.2"

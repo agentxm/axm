@@ -1,0 +1,395 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as NodeContext from "@effect/platform-node/NodeContext";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import YAML from "yaml";
+import { afterEach, beforeEach } from "vitest";
+import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import type { UninstallSkillOperation } from "../operations.js";
+import { uninstallSkill } from "./uninstall-skill.js";
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+/** Creates a layer providing FileSystem + Path + a minimal Workspace service. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
+const withServices = (axmDir: string, lockfileSkills: Record<string, any> = {}) => {
+  const mockWs: WorkspaceContextService = {
+    global: false,
+    path: axmDir,
+    nonInteractive: true,
+    preview: false,
+    getSettings: () => Effect.succeed({ agents: [] }),
+    getLockfile: () => Effect.succeed({ lockfileVersion: 1, skills: lockfileSkills }),
+    resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
+  };
+  return Layer.merge(NodeContext.layer, Workspace.layer(mockWs));
+};
+
+/** Creates a minimal UninstallSkillOperation for testing. */
+const makeOp = (
+  overrides: { skillName?: string; agents?: ReadonlyArray<string> } = {},
+): UninstallSkillOperation => ({
+  name: "uninstall-skill",
+  args: {
+    skillName: overrides.skillName ?? "my-skill",
+    agents: overrides.agents ?? [],
+  },
+});
+
+/** Writes a lockfile YAML to disk. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
+const writeLockfileYaml = (axmDir: string, skills: Record<string, any>) => {
+  const lockfile = { lockfileVersion: 1, skills };
+  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
+};
+
+/** Reads lockfile YAML from disk. */
+const readLockfileYaml = (axmDir: string) => {
+  const content = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8");
+  return YAML.parse(content);
+};
+
+/** Creates a local source lock entry for the in-memory mock (Date objects). */
+const makeLocalLockEntry = (agents: string[]) => ({
+  source: "local" as const,
+  path: "/tmp/source",
+  agents,
+  installedAt: new Date(),
+  updatedAt: new Date(),
+});
+
+/** Creates a local source lock entry for on-disk YAML (ISO strings). */
+const makeLocalLockEntryYaml = (agents: string[]) => ({
+  source: "local",
+  path: "/tmp/source",
+  agents,
+  installedAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+});
+
+// -----------------------------------------------------------------------------
+// Tests
+// -----------------------------------------------------------------------------
+
+describe("uninstallSkill", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "uninstall-skill-")));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  /** Sets up a workspace with .axm dir, canonical skill dir, and agent symlinks. */
+  const setupWorkspace = (
+    opts: {
+      skillName?: string;
+      agents?: string[];
+      createCanonical?: boolean;
+      createSymlinks?: boolean;
+      /** In-memory mock lockfile skills (Date objects). Passed to withServices. */
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
+      lockfileSkills?: Record<string, any>;
+      /** On-disk YAML lockfile skills (ISO strings). Written to axm-lock.yaml. */
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
+      lockfileSkillsYaml?: Record<string, any>;
+    } = {},
+  ) => {
+    const skillName = opts.skillName ?? "my-skill";
+    const agents = opts.agents ?? ["claude-code"];
+    const createCanonical = opts.createCanonical ?? true;
+    const createSymlinks = opts.createSymlinks ?? true;
+
+    const base = path.join(tmpDir, "project");
+    const axmDir = path.join(base, ".axm");
+    fs.mkdirSync(axmDir, { recursive: true });
+
+    // Create canonical skill dir
+    const canonicalPath = path.join(base, ".agents", "skills", skillName);
+    if (createCanonical) {
+      fs.mkdirSync(canonicalPath, { recursive: true });
+      fs.writeFileSync(path.join(canonicalPath, "SKILL.md"), `# ${skillName}`);
+    }
+
+    // Create agent symlinks
+    if (createSymlinks && createCanonical) {
+      for (const agentId of agents) {
+        // Map agent IDs to their skill dirs
+        const agentDirMap: Record<string, string> = {
+          "claude-code": ".claude/skills",
+          cursor: ".cursor/skills",
+        };
+        const agentSkillsDir = agentDirMap[agentId];
+        if (agentSkillsDir) {
+          const agentSkillPath = path.join(base, agentSkillsDir, skillName);
+          fs.mkdirSync(path.dirname(agentSkillPath), { recursive: true });
+          fs.symlinkSync(canonicalPath, agentSkillPath);
+        }
+      }
+    }
+
+    // In-memory mock (Date objects) for withServices
+    const lockfileSkills = opts.lockfileSkills ?? { [skillName]: makeLocalLockEntry(agents) };
+    // On-disk YAML (ISO strings) for lockfile read/write operations
+    const lockfileSkillsYaml = opts.lockfileSkillsYaml ?? {
+      [skillName]: makeLocalLockEntryYaml(agents),
+    };
+    writeLockfileYaml(axmDir, lockfileSkillsYaml);
+
+    return { base, axmDir, canonicalPath, lockfileSkills };
+  };
+
+  describe("full uninstall — skill in lockfile", () => {
+    it.effect("removes agent symlinks, canonical dir, and lockfile entry", () =>
+      Effect.gen(function* () {
+        const { axmDir, base, canonicalPath, lockfileSkills } = setupWorkspace({
+          agents: ["claude-code"],
+        });
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toBe("Uninstalled my-skill");
+
+        // Canonical dir should be removed
+        expect(fs.existsSync(canonicalPath)).toBe(false);
+
+        // Agent symlink should be removed
+        const agentSkillPath = path.join(base, ".claude", "skills", "my-skill");
+        expect(fs.existsSync(agentSkillPath)).toBe(false);
+
+        // Lockfile entry should be removed
+        const lockfile = readLockfileYaml(axmDir);
+        expect(lockfile.skills["my-skill"]).toBeUndefined();
+      }),
+    );
+
+    it.effect("removes symlinks for multiple agents concurrently", () =>
+      Effect.gen(function* () {
+        const { axmDir, base, lockfileSkills } = setupWorkspace({
+          agents: ["claude-code", "cursor"],
+        });
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills)),
+        );
+
+        expect(result.result).toBe("success");
+
+        // Both agent symlinks should be removed
+        expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
+        expect(fs.existsSync(path.join(base, ".cursor", "skills", "my-skill"))).toBe(false);
+      }),
+    );
+  });
+
+  describe("skill not in lockfile but exists on disk", () => {
+    it.effect("removes canonical dir and returns success", () =>
+      Effect.gen(function* () {
+        const { axmDir, canonicalPath } = setupWorkspace({
+          createSymlinks: false,
+        });
+
+        // Provide empty lockfile (skill not tracked)
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, {})),
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toBe("Uninstalled my-skill");
+        expect(fs.existsSync(canonicalPath)).toBe(false);
+      }),
+    );
+  });
+
+  describe("skill not installed anywhere", () => {
+    it.effect("returns no-op when not in lockfile and no files on disk", () =>
+      Effect.gen(function* () {
+        const base = path.join(tmpDir, "project");
+        const axmDir = path.join(base, ".axm");
+        fs.mkdirSync(axmDir, { recursive: true });
+        writeLockfileYaml(axmDir, {});
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, {})),
+        );
+
+        expect(result.result).toBe("no-op");
+        expect(result.message).toBe("not installed");
+      }),
+    );
+  });
+
+  describe("partial uninstall with remaining agents", () => {
+    it.effect("removes specified agent symlinks and updates lockfile agents", () =>
+      Effect.gen(function* () {
+        const { axmDir, base, lockfileSkills } = setupWorkspace({
+          agents: ["claude-code", "cursor"],
+        });
+
+        const result = yield* uninstallSkill(makeOp({ agents: ["claude-code"] })).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toBe("Uninstalled my-skill from claude-code");
+
+        // claude-code symlink should be removed
+        expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
+
+        // cursor symlink should still exist
+        expect(fs.existsSync(path.join(base, ".cursor", "skills", "my-skill"))).toBe(true);
+
+        // Canonical dir should still exist
+        expect(fs.existsSync(path.join(base, ".agents", "skills", "my-skill"))).toBe(true);
+
+        // Lockfile should still have entry but without claude-code
+        const lockfile = readLockfileYaml(axmDir);
+        expect(lockfile.skills["my-skill"]).toBeDefined();
+        expect(lockfile.skills["my-skill"].agents).toEqual(["cursor"]);
+      }),
+    );
+  });
+
+  describe("partial uninstall leaving no agents", () => {
+    it.effect("promotes to full uninstall when no agents remain", () =>
+      Effect.gen(function* () {
+        const { axmDir, base, canonicalPath, lockfileSkills } = setupWorkspace({
+          agents: ["claude-code"],
+        });
+
+        // Partial uninstall targeting the only agent
+        const result = yield* uninstallSkill(makeOp({ agents: ["claude-code"] })).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toBe("Uninstalled my-skill");
+
+        // Should do a full uninstall: canonical dir removed
+        expect(fs.existsSync(canonicalPath)).toBe(false);
+
+        // Agent symlink removed
+        expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
+
+        // Lockfile entry removed
+        const lockfile = readLockfileYaml(axmDir);
+        expect(lockfile.skills["my-skill"]).toBeUndefined();
+      }),
+    );
+  });
+
+  describe("missing canonical dir", () => {
+    it.effect("skips without error when canonical dir does not exist", () =>
+      Effect.gen(function* () {
+        const base = path.join(tmpDir, "project");
+        const axmDir = path.join(base, ".axm");
+        fs.mkdirSync(axmDir, { recursive: true });
+
+        const lockfileSkills = { "my-skill": makeLocalLockEntry(["claude-code"]) };
+        writeLockfileYaml(axmDir, { "my-skill": makeLocalLockEntryYaml(["claude-code"]) });
+
+        // No canonical dir, but lockfile has entry
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toBe("Uninstalled my-skill");
+
+        // Lockfile entry should be removed
+        const lockfile = readLockfileYaml(axmDir);
+        expect(lockfile.skills["my-skill"]).toBeUndefined();
+      }),
+    );
+  });
+
+  describe("missing symlinks", () => {
+    it.effect("skips without error when agent symlinks do not exist", () =>
+      Effect.gen(function* () {
+        const { axmDir, canonicalPath, lockfileSkills } = setupWorkspace({
+          createSymlinks: false,
+        });
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toBe("Uninstalled my-skill");
+        expect(fs.existsSync(canonicalPath)).toBe(false);
+      }),
+    );
+  });
+
+  describe("sanitized name usage", () => {
+    it.effect("uses sanitizeName for filesystem paths", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupWorkspace({
+          skillName: "my-awesome-skill",
+          agents: ["claude-code"],
+          lockfileSkills: {
+            "My Awesome Skill!!": makeLocalLockEntry(["claude-code"]),
+          },
+          lockfileSkillsYaml: {
+            "My Awesome Skill!!": makeLocalLockEntryYaml(["claude-code"]),
+          },
+        });
+
+        const result = yield* uninstallSkill(makeOp({ skillName: "My Awesome Skill!!" })).pipe(
+          Effect.provide(
+            withServices(axmDir, {
+              "My Awesome Skill!!": makeLocalLockEntry(["claude-code"]),
+            }),
+          ),
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toBe("Uninstalled My Awesome Skill!!");
+
+        // The sanitized path (.agents/skills/my-awesome-skill) should be removed
+        expect(fs.existsSync(path.join(base, ".agents", "skills", "my-awesome-skill"))).toBe(false);
+      }),
+    );
+  });
+
+  describe("universal agent self-reference", () => {
+    it.effect("skips symlink removal for agents whose skills.dir matches canonical", () =>
+      Effect.gen(function* () {
+        const { axmDir, canonicalPath } = setupWorkspace({
+          agents: ["claude-code"],
+          lockfileSkills: {
+            "my-skill": makeLocalLockEntry(["amp", "claude-code"]),
+          },
+          lockfileSkillsYaml: {
+            "my-skill": makeLocalLockEntryYaml(["amp", "claude-code"]),
+          },
+        });
+
+        // amp uses .agents/skills — same as canonical location
+        // The canonical dir should still be removed in full uninstall,
+        // but the amp symlink removal step should be skipped (no separate dir)
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(
+            withServices(axmDir, {
+              "my-skill": makeLocalLockEntry(["amp", "claude-code"]),
+            }),
+          ),
+        );
+
+        expect(result.result).toBe("success");
+        expect(fs.existsSync(canonicalPath)).toBe(false);
+      }),
+    );
+  });
+});

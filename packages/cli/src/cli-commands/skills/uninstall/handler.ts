@@ -27,7 +27,7 @@ import { uninstallSkill } from "./uninstall-skill.js";
 /**
  * Arguments for the uninstall handler.
  */
-export interface UninstallArgs {
+export interface UninstallHandlerArgs {
   /** Name or glob pattern of the skill to uninstall */
   readonly skill: string;
   /** Target agent(s) to uninstall from (empty = all agents) */
@@ -52,7 +52,7 @@ export interface UninstallArgs {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const handleUninstall = (args: UninstallArgs) =>
+export const handleUninstall = (args: UninstallHandlerArgs) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
     const clack = yield* Clack;
@@ -76,7 +76,7 @@ export const handleUninstall = (args: UninstallArgs) =>
     const names = skillNames.length > 0 ? skillNames : [args.skill];
 
     // Step 3: Build operations
-    const ops: ReadonlyArray<UninstallSkillOperation> = names.map(
+    const ops = names.map(
       (name) =>
         ({
           name: "uninstall-skill",

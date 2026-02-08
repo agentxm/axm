@@ -49,7 +49,7 @@ export const initCommand: CommandModule<{}, InitArgs> = {
         yes: argv.yes,
         nonInteractive: Option.fromNullable(argv["non-interactive"]),
         preview: false,
-        ...(argv.agent.length > 0 && { agents: argv.agent }),
+        agents: argv.agent.length > 0 ? Option.some(argv.agent) : Option.none(),
       },
     });
   },

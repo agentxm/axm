@@ -7,8 +7,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { FileSystem } from "@effect/platform";
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -41,8 +40,8 @@ describe("discoverSkills", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const withFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
-    effect.pipe(Effect.provide(NodeFileSystem.layer));
+  const withFileSystem = <A, E>(effect: Effect.Effect<A, E, NodeContext.NodeContext>) =>
+    effect.pipe(Effect.provide(NodeContext.layer));
 
   it.effect("returns empty array for directory with no skills", () =>
     withFileSystem(

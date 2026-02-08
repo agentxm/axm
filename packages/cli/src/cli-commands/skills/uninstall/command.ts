@@ -9,7 +9,7 @@ import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
 import { handleUninstall } from "./handler.js";
 
-export interface UninstallArgs {
+export interface UninstallCommandArgs {
   skill: string;
   agent: ReadonlyArray<string>;
   yes: boolean;
@@ -18,7 +18,7 @@ export interface UninstallArgs {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
-export const uninstallCommand: CommandModule<{}, UninstallArgs> = {
+export const uninstallCommand: CommandModule<{}, UninstallCommandArgs> = {
   command: "uninstall <skill>",
   describe: "Uninstall a skill from agents",
   builder: (yargs) =>
@@ -69,6 +69,7 @@ export const uninstallCommand: CommandModule<{}, UninstallArgs> = {
           yes: argv.yes,
           nonInteractive: Option.fromNullable(argv["non-interactive"]),
           preview: argv.preview,
+          agents: Option.none(),
         },
       },
     );

@@ -1,8 +1,8 @@
-## ADDED Requirements
-
 ### Requirement: Skill installation orchestrator
 
 The `executeAddSkill` function SHALL orchestrate the full per-skill installation pipeline: sanitize name, validate paths, copy files to canonical location, symlink from agent directories, and update the lockfile.
+
+`InstallError` SHALL use `cause: unknown` (not `Option<unknown>`) for its cause field, consistent with the standard `Data.TaggedError` convention. Call sites SHALL pass the error directly (not wrapped in `Option.some`) or `undefined` when no cause exists (not `Option.none()`).
 
 #### Scenario: Sanitize skill name for canonical path
 
@@ -79,3 +79,31 @@ The install skill executor SHALL call `SettingsService.addSkill()` after success
 
 - **WHEN** installation completes
 - **THEN** the function SHALL return an `InstallResult` for each target agent
+
+### Requirement: InstallError cause field convention
+
+`InstallError` SHALL define its `cause` field as `unknown` (accepting any value including `undefined`). This matches the standard `Data.TaggedError` convention used throughout the codebase.
+
+#### Scenario: Error with cause
+
+- **WHEN** creating an `InstallError` from a caught error
+- **THEN** the cause SHALL be passed directly (e.g., `new InstallError({ message: "...", cause: error, retryable: false })`)
+
+#### Scenario: Error without cause
+
+- **WHEN** creating an `InstallError` with no underlying cause
+- **THEN** the cause SHALL be `undefined` (e.g., `new InstallError({ message: "...", cause: undefined, retryable: false })`)
+
+### Requirement: DiscoveryError cause field convention
+
+`DiscoveryError` SHALL define its `cause` field as `unknown` and its `path` field as `unknown` (not `Option`), consistent with `InstallError`.
+
+#### Scenario: DiscoveryError with cause and path
+
+- **WHEN** creating a `DiscoveryError` from a filesystem error
+- **THEN** cause and path SHALL be passed directly without `Option` wrapping
+
+#### Scenario: DiscoveryError without cause
+
+- **WHEN** creating a `DiscoveryError` with no underlying cause
+- **THEN** cause SHALL be `undefined`

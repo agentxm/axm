@@ -9,13 +9,22 @@
  */
 
 import * as FileSystem from "@effect/platform/FileSystem";
+import * as Path from "@effect/platform/Path";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Schema from "effect/Schema";
 
-import type { AgentId } from "../extensions/common.js";
+import { AgentIdSchema } from "../extensions/common.js";
 import type { Settings, SkillsMap } from "./schema.js";
-import { DEFAULT_SCOPE, readSettings, type SettingsError, writeSettings } from "./settings.js";
+import {
+  createDefaultSettings,
+  DEFAULT_SCOPE,
+  readSettings,
+  SettingsParseError,
+  type SettingsError,
+  writeSettings,
+} from "./settings.js";
 import { Workspace } from "../workspace/service.js";
 
 // -----------------------------------------------------------------------------
@@ -75,16 +84,20 @@ export class SettingsService extends Context.Tag("@axm.sh/cli/SettingsService")<
 export const SettingsServiceLive: Layer.Layer<
   SettingsService,
   never,
-  Workspace | FileSystem.FileSystem
+  Workspace | FileSystem.FileSystem | Path.Path
 > = Layer.effect(
   SettingsService,
   Effect.gen(function* () {
     const ws = yield* Workspace;
     const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const semaphore = yield* Effect.makeSemaphore(1);
 
     const axmDir = ws.path;
-    const fsLayer = Layer.succeed(FileSystem.FileSystem, fs);
+    const fsLayer = Layer.merge(
+      Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(Path.Path, path),
+    );
 
     // -------------------------------------------------------------------------
     // Internal helper: read settings or create with {} if not found
@@ -93,7 +106,7 @@ export const SettingsServiceLive: Layer.Layer<
     const readOrCreate = (): Effect.Effect<Settings, SettingsError> =>
       readSettings(axmDir).pipe(
         Effect.catchTag("SettingsNotFoundError", () =>
-          writeSettings(axmDir, {}).pipe(Effect.map(() => ({}) as Settings)),
+          writeSettings(axmDir, {}).pipe(Effect.map(() => createDefaultSettings())),
         ),
         Effect.provide(fsLayer),
       );
@@ -113,7 +126,7 @@ export const SettingsServiceLive: Layer.Layer<
 
       getAgents: () => readOrCreate().pipe(Effect.map((s) => s.agents ?? [])),
 
-      getSkills: () => readOrCreate().pipe(Effect.map((s) => s.skills ?? ({} as SkillsMap))),
+      getSkills: () => readOrCreate().pipe(Effect.map((s) => s.skills ?? ({} satisfies SkillsMap))),
 
       addSkill: (name, source) =>
         withMutex(
@@ -144,12 +157,22 @@ export const SettingsServiceLive: Layer.Layer<
       addAgent: (agentId) =>
         withMutex(
           Effect.gen(function* () {
+            const validId = yield* Schema.decodeUnknown(AgentIdSchema)(agentId).pipe(
+              Effect.mapError(
+                (error) =>
+                  new SettingsParseError({
+                    path: axmDir,
+                    message: `Invalid agent ID: ${agentId}`,
+                    cause: error,
+                  }),
+              ),
+            );
             const current = yield* readOrCreate();
             const agents: readonly string[] = current.agents ?? [];
-            if (agents.includes(agentId)) return;
+            if (agents.includes(validId)) return;
             const updated: Settings = {
               ...current,
-              agents: [...(current.agents ?? []), agentId as AgentId],
+              agents: [...(current.agents ?? []), validId],
             };
             yield* writeSettings(axmDir, updated).pipe(Effect.provide(fsLayer));
           }),

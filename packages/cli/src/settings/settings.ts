@@ -6,6 +6,7 @@
  */
 
 import * as FileSystem from "@effect/platform/FileSystem";
+import * as Path from "@effect/platform/Path";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 
@@ -35,13 +36,6 @@ export const DEFAULT_SCOPE = "@community";
 // -----------------------------------------------------------------------------
 
 /**
- * Error reading or writing settings file.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type SettingsErrorTag = "NotFound" | "ParseError" | "WriteError";
-
-/**
  * Settings file not found.
  *
  * @experimental This API is unstable and may change without notice.
@@ -59,7 +53,7 @@ export class SettingsNotFoundError extends Data.TaggedError("SettingsNotFoundErr
 export class SettingsParseError extends Data.TaggedError("SettingsParseError")<{
   readonly path: string;
   readonly message: string;
-  readonly cause?: unknown;
+  readonly cause: unknown;
 }> {}
 
 /**
@@ -70,7 +64,7 @@ export class SettingsParseError extends Data.TaggedError("SettingsParseError")<{
 export class SettingsWriteError extends Data.TaggedError("SettingsWriteError")<{
   readonly path: string;
   readonly message: string;
-  readonly cause?: unknown;
+  readonly cause: unknown;
 }> {}
 
 /**
@@ -96,13 +90,6 @@ export const createDefaultSettings = (): Settings => ({});
 // -----------------------------------------------------------------------------
 
 /**
- * Build the full path to settings.json.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const getSettingsPath = (axmDir: string): string => `${axmDir}/${SETTINGS_FILENAME}`;
-
-/**
  * Read and parse settings from .axm/settings.json.
  *
  * @param axmDir - Path to the .axm directory
@@ -110,12 +97,11 @@ const getSettingsPath = (axmDir: string): string => `${axmDir}/${SETTINGS_FILENA
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const readSettings = (
-  axmDir: string,
-): Effect.Effect<Settings, SettingsError, FileSystem.FileSystem> =>
+export const readSettings = (axmDir: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const settingsPath = getSettingsPath(axmDir);
+    const path = yield* Path.Path;
+    const settingsPath = path.join(axmDir, SETTINGS_FILENAME);
 
     // Check if file exists
     const exists = yield* fs.exists(settingsPath).pipe(
@@ -183,13 +169,11 @@ export const readSettings = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const writeSettings = (
-  axmDir: string,
-  settings: Settings,
-): Effect.Effect<void, SettingsError, FileSystem.FileSystem> =>
+export const writeSettings = (axmDir: string, settings: Settings) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const settingsPath = getSettingsPath(axmDir);
+    const path = yield* Path.Path;
+    const settingsPath = path.join(axmDir, SETTINGS_FILENAME);
 
     // Ensure directory exists
     yield* fs.makeDirectory(axmDir, { recursive: true }).pipe(

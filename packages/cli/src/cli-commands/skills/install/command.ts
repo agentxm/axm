@@ -110,6 +110,7 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
           yes: argv.yes,
           nonInteractive: Option.fromNullable(argv["non-interactive"]),
           preview: argv.preview,
+          agents: Option.none(),
         },
       },
     );

@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { Workspace, type WorkspaceContextService } from "../workspace/service.js";
 import type { Settings } from "./schema.js";
-import { DEFAULT_SCOPE, SETTINGS_FILENAME } from "./settings.js";
+import { DEFAULT_SCOPE, SettingsParseError, SETTINGS_FILENAME } from "./settings.js";
 import { SettingsService, SettingsServiceLive } from "./service.js";
 
 describe("SettingsService", () => {
@@ -244,6 +244,29 @@ describe("SettingsService", () => {
         // Should be unchanged — no duplicate
         const settings = readSettingsFromDisk();
         expect(settings.agents).toEqual(["claude-code", "cursor"]);
+      }).pipe(Effect.provide(makeTestLayer(axmDir))),
+    );
+
+    it.effect("fails with SettingsParseError for invalid agent ID", () =>
+      Effect.gen(function* () {
+        initSettings({});
+
+        const service = yield* SettingsService;
+        const error = yield* service.addAgent("not-a-real-agent").pipe(Effect.flip);
+
+        expect(error).toBeInstanceOf(SettingsParseError);
+      }).pipe(Effect.provide(makeTestLayer(axmDir))),
+    );
+
+    it.effect("does not write to disk on invalid agent ID", () =>
+      Effect.gen(function* () {
+        initSettings({});
+
+        const service = yield* SettingsService;
+        yield* service.addAgent("not-a-real-agent").pipe(Effect.ignore);
+
+        const settings = readSettingsFromDisk();
+        expect(settings.agents).toBeUndefined();
       }).pipe(Effect.provide(makeTestLayer(axmDir))),
     );
   });

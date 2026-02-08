@@ -66,7 +66,7 @@ export interface InstallHandlerArgs {
  */
 export class InstallError extends Data.TaggedError("InstallError")<{
   readonly message: string;
-  readonly cause: Option.Option<unknown>;
+  readonly cause: unknown;
   readonly retryable: boolean;
 }> {}
 
@@ -119,7 +119,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
                 [`Provided: ${args.source || "(empty)"}`],
                 "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
               ),
-              cause: Option.some(error),
+              cause: error,
               retryable: false,
             }),
         ),
@@ -143,7 +143,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
             [`Source: ${printSource(source)}`],
             "Verify the source path contains directories with SKILL.md files.",
           ),
-          cause: Option.none(),
+          cause: undefined,
           retryable: false,
         });
       }

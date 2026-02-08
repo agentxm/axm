@@ -9,8 +9,8 @@
 
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
-import * as nodePath from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
+import * as Path from "@effect/platform/Path";
 import {
   buildCloneUrl,
   getTreeSha,
@@ -51,8 +51,8 @@ export interface DiscoveryOptions {
  */
 export class DiscoveryError extends Data.TaggedError("DiscoveryError")<{
   readonly message: string;
-  readonly path: Option.Option<string>;
-  readonly cause: Option.Option<unknown>;
+  readonly path: unknown;
+  readonly cause: unknown;
   readonly retryable: boolean;
 }> {}
 
@@ -125,13 +125,14 @@ const shouldIncludeSkill = (skill: Skill, options: DiscoveryOptions): boolean =>
 const tryParseSkillInDir = (dir: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
 
     const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
     if (Option.isNone(entries)) return Option.none<Skill>();
 
     if (!entries.value.includes(SKILL_FILENAME)) return Option.none<Skill>();
 
-    const fullPath = nodePath.join(dir, SKILL_FILENAME);
+    const fullPath = path.join(dir, SKILL_FILENAME);
     const content = yield* fs.readFileString(fullPath).pipe(Effect.option);
     if (Option.isNone(content)) return Option.none<Skill>();
 
@@ -145,6 +146,7 @@ const tryParseSkillInDir = (dir: string) =>
 const scanDirectory = (dir: string, options: DiscoveryOptions) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
     if (Option.isNone(entries)) return [] as readonly SkillRef[];
 
@@ -152,7 +154,7 @@ const scanDirectory = (dir: string, options: DiscoveryOptions) =>
       entries.value,
       (entry) =>
         Effect.gen(function* () {
-          const fullPath = nodePath.join(dir, entry);
+          const fullPath = path.join(dir, entry);
           const stat = yield* fs.stat(fullPath).pipe(Effect.option);
           if (Option.isNone(stat) || stat.value.type !== "Directory")
             return [] satisfies readonly SkillRef[];
@@ -171,7 +173,7 @@ const scanDirectory = (dir: string, options: DiscoveryOptions) =>
           ] satisfies SkillRef[];
         }),
       { concurrency: "unbounded" },
-    ).pipe(Effect.map((results) => results.flat()));
+    ).pipe(Effect.map((results) => Array.flatten(results)));
   });
 
 /**
@@ -182,10 +184,11 @@ const recursiveScan = (
   dir: string,
   options: DiscoveryOptions,
   depth: number,
-): Effect.Effect<readonly SkillRef[], never, FileSystem.FileSystem> =>
+): Effect.Effect<readonly SkillRef[], never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     if (depth > MAX_DEPTH) return [] satisfies readonly SkillRef[];
     const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
     if (Option.isNone(entries)) return [] satisfies readonly SkillRef[];
 
@@ -195,7 +198,7 @@ const recursiveScan = (
         Effect.gen(function* () {
           if (SKIPPED_DIRECTORIES.has(entry)) return [] satisfies SkillRef[];
 
-          const fullPath = nodePath.join(dir, entry);
+          const fullPath = path.join(dir, entry);
           const stat = yield* fs.stat(fullPath).pipe(Effect.option);
           if (Option.isNone(stat) || stat.value.type !== "Directory")
             return [] satisfies SkillRef[];
@@ -219,7 +222,7 @@ const recursiveScan = (
           return [...current, ...subResults];
         }),
       { concurrency: "unbounded" },
-    ).pipe(Effect.map((results) => results.flat()));
+    ).pipe(Effect.map((results) => Array.flatten(results)));
   });
 
 // -----------------------------------------------------------------------------
@@ -242,14 +245,15 @@ export const discoverSkillsInDir = (
   basePath: string,
   subPath: Option.Option<string>,
   options: DiscoveryOptions,
-): Effect.Effect<ReadonlyArray<SkillRef>, DiscoveryError, FileSystem.FileSystem> =>
+): Effect.Effect<ReadonlyArray<SkillRef>, DiscoveryError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
 
     // Compute effective search root
     const searchRoot = Option.match(subPath, {
       onNone: () => basePath,
-      onSome: (p) => nodePath.join(basePath, p),
+      onSome: (p) => path.join(basePath, p),
     });
 
     // Verify the search root exists and is a directory
@@ -258,8 +262,8 @@ export const discoverSkillsInDir = (
         (error) =>
           new DiscoveryError({
             message: `Directory does not exist or is not accessible: ${searchRoot}`,
-            path: Option.some(searchRoot),
-            cause: Option.some(error),
+            path: searchRoot,
+            cause: error,
             retryable: false,
           }),
       ),
@@ -268,8 +272,8 @@ export const discoverSkillsInDir = (
     if (stat.type !== "Directory") {
       return yield* new DiscoveryError({
         message: `Path is not a directory: ${searchRoot}`,
-        path: Option.some(searchRoot),
-        cause: Option.none(),
+        path: searchRoot,
+        cause: undefined,
         retryable: false,
       });
     }
@@ -299,7 +303,7 @@ export const discoverSkillsInDir = (
     // Build full list of directories to scan: derived priority dirs + manifest dirs
     const priorityDirs = getPriorityDirectories();
     const priorityFullDirs = priorityDirs.map((priorityDir) =>
-      priorityDir === "." ? searchRoot : nodePath.join(searchRoot, priorityDir),
+      priorityDir === "." ? searchRoot : path.join(searchRoot, priorityDir),
     );
     // Deduplicate manifest dirs against static priority dirs
     const manifestDirsToAdd = manifestDirs.filter((d) => !priorityFullDirs.includes(d));
@@ -309,7 +313,7 @@ export const discoverSkillsInDir = (
       allPriorityDirs,
       (fullDir) => scanDirectory(fullDir, options),
       { concurrency: "unbounded" },
-    ).pipe(Effect.map((results) => results.flat()));
+    ).pipe(Effect.map((results) => Array.flatten(results)));
 
     // ── Phase 3: Recursive Fallback ────────────────────────────────────
     const shouldRunPhase3 =
@@ -339,12 +343,14 @@ export const discoverSkillsInDir = (
  */
 const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | BitbucketSource) =>
   Effect.gen(function* () {
+    const path = yield* Path.Path;
+
     const cloneUrl = yield* buildCloneUrl(source).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({
             message: error.message,
-            cause: Option.some(error),
+            cause: error,
             retryable: false,
           }),
       ),
@@ -354,7 +360,7 @@ const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | Bitbu
     const tempDir = yield* Effect.acquireRelease(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
-        const dir = nodePath.join(tmpdir(), `axm-${randomUUID()}`);
+        const dir = path.join(tmpdir(), `axm-${randomUUID()}`);
         yield* fs.makeDirectory(dir, { recursive: true });
         return dir;
       }),
@@ -375,7 +381,7 @@ const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | Bitbu
               [`URL: ${cloneUrl}`],
               "Check your network connection and repository access credentials.",
             ),
-            cause: Option.some(error),
+            cause: error,
             retryable: true,
           }),
       ),
@@ -389,7 +395,7 @@ const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | Bitbu
         (error) =>
           new InstallError({
             message: `Failed to discover skills in ${printSource(source)}: ${error.message}`,
-            cause: Option.some(error),
+            cause: error,
             retryable: false,
           }),
       ),
@@ -399,13 +405,13 @@ const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | Bitbu
       skills,
       (skill) =>
         Effect.gen(function* () {
-          const relativeDir = nodePath.relative(tempDir, Option.getOrThrow(skill.path));
+          const relativeDir = path.relative(tempDir, Option.getOrThrow(skill.path));
           const gitTreeSha = yield* getTreeSha(tempDir, relativeDir).pipe(
             Effect.mapError(
               (error) =>
                 new InstallError({
                   message: `Failed to get git tree SHA for skill "${skill.skill.name}": ${error.message}`,
-                  cause: Option.some(error),
+                  cause: error,
                   retryable: false,
                 }),
             ),
@@ -442,7 +448,7 @@ export const discoverSkills = (source: Source) =>
             [`Source: ${printSource(source)}`],
             "Use GitHub, GitLab, Bitbucket, or a local path instead.",
           ),
-          cause: Option.none(),
+          cause: undefined,
           retryable: false,
         });
 
@@ -463,7 +469,7 @@ export const discoverSkills = (source: Source) =>
                   [`Path: ${source.path}`],
                   "Verify the path exists and contains directories with SKILL.md files.",
                 ),
-                cause: Option.some(error),
+                cause: error,
                 retryable: false,
               }),
           ),
@@ -479,7 +485,7 @@ export const discoverSkills = (source: Source) =>
             [`Source: ${printSource(source)}`],
             "Use GitHub, GitLab, Bitbucket, or a local path instead.",
           ),
-          cause: Option.none(),
+          cause: undefined,
           retryable: false,
         });
     }

@@ -22,7 +22,7 @@ import {
   layer as workspaceLayer,
   type WorkspaceContextOptions,
 } from "../../../workspace/index.js";
-import { handleUninstall, type UninstallArgs } from "./handler.js";
+import { handleUninstall, type UninstallHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -66,7 +66,10 @@ const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
   updatedAt: new Date().toISOString(),
 });
 
-const defaultArgs = (skill: string, overrides: Partial<UninstallArgs> = {}): UninstallArgs => ({
+const defaultArgs = (
+  skill: string,
+  overrides: Partial<UninstallHandlerArgs> = {},
+): UninstallHandlerArgs => ({
   skill,
   agent: [],
   yes: true,
@@ -103,6 +106,7 @@ describe("uninstall.handler", () => {
       yes: true,
       nonInteractive: Option.some(true),
       preview: false,
+      agents: Option.none(),
       ...wsOverrides,
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);

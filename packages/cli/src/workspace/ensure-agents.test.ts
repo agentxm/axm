@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
-import type { FileSystem } from "@effect/platform";
+import * as NodeContext from "@effect/platform-node/NodeContext";
+import type { FileSystem, Path } from "@effect/platform";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -51,14 +51,16 @@ describe("ensureAgentsConfigured", () => {
       getLockfile: () => Effect.succeed({ lockfileVersion: 1, skills: {} }),
       resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
     });
-    const SSLayer = Layer.provide(SettingsServiceLive, Layer.merge(WsLayer, NodeFileSystem.layer));
-    const TestLayer = Layer.mergeAll(NodeFileSystem.layer, ClackLayer, SSLayer);
+    const SSLayer = Layer.provide(SettingsServiceLive, Layer.merge(WsLayer, NodeContext.layer));
+    const TestLayer = Layer.mergeAll(NodeContext.layer, ClackLayer, SSLayer);
     return { TestLayer, mockClack };
   };
 
   const withLayer =
-    (layer: Layer.Layer<FileSystem.FileSystem | Clack | SettingsService>) =>
-    <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Clack | SettingsService>) =>
+    (layer: Layer.Layer<FileSystem.FileSystem | Path.Path | Clack | SettingsService>) =>
+    <A, E>(
+      effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Clack | SettingsService>,
+    ) =>
       effect.pipe(Effect.provide(layer));
 
   const baseOpts = (overrides?: Partial<Parameters<typeof ensureAgentsConfigured>[0]>) => ({

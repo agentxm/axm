@@ -9,10 +9,17 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import {
+  LockfileNotFoundError,
+  LockfileParseError,
+  type LockfileError,
+} from "../../../lockfile/lockfile.js";
+import type { Lockfile } from "../../../lockfile/schema.js";
+import {
   SettingsService,
   SettingsWriteError,
   type SettingsServiceInterface,
 } from "../../../settings/index.js";
+import { OperationError } from "../../../workspace/apply-plan.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import type { UninstallSkillOperation } from "../operations.js";
 import { uninstallSkill } from "./uninstall-skill.js";
@@ -27,13 +34,15 @@ const withServices = (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
   lockfileSkills: Record<string, any> = {},
   ssMock?: SettingsServiceInterface,
+  getLockfileOverride?: () => Effect.Effect<Lockfile, LockfileError>,
 ) => {
   const mockWs: WorkspaceContextService = {
     global: false,
     path: axmDir,
     nonInteractive: true,
     preview: false,
-    getLockfile: () => Effect.succeed({ lockfileVersion: 1, skills: lockfileSkills }),
+    getLockfile:
+      getLockfileOverride ?? (() => Effect.succeed({ lockfileVersion: 1, skills: lockfileSkills })),
     resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
   };
   const ssService = ssMock ?? makeSettingsServiceMock().mock;
@@ -240,7 +249,13 @@ describe("uninstallSkill", () => {
         const failingMock: SettingsServiceInterface = {
           ...makeSettingsServiceMock().mock,
           removeSkill: () =>
-            Effect.fail(new SettingsWriteError({ path: "", message: "write failed" })),
+            Effect.fail(
+              new SettingsWriteError({
+                path: "",
+                message: "write failed",
+                cause: new Error("write failed"),
+              }),
+            ),
         };
 
         const result = yield* uninstallSkill(makeOp()).pipe(
@@ -434,6 +449,103 @@ describe("uninstallSkill", () => {
 
         // The sanitized path (.agents/skills/my-awesome-skill) should be removed
         expect(fs.existsSync(path.join(base, ".agents", "skills", "my-awesome-skill"))).toBe(false);
+      }),
+    );
+  });
+
+  describe("lockfile read error handling", () => {
+    it.effect("propagates LockfileParseError instead of falling back to empty lockfile", () =>
+      Effect.gen(function* () {
+        const { axmDir, canonicalPath } = setupWorkspace({ agents: ["claude-code"] });
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(
+            withServices(axmDir, {}, undefined, () =>
+              Effect.fail(
+                new LockfileParseError({
+                  message: "corrupt lockfile",
+                  retryable: false,
+                }),
+              ),
+            ),
+          ),
+          Effect.flip,
+        );
+
+        expect(result._tag).toBe("OperationError");
+        expect((result as OperationError).cause).toBeInstanceOf(LockfileParseError);
+        // Canonical dir should still exist (error propagated before removal)
+        expect(fs.existsSync(canonicalPath)).toBe(true);
+      }),
+    );
+
+    it.effect("falls back to empty lockfile when LockfileNotFoundError", () =>
+      Effect.gen(function* () {
+        const { axmDir, canonicalPath } = setupWorkspace({ agents: ["claude-code"] });
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(
+            withServices(axmDir, {}, undefined, () =>
+              Effect.fail(
+                new LockfileNotFoundError({
+                  path: "/fake/path",
+                  message: "not found",
+                }),
+              ),
+            ),
+          ),
+        );
+
+        // With empty lockfile fallback, skill is not in lockfile but exists on disk
+        // So it should remove the canonical dir and return success
+        expect(result.result).toBe("success");
+        expect(fs.existsSync(canonicalPath)).toBe(false);
+      }),
+    );
+  });
+
+  describe("lockfile write error propagation", () => {
+    it.effect("propagates updateLockEntry failure during partial uninstall", () =>
+      Effect.gen(function* () {
+        const { axmDir, lockfileSkills } = setupWorkspace({
+          agents: ["claude-code", "cursor"],
+        });
+
+        // Make the lockfile read-only so updateLockEntry write fails
+        fs.chmodSync(path.join(axmDir, "axm-lock.yaml"), 0o444);
+
+        const result = yield* uninstallSkill(makeOp({ agents: ["claude-code"] })).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills)),
+          Effect.flip,
+        );
+
+        expect(result._tag).toBe("OperationError");
+        expect(result.message).toContain("Failed to update lockfile");
+
+        // Restore permissions for cleanup
+        fs.chmodSync(path.join(axmDir, "axm-lock.yaml"), 0o644);
+      }),
+    );
+
+    it.effect("propagates removeLockEntry failure during full uninstall", () =>
+      Effect.gen(function* () {
+        const { axmDir, lockfileSkills } = setupWorkspace({
+          agents: ["claude-code"],
+        });
+
+        // Make the lockfile read-only so removeLockEntry write fails
+        fs.chmodSync(path.join(axmDir, "axm-lock.yaml"), 0o444);
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills)),
+          Effect.flip,
+        );
+
+        expect(result._tag).toBe("OperationError");
+        expect(result.message).toContain("Failed to remove lockfile entry");
+
+        // Restore permissions for cleanup
+        fs.chmodSync(path.join(axmDir, "axm-lock.yaml"), 0o644);
       }),
     );
   });

@@ -8,7 +8,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { makeClackTestLayer, type MockClackService } from "../clack-effect/index.js";
 import { Clack } from "../clack-effect/service.js";
-import type { OperationResult } from "./apply-plan.js";
+import type { OperationResult } from "./plan.js";
 import type { Operation, Plan, PlannedJobStep } from "./plan.js";
 import { Workspace, layer as workspaceLayer, type WorkspaceContextOptions } from "./service.js";
 
@@ -45,7 +45,7 @@ describe("WorkspaceContextService", () => {
   });
 
   const [TestClackLayer] = makeClackTestLayer();
-  const BaseLayer = Layer.mergeAll(NodeFileSystem.layer, TestClackLayer);
+  const BaseLayer = Layer.mergeAll(NodeContext.layer, TestClackLayer);
 
   const makeWsLayer = (options: WorkspaceContextOptions) =>
     Layer.provide(workspaceLayer(options), BaseLayer);
@@ -61,6 +61,7 @@ describe("WorkspaceContextService", () => {
           yes: true,
           nonInteractive: Option.some(true),
           preview: false,
+          agents: Option.none(),
         });
 
         expect(ws.nonInteractive).toBe(true);
@@ -77,6 +78,7 @@ describe("WorkspaceContextService", () => {
             yes: true,
             nonInteractive: Option.some(false),
             preview: false,
+            agents: Option.none(),
           });
 
           expect(ws.nonInteractive).toBe(false);
@@ -100,6 +102,7 @@ describe("WorkspaceContextService", () => {
             yes: true,
             nonInteractive: Option.none(),
             preview: false,
+            agents: Option.none(),
           });
 
           expect(ws.nonInteractive).toBe(true);
@@ -123,6 +126,7 @@ describe("WorkspaceContextService", () => {
             yes: true,
             nonInteractive: Option.none(),
             preview: false,
+            agents: Option.none(),
           });
 
           expect(ws.nonInteractive).toBe(false);
@@ -145,6 +149,7 @@ describe("WorkspaceContextService", () => {
           yes: true,
           nonInteractive: Option.some(false),
           preview: true,
+          agents: Option.none(),
         });
 
         expect(ws.preview).toBe(true);
@@ -178,7 +183,7 @@ describe("WorkspaceContextService", () => {
 
     const runResolvePlan = (options: WorkspaceContextOptions, mockClack: MockClackService) => {
       const clackLayer = Layer.succeed(Clack, mockClack);
-      const base = Layer.mergeAll(NodeFileSystem.layer, clackLayer);
+      const base = Layer.mergeAll(NodeContext.layer, clackLayer);
       const wsLayer = Layer.provide(workspaceLayer(options), base);
       return Effect.gen(function* () {
         const ws = yield* Workspace;
@@ -195,6 +200,7 @@ describe("WorkspaceContextService", () => {
             yes: false,
             nonInteractive: Option.some(false),
             preview: false,
+            agents: Option.none(),
           },
           mockClack,
         );
@@ -224,6 +230,7 @@ describe("WorkspaceContextService", () => {
             yes: false,
             nonInteractive: Option.some(false),
             preview: true,
+            agents: Option.none(),
           },
           mockClack,
         );
@@ -255,6 +262,7 @@ describe("WorkspaceContextService", () => {
             yes: false,
             nonInteractive: Option.some(false),
             preview: true,
+            agents: Option.none(),
           },
           mockClack,
         );
@@ -277,6 +285,7 @@ describe("WorkspaceContextService", () => {
             yes: true,
             nonInteractive: Option.some(false),
             preview: true,
+            agents: Option.none(),
           },
           mockClack,
         );
@@ -304,6 +313,7 @@ describe("WorkspaceContextService", () => {
             yes: false,
             nonInteractive: Option.some(true),
             preview: true,
+            agents: Option.none(),
           },
           mockClack,
         );

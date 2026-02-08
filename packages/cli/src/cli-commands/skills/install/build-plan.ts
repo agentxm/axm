@@ -9,7 +9,7 @@
 
 import * as Option from "effect/Option";
 import type { Lockfile } from "../../../lockfile/schema.js";
-import type { Plan } from "../../../workspace/plan.js";
+import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
 import type { AddSkillOperation } from "../operations.js";
 
 /**
@@ -31,21 +31,21 @@ export const buildPlan = (
       steps: ops.map((op) => {
         const installed = op.args.skill.name in lockfile.skills;
         return installed && !op.args.force
-          ? {
-              _tag: "PlannedJobStep" as const,
+          ? ({
+              _tag: "PlannedJobStep",
               operation: op,
-              expectedResult: { result: "no-op" as const, message: "already installed" },
+              expectedResult: { result: "no-op", message: "already installed" },
               label: op.args.skill.name,
-            }
-          : {
-              _tag: "PlannedJobStep" as const,
+            } satisfies PlannedJobStep<AddSkillOperation>)
+          : ({
+              _tag: "PlannedJobStep",
               operation: op,
               expectedResult: {
-                result: "success" as const,
+                result: "success",
                 message: `Installed ${op.args.skill.name}`,
               },
               label: op.args.skill.name,
-            };
+            } satisfies PlannedJobStep<AddSkillOperation>);
       }),
     },
   ],

@@ -190,7 +190,13 @@ describe("installSkill", () => {
         const failingMock: SettingsServiceInterface = {
           ...makeSettingsServiceMock().mock,
           addSkill: () =>
-            Effect.fail(new SettingsWriteError({ path: "", message: "write failed" })),
+            Effect.fail(
+              new SettingsWriteError({
+                path: "",
+                message: "write failed",
+                cause: new Error("write failed"),
+              }),
+            ),
         };
 
         const result = yield* installSkill(

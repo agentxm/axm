@@ -18,11 +18,8 @@ import { SettingsService } from "../../../settings/index.js";
 import { printSource } from "../../../sources/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
 import { isPathSafe } from "../../../utils/path-safety.js";
-import {
-  OperationError,
-  type OperationHandler,
-  type OperationResult,
-} from "../../../workspace/apply-plan.js";
+import { OperationError, type OperationHandler } from "../../../workspace/apply-plan.js";
+import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import { copySkillDirectory } from "../copy-skill-directory.js";
 import type { AddSkillOperation } from "../operations.js";

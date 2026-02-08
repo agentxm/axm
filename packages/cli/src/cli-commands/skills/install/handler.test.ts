@@ -93,6 +93,7 @@ describe("install.handler", () => {
       yes: true,
       nonInteractive: Option.some(true),
       preview: false,
+      agents: Option.none(),
       ...wsOverrides,
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);

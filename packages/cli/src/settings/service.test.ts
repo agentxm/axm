@@ -50,7 +50,6 @@ describe("SettingsService", () => {
       path: dir,
       nonInteractive: true,
       preview: false,
-      getLockfile: () => Effect.succeed({ lockfileVersion: 1, skills: {} }),
       resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
     };
     return Layer.provide(

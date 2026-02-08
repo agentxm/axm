@@ -12,12 +12,11 @@ import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
-import { removeLockEntry, updateLockEntry } from "../../../lockfile/lockfile.js";
+import { LockfileService } from "../../../lockfile/index.js";
 import { OperationError, type OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { SettingsService } from "../../../settings/index.js";
 import { Workspace } from "../../../workspace/service.js";
-import type { SkillsLockMap } from "../../../lockfile/schema.js";
 import type { UninstallSkillOperation } from "../operations.js";
 import { sanitizeName } from "../install/skill-utils.js";
 
@@ -43,7 +42,7 @@ const CANONICAL_SKILLS_DIR = ".agents/skills";
  */
 export const uninstallSkill: OperationHandler<
   UninstallSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | SettingsService
+  FileSystem.FileSystem | Path.Path | Workspace | SettingsService | LockfileService
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -55,11 +54,9 @@ export const uninstallSkill: OperationHandler<
     const sanitizedName = sanitizeName(op.args.skillName);
     const canonicalPath = path.join(base, CANONICAL_SKILLS_DIR, sanitizedName);
 
-    // Read lockfile to get agent list (missing lockfile → empty, corrupt → propagate)
-    const lockfile = yield* ws.getLockfile().pipe(
-      Effect.catchTag("LockfileNotFoundError", () =>
-        Effect.succeed({ lockfileVersion: 1, skills: {} as SkillsLockMap }),
-      ),
+    // Read lockfile entry for this skill via LockfileService
+    const ls = yield* LockfileService;
+    const lockEntryOption = yield* ls.getEntry(op.args.skillName).pipe(
       Effect.mapError(
         (e) =>
           new OperationError({
@@ -69,7 +66,7 @@ export const uninstallSkill: OperationHandler<
           }),
       ),
     );
-    const lockEntry = lockfile.skills[op.args.skillName];
+    const lockEntry = Option.getOrUndefined(lockEntryOption);
 
     // Determine if skill is installed anywhere
     const canonicalExists = yield* fs
@@ -113,19 +110,21 @@ export const uninstallSkill: OperationHandler<
 
       if (remainingAgents.length > 0) {
         // Update lockfile entry with remaining agents
-        yield* updateLockEntry(axmDir, op.args.skillName, {
-          ...lockEntry,
-          agents: remainingAgents,
-        }).pipe(
-          Effect.mapError(
-            (e) =>
-              new OperationError({
-                operation: "uninstall-skill",
-                message: `Failed to update lockfile: ${e.message}`,
-                cause: e,
-              }),
-          ),
-        );
+        yield* ls
+          .updateEntry(op.args.skillName, {
+            ...lockEntry,
+            agents: remainingAgents,
+          })
+          .pipe(
+            Effect.mapError(
+              (e) =>
+                new OperationError({
+                  operation: "uninstall-skill",
+                  message: `Failed to update lockfile: ${e.message}`,
+                  cause: e,
+                }),
+            ),
+          );
 
         const agentList = [...agentsToRemove].join(", ");
         return {
@@ -143,7 +142,7 @@ export const uninstallSkill: OperationHandler<
 
     // Remove lockfile entry
     if (lockEntry) {
-      yield* removeLockEntry(axmDir, op.args.skillName).pipe(
+      yield* ls.removeEntry(op.args.skillName).pipe(
         Effect.mapError(
           (e) =>
             new OperationError({

@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { Clack, makeClackTestLayer, type MockClackConfig } from "../../../clack-effect/index.js";
+import { LockfileService, LockfileServiceLive } from "../../../lockfile/index.js";
 import { SettingsService, SettingsServiceLive } from "../../../settings/index.js";
 import {
   WorkspaceContextTag,
@@ -111,13 +112,19 @@ describe("uninstall.handler", () => {
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const SSLayer = Layer.provide(SettingsServiceLive, Layer.merge(BaseLayer, WsLayer));
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SSLayer);
+    const LSLayer = Layer.provide(LockfileServiceLive, Layer.merge(BaseLayer, WsLayer));
+    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SSLayer, LSLayer);
 
     const provide = <A, E>(
       effect: Effect.Effect<
         A,
         E,
-        FileSystem.FileSystem | Path.Path | Clack | WorkspaceContextTag | SettingsService
+        | FileSystem.FileSystem
+        | Path.Path
+        | Clack
+        | WorkspaceContextTag
+        | SettingsService
+        | LockfileService
       >,
     ) => effect.pipe(Effect.provide(FullLayer));
 

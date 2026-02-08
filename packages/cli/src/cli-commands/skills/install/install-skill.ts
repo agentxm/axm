@@ -13,7 +13,7 @@ import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
-import { updateLockEntry } from "../../../lockfile/lockfile.js";
+import { LockfileService } from "../../../lockfile/index.js";
 import { SettingsService } from "../../../settings/index.js";
 import { printSource } from "../../../sources/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
@@ -148,7 +148,7 @@ const installForAgent = (opts: {
  */
 export const installSkill: OperationHandler<
   AddSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | SettingsService
+  FileSystem.FileSystem | Path.Path | Workspace | SettingsService | LockfileService
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -222,20 +222,22 @@ export const installSkill: OperationHandler<
     );
 
     // Update lockfile (swallow errors)
-    yield* updateLockEntry(
-      axmDir,
-      sanitizedName,
-      sourceToLockEntry({
-        source: op.args.source,
-        agents: op.args.agents,
-        gitTreeSha: op.args.gitTreeSha,
-        now: new Date(),
-        ...Option.match(op.args.registry, {
-          onNone: () => ({}),
-          onSome: (reg) => ({ registry: reg }),
+    const ls = yield* LockfileService;
+    yield* ls
+      .updateEntry(
+        sanitizedName,
+        sourceToLockEntry({
+          source: op.args.source,
+          agents: op.args.agents,
+          gitTreeSha: op.args.gitTreeSha,
+          now: new Date(),
+          ...Option.match(op.args.registry, {
+            onNone: () => ({}),
+            onSome: (reg) => ({ registry: reg }),
+          }),
         }),
-      }),
-    ).pipe(Effect.catchAll(() => Effect.void));
+      )
+      .pipe(Effect.catchAll(() => Effect.void));
 
     // Update settings (swallow errors)
     const ss = yield* SettingsService;

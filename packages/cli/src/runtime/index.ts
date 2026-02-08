@@ -13,6 +13,7 @@ import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 
 import { ClackLive, type Clack } from "../clack-effect/service.js";
+import { LockfileService, LockfileServiceLive } from "../lockfile/index.js";
 import { SettingsService, SettingsServiceLive } from "../settings/index.js";
 import {
   WorkspaceContextTag,
@@ -53,18 +54,19 @@ export const Runtime = ManagedRuntime.make(AppLayer);
  */
 export function run<A, E>(program: Effect.Effect<A, E, AppLayer>): Promise<A>;
 export function run<A, E>(
-  program: Effect.Effect<A, E, AppLayer | WorkspaceContextTag | SettingsService>,
+  program: Effect.Effect<A, E, AppLayer | WorkspaceContextTag | SettingsService | LockfileService>,
   options: { readonly workspace: WorkspaceContextOptions },
 ): Promise<A>;
 export function run<A, E>(
-  program: Effect.Effect<A, E, AppLayer | WorkspaceContextTag | SettingsService>,
+  program: Effect.Effect<A, E, AppLayer | WorkspaceContextTag | SettingsService | LockfileService>,
   options?: { readonly workspace: WorkspaceContextOptions },
 ): Promise<A> {
   const provided = options?.workspace
     ? (() => {
         const wsLayer = workspaceLayer(options.workspace);
         const ssLayer = Layer.provide(SettingsServiceLive, wsLayer);
-        return program.pipe(Effect.provide(Layer.mergeAll(wsLayer, ssLayer)));
+        const lsLayer = Layer.provide(LockfileServiceLive, wsLayer);
+        return program.pipe(Effect.provide(Layer.mergeAll(wsLayer, ssLayer, lsLayer)));
       })()
     : (program as Effect.Effect<A, E, AppLayer>);
 

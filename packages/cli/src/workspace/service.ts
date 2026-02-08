@@ -12,13 +12,8 @@ import * as Path from "@effect/platform/Path";
 import { type AgentConfig, detectAgents, getAllAgents, getAgentById } from "../agents/index.js";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
-import {
-  type LockfileError,
-  readLockfile,
-  writeLockfile,
-  LOCKFILE_NAME,
-  type Lockfile,
-} from "../lockfile/index.js";
+import { type LockfileError, LOCKFILE_NAME } from "../lockfile/index.js";
+import { writeLockfile } from "../lockfile/lockfile.js";
 import {
   createDefaultSettings,
   readSettings,
@@ -336,7 +331,6 @@ const make = (
   FileSystem.FileSystem | Path.Path | Clack
 > =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const globalDir = yield* getAxmDir(true);
     const localDir = yield* getAxmDir(false);
     const workspaceDir = options.global ? globalDir : localDir;
@@ -347,7 +341,6 @@ const make = (
       yield* ensureProjectWorkspaceInitialized(localDir, options);
     }
 
-    const fsLayer = Layer.succeed(FileSystem.FileSystem, fs);
     const resolvedNonInteractive = Option.getOrElse(
       options.nonInteractive,
       () => process.env["CI"] === "true",
@@ -358,7 +351,6 @@ const make = (
       path: workspaceDir,
       nonInteractive: resolvedNonInteractive,
       preview: options.preview,
-      getLockfile: () => readLockfile(workspaceDir).pipe(Effect.provide(fsLayer)),
       resolvePlan: <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
         plan: Plan<Op>,
         handlers: T,
@@ -431,8 +423,6 @@ export interface WorkspaceContextService {
   readonly nonInteractive: boolean;
   /** Whether to show plan without applying (preview mode) */
   readonly preview: boolean;
-  /** Read fresh lockfile from disk. Fails if lockfile does not exist. */
-  readonly getLockfile: () => Effect.Effect<Lockfile, LockfileError>;
   /** Display, confirm, and apply a plan based on preview/yes/nonInteractive flags. */
   readonly resolvePlan: <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
     plan: Plan<Op>,

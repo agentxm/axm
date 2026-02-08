@@ -9,7 +9,7 @@ The `uninstallSkill` operation handler SHALL implement `OperationHandler<Uninsta
 - **WHEN** the operation targets a skill present in the lockfile and no agent filter is provided
 - **THEN** the handler SHALL remove agent symlinks/copies for all agents listed in the lockfile entry
 - **AND** remove the canonical directory at `.agents/skills/{sanitizedName}`
-- **AND** remove the lockfile entry via `removeLockEntry`
+- **AND** remove the lockfile entry via `LockfileService.removeEntry()`
 - **AND** return `{ result: "success", message: "Uninstalled <skill-name>" }`
 
 #### Scenario: Full uninstall — skill not in lockfile but exists on disk
@@ -31,7 +31,7 @@ When the operation args include a non-empty `agents` array, the handler SHALL on
 
 - **WHEN** the operation includes an agent filter and the lockfile entry has agents beyond those being removed
 - **THEN** the handler SHALL remove symlinks only for the specified agents
-- **AND** update the lockfile entry's agents array to exclude the removed agents
+- **AND** update the lockfile entry's agents array to exclude the removed agents via `LockfileService.updateEntry()`
 - **AND** SHALL NOT remove the canonical directory
 - **AND** return `{ result: "success", message: "Uninstalled <skill-name> from <agent-list>" }`
 
@@ -40,8 +40,17 @@ When the operation args include a non-empty `agents` array, the handler SHALL on
 - **WHEN** the operation includes an agent filter and removing those agents leaves the lockfile entry with an empty agents array
 - **THEN** the handler SHALL remove symlinks for the specified agents
 - **AND** remove the canonical directory
-- **AND** remove the lockfile entry
+- **AND** remove the lockfile entry via `LockfileService.removeEntry()`
 - **AND** return `{ result: "success", message: "Uninstalled <skill-name>" }`
+
+### Requirement: Lockfile reads use LockfileService
+
+The handler SHALL read lockfile data via `LockfileService` instead of `WorkspaceContextService.getLockfile()` or standalone functions.
+
+#### Scenario: Read lockfile for agent list
+
+- **WHEN** the handler needs the lockfile entry for a skill (e.g., to get the agents list for targeted uninstall)
+- **THEN** it SHALL use `LockfileService.getEntry()` to retrieve the entry
 
 ### Requirement: Removal order
 
@@ -52,31 +61,9 @@ The handler SHALL remove agent symlinks before removing the canonical directory,
 - **WHEN** performing a full uninstall
 - **THEN** all agent symlinks SHALL be removed before the canonical directory is removed
 
-### Requirement: Lockfile operation errors propagate
-
-The handler SHALL let lockfile read and write errors propagate rather than silently swallowing them. Silent swallowing of lockfile errors leads to inconsistent workspace state.
-
-#### Scenario: Corrupt lockfile produces error, not empty fallback
-
-- **WHEN** the executor reads the lockfile and it exists but fails to parse (`LockfileParseError`)
-- **THEN** the handler SHALL let the error propagate
-- **AND** SHALL NOT substitute an empty lockfile
-
-#### Scenario: Lockfile write failure during partial uninstall propagates
-
-- **WHEN** the executor calls `updateLockEntry` during a partial uninstall and the write fails (`LockfileWriteError`)
-- **THEN** the handler SHALL let the error propagate
-- **AND** the step SHALL be reported as failed
-
-#### Scenario: Lockfile write failure during full uninstall propagates
-
-- **WHEN** the executor calls `removeLockEntry` during a full uninstall and the write fails (`LockfileWriteError`)
-- **THEN** the handler SHALL let the error propagate
-- **AND** the step SHALL be reported as failed
-
 ### Requirement: Graceful handling of missing files
 
-The handler SHALL not fail if files or directories are already absent from disk. This applies to filesystem operations (symlink removal, canonical directory removal) only — not to lockfile operations.
+The handler SHALL not fail if files or directories are already absent from disk.
 
 #### Scenario: Canonical directory already missing
 
@@ -87,11 +74,6 @@ The handler SHALL not fail if files or directories are already absent from disk.
 
 - **WHEN** an agent symlink does not exist on disk
 - **THEN** the handler SHALL skip removal without error and continue
-
-#### Scenario: Missing lockfile treated as empty
-
-- **WHEN** the executor reads the lockfile and the file does not exist (`LockfileNotFoundError`)
-- **THEN** the handler SHALL treat it as an empty lockfile and continue
 
 ### Requirement: Settings updated after successful full uninstall
 

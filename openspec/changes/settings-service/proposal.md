@@ -32,7 +32,7 @@ A dedicated `SettingsService` centralizes all settings I/O behind an Effect serv
 - **`packages/cli/src/settings/index.ts`** — Barrel updated: remove I/O function exports, add `SettingsService` export
 - **`packages/cli/src/workspace/service.ts`** — Remove `getSettings()` from `WorkspaceContextService` interface; workspace initialization settings writes remain internal (raw functions)
 - **`packages/cli/src/workspace/ensure-agents.ts`** — Uses `SettingsService.addAgent()` instead of `addAgentToWorkspace()`; remove `concurrency: 1` workaround; remove `getSettings` from `EnsureAgentsOptions`
-- **`packages/cli/src/cli-commands/skills/install/handler.ts`** — Reads agents via `SettingsService.getAgents()` instead of `ws.getSettings()`
+- **`packages/cli/src/cli-commands/skills/install/handler.ts`** — Reads agents via `SettingsService.getAgents()` instead of `context.getSettings()` (via `WorkspaceContextTag`)
 - **`packages/cli/src/cli-commands/skills/install/install-skill.ts`** — Calls `SettingsService.addSkill()` after successful installation; gains `SettingsService` dependency
 - **`packages/cli/src/cli-commands/skills/uninstall/uninstall-skill.ts`** — Calls `SettingsService.removeSkill()` after successful removal; gains `SettingsService` dependency
 - **`packages/cli/src/cli-commands/init/handler.ts`** — Reads agents via `SettingsService.getAgents()` instead of `context.getSettings()`

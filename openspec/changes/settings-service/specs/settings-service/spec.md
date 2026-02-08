@@ -48,13 +48,13 @@ The system SHALL provide an `addSkill` method that adds or updates a single skil
 
 #### Scenario: Add a new skill
 
-- **WHEN** a caller invokes `addSkill("code-review", "^1.0.0")`
-- **THEN** the service adds `"code-review": "^1.0.0"` to the skills map (preserving existing skills) and writes to disk
+- **WHEN** a caller invokes `addSkill("code-review", "@community/code-review@^1.0.0")`
+- **THEN** the service adds `"code-review": "@community/code-review@^1.0.0"` to the skills map (preserving existing skills) and writes to disk
 
 #### Scenario: Update an existing skill
 
-- **WHEN** a caller invokes `addSkill("code-review", "^2.0.0")` and `"code-review"` already exists
-- **THEN** the service updates the version to `"^2.0.0"` and writes to disk
+- **WHEN** a caller invokes `addSkill("code-review", "@community/code-review@^2.0.0")` and `"code-review"` already exists
+- **THEN** the service updates the source to `"@community/code-review@^2.0.0"` and writes to disk
 
 #### Scenario: Concurrent addSkill calls do not lose data
 

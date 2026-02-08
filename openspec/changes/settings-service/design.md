@@ -75,7 +75,7 @@ interface SettingsService {
   readonly getSkills: () => Effect<SkillsMap, SettingsError>;
 
   // --- Mutations (acquire semaphore for read-modify-write) ---
-  readonly addSkill: (name: string, version: string) => Effect<void, SettingsError>;
+  readonly addSkill: (name: string, source: string) => Effect<void, SettingsError>;
   readonly removeSkill: (name: string) => Effect<void, SettingsError>;
   readonly addAgent: (agentId: string) => Effect<void, SettingsError>;
 }

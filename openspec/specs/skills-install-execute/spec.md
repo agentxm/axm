@@ -2,8 +2,6 @@
 
 The `executeAddSkill` function SHALL orchestrate the full per-skill installation pipeline: sanitize name, validate paths, copy files to canonical location, symlink from agent directories, and update the lockfile.
 
-`InstallError` SHALL use `cause: unknown` (not `Option<unknown>`) for its cause field, consistent with the standard `Data.TaggedError` convention. Call sites SHALL pass the error directly (not wrapped in `Option.some`) or `undefined` when no cause exists (not `Option.none()`).
-
 #### Scenario: Sanitize skill name for canonical path
 
 - **WHEN** executing an `AddSkillOperation`
@@ -52,11 +50,11 @@ The `executeAddSkill` function SHALL orchestrate the full per-skill installation
 #### Scenario: Lockfile updated after installation
 
 - **WHEN** skill files and symlinks are successfully created
-- **THEN** `updateLockEntry` SHALL be called with the skill name and a lock entry from `sourceToLockEntry`
+- **THEN** `LockfileService.updateEntry()` SHALL be called with the skill name and a lock entry from `sourceToLockEntry`
 
 #### Scenario: Lockfile write failure does not fail installation
 
-- **WHEN** `updateLockEntry` fails
+- **WHEN** `LockfileService.updateEntry()` fails
 - **THEN** the failure SHALL be silently swallowed
 - **AND** the installation SHALL still be considered successful
 

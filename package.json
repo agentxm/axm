@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "axm": "bun packages/cli/src/main.ts",
+    "axm-dev": "bun packages/cli/src/dev-main.ts",
     "build": "pnpm -r build",
     "test": "vitest run",
     "test:e2e": "vitest run --root packages/cli -c vitest.e2e.config.ts",

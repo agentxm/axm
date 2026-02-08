@@ -16,6 +16,11 @@ import { execa } from "execa";
 const CLI_PATH = path.resolve(import.meta.dirname, "../main.ts");
 
 /**
+ * Path to the dev CLI entry point.
+ */
+const DEV_CLI_PATH = path.resolve(import.meta.dirname, "../dev-main.ts");
+
+/**
  * Result from running the CLI.
  */
 export interface CliResult {
@@ -39,6 +44,27 @@ export interface RunCliOptions {
   timeout?: number;
 }
 
+async function run(
+  entryPoint: string,
+  args: ReadonlyArray<string>,
+  options: RunCliOptions = {},
+): Promise<CliResult> {
+  const { cwd = process.cwd(), env = {}, timeout = 30000 } = options;
+
+  const result = await execa("bun", ["run", entryPoint, ...args], {
+    cwd,
+    env: { ...process.env, ...env, NO_COLOR: "1" },
+    timeout,
+    reject: false,
+  });
+
+  return {
+    exitCode: result.exitCode ?? 1,
+    stdout: result.stdout as string,
+    stderr: result.stderr as string,
+  };
+}
+
 /**
  * Run the CLI with the given arguments.
  *
@@ -56,20 +82,27 @@ export async function runCli(
   args: ReadonlyArray<string>,
   options: RunCliOptions = {},
 ): Promise<CliResult> {
-  const { cwd = process.cwd(), env = {}, timeout = 30000 } = options;
+  return run(CLI_PATH, args, options);
+}
 
-  const result = await execa("bun", ["run", CLI_PATH, ...args], {
-    cwd,
-    env: { ...process.env, ...env, NO_COLOR: "1" },
-    timeout,
-    reject: false,
-  });
-
-  return {
-    exitCode: result.exitCode ?? 1,
-    stdout: result.stdout as string,
-    stderr: result.stderr as string,
-  };
+/**
+ * Run the dev CLI with the given arguments.
+ *
+ * @param args - Command-line arguments to pass to the dev CLI
+ * @param options - Options for the CLI process
+ * @returns The CLI result including exit code, stdout, and stderr
+ *
+ * @example
+ * ```ts
+ * const result = await runDevCli(["tui", "log"]);
+ * expect(result.exitCode).toBe(0);
+ * ```
+ */
+export async function runDevCli(
+  args: ReadonlyArray<string>,
+  options: RunCliOptions = {},
+): Promise<CliResult> {
+  return run(DEV_CLI_PATH, args, options);
 }
 
 /**

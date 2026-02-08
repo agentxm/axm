@@ -31,8 +31,7 @@ export {
   LockfileNotFoundError,
   LockfileParseError,
   LockfileWriteError,
-  readLockfile,
-  removeLockEntry,
-  updateLockEntry,
-  writeLockfile,
 } from "./lockfile.js";
+
+// Lockfile service
+export { LockfileService, LockfileServiceLive } from "./service.js";

@@ -6,7 +6,11 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
+import { LockfileService, LockfileWriteError } from "../../../lockfile/index.js";
+import type { LockfileServiceInterface } from "../../../lockfile/service.js";
+import type { SkillLockEntry } from "../../../lockfile/schema.js";
 import {
   SettingsService,
   SettingsWriteError,
@@ -30,7 +34,44 @@ const makeSettingsServiceMock = () => {
   return { mock, addSkillFn };
 };
 
-/** Creates a layer providing FileSystem + a minimal Workspace service + SettingsService. */
+/** Creates a mock LockfileService that writes to disk via the real lockfile path. */
+const makeLockfileServiceMock = (axmDir: string): LockfileServiceInterface => {
+  const readLf = () => {
+    const lfPath = path.join(axmDir, "axm-lock.yaml");
+    if (!fs.existsSync(lfPath)) return { lockfileVersion: 1, skills: {} };
+    return YAML.parse(fs.readFileSync(lfPath, "utf-8"));
+  };
+  const writeLf = (data: unknown) => {
+    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(data));
+  };
+  return {
+    getSkills: () => Effect.succeed(readLf().skills ?? {}),
+    getEntry: (name: string) =>
+      Effect.succeed(Option.fromNullable(readLf().skills?.[name] as SkillLockEntry | undefined)),
+    updateEntry: (name: string, entry: SkillLockEntry) =>
+      Effect.try({
+        try: () => {
+          const lf = readLf();
+          lf.skills[name] = { ...entry, updatedAt: new Date().toISOString() };
+          writeLf(lf);
+        },
+        catch: (error) =>
+          new LockfileWriteError({ message: "Mock write failed", cause: error, retryable: false }),
+      }),
+    removeEntry: (name: string) =>
+      Effect.try({
+        try: () => {
+          const lf = readLf();
+          delete lf.skills[name];
+          writeLf(lf);
+        },
+        catch: (error) =>
+          new LockfileWriteError({ message: "Mock write failed", cause: error, retryable: false }),
+      }),
+  };
+};
+
+/** Creates a layer providing FileSystem + a minimal Workspace service + SettingsService + LockfileService. */
 const withServices = (
   axmDir: string,
   ssMock?: { mock: SettingsServiceInterface; addSkillFn: ReturnType<typeof vi.fn> },
@@ -40,7 +81,6 @@ const withServices = (
     path: axmDir,
     nonInteractive: true,
     preview: false,
-    getLockfile: () => Effect.succeed({ lockfileVersion: 1, skills: {} }),
     resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
   };
   const ssService = ssMock?.mock ?? makeSettingsServiceMock().mock;
@@ -48,6 +88,7 @@ const withServices = (
     NodeContext.layer,
     Workspace.layer(mockWs),
     Layer.succeed(SettingsService, ssService),
+    Layer.succeed(LockfileService, makeLockfileServiceMock(axmDir)),
   );
 };
 

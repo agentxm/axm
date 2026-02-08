@@ -20,6 +20,7 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Clack } from "../../../clack-effect/index.js";
+import { LockfileService } from "../../../lockfile/index.js";
 import { SettingsService } from "../../../settings/index.js";
 import { formatError } from "../../../utils/errors.js";
 import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
@@ -190,7 +191,9 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       );
 
       // Build plan
-      const lockfile = yield* ws.getLockfile();
+      const ls = yield* LockfileService;
+      const lockedSkills = yield* ls.getSkills();
+      const lockfile = { lockfileVersion: 1, skills: lockedSkills };
       const plan = buildPlan(
         ops,
         lockfile,

@@ -145,10 +145,10 @@
   - Added RawLockfileSchema, RawLockEntrySchema, V1NestedSourceSchema, V1LocationSchema
   - YAML.parse now validates against schema before processing
 - [x] 8.3 Verify typecheck passes after load-state Schema validation
-- [x] 8.4 SKIPPED - No unsafe Settings casts remain
-- [x] 8.5 Add Schema validation for Settings casts in `workspace/service.ts` (line 170)
+- [x] 8.4 SKIPPED - No unsafe Settings type assertions remain
+- [x] 8.5 Add Schema validation for Settings type assertions in `workspace/service.ts` (line 170)
   - Changed to `{ agents: agentIds } satisfies Settings`
-- [x] 8.6 Add Schema validation for Settings casts in `workspace/service.ts` (line 280)
+- [x] 8.6 Add Schema validation for Settings type assertions in `workspace/service.ts` (line 280)
   - Changed `{} as Settings` to `createDefaultSettings()`
 - [x] 8.7 Verify typecheck passes after service.ts Schema validation
 - [x] 8.8-8.9 Run typecheck/lint

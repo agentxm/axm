@@ -225,12 +225,12 @@ const getPath = (source: Source): Effect.Effect<string, SourceError> =>
 
 **Exception:** Functions named `unsafe*` or `*OrThrow` may throw intentionally (like `Option.getOrThrow`). Use this pattern sparingly for escape hatches where the caller explicitly opts out of Effect error handling.
 
-### Casting Parsed Data Without Validation
+### Type Assertions Without Validation
 
 Always validate external data with Schema:
 
 ```typescript
-// ❌ Cast without validation — runtime errors later
+// ❌ Type assertion without validation — runtime errors later
 const data = yield * Effect.try({ try: () => YAML.parse(content) as Config });
 
 // ✅ Schema validation catches issues at parse time
@@ -387,7 +387,7 @@ Effect.catchAllCause(program, (cause) => {
 - [ ] **Preserve cause** — Always include `cause: unknown` in error constructors
 - [ ] **Convert at source** — Transform library errors to domain errors immediately
 - [ ] **Never throw in helpers** — Return typed Effect errors (exception: `unsafe*`/`*OrThrow`)
-- [ ] **Validate parsed data** — Use Schema.decodeUnknown, not type casts
+- [ ] **Validate parsed data** — Use Schema.decodeUnknown, not type assertions
 - [ ] **Use catchTag** — Narrow error unions, prove exhaustive handling
 - [ ] **orDie sparingly** — Only when no caller can recover
 - [ ] **No yield\* = no execution** — Always yield effects in generators

@@ -122,7 +122,7 @@ const getSourcePath = (source: SkillSourceV2) =>
 **Decision:** Add Schema validation for:
 
 - `YAML.parse` in `load-state.ts` (RawLockfile parsing)
-- Settings casts in `service.ts`
+- Settings type assertions in `service.ts`
 
 **Pattern:**
 
@@ -439,7 +439,7 @@ Note: `extensions/skills/git.ts` lines 181, 187 throw inside `Effect.tryPromise`
 
 - Line 38: `Effect.runPromise(program).catch(...)`
 
-### 7. Type Casts Without Validation
+### 7. Type Assertions Without Validation
 
 **workspace/service.ts**
 
@@ -457,13 +457,13 @@ Note: `extensions/skills/git.ts` lines 181, 187 throw inside `Effect.tryPromise`
 
 ### Summary
 
-| Category            | Files         | Instances        |
-| ------------------- | ------------- | ---------------- |
-| Optional properties | 17            | ~80              |
-| Array types         | 12            | ~60              |
-| Record types        | 5             | 10               |
-| Re-exports          | 3             | ~48              |
-| Throwing functions  | 1             | 1                |
-| Promise .catch()    | 1             | 1                |
-| Unsafe casts        | 3             | 5                |
-| **Total**           | **~20 files** | **~210 changes** |
+| Category               | Files         | Instances        |
+| ---------------------- | ------------- | ---------------- |
+| Optional properties    | 17            | ~80              |
+| Array types            | 12            | ~60              |
+| Record types           | 5             | 10               |
+| Re-exports             | 3             | ~48              |
+| Throwing functions     | 1             | 1                |
+| Promise .catch()       | 1             | 1                |
+| Unsafe type assertions | 3             | 5                |
+| **Total**              | **~20 files** | **~210 changes** |

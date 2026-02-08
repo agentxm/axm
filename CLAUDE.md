@@ -144,17 +144,17 @@ import { WorkspaceError } from "@/errors";
 
 ### Minimize Type Assertions
 
-Avoid `as` casts. Prefer type-safe alternatives:
+Avoid `as` type assertions. Prefer type-safe alternatives:
 
-| Pattern                  | Solution                                     |
-| ------------------------ | -------------------------------------------- |
-| `"literal" as UnionType` | Use `satisfies` on the object                |
-| Mutable optional props   | Spread conditionals `...(x && { x })`        |
-| Mock objects             | Cast once at boundary with `as unknown as T` |
-| Caught errors            | Use type guards or Effect's Cause utilities  |
-| Discriminated unions     | Check `_tag` first, then TS narrows for you  |
+| Pattern                  | Solution                                       |
+| ------------------------ | ---------------------------------------------- |
+| `"literal" as UnionType` | Use `satisfies` on the object                  |
+| Mutable optional props   | Spread conditionals `...(x && { x })`          |
+| Mock objects             | Assert once at boundary with `as unknown as T` |
+| Caught errors            | Use type guards or Effect's Cause utilities    |
+| Discriminated unions     | Check `_tag` first, then TS narrows for you    |
 
-**`satisfies` over casting:**
+**`satisfies` over type assertions:**
 
 ```typescript
 // Bad: type assertion
@@ -167,7 +167,7 @@ return { type: "local", ... } satisfies ParsedSource;
 **Conditional optional properties:**
 
 ```typescript
-// Bad: mutation with cast
+// Bad: mutation with type assertion
 const obj: T = { required };
 if (optional) (obj as { opt?: string }).opt = optional;
 
@@ -178,7 +178,7 @@ const obj: T = { required, ...(optional && { optional }) };
 **Complex interface mocks (yargs, etc.):**
 
 ```typescript
-// Acceptable: cast once at boundary, not throughout
+// Acceptable: type assertion once at boundary, not throughout
 const mock = { method: vi.fn().mockReturnThis() };
 builder(mock as unknown as ComplexInterface);
 ```
@@ -186,7 +186,7 @@ builder(mock as unknown as ComplexInterface);
 **Library types that don't narrow (e.g., @clack/prompts):**
 
 ```typescript
-// Bad: cast after cancel check (TS doesn't narrow)
+// Bad: type assertion after cancel check (TS doesn't narrow)
 if (p.isCancel(result)) {
   process.exit(0);
 }
@@ -202,8 +202,8 @@ if (p.isCancel(result)) {
 assertNotCancel(result);
 const value = result; // TS knows it's string
 
-// Acceptable: cast with comment when library loses type info (e.g., dynamic config)
-// Cast needed: multiselect config loses generic type info due to dynamic construction
+// Acceptable: type assertion with comment when library loses type info (e.g., dynamic config)
+// Assertion needed: multiselect config loses generic type info due to dynamic construction
 const indices = result as number[];
 ```
 
@@ -222,12 +222,12 @@ type Source = GitHub | Local;
 
 Equal.equals(sourceA, sourceB); // structural comparison built-in
 
-// Acceptable: cast with comment when not using Data module
+// Acceptable: type assertion with comment when not using Data module
 const compare = (a: Source, b: Source): boolean => {
   if (a._tag !== b._tag) return false;
   switch (a._tag) {
     case "GitHub": {
-      // Cast needed: TS doesn't correlate a._tag === b._tag check
+      // Assertion needed: TS doesn't correlate a._tag === b._tag check
       const bGH = b as typeof a;
       return a.owner === bGH.owner && a.repo === bGH.repo;
     }
@@ -240,7 +240,7 @@ const compare = (a: Source, b: Source): boolean => {
 **Effect type widening:**
 
 ```typescript
-// Bad: cast the value
+// Bad: type assertion
 Effect.succeed(undefined as Settings | undefined);
 Effect.succeed([] as string[]);
 
@@ -252,7 +252,7 @@ Effect.succeed<string[]>([]);
 **JSON parsing - always validate:**
 
 ```typescript
-// Bad: cast without validation
+// Bad: type assertion without validation
 const data = JSON.parse(content) as Config;
 
 // Good: Schema validation
@@ -419,7 +419,7 @@ Effect.tryPromise({
 **Always validate parsed data with Schema:**
 
 ```typescript
-// Bad: cast without validation
+// Bad: type assertion without validation
 const data = yield * Effect.try({ try: () => YAML.parse(content) as Config });
 
 // Good: Schema validation

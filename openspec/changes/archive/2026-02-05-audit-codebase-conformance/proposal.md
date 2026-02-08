@@ -15,9 +15,9 @@ The codebase has drifted from CLAUDE.md conventions over time. Key Effect patter
   - `cli-commands/skills/display.ts` re-exports 3 items from workspace
   - Consumer files must be updated to import from owning modules
 - **Convert throwing helper to Effect** in `workspace/apply.ts` (`getSourcePath` function)
-- **Add Schema validation** for `YAML.parse` in `workspace/load-state.ts` (currently casts without validation)
+- **Add Schema validation** for `YAML.parse` in `workspace/load-state.ts` (currently uses type assertions without validation)
 - **Replace Promise .catch() with Effect error handling** in `main.ts:38-41`
-- **Add Schema validation for Settings casts** in `workspace/service.ts:170,280`
+- **Add Schema validation for Settings type assertions** in `workspace/service.ts:170,280`
 
 ### Lower Priority
 

@@ -49,14 +49,15 @@
     }
   },
   "bin": {
-    "axm": "./src/main.ts"
+    "axm": "./src/main.ts",
+    "axm-dev": "./src/dev-main.ts"
   },
   "scripts": {
     "build": "tsc",
     "generate:schemas": "bun scripts/generate-schemas.ts",
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
-    "tui": "bun src/dev/tui.ts",
+    "axm-dev": "bun src/dev-main.ts",
     "typecheck": "tsc --noEmit"
   },
   "engines": {

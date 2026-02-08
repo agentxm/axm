@@ -13,6 +13,7 @@ import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 
 import { ClackLive, type Clack } from "../clack-effect/service.js";
+import { SettingsService, SettingsServiceLive } from "../settings/index.js";
 import {
   WorkspaceContextTag,
   layer as workspaceLayer,
@@ -52,15 +53,19 @@ export const Runtime = ManagedRuntime.make(AppLayer);
  */
 export function run<A, E>(program: Effect.Effect<A, E, AppLayer>): Promise<A>;
 export function run<A, E>(
-  program: Effect.Effect<A, E, AppLayer | WorkspaceContextTag>,
+  program: Effect.Effect<A, E, AppLayer | WorkspaceContextTag | SettingsService>,
   options: { readonly workspace: WorkspaceContextOptions },
 ): Promise<A>;
 export function run<A, E>(
-  program: Effect.Effect<A, E, AppLayer | WorkspaceContextTag>,
+  program: Effect.Effect<A, E, AppLayer | WorkspaceContextTag | SettingsService>,
   options?: { readonly workspace: WorkspaceContextOptions },
 ): Promise<A> {
   const provided = options?.workspace
-    ? program.pipe(Effect.provide(workspaceLayer(options.workspace)))
+    ? (() => {
+        const wsLayer = workspaceLayer(options.workspace);
+        const ssLayer = Layer.provide(SettingsServiceLive, wsLayer);
+        return program.pipe(Effect.provide(Layer.mergeAll(wsLayer, ssLayer)));
+      })()
     : (program as Effect.Effect<A, E, AppLayer>);
 
   return provided.pipe(

@@ -20,13 +20,12 @@ import {
 } from "../lockfile/index.js";
 import {
   createDefaultSettings,
-  readSettings,
   type SettingsError,
   SettingsParseError,
-  writeSettings,
   SETTINGS_FILENAME,
   type Settings,
 } from "../settings/index.js";
+import { readSettings, writeSettings } from "../settings/settings.js";
 import { getAxmDir } from "./paths.js";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -364,7 +363,6 @@ const make = (
       path: workspaceDir,
       nonInteractive: resolvedNonInteractive,
       preview: options.preview,
-      getSettings: () => readSettings(workspaceDir).pipe(Effect.provide(fsLayer)),
       getLockfile: () => readLockfile(workspaceDir).pipe(Effect.provide(fsLayer)),
       resolvePlan: <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
         plan: Plan<Op>,
@@ -438,8 +436,6 @@ export interface WorkspaceContextService {
   readonly nonInteractive: boolean;
   /** Whether to show plan without applying (preview mode) */
   readonly preview: boolean;
-  /** Read fresh settings from disk. Fails if settings file does not exist. */
-  readonly getSettings: () => Effect.Effect<Settings, SettingsError>;
   /** Read fresh lockfile from disk. Fails if lockfile does not exist. */
   readonly getLockfile: () => Effect.Effect<Lockfile, LockfileError>;
   /** Display, confirm, and apply a plan based on preview/yes/nonInteractive flags. */

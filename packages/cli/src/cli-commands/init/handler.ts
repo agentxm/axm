@@ -11,6 +11,7 @@ import { getAgentById } from "../../agents/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Clack } from "../../clack-effect/index.js";
+import { SettingsService } from "../../settings/index.js";
 import { WorkspaceContextTag } from "../../workspace/index.js";
 
 // -----------------------------------------------------------------------------
@@ -36,8 +37,8 @@ export const handleInit = () =>
     yield* clack.intro(`axm init (${scopeLabel})`);
 
     // Display result
-    const settings = yield* context.getSettings();
-    const agentIds = settings.agents ?? [];
+    const ss = yield* SettingsService;
+    const agentIds = yield* ss.getAgents();
     const agentNames = agentIds
       .map((id) =>
         Option.getOrElse(

@@ -20,6 +20,7 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Clack } from "../../../clack-effect/index.js";
+import { SettingsService } from "../../../settings/index.js";
 import { formatError } from "../../../utils/errors.js";
 import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
 import type { AddSkillOperation } from "../operations.js";
@@ -172,7 +173,8 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         return;
       }
 
-      const agentIds: readonly string[] = (yield* ws.getSettings()).agents ?? [];
+      const ss = yield* SettingsService;
+      const agentIds = yield* ss.getAgents();
 
       const ops = selectedSkills.map(
         (s) =>

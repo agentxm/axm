@@ -15,7 +15,7 @@ import * as Option from "effect/Option";
 import { pipe } from "effect/Function";
 import { type AgentConfig, getAgentById } from "../agents/index.js";
 import { Clack } from "../clack-effect/index.js";
-import { type Settings, type SettingsError, addAgentToWorkspace } from "../settings/index.js";
+import { SettingsService } from "../settings/index.js";
 import { isInteractive } from "../utils/tty.js";
 
 // -----------------------------------------------------------------------------
@@ -43,10 +43,6 @@ export class EnsureAgentsError extends Data.TaggedError("EnsureAgentsError")<{
 export interface EnsureAgentsOptions {
   /** Agent IDs from --agent CLI flag */
   readonly agentFlags: readonly string[];
-  /** Path to the .axm directory */
-  readonly workspacePath: string;
-  /** Read fresh settings from disk */
-  readonly getSettings: () => Effect.Effect<Settings, SettingsError>;
   /** Skip confirmation prompts */
   readonly yes: boolean;
   /** Disable all prompts */
@@ -77,6 +73,7 @@ export interface EnsureAgentsOptions {
 export const ensureAgentsConfigured = (opts: EnsureAgentsOptions) =>
   Effect.gen(function* () {
     const clack = yield* Clack;
+    const ss = yield* SettingsService;
 
     let agents: AgentConfig[];
 
@@ -98,11 +95,7 @@ export const ensureAgentsConfigured = (opts: EnsureAgentsOptions) =>
 
       // Check which agents are not yet in settings
       if (agents.length > 0) {
-        const settingsResult = yield* opts.getSettings().pipe(
-          Effect.map((s) => s.agents ?? []),
-          Effect.catchTag("SettingsNotFoundError", () => Effect.succeed<readonly string[]>([])),
-        );
-        const settingsAgents = settingsResult;
+        const settingsAgents = yield* ss.getAgents();
         const unconfigured = Array.filter(agents, (a) => !settingsAgents.includes(a.id));
 
         if (unconfigured.length > 0) {
@@ -119,21 +112,15 @@ export const ensureAgentsConfigured = (opts: EnsureAgentsOptions) =>
           }
 
           if (shouldAdd) {
-            yield* Effect.forEach(
-              unconfigured,
-              (a) => addAgentToWorkspace(opts.workspacePath, a.id),
-              { concurrency: 1 },
-            ).pipe(
-              // Best-effort: don't fail if settings file doesn't exist yet
-              Effect.catchTag("SettingsNotFoundError", () => Effect.void),
+            yield* Effect.forEach(unconfigured, (a) => ss.addAgent(a.id)).pipe(
+              Effect.catchAll(() => Effect.void),
             );
           }
         }
       }
     } else {
       // Resolve from settings
-      const settings = yield* opts.getSettings();
-      const settingsAgents = settings.agents ?? [];
+      const settingsAgents = yield* ss.getAgents();
       agents = pipe(
         settingsAgents,
         Array.map((id) => getAgentById(id)),

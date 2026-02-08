@@ -10,7 +10,8 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { type Clack, makeClackTestLayer } from "../clack-effect/index.js";
 import type { Settings } from "../settings/index.js";
-import { readSettings } from "../settings/index.js";
+import { SettingsService, SettingsServiceLive } from "../settings/index.js";
+import { Workspace } from "./service.js";
 import { ensureAgentsConfigured, EnsureAgentsError } from "./ensure-agents.js";
 
 // Mock TTY utilities so isInteractive() returns true in tests
@@ -42,19 +43,26 @@ describe("ensureAgentsConfigured", () => {
       selectBehavior: Option.none(),
       multiselectBehavior: Option.none(),
     });
-    const TestLayer = Layer.merge(NodeFileSystem.layer, ClackLayer);
+    const WsLayer = Workspace.layer({
+      global: false,
+      path: axmDir,
+      nonInteractive: true,
+      preview: false,
+      getLockfile: () => Effect.succeed({ lockfileVersion: 1, skills: {} }),
+      resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
+    });
+    const SSLayer = Layer.provide(SettingsServiceLive, Layer.merge(WsLayer, NodeFileSystem.layer));
+    const TestLayer = Layer.mergeAll(NodeFileSystem.layer, ClackLayer, SSLayer);
     return { TestLayer, mockClack };
   };
 
   const withLayer =
-    (layer: Layer.Layer<FileSystem.FileSystem | Clack>) =>
-    <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Clack>) =>
+    (layer: Layer.Layer<FileSystem.FileSystem | Clack | SettingsService>) =>
+    <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Clack | SettingsService>) =>
       effect.pipe(Effect.provide(layer));
 
   const baseOpts = (overrides?: Partial<Parameters<typeof ensureAgentsConfigured>[0]>) => ({
     agentFlags: [] as readonly string[],
-    workspacePath: axmDir,
-    getSettings: () => readSettings(axmDir).pipe(Effect.provide(NodeFileSystem.layer)),
     yes: false,
     nonInteractive: false,
     ...overrides,
@@ -165,7 +173,9 @@ describe("ensureAgentsConfigured", () => {
           expect(agents).toHaveLength(1);
 
           // Verify agent was persisted to settings
-          const settings = yield* readSettings(axmDir);
+          const settings = JSON.parse(
+            fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8"),
+          ) as Settings;
           expect(settings.agents).toContain("claude-code");
         }),
       );
@@ -183,7 +193,9 @@ describe("ensureAgentsConfigured", () => {
           expect(agents).toHaveLength(1);
 
           // Settings should NOT be updated
-          const settings = yield* readSettings(axmDir);
+          const settings = JSON.parse(
+            fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8"),
+          ) as Settings;
           expect(settings.agents ?? []).not.toContain("claude-code");
         }),
       );
@@ -202,7 +214,9 @@ describe("ensureAgentsConfigured", () => {
           expect(agents).toHaveLength(1);
 
           // Should be persisted without prompting
-          const settings = yield* readSettings(axmDir);
+          const settings = JSON.parse(
+            fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8"),
+          ) as Settings;
           expect(settings.agents).toContain("claude-code");
         }),
       );
@@ -220,7 +234,9 @@ describe("ensureAgentsConfigured", () => {
 
           expect(agents).toHaveLength(1);
 
-          const settings = yield* readSettings(axmDir);
+          const settings = JSON.parse(
+            fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8"),
+          ) as Settings;
           expect(settings.agents).toContain("claude-code");
         }),
       );
@@ -239,7 +255,9 @@ describe("ensureAgentsConfigured", () => {
           expect(agents).toHaveLength(1);
 
           // Settings should be unchanged
-          const settings = yield* readSettings(axmDir);
+          const settings = JSON.parse(
+            fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8"),
+          ) as Settings;
           expect(settings.agents).toEqual(["claude-code"]);
         }),
       );

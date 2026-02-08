@@ -7,7 +7,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
-import { afterEach, beforeEach } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
+import {
+  SettingsService,
+  SettingsWriteError,
+  type SettingsServiceInterface,
+} from "../../../settings/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import type { UninstallSkillOperation } from "../operations.js";
 import { uninstallSkill } from "./uninstall-skill.js";
@@ -16,19 +21,27 @@ import { uninstallSkill } from "./uninstall-skill.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-/** Creates a layer providing FileSystem + Path + a minimal Workspace service. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
-const withServices = (axmDir: string, lockfileSkills: Record<string, any> = {}) => {
+/** Creates a layer providing FileSystem + Path + a minimal Workspace + SettingsService. */
+const withServices = (
+  axmDir: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
+  lockfileSkills: Record<string, any> = {},
+  ssMock?: SettingsServiceInterface,
+) => {
   const mockWs: WorkspaceContextService = {
     global: false,
     path: axmDir,
     nonInteractive: true,
     preview: false,
-    getSettings: () => Effect.succeed({ agents: [] }),
     getLockfile: () => Effect.succeed({ lockfileVersion: 1, skills: lockfileSkills }),
     resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
   };
-  return Layer.merge(NodeContext.layer, Workspace.layer(mockWs));
+  const ssService = ssMock ?? makeSettingsServiceMock().mock;
+  return Layer.mergeAll(
+    NodeContext.layer,
+    Workspace.layer(mockWs),
+    Layer.succeed(SettingsService, ssService),
+  );
 };
 
 /** Creates a minimal UninstallSkillOperation for testing. */
@@ -72,6 +85,20 @@ const makeLocalLockEntryYaml = (agents: string[]) => ({
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
+
+/** Creates a mock SettingsService with a spy on removeSkill. */
+const makeSettingsServiceMock = () => {
+  const removeSkillFn = vi.fn((_name: string) => Effect.void);
+  const mock: SettingsServiceInterface = {
+    getScope: () => Effect.succeed("@community"),
+    getAgents: () => Effect.succeed<ReadonlyArray<string>>([]),
+    getSkills: () => Effect.succeed({}),
+    addSkill: () => Effect.void,
+    removeSkill: (name) => removeSkillFn(name),
+    addAgent: () => Effect.void,
+  };
+  return { mock, removeSkillFn };
+};
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -191,6 +218,38 @@ describe("uninstallSkill", () => {
         expect(fs.existsSync(path.join(base, ".cursor", "skills", "my-skill"))).toBe(false);
       }),
     );
+
+    it.effect("calls SettingsService.removeSkill after full uninstall", () =>
+      Effect.gen(function* () {
+        const { axmDir, lockfileSkills } = setupWorkspace({ agents: ["claude-code"] });
+        const { mock, removeSkillFn } = makeSettingsServiceMock();
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills, mock)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(removeSkillFn).toHaveBeenCalledOnce();
+        expect(removeSkillFn).toHaveBeenCalledWith("my-skill");
+      }),
+    );
+
+    it.effect("swallows SettingsService.removeSkill failure without failing uninstall", () =>
+      Effect.gen(function* () {
+        const { axmDir, lockfileSkills } = setupWorkspace({ agents: ["claude-code"] });
+        const failingMock: SettingsServiceInterface = {
+          ...makeSettingsServiceMock().mock,
+          removeSkill: () =>
+            Effect.fail(new SettingsWriteError({ path: "", message: "write failed" })),
+        };
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills, failingMock)),
+        );
+
+        expect(result.result).toBe("success");
+      }),
+    );
   });
 
   describe("skill not in lockfile but exists on disk", () => {
@@ -257,6 +316,22 @@ describe("uninstallSkill", () => {
         const lockfile = readLockfileYaml(axmDir);
         expect(lockfile.skills["my-skill"]).toBeDefined();
         expect(lockfile.skills["my-skill"].agents).toEqual(["cursor"]);
+      }),
+    );
+
+    it.effect("does not call SettingsService.removeSkill for partial uninstall", () =>
+      Effect.gen(function* () {
+        const { axmDir, lockfileSkills } = setupWorkspace({
+          agents: ["claude-code", "cursor"],
+        });
+        const { mock, removeSkillFn } = makeSettingsServiceMock();
+
+        const result = yield* uninstallSkill(makeOp({ agents: ["claude-code"] })).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills, mock)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(removeSkillFn).not.toHaveBeenCalled();
       }),
     );
   });

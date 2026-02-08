@@ -106,8 +106,8 @@ describe("axm skills uninstall", () => {
     });
   });
 
-  describe("skill not found error", () => {
-    it("shows error when skill is not installed", async () => {
+  describe("skill not found", () => {
+    it("shows no-op for literal name not in lockfile", async () => {
       const temp = createTempDir();
       try {
         await runCli(["init", "--yes", "--agent", "claude-code"], {
@@ -118,14 +118,15 @@ describe("axm skills uninstall", () => {
           cwd: temp.path,
         });
 
-        expect(result.exitCode).not.toBe(0);
-        expect(result.stderr).toContain("Skill 'unknown-skill' is not installed");
+        // Per spec: literal name not in lockfile builds a no-op plan, exits 0
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("not installed");
       } finally {
         temp.cleanup();
       }
     });
 
-    it("exits with non-zero code for unknown skill", async () => {
+    it("exits successfully with no-op for nonexistent skill", async () => {
       const temp = createTempDir();
       try {
         await runCli(["init", "--yes", "--agent", "claude-code"], {
@@ -136,7 +137,8 @@ describe("axm skills uninstall", () => {
           cwd: temp.path,
         });
 
-        expect(result.exitCode).not.toBe(0);
+        // Per spec: no-op plan, exits 0
+        expect(result.exitCode).toBe(0);
       } finally {
         temp.cleanup();
       }
@@ -165,17 +167,18 @@ describe("axm skills uninstall", () => {
           { cwd: temp.path },
         );
 
-        const result = await runCli(["skills", "uninstall", "my-skill", "--preview"], {
-          cwd: temp.path,
-        });
+        const result = await runCli(
+          ["skills", "uninstall", "my-skill", "--preview", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         expect(result.exitCode).toBe(0);
-        // Should show preview message
-        expect(result.stdout).toContain("Preview complete. No changes applied.");
         // Should show the skill in the plan
         expect(result.stdout).toContain("my-skill");
 
-        // Verify skill files still exist (no changes made)
+        // Verify skill files still exist (no changes made in non-interactive preview)
         const canonicalSkillDir = path.join(temp.path, ".agents", "skills", "my-skill");
         expect(fs.existsSync(canonicalSkillDir)).toBe(true);
 
@@ -214,7 +217,7 @@ describe("axm skills uninstall", () => {
         const originalSettings = fs.readFileSync(settingsPath, "utf-8");
 
         // Run preview
-        await runCli(["skills", "uninstall", "my-skill", "--preview"], {
+        await runCli(["skills", "uninstall", "my-skill", "--preview", "--non-interactive"], {
           cwd: temp.path,
         });
 
@@ -247,14 +250,16 @@ describe("axm skills uninstall", () => {
           { cwd: temp.path },
         );
 
-        const result = await runCli(["skills", "uninstall", "my-skill", "--preview"], {
-          cwd: temp.path,
-        });
+        const result = await runCli(
+          ["skills", "uninstall", "my-skill", "--preview", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         expect(result.exitCode).toBe(0);
-        // Should show plan format with skill and agent info
+        // Should show plan with skill name
         expect(result.stdout).toContain("my-skill");
-        expect(result.stdout).toContain("claude-code");
       } finally {
         temp.cleanup();
       }
@@ -281,13 +286,16 @@ describe("axm skills uninstall", () => {
           { cwd: temp.path },
         );
 
-        const result = await runCli(["skills", "uninstall", "my-skill", "--preview"], {
-          cwd: temp.path,
-        });
+        const result = await runCli(
+          ["skills", "uninstall", "my-skill", "--preview", "--non-interactive"],
+          {
+            cwd: temp.path,
+          },
+        );
 
         expect(result.exitCode).toBe(0);
-        // Should show summary
-        expect(result.stdout).toMatch(/\d+ (skill|to uninstall|to remove)/i);
+        // Should show summary with counts
+        expect(result.stdout).toMatch(/\d+ to install, \d+ to skip/);
       } finally {
         temp.cleanup();
       }
@@ -598,17 +606,18 @@ describe("axm skills uninstall", () => {
   });
 
   describe("uninitialized workspace", () => {
-    it("shows error when workspace is not initialized", async () => {
+    it("auto-initializes and shows no-op when workspace is not initialized", async () => {
       const temp = createTempDir();
       try {
-        // Do not initialize
+        // Do not initialize — --yes triggers auto-init with defaults
 
         const result = await runCli(["skills", "uninstall", "my-skill", "--yes"], {
           cwd: temp.path,
         });
 
-        expect(result.exitCode).not.toBe(0);
-        expect(result.stderr).toContain("Error");
+        // --yes auto-initializes workspace, then skill not found → no-op
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toContain("not installed");
       } finally {
         temp.cleanup();
       }

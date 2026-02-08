@@ -2,7 +2,7 @@
  * Skills-specific plan builder.
  *
  * Diffs AddSkillOperations against lockfile state to produce a Plan.
- * New skills become "execute" actions; already-installed skills become "no-op".
+ * New skills become expected-success steps; already-installed skills become expected-no-op steps.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -32,15 +32,18 @@ export const buildPlan = (
         const installed = op.args.skill.name in lockfile.skills;
         return installed && !op.args.force
           ? {
+              _tag: "PlannedJobStep" as const,
               operation: op,
-              action: "no-op" as const,
-              reason: Option.some("already installed"),
+              expectedResult: { result: "no-op" as const, message: "already installed" },
               label: op.args.skill.name,
             }
           : {
+              _tag: "PlannedJobStep" as const,
               operation: op,
-              action: "execute" as const,
-              reason: Option.none(),
+              expectedResult: {
+                result: "success" as const,
+                message: `Installed ${op.args.skill.name}`,
+              },
               label: op.args.skill.name,
             };
       }),

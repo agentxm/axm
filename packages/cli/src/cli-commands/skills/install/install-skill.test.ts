@@ -20,7 +20,7 @@ const withServices = (axmDir: string) => {
     preview: false,
     getSettings: () => Effect.succeed({ agents: [] }),
     getLockfile: () => Effect.succeed({ lockfileVersion: 1, skills: {} }),
-    resolvePlan: () => Effect.succeed([]),
+    resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
   };
   return Layer.merge(NodeContext.layer, Workspace.layer(mockWs));
 };
@@ -83,7 +83,7 @@ describe("installSkill", () => {
           makeOp({ agents: ["claude-code"], sourcePath: src }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
-        expect(result.action).toBe("success");
+        expect(result.result).toBe("success");
         expect(result.message).toContain("my-skill");
 
         // Canonical location should have files
@@ -112,7 +112,7 @@ describe("installSkill", () => {
           makeOp({ agents: ["claude-code", "cursor"], sourcePath: src }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
-        expect(result.action).toBe("success");
+        expect(result.result).toBe("success");
 
         // Both agent symlinks should exist
         expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(true);
@@ -133,7 +133,7 @@ describe("installSkill", () => {
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
-        expect(result.action).toBe("success");
+        expect(result.result).toBe("success");
 
         // Should be sanitized to lowercase with hyphens
         const canonical = path.join(base, ".agents", "skills", "my-awesome-skill");
@@ -153,7 +153,7 @@ describe("installSkill", () => {
           Effect.provide(withServices(axmDir)),
         );
 
-        expect(result.action).toBe("success");
+        expect(result.result).toBe("success");
 
         // Canonical location should exist (from copy)
         const canonical = path.join(base, ".agents", "skills", "my-skill");
@@ -175,7 +175,7 @@ describe("installSkill", () => {
           makeOp({ agents: ["amp", "claude-code"], sourcePath: src }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
-        expect(result.action).toBe("success");
+        expect(result.result).toBe("success");
 
         // Canonical should be a directory (not a symlink)
         const canonical = path.join(base, ".agents", "skills", "my-skill");
@@ -197,11 +197,11 @@ describe("installSkill", () => {
           Effect.provide(withServices(axmDir)),
           // OperationError is in the E channel — catch it as applyPlan would
           Effect.catchTag("OperationError", (e) =>
-            Effect.succeed({ action: "error" as const, message: e.message }),
+            Effect.succeed({ result: "error" as const, message: e.message }),
           ),
         );
 
-        expect(result.action).toBe("error");
+        expect(result.result).toBe("error");
         expect(result.message).toContain("No source path");
       }),
     );
@@ -218,11 +218,11 @@ describe("installSkill", () => {
         ).pipe(
           Effect.provide(withServices(axmDir)),
           Effect.catchTag("OperationError", (e) =>
-            Effect.succeed({ action: "error" as const, message: e.message }),
+            Effect.succeed({ result: "error" as const, message: e.message }),
           ),
         );
 
-        expect(result.action).toBe("error");
+        expect(result.result).toBe("error");
         expect(result.message).toContain("Failed to copy");
       }),
     );
@@ -243,7 +243,7 @@ describe("installSkill", () => {
           makeOp({ agents: ["claude-code"], sourcePath: src }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
-        expect(result.action).toBe("success");
+        expect(result.result).toBe("success");
 
         // Stale file should be gone
         expect(fs.existsSync(path.join(canonical, "stale.txt"))).toBe(false);
@@ -266,7 +266,7 @@ describe("installSkill", () => {
           makeOp({ agents: ["claude-code"], sourcePath: src }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
-        expect(result.action).toBe("success");
+        expect(result.result).toBe("success");
 
         // Lockfile should contain the skill entry
         const lockContent = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8");
@@ -290,7 +290,7 @@ describe("installSkill", () => {
         fs.chmodSync(axmDir, 0o755);
 
         // Installation should still succeed even if lockfile failed
-        expect(result.action).toBe("success");
+        expect(result.result).toBe("success");
 
         // Canonical files should exist
         const canonical = path.join(base, ".agents", "skills", "my-skill");
@@ -314,7 +314,7 @@ describe("installSkill", () => {
         ).pipe(Effect.provide(withServices(axmDir)));
 
         // Overall result should be error (one agent failed)
-        expect(result.action).toBe("error");
+        expect(result.result).toBe("error");
         expect(result.message).toContain("nonexistent-agent");
 
         // But claude-code symlink should still have been created

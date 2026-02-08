@@ -77,8 +77,9 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        expect(result.stdout).toContain("Installed my-skill");
-        expect(result.stdout).toContain("Installed another-skill");
+        // displayPlan shows applied results with checkmark
+        expect(result.stdout).toContain("my-skill");
+        expect(result.stdout).toContain("another-skill");
 
         // Verify .axm structure
         const axmDir = path.join(temp.path, ".axm");
@@ -454,7 +455,8 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        expect(result.stdout).toContain("Installed my-skill");
+        // displayPlan shows applied results with checkmark
+        expect(result.stdout).toContain("my-skill");
       } finally {
         temp.cleanup();
       }

@@ -246,13 +246,13 @@ export const installSkill: OperationHandler<
         .filter((r) => !r.success)
         .map((r) => Option.getOrElse(r.error, () => "unknown error"));
       return {
-        action: "error",
+        result: "error",
         message: `Failed to install ${op.args.skill.name} for some agents: ${failedAgents.join(", ")}`,
       } satisfies OperationResult;
     }
 
     return {
-      action: "success",
+      result: "success",
       message: `Installed ${op.args.skill.name}`,
     } satisfies OperationResult;
   });

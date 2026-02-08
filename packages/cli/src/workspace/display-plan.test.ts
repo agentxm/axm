@@ -41,9 +41,9 @@ describe("displayPlan", () => {
               concurrency: "unbounded",
               steps: [
                 {
+                  _tag: "PlannedJobStep" as const,
                   operation: { name: "commit" },
-                  action: "execute",
-                  reason: Option.none(),
+                  expectedResult: { result: "success" as const, message: "Installed commit" },
                   label: "commit",
                 },
               ],
@@ -68,9 +68,9 @@ describe("displayPlan", () => {
               concurrency: "unbounded",
               steps: [
                 {
+                  _tag: "PlannedJobStep" as const,
                   operation: { name: "commit" },
-                  action: "execute",
-                  reason: Option.none(),
+                  expectedResult: { result: "success" as const, message: "Installed commit" },
                   label: "commit",
                 },
               ],
@@ -85,7 +85,7 @@ describe("displayPlan", () => {
     }).pipe(Effect.provide(ClackLayer));
   });
 
-  it.effect("lists execute actions", () => {
+  it.effect("lists success items for unapplied plan", () => {
     const [ClackLayer, mock] = makeClackTestLayer();
 
     return Effect.gen(function* () {
@@ -96,15 +96,15 @@ describe("displayPlan", () => {
               concurrency: "unbounded",
               steps: [
                 {
+                  _tag: "PlannedJobStep" as const,
                   operation: { name: "commit" },
-                  action: "execute",
-                  reason: Option.none(),
+                  expectedResult: { result: "success" as const, message: "Installed commit" },
                   label: "commit",
                 },
                 {
+                  _tag: "PlannedJobStep" as const,
                   operation: { name: "review-pr" },
-                  action: "execute",
-                  reason: Option.none(),
+                  expectedResult: { result: "success" as const, message: "Installed review-pr" },
                   label: "review-pr",
                 },
               ],
@@ -130,9 +130,9 @@ describe("displayPlan", () => {
               concurrency: "unbounded",
               steps: [
                 {
+                  _tag: "PlannedJobStep" as const,
                   operation: { name: "commit" },
-                  action: "no-op",
-                  reason: Option.some("already installed"),
+                  expectedResult: { result: "no-op" as const, message: "already installed" },
                   label: "commit",
                 },
               ],
@@ -159,15 +159,15 @@ describe("displayPlan", () => {
               concurrency: "unbounded",
               steps: [
                 {
+                  _tag: "PlannedJobStep" as const,
                   operation: { name: "commit" },
-                  action: "execute",
-                  reason: Option.none(),
+                  expectedResult: { result: "success" as const, message: "Installed commit" },
                   label: "commit",
                 },
                 {
+                  _tag: "PlannedJobStep" as const,
                   operation: { name: "review-pr" },
-                  action: "no-op",
-                  reason: Option.some("already installed"),
+                  expectedResult: { result: "no-op" as const, message: "already installed" },
                   label: "review-pr",
                 },
               ],
@@ -198,15 +198,15 @@ describe("displayPlan", () => {
               concurrency: "unbounded",
               steps: [
                 {
+                  _tag: "PlannedJobStep" as const,
                   operation: { name: "commit" },
-                  action: "no-op",
-                  reason: Option.some("already installed"),
+                  expectedResult: { result: "no-op" as const, message: "already installed" },
                   label: "commit",
                 },
                 {
+                  _tag: "PlannedJobStep" as const,
                   operation: { name: "review-pr" },
-                  action: "no-op",
-                  reason: Option.some("already installed"),
+                  expectedResult: { result: "no-op" as const, message: "already installed" },
                   label: "review-pr",
                 },
               ],
@@ -230,6 +230,76 @@ describe("displayPlan", () => {
       expect(
         allMessages.some((m) => m.includes("review-pr") && m.includes("already installed")),
       ).toBe(true);
+    }).pipe(Effect.provide(ClackLayer));
+  });
+
+  it.effect("shows success items with checkmark for applied plan", () => {
+    const [ClackLayer, mock] = makeClackTestLayer();
+
+    return Effect.gen(function* () {
+      yield* displayPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  _tag: "JobStepResult" as const,
+                  operation: { name: "commit" },
+                  expectedResult: { result: "success" as const, message: "Installed commit" },
+                  actualResult: { result: "success" as const, message: "Installed commit" },
+                  label: "commit",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      const allMessages = [...mock.logs.info, ...mock.logs.message, ...mock.logs.success];
+      expect(allMessages.some((m) => m.includes("\u2713") && m.includes("commit"))).toBe(true);
+      expect(allMessages.some((m) => m.includes("installed"))).toBe(true);
+    }).pipe(Effect.provide(ClackLayer));
+  });
+
+  it.effect("shows past tense summary for applied plan", () => {
+    const [ClackLayer, mock] = makeClackTestLayer();
+
+    return Effect.gen(function* () {
+      yield* displayPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  _tag: "JobStepResult" as const,
+                  operation: { name: "commit" },
+                  expectedResult: { result: "success" as const, message: "Installed commit" },
+                  actualResult: { result: "success" as const, message: "Installed commit" },
+                  label: "commit",
+                },
+                {
+                  _tag: "JobStepResult" as const,
+                  operation: { name: "review-pr" },
+                  expectedResult: { result: "no-op" as const, message: "already installed" },
+                  actualResult: { result: "no-op" as const, message: "already installed" },
+                  label: "review-pr",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      const allMessages = [
+        ...mock.logs.info,
+        ...mock.logs.message,
+        ...mock.logs.success,
+        ...mock.logs.warn,
+      ];
+      expect(allMessages.some((m) => m.includes("1") && m.includes("installed"))).toBe(true);
+      expect(allMessages.some((m) => m.includes("1") && m.includes("skipped"))).toBe(true);
     }).pipe(Effect.provide(ClackLayer));
   });
 });

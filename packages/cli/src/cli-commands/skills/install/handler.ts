@@ -196,16 +196,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         Option.some(`Install skills from ${printSource(source)}`),
       );
 
-      const results = yield* ws.resolvePlan(plan, { "install-skill": installSkill });
-
-      // Report results
-      for (const result of results) {
-        if (result.action === "success") {
-          yield* clack.log.success(result.message);
-        } else if (result.action === "error") {
-          yield* clack.log.error(result.message);
-        }
-      }
+      yield* ws.resolvePlan(plan, { "install-skill": installSkill });
 
       yield* clack.outro("Done");
     }),

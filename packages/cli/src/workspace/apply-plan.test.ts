@@ -1,15 +1,15 @@
 /**
  * Unit tests for applyPlan.
  *
- * Tests the executor registry pattern: dispatches execute actions to handlers
- * keyed by name, skips no-op actions, catches OperationError.
+ * Tests the executor registry pattern: dispatches steps expected to succeed
+ * to handlers keyed by name, skips non-success steps, catches OperationError.
  */
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { applyPlan, OperationError, type OperationResult } from "./apply-plan.js";
-import type { Operation, Plan } from "./plan.js";
+import type { Operation, Plan, PlannedJobStep } from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -27,7 +27,7 @@ const makePlan = (overrides: Partial<Plan<TestOp>> = {}): Plan<TestOp> => ({
 });
 
 const successHandler = (op: TestOp): Effect.Effect<OperationResult> =>
-  Effect.succeed({ action: "success", message: `Installed ${op.args.label}` });
+  Effect.succeed({ result: "success", message: `Installed ${op.args.label}` });
 
 const errorHandler = (op: TestOp): Effect.Effect<OperationResult, OperationError> =>
   Effect.fail(
@@ -39,66 +39,60 @@ const errorHandler = (op: TestOp): Effect.Effect<OperationResult, OperationError
   );
 
 const noopResultHandler = (op: TestOp): Effect.Effect<OperationResult> =>
-  Effect.succeed({ action: "no-op", message: `Already installed ${op.args.label}` });
+  Effect.succeed({ result: "no-op", message: `Already installed ${op.args.label}` });
+
+const makeStep = (
+  label: string,
+  expectedResult: OperationResult = { result: "success", message: `Installed ${label}` },
+): PlannedJobStep<TestOp> => ({
+  _tag: "PlannedJobStep",
+  operation: makeOp(label),
+  expectedResult,
+  label,
+});
 
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
 
 describe("applyPlan", () => {
-  it.effect("dispatches execute actions to handler by name", () =>
+  it.effect("dispatches steps expected to succeed to handler by name", () =>
     Effect.gen(function* () {
-      const results = yield* applyPlan(
+      const applied = yield* applyPlan(
         makePlan({
           jobs: [
             {
               concurrency: "unbounded",
-              steps: [
-                {
-                  operation: makeOp("commit"),
-                  action: "execute",
-                  reason: Option.none(),
-                  label: "commit",
-                },
-                {
-                  operation: makeOp("review-pr"),
-                  action: "execute",
-                  reason: Option.none(),
-                  label: "review-pr",
-                },
-              ],
+              steps: [makeStep("commit"), makeStep("review-pr")],
             },
           ],
         }),
         { "test-op": successHandler },
       );
 
-      expect(results).toHaveLength(2);
-      expect(results[0]).toEqual({ action: "success", message: "Installed commit" });
-      expect(results[1]).toEqual({ action: "success", message: "Installed review-pr" });
+      const steps = applied.jobs.flatMap((j) => j.steps);
+      expect(steps).toHaveLength(2);
+      expect(steps[0]).toMatchObject({
+        _tag: "JobStepResult",
+        actualResult: { result: "success", message: "Installed commit" },
+      });
+      expect(steps[1]).toMatchObject({
+        _tag: "JobStepResult",
+        actualResult: { result: "success", message: "Installed review-pr" },
+      });
     }),
   );
 
-  it.effect("skips no-op actions", () =>
+  it.effect("skips steps with no-op expected result", () =>
     Effect.gen(function* () {
-      const results = yield* applyPlan(
+      const applied = yield* applyPlan(
         makePlan({
           jobs: [
             {
               concurrency: "unbounded",
               steps: [
-                {
-                  operation: makeOp("commit"),
-                  action: "execute",
-                  reason: Option.none(),
-                  label: "commit",
-                },
-                {
-                  operation: makeOp("review-pr"),
-                  action: "no-op",
-                  reason: Option.some("already installed"),
-                  label: "review-pr",
-                },
+                makeStep("commit"),
+                makeStep("review-pr", { result: "no-op", message: "already installed" }),
               ],
             },
           ],
@@ -106,32 +100,29 @@ describe("applyPlan", () => {
         { "test-op": successHandler },
       );
 
-      expect(results).toHaveLength(2);
-      expect(results[0]).toEqual({ action: "success", message: "Installed commit" });
-      expect(results[1]).toEqual({ action: "no-op", message: "Skipped: review-pr" });
+      const steps = applied.jobs.flatMap((j) => j.steps);
+      expect(steps).toHaveLength(2);
+      expect(steps[0]).toMatchObject({
+        _tag: "JobStepResult",
+        actualResult: { result: "success", message: "Installed commit" },
+      });
+      expect(steps[1]).toMatchObject({
+        _tag: "JobStepResult",
+        actualResult: { result: "no-op", message: "already installed" },
+      });
     }),
   );
 
-  it.effect("returns no-op results when all actions are no-op", () =>
+  it.effect("returns no-op results when all steps expect no-op", () =>
     Effect.gen(function* () {
-      const results = yield* applyPlan(
+      const applied = yield* applyPlan(
         makePlan({
           jobs: [
             {
               concurrency: "unbounded",
               steps: [
-                {
-                  operation: makeOp("commit"),
-                  action: "no-op",
-                  reason: Option.some("already installed"),
-                  label: "commit",
-                },
-                {
-                  operation: makeOp("review-pr"),
-                  action: "no-op",
-                  reason: Option.some("already installed"),
-                  label: "review-pr",
-                },
+                makeStep("commit", { result: "no-op", message: "already installed" }),
+                makeStep("review-pr", { result: "no-op", message: "already installed" }),
               ],
             },
           ],
@@ -139,8 +130,14 @@ describe("applyPlan", () => {
         { "test-op": successHandler },
       );
 
-      expect(results).toHaveLength(2);
-      expect(results.every((r) => r.action === "no-op")).toBe(true);
+      const steps = applied.jobs.flatMap((j) => j.steps);
+      expect(steps).toHaveLength(2);
+      expect(
+        steps.every(
+          (s) =>
+            s._tag === "JobStepResult" && "actualResult" in s && s.actualResult.result === "no-op",
+        ),
+      ).toBe(true);
     }),
   );
 
@@ -150,7 +147,7 @@ describe("applyPlan", () => {
       const trackingHandler = (op: TestOp): Effect.Effect<OperationResult> =>
         Effect.sync(() => {
           order.push(op.args.label);
-          return { action: "success" as const, message: `Installed ${op.name}` };
+          return { result: "success" as const, message: `Installed ${op.name}` };
         });
 
       yield* applyPlan(
@@ -158,20 +155,7 @@ describe("applyPlan", () => {
           jobs: [
             {
               concurrency: 1,
-              steps: [
-                {
-                  operation: makeOp("first"),
-                  action: "execute",
-                  reason: Option.none(),
-                  label: "first",
-                },
-                {
-                  operation: makeOp("second"),
-                  action: "execute",
-                  reason: Option.none(),
-                  label: "second",
-                },
-              ],
+              steps: [makeStep("first"), makeStep("second")],
             },
           ],
         }),
@@ -184,99 +168,86 @@ describe("applyPlan", () => {
 
   it.effect("processes multiple jobs", () =>
     Effect.gen(function* () {
-      const results = yield* applyPlan(
+      const applied = yield* applyPlan(
         makePlan({
           jobs: [
             {
               concurrency: "unbounded",
-              steps: [
-                {
-                  operation: makeOp("commit"),
-                  action: "execute",
-                  reason: Option.none(),
-                  label: "commit",
-                },
-              ],
+              steps: [makeStep("commit")],
             },
             {
               concurrency: 1,
-              steps: [
-                {
-                  operation: makeOp("review-pr"),
-                  action: "execute",
-                  reason: Option.none(),
-                  label: "review-pr",
-                },
-              ],
+              steps: [makeStep("review-pr")],
             },
           ],
         }),
         { "test-op": successHandler },
       );
 
-      expect(results).toHaveLength(2);
-      expect(results[0]).toEqual({ action: "success", message: "Installed commit" });
-      expect(results[1]).toEqual({ action: "success", message: "Installed review-pr" });
+      const steps = applied.jobs.flatMap((j) => j.steps);
+      expect(steps).toHaveLength(2);
+      expect(steps[0]).toMatchObject({
+        _tag: "JobStepResult",
+        actualResult: { result: "success", message: "Installed commit" },
+      });
+      expect(steps[1]).toMatchObject({
+        _tag: "JobStepResult",
+        actualResult: { result: "success", message: "Installed review-pr" },
+      });
     }),
   );
 
   it.effect("catches OperationError and converts to error result", () =>
     Effect.gen(function* () {
-      const results = yield* applyPlan(
+      const applied = yield* applyPlan(
         makePlan({
           jobs: [
             {
               concurrency: 1,
-              steps: [
-                {
-                  operation: makeOp("bad"),
-                  action: "execute",
-                  reason: Option.none(),
-                  label: "bad",
-                },
-              ],
+              steps: [makeStep("bad")],
             },
           ],
         }),
         { "test-op": errorHandler },
       );
 
-      expect(results).toHaveLength(1);
-      expect(results[0]).toEqual({ action: "error", message: "Failed to install bad" });
+      const steps = applied.jobs.flatMap((j) => j.steps);
+      expect(steps).toHaveLength(1);
+      expect(steps[0]).toMatchObject({
+        _tag: "JobStepResult",
+        actualResult: { result: "error", message: "Failed to install bad" },
+      });
     }),
   );
 
   it.effect("handler can return no-op result directly", () =>
     Effect.gen(function* () {
-      const results = yield* applyPlan(
+      const applied = yield* applyPlan(
         makePlan({
           jobs: [
             {
               concurrency: 1,
-              steps: [
-                {
-                  operation: makeOp("skip"),
-                  action: "execute",
-                  reason: Option.none(),
-                  label: "skip",
-                },
-              ],
+              steps: [makeStep("skip")],
             },
           ],
         }),
         { "test-op": noopResultHandler },
       );
 
-      expect(results).toHaveLength(1);
-      expect(results[0]).toEqual({ action: "no-op", message: "Already installed skip" });
+      const steps = applied.jobs.flatMap((j) => j.steps);
+      expect(steps).toHaveLength(1);
+      expect(steps[0]).toMatchObject({
+        _tag: "JobStepResult",
+        actualResult: { result: "no-op", message: "Already installed skip" },
+      });
     }),
   );
 
-  it.effect("returns empty array for empty plan", () =>
+  it.effect("returns empty plan for empty plan", () =>
     Effect.gen(function* () {
-      const results = yield* applyPlan(makePlan({ jobs: [] }), { "test-op": successHandler });
+      const applied = yield* applyPlan(makePlan({ jobs: [] }), { "test-op": successHandler });
 
-      expect(results).toEqual([]);
+      expect(applied.jobs).toEqual([]);
     }),
   );
 });

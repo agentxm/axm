@@ -10,7 +10,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Clack } from "../clack-effect/index.js";
-import type { JobStep, Plan } from "./plan.js";
+import type { JobStep, OperationResult, Plan } from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Implementation
@@ -25,9 +25,17 @@ export const displayPlan = <Op>(plan: Plan<Op>) =>
   Effect.gen(function* () {
     const clack = yield* Clack;
 
-    const allActions = plan.jobs.flatMap((job) => [...job.steps]);
-    const executeActions = allActions.filter((a): a is JobStep<Op> => a.action === "execute");
-    const noopActions = allActions.filter((a): a is JobStep<Op> => a.action === "no-op");
+    const allSteps = plan.jobs.flatMap((job) => [...job.steps]);
+
+    // Extract the relevant result based on step phase
+    const getResult = (step: JobStep<Op>): OperationResult =>
+      step._tag === "JobStepResult" ? step.actualResult : step.expectedResult;
+
+    const isApplied = allSteps.length > 0 && allSteps[0]!._tag === "JobStepResult";
+
+    const successSteps = allSteps.filter((s) => getResult(s).result === "success");
+    const noopSteps = allSteps.filter((s) => getResult(s).result === "no-op");
+    const errorSteps = allSteps.filter((s) => getResult(s).result === "error");
 
     // Heading
     const heading = Option.match(plan.description, {
@@ -36,23 +44,37 @@ export const displayPlan = <Op>(plan: Plan<Op>) =>
     });
     yield* clack.log.info(heading);
 
-    // Execute actions
-    if (executeActions.length > 0) {
-      for (const action of executeActions) {
-        yield* clack.log.success(`  + ${action.label}`);
+    // Success items
+    if (successSteps.length > 0) {
+      for (const step of successSteps) {
+        if (isApplied) {
+          yield* clack.log.success(`  ✓ ${step.label}`);
+        } else {
+          yield* clack.log.success(`  + ${step.label}`);
+        }
       }
     }
 
-    // No-op actions
-    if (noopActions.length > 0) {
-      for (const action of noopActions) {
-        const reason = Option.getOrElse(action.reason, () => "skipped");
-        yield* clack.log.warn(`  - ${action.label} (${reason})`);
+    // No-op items
+    if (noopSteps.length > 0) {
+      for (const step of noopSteps) {
+        yield* clack.log.warn(`  - ${step.label} (${getResult(step).message})`);
       }
     }
 
-    // Summary
-    const installCount = executeActions.length;
-    const skipCount = noopActions.length;
-    yield* clack.log.message(`${installCount} to install, ${skipCount} to skip`);
+    // Error items
+    if (errorSteps.length > 0) {
+      for (const step of errorSteps) {
+        yield* clack.log.error(`  ✗ ${step.label} (${getResult(step).message})`);
+      }
+    }
+
+    // Summary with phase-appropriate tense
+    const successCount = successSteps.length;
+    const skipCount = noopSteps.length;
+    if (isApplied) {
+      yield* clack.log.message(`${successCount} installed, ${skipCount} skipped`);
+    } else {
+      yield* clack.log.message(`${successCount} to install, ${skipCount} to skip`);
+    }
   });

@@ -190,8 +190,8 @@ describe("install.handler", () => {
         Effect.gen(function* () {
           yield* handleInstall(defaultArgs(skillsDir, { yes: true }));
 
-          // Apply was called — should log installed
-          expect(mockClack.logs.success.some((m) => m.includes("Installed"))).toBe(true);
+          // Apply was called — should log success for skill
+          expect(mockClack.logs.success.some((m) => m.includes("commit"))).toBe(true);
           // Should end with Done
           expect(mockClack.logs.outro.some((m) => m.includes("Done"))).toBe(true);
         }),
@@ -222,7 +222,7 @@ describe("install.handler", () => {
           yield* handleInstall(defaultArgs(skillsDir, { yes: false }));
 
           // Apply was called
-          expect(mockClack.logs.success.some((m) => m.includes("Installed"))).toBe(true);
+          expect(mockClack.logs.success.some((m) => m.includes("commit"))).toBe(true);
           expect(mockClack.logs.outro.some((m) => m.includes("Done"))).toBe(true);
         }),
       );
@@ -247,8 +247,8 @@ describe("install.handler", () => {
 
           // Should show cancelled
           expect(mockClack.logs.outro.some((m) => m.includes("Cancel"))).toBe(true);
-          // Should NOT apply
-          expect(mockClack.logs.success.filter((m) => m.includes("Installed"))).toHaveLength(0);
+          // Should NOT have applied (no checkmark in success logs)
+          expect(mockClack.logs.success.filter((m) => m.includes("\u2713"))).toHaveLength(0);
         }),
       );
     });
@@ -291,7 +291,7 @@ describe("install.handler", () => {
         Effect.gen(function* () {
           yield* handleInstall(defaultArgs(skillsDir));
 
-          expect(mockClack.logs.success.some((m) => m.includes("Installed commit"))).toBe(true);
+          expect(mockClack.logs.success.some((m) => m.includes("commit"))).toBe(true);
         }),
       );
     });

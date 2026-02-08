@@ -17,7 +17,7 @@ import { afterEach, beforeEach } from "vitest";
 import { makeClackTestLayer, type MockClackService } from "../clack-effect/index.js";
 import { Clack } from "../clack-effect/service.js";
 import type { OperationResult } from "./apply-plan.js";
-import type { Operation, Plan } from "./plan.js";
+import type { Operation, Plan, PlannedJobStep } from "./plan.js";
 import { Workspace, layer as workspaceLayer, type WorkspaceContextOptions } from "./service.js";
 
 describe("WorkspaceContextService", () => {
@@ -154,19 +154,18 @@ describe("WorkspaceContextService", () => {
 
   describe("resolvePlan", () => {
     type TestOp = Operation<"test-op", Record<string, never>>;
+    const testStep: PlannedJobStep<TestOp> = {
+      _tag: "PlannedJobStep",
+      operation: { name: "test-op", args: {} },
+      expectedResult: { result: "success", message: "Installed test action" },
+      label: "test action",
+    };
     const testPlan: Plan<TestOp> = {
       name: "Test Plan",
       description: Option.none(),
       jobs: [
         {
-          steps: [
-            {
-              operation: { name: "test-op", args: {} },
-              action: "execute",
-              reason: Option.none(),
-              label: "test action",
-            },
-          ],
+          steps: [testStep],
           concurrency: 1,
         },
       ],
@@ -174,7 +173,7 @@ describe("WorkspaceContextService", () => {
 
     const testHandlers = {
       "test-op": (_op: TestOp): Effect.Effect<OperationResult> =>
-        Effect.succeed({ action: "success" as const, message: "Installed test action" }),
+        Effect.succeed({ result: "success" as const, message: "Installed test action" }),
     };
 
     const runResolvePlan = (options: WorkspaceContextOptions, mockClack: MockClackService) => {
@@ -190,7 +189,7 @@ describe("WorkspaceContextService", () => {
     it.effect("default mode (preview=false) displays plan and applies", () =>
       Effect.gen(function* () {
         const [, mockClack] = makeClackTestLayer();
-        const results = yield* runResolvePlan(
+        const applied = yield* runResolvePlan(
           {
             global: false,
             yes: false,
@@ -202,8 +201,13 @@ describe("WorkspaceContextService", () => {
 
         // displayPlan logs plan name as info
         expect(mockClack.logs.info).toContain("Test Plan");
-        // applyPlan returns results from handler
-        expect(results).toContainEqual({ action: "success", message: "Installed test action" });
+        // applyPlan returns plan with JobStepResult steps
+        const steps = applied.jobs.flatMap((j) => j.steps);
+        expect(steps).toHaveLength(1);
+        expect(steps[0]).toMatchObject({
+          _tag: "JobStepResult",
+          actualResult: { result: "success", message: "Installed test action" },
+        });
       }),
     );
 
@@ -214,7 +218,7 @@ describe("WorkspaceContextService", () => {
           selectBehavior: Option.none(),
           multiselectBehavior: Option.none(),
         });
-        const results = yield* runResolvePlan(
+        const applied = yield* runResolvePlan(
           {
             global: false,
             yes: false,
@@ -228,8 +232,13 @@ describe("WorkspaceContextService", () => {
         expect(mockClack.logs.info).toContainEqual("Previewing changes...");
         // displayPlan logs plan name
         expect(mockClack.logs.info).toContain("Test Plan");
-        // Confirmed, so applyPlan runs and returns results
-        expect(results).toContainEqual({ action: "success", message: "Installed test action" });
+        // Confirmed, so applyPlan runs and returns plan with results
+        const steps = applied.jobs.flatMap((j) => j.steps);
+        expect(steps).toHaveLength(1);
+        expect(steps[0]).toMatchObject({
+          _tag: "JobStepResult",
+          actualResult: { result: "success", message: "Installed test action" },
+        });
       }),
     );
 
@@ -240,7 +249,7 @@ describe("WorkspaceContextService", () => {
           selectBehavior: Option.none(),
           multiselectBehavior: Option.none(),
         });
-        const results = yield* runResolvePlan(
+        const applied = yield* runResolvePlan(
           {
             global: false,
             yes: false,
@@ -254,15 +263,15 @@ describe("WorkspaceContextService", () => {
         expect(mockClack.logs.info).toContainEqual("Previewing changes...");
         // User declined, should show cancelled outro
         expect(mockClack.logs.outro).toContainEqual("Cancelled.");
-        // Should NOT apply — empty results
-        expect(results).toHaveLength(0);
+        // Should NOT apply — empty jobs
+        expect(applied.jobs).toHaveLength(0);
       }),
     );
 
     it.effect("preview with --yes auto-applies without confirming", () =>
       Effect.gen(function* () {
         const [, mockClack] = makeClackTestLayer();
-        const results = yield* runResolvePlan(
+        const applied = yield* runResolvePlan(
           {
             global: false,
             yes: true,
@@ -276,15 +285,20 @@ describe("WorkspaceContextService", () => {
         expect(mockClack.logs.info).toContainEqual("Previewing changes...");
         // Should show pre-approved message
         expect(mockClack.logs.info).toContainEqual("Pre-approved via --yes, applying changes...");
-        // Should apply and return results
-        expect(results).toContainEqual({ action: "success", message: "Installed test action" });
+        // Should apply and return plan with results
+        const steps = applied.jobs.flatMap((j) => j.steps);
+        expect(steps).toHaveLength(1);
+        expect(steps[0]).toMatchObject({
+          _tag: "JobStepResult",
+          actualResult: { result: "success", message: "Installed test action" },
+        });
       }),
     );
 
     it.effect("preview with nonInteractive warns and does not apply", () =>
       Effect.gen(function* () {
         const [, mockClack] = makeClackTestLayer();
-        const results = yield* runResolvePlan(
+        const applied = yield* runResolvePlan(
           {
             global: false,
             yes: false,
@@ -300,8 +314,8 @@ describe("WorkspaceContextService", () => {
         expect(mockClack.logs.warn).toContainEqual(
           "Cannot prompt in non-interactive mode. Use --yes to apply, or remove --preview.",
         );
-        // Should NOT apply — empty results
-        expect(results).toHaveLength(0);
+        // Should NOT apply — empty jobs
+        expect(applied.jobs).toHaveLength(0);
       }),
     );
   });

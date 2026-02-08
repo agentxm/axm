@@ -1,28 +1,22 @@
 /**
  * Shared plan apply module.
  *
- * Iterates over plan jobs and their steps, dispatching each "execute"
- * step to the matching executor from a typed registry keyed by `name`.
- * No-op actions are skipped.
+ * Iterates over plan jobs and their steps, dispatching each step expected
+ * to succeed to the matching executor from a typed registry keyed by `name`.
+ * Non-success steps are promoted with expectedResult as actualResult.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
-import type { JobStep, Operation, Plan } from "./plan.js";
+import type { JobStepResult, Operation, OperationResult, Plan, PlannedJobStep } from "./plan.js";
+
+export type { JobStep, JobStepResult, OperationResult, PlannedJobStep } from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
-
-/**
- * Result returned by every operation handler.
- */
-export type OperationResult = {
-  readonly action: "no-op" | "success" | "error";
-  readonly message: string;
-};
 
 /**
  * Yielded by handlers for hard failures — applyPlan catches and converts to error result.
@@ -70,46 +64,58 @@ export type ExecutionContext<T> = {
 // Implementation
 // -----------------------------------------------------------------------------
 
-const applyAction = <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
-  step: JobStep<Op>,
+const applyStep = <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
+  step: PlannedJobStep<Op>,
   handlers: T,
-): Effect.Effect<OperationResult, never, ExecutionContext<T>> => {
-  if (step.action !== "execute") {
-    return Effect.succeed({ action: "no-op" as const, message: `Skipped: ${step.label}` });
+): Effect.Effect<JobStepResult<Op>, never, ExecutionContext<T>> => {
+  const promote = (actualResult: OperationResult): JobStepResult<Op> => ({
+    _tag: "JobStepResult",
+    operation: step.operation,
+    expectedResult: step.expectedResult,
+    actualResult,
+    label: step.label,
+  });
+
+  if (step.expectedResult.result !== "success") {
+    return Effect.succeed(promote(step.expectedResult));
   }
   // Cast needed: TS can't correlate dynamic name lookup with the Extract<Op, {name: K}> parameter
   const handler = handlers[step.operation.name as Op["name"]] as unknown as (
     op: Op,
   ) => Effect.Effect<OperationResult, OperationError, ExecutionContext<T>>;
   return handler(step.operation).pipe(
+    Effect.map(promote),
     Effect.catchTag("OperationError", (error) =>
-      Effect.succeed({
-        action: "error" as const,
-        message: error.message,
-      }),
+      Effect.succeed(promote({ result: "error" as const, message: error.message })),
     ),
   );
 };
 
 /**
- * Apply a plan by iterating jobs and dispatching execute actions to the executor registry.
+ * Apply a plan by iterating jobs and dispatching steps expected to succeed to the executor registry.
  *
  * Uses `Effect.forEach` with each job's `concurrency` setting.
- * Only processes `"execute"` actions — `"no-op"` actions are skipped.
+ * Only dispatches steps with `expectedResult.result === "success"` — others are promoted with expectedResult as actualResult.
  * Never fails — catches OperationError and converts to error results.
  */
 export const applyPlan = <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
   plan: Plan<Op>,
   handlers: T,
-): Effect.Effect<ReadonlyArray<OperationResult>, never, ExecutionContext<T>> =>
+): Effect.Effect<Plan<Op>, never, ExecutionContext<T>> =>
   Effect.map(
     Effect.forEach(
       plan.jobs,
       (job) =>
-        Effect.forEach(job.steps, (step) => applyAction(step, handlers), {
+        Effect.forEach(job.steps, (step) => applyStep(step as PlannedJobStep<Op>, handlers), {
           concurrency: job.concurrency,
         }),
       { concurrency: 1 },
     ),
-    (jobResults) => jobResults.flat(),
+    (jobResults) => ({
+      ...plan,
+      jobs: jobResults.map((steps, i) => ({
+        ...plan.jobs[i]!,
+        steps,
+      })),
+    }),
   );

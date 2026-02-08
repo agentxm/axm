@@ -36,12 +36,7 @@ import { PromptCancelled, PromptError } from "../clack-effect/errors.js";
 import { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./errors.js";
 import type { Operation, Plan } from "./plan.js";
 import { displayPlan } from "./display-plan.js";
-import {
-  applyPlan,
-  type ExecutionContext,
-  type Handlers,
-  type OperationResult,
-} from "./apply-plan.js";
+import { applyPlan, type ExecutionContext, type Handlers } from "./apply-plan.js";
 
 /**
  * Effect service tag for workspace context.
@@ -387,12 +382,12 @@ const make = (
               yield* clack.log.warn(
                 "Cannot prompt in non-interactive mode. Use --yes to apply, or remove --preview.",
               );
-              return [] as unknown as ReadonlyArray<OperationResult>;
+              return { ...plan, jobs: [] } satisfies Plan<Op>;
             } else {
               const confirmed = yield* clack.confirm("Apply changes?");
               if (!confirmed) {
                 yield* clack.outro("Cancelled.");
-                return [] as unknown as ReadonlyArray<OperationResult>;
+                return { ...plan, jobs: [] } satisfies Plan<Op>;
               }
               return yield* applyPlan(plan, handlers);
             }
@@ -451,9 +446,5 @@ export interface WorkspaceContextService {
   readonly resolvePlan: <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
     plan: Plan<Op>,
     handlers: T,
-  ) => Effect.Effect<
-    ReadonlyArray<OperationResult>,
-    PromptCancelled | PromptError,
-    Clack | ExecutionContext<T>
-  >;
+  ) => Effect.Effect<Plan<Op>, PromptCancelled | PromptError, Clack | ExecutionContext<T>>;
 }

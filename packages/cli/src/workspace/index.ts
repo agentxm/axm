@@ -6,7 +6,15 @@
  */
 
 // Plan types
-export type { Job, JobStep, Operation, Plan } from "./plan.js";
+export type {
+  Job,
+  JobStep,
+  JobStepResult,
+  Operation,
+  OperationResult,
+  Plan,
+  PlannedJobStep,
+} from "./plan.js";
 
 // Plan display
 export { displayPlan } from "./display-plan.js";
@@ -18,7 +26,6 @@ export {
   type ExecutionContext,
   type Handlers,
   type OperationHandler,
-  type OperationResult,
 } from "./apply-plan.js";
 
 // Path utilities

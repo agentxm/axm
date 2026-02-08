@@ -20,12 +20,27 @@ export interface Operation<TName extends string, TArgs> {
   readonly args: TArgs;
 }
 
-export interface JobStep<TOperation> {
+export type OperationResult = {
+  readonly result: "no-op" | "success" | "error";
+  readonly message: string;
+};
+
+export interface PlannedJobStep<TOperation> {
+  readonly _tag: "PlannedJobStep";
   readonly operation: TOperation;
-  readonly action: "execute" | "no-op" | "error";
-  readonly reason: Option<string>;
+  readonly expectedResult: OperationResult;
   readonly label: string;
 }
+
+export interface JobStepResult<TOperation> {
+  readonly _tag: "JobStepResult";
+  readonly operation: TOperation;
+  readonly expectedResult: OperationResult;
+  readonly actualResult: OperationResult;
+  readonly label: string;
+}
+
+export type JobStep<TOperation> = PlannedJobStep<TOperation> | JobStepResult<TOperation>;
 
 export interface Job<TOperation> {
   readonly steps: ReadonlyArray<JobStep<TOperation>>;

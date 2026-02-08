@@ -1,24 +1,37 @@
-# workspace-plan Specification
-
-## Purpose
-
-Extension-agnostic plan types and orchestration for workspace operations.
-
 ## Requirements
 
 ### Requirement: Extension-agnostic plan types
 
 The workspace module SHALL define generic plan types parameterized over the operation type, enabling reuse across extension types (skills, commands, mcp-servers, rules) and operation types (install, uninstall).
 
-#### Scenario: Action type is generic
+#### Scenario: OperationResult type
 
-- **WHEN** defining the `Action` type
-- **THEN** it SHALL be `Action<Op>` with fields: `op: Op`, `action: "execute" | "no-op" | "error"`, `reason: Option<string>`, and `label: string`
+- **WHEN** defining the `OperationResult` type
+- **THEN** it SHALL have fields `result: "no-op" | "success" | "error"` and `message: string`
+- **AND** it SHALL be defined in `plan.ts` (not `apply-plan.ts`)
+
+#### Scenario: JobStep is a discriminated union
+
+- **WHEN** defining the `JobStep` type
+- **THEN** it SHALL be `JobStep<Op> = PlannedJobStep<Op> | JobStepResult<Op>`
+- **AND** the discriminant field SHALL be `_tag`
+
+#### Scenario: PlannedJobStep carries expected result
+
+- **WHEN** defining the `PlannedJobStep` type
+- **THEN** it SHALL have fields: `_tag: "PlannedJobStep"`, `operation: Op`, `expectedResult: OperationResult`, and `label: string`
+- **AND** it SHALL NOT have a `reason` field (reason is part of `expectedResult.message`)
+- **AND** it SHALL NOT have an `actualResult` field
+
+#### Scenario: JobStepResult carries both expected and actual result
+
+- **WHEN** defining the `JobStepResult` type
+- **THEN** it SHALL have fields: `_tag: "JobStepResult"`, `operation: Op`, `expectedResult: OperationResult`, `actualResult: OperationResult`, and `label: string`
 
 #### Scenario: Job type is generic
 
 - **WHEN** defining the `Job` type
-- **THEN** it SHALL be `Job<Op>` containing `steps: ReadonlyArray<Action<Op>>` and `concurrency: "unbounded" | 1`
+- **THEN** it SHALL be `Job<Op>` containing `steps: ReadonlyArray<JobStep<Op>>` and `concurrency: "unbounded" | 1`
 
 #### Scenario: Plan type is generic
 
@@ -27,13 +40,13 @@ The workspace module SHALL define generic plan types parameterized over the oper
 
 #### Scenario: Label enables extension-agnostic rendering
 
-- **WHEN** display or apply modules access an action
-- **THEN** they SHALL use `action.label` for human-readable output
-- **AND** they SHALL NOT inspect `action.op` to derive display text
+- **WHEN** display or apply modules access a step
+- **THEN** they SHALL use `step.label` for human-readable identification
+- **AND** they SHALL NOT inspect `step.operation` to derive display text
 
 ### Requirement: Display plan summary
 
-The plan display module SHALL render a human-readable summary of any `Plan<Op>` via Clack, without knowledge of the specific operation type.
+The plan display module SHALL render a human-readable summary of any `Plan<Op>` via Clack, without knowledge of the specific operation type. It SHALL handle both unapplied plans (containing `PlannedJobStep`) and applied plans (containing `JobStepResult`).
 
 #### Scenario: Plan name as heading
 
@@ -45,57 +58,89 @@ The plan display module SHALL render a human-readable summary of any `Plan<Op>` 
 - **WHEN** displaying a plan with `description: Option.some(text)`
 - **THEN** the display SHALL show the description text below the heading
 
-#### Scenario: Show items to execute
+#### Scenario: Determine result from step variant
 
-- **WHEN** the plan contains actions with `action: "execute"`
-- **THEN** the display SHALL list each action's `label` under the heading
+- **WHEN** rendering a step
+- **THEN** for `PlannedJobStep`, the display SHALL use `expectedResult`
+- **AND** for `JobStepResult`, the display SHALL use `actualResult`
 
-#### Scenario: Show skipped items
+#### Scenario: Show success items for unapplied plan
 
-- **WHEN** a job contains actions with `action: "no-op"`
-- **THEN** the display SHALL list each action's `label` with its `reason` under a "skip" heading
+- **WHEN** the plan contains `PlannedJobStep` steps with `expectedResult.result === "success"`
+- **THEN** the display SHALL list each step's `label` with a pending indicator (e.g., `+ label`)
+
+#### Scenario: Show success items for applied plan
+
+- **WHEN** the plan contains `JobStepResult` steps with `actualResult.result === "success"`
+- **THEN** the display SHALL list each step's `label` with a success indicator (e.g., checkmark)
+
+#### Scenario: Show no-op items with message
+
+- **WHEN** a step has result `"no-op"`
+- **THEN** the display SHALL list the step's `label` with the result's `message` as the reason
+
+#### Scenario: Show error items with message
+
+- **WHEN** a step has result `"error"`
+- **THEN** the display SHALL list the step's `label` with the result's `message` as the reason
 
 #### Scenario: Show summary counts
 
 - **WHEN** displaying a plan
-- **THEN** the display SHALL show a summary line with execute and skip counts
+- **THEN** the display SHALL show a summary line with success and skip counts
+- **AND** for unapplied plans, the summary SHALL use future tense (e.g., "N to install, M to skip")
+- **AND** for applied plans, the summary SHALL use past tense (e.g., "N installed, M skipped")
 
 #### Scenario: All no-ops
 
-- **WHEN** every action in the plan is `"no-op"`
+- **WHEN** every step in the plan has result `"no-op"`
 - **THEN** the display SHALL show the skipped items and summary
 - **AND** the summary SHALL indicate nothing to execute
 
 ### Requirement: Apply plan orchestration
 
-The plan apply module SHALL iterate over plan jobs and their actions, using Effect concurrency based on each job's `concurrency` setting. Actions marked `"execute"` are applied; `"no-op"` actions are skipped. In this change, apply is a stub that logs results.
+The plan apply module SHALL iterate over plan jobs and their steps, promoting each `PlannedJobStep` to a `JobStepResult`. Steps with `expectedResult.result === "success"` are dispatched to handlers; all other steps set `actualResult` to their `expectedResult` directly. `applyPlan` SHALL return a new `Plan<Op>` with all steps promoted to `JobStepResult`.
 
 #### Scenario: Job concurrency respected
 
 - **WHEN** applying a job with `concurrency: "unbounded"`
-- **THEN** the system SHALL execute actions concurrently using `Effect.forEach` with `{ concurrency: "unbounded" }`
+- **THEN** the system SHALL execute steps concurrently using `Effect.forEach` with `{ concurrency: "unbounded" }`
 
 #### Scenario: Job sequential execution
 
 - **WHEN** applying a job with `concurrency: 1`
-- **THEN** the system SHALL execute actions sequentially
+- **THEN** the system SHALL execute steps sequentially
 
-#### Scenario: Log executed action
+#### Scenario: Dispatch step expected to succeed
 
-- **WHEN** applying an `"execute"` action
-- **THEN** the system SHALL log a success message including the action's `label`
+- **WHEN** applying a step with `expectedResult.result === "success"`
+- **THEN** the system SHALL dispatch it to the matching handler
+- **AND** the handler SHALL return an `OperationResult`
+- **AND** the step SHALL be promoted to `JobStepResult` with the handler's return value as `actualResult`
 
-#### Scenario: Skip no-op action
+#### Scenario: Non-success step promoted with expectedResult as actualResult
 
-- **WHEN** an action has `action: "no-op"`
-- **THEN** the system SHALL NOT log a success message for that action
+- **WHEN** a step has `expectedResult.result` that is not `"success"`
+- **THEN** the system SHALL promote it to `JobStepResult` with `actualResult` set to `expectedResult`
+- **AND** the system SHALL NOT dispatch any handler for that step
 
-#### Scenario: No execute actions
+#### Scenario: applyPlan returns Plan with promoted steps
 
-- **WHEN** every action in the plan is `"no-op"`
-- **THEN** the system SHALL NOT log any success messages
+- **WHEN** `applyPlan` completes
+- **THEN** it SHALL return a `Plan<Op>` where every step is a `JobStepResult`
+- **AND** the returned plan SHALL preserve the original `name`, `description`, and job structure
 
-#### Scenario: Stub-only — no side effects
+#### Scenario: No steps expected to succeed
 
-- **WHEN** applying any plan in this change
-- **THEN** the system SHALL NOT copy files, write to the lockfile, or perform any file system mutations
+- **WHEN** every step in the plan has `expectedResult.result !== "success"`
+- **THEN** the system SHALL NOT dispatch any handlers
+- **AND** each step SHALL be promoted to `JobStepResult` with `actualResult` equal to `expectedResult`
+
+### Requirement: OperationResult re-exported from apply-plan
+
+`apply-plan.ts` SHALL re-export `OperationResult`, `PlannedJobStep`, `JobStepResult`, and `JobStep` from `plan.ts` so existing consumers that import from `apply-plan` continue to work.
+
+#### Scenario: Re-export preserves import paths
+
+- **WHEN** a module imports `OperationResult` from `apply-plan`
+- **THEN** the import SHALL resolve to the same type defined in `plan.ts`

@@ -17,7 +17,7 @@ Key existing pieces:
 
 **Goals:**
 
-- Make `applyPlan` extensible via a typed handler registry keyed by operation `kind`
+- Make `applyPlan` extensible via a typed handler registry keyed by operation `kind`, returning an applied plan with `actualResult` on each step
 - Implement the full skill installation pipeline as `installSkill`
 - Write skill files to canonical location (`.agents/skills/<name>`)
 - Symlink from agent-specific directories to canonical
@@ -53,12 +53,6 @@ Handlers receive everything they need from two sources: (1) the operation object
 **Types and signature:**
 
 ```typescript
-// Result type for all operation handlers
-type OperationResult = {
-  action: "no-op" | "success" | "error"
-  message: string
-}
-
 // Yielded by handlers for hard failures — applyPlan catches and converts to error result
 class OperationError extends Data.TaggedError("OperationError")<{
   operation: string
@@ -81,15 +75,19 @@ type ExecutionContext<T> =
 // Before
 export const applyPlan = <Op>(plan: Plan<Op>) => ...
 
-// After — T is inferred from the literal handler object, R bubbles up
-// applyPlan catches OperationError and converts to { action: "error", message }
+// After — returns Plan<Op> with actualResult populated on each step
+// applyPlan catches OperationError and converts to { result: "error", message }
 export const applyPlan = <Op extends { kind: string }, T extends Handlers<Op>>(
   plan: Plan<Op>,
   handlers: T,
-): Effect.Effect<ReadonlyArray<OperationResult>, never, ExecutionContext<T>> => ...
+): Effect.Effect<Plan<Op>, never, ExecutionContext<T>> => ...
 ```
 
-The `Clack` dependency is removed from `applyPlan` — it becomes the handler's responsibility to do any logging. `applyPlan` looks up `handlers[action.op.kind]`, calls it with the operation, and catches any `OperationError` — converting it to `{ action: "error", message: error.message }`. This means `applyPlan` never fails — it always returns results, even for errors.
+Note: `OperationResult` is defined in `plan.ts` (per the rename-action-to-expected-result change) and used by both `JobStep.expectedResult` and `JobStep.actualResult`. It is not redefined here.
+
+The `Clack` dependency is removed from `applyPlan` — display is handled by `resolvePlan` (see Decision 2). `applyPlan` looks up `handlers[step.operation.kind]`, calls it with the operation, and catches any `OperationError` — converting it to `{ result: "error", message: error.message }`. It returns a new `Plan<Op>` where each step's `actualResult` is populated. `applyPlan` never fails — errors are captured as `{ result: "error" }` on the step.
+
+For steps where `expectedResult.result !== "success"`, `applyPlan` skips handler dispatch and sets `actualResult` to the step's `expectedResult` directly — the plan builder's prediction is the outcome.
 
 **Handler implementation:** Plain functions — no factory, no closure. Domain data comes from the operation object, infrastructure services come from Effect context. Handlers return `OperationResult` directly for expected outcomes, or yield `OperationError` for hard failures that `applyPlan` catches.
 
@@ -111,13 +109,8 @@ export const installSkill: OperationHandler<
       });
     }
 
-    // Explicit error result — handler controls the message
-    if (alreadyInstalled) {
-      return { action: "no-op", message: "Already installed" };
-    }
-
     // Success
-    return { action: "success", message: `Installed ${op.skill.name}` };
+    return { result: "success", message: `Installed ${op.skill.name}` };
   });
 ```
 
@@ -130,11 +123,36 @@ ws.resolvePlan(plan, {
 });
 ```
 
-### 2. Threading handlers through `resolvePlan`
+### 2. `resolvePlan` owns display and orchestration
 
-**Decision:** `resolvePlan` on `WorkspaceContextService` gains a `handlers` parameter (same registry type) and forwards it to `applyPlan`.
+**Decision:** `resolvePlan` on `WorkspaceContextService` gains a `handlers` parameter (same registry type). It owns _all_ display — both pre-application (preview) and post-application (results) — using `displayPlan` for both. Command handlers never render plan output.
 
-**Rationale:** The handler calls `ws.resolvePlan(plan)` — that's where the preview/confirm/apply flow lives. The handler registry must reach `applyPlan` through this path. Handler dependencies bubble up through `resolvePlan` automatically — TypeScript infers the R channel from the handlers provided.
+**Rationale:** The plan is the universal display structure. Before application, `displayPlan` renders each step's `expectedResult`. After application, `displayPlan` renders each step's `actualResult`. The same function handles both — it just reads whichever result field is appropriate. This ensures consistent formatting, summary counts, and UX regardless of which command triggered the plan.
+
+Command handlers receive the applied plan back for inspection (e.g., checking for errors to set exit codes) but never call Clack to display results.
+
+**Flow:**
+
+```typescript
+resolvePlan: (plan, handlers) =>
+  Effect.gen(function* () {
+    yield* displayPlan(plan); // pre-application: shows expectedResult
+    // ... confirm flow (--preview / --yes / interactive) ...
+    const applied = yield* applyPlan(plan, handlers); // execute: populates actualResult
+    yield* displayPlan(applied); // post-application: shows actualResult
+    return applied;
+  });
+```
+
+**`displayPlan` changes:** The function renders based on which result is available. For an unapplied plan, steps have `expectedResult` only — display shows predictions. For an applied plan, steps have `actualResult` — display shows outcomes. The rendering per result value:
+
+| `result`    | Pre-application (expected)      | Post-application (actual)     |
+| ----------- | ------------------------------- | ----------------------------- |
+| `"success"` | `+ label` (will do)             | `✓ label` (did it)            |
+| `"no-op"`   | `- label (message)` (skipping)  | `- label (message)` (skipped) |
+| `"error"`   | `✗ label (message)` (will fail) | `✗ label (message)` (failed)  |
+
+The summary line adapts too: `"3 to install, 1 to skip"` (pre) vs `"3 installed, 1 skipped"` (post).
 
 **Signature change:**
 
@@ -142,14 +160,9 @@ ws.resolvePlan(plan, {
 // Before
 resolvePlan: <Op>(plan: Plan<Op>) => Effect<void, PromptCancelled | PromptError, Clack>;
 
-// After — T inferred from handlers, R bubbles up via ExecutionContext<T>
-// OperationError is not in the error channel — applyPlan catches it and returns error results
+// After — returns the applied Plan<Op> with actualResult populated
 resolvePlan: <Op extends { kind: string }, T extends Handlers<Op>>(plan: Plan<Op>, handlers: T) =>
-  Effect<
-    ReadonlyArray<OperationResult>,
-    PromptCancelled | PromptError,
-    Clack | ExecutionContext<T>
-  >;
+  Effect<Plan<Op>, PromptCancelled | PromptError, Clack | ExecutionContext<T>>;
 ```
 
 ### 3. File layout: feature-grouped, not scattered
@@ -205,13 +218,15 @@ resolvePlan: <Op extends { kind: string }, T extends Handlers<Op>>(plan: Plan<Op
 
 ### 7. Error handling strategy
 
-**Decision:** `installSkill` returns `OperationResult`. Hard failures (path traversal, copy failure) yield `OperationError`, which `applyPlan` catches and converts to `{ action: "error" }`. Recoverable situations return results directly: `{ action: "no-op" }` for already-installed skills, `{ action: "success" }` for successful installs. Symlink failures fall back to copy. Lockfile write failures are silently swallowed.
+**Decision:** `installSkill` returns `OperationResult`. Hard failures (path traversal, copy failure) yield `OperationError`, which `applyPlan` catches and converts to `{ result: "error" }` on the step's `actualResult`. Recoverable situations return results directly: `{ result: "success" }` for successful installs. Symlink failures fall back to copy. Lockfile write failures are silently swallowed.
+
+Note: `{ result: "no-op" }` is never returned by the handler — no-op detection happens at plan-build time via `expectedResult`. If a step's `expectedResult.result !== "success"`, `applyPlan` skips handler dispatch entirely and sets `actualResult = expectedResult`.
 
 **Rationale:**
 
-- Two error paths: handlers yield `OperationError` for hard failures (caught by `applyPlan`), or return `{ action: "error" }` directly for expected/graceful errors
+- Two error paths: handlers yield `OperationError` for hard failures (caught by `applyPlan`), or return `{ result: "error" }` directly for expected/graceful errors
 - `operation` on `OperationError` identifies which operation failed, useful for reporting in multi-skill installs
-- `applyPlan` never fails — it always returns `ReadonlyArray<OperationResult>`, making downstream reporting straightforward
+- `applyPlan` never fails — it always returns `Plan<Op>` with `actualResult` populated on every step, making downstream reporting straightforward via `displayPlan`
 - Path traversal is a hard failure — never write outside the base directory
 - Copy failure means the skill can't be installed — no point symlinking
 - Symlink failure is recoverable — copy the files instead
@@ -235,7 +250,7 @@ Pipeline:
 
 **Serialized installation is slower for many skills** → Acceptable for now. Typical installs are 1-5 skills. Lockfile batching can be added later if needed.
 
-**Symlink fallback silently degrades** → The handler returns `{ action: "success" }` with a warning message noting the fallback to copy. Users can investigate and fix permissions.
+**Symlink fallback silently degrades** → The handler returns `{ result: "success" }` with a warning message noting the fallback to copy. Users can investigate and fix permissions.
 
 **`rm -rf` on canonical directory before copy** → If interrupted mid-copy, the skill is in a broken state. Mitigation: atomic rename (write to temp, rename) could be added later. For now, re-running install fixes it.
 

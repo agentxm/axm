@@ -187,8 +187,8 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
       ),
     );
 
-    // Serialize to JSON with pretty printing
-    const content = JSON.stringify(settings, null, 2);
+    // Serialize to JSON with pretty printing and trailing newline
+    const content = JSON.stringify(settings, null, 2) + "\n";
 
     // Write file
     yield* fs.writeFileString(settingsPath, content).pipe(

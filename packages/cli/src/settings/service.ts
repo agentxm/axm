@@ -2,7 +2,7 @@
  * Settings service for centralized settings file I/O.
  *
  * Provides query and mutation methods backed by a Semaphore(1) to serialize
- * mutations. Auto-creates `settings.json` with `{}` on first access.
+ * mutations. Auto-creates `settings.json` with `{}\n` on first access.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -16,11 +16,13 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
 import { AgentIdSchema } from "../extensions/common.js";
+import { modifyJsonFile } from "./format-preserving-json.js";
 import type { Settings, SkillsMap } from "./schema.js";
 import {
   createDefaultSettings,
   DEFAULT_SCOPE,
   readSettings,
+  SETTINGS_FILENAME,
   SettingsParseError,
   type SettingsError,
   writeSettings,
@@ -131,12 +133,11 @@ export const SettingsServiceLive: Layer.Layer<
       addSkill: (name, source) =>
         withMutex(
           Effect.gen(function* () {
-            const current = yield* readOrCreate();
-            const updated: Settings = {
-              ...current,
-              skills: { ...(current.skills ?? {}), [name]: source },
-            };
-            yield* writeSettings(axmDir, updated).pipe(Effect.provide(fsLayer));
+            yield* readOrCreate();
+            const settingsPath = path.join(axmDir, SETTINGS_FILENAME);
+            yield* modifyJsonFile(settingsPath, [{ path: ["skills", name], value: source }]).pipe(
+              Effect.provide(fsLayer),
+            );
           }),
         ),
 
@@ -145,12 +146,10 @@ export const SettingsServiceLive: Layer.Layer<
           Effect.gen(function* () {
             const current = yield* readOrCreate();
             if (!current.skills || !(name in current.skills)) return;
-            const { [name]: _, ...rest } = current.skills;
-            const updated: Settings = {
-              ...current,
-              skills: Object.keys(rest).length > 0 ? rest : undefined,
-            };
-            yield* writeSettings(axmDir, updated).pipe(Effect.provide(fsLayer));
+            const settingsPath = path.join(axmDir, SETTINGS_FILENAME);
+            yield* modifyJsonFile(settingsPath, [
+              { path: ["skills", name], value: undefined },
+            ]).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -170,11 +169,11 @@ export const SettingsServiceLive: Layer.Layer<
             const current = yield* readOrCreate();
             const agents: readonly string[] = current.agents ?? [];
             if (agents.includes(validId)) return;
-            const updated: Settings = {
-              ...current,
-              agents: [...(current.agents ?? []), validId],
-            };
-            yield* writeSettings(axmDir, updated).pipe(Effect.provide(fsLayer));
+            const updatedAgents = [...agents, validId];
+            const settingsPath = path.join(axmDir, SETTINGS_FILENAME);
+            yield* modifyJsonFile(settingsPath, [{ path: ["agents"], value: updatedAgents }]).pipe(
+              Effect.provide(fsLayer),
+            );
           }),
         ),
     };

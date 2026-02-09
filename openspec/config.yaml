@@ -24,3 +24,15 @@ rules:
     - "Add step to run tests for all packages (`pnpm test`) after every task group, fix any failures"
     - "Add step to run relevant e2e tests (`pnpm test:e2e`) after every task group, fix any failures"
     - "Add a step to kill any vitest worker processes after testing verification"
+    - "Ensure all phases clearly specify any dependent/predecessor phases and/or what phases can be worked in parallel"
+    - >-
+      Begin the task document with a top-level blockquote directive:
+      `> **Orchestration:** The main agent thread MUST NOT execute any tasks directly.
+      Delegate each phase to subagents as directed below. The main agent's role is strictly
+      to orchestrate: launch subagents, verify phase completion, and proceed to the next phase.`
+    - >-
+      Each phase MUST be delegated to a single subagent by default. Mark each phase heading with
+      `> **Subagent:** Run this entire phase in a single subagent.` as a blockquote directive.
+      If independent tasks within a phase can be further parallelized (e.g. migrating unrelated files),
+      add a `> **Parallelization:** Tasks X.Y, X.Z, X.W are independent — launch as parallel subagents.`
+      directive listing the specific tasks.

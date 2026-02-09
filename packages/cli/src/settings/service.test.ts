@@ -184,6 +184,24 @@ describe("SettingsService", () => {
       }).pipe(Effect.provide(makeTestLayer(axmDir))),
     );
 
+    it.effect("preserves compact array formatting of siblings when skills key is missing", () =>
+      Effect.gen(function* () {
+        // Reproduce the exact user scenario: agents as compact single-line array, no skills key
+        fs.mkdirSync(axmDir, { recursive: true });
+        const original = '{\n  "agents": ["antigravity", "claude-code", "codex", "cursor"]\n}\n';
+        fs.writeFileSync(path.join(axmDir, SETTINGS_FILENAME), original);
+
+        const service = yield* SettingsService;
+        yield* service.addSkill("frontend-design", "github:anthropics/skills");
+
+        const content = fs.readFileSync(path.join(axmDir, SETTINGS_FILENAME), "utf-8");
+        // agents must remain on a single line — not expanded to multi-line
+        expect(content).toContain('"agents": ["antigravity", "claude-code", "codex", "cursor"]');
+        // skill should be added
+        expect(content).toContain('"frontend-design": "github:anthropics/skills"');
+      }).pipe(Effect.provide(makeTestLayer(axmDir))),
+    );
+
     it.effect("concurrent addSkill calls do not lose data", () =>
       Effect.gen(function* () {
         initSettings({});

@@ -10,7 +10,7 @@
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Effect from "effect/Effect";
-import { applyEdits, modify } from "jsonc-parser";
+import { applyEdits, findNodeAtLocation, modify, parseTree } from "jsonc-parser";
 import type { FormattingOptions } from "jsonc-parser";
 import { SettingsWriteError } from "./settings.js";
 
@@ -56,6 +56,48 @@ export const detectFormatting = (text: string): DetectedFormatting => {
 
   // Default: 2-space, LF
   return { tabSize: 2, insertSpaces: true, eol };
+};
+
+// -----------------------------------------------------------------------------
+// Surgical Property Insertion
+// -----------------------------------------------------------------------------
+
+/**
+ * Ensure a top-level property exists in JSON text without reformatting siblings.
+ *
+ * `jsonc-parser`'s `modify` rewrites all sibling content when inserting a new
+ * top-level property, which can reformat compact arrays into multi-line. This
+ * function inserts the property by direct text manipulation, leaving all
+ * existing content byte-for-byte identical.
+ *
+ * Returns the text unchanged if the property already exists.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const ensureTopLevelProperty = (
+  text: string,
+  key: string,
+  defaultValue: unknown,
+  formatting: DetectedFormatting,
+): string => {
+  const tree = parseTree(text);
+  if (!tree || tree.type !== "object") return text;
+
+  // Already exists — no-op
+  if (findNodeAtLocation(tree, [key])) return text;
+
+  const closingBrace = text.lastIndexOf("}");
+  if (closingBrace === -1) return text;
+
+  const indent = formatting.insertSpaces ? " ".repeat(formatting.tabSize ?? 2) : "\t";
+  const hasProperties = (tree.children?.length ?? 0) > 0;
+  const serialized = JSON.stringify(defaultValue);
+
+  const before = text.substring(0, closingBrace).trimEnd();
+  const comma = hasProperties ? "," : "";
+  const after = text.substring(closingBrace);
+
+  return `${before}${comma}${formatting.eol}${indent}"${key}": ${serialized}${formatting.eol}${after.trimStart()}`;
 };
 
 // -----------------------------------------------------------------------------

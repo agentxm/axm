@@ -16,7 +16,11 @@ import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
 import { AgentIdSchema } from "../extensions/common.js";
-import { modifyJsonFile } from "./format-preserving-json.js";
+import {
+  detectFormatting,
+  ensureTopLevelProperty,
+  modifyJsonFile,
+} from "./format-preserving-json.js";
 import type { Settings, SkillsMap } from "./schema.js";
 import {
   createDefaultSettings,
@@ -25,6 +29,7 @@ import {
   SETTINGS_FILENAME,
   SettingsParseError,
   type SettingsError,
+  SettingsWriteError,
   writeSettings,
 } from "./settings.js";
 import { Workspace } from "../workspace/service.js";
@@ -133,8 +138,36 @@ export const SettingsServiceLive: Layer.Layer<
       addSkill: (name, source) =>
         withMutex(
           Effect.gen(function* () {
-            yield* readOrCreate();
+            const current = yield* readOrCreate();
             const settingsPath = path.join(axmDir, SETTINGS_FILENAME);
+
+            // Ensure "skills" key exists before nested modify. jsonc-parser's
+            // modify rewrites all siblings when inserting a new top-level
+            // property, which reformats compact arrays to multi-line.
+            if (!current.skills) {
+              let text = yield* fs.readFileString(settingsPath).pipe(
+                Effect.mapError(
+                  (error) =>
+                    new SettingsWriteError({
+                      path: settingsPath,
+                      message: `Failed to read settings for skill addition: ${settingsPath}`,
+                      cause: error,
+                    }),
+                ),
+              );
+              text = ensureTopLevelProperty(text, "skills", {}, detectFormatting(text));
+              yield* fs.writeFileString(settingsPath, text).pipe(
+                Effect.mapError(
+                  (error) =>
+                    new SettingsWriteError({
+                      path: settingsPath,
+                      message: `Failed to write settings for skill addition: ${settingsPath}`,
+                      cause: error,
+                    }),
+                ),
+              );
+            }
+
             yield* modifyJsonFile(settingsPath, [{ path: ["skills", name], value: source }]).pipe(
               Effect.provide(fsLayer),
             );

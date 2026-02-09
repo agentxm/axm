@@ -5,7 +5,11 @@ import * as NodeContext from "@effect/platform-node/NodeContext";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
-import { detectFormatting, modifyJsonFile } from "./format-preserving-json.js";
+import {
+  detectFormatting,
+  ensureTopLevelProperty,
+  modifyJsonFile,
+} from "./format-preserving-json.js";
 
 // -----------------------------------------------------------------------------
 // detectFormatting
@@ -50,6 +54,48 @@ describe("detectFormatting", () => {
   it("falls back to defaults for minimal file", () => {
     const result = detectFormatting("{}");
     expect(result).toEqual({ tabSize: 2, insertSpaces: true, eol: "\n" });
+  });
+});
+
+// -----------------------------------------------------------------------------
+// ensureTopLevelProperty
+// -----------------------------------------------------------------------------
+
+describe("ensureTopLevelProperty", () => {
+  const fmt2 = { tabSize: 2, insertSpaces: true, eol: "\n" } as const;
+  const fmtTab = { tabSize: 1, insertSpaces: false, eol: "\n" } as const;
+
+  it("inserts property without reformatting compact siblings", () => {
+    const text = '{\n  "agents": ["antigravity", "claude-code", "codex", "cursor"]\n}\n';
+    const result = ensureTopLevelProperty(text, "skills", {}, fmt2);
+    expect(result).toBe(
+      '{\n  "agents": ["antigravity", "claude-code", "codex", "cursor"],\n  "skills": {}\n}\n',
+    );
+  });
+
+  it("no-op when property already exists", () => {
+    const text = '{\n  "agents": ["a"],\n  "skills": {}\n}\n';
+    const result = ensureTopLevelProperty(text, "skills", {}, fmt2);
+    expect(result).toBe(text);
+  });
+
+  it("inserts into empty object", () => {
+    const text = "{}\n";
+    const result = ensureTopLevelProperty(text, "skills", {}, fmt2);
+    expect(result).toBe('{\n  "skills": {}\n}\n');
+  });
+
+  it("uses tab indentation when detected", () => {
+    const text = '{\n\t"agents": ["a"]\n}\n';
+    const result = ensureTopLevelProperty(text, "skills", {}, fmtTab);
+    expect(result).toBe('{\n\t"agents": ["a"],\n\t"skills": {}\n}\n');
+  });
+
+  it("preserves CRLF line endings", () => {
+    const text = '{\r\n  "agents": ["a"]\r\n}\r\n';
+    const fmtCrlf = { tabSize: 2, insertSpaces: true, eol: "\r\n" } as const;
+    const result = ensureTopLevelProperty(text, "skills", {}, fmtCrlf);
+    expect(result).toBe('{\r\n  "agents": ["a"],\r\n  "skills": {}\r\n}\r\n');
   });
 });
 

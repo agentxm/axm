@@ -45,7 +45,11 @@ export {
 
 // Format-preserving JSON
 export type { DetectedFormatting, JsonModification } from "./format-preserving-json.js";
-export { detectFormatting, modifyJsonFile } from "./format-preserving-json.js";
+export {
+  detectFormatting,
+  ensureTopLevelProperty,
+  modifyJsonFile,
+} from "./format-preserving-json.js";
 
 // Settings service
 export type { SettingsServiceInterface } from "./service.js";

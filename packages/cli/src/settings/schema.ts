@@ -9,127 +9,97 @@
 import * as Schema from "effect/Schema";
 import { AgentIdSchema } from "../extensions/common.js";
 
+// -----------------------------------------------------------------------------
+// Source Config (array-based, discriminated on `source` field)
+// -----------------------------------------------------------------------------
+
 /**
- * URL-based source configuration for GitHub, GitLab, Bitbucket, and Azure DevOps.
+ * Pattern for source names: lowercase alphanumeric, hyphens, and dots.
+ * Must start with a letter or digit.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const UrlSourceSchema = Schema.Struct({
+const SOURCE_NAME_PATTERN = /^[a-z0-9][a-z0-9.-]*$/;
+
+const SourceNameSchema = Schema.String.pipe(Schema.pattern(SOURCE_NAME_PATTERN));
+
+/**
+ * GitHub source configuration.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+const GitHubSourceConfigSchema = Schema.Struct({
+  name: SourceNameSchema,
+  source: Schema.Literal("github"),
   url: Schema.String,
 });
 
 /**
- * Inferred type for UrlSource schema.
+ * GitLab source configuration.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type UrlSource = typeof UrlSourceSchema.Type;
-
-/**
- * Path-based source configuration for local registries.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const PathSourceSchema = Schema.Struct({
-  path: Schema.String,
+const GitLabSourceConfigSchema = Schema.Struct({
+  name: SourceNameSchema,
+  source: Schema.Literal("gitlab"),
+  url: Schema.String,
 });
 
 /**
- * Inferred type for PathSource schema.
+ * Bitbucket source configuration.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type PathSource = typeof PathSourceSchema.Type;
-
-/**
- * Registry source type - either URL-based or path-based.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type RegistrySource = { url: string } | { path: string };
-
-/**
- * Registry source configuration - can be URL or path based (but not both).
- *
- * Uses Schema.declare for strict validation that rejects objects with both
- * 'url' and 'path' properties, as well as objects missing both properties.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const RegistrySourceSchema: Schema.Schema<RegistrySource> = Schema.declare(
-  (input): input is RegistrySource => {
-    if (typeof input !== "object" || input === null) return false;
-    const obj = input as Record<string, unknown>;
-    const hasUrl = "url" in obj && typeof obj["url"] === "string";
-    const hasPath = "path" in obj && typeof obj["path"] === "string";
-    // Must have exactly one of url or path (XOR)
-    return (hasUrl && !hasPath) || (!hasUrl && hasPath);
-  },
-  {
-    identifier: "RegistrySource",
-    description: "Registry source with either url or path (but not both)",
-  },
-).annotations({
-  jsonSchema: {
-    oneOf: [
-      {
-        type: "object",
-        properties: { url: { type: "string" } },
-        required: ["url"],
-        additionalProperties: false,
-      },
-      {
-        type: "object",
-        properties: { path: { type: "string" } },
-        required: ["path"],
-        additionalProperties: false,
-      },
-    ],
-  },
+const BitbucketSourceConfigSchema = Schema.Struct({
+  name: SourceNameSchema,
+  source: Schema.Literal("bitbucket"),
+  url: Schema.String,
 });
 
 /**
- * Empty source configuration for git (no additional fields needed).
+ * Azure Repos source configuration.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const EmptySourceSchema = Schema.Struct({});
-
-/**
- * Inferred type for EmptySource schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type EmptySource = typeof EmptySourceSchema.Type;
-
-/**
- * Sources configuration for extension origins.
- *
- * Defines URLs/paths for various source providers:
- * - github: GitHub Enterprise or github.com
- * - gitlab: GitLab self-hosted or gitlab.com
- * - bitbucket: Bitbucket Server or bitbucket.org
- * - azurerepos: Azure Repos or dev.azure.com
- * - git: Generic git configuration (empty)
- * - registry: One or more extension registries
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const SourcesConfigSchema = Schema.Struct({
-  github: Schema.optional(UrlSourceSchema),
-  gitlab: Schema.optional(UrlSourceSchema),
-  bitbucket: Schema.optional(UrlSourceSchema),
-  azurerepos: Schema.optional(UrlSourceSchema),
-  git: Schema.optional(EmptySourceSchema),
-  registry: Schema.optional(Schema.Union(RegistrySourceSchema, Schema.Array(RegistrySourceSchema))),
+const AzureReposSourceConfigSchema = Schema.Struct({
+  name: SourceNameSchema,
+  source: Schema.Literal("azurerepos"),
+  url: Schema.String,
 });
 
 /**
- * Inferred type for SourcesConfig schema.
+ * Registry source configuration with optional scopes.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SourcesConfig = typeof SourcesConfigSchema.Type;
+const RegistrySourceConfigSchema = Schema.Struct({
+  name: SourceNameSchema,
+  source: Schema.Literal("registry"),
+  location: Schema.String,
+  scopes: Schema.optional(Schema.Array(Schema.String)),
+});
+
+/**
+ * Discriminated union of source configurations on the `source` field.
+ *
+ * Variants: github, gitlab, bitbucket, azurerepos, registry.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SourceConfigSchema = Schema.Union(
+  GitHubSourceConfigSchema,
+  GitLabSourceConfigSchema,
+  BitbucketSourceConfigSchema,
+  AzureReposSourceConfigSchema,
+  RegistrySourceConfigSchema,
+);
+
+/**
+ * Inferred type for SourceConfig schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type SourceConfig = typeof SourceConfigSchema.Type;
 
 /**
  * Pattern for skill names per agentskills.io specification:
@@ -224,7 +194,7 @@ export type SkillsMap = typeof SkillsMapSchema.Type;
  */
 export const SettingsSchema = Schema.Struct({
   scope: Schema.optional(Schema.String),
-  sources: Schema.optional(SourcesConfigSchema),
+  sources: Schema.optional(Schema.Array(SourceConfigSchema)),
   agents: Schema.optional(Schema.Array(AgentIdSchema)),
   skills: Schema.optional(SkillsMapSchema),
   commands: Schema.optional(ExtensionMapSchema),

@@ -54,7 +54,7 @@ export const CommonManifestFields = {
   homepage: Schema.optional(Schema.String),
   license: Schema.optional(Schema.String),
   bugs: Schema.optional(Schema.String),
-  author: Schema.optional(AuthorSchema),
+  authors: Schema.optional(Schema.Array(AuthorSchema)),
 };
 
 /**

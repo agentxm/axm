@@ -2,7 +2,7 @@
  * Source string parser for skills.
  *
  * Parses various source formats (GitHub shorthand, URLs)
- * into a normalized Source structure.
+ * into a normalized SourceInput structure.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -26,7 +26,7 @@ import { config as localConfig, parseLocalPath } from "./local/index.js";
 
 /** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
 const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
-import type { Source, SourceConfig } from "./types.js";
+import type { SourceInput, SourceConfig } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Input Pattern Types
@@ -36,8 +36,8 @@ import type { Source, SourceConfig } from "./types.js";
 type NameInput = { readonly _tag: "NameInput"; readonly name: string };
 
 /** A scoped registry source: `@scope/name`. */
-type RegistrySourceInput = {
-  readonly _tag: "RegistrySourceInput";
+type RegistryPatternInput = {
+  readonly _tag: "RegistryPatternInput";
   readonly scope: string;
   readonly name: string;
 };
@@ -74,7 +74,7 @@ type ShorthandInput = {
 /** Discriminated union of all input patterns recognized by the parser. */
 export type InputPattern =
   | NameInput
-  | RegistrySourceInput
+  | RegistryPatternInput
   | UrlInput
   | GitScpAddress
   | SlashPattern
@@ -159,7 +159,7 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
   const registryMatch = input.match(REGISTRY_SOURCE_PATTERN);
   if (registryMatch && registryMatch[1] && registryMatch[2]) {
     return Option.some({
-      _tag: "RegistrySourceInput",
+      _tag: "RegistryPatternInput",
       scope: registryMatch[1],
       name: registryMatch[2],
     });
@@ -192,7 +192,7 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
 // SlashPattern Resolution
 // -----------------------------------------------------------------------------
 
-const resolveSlashPattern = (pattern: SlashPattern): Effect.Effect<Source, ParseError> =>
+const resolveSlashPattern = (pattern: SlashPattern): Effect.Effect<SourceInput, ParseError> =>
   Effect.gen(function* () {
     const github = yield* resolveGitHubRepo(pattern);
     if (Option.isSome(github)) return github.value;
@@ -215,7 +215,7 @@ const resolveSlashPattern = (pattern: SlashPattern): Effect.Effect<Source, Parse
 // -----------------------------------------------------------------------------
 
 /**
- * Parse a source string into a Source.
+ * Parse a source string into a SourceInput.
  *
  * Supported formats:
  * - Slash pattern: `owner/repo` (probes GitHub → GitLab → Bitbucket)
@@ -226,9 +226,9 @@ const resolveSlashPattern = (pattern: SlashPattern): Effect.Effect<Source, Parse
  *
  * @experimental This API is unstable and may change without notice.
  * @param input - The source string to parse
- * @returns Effect containing Source or ParseError
+ * @returns Effect containing SourceInput or ParseError
  */
-export const parseSource = (input: string): Effect.Effect<Source, ParseError> => {
+export const parseSourceInput = (input: string): Effect.Effect<SourceInput, ParseError> => {
   const trimmed = input.trim();
   if (!trimmed) {
     return Effect.fail(new ParseError({ message: "Source string cannot be empty", input }));
@@ -240,7 +240,7 @@ export const parseSource = (input: string): Effect.Effect<Source, ParseError> =>
         Match.tag("NameInput", () =>
           Effect.fail(new ParseError({ message: "Name input is not yet supported", input })),
         ),
-        Match.tag("RegistrySourceInput", () =>
+        Match.tag("RegistryPatternInput", () =>
           Effect.fail(
             new ParseError({ message: "Registry source input is not yet supported", input }),
           ),

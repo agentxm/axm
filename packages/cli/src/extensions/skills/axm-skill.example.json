@@ -5,9 +5,12 @@
   "keywords": ["code-review", "pr", "automation"],
   "repository": "https://github.com/acme/code-review",
   "license": "MIT",
-  "author": {
-    "name": "Acme Corp",
-    "email": "dev@acme.com",
-    "url": "https://acme.com"
-  }
+  "authors": [
+    {
+      "name": "Acme Corp",
+      "email": "dev@acme.com",
+      "url": "https://acme.com"
+    }
+  ],
+  "agents": ["claude-code", "cursor"]
 }

@@ -51,6 +51,11 @@ describe("SettingsService", () => {
       nonInteractive: true,
       preview: false,
       resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
+      getSources: () => Effect.succeed([]),
+      getSourceByName: () => Effect.succeed(Option.none()),
+      getRegistrySources: () => Effect.succeed([]),
+      getScope: () => Effect.succeed("@community"),
+      addSource: () => Effect.void,
     };
     return Layer.provide(
       SettingsServiceLive,

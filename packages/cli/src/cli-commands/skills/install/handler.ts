@@ -12,7 +12,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { parseSource, printSource } from "../../../extensions/skills/index.js";
+import { parseSourceInput, printSource } from "../../../extensions/skills/index.js";
 import { discoverSkills } from "./discover-skills.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 import * as Array from "effect/Array";
@@ -109,7 +109,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
       // Step 1: Parse source
       let handle = yield* spinnerSvc.start("Parsing source...");
-      const source = yield* parseSource(args.source).pipe(
+      const source = yield* parseSourceInput(args.source).pipe(
         Effect.mapError(
           (error) =>
             new InstallError({

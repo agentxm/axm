@@ -18,7 +18,7 @@ import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 import * as Schema from "effect/Schema";
 
-import type { Source } from "../../../sources/types.js";
+import type { SourceInput } from "../../../sources/types.js";
 
 // =============================================================================
 // Skill Frontmatter
@@ -535,8 +535,8 @@ export const AnyIssueSchema = Schema.Union(
 // Source re-export (unified source type from sources/types.ts)
 // =============================================================================
 
-// Re-export Source type from canonical location
-export type { Source } from "../../../sources/types.js";
+// Re-export SourceInput type from canonical location
+export type { SourceInput } from "../../../sources/types.js";
 
 // =============================================================================
 // ActualSkillV2, LockedSkillV2, SkillStateV2, CurrentState (new reconciliation design)
@@ -575,7 +575,7 @@ export const ActualSkillV2Schema = Schema.Struct({
  */
 export interface LockedSkillV2 {
   readonly name: string;
-  readonly source: Source;
+  readonly source: SourceInput;
   readonly version: Option.Option<string>;
   readonly gitTreeHash: Option.Option<string>;
   readonly agents: ReadonlyArray<string>;
@@ -654,7 +654,7 @@ export const CurrentStateSchema = Schema.Struct({
  */
 export interface IdealSkillV2 {
   readonly name: string;
-  readonly source: Source;
+  readonly source: SourceInput;
   readonly version: Option.Option<string>;
   readonly gitTreeHash: Option.Option<string>;
   readonly agents: ReadonlyArray<string>;
@@ -668,7 +668,7 @@ export interface IdealSkillV2 {
 export const IdealSkillV2 = {
   make: (args: {
     name: string;
-    source: Source;
+    source: SourceInput;
     version: Option.Option<string>;
     gitTreeHash: Option.Option<string>;
     agents: ReadonlyArray<string>;
@@ -1102,7 +1102,7 @@ export type PlanStep =
   | {
       readonly _tag: "InstallSkill";
       readonly skill: string;
-      readonly source: Source;
+      readonly source: SourceInput;
       readonly version: Option.Option<string>;
       readonly gitTreeHash: Option.Option<string>;
       readonly agents: ReadonlyArray<string>;
@@ -1110,7 +1110,7 @@ export type PlanStep =
   | {
       readonly _tag: "UpdateSkill";
       readonly skill: string;
-      readonly source: Source;
+      readonly source: SourceInput;
       readonly fromVersion: Option.Option<string>;
       readonly toVersion: Option.Option<string>;
       readonly fromHash: Option.Option<string>;
@@ -1131,7 +1131,7 @@ export type PlanStep =
 export const PlanStep = {
   InstallSkill: (args: {
     skill: string;
-    source: Source;
+    source: SourceInput;
     version: Option.Option<string>;
     gitTreeHash: Option.Option<string>;
     agents: ReadonlyArray<string>;
@@ -1139,7 +1139,7 @@ export const PlanStep = {
 
   UpdateSkill: (args: {
     skill: string;
-    source: Source;
+    source: SourceInput;
     fromVersion: Option.Option<string>;
     toVersion: Option.Option<string>;
     fromHash: Option.Option<string>;

@@ -11,14 +11,14 @@
 import { pipe } from "effect/Function";
 import * as Option from "effect/Option";
 import * as semver from "semver";
-import type { Source } from "../../../sources/types.js";
+import type { SourceInput } from "../../../sources/types.js";
 
 /**
  * Skill source type re-exported from sources/types.ts for convenience.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SkillSource = Source;
+export type SkillSource = SourceInput;
 
 // =============================================================================
 // Install Path Computation

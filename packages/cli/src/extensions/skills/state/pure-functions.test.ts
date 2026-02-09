@@ -10,10 +10,9 @@ import { computeInstallPath, type SkillSource, versionsEqual } from "./pure-func
 
 describe("computeInstallPath", () => {
   describe("Registry sources", () => {
-    it("computes external path for registry source with URL", () => {
+    it("computes external path for registry source", () => {
       const source: SkillSource = {
         source: "registry",
-        url: "https://registry.example.com",
       };
 
       const path = computeInstallPath(source, "commit");
@@ -21,21 +20,9 @@ describe("computeInstallPath", () => {
       expect(path).toBe(".axm/extensions/external/skills/commit");
     });
 
-    it("computes external path for registry source with filesystem path", () => {
-      const source: SkillSource = {
-        source: "registry",
-        path: "/local/registry",
-      };
-
-      const path = computeInstallPath(source, "review-pr");
-
-      expect(path).toBe(".axm/extensions/external/skills/review-pr");
-    });
-
     it("uses skill name parameter for path", () => {
       const source: SkillSource = {
         source: "registry",
-        url: "https://registry.example.com",
       };
 
       const path = computeInstallPath(source, "different-name");
@@ -110,10 +97,9 @@ describe("computeInstallPath", () => {
       expect(path).toBe(".axm/extensions/external/skills/my-complex-skill-name");
     });
 
-    it("handles registry source with URL containing hyphens", () => {
+    it("handles registry source", () => {
       const source: SkillSource = {
         source: "registry",
-        url: "https://my-organization-registry.example.com",
       };
 
       const path = computeInstallPath(source, "skill");

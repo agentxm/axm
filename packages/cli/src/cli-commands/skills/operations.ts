@@ -9,7 +9,7 @@
 
 import type { Option } from "effect/Option";
 import type { ReadonlyRecord } from "effect/Record";
-import type { Source } from "../../sources/types.js";
+import type { SourceInput } from "../../sources/types.js";
 import type { Operation } from "../../workspace/plan.js";
 
 // -----------------------------------------------------------------------------
@@ -43,7 +43,7 @@ export interface SkillRef {
  * Args for the install-skill operation.
  */
 export type AddSkillArgs = {
-  readonly source: Source;
+  readonly source: SourceInput;
   readonly agents: ReadonlyArray<string>;
   readonly force: boolean;
 } & SkillRef;

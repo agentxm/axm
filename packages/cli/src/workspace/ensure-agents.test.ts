@@ -46,6 +46,11 @@ describe("ensureAgentsConfigured", () => {
       nonInteractive: true,
       preview: false,
       resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
+      getSources: () => Effect.succeed([]),
+      getSourceByName: () => Effect.succeed(Option.none()),
+      getRegistrySources: () => Effect.succeed([]),
+      getScope: () => Effect.succeed("@community"),
+      addSource: () => Effect.void,
     });
     const SSLayer = Layer.provide(SettingsServiceLive, Layer.merge(WsLayer, NodeContext.layer));
     const TestLayer = Layer.mergeAll(NodeContext.layer, logLayer, confirmLayer, SSLayer);

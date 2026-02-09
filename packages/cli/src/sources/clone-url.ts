@@ -8,7 +8,7 @@
 import * as Effect from "effect/Effect";
 
 import { CloneUrlError } from "./errors.js";
-import type { Source } from "./types.js";
+import type { SourceInput } from "./types.js";
 
 /**
  * Build a git clone URL from a source.
@@ -19,7 +19,7 @@ import type { Source } from "./types.js";
  * @param source - The source to build a clone URL for
  * @returns Effect containing the HTTPS clone URL or CloneUrlError
  */
-export const buildCloneUrl = (source: Source): Effect.Effect<string, CloneUrlError> => {
+export const buildCloneUrl = (source: SourceInput): Effect.Effect<string, CloneUrlError> => {
   switch (source.source) {
     case "github":
       return Effect.succeed(`https://github.com/${source.owner}/${source.repo}.git`);
@@ -55,7 +55,7 @@ export const buildCloneUrl = (source: Source): Effect.Effect<string, CloneUrlErr
  * @param source - The source to get the origin from
  * @returns The origin URL or path
  */
-export const getOrigin = (source: Source): string => {
+export const getOrigin = (source: SourceInput): string => {
   switch (source.source) {
     case "github":
       return `https://github.com/${source.owner}/${source.repo}`;
@@ -68,7 +68,8 @@ export const getOrigin = (source: Source): string => {
     case "local":
       return source.path;
     case "git":
-    case "registry":
       return "url" in source ? source.url : source.path;
+    case "registry":
+      return source.source;
   }
 };

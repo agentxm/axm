@@ -10,7 +10,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { parseSource } from "../../sources/index.js";
+import { parseSourceInput } from "../../sources/index.js";
 import type { ExtensionRef } from "../types.js";
 
 /**
@@ -69,8 +69,8 @@ export const resolveUrl = (input: string): Effect.Effect<ExtensionRef[], never> 
     return Effect.succeed([]);
   }
 
-  // Use existing parseSource for the heavy lifting
-  return parseSource(trimmed).pipe(
+  // Use existing parseSourceInput for the heavy lifting
+  return parseSourceInput(trimmed).pipe(
     Effect.map((src) => {
       // Handle github/gitlab sources
       if (src.source === "github" || src.source === "gitlab") {

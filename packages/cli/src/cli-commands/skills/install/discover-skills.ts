@@ -16,7 +16,7 @@ import {
   getTreeSha,
   printSource,
   shallowClone,
-  type Source,
+  type SourceInput,
 } from "../../../extensions/skills/index.js";
 import type { BitbucketSource, GitHubSource, GitLabSource } from "../../../sources/index.js";
 import { getAllAgents } from "../../../agents/index.js";
@@ -431,7 +431,7 @@ const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | Bitbu
  * Resolves the source (cloning if remote), then discovers available skills
  * within it. Returns an array of discovered skills.
  */
-export const discoverSkills = (source: Source) =>
+export const discoverSkills = (source: SourceInput) =>
   Effect.gen(function* () {
     switch (source.source) {
       case "github":

@@ -4,8 +4,8 @@ Extensions currently install from git repositories and local paths only. There i
 
 ## What Changes
 
-- Define a static-file registry layout: `extensions/@<scope>/<skills|mcp-servers>/<name>/` containing `index.json`, `<version>.json`, and `<version>.zip`
-- Define JSON schemas for extension index (all versions + metadata) and per-version metadata
+- Define a static-file registry layout: `extensions/@<scope>/<skills|mcp-servers>/<name>/` containing `index.json` and `<version>.zip`
+- Define JSON schemas for extension index (all versions + metadata) and version entries
 - Define extension archive format (zip with `axm-skill.json` or `axm-mcp-server.json` manifest)
 - Introduce a source provider abstraction that unifies how all source types (github, gitlab, bitbucket, azurerepos, git, registry, local) are accessed, with each source type implemented as a provider
 - Migrate existing source types to the source provider abstraction (not all providers support the same capabilities)
@@ -24,7 +24,7 @@ Extensions currently install from git repositories and local paths only. There i
 
 ### New Capabilities
 
-- `registry-layout`: Static-file registry layout and JSON schemas for extension index (`index.json`), per-version metadata (`<version>.json`), and archive format (`<version>.zip`)
+- `registry-layout`: Static-file registry layout and JSON schemas for extension index (`index.json`) and archive format (`<version>.zip`). All version metadata lives in `index.json` — no per-version sidecar files
 - `source-provider`: Abstraction that unifies how all source types are accessed — each source type (github, gitlab, git, registry, local, etc.) is implemented as a provider with `find` (search by names + agent compatibility) and `fetch` capabilities. Source identity (`Source` type) is independent from search criteria (`FindOptions`). Registry source providers extend the base with registry-specific operations and dispatch by location: local file provider reads from filesystem, future remote provider (out of scope) fetches over HTTPS
 - `registry-client`: Client-side resolution algorithm for local registries -- version selection (semver range + agent filter + yanked), archive extraction, and SHA-256 integrity verification. Dependency resolution is not implemented in this change but the registry index schema includes `dependencies` for forward compatibility with extension packs
 - `registry-source-config`: Named source configuration with scope-based routing, location normalization (local paths, `file://`), and ordered fallthrough with hard-fail on non-404 errors

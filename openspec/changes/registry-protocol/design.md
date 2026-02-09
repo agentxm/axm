@@ -54,7 +54,6 @@ The registry layout is:
       <skills|mcp-servers>/
         <name>/
           index.json
-          <version>.json
           <version>.zip
 ```
 
@@ -94,12 +93,6 @@ interface RegistrySourceProvider extends SourceProvider<RegistrySource> {
     type: ExtensionType,
     name: string,
   ) => Effect<ExtensionIndex, RegistryError>;
-  readonly fetchVersionMetadata: (
-    scope: string,
-    type: ExtensionType,
-    name: string,
-    version: string,
-  ) => Effect<VersionMetadata, RegistryError>;
   readonly fetchArchive: (
     scope: string,
     type: ExtensionType,
@@ -112,7 +105,7 @@ interface RegistrySourceProvider extends SourceProvider<RegistrySource> {
     name: string,
     version: string,
     archive: Uint8Array,
-    metadata: VersionMetadata,
+    metadata: VersionEntry,
   ) => Effect<void, RegistryError>;
   readonly checkNameExists: (
     scope: string,
@@ -394,13 +387,12 @@ The `ForkSkillOperation` is a new operation type with params `source` (where to 
 4. **Determine agent compatibility**: Read from `axm-skill.json` or from workspace settings.
 5. **Write to registry**:
    - Write `<version>.zip` to `<registry>/extensions/@<scope>/skills/<name>/`
-   - Write `<version>.json` with version metadata
    - Read existing `index.json` at `<registry>/extensions/@<scope>/skills/<name>/index.json` (or create new), prepend version entry, write back
 6. **Idempotency**: If the version already exists and checksum matches, no-op. If version exists with different checksum, fail (no overwrites without `--force`).
 
 Only extensions in `.axm/extensions/` (axm-managed extensions) can be published. Git-sourced and local-path skills are not publishable because they lack the manifest and versioning metadata — they must be forked first using `skills fork` to become managed extensions, then published. This makes fork a prerequisite for the migration workflow: fork converts unmanaged → managed, publish distributes managed → registry.
 
-### 7. Extension index and version metadata schemas
+### 7. Extension index and version entry schemas
 
 Defined as Effect Schemas for validation:
 
@@ -415,7 +407,7 @@ Defined as Effect Schemas for validation:
 - `authors`: optional array of `{name, email?, url?}`
 - `versions`: array of VersionEntry (newest first)
 
-**VersionEntry** (inside `index.json` and standalone `<version>.json`):
+**VersionEntry** (inside `index.json` `versions` array):
 
 - `version`: string (semver)
 - `published`: string (ISO 8601)
@@ -497,7 +489,7 @@ Changes: Minimal — workspace initialization may now also display resolved sour
 
 #### `source-to-lock-entry.ts`
 
-Registry case gains `checksum`, `resolvedVersion`, `sourceName` fields — pulled from the resolved version metadata, not from the old `SkillRef.registry`.
+Registry case gains `checksum`, `resolvedVersion`, `sourceName` fields — pulled from the resolved version entry in `index.json`, not from the old `SkillRef.registry`.
 
 #### `discover-skills.ts`
 
@@ -507,7 +499,7 @@ Changes: Refactor to delegate to source providers. Each provider implements `fin
 
 #### `settings/schema.ts`
 
-`SourcesConfigSchema` evolves from per-provider keys object to `Schema.Array` of discriminated `SourceConfig` entries. A migration utility converts the old object format to the new array format on first read.
+`SourcesConfigSchema` evolves from per-provider keys object to `Schema.Array` of discriminated `SourceConfig` entries. No migration — the old object format is simply replaced.
 
 #### `workspace/service.ts`
 
@@ -533,11 +525,11 @@ Flow: resolve scope if bare name provided → validate managed extension → bui
 
 #### `skills publish` operation (new: `skills/publish/publish-skill.ts`)
 
-Writes zip + version metadata + updates `index.json` in target registry. Idempotent: same version + same checksum = no-op; same version + different checksum = error.
+Writes zip + updates `index.json` in target registry. Idempotent: same version + same checksum = no-op; same version + different checksum = error.
 
 ## Risks / Trade-offs
 
-**[Breaking settings schema change]** → The `sources` field changes from an object with per-provider keys to a unified array of named sources. All existing per-provider fields (`github`, `gitlab`, `bitbucket`, `azurerepos`, `git`, `registry`) are consolidated into array entries discriminated by `source`. Mitigation: a migration utility converts the old object format to the new array format on first read.
+**[Breaking settings schema change]** → The `sources` field changes from an object with per-provider keys to a unified array of named sources. All existing per-provider fields (`github`, `gitlab`, `bitbucket`, `azurerepos`, `git`, `registry`) are consolidated into array entries discriminated by `source`. Backward compatibility is a non-concern — no migration utility needed.
 
 **[Two canonical locations]** → Managed extensions live in `.axm/extensions/`, while git/local skills remain in `.agents/skills/`. This adds complexity to the install path. Mitigation: the `installSkill` handler already computes the canonical path — it just needs a conditional based on source type. Over time, `skills fork` provides a migration path for users who want all their extensions managed.
 

@@ -116,7 +116,7 @@ describe("settings", () => {
       ),
     );
 
-    it.effect("writes settings with 2-space indentation", () =>
+    it.effect("writes settings with 2-space indentation and trailing newline", () =>
       withContext(
         Effect.gen(function* () {
           const settings = createDefaultSettings();
@@ -124,7 +124,7 @@ describe("settings", () => {
           yield* writeSettings(axmDir, settings);
 
           const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
-          const expected = JSON.stringify(settings, null, 2);
+          const expected = JSON.stringify(settings, null, 2) + "\n";
           expect(content).toBe(expected);
         }),
       ),

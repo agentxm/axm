@@ -165,6 +165,25 @@ describe("SettingsService", () => {
       }).pipe(Effect.provide(makeTestLayer(axmDir))),
     );
 
+    it.effect("preserves existing file formatting", () =>
+      Effect.gen(function* () {
+        // Write tab-indented settings
+        fs.mkdirSync(axmDir, { recursive: true });
+        const tabIndented =
+          '{\n\t"skills": {\n\t\t"existing": "@community/existing@^1.0.0"\n\t}\n}\n';
+        fs.writeFileSync(path.join(axmDir, SETTINGS_FILENAME), tabIndented);
+
+        const service = yield* SettingsService;
+        yield* service.addSkill("code-review", "@community/code-review@^1.0.0");
+
+        const content = fs.readFileSync(path.join(axmDir, SETTINGS_FILENAME), "utf-8");
+        // New skill should use tab indentation matching the file
+        expect(content).toContain('\t\t"code-review"');
+        // Existing content outside edit region should be preserved
+        expect(content).toContain('\t\t"existing": "@community/existing@^1.0.0"');
+      }).pipe(Effect.provide(makeTestLayer(axmDir))),
+    );
+
     it.effect("concurrent addSkill calls do not lose data", () =>
       Effect.gen(function* () {
         initSettings({});
@@ -206,6 +225,26 @@ describe("SettingsService", () => {
       }).pipe(Effect.provide(makeTestLayer(axmDir))),
     );
 
+    it.effect("preserves existing file formatting", () =>
+      Effect.gen(function* () {
+        fs.mkdirSync(axmDir, { recursive: true });
+        const tabIndented =
+          '{\n\t"scope": "acme",\n\t"skills": {\n\t\t"code-review": "@community/code-review@^1.0.0",\n\t\t"test-gen": "github:acme/test-gen"\n\t}\n}\n';
+        fs.writeFileSync(path.join(axmDir, SETTINGS_FILENAME), tabIndented);
+
+        const service = yield* SettingsService;
+        yield* service.removeSkill("code-review");
+
+        const content = fs.readFileSync(path.join(axmDir, SETTINGS_FILENAME), "utf-8");
+        // Scope should be preserved with tab indentation
+        expect(content).toContain('\t"scope": "acme"');
+        // Removed skill should be gone
+        expect(content).not.toContain("code-review");
+        // Remaining skill preserved
+        expect(content).toContain('\t\t"test-gen": "github:acme/test-gen"');
+      }).pipe(Effect.provide(makeTestLayer(axmDir))),
+    );
+
     it.effect("no-op when skill does not exist", () =>
       Effect.gen(function* () {
         initSettings({ skills: { "test-gen": "github:acme/test-gen" } } as Settings);
@@ -230,6 +269,24 @@ describe("SettingsService", () => {
 
         const settings = readSettingsFromDisk();
         expect(settings.agents).toEqual(["claude-code", "cursor"]);
+      }).pipe(Effect.provide(makeTestLayer(axmDir))),
+    );
+
+    it.effect("preserves existing file formatting", () =>
+      Effect.gen(function* () {
+        fs.mkdirSync(axmDir, { recursive: true });
+        const tabIndented = '{\n\t"scope": "acme",\n\t"agents": [\n\t\t"claude-code"\n\t]\n}\n';
+        fs.writeFileSync(path.join(axmDir, SETTINGS_FILENAME), tabIndented);
+
+        const service = yield* SettingsService;
+        yield* service.addAgent("cursor");
+
+        const content = fs.readFileSync(path.join(axmDir, SETTINGS_FILENAME), "utf-8");
+        // Scope should be preserved with tab indentation
+        expect(content).toContain('\t"scope": "acme"');
+        // Both agents present
+        expect(content).toContain("claude-code");
+        expect(content).toContain("cursor");
       }).pipe(Effect.provide(makeTestLayer(axmDir))),
     );
 

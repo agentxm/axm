@@ -332,7 +332,7 @@ When installing a registry-sourced extension, the pipeline becomes:
 1. Resolve version from registry `index.json`
 2. Download/read archive
 3. Verify SHA-256 checksum
-4. Extract to `.axm/extensions/<scope>/skills/<name>/`
+4. Extract to `.axm/extensions/@<scope>/skills/<name>/`
 5. Symlink from agent dirs (reusing existing `installForAgent` logic)
 6. Update lockfile and settings
 
@@ -356,18 +356,18 @@ The `skills fork` command converts an unmanaged skill into a managed extension:
 4. Logged-in user's scope (future — not implemented, out of scope for this change)
 5. If none available, prompt the user for a scope — the provided value is persisted to the project settings `scope` field for future use
 
-**Flow:**
+**Flow:** Fork reuses install's discovery pipeline (parseSource → discoverSkills → selectSkills) with additional steps for scope resolution and uniqueness checking, then builds a different plan (fork + publish + install ops instead of just install ops).
 
-1. **Resolve source skill**: If name matches an installed skill (in lockfile), read its files from the current canonical location. Otherwise, discover from the source string (same as install's discovery phase).
+1. **Resolve source skill**: Same as install's discovery phase. If name matches an installed skill (in lockfile), read its files from the current canonical location instead.
 2. **Determine scope/name**: Use scope resolution above for default scope, original skill name. Prompt user to confirm or change.
 3. **Check uniqueness**: Query configured registry sources (via `checkNameExists`) to ensure `@scope/name` doesn't collide. If collision, prompt for alternate name.
 4. **Build plan with three operations**:
-   - `fork-skill`: Clone/create the skill at the axm-managed directory (`.axm/extensions/<scope>/skills/<name>/`), copying `SKILL.md` and files, generating `axm-skill.json` manifest with `name: "@scope/name"`, `version: "0.1.0"`, agent compatibility from settings
+   - `fork-skill`: Copy the discovered skill's files to `.axm/extensions/@<scope>/skills/<name>/`, generate `axm-skill.json` manifest with `name: "@scope/name"`, `version: "0.1.0"`, agent compatibility from settings
    - `publish-skill`: Publish the newly created managed extension to the target registry
-   - `install-skill`: Install from registry with `--force` to replace any existing pre-fork skill data (symlinks, lockfile entry, settings entry)
+   - `install-skill`: Install from registry (new `@scope/name` identity, so not a no-op)
 5. **Execute via `resolvePlan`**: Display plan, confirm, apply — reusing the existing plan model
 
-The `ForkSkillOperation` is a new operation type with params `source` (where to fork from) and `name` (target `@scope/name`). The full fork flow decomposes into three sequential operations: fork → publish → install (force). This fits naturally into the plan model's job/step structure.
+The `ForkSkillOperation` is a new operation type with params `source` (where to fork from) and `name` (target `@scope/name`). The full fork flow decomposes into three sequential operations: fork → publish → install. This fits naturally into the plan model's job/step structure.
 
 **Glob-based forking:** When the input is a glob pattern (e.g., `effect-*`), the handler:
 
@@ -375,7 +375,7 @@ The `ForkSkillOperation` is a new operation type with params `source` (where to 
 2. Matches skill names against the glob pattern
 3. Builds a plan with fork operations for each match
 4. Displays the full plan (all matched skills) for confirmation
-5. Executes sequentially (each fork is an uninstall + install pair)
+5. Executes sequentially (each skill goes through the full fork → publish → install flow)
 
 ### 6. Publishing to local registries
 
@@ -383,19 +383,19 @@ The `ForkSkillOperation` is a new operation type with params `source` (where to 
 
 **Input:**
 
-- Extension to publish (defaults to current directory's extension, or `@scope/name`)
+- Extension to publish — `@scope/name`, or just `name` (resolved using default scope from `getScope()`). Defaults to current directory's extension if omitted.
 - Target registry name (defaults to first writable local source)
 
 **Flow:**
 
-1. **Validate extension**: Read `axm-skill.json` from `.axm/extensions/<scope>/skills/<name>/`. Verify required fields (name, version).
+1. **Validate extension**: Read `axm-skill.json` from `.axm/extensions/@<scope>/skills/<name>/`. Verify required fields (name, version).
 2. **Build archive**: Create a zip of the extension directory rooted in `<name>/` (matching the archive format spec).
 3. **Compute checksum**: SHA-256 of the zip bytes, formatted as `sha256:<hex>`.
 4. **Determine agent compatibility**: Read from `axm-skill.json` or from workspace settings.
 5. **Write to registry**:
    - Write `<version>.zip` to `<registry>/extensions/@<scope>/skills/<name>/`
    - Write `<version>.json` with version metadata
-   - Read existing `index.json` (or create new), prepend version entry, write back
+   - Read existing `index.json` at `<registry>/extensions/@<scope>/skills/<name>/index.json` (or create new), prepend version entry, write back
 6. **Idempotency**: If the version already exists and checksum matches, no-op. If version exists with different checksum, fail (no overwrites without `--force`).
 
 Only extensions in `.axm/extensions/` (axm-managed extensions) can be published. Git-sourced and local-path skills are not publishable because they lack the manifest and versioning metadata — they must be forked first using `skills fork` to become managed extensions, then published. This makes fork a prerequisite for the migration workflow: fork converts unmanaged → managed, publish distributes managed → registry.
@@ -412,7 +412,7 @@ Defined as Effect Schemas for validation:
 - `description`: optional string
 - `repository`: optional string
 - `license`: optional string
-- `authors`: optional array of `{name, url?, email?}`
+- `authors`: optional array of `{name, email?, url?}`
 - `versions`: array of VersionEntry (newest first)
 
 **VersionEntry** (inside `index.json` and standalone `<version>.json`):
@@ -449,13 +449,91 @@ Managed extensions require a manifest file:
   "agents": ["claude-code", "cursor"],
   "dependencies": {},
   "license": "MIT",
-  "author": { "name": "Acme Corp" }
+  "authors": [{ "name": "Acme Corp" }]
 }
 ```
 
-This uses the existing `CommonManifestFields` from `extensions/common.ts` as the base, extended with `agents` and `dependencies`. The manifest is the source of truth for publish metadata — the registry `index.json` is derived from it.
+This uses the existing `CommonManifestFields` from `extensions/common.ts` as the base, extended with `agents` and `dependencies`. The existing singular `author` field evolves to `authors` (array of `{name, email?, url?}`) — consistent with the index schema (Decision 7). The manifest is the source of truth for publish metadata — the registry `index.json` is derived from it.
 
 For forked extensions, the manifest is generated with sensible defaults: version `0.1.0`, agents from workspace settings, empty dependencies.
+
+## Handler Changes
+
+### Modified Handlers
+
+#### `skills install` handler (`skills/install/handler.ts`)
+
+Currently: parses source string → discovers skills → selects → builds plan → resolves.
+
+Changes: After parsing source, use `Workspace.getSources()` to get source configs. For registry sources, resolve version via the source provider's `find` instead of the current `discoverSkills`. Pass `FindOptions` (names from `--skills`, agents from settings, type `"skill"`). The discovery path splits: git/local sources use existing `discoverSkills`, registry sources use the source provider's `find` + `fetch`.
+
+#### `skills install` operation (`skills/install/install-skill.ts`)
+
+Currently: always writes to `.agents/skills/` as canonical location, copies files from a source path.
+
+Changes: Conditional canonical path — if `source` is `registry`, use `.axm/extensions/@<scope>/skills/<name>/`; otherwise `.agents/skills/` as before. For registry sources, the archive is already extracted to the managed location (no source path copy needed). Lockfile entry gains `checksum`, `resolvedVersion`, `sourceName` fields for registry sources. The install operation pre-cleans any existing skill by the same name from all known skill directories (both `.axm/extensions/` and `.agents/skills/`), including symlinks in agent directories, before writing to the target canonical path. This ensures clean transitions when a skill moves between managed and unmanaged locations (e.g., fork workflow). The existing plan-level no-op logic (skip if already installed) remains — `--force` overrides it for explicit reinstall.
+
+#### `skills uninstall` handler (`skills/uninstall/handler.ts`)
+
+Currently: expands glob against lockfile keys, builds uninstall ops.
+
+Changes: Minimal — uninstall needs to know which canonical location to clean up. Read lockfile entry's `source` field to determine whether to remove from `.axm/extensions/` or `.agents/skills/`.
+
+#### `skills uninstall` operation (`skills/uninstall/uninstall-skill.ts`)
+
+Changes: Look up the lockfile entry to determine canonical path. If `source: "registry"`, remove from `.axm/extensions/@<scope>/skills/<name>/`; otherwise `.agents/skills/<name>/` as before.
+
+#### `init` handler (`init/handler.ts`)
+
+Currently: triggers workspace initialization, displays agents.
+
+Changes: Minimal — workspace initialization may now also display resolved source configs. No structural change to the handler itself.
+
+### Modified Supporting Code
+
+#### `operations.ts` (skill operation types)
+
+`SkillRef` evolves: replace `path` + `registry` fields with `source: Source`. Add `type: "skill"` discriminator for `ExtensionRef` union. New `ForkSkillOperation` with params `source: Source` and `name: string`. New `PublishSkillOperation` with params for target registry name.
+
+#### `source-to-lock-entry.ts`
+
+Registry case gains `checksum`, `resolvedVersion`, `sourceName` fields — pulled from the resolved version metadata, not from the old `SkillRef.registry`.
+
+#### `discover-skills.ts`
+
+Currently: monolithic function handling all source types (clone, scan, etc.).
+
+Changes: Refactor to delegate to source providers. Each provider implements `find` — the discovery function becomes a thin dispatcher that gets the right provider from `Workspace.getSources()` and calls `provider.find(source, options)`.
+
+#### `settings/schema.ts`
+
+`SourcesConfigSchema` evolves from per-provider keys object to `Schema.Array` of discriminated `SourceConfig` entries. A migration utility converts the old object format to the new array format on first read.
+
+#### `workspace/service.ts`
+
+`WorkspaceContextService` gains `getScope()`, `getSources()`, `getSourceByName()`, `getRegistrySources()` as described in Decision 3. The `make()` function performs the three-layer merge (built-in → global → project) during workspace construction.
+
+### New Handlers
+
+#### `skills fork` handler (new: `skills/fork/handler.ts`)
+
+Input: skill name, source string, or glob pattern.
+
+Flow: parse source → discover skills (same as install — may involve git shallow clone for git/hosting sources) → determine scope (layered resolution + prompt) → check uniqueness → build plan with 3 ops (fork → publish → install) → resolve plan.
+
+#### `skills fork` operation (new: `skills/fork/fork-skill.ts`)
+
+Copies the discovered skill's files to `.axm/extensions/@<scope>/skills/<name>/` and generates an `axm-skill.json` manifest with version `0.1.0`, agents from workspace settings, empty dependencies. No git cloning or special source handling — the fork operation receives already-fetched skill files from the discovery phase (same as install) and just writes them into the managed extension structure.
+
+#### `skills publish` handler (new: `skills/publish/handler.ts`)
+
+Input: extension `@scope/name` or just `name` (resolved via `getScope()` for default scope), target registry name.
+
+Flow: resolve scope if bare name provided → validate managed extension → build archive → compute checksum → write to registry via `LocalRegistrySourceProvider.publishVersion`.
+
+#### `skills publish` operation (new: `skills/publish/publish-skill.ts`)
+
+Writes zip + version metadata + updates `index.json` in target registry. Idempotent: same version + same checksum = no-op; same version + different checksum = error.
 
 ## Risks / Trade-offs
 

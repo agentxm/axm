@@ -491,81 +491,174 @@ The guard returns the available registry sources (possibly including the newly c
 
 ## Handler Changes
 
-### Modified Handlers
+All handlers use the source provider abstraction (Decision 2) for discovery. The existing `discoverSkills` function is refactored into source providers — each provider implements `find` and `fetch`. Handlers never branch on source type for discovery; they get the provider and call `find`/`fetch` uniformly.
 
-#### `skills install` handler (`skills/install/handler.ts`)
+### `skills install` handler
 
-Currently: parses source string → discovers skills → selects → builds plan → resolves.
+```
+handleInstall(args)
+│
+├─ parseSource(args.source)
+│
+├─ if source.source === "registry":
+│    └─ registryGuard()                     # Decision 10
+│
+├─ provider = getProvider(source)            # dispatch by source.source
+├─ refs = provider.find(source, { names, agents, type: "skill" })
+├─ selected = selectSkills(refs, ...)        # unchanged interactive selection
+│
+├─ for each selected ref:
+│    └─ files = provider.fetch(source, ref)  # provider handles clone/extract/read
+│
+├─ build AddSkillOperations
+├─ buildPlan(ops, lockfile, ...)
+└─ ws.resolvePlan(plan, { "install-skill": installSkill })
+```
 
-Changes: After parsing source, use `Workspace.getSources()` to get source configs. For registry sources, resolve version via the source provider's `find` instead of the current `discoverSkills`. Pass `FindOptions` (names from `--skills`, agents from settings, type `"skill"`). The discovery path splits: git/local sources use existing `discoverSkills`, registry sources use the source provider's `find` + `fetch`.
+**Provider implementations for `find`:**
 
-#### `skills install` operation (`skills/install/install-skill.ts`)
+- `GitHubSourceProvider.find` / `GitLabSourceProvider.find` / `BitbucketSourceProvider.find` — shallow clone to scoped temp dir, scan for SKILL.md using existing 3-phase discovery algorithm, enrich with git tree SHA. The temp dir lifetime is managed by `Effect.acquireRelease` within a caller-provided scope (same pattern as today)
+- `LocalSourceProvider.find` — scan filesystem directly using existing `discoverSkillsInDir`
+- `RegistrySourceProvider.find` — read `index.json` from configured registry locations, select version by semver range + agent compatibility filter, return `ExtensionRef` with resolved version metadata
 
-Currently: always writes to `.agents/skills/` as canonical location, copies files from a source path.
+**Provider implementations for `fetch`:**
 
-Changes: Conditional canonical path — if `source` is `registry`, use `.axm/extensions/@<scope>/skills/<name>/`; otherwise `.agents/skills/` as before. For registry sources, the archive is already extracted to the managed location (no source path copy needed). Lockfile entry gains `checksum`, `resolvedVersion`, `sourceName` fields for registry sources. The install operation pre-cleans any existing skill by the same name from all known skill directories (both `.axm/extensions/` and `.agents/skills/`), including symlinks in agent directories, before writing to the target canonical path. This ensures clean transitions when a skill moves between managed and unmanaged locations (e.g., fork workflow). The existing plan-level no-op logic (skip if already installed) remains — `--force` overrides it for explicit reinstall.
+- Git-based providers — files already available in temp clone dir from `find`; `fetch` reads from that path
+- `LocalSourceProvider.fetch` — reads files from the local path
+- `RegistrySourceProvider.fetch` — reads/extracts archive, verifies SHA-256 checksum
 
-#### `skills uninstall` handler (`skills/uninstall/handler.ts`)
+### `install-skill` operation executor
 
-Currently: expands glob against lockfile keys, builds uninstall ops.
+```
+installSkill(op)
+│
+├─ determine canonical path:
+│    ├─ registry source → .axm/extensions/@<scope>/skills/<name>/
+│    └─ other sources   → .agents/skills/<sanitized-name>/
+│
+├─ pre-clean: remove existing skill from ALL known locations
+│    (both .axm/extensions/ and .agents/skills/, including agent symlinks)
+│    ensures clean transitions when source type changes (e.g., fork workflow)
+│
+├─ write files to canonical path:
+│    ├─ registry source → extract archive (already fetched + verified)
+│    └─ other sources   → copy from source path (existing logic)
+│
+├─ installForAgent(...)                     # symlinks from agent dirs, unchanged
+│
+├─ update lockfile:
+│    ├─ registry entries gain: checksum, resolvedVersion, sourceName
+│    └─ other entries: unchanged
+│
+└─ update settings
+```
 
-Changes: Minimal — uninstall needs to know which canonical location to clean up. Read lockfile entry's `source` field to determine whether to remove from `.axm/extensions/` or `.agents/skills/`.
+### `skills uninstall` handler
 
-#### `skills uninstall` operation (`skills/uninstall/uninstall-skill.ts`)
+Minimal changes. Reads lockfile entry's `source` field to determine canonical location for cleanup: `.axm/extensions/@<scope>/skills/<name>/` for registry sources, `.agents/skills/<name>/` for others.
 
-Changes: Look up the lockfile entry to determine canonical path. If `source: "registry"`, remove from `.axm/extensions/@<scope>/skills/<name>/`; otherwise `.agents/skills/<name>/` as before.
+### `skills fork` handler (new)
 
-#### `init` handler (`init/handler.ts`)
+```
+handleFork(args)
+│
+├─ registryGuard()                          # must have a registry to publish to
+│
+├─ resolve input:
+│    ├─ glob pattern? → match against lockfile keys → multiple skills
+│    ├─ installed skill name? → read from lockfile, get files from current location
+│    └─ source string? → parseSource → provider.find/fetch (same as install)
+│
+├─ for each matched skill:
+│    ├─ determineScope()
+│    │   ├─ project settings scope
+│    │   ├─ global settings scope
+│    │   └─ prompt user → persist to project settings
+│    │
+│    ├─ checkUniqueness()
+│    │   └─ registryProvider.checkNameExists(scope, "skill", name)
+│    │       └─ collision? → prompt for alternate name
+│    │
+│    └─ build 3 sequential ops:
+│         ├─ ForkSkillOperation    { source, targetName: "@scope/name" }
+│         ├─ PublishSkillOperation  { name: "@scope/name", registryName: "local" }
+│         └─ AddSkillOperation     { source: RegistrySource, ... }
+│
+├─ buildPlan(ops, lockfile, "Fork skill(s)", ...)
+│    └─ single job, concurrency: 1 (must be sequential: fork → publish → install)
+│
+└─ ws.resolvePlan(plan, {
+     "fork-skill": forkSkill,
+     "publish-skill": publishSkill,
+     "install-skill": installSkill,        # reused from install
+   })
+```
 
-Currently: triggers workspace initialization, displays agents.
+### `fork-skill` operation executor (new)
 
-Changes: Minimal — workspace initialization may now also display resolved source configs. No structural change to the handler itself.
+```
+forkSkill(op)
+│
+├─ resolve source files (from discovery or existing install location)
+├─ write to .axm/extensions/@<scope>/skills/<name>/
+└─ generate axm-skill.json manifest:
+     { name: "@scope/name", version: "0.1.0", agents: [...], dependencies: {} }
+```
 
-### Modified Supporting Code
+### `skills publish` handler (new)
 
-#### `operations.ts` (skill operation types)
+```
+handlePublish(args)
+│
+├─ registryGuard()
+├─ resolve scope if bare name provided (via getScope())
+├─ validate managed extension exists in .axm/extensions/
+├─ build PublishSkillOperation
+├─ buildPlan → resolvePlan
+└─ ws.resolvePlan(plan, { "publish-skill": publishSkill })
+```
 
-`SkillRef` evolves: replace `path` + `registry` fields with `source: Source`. Add `type: "skill"` discriminator for `ExtensionRef` union. New `ForkSkillOperation` with params `source: Source` and `name: string`. New `PublishSkillOperation` with params for target registry name.
+### `publish-skill` operation executor (new)
 
-#### `source-to-lock-entry.ts`
+```
+publishSkill(op)
+│
+├─ read axm-skill.json from .axm/extensions/@<scope>/skills/<name>/
+├─ build zip archive of extension directory
+├─ compute SHA-256 checksum
+├─ get target registry provider (by registryName from op args)
+├─ provider.publishVersion(scope, "skill", name, version, archive, metadata)
+│    ├─ write <version>.zip to registry layout path
+│    └─ update/create index.json (prepend version entry)
+└─ idempotency: same version + same checksum = no-op; different checksum = error
+```
 
-Registry case gains `checksum`, `resolvedVersion`, `sourceName` fields — pulled from the resolved version entry in `index.json`, not from the old `SkillRef.registry`.
+### New operation types
 
-#### `discover-skills.ts`
+```typescript
+export type ForkSkillArgs = {
+  readonly source: Source; // where to fork from
+  readonly targetName: string; // "@scope/name"
+  readonly agents: ReadonlyArray<string>;
+};
+export type ForkSkillOperation = Operation<"fork-skill", ForkSkillArgs>;
 
-Currently: monolithic function handling all source types (clone, scan, etc.).
+export type PublishSkillArgs = {
+  readonly name: string; // "@scope/name"
+  readonly registryName: string; // named source to publish to (e.g. "local")
+};
+export type PublishSkillOperation = Operation<"publish-skill", PublishSkillArgs>;
+```
 
-Changes: Refactor to delegate to source providers. Each provider implements `find` — the discovery function becomes a thin dispatcher that gets the right provider from `Workspace.getSources()` and calls `provider.find(source, options)`.
+`AddSkillOperation` retains the same shape. `SkillRef` evolves: `path` + `registry` fields replaced by `source: Source` — the source discriminator tells the executor which canonical path and lockfile shape to use.
 
-#### `settings/schema.ts`
+### Modified supporting code
 
-`SourcesConfigSchema` evolves from per-provider keys object to `Schema.Array` of discriminated `SourceConfig` entries. No migration — the old object format is simply replaced.
-
-#### `workspace/service.ts`
-
-`WorkspaceContextService` gains `getScope()`, `getSources()`, `getSourceByName()`, `getRegistrySources()` as described in Decision 3. The `make()` function performs the three-layer merge (built-in → global → project) during workspace construction.
-
-### New Handlers
-
-#### `skills fork` handler (new: `skills/fork/handler.ts`)
-
-Input: skill name, source string, or glob pattern.
-
-Flow: parse source → discover skills (same as install — may involve git shallow clone for git/hosting sources) → determine scope (layered resolution + prompt) → check uniqueness → build plan with 3 ops (fork → publish → install) → resolve plan.
-
-#### `skills fork` operation (new: `skills/fork/fork-skill.ts`)
-
-Copies the discovered skill's files to `.axm/extensions/@<scope>/skills/<name>/` and generates an `axm-skill.json` manifest with version `0.1.0`, agents from workspace settings, empty dependencies. No git cloning or special source handling — the fork operation receives already-fetched skill files from the discovery phase (same as install) and just writes them into the managed extension structure.
-
-#### `skills publish` handler (new: `skills/publish/handler.ts`)
-
-Input: extension `@scope/name` or just `name` (resolved via `getScope()` for default scope), target registry name.
-
-Flow: resolve scope if bare name provided → validate managed extension → build archive → compute checksum → write to registry via `LocalRegistrySourceProvider.publishVersion`.
-
-#### `skills publish` operation (new: `skills/publish/publish-skill.ts`)
-
-Writes zip + updates `index.json` in target registry. Idempotent: same version + same checksum = no-op; same version + different checksum = error.
+- **`operations.ts`**: `SkillRef` gains `source: Source`, drops `path`/`registry`. New `ForkSkillOperation` and `PublishSkillOperation` types
+- **`source-to-lock-entry.ts`**: Registry case gains `checksum`, `resolvedVersion`, `sourceName` — pulled from resolved version metadata
+- **`discover-skills.ts`**: Existing discovery logic moves into source provider implementations. The file either becomes a thin `getProvider(source).find(source, options)` dispatcher or is removed entirely if handlers call providers directly
+- **`settings/schema.ts`**: `SourcesConfigSchema` evolves from per-provider keys to `Schema.Array` of discriminated `SourceConfig` entries
+- **`workspace/service.ts`**: Gains `getScope()`, `getSources()`, `getSourceByName()`, `getRegistrySources()` (Decision 3). Merge uses project → global → built-in ordering
 
 ## Risks / Trade-offs
 

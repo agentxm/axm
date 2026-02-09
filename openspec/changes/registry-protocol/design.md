@@ -209,7 +209,7 @@ Registry source providers extend the base `SourceProvider` (Decision 2) with reg
 ```typescript
 // Extended capabilities for registry source providers
 // Methods take (scope, type, name) — consider an ExtensionCoord struct if this becomes unwieldy
-interface RegistrySourceProvider extends SourceProvider {
+interface RegistrySourceProvider extends SourceProvider<RegistrySourceInput> {
   readonly type: "registry";
   readonly fetchIndex: (
     scope: string,
@@ -274,7 +274,7 @@ A **registry meta-provider** wraps the multi-registry iteration (scope routing, 
 ```typescript
 // Wraps N configured registries into a single SourceProvider
 // Reads workspace.getRegistrySources() lazily on each find/fetch — always reflects current config
-const createRegistryMetaProvider = (): SourceProvider<SourceInput, FileSystem | Path | WorkspaceContext> => ({
+const createRegistryMetaProvider = (): SourceProvider<RegistrySourceInput, FileSystem | Path | WorkspaceContext> => ({
   find: (source, options) =>
     // workspace.getRegistrySources(scope) → iterate: scope-matched first, then catch-all
     // 404 → fallthrough, other errors → hard fail
@@ -481,8 +481,10 @@ When resolving from a registry source, the provider selects a version from `inde
 Within the registry meta-provider (Decision 4):
 
 1. Collect registry sources whose `scopes` includes the target extension's scope
-2. If no scope-matched sources, collect registry sources with no `scopes` field
-3. Query in array order. 404 → fallthrough. Other errors → hard fail
+2. If no scope-matched sources, collect registry sources with no `scopes` field (catch-all)
+3. Query the collected sources in array order. 404 → fallthrough to next source in the collected set. Other errors → hard fail
+
+The two sets are mutually exclusive: if any scope-matched sources exist, catch-all sources are **not** tried — even if all scope-matched sources 404. This prevents scope leakage: if a user configures `@corp` to resolve from a specific registry, a missing extension should fail rather than silently resolve from an unrelated catch-all registry.
 
 > **Note:** Scope routing only applies to registry sources — they are the only `SourceConfig` variant with a `scopes` field.
 
@@ -575,7 +577,7 @@ The `ForkSkillOperation` is a new operation type with params `source` (where to 
 
 ### 9. Publishing to local registries
 
-`axm publish` (or `axm skills publish`) writes an extension from `.axm/extensions/` to a local registry:
+`skills publish` writes an extension from `.axm/extensions/` to a local registry:
 
 **Input:**
 
@@ -647,7 +649,7 @@ Managed extensions require a manifest file:
 }
 ```
 
-This uses the existing `CommonManifestFields` from `extensions/common.ts` as the base, extended with `agents` and `dependencies`. The existing singular `author` field evolves to `authors` (array of `{name, email?, url?}`) — consistent with the index schema (Decision 10). The manifest is the source of truth for publish metadata — the registry `index.json` is derived from it.
+This uses `CommonManifestFields` from `extensions/common.ts` as the base, extended with `agents` and `dependencies`. `CommonManifestFields` currently has a singular optional `author: AuthorSchema` field — this is replaced with `authors: Schema.Array(AuthorSchema)` (array of `{name, email?, url?}`), consistent with the index schema (Decision 10). The manifest is the source of truth for publish metadata — the registry `index.json` is derived from it.
 
 For forked extensions, the manifest is generated with sensible defaults: version `0.1.0`, agents from workspace settings, empty dependencies.
 
@@ -853,7 +855,7 @@ export type PublishSkillOperation = Operation<"publish-skill", PublishSkillArgs>
 
 `AddSkillOperation` retains the same shape. `SkillRef` evolves: `path` + `registry` fields replaced by `source: SourceInput` + `location: string` + `version: Option<string>` (Decision 2). The source discriminator tells the executor which canonical path and lockfile shape to use.
 
-### Modified supporting code
+## Affected Files
 
 - **`operations.ts`**: `SkillRef` gains `source: SourceInput`, `location`, `version`; drops `path`/`registry`. New `ForkSkillOperation` and `PublishSkillOperation` types
 - **`source-to-lock-entry.ts`**: Registry case gains `checksum`, `resolvedVersion`, `sourceName`
@@ -863,10 +865,13 @@ export type PublishSkillOperation = Operation<"publish-skill", PublishSkillArgs>
 - **`resolution/resolvers/ambiguous.ts`**: Hardcoded try-order replaced by `getSources()` iteration (Decision 6). Gains `WorkspaceContext` dependency
 - **`sources/types.ts`**: `Source` renamed to `SourceInput`; `RegistrySource` simplified to `RegistrySourceInput` (no `url`/`path`)
 - **`sources/parser.ts`**: `parseSource` renamed to `parseSourceInput`. `resolveSlashPattern` removed — ambiguous resolution moves to resolver layer (Decision 6)
+- **`extensions/common.ts`**: `CommonManifestFields.author` replaced with `authors` (array of `AuthorSchema`)
 
 ## Risks / Trade-offs
 
 **[Breaking settings schema change]** → The `sources` field changes from an object with per-provider keys to a unified array of named sources. Existing per-provider fields that have configuration (`github`, `gitlab`, `bitbucket`, `azurerepos`, `registry`) become array entries discriminated by `source`. Fields with no configuration (`git`) are dropped entirely — git and local sources don't need SourceConfig entries. Backward compatibility is a non-concern — no migration utility needed.
+
+**[Breaking lockfile schema change]** → The registry lock entry's `version` field is renamed to `resolvedVersion` and new required fields (`checksum`, `sourceName`) are added. Existing lockfiles with registry entries will fail validation. Backward compatibility is a non-concern — no migration utility needed.
 
 **[Two canonical locations]** → Managed extensions live in `.axm/extensions/`, while git/local skills remain in `.agents/skills/`. This adds complexity to the install path. Mitigation: the `installSkill` handler already computes the canonical path — it just needs a conditional based on source type. Over time, `skills fork` provides a migration path for users who want all their extensions managed.
 

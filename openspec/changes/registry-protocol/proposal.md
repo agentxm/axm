@@ -26,7 +26,7 @@ Extensions currently install from git repositories and local paths only. There i
 
 - `registry-layout`: Static-file registry layout and JSON schemas for extension index (`index.json`) and archive format (`<version>.zip`). All version metadata lives in `index.json` — no per-version sidecar files
 - `source-provider`: Abstraction that unifies how all source types are accessed — each source type (github, gitlab, git, registry, local, etc.) is implemented as a provider with `find` (search by names + agent compatibility) and `fetch` capabilities. Source identity (`Source` type) is independent from search criteria (`FindOptions`). Registry source providers extend the base with registry-specific operations and dispatch by location: local file provider reads from filesystem, future remote provider (out of scope) fetches over HTTPS
-- `registry-client`: Client-side resolution algorithm for local registries -- version selection (semver range + agent filter + yanked), archive extraction, and SHA-256 integrity verification. Dependency resolution is not implemented in this change but the registry index schema includes `dependencies` for forward compatibility with extension packs
+- `registry-client`: Client-side resolution algorithm for local registries -- version selection (semver range + agent filter), archive extraction, and SHA-256 integrity verification. Dependency resolution is not implemented in this change but the registry index schema includes `dependencies` for forward compatibility with extension packs
 - `registry-source-config`: Named source configuration with scope-based routing, location normalization (local paths, `file://`), ordered fallthrough with hard-fail on non-404 errors, and a registry configuration guard that prompts users to configure a local registry when no registry source exists (interactive) or fails with instructions (non-interactive)
 - `registry-publish`: Publishing extensions to local registry destinations -- only axm-managed extensions (in `.axm/extensions/`) are publishable; builds archive, computes checksum, updates `index.json`
 - `managed-extensions`: Canonical managed extension location (`.axm/extensions/@<scope>/<skills|mcp-servers>/<name>/`) with `axm-skill.json` or `axm-mcp-server.json` manifest
@@ -40,7 +40,7 @@ Extensions currently install from git repositories and local paths only. There i
 
 ## Impact
 
-- **Sources** (`src/sources/`): `RegistrySource` type and parsing updated for named source configuration; source string format unchanged (`@scope/name@version`). New source provider abstraction introduced; existing source types (github, gitlab, etc.) migrated to provider model
+- **Sources** (`src/sources/`): `RegistrySource` standalone type removed — registry is a variant of `Source` (`source: "registry"`). Source string format unchanged (`@scope/name@version`). New source provider abstraction introduced; existing source types (github, gitlab, etc.) migrated to provider model
 - **Resolution** (`src/resolution/`): AXM name resolver gains real registry-level resolution via local file provider; resolution dispatches through source provider abstraction
 - **Settings** (`src/settings/`): Schema evolves `sources` from per-type config to named source entries with scope filters and location field
 - **Lockfile** (`src/lockfile/`): Registry lock entries gain version, checksum, and source name fields

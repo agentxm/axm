@@ -15,11 +15,13 @@ import * as Option from "effect/Option";
 import { type LockfileError, LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
 import {
   createDefaultSettings,
+  DEFAULT_SCOPE,
   readSettings,
   type SettingsError,
   SettingsParseError,
   SETTINGS_FILENAME,
   type Settings,
+  type SourceConfig,
   writeSettings,
 } from "../settings/index.js";
 import { getAxmDir } from "./paths.js";
@@ -32,6 +34,17 @@ import { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./er
 import type { Operation, Plan } from "./plan.js";
 import { displayPlan } from "./display-plan.js";
 import { applyPlan, type ExecutionContext, type Handlers } from "./apply-plan.js";
+
+/**
+ * Built-in source defaults that are always available unless overridden.
+ *
+ * @internal
+ */
+const BUILT_IN_SOURCES: ReadonlyArray<SourceConfig> = [
+  { name: "github", source: "github", url: "https://github.com" },
+  { name: "gitlab", source: "gitlab", url: "https://gitlab.com" },
+  { name: "bitbucket", source: "bitbucket", url: "https://bitbucket.org" },
+];
 
 /**
  * Effect service tag for workspace context.
@@ -334,6 +347,56 @@ const make = (options: WorkspaceContextOptions) =>
       () => process.env["CI"] === "true",
     );
 
+    // Capture FileSystem and Path for use in closures
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const semaphore = yield* Effect.makeSemaphore(1);
+
+    const fsLayer = Layer.merge(
+      Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(Path.Path, path),
+    );
+
+    // Mutable cache for merged sources (invalidated by addSource)
+    let cachedSources: ReadonlyArray<SourceConfig> | null = null;
+
+    /**
+     * Read settings from a directory, returning default settings if not found.
+     */
+    const readSettingsSafe = (dir: string) =>
+      readSettings(dir).pipe(
+        Effect.catchTag("SettingsNotFoundError", () => Effect.succeed(createDefaultSettings())),
+        Effect.provide(fsLayer),
+      );
+
+    /**
+     * Three-layer merge: project sources -> global sources -> built-in sources.
+     * Name-based deduplication: earlier layers win.
+     */
+    const getSources = (): Effect.Effect<ReadonlyArray<SourceConfig>, SettingsError> =>
+      Effect.gen(function* () {
+        if (cachedSources !== null) return cachedSources;
+
+        const projectSettings = yield* readSettingsSafe(localDir);
+        const globalSettings = yield* readSettingsSafe(globalDir);
+
+        const projectSources: ReadonlyArray<SourceConfig> = projectSettings.sources ?? [];
+        const globalSources: ReadonlyArray<SourceConfig> = globalSettings.sources ?? [];
+
+        const projectNames = new Set(projectSources.map((s) => s.name));
+        const filteredGlobal = globalSources.filter((s) => !projectNames.has(s.name));
+        const projectGlobalNames = new Set([...projectNames, ...filteredGlobal.map((s) => s.name)]);
+
+        const merged: ReadonlyArray<SourceConfig> = [
+          ...projectSources,
+          ...filteredGlobal,
+          ...BUILT_IN_SOURCES.filter((s) => !projectGlobalNames.has(s.name)),
+        ];
+
+        cachedSources = merged;
+        return merged;
+      });
+
     return {
       global: options.global,
       path: workspaceDir,
@@ -370,6 +433,49 @@ const make = (options: WorkspaceContextOptions) =>
             return yield* applyPlan(plan, handlers);
           }
         }),
+
+      getSources,
+
+      getSourceByName: (name: string) =>
+        getSources().pipe(
+          Effect.map((sources) => Option.fromNullable(sources.find((s) => s.name === name))),
+        ),
+
+      getRegistrySources: (scope: Option.Option<string>) =>
+        getSources().pipe(
+          Effect.map((sources) => {
+            const registrySources = sources.filter(
+              (s): s is Extract<SourceConfig, { source: "registry" }> => s.source === "registry",
+            );
+            if (Option.isNone(scope)) return registrySources;
+            const scopeValue = scope.value;
+            const scopeMatched = registrySources.filter(
+              (s) => s.scopes !== undefined && s.scopes.includes(scopeValue),
+            );
+            if (scopeMatched.length > 0) return scopeMatched;
+            return registrySources.filter((s) => s.scopes === undefined);
+          }),
+        ),
+
+      getScope: () =>
+        Effect.gen(function* () {
+          const projectSettings = yield* readSettingsSafe(localDir);
+          if (projectSettings.scope) return projectSettings.scope;
+          const globalSettings = yield* readSettingsSafe(globalDir);
+          if (globalSettings.scope) return globalSettings.scope;
+          return DEFAULT_SCOPE;
+        }),
+
+      addSource: (source: SourceConfig) =>
+        semaphore.withPermits(1)(
+          Effect.gen(function* () {
+            const current = yield* readSettingsSafe(localDir);
+            const currentSources: ReadonlyArray<SourceConfig> = current.sources ?? [];
+            const updatedSettings = { ...current, sources: [...currentSources, source] };
+            yield* writeSettings(localDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            cachedSources = null; // invalidate cache
+          }),
+        ),
     };
   });
 
@@ -414,4 +520,18 @@ export interface WorkspaceContextService {
     plan: Plan<Op>,
     handlers: T,
   ) => Effect.Effect<Plan<Op>, PromptCancelled | PromptError, Log | Confirm | ExecutionContext<T>>;
+  /** Merged sources from project, global, and built-in defaults. Cached per workspace lifetime. */
+  readonly getSources: () => Effect.Effect<ReadonlyArray<SourceConfig>, SettingsError>;
+  /** Lookup a source by name from the merged sources list. */
+  readonly getSourceByName: (
+    name: string,
+  ) => Effect.Effect<Option.Option<SourceConfig>, SettingsError>;
+  /** Filter merged sources to registry sources, optionally filtered by scope. */
+  readonly getRegistrySources: (
+    scope: Option.Option<string>,
+  ) => Effect.Effect<ReadonlyArray<Extract<SourceConfig, { source: "registry" }>>, SettingsError>;
+  /** Resolve scope: project settings -> global settings -> DEFAULT_SCOPE. */
+  readonly getScope: () => Effect.Effect<string, SettingsError>;
+  /** Append a source to project settings. Invalidates the sources cache. */
+  readonly addSource: (source: SourceConfig) => Effect.Effect<void, SettingsError>;
 }

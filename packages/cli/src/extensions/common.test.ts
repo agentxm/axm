@@ -143,7 +143,7 @@ describe("common schemas", () => {
         homepage: "https://wayne.com/tools",
         license: "MIT",
         bugs: "https://github.com/wayne/grappling-hook/issues",
-        author: { name: "Bruce Wayne" },
+        authors: [{ name: "Bruce Wayne" }],
       };
 
       const result = Schema.decodeUnknownEither(TestManifest)(input);

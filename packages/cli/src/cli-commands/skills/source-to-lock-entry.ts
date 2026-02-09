@@ -9,14 +9,14 @@
 
 import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../../lockfile/schema.js";
-import type { Source } from "../../sources/types.js";
+import type { SourceInput } from "../../sources/types.js";
 
 // -----------------------------------------------------------------------------
 // Types
 // -----------------------------------------------------------------------------
 
 interface SourceToLockEntryInput {
-  readonly source: Source;
+  readonly source: SourceInput;
   readonly agents: ReadonlyArray<string>;
   readonly gitTreeSha: Option.Option<string>;
   readonly now: Date;
@@ -53,7 +53,7 @@ const commonFields = (input: SourceToLockEntryInput) => ({
  * - `source.subPath` → lock entry `path` (field rename)
  * - `Option.some(v)` → `v`, `Option.none()` → omitted
  * - `GitRepositorySource` path variant puts `source.path` into lock entry `url`
- * - `RegistrySource` uses `registry.scope` and `registry.name` from input
+ * - `RegistrySourceInput` uses `registry.scope` and `registry.name` from input
  */
 export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry => {
   const common = commonFields(input);

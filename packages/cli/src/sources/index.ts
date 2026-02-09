@@ -2,7 +2,7 @@
  * Source parsing and identification module.
  *
  * Provides functionality to parse various source formats (GitHub shorthand, URLs, etc.)
- * into normalized Source structures.
+ * into normalized SourceInput structures.
  *
  * @experimental All exports from this module are unstable and may change without notice.
  * @packageDocumentation
@@ -18,8 +18,8 @@ export type {
   GitRepositorySource,
   GitSource,
   LocalSource,
-  RegistrySource,
-  Source,
+  RegistrySourceInput,
+  SourceInput,
   SourceType,
 } from "./types.js";
 export { SourceTypeSchema } from "./types.js";
@@ -31,7 +31,7 @@ export { isGitHostingProviderSource } from "./utils.js";
 export { CloneUrlError, ParseError } from "./errors.js";
 
 // Main parser
-export { parseSource } from "./parser.js";
+export { parseSourceInput } from "./parser.js";
 
 // Printer
 export { printSource } from "./printer.js";

@@ -12,7 +12,7 @@ import { config as bitbucketConfig } from "./bitbucket/index.js";
 import { config as githubConfig } from "./github/index.js";
 import { config as gitlabConfig } from "./gitlab/index.js";
 import { config as localConfig } from "./local/index.js";
-import type { Source, SourceConfig } from "./types.js";
+import type { SourceInput, SourceConfig } from "./types.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySourceConfig = SourceConfig<any, any>;
@@ -36,15 +36,16 @@ const CONFIG_BY_SOURCE_TYPE = new Map<string, AnySourceConfig>(
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const printSource = (source: Source): string => {
+export const printSource = (source: SourceInput): string => {
   const cfg = CONFIG_BY_SOURCE_TYPE.get(source.source);
   if (cfg) return cfg.print(source);
 
   // Fallback for types without a config
   switch (source.source) {
     case "git":
-    case "registry":
       return "url" in source ? source.url : source.path;
+    case "registry":
+      return source.source;
     default:
       return source.source;
   }

@@ -52,6 +52,131 @@
           },
           {
             "type": "object",
+            "required": ["source", "owner", "repo", "agents", "installedAt", "updatedAt"],
+            "properties": {
+              "source": {
+                "type": "string",
+                "enum": ["gitlab"]
+              },
+              "owner": {
+                "type": "string"
+              },
+              "repo": {
+                "type": "string"
+              },
+              "ref": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "agents": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "installedAt": {
+                "type": "string"
+              },
+              "updatedAt": {
+                "type": "string"
+              },
+              "gitTreeHash": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["source", "owner", "repo", "agents", "installedAt", "updatedAt"],
+            "properties": {
+              "source": {
+                "type": "string",
+                "enum": ["bitbucket"]
+              },
+              "owner": {
+                "type": "string"
+              },
+              "repo": {
+                "type": "string"
+              },
+              "ref": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "agents": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "installedAt": {
+                "type": "string"
+              },
+              "updatedAt": {
+                "type": "string"
+              },
+              "gitTreeHash": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": [
+              "source",
+              "organization",
+              "project",
+              "repo",
+              "agents",
+              "installedAt",
+              "updatedAt"
+            ],
+            "properties": {
+              "source": {
+                "type": "string",
+                "enum": ["azurerepos"]
+              },
+              "organization": {
+                "type": "string"
+              },
+              "project": {
+                "type": "string"
+              },
+              "repo": {
+                "type": "string"
+              },
+              "ref": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "agents": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "installedAt": {
+                "type": "string"
+              },
+              "updatedAt": {
+                "type": "string"
+              },
+              "gitTreeHash": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
             "required": ["source", "url", "agents", "installedAt", "updatedAt"],
             "properties": {
               "source": {

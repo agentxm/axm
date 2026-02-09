@@ -11,7 +11,7 @@
 import type { FileSystem } from "@effect/platform";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { parseSource } from "../../sources/index.js";
+import { parseSourceInput } from "../../sources/index.js";
 import type { ExtensionRef, ResolutionOptions } from "../types.js";
 import { resolveAxmName } from "./axm-name.js";
 
@@ -121,7 +121,7 @@ const trySourceParser = (
   input: string,
   options: ResolutionOptions,
 ): Effect.Effect<ExtensionRef[], never> => {
-  return parseSource(input).pipe(
+  return parseSourceInput(input).pipe(
     Effect.map((src) => {
       // Only handle github/gitlab types
       if (src.source !== "github" && src.source !== "gitlab") {

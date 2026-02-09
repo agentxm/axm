@@ -8,7 +8,7 @@ import type {
   GitLabSource,
   GitRepositorySource,
   LocalSource,
-  RegistrySource,
+  RegistrySourceInput,
 } from "../../sources/types.js";
 import { sourceToLockEntry } from "./source-to-lock-entry.js";
 
@@ -258,9 +258,8 @@ describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
 
   it("maps Registry source", () => {
-    const source: RegistrySource = {
+    const source: RegistrySourceInput = {
       source: "registry",
-      url: "https://registry.example.com/skills",
     };
 
     const result = sourceToLockEntry({

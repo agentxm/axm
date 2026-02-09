@@ -4,15 +4,15 @@
 
 > **Subagent:** Run this entire phase in a single subagent.
 
-- [ ] 1.1 Rename `Source` to `SourceInput` in `sources/types.ts`; simplify `RegistrySource` to `RegistrySourceInput` (no `url`/`path` fields — just `{ source: "registry" }`)
-- [ ] 1.2 Rename `parseSource` to `parseSourceInput` in `sources/parser.ts`; update registry parsing to return the simplified `RegistrySourceInput`
-- [ ] 1.3 Update all imports and references across the codebase (`Source` → `SourceInput`, `parseSource` → `parseSourceInput`, `RegistrySource` → `RegistrySourceInput`)
-- [ ] 1.4 Update all test files to use new type/function names
-- [ ] 1.5 Run `pnpm typecheck` and fix any errors
-- [ ] 1.6 Run `pnpm lint` and fix any errors
-- [ ] 1.7 Run `pnpm test` and fix any failures
-- [ ] 1.8 Run `pnpm test:e2e` and fix any failures
-- [ ] 1.9 Kill any vitest worker processes
+- [x] 1.1 Rename `Source` to `SourceInput` in `sources/types.ts`; simplify `RegistrySource` to `RegistrySourceInput` (no `url`/`path` fields — just `{ source: "registry" }`)
+- [x] 1.2 Rename `parseSource` to `parseSourceInput` in `sources/parser.ts`; update registry parsing to return the simplified `RegistrySourceInput`
+- [x] 1.3 Update all imports and references across the codebase (`Source` → `SourceInput`, `parseSource` → `parseSourceInput`, `RegistrySource` → `RegistrySourceInput`)
+- [x] 1.4 Update all test files to use new type/function names
+- [x] 1.5 Run `pnpm typecheck` and fix any errors
+- [x] 1.6 Run `pnpm lint` and fix any errors
+- [x] 1.7 Run `pnpm test` and fix any failures
+- [x] 1.8 Run `pnpm test:e2e` and fix any failures
+- [x] 1.9 Kill any vitest worker processes
 
 ## 2. CommonManifestFields evolution and managed extension manifest
 
@@ -20,16 +20,16 @@
 
 Depends on: none (independent of Phase 1).
 
-- [ ] 2.1 In `extensions/common.ts`, replace `author: Schema.optional(AuthorSchema)` with `authors: Schema.optional(Schema.Array(AuthorSchema))` in `CommonManifestFields`
-- [ ] 2.2 Update tests in `extensions/common.test.ts` for the `author` → `authors` change
-- [ ] 2.3 Update any other manifest schemas/tests that reference `author` (skill, mcp-server, command, pack manifests)
-- [ ] 2.4 Create `axm-skill.json` manifest schema in `extensions/skills/` extending `CommonManifestFields` with `agents: Schema.Array(Schema.String)` and `dependencies: Schema.optional(Schema.Record(...))`
-- [ ] 2.5 Write tests for the new `axm-skill.json` manifest schema
-- [ ] 2.6 Run `pnpm typecheck` and fix any errors
-- [ ] 2.7 Run `pnpm lint` and fix any errors
-- [ ] 2.8 Run `pnpm test` and fix any failures
-- [ ] 2.9 Run `pnpm test:e2e` and fix any failures
-- [ ] 2.10 Kill any vitest worker processes
+- [x] 2.1 In `extensions/common.ts`, replace `author: Schema.optional(AuthorSchema)` with `authors: Schema.optional(Schema.Array(AuthorSchema))` in `CommonManifestFields`
+- [x] 2.2 Update tests in `extensions/common.test.ts` for the `author` → `authors` change
+- [x] 2.3 Update any other manifest schemas/tests that reference `author` (skill, mcp-server, command, pack manifests)
+- [x] 2.4 Create `axm-skill.json` manifest schema in `extensions/skills/` extending `CommonManifestFields` with `agents: Schema.Array(Schema.String)` and `dependencies: Schema.optional(Schema.Record(...))`
+- [x] 2.5 Write tests for the new `axm-skill.json` manifest schema
+- [x] 2.6 Run `pnpm typecheck` and fix any errors
+- [x] 2.7 Run `pnpm lint` and fix any errors
+- [x] 2.8 Run `pnpm test` and fix any failures
+- [x] 2.9 Run `pnpm test:e2e` and fix any failures
+- [x] 2.10 Kill any vitest worker processes
 
 ## 3. Registry layout schemas
 
@@ -37,15 +37,15 @@ Depends on: none (independent of Phase 1).
 
 Depends on: none (independent of Phases 1–2).
 
-- [ ] 3.1 Create `registry/` feature folder with `index.ts` barrel
-- [ ] 3.2 Define `VersionEntrySchema` (version, published, agents, dependencies, engines, checksum) as Effect Schema
-- [ ] 3.3 Define `ExtensionIndexSchema` (name, scope, type, description, repository, license, authors, versions) as Effect Schema
-- [ ] 3.4 Write tests for `VersionEntrySchema` — valid entries, missing fields, forward-compatible agent strings
-- [ ] 3.5 Write tests for `ExtensionIndexSchema` — valid index, missing required fields, multiple versions ordered newest first
-- [ ] 3.6 Run `pnpm typecheck` and fix any errors
-- [ ] 3.7 Run `pnpm lint` and fix any errors
-- [ ] 3.8 Run `pnpm test` and fix any failures
-- [ ] 3.9 Kill any vitest worker processes
+- [x] 3.1 Create `registry/` feature folder with `index.ts` barrel
+- [x] 3.2 Define `VersionEntrySchema` (version, published, agents, dependencies, engines, checksum) as Effect Schema
+- [x] 3.3 Define `ExtensionIndexSchema` (name, scope, type, description, repository, license, authors, versions) as Effect Schema
+- [x] 3.4 Write tests for `VersionEntrySchema` — valid entries, missing fields, forward-compatible agent strings
+- [x] 3.5 Write tests for `ExtensionIndexSchema` — valid index, missing required fields, multiple versions ordered newest first
+- [x] 3.6 Run `pnpm typecheck` and fix any errors
+- [x] 3.7 Run `pnpm lint` and fix any errors
+- [x] 3.8 Run `pnpm test` and fix any failures
+- [x] 3.9 Kill any vitest worker processes
 
 ## 4. Settings schema evolution (sources array + scope)
 
@@ -53,16 +53,16 @@ Depends on: none (independent of Phases 1–2).
 
 Depends on: Phase 1 (uses `SourceInput` types).
 
-- [ ] 4.1 Define `SourceConfigSchema` as a discriminated union on `source` field in `settings/schema.ts` with 5 variants (github, gitlab, bitbucket, azurerepos, registry)
-- [ ] 4.2 Add `scope: Schema.optional(Schema.String)` to settings schema
-- [ ] 4.3 Evolve `sources` field from per-provider-key object to `Schema.optional(Schema.Array(SourceConfigSchema))`
-- [ ] 4.4 Write tests for `SourceConfigSchema` — valid entries for each variant, name validation regex, location normalization, scopes field
-- [ ] 4.5 Write tests for evolved settings schema — new sources array format, scope field, old format rejection
-- [ ] 4.6 Run `pnpm typecheck` and fix any errors
-- [ ] 4.7 Run `pnpm lint` and fix any errors
-- [ ] 4.8 Run `pnpm test` and fix any failures
-- [ ] 4.9 Run `pnpm test:e2e` and fix any failures
-- [ ] 4.10 Kill any vitest worker processes
+- [x] 4.1 Define `SourceConfigSchema` as a discriminated union on `source` field in `settings/schema.ts` with 5 variants (github, gitlab, bitbucket, azurerepos, registry)
+- [x] 4.2 Add `scope: Schema.optional(Schema.String)` to settings schema
+- [x] 4.3 Evolve `sources` field from per-provider-key object to `Schema.optional(Schema.Array(SourceConfigSchema))`
+- [x] 4.4 Write tests for `SourceConfigSchema` — valid entries for each variant, name validation regex, location normalization, scopes field
+- [x] 4.5 Write tests for evolved settings schema — new sources array format, scope field, old format rejection
+- [x] 4.6 Run `pnpm typecheck` and fix any errors
+- [x] 4.7 Run `pnpm lint` and fix any errors
+- [x] 4.8 Run `pnpm test` and fix any failures
+- [x] 4.9 Run `pnpm test:e2e` and fix any failures
+- [x] 4.10 Kill any vitest worker processes
 
 ## 5. Workspace service extensions (getSources, getScope, getRegistrySources)
 
@@ -70,21 +70,21 @@ Depends on: Phase 1 (uses `SourceInput` types).
 
 Depends on: Phase 4 (uses `SourceConfig` types).
 
-- [ ] 5.1 Define built-in source defaults (github, gitlab, bitbucket) in `workspace/service.ts`
-- [ ] 5.2 Implement `getSources()` — three-layer merge (project → global → built-in) with name-based deduplication and caching
-- [ ] 5.3 Implement `getSourceByName(name)` — lookup from merged list, returns `Option<SourceConfig>`
-- [ ] 5.4 Implement `getRegistrySources(scope: Option<string>)` — filter to registry sources with scope routing (scope-matched exclusive of catch-all)
-- [ ] 5.5 Implement `getScope()` — project > global > prompt (persist to project settings)
-- [ ] 5.6 Implement `addSource(source)` — append to project settings sources array (semaphore-serialized)
-- [ ] 5.7 Write tests for `getSources()` — merge ordering, deduplication, caching
-- [ ] 5.8 Write tests for `getRegistrySources()` — scope filtering, catch-all fallback, mutual exclusivity
-- [ ] 5.9 Write tests for `getScope()` — resolution chain, prompt persistence
-- [ ] 5.10 Write tests for `addSource()` — append behavior, concurrency
-- [ ] 5.11 Run `pnpm typecheck` and fix any errors
-- [ ] 5.12 Run `pnpm lint` and fix any errors
-- [ ] 5.13 Run `pnpm test` and fix any failures
-- [ ] 5.14 Run `pnpm test:e2e` and fix any failures
-- [ ] 5.15 Kill any vitest worker processes
+- [x] 5.1 Define built-in source defaults (github, gitlab, bitbucket) in `workspace/service.ts`
+- [x] 5.2 Implement `getSources()` — three-layer merge (project → global → built-in) with name-based deduplication and caching
+- [x] 5.3 Implement `getSourceByName(name)` — lookup from merged list, returns `Option<SourceConfig>`
+- [x] 5.4 Implement `getRegistrySources(scope: Option<string>)` — filter to registry sources with scope routing (scope-matched exclusive of catch-all)
+- [x] 5.5 Implement `getScope()` — project > global > prompt (persist to project settings)
+- [x] 5.6 Implement `addSource(source)` — append to project settings sources array (semaphore-serialized)
+- [x] 5.7 Write tests for `getSources()` — merge ordering, deduplication, caching
+- [x] 5.8 Write tests for `getRegistrySources()` — scope filtering, catch-all fallback, mutual exclusivity
+- [x] 5.9 Write tests for `getScope()` — resolution chain, prompt persistence
+- [x] 5.10 Write tests for `addSource()` — append behavior, concurrency
+- [x] 5.11 Run `pnpm typecheck` and fix any errors
+- [x] 5.12 Run `pnpm lint` and fix any errors
+- [x] 5.13 Run `pnpm test` and fix any failures
+- [x] 5.14 Run `pnpm test:e2e` and fix any failures
+- [x] 5.15 Kill any vitest worker processes
 
 ## 6. SourceProvider interface and existing provider migration
 

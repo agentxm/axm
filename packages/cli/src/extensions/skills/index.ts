@@ -25,7 +25,7 @@ export {
   getOrigin,
   isGitHostingProviderSource,
   ParseError,
-  parseSource,
+  parseSourceInput,
   printSource,
 } from "../../sources/index.js";
 
@@ -36,6 +36,6 @@ export type { LockEntry, Skill } from "./types.js";
 export type {
   AzureReposSource,
   GitHostingProviderSource,
-  Source,
+  SourceInput,
   SourceType,
 } from "../../sources/index.js";

@@ -54,7 +54,7 @@ export type SourceType = typeof SourceTypeSchema.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface ShorthandConfig<T extends SourceType, T2 extends Source & { source: T }> {
+export interface ShorthandConfig<T extends SourceType, T2 extends SourceInput & { source: T }> {
   readonly prefix: T;
   readonly parse: (input: string) => Effect.Effect<T2, ParseError>;
 }
@@ -64,7 +64,7 @@ export interface ShorthandConfig<T extends SourceType, T2 extends Source & { sou
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface UrlParseConfig<T extends SourceType, T2 extends Source & { source: T }> {
+export interface UrlParseConfig<T extends SourceType, T2 extends SourceInput & { source: T }> {
   readonly hostname: string;
   readonly parseUrl: (url: URL) => Effect.Effect<T2, ParseError>;
   readonly parseScp: (input: string) => Effect.Effect<T2, ParseError>;
@@ -77,7 +77,7 @@ export interface UrlParseConfig<T extends SourceType, T2 extends Source & { sour
  */
 export interface SourceConfig<
   T extends SourceType = SourceType,
-  T2 extends Source & { source: T } = Source & { source: T },
+  T2 extends SourceInput & { source: T } = SourceInput & { source: T },
 > {
   readonly id: T;
   readonly print: (source: T2) => string;
@@ -192,11 +192,12 @@ export type GitRepositorySource = {
 );
 
 /**
- * Package registry source (placeholder for future implementation).
+ * Package registry source input (placeholder for future implementation).
+ * Location resolved from SourceConfig at runtime.
  */
-export type RegistrySource = {
+export type RegistrySourceInput = {
   readonly source: "registry";
-} & ({ readonly url: string } | { readonly path: string });
+};
 
 /**
  * Local filesystem path source.
@@ -208,16 +209,16 @@ export interface LocalSource {
 }
 
 /**
- * Union of all source types.
+ * Union of all source input types.
  * Discriminated union based on the `source` field.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type Source =
+export type SourceInput =
   | GitHubSource
   | GitLabSource
   | BitbucketSource
   | AzureReposSource
   | GitRepositorySource
-  | RegistrySource
+  | RegistrySourceInput
   | LocalSource;

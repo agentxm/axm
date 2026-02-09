@@ -69,7 +69,7 @@ export type {
   SkillChangeWithName,
   SkillFrontmatter,
   SkillSource,
-  Source,
+  SourceInput,
   SkillState,
   SkillStateIssue,
   SkillStateV2,

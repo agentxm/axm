@@ -9,25 +9,12 @@
  */
 
 // Schema types and schemas
-export type {
-  EmptySource,
-  ExtensionMap,
-  PathSource,
-  RegistrySource,
-  Settings,
-  SkillsMap,
-  SourcesConfig,
-  UrlSource,
-} from "./schema.js";
+export type { ExtensionMap, Settings, SkillsMap, SourceConfig } from "./schema.js";
 export {
-  EmptySourceSchema,
   ExtensionMapSchema,
-  PathSourceSchema,
-  RegistrySourceSchema,
   SettingsSchema,
   SkillsMapSchema,
-  SourcesConfigSchema,
-  UrlSourceSchema,
+  SourceConfigSchema,
 } from "./schema.js";
 
 // Settings I/O

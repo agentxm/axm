@@ -22,11 +22,11 @@ describe("McpServerManifestSchema", () => {
       homepage: "https://wayne.tech/batcave",
       license: "MIT",
       bugs: "https://github.com/wayne/batcave-mcp/issues",
-      author: { name: "Alfred Pennyworth" },
+      authors: [{ name: "Alfred Pennyworth" }],
     };
     const result = decode(input);
     expect(result.description).toBe("MCP server for Batcave systems");
-    expect(result.author?.name).toBe("Alfred Pennyworth");
+    expect(result.authors?.[0]?.name).toBe("Alfred Pennyworth");
   });
 
   it("rejects manifest missing required fields", () => {

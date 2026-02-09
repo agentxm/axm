@@ -19,7 +19,7 @@ import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Clack } from "../../../clack-effect/index.js";
+import { Log, Spinner } from "../../../tui/index.js";
 import { LockfileService } from "../../../lockfile/index.js";
 import { SettingsService } from "../../../settings/index.js";
 import { formatError } from "../../../utils/errors.js";
@@ -100,17 +100,15 @@ export const handleInstall = (args: InstallHandlerArgs) => {
   return Effect.scoped(
     Effect.gen(function* () {
       const ws = yield* Workspace;
-      // Get Clack service
-      const clack = yield* Clack;
+      // Get TUI services
+      const log = yield* Log;
+      const spinnerSvc = yield* Spinner;
 
       // Show intro
-      yield* clack.intro(`axm skills install (${scopeLabel})`);
-
-      // Create spinner (auto-detects TTY)
-      const spinner = yield* clack.spinner();
+      yield* log.info(`axm skills install (${scopeLabel})`);
 
       // Step 1: Parse source
-      spinner.start("Parsing source...");
+      let handle = yield* spinnerSvc.start("Parsing source...");
       const source = yield* parseSource(args.source).pipe(
         Effect.mapError(
           (error) =>
@@ -125,19 +123,19 @@ export const handleInstall = (args: InstallHandlerArgs) => {
             }),
         ),
       );
-      spinner.stop(`Source: ${printSource(source)} (${source.source})`);
+      yield* handle.stop(`Source: ${printSource(source)} (${source.source})`);
 
       // Step 2: Get workspace context (provided by runtime)
 
       // TODO: Step 3 — Get agents from settings or --agent flag
 
       // Step 5: Discover skills from source
-      spinner.start("Discovering skills...");
+      handle = yield* spinnerSvc.start("Discovering skills...");
       const discoveredSkills = yield* discoverSkills(source).pipe(
-        Effect.tapError(() => Effect.sync(() => spinner.stop("Failed"))),
+        Effect.tapError(() => handle.stop("Failed")),
       );
       if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
-        spinner.stop("No skills found");
+        yield* handle.stop("No skills found");
         return yield* new InstallError({
           message: formatError(
             "No skills found in source",
@@ -148,16 +146,16 @@ export const handleInstall = (args: InstallHandlerArgs) => {
           retryable: false,
         });
       }
-      spinner.stop(`Found ${discoveredSkills.length} skill(s)`);
+      yield* handle.stop(`Found ${discoveredSkills.length} skill(s)`);
 
       // Step 6: List mode -> display and exit
       if (args.list) {
-        yield* clack.log.info("Available skills:");
+        yield* log.info("Available skills:");
         for (const ref of discoveredSkills) {
           const desc = ref.skill.description ? ` - ${ref.skill.description}` : "";
-          yield* clack.log.message(`  ${ref.skill.name}${desc}`);
+          yield* log.message(`  ${ref.skill.name}${desc}`);
         }
-        yield* clack.outro(`${discoveredSkills.length} skill(s) available`);
+        yield* log.success(`${discoveredSkills.length} skill(s) available`);
         return;
       }
 
@@ -169,8 +167,8 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       });
 
       if (!Array.isNonEmptyReadonlyArray(selectedSkills)) {
-        yield* clack.log.warn("No skills selected.");
-        yield* clack.outro("Nothing to install.");
+        yield* log.warn("No skills selected.");
+        yield* log.success("Nothing to install.");
         return;
       }
 
@@ -203,7 +201,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
       yield* ws.resolvePlan(plan, { "install-skill": installSkill });
 
-      yield* clack.outro("Done");
+      yield* log.success("Done");
     }),
   );
 };

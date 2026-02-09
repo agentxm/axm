@@ -15,7 +15,18 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { Clack, makeClackTestLayer, type MockClackConfig } from "../../../clack-effect/index.js";
+import {
+  type Confirm,
+  type Log,
+  type Multiselect,
+  type Select,
+  type Spinner,
+  makeConfirmTestLayer,
+  makeLogTestLayer,
+  makeMultiselectTestLayer,
+  makeSelectTestLayer,
+  makeSpinnerTestLayer,
+} from "../../../tui/index.js";
 import { LockfileService, LockfileServiceLive } from "../../../lockfile/index.js";
 import { SettingsService, SettingsServiceLive } from "../../../settings/index.js";
 import {
@@ -84,11 +95,32 @@ describe("install.handler", () => {
   });
 
   const makeLayers = (
-    clackConfig?: MockClackConfig,
+    tuiConfig?: {
+      confirmBehavior?: import("../../../tui/index.js").ConfirmBehavior;
+      selectBehavior?: import("../../../tui/index.js").SelectBehavior;
+      multiselectBehavior?: import("../../../tui/index.js").MultiselectBehavior;
+    },
     wsOverrides?: Partial<WorkspaceContextOptions>,
   ) => {
-    const [ClackLayer, mockClack] = makeClackTestLayer(clackConfig);
-    const BaseLayer = Layer.mergeAll(NodeContext.layer, ClackLayer);
+    const [logLayer, mockLog] = makeLogTestLayer();
+    const [spinnerLayer, mockSpinner] = makeSpinnerTestLayer();
+    const [confirmLayer] = makeConfirmTestLayer(
+      tuiConfig?.confirmBehavior ?? { type: "return", value: true },
+    );
+    const [selectLayer] = makeSelectTestLayer(
+      tuiConfig?.selectBehavior ?? { type: "return", index: 0 },
+    );
+    const [multiselectLayer] = makeMultiselectTestLayer(
+      tuiConfig?.multiselectBehavior ?? { type: "return", indices: [] },
+    );
+    const BaseLayer = Layer.mergeAll(
+      NodeContext.layer,
+      logLayer,
+      spinnerLayer,
+      confirmLayer,
+      selectLayer,
+      multiselectLayer,
+    );
     const wsOptions: WorkspaceContextOptions = {
       global: false,
       yes: true,
@@ -108,14 +140,18 @@ describe("install.handler", () => {
         E,
         | FileSystem.FileSystem
         | Path.Path
-        | Clack
+        | Log
+        | Spinner
+        | Confirm
+        | Select
+        | Multiselect
         | WorkspaceContextTag
         | SettingsService
         | LockfileService
       >,
     ) => effect.pipe(Effect.provide(FullLayer));
 
-    return { provide, mockClack };
+    return { provide, mockLog, mockSpinner };
   };
 
   // ---------------------------------------------------------------------------
@@ -124,11 +160,9 @@ describe("install.handler", () => {
 
   describe("plan build and display (preview mode)", () => {
     it.effect("builds plan from operations and lockfile, displays it", () => {
-      const { provide, mockClack } = makeLayers(
+      const { provide, mockLog } = makeLayers(
         {
-          confirmBehavior: Option.some({ type: "return", value: true }),
-          selectBehavior: Option.none(),
-          multiselectBehavior: Option.none(),
+          confirmBehavior: { type: "return", value: true },
         },
         { preview: true, yes: false },
       );
@@ -141,22 +175,16 @@ describe("install.handler", () => {
           yield* handleInstall(defaultArgs(skillsDir, { yes: false }));
 
           // Plan was displayed — should show the skill to install
-          const allLogs = [
-            ...mockClack.logs.info,
-            ...mockClack.logs.success,
-            ...mockClack.logs.message,
-          ];
+          const allLogs = [...mockLog.logs.info, ...mockLog.logs.success, ...mockLog.logs.message];
           expect(allLogs.some((m) => m.includes("commit"))).toBe(true);
         }),
       );
     });
 
     it.effect("marks already-installed skills as no-op in display", () => {
-      const { provide, mockClack } = makeLayers(
+      const { provide, mockLog } = makeLayers(
         {
-          confirmBehavior: Option.some({ type: "return", value: true }),
-          selectBehavior: Option.none(),
-          multiselectBehavior: Option.none(),
+          confirmBehavior: { type: "return", value: true },
         },
         { preview: true, yes: false },
       );
@@ -178,11 +206,7 @@ describe("install.handler", () => {
         Effect.gen(function* () {
           yield* handleInstall(defaultArgs(skillsDir, { yes: false }));
 
-          const allLogs = [
-            ...mockClack.logs.warn,
-            ...mockClack.logs.info,
-            ...mockClack.logs.message,
-          ];
+          const allLogs = [...mockLog.logs.warn, ...mockLog.logs.info, ...mockLog.logs.message];
           expect(allLogs.some((m) => m.includes("already installed"))).toBe(true);
         }),
       );
@@ -195,7 +219,7 @@ describe("install.handler", () => {
 
   describe("--yes", () => {
     it.effect("applies plan without confirmation prompt", () => {
-      const { provide, mockClack } = makeLayers();
+      const { provide, mockLog } = makeLayers();
       const skillsDir = path.join(tempDir, "skills-source");
       createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
       initWorkspace(path.join(tempDir, ".axm"));
@@ -205,9 +229,9 @@ describe("install.handler", () => {
           yield* handleInstall(defaultArgs(skillsDir, { yes: true }));
 
           // Apply was called — should log success for skill
-          expect(mockClack.logs.success.some((m) => m.includes("commit"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("commit"))).toBe(true);
           // Should end with Done
-          expect(mockClack.logs.outro.some((m) => m.includes("Done"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
         }),
       );
     });
@@ -219,11 +243,9 @@ describe("install.handler", () => {
 
   describe("confirm prompt (preview mode)", () => {
     it.effect("applies plan when user confirms", () => {
-      const { provide, mockClack } = makeLayers(
+      const { provide, mockLog } = makeLayers(
         {
-          confirmBehavior: Option.some({ type: "return", value: true }),
-          selectBehavior: Option.none(),
-          multiselectBehavior: Option.none(),
+          confirmBehavior: { type: "return", value: true },
         },
         { preview: true, yes: false, nonInteractive: Option.some(false) },
       );
@@ -236,18 +258,16 @@ describe("install.handler", () => {
           yield* handleInstall(defaultArgs(skillsDir, { yes: false }));
 
           // Apply was called
-          expect(mockClack.logs.success.some((m) => m.includes("commit"))).toBe(true);
-          expect(mockClack.logs.outro.some((m) => m.includes("Done"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("commit"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
         }),
       );
     });
 
     it.effect("exits without applying when user declines", () => {
-      const { provide, mockClack } = makeLayers(
+      const { provide, mockLog } = makeLayers(
         {
-          confirmBehavior: Option.some({ type: "return", value: false }),
-          selectBehavior: Option.none(),
-          multiselectBehavior: Option.none(),
+          confirmBehavior: { type: "return", value: false },
         },
         { preview: true, yes: false, nonInteractive: Option.some(false) },
       );
@@ -259,10 +279,10 @@ describe("install.handler", () => {
         Effect.gen(function* () {
           yield* handleInstall(defaultArgs(skillsDir, { yes: false }));
 
-          // Should show cancelled
-          expect(mockClack.logs.outro.some((m) => m.includes("Cancel"))).toBe(true);
+          // Should show cancelled (resolvePlan does log.success("Cancelled."))
+          expect(mockLog.logs.success.some((m) => m.includes("Cancel"))).toBe(true);
           // Should NOT have applied (no checkmark in success logs)
-          expect(mockClack.logs.success.filter((m) => m.includes("\u2713"))).toHaveLength(0);
+          expect(mockLog.logs.success.filter((m) => m.includes("\u2713"))).toHaveLength(0);
         }),
       );
     });
@@ -295,8 +315,8 @@ describe("install.handler", () => {
       );
     });
 
-    it.effect("reports success results via clack", () => {
-      const { provide, mockClack } = makeLayers();
+    it.effect("reports success results via log", () => {
+      const { provide, mockLog } = makeLayers();
       const skillsDir = path.join(tempDir, "skills-source");
       createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
       initWorkspace(path.join(tempDir, ".axm"));
@@ -305,7 +325,7 @@ describe("install.handler", () => {
         Effect.gen(function* () {
           yield* handleInstall(defaultArgs(skillsDir));
 
-          expect(mockClack.logs.success.some((m) => m.includes("commit"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("commit"))).toBe(true);
         }),
       );
     });
@@ -337,8 +357,8 @@ describe("install.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("summary", () => {
-    it.effect("shows Done outro after apply", () => {
-      const { provide, mockClack } = makeLayers();
+    it.effect("shows Done success after apply", () => {
+      const { provide, mockLog } = makeLayers();
       const skillsDir = path.join(tempDir, "skills-source");
       createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
       initWorkspace(path.join(tempDir, ".axm"));
@@ -347,7 +367,7 @@ describe("install.handler", () => {
         Effect.gen(function* () {
           yield* handleInstall(defaultArgs(skillsDir));
 
-          expect(mockClack.logs.outro.some((m) => m.includes("Done"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
         }),
       );
     });

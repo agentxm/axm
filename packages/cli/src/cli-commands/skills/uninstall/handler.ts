@@ -13,7 +13,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Clack } from "../../../clack-effect/index.js";
+import { Log } from "../../../tui/index.js";
 import { LockfileService } from "../../../lockfile/index.js";
 import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
 import type { UninstallSkillOperation } from "../operations.js";
@@ -56,9 +56,9 @@ export interface UninstallHandlerArgs {
 export const handleUninstall = (args: UninstallHandlerArgs) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const clack = yield* Clack;
+    const log = yield* Log;
 
-    yield* clack.intro("axm skills uninstall");
+    yield* log.info("axm skills uninstall");
 
     // Step 1: Load lockfile
     const ls = yield* LockfileService;
@@ -70,8 +70,8 @@ export const handleUninstall = (args: UninstallHandlerArgs) =>
 
     // Handle glob matching zero skills
     if (args.skill.includes("*") && skillNames.length === 0) {
-      yield* clack.log.warn(`No skills matched pattern "${args.skill}"`);
-      yield* clack.outro("Nothing to uninstall.");
+      yield* log.warn(`No skills matched pattern "${args.skill}"`);
+      yield* log.success("Nothing to uninstall.");
       return;
     }
 
@@ -96,5 +96,5 @@ export const handleUninstall = (args: UninstallHandlerArgs) =>
     // Step 5: Resolve plan via workspace
     yield* ws.resolvePlan(plan, { "uninstall-skill": uninstallSkill });
 
-    yield* clack.outro("Done");
+    yield* log.success("Done");
   });

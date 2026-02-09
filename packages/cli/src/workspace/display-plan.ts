@@ -1,7 +1,7 @@
 /**
  * Shared plan display module.
  *
- * Renders a human-readable summary of any Plan<Op> via Clack,
+ * Renders a human-readable summary of any Plan<Op> via the Log service,
  * without knowledge of the specific operation type.
  *
  * @experimental This API is unstable and may change without notice.
@@ -10,7 +10,7 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Clack } from "../clack-effect/index.js";
+import { Log } from "../tui/index.js";
 import type { JobStep, OperationResult, Plan } from "./plan.js";
 
 // -----------------------------------------------------------------------------
@@ -18,13 +18,13 @@ import type { JobStep, OperationResult, Plan } from "./plan.js";
 // -----------------------------------------------------------------------------
 
 /**
- * Display a plan summary via Clack.
+ * Display a plan summary via the Log service.
  *
  * Uses `step.label` for human-readable output — never inspects `step.operation`.
  */
 export const displayPlan = <Op>(plan: Plan<Op>) =>
   Effect.gen(function* () {
-    const clack = yield* Clack;
+    const log = yield* Log;
 
     const allSteps = Array.flatMap(plan.jobs, (job) => [...job.steps]);
 
@@ -43,15 +43,15 @@ export const displayPlan = <Op>(plan: Plan<Op>) =>
       onNone: () => plan.name,
       onSome: (desc) => `${plan.name}\n${desc}`,
     });
-    yield* clack.log.info(heading);
+    yield* log.info(heading);
 
     // Success items
     if (successSteps.length > 0) {
       for (const step of successSteps) {
         if (isApplied) {
-          yield* clack.log.success(`  ✓ ${step.label}`);
+          yield* log.success(`  ✓ ${step.label}`);
         } else {
-          yield* clack.log.success(`  + ${step.label}`);
+          yield* log.success(`  + ${step.label}`);
         }
       }
     }
@@ -59,14 +59,14 @@ export const displayPlan = <Op>(plan: Plan<Op>) =>
     // No-op items
     if (noopSteps.length > 0) {
       for (const step of noopSteps) {
-        yield* clack.log.warn(`  - ${step.label} (${getResult(step).message})`);
+        yield* log.warn(`  - ${step.label} (${getResult(step).message})`);
       }
     }
 
     // Error items
     if (errorSteps.length > 0) {
       for (const step of errorSteps) {
-        yield* clack.log.error(`  ✗ ${step.label} (${getResult(step).message})`);
+        yield* log.error(`  ✗ ${step.label} (${getResult(step).message})`);
       }
     }
 
@@ -74,8 +74,8 @@ export const displayPlan = <Op>(plan: Plan<Op>) =>
     const successCount = successSteps.length;
     const skipCount = noopSteps.length;
     if (isApplied) {
-      yield* clack.log.message(`${successCount} installed, ${skipCount} skipped`);
+      yield* log.message(`${successCount} installed, ${skipCount} skipped`);
     } else {
-      yield* clack.log.message(`${successCount} to install, ${skipCount} to skip`);
+      yield* log.message(`${successCount} to install, ${skipCount} to skip`);
     }
   });

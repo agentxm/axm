@@ -12,7 +12,7 @@ import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Clack } from "../../clack-effect/index.js";
+import { Select } from "../../tui/index.js";
 import { formatEmptyResolutionError, formatError } from "../../utils/errors.js";
 
 // -----------------------------------------------------------------------------
@@ -87,15 +87,18 @@ export function selectExtensionRef(
     }
 
     // Interactive selection
-    const clack = yield* Clack;
-    const selected = yield* clack
-      .select("Multiple matches found. Select the source to install from:", refs, (ref) => ({
-        value: ref.origin,
-        label: Option.getOrElse(ref.name, () => ref.origin),
-        hint: Option.some(
-          `${ref.source}${Option.match(ref.ref, { onNone: () => "", onSome: (r) => `@${r}` })}`,
-        ),
-      }))
+    const select = yield* Select;
+    const selected = yield* select
+      .prompt({
+        message: "Multiple matches found. Select the source to install from:",
+        items: refs,
+        toOption: (ref) => ({
+          label: Option.getOrElse(ref.name, () => ref.origin),
+          hint: Option.some(
+            `${ref.source}${Option.match(ref.ref, { onNone: () => "", onSome: (r) => `@${r}` })}`,
+          ),
+        }),
+      })
       .pipe(
         Effect.mapError(
           (error) =>

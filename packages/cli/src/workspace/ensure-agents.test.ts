@@ -8,7 +8,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
-import { type Clack, makeClackTestLayer } from "../clack-effect/index.js";
+import { type Log, makeLogTestLayer, type Confirm, makeConfirmTestLayer } from "../tui/index.js";
 import type { Settings } from "../settings/index.js";
 import { SettingsService, SettingsServiceLive } from "../settings/index.js";
 import { Workspace } from "./service.js";
@@ -38,11 +38,8 @@ describe("ensureAgentsConfigured", () => {
   };
 
   const makeTestLayer = (confirmValue = true) => {
-    const [ClackLayer, mockClack] = makeClackTestLayer({
-      confirmBehavior: Option.some({ type: "return", value: confirmValue }),
-      selectBehavior: Option.none(),
-      multiselectBehavior: Option.none(),
-    });
+    const [logLayer, mockLog] = makeLogTestLayer();
+    const [confirmLayer] = makeConfirmTestLayer({ type: "return", value: confirmValue });
     const WsLayer = Workspace.layer({
       global: false,
       path: axmDir,
@@ -51,14 +48,18 @@ describe("ensureAgentsConfigured", () => {
       resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
     });
     const SSLayer = Layer.provide(SettingsServiceLive, Layer.merge(WsLayer, NodeContext.layer));
-    const TestLayer = Layer.mergeAll(NodeContext.layer, ClackLayer, SSLayer);
-    return { TestLayer, mockClack };
+    const TestLayer = Layer.mergeAll(NodeContext.layer, logLayer, confirmLayer, SSLayer);
+    return { TestLayer, mockLog };
   };
 
   const withLayer =
-    (layer: Layer.Layer<FileSystem.FileSystem | Path.Path | Clack | SettingsService>) =>
+    (layer: Layer.Layer<FileSystem.FileSystem | Path.Path | Log | Confirm | SettingsService>) =>
     <A, E>(
-      effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Clack | SettingsService>,
+      effect: Effect.Effect<
+        A,
+        E,
+        FileSystem.FileSystem | Path.Path | Log | Confirm | SettingsService
+      >,
     ) =>
       effect.pipe(Effect.provide(layer));
 
@@ -131,7 +132,7 @@ describe("ensureAgentsConfigured", () => {
     });
 
     it.effect("warns about unknown agent IDs", () => {
-      const { TestLayer, mockClack } = makeTestLayer();
+      const { TestLayer, mockLog } = makeTestLayer();
       return withLayer(TestLayer)(
         Effect.gen(function* () {
           initSettings({ agents: ["claude-code"] } as Settings);
@@ -142,13 +143,13 @@ describe("ensureAgentsConfigured", () => {
 
           expect(agents).toHaveLength(1);
           expect(agents[0]!.id).toBe("claude-code");
-          expect(mockClack.logs.warn.some((m) => m.includes("nonexistent-agent"))).toBe(true);
+          expect(mockLog.logs.warn.some((m) => m.includes("nonexistent-agent"))).toBe(true);
         }),
       );
     });
 
     it.effect("fails when all agent IDs are unknown", () => {
-      const { TestLayer, mockClack } = makeTestLayer();
+      const { TestLayer, mockLog } = makeTestLayer();
       return withLayer(TestLayer)(
         Effect.gen(function* () {
           initSettings({});
@@ -158,7 +159,7 @@ describe("ensureAgentsConfigured", () => {
           ).pipe(Effect.flip);
 
           expect(error._tag).toBe("EnsureAgentsError");
-          expect(mockClack.logs.warn.some((m) => m.includes("fake-agent-1"))).toBe(true);
+          expect(mockLog.logs.warn.some((m) => m.includes("fake-agent-1"))).toBe(true);
         }),
       );
     });

@@ -64,7 +64,6 @@
     "node": ">=22.0.0"
   },
   "dependencies": {
-    "@clack/prompts": "^1.0.0",
     "@effect/platform": "^0.94.2",
     "effect": "catalog:",
     "gray-matter": "^4.0.3",

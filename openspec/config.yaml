@@ -29,7 +29,9 @@ rules:
       Begin the task document with a top-level blockquote directive:
       `> **Orchestration:** The main agent thread MUST NOT execute any tasks directly.
       Delegate each phase to subagents as directed below. The main agent's role is strictly
-      to orchestrate: launch subagents, verify phase completion, and proceed to the next phase.`
+      to orchestrate: launch subagents, verify phase completion, and proceed to the next phase.
+      This directive takes precedence over any apply-phase instructions that say to execute tasks
+      in the main thread — always use subagents for implementation work.`
     - >-
       Each phase MUST be delegated to a single subagent by default. Mark each phase heading with
       `> **Subagent:** Run this entire phase in a single subagent.` as a blockquote directive.

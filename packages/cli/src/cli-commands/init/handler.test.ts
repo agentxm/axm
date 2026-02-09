@@ -22,7 +22,16 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { Clack, makeClackTestLayer, type MockClackConfig } from "../../clack-effect/index.js";
+import {
+  type Confirm,
+  type Log,
+  makeConfirmTestLayer,
+  makeLogTestLayer,
+  makeMultiselectTestLayer,
+  makeSelectTestLayer,
+  type Multiselect,
+  type Select,
+} from "../../tui/index.js";
 import {
   WorkspaceContextTag,
   layer as workspaceLayer,
@@ -46,10 +55,19 @@ describe("init.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  // Create mock Clack service for tests
-  const [TestClackLayer] = makeClackTestLayer();
+  // Create individual TUI test layers
+  const [logLayer] = makeLogTestLayer();
+  const [confirmLayer] = makeConfirmTestLayer();
+  const [selectLayer] = makeSelectTestLayer();
+  const [multiselectLayer] = makeMultiselectTestLayer();
 
-  const TestLayer = Layer.mergeAll(NodeContext.layer, TestClackLayer);
+  const TestLayer = Layer.mergeAll(
+    NodeContext.layer,
+    logLayer,
+    confirmLayer,
+    selectLayer,
+    multiselectLayer,
+  );
 
   /**
    * Create test layers including WorkspaceContext with the given options.
@@ -61,7 +79,14 @@ describe("init.handler", () => {
       effect: Effect.Effect<
         A,
         E,
-        FileSystem.FileSystem | Path.Path | Clack | WorkspaceContextTag | SettingsService
+        | FileSystem.FileSystem
+        | Path.Path
+        | Log
+        | Confirm
+        | Select
+        | Multiselect
+        | WorkspaceContextTag
+        | SettingsService
       >,
     ) => effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer, SSLayer)));
   };
@@ -337,17 +362,33 @@ describe("init.handler", () => {
 
   describe("interactive agent selection", () => {
     /**
-     * Create test layers with custom clack behavior for interactive tests.
+     * Create test layers with custom TUI behavior for interactive tests.
      */
     const withInteractiveLayers = (
-      clackConfig: MockClackConfig,
+      tuiConfig: {
+        selectBehavior?: import("../../tui/index.js").SelectBehavior;
+        multiselectBehavior?: import("../../tui/index.js").MultiselectBehavior;
+      },
       wsOptions: Omit<WorkspaceContextOptions, "yes" | "nonInteractive" | "preview"> = {
         global: false,
         agents: Option.none(),
       },
     ) => {
-      const [InteractiveClackLayer] = makeClackTestLayer(clackConfig);
-      const BaseLayer = Layer.mergeAll(NodeContext.layer, InteractiveClackLayer);
+      const [iLogLayer] = makeLogTestLayer();
+      const [iConfirmLayer] = makeConfirmTestLayer();
+      const [iSelectLayer] = makeSelectTestLayer(
+        tuiConfig.selectBehavior ?? { type: "return", index: 0 },
+      );
+      const [iMultiselectLayer] = makeMultiselectTestLayer(
+        tuiConfig.multiselectBehavior ?? { type: "return", indices: [] },
+      );
+      const BaseLayer = Layer.mergeAll(
+        NodeContext.layer,
+        iLogLayer,
+        iConfirmLayer,
+        iSelectLayer,
+        iMultiselectLayer,
+      );
       const WsLayer = Layer.provide(
         workspaceLayer({
           ...wsOptions,
@@ -362,17 +403,22 @@ describe("init.handler", () => {
         effect: Effect.Effect<
           A,
           E,
-          FileSystem.FileSystem | Path.Path | Clack | WorkspaceContextTag | SettingsService
+          | FileSystem.FileSystem
+          | Path.Path
+          | Log
+          | Confirm
+          | Select
+          | Multiselect
+          | WorkspaceContextTag
+          | SettingsService
         >,
       ) => effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer, SSLayer)));
     };
 
     it.effect("accepts auto-detected agents when user selects first option", () =>
       withInteractiveLayers({
-        confirmBehavior: Option.none(),
         // index 0 = "Setup with auto-detected agents (Recommended)"
-        selectBehavior: Option.some({ type: "return", index: 0 }),
-        multiselectBehavior: Option.none(),
+        selectBehavior: { type: "return", index: 0 },
       })(
         Effect.gen(function* () {
           yield* handleInit();
@@ -385,11 +431,10 @@ describe("init.handler", () => {
 
     it.effect("shows all-agent multiselect when user selects 'Let me choose'", () =>
       withInteractiveLayers({
-        confirmBehavior: Option.none(),
         // index 1 = "Let me choose"
-        selectBehavior: Option.some({ type: "return", index: 1 }),
+        selectBehavior: { type: "return", index: 1 },
         // Select first agent in the full list
-        multiselectBehavior: Option.some({ type: "return", indices: [0] }),
+        multiselectBehavior: { type: "return", indices: [0] },
       })(
         Effect.gen(function* () {
           yield* handleInit();
@@ -407,11 +452,10 @@ describe("init.handler", () => {
 
     it.effect("allows selecting no agents via multiselect", () =>
       withInteractiveLayers({
-        confirmBehavior: Option.none(),
         // index 1 = "Let me choose"
-        selectBehavior: Option.some({ type: "return", index: 1 }),
+        selectBehavior: { type: "return", index: 1 },
         // Select no agents
-        multiselectBehavior: Option.some({ type: "return", indices: [] }),
+        multiselectBehavior: { type: "return", indices: [] },
       })(
         Effect.gen(function* () {
           yield* handleInit();

@@ -7,8 +7,14 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { makeClackTestLayer } from "../../../clack-effect/index.js";
+import {
+  type Log,
+  type Multiselect,
+  makeLogTestLayer,
+  makeMultiselectTestLayer,
+} from "../../../tui/index.js";
 import type { SkillRef } from "../operations.js";
 import { InstallError } from "./handler.js";
 import { determineSkillsToInstall } from "./select-skills.js";
@@ -24,15 +30,12 @@ const makeSkill = (name: string): SkillRef => ({
   registry: Option.none(),
 });
 
-const [ClackTestLayer] = makeClackTestLayer({
-  confirmBehavior: Option.some({ type: "return", value: true }),
-  selectBehavior: Option.none(),
-  multiselectBehavior: Option.some({ type: "return", indices: [0, 1] }),
-});
+const [logLayer] = makeLogTestLayer();
+const [multiselectLayer] = makeMultiselectTestLayer({ type: "return", indices: [0, 1] });
+const TestLayer = Layer.mergeAll(logLayer, multiselectLayer);
 
-const provide = <A, E>(
-  effect: Effect.Effect<A, E, import("../../../clack-effect/index.js").Clack>,
-) => effect.pipe(Effect.provide(ClackTestLayer));
+const provide = <A, E>(effect: Effect.Effect<A, E, Log | Multiselect>) =>
+  effect.pipe(Effect.provide(TestLayer));
 
 /** Helper to create a NonEmptyReadonlyArray of skills. */
 const skills = (...names: [string, ...string[]]): Array.NonEmptyReadonlyArray<SkillRef> =>

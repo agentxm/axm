@@ -12,7 +12,17 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 
-import { ClackLive, type Clack } from "../clack-effect/service.js";
+import {
+  TuiLive,
+  type Log,
+  type Spinner,
+  type Note,
+  type TextInput,
+  type PasswordInput,
+  type Confirm,
+  type Select,
+  type Multiselect,
+} from "../tui/index.js";
 import { LockfileService, LockfileServiceLive } from "../lockfile/index.js";
 import { SettingsService, SettingsServiceLive } from "../settings/index.js";
 import {
@@ -25,9 +35,19 @@ import {
  * Standard dependencies available to all CLI commands:
  * - FileSystem, Path (from @effect/platform-node)
  * - HttpClient (for network requests)
- * - Clack (interactive prompts)
+ * - TUI services (interactive prompts, logging, spinners)
  */
-export type AppLayer = NodeContext.NodeContext | HttpClient.HttpClient | Clack;
+export type AppLayer =
+  | NodeContext.NodeContext
+  | HttpClient.HttpClient
+  | Log
+  | Spinner
+  | Note
+  | TextInput
+  | PasswordInput
+  | Confirm
+  | Select
+  | Multiselect;
 
 /**
  * Layer providing all standard CLI dependencies.
@@ -35,7 +55,7 @@ export type AppLayer = NodeContext.NodeContext | HttpClient.HttpClient | Clack;
 export const AppLayer: Layer.Layer<AppLayer> = Layer.mergeAll(
   NodeContext.layer,
   FetchHttpClient.layer,
-  ClackLive,
+  TuiLive,
 );
 
 /**

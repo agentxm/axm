@@ -21,9 +21,9 @@ const makeOp = (name: string): AddSkillOperation => ({
     agents: [],
     force: false,
     skill: { name, description: `${name} skill`, metadata: Option.none() },
-    path: Option.some(`/fake/${name}`),
+    location: `file:///fake/${name}`,
+    version: Option.none(),
     gitTreeSha: Option.none(),
-    registry: Option.none(),
   },
 });
 

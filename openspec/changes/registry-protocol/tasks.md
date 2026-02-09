@@ -94,23 +94,23 @@ Depends on: Phase 1 (uses `SourceInput`), Phase 5 (uses workspace service for am
 
 > **Parallelization:** Tasks 6.4, 6.5, 6.6, 6.7, 6.8, 6.9 are independent — launch as parallel subagents.
 
-- [ ] 6.1 Define `SourceProvider<S, R>` interface, `FindOptions`, `ExtensionRef` (SkillRef/McpServerRef), `ExtensionFiles`, `SourceError`, `RegistryError` types in `sources/provider.ts`
-- [ ] 6.2 Define `ProviderRegistry` type mapping source type → provider
-- [ ] 6.3 Write tests for `ExtensionRef` — field contracts, version Option semantics
-- [ ] 6.4 Migrate GitHub source to `GitHubSourceProvider` implementing `SourceProvider<GitHubSource>`
-- [ ] 6.5 Migrate GitLab source to `GitLabSourceProvider` implementing `SourceProvider<GitLabSource>`
-- [ ] 6.6 Migrate Bitbucket source to `BitbucketSourceProvider` implementing `SourceProvider<BitbucketSource>`
-- [ ] 6.7 Migrate Azure Repos source to `AzureReposSourceProvider` implementing `SourceProvider<AzureReposSource>`
-- [ ] 6.8 Migrate git source to `GitSourceProvider` implementing `SourceProvider<GitRepositorySource>`
-- [ ] 6.9 Migrate local source to `LocalSourceProvider` implementing `SourceProvider<LocalSource>`
-- [ ] 6.10 Update `SkillRef` — replace `path`/`registry` fields with `source: SourceInput`, `location: string`, `version: Option<string>`
-- [ ] 6.11 Update `operations.ts` — evolve `AddSkillOperation` to use new `SkillRef`
-- [ ] 6.12 Update tests for all migrated providers
-- [ ] 6.13 Run `pnpm typecheck` and fix any errors
-- [ ] 6.14 Run `pnpm lint` and fix any errors
-- [ ] 6.15 Run `pnpm test` and fix any failures
-- [ ] 6.16 Run `pnpm test:e2e` and fix any failures
-- [ ] 6.17 Kill any vitest worker processes
+- [x] 6.1 Define `SourceProvider<S, R>` interface, `FindOptions`, `ExtensionRef` (SkillRef/McpServerRef), `ExtensionFiles`, `SourceError`, `RegistryError` types in `sources/provider.ts`
+- [x] 6.2 Define `ProviderRegistry` type mapping source type → provider
+- [x] 6.3 Write tests for `ExtensionRef` — field contracts, version Option semantics
+- [x] 6.4 Migrate GitHub source to `GitHubSourceProvider` implementing `SourceProvider<GitHubSource>`
+- [x] 6.5 Migrate GitLab source to `GitLabSourceProvider` implementing `SourceProvider<GitLabSource>`
+- [x] 6.6 Migrate Bitbucket source to `BitbucketSourceProvider` implementing `SourceProvider<BitbucketSource>`
+- [x] 6.7 Migrate Azure Repos source to `AzureReposSourceProvider` implementing `SourceProvider<AzureReposSource>`
+- [x] 6.8 Migrate git source to `GitSourceProvider` implementing `SourceProvider<GitRepositorySource>`
+- [x] 6.9 Migrate local source to `LocalSourceProvider` implementing `SourceProvider<LocalSource>`
+- [x] 6.10 Update `SkillRef` — replace `path`/`registry` fields with `source: SourceInput`, `location: string`, `version: Option<string>`
+- [x] 6.11 Update `operations.ts` — evolve `AddSkillOperation` to use new `SkillRef`
+- [x] 6.12 Update tests for all migrated providers
+- [x] 6.13 Run `pnpm typecheck` and fix any errors
+- [x] 6.14 Run `pnpm lint` and fix any errors
+- [x] 6.15 Run `pnpm test` and fix any failures
+- [x] 6.16 Run `pnpm test:e2e` and fix any failures
+- [x] 6.17 Kill any vitest worker processes
 
 ## 7. Registry source providers (local + remote stub)
 
@@ -118,20 +118,20 @@ Depends on: Phase 1 (uses `SourceInput`), Phase 5 (uses workspace service for am
 
 Depends on: Phase 3 (registry schemas), Phase 6 (SourceProvider interface).
 
-- [ ] 7.1 Define `RegistrySourceProvider` interface extending `SourceProvider<RegistrySourceInput>` with `fetchIndex`, `fetchArchive`, `publishVersion`, `checkNameExists`
-- [ ] 7.2 Implement `LocalRegistrySourceProvider` — `find` (read index.json, version selection by semver + agent filter), `fetch` (read archive, verify SHA-256, extract zip)
-- [ ] 7.3 Implement `LocalRegistrySourceProvider` — `fetchIndex`, `fetchArchive`, `publishVersion`, `checkNameExists` via filesystem I/O
-- [ ] 7.4 Implement `RemoteRegistrySourceProvider` stub — all operations fail with "remote registry not yet supported"
-- [ ] 7.5 Implement `createRegistryProvider(location)` factory — dispatch by location scheme (file/path → local, https → remote stub)
-- [ ] 7.6 Write tests for `LocalRegistrySourceProvider.find` — semver range matching, agent filtering, 404 fallthrough, empty index
-- [ ] 7.7 Write tests for `LocalRegistrySourceProvider.fetch` — successful extraction, checksum verification, checksum mismatch
-- [ ] 7.8 Write tests for `LocalRegistrySourceProvider.publishVersion` — new index creation, index update (prepend), idempotency (same checksum = no-op, different checksum = error)
-- [ ] 7.9 Write tests for `RemoteRegistrySourceProvider` — all operations fail with descriptive error
-- [ ] 7.10 Write tests for `createRegistryProvider` factory — local path, file:// URL, https:// URL
-- [ ] 7.11 Run `pnpm typecheck` and fix any errors
-- [ ] 7.12 Run `pnpm lint` and fix any errors
-- [ ] 7.13 Run `pnpm test` and fix any failures
-- [ ] 7.14 Kill any vitest worker processes
+- [x] 7.1 Define `RegistrySourceProvider` interface extending `SourceProvider<RegistrySourceInput>` with `fetchIndex`, `fetchArchive`, `publishVersion`, `checkNameExists`
+- [x] 7.2 Implement `LocalRegistrySourceProvider` — `find` (read index.json, version selection by semver + agent filter), `fetch` (read archive, verify SHA-256, extract zip)
+- [x] 7.3 Implement `LocalRegistrySourceProvider` — `fetchIndex`, `fetchArchive`, `publishVersion`, `checkNameExists` via filesystem I/O
+- [x] 7.4 Implement `RemoteRegistrySourceProvider` stub — all operations fail with "remote registry not yet supported"
+- [x] 7.5 Implement `createRegistryProvider(location)` factory — dispatch by location scheme (file/path → local, https → remote stub)
+- [x] 7.6 Write tests for `LocalRegistrySourceProvider.find` — semver range matching, agent filtering, 404 fallthrough, empty index
+- [x] 7.7 Write tests for `LocalRegistrySourceProvider.fetch` — successful extraction, checksum verification, checksum mismatch
+- [x] 7.8 Write tests for `LocalRegistrySourceProvider.publishVersion` — new index creation, index update (prepend), idempotency (same checksum = no-op, different checksum = error)
+- [x] 7.9 Write tests for `RemoteRegistrySourceProvider` — all operations fail with descriptive error
+- [x] 7.10 Write tests for `createRegistryProvider` factory — local path, file:// URL, https:// URL
+- [x] 7.11 Run `pnpm typecheck` and fix any errors
+- [x] 7.12 Run `pnpm lint` and fix any errors
+- [x] 7.13 Run `pnpm test` and fix any failures
+- [x] 7.14 Kill any vitest worker processes
 
 ## 8. Registry meta-provider and SourceProviders service
 
@@ -139,16 +139,16 @@ Depends on: Phase 3 (registry schemas), Phase 6 (SourceProvider interface).
 
 Depends on: Phase 5 (workspace getRegistrySources), Phase 7 (registry providers).
 
-- [ ] 8.1 Implement `createRegistryMetaProvider` — wraps N configured registries into a single `SourceProvider<RegistrySourceInput>`, reads `workspace.getRegistrySources()` lazily, applies scope routing (scope-matched exclusive of catch-all, 404 fallthrough within set)
-- [ ] 8.2 Implement `SourceProviders` Effect service tag and interface (`resolve`, `fetch`)
-- [ ] 8.3 Implement `SourceProvidersLive` layer — construct provider registry with all source type providers, depends on `FileSystem`, `Path`, `WorkspaceContext`
-- [ ] 8.4 Write tests for registry meta-provider — scope routing, lazy config reads, 404 fallthrough, hard fail on non-404 errors
-- [ ] 8.5 Write tests for `SourceProviders` service — dispatch to correct provider by source type
-- [ ] 8.6 Run `pnpm typecheck` and fix any errors
-- [ ] 8.7 Run `pnpm lint` and fix any errors
-- [ ] 8.8 Run `pnpm test` and fix any failures
-- [ ] 8.9 Run `pnpm test:e2e` and fix any failures
-- [ ] 8.10 Kill any vitest worker processes
+- [x] 8.1 Implement `createRegistryMetaProvider` — wraps N configured registries into a single `SourceProvider<RegistrySourceInput>`, reads `workspace.getRegistrySources()` lazily, applies scope routing (scope-matched exclusive of catch-all, 404 fallthrough within set)
+- [x] 8.2 Implement `SourceProviders` Effect service tag and interface (`resolve`, `fetch`)
+- [x] 8.3 Implement `SourceProvidersLive` layer — construct provider registry with all source type providers, depends on `FileSystem`, `Path`, `WorkspaceContext`
+- [x] 8.4 Write tests for registry meta-provider — scope routing, lazy config reads, 404 fallthrough, hard fail on non-404 errors
+- [x] 8.5 Write tests for `SourceProviders` service — dispatch to correct provider by source type
+- [x] 8.6 Run `pnpm typecheck` and fix any errors
+- [x] 8.7 Run `pnpm lint` and fix any errors
+- [x] 8.8 Run `pnpm test` and fix any failures
+- [x] 8.9 Run `pnpm test:e2e` and fix any failures
+- [x] 8.10 Kill any vitest worker processes
 
 ## 9. Lockfile evolution for registry sources
 
@@ -156,14 +156,14 @@ Depends on: Phase 5 (workspace getRegistrySources), Phase 7 (registry providers)
 
 Depends on: Phase 1 (SourceInput types).
 
-- [ ] 9.1 Evolve `RegistryLockEntrySchema` — rename `version` to `resolvedVersion` (required), add `checksum: string`, add `sourceName: string`
-- [ ] 9.2 Update `sourceToLockEntry` in `source-to-lock-entry.ts` — registry case emits `checksum`, `resolvedVersion`, `sourceName`
-- [ ] 9.3 Update lockfile schema tests for new registry entry shape
-- [ ] 9.4 Update `source-to-lock-entry` tests for registry case
-- [ ] 9.5 Run `pnpm typecheck` and fix any errors
-- [ ] 9.6 Run `pnpm lint` and fix any errors
-- [ ] 9.7 Run `pnpm test` and fix any failures
-- [ ] 9.8 Kill any vitest worker processes
+- [x] 9.1 Evolve `RegistryLockEntrySchema` — rename `version` to `resolvedVersion` (required), add `checksum: string`, add `sourceName: string`
+- [x] 9.2 Update `sourceToLockEntry` in `source-to-lock-entry.ts` — registry case emits `checksum`, `resolvedVersion`, `sourceName`
+- [x] 9.3 Update lockfile schema tests for new registry entry shape
+- [x] 9.4 Update `source-to-lock-entry` tests for registry case
+- [x] 9.5 Run `pnpm typecheck` and fix any errors
+- [x] 9.6 Run `pnpm lint` and fix any errors
+- [x] 9.7 Run `pnpm test` and fix any failures
+- [x] 9.8 Kill any vitest worker processes
 
 ## 10. Ambiguous resolution via getSources
 

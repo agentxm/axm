@@ -20,8 +20,16 @@ interface SourceToLockEntryInput {
   readonly agents: ReadonlyArray<string>;
   readonly gitTreeSha: Option.Option<string>;
   readonly now: Date;
-  /** Required for registry sources — provides scope and name. */
-  readonly registry?: { readonly scope: string; readonly name: string };
+  /** Required for registry sources — provides scope, name, resolvedVersion, checksum, and sourceName. */
+  readonly registry?:
+    | {
+        readonly scope: string;
+        readonly name: string;
+        readonly resolvedVersion: string;
+        readonly checksum: string;
+        readonly sourceName: string;
+      }
+    | undefined;
 }
 
 // -----------------------------------------------------------------------------
@@ -122,12 +130,17 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
     case "registry": {
       const reg = input.registry;
       if (!reg) {
-        throw new Error("Registry source requires registry metadata (scope, name)");
+        throw new Error(
+          "Registry source requires registry metadata (scope, name, resolvedVersion, checksum, sourceName)",
+        );
       }
       return {
         source: "registry",
         scope: reg.scope,
         name: reg.name,
+        resolvedVersion: reg.resolvedVersion,
+        checksum: reg.checksum,
+        sourceName: reg.sourceName,
         ...common,
       };
     }

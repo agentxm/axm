@@ -11,7 +11,6 @@
 // See design decision D1 in the install-command-cleanup change.
 import * as nodePath from "node:path";
 import * as Array from "effect/Array";
-import * as Option from "effect/Option";
 import type { SkillRef } from "../operations.js";
 
 // -----------------------------------------------------------------------------
@@ -21,14 +20,10 @@ import type { SkillRef } from "../operations.js";
 /**
  * Returns the display name for a skill.
  *
- * Uses `skill.name` when present, falls back to `basename(path)`.
+ * Uses `skill.name` when present, falls back to `basename(location)`.
  */
 export const getSkillDisplayName = (ref: SkillRef): string =>
-  ref.skill.name ||
-  Option.match(ref.path, {
-    onNone: () => "unnamed",
-    onSome: (p) => nodePath.basename(p),
-  });
+  ref.skill.name || nodePath.basename(ref.location.replace("file://", ""));
 
 // -----------------------------------------------------------------------------
 // Filtering

@@ -27,6 +27,36 @@ export { SourceTypeSchema } from "./types.js";
 // Type guards
 export { isGitHostingProviderSource } from "./utils.js";
 
+// Provider types
+export type {
+  ExtensionFiles,
+  ExtensionRef,
+  FindOptions,
+  McpServerRef,
+  ProviderRegistry,
+  SkillRef,
+  SourceProvider,
+} from "./provider.js";
+export { RegistryError, SourceError } from "./provider.js";
+
+// Provider implementations
+export type { RegistrySourceProvider } from "./providers/index.js";
+export {
+  createAzureReposProvider,
+  createBitbucketProvider,
+  createGitHubProvider,
+  createGitLabProvider,
+  createGitProvider,
+  createLocalProvider,
+  createLocalRegistryProvider,
+  createRegistryProvider,
+  createRemoteRegistryProvider,
+} from "./providers/index.js";
+
+// SourceProviders service
+export type { SourceProvidersService } from "./service.js";
+export { SourceProviders, SourceProvidersLive, createRegistryMetaProvider } from "./service.js";
+
 // Errors
 export { CloneUrlError, ParseError } from "./errors.js";
 

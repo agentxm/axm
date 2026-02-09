@@ -15,8 +15,10 @@ import {
   DiscoveryError,
   discoverSkillsInDir,
 } from "../../cli-commands/skills/install/discover-skills.js";
+import type { SourceInput } from "../../sources/types.js";
 
 const defaultOptions = { fullDepth: false, includeInternal: false };
+const testSource: SourceInput = { source: "local", path: "/test" };
 
 /**
  * Create a SKILL.md with valid frontmatter.
@@ -46,7 +48,12 @@ describe("discoverSkills", () => {
   it.effect("returns empty array for directory with no skills", () =>
     withFileSystem(
       Effect.gen(function* () {
-        const result = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
+        const result = yield* discoverSkillsInDir(
+          tempDir,
+          Option.none(),
+          defaultOptions,
+          testSource,
+        );
         expect(result).toEqual([]);
       }),
     ),
@@ -58,11 +65,16 @@ describe("discoverSkills", () => {
         const skillDir = path.join(tempDir, "my-skill");
         createSkillMd(skillDir, "my-skill", "My skill");
 
-        const result = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
+        const result = yield* discoverSkillsInDir(
+          tempDir,
+          Option.none(),
+          defaultOptions,
+          testSource,
+        );
 
         expect(result).toHaveLength(1);
         expect(result[0]?.skill.name).toBe("my-skill");
-        expect(Option.getOrThrow(result[0]!.path)).toBe(skillDir);
+        expect(result[0]!.location).toBe(`file://${skillDir}`);
       }),
     ),
   );
@@ -73,7 +85,12 @@ describe("discoverSkills", () => {
         createSkillMd(path.join(tempDir, "commit"), "commit", "Commit skill");
         createSkillMd(path.join(tempDir, "review-pr"), "review-pr", "Review PR skill");
 
-        const result = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
+        const result = yield* discoverSkillsInDir(
+          tempDir,
+          Option.none(),
+          defaultOptions,
+          testSource,
+        );
 
         expect(result).toHaveLength(2);
         const names = result.map((s) => s.skill.name).sort();
@@ -91,7 +108,12 @@ describe("discoverSkills", () => {
           "Nested skill",
         );
 
-        const result = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
+        const result = yield* discoverSkillsInDir(
+          tempDir,
+          Option.none(),
+          defaultOptions,
+          testSource,
+        );
 
         expect(result).toHaveLength(1);
         expect(result[0]?.skill.name).toBe("nested-skill");
@@ -122,7 +144,12 @@ describe("discoverSkills", () => {
           '---\nname: "skill-mixed"\ndescription: "Mixed"\n---\n',
         );
 
-        const result = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
+        const result = yield* discoverSkillsInDir(
+          tempDir,
+          Option.none(),
+          defaultOptions,
+          testSource,
+        );
 
         // Only exact "SKILL.md" should be recognized
         expect(result).toHaveLength(1);
@@ -138,7 +165,12 @@ describe("discoverSkills", () => {
         fs.writeFileSync(path.join(tempDir, "my-skill", "README.md"), "# Readme");
         fs.writeFileSync(path.join(tempDir, "my-skill", "other.txt"), "other");
 
-        const result = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
+        const result = yield* discoverSkillsInDir(
+          tempDir,
+          Option.none(),
+          defaultOptions,
+          testSource,
+        );
 
         expect(result).toHaveLength(1);
         expect(result[0]?.skill.name).toBe("my-skill");
@@ -155,6 +187,7 @@ describe("discoverSkills", () => {
           nonExistentDir,
           Option.none(),
           defaultOptions,
+          testSource,
         ).pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(DiscoveryError);
@@ -169,9 +202,12 @@ describe("discoverSkills", () => {
         const filePath = path.join(tempDir, "not-a-directory.txt");
         fs.writeFileSync(filePath, "content");
 
-        const error = yield* discoverSkillsInDir(filePath, Option.none(), defaultOptions).pipe(
-          Effect.flip,
-        );
+        const error = yield* discoverSkillsInDir(
+          filePath,
+          Option.none(),
+          defaultOptions,
+          testSource,
+        ).pipe(Effect.flip);
 
         expect(error).toBeInstanceOf(DiscoveryError);
         expect(error.message).toContain("not a directory");
@@ -188,7 +224,12 @@ describe("discoverSkills", () => {
           "Accessible skill",
         );
 
-        const result = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
+        const result = yield* discoverSkillsInDir(
+          tempDir,
+          Option.none(),
+          defaultOptions,
+          testSource,
+        );
 
         expect(result).toHaveLength(1);
         expect(result[0]?.skill.name).toBe("accessible-skill");

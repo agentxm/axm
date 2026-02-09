@@ -24,10 +24,12 @@ import { determineSkillsToInstall } from "./select-skills.js";
 // -----------------------------------------------------------------------------
 
 const makeSkill = (name: string): SkillRef => ({
+  type: "skill",
   skill: { name, description: "", metadata: Option.none() },
-  path: Option.some(`/fake/${name}`),
+  source: { source: "local", path: `/fake/${name}` },
+  location: `file:///fake/${name}`,
+  version: Option.none(),
   gitTreeSha: Option.none(),
-  registry: Option.none(),
 });
 
 const [logLayer] = makeLogTestLayer();

@@ -31,6 +31,18 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 /**
+ * Build a SkillRef from a skill, its directory path, and source.
+ */
+const makeSkillRef = (skill: Skill, fullPath: string, source: SourceInput): SkillRef => ({
+  type: "skill",
+  skill,
+  source,
+  location: `file://${fullPath}`,
+  version: Option.none(),
+  gitTreeSha: Option.none(),
+});
+
+/**
  * Options controlling discovery behavior.
  */
 export interface DiscoveryOptions {
@@ -143,7 +155,7 @@ const tryParseSkillInDir = (dir: string) =>
  * Scan one level of children in a directory for skills.
  * Each immediate subdirectory is checked for a SKILL.md.
  */
-const scanDirectory = (dir: string, options: DiscoveryOptions) =>
+const scanDirectory = (dir: string, options: DiscoveryOptions, source: SourceInput) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -163,14 +175,7 @@ const scanDirectory = (dir: string, options: DiscoveryOptions) =>
           if (Option.isNone(skill)) return [] satisfies SkillRef[];
           if (!shouldIncludeSkill(skill.value, options)) return [] satisfies readonly SkillRef[];
 
-          return [
-            {
-              skill: skill.value,
-              path: Option.some(fullPath),
-              gitTreeSha: Option.none(),
-              registry: Option.none(),
-            },
-          ] satisfies SkillRef[];
+          return [makeSkillRef(skill.value, fullPath, source)] satisfies SkillRef[];
         }),
       { concurrency: "unbounded" },
     ).pipe(Effect.map((results) => Array.flatten(results)));
@@ -184,6 +189,7 @@ const recursiveScan = (
   dir: string,
   options: DiscoveryOptions,
   depth: number,
+  source: SourceInput,
 ): Effect.Effect<readonly SkillRef[], never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     if (depth > MAX_DEPTH) return [] satisfies readonly SkillRef[];
@@ -207,18 +213,11 @@ const recursiveScan = (
           const skill = yield* tryParseSkillInDir(fullPath);
           const current: readonly SkillRef[] =
             Option.isSome(skill) && shouldIncludeSkill(skill.value, options)
-              ? [
-                  {
-                    skill: skill.value,
-                    path: Option.some(fullPath),
-                    registry: Option.none(),
-                    gitTreeSha: Option.none(),
-                  },
-                ]
+              ? [makeSkillRef(skill.value, fullPath, source)]
               : ([] satisfies readonly SkillRef[]);
 
           // Recurse into subdirectories
-          const subResults = yield* recursiveScan(fullPath, options, depth + 1);
+          const subResults = yield* recursiveScan(fullPath, options, depth + 1, source);
           return [...current, ...subResults];
         }),
       { concurrency: "unbounded" },
@@ -245,6 +244,7 @@ export const discoverSkillsInDir = (
   basePath: string,
   subPath: Option.Option<string>,
   options: DiscoveryOptions,
+  source: SourceInput,
 ): Effect.Effect<ReadonlyArray<SkillRef>, DiscoveryError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -282,14 +282,7 @@ export const discoverSkillsInDir = (
     const rootSkill = yield* tryParseSkillInDir(searchRoot);
     const phase1Skills: readonly SkillRef[] =
       Option.isSome(rootSkill) && shouldIncludeSkill(rootSkill.value, options)
-        ? [
-            {
-              skill: rootSkill.value,
-              path: Option.some(searchRoot),
-              registry: Option.none(),
-              gitTreeSha: Option.none(),
-            },
-          ]
+        ? [makeSkillRef(rootSkill.value, searchRoot, source)]
         : [];
 
     if (phase1Skills.length > 0 && !options.fullDepth) {
@@ -311,14 +304,16 @@ export const discoverSkillsInDir = (
 
     const phase2Skills = yield* Effect.forEach(
       allPriorityDirs,
-      (fullDir) => scanDirectory(fullDir, options),
+      (fullDir) => scanDirectory(fullDir, options, source),
       { concurrency: "unbounded" },
     ).pipe(Effect.map((results) => Array.flatten(results)));
 
     // ── Phase 3: Recursive Fallback ────────────────────────────────────
     const shouldRunPhase3 =
       (phase1Skills.length === 0 && phase2Skills.length === 0) || options.fullDepth;
-    const phase3Skills = shouldRunPhase3 ? yield* recursiveScan(searchRoot, options, 0) : [];
+    const phase3Skills = shouldRunPhase3
+      ? yield* recursiveScan(searchRoot, options, 0, source)
+      : [];
 
     // Deduplicate by name (first-found wins across phases)
     const seen = new Set<string>();
@@ -387,10 +382,15 @@ const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | Bitbu
       ),
     );
 
-    const skills = yield* discoverSkillsInDir(tempDir, source.subPath, {
-      fullDepth: false,
-      includeInternal: false,
-    }).pipe(
+    const skills = yield* discoverSkillsInDir(
+      tempDir,
+      source.subPath,
+      {
+        fullDepth: false,
+        includeInternal: false,
+      },
+      source,
+    ).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({
@@ -405,7 +405,8 @@ const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | Bitbu
       skills,
       (skill) =>
         Effect.gen(function* () {
-          const relativeDir = path.relative(tempDir, Option.getOrThrow(skill.path));
+          const skillPath = skill.location.replace("file://", "");
+          const relativeDir = path.relative(tempDir, skillPath);
           const gitTreeSha = yield* getTreeSha(tempDir, relativeDir).pipe(
             Effect.mapError(
               (error) =>
@@ -460,6 +461,7 @@ export const discoverSkills = (source: SourceInput) =>
             fullDepth: false,
             includeInternal: false,
           },
+          source,
         ).pipe(
           Effect.mapError(
             (error) =>

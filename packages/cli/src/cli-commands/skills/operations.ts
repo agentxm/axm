@@ -28,12 +28,7 @@ export interface Skill {
   readonly metadata: Option<ReadonlyRecord<string, unknown>>;
 }
 
-export interface SkillRef {
-  readonly skill: Skill;
-  readonly path: Option<string>;
-  readonly gitTreeSha: Option<string>;
-  readonly registry: Option<{ scope: string; name: string } & ({ path: string } | { url: string })>;
-}
+export type { SkillRef } from "../../sources/provider.js";
 
 // -----------------------------------------------------------------------------
 // Operations
@@ -46,7 +41,11 @@ export type AddSkillArgs = {
   readonly source: SourceInput;
   readonly agents: ReadonlyArray<string>;
   readonly force: boolean;
-} & SkillRef;
+  readonly skill: Skill;
+  readonly location: string;
+  readonly version: Option<string>;
+  readonly gitTreeSha: Option<string>;
+};
 
 /**
  * Add a skill to the workspace.

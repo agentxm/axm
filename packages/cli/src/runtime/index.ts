@@ -64,9 +64,11 @@ export function run<A, E>(
   const provided = options?.workspace
     ? (() => {
         const wsLayer = workspaceLayer(options.workspace);
-        const ssLayer = Layer.provide(SettingsServiceLive, wsLayer);
-        const lsLayer = Layer.provide(LockfileServiceLive, wsLayer);
-        return program.pipe(Effect.provide(Layer.mergeAll(wsLayer, ssLayer, lsLayer)));
+        const servicesLayer = Layer.provide(
+          Layer.mergeAll(SettingsServiceLive, LockfileServiceLive),
+          wsLayer,
+        );
+        return program.pipe(Effect.provide(Layer.merge(wsLayer, servicesLayer)));
       })()
     : (program as Effect.Effect<A, E, AppLayer>);
 

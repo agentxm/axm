@@ -8,14 +8,14 @@
  * @packageDocumentation
  */
 
-import * as path from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
+import * as Path from "@effect/platform/Path";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 
-import { type Lockfile, LockfileSchema, type SkillLockEntry } from "./schema.js";
+import { type Lockfile, LockfileSchema } from "./schema.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -118,9 +118,10 @@ const decodeLockfile = (data: unknown): Effect.Effect<Lockfile, LockfileParseErr
  */
 export const readLockfile = (
   axmDir: string,
-): Effect.Effect<Lockfile, LockfileError, FileSystem.FileSystem> =>
+): Effect.Effect<Lockfile, LockfileError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const lockfilePath = path.join(axmDir, LOCKFILE_NAME);
 
     // Check if file exists
@@ -179,9 +180,10 @@ export const readLockfile = (
 export const writeLockfile = (
   axmDir: string,
   lockfile: Lockfile,
-): Effect.Effect<void, LockfileError, FileSystem.FileSystem> =>
+): Effect.Effect<void, LockfileError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
     const lockfilePath = path.join(axmDir, LOCKFILE_NAME);
 
     // Ensure directory exists
@@ -229,74 +231,4 @@ export const writeLockfile = (
           }),
       ),
     );
-  });
-
-/**
- * Updates or adds a skill entry in the lockfile.
- *
- * Reads the existing lockfile, updates the entry for the specified skill,
- * sets the `updatedAt` timestamp, and writes the lockfile back.
- *
- * @param axmDir - Path to the `.axm` directory
- * @param skillName - Name of the skill to update
- * @param entry - The lock entry data for the skill
- * @returns Effect yielding the updated Lockfile
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const updateLockEntry = (
-  axmDir: string,
-  skillName: string,
-  entry: SkillLockEntry,
-): Effect.Effect<Lockfile, LockfileError, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const existing = yield* readLockfile(axmDir);
-
-    const updatedLockfile: Lockfile = {
-      ...existing,
-      skills: {
-        ...existing.skills,
-        [skillName]: {
-          ...entry,
-          updatedAt: new Date(),
-        },
-      },
-    };
-
-    yield* writeLockfile(axmDir, updatedLockfile);
-
-    return updatedLockfile;
-  });
-
-/**
- * Removes a skill entry from the lockfile.
- *
- * Preserves all other entries. If the skill is not found,
- * returns the lockfile unchanged.
- *
- * @param axmDir - Path to the `.axm` directory
- * @param skillName - Name of the skill to remove
- * @returns Effect yielding the updated Lockfile
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const removeLockEntry = (
-  axmDir: string,
-  skillName: string,
-): Effect.Effect<Lockfile, LockfileError, FileSystem.FileSystem> =>
-  Effect.gen(function* () {
-    const existing = yield* readLockfile(axmDir);
-
-    // Create new skills object without the specified skill
-    const { [skillName]: _removed, ...remainingSkills } = existing.skills;
-    void _removed; // Avoid unused variable lint error
-
-    const updatedLockfile: Lockfile = {
-      ...existing,
-      skills: remainingSkills,
-    };
-
-    yield* writeLockfile(axmDir, updatedLockfile);
-
-    return updatedLockfile;
   });

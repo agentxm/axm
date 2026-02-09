@@ -12,8 +12,7 @@ import * as Path from "@effect/platform/Path";
 import { type AgentConfig, detectAgents, getAllAgents, getAgentById } from "../agents/index.js";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
-import { type LockfileError, LOCKFILE_NAME } from "../lockfile/index.js";
-import { writeLockfile } from "../lockfile/lockfile.js";
+import { type LockfileError, LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
 import {
   createDefaultSettings,
   readSettings,

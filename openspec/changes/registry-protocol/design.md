@@ -85,22 +85,18 @@ interface SourceProvider<S extends Source = Source, R = never> {
   readonly fetch: (source: S, extension: ExtensionRef) => Effect<ExtensionFiles, SourceError, R>;
 }
 
+// Internal: provider registry maps source type → provider implementation
 // R propagation mirrors the operation handler pattern (apply-plan.ts):
 // - SourceProvider has open R — each provider declares its own dependencies
 // - Providers are assembled into a static record (like Handlers)
 // - ProviderContext<T> extracts the R union (like ExecutionContext<T>)
-// - resolveFromSources(providers, source, options) propagates R to the caller
+// These types are internal to the SourceProviders service — handlers don't see them
 type ProviderRegistry = {
   [K in Source["source"]]: SourceProvider<Extract<Source, { source: K }>, any>;
 };
 type ProviderContext<T extends ProviderRegistry> = {
   [K in keyof T]: T[K] extends SourceProvider<any, infer R> ? R : never;
 }[keyof T];
-const resolveFromSources: <T extends ProviderRegistry>(
-  providers: T,
-  source: Source,
-  options: FindOptions,
-) => Effect<ReadonlyArray<ExtensionRef>, SourceError, ProviderContext<T>>;
 
 // Extended capabilities for registry source providers
 // Methods take (scope, type, name) — consider an ExtensionCoord struct if this becomes unwieldy
@@ -193,23 +189,38 @@ const createRegistryProvider = (location: string): RegistrySourceProvider => ...
 
 The dispatch is by location scheme, not by the `Source` type — a registry source is always `source: "registry"` regardless of whether the registry is local or remote.
 
-A **registry meta-provider** wraps the multi-registry iteration (scope routing, fallthrough) into a single `SourceProvider` entry for the provider registry. From the outside it's one provider — internally it iterates over configured registry locations, creating per-location providers and applying Decision 3's resolution order:
+A **registry meta-provider** wraps the multi-registry iteration (scope routing, fallthrough) into a single `SourceProvider` entry for the provider registry. From the outside it's one provider — internally it reads configured registry sources from the workspace service on each call, creating per-location providers and applying Decision 3's resolution order:
 
 ```typescript
 // Wraps N configured registries into a single SourceProvider
-const createRegistryMetaProvider = (
-  registrySources: ReadonlyArray<RegistrySourceConfig>,
-): SourceProvider<Source, FileSystem | Path> => ({
+// Reads workspace.getRegistrySources() lazily on each find/fetch — always reflects current config
+const createRegistryMetaProvider = (): SourceProvider<Source, FileSystem | Path | WorkspaceContext> => ({
   find: (source, options) =>
-    // iterate registrySources: scope-matched first, then catch-all
+    // workspace.getRegistrySources(scope) → iterate: scope-matched first, then catch-all
     // 404 → fallthrough, other errors → hard fail
     // per-location provider via createRegistryProvider(location)
   fetch: (source, ref) =>
-    // ref.source.name → look up location → delegate to right per-location provider
+    // ref.source.name → workspace.getSourceByName(name) → delegate to right per-location provider
 });
 ```
 
-This keeps the provider registry pattern uniform — handlers assemble one provider per source type, including registry, and `resolveFromSources` dispatches without branching.
+Because the meta-provider reads from workspace lazily, it always sees the latest source configuration — including any registry sources added by the registry guard (Decision 10) mid-handler.
+
+**`SourceProviders` service** — rather than assembling a provider registry in every handler, providers are exposed as an Effect service constructed once and provided at the edge:
+
+```typescript
+interface SourceProviders {
+  readonly resolve: (
+    source: Source,
+    options: FindOptions,
+  ) => Effect<ReadonlyArray<ExtensionRef>, SourceError>;
+  readonly fetch: (ref: ExtensionRef) => Effect<ExtensionFiles, SourceError>;
+}
+```
+
+The service is backed by the provider registry (one provider per source type). It delegates to `workspace.getSources()` for ordering and to individual providers for execution. Handlers consume it via `yield* SourceProviders` — no assembly, no wiring. The registry meta-provider's lazy reads from workspace mean the service never goes stale.
+
+This keeps the provider registry pattern uniform — one provider per source type, including registry, and `resolve`/`fetch` dispatch without branching.
 
 **Alternative considered:** Single provider with transport abstraction (HttpTransport, FileTransport). Rejected as over-engineered — the provider interface itself is the abstraction boundary. The source provider abstraction provides a more general solution that covers all source types, not just registry.
 
@@ -264,7 +275,7 @@ Source configurations are resolved through three layers. Project sources take hi
 
 **2. Global settings** (`~/.axm/settings.json` → `sources` array) — fills in sources not defined at the project level. A global entry whose `name` matches any project entry is excluded.
 
-**3. Built-in defaults** — hardcoded in the application, lowest priority. A built-in entry whose `name` matches any project or global entry is excluded.
+**3. Built-in defaults** — defined by the workspace service (the single source of truth for source configuration), lowest priority. A built-in entry whose `name` matches any project or global entry is excluded.
 
 | name        | source      | config                  |
 | ----------- | ----------- | ----------------------- |
@@ -272,7 +283,7 @@ Source configurations are resolved through three layers. Project sources take hi
 | `gitlab`    | `gitlab`    | `https://gitlab.com`    |
 | `bitbucket` | `bitbucket` | `https://bitbucket.org` |
 
-Note: No built-in registry source is included. A built-in `default` registry source will be added when the remote registry provider is functional. Until then, users must configure registry sources explicitly (see Decision 10).
+Built-in defaults are owned by the workspace service — not scattered across resolver code or parser logic. This ensures the merge algorithm, resolution order, and provider construction all derive from the same ordered list. No built-in registry source is included. A built-in `default` registry source will be added when the remote registry provider is functional. Until then, users must configure registry sources explicitly (see Decision 10).
 
 The merge algorithm:
 
@@ -324,11 +335,31 @@ export interface WorkspaceContextService {
 
 #### Source resolution order (for extension lookup)
 
-1. Collect sources whose `scopes` includes the target extension's scope
-2. If no scope-matched sources, collect sources with no `scopes` field
+The merged sources list from `getSources()` is the single ordering mechanism for **all** resolution — both registry scope routing and ambiguous input resolution.
+
+**Registry scope routing** (within the registry meta-provider):
+
+1. Collect registry sources whose `scopes` includes the target extension's scope
+2. If no scope-matched sources, collect registry sources with no `scopes` field
 3. Query in array order. 404 → fallthrough. Other errors → hard fail
 
-> **Note:** Scope routing only applies to registry sources — they are the only `SourceConfig` variant with a `scopes` field. Non-registry sources (github, gitlab, etc.) always land in bucket 2 (no scopes → catch-all).
+> **Note:** Scope routing only applies to registry sources — they are the only `SourceConfig` variant with a `scopes` field.
+
+**Ambiguous input resolution** (e.g., `owner/repo` patterns):
+
+The current resolver hardcodes a try-order of GitHub → GitLab → Bitbucket. This is replaced by the merged sources list: for ambiguous patterns that could match multiple git-hosting providers, the resolver iterates the full `getSources()` list filtered to applicable source types, in order. First successful resolution wins; 404 → fallthrough.
+
+1. Call `getSources()` on the workspace service
+2. Filter to git-hosting source types (`github`, `gitlab`, `bitbucket`, `azurerepos`)
+3. Try each in array order — first successful resolution wins, 404 → fallthrough
+
+This means:
+
+- **Default behavior** (no user config): built-in order (github, gitlab, bitbucket) — same as today
+- **User customization**: a user who places `gitlab` before `github` in project settings gets GitLab tried first
+- **Multiple sources of same type**: if both `github` (github.com) and `github.acme` (github.acme.corp) are configured, both are tried in array order — iteration is over the full merged list, not deduplicated by type
+
+**Explicit source prefixes** (`github:owner/repo`, `gitlab:owner/repo`, etc.) bypass ambiguous resolution entirely — they dispatch directly to the named source type. The ordering only matters when the input is ambiguous.
 
 **Location normalization:**
 
@@ -524,11 +555,11 @@ This guard is called by:
 - `skills publish` handler — needs a registry to write to
 - `skills install` handler — when the source is a registry reference (`@scope/name@version`)
 
-The guard returns the available registry sources (possibly including the newly configured one), so handlers can proceed without re-querying.
+The guard persists configuration changes to settings. Because the `SourceProviders` service reads from the workspace service lazily (Decision 2), any registry source the guard adds is immediately visible to subsequent `resolve`/`fetch` calls — handlers don't need to re-query or pass sources explicitly.
 
 ## Handler Changes
 
-All handlers use the source provider abstraction (Decision 2) for discovery. The existing `discoverSkills` function is refactored into source providers — each provider implements `find` and `fetch`. Handlers assemble a provider registry (one provider per source type, mirroring the `Handlers` pattern from `apply-plan.ts`) and pass it to `resolveFromSources`, which dispatches uniformly. The registry meta-provider wraps multi-registry iteration into a single entry. `ProviderContext<T>` extracts the R union so the caller provides dependencies at the edge. Registry-dependent handlers call the registry guard (Decision 10) as a precondition before constructing the registry.
+All handlers use the `SourceProviders` service (Decision 2) for discovery. The existing `discoverSkills` function is refactored into source providers — each provider implements `find` and `fetch`. The `SourceProviders` service wraps the provider registry and is provided as an Effect layer at the edge. Handlers consume it via `yield* SourceProviders` — no per-handler assembly needed. The registry meta-provider reads from the workspace service lazily, so it always reflects current config (including post-guard changes). Registry-dependent handlers call the registry guard (Decision 10) as a precondition — any config changes the guard makes are visible to subsequent `SourceProviders` calls.
 
 ### `skills install` handler
 
@@ -540,21 +571,15 @@ handleInstall(args)
 ├─ if source.source === "registry":
 │    └─ registryGuard()                     # precondition: ensure registry configured
 │
-├─ providers = {                            # assemble provider registry
-│    github: createGitHubProvider(),
-│    gitlab: createGitLabProvider(),
-│    local: createLocalProvider(),
-│    registry: createRegistryMetaProvider(registrySources),
-│    ...
-│  }
+├─ sources = yield* SourceProviders          # service — no assembly needed
 │
-├─ refs = resolveFromSources(providers, source, { names, agents, type: "skill" })
-│    # dispatches to providers[source.source].find — uniform, no branching
+├─ refs = sources.resolve(source, { names, agents, type: "skill" })
+│    # dispatches to provider by source type, reads config from workspace lazily
 │
 ├─ selected = selectSkills(refs, ...)        # unchanged interactive selection
 │
 ├─ for each selected ref:
-│    └─ files = fetchRef(providers, ref)    # dispatches by ref.source through same registry
+│    └─ files = sources.fetch(ref)          # dispatches by ref.source
 │
 ├─ build AddSkillOperations
 ├─ buildPlan(ops, lockfile, ...)
@@ -613,7 +638,7 @@ handleFork(args)
 ├─ resolve input:
 │    ├─ glob pattern? → match against lockfile keys → multiple skills
 │    ├─ installed skill name? → read from lockfile, get files from current location
-│    └─ source string? → parseSource → resolveFromSources(providers, ...) (same as install)
+│    └─ source string? → parseSource → sources.resolve(...) (same as install)
 │
 ├─ for each matched skill:
 │    ├─ determineScope()
@@ -702,9 +727,11 @@ export type PublishSkillOperation = Operation<"publish-skill", PublishSkillArgs>
 
 - **`operations.ts`**: `SkillRef` gains `source: Source`, drops `path`/`registry`. New `ForkSkillOperation` and `PublishSkillOperation` types
 - **`source-to-lock-entry.ts`**: Registry case gains `checksum`, `resolvedVersion`, `sourceName` — pulled from resolved version metadata
-- **`discover-skills.ts`**: Existing discovery logic moves into source provider implementations. The file becomes `resolveFromSources` (dispatches `find` through provider registry) and `fetchRef` (dispatches `fetch` by ref's source), plus `ProviderRegistry`/`ProviderContext` types mirroring the `Handlers`/`ExecutionContext` pattern
+- **`discover-skills.ts`**: Existing discovery logic moves into source provider implementations. The file becomes the `SourceProviders` service — an Effect service backed by the provider registry (one provider per source type). Exposes `resolve` and `fetch`. Constructed once, provided as a layer at the edge. The registry meta-provider reads from workspace lazily
 - **`settings/schema.ts`**: `SourcesConfigSchema` evolves from per-provider keys to `Schema.Array` of discriminated `SourceConfig` entries
-- **`workspace/service.ts`**: Gains `getScope()`, `getSources()`, `getSourceByName()`, `getRegistrySources()` (Decision 3). Merge uses project → global → built-in ordering
+- **`workspace/service.ts`**: Gains `getScope()`, `getSources()`, `getSourceByName()`, `getRegistrySources()` (Decision 3). Merge uses project → global → built-in ordering. Owns built-in source definitions — the single source of truth for default providers
+- **`resolution/resolvers/ambiguous.ts`**: Hardcoded GitHub → GitLab → Bitbucket try-order replaced by iteration over `getSources()` filtered to git-hosting types. Resolver gains `WorkspaceContext` dependency for source ordering (Decision 3)
+- **`sources/parser.ts`**: `resolveSlashPattern` removed — ambiguous `owner/repo` resolution moves into the resolver layer, which has access to the workspace service's ordered source list
 
 ## Risks / Trade-offs
 

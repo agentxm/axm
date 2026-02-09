@@ -267,13 +267,22 @@ describe("sourceToLockEntry", () => {
       agents,
       gitTreeSha: Option.none(),
       now,
-      registry: { scope: "@acme", name: "code-review" },
+      registry: {
+        scope: "@acme",
+        name: "code-review",
+        resolvedVersion: "2.1.0",
+        checksum: "sha256:abcdef1234567890",
+        sourceName: "local",
+      },
     });
 
     expect(result).toEqual({
       source: "registry",
       scope: "@acme",
       name: "code-review",
+      resolvedVersion: "2.1.0",
+      checksum: "sha256:abcdef1234567890",
+      sourceName: "local",
       agents,
       installedAt: now,
       updatedAt: now,

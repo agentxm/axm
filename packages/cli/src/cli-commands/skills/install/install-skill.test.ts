@@ -111,9 +111,9 @@ const makeOp = (
       description: "A test skill",
       metadata: Option.none(),
     },
-    path: overrides.path ?? Option.fromNullable(overrides.sourcePath ?? undefined),
+    location: overrides.location ?? `file://${overrides.sourcePath ?? ""}`,
+    version: overrides.version ?? Option.none(),
     gitTreeSha: overrides.gitTreeSha ?? Option.none(),
-    registry: overrides.registry ?? Option.none(),
   },
 });
 
@@ -301,11 +301,11 @@ describe("installSkill", () => {
   });
 
   describe("error cases", () => {
-    it.effect("yields OperationError when source path is not available", () =>
+    it.effect("yields OperationError on copy failure when location is invalid", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
 
-        const result = yield* installSkill(makeOp({ path: Option.none() })).pipe(
+        const result = yield* installSkill(makeOp({ location: "file:///nonexistent/path" })).pipe(
           Effect.provide(withServices(axmDir)),
           // OperationError is in the E channel — catch it as applyPlan would
           Effect.catchTag("OperationError", (e) =>
@@ -314,7 +314,7 @@ describe("installSkill", () => {
         );
 
         expect(result.result).toBe("error");
-        expect(result.message).toContain("No source path");
+        expect(result.message).toContain("Failed to copy");
       }),
     );
 

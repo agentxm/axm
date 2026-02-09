@@ -138,7 +138,7 @@ describe("lockfile schema", () => {
       }
     });
 
-    it("accepts valid skill lock entry with Registry source and version", () => {
+    it("accepts valid skill lock entry with Registry source", () => {
       const input = {
         lockfileVersion: 1,
         skills: {
@@ -146,7 +146,9 @@ describe("lockfile schema", () => {
             source: "registry",
             scope: "@acme",
             name: "my-skill",
-            version: "1.0.0",
+            resolvedVersion: "1.0.0",
+            checksum: "sha256:abc123def456",
+            sourceName: "local",
             agents: ["claude-code"],
             installedAt: "2025-01-15T10:30:00Z",
             updatedAt: "2025-01-15T10:30:00Z",
@@ -162,7 +164,9 @@ describe("lockfile schema", () => {
       if (skill?.source === "registry") {
         expect(skill.scope).toBe("@acme");
         expect(skill.name).toBe("my-skill");
-        expect(skill.version).toBe("1.0.0");
+        expect(skill.resolvedVersion).toBe("1.0.0");
+        expect(skill.checksum).toBe("sha256:abc123def456");
+        expect(skill.sourceName).toBe("local");
       }
     });
 
@@ -295,12 +299,14 @@ describe("lockfile schema", () => {
       expect(result.gitTreeHash).toBe("abc123def456");
     });
 
-    it("accepts valid registry lock entry with version", () => {
+    it("accepts valid registry lock entry", () => {
       const input = {
         source: "registry",
         scope: "@acme",
         name: "my-skill",
-        version: "1.0.0",
+        resolvedVersion: "1.0.0",
+        checksum: "sha256:abc123def456",
+        sourceName: "local",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -310,7 +316,11 @@ describe("lockfile schema", () => {
 
       expect(result.source).toBe("registry");
       if (result.source === "registry") {
-        expect(result.version).toBe("1.0.0");
+        expect(result.scope).toBe("@acme");
+        expect(result.name).toBe("my-skill");
+        expect(result.resolvedVersion).toBe("1.0.0");
+        expect(result.checksum).toBe("sha256:abc123def456");
+        expect(result.sourceName).toBe("local");
       }
     });
 
@@ -434,6 +444,9 @@ describe("lockfile schema", () => {
       const input = {
         source: "registry",
         name: "my-skill",
+        resolvedVersion: "1.0.0",
+        checksum: "sha256:abc123def456",
+        sourceName: "local",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -446,6 +459,54 @@ describe("lockfile schema", () => {
       const input = {
         source: "registry",
         scope: "@acme",
+        resolvedVersion: "1.0.0",
+        checksum: "sha256:abc123def456",
+        sourceName: "local",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+
+      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
+    });
+
+    it("rejects registry lock entry missing resolvedVersion", () => {
+      const input = {
+        source: "registry",
+        scope: "@acme",
+        name: "my-skill",
+        checksum: "sha256:abc123def456",
+        sourceName: "local",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+
+      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
+    });
+
+    it("rejects registry lock entry missing checksum", () => {
+      const input = {
+        source: "registry",
+        scope: "@acme",
+        name: "my-skill",
+        resolvedVersion: "1.0.0",
+        sourceName: "local",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+
+      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
+    });
+
+    it("rejects registry lock entry missing sourceName", () => {
+      const input = {
+        source: "registry",
+        scope: "@acme",
+        name: "my-skill",
+        resolvedVersion: "1.0.0",
+        checksum: "sha256:abc123def456",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",

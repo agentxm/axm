@@ -132,8 +132,7 @@ export const LocalLockEntrySchema = Schema.Struct({
 
 /**
  * Registry source - skill from a registry.
- * Required: scope, name
- * Optional: version
+ * Required: scope, name, resolvedVersion, checksum, sourceName
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -141,7 +140,9 @@ export const RegistryLockEntrySchema = Schema.Struct({
   source: Schema.Literal("registry"),
   scope: Schema.String,
   name: Schema.String,
-  version: Schema.optional(Schema.String),
+  resolvedVersion: Schema.String,
+  checksum: Schema.String,
+  sourceName: Schema.String,
   ...CommonFields,
 });
 

@@ -182,8 +182,11 @@ export const handleInstall = (args: InstallHandlerArgs) => {
             args: {
               agents: agentIds,
               force: args.force,
-              source,
-              ...s,
+              source: s.source,
+              skill: s.skill,
+              location: s.location,
+              version: s.version,
+              gitTreeSha: s.gitTreeSha,
             },
           }) satisfies AddSkillOperation,
       );

@@ -170,14 +170,7 @@ export const installSkill: OperationHandler<
     }
 
     // Resolve source path — the skill files to copy from
-    if (Option.isNone(op.args.path)) {
-      return yield* new OperationError({
-        operation: "install-skill",
-        message: `No source path available for skill "${op.args.skill.name}"`,
-        cause: null,
-      });
-    }
-    const sourcePath = op.args.path.value;
+    const sourcePath = op.args.location.replace("file://", "");
 
     // Remove existing canonical directory for clean-slate copy
     const canonicalExists = yield* fs
@@ -231,10 +224,6 @@ export const installSkill: OperationHandler<
           agents: op.args.agents,
           gitTreeSha: op.args.gitTreeSha,
           now: new Date(),
-          ...Option.match(op.args.registry, {
-            onNone: () => ({}),
-            onSome: (reg) => ({ registry: reg }),
-          }),
         }),
       )
       .pipe(Effect.catchAll(() => Effect.void));

@@ -14,10 +14,12 @@ import { filterSkills, getSkillDisplayName, sanitizeName } from "./skill-utils.j
 // -----------------------------------------------------------------------------
 
 const makeSkill = (name: string, path: string = `/fake/${name || "unnamed"}`): SkillRef => ({
+  type: "skill",
   skill: { name, description: "", metadata: Option.none() },
-  path: Option.some(path),
+  source: { source: "local", path },
+  location: `file://${path}`,
+  version: Option.none(),
   gitTreeSha: Option.none(),
-  registry: Option.none(),
 });
 
 // -----------------------------------------------------------------------------
@@ -58,7 +60,7 @@ describe("filterSkills", () => {
     const skill = makeSkill("", "/repo/skills/my-dir");
     const result = filterSkills([skill], ["My-Dir"]);
     expect(result).toHaveLength(1);
-    expect(Option.getOrThrow(result[0]!.path)).toBe("/repo/skills/my-dir");
+    expect(result[0]!.location).toBe("file:///repo/skills/my-dir");
   });
 
   it("returns skills matching any of multiple input names", () => {

@@ -63,7 +63,7 @@ When resolving `@acme/code-review`, the client must know the extension type to c
 
 **Alternative considered:** Flat layout without type segment (`@scope/name/`). Rejected because it prevents same-named extensions of different types from coexisting in the same scope.
 
-### 2. Source provider abstraction
+### 2. Source provider interface
 
 A source provider unifies how all source types are accessed. Each source type (github, gitlab, bitbucket, azurerepos, git, registry, local) is implemented as a provider with capabilities appropriate to its type. Not all providers support the same operations — the abstraction uses a capability-based design.
 
@@ -90,14 +90,53 @@ interface SourceProvider<S extends Source = Source, R = never> {
 // - SourceProvider has open R — each provider declares its own dependencies
 // - Providers are assembled into a static record (like Handlers)
 // - ProviderContext<T> extracts the R union (like ExecutionContext<T>)
-// These types are internal to the SourceProviders service — handlers don't see them
+// These types are internal to the SourceProviders service (Decision 4) — handlers don't see them
 type ProviderRegistry = {
   [K in Source["source"]]: SourceProvider<Extract<Source, { source: K }>, any>;
 };
 type ProviderContext<T extends ProviderRegistry> = {
   [K in keyof T]: T[K] extends SourceProvider<any, infer R> ? R : never;
 }[keyof T];
+```
 
+The `Source` type (from `sources/types.ts`) describes _where_ to look — the repository, registry location, or local path. `FindOptions` describes _what_ to look for — extension names, agent compatibility, and extension type. These concerns are independent: the same source can be searched for different extensions, and the same extension can be found across different sources.
+
+**`ExtensionRef`** is a discriminated union returned by `find` and consumed by `fetch`:
+
+```typescript
+type ExtensionRef = SkillRef | McpServerRef;
+
+interface SkillRef {
+  readonly type: "skill";
+  readonly skill: Skill;
+  readonly source: Source; // where this skill was found
+  readonly gitTreeSha: Option<string>;
+}
+
+interface McpServerRef {
+  readonly type: "mcp-server";
+  readonly name: string;
+  readonly source: Source; // where this server was found
+}
+```
+
+> **Note:** `McpServerRef` is defined for forward compatibility. Only `SkillRef` is used in this change.
+
+Each ref carries `source: Source` — the source it was found at. This replaces the existing `SkillRef.path` and `SkillRef.registry` fields: a local source carries the filesystem path, a GitHub source carries owner/repo/ref, a registry source identifies the registry it was found at. Scope and name are part of the extension identity (the `Skill` type and `FindOptions`), not the source. The ref always knows where it came from using the same `Source` type the rest of the system understands.
+
+**Important:** `RegistrySource` as a standalone type goes away — the registry variant of `Source` carries the source type and the config name it was resolved from (`{ source: "registry"; name: string }`). The `name` identifies which configured registry source this came from (matching `SourceConfig.name` — see Decision 5), enabling `fetch` to find the right provider and the lockfile to record provenance. Extension scope/name are identity, not source — they live on `Skill` and `FindOptions`. The local vs remote distinction is handled by the provider implementation, not by the `Source` type.
+
+For git-based sources, `find` scans the repository and filters results by `names` (empty = return all discovered skills) and `agents`. For registry sources, `find` looks up the specific extensions by name from the configured registry locations. `agents` filters by compatibility in both cases.
+
+Existing source types are migrated to the `SourceProvider` interface. For example, a `GitHubSourceProvider` implements `find` (list/filter skills in a repo) and `fetch` (clone/download files) but does not implement registry-specific methods like `publishVersion`. Many existing providers won't have all the same methods/capabilities as the registry provider — the interface is intentionally minimal at the base level.
+
+**Alternative considered:** Single provider with transport abstraction (HttpTransport, FileTransport). Rejected as over-engineered — the provider interface itself is the abstraction boundary. The source provider abstraction provides a more general solution that covers all source types, not just registry.
+
+### 3. Registry source providers
+
+Registry source providers extend the base `SourceProvider` (Decision 2) with registry-specific operations:
+
+```typescript
 // Extended capabilities for registry source providers
 // Methods take (scope, type, name) — consider an ExtensionCoord struct if this becomes unwieldy
 interface RegistrySourceProvider extends SourceProvider {
@@ -129,38 +168,7 @@ interface RegistrySourceProvider extends SourceProvider {
 }
 ```
 
-The `Source` type (from `sources/types.ts`) describes _where_ to look — the repository, registry location, or local path. `FindOptions` describes _what_ to look for — extension names, agent compatibility, and extension type. These concerns are independent: the same source can be searched for different extensions, and the same extension can be found across different sources.
-
-**`ExtensionRef`** is a discriminated union returned by `find` and consumed by `fetch`:
-
-```typescript
-type ExtensionRef = SkillRef | McpServerRef;
-
-interface SkillRef {
-  readonly type: "skill";
-  readonly skill: Skill;
-  readonly source: Source; // where this skill was found
-  readonly gitTreeSha: Option<string>;
-}
-
-interface McpServerRef {
-  readonly type: "mcp-server";
-  readonly name: string;
-  readonly source: Source; // where this server was found
-}
-```
-
-> **Note:** `McpServerRef` is defined for forward compatibility. Only `SkillRef` is used in this change.
-
-Each ref carries `source: Source` — the source it was found at. This replaces the existing `SkillRef.path` and `SkillRef.registry` fields: a local source carries the filesystem path, a GitHub source carries owner/repo/ref, a registry source identifies the registry it was found at. Scope and name are part of the extension identity (the `Skill` type and `FindOptions`), not the source. The ref always knows where it came from using the same `Source` type the rest of the system understands.
-
-**Important:** `RegistrySource` as a standalone type goes away — the registry variant of `Source` carries the source type and the config name it was resolved from (`{ source: "registry"; name: string }`). The `name` identifies which configured registry source this came from (matching `SourceConfig.name`), enabling `fetch` to find the right provider and the lockfile to record provenance. Extension scope/name are identity, not source — they live on `Skill` and `FindOptions`. The local vs remote distinction is handled by the provider implementation, not by the `Source` type.
-
-For git-based sources, `find` scans the repository and filters results by `names` (empty = return all discovered skills) and `agents`. For registry sources, `find` looks up the specific extensions by name from the configured registry locations. `agents` filters by compatibility in both cases.
-
-Existing source types are migrated to the `SourceProvider` interface. For example, a `GitHubSourceProvider` implements `find` (list/filter skills in a repo) and `fetch` (clone/download files) but does not implement registry-specific methods like `publishVersion`. Many existing providers won't have all the same methods/capabilities as the registry provider — the interface is intentionally minimal at the base level.
-
-Two registry source providers implement `RegistrySourceProvider`, dispatched by the configured location:
+Two implementations dispatch by the configured location (see Decision 5 for `SourceConfig`):
 
 ```typescript
 // Local filesystem registry (implemented in this change)
@@ -179,7 +187,7 @@ class RemoteRegistrySourceProvider implements RegistrySourceProvider {
 }
 ```
 
-A factory function creates the appropriate provider based on the configured location in the named source configuration (Decision 3):
+A factory function creates the appropriate provider based on location scheme:
 
 ```typescript
 // location is a local path or file:// URL → LocalRegistrySourceProvider
@@ -189,7 +197,9 @@ const createRegistryProvider = (location: string): RegistrySourceProvider => ...
 
 The dispatch is by location scheme, not by the `Source` type — a registry source is always `source: "registry"` regardless of whether the registry is local or remote.
 
-A **registry meta-provider** wraps the multi-registry iteration (scope routing, fallthrough) into a single `SourceProvider` entry for the provider registry. From the outside it's one provider — internally it reads configured registry sources from the workspace service on each call, creating per-location providers and applying Decision 3's resolution order:
+### 4. SourceProviders service and registry meta-provider
+
+A **registry meta-provider** wraps the multi-registry iteration (scope routing, fallthrough) into a single `SourceProvider` entry for the provider registry. From the outside it's one provider — internally it reads configured registry sources from the workspace service on each call, creating per-location providers and applying Decision 6's resolution order:
 
 ```typescript
 // Wraps N configured registries into a single SourceProvider
@@ -204,7 +214,7 @@ const createRegistryMetaProvider = (): SourceProvider<Source, FileSystem | Path 
 });
 ```
 
-Because the meta-provider reads from workspace lazily, it always sees the latest source configuration — including any registry sources added by the registry guard (Decision 10) mid-handler.
+Because the meta-provider reads from workspace lazily, it always sees the latest source configuration — including any registry sources added by the registry guard (Decision 13) mid-handler.
 
 **`SourceProviders` service** — rather than assembling a provider registry in every handler, providers are exposed as an Effect service constructed once and provided at the edge:
 
@@ -222,9 +232,7 @@ The service is backed by the provider registry (one provider per source type). I
 
 This keeps the provider registry pattern uniform — one provider per source type, including registry, and `resolve`/`fetch` dispatch without branching.
 
-**Alternative considered:** Single provider with transport abstraction (HttpTransport, FileTransport). Rejected as over-engineered — the provider interface itself is the abstraction boundary. The source provider abstraction provides a more general solution that covers all source types, not just registry.
-
-### 3. Source configuration consolidates into named sources array
+### 5. Source configuration schema
 
 Current schema uses per-provider keys:
 
@@ -267,6 +275,25 @@ Key properties:
 - **`location`**: Registry path or URL. Paths are normalized to absolute paths internally
 - **`scopes`**: Optional scope filter. If present, source is only consulted for matching scopes
 
+#### SourceConfig type
+
+```typescript
+// Discriminated union on `source`, normalized at parse time
+type SourceConfig =
+  | { readonly name: string; readonly source: "github"; readonly url: string }
+  | { readonly name: string; readonly source: "gitlab"; readonly url: string }
+  | { readonly name: string; readonly source: "bitbucket"; readonly url: string }
+  | { readonly name: string; readonly source: "azurerepos"; readonly url: string }
+  | {
+      readonly name: string;
+      readonly source: "registry";
+      readonly location: string; // absolute path or URL (normalized at parse time)
+      readonly scopes: Option<ReadonlyArray<string>>;
+    };
+```
+
+`SourceConfig` is validated and normalized (locations resolved to absolute paths) at parse time — no separate "resolved" type needed.
+
 #### Layered source resolution
 
 Source configurations are resolved through three layers. Project sources take highest priority, followed by global, followed by built-in. Name-based deduplication cascades downward — a source in a higher-priority layer shadows any same-named source in lower layers.
@@ -283,7 +310,7 @@ Source configurations are resolved through three layers. Project sources take hi
 | `gitlab`    | `gitlab`    | `https://gitlab.com`    |
 | `bitbucket` | `bitbucket` | `https://bitbucket.org` |
 
-Built-in defaults are owned by the workspace service — not scattered across resolver code or parser logic. This ensures the merge algorithm, resolution order, and provider construction all derive from the same ordered list. No built-in registry source is included. A built-in `default` registry source will be added when the remote registry provider is functional. Until then, users must configure registry sources explicitly (see Decision 10).
+Built-in defaults are owned by the workspace service — not scattered across resolver code or parser logic. This ensures the merge algorithm, resolution order, and provider construction all derive from the same ordered list. No built-in registry source is included. A built-in `default` registry source will be added when the remote registry provider is functional. Until then, users must configure registry sources explicitly (see Decision 13).
 
 The merge algorithm:
 
@@ -297,19 +324,6 @@ The merge algorithm:
 This is accessed via `Workspace`, which already has the global/local layering pattern. The `WorkspaceContextService` gains methods for scope and source resolution:
 
 ```typescript
-// Discriminated union on `source`, normalized at parse time
-type SourceConfig =
-  | { readonly name: string; readonly source: "github"; readonly url: string }
-  | { readonly name: string; readonly source: "gitlab"; readonly url: string }
-  | { readonly name: string; readonly source: "bitbucket"; readonly url: string }
-  | { readonly name: string; readonly source: "azurerepos"; readonly url: string }
-  | {
-      readonly name: string;
-      readonly source: "registry";
-      readonly location: string; // absolute path or URL (normalized at parse time)
-      readonly scopes: Option<ReadonlyArray<string>>;
-    };
-
 export interface WorkspaceContextService {
   // ... existing fields (global, path, nonInteractive, preview, resolvePlan)
 
@@ -331,13 +345,25 @@ export interface WorkspaceContextService {
 }
 ```
 
-`SourceConfig` is validated and normalized (locations resolved to absolute paths) at parse time — no separate "resolved" type needed. `getSources()` performs the three-layer merge and caches the result for the lifetime of the workspace context. `getScope()` walks the resolution chain and prompts if needed.
+`getSources()` performs the three-layer merge and caches the result for the lifetime of the workspace context. `getScope()` walks the resolution chain and prompts if needed.
 
-#### Source resolution order (for extension lookup)
+#### Location normalization
 
-The merged sources list from `getSources()` is the single ordering mechanism for **all** resolution — both registry scope routing and ambiguous input resolution.
+- `~/...` → expand home directory
+- `./...` → resolve relative to workspace root
+- `/...` → absolute path, used as-is
+- `file://...` → strip scheme, use path
+- `https://...` → future remote provider
 
-**Registry scope routing** (within the registry meta-provider):
+**Alternative considered:** Keep `sources` as an object keyed by name. Rejected because array preserves ordering, which is semantically important for resolution priority.
+
+### 6. Source resolution order
+
+The merged sources list from `getSources()` (Decision 5) is the single ordering mechanism for **all** resolution — both registry scope routing and ambiguous input resolution.
+
+#### Registry scope routing
+
+Within the registry meta-provider (Decision 4):
 
 1. Collect registry sources whose `scopes` includes the target extension's scope
 2. If no scope-matched sources, collect registry sources with no `scopes` field
@@ -345,7 +371,7 @@ The merged sources list from `getSources()` is the single ordering mechanism for
 
 > **Note:** Scope routing only applies to registry sources — they are the only `SourceConfig` variant with a `scopes` field.
 
-**Ambiguous input resolution** (e.g., `owner/repo` patterns):
+#### Ambiguous input resolution
 
 The current resolver hardcodes a try-order of GitHub → GitLab → Bitbucket. This is replaced by the merged sources list: for ambiguous patterns that could match multiple git-hosting providers, the resolver iterates the full `getSources()` list filtered to applicable source types, in order. First successful resolution wins; 404 → fallthrough.
 
@@ -361,17 +387,7 @@ This means:
 
 **Explicit source prefixes** (`github:owner/repo`, `gitlab:owner/repo`, etc.) bypass ambiguous resolution entirely — they dispatch directly to the named source type. The ordering only matters when the input is ambiguous.
 
-**Location normalization:**
-
-- `~/...` → expand home directory
-- `./...` → resolve relative to workspace root
-- `/...` → absolute path, used as-is
-- `file://...` → strip scheme, use path
-- `https://...` → future remote provider
-
-**Alternative considered:** Keep `sources` as an object keyed by name. Rejected because array preserves ordering, which is semantically important for resolution priority.
-
-### 4. Managed extensions live in `.axm/extensions/`
+### 7. Managed extensions live in `.axm/extensions/`
 
 ```
 .axm/
@@ -403,7 +419,7 @@ When installing a registry-sourced extension, the pipeline becomes:
 
 The `installSkill` operation handler needs a conditional path: if the source is `registry`, use `.axm/extensions/` as canonical; otherwise use `.agents/skills/` as before.
 
-### 5. `skills fork` orchestrates existing operations
+### 8. `skills fork` orchestrates existing operations
 
 The `skills fork` command converts an unmanaged skill into a managed extension:
 
@@ -417,9 +433,9 @@ The `skills fork` command converts an unmanaged skill into a managed extension:
 
 1. Project settings `scope` field
 2. Global settings `scope` field
-3. Default scope from default registry (future)
-4. Logged-in user's scope (future — not implemented, out of scope for this change)
-5. If none available, prompt the user for a scope — the provided value is persisted to the project settings `scope` field for future use
+3. If none available, prompt the user for a scope — the provided value is persisted to the project settings `scope` field for future use
+
+Future scope sources (default registry scope, logged-in user scope) will be inserted into this chain when available.
 
 **Flow:** Fork reuses install's discovery pipeline (parseSource → provider.find → selectSkills) with additional steps for scope resolution and uniqueness checking, then builds a different plan (fork + publish + install ops instead of just install ops).
 
@@ -442,7 +458,7 @@ The `ForkSkillOperation` is a new operation type with params `source` (where to 
 4. Displays the full plan (all matched skills) for confirmation
 5. Executes sequentially (each skill goes through the full fork → publish → install flow)
 
-### 6. Publishing to local registries
+### 9. Publishing to local registries
 
 `axm publish` (or `axm skills publish`) writes an extension from `.axm/extensions/` to a local registry:
 
@@ -464,7 +480,7 @@ The `ForkSkillOperation` is a new operation type with params `source` (where to 
 
 Only extensions in `.axm/extensions/` (axm-managed extensions) can be published. Git-sourced and local-path skills are not publishable because they lack the manifest and versioning metadata — they must be forked first using `skills fork` to become managed extensions, then published. This makes fork a prerequisite for the migration workflow: fork converts unmanaged → managed, publish distributes managed → registry.
 
-### 7. Extension index and version entry schemas
+### 10. Extension index and version entry schemas
 
 Defined as Effect Schemas for validation:
 
@@ -490,7 +506,7 @@ Defined as Effect Schemas for validation:
 
 The `agents` field is intentionally string-typed rather than using `AgentIdSchema`. Registries should be agnostic of the client's agent vocabulary — a publisher may declare compatibility with agents the client doesn't know about. The client filters locally using its own `AgentId` registry.
 
-### 8. Lockfile evolution for registry sources
+### 11. Lockfile evolution for registry sources
 
 Current `RegistryLockEntrySchema` has `source`, `scope`, `name`, and optional `version`. The existing `version` field is renamed to `resolvedVersion` and made required. Additional fields:
 
@@ -500,7 +516,7 @@ Current `RegistryLockEntrySchema` has `source`, `scope`, `name`, and optional `v
 
 The `version` field in settings remains the requested range (e.g., `^1.0.0`); `resolvedVersion` in the lockfile is the pinned version (e.g., `1.2.3`).
 
-### 9. `axm-skill.json` manifest for managed extensions
+### 12. `axm-skill.json` manifest for managed extensions
 
 Managed extensions require a manifest file:
 
@@ -516,13 +532,13 @@ Managed extensions require a manifest file:
 }
 ```
 
-This uses the existing `CommonManifestFields` from `extensions/common.ts` as the base, extended with `agents` and `dependencies`. The existing singular `author` field evolves to `authors` (array of `{name, email?, url?}`) — consistent with the index schema (Decision 7). The manifest is the source of truth for publish metadata — the registry `index.json` is derived from it.
+This uses the existing `CommonManifestFields` from `extensions/common.ts` as the base, extended with `agents` and `dependencies`. The existing singular `author` field evolves to `authors` (array of `{name, email?, url?}`) — consistent with the index schema (Decision 10). The manifest is the source of truth for publish metadata — the registry `index.json` is derived from it.
 
 For forked extensions, the manifest is generated with sensible defaults: version `0.1.0`, agents from workspace settings, empty dependencies.
 
-### 10. Registry configuration guard
+### 13. Registry configuration guard
 
-No built-in registry source exists until the remote provider ships (Decision 3). Commands that depend on a registry (`skills fork`, `skills publish`, `skills install @scope/name`) must detect this and guide the user.
+No built-in registry source exists until the remote provider ships (Decision 5). Commands that depend on a registry (`skills fork`, `skills publish`, `skills install @scope/name`) must detect this and guide the user.
 
 `getRegistrySources()` returns an empty list when no registry sources are configured. Registry-dependent handlers call a shared guard at the top of their flow:
 
@@ -555,11 +571,11 @@ This guard is called by:
 - `skills publish` handler — needs a registry to write to
 - `skills install` handler — when the source is a registry reference (`@scope/name@version`)
 
-The guard persists configuration changes to settings. Because the `SourceProviders` service reads from the workspace service lazily (Decision 2), any registry source the guard adds is immediately visible to subsequent `resolve`/`fetch` calls — handlers don't need to re-query or pass sources explicitly.
+The guard persists configuration changes to settings. Because the `SourceProviders` service reads from the workspace service lazily (Decision 4), any registry source the guard adds is immediately visible to subsequent `resolve`/`fetch` calls — handlers don't need to re-query or pass sources explicitly.
 
 ## Handler Changes
 
-All handlers use the `SourceProviders` service (Decision 2) for discovery. The existing `discoverSkills` function is refactored into source providers — each provider implements `find` and `fetch`. The `SourceProviders` service wraps the provider registry and is provided as an Effect layer at the edge. Handlers consume it via `yield* SourceProviders` — no per-handler assembly needed. The registry meta-provider reads from the workspace service lazily, so it always reflects current config (including post-guard changes). Registry-dependent handlers call the registry guard (Decision 10) as a precondition — any config changes the guard makes are visible to subsequent `SourceProviders` calls.
+All handlers use the `SourceProviders` service (Decision 4) for discovery via `yield* SourceProviders`. Registry-dependent handlers call the registry guard (Decision 13) as a precondition — config changes are visible to subsequent provider calls via lazy workspace reads (Decision 4).
 
 ### `skills install` handler
 
@@ -569,12 +585,11 @@ handleInstall(args)
 ├─ parseSource(args.source)
 │
 ├─ if source.source === "registry":
-│    └─ registryGuard()                     # precondition: ensure registry configured
+│    └─ registryGuard()                     # ensure registry configured (Decision 13)
 │
-├─ sources = yield* SourceProviders          # service — no assembly needed
+├─ sources = yield* SourceProviders
 │
 ├─ refs = sources.resolve(source, { names, agents, type: "skill" })
-│    # dispatches to provider by source type, reads config from workspace lazily
 │
 ├─ selected = selectSkills(refs, ...)        # unchanged interactive selection
 │
@@ -633,7 +648,7 @@ Minimal changes. Reads lockfile entry's `source` field to determine canonical lo
 ```
 handleFork(args)
 │
-├─ registryGuard()                          # must have a registry to publish to
+├─ registryGuard()                          # Decision 13
 │
 ├─ resolve input:
 │    ├─ glob pattern? → match against lockfile keys → multiple skills
@@ -641,7 +656,7 @@ handleFork(args)
 │    └─ source string? → parseSource → sources.resolve(...) (same as install)
 │
 ├─ for each matched skill:
-│    ├─ determineScope()
+│    ├─ determineScope()                    # Decision 8
 │    │   ├─ project settings scope
 │    │   ├─ global settings scope
 │    │   └─ prompt user → persist to project settings
@@ -681,7 +696,7 @@ forkSkill(op)
 ```
 handlePublish(args)
 │
-├─ registryGuard()
+├─ registryGuard()                          # Decision 13
 ├─ resolve scope if bare name provided (via getScope())
 ├─ validate managed extension exists in .axm/extensions/
 ├─ build PublishSkillOperation
@@ -726,12 +741,12 @@ export type PublishSkillOperation = Operation<"publish-skill", PublishSkillArgs>
 ### Modified supporting code
 
 - **`operations.ts`**: `SkillRef` gains `source: Source`, drops `path`/`registry`. New `ForkSkillOperation` and `PublishSkillOperation` types
-- **`source-to-lock-entry.ts`**: Registry case gains `checksum`, `resolvedVersion`, `sourceName` — pulled from resolved version metadata
-- **`discover-skills.ts`**: Existing discovery logic moves into source provider implementations. The file becomes the `SourceProviders` service — an Effect service backed by the provider registry (one provider per source type). Exposes `resolve` and `fetch`. Constructed once, provided as a layer at the edge. The registry meta-provider reads from workspace lazily
-- **`settings/schema.ts`**: `SourcesConfigSchema` evolves from per-provider keys to `Schema.Array` of discriminated `SourceConfig` entries
-- **`workspace/service.ts`**: Gains `getScope()`, `getSources()`, `getSourceByName()`, `getRegistrySources()` (Decision 3). Merge uses project → global → built-in ordering. Owns built-in source definitions — the single source of truth for default providers
-- **`resolution/resolvers/ambiguous.ts`**: Hardcoded GitHub → GitLab → Bitbucket try-order replaced by iteration over `getSources()` filtered to git-hosting types. Resolver gains `WorkspaceContext` dependency for source ordering (Decision 3)
-- **`sources/parser.ts`**: `resolveSlashPattern` removed — ambiguous `owner/repo` resolution moves into the resolver layer, which has access to the workspace service's ordered source list
+- **`source-to-lock-entry.ts`**: Registry case gains `checksum`, `resolvedVersion`, `sourceName`
+- **`discover-skills.ts`**: Discovery logic moves into source provider implementations (Decisions 2–4). File becomes the `SourceProviders` service
+- **`settings/schema.ts`**: `SourcesConfigSchema` evolves to `Schema.Array` of discriminated `SourceConfig` entries (Decision 5)
+- **`workspace/service.ts`**: Gains `getScope()`, `getSources()`, `getSourceByName()`, `getRegistrySources()` (Decision 5)
+- **`resolution/resolvers/ambiguous.ts`**: Hardcoded try-order replaced by `getSources()` iteration (Decision 6). Gains `WorkspaceContext` dependency
+- **`sources/parser.ts`**: `resolveSlashPattern` removed — ambiguous resolution moves to resolver layer (Decision 6)
 
 ## Risks / Trade-offs
 

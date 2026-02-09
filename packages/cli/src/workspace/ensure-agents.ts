@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { pipe } from "effect/Function";
 import { type AgentConfig, getAgentById } from "../agents/index.js";
-import { Clack } from "../clack-effect/index.js";
+import { Confirm, Log } from "../tui/index.js";
 import { SettingsService } from "../settings/index.js";
 import { isInteractive } from "../utils/tty.js";
 
@@ -72,7 +72,7 @@ export interface EnsureAgentsOptions {
  */
 export const ensureAgentsConfigured = (opts: EnsureAgentsOptions) =>
   Effect.gen(function* () {
-    const clack = yield* Clack;
+    const log = yield* Log;
     const ss = yield* SettingsService;
 
     let agents: AgentConfig[];
@@ -84,7 +84,7 @@ export const ensureAgentsConfigured = (opts: EnsureAgentsOptions) =>
       );
 
       if (invalidIds.length > 0) {
-        yield* clack.log.warn(`Unknown agents: ${invalidIds.join(", ")}`);
+        yield* log.warn(`Unknown agents: ${invalidIds.join(", ")}`);
       }
 
       agents = pipe(
@@ -105,7 +105,8 @@ export const ensureAgentsConfigured = (opts: EnsureAgentsOptions) =>
           if (opts.yes || opts.nonInteractive) {
             shouldAdd = true;
           } else if (isInteractive()) {
-            shouldAdd = yield* clack.confirm(`Add ${names} to workspace?`).pipe(
+            const confirm = yield* Confirm;
+            shouldAdd = yield* confirm.prompt({ message: `Add ${names} to workspace?` }).pipe(
               Effect.catchTag("PromptCancelled", () => Effect.succeed(false)),
               Effect.catchTag("PromptError", () => Effect.succeed(false)),
             );

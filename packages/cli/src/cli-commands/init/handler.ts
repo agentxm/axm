@@ -10,7 +10,7 @@
 import { getAgentById } from "../../agents/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Clack } from "../../clack-effect/index.js";
+import { Log } from "../../tui/index.js";
 import { SettingsService } from "../../settings/index.js";
 import { WorkspaceContextTag } from "../../workspace/index.js";
 
@@ -29,12 +29,12 @@ import { WorkspaceContextTag } from "../../workspace/index.js";
  */
 export const handleInit = () =>
   Effect.gen(function* () {
-    const clack = yield* Clack;
+    const log = yield* Log;
     const context = yield* WorkspaceContextTag;
     const scopeLabel = context.global ? "user" : "project";
 
     // Show intro
-    yield* clack.intro(`axm init (${scopeLabel})`);
+    yield* log.info(`axm init (${scopeLabel})`);
 
     // Display result
     const ss = yield* SettingsService;
@@ -49,10 +49,10 @@ export const handleInit = () =>
       .join(", ");
 
     if (agentIds.length > 0) {
-      yield* clack.log.info(`Agents: ${agentNames}`);
+      yield* log.info(`Agents: ${agentNames}`);
     }
-    yield* clack.log.info(`Settings: ${context.path}/settings.json`);
-    yield* clack.outro(
+    yield* log.info(`Settings: ${context.path}/settings.json`);
+    yield* log.success(
       agentIds.length > 0 ? `Initialized with agents: ${agentNames}` : "Workspace initialized",
     );
   }).pipe(Effect.asVoid);

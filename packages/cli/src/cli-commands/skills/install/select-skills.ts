@@ -8,7 +8,7 @@
  */
 
 import type { SkillRef } from "../operations.js";
-import { Clack } from "../../../clack-effect/index.js";
+import { Log, Multiselect } from "../../../tui/index.js";
 import { InstallError } from "./handler.js";
 import { formatError } from "../../../utils/errors.js";
 import * as Array from "effect/Array";
@@ -43,7 +43,7 @@ export const determineSkillsToInstall = (
   args: SelectSkillsArgs,
 ) =>
   Effect.gen(function* () {
-    const clack = yield* Clack;
+    const log = yield* Log;
 
     // 1. --skill specified -> validate all names exist
     if (args.requestedSkills.length > 0) {
@@ -69,7 +69,7 @@ export const determineSkillsToInstall = (
 
     // 2. --all / --yes -> return all
     if (args.all || args.yes) {
-      if (args.all) yield* clack.log.info(`Installing all ${skills.length} skill(s)`);
+      if (args.all) yield* log.info(`Installing all ${skills.length} skill(s)`);
       return skills;
     }
 
@@ -90,10 +90,12 @@ export const determineSkillsToInstall = (
  */
 export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<SkillRef>) =>
   Effect.gen(function* () {
-    const clack = yield* Clack;
+    const multiselect = yield* Multiselect;
 
-    return yield* clack
-      .multiselect("Select skills to install", skills, {
+    return yield* multiselect
+      .prompt({
+        message: "Select skills to install",
+        items: skills,
         toOption: (s) => ({
           value: s.skill.name,
           label: s.skill.name,

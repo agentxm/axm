@@ -38,7 +38,7 @@ export type OperationHandler<Op, R = never> = (
  * TypeScript enforces exhaustiveness at compile time.
  *
  * R is left as a free parameter so concrete registries can carry requirements
- * (e.g. FileSystem, Clack). `ExecutionContext` extracts R from the concrete type.
+ * (e.g. FileSystem, Log). `ExecutionContext` extracts R from the concrete type.
  */
 export type Handlers<Op extends Operation<string, unknown>> = {
   [K in Op["name"]]: (

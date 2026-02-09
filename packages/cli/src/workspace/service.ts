@@ -26,8 +26,8 @@ import { getAxmDir } from "./paths.js";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { Clack } from "../clack-effect/service.js";
-import { PromptCancelled, PromptError } from "../clack-effect/errors.js";
+import { Confirm, Log, Multiselect, Select } from "../tui/index.js";
+import { PromptCancelled, PromptError } from "../tui/index.js";
 import { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./errors.js";
 import type { Operation, Plan } from "./plan.js";
 import { displayPlan } from "./display-plan.js";
@@ -88,14 +88,7 @@ export interface WorkspaceContextOptions {
  *
  * @internal
  */
-const initializeProjectWorkspace = (
-  localDir: string,
-  options: WorkspaceContextOptions,
-): Effect.Effect<
-  Settings,
-  WorkspaceInitializationError | PromptCancelled,
-  FileSystem.FileSystem | Path.Path | Clack
-> =>
+const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextOptions) =>
   Effect.gen(function* () {
     // Select agents based on options
     let selectedAgents: AgentConfig[];
@@ -129,12 +122,15 @@ const initializeProjectWorkspace = (
         );
       } else {
         // Interactive mode - prompt for agent selection
-        const clack = yield* Clack;
+        const select = yield* Select;
+        const multiselect = yield* Multiselect;
         const allAgents = getAllAgents();
 
         const agentMultiselect = (initialIds: Option.Option<readonly string[]>) =>
-          clack
-            .multiselect<AgentConfig>("Select agents to configure", allAgents, {
+          multiselect
+            .prompt<AgentConfig>({
+              message: "Select agents to configure",
+              items: allAgents,
               toOption: (agent) => ({
                 value: agent.id,
                 label: agent.name,
@@ -168,16 +164,15 @@ const initializeProjectWorkspace = (
             { id: "choose", label: "Let me choose" },
           ];
 
-          const choice = yield* clack
-            .select<{ id: InitChoice; label: string }>(
-              "How would you like to configure agents?",
+          const choice = yield* select
+            .prompt<{ id: InitChoice; label: string }>({
+              message: "How would you like to configure agents?",
               items,
-              (item) => ({
-                value: item.id,
+              toOption: (item) => ({
                 label: item.label,
                 hint: item.id === "auto" ? Option.some("Recommended") : Option.none(),
               }),
-            )
+            })
             .pipe(
               Effect.mapError((error) => {
                 if (error._tag === "PromptCancelled") {
@@ -315,20 +310,14 @@ const ensureProjectWorkspaceInitialized = (localDir: string, options: WorkspaceC
  *   runs initialization flow if local settings don't exist
  *
  * When project initialization is needed and `yes=false` and `nonInteractive=false`,
- * Clack is required for agent selection prompts.
+ * TUI services are required for agent selection prompts.
  *
  * @param options - Workspace context options
  * @returns Effect yielding WorkspaceContextService
  *
  * @internal Not exported from barrel - use layer() for external access
  */
-const make = (
-  options: WorkspaceContextOptions,
-): Effect.Effect<
-  WorkspaceContextService,
-  WorkspaceContextError,
-  FileSystem.FileSystem | Path.Path | Clack
-> =>
+const make = (options: WorkspaceContextOptions) =>
   Effect.gen(function* () {
     const globalDir = yield* getAxmDir(true);
     const localDir = yield* getAxmDir(false);
@@ -355,22 +344,23 @@ const make = (
         handlers: T,
       ) =>
         Effect.gen(function* () {
-          const clack = yield* Clack;
+          const log = yield* Log;
           if (options.preview) {
-            yield* clack.log.info("Previewing changes...");
+            yield* log.info("Previewing changes...");
             yield* displayPlan(plan);
             if (options.yes) {
-              yield* clack.log.info("Pre-approved via --yes, applying changes...");
+              yield* log.info("Pre-approved via --yes, applying changes...");
               return yield* applyPlan(plan, handlers);
             } else if (resolvedNonInteractive) {
-              yield* clack.log.warn(
+              yield* log.warn(
                 "Cannot prompt in non-interactive mode. Use --yes to apply, or remove --preview.",
               );
               return { ...plan, jobs: [] } satisfies Plan<Op>;
             } else {
-              const confirmed = yield* clack.confirm("Apply changes?");
+              const confirm = yield* Confirm;
+              const confirmed = yield* confirm.prompt({ message: "Apply changes?" });
               if (!confirmed) {
-                yield* clack.outro("Cancelled.");
+                yield* log.success("Cancelled.");
                 return { ...plan, jobs: [] } satisfies Plan<Op>;
               }
               return yield* applyPlan(plan, handlers);
@@ -387,17 +377,14 @@ const make = (
  * Create a layer that loads workspace context from disk.
  *
  * When project initialization is needed and `yes=false` and `nonInteractive=false`,
- * Clack is required for agent selection prompts.
+ * TUI services are required for agent selection prompts.
  *
  * @param options - Workspace context options
  * @returns Layer providing WorkspaceContext
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const layer = (
-  options: WorkspaceContextOptions,
-): Layer.Layer<Workspace, WorkspaceContextError, FileSystem.FileSystem | Path.Path | Clack> =>
-  Layer.effect(Workspace, make(options));
+export const layer = (options: WorkspaceContextOptions) => Layer.effect(Workspace, make(options));
 
 /**
  * Workspace context service types.
@@ -426,5 +413,5 @@ export interface WorkspaceContextService {
   readonly resolvePlan: <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
     plan: Plan<Op>,
     handlers: T,
-  ) => Effect.Effect<Plan<Op>, PromptCancelled | PromptError, Clack | ExecutionContext<T>>;
+  ) => Effect.Effect<Plan<Op>, PromptCancelled | PromptError, Log | Confirm | ExecutionContext<T>>;
 }

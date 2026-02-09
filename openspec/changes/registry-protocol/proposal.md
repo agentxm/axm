@@ -1,32 +1,36 @@
 ## Why
 
-Extensions currently install from git repositories and local paths only. There is no versioned distribution mechanism -- no way to resolve semver ranges, verify archive integrity, or manage dependencies between extensions. A local registry provides reproducible, verifiable extension distribution using a static-file layout that works on any filesystem. It also introduces a canonical managed extension location (`.axm/extensions/`) and a `skills fork` command for converting unmanaged skills into registry-managed extensions.
+Extensions currently install from git repositories and local paths only. There is no versioned distribution mechanism -- no way to resolve semver ranges, verify archive integrity, or manage dependencies between extensions. A local registry provides reproducible, verifiable extension distribution using a static-file layout that works on any filesystem. It also introduces a source provider abstraction that unifies how all source types are accessed, a canonical managed extension location (`.axm/extensions/`), and a `skills fork` command for converting unmanaged skills into registry-managed extensions.
 
 ## What Changes
 
 - Define a static-file registry layout: `extensions/@<scope>/<skills|mcp-servers>/<name>/` containing `index.json`, `<version>.json`, and `<version>.zip`
 - Define JSON schemas for extension index (all versions + metadata) and per-version metadata
 - Define extension archive format (zip with `axm-skill.json` or `axm-mcp-server.json` manifest)
-- Introduce a registry provider abstraction: location determines provider (local path = local file provider; URL = future remote provider, out of scope)
-- Define client resolution algorithm for local registries: read index, select version by semver + agent compatibility, resolve dependency tree, extract and verify archives
+- Introduce a source provider abstraction that unifies how all source types (github, gitlab, bitbucket, azurerepos, git, registry, local) are accessed, with each source type implemented as a provider
+- Migrate existing source types to the source provider abstraction (not all providers support the same capabilities)
+- Implement two registry source providers: a local file provider (local path or `file://`) and a remote provider (URL, out of scope for this change)
+- Define client resolution algorithm for local registries: read index, select version by semver + agent compatibility, extract and verify archives (dependency resolution deferred — schema supports it for forward compatibility with extension packs)
 - Introduce named source configuration with scope-based routing, location normalization, and ordered fallthrough semantics
 - Mandatory SHA-256 checksum verification before archive extraction
 - Hard failure on non-404 errors during source resolution (prevents dependency confusion)
 - Establish canonical managed extension location: `.axm/extensions/<scope>/<skills|mcp-servers>/<name>/` in project or global workspace
-- Support publishing extensions to local registry destinations (only registry-sourced extensions can be published, not github/git/local sources)
+- Support publishing extensions to local registry destinations (only axm-managed, registry-sourced extensions can be published — fork is required first for non-registry sources)
 - Add `skills fork <source>` command: converts an existing skill (installed or unmanaged in project) into an axm-managed extension in the canonical location, re-syncing the workspace
+- Support glob-based forking (e.g., `axm skills fork effect-*`) to fork all matching skills in the project
+- Enforce name uniqueness: extensions from non-registry sources cannot share names with registry-sourced extensions
 
 ## Capabilities
 
 ### New Capabilities
 
 - `registry-layout`: Static-file registry layout and JSON schemas for extension index (`index.json`), per-version metadata (`<version>.json`), and archive format (`<version>.zip`)
-- `registry-provider`: Provider abstraction that dispatches based on source location -- local file provider reads from filesystem, future remote provider (out of scope) fetches over HTTPS
-- `registry-client`: Client-side resolution algorithm for local registries -- version selection (semver range + agent filter + yanked), dependency resolution with cycle detection, archive extraction, and SHA-256 integrity verification
+- `source-provider`: Abstraction that unifies how all source types are accessed — each source type (github, gitlab, git, registry, local, etc.) is implemented as a provider with `find` (search by names + agent compatibility) and `fetch` capabilities. Source identity (`Source` type) is independent from search criteria (`FindOptions`). Registry source providers extend the base with registry-specific operations and dispatch by location: local file provider reads from filesystem, future remote provider (out of scope) fetches over HTTPS
+- `registry-client`: Client-side resolution algorithm for local registries -- version selection (semver range + agent filter + yanked), archive extraction, and SHA-256 integrity verification. Dependency resolution is not implemented in this change but the registry index schema includes `dependencies` for forward compatibility with extension packs
 - `registry-source-config`: Named source configuration with scope-based routing, location normalization (local paths, `file://`), and ordered fallthrough with hard-fail on non-404 errors
 - `registry-publish`: Publishing extensions to local registry destinations -- only registry-sourced extensions are publishable; builds archive, computes checksum, updates `index.json`
 - `managed-extensions`: Canonical managed extension location (`.axm/extensions/<scope>/<skills|mcp-servers>/<name>/`) with `axm-skill.json` or `axm-mcp-server.json` manifest
-- `skills-fork`: `skills fork <source>` command that creates an axm-managed copy of an existing skill -- determines scope/name (checking registry for uniqueness), creates in canonical location, uninstalls the original, and installs the managed version
+- `skills-fork`: `skills fork <source>` command that creates an axm-managed copy of an existing skill -- determines scope/name (checking registry for uniqueness), creates in canonical location, uninstalls the original, and installs the managed version. Supports glob patterns (e.g., `effect-*`) to fork multiple matching skills in a single operation
 
 ### Modified Capabilities
 
@@ -36,8 +40,8 @@ Extensions currently install from git repositories and local paths only. There i
 
 ## Impact
 
-- **Sources** (`src/sources/`): `RegistrySource` type and parsing updated for named source configuration; source string format unchanged (`@scope/name@version`)
-- **Resolution** (`src/resolution/`): AXM name resolver gains real registry-level resolution via local file provider; new provider abstraction for dispatching by location type
+- **Sources** (`src/sources/`): `RegistrySource` type and parsing updated for named source configuration; source string format unchanged (`@scope/name@version`). New source provider abstraction introduced; existing source types (github, gitlab, etc.) migrated to provider model
+- **Resolution** (`src/resolution/`): AXM name resolver gains real registry-level resolution via local file provider; resolution dispatches through source provider abstraction
 - **Settings** (`src/settings/`): Schema evolves `sources` from per-type config to named source entries with scope filters and location field
 - **Lockfile** (`src/lockfile/`): Registry lock entries gain version, checksum, and source name fields
 - **Extensions** (`src/extensions/`): New managed extension location and manifest handling

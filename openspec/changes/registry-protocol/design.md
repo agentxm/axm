@@ -4,26 +4,29 @@ Extensions currently install from git repositories and local filesystem paths. T
 
 There is no versioning, no integrity verification, and no dependency resolution. The `RegistrySource` type exists but is a placeholder (`{url|path}` union). The settings schema has `sources.registry` as an optional field accepting one or more `{url|path}` objects.
 
-This design introduces a local registry provider backed by a static-file layout, a canonical managed extension store, and a `skills fork` command for converting unmanaged skills into managed ones.
+This design introduces a source provider abstraction that unifies all source types, a local registry source provider backed by a static-file layout, a canonical managed extension store, and a `skills fork` command for converting unmanaged skills into managed ones.
 
 **Constraints:**
 
-- Remote registry provider is out of scope (future work)
+- Remote registry source provider is out of scope (future work)
 - Extension identity remains `@scope/name` (no type in identity path)
 - Must coexist with existing git/local install flows
 - Reuse the existing operations/plan model where possible
+- Extensions from non-registry sources cannot share names with registry-sourced extensions (name uniqueness across source types)
+- Pre-existing or externally-installed extensions (axm-unaware) are out of scope
 
 ## Goals / Non-Goals
 
 **Goals:**
 
 - Define a static-file registry layout usable by both local and future remote providers
-- Implement a local file registry provider for reading and writing registry data
-- Introduce a registry provider abstraction that dispatches by location type
+- Introduce a source provider abstraction that unifies how all source types are accessed
+- Migrate existing source types (github, gitlab, bitbucket, azurerepos, git, local) to the source provider model
+- Implement a local registry source provider for reading and writing registry data
 - Evolve source configuration to named sources with scope-based routing
 - Establish `.axm/extensions/` as the canonical store for managed extensions
 - Support installing from and publishing to local registries
-- Add `skills fork` for converting unmanaged skills to managed extensions
+- Add `skills fork` for converting unmanaged skills to managed extensions (including glob-based batch forking)
 - Integrate with existing plan-based execution model
 
 **Non-Goals:**
@@ -31,9 +34,12 @@ This design introduces a local registry provider backed by a static-file layout,
 - Remote/HTTP registry provider (future — the provider interface accommodates it)
 - Publishing protocol (auth, validation, index regeneration for remote registries)
 - Discovery feed or search index
+- Dependency resolution implementation and testing (schemas include `dependencies` for forward compatibility with extension packs, but resolution is not implemented in this change)
 - Lockfile pinning for dependency trees (future)
 - Signature verification
-- Migration of existing installed skills to the new location
+- Migration of existing installed skills to the new location (publish command supports this workflow — fork first, then publish)
+- Handling pre-existing or externally-installed extensions that are axm-unaware (future — may use something like `settings.skills.skill-name: 'external'`)
+- Source enforcement/restriction mechanisms (e.g., limiting which sources are allowed) and custom priority configuration
 
 ## Decisions
 
@@ -58,30 +64,48 @@ When resolving `@acme/code-review`, the client must know the extension type to c
 
 **Alternative considered:** Flat layout without type segment (`@scope/name/`). Rejected because it prevents same-named extensions of different types from coexisting in the same scope.
 
-### 2. Registry provider abstraction dispatches by location scheme
+### 2. Source provider abstraction
+
+A source provider unifies how all source types are accessed. Each source type (github, gitlab, bitbucket, azurerepos, git, registry, local) is implemented as a provider with capabilities appropriate to its type. Not all providers support the same operations — the abstraction uses a capability-based design.
 
 ```typescript
-interface RegistryProvider {
+// Search criteria passed to find — independent of source identity
+interface FindOptions {
+  readonly names: ReadonlyArray<string>; // extension names to match (empty = all)
+  readonly agents: ReadonlyArray<string>; // agent compatibility filter (empty = all)
+  readonly type: ExtensionType | "*"; // "skill" | "mcp-server" | "*" (all)
+}
+
+// Base capabilities shared by all source providers
+interface SourceProvider<S extends Source = Source> {
+  readonly type: S["source"];
+  readonly find: (
+    source: S,
+    options: FindOptions,
+  ) => Effect<ReadonlyArray<ExtensionRef>, SourceError>;
+  readonly fetch: (source: S, extension: ExtensionRef) => Effect<ExtensionFiles, SourceError>;
+}
+
+// Extended capabilities for registry source providers
+interface RegistrySourceProvider extends SourceProvider<RegistrySource> {
+  readonly type: "registry";
   readonly fetchIndex: (
     scope: string,
     type: ExtensionType,
     name: string,
   ) => Effect<ExtensionIndex, RegistryError>;
-
   readonly fetchVersionMetadata: (
     scope: string,
     type: ExtensionType,
     name: string,
     version: string,
   ) => Effect<VersionMetadata, RegistryError>;
-
   readonly fetchArchive: (
     scope: string,
     type: ExtensionType,
     name: string,
     version: string,
   ) => Effect<Uint8Array, RegistryError>;
-
   readonly publishVersion: (
     scope: string,
     type: ExtensionType,
@@ -90,7 +114,6 @@ interface RegistryProvider {
     archive: Uint8Array,
     metadata: VersionMetadata,
   ) => Effect<void, RegistryError>;
-
   readonly checkNameExists: (
     scope: string,
     type: ExtensionType,
@@ -99,18 +122,69 @@ interface RegistryProvider {
 }
 ```
 
-A factory function creates the appropriate provider based on location:
+The `Source` type (from `sources/types.ts`) describes _where_ to look — the repository, registry location, or local path. `FindOptions` describes _what_ to look for — extension names, agent compatibility, and extension type. These concerns are independent: the same source can be searched for different extensions, and the same extension can be found across different sources.
 
-- Local path or `file://` URL → `LocalRegistryProvider` (reads/writes to filesystem)
-- `https://` URL → not implemented, fails with descriptive error
+**`ExtensionRef`** is a discriminated union returned by `find` and consumed by `fetch`:
 
-The local provider translates method calls to filesystem operations against the registry layout. `fetchIndex` reads `<root>/extensions/@<scope>/skills/<name>/index.json`, `publishVersion` writes the zip and updates `index.json`, etc.
+```typescript
+type ExtensionRef = SkillRef | McpServerRef;
 
-**Alternative considered:** Single provider with transport abstraction (HttpTransport, FileTransport). Rejected as over-engineered for the current scope — the provider interface itself is the abstraction boundary.
+interface SkillRef {
+  readonly type: "skill";
+  readonly skill: Skill;
+  readonly source: Source; // where this skill was found
+  readonly gitTreeSha: Option<string>;
+}
 
-### 3. Source configuration evolves to named sources array
+interface McpServerRef {
+  readonly type: "mcp-server";
+  readonly name: string;
+  readonly source: Source; // where this server was found
+}
+```
 
-Current schema:
+Each ref carries `source: Source` — the source it was found at. This replaces the existing `SkillRef.path` and `SkillRef.registry` fields: a `LocalSource` carries the path, a `GitHubSource` carries owner/repo/ref, a `RegistrySource` carries scope/name. The ref always knows where it came from using the same `Source` type the rest of the system understands.
+
+**Important:** `RegistrySource` describes the source _type_ (registry protocol with scope/name), not the transport. A registry source with a local filesystem path in settings is still a `RegistrySource` — the local vs remote distinction is handled by the provider implementation (`LocalRegistrySourceProvider` vs future remote provider), not by the `Source` type.
+
+For git-based sources, `find` scans the repository and filters results by `names` (empty = return all discovered skills) and `agents`. For registry sources, `find` looks up the specific extensions by name from the configured registry locations. `agents` filters by compatibility in both cases.
+
+Existing source types are migrated to the `SourceProvider` interface. For example, a `GitHubSourceProvider` implements `find` (list/filter skills in a repo) and `fetch` (clone/download files) but does not implement registry-specific methods like `publishVersion`. Many existing providers won't have all the same methods/capabilities as the registry provider — the interface is intentionally minimal at the base level.
+
+Two registry source providers implement `RegistrySourceProvider`, dispatched by the configured location:
+
+```typescript
+// Local filesystem registry (implemented in this change)
+class LocalRegistrySourceProvider implements RegistrySourceProvider {
+  readonly type = "registry";
+  // find/fetch: read from filesystem using registry layout
+  // fetchIndex: read <root>/extensions/@<scope>/skills/<name>/index.json
+  // publishVersion: write zip + update index.json
+  // All operations are filesystem I/O against the static-file layout
+}
+
+// Remote HTTPS registry (out of scope — stub that fails with descriptive error)
+class RemoteRegistrySourceProvider implements RegistrySourceProvider {
+  readonly type = "registry";
+  // All operations fail with "remote registry not yet supported" error
+}
+```
+
+A factory function creates the appropriate provider based on the configured location in the named source configuration (Decision 3):
+
+```typescript
+// location is a local path or file:// URL → LocalRegistrySourceProvider
+// location is an https:// URL → RemoteRegistrySourceProvider (stub)
+const createRegistryProvider = (location: string): RegistrySourceProvider => ...
+```
+
+The dispatch is by location scheme, not by the `Source` type — a `RegistrySource` is always a `RegistrySource` regardless of whether the registry is local or remote.
+
+**Alternative considered:** Single provider with transport abstraction (HttpTransport, FileTransport). Rejected as over-engineered — the provider interface itself is the abstraction boundary. The source provider abstraction provides a more general solution that covers all source types, not just registry.
+
+### 3. Source configuration consolidates into named sources array
+
+Current schema uses per-provider keys:
 
 ```json
 {
@@ -121,26 +195,23 @@ Current schema:
 }
 ```
 
-New schema:
+New schema consolidates all source types into a single array, discriminated by `source`:
 
 ```json
 {
   "sources": [
+    { "name": "github.acme", "source": "github", "url": "https://github.acme.corp" },
+    { "name": "corp-gitlab", "source": "gitlab", "url": "https://gitlab.corp.com" },
     {
       "name": "local",
       "source": "registry",
-      "location": ".axm/extensions"
+      "location": "~/my-extension-registry"
     },
     {
       "name": "corp",
       "source": "registry",
       "location": "https://registry.corp.example.com",
       "scopes": ["@corp", "@internal"]
-    },
-    {
-      "name": "default",
-      "source": "registry",
-      "location": "https://registry.agentxm.ai"
     }
   ]
 }
@@ -148,20 +219,82 @@ New schema:
 
 Key properties:
 
-- **`name`**: Unique identifier for CLI targeting (e.g., `axm publish --registry local`)
-- **`source`**: Discriminator. Only `"registry"` for v0.1.0; future types like `"git"` possible
-- **`location`**: Local path or URL. Paths are normalized to absolute paths internally
+- **`name`**: Unique identifier for CLI targeting (e.g., `axm publish --registry local`). Must match `^[a-z0-9][a-z0-9.-]*$` — lowercase alphanumeric, hyphens, and dots
+- **`source`**: Discriminator — `"github"`, `"gitlab"`, `"bitbucket"`, `"azurerepos"`, `"git"`, `"registry"`, `"local"`. Maps directly to `SourceType`
+- **`url`**: Base URL override for git hosting providers (github, gitlab, bitbucket, azurerepos)
+- **`location`**: Registry path or URL. Paths are normalized to absolute paths internally
 - **`scopes`**: Optional scope filter. If present, source is only consulted for matching scopes
 
-The existing `sources.github`, `sources.gitlab`, etc. fields are unrelated to registry sources and remain unchanged. The `sources.registry` field is replaced by entries in the new `sources` array.
+#### Layered source resolution
 
-**Resolution order:**
+Source configurations are resolved through three layers, merged by `name` with later layers overriding earlier ones:
+
+**1. Built-in defaults** — hardcoded in the application:
+
+| name        | source      | config                         |
+| ----------- | ----------- | ------------------------------ |
+| `default`   | `registry`  | Remote registry (location TBD) |
+| `github`    | `github`    | `https://github.com`           |
+| `gitlab`    | `gitlab`    | `https://gitlab.com`           |
+| `bitbucket` | `bitbucket` | `https://bitbucket.org`        |
+
+**2. Global settings** (`~/.axm/settings.json` → `sources` array) — overrides built-in defaults by `name`. For example, a global entry with `"name": "github"` replaces the built-in GitHub config.
+
+**3. Project settings** (`.axm/settings.json` → `sources` array) — overrides both global and built-in by `name`. A project entry with `"name": "default"` replaces the built-in remote registry with a project-specific one.
+
+The merge algorithm:
+
+1. Start with built-in defaults (ordered)
+2. For each global source: if `name` matches a built-in, replace it in place; otherwise append
+3. For each project source: if `name` matches an existing entry, replace it in place; otherwise append
+4. Final list preserves ordering — built-in order for defaults, append order for additions
+
+This is accessed via `Workspace`, which already has the global/local layering pattern. The `WorkspaceContextService` gains methods for scope and source resolution:
+
+```typescript
+// Discriminated union on `source`, normalized at parse time
+type SourceConfig =
+  | { readonly name: string; readonly source: "github"; readonly url: string }
+  | { readonly name: string; readonly source: "gitlab"; readonly url: string }
+  | { readonly name: string; readonly source: "bitbucket"; readonly url: string }
+  | { readonly name: string; readonly source: "azurerepos"; readonly url: string }
+  | { readonly name: string; readonly source: "git" }
+  | {
+      readonly name: string;
+      readonly source: "registry";
+      readonly location: string; // absolute path or URL (normalized at parse time)
+      readonly scopes: Option<ReadonlyArray<string>>;
+    }
+  | { readonly name: string; readonly source: "local" };
+
+export interface WorkspaceContextService {
+  // ... existing fields (global, path, nonInteractive, preview, resolvePlan)
+
+  /** Default scope (project > global > registry default > prompt).
+   *  If no scope is configured and interactive, prompts the user and
+   *  persists the result to project settings. */
+  readonly getScope: () => Effect<string, SettingsError | PromptCancelled>;
+
+  /** Source configurations (built-in → global → project merge). */
+  readonly getSources: () => Effect<ReadonlyArray<SourceConfig>, SettingsError>;
+
+  /** Lookup a source by name from the merged list. */
+  readonly getSourceByName: (name: string) => Effect<Option<SourceConfig>, SettingsError>;
+
+  /** Get registry sources only, optionally filtered by scope. */
+  readonly getRegistrySources: (
+    scope: Option<string>,
+  ) => Effect<ReadonlyArray<SourceConfig & { source: "registry" }>, SettingsError>;
+}
+```
+
+`SourceConfig` is validated and normalized (locations resolved to absolute paths) at parse time — no separate "resolved" type needed. `getSources()` performs the three-layer merge and caches the result for the lifetime of the workspace context. `getScope()` walks the resolution chain and prompts if needed.
+
+#### Source resolution order (for extension lookup)
 
 1. Collect sources whose `scopes` includes the target extension's scope
 2. If no scope-matched sources, collect sources with no `scopes` field
 3. Query in array order. 404 → fallthrough. Other errors → hard fail
-
-**Default source:** Every workspace implicitly has a source pointing to its own `.axm/extensions/` directory (for managed extensions). This is the "local" source and is always consulted first, before any configured sources. It does not need to be declared in settings.
 
 **Location normalization:**
 
@@ -213,22 +346,36 @@ The `skills fork` command converts an unmanaged skill into a managed extension:
 
 - Name of an installed skill (e.g., `frontend-design`)
 - A source string (same formats as `skills install`)
+- A glob pattern matching installed skill names (e.g., `effect-*`)
+
+**Scope resolution** for determining the default scope of a forked extension (highest priority wins):
+
+1. Project settings `scope` field
+2. Global settings `scope` field
+3. Default scope from default registry (future)
+4. Logged-in user's scope (future — not implemented, out of scope for this change)
+5. If none available, prompt the user for a scope — the provided value is persisted to the project settings `scope` field for future use
 
 **Flow:**
 
 1. **Resolve source skill**: If name matches an installed skill (in lockfile), read its files from the current canonical location. Otherwise, discover from the source string (same as install's discovery phase).
-2. **Determine scope/name**: Default scope from settings, original skill name. Prompt user to confirm or change.
+2. **Determine scope/name**: Use scope resolution above for default scope, original skill name. Prompt user to confirm or change.
 3. **Check uniqueness**: Query configured registry sources (via `checkNameExists`) to ensure `@scope/name` doesn't collide. If collision, prompt for alternate name.
-4. **Create managed extension**:
-   - Create `.axm/extensions/<scope>/skills/<name>/`
-   - Copy `SKILL.md` and any additional files from the source
-   - Generate `axm-skill.json` manifest with `name: "@scope/name"`, `version: "0.1.0"`, agent compatibility from settings
-5. **Build plan with two operations**:
-   - `uninstall-skill`: Remove the original (if it was installed)
-   - `install-skill`: Install from the new managed location
-6. **Execute via `resolvePlan`**: Display plan, confirm, apply — reusing the existing plan model
+4. **Build plan with three operations**:
+   - `fork-skill`: Clone/create the skill at the axm-managed directory (`.axm/extensions/<scope>/skills/<name>/`), copying `SKILL.md` and files, generating `axm-skill.json` manifest with `name: "@scope/name"`, `version: "0.1.0"`, agent compatibility from settings
+   - `publish-skill`: Publish the newly created managed extension to the target registry
+   - `install-skill`: Install from registry with `--force` to replace any existing pre-fork skill data (symlinks, lockfile entry, settings entry)
+5. **Execute via `resolvePlan`**: Display plan, confirm, apply — reusing the existing plan model
 
-This is a new `ForkSkillOperation` at the orchestration level that decomposes into the existing `UninstallSkillOperation` + `AddSkillOperation`, or it could be a handler-level flow that calls the existing operation handlers directly. Given the plan model's job/step structure, modeling fork as a plan with two sequential jobs (uninstall then install) fits naturally.
+The `ForkSkillOperation` is a new operation type with params `source` (where to fork from) and `name` (target `@scope/name`). The full fork flow decomposes into three sequential operations: fork → publish → install (force). This fits naturally into the plan model's job/step structure.
+
+**Glob-based forking:** When the input is a glob pattern (e.g., `effect-*`), the handler:
+
+1. Reads installed skills from the lockfile
+2. Matches skill names against the glob pattern
+3. Builds a plan with fork operations for each match
+4. Displays the full plan (all matched skills) for confirmation
+5. Executes sequentially (each fork is an uninstall + install pair)
 
 ### 6. Publishing to local registries
 
@@ -251,7 +398,7 @@ This is a new `ForkSkillOperation` at the orchestration level that decomposes in
    - Read existing `index.json` (or create new), prepend version entry, write back
 6. **Idempotency**: If the version already exists and checksum matches, no-op. If version exists with different checksum, fail (no overwrites without `--force`).
 
-Only extensions in `.axm/extensions/` (managed extensions) can be published. Git-sourced and local-path skills are not publishable because they lack the manifest and versioning metadata.
+Only extensions in `.axm/extensions/` (axm-managed extensions) can be published. Git-sourced and local-path skills are not publishable because they lack the manifest and versioning metadata — they must be forked first using `skills fork` to become managed extensions, then published. This makes fork a prerequisite for the migration workflow: fork converts unmanaged → managed, publish distributes managed → registry.
 
 ### 7. Extension index and version metadata schemas
 
@@ -273,7 +420,7 @@ Defined as Effect Schemas for validation:
 - `version`: string (semver)
 - `published`: string (ISO 8601)
 - `agents`: array of strings (agent identifiers — stored as strings, not validated against `AgentId` exhaustive list, for forward compatibility)
-- `dependencies`: record of `@scope/name` → semver range
+- `dependencies`: optional record of `@scope/name` → semver range (only used by extension packs — included in schema for forward compatibility, not resolved in this change)
 - `engines`: optional record (e.g., `{"axm": ">=0.2.0"}`)
 - `checksum`: string (`sha256:<hex>`)
 - `yanked`: boolean
@@ -312,13 +459,11 @@ For forked extensions, the manifest is generated with sensible defaults: version
 
 ## Risks / Trade-offs
 
-**[Breaking settings schema change]** → The `sources` field changes from an object with per-provider keys to an array of named sources. Mitigation: the old `sources.github`, `sources.gitlab`, etc. fields remain unchanged (they configure git hosting providers, not registries). Only `sources.registry` is replaced. A migration utility can convert `sources.registry` entries to the new array format on first read.
+**[Breaking settings schema change]** → The `sources` field changes from an object with per-provider keys to a unified array of named sources. All existing per-provider fields (`github`, `gitlab`, `bitbucket`, `azurerepos`, `git`, `registry`) are consolidated into array entries discriminated by `source`. Mitigation: a migration utility converts the old object format to the new array format on first read.
 
 **[Two canonical locations]** → Managed extensions live in `.axm/extensions/`, while git/local skills remain in `.agents/skills/`. This adds complexity to the install path. Mitigation: the `installSkill` handler already computes the canonical path — it just needs a conditional based on source type. Over time, `skills fork` provides a migration path for users who want all their extensions managed.
 
-**[Local-only dependency resolution]** → Dependency resolution for local registries requires all transitive dependencies to be available in a configured local source. Mitigation: acceptable for v0.1.0 where the primary use case is local/corporate registries. Remote resolution will address this in a future version.
-
-**[No lockfile pinning for dependency trees]** → The lockfile records the directly installed extension but not its resolved dependency tree. Mitigation: defer to a future lockfile evolution. For v0.1.0, dependencies are resolved at install time and the flat extension store in `.axm/extensions/` serves as the de facto lock.
+**[Dependencies in schema but not resolved]** → The registry index and manifest schemas include `dependencies` for forward compatibility with extension packs, but dependency resolution is not implemented in this change. This means the schema is validated but the `dependencies` field is ignored at runtime. Mitigation: this is intentional — the schema is designed ahead of implementation to avoid breaking changes when extension packs are introduced.
 
 **[Archive format is zip]** → Zip is widely supported but lacks built-in streaming decompression. For the local provider this is irrelevant (file I/O is fast). For future remote provider, streaming matters more. Mitigation: zip is the pragmatic choice for v0.1.0; could add tar.gz support later if needed.
 

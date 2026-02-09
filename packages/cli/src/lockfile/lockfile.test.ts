@@ -1,19 +1,12 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { FileSystem } from "@effect/platform";
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import YAML from "yaml";
 import type { Lockfile, SkillLockEntry } from "./schema.js";
-import {
-  LockfileParseError,
-  readLockfile,
-  removeLockEntry,
-  updateLockEntry,
-  writeLockfile,
-} from "./lockfile.js";
+import { LockfileParseError, readLockfile, writeLockfile } from "./lockfile.js";
 
 describe("lockfile", () => {
   let tempDir: string;
@@ -28,8 +21,8 @@ describe("lockfile", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const withFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
-    effect.pipe(Effect.provide(NodeFileSystem.layer));
+  const withContext = <A, E>(effect: Effect.Effect<A, E, NodeContext.NodeContext>) =>
+    effect.pipe(Effect.provide(NodeContext.layer));
 
   const createTestEntry = (
     overrides?: Partial<SkillLockEntry>,
@@ -45,7 +38,7 @@ describe("lockfile", () => {
 
   describe("readLockfile", () => {
     it.effect("returns empty lockfile when file does not exist", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           const result = yield* readLockfile(axmDir);
 
@@ -56,7 +49,7 @@ describe("lockfile", () => {
     );
 
     it.effect("reads and parses valid lockfile", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           const lockfileContent = YAML.stringify({
@@ -90,7 +83,7 @@ describe("lockfile", () => {
     );
 
     it.effect("returns LockfileParseError for invalid YAML", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "invalid: yaml: content:");
@@ -104,7 +97,7 @@ describe("lockfile", () => {
     );
 
     it.effect("returns LockfileParseError for null content", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "null");
@@ -118,7 +111,7 @@ describe("lockfile", () => {
     );
 
     it.effect("returns LockfileParseError when lockfileVersion is missing", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify({ skills: {} }));
@@ -134,7 +127,7 @@ describe("lockfile", () => {
 
   describe("writeLockfile", () => {
     it.effect("creates directory if it does not exist", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           const lockfile: Lockfile = {
             lockfileVersion: 1,
@@ -149,7 +142,7 @@ describe("lockfile", () => {
     );
 
     it.effect("writes lockfile in YAML format", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           const lockfile: Lockfile = {
             lockfileVersion: 1,
@@ -172,7 +165,7 @@ describe("lockfile", () => {
     );
 
     it.effect("overwrites existing lockfile", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(
@@ -199,177 +192,9 @@ describe("lockfile", () => {
     );
   });
 
-  describe("updateLockEntry", () => {
-    it.effect("adds new entry to empty lockfile", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          const entry = createTestEntry();
-
-          const result = yield* updateLockEntry(axmDir, "pr-review", entry);
-
-          const prReview = result.skills["pr-review"];
-          expect(prReview).toBeDefined();
-          expect(prReview?.source).toBe("github");
-        }),
-      ),
-    );
-
-    it.effect("preserves existing entries when adding new one", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          const initialLockfile: Lockfile = {
-            lockfileVersion: 1,
-            skills: {
-              commit: createTestEntry({
-                owner: "other",
-                repo: "commit",
-              }),
-            },
-          };
-          yield* writeLockfile(axmDir, initialLockfile);
-
-          const newEntry = createTestEntry({
-            owner: "other",
-            repo: "review",
-          });
-          const result = yield* updateLockEntry(axmDir, "review", newEntry);
-
-          expect(result.skills["commit"]).toBeDefined();
-          expect(result.skills["review"]).toBeDefined();
-        }),
-      ),
-    );
-
-    it.effect("updates existing entry", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          const initialEntry = createTestEntry({ gitTreeHash: "old-hash" });
-          const initialLockfile: Lockfile = {
-            lockfileVersion: 1,
-            skills: {
-              "pr-review": initialEntry,
-            },
-          };
-          yield* writeLockfile(axmDir, initialLockfile);
-
-          const updatedEntry = createTestEntry({ gitTreeHash: "new-hash" });
-          const result = yield* updateLockEntry(axmDir, "pr-review", updatedEntry);
-
-          expect(result.skills["pr-review"]?.gitTreeHash).toBe("new-hash");
-        }),
-      ),
-    );
-
-    it.live("updates the updatedAt timestamp", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          const oldDate = new Date("2020-01-01T00:00:00.000Z");
-          const entry = createTestEntry({ updatedAt: oldDate });
-
-          const result = yield* updateLockEntry(axmDir, "pr-review", entry);
-
-          const prReview = result.skills["pr-review"];
-          expect(prReview).toBeDefined();
-          expect(prReview?.updatedAt).not.toEqual(oldDate);
-          // Check it's a valid Date
-          expect(prReview?.updatedAt).toBeInstanceOf(Date);
-          expect(prReview?.updatedAt.toISOString()).toBe(prReview?.updatedAt.toISOString());
-        }),
-      ),
-    );
-
-    it.effect("persists changes to disk", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          const entry = createTestEntry();
-          yield* updateLockEntry(axmDir, "pr-review", entry);
-
-          const readResult = yield* readLockfile(axmDir);
-          expect(readResult.skills["pr-review"]).toBeDefined();
-        }),
-      ),
-    );
-  });
-
-  describe("removeLockEntry", () => {
-    it.effect("removes existing entry", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          const initialLockfile: Lockfile = {
-            lockfileVersion: 1,
-            skills: {
-              "pr-review": createTestEntry(),
-              commit: createTestEntry({
-                owner: "other",
-                repo: "commit",
-              }),
-            },
-          };
-          yield* writeLockfile(axmDir, initialLockfile);
-
-          const result = yield* removeLockEntry(axmDir, "pr-review");
-
-          expect(result.skills["pr-review"]).toBeUndefined();
-          expect(result.skills["commit"]).toBeDefined();
-        }),
-      ),
-    );
-
-    it.effect("does nothing when entry does not exist", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          const initialLockfile: Lockfile = {
-            lockfileVersion: 1,
-            skills: {
-              commit: createTestEntry({
-                owner: "other",
-                repo: "commit",
-              }),
-            },
-          };
-          yield* writeLockfile(axmDir, initialLockfile);
-
-          const result = yield* removeLockEntry(axmDir, "nonexistent");
-
-          expect(result.skills["commit"]).toBeDefined();
-        }),
-      ),
-    );
-
-    it.effect("persists changes to disk", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          const initialLockfile: Lockfile = {
-            lockfileVersion: 1,
-            skills: {
-              "pr-review": createTestEntry(),
-            },
-          };
-          yield* writeLockfile(axmDir, initialLockfile);
-
-          yield* removeLockEntry(axmDir, "pr-review");
-
-          const readResult = yield* readLockfile(axmDir);
-          expect(readResult.skills["pr-review"]).toBeUndefined();
-        }),
-      ),
-    );
-
-    it.effect("works on empty lockfile", () =>
-      withFileSystem(
-        Effect.gen(function* () {
-          const result = yield* removeLockEntry(axmDir, "nonexistent");
-
-          expect(result.lockfileVersion).toBe(1);
-          expect(result.skills).toEqual({});
-        }),
-      ),
-    );
-  });
-
   describe("YAML format round-trip", () => {
     it.effect("preserves all fields through read/write cycle", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           const entry: SkillLockEntry = {
             source: "github",
@@ -410,7 +235,7 @@ describe("lockfile", () => {
     );
 
     it.effect("handles multiple skills", () =>
-      withFileSystem(
+      withContext(
         Effect.gen(function* () {
           const lockfile: Lockfile = {
             lockfileVersion: 1,

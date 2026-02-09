@@ -220,27 +220,30 @@ Key properties:
 
 #### Layered source resolution
 
-Source configurations are resolved through three layers, merged by `name` with later layers overriding earlier ones:
+Source configurations are resolved through three layers. Project sources take highest priority, followed by global, followed by built-in. Name-based deduplication cascades downward — a source in a higher-priority layer shadows any same-named source in lower layers.
 
-**1. Built-in defaults** — hardcoded in the application:
+**1. Project settings** (`.axm/settings.json` → `sources` array) — highest priority. These appear first in the resolved list.
 
-| name        | source      | config                         |
-| ----------- | ----------- | ------------------------------ |
-| `default`   | `registry`  | Remote registry (location TBD) |
-| `github`    | `github`    | `https://github.com`           |
-| `gitlab`    | `gitlab`    | `https://gitlab.com`           |
-| `bitbucket` | `bitbucket` | `https://bitbucket.org`        |
+**2. Global settings** (`~/.axm/settings.json` → `sources` array) — fills in sources not defined at the project level. A global entry whose `name` matches any project entry is excluded.
 
-**2. Global settings** (`~/.axm/settings.json` → `sources` array) — overrides built-in defaults by `name`. For example, a global entry with `"name": "github"` replaces the built-in GitHub config.
+**3. Built-in defaults** — hardcoded in the application, lowest priority. A built-in entry whose `name` matches any project or global entry is excluded.
 
-**3. Project settings** (`.axm/settings.json` → `sources` array) — overrides both global and built-in by `name`. A project entry with `"name": "default"` replaces the built-in remote registry with a project-specific one.
+| name        | source      | config                  |
+| ----------- | ----------- | ----------------------- |
+| `github`    | `github`    | `https://github.com`    |
+| `gitlab`    | `gitlab`    | `https://gitlab.com`    |
+| `bitbucket` | `bitbucket` | `https://bitbucket.org` |
+
+Note: No built-in registry source is included. A built-in `default` registry source will be added when the remote registry provider is functional. Until then, users must configure registry sources explicitly (see Decision 10).
 
 The merge algorithm:
 
-1. Start with built-in defaults (ordered)
-2. For each global source: if `name` matches a built-in, replace it in place; otherwise append
-3. For each project source: if `name` matches an existing entry, replace it in place; otherwise append
-4. Final list preserves ordering — built-in order for defaults, append order for additions
+1. Start with project sources (preserving array order)
+2. Collect project source names
+3. Append global sources whose `name` is not in the project set (preserving array order)
+4. Collect project + global source names
+5. Append built-in sources whose `name` is not in the project or global set (preserving built-in order)
+6. Result: project sources first → global additions → built-in additions
 
 This is accessed via `Workspace`, which already has the global/local layering pattern. The `WorkspaceContextService` gains methods for scope and source resolution:
 
@@ -268,7 +271,7 @@ export interface WorkspaceContextService {
    *  persists the result to project settings. */
   readonly getScope: () => Effect<string, SettingsError | PromptCancelled>;
 
-  /** Source configurations (built-in → global → project merge). */
+  /** Source configurations (project → global → built-in merge). */
   readonly getSources: () => Effect<ReadonlyArray<SourceConfig>, SettingsError>;
 
   /** Lookup a source by name from the merged list. */
@@ -448,6 +451,43 @@ Managed extensions require a manifest file:
 This uses the existing `CommonManifestFields` from `extensions/common.ts` as the base, extended with `agents` and `dependencies`. The existing singular `author` field evolves to `authors` (array of `{name, email?, url?}`) — consistent with the index schema (Decision 7). The manifest is the source of truth for publish metadata — the registry `index.json` is derived from it.
 
 For forked extensions, the manifest is generated with sensible defaults: version `0.1.0`, agents from workspace settings, empty dependencies.
+
+### 10. Registry configuration guard
+
+No built-in registry source exists until the remote provider ships (Decision 3). Commands that depend on a registry (`skills fork`, `skills publish`, `skills install @scope/name`) must detect this and guide the user.
+
+`getRegistrySources()` returns an empty list when no registry sources are configured. Registry-dependent handlers call a shared guard at the top of their flow:
+
+**Interactive (TTY):**
+
+1. Inform the user that no registry is configured
+2. Prompt for a local registry path (text input with path validation — must be an existing directory or a path the user wants created)
+3. Persist the source to project settings as `{ "name": "local", "source": "registry", "location": "<path>" }`
+4. Continue the original operation using the newly configured source
+
+The default source name is `local`. The prompt normalizes the path using the same rules as other registry locations (home directory expansion, relative path resolution, etc.).
+
+**Non-interactive (CI / `--yes`):**
+
+Fail with a typed `RegistryNotConfiguredError` whose message explains how to add a registry source to settings:
+
+```
+No registry source configured. Add one to .axm/settings.json:
+
+{
+  "sources": [
+    { "name": "local", "source": "registry", "location": "/path/to/registry" }
+  ]
+}
+```
+
+This guard is called by:
+
+- `skills fork` handler — needs a registry to publish the forked extension to
+- `skills publish` handler — needs a registry to write to
+- `skills install` handler — when the source is a registry reference (`@scope/name@version`)
+
+The guard returns the available registry sources (possibly including the newly configured one), so handlers can proceed without re-querying.
 
 ## Handler Changes
 

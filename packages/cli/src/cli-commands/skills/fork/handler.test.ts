@@ -271,7 +271,7 @@ describe("fork.handler", () => {
   });
 
   describe("installed skill name resolution", () => {
-    it.effect("resolves installed skill name via determineSourceInput", () => {
+    it.effect("resolves installed skill name via resolveSource", () => {
       const { provide, mockLog } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 

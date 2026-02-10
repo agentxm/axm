@@ -12,7 +12,7 @@ import { descriptor as bitbucketDescriptor } from "./bitbucket/index.js";
 import { descriptor as githubDescriptor } from "./github/index.js";
 import { descriptor as gitlabDescriptor } from "./gitlab/index.js";
 import { descriptor as localDescriptor } from "./local/index.js";
-import type { SourceInput, SourceDescriptor } from "./types.js";
+import type { Source, SourceInput, SourceDescriptor } from "./types.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnySourceDescriptor = SourceDescriptor<any, any>;
@@ -36,7 +36,7 @@ const DESCRIPTOR_BY_SOURCE_TYPE = new Map<string, AnySourceDescriptor>(
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const printSource = (source: SourceInput): string => {
+export const printSource = (source: Source | SourceInput): string => {
   const cfg = DESCRIPTOR_BY_SOURCE_TYPE.get(source.source);
   if (cfg) return cfg.print(source);
 

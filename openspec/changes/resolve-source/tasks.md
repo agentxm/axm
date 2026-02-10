@@ -84,17 +84,17 @@ Depends on: Phases 2, 3, 4.
 
 Migrate handlers and resolvers to use `resolveSource` and `resolveExtension`.
 
-- [ ] 5.1 Update `cli-commands/skills/install/handler.ts`: replace `determineSourceInput` with `resolveSource`, replace `sources.resolve` with `sources.resolveExtension`
-- [ ] 5.2 Update `cli-commands/skills/fork/handler.ts`: replace `determineSourceInput` with `resolveSource`, replace `sources.resolve` with `sources.resolveExtension`
-- [ ] 5.3 Update `resolution/resolvers/explicit-source.ts`: replace `determineSourceInput` with `resolveSource` (or keep `determineSourceInput` if only `SourceInput` is needed), update any `sources.resolve` calls to `sources.resolveExtension`
-- [ ] 5.4 Update `resolution/resolvers/url.ts`: same as 5.3
-- [ ] 5.5 Update `printSource` in `sources/printer.ts` to accept `Source` (which extends `SourceInput`, so this may just be a type annotation change)
-- [ ] 5.6 Run `pnpm typecheck` and fix any errors
-- [ ] 5.7 Update handler tests and resolver tests for the new function names and types
-- [ ] 5.8 Run `pnpm lint` and fix any errors
-- [ ] 5.9 Run `pnpm test` and fix any failures
-- [ ] 5.10 Run `pnpm test:e2e` and fix any failures
-- [ ] 5.11 Kill any vitest worker processes
+- [x] 5.1 Update `cli-commands/skills/install/handler.ts`: replace `determineSourceInput` with `resolveSource`, replace `sources.resolve` with `sources.resolveExtension`
+- [x] 5.2 Update `cli-commands/skills/fork/handler.ts`: replace `determineSourceInput` with `resolveSource`, replace `sources.resolve` with `sources.resolveExtension`
+- [x] 5.3 Update `resolution/resolvers/explicit-source.ts`: replace `determineSourceInput` with `resolveSource` (or keep `determineSourceInput` if only `SourceInput` is needed), update any `sources.resolve` calls to `sources.resolveExtension`
+- [x] 5.4 Update `resolution/resolvers/url.ts`: same as 5.3
+- [x] 5.5 Update `printSource` in `sources/printer.ts` to accept `Source` (which extends `SourceInput`, so this may just be a type annotation change)
+- [x] 5.6 Run `pnpm typecheck` and fix any errors
+- [x] 5.7 Update handler tests and resolver tests for the new function names and types
+- [x] 5.8 Run `pnpm lint` and fix any errors
+- [x] 5.9 Run `pnpm test` and fix any failures
+- [x] 5.10 Run `pnpm test:e2e` and fix any failures
+- [x] 5.11 Kill any vitest worker processes
 
 ## 6. Barrel Export Cleanup
 

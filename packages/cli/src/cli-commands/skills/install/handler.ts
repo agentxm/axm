@@ -13,7 +13,7 @@
  */
 
 import {
-  determineSourceInput,
+  resolveSource,
   printSource,
   SourceProviders,
   registryGuard,
@@ -109,7 +109,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
     // Step 1: Parse source
     const parseHandle = yield* spinnerSvc.start("Parsing source...");
-    const source = yield* determineSourceInput(args.source).pipe(
+    const source = yield* resolveSource(args.source).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({

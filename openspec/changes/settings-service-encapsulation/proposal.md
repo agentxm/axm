@@ -17,8 +17,8 @@ The workspace service should be the single owner of all workspace state mutation
 - **BREAKING**: Remove `SettingsService`, `SettingsServiceLive`, and `SettingsServiceInterface` from the `settings/` barrel export — make them internal to the workspace module
 - **BREAKING**: Remove `LockfileService`, `LockfileServiceLive`, and `LockfileServiceInterface` from the `lockfile/` barrel export — make them internal to the workspace module
 - **BREAKING**: Remove `SettingsServiceLive` and `LockfileServiceLive` from the shared runtime layer — provide them only internally within the workspace service layer
-- Add installed skill methods (`getInstalledSkills`, `setInstalledSkill`, `removeInstalledSkill`) and configured agent methods (`getConfiguredAgents`, `addConfiguredAgent`) to `Workspace` service interface, delegating to the internal settings service
-- Add locked skill methods (`getLockedSkills`, `getLockedSkill`, `setLockedSkill`, `removeLockedSkill`) to `Workspace` service interface, delegating to the internal lockfile service
+- Add compound skill methods (`setSkill`, `removeSkill`) to `Workspace` service interface that atomically write to both settings and lockfile under a single semaphore acquisition
+- Add skill and lockfile query methods (`getInstalledSkills`, `getLockedSkills`, `getLockedSkill`) and configured agent methods (`getConfiguredAgents`, `addConfiguredAgent`) to `Workspace` service interface
 - Consolidate to a single `Semaphore(1)` in workspace that serializes ALL state mutations across both files
 - Add documentation comments to settings and lockfile services marking them as workspace-internal
 - Add documentation comments to the workspace service indicating it manages all state read/write access
@@ -41,8 +41,8 @@ _None_ — this is an encapsulation refactor, not a new capability.
 
 - **settings/**: `service.ts` gets internal-only comments, semaphore removed; barrel file (`index.ts`) stops exporting service, layer, and interface types
 - **lockfile/**: `service.ts` gets internal-only comments, semaphore removed; barrel file (`index.ts`) stops exporting service, layer, and interface types
-- **workspace/**: `service.ts` gains new methods (`getInstalledSkills`, `setInstalledSkill`, `removeInstalledSkill`, `getConfiguredAgents`, `addConfiguredAgent`, `getLockedSkills`, `getLockedSkill`, `setLockedSkill`, `removeLockedSkill`); existing methods renamed (`getSources` → `getConfiguredSources`, `getSourceByName` → `getConfiguredSourceByName`, `getRegistrySources` → `getConfiguredRegistrySources`, `getScope` → `getConfiguredScope`, `addSource` → `addConfiguredSource`); single semaphore covers all mutations; barrel file exports these
+- **workspace/**: `service.ts` gains new methods (`getInstalledSkills`, `getConfiguredAgents`, `addConfiguredAgent`, `getLockedSkills`, `getLockedSkill`, `setSkill`, `removeSkill`); existing methods renamed (`getSources` → `getConfiguredSources`, `getSourceByName` → `getConfiguredSourceByName`, `getRegistrySources` → `getConfiguredRegistrySources`, `getScope` → `getConfiguredScope`, `addSource` → `addConfiguredSource`); single semaphore covers all mutations; barrel file exports these
 - **runtime/**: `SettingsServiceLive` and `LockfileServiceLive` removed from shared layer composition — provided internally to workspace layer instead
-- **Command handlers**: `init`, `skills/install`, `skills/fork`, `skills/list`, `skills/uninstall` updated to use `Workspace` instead of `SettingsService`/`LockfileService`
+- **Command handlers**: `init`, `skills/install` (including `install-skill.ts`), `skills/fork`, `skills/list`, `skills/uninstall` (including `uninstall-skill.ts`) updated to use `Workspace` instead of `SettingsService`/`LockfileService`
 - **sources/parser.ts**: Updated to use `Workspace` instead of `LockfileService`
 - **Tests**: Handler tests, workspace tests, and service tests updated to reflect new access patterns

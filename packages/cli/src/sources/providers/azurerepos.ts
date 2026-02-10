@@ -11,14 +11,14 @@ import * as Effect from "effect/Effect";
 
 import { SourceError } from "../provider.js";
 import type { SourceProvider } from "../provider.js";
-import type { AzureReposSource } from "../types.js";
+import type { AzureReposSourceInput } from "../types.js";
 
 /**
  * Source provider for Azure Repos (stub).
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createAzureReposProvider = (): SourceProvider<AzureReposSource> => ({
+export const createAzureReposProvider = (): SourceProvider<AzureReposSourceInput> => ({
   type: "azurerepos",
 
   find: () =>

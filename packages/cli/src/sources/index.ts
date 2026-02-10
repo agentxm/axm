@@ -8,21 +8,33 @@
  * @packageDocumentation
  */
 
-// Types
+// Types — Source inputs (parsed coordinates)
 export type {
-  AzureReposSource,
-  BitbucketSource,
-  GitHubSource,
+  AzureReposSourceInput,
+  BitbucketSourceInput,
+  GitHubSourceInput,
   GitHostingProviderSource,
-  GitLabSource,
-  GitRepositorySource,
+  GitLabSourceInput,
+  GitRepositorySourceInput,
   GitSource,
-  LocalSource,
+  LocalSourceInput,
   RegistrySourceInput,
   SourceInput,
   SourceType,
 } from "./types.js";
 export { SourceTypeSchema } from "./types.js";
+
+// Types — Source (input + config)
+export type {
+  AzureReposSource,
+  BitbucketSource,
+  GitHubSource,
+  GitLabSource,
+  GitRepositorySource,
+  LocalSource,
+  RegistrySource,
+  Source,
+} from "./types.js";
 
 // Type guards
 export { isGitHostingProviderSource } from "./utils.js";

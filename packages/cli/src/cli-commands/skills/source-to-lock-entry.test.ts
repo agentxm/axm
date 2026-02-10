@@ -2,12 +2,12 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../../lockfile/schema.js";
 import type {
-  AzureReposSource,
-  BitbucketSource,
-  GitHubSource,
-  GitLabSource,
-  GitRepositorySource,
-  LocalSource,
+  AzureReposSourceInput,
+  BitbucketSourceInput,
+  GitHubSourceInput,
+  GitLabSourceInput,
+  GitRepositorySourceInput,
+  LocalSourceInput,
   RegistrySourceInput,
 } from "../../sources/types.js";
 import { sourceToLockEntry } from "./source-to-lock-entry.js";
@@ -21,7 +21,7 @@ describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
 
   it("maps GitHub source with all optional fields", () => {
-    const source: GitHubSource = {
+    const source: GitHubSourceInput = {
       source: "github",
       owner: "acme",
       repo: "skills",
@@ -50,7 +50,7 @@ describe("sourceToLockEntry", () => {
   });
 
   it("maps GitHub source with none optional fields", () => {
-    const source: GitHubSource = {
+    const source: GitHubSourceInput = {
       source: "github",
       owner: "acme",
       repo: "skills",
@@ -80,7 +80,7 @@ describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
 
   it("maps GitLab source", () => {
-    const source: GitLabSource = {
+    const source: GitLabSourceInput = {
       source: "gitlab",
       owner: "team",
       repo: "prompts",
@@ -111,7 +111,7 @@ describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
 
   it("maps Bitbucket source", () => {
-    const source: BitbucketSource = {
+    const source: BitbucketSourceInput = {
       source: "bitbucket",
       owner: "workspace",
       repo: "skills-repo",
@@ -142,7 +142,7 @@ describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
 
   it("maps Azure Repos source", () => {
-    const source: AzureReposSource = {
+    const source: AzureReposSourceInput = {
       source: "azurerepos",
       organization: "myorg",
       project: "myproject",
@@ -177,7 +177,7 @@ describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
 
   it("maps Git URL source", () => {
-    const source: GitRepositorySource = {
+    const source: GitRepositorySourceInput = {
       source: "git",
       url: "git@example.com:repo.git",
       ref: Option.some("main"),
@@ -205,7 +205,7 @@ describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
 
   it("maps Git path source", () => {
-    const source: GitRepositorySource = {
+    const source: GitRepositorySourceInput = {
       source: "git",
       path: "/home/user/repo",
       ref: Option.none(),
@@ -232,7 +232,7 @@ describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
 
   it("maps Local source", () => {
-    const source: LocalSource = {
+    const source: LocalSourceInput = {
       source: "local",
       path: "/home/user/skills/my-skill",
     };
@@ -294,7 +294,7 @@ describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
 
   it("converts Option.some to plain value", () => {
-    const source: GitHubSource = {
+    const source: GitHubSourceInput = {
       source: "github",
       owner: "a",
       repo: "b",
@@ -317,7 +317,7 @@ describe("sourceToLockEntry", () => {
   });
 
   it("converts Option.none to undefined (omitted)", () => {
-    const source: GitHubSource = {
+    const source: GitHubSourceInput = {
       source: "github",
       owner: "a",
       repo: "b",

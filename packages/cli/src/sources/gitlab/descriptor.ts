@@ -1,12 +1,12 @@
 import * as Option from "effect/Option";
 
-import type { GitLabSource, SourceDescriptor } from "../types.js";
+import type { GitLabSourceInput, SourceDescriptor } from "../types.js";
 import { print } from "./print.js";
 import { parseScp } from "./scp.js";
 import { parseShorthand, shorthandPrefix } from "./shorthand.js";
 import { parseUrl } from "./url.js";
 
-export const descriptor: SourceDescriptor<"gitlab", GitLabSource> = {
+export const descriptor: SourceDescriptor<"gitlab", GitLabSourceInput> = {
   id: "gitlab",
   print,
   shorthand: Option.some({

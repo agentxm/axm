@@ -1,15 +1,15 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 
-import type { AzureReposSource } from "../types.js";
+import type { AzureReposSourceInput } from "../types.js";
 import { print } from "./print.js";
 
 const makeSource = (
-  overrides: Partial<Pick<AzureReposSource, "organization" | "project" | "repo">> & {
+  overrides: Partial<Pick<AzureReposSourceInput, "organization" | "project" | "repo">> & {
     ref?: string;
     subPath?: string;
   } = {},
-): AzureReposSource => ({
+): AzureReposSourceInput => ({
   source: "azurerepos",
   organization: overrides.organization ?? "myorg",
   project: overrides.project ?? "myproject",

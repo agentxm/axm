@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
-import type { GitHubSource } from "../types.js";
+import type { GitHubSourceInput } from "../types.js";
 
 /** Matches: git@github.com:owner/repo.git */
 const GITHUB_SSH_PATTERN = /^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/;
@@ -18,5 +18,5 @@ export const parseScp = (input: string) => {
     repo: match[2],
     ref: Option.none(),
     subPath: Option.none(),
-  } satisfies GitHubSource);
+  } satisfies GitHubSourceInput);
 };

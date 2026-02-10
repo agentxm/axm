@@ -2,16 +2,16 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { GitHubSource } from "../types.js";
+import type { GitHubSourceInput } from "../types.js";
 import { print } from "./print.js";
 import { parseShorthand } from "./shorthand.js";
 
 const makeSource = (
-  overrides: Partial<Pick<GitHubSource, "owner" | "repo">> & {
+  overrides: Partial<Pick<GitHubSourceInput, "owner" | "repo">> & {
     ref?: string;
     subPath?: string;
   } = {},
-): GitHubSource => ({
+): GitHubSourceInput => ({
   source: "github",
   owner: overrides.owner ?? "acme",
   repo: overrides.repo ?? "widgets",

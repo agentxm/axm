@@ -10,6 +10,13 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import type { ParseError } from "./errors.js";
+import type {
+  AzureReposSourceConfig,
+  BitbucketSourceConfig,
+  GitHubSourceConfig,
+  GitLabSourceConfig,
+  RegistrySourceConfig,
+} from "../settings/schema.js";
 
 // -----------------------------------------------------------------------------
 // Source Type Schema
@@ -92,7 +99,7 @@ export interface SourceDescriptor<
 /**
  * GitHub repository source.
  */
-export interface GitHubSource {
+export interface GitHubSourceInput {
   readonly source: "github";
   /** Repository owner (user or organization) */
   readonly owner: string;
@@ -107,7 +114,7 @@ export interface GitHubSource {
 /**
  * GitLab repository source.
  */
-export interface GitLabSource {
+export interface GitLabSourceInput {
   readonly source: "gitlab";
   /** Repository owner (user or group) */
   readonly owner: string;
@@ -122,7 +129,7 @@ export interface GitLabSource {
 /**
  * Bitbucket repository source.
  */
-export interface BitbucketSource {
+export interface BitbucketSourceInput {
   readonly source: "bitbucket";
   /** Workspace (formerly team or user) */
   readonly owner: string;
@@ -138,22 +145,22 @@ export interface BitbucketSource {
  * Union of all git hosting provider sources.
  */
 export type GitHostingProviderSource =
-  | GitHubSource
-  | GitLabSource
-  | BitbucketSource
-  | AzureReposSource;
+  | GitHubSourceInput
+  | GitLabSourceInput
+  | BitbucketSourceInput
+  | AzureReposSourceInput;
 
 /**
  * Union of all git-based sources (hosting providers, Azure DevOps, and generic git).
  */
-export type GitSource = GitHostingProviderSource | GitRepositorySource;
+export type GitSource = GitHostingProviderSource | GitRepositorySourceInput;
 
 /**
  * Azure Repos repository source (placeholder for future implementation).
  *
  * URL format: https://dev.azure.com/{organization}/{project}/_git/{repo}
  */
-export interface AzureReposSource {
+export interface AzureReposSourceInput {
   readonly source: "azurerepos";
   /** Azure DevOps organization */
   readonly organization: string;
@@ -176,7 +183,7 @@ export interface AzureReposSource {
  * - Git protocol: git://server/repo.git
  * - File URI: file:///path/to/repo.git
  */
-export type GitRepositorySource = {
+export type GitRepositorySourceInput = {
   readonly source: "git";
   /** Git ref (tag, branch, or SHA) */
   readonly ref: Option.Option<string>;
@@ -202,7 +209,7 @@ export type RegistrySourceInput = {
 /**
  * Local filesystem path source.
  */
-export interface LocalSource {
+export interface LocalSourceInput {
   readonly source: "local";
   /** Absolute path for local sources (after ~ expansion) */
   readonly path: string;
@@ -215,10 +222,48 @@ export interface LocalSource {
  * @experimental This API is unstable and may change without notice.
  */
 export type SourceInput =
+  | GitHubSourceInput
+  | GitLabSourceInput
+  | BitbucketSourceInput
+  | AzureReposSourceInput
+  | GitRepositorySourceInput
+  | RegistrySourceInput
+  | LocalSourceInput;
+
+// -----------------------------------------------------------------------------
+// Source (Input + Config)
+// -----------------------------------------------------------------------------
+
+/**
+ * A Source combines the parsed input (resource coordinates) with the
+ * configured source provider that will be used to resolve it.
+ *
+ * For git hosting providers and registries, this intersects the input with the
+ * matching source config from settings. For git and local sources, no config is
+ * needed — they are self-describing.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
+export type GitHubSource = GitHubSourceInput & GitHubSourceConfig;
+export type GitLabSource = GitLabSourceInput & GitLabSourceConfig;
+export type BitbucketSource = BitbucketSourceInput & BitbucketSourceConfig;
+export type AzureReposSource = AzureReposSourceInput & AzureReposSourceConfig;
+export type RegistrySource = RegistrySourceInput & RegistrySourceConfig;
+export type GitRepositorySource = GitRepositorySourceInput;
+export type LocalSource = LocalSourceInput;
+
+/**
+ * Union of all resolved source types.
+ * Discriminated union based on the `source` field.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type Source =
   | GitHubSource
   | GitLabSource
   | BitbucketSource
   | AzureReposSource
+  | RegistrySource
   | GitRepositorySource
-  | RegistrySourceInput
   | LocalSource;

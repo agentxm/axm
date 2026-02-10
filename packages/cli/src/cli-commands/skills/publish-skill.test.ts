@@ -1,0 +1,320 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as NodeContext from "@effect/platform-node/NodeContext";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import { afterEach, beforeEach } from "vitest";
+import { Workspace, type WorkspaceContextService } from "../../workspace/service.js";
+import type { PublishSkillOperation } from "./operations.js";
+import { publishSkill } from "./publish-skill.js";
+
+/** Creates a layer providing FileSystem + a minimal Workspace service. */
+const withServices = (axmDir: string, registryRoot: string) => {
+  const registrySource = {
+    name: "local",
+    source: "registry" as const,
+    location: registryRoot,
+  };
+
+  const mockWs: WorkspaceContextService = {
+    global: false,
+    path: axmDir,
+    nonInteractive: true,
+    preview: false,
+    resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
+    getSources: () => Effect.succeed([registrySource]),
+    getSourceByName: (name: string) =>
+      Effect.succeed(name === "local" ? Option.some(registrySource) : Option.none()),
+    getRegistrySources: () => Effect.succeed([registrySource]),
+    getScope: () => Effect.succeed("@community"),
+    addSource: () => Effect.void,
+  };
+  return Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs));
+};
+
+/** Creates a minimal PublishSkillOperation for testing. */
+const makeOp = (overrides: Partial<PublishSkillOperation["args"]> = {}): PublishSkillOperation => ({
+  name: "publish-skill",
+  args: {
+    name: overrides.name ?? "@community/my-skill",
+    registryName: overrides.registryName ?? "local",
+  },
+});
+
+describe("publishSkill", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "publish-skill-")));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  /** Sets up a workspace with a managed extension and registry. */
+  const setup = (
+    scope = "@community",
+    name = "my-skill",
+    manifest: Record<string, unknown> = {},
+  ) => {
+    const base = path.join(tmpDir, "project");
+    const axmDir = path.join(base, ".axm");
+    const extensionDir = path.join(base, ".axm", "extensions", scope, "skills", name);
+    const registryRoot = path.join(tmpDir, "registry");
+
+    fs.mkdirSync(extensionDir, { recursive: true });
+    fs.mkdirSync(registryRoot, { recursive: true });
+
+    // Write manifest
+    const defaultManifest = {
+      name: `${scope}/${name}`,
+      version: "0.1.0",
+      agents: ["claude-code"],
+      dependencies: {},
+      ...manifest,
+    };
+    fs.writeFileSync(
+      path.join(extensionDir, "axm-skill.json"),
+      JSON.stringify(defaultManifest, null, 2),
+    );
+
+    // Write skill files
+    fs.writeFileSync(path.join(extensionDir, "SKILL.md"), `# ${name}`);
+    fs.writeFileSync(path.join(extensionDir, "prompt.md"), "prompt content");
+
+    return { base, axmDir, extensionDir, registryRoot };
+  };
+
+  describe("archive creation", () => {
+    it.effect("creates a zip archive and publishes to the registry", () =>
+      Effect.gen(function* () {
+        const { axmDir, registryRoot } = setup();
+
+        const result = yield* publishSkill(
+          makeOp({ name: "@community/my-skill", registryName: "local" }),
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
+
+        expect(result.result).toBe("success");
+        expect(result.message).toContain("@community/my-skill@0.1.0");
+
+        // Registry should have the archive
+        const archivePath = path.join(
+          registryRoot,
+          "extensions",
+          "@community",
+          "skills",
+          "my-skill",
+          "0.1.0.zip",
+        );
+        expect(fs.existsSync(archivePath)).toBe(true);
+
+        // Registry should have index.json
+        const indexPath = path.join(
+          registryRoot,
+          "extensions",
+          "@community",
+          "skills",
+          "my-skill",
+          "index.json",
+        );
+        expect(fs.existsSync(indexPath)).toBe(true);
+
+        const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+        expect(index.name).toBe("my-skill");
+        expect(index.scope).toBe("@community");
+        expect(index.type).toBe("skill");
+        expect(index.versions).toHaveLength(1);
+        expect(index.versions[0].version).toBe("0.1.0");
+      }),
+    );
+  });
+
+  describe("checksum computation", () => {
+    it.effect("writes checksum in sha256:<hex> format to index", () =>
+      Effect.gen(function* () {
+        const { axmDir, registryRoot } = setup();
+
+        yield* publishSkill(makeOp({ name: "@community/my-skill", registryName: "local" })).pipe(
+          Effect.provide(withServices(axmDir, registryRoot)),
+        );
+
+        const indexPath = path.join(
+          registryRoot,
+          "extensions",
+          "@community",
+          "skills",
+          "my-skill",
+          "index.json",
+        );
+        const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+        expect(index.versions[0].checksum).toMatch(/^sha256:[a-f0-9]{64}$/);
+      }),
+    );
+  });
+
+  describe("index creation and update", () => {
+    it.effect("creates a new index.json when publishing first version", () =>
+      Effect.gen(function* () {
+        const { axmDir, registryRoot } = setup();
+
+        yield* publishSkill(makeOp({ name: "@community/my-skill", registryName: "local" })).pipe(
+          Effect.provide(withServices(axmDir, registryRoot)),
+        );
+
+        const indexPath = path.join(
+          registryRoot,
+          "extensions",
+          "@community",
+          "skills",
+          "my-skill",
+          "index.json",
+        );
+        const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+        expect(index.versions).toHaveLength(1);
+        expect(index.versions[0].version).toBe("0.1.0");
+        expect(index.versions[0].agents).toEqual(["claude-code"]);
+      }),
+    );
+
+    it.effect("prepends to existing index when publishing a new version", () =>
+      Effect.gen(function* () {
+        const { axmDir, registryRoot, extensionDir } = setup();
+
+        // Publish v0.1.0 first
+        yield* publishSkill(makeOp({ name: "@community/my-skill", registryName: "local" })).pipe(
+          Effect.provide(withServices(axmDir, registryRoot)),
+        );
+
+        // Update manifest to v0.2.0
+        const manifestPath = path.join(extensionDir, "axm-skill.json");
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+        manifest.version = "0.2.0";
+        fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+
+        // Publish v0.2.0
+        yield* publishSkill(makeOp({ name: "@community/my-skill", registryName: "local" })).pipe(
+          Effect.provide(withServices(axmDir, registryRoot)),
+        );
+
+        const indexPath = path.join(
+          registryRoot,
+          "extensions",
+          "@community",
+          "skills",
+          "my-skill",
+          "index.json",
+        );
+        const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+        expect(index.versions).toHaveLength(2);
+        // Newest first
+        expect(index.versions[0].version).toBe("0.2.0");
+        expect(index.versions[1].version).toBe("0.1.0");
+      }),
+    );
+  });
+
+  describe("idempotency", () => {
+    it.effect("is a no-op when same version + same checksum published twice", () =>
+      Effect.gen(function* () {
+        const { axmDir, registryRoot } = setup();
+
+        // Publish once
+        yield* publishSkill(makeOp({ name: "@community/my-skill", registryName: "local" })).pipe(
+          Effect.provide(withServices(axmDir, registryRoot)),
+        );
+
+        // Publish again — same content, same version
+        const result = yield* publishSkill(
+          makeOp({ name: "@community/my-skill", registryName: "local" }),
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
+
+        expect(result.result).toBe("success");
+
+        // Still only one version in the index
+        const indexPath = path.join(
+          registryRoot,
+          "extensions",
+          "@community",
+          "skills",
+          "my-skill",
+          "index.json",
+        );
+        const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+        expect(index.versions).toHaveLength(1);
+      }),
+    );
+
+    it.effect("fails when same version has a different checksum", () =>
+      Effect.gen(function* () {
+        const { axmDir, registryRoot, extensionDir } = setup();
+
+        // Publish v0.1.0
+        yield* publishSkill(makeOp({ name: "@community/my-skill", registryName: "local" })).pipe(
+          Effect.provide(withServices(axmDir, registryRoot)),
+        );
+
+        // Change content (different checksum) but keep same version
+        fs.writeFileSync(path.join(extensionDir, "prompt.md"), "changed content");
+
+        // Publish again — same version, different content → should fail
+        const result = yield* publishSkill(
+          makeOp({ name: "@community/my-skill", registryName: "local" }),
+        ).pipe(
+          Effect.provide(withServices(axmDir, registryRoot)),
+          Effect.catchTag("OperationError", (e) =>
+            Effect.succeed({ result: "error" as const, message: e.message }),
+          ),
+        );
+
+        expect(result.result).toBe("error");
+        expect(result.message).toContain("already exists with different checksum");
+      }),
+    );
+  });
+
+  describe("error cases", () => {
+    it.effect("fails when managed extension does not exist", () =>
+      Effect.gen(function* () {
+        const base = path.join(tmpDir, "project");
+        const axmDir = path.join(base, ".axm");
+        const registryRoot = path.join(tmpDir, "registry");
+        fs.mkdirSync(axmDir, { recursive: true });
+        fs.mkdirSync(registryRoot, { recursive: true });
+
+        const result = yield* publishSkill(
+          makeOp({ name: "@community/nonexistent", registryName: "local" }),
+        ).pipe(
+          Effect.provide(withServices(axmDir, registryRoot)),
+          Effect.catchTag("OperationError", (e) =>
+            Effect.succeed({ result: "error" as const, message: e.message }),
+          ),
+        );
+
+        expect(result.result).toBe("error");
+        expect(result.message).toContain("Managed extension not found");
+      }),
+    );
+
+    it.effect("fails when registry source is not found", () =>
+      Effect.gen(function* () {
+        const { axmDir, registryRoot } = setup();
+
+        const result = yield* publishSkill(
+          makeOp({ name: "@community/my-skill", registryName: "nonexistent" }),
+        ).pipe(
+          Effect.provide(withServices(axmDir, registryRoot)),
+          Effect.catchTag("OperationError", (e) =>
+            Effect.succeed({ result: "error" as const, message: e.message }),
+          ),
+        );
+
+        expect(result.result).toBe("error");
+        expect(result.message).toContain("not found");
+      }),
+    );
+  });
+});

@@ -1,0 +1,93 @@
+{
+  "name": "@axm.sh/cli",
+  "version": "0.0.1",
+  "type": "module",
+  "exports": {
+    "./agents/index.js": {
+      "types": "./src/agents/index.ts",
+      "default": "./src/agents/index.js"
+    },
+    "./agents/types.js": {
+      "types": "./src/agents/types.ts",
+      "default": "./src/agents/types.js"
+    },
+    "./extensions/common.js": {
+      "types": "./src/extensions/common.ts",
+      "default": "./src/extensions/common.js"
+    },
+    "./extensions/sources.js": {
+      "types": "./src/extensions/sources.ts",
+      "default": "./src/extensions/sources.js"
+    },
+    "./schemas/lockfile.js": {
+      "types": "./src/lockfile/schema.ts",
+      "default": "./src/lockfile/schema.js"
+    },
+    "./schemas/settings.js": {
+      "types": "./src/settings/schema.ts",
+      "default": "./src/settings/schema.js"
+    },
+    "./extensions/skills": {
+      "types": "./src/extensions/skills/index.ts",
+      "default": "./src/extensions/skills/index.js"
+    },
+    "./extensions/skills/lockfile.js": {
+      "types": "./src/lockfile/lockfile.ts",
+      "default": "./src/lockfile/lockfile.js"
+    },
+    "./extensions/skills/settings.js": {
+      "types": "./src/settings/settings.ts",
+      "default": "./src/settings/settings.js"
+    },
+    "./extensions/skills/state/pure-functions.js": {
+      "types": "./src/extensions/skills/state/pure-functions.ts",
+      "default": "./src/extensions/skills/state/pure-functions.js"
+    },
+    "./extensions/skills/state/types.js": {
+      "types": "./src/extensions/skills/state/types.ts",
+      "default": "./src/extensions/skills/state/types.js"
+    }
+  },
+  "bin": {
+    "axm": "./src/main.ts",
+    "axm-dev": "./src/dev-main.ts"
+  },
+  "scripts": {
+    "build": "tsc",
+    "generate:schemas": "bun scripts/generate-schemas.ts",
+    "test": "vitest run",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "axm-dev": "bun src/dev-main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@effect/platform": "^0.94.2",
+    "effect": "catalog:",
+    "gray-matter": "^4.0.3",
+    "ink": "^6.6.0",
+    "ink-select-input": "^6.2.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "jsonc-parser": "^3.3.1",
+    "picocolors": "^1.1.1",
+    "react": "^19.2.4",
+    "semver": "^7.7.1",
+    "simple-git": "^3.27.0",
+    "yargs": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "^0.104.1",
+    "@types/bun": "catalog:",
+    "@types/react": "^19.2.13",
+    "@types/semver": "^7.5.8",
+    "@types/yargs": "catalog:",
+    "execa": "^9.6.1",
+    "ink-testing-library": "^4.0.0",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "yaml": "^2.8.2"
+  }
+}

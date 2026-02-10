@@ -1,0 +1,35 @@
+{
+  "name": "axm",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "axm": "bun packages/cli/src/main.ts",
+    "axm-dev": "bun packages/cli/src/dev-main.ts",
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "test:e2e": "vitest run --root packages/cli -c vitest.e2e.config.ts",
+    "typecheck": "pnpm -r typecheck",
+    "format": "prettier --write . --ignore-path .gitignore",
+    "format:check": "prettier --check . --ignore-path .gitignore",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "prepare": "husky && effect-language-service patch"
+  },
+  "lint-staged": {
+    "*.{js,ts,mjs,cjs}": "eslint --fix",
+    "*.md": "prettier --write"
+  },
+  "devDependencies": {
+    "@effect/eslint-plugin": "^0.3.2",
+    "@eslint/js": "^9.18.0",
+    "eslint": "^9.18.0",
+    "typescript-eslint": "^8.21.0",
+    "@effect/language-service": "^0.72.0",
+    "@effect/vitest": "^0.27.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.8.1",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

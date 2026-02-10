@@ -1,0 +1,8 @@
+{
+  "search": {
+    "exclude": {
+      "**/.axm/cache": true,
+      "**/.reference": true
+    }
+  }
+}

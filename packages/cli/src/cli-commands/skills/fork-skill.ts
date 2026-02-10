@@ -70,8 +70,8 @@ export const forkSkill: OperationHandler<
     // Source path from the location URL
     const sourcePath = op.args.location.replace("file://", "");
 
-    // Copy source files to managed extensions store
-    yield* copySkillDirectory(sourcePath, targetDir).pipe(
+    // Copy source files to src/ subdirectory (manifest stays at extension root)
+    yield* copySkillDirectory(sourcePath, path.join(targetDir, "src")).pipe(
       Effect.mapError(
         (e) =>
           new OperationError({

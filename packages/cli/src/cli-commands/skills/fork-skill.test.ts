@@ -68,7 +68,7 @@ describe("forkSkill", () => {
   };
 
   describe("file copy", () => {
-    it.effect("copies source files to .axm/extensions/@scope/skills/<name>/", () =>
+    it.effect("copies source files to .axm/extensions/@scope/skills/<name>/src/", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
@@ -80,10 +80,14 @@ describe("forkSkill", () => {
         expect(result.result).toBe("success");
         expect(result.message).toContain("my-skill");
 
-        // Should be in the managed extensions store
+        // Content should be in src/ subdirectory
         const targetDir = path.join(base, ".axm", "extensions", "@community", "skills", "my-skill");
-        expect(fs.existsSync(path.join(targetDir, "SKILL.md"))).toBe(true);
-        expect(fs.readFileSync(path.join(targetDir, "prompt.md"), "utf-8")).toBe("prompt content");
+        expect(fs.existsSync(path.join(targetDir, "src", "SKILL.md"))).toBe(true);
+        expect(fs.readFileSync(path.join(targetDir, "src", "prompt.md"), "utf-8")).toBe(
+          "prompt content",
+        );
+        // Manifest should NOT be inside src/
+        expect(fs.existsSync(path.join(targetDir, "src", "axm-skill.json"))).toBe(false);
       }),
     );
 
@@ -100,7 +104,7 @@ describe("forkSkill", () => {
 
         const targetDir = path.join(base, ".axm", "extensions", "@myorg", "skills", "cool-skill");
         expect(fs.existsSync(targetDir)).toBe(true);
-        expect(fs.existsSync(path.join(targetDir, "SKILL.md"))).toBe(true);
+        expect(fs.existsSync(path.join(targetDir, "src", "SKILL.md"))).toBe(true);
       }),
     );
 

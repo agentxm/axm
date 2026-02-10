@@ -20,7 +20,7 @@ const program = Effect.promise(() =>
         yargs.showHelp();
         process.exit(0);
       }
-      console.error(msg);
+      console.error(msg ?? _err);
       process.exit(1);
     })
     .parseAsync(),

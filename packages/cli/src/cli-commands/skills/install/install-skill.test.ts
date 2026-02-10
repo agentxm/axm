@@ -505,6 +505,38 @@ describe("installSkill", () => {
         expect(fs.existsSync(registryCanonical)).toBe(true);
       }),
     );
+
+    it.effect("writes registry lockfile fields (resolvedVersion, checksum, sourceName)", () =>
+      Effect.gen(function* () {
+        const src = setupRegistrySource("@community");
+        const { axmDir } = setupBase();
+
+        // Create an empty lockfile
+        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
+
+        const result = yield* installSkill(
+          makeOp({
+            agents: ["claude-code"],
+            source: { source: "registry" },
+            location: `file://${src}`,
+            version: Option.some("1.2.3"),
+          }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+
+        // Lockfile should contain registry-specific fields
+        const lockContent = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8");
+        const lockfile = YAML.parse(lockContent);
+        const entry = lockfile.skills["my-skill"];
+        expect(entry).toBeDefined();
+        expect(entry.source).toBe("registry");
+        expect(entry.scope).toBe("@community");
+        expect(entry.name).toBe("my-skill");
+        expect(entry.resolvedVersion).toBe("1.2.3");
+        expect(entry.sourceName).toBe("default");
+      }),
+    );
   });
 
   describe("pre-clean from all locations", () => {

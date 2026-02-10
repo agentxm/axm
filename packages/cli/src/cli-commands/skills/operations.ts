@@ -71,28 +71,26 @@ export interface UninstallSkillOperationArgs {
 export type UninstallSkillOperation = Operation<"uninstall-skill", UninstallSkillOperationArgs>;
 
 /**
- * Args for the fork-skill operation.
+ * Args for the copy-skill operation.
  *
  * Copies source files to `.axm/extensions/@<scope>/skills/<name>/`
  * and generates an `axm-skill.json` manifest.
  */
-export type ForkSkillOperationArgs = {
-  /** Where to fork from (the source skill's files). */
+export type CopySkillOperationArgs = {
+  /** Where to copy from (the source skill's files). */
   readonly source: SourceInput;
   /** Target identity in `@scope/name` format. */
   readonly targetName: string;
-  /** Agent compatibility list for the generated manifest. */
-  readonly agents: ReadonlyArray<string>;
   /** Location of the source skill files (file:// URL). */
   readonly location: string;
 };
 
 /**
- * Fork a skill into a managed extension.
+ * Copy a skill into a managed extension.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type ForkSkillOperation = Operation<"fork-skill", ForkSkillOperationArgs>;
+export type CopySkillOperation = Operation<"copy-skill", CopySkillOperationArgs>;
 
 /**
  * Args for the publish-skill operation.

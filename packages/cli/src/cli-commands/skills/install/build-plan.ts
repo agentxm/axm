@@ -29,7 +29,7 @@ export const buildPlan = (
     {
       concurrency: 1,
       steps: ops.map((op) => {
-        const installed = op.args.skill.name in lockfile.skills;
+        const installed = Object.hasOwn(lockfile.skills, op.args.skill.name);
         return installed && !op.args.force
           ? ({
               _tag: "PlannedJobStep",

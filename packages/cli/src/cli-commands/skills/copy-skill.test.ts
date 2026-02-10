@@ -8,8 +8,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { Workspace, type WorkspaceContextService } from "../../workspace/service.js";
-import { forkSkill } from "./fork-skill.js";
-import type { ForkSkillOperation } from "./operations.js";
+import { copySkill } from "./copy-skill.js";
+import type { CopySkillOperation } from "./operations.js";
 
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
 const withServices = (axmDir: string) => {
@@ -28,22 +28,21 @@ const withServices = (axmDir: string) => {
   return Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs));
 };
 
-/** Creates a minimal ForkSkillOperation for testing. */
-const makeOp = (overrides: Partial<ForkSkillOperation["args"]> = {}): ForkSkillOperation => ({
-  name: "fork-skill",
+/** Creates a minimal CopySkillOperation for testing. */
+const makeOp = (overrides: Partial<CopySkillOperation["args"]> = {}): CopySkillOperation => ({
+  name: "copy-skill",
   args: {
     source: overrides.source ?? { source: "local", path: "/tmp/source" },
     targetName: overrides.targetName ?? "@community/my-skill",
-    agents: overrides.agents ?? ["claude-code"],
     location: overrides.location ?? "file:///tmp/source",
   },
 });
 
-describe("forkSkill", () => {
+describe("copySkill", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "fork-skill-")));
+    tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "copy-skill-")));
   });
 
   afterEach(() => {
@@ -73,7 +72,7 @@ describe("forkSkill", () => {
         const src = setupSource();
         const { axmDir, base } = setupBase();
 
-        const result = yield* forkSkill(
+        const result = yield* copySkill(
           makeOp({ targetName: "@community/my-skill", location: `file://${src}` }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
@@ -96,7 +95,7 @@ describe("forkSkill", () => {
         const src = setupSource();
         const { axmDir, base } = setupBase();
 
-        const result = yield* forkSkill(
+        const result = yield* copySkill(
           makeOp({ targetName: "@myorg/cool-skill", location: `file://${src}` }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
@@ -112,7 +111,7 @@ describe("forkSkill", () => {
       Effect.gen(function* () {
         const { axmDir } = setupBase();
 
-        const result = yield* forkSkill(makeOp({ location: "file:///nonexistent/path" })).pipe(
+        const result = yield* copySkill(makeOp({ location: "file:///nonexistent/path" })).pipe(
           Effect.provide(withServices(axmDir)),
           Effect.catchTag("OperationError", (e) =>
             Effect.succeed({ result: "error" as const, message: e.message }),
@@ -131,10 +130,9 @@ describe("forkSkill", () => {
         const src = setupSource();
         const { axmDir, base } = setupBase();
 
-        yield* forkSkill(
+        yield* copySkill(
           makeOp({
             targetName: "@community/my-skill",
-            agents: ["claude-code", "cursor"],
             location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -146,7 +144,7 @@ describe("forkSkill", () => {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.name).toBe("@community/my-skill");
         expect(manifest.version).toBe("0.1.0");
-        expect(manifest.agents).toEqual(["claude-code", "cursor"]);
+        expect(manifest).not.toHaveProperty("agents");
         expect(manifest.dependencies).toEqual({});
       }),
     );
@@ -156,7 +154,7 @@ describe("forkSkill", () => {
         const src = setupSource();
         const { axmDir, base } = setupBase();
 
-        yield* forkSkill(
+        yield* copySkill(
           makeOp({ targetName: "@community/my-skill", location: `file://${src}` }),
         ).pipe(Effect.provide(withServices(axmDir)));
 

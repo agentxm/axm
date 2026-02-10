@@ -72,8 +72,7 @@ describe("axm skills fork", () => {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.name).toBe("@test/my-skill");
         expect(manifest.version).toBe("0.1.0");
-        expect(manifest.agents).toBeDefined();
-        expect(Array.isArray(manifest.agents)).toBe(true);
+        expect(manifest).not.toHaveProperty("agents");
 
         // 2. Verify published in registry
         const registryExtDir = path.join(

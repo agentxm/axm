@@ -1,0 +1,72 @@
+## Context
+
+The settings service (`settings/service.ts`) and lockfile service (`lockfile/service.ts`) are currently public Effect services, exported from their barrel files and provided in the shared runtime layer. Command handlers access them directly for skill, agent, and lockfile operations.
+
+Meanwhile, the workspace service (`workspace/service.ts`) already handles source and scope operations by reading settings files directly — it doesn't go through `SettingsService` for these. This creates:
+
+1. **Three independent semaphores** writing to workspace state: settings service (skills/agents → `settings.json`), workspace service (`addSource` → `settings.json`), lockfile service (lock entries → `axm-lock.yaml`)
+2. **Race condition**: `addSkill` and `addSource` use different semaphores but write to the same `settings.json`
+3. **Cross-file interleaving**: Install operations span both files (settings + lockfile). With separate semaphores, concurrent installs can interleave — one operation writes to settings while another writes to the lockfile, or an operation can succeed on one file and fail on the other, leaving workspace in an inconsistent state
+
+## Goals / Non-Goals
+
+**Goals:**
+
+- Make workspace the sole public gateway for all settings and lockfile access
+- Consolidate ALL mutation serialization under a single workspace semaphore, ensuring operations that span both files are serialized (no interleaving)
+- Make settings and lockfile services internal to workspace module, removing them from public API and runtime layer
+
+**Non-Goals:**
+
+- Changing settings or lockfile service implementation logic (read/write, format-preserving JSON, etc.)
+- Changing the settings file format, lockfile format, or schemas
+- Adding new capabilities beyond what exists today
+- Full transactional rollback (if settings write succeeds but lockfile write fails, we don't roll back settings)
+
+## Decisions
+
+### 1. Single semaphore at workspace level for ALL state mutations
+
+**Decision**: Remove semaphores from both `SettingsService` and `LockfileService`. Workspace owns a single `Semaphore(1)` that serializes ALL state mutations: `addSkill`, `removeSkill`, `addAgent`, `addSource`, `updateLockEntry`, and `removeLockEntry`.
+
+**Rationale**: Install/uninstall operations span both files. Separate semaphores allow interleaving across files during concurrent operations. A single semaphore ensures each operation completes its full write cycle (settings + lockfile) before another begins. This also fixes the existing race between `addSource` (workspace semaphore) and `addSkill` (settings semaphore) on `settings.json`.
+
+**Alternative considered**: Keep per-file semaphores and add an outer operation-level lock. Rejected because it adds complexity (nested locking) without benefit — the single semaphore is simpler and sufficient given these are fast local file writes.
+
+### 2. Workspace delegates to internal services
+
+**Decision**: Add settings and lockfile methods to `WorkspaceContextService` interface. Workspace creates both services internally and delegates calls, wrapping all mutations in the consolidated semaphore.
+
+**Rationale**: Preserves each service's implementation logic (format-preserving JSON, readOrCreate pattern, lockfile YAML handling) without duplicating it. The services become pure read/write helpers with no concurrency management.
+
+**Alternative considered**: Inline all settings and lockfile logic directly into workspace. Rejected because it would create a large monolithic service and lose the benefit of focused, testable implementations.
+
+### 3. Both services instantiated directly within workspace's `make` function
+
+**Decision**: The workspace `make` function instantiates `SettingsService` and `LockfileService` implementations directly, using the `workspaceDir`, `fs`, and `path` values it already has. The services are NOT composed via Layer — they are created as plain objects within `make` and used internally. Neither service is provided in the runtime's shared layer.
+
+**Rationale**: `SettingsServiceLive` and `LockfileServiceLive` currently depend on `Workspace` (for `ws.path`) via `yield* Workspace`. If workspace tried to provide these via Layer composition, there would be a circular dependency: workspace needs the services to expose methods, but the services need workspace for the path. Instantiating directly within `make` avoids this — `make` already has the resolved path and filesystem references. Both services remain independently testable via their own unit tests (tests can still construct them with a mock workspace).
+
+### 4. Barrel files export only types and I/O utilities
+
+**Decision**: Remove service tags, layers, and interfaces from `settings/index.ts` and `lockfile/index.ts`. Keep exporting schemas, types, error classes, and I/O functions since workspace and other modules use these directly.
+
+**Rationale**: The I/O functions and schemas are value types with no service dependencies — they're safe to use anywhere. Only the service wrappers (which manage state) need encapsulation.
+
+### 5. Query methods remain non-blocking
+
+**Decision**: Query methods (`getSkills`, `getAgents`, `getScope`, `getSources`, `getLockEntries`, `getLockEntry`) do NOT acquire the semaphore, consistent with the existing pattern.
+
+**Rationale**: Queries read from disk on each call and don't perform read-modify-write cycles. Blocking queries behind the mutation semaphore would reduce throughput without preventing inconsistency (the file could change between a query returning and the caller acting on the result anyway).
+
+## Risks / Trade-offs
+
+**[Risk] Tests that mock SettingsService or LockfileService directly will break** → Tests should mock `Workspace` instead, or import the service directly from its module file (not barrel) for unit-testing the internal implementation.
+
+**[Risk] Services become unsafe when called outside workspace's semaphore** → Add doc comments warning that mutations require external serialization. Acceptable because the only caller is workspace.
+
+**[Trade-off] Workspace interface grows larger** → The interface gains ~10 methods. Acceptable because workspace is the central coordination point and the methods are thin delegations. The interface remains coherent (all workspace state operations in one place).
+
+**[Trade-off] Reduced mutation concurrency** → All mutations serialize globally, even if they touch different files. Acceptable because these are fast local file writes where the serialization overhead is negligible, and the consistency guarantee outweighs the throughput cost.
+
+**[Trade-off] No transactional rollback** → If a cross-file operation (e.g., install) succeeds writing to settings but fails writing to lockfile, settings is not rolled back. This is acceptable for now — the semaphore prevents interleaving but doesn't guarantee atomicity across files. A future enhancement could add compensating writes on failure.

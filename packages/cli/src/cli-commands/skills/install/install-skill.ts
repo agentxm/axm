@@ -16,6 +16,7 @@ import { getAgentById } from "../../../agents/registry.js";
 import { LockfileService } from "../../../lockfile/index.js";
 import { SettingsService } from "../../../settings/index.js";
 import { printSource } from "../../../sources/index.js";
+import { Log } from "../../../tui/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
 import { isPathSafe } from "../../../utils/path-safety.js";
 import { OperationError, type OperationHandler } from "../../../workspace/apply-plan.js";
@@ -143,7 +144,7 @@ const installForAgent = (opts: {
  * We look for the `@scope` segment in the path.
  */
 const extractRegistryScope = (location: string): string => {
-  const cleaned = location.replace("file://", "");
+  const cleaned = location.replace(/^file:\/\//, "");
   const segments = cleaned.split("/");
   const scopeSegment = segments.find((s) => s.startsWith("@"));
   return scopeSegment ?? "@community";
@@ -210,16 +211,17 @@ const preCleanAllLocations = (
  * 3. Pre-clean from all known canonical locations
  * 4. Copy skill files to canonical location
  * 5. Create symlinks from each agent's skills dir (concurrent)
- * 6. Update lockfile entry (failures swallowed)
+ * 6. Update lockfile entry (failures logged as warnings)
  */
 export const installSkill: OperationHandler<
   InstallSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | SettingsService | LockfileService
+  FileSystem.FileSystem | Path.Path | Workspace | SettingsService | LockfileService | Log
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* Workspace;
+    const log = yield* Log;
     const axmDir = ws.path;
     const base = path.dirname(axmDir);
 
@@ -250,7 +252,7 @@ export const installSkill: OperationHandler<
     const contentPath = isRegistry ? path.join(canonicalPath, "src") : canonicalPath;
 
     // Resolve source path — the skill files to copy from
-    const sourcePath = op.args.location.replace("file://", "");
+    const sourcePath = op.args.location.replace(/^file:\/\//, "");
 
     // Skip pre-clean and copy when source is already the content location
     // (e.g., fork workflow where files are already in place)
@@ -287,7 +289,7 @@ export const installSkill: OperationHandler<
       { concurrency: "unbounded" },
     );
 
-    // Update lockfile (swallow errors)
+    // Update lockfile (warn on errors)
     const ls = yield* LockfileService;
     yield* ls
       .updateEntry(
@@ -308,13 +310,13 @@ export const installSkill: OperationHandler<
           }),
         }),
       )
-      .pipe(Effect.catchAll(() => Effect.void));
+      .pipe(Effect.catchAll((e) => log.warn(`Lockfile update failed: ${String(e)}`)));
 
-    // Update settings (swallow errors)
+    // Update settings (warn on errors)
     const ss = yield* SettingsService;
     yield* ss
       .addSkill(op.args.skill.name, printSource(op.args.source))
-      .pipe(Effect.catchAll(() => Effect.void));
+      .pipe(Effect.catchAll((e) => log.warn(`Settings update failed: ${String(e)}`)));
 
     // Determine overall result
     const anyFailed = agentResults.some((r) => !r.success);

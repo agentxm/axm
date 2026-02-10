@@ -1,5 +1,5 @@
 /**
- * Fork skill executor — copies source files to the managed extensions store
+ * Copy skill executor — copies source files to the managed extensions store
  * and generates an `axm-skill.json` manifest.
  *
  * Pipeline: parse target name → resolve source path → copy files →
@@ -15,7 +15,7 @@ import { OperationError, type OperationHandler } from "../../workspace/apply-pla
 import type { OperationResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service.js";
 import { copySkillDirectory } from "./copy-skill-directory.js";
-import type { ForkSkillOperation } from "./operations.js";
+import type { CopySkillOperation } from "./operations.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -45,15 +45,15 @@ const parseTargetName = (targetName: string): { readonly scope: string; readonly
 // -----------------------------------------------------------------------------
 
 /**
- * Fork-skill operation handler.
+ * Copy-skill operation handler.
  *
  * 1. Parse target name (`@scope/name`)
  * 2. Resolve source path from location
  * 3. Copy files to `.axm/extensions/@<scope>/skills/<name>/`
  * 4. Generate `axm-skill.json` manifest with defaults
  */
-export const forkSkill: OperationHandler<
-  ForkSkillOperation,
+export const copySkill: OperationHandler<
+  CopySkillOperation,
   FileSystem.FileSystem | Path.Path | Workspace
 > = (op) =>
   Effect.gen(function* () {
@@ -75,7 +75,7 @@ export const forkSkill: OperationHandler<
       Effect.mapError(
         (e) =>
           new OperationError({
-            operation: "fork-skill",
+            operation: "copy-skill",
             message: `Failed to copy skill files to ${targetDir}`,
             cause: e,
           }),
@@ -86,7 +86,6 @@ export const forkSkill: OperationHandler<
     const manifest = {
       name: op.args.targetName,
       version: DEFAULT_VERSION,
-      agents: [...op.args.agents],
       dependencies: {},
     };
 
@@ -95,7 +94,7 @@ export const forkSkill: OperationHandler<
       Effect.mapError(
         (e) =>
           new OperationError({
-            operation: "fork-skill",
+            operation: "copy-skill",
             message: `Failed to write manifest: ${manifestPath}`,
             cause: e,
           }),
@@ -104,6 +103,6 @@ export const forkSkill: OperationHandler<
 
     return {
       result: "success",
-      message: `Forked ${name} to ${op.args.targetName}`,
+      message: `Copied ${name} to ${op.args.targetName}`,
     } satisfies OperationResult;
   });

@@ -26,3 +26,26 @@ export const expandGlob = (
   const regex = new RegExp(regexSource);
   return skillNames.filter((name) => regex.test(name));
 };
+
+/**
+ * Expand multiple glob patterns against a list of skill names.
+ *
+ * Returns the union of all matches, deduplicated, preserving the original
+ * order of `names`.
+ *
+ * @param patterns - Patterns to match (may contain `*`)
+ * @param names - Available skill names to match against
+ * @returns Matching skill names in their original order, deduplicated
+ */
+export const expandGlobs = (
+  patterns: ReadonlyArray<string>,
+  names: ReadonlyArray<string>,
+): ReadonlyArray<string> => {
+  const matched = new Set<string>();
+  for (const pattern of patterns) {
+    for (const name of expandGlob(pattern, names)) {
+      matched.add(name);
+    }
+  }
+  return names.filter((n) => matched.has(n));
+};

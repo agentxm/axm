@@ -13,7 +13,7 @@
  */
 
 import {
-  parseSourceInput,
+  determineSourceInput,
   printSource,
   SourceProviders,
   registryGuard,
@@ -111,7 +111,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
     // Step 1: Parse source
     let handle = yield* spinnerSvc.start("Parsing source...");
-    const source = yield* parseSourceInput(args.source).pipe(
+    const source = yield* determineSourceInput(args.source).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({
@@ -139,7 +139,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     // Step 5: Discover skills from source via SourceProviders
     handle = yield* spinnerSvc.start("Discovering skills...");
     const findOptions = {
-      names: args.skills as ReadonlyArray<string>,
+      names: [] as ReadonlyArray<string>,
       agents: args.agents as ReadonlyArray<string>,
       type: "skill" as const,
     };

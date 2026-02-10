@@ -61,7 +61,7 @@ export { SourceProviders, SourceProvidersLive, createRegistryMetaProvider } from
 export { CloneUrlError, ParseError } from "./errors.js";
 
 // Main parser
-export { parseSourceInput } from "./parser.js";
+export { determineSourceInput } from "./parser.js";
 
 // Printer
 export { printSource } from "./printer.js";

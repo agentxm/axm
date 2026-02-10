@@ -10,7 +10,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { parseSourceInput } from "../../sources/index.js";
+import { determineSourceInput } from "../../sources/index.js";
 import type { ExtensionRef } from "../types.js";
 import { buildOriginUrl } from "./url-utils.js";
 
@@ -48,7 +48,7 @@ const looksLikeUrl = (input: string): boolean => {
  * @param _options - Resolution options (unused currently)
  * @returns Effect containing array of ExtensionRefs, or empty array if not a match
  */
-export const resolveUrl = (input: string): Effect.Effect<ExtensionRef[], never> => {
+export const resolveUrl = (input: string) => {
   const trimmed = input.trim();
 
   // Return empty array if input doesn't look like a URL
@@ -56,8 +56,8 @@ export const resolveUrl = (input: string): Effect.Effect<ExtensionRef[], never> 
     return Effect.succeed([]);
   }
 
-  // Use existing parseSourceInput for the heavy lifting
-  return parseSourceInput(trimmed).pipe(
+  // Use existing determineSourceInput for the heavy lifting
+  return determineSourceInput(trimmed).pipe(
     Effect.map((src) => {
       // Handle github/gitlab sources
       if (src.source === "github" || src.source === "gitlab") {

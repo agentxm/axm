@@ -18,7 +18,7 @@ import { LockfileService } from "../../../lockfile/index.js";
 import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
 import type { UninstallSkillOperation } from "../operations.js";
 import { buildPlan } from "./build-plan.js";
-import { expandGlob } from "./glob.js";
+import { expandGlob } from "../../../skills/index.js";
 import { uninstallSkill } from "./uninstall-skill.js";
 
 // -----------------------------------------------------------------------------

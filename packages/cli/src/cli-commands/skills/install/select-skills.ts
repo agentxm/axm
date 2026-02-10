@@ -11,6 +11,7 @@ import type { SkillRef } from "../operations.js";
 import { Log, Multiselect } from "../../../tui/index.js";
 import { InstallError } from "./handler.js";
 import { formatError } from "../../../utils/errors.js";
+import { expandGlobs } from "../../../skills/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -45,26 +46,24 @@ export const determineSkillsToInstall = (
   Effect.gen(function* () {
     const log = yield* Log;
 
-    // 1. --skill specified -> validate all names exist
+    // 1. --skill specified -> glob-aware matching
     if (args.requestedSkills.length > 0) {
-      const invalidSkills = Array.filter(
-        args.requestedSkills,
-        (name) => !skills.some((s) => s.skill.name === name),
-      );
+      const allNames = Array.map(skills, (s) => s.skill.name);
+      const matched = expandGlobs(args.requestedSkills, allNames);
 
-      if (invalidSkills.length > 0) {
+      if (matched.length === 0) {
         return yield* new InstallError({
           message: formatError(
-            `Unknown skill(s): ${invalidSkills.join(", ")}`,
+            `No skills matched: ${args.requestedSkills.join(", ")}`,
             [`Available: ${skills.map((s) => s.skill.name).join(", ")}`],
-            "Check the skill names and try again.",
+            "Check the skill names or patterns and try again.",
           ),
           cause: undefined,
           retryable: false,
         });
       }
 
-      return Array.filter(skills, (s) => args.requestedSkills.includes(s.skill.name));
+      return Array.filter(skills, (s) => matched.includes(s.skill.name));
     }
 
     // 2. --all / --yes -> return all

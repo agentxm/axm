@@ -10,7 +10,6 @@
 // Boundary exception: pure string utility using basename — not filesystem I/O.
 // See design decision D1 in the install-command-cleanup change.
 import * as nodePath from "node:path";
-import * as Array from "effect/Array";
 import type { SkillRef } from "../operations.js";
 
 // -----------------------------------------------------------------------------
@@ -23,28 +22,7 @@ import type { SkillRef } from "../operations.js";
  * Uses `skill.name` when present, falls back to `basename(location)`.
  */
 export const getSkillDisplayName = (ref: SkillRef): string =>
-  ref.skill.name || nodePath.basename(ref.location.replace("file://", ""));
-
-// -----------------------------------------------------------------------------
-// Filtering
-// -----------------------------------------------------------------------------
-
-/**
- * Filters skills by input names (case-insensitive).
- *
- * Matches against both `skill.name` and `getSkillDisplayName(ref)`.
- */
-export const filterSkills = (
-  skills: ReadonlyArray<SkillRef>,
-  inputNames: ReadonlyArray<string>,
-): ReadonlyArray<SkillRef> => {
-  const lowerNames = Array.map(inputNames, (n) => n.toLowerCase());
-  return Array.filter(skills, (ref) => {
-    const name = ref.skill.name.toLowerCase();
-    const displayName = getSkillDisplayName(ref).toLowerCase();
-    return lowerNames.some((input) => input === name || input === displayName);
-  });
-};
+  ref.skill.name || nodePath.basename(ref.location.replace(/^file:\/\//, ""));
 
 // -----------------------------------------------------------------------------
 // Sanitization

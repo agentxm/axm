@@ -10,7 +10,7 @@
 import * as Option from "effect/Option";
 import type { Lockfile } from "../../../lockfile/schema.js";
 import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
-import type { AddSkillOperation } from "../operations.js";
+import type { InstallSkillOperation } from "../operations.js";
 
 /**
  * Build a plan by comparing operations against the lockfile.
@@ -18,11 +18,11 @@ import type { AddSkillOperation } from "../operations.js";
  * Pure function — no Effect needed.
  */
 export const buildPlan = (
-  ops: ReadonlyArray<AddSkillOperation>,
+  ops: ReadonlyArray<InstallSkillOperation>,
   lockfile: Lockfile,
   name: string,
   description: Option.Option<string>,
-): Plan<AddSkillOperation> => ({
+): Plan<InstallSkillOperation> => ({
   name,
   description,
   jobs: [
@@ -36,7 +36,7 @@ export const buildPlan = (
               operation: op,
               expectedResult: { result: "no-op", message: "already installed" },
               label: op.args.skill.name,
-            } satisfies PlannedJobStep<AddSkillOperation>)
+            } satisfies PlannedJobStep<InstallSkillOperation>)
           : ({
               _tag: "PlannedJobStep",
               operation: op,
@@ -45,7 +45,7 @@ export const buildPlan = (
                 message: `Installed ${op.args.skill.name}`,
               },
               label: op.args.skill.name,
-            } satisfies PlannedJobStep<AddSkillOperation>);
+            } satisfies PlannedJobStep<InstallSkillOperation>);
       }),
     },
   ],

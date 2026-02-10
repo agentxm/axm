@@ -37,7 +37,7 @@ export type { SkillRef } from "../../sources/provider.js";
 /**
  * Args for the install-skill operation.
  */
-export type AddSkillArgs = {
+export type InstallSkillOperationArgs = {
   readonly source: SourceInput;
   readonly agents: ReadonlyArray<string>;
   readonly force: boolean;
@@ -52,12 +52,12 @@ export type AddSkillArgs = {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type AddSkillOperation = Operation<"install-skill", AddSkillArgs>;
+export type InstallSkillOperation = Operation<"install-skill", InstallSkillOperationArgs>;
 
 /**
  * Args for the uninstall-skill operation.
  */
-export interface UninstallSkillArgs {
+export interface UninstallSkillOperationArgs {
   readonly skillName: string;
   /** Agent filter for partial uninstall. Empty = all agents. */
   readonly agents: ReadonlyArray<string>;
@@ -68,7 +68,7 @@ export interface UninstallSkillArgs {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type UninstallSkillOperation = Operation<"uninstall-skill", UninstallSkillArgs>;
+export type UninstallSkillOperation = Operation<"uninstall-skill", UninstallSkillOperationArgs>;
 
 /**
  * Args for the fork-skill operation.
@@ -76,7 +76,7 @@ export type UninstallSkillOperation = Operation<"uninstall-skill", UninstallSkil
  * Copies source files to `.axm/extensions/@<scope>/skills/<name>/`
  * and generates an `axm-skill.json` manifest.
  */
-export type ForkSkillArgs = {
+export type ForkSkillOperationArgs = {
   /** Where to fork from (the source skill's files). */
   readonly source: SourceInput;
   /** Target identity in `@scope/name` format. */
@@ -92,7 +92,7 @@ export type ForkSkillArgs = {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type ForkSkillOperation = Operation<"fork-skill", ForkSkillArgs>;
+export type ForkSkillOperation = Operation<"fork-skill", ForkSkillOperationArgs>;
 
 /**
  * Args for the publish-skill operation.
@@ -100,7 +100,7 @@ export type ForkSkillOperation = Operation<"fork-skill", ForkSkillArgs>;
  * Reads the manifest from `.axm/extensions/`, builds a zip archive,
  * computes the SHA-256 checksum, and publishes to the target registry.
  */
-export type PublishSkillArgs = {
+export type PublishSkillOperationArgs = {
   /** Extension identity in `@scope/name` format. */
   readonly name: string;
   /** Named source to publish to (e.g. "local"). */
@@ -112,4 +112,4 @@ export type PublishSkillArgs = {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type PublishSkillOperation = Operation<"publish-skill", PublishSkillArgs>;
+export type PublishSkillOperation = Operation<"publish-skill", PublishSkillOperationArgs>;

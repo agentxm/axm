@@ -17,7 +17,7 @@ import { CommonManifestFields } from "../common.js";
  */
 export const SkillManifestSchema = Schema.Struct({
   ...CommonManifestFields,
-  agents: Schema.Array(Schema.String),
+  agents: Schema.optional(Schema.Array(Schema.String)),
   dependencies: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
 });
 

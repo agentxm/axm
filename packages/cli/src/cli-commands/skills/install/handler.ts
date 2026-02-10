@@ -110,7 +110,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     yield* log.info(`axm skills install (${scopeLabel})`);
 
     // Step 1: Parse source
-    let handle = yield* spinnerSvc.start("Parsing source...");
+    const parseHandle = yield* spinnerSvc.start("Parsing source...");
     const source = yield* determineSourceInput(args.source).pipe(
       Effect.mapError(
         (error) =>
@@ -125,7 +125,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
           }),
       ),
     );
-    yield* handle.stop(`Source: ${printSource(source)} (${source.source})`);
+    yield* parseHandle.stop(`Source: ${printSource(source)} (${source.source})`);
 
     // Step 1.5: Registry guard — ensure a registry source is configured
     if (source.source === "registry") {
@@ -134,13 +134,11 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
     // Step 2: Get workspace context (provided by runtime)
 
-    // TODO: Step 3 — Get agents from settings or --agent flag
-
     // Step 5: Discover skills from source via SourceProviders
-    handle = yield* spinnerSvc.start("Discovering skills...");
+    const discoverHandle = yield* spinnerSvc.start("Discovering skills...");
     const findOptions = {
-      names: [] as ReadonlyArray<string>,
-      agents: args.agents as ReadonlyArray<string>,
+      names: [] satisfies ReadonlyArray<string>,
+      agents: args.agents,
       type: "skill" as const,
     };
     const allRefs = yield* sources.resolve(source, findOptions).pipe(
@@ -156,12 +154,12 @@ export const handleInstall = (args: InstallHandlerArgs) => {
             retryable: false,
           }),
       ),
-      Effect.tapError(() => handle.stop("Failed")),
+      Effect.tapError(() => discoverHandle.stop("Failed")),
     );
     // Filter to skill refs only
     const discoveredSkills = Array.filter(allRefs, (ref) => ref.type === "skill");
     if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
-      yield* handle.stop("No skills found");
+      yield* discoverHandle.stop("No skills found");
       return yield* new InstallError({
         message: formatError(
           "No skills found in source",
@@ -172,7 +170,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         retryable: false,
       });
     }
-    yield* handle.stop(`Found ${discoveredSkills.length} skill(s)`);
+    yield* discoverHandle.stop(`Found ${discoveredSkills.length} skill(s)`);
 
     // Step 6: List mode -> display and exit
     if (args.list) {

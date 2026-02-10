@@ -52,9 +52,10 @@ describe("SkillManifestSchema", () => {
     expect(() => decode(input)).toThrow();
   });
 
-  it("rejects manifest missing required agents field", () => {
+  it("accepts manifest without agents field", () => {
     const input = { name: "@wayne/grappling-hook", version: "1.0.0" };
-    expect(() => decode(input)).toThrow();
+    const result = decode(input);
+    expect(result.agents).toBeUndefined();
   });
 
   it("rejects manifest with empty agents array", () => {

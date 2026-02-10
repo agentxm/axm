@@ -9,6 +9,7 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { LockfileService, LockfileWriteError } from "../../../lockfile/index.js";
+import { makeLogTestLayer } from "../../../tui/index.js";
 import type { LockfileServiceInterface } from "../../../lockfile/service.js";
 import type { SkillLockEntry } from "../../../lockfile/schema.js";
 import {
@@ -89,11 +90,13 @@ const withServices = (
     addSource: () => Effect.void,
   };
   const ssService = ssMock?.mock ?? makeSettingsServiceMock().mock;
+  const [logLayer] = makeLogTestLayer();
   return Layer.mergeAll(
     NodeContext.layer,
     Workspace.layer(mockWs),
     Layer.succeed(SettingsService, ssService),
     Layer.succeed(LockfileService, makeLockfileServiceMock(axmDir)),
+    logLayer,
   );
 };
 

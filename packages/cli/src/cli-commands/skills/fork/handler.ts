@@ -29,12 +29,12 @@ import { SettingsService } from "../../../settings/index.js";
 import { formatError } from "../../../utils/errors.js";
 import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
 import type {
-  ForkSkillOperation,
+  CopySkillOperation,
   InstallSkillOperation,
   InstallSkillOperationArgs,
   PublishSkillOperation,
 } from "../operations.js";
-import { forkSkill } from "../fork-skill.js";
+import { copySkill } from "../copy-skill.js";
 import { installSkill } from "../install/install-skill.js";
 import { publishSkill } from "../publish-skill.js";
 import { expandGlobs } from "../../../skills/index.js";
@@ -57,7 +57,7 @@ export interface ForkHandlerArgs {
   readonly yes: boolean;
 }
 
-type ForkOp = ForkSkillOperation | PublishSkillOperation | InstallSkillOperation;
+type ForkOp = CopySkillOperation | PublishSkillOperation | InstallSkillOperation;
 
 // -----------------------------------------------------------------------------
 // Errors
@@ -218,20 +218,19 @@ export const handleFork = (args: ForkHandlerArgs) =>
         {
           _tag: "PlannedJobStep" as const,
           operation: {
-            name: "fork-skill",
+            name: "copy-skill",
             args: {
               source: {
                 source: "local",
                 path: ref.location.replace("file://", ""),
-              } satisfies ForkSkillOperation["args"]["source"],
+              } satisfies CopySkillOperation["args"]["source"],
               targetName,
-              agents: [...agentIds],
               location: ref.location,
             },
-          } satisfies ForkSkillOperation,
+          } satisfies CopySkillOperation,
           expectedResult: {
             result: "success",
-            message: `Forked ${ref.skill.name} to ${targetName}`,
+            message: `Copied ${ref.skill.name} to ${targetName}`,
           },
           label: `Fork ${ref.skill.name}`,
         },
@@ -266,7 +265,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
     };
 
     yield* ws.resolvePlan(plan, {
-      "fork-skill": forkSkill,
+      "copy-skill": copySkill,
       "publish-skill": publishSkill,
       "install-skill": installSkill,
     });

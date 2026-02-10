@@ -16,6 +16,7 @@ import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "vitest";
 
 import type { SettingsError, SourceConfig } from "../settings/index.js";
@@ -105,7 +106,7 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceConfig>): WorkspaceConte
 /** Run an effect with SourceProviders service and NodeContext wired up. */
 const runWithService = <A, E>(
   sources: ReadonlyArray<SourceConfig>,
-  effect: Effect.Effect<A, E, SourceProviders | FileSystem.FileSystem | Path.Path>,
+  effect: Effect.Effect<A, E, SourceProviders | FileSystem.FileSystem | Path.Path | Scope.Scope>,
 ) => {
   const wsLayer = Layer.succeed(Workspace, makeTestWorkspace(sources));
   const spLayer = SourceProvidersLive.pipe(
@@ -113,7 +114,7 @@ const runWithService = <A, E>(
     Layer.provide(NodeContext.layer),
   );
   const fullLayer = Layer.merge(spLayer, NodeContext.layer);
-  return Effect.runPromise(effect.pipe(Effect.provide(fullLayer)));
+  return Effect.runPromise(effect.pipe(Effect.provide(fullLayer), Effect.scoped));
 };
 
 // -----------------------------------------------------------------------------

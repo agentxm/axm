@@ -11,6 +11,7 @@ import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
+import type * as Scope from "effect/Scope";
 
 import {
   TuiLive,
@@ -78,7 +79,12 @@ export function run<A, E>(
   program: Effect.Effect<
     A,
     E,
-    AppLayer | WorkspaceContextTag | SettingsService | LockfileService | SourceProviders
+    | AppLayer
+    | WorkspaceContextTag
+    | SettingsService
+    | LockfileService
+    | SourceProviders
+    | Scope.Scope
   >,
   options: { readonly workspace: WorkspaceContextOptions },
 ): Promise<A>;
@@ -86,7 +92,12 @@ export function run<A, E>(
   program: Effect.Effect<
     A,
     E,
-    AppLayer | WorkspaceContextTag | SettingsService | LockfileService | SourceProviders
+    | AppLayer
+    | WorkspaceContextTag
+    | SettingsService
+    | LockfileService
+    | SourceProviders
+    | Scope.Scope
   >,
   options?: { readonly workspace: WorkspaceContextOptions },
 ): Promise<A> {
@@ -100,6 +111,7 @@ export function run<A, E>(
         const sourceProvidersLayer = Layer.provide(SourceProvidersLive, wsLayer);
         return program.pipe(
           Effect.provide(Layer.mergeAll(wsLayer, servicesLayer, sourceProvidersLayer)),
+          Effect.scoped,
         );
       })()
     : (program as Effect.Effect<A, E, AppLayer>);

@@ -5,7 +5,6 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import { afterEach, beforeEach, vi } from "vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { buildCloneUrl, getOrigin } from "./clone-url.js";
@@ -14,41 +13,12 @@ import { type InputPattern, parseInputPattern, parseSourceInput } from "./parser
 import { printSource } from "./printer.js";
 
 describe("source-parser", () => {
-  let originalFetch: typeof globalThis.fetch;
-
-  beforeEach(() => {
-    originalFetch = globalThis.fetch;
-  });
-
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-    vi.restoreAllMocks();
-  });
-
-  const mockFetch = (responses: Record<string, { ok: boolean } | "error">): void => {
-    globalThis.fetch = vi.fn((url: string | URL | Request) => {
-      const urlStr = typeof url === "string" ? url : url.toString();
-      const response = responses[urlStr];
-      if (response === "error") return Promise.reject(new Error("Network error"));
-      if (response) return Promise.resolve(new Response(null, { status: response.ok ? 200 : 404 }));
-      return Promise.resolve(new Response(null, { status: 404 }));
-    }) as unknown as typeof globalThis.fetch;
-  };
-
   describe("slash pattern (owner/repo)", () => {
-    it.effect("parses owner/repo (resolves via GitHub)", () =>
+    it.effect("rejects ambiguous owner/repo pattern", () =>
       Effect.gen(function* () {
-        mockFetch({ "https://github.com/owner/repo": { ok: true } });
-        const result = yield* parseSourceInput("owner/repo");
-
-        expect(result.source).toBe("github");
-        expect(printSource(result)).toBe("github:owner/repo");
-        if (result.source === "github") {
-          expect(result.owner).toBe("owner");
-          expect(result.repo).toBe("repo");
-          expect(Option.isNone(result.ref)).toBe(true);
-          expect(Option.isNone(result.subPath)).toBe(true);
-        }
+        const error = yield* Effect.flip(parseSourceInput("owner/repo"));
+        expect(error).toBeInstanceOf(ParseError);
+        expect(error.message).toContain("Ambiguous pattern");
       }),
     );
   });
@@ -583,17 +553,14 @@ describe("source-parser", () => {
   describe("edge cases", () => {
     it.effect("trims whitespace from input", () =>
       Effect.gen(function* () {
-        mockFetch({ "https://github.com/owner/repo": { ok: true } });
-        const result = yield* parseSourceInput("  owner/repo  ");
-
+        const result = yield* parseSourceInput("  github:owner/repo  ");
         expect(printSource(result)).toBe("github:owner/repo");
       }),
     );
 
-    it.effect("handles repo names with dashes", () =>
+    it.effect("handles repo names with dashes in prefixed form", () =>
       Effect.gen(function* () {
-        mockFetch({ "https://github.com/owner/my-awesome-repo": { ok: true } });
-        const result = yield* parseSourceInput("owner/my-awesome-repo");
+        const result = yield* parseSourceInput("github:owner/my-awesome-repo");
 
         expect(result.source).toBe("github");
         if (result.source === "github") {
@@ -602,10 +569,9 @@ describe("source-parser", () => {
       }),
     );
 
-    it.effect("handles owner names with dashes", () =>
+    it.effect("handles owner names with dashes in prefixed form", () =>
       Effect.gen(function* () {
-        mockFetch({ "https://github.com/my-org/repo": { ok: true } });
-        const result = yield* parseSourceInput("my-org/repo");
+        const result = yield* parseSourceInput("github:my-org/repo");
 
         expect(result.source).toBe("github");
         if (result.source === "github") {
@@ -913,28 +879,6 @@ describe("parseInputPattern", () => {
   });
 
   describe("parseSourceInput pattern handling", () => {
-    let originalFetch: typeof globalThis.fetch;
-
-    beforeEach(() => {
-      originalFetch = globalThis.fetch;
-    });
-
-    afterEach(() => {
-      globalThis.fetch = originalFetch;
-      vi.restoreAllMocks();
-    });
-
-    const mockFetch = (responses: Record<string, { ok: boolean } | "error">): void => {
-      globalThis.fetch = vi.fn((url: string | URL | Request) => {
-        const urlStr = typeof url === "string" ? url : url.toString();
-        const response = responses[urlStr];
-        if (response === "error") return Promise.reject(new Error("Network error"));
-        if (response)
-          return Promise.resolve(new Response(null, { status: response.ok ? 200 : 404 }));
-        return Promise.resolve(new Response(null, { status: 404 }));
-      }) as unknown as typeof globalThis.fetch;
-    };
-
     it.effect("fails on empty input", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(parseSourceInput(""));
@@ -1067,75 +1011,22 @@ describe("parseInputPattern", () => {
     );
 
     describe("SlashPattern resolution", () => {
-      it.effect("resolves to GitHub when GitHub returns 200", () =>
+      it.effect("rejects ambiguous owner/repo pattern", () =>
         Effect.gen(function* () {
-          mockFetch({ "https://github.com/owner/repo": { ok: true } });
-          const result = yield* parseSourceInput("owner/repo");
-          expect(result.source).toBe("github");
-          expect(result).toMatchObject({ owner: "owner", repo: "repo" });
-          expect(printSource(result)).toBe("github:owner/repo");
-        }),
-      );
-
-      it.effect("resolves to GitLab when GitHub 404, GitLab 200", () =>
-        Effect.gen(function* () {
-          mockFetch({
-            "https://github.com/owner/repo": { ok: false },
-            "https://gitlab.com/owner/repo": { ok: true },
-          });
-          const result = yield* parseSourceInput("owner/repo");
-          expect(result.source).toBe("gitlab");
-          expect(result).toMatchObject({ owner: "owner", repo: "repo" });
-          expect(printSource(result)).toBe("gitlab:owner/repo");
-        }),
-      );
-
-      it.effect("resolves to Bitbucket when GitHub 404, GitLab 404, Bitbucket 200", () =>
-        Effect.gen(function* () {
-          mockFetch({
-            "https://github.com/owner/repo": { ok: false },
-            "https://gitlab.com/owner/repo": { ok: false },
-            "https://bitbucket.org/owner/repo": { ok: true },
-          });
-          const result = yield* parseSourceInput("owner/repo");
-          expect(result.source).toBe("bitbucket");
-          expect(result).toMatchObject({ owner: "owner", repo: "repo" });
-          expect(printSource(result)).toBe("bitbucket:owner/repo");
-        }),
-      );
-
-      it.effect("fails when all providers return 404", () =>
-        Effect.gen(function* () {
-          mockFetch({
-            "https://github.com/owner/repo": { ok: false },
-            "https://gitlab.com/owner/repo": { ok: false },
-            "https://bitbucket.org/owner/repo": { ok: false },
-          });
           const error = yield* Effect.flip(parseSourceInput("owner/repo"));
           expect(error).toBeInstanceOf(ParseError);
-          expect(error.message).toBe(
-            "Repository 'owner/repo' not found on GitHub, GitLab, or Bitbucket",
-          );
+          expect(error.message).toContain("Ambiguous pattern 'owner/repo'");
+          expect(error.message).toContain("use github:owner/repo");
         }),
       );
 
-      it.effect("fails on GitHub network error (does not fall through)", () =>
+      it.effect("suggests prefixed forms for disambiguation", () =>
         Effect.gen(function* () {
-          mockFetch({
-            "https://github.com/owner/repo": "error",
-            "https://gitlab.com/owner/repo": { ok: true },
-          });
-          const error = yield* Effect.flip(parseSourceInput("owner/repo"));
+          const error = yield* Effect.flip(parseSourceInput("my-org/my-repo"));
           expect(error).toBeInstanceOf(ParseError);
-          expect(error.message).toContain("Failed to check GitHub");
-        }),
-      );
-
-      it.effect("preserves canonical via printSource", () =>
-        Effect.gen(function* () {
-          mockFetch({ "https://github.com/my-org/my-repo": { ok: true } });
-          const result = yield* parseSourceInput("my-org/my-repo");
-          expect(printSource(result)).toBe("github:my-org/my-repo");
+          expect(error.message).toContain("github:my-org/my-repo");
+          expect(error.message).toContain("gitlab:my-org/my-repo");
+          expect(error.message).toContain("bitbucket:my-org/my-repo");
         }),
       );
     });

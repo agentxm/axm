@@ -25,6 +25,7 @@ import {
 } from "../tui/index.js";
 import { LockfileService, LockfileServiceLive } from "../lockfile/index.js";
 import { SettingsService, SettingsServiceLive } from "../settings/index.js";
+import { type SourceProviders, SourceProvidersLive } from "../sources/index.js";
 import {
   WorkspaceContextTag,
   layer as workspaceLayer,
@@ -74,11 +75,19 @@ export const Runtime = ManagedRuntime.make(AppLayer);
  */
 export function run<A, E>(program: Effect.Effect<A, E, AppLayer>): Promise<A>;
 export function run<A, E>(
-  program: Effect.Effect<A, E, AppLayer | WorkspaceContextTag | SettingsService | LockfileService>,
+  program: Effect.Effect<
+    A,
+    E,
+    AppLayer | WorkspaceContextTag | SettingsService | LockfileService | SourceProviders
+  >,
   options: { readonly workspace: WorkspaceContextOptions },
 ): Promise<A>;
 export function run<A, E>(
-  program: Effect.Effect<A, E, AppLayer | WorkspaceContextTag | SettingsService | LockfileService>,
+  program: Effect.Effect<
+    A,
+    E,
+    AppLayer | WorkspaceContextTag | SettingsService | LockfileService | SourceProviders
+  >,
   options?: { readonly workspace: WorkspaceContextOptions },
 ): Promise<A> {
   const provided = options?.workspace
@@ -88,7 +97,10 @@ export function run<A, E>(
           Layer.mergeAll(SettingsServiceLive, LockfileServiceLive),
           wsLayer,
         );
-        return program.pipe(Effect.provide(Layer.merge(wsLayer, servicesLayer)));
+        const sourceProvidersLayer = Layer.provide(SourceProvidersLive, wsLayer);
+        return program.pipe(
+          Effect.provide(Layer.mergeAll(wsLayer, servicesLayer, sourceProvidersLayer)),
+        );
       })()
     : (program as Effect.Effect<A, E, AppLayer>);
 

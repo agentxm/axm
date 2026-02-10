@@ -8,7 +8,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeContext from "@effect/platform-node/NodeContext";
-import type { FileSystem, Path } from "@effect/platform";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -16,24 +15,16 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
-  type Confirm,
-  type Log,
-  type Multiselect,
-  type Select,
-  type Spinner,
   makeConfirmTestLayer,
   makeLogTestLayer,
   makeMultiselectTestLayer,
   makeSelectTestLayer,
   makeSpinnerTestLayer,
 } from "../../../tui/index.js";
-import { LockfileService, LockfileServiceLive } from "../../../lockfile/index.js";
-import { SettingsService, SettingsServiceLive } from "../../../settings/index.js";
-import {
-  WorkspaceContextTag,
-  layer as workspaceLayer,
-  type WorkspaceContextOptions,
-} from "../../../workspace/index.js";
+import { LockfileServiceLive } from "../../../lockfile/index.js";
+import { SettingsServiceLive } from "../../../settings/index.js";
+import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
+import { SourceProvidersLive } from "../../../sources/index.js";
 import { handleInstall, type InstallHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -132,24 +123,12 @@ describe("install.handler", () => {
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const SSLayer = Layer.provide(SettingsServiceLive, Layer.merge(BaseLayer, WsLayer));
     const LSLayer = Layer.provide(LockfileServiceLive, Layer.merge(BaseLayer, WsLayer));
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SSLayer, LSLayer);
+    const SPLayer = Layer.provide(SourceProvidersLive, Layer.merge(BaseLayer, WsLayer));
+    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SSLayer, LSLayer, SPLayer);
 
-    const provide = <A, E>(
-      effect: Effect.Effect<
-        A,
-        E,
-        | FileSystem.FileSystem
-        | Path.Path
-        | Log
-        | Spinner
-        | Confirm
-        | Select
-        | Multiselect
-        | WorkspaceContextTag
-        | SettingsService
-        | LockfileService
-      >,
-    ) => effect.pipe(Effect.provide(FullLayer));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper: layer provides all required services
+    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
+      effect.pipe(Effect.provide(FullLayer));
 
     return { provide, mockLog, mockSpinner };
   };

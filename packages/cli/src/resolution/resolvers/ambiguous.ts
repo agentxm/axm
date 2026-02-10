@@ -2,7 +2,7 @@
  * Ambiguous pattern resolver for `a/b` inputs.
  *
  * Disambiguates inputs that could be AXM names or source shorthand.
- * Resolution order: AXM name -> GitHub shorthand.
+ * Resolution order: AXM name -> Git hosting sources in workspace order.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -11,7 +11,8 @@
 import type { FileSystem } from "@effect/platform";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { parseSourceInput } from "../../sources/index.js";
+import type { SourceConfig } from "../../settings/index.js";
+import { WorkspaceContextTag } from "../../workspace/index.js";
 import type { ExtensionRef, ResolutionOptions } from "../types.js";
 import { resolveAxmName } from "./axm-name.js";
 
@@ -68,17 +69,21 @@ const isAmbiguousPattern = (input: string): boolean => {
 // -----------------------------------------------------------------------------
 
 /**
- * Build HTTPS URL from source type and owner/repo.
+ * Build probe URL from source config and owner/repo pattern.
+ * Returns None for sources that don't support owner/repo pattern.
  *
  * @experimental This API is unstable and may change without notice.
  */
-const buildOriginUrl = (sourceType: "github" | "gitlab", owner: string, repo: string): string => {
-  switch (sourceType) {
-    case "github":
-      return `https://github.com/${owner}/${repo}`;
-    case "gitlab":
-      return `https://gitlab.com/${owner}/${repo}`;
+const buildProbeUrl = (
+  source: SourceConfig,
+  owner: string,
+  repo: string,
+): Option.Option<string> => {
+  if (source.source === "github" || source.source === "gitlab" || source.source === "bitbucket") {
+    return Option.some(`${source.url}/${owner}/${repo}`);
   }
+  // Azure Repos uses different URL format, registry/local don't apply
+  return Option.none();
 };
 
 // -----------------------------------------------------------------------------
@@ -113,47 +118,73 @@ const tryAxmName = (
 };
 
 /**
- * Resolve via GitHub shorthand using source-parser.
+ * Resolve via git hosting sources from workspace configuration.
+ * Tries sources in order, first successful probe wins.
  *
  * @experimental This API is unstable and may change without notice.
  */
-const trySourceParser = (
-  input: string,
-  options: ResolutionOptions,
-): Effect.Effect<ExtensionRef[], never> => {
-  return parseSourceInput(input).pipe(
-    Effect.map((src) => {
-      // Only handle github/gitlab types
-      if (src.source !== "github" && src.source !== "gitlab") {
-        return [];
+const tryGitSources = (input: string, options: ResolutionOptions) => {
+  // Extract owner/repo from input
+  const match = input.match(/^([^/@]+)\/([^/@]+)(?:@(.+))?$/);
+  if (!match || !match[1] || !match[2]) {
+    return Effect.succeed([]);
+  }
+
+  const owner = match[1];
+  const repo = match[2];
+  const version = match[3];
+
+  return Effect.gen(function* () {
+    const workspace = yield* WorkspaceContextTag;
+    const allSources = yield* workspace.getSources();
+
+    // Filter to git-hosting sources
+    const gitSources = allSources.filter(
+      (s): s is Extract<SourceConfig, { source: "github" | "gitlab" | "bitbucket" }> =>
+        s.source === "github" || s.source === "gitlab" || s.source === "bitbucket",
+    );
+
+    // Apply source filter if provided
+    const sourcesFilter = Option.getOrUndefined(options.sources);
+    const filteredSources = sourcesFilter
+      ? gitSources.filter((s) => sourcesFilter.includes(s.source))
+      : gitSources;
+
+    // Try each source in order
+    for (const source of filteredSources) {
+      const probeUrl = buildProbeUrl(source, owner, repo);
+      if (Option.isNone(probeUrl)) continue;
+
+      // Probe with HEAD request
+      const probeResult = yield* Effect.tryPromise({
+        try: () => fetch(probeUrl.value, { method: "HEAD" }),
+        catch: () => null, // Network error - continue to next source
+      });
+
+      if (probeResult && probeResult.ok) {
+        // Found it! Build ExtensionRef
+        const ref: ExtensionRef = {
+          type: "skill",
+          source: source.source,
+          origin: probeUrl.value,
+          originalInput: input,
+          name: Option.none(),
+          ref: Option.none(),
+          path: Option.none(),
+          metadata: {
+            version: Option.none(),
+            description: Option.none(),
+            files: Option.none(),
+            versionConstraint: Option.fromNullable(version),
+          },
+        };
+        return [ref];
       }
+    }
 
-      // Check source filter if provided
-      const sources = Option.getOrUndefined(options.sources);
-      if (sources && !sources.includes(src.source)) {
-        return [];
-      }
-
-      const ref: ExtensionRef = {
-        type: "skill",
-        source: src.source,
-        origin: buildOriginUrl(src.source, src.owner, src.repo),
-        originalInput: input,
-        name: Option.none(),
-        ref: src.ref,
-        path: src.subPath,
-        metadata: {
-          version: Option.none(),
-          description: Option.none(),
-          files: Option.none(),
-          versionConstraint: Option.none(),
-        },
-      };
-
-      return [ref];
-    }),
-    Effect.catchAll(() => Effect.succeed([])),
-  );
+    // No sources succeeded
+    return [];
+  }).pipe(Effect.catchAll(() => Effect.succeed([])));
 };
 
 // -----------------------------------------------------------------------------
@@ -165,7 +196,7 @@ const trySourceParser = (
  *
  * Resolution order (early exit on first non-empty result):
  * 1. Check if `@a/b` exists as an AXM name (treat first segment as scope)
- * 2. Fall back to GitHub shorthand via source-parser
+ * 2. Fall back to git hosting sources in workspace order (github, gitlab, bitbucket)
  *
  * @experimental This API is unstable and may change without notice.
  * @param input - The input string to resolve (expected format: `a/b`)
@@ -183,14 +214,11 @@ const trySourceParser = (
  * );
  *
  * // If @owner/repo exists in AXM -> returns registry ExtensionRef
- * // Else -> returns GitHub ExtensionRef for owner/repo
+ * // Else -> returns ExtensionRef from first git source that responds 200
  * const refs = await Effect.runPromise(program);
  * ```
  */
-export const resolveAmbiguous = (
-  input: string,
-  options: ResolutionOptions,
-): Effect.Effect<ExtensionRef[], never, FileSystem.FileSystem> => {
+export const resolveAmbiguous = (input: string, options: ResolutionOptions) => {
   const trimmed = input.trim();
 
   // Return empty array if input doesn't match ambiguous pattern
@@ -201,7 +229,8 @@ export const resolveAmbiguous = (
   // Check source filter
   const sources = Option.getOrUndefined(options.sources);
   const allowRegistry = !sources || sources.includes("registry");
-  const allowGitSources = !sources || sources.some((s) => ["github", "gitlab"].includes(s));
+  const allowGitSources =
+    !sources || sources.some((s) => ["github", "gitlab", "bitbucket"].includes(s));
 
   // Try resolution in order with early exit
   return Effect.gen(function* () {
@@ -213,9 +242,9 @@ export const resolveAmbiguous = (
       }
     }
 
-    // 2. Fall back to GitHub shorthand (if not filtered out)
+    // 2. Fall back to git hosting sources (if not filtered out)
     if (allowGitSources) {
-      const gitResults = yield* trySourceParser(trimmed, options);
+      const gitResults = yield* tryGitSources(trimmed, options);
       if (gitResults.length > 0) {
         return gitResults;
       }

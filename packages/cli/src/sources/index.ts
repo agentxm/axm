@@ -37,7 +37,7 @@ export type {
   SkillRef,
   SourceProvider,
 } from "./provider.js";
-export { RegistryError, SourceError } from "./provider.js";
+export { RegistryError, RegistryNotConfiguredError, SourceError } from "./provider.js";
 
 // Provider implementations
 export type { RegistrySourceProvider } from "./providers/index.js";
@@ -83,3 +83,6 @@ export {
 // GitHub API
 export type { GitHubApiError } from "./github/index.js";
 export { fetchGitHubTreeHash } from "./github/index.js";
+
+// Registry guard
+export { registryGuard } from "./registry-guard.js";

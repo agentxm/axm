@@ -32,6 +32,7 @@ import { sanitizeName } from "./skill-utils.js";
 // -----------------------------------------------------------------------------
 
 const CANONICAL_SKILLS_DIR = ".agents/skills";
+const REGISTRY_EXTENSIONS_DIR = ".axm/extensions";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -136,12 +137,77 @@ const installForAgent = (opts: {
 // -----------------------------------------------------------------------------
 
 /**
+ * Extract the registry scope from a skill ref's location path.
+ *
+ * Registry locations have the form: `file:///path/to/registry/extensions/@scope/skills/name`
+ * We look for the `@scope` segment in the path.
+ */
+const extractRegistryScope = (location: string): string => {
+  const cleaned = location.replace("file://", "");
+  const segments = cleaned.split("/");
+  const scopeSegment = segments.find((s) => s.startsWith("@"));
+  return scopeSegment ?? "@community";
+};
+
+/**
+ * Remove a directory if it exists, ignoring errors.
+ */
+const removeIfExists = (fsService: FileSystem.FileSystem, dirPath: string) =>
+  fsService.exists(dirPath).pipe(
+    Effect.catchAll(() => Effect.succeed(false)),
+    Effect.flatMap((exists) =>
+      exists ? fsService.remove(dirPath, { recursive: true }).pipe(Effect.ignore) : Effect.void,
+    ),
+  );
+
+/**
+ * Pre-clean from ALL known canonical locations for a skill.
+ *
+ * Ensures clean transitions when source type changes (e.g., fork workflow).
+ * Removes from:
+ * 1. `.agents/skills/<name>/` (non-registry canonical)
+ * 2. `.axm/extensions/@* /skills/<name>/` (registry canonical, any scope)
+ */
+const preCleanAllLocations = (
+  fsService: FileSystem.FileSystem,
+  base: string,
+  sanitizedName: string,
+  pathService: Path.Path,
+) =>
+  Effect.gen(function* () {
+    // Remove from non-registry canonical location
+    yield* removeIfExists(fsService, pathService.join(base, CANONICAL_SKILLS_DIR, sanitizedName));
+
+    // Remove from any registry canonical location
+    const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
+    const extensionsDirExists = yield* fsService
+      .exists(extensionsDir)
+      .pipe(Effect.catchAll(() => Effect.succeed(false)));
+
+    if (extensionsDirExists) {
+      const scopeDirs = yield* fsService
+        .readDirectory(extensionsDir)
+        .pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<string>>([])));
+
+      yield* Effect.forEach(
+        scopeDirs,
+        (scopeDir) => {
+          if (!scopeDir.startsWith("@")) return Effect.void;
+          const skillPath = pathService.join(extensionsDir, scopeDir, "skills", sanitizedName);
+          return removeIfExists(fsService, skillPath);
+        },
+        { concurrency: "unbounded" },
+      );
+    }
+  });
+
+/**
  * Install-skill operation handler.
  *
  * Reads workspace paths from the Workspace service, then orchestrates:
  * 1. Sanitize skill name for filesystem
  * 2. Validate all paths stay within the workspace base
- * 3. Remove existing canonical directory (clean slate)
+ * 3. Pre-clean from all known canonical locations
  * 4. Copy skill files to canonical location
  * 5. Create symlinks from each agent's skills dir (concurrent)
  * 6. Update lockfile entry (failures swallowed)
@@ -158,7 +224,18 @@ export const installSkill: OperationHandler<
     const base = path.dirname(axmDir);
 
     const sanitizedName = sanitizeName(op.args.skill.name);
-    const canonicalPath = path.join(base, CANONICAL_SKILLS_DIR, sanitizedName);
+
+    // Determine canonical path based on source type
+    const isRegistry = op.args.source.source === "registry";
+    const canonicalPath = isRegistry
+      ? path.join(
+          base,
+          REGISTRY_EXTENSIONS_DIR,
+          extractRegistryScope(op.args.location),
+          "skills",
+          sanitizedName,
+        )
+      : path.join(base, CANONICAL_SKILLS_DIR, sanitizedName);
 
     // Validate canonical path safety
     if (!isPathSafe(base, canonicalPath)) {
@@ -172,22 +249,8 @@ export const installSkill: OperationHandler<
     // Resolve source path — the skill files to copy from
     const sourcePath = op.args.location.replace("file://", "");
 
-    // Remove existing canonical directory for clean-slate copy
-    const canonicalExists = yield* fs
-      .exists(canonicalPath)
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
-    if (canonicalExists) {
-      yield* fs.remove(canonicalPath, { recursive: true }).pipe(
-        Effect.mapError(
-          (e) =>
-            new OperationError({
-              operation: "install-skill",
-              message: `Failed to remove existing canonical directory: ${canonicalPath}`,
-              cause: e,
-            }),
-        ),
-      );
-    }
+    // Pre-clean from ALL known locations (ensures clean transitions between source types)
+    yield* preCleanAllLocations(fs, base, sanitizedName, path);
 
     // Copy skill files to canonical location
     yield* copySkillDirectory(sourcePath, canonicalPath).pipe(
@@ -224,6 +287,15 @@ export const installSkill: OperationHandler<
           agents: op.args.agents,
           gitTreeSha: op.args.gitTreeSha,
           now: new Date(),
+          ...(isRegistry && {
+            registry: {
+              scope: extractRegistryScope(op.args.location),
+              name: sanitizedName,
+              resolvedVersion: Option.getOrElse(op.args.version, () => "0.0.0"),
+              checksum: "",
+              sourceName: "default",
+            },
+          }),
         }),
       )
       .pipe(Effect.catchAll(() => Effect.void));

@@ -129,6 +129,15 @@ export class RegistryError extends Data.TaggedError("RegistryError")<{
   readonly cause: unknown;
 }> {}
 
+/**
+ * Error when no registry source is configured.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export class RegistryNotConfiguredError extends Data.TaggedError("RegistryNotConfiguredError")<{
+  readonly message: string;
+}> {}
+
 // -----------------------------------------------------------------------------
 // Provider Interface
 // -----------------------------------------------------------------------------

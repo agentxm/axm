@@ -26,7 +26,7 @@ import {
 } from "../tui/index.js";
 import { type SourceProviders, SourceProvidersLive } from "../sources/index.js";
 import {
-  WorkspaceContextTag,
+  Workspace,
   layer as workspaceLayer,
   type WorkspaceContextOptions,
 } from "../workspace/index.js";
@@ -74,11 +74,11 @@ export const Runtime = ManagedRuntime.make(AppLayer);
  */
 export function run<A, E>(program: Effect.Effect<A, E, AppLayer>): Promise<A>;
 export function run<A, E>(
-  program: Effect.Effect<A, E, AppLayer | WorkspaceContextTag | SourceProviders | Scope.Scope>,
+  program: Effect.Effect<A, E, AppLayer | Workspace | SourceProviders | Scope.Scope>,
   options: { readonly workspace: WorkspaceContextOptions },
 ): Promise<A>;
 export function run<A, E>(
-  program: Effect.Effect<A, E, AppLayer | WorkspaceContextTag | SourceProviders | Scope.Scope>,
+  program: Effect.Effect<A, E, AppLayer | Workspace | SourceProviders | Scope.Scope>,
   options?: { readonly workspace: WorkspaceContextOptions },
 ): Promise<A> {
   const provided = options?.workspace

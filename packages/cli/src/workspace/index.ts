@@ -38,5 +38,5 @@ export {
   type WorkspaceContextService,
   type WorkspaceContextError,
   type WorkspaceContextOptions,
-  Workspace as WorkspaceContextTag,
+  Workspace as Workspace,
 } from "./service.js";

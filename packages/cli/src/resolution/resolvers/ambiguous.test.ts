@@ -8,7 +8,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { SourceConfig } from "../../settings/index.js";
-import { WorkspaceContextTag } from "../../workspace/index.js";
+import { Workspace } from "../../workspace/index.js";
 import { defaultResolutionOptions } from "../resolver.js";
 import type { ExtensionType, ResolutionOptions, Source } from "../types.js";
 import { resolveAmbiguous } from "./ambiguous.js";
@@ -76,7 +76,7 @@ describe("resolveAmbiguous", () => {
    * Create mock Workspace layer with custom sources.
    */
   const mockWorkspaceLayer = (sources: ReadonlyArray<SourceConfig> = []) =>
-    Layer.succeed(WorkspaceContextTag, {
+    Layer.succeed(Workspace, {
       global: false,
       path: tempDir,
       nonInteractive: false,

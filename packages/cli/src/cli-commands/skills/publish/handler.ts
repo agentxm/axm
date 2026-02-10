@@ -19,7 +19,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Log, Spinner } from "../../../tui/index.js";
 import { formatError } from "../../../utils/errors.js";
-import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
+import { Workspace as Workspace } from "../../../workspace/index.js";
 import type { PublishSkillOperation } from "../operations.js";
 import { publishSkill } from "../publish-skill.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";

@@ -8,7 +8,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { WorkspaceContextTag as Workspace } from "../../workspace/index.js";
+import { Workspace as Workspace } from "../../workspace/index.js";
 import { resolveExplicitSource } from "./explicit-source.js";
 
 /** Empty workspace layer — resolveExplicitSource never hits the NameInput branch. */

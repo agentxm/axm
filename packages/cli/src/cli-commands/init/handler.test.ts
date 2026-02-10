@@ -32,7 +32,7 @@ import {
   type Select,
 } from "../../tui/index.js";
 import {
-  WorkspaceContextTag,
+  Workspace,
   layer as workspaceLayer,
   type WorkspaceContextOptions,
 } from "../../workspace/index.js";
@@ -77,13 +77,7 @@ describe("init.handler", () => {
       effect: Effect.Effect<
         A,
         E,
-        | FileSystem.FileSystem
-        | Path.Path
-        | Log
-        | Confirm
-        | Select
-        | Multiselect
-        | WorkspaceContextTag
+        FileSystem.FileSystem | Path.Path | Log | Confirm | Select | Multiselect | Workspace
       >,
     ) => effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
   };
@@ -383,13 +377,7 @@ describe("init.handler", () => {
         effect: Effect.Effect<
           A,
           E,
-          | FileSystem.FileSystem
-          | Path.Path
-          | Log
-          | Confirm
-          | Select
-          | Multiselect
-          | WorkspaceContextTag
+          FileSystem.FileSystem | Path.Path | Log | Confirm | Select | Multiselect | Workspace
         >,
       ) => effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     };

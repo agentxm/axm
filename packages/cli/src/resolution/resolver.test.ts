@@ -17,7 +17,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { SourceConfig } from "../settings/index.js";
-import { WorkspaceContextTag } from "../workspace/index.js";
+import { Workspace } from "../workspace/index.js";
 import { defaultResolutionOptions, resolveExtension } from "./resolver.js";
 import type { ExtensionType, ResolutionOptions, Source } from "./types.js";
 
@@ -57,7 +57,7 @@ const makeOptions = (opts: {
  * Create mock Workspace layer with custom sources.
  */
 const mockWorkspaceLayer = (sources: ReadonlyArray<SourceConfig> = DEFAULT_SOURCES) =>
-  Layer.succeed(WorkspaceContextTag, {
+  Layer.succeed(Workspace, {
     global: false,
     path: "",
     nonInteractive: false,

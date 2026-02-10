@@ -12,7 +12,7 @@ import type { FileSystem } from "@effect/platform";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { SourceConfig } from "../../settings/index.js";
-import { WorkspaceContextTag } from "../../workspace/index.js";
+import { Workspace } from "../../workspace/index.js";
 import type { ExtensionRef, ResolutionOptions } from "../types.js";
 import { resolveAxmName } from "./axm-name.js";
 
@@ -135,7 +135,7 @@ const tryGitSources = (input: string, options: ResolutionOptions) => {
   const version = match[3];
 
   return Effect.gen(function* () {
-    const workspace = yield* WorkspaceContextTag;
+    const workspace = yield* Workspace;
     const allSources = yield* workspace.getConfiguredSources();
 
     // Filter to git-hosting sources

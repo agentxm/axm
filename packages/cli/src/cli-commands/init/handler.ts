@@ -11,7 +11,7 @@ import { getAgentById } from "../../agents/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Log } from "../../tui/index.js";
-import { WorkspaceContextTag } from "../../workspace/index.js";
+import { Workspace } from "../../workspace/index.js";
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -29,7 +29,7 @@ import { WorkspaceContextTag } from "../../workspace/index.js";
 export const handleInit = () =>
   Effect.gen(function* () {
     const log = yield* Log;
-    const context = yield* WorkspaceContextTag;
+    const context = yield* Workspace;
     const scopeLabel = context.global ? "user" : "project";
 
     // Show intro

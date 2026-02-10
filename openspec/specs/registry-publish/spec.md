@@ -46,12 +46,12 @@ The system SHALL validate the managed extension before publishing.
 
 ### Requirement: Archive creation
 
-The system SHALL create a zip archive of the extension's files with files at the root level.
+The system SHALL create a zip archive of the extension's `src/` subdirectory with files at the root level. The archive SHALL NOT include `axm-skill.json`.
 
 #### Scenario: Archive structure
 
-- **WHEN** an extension with `axm-skill.json`, `SKILL.md`, and `helpers/` is archived
-- **THEN** the zip contains `axm-skill.json`, `SKILL.md`, and `helpers/` at the root (no enclosing directory)
+- **WHEN** an extension with `axm-skill.json` at the root and `src/SKILL.md`, `src/helpers/` is archived
+- **THEN** the zip contains `SKILL.md` and `helpers/` at the root (no enclosing directory, no `axm-skill.json`)
 
 ### Requirement: Checksum computation
 

@@ -48,7 +48,7 @@ describe("registryGuard", () => {
       const existingRegistry: SourceConfig = {
         name: "existing",
         source: "registry",
-        location: "/path/to/registry",
+        url: new URL("file:///path/to/registry"),
       };
 
       const workspaceLayer = makeWorkspaceLayer({ registrySources: [existingRegistry] });
@@ -100,7 +100,7 @@ describe("registryGuard", () => {
       expect(addSourceMock).toHaveBeenCalledWith({
         name: "local",
         source: "registry",
-        location: "/home/user/registry",
+        url: new URL("file:///home/user/registry"),
       });
     }),
   );
@@ -130,8 +130,8 @@ describe("registryGuard", () => {
       if (call) {
         const config = call[0];
         if (config?.source === "registry") {
-          expect(config.location).not.toContain("~");
-          expect(config.location).toMatch(/^\/.*my-registry$/);
+          expect(config.url.href).not.toContain("~");
+          expect(config.url.href).toMatch(/^file:\/\/\/.*my-registry$/);
         } else {
           throw new Error("Expected registry source");
         }
@@ -166,7 +166,7 @@ describe("registryGuard", () => {
       expect(addSourceMock).toHaveBeenCalledWith({
         name: "local",
         source: "registry",
-        location: "/new/registry",
+        url: new URL("file:///new/registry"),
       });
     }),
   );

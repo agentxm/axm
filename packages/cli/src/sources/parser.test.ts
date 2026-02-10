@@ -699,7 +699,7 @@ describe("source-parser", () => {
         ref: Option.none(),
         subPath: Option.none(),
         name: "github",
-        url: "https://github.com",
+        url: new URL("https://github.com"),
       } as const;
 
       const result = await Effect.runPromise(buildCloneUrl(source));
@@ -715,7 +715,7 @@ describe("source-parser", () => {
         ref: Option.none(),
         subPath: Option.none(),
         name: "my-ghe",
-        url: "https://github.example.com",
+        url: new URL("https://github.example.com"),
       } as const;
 
       const result = await Effect.runPromise(buildCloneUrl(source));
@@ -731,7 +731,7 @@ describe("source-parser", () => {
         ref: Option.none(),
         subPath: Option.none(),
         name: "gitlab",
-        url: "https://gitlab.com",
+        url: new URL("https://gitlab.com"),
       } as const;
 
       const result = await Effect.runPromise(buildCloneUrl(source));
@@ -747,7 +747,7 @@ describe("source-parser", () => {
         ref: Option.none(),
         subPath: Option.none(),
         name: "bitbucket",
-        url: "https://bitbucket.org",
+        url: new URL("https://bitbucket.org"),
       } as const;
 
       const result = await Effect.runPromise(buildCloneUrl(source));
@@ -764,7 +764,7 @@ describe("source-parser", () => {
         ref: Option.none(),
         subPath: Option.none(),
         name: "azurerepos",
-        url: "https://dev.azure.com",
+        url: new URL("https://dev.azure.com"),
       } as const;
 
       const result = await Effect.runPromise(buildCloneUrl(source));
@@ -782,7 +782,7 @@ describe("source-parser", () => {
         ref: Option.none(),
         subPath: Option.none(),
         name: "github",
-        url: "https://github.com",
+        url: new URL("https://github.com"),
       } as const;
 
       const result = getOrigin(source);
@@ -798,7 +798,7 @@ describe("source-parser", () => {
         ref: Option.none(),
         subPath: Option.none(),
         name: "my-ghe",
-        url: "https://github.example.com",
+        url: new URL("https://github.example.com"),
       } as const;
 
       const result = getOrigin(source);
@@ -814,7 +814,7 @@ describe("source-parser", () => {
         ref: Option.none(),
         subPath: Option.none(),
         name: "gitlab",
-        url: "https://gitlab.com",
+        url: new URL("https://gitlab.com"),
       } as const;
 
       const result = getOrigin(source);
@@ -830,7 +830,7 @@ describe("source-parser", () => {
         ref: Option.none(),
         subPath: Option.none(),
         name: "bitbucket",
-        url: "https://bitbucket.org",
+        url: new URL("https://bitbucket.org"),
       } as const;
 
       const result = getOrigin(source);
@@ -847,7 +847,7 @@ describe("source-parser", () => {
         ref: Option.none(),
         subPath: Option.none(),
         name: "azurerepos",
-        url: "https://dev.azure.com",
+        url: new URL("https://dev.azure.com"),
       } as const;
 
       const result = getOrigin(source);

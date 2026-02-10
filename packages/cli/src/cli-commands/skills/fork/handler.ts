@@ -117,20 +117,22 @@ export const handleFork = (args: ForkHandlerArgs) =>
       Effect.tapError(() => handle.stop("Failed")),
     );
 
-    const allRefs = yield* sources.resolveExtension(source, { names: [], agents: [], type: "skill" }).pipe(
-      Effect.mapError(
-        (error) =>
-          new ForkError({
-            message: formatError(
-              `Failed to discover skills: ${error.message}`,
-              [`Source: ${printSource(source)}`],
-              "Verify the source path contains directories with SKILL.md files.",
-            ),
-            cause: error,
-          }),
-      ),
-      Effect.tapError(() => handle.stop("Failed")),
-    );
+    const allRefs = yield* sources
+      .resolveExtension(source, { names: [], agents: [], type: "skill" })
+      .pipe(
+        Effect.mapError(
+          (error) =>
+            new ForkError({
+              message: formatError(
+                `Failed to discover skills: ${error.message}`,
+                [`Source: ${printSource(source)}`],
+                "Verify the source path contains directories with SKILL.md files.",
+              ),
+              cause: error,
+            }),
+        ),
+        Effect.tapError(() => handle.stop("Failed")),
+      );
 
     const discoveredSkills = Array.filter(allRefs, (ref): ref is SkillRef => ref.type === "skill");
     if (discoveredSkills.length === 0) {
@@ -199,7 +201,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
     const steps: ReadonlyArray<PlannedJobStep<ForkOp>> = Array.flatMap(filtered, (ref) => {
       const targetName = `${scope}/${ref.skill.name}`;
       const installArgs: InstallSkillOperationArgs = {
-        source: { source: "registry" },
+        source: { source: "registry", scope, name: ref.skill.name },
         agents: [...agentIds],
         force: true,
         skill: {

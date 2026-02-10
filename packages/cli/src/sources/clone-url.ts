@@ -25,14 +25,14 @@ import type { Source } from "./types.js";
 export const buildCloneUrl = (source: Source): Effect.Effect<string, CloneUrlError> => {
   switch (source.source) {
     case "github":
-      return Effect.succeed(`${source.url}/${source.owner}/${source.repo}.git`);
+      return Effect.succeed(`${source.url.origin}/${source.owner}/${source.repo}.git`);
     case "gitlab":
-      return Effect.succeed(`${source.url}/${source.owner}/${source.repo}.git`);
+      return Effect.succeed(`${source.url.origin}/${source.owner}/${source.repo}.git`);
     case "bitbucket":
-      return Effect.succeed(`${source.url}/${source.owner}/${source.repo}.git`);
+      return Effect.succeed(`${source.url.origin}/${source.owner}/${source.repo}.git`);
     case "azurerepos":
       return Effect.succeed(
-        `${source.url}/${source.organization}/${source.project}/_git/${source.repo}`,
+        `${source.url.origin}/${source.organization}/${source.project}/_git/${source.repo}`,
       );
     default:
       return Effect.fail(
@@ -64,17 +64,17 @@ export const buildCloneUrl = (source: Source): Effect.Effect<string, CloneUrlErr
 export const getOrigin = (source: Source): string => {
   switch (source.source) {
     case "github":
-      return `${source.url}/${source.owner}/${source.repo}`;
+      return `${source.url.origin}/${source.owner}/${source.repo}`;
     case "gitlab":
-      return `${source.url}/${source.owner}/${source.repo}`;
+      return `${source.url.origin}/${source.owner}/${source.repo}`;
     case "bitbucket":
-      return `${source.url}/${source.owner}/${source.repo}`;
+      return `${source.url.origin}/${source.owner}/${source.repo}`;
     case "azurerepos":
-      return `${source.url}/${source.organization}/${source.project}/_git/${source.repo}`;
+      return `${source.url.origin}/${source.organization}/${source.project}/_git/${source.repo}`;
     case "local":
       return source.path;
     case "git":
-      return "url" in source ? source.url : source.path;
+      return source.url.href;
     case "registry":
       return source.source;
   }

@@ -24,7 +24,9 @@ describe("axm skills publish", () => {
         // Set up registry source and scope
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.sources = [{ name: "local", source: "registry", location: registryDir.path }];
+        settings.sources = [
+          { name: "local", source: "registry", url: `file://${registryDir.path}` },
+        ];
         settings.scope = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
@@ -120,7 +122,9 @@ describe("axm skills publish", () => {
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.sources = [{ name: "local", source: "registry", location: registryDir.path }];
+        settings.sources = [
+          { name: "local", source: "registry", url: `file://${registryDir.path}` },
+        ];
         settings.scope = "@myorg";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
@@ -186,7 +190,9 @@ describe("axm skills publish", () => {
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.sources = [{ name: "local", source: "registry", location: registryDir.path }];
+        settings.sources = [
+          { name: "local", source: "registry", url: `file://${registryDir.path}` },
+        ];
         settings.scope = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 

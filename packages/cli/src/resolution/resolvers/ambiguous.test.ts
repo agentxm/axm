@@ -17,9 +17,9 @@ import { resolveAmbiguous } from "./ambiguous.js";
  * Default built-in sources for tests (matches workspace defaults).
  */
 const DEFAULT_SOURCES: ReadonlyArray<SourceConfig> = [
-  { name: "github", source: "github", url: "https://github.com" },
-  { name: "gitlab", source: "gitlab", url: "https://gitlab.com" },
-  { name: "bitbucket", source: "bitbucket", url: "https://bitbucket.org" },
+  { name: "github", source: "github", url: new URL("https://github.com") },
+  { name: "gitlab", source: "gitlab", url: new URL("https://gitlab.com") },
+  { name: "bitbucket", source: "bitbucket", url: new URL("https://bitbucket.org") },
 ];
 
 /**
@@ -661,8 +661,8 @@ describe("resolveAmbiguous", () => {
           expect(result[0]?.source).toBe("gitlab");
         }),
         [
-          { name: "gitlab", source: "gitlab", url: "https://gitlab.com" },
-          { name: "github", source: "github", url: "https://github.com" },
+          { name: "gitlab", source: "gitlab", url: new URL("https://gitlab.com") },
+          { name: "github", source: "github", url: new URL("https://github.com") },
         ],
       ),
     );
@@ -685,8 +685,8 @@ describe("resolveAmbiguous", () => {
           });
         }),
         [
-          { name: "github", source: "github", url: "https://github.com" },
-          { name: "github-acme", source: "github", url: "https://github.acme" },
+          { name: "github", source: "github", url: new URL("https://github.com") },
+          { name: "github-acme", source: "github", url: new URL("https://github.acme") },
         ],
       ),
     );

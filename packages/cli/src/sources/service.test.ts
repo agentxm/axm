@@ -137,7 +137,7 @@ describe("registry meta-provider scope routing", () => {
     const checksum = computeChecksum(archive);
 
     return runWithService(
-      [{ name: "local", source: "registry" as const, location: registryRoot }],
+      [{ name: "local", source: "registry" as const, url: new URL(`file://${registryRoot}`) }],
       Effect.gen(function* () {
         // Set up registry
         const fs = yield* FileSystem.FileSystem;
@@ -149,7 +149,12 @@ describe("registry meta-provider scope routing", () => {
 
         const svc = yield* SourceProviders;
         const refs = yield* svc.resolveExtension(
-          { source: "registry" },
+          {
+            source: "registry",
+            scope: "@test",
+            name: "my-skill",
+            url: new URL(`file://${registryRoot}`),
+          },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
         expect(refs).toHaveLength(1);
@@ -167,7 +172,7 @@ describe("registry meta-provider scope routing", () => {
       Effect.gen(function* () {
         const svc = yield* SourceProviders;
         const refs = yield* svc.resolveExtension(
-          { source: "registry" },
+          { source: "registry", scope: "@test", name: "my-skill", url: new URL("file:///test") },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
         expect(refs).toHaveLength(0);
@@ -202,7 +207,7 @@ describe("SourceProviders dispatch", () => {
         const svc = yield* SourceProviders;
         const result = yield* svc
           .resolveExtension(
-            { source: "git", url: "git@example.com:repo.git", ref: Option.none() },
+            { source: "git", url: new URL("https://example.com/repo.git"), ref: Option.none() },
             defaultFindOptions,
           )
           .pipe(Effect.either);
@@ -230,7 +235,7 @@ describe("SourceProviders dispatch", () => {
               ref: Option.none(),
               subPath: Option.none(),
               name: "test",
-              url: "https://dev.azure.com/org/proj/_git/repo",
+              url: new URL("https://dev.azure.com/org/proj/_git/repo"),
             },
             defaultFindOptions,
           )
@@ -247,11 +252,16 @@ describe("SourceProviders dispatch", () => {
     const registryRoot = makeRegistryDir();
 
     return runWithService(
-      [{ name: "local", source: "registry" as const, location: registryRoot }],
+      [{ name: "local", source: "registry" as const, url: new URL(`file://${registryRoot}`) }],
       Effect.gen(function* () {
         const svc = yield* SourceProviders;
         const refs = yield* svc.resolveExtension(
-          { source: "registry" },
+          {
+            source: "registry",
+            scope: "@test",
+            name: "nonexistent",
+            url: new URL(`file://${registryRoot}`),
+          },
           { ...defaultFindOptions, names: ["nonexistent"] },
         );
         // Empty results, but no error (successful dispatch)

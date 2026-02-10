@@ -31,7 +31,7 @@ const SourceNameSchema = Schema.String.pipe(Schema.pattern(SOURCE_NAME_PATTERN))
 const GitHubSourceConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   source: Schema.Literal("github"),
-  url: Schema.String,
+  url: Schema.URL,
 });
 
 /**
@@ -42,7 +42,7 @@ const GitHubSourceConfigSchema = Schema.Struct({
 const GitLabSourceConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   source: Schema.Literal("gitlab"),
-  url: Schema.String,
+  url: Schema.URL,
 });
 
 /**
@@ -53,7 +53,7 @@ const GitLabSourceConfigSchema = Schema.Struct({
 const BitbucketSourceConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   source: Schema.Literal("bitbucket"),
-  url: Schema.String,
+  url: Schema.URL,
 });
 
 /**
@@ -64,7 +64,7 @@ const BitbucketSourceConfigSchema = Schema.Struct({
 const AzureReposSourceConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   source: Schema.Literal("azurerepos"),
-  url: Schema.String,
+  url: Schema.URL,
 });
 
 /**
@@ -75,7 +75,7 @@ const AzureReposSourceConfigSchema = Schema.Struct({
 const RegistrySourceConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   source: Schema.Literal("registry"),
-  location: Schema.String,
+  url: Schema.URL,
   scopes: Schema.optional(Schema.Array(Schema.String)),
 });
 
@@ -110,8 +110,8 @@ export type BitbucketSourceConfig = typeof BitbucketSourceConfigSchema.Type;
 /** @experimental */
 export type AzureReposSourceConfig = typeof AzureReposSourceConfigSchema.Type;
 /** @experimental */
-export type RegistrySourceConfig = typeof RegistrySourceConfigSchema.Type;
 
+export type RegistrySourceConfig = typeof RegistrySourceConfigSchema.Type;
 /**
  * Pattern for skill names per agentskills.io specification:
  * - Max 64 characters

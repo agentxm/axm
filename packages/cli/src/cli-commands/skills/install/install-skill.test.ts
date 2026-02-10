@@ -441,7 +441,7 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { source: "registry" },
+            source: { source: "registry", scope: "@community", name: "my-skill" },
             location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -474,7 +474,7 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { source: "registry" },
+            source: { source: "registry", scope: "@community", name: "my-skill" },
             location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -506,7 +506,7 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { source: "registry" },
+            source: { source: "registry", scope: "@community", name: "my-skill" },
             location: `file://${src}`,
             version: Option.some("1.2.3"),
           }),
@@ -546,7 +546,7 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { source: "registry" },
+            source: { source: "registry", scope: "@community", name: "my-skill" },
             location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));

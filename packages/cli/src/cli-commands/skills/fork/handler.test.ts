@@ -51,7 +51,7 @@ const initWorkspace = (
     JSON.stringify({
       scope: "@test",
       agents: ["claude-code"],
-      sources: [{ name: "local", source: "registry", location: registryRoot }],
+      sources: [{ name: "local", source: "registry", url: new URL(`file://${registryRoot}`) }],
     }),
   );
   fs.writeFileSync(

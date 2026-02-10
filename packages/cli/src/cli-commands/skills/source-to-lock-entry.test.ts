@@ -179,7 +179,7 @@ describe("sourceToLockEntry", () => {
   it("maps Git URL source", () => {
     const source: GitRepositorySourceInput = {
       source: "git",
-      url: "git@example.com:repo.git",
+      url: new URL("https://example.com/repo.git"),
       ref: Option.some("main"),
     };
 
@@ -192,35 +192,8 @@ describe("sourceToLockEntry", () => {
 
     expect(result).toEqual({
       source: "git",
-      url: "git@example.com:repo.git",
+      url: "https://example.com/repo.git",
       ref: "main",
-      agents,
-      installedAt: now,
-      updatedAt: now,
-    } satisfies SkillLockEntry);
-  });
-
-  // ---------------------------------------------------------------------------
-  // Git (path variant)
-  // ---------------------------------------------------------------------------
-
-  it("maps Git path source", () => {
-    const source: GitRepositorySourceInput = {
-      source: "git",
-      path: "/home/user/repo",
-      ref: Option.none(),
-    };
-
-    const result = sourceToLockEntry({
-      source,
-      agents,
-      gitTreeSha: Option.none(),
-      now,
-    });
-
-    expect(result).toEqual({
-      source: "git",
-      url: "/home/user/repo",
       agents,
       installedAt: now,
       updatedAt: now,
@@ -260,6 +233,8 @@ describe("sourceToLockEntry", () => {
   it("maps Registry source", () => {
     const source: RegistrySourceInput = {
       source: "registry",
+      scope: "@community",
+      name: "my-skill",
     };
 
     const result = sourceToLockEntry({

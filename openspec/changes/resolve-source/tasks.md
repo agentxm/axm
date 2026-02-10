@@ -22,20 +22,20 @@ Depends on: Phase 1.
 
 Create the new `resolveSource` function that combines `determineSourceInput` with config matching from `Workspace`.
 
-- [ ] 2.1 Write tests for `resolveSource` in `sources/resolve-source.test.ts` covering: GitHub shorthand → GitHubSource with config, local path passthrough, registry passthrough, git passthrough, single config fallback, no config for source type error
-- [ ] 2.2 Create `sources/resolve-source.ts` with `resolveSource(input: string)` — pipeline: `determineSourceInput` → match on discriminator → merge config for git hosting types, passthrough for git/local/registry
-- [ ] 2.3 Run `pnpm typecheck` and fix any errors
-- [ ] 2.4 Write tests for multi-config matching by URL hostname: URL input matches correct config, SCP input matches by hostname, no matching hostname fails
-- [ ] 2.5 Implement multi-config URL/SCP hostname matching in `resolveSource` — compare parsed hostname against hostnames derived from each config's `url` field
-- [ ] 2.6 Run `pnpm typecheck` and fix any errors
-- [ ] 2.7 Write tests for config-name shorthand: two-phase parse for config-name prefix (e.g., `ghe:owner/repo`), standard shorthand still works, unknown prefix fails, source-type prefix selects first config when multiple exist
-- [ ] 2.8 Implement two-phase parse in `resolveSource` — on `determineSourceInput` failure, check if prefix before `:` matches a config name, re-parse using that config's source type descriptor
-- [ ] 2.9 Run `pnpm typecheck` and fix any errors
-- [ ] 2.10 Export `resolveSource` from `sources/index.ts` barrel
-- [ ] 2.11 Run `pnpm lint` and fix any errors
-- [ ] 2.12 Run `pnpm test` and fix any failures
-- [ ] 2.13 Run `pnpm test:e2e` and fix any failures
-- [ ] 2.14 Kill any vitest worker processes
+- [x] 2.1 Write tests for `resolveSource` in `sources/resolve-source.test.ts` covering: GitHub shorthand → GitHubSource with config, local path passthrough, registry passthrough, git passthrough, single config fallback, no config for source type error
+- [x] 2.2 Create `sources/resolve-source.ts` with `resolveSource(input: string)` — pipeline: `determineSourceInput` → match on discriminator → merge config for git hosting types, passthrough for git/local/registry
+- [x] 2.3 Run `pnpm typecheck` and fix any errors
+- [x] 2.4 Write tests for multi-config matching by URL hostname: URL input matches correct config, SCP input matches by hostname, no matching hostname fails
+- [x] 2.5 Implement multi-config URL/SCP hostname matching in `resolveSource` — compare parsed hostname against hostnames derived from each config's `url` field
+- [x] 2.6 Run `pnpm typecheck` and fix any errors
+- [x] 2.7 Write tests for config-name shorthand: two-phase parse for config-name prefix (e.g., `ghe:owner/repo`), standard shorthand still works, unknown prefix fails, source-type prefix selects first config when multiple exist
+- [x] 2.8 Implement two-phase parse in `resolveSource` — on `determineSourceInput` failure, check if prefix before `:` matches a config name, re-parse using that config's source type descriptor
+- [x] 2.9 Run `pnpm typecheck` and fix any errors
+- [x] 2.10 Export `resolveSource` from `sources/index.ts` barrel
+- [x] 2.11 Run `pnpm lint` and fix any errors
+- [x] 2.12 Run `pnpm test` and fix any failures
+- [x] 2.13 Run `pnpm test:e2e` and fix any failures
+- [x] 2.14 Kill any vitest worker processes
 
 ## 3. `buildCloneUrl` Update
 

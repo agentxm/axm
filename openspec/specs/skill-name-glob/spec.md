@@ -55,9 +55,37 @@ The glob expansion SHALL only support `*` as a wildcard character. All other cha
 
 ### Requirement: Case-sensitive matching
 
-Glob matching SHALL be case-sensitive. Patterns SHALL match against skill names exactly as stored in the lockfile.
+Glob matching SHALL be case-sensitive. Patterns SHALL match against skill names exactly as stored.
 
 #### Scenario: Case mismatch does not match
 
 - **WHEN** the pattern is `Effect-*` and the skill names are `["effect-basics", "Effect-Basics"]`
 - **THEN** the result SHALL be `["Effect-Basics"]`
+
+### Requirement: Shared module location
+
+The `expandGlob` function SHALL be located in a shared module accessible to install, fork, and uninstall commands. It SHALL NOT be nested under any single command's directory.
+
+#### Scenario: Multiple consumers import from shared location
+
+- **WHEN** the install, fork, and uninstall handlers need glob expansion
+- **THEN** all three SHALL import `expandGlob` from the same shared module path
+
+### Requirement: Multi-pattern expansion
+
+A helper function `expandGlobs` SHALL accept multiple patterns and a list of skill names, returning the union of all matches (deduplicated, preserving original order).
+
+#### Scenario: Multiple patterns produce union of matches
+
+- **WHEN** patterns are `["effect-*", "commit"]` and skill names are `["effect-basics", "effect-stream", "commit", "testing-unit"]`
+- **THEN** the result SHALL be `["effect-basics", "effect-stream", "commit"]`
+
+#### Scenario: Overlapping patterns do not produce duplicates
+
+- **WHEN** patterns are `["effect-*", "effect-basics"]` and skill names are `["effect-basics", "effect-stream"]`
+- **THEN** the result SHALL be `["effect-basics", "effect-stream"]` (no duplicate `effect-basics`)
+
+#### Scenario: Empty patterns array returns empty result
+
+- **WHEN** patterns is `[]` and skill names are `["effect-basics", "commit"]`
+- **THEN** the result SHALL be `[]`

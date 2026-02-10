@@ -84,7 +84,7 @@ export const determineSkillsToInstall = (
 /**
  * Prompts the user to select which skills to install from a list.
  *
- * Shows a multiselect prompt with all skills pre-selected.
+ * Shows a multiselect prompt with no skills pre-selected.
  * Maps prompt errors to `InstallError`.
  */
 export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<SkillRef>) =>
@@ -100,7 +100,7 @@ export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<Skill
           label: s.skill.name,
           hint: Option.some(s.skill.description),
         }),
-        initialValues: Option.some(Array.map(skills, (s) => s.skill.name)),
+        initialValues: Option.none(),
         required: Option.some(true),
       })
       .pipe(

@@ -140,7 +140,7 @@ describe("resolveSource", () => {
   describe("git passthrough", () => {
     it.effect("git SCP address for unknown host passes through as git source", () =>
       Effect.gen(function* () {
-        // git@example.com:owner/repo.git would fail in determineSourceInput
+        // git@example.com:owner/repo.git would fail in parseSourceInput
         // since example.com is not a known host. This should fail with ParseError.
         const error = yield* Effect.flip(resolve("git@example.com:owner/repo.git"));
         expect(error).toBeInstanceOf(ParseError);
@@ -250,7 +250,7 @@ describe("resolveSource", () => {
     it.effect("fails with ambiguous error when URL hostname matches no config", () =>
       Effect.gen(function* () {
         // URL with hostname that doesn't match any config
-        // But determineSourceInput will parse it — the hostname won't match
+        // But parseSourceInput will parse it — the hostname won't match
         // any config. This should fail.
         const sources: ReadonlyArray<SourceConfig> = [
           { name: "ghe1", source: "github", url: new URL("https://github.acme.com") },

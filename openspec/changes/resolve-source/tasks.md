@@ -6,13 +6,13 @@
 
 Update the `Source` type definitions in `types.ts` to simplify `RegistrySource` and ensure `Source` types are ready for downstream use.
 
-- [ ] 1.1 Simplify `RegistrySource` type in `sources/types.ts`: change from `RegistrySourceInput & RegistrySourceConfig` to `RegistrySourceInput`
-- [ ] 1.2 Audit all usages of `RegistrySource` type across the codebase and fix any compile errors from the simplified type
-- [ ] 1.3 Run `pnpm typecheck` and fix any errors
-- [ ] 1.4 Run `pnpm lint` and fix any errors
-- [ ] 1.5 Run `pnpm test` and fix any failures
-- [ ] 1.6 Run `pnpm test:e2e` and fix any failures
-- [ ] 1.7 Kill any vitest worker processes
+- [x] 1.1 Simplify `RegistrySource` type in `sources/types.ts`: change from `RegistrySourceInput & RegistrySourceConfig` to `RegistrySourceInput`
+- [x] 1.2 Audit all usages of `RegistrySource` type across the codebase and fix any compile errors from the simplified type
+- [x] 1.3 Run `pnpm typecheck` and fix any errors
+- [x] 1.4 Run `pnpm lint` and fix any errors
+- [x] 1.5 Run `pnpm test` and fix any failures
+- [x] 1.6 Run `pnpm test:e2e` and fix any failures
+- [x] 1.7 Kill any vitest worker processes
 
 ## 2. Core `resolveSource` Function
 

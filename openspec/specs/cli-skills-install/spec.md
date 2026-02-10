@@ -17,3 +17,9 @@ The install handler SHALL use WorkspaceContext for initialization and workspace 
 - **WHEN** `resolvePlan` returns the applied plan
 - **THEN** the handler SHALL NOT iterate over steps to display success or error messages
 - **AND** result display SHALL be handled entirely by `resolvePlan` via `displayPlan`
+
+#### Scenario: Skill filter applied before plan building
+
+- **WHEN** `--skill` flags are provided (exact names or glob patterns)
+- **THEN** the handler SHALL filter discovered skills using `expandGlob` before calling `determineSkillsToInstall`
+- **AND** only matched skills SHALL be passed to the selection and plan building stages

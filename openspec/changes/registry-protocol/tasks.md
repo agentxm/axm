@@ -233,16 +233,16 @@ Depends on: Phase 12 (install handler migration establishes new canonical locati
 
 Depends on: Phase 6 (SourceInput, SkillRef evolution).
 
-- [ ] 14.1 Define `ForkSkillArgs` and `ForkSkillOperation` types in `operations.ts`
-- [ ] 14.2 Define `PublishSkillArgs` and `PublishSkillOperation` types in `operations.ts`
-- [ ] 14.3 Implement `forkSkill` operation executor — copy source files to `.axm/extensions/@<scope>/skills/<name>/`, generate `axm-skill.json` manifest with defaults (version `0.1.0`, agents from settings, empty dependencies)
-- [ ] 14.4 Implement `publishSkill` operation executor — read manifest, build zip, compute SHA-256, call `provider.publishVersion`, handle idempotency
-- [ ] 14.5 Write tests for `forkSkill` executor — file copy, manifest generation, default values
-- [ ] 14.6 Write tests for `publishSkill` executor — archive creation, checksum computation, index creation/update, idempotency (same checksum no-op, different checksum error)
-- [ ] 14.7 Run `pnpm typecheck` and fix any errors
-- [ ] 14.8 Run `pnpm lint` and fix any errors
-- [ ] 14.9 Run `pnpm test` and fix any failures
-- [ ] 14.10 Kill any vitest worker processes
+- [x] 14.1 Define `ForkSkillArgs` and `ForkSkillOperation` types in `operations.ts`
+- [x] 14.2 Define `PublishSkillArgs` and `PublishSkillOperation` types in `operations.ts`
+- [x] 14.3 Implement `forkSkill` operation executor — copy source files to `.axm/extensions/@<scope>/skills/<name>/`, generate `axm-skill.json` manifest with defaults (version `0.1.0`, agents from settings, empty dependencies)
+- [x] 14.4 Implement `publishSkill` operation executor — read manifest, build zip, compute SHA-256, call `provider.publishVersion`, handle idempotency
+- [x] 14.5 Write tests for `forkSkill` executor — file copy, manifest generation, default values
+- [x] 14.6 Write tests for `publishSkill` executor — archive creation, checksum computation, index creation/update, idempotency (same checksum no-op, different checksum error)
+- [x] 14.7 Run `pnpm typecheck` and fix any errors
+- [x] 14.8 Run `pnpm lint` and fix any errors
+- [x] 14.9 Run `pnpm test` and fix any failures
+- [x] 14.10 Kill any vitest worker processes
 
 ## 15. Skills fork command
 
@@ -250,16 +250,16 @@ Depends on: Phase 6 (SourceInput, SkillRef evolution).
 
 Depends on: Phase 8 (SourceProviders), Phase 11 (registry guard), Phase 14 (fork/publish operations).
 
-- [ ] 15.1 Create `commands/skills/fork/command.ts` — yargs definition with source argument, `--yes`/`--preview` flags
-- [ ] 15.2 Create `commands/skills/fork/handler.ts` — registry guard, resolve input (glob/installed/source), scope resolution, uniqueness check, build plan with 3 sequential ops (fork → publish → install), execute via `resolvePlan`
-- [ ] 15.3 Register fork subcommand under `skills` command
-- [ ] 15.4 Write command parsing tests for `skills fork`
-- [ ] 15.5 Write handler tests — single skill fork flow, glob-based batch fork, scope resolution, uniqueness collision prompt
-- [ ] 15.6 Run `pnpm typecheck` and fix any errors
-- [ ] 15.7 Run `pnpm lint` and fix any errors
-- [ ] 15.8 Run `pnpm test` and fix any failures
-- [ ] 15.9 Run `pnpm test:e2e` and fix any failures
-- [ ] 15.10 Kill any vitest worker processes
+- [x] 15.1 Create `commands/skills/fork/command.ts` — yargs definition with source argument, `--yes`/`--preview` flags
+- [x] 15.2 Create `commands/skills/fork/handler.ts` — registry guard, resolve input (glob/installed/source), scope resolution, uniqueness check, build plan with 2 sequential ops (fork → publish), post-plan lockfile + symlinks update, execute via `resolvePlan`
+- [x] 15.3 Register fork subcommand under `skills` command
+- [x] 15.4 Write command parsing tests for `skills fork`
+- [x] 15.5 Write handler tests — single skill fork flow, glob-based batch fork, scope resolution, fork from local source
+- [x] 15.6 Run `pnpm typecheck` and fix any errors
+- [x] 15.7 Run `pnpm lint` and fix any errors
+- [x] 15.8 Run `pnpm test` and fix any failures
+- [x] 15.9 Run `pnpm test:e2e` and fix any failures
+- [x] 15.10 Kill any vitest worker processes
 
 ## 16. Skills publish command
 
@@ -267,16 +267,16 @@ Depends on: Phase 8 (SourceProviders), Phase 11 (registry guard), Phase 14 (fork
 
 Depends on: Phase 11 (registry guard), Phase 14 (publish operation).
 
-- [ ] 16.1 Create `commands/skills/publish/command.ts` — yargs definition with extension argument, `--registry` flag, `--yes`/`--preview` flags
-- [ ] 16.2 Create `commands/skills/publish/handler.ts` — registry guard, scope resolution for bare names, validate managed extension exists, build `PublishSkillOperation`, execute via `resolvePlan`
-- [ ] 16.3 Register publish subcommand under `skills` command
-- [ ] 16.4 Write command parsing tests for `skills publish`
-- [ ] 16.5 Write handler tests — publish with explicit registry, default registry, bare name scope resolution, missing manifest error, non-managed skill error
-- [ ] 16.6 Run `pnpm typecheck` and fix any errors
-- [ ] 16.7 Run `pnpm lint` and fix any errors
-- [ ] 16.8 Run `pnpm test` and fix any failures
-- [ ] 16.9 Run `pnpm test:e2e` and fix any failures
-- [ ] 16.10 Kill any vitest worker processes
+- [x] 16.1 Create `commands/skills/publish/command.ts` — yargs definition with extension argument, `--registry` flag, `--yes`/`--preview` flags
+- [x] 16.2 Create `commands/skills/publish/handler.ts` — registry guard, scope resolution for bare names, validate managed extension exists, build `PublishSkillOperation`, execute via `resolvePlan`
+- [x] 16.3 Register publish subcommand under `skills` command
+- [x] 16.4 Write command parsing tests for `skills publish`
+- [x] 16.5 Write handler tests — publish with explicit registry, default registry, bare name scope resolution, missing manifest error, non-managed skill error
+- [x] 16.6 Run `pnpm typecheck` and fix any errors
+- [x] 16.7 Run `pnpm lint` and fix any errors
+- [x] 16.8 Run `pnpm test` and fix any failures
+- [x] 16.9 Run `pnpm test:e2e` and fix any failures
+- [x] 16.10 Kill any vitest worker processes
 
 ## 17. E2E tests
 
@@ -284,10 +284,10 @@ Depends on: Phase 11 (registry guard), Phase 14 (publish operation).
 
 Depends on: all previous phases.
 
-- [ ] 17.1 Write E2E test: `skills install` from a local registry (set up temp registry with published extension, install, verify files in `.axm/extensions/`, verify lockfile with `resolvedVersion`/`checksum`/`sourceName`)
-- [ ] 17.2 Write E2E test: `skills fork` from an installed skill (install from git, fork to local registry, verify managed extension in `.axm/extensions/`, verify published in registry, verify re-installed from registry)
-- [ ] 17.3 Write E2E test: `skills publish` to a local registry (set up managed extension, publish, verify archive and index.json in registry)
-- [ ] 17.4 Write E2E test: `skills uninstall` for a registry-sourced skill (install from registry, uninstall, verify cleanup from `.axm/extensions/`)
-- [ ] 17.5 Write E2E test: registry guard prompts when no registry configured (verify settings persisted after guard)
-- [ ] 17.6 Run `pnpm test:e2e` and fix any failures
-- [ ] 17.7 Kill any vitest worker processes
+- [x] 17.1 Write E2E test: `skills install` from a local registry (set up temp registry with published extension, install, verify files in `.axm/extensions/`, verify lockfile with `resolvedVersion`/`checksum`/`sourceName`)
+- [x] 17.2 Write E2E test: `skills fork` from an installed skill (install from git, fork to local registry, verify managed extension in `.axm/extensions/`, verify published in registry, verify re-installed from registry)
+- [x] 17.3 Write E2E test: `skills publish` to a local registry (set up managed extension, publish, verify archive and index.json in registry)
+- [x] 17.4 Write E2E test: `skills uninstall` for a registry-sourced skill (install from registry, uninstall, verify cleanup from `.axm/extensions/`)
+- [x] 17.5 Write E2E test: registry guard prompts when no registry configured (verify settings persisted after guard)
+- [x] 17.6 Run `pnpm test:e2e` and fix any failures
+- [x] 17.7 Kill any vitest worker processes

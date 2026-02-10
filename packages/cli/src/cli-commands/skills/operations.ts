@@ -69,3 +69,47 @@ export interface UninstallSkillArgs {
  * @experimental This API is unstable and may change without notice.
  */
 export type UninstallSkillOperation = Operation<"uninstall-skill", UninstallSkillArgs>;
+
+/**
+ * Args for the fork-skill operation.
+ *
+ * Copies source files to `.axm/extensions/@<scope>/skills/<name>/`
+ * and generates an `axm-skill.json` manifest.
+ */
+export type ForkSkillArgs = {
+  /** Where to fork from (the source skill's files). */
+  readonly source: SourceInput;
+  /** Target identity in `@scope/name` format. */
+  readonly targetName: string;
+  /** Agent compatibility list for the generated manifest. */
+  readonly agents: ReadonlyArray<string>;
+  /** Location of the source skill files (file:// URL). */
+  readonly location: string;
+};
+
+/**
+ * Fork a skill into a managed extension.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type ForkSkillOperation = Operation<"fork-skill", ForkSkillArgs>;
+
+/**
+ * Args for the publish-skill operation.
+ *
+ * Reads the manifest from `.axm/extensions/`, builds a zip archive,
+ * computes the SHA-256 checksum, and publishes to the target registry.
+ */
+export type PublishSkillArgs = {
+  /** Extension identity in `@scope/name` format. */
+  readonly name: string;
+  /** Named source to publish to (e.g. "local"). */
+  readonly registryName: string;
+};
+
+/**
+ * Publish a managed extension to a registry.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type PublishSkillOperation = Operation<"publish-skill", PublishSkillArgs>;

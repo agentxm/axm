@@ -201,17 +201,17 @@ Depends on: Phase 5 (workspace getRegistrySources, addSource).
 
 Depends on: Phase 8 (SourceProviders service), Phase 9 (lockfile evolution), Phase 11 (registry guard).
 
-- [ ] 12.1 Refactor `skills install` handler to use `SourceProviders` service — `yield* SourceProviders`, call `sources.resolve()` and `sources.fetch()`
-- [ ] 12.2 Add registry guard call when `source.source === "registry"`
-- [ ] 12.3 Update `installSkill` operation executor — conditional canonical path (`.axm/extensions/` for registry, `.agents/skills/` for others), pre-clean from all known locations, registry lockfile fields (`checksum`, `resolvedVersion`, `sourceName`)
-- [ ] 12.4 Remove `discover-skills.ts` — discovery logic now lives in source provider implementations
-- [ ] 12.5 Update install handler tests for SourceProviders integration
-- [ ] 12.6 Update `installSkill` executor tests for conditional path and registry lockfile fields
-- [ ] 12.7 Run `pnpm typecheck` and fix any errors
-- [ ] 12.8 Run `pnpm lint` and fix any errors
-- [ ] 12.9 Run `pnpm test` and fix any failures
-- [ ] 12.10 Run `pnpm test:e2e` and fix any failures
-- [ ] 12.11 Kill any vitest worker processes
+- [x] 12.1 Refactor `skills install` handler to use `SourceProviders` service — `yield* SourceProviders`, call `sources.resolve()` and `sources.fetch()`
+- [x] 12.2 Add registry guard call when `source.source === "registry"`
+- [x] 12.3 Update `installSkill` operation executor — conditional canonical path (`.axm/extensions/` for registry, `.agents/skills/` for others), pre-clean from all known locations, registry lockfile fields (`checksum`, `resolvedVersion`, `sourceName`)
+- [x] 12.4 Remove `discover-skills.ts` — discovery logic now lives in source provider implementations
+- [x] 12.5 Update install handler tests for SourceProviders integration
+- [x] 12.6 Update `installSkill` executor tests for conditional path and registry lockfile fields
+- [x] 12.7 Run `pnpm typecheck` and fix any errors
+- [x] 12.8 Run `pnpm lint` and fix any errors
+- [x] 12.9 Run `pnpm test` and fix any failures
+- [x] 12.10 Run `pnpm test:e2e` and fix any failures
+- [x] 12.11 Kill any vitest worker processes
 
 ## 13. Uninstall handler update
 
@@ -219,13 +219,13 @@ Depends on: Phase 8 (SourceProviders service), Phase 9 (lockfile evolution), Pha
 
 Depends on: Phase 12 (install handler migration establishes new canonical locations).
 
-- [ ] 13.1 Update `skills uninstall` handler — read lockfile entry's `source` to determine cleanup location (`.axm/extensions/` for registry, `.agents/skills/` for others)
-- [ ] 13.2 Update uninstall handler tests
-- [ ] 13.3 Run `pnpm typecheck` and fix any errors
-- [ ] 13.4 Run `pnpm lint` and fix any errors
-- [ ] 13.5 Run `pnpm test` and fix any failures
-- [ ] 13.6 Run `pnpm test:e2e` and fix any failures
-- [ ] 13.7 Kill any vitest worker processes
+- [x] 13.1 Update `skills uninstall` handler — read lockfile entry's `source` to determine cleanup location (`.axm/extensions/` for registry, `.agents/skills/` for others)
+- [x] 13.2 Update uninstall handler tests
+- [x] 13.3 Run `pnpm typecheck` and fix any errors
+- [x] 13.4 Run `pnpm lint` and fix any errors
+- [x] 13.5 Run `pnpm test` and fix any failures
+- [x] 13.6 Run `pnpm test:e2e` and fix any failures
+- [x] 13.7 Kill any vitest worker processes
 
 ## 14. New operation types (ForkSkill + PublishSkill)
 

@@ -7,9 +7,8 @@
  * 3. Scope resolution
  * 4. Discover skills via SourceProviders
  * 5. Filter by --skill globs (if provided)
- * 6. Build plan: fork → publish (sequential)
+ * 6. Build plan: fork → publish → install (sequential)
  * 7. Execute via resolvePlan
- * 8. Post-plan: update lockfile + create agent symlinks
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -26,18 +25,20 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Log, Spinner } from "../../../tui/index.js";
-import { LockfileService } from "../../../lockfile/index.js";
 import { SettingsService } from "../../../settings/index.js";
 import { formatError } from "../../../utils/errors.js";
 import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
-import type { ForkSkillOperation, PublishSkillOperation } from "../operations.js";
+import type {
+  ForkSkillOperation,
+  InstallSkillOperation,
+  InstallSkillOperationArgs,
+  PublishSkillOperation,
+} from "../operations.js";
 import { forkSkill } from "../fork-skill.js";
+import { installSkill } from "../install/install-skill.js";
 import { publishSkill } from "../publish-skill.js";
-import { sourceToLockEntry } from "../source-to-lock-entry.js";
 import { expandGlobs } from "../../../skills/index.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
-import { createSymlink } from "../../../utils/create-symlink.js";
-import { getAgentById } from "../../../agents/registry.js";
 import type { SkillRef } from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
@@ -56,7 +57,7 @@ export interface ForkHandlerArgs {
   readonly yes: boolean;
 }
 
-type ForkOp = ForkSkillOperation | PublishSkillOperation;
+type ForkOp = ForkSkillOperation | PublishSkillOperation | InstallSkillOperation;
 
 // -----------------------------------------------------------------------------
 // Errors
@@ -66,8 +67,6 @@ export class ForkError extends Data.TaggedError("ForkError")<{
   readonly message: string;
   readonly cause: unknown;
 }> {}
-
-const REGISTRY_EXTENSIONS_DIR = ".axm/extensions";
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -198,9 +197,22 @@ export const handleFork = (args: ForkHandlerArgs) =>
     }
     const registryName = registrySources[0]!.name;
 
-    // Step 7: Build plan — fork + publish per skill (2 sequential ops)
+    // Step 7: Build plan — fork + publish + install per skill (3 sequential ops)
     const steps: ReadonlyArray<PlannedJobStep<ForkOp>> = Array.flatMap(filtered, (ref) => {
       const targetName = `${scope}/${ref.skill.name}`;
+      const installArgs: InstallSkillOperationArgs = {
+        source: { source: "registry" },
+        agents: [...agentIds],
+        force: true,
+        skill: {
+          name: ref.skill.name,
+          description: ref.skill.description,
+          metadata: ref.skill.metadata,
+        },
+        location: "file://" + path.join(base, ".axm/extensions", scope, "skills", ref.skill.name),
+        version: Option.some("0.1.0"),
+        gitTreeSha: Option.none(),
+      };
       return [
         {
           _tag: "PlannedJobStep" as const,
@@ -234,6 +246,15 @@ export const handleFork = (args: ForkHandlerArgs) =>
           expectedResult: { result: "success", message: `Published ${targetName}` },
           label: `Publish ${targetName}`,
         },
+        {
+          _tag: "PlannedJobStep" as const,
+          operation: {
+            name: "install-skill",
+            args: installArgs,
+          } satisfies InstallSkillOperation,
+          expectedResult: { result: "success", message: `Installed ${ref.skill.name}` },
+          label: `Install ${ref.skill.name}`,
+        },
       ];
     });
 
@@ -246,73 +267,8 @@ export const handleFork = (args: ForkHandlerArgs) =>
     yield* ws.resolvePlan(plan, {
       "fork-skill": forkSkill,
       "publish-skill": publishSkill,
+      "install-skill": installSkill,
     });
-
-    // Step 8: Post-plan — update lockfile + create agent symlinks
-    // Done outside the plan because installSkill's pre-clean would delete
-    // the managed extension directory that the fork step just created.
-    const ls = yield* LockfileService;
-
-    yield* Effect.forEach(
-      filtered,
-      (ref) =>
-        Effect.gen(function* () {
-          const targetName = `${scope}/${ref.skill.name}`;
-          const canonicalPath = path.join(
-            base,
-            REGISTRY_EXTENSIONS_DIR,
-            scope,
-            "skills",
-            ref.skill.name,
-          );
-
-          // Update lockfile
-          yield* ls
-            .updateEntry(
-              ref.skill.name,
-              sourceToLockEntry({
-                source: { source: "registry" },
-                agents: [...agentIds],
-                gitTreeSha: Option.none(),
-                now: new Date(),
-                registry: {
-                  scope,
-                  name: ref.skill.name,
-                  resolvedVersion: "0.1.0",
-                  checksum: "",
-                  sourceName: registryName,
-                },
-              }),
-            )
-            .pipe(Effect.catchAll(() => Effect.void));
-
-          // Create agent symlinks
-          yield* Effect.forEach(
-            agentIds,
-            (agentId) =>
-              Effect.gen(function* () {
-                const maybeAgent = getAgentById(agentId);
-                if (Option.isNone(maybeAgent)) return;
-                const agent = maybeAgent.value;
-
-                const agentSkillPath = path.join(base, agent.skills.dir, ref.skill.name);
-
-                // Self-reference: agent's skills.dir resolves to canonical location → skip symlink
-                const agentSkillsDir = path.resolve(base, agent.skills.dir);
-                const canonicalSkillsDir = path.resolve(base, ".agents/skills");
-                if (agentSkillsDir === canonicalSkillsDir) return;
-
-                yield* createSymlink({ target: canonicalPath, link: agentSkillPath }).pipe(
-                  Effect.catchAll(() => Effect.void),
-                );
-              }),
-            { concurrency: "unbounded" },
-          );
-
-          yield* log.info(`Installed ${targetName}`);
-        }),
-      { concurrency: 1 },
-    );
 
     yield* log.success("Done");
   });

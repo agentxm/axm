@@ -167,6 +167,12 @@ describe("fork.handler", () => {
             "index.json",
           );
           expect(fs.existsSync(registryIndexPath)).toBe(true);
+
+          // install-skill step should have added the skill to settings.json
+          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+          expect(settings.skills).toBeDefined();
+          expect(settings.skills.commit).toBe("registry");
         }),
       );
     });

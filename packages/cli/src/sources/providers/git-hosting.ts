@@ -21,7 +21,7 @@ import { getTreeSha, shallowClone } from "../../git/index.js";
 import { buildCloneUrl } from "../clone-url.js";
 import { SourceError } from "../provider.js";
 import type { ExtensionRef, FindOptions, SkillRef, SourceProvider } from "../provider.js";
-import type { BitbucketSourceInput, GitHubSourceInput, GitLabSourceInput } from "../types.js";
+import type { BitbucketSource, GitHubSource, GitLabSource } from "../types.js";
 
 // -----------------------------------------------------------------------------
 // Factory
@@ -38,7 +38,7 @@ import type { BitbucketSourceInput, GitHubSourceInput, GitLabSourceInput } from 
  * @experimental This API is unstable and may change without notice.
  */
 export const createGitHostingProvider = <
-  S extends GitHubSourceInput | GitLabSourceInput | BitbucketSourceInput,
+  S extends GitHubSource | GitLabSource | BitbucketSource,
 >(
   sourceType: S["source"],
 ): SourceProvider<S, FileSystem.FileSystem | Path.Path | Scope.Scope> => ({
@@ -171,14 +171,14 @@ const filterByOptions = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createGitHubProvider = () => createGitHostingProvider<GitHubSourceInput>("github");
+export const createGitHubProvider = () => createGitHostingProvider<GitHubSource>("github");
 
 /**
  * Source provider for GitLab repositories.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createGitLabProvider = () => createGitHostingProvider<GitLabSourceInput>("gitlab");
+export const createGitLabProvider = () => createGitHostingProvider<GitLabSource>("gitlab");
 
 /**
  * Source provider for Bitbucket repositories.
@@ -186,4 +186,4 @@ export const createGitLabProvider = () => createGitHostingProvider<GitLabSourceI
  * @experimental This API is unstable and may change without notice.
  */
 export const createBitbucketProvider = () =>
-  createGitHostingProvider<BitbucketSourceInput>("bitbucket");
+  createGitHostingProvider<BitbucketSource>("bitbucket");

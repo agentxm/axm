@@ -46,25 +46,25 @@ The settings service SHALL be documented as an internal implementation detail of
 
 **Reason**: Source operations (`getSources`, `getSourceByName`, `getRegistrySources`, `addSource`) are already implemented directly on the workspace service and were never actually routed through `SettingsService`. Removing these from the settings-service spec to reflect reality.
 
-**Migration**: Use `Workspace.getSources()`, `Workspace.getSourceByName()`, `Workspace.getRegistrySources()`, `Workspace.addSource()` (no change — these already exist on workspace).
+**Migration**: Use `Workspace.getConfiguredSources()`, `Workspace.getConfiguredSourceByName()`, `Workspace.getConfiguredRegistrySources()`, `Workspace.addConfiguredSource()` (no change — these already exist on workspace, renamed to follow naming convention).
 
 ### Requirement: Settings service provides getSourceByName query
 
 **Reason**: Already implemented on workspace service, not settings service.
 
-**Migration**: Use `Workspace.getSourceByName()`.
+**Migration**: Use `Workspace.getConfiguredSourceByName()`.
 
 ### Requirement: Settings service provides getRegistrySources query
 
 **Reason**: Already implemented on workspace service, not settings service.
 
-**Migration**: Use `Workspace.getRegistrySources()`.
+**Migration**: Use `Workspace.getConfiguredRegistrySources()`.
 
 ### Requirement: Settings service provides addSource mutation
 
 **Reason**: Already implemented on workspace service, not settings service.
 
-**Migration**: Use `Workspace.addSource()`.
+**Migration**: Use `Workspace.addConfiguredSource()`.
 
 ### Requirement: Settings schema evolves sources field
 

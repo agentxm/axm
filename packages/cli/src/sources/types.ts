@@ -15,7 +15,6 @@ import type {
   BitbucketSourceConfig,
   GitHubSourceConfig,
   GitLabSourceConfig,
-  RegistrySourceConfig,
 } from "../settings/schema.js";
 
 // -----------------------------------------------------------------------------
@@ -249,7 +248,7 @@ export type GitHubSource = GitHubSourceInput & GitHubSourceConfig;
 export type GitLabSource = GitLabSourceInput & GitLabSourceConfig;
 export type BitbucketSource = BitbucketSourceInput & BitbucketSourceConfig;
 export type AzureReposSource = AzureReposSourceInput & AzureReposSourceConfig;
-export type RegistrySource = RegistrySourceInput & RegistrySourceConfig;
+export type RegistrySource = RegistrySourceInput;
 export type GitRepositorySource = GitRepositorySourceInput;
 export type LocalSource = LocalSourceInput;
 

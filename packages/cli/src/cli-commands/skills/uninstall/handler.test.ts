@@ -25,8 +25,6 @@ import {
   makeMultiselectTestLayer,
   makeSelectTestLayer,
 } from "../../../tui/index.js";
-import { LockfileService, LockfileServiceLive } from "../../../lockfile/index.js";
-import { SettingsService, SettingsServiceLive } from "../../../settings/index.js";
 import {
   WorkspaceContextTag,
   layer as workspaceLayer,
@@ -45,7 +43,17 @@ const initWorkspace = (
   agents: string[] = ["claude-code"],
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
-  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify({ agents }));
+  // Build settings skills map so removeSkill can find them
+  const settingsSkills: Record<string, string> = {};
+  for (const name of Object.keys(lockfileSkills)) {
+    const entry = lockfileSkills[name] as { source?: string };
+    settingsSkills[name] = entry?.source ?? "local";
+  }
+  const settings: Record<string, unknown> = { agents };
+  if (Object.keys(settingsSkills).length > 0) {
+    settings["skills"] = settingsSkills;
+  }
+  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
     YAML.stringify({ lockfileVersion: 1, skills: lockfileSkills }),
@@ -126,9 +134,7 @@ describe("uninstall.handler", () => {
       ...wsOverrides,
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
-    const SSLayer = Layer.provide(SettingsServiceLive, Layer.merge(BaseLayer, WsLayer));
-    const LSLayer = Layer.provide(LockfileServiceLive, Layer.merge(BaseLayer, WsLayer));
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SSLayer, LSLayer);
+    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
 
     const provide = <A, E>(
       effect: Effect.Effect<
@@ -141,8 +147,6 @@ describe("uninstall.handler", () => {
         | Select
         | Multiselect
         | WorkspaceContextTag
-        | SettingsService
-        | LockfileService
       >,
     ) => effect.pipe(Effect.provide(FullLayer));
 

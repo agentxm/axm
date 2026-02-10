@@ -15,7 +15,7 @@ import * as Option from "effect/Option";
 import { pipe } from "effect/Function";
 import { type AgentConfig, getAgentById } from "../agents/index.js";
 import { Confirm, Log } from "../tui/index.js";
-import { SettingsService } from "../settings/index.js";
+import { Workspace } from "./service.js";
 import { isInteractive } from "../utils/tty.js";
 
 // -----------------------------------------------------------------------------
@@ -73,7 +73,7 @@ export interface EnsureAgentsOptions {
 export const ensureAgentsConfigured = (opts: EnsureAgentsOptions) =>
   Effect.gen(function* () {
     const log = yield* Log;
-    const ss = yield* SettingsService;
+    const ws = yield* Workspace;
 
     let agents: AgentConfig[];
 
@@ -95,7 +95,7 @@ export const ensureAgentsConfigured = (opts: EnsureAgentsOptions) =>
 
       // Check which agents are not yet in settings
       if (agents.length > 0) {
-        const settingsAgents = yield* ss.getAgents();
+        const settingsAgents = yield* ws.getConfiguredAgents();
         const unconfigured = Array.filter(agents, (a) => !settingsAgents.includes(a.id));
 
         if (unconfigured.length > 0) {
@@ -113,7 +113,7 @@ export const ensureAgentsConfigured = (opts: EnsureAgentsOptions) =>
           }
 
           if (shouldAdd) {
-            yield* Effect.forEach(unconfigured, (a) => ss.addAgent(a.id)).pipe(
+            yield* Effect.forEach(unconfigured, (a) => ws.addConfiguredAgent(a.id)).pipe(
               Effect.catchAll(() => Effect.void),
             );
           }
@@ -121,7 +121,7 @@ export const ensureAgentsConfigured = (opts: EnsureAgentsOptions) =>
       }
     } else {
       // Resolve from settings
-      const settingsAgents = yield* ss.getAgents();
+      const settingsAgents = yield* ws.getConfiguredAgents();
       agents = pipe(
         settingsAgents,
         Array.map((id) => getAgentById(id)),

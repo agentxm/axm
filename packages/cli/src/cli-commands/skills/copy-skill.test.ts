@@ -19,11 +19,18 @@ const withServices = (axmDir: string) => {
     nonInteractive: true,
     preview: false,
     resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
-    getSources: () => Effect.succeed([]),
-    getSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySources: () => Effect.succeed([]),
-    getScope: () => Effect.succeed("@community"),
-    addSource: () => Effect.void,
+    getConfiguredSources: () => Effect.succeed([]),
+    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
+    getConfiguredRegistrySources: () => Effect.succeed([]),
+    getConfiguredScope: () => Effect.succeed("@community"),
+    addConfiguredSource: () => Effect.void,
+    getInstalledSkills: () => Effect.succeed({}),
+    getConfiguredAgents: () => Effect.succeed([]),
+    getLockedSkills: () => Effect.succeed({}),
+    getLockedSkill: () => Effect.succeed(Option.none()),
+    setSkill: () => Effect.void,
+    removeSkill: () => Effect.void,
+    addConfiguredAgent: () => Effect.void,
   };
   return Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs));
 };

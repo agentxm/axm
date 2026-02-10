@@ -168,7 +168,7 @@ export const publishSkill: OperationHandler<
     const checksum = yield* computeChecksum(archive);
 
     // Resolve target registry source
-    const registrySource = yield* ws.getSourceByName(op.args.registryName).pipe(
+    const registrySource = yield* ws.getConfiguredSourceByName(op.args.registryName).pipe(
       Effect.mapError(
         (e) =>
           new OperationError({

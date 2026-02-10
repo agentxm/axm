@@ -12,8 +12,8 @@ import { buildCloneUrl, getOrigin } from "./clone-url.js";
 import { ParseError } from "./errors.js";
 import { type InputPattern, parseInputPattern, determineSourceInput } from "./parser.js";
 import { printSource } from "./printer.js";
-import { LockfileService } from "../lockfile/index.js";
 import type { SkillLockEntry, SkillsLockMap } from "../lockfile/index.js";
+import { WorkspaceContextTag as Workspace } from "../workspace/index.js";
 
 // -----------------------------------------------------------------------------
 // Test helpers
@@ -21,25 +21,22 @@ import type { SkillLockEntry, SkillsLockMap } from "../lockfile/index.js";
 
 const now = new Date();
 
-/** Create a mock LockfileService layer with the given skills map. */
-const makeLockfileLayer = (skills: SkillsLockMap) =>
-  Layer.succeed(LockfileService, {
-    getSkills: () => Effect.succeed(skills),
-    getEntry: (name) => Effect.succeed(Option.fromNullable(skills[name])),
-    updateEntry: () => Effect.void,
-    removeEntry: () => Effect.void,
-  });
+/** Create a mock Workspace layer with the given skills map. */
+const makeWorkspaceLayer = (skills: SkillsLockMap) =>
+  Layer.succeed(Workspace, {
+    getLockedSkills: () => Effect.succeed(skills),
+  } as unknown as Workspace["Type"]);
 
-/** Empty lockfile layer for tests that don't exercise NameInput. */
-const EmptyLockfileLayer = makeLockfileLayer({});
+/** Empty workspace layer for tests that don't exercise NameInput. */
+const EmptyWorkspaceLayer = makeWorkspaceLayer({});
 
-/** Helper: provide the empty lockfile layer for determineSourceInput calls. */
+/** Helper: provide the empty workspace layer for determineSourceInput calls. */
 const determine = (input: string) =>
-  determineSourceInput(input).pipe(Effect.provide(EmptyLockfileLayer));
+  determineSourceInput(input).pipe(Effect.provide(EmptyWorkspaceLayer));
 
-/** Helper: provide a specific lockfile layer for determineSourceInput calls. */
+/** Helper: provide a specific workspace layer for determineSourceInput calls. */
 const determineWith = (input: string, skills: SkillsLockMap) =>
-  determineSourceInput(input).pipe(Effect.provide(makeLockfileLayer(skills)));
+  determineSourceInput(input).pipe(Effect.provide(makeWorkspaceLayer(skills)));
 
 /** Create a GitHub lock entry for testing. */
 const makeGitHubLockEntry = (owner: string, repo: string): SkillLockEntry => ({

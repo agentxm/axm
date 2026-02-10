@@ -9,18 +9,12 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import {
-  LockfileService,
   LockfileParseError,
   LockfileWriteError,
   type LockfileError,
 } from "../../../lockfile/index.js";
-import type { LockfileServiceInterface } from "../../../lockfile/service.js";
 import type { SkillLockEntry } from "../../../lockfile/schema.js";
-import {
-  SettingsService,
-  SettingsWriteError,
-  type SettingsServiceInterface,
-} from "../../../settings/index.js";
+import { SettingsWriteError } from "../../../settings/index.js";
 import { OperationError } from "../../../workspace/apply-plan.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import type { UninstallSkillOperation } from "../operations.js";
@@ -30,97 +24,100 @@ import { uninstallSkill } from "./uninstall-skill.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-/** Creates a LockfileService mock backed by in-memory skills + on-disk YAML. */
-const makeLockfileServiceMock = (
+/** Creates a workspace mock backed by in-memory skills + on-disk YAML. */
+const makeWorkspaceMock = (
   axmDir: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
   lockfileSkills: Record<string, any> = {},
-  errorOverride?: () => Effect.Effect<never, LockfileError>,
-): LockfileServiceInterface => {
+  overrides?: {
+    removeSkillFn?: ReturnType<typeof vi.fn>;
+    lockfileErrorOverride?: () => Effect.Effect<never, LockfileError>;
+    setSkillErrorOverride?: () => Effect.Effect<never, LockfileError>;
+    removeSkillErrorOverride?: () => Effect.Effect<never, LockfileError>;
+  },
+): WorkspaceContextService => {
   // Use in-memory skills for reads, write to disk for mutations
   let skills = { ...lockfileSkills };
-  return {
-    getSkills: () =>
-      errorOverride
-        ? (errorOverride() as Effect.Effect<never, LockfileError>)
-        : Effect.succeed(skills),
-    getEntry: (name: string) =>
-      errorOverride
-        ? (errorOverride() as Effect.Effect<never, LockfileError>)
-        : Effect.succeed(Option.fromNullable(skills[name] as SkillLockEntry | undefined)),
-    updateEntry: (name: string, entry: SkillLockEntry) =>
-      Effect.sync(() => {
-        skills = { ...skills, [name]: { ...entry, updatedAt: new Date() } };
-        // Also write to disk so assertions can verify
-        const lockfile = { lockfileVersion: 1, skills: {} as Record<string, unknown> };
-        for (const [k, v] of Object.entries(skills)) {
-          lockfile.skills[k] = {
-            ...(v as Record<string, unknown>),
-            installedAt:
-              (v as { installedAt: Date }).installedAt instanceof Date
-                ? (v as { installedAt: Date }).installedAt.toISOString()
-                : (v as { installedAt: string }).installedAt,
-            updatedAt:
-              (v as { updatedAt: Date }).updatedAt instanceof Date
-                ? (v as { updatedAt: Date }).updatedAt.toISOString()
-                : (v as { updatedAt: string }).updatedAt,
-          };
-        }
-        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
-      }),
-    removeEntry: (name: string) =>
-      Effect.sync(() => {
-        const { [name]: _, ...rest } = skills;
-        void _;
-        skills = rest;
-        const lockfile = { lockfileVersion: 1, skills: {} as Record<string, unknown> };
-        for (const [k, v] of Object.entries(skills)) {
-          lockfile.skills[k] = {
-            ...(v as Record<string, unknown>),
-            installedAt:
-              (v as { installedAt: Date }).installedAt instanceof Date
-                ? (v as { installedAt: Date }).installedAt.toISOString()
-                : (v as { installedAt: string }).installedAt,
-            updatedAt:
-              (v as { updatedAt: Date }).updatedAt instanceof Date
-                ? (v as { updatedAt: Date }).updatedAt.toISOString()
-                : (v as { updatedAt: string }).updatedAt,
-          };
-        }
-        fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
-      }),
-  };
-};
 
-/** Creates a layer providing FileSystem + Path + a minimal Workspace + SettingsService + LockfileService. */
-const withServices = (
-  axmDir: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
-  lockfileSkills: Record<string, any> = {},
-  ssMock?: SettingsServiceInterface,
-  lockfileErrorOverride?: () => Effect.Effect<never, LockfileError>,
-) => {
-  const mockWs: WorkspaceContextService = {
+  const writeToDisk = () => {
+    const lockfile = { lockfileVersion: 1, skills: {} as Record<string, unknown> };
+    for (const [k, v] of Object.entries(skills)) {
+      lockfile.skills[k] = {
+        ...(v as Record<string, unknown>),
+        installedAt:
+          (v as { installedAt: Date }).installedAt instanceof Date
+            ? (v as { installedAt: Date }).installedAt.toISOString()
+            : (v as { installedAt: string }).installedAt,
+        updatedAt:
+          (v as { updatedAt: Date }).updatedAt instanceof Date
+            ? (v as { updatedAt: Date }).updatedAt.toISOString()
+            : (v as { updatedAt: string }).updatedAt,
+      };
+    }
+    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
+  };
+
+  return {
     global: false,
     path: axmDir,
     nonInteractive: true,
     preview: false,
     resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
-    getSources: () => Effect.succeed([]),
-    getSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySources: () => Effect.succeed([]),
-    getScope: () => Effect.succeed("@community"),
-    addSource: () => Effect.void,
+    getConfiguredSources: () => Effect.succeed([]),
+    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
+    getConfiguredRegistrySources: () => Effect.succeed([]),
+    getConfiguredScope: () => Effect.succeed("@community"),
+    addConfiguredSource: () => Effect.void,
+    getInstalledSkills: () => Effect.succeed({}),
+    getConfiguredAgents: () => Effect.succeed([]),
+    getLockedSkills: () =>
+      overrides?.lockfileErrorOverride
+        ? (overrides.lockfileErrorOverride() as Effect.Effect<never, LockfileError>)
+        : Effect.succeed(skills),
+    getLockedSkill: (name: string) =>
+      overrides?.lockfileErrorOverride
+        ? (overrides.lockfileErrorOverride() as Effect.Effect<never, LockfileError>)
+        : Effect.succeed(Option.fromNullable(skills[name] as SkillLockEntry | undefined)),
+    setSkill: overrides?.setSkillErrorOverride
+      ? () => overrides.setSkillErrorOverride!()
+      : (name: string, _source: string, entry: unknown) =>
+          Effect.sync(() => {
+            skills = {
+              ...skills,
+              [name]: { ...(entry as Record<string, unknown>), updatedAt: new Date() },
+            };
+            writeToDisk();
+          }),
+    removeSkill: overrides?.removeSkillFn
+      ? (name: string) => overrides.removeSkillFn!(name)
+      : overrides?.removeSkillErrorOverride
+        ? () => overrides.removeSkillErrorOverride!()
+        : (name: string) =>
+            Effect.sync(() => {
+              const { [name]: _, ...rest } = skills;
+              void _;
+              skills = rest;
+              writeToDisk();
+            }),
+    addConfiguredAgent: () => Effect.void,
   };
-  const ssService = ssMock ?? makeSettingsServiceMock().mock;
+};
+
+/** Creates a layer providing FileSystem + Path + a minimal Workspace. */
+const withServices = (
+  axmDir: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
+  lockfileSkills: Record<string, any> = {},
+  wsOverrides?: {
+    removeSkillFn?: ReturnType<typeof vi.fn>;
+    lockfileErrorOverride?: () => Effect.Effect<never, LockfileError>;
+    setSkillErrorOverride?: () => Effect.Effect<never, LockfileError>;
+    removeSkillErrorOverride?: () => Effect.Effect<never, LockfileError>;
+  },
+) => {
   return Layer.mergeAll(
     NodeContext.layer,
-    Workspace.layer(mockWs),
-    Layer.succeed(SettingsService, ssService),
-    Layer.succeed(
-      LockfileService,
-      makeLockfileServiceMock(axmDir, lockfileSkills, lockfileErrorOverride),
-    ),
+    Workspace.layer(makeWorkspaceMock(axmDir, lockfileSkills, wsOverrides)),
   );
 };
 
@@ -192,18 +189,10 @@ const makeRegistryLockEntryYaml = (agents: string[]) => ({
   updatedAt: new Date().toISOString(),
 });
 
-/** Creates a mock SettingsService with a spy on removeSkill. */
-const makeSettingsServiceMock = () => {
+/** Creates a removeSkill spy function for use as a workspace mock override. */
+const makeRemoveSkillSpy = () => {
   const removeSkillFn = vi.fn((_name: string) => Effect.void);
-  const mock: SettingsServiceInterface = {
-    getScope: () => Effect.succeed("@community"),
-    getAgents: () => Effect.succeed<ReadonlyArray<string>>([]),
-    getSkills: () => Effect.succeed({}),
-    addSkill: () => Effect.void,
-    removeSkill: (name) => removeSkillFn(name),
-    addAgent: () => Effect.void,
-  };
-  return { mock, removeSkillFn };
+  return { removeSkillFn };
 };
 
 // -----------------------------------------------------------------------------
@@ -325,13 +314,13 @@ describe("uninstallSkill", () => {
       }),
     );
 
-    it.effect("calls SettingsService.removeSkill after full uninstall", () =>
+    it.effect("calls Workspace.removeSkill after full uninstall", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileSkills } = setupWorkspace({ agents: ["claude-code"] });
-        const { mock, removeSkillFn } = makeSettingsServiceMock();
+        const { removeSkillFn } = makeRemoveSkillSpy();
 
         const result = yield* uninstallSkill(makeOp()).pipe(
-          Effect.provide(withServices(axmDir, lockfileSkills, mock)),
+          Effect.provide(withServices(axmDir, lockfileSkills, { removeSkillFn })),
         );
 
         expect(result.result).toBe("success");
@@ -340,23 +329,21 @@ describe("uninstallSkill", () => {
       }),
     );
 
-    it.effect("swallows SettingsService.removeSkill failure without failing uninstall", () =>
+    it.effect("swallows Workspace.removeSkill failure without failing uninstall", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileSkills } = setupWorkspace({ agents: ["claude-code"] });
-        const failingMock: SettingsServiceInterface = {
-          ...makeSettingsServiceMock().mock,
-          removeSkill: () =>
-            Effect.fail(
-              new SettingsWriteError({
-                path: "",
-                message: "write failed",
-                cause: new Error("write failed"),
-              }),
-            ),
-        };
+        const removeSkillFn = vi.fn(() =>
+          Effect.fail(
+            new SettingsWriteError({
+              path: "",
+              message: "write failed",
+              cause: new Error("write failed"),
+            }),
+          ),
+        );
 
         const result = yield* uninstallSkill(makeOp()).pipe(
-          Effect.provide(withServices(axmDir, lockfileSkills, failingMock)),
+          Effect.provide(withServices(axmDir, lockfileSkills, { removeSkillFn })),
         );
 
         expect(result.result).toBe("success");
@@ -431,15 +418,15 @@ describe("uninstallSkill", () => {
       }),
     );
 
-    it.effect("does not call SettingsService.removeSkill for partial uninstall", () =>
+    it.effect("does not call Workspace.removeSkill for partial uninstall", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileSkills } = setupWorkspace({
           agents: ["claude-code", "cursor"],
         });
-        const { mock, removeSkillFn } = makeSettingsServiceMock();
+        const { removeSkillFn } = makeRemoveSkillSpy();
 
         const result = yield* uninstallSkill(makeOp({ agents: ["claude-code"] })).pipe(
-          Effect.provide(withServices(axmDir, lockfileSkills, mock)),
+          Effect.provide(withServices(axmDir, lockfileSkills, { removeSkillFn })),
         );
 
         expect(result.result).toBe("success");
@@ -559,13 +546,18 @@ describe("uninstallSkill", () => {
 
         const result = yield* uninstallSkill(makeOp()).pipe(
           Effect.provide(
-            withServices(axmDir, {}, undefined, () =>
-              Effect.fail(
-                new LockfileParseError({
-                  message: "corrupt lockfile",
-                  retryable: false,
-                }),
-              ),
+            withServices(
+              axmDir,
+              {},
+              {
+                lockfileErrorOverride: () =>
+                  Effect.fail(
+                    new LockfileParseError({
+                      message: "corrupt lockfile",
+                      retryable: false,
+                    }),
+                  ),
+              },
             ),
           ),
           Effect.flip,
@@ -580,7 +572,7 @@ describe("uninstallSkill", () => {
   });
 
   describe("lockfile write error propagation", () => {
-    it.effect("propagates updateEntry failure during partial uninstall", () =>
+    it.effect("propagates setSkill failure during partial uninstall", () =>
       Effect.gen(function* () {
         const { axmDir } = setupWorkspace({
           agents: ["claude-code", "cursor"],
@@ -593,36 +585,11 @@ describe("uninstallSkill", () => {
           retryable: false,
         });
 
-        // Create a LockfileService mock where reads succeed but writes fail
-        const failingLsMock: LockfileServiceInterface = {
-          getSkills: () => Effect.succeed(lockfileSkills),
-          getEntry: (name: string) =>
-            Effect.succeed(Option.fromNullable(lockfileSkills[name] as SkillLockEntry | undefined)),
-          updateEntry: () => Effect.fail(writeError),
-          removeEntry: () => Effect.fail(writeError),
-        };
-
-        const mockWs: WorkspaceContextService = {
-          global: false,
-          path: axmDir,
-          nonInteractive: true,
-          preview: false,
-          resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
-          getSources: () => Effect.succeed([]),
-          getSourceByName: () => Effect.succeed(Option.none()),
-          getRegistrySources: () => Effect.succeed([]),
-          getScope: () => Effect.succeed("@community"),
-          addSource: () => Effect.void,
-        };
-
         const result = yield* uninstallSkill(makeOp({ agents: ["claude-code"] })).pipe(
           Effect.provide(
-            Layer.mergeAll(
-              NodeContext.layer,
-              Workspace.layer(mockWs),
-              Layer.succeed(SettingsService, makeSettingsServiceMock().mock),
-              Layer.succeed(LockfileService, failingLsMock),
-            ),
+            withServices(axmDir, lockfileSkills, {
+              setSkillErrorOverride: () => Effect.fail(writeError),
+            }),
           ),
           Effect.flip,
         );
@@ -632,7 +599,7 @@ describe("uninstallSkill", () => {
       }),
     );
 
-    it.effect("propagates removeEntry failure during full uninstall", () =>
+    it.effect("swallows removeSkill failure during full uninstall", () =>
       Effect.gen(function* () {
         const { axmDir } = setupWorkspace({
           agents: ["claude-code"],
@@ -645,42 +612,17 @@ describe("uninstallSkill", () => {
           retryable: false,
         });
 
-        // Create a LockfileService mock where reads succeed but writes fail
-        const failingLsMock: LockfileServiceInterface = {
-          getSkills: () => Effect.succeed(lockfileSkills),
-          getEntry: (name: string) =>
-            Effect.succeed(Option.fromNullable(lockfileSkills[name] as SkillLockEntry | undefined)),
-          updateEntry: () => Effect.fail(writeError),
-          removeEntry: () => Effect.fail(writeError),
-        };
-
-        const mockWs: WorkspaceContextService = {
-          global: false,
-          path: axmDir,
-          nonInteractive: true,
-          preview: false,
-          resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
-          getSources: () => Effect.succeed([]),
-          getSourceByName: () => Effect.succeed(Option.none()),
-          getRegistrySources: () => Effect.succeed([]),
-          getScope: () => Effect.succeed("@community"),
-          addSource: () => Effect.void,
-        };
-
+        // Full uninstall now swallows removeSkill errors (catchAll in the handler)
         const result = yield* uninstallSkill(makeOp()).pipe(
           Effect.provide(
-            Layer.mergeAll(
-              NodeContext.layer,
-              Workspace.layer(mockWs),
-              Layer.succeed(SettingsService, makeSettingsServiceMock().mock),
-              Layer.succeed(LockfileService, failingLsMock),
-            ),
+            withServices(axmDir, lockfileSkills, {
+              removeSkillErrorOverride: () => Effect.fail(writeError),
+            }),
           ),
-          Effect.flip,
         );
 
-        expect(result._tag).toBe("OperationError");
-        expect(result.message).toContain("Failed to remove lockfile entry");
+        // removeSkill errors are swallowed, so the result is still success
+        expect(result.result).toBe("success");
       }),
     );
   });

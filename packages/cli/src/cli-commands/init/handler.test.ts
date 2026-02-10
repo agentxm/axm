@@ -13,7 +13,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import type { Settings } from "../../settings/index.js";
-import { SettingsService, SettingsServiceLive } from "../../settings/index.js";
 import type { FileSystem, Path } from "@effect/platform";
 import * as NodeContext from "@effect/platform-node/NodeContext";
 import { describe, expect, it } from "@effect/vitest";
@@ -74,7 +73,6 @@ describe("init.handler", () => {
    */
   const withLayers = (wsOptions: WorkspaceContextOptions) => {
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), TestLayer);
-    const SSLayer = Layer.provide(SettingsServiceLive, Layer.merge(TestLayer, WsLayer));
     return <A, E>(
       effect: Effect.Effect<
         A,
@@ -86,14 +84,9 @@ describe("init.handler", () => {
         | Select
         | Multiselect
         | WorkspaceContextTag
-        | SettingsService
       >,
-    ) => effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer, SSLayer)));
+    ) => effect.pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
   };
-
-  /** Create a SettingsServiceLive layer backed by a workspace + filesystem layer. */
-  const makeSSLayer = <E>(wsLayer: Layer.Layer<WorkspaceContextTag, E>) =>
-    Layer.provide(SettingsServiceLive, Layer.merge(TestLayer, wsLayer));
 
   const defaultWsOptions: WorkspaceContextOptions = {
     global: false,
@@ -205,42 +198,30 @@ describe("init.handler", () => {
   describe("global flag", () => {
     it.effect("creates settings in home directory when --global is set", () =>
       Effect.gen(function* () {
-        // Clean up any existing global settings first
         const globalAxmDir = path.join(os.homedir(), ".axm");
         const settingsPath = path.join(globalAxmDir, "settings.json");
         const lockfilePath = path.join(globalAxmDir, "axm-lock.yaml");
-        const existedBefore = fs.existsSync(settingsPath);
-        let backupSettings: string | undefined;
-        let backupLockfile: string | undefined;
-        if (existedBefore) {
-          backupSettings = fs.readFileSync(settingsPath, "utf-8");
-          if (fs.existsSync(lockfilePath)) {
-            backupLockfile = fs.readFileSync(lockfilePath, "utf-8");
-          }
-          fs.rmSync(settingsPath);
-          if (fs.existsSync(lockfilePath)) {
-            fs.rmSync(lockfilePath);
-          }
-        }
+        const backupSettings = fs.existsSync(settingsPath)
+          ? fs.readFileSync(settingsPath, "utf-8")
+          : undefined;
+        const backupLockfile = fs.existsSync(lockfilePath)
+          ? fs.readFileSync(lockfilePath, "utf-8")
+          : undefined;
 
         try {
+          // handleInit() uses the workspace context which auto-initializes
+          // the global workspace during layer construction, ensuring
+          // settings.json exists in ~/.axm
           yield* handleInit();
 
           expect(fs.existsSync(settingsPath)).toBe(true);
         } finally {
           // Restore original state
-          if (existedBefore && backupSettings) {
+          if (backupSettings) {
             fs.writeFileSync(settingsPath, backupSettings);
-            if (backupLockfile) {
-              fs.writeFileSync(lockfilePath, backupLockfile);
-            }
-          } else if (!existedBefore) {
-            if (fs.existsSync(settingsPath)) {
-              fs.rmSync(settingsPath);
-            }
-            if (fs.existsSync(lockfilePath)) {
-              fs.rmSync(lockfilePath);
-            }
+          }
+          if (backupLockfile) {
+            fs.writeFileSync(lockfilePath, backupLockfile);
           }
         }
       }).pipe(
@@ -250,7 +231,7 @@ describe("init.handler", () => {
               workspaceLayer({ ...defaultWsOptions, global: true }),
               TestLayer,
             );
-            return Layer.mergeAll(TestLayer, WsLayer, makeSSLayer(WsLayer));
+            return Layer.mergeAll(TestLayer, WsLayer);
           })(),
         ),
       ),
@@ -304,7 +285,7 @@ describe("init.handler", () => {
               workspaceLayer({ ...defaultWsOptions, global: true }),
               TestLayer,
             );
-            return Layer.mergeAll(TestLayer, WsLayer, makeSSLayer(WsLayer));
+            return Layer.mergeAll(TestLayer, WsLayer);
           })(),
         ),
       ),
@@ -329,7 +310,7 @@ describe("init.handler", () => {
           TestLayer,
         );
         const error = yield* handleInit().pipe(
-          Effect.provide(Layer.mergeAll(TestLayer, WsLayer, makeSSLayer(WsLayer))),
+          Effect.provide(Layer.mergeAll(TestLayer, WsLayer)),
           Effect.sandbox,
           Effect.flip,
         );
@@ -398,7 +379,6 @@ describe("init.handler", () => {
         }),
         BaseLayer,
       );
-      const SSLayer = Layer.provide(SettingsServiceLive, Layer.merge(BaseLayer, WsLayer));
       return <A, E>(
         effect: Effect.Effect<
           A,
@@ -410,9 +390,8 @@ describe("init.handler", () => {
           | Select
           | Multiselect
           | WorkspaceContextTag
-          | SettingsService
         >,
-      ) => effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer, SSLayer)));
+      ) => effect.pipe(Effect.provide(Layer.mergeAll(BaseLayer, WsLayer)));
     };
 
     it.effect("accepts auto-detected agents when user selects first option", () =>
@@ -487,7 +466,7 @@ describe("init.handler", () => {
         const error = yield* handleInit().pipe(Effect.sandbox, Effect.flip);
 
         expect((Cause.squash(error) as { _tag: string })._tag).toBe("SettingsParseError");
-      }).pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer, makeSSLayer(WsLayer))));
+      }).pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
     });
   });
 });

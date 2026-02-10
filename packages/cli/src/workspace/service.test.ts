@@ -22,7 +22,9 @@ import {
   makeMultiselectTestLayer,
   Log,
 } from "../tui/index.js";
+import YAML from "yaml";
 import type { SourceConfig } from "../settings/index.js";
+import type { SkillLockEntry } from "../lockfile/index.js";
 import type { OperationResult } from "./plan.js";
 import type { Operation, Plan, PlannedJobStep } from "./plan.js";
 import { Workspace, layer as workspaceLayer, type WorkspaceContextOptions } from "./service.js";
@@ -389,11 +391,11 @@ describe("WorkspaceContextService", () => {
     fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings, null, 2));
   };
 
-  describe("getSources", () => {
+  describe("getConfiguredSources", () => {
     it.effect("returns only built-in defaults when no sources configured", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getSources();
+        const sources = yield* ws.getConfiguredSources();
 
         expect(sources).toHaveLength(3);
         expect(sources.map((s) => s.name)).toEqual(["github", "gitlab", "bitbucket"]);
@@ -422,7 +424,7 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getSources();
+        const sources = yield* ws.getConfiguredSources();
 
         const names = sources.map((s) => s.name);
         expect(names).toEqual(["my-registry", "corp-registry", "github", "gitlab", "bitbucket"]);
@@ -451,7 +453,7 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getSources();
+        const sources = yield* ws.getConfiguredSources();
 
         const githubSource = sources.find((s) => s.name === "github");
         expect(githubSource).toBeDefined();
@@ -477,7 +479,7 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getSources();
+        const sources = yield* ws.getConfiguredSources();
 
         const gitlabSource = sources.find((s) => s.name === "gitlab");
         expect(gitlabSource).toBeDefined();
@@ -496,8 +498,8 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const first = yield* ws.getSources();
-        const second = yield* ws.getSources();
+        const first = yield* ws.getConfiguredSources();
+        const second = yield* ws.getConfiguredSources();
 
         // Same reference (cached)
         expect(first).toBe(second);
@@ -505,11 +507,11 @@ describe("WorkspaceContextService", () => {
     );
   });
 
-  describe("getSourceByName", () => {
+  describe("getConfiguredSourceByName", () => {
     it.effect("returns Some when source exists", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.getSourceByName("github");
+        const result = yield* ws.getConfiguredSourceByName("github");
 
         expect(Option.isSome(result)).toBe(true);
         expect(Option.getOrThrow(result).name).toBe("github");
@@ -519,18 +521,18 @@ describe("WorkspaceContextService", () => {
     it.effect("returns None when source does not exist", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
-        const result = yield* ws.getSourceByName("nonexistent");
+        const result = yield* ws.getConfiguredSourceByName("nonexistent");
 
         expect(Option.isNone(result)).toBe(true);
       }),
     );
   });
 
-  describe("getRegistrySources", () => {
+  describe("getConfiguredRegistrySources", () => {
     it.effect("returns empty when no registry sources configured", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getRegistrySources(Option.none());
+        const sources = yield* ws.getConfiguredRegistrySources(Option.none());
 
         // Built-in sources are github/gitlab/bitbucket, none are registry type
         expect(sources).toHaveLength(0);
@@ -557,7 +559,7 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getRegistrySources(Option.none());
+        const sources = yield* ws.getConfiguredRegistrySources(Option.none());
 
         expect(sources).toHaveLength(2);
         expect(sources.map((s) => s.name)).toEqual(["r1", "r2"]);
@@ -584,7 +586,7 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getRegistrySources(Option.some("@corp"));
+        const sources = yield* ws.getConfiguredRegistrySources(Option.some("@corp"));
 
         // Only corp-reg matches @corp scope
         expect(sources).toHaveLength(1);
@@ -612,7 +614,7 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getRegistrySources(Option.some("@unknown"));
+        const sources = yield* ws.getConfiguredRegistrySources(Option.some("@unknown"));
 
         // No scope match for @unknown, falls back to catch-all (no scopes field)
         expect(sources).toHaveLength(1);
@@ -646,7 +648,7 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getRegistrySources(Option.some("@corp"));
+        const sources = yield* ws.getConfiguredRegistrySources(Option.some("@corp"));
 
         // Two scope-matched sources, catch-all (public-reg) excluded
         expect(sources).toHaveLength(2);
@@ -655,7 +657,7 @@ describe("WorkspaceContextService", () => {
     );
   });
 
-  describe("getScope", () => {
+  describe("getConfiguredScope", () => {
     it.effect("returns project scope when configured", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
@@ -664,7 +666,7 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const scope = yield* ws.getScope();
+        const scope = yield* ws.getConfiguredScope();
 
         expect(scope).toBe("@myorg");
       }),
@@ -682,7 +684,7 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const scope = yield* ws.getScope();
+        const scope = yield* ws.getConfiguredScope();
 
         expect(scope).toBe("@globalorg");
       }),
@@ -696,14 +698,14 @@ describe("WorkspaceContextService", () => {
         // No global settings (readSettingsSafe returns defaults)
 
         const ws = yield* getService(defaultOptions);
-        const scope = yield* ws.getScope();
+        const scope = yield* ws.getConfiguredScope();
 
         expect(scope).toBe("@community");
       }),
     );
   });
 
-  describe("addSource", () => {
+  describe("addConfiguredSource", () => {
     it.effect("appends source to project settings", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
@@ -713,7 +715,7 @@ describe("WorkspaceContextService", () => {
           source: "registry",
           location: "https://registry.example.com",
         };
-        yield* ws.addSource(newSource);
+        yield* ws.addConfiguredSource(newSource);
 
         // Verify it was written to disk
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -724,12 +726,12 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("source visible in subsequent getSources calls (cache invalidated)", () =>
+    it.effect("source visible in subsequent getConfiguredSources calls (cache invalidated)", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
 
         // Populate cache
-        const before = yield* ws.getSources();
+        const before = yield* ws.getConfiguredSources();
         expect(before.find((s) => s.name === "new-source")).toBeUndefined();
 
         // Add a new source
@@ -738,11 +740,413 @@ describe("WorkspaceContextService", () => {
           source: "registry",
           location: "https://new.example.com",
         };
-        yield* ws.addSource(newSource);
+        yield* ws.addConfiguredSource(newSource);
 
         // Cache should be invalidated, new source visible
-        const after = yield* ws.getSources();
+        const after = yield* ws.getConfiguredSources();
         expect(after.find((s) => s.name === "new-source")).toBeDefined();
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Lockfile helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Helper to write a lockfile YAML to the .axm directory.
+   */
+  const writeLockfileTo = (dir: string, skills: Record<string, unknown>) => {
+    const axmDir = path.join(dir, ".axm");
+    fs.mkdirSync(axmDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(axmDir, "axm-lock.yaml"),
+      YAML.stringify({ lockfileVersion: 1, skills }),
+    );
+  };
+
+  /** Read lockfile from disk for verification. */
+  const readLockfileFromDisk = (dir: string) =>
+    YAML.parse(fs.readFileSync(path.join(dir, ".axm", "axm-lock.yaml"), "utf-8")) as {
+      lockfileVersion: number;
+      skills: Record<string, unknown>;
+    };
+
+  /** Create a sample SkillLockEntry for testing. */
+  const makeSampleLockEntry = (agents: readonly string[] = ["claude-code"]): SkillLockEntry => ({
+    source: "github" as const,
+    owner: "acme",
+    repo: "code-review",
+    agents: [...agents],
+    installedAt: new Date("2025-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+  });
+
+  // ---------------------------------------------------------------------------
+  // Query methods
+  // ---------------------------------------------------------------------------
+
+  describe("getInstalledSkills", () => {
+    it.effect("returns skills map when skills are configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "code-review": "github:acme/code-review", "test-gen": "local:/tmp/test-gen" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const skills = yield* ws.getInstalledSkills();
+
+        expect(skills).toEqual({
+          "code-review": "github:acme/code-review",
+          "test-gen": "local:/tmp/test-gen",
+        });
+      }),
+    );
+
+    it.effect("returns empty record when no skills configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const skills = yield* ws.getInstalledSkills();
+
+        expect(skills).toEqual({});
+      }),
+    );
+  });
+
+  describe("getConfiguredAgents", () => {
+    it.effect("returns agents array when agents are configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code", "cursor"] });
+
+        const ws = yield* getService(defaultOptions);
+        const agents = yield* ws.getConfiguredAgents();
+
+        expect(agents).toEqual(["claude-code", "cursor"]);
+      }),
+    );
+
+    it.effect("returns empty array when no agents configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const agents = yield* ws.getConfiguredAgents();
+
+        expect(agents).toEqual([]);
+      }),
+    );
+  });
+
+  describe("getLockedSkills", () => {
+    it.effect("returns skills lock map when lock entries are present", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {
+          "code-review": {
+            source: "github",
+            owner: "acme",
+            repo: "code-review",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const skills = yield* ws.getLockedSkills();
+
+        expect(Object.keys(skills)).toEqual(["code-review"]);
+        expect(skills["code-review"]?.source).toBe("github");
+      }),
+    );
+
+    it.effect("returns empty record when no lock entries", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const skills = yield* ws.getLockedSkills();
+
+        expect(skills).toEqual({});
+      }),
+    );
+  });
+
+  describe("getLockedSkill", () => {
+    it.effect("returns Option.some when skill exists in lockfile", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {
+          "code-review": {
+            source: "github",
+            owner: "acme",
+            repo: "code-review",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const entry = yield* ws.getLockedSkill("code-review");
+
+        expect(Option.isSome(entry)).toBe(true);
+        if (Option.isSome(entry)) {
+          expect(entry.value.source).toBe("github");
+        }
+      }),
+    );
+
+    it.effect("returns Option.none when skill not in lockfile", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const entry = yield* ws.getLockedSkill("nonexistent");
+
+        expect(Option.isNone(entry)).toBe(true);
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Compound mutations
+  // ---------------------------------------------------------------------------
+
+  describe("setSkill", () => {
+    it.effect("installs new skill: adds to settings and lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setSkill("code-review", "github:acme/code-review", makeSampleLockEntry());
+
+        // Verify settings on disk
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.skills).toBeDefined();
+        expect(settings.skills["code-review"]).toBe("github:acme/code-review");
+
+        // Verify lockfile on disk
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.skills).toHaveProperty("code-review");
+        expect((lockfile.skills["code-review"] as { source: string }).source).toBe("github");
+      }),
+    );
+
+    it.effect("sets updatedAt to current time", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const before = new Date();
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setSkill("code-review", "github:acme/code-review", makeSampleLockEntry());
+        const after = new Date();
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        const updatedAt = new Date(
+          (lockfile.skills["code-review"] as { updatedAt: string }).updatedAt,
+        );
+        expect(updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
+        expect(updatedAt.getTime()).toBeLessThanOrEqual(after.getTime());
+      }),
+    );
+
+    it.effect("updates existing skill: replaces in settings and lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "code-review": "github:acme/code-review" },
+        });
+        writeLockfileTo(projectDir, {
+          "code-review": {
+            source: "github",
+            owner: "acme",
+            repo: "code-review",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const updatedEntry = makeSampleLockEntry(["claude-code", "cursor"]);
+        yield* ws.setSkill("code-review", "github:acme/code-review-v2", updatedEntry);
+
+        // Verify settings updated
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.skills["code-review"]).toBe("github:acme/code-review-v2");
+
+        // Verify lockfile updated
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect((lockfile.skills["code-review"] as { agents: string[] }).agents).toEqual([
+          "claude-code",
+          "cursor",
+        ]);
+      }),
+    );
+  });
+
+  describe("removeSkill", () => {
+    it.effect("removes existing skill from both settings and lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: {
+            "code-review": "github:acme/code-review",
+            "test-gen": "local:/tmp/test-gen",
+          },
+        });
+        writeLockfileTo(projectDir, {
+          "code-review": {
+            source: "github",
+            owner: "acme",
+            repo: "code-review",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          "test-gen": {
+            source: "local",
+            path: "/tmp/test-gen",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeSkill("code-review");
+
+        // Verify settings: code-review removed, test-gen remains
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.skills).not.toHaveProperty("code-review");
+        expect(settings.skills).toHaveProperty("test-gen");
+
+        // Verify lockfile: code-review removed, test-gen remains
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.skills).not.toHaveProperty("code-review");
+        expect(lockfile.skills).toHaveProperty("test-gen");
+      }),
+    );
+
+    it.effect("no-op when skill does not exist", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "test-gen": "local:/tmp/test-gen" },
+        });
+        writeLockfileTo(projectDir, {
+          "test-gen": {
+            source: "local",
+            path: "/tmp/test-gen",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeSkill("nonexistent");
+
+        // Verify nothing changed
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.skills).toHaveProperty("test-gen");
+        expect(Object.keys(settings.skills as Record<string, string>)).toHaveLength(1);
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.skills).toHaveProperty("test-gen");
+        expect(Object.keys(lockfile.skills)).toHaveLength(1);
+      }),
+    );
+  });
+
+  describe("addConfiguredAgent", () => {
+    it.effect("adds new agent to settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.addConfiguredAgent("cursor");
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.agents).toEqual(["claude-code", "cursor"]);
+      }),
+    );
+
+    it.effect("no-op when agent already present", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.addConfiguredAgent("claude-code");
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.agents).toEqual(["claude-code"]);
+      }),
+    );
+
+    it.effect("fails with SettingsParseError for invalid agent ID", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.addConfiguredAgent("invalid-agent-xyz").pipe(Effect.flip);
+
+        expect(result._tag).toBe("SettingsParseError");
+
+        // Verify settings were not changed
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.agents).toEqual(["claude-code"]);
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Semaphore serialization
+  // ---------------------------------------------------------------------------
+
+  describe("semaphore serialization", () => {
+    it.effect("concurrent setSkill and addConfiguredSource do not interleave", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+
+        const newSource: SourceConfig = {
+          name: "my-registry",
+          source: "registry",
+          location: "https://registry.example.com",
+        };
+
+        yield* Effect.all(
+          [
+            ws.setSkill("code-review", "github:acme/code-review", makeSampleLockEntry()),
+            ws.addConfiguredSource(newSource),
+          ],
+          { concurrency: "unbounded" },
+        );
+
+        // Both mutations should be present in final state
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.skills).toHaveProperty("code-review");
+        expect(settings.sources).toBeDefined();
+        expect(settings.sources).toHaveLength(1);
+        expect(settings.sources[0].name).toBe("my-registry");
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.skills).toHaveProperty("code-review");
       }),
     );
   });

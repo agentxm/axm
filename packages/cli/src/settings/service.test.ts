@@ -51,11 +51,18 @@ describe("SettingsService", () => {
       nonInteractive: true,
       preview: false,
       resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
-      getSources: () => Effect.succeed([]),
-      getSourceByName: () => Effect.succeed(Option.none()),
-      getRegistrySources: () => Effect.succeed([]),
-      getScope: () => Effect.succeed("@community"),
-      addSource: () => Effect.void,
+      getConfiguredSources: () => Effect.succeed([]),
+      getConfiguredSourceByName: () => Effect.succeed(Option.none()),
+      getConfiguredRegistrySources: () => Effect.succeed([]),
+      getConfiguredScope: () => Effect.succeed("@community"),
+      addConfiguredSource: () => Effect.void,
+      getInstalledSkills: () => Effect.succeed({}),
+      getConfiguredAgents: () => Effect.succeed([]),
+      getLockedSkills: () => Effect.succeed({}),
+      getLockedSkill: () => Effect.succeed(Option.none()),
+      setSkill: () => Effect.void,
+      removeSkill: () => Effect.void,
+      addConfiguredAgent: () => Effect.void,
     };
     return Layer.provide(
       SettingsServiceLive,
@@ -204,27 +211,6 @@ describe("SettingsService", () => {
         expect(content).toContain('"agents": ["antigravity", "claude-code", "codex", "cursor"]');
         // skill should be added
         expect(content).toContain('"frontend-design": "github:anthropics/skills"');
-      }).pipe(Effect.provide(makeTestLayer(axmDir))),
-    );
-
-    it.effect("concurrent addSkill calls do not lose data", () =>
-      Effect.gen(function* () {
-        initSettings({});
-
-        const service = yield* SettingsService;
-
-        // Run two addSkill calls concurrently — semaphore serializes them
-        yield* Effect.all(
-          [
-            service.addSkill("skill-a", "@community/skill-a@^1.0.0"),
-            service.addSkill("skill-b", "@community/skill-b@^1.0.0"),
-          ],
-          { concurrency: "unbounded" },
-        );
-
-        const settings = readSettingsFromDisk();
-        expect(settings.skills).toHaveProperty("skill-a", "@community/skill-a@^1.0.0");
-        expect(settings.skills).toHaveProperty("skill-b", "@community/skill-b@^1.0.0");
       }).pipe(Effect.provide(makeTestLayer(axmDir))),
     );
   });

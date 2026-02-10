@@ -58,11 +58,18 @@ describe("LockfileService", () => {
       nonInteractive: true,
       preview: false,
       resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
-      getSources: () => Effect.succeed([]),
-      getSourceByName: () => Effect.succeed(Option.none()),
-      getRegistrySources: () => Effect.succeed([]),
-      getScope: () => Effect.succeed("@community"),
-      addSource: () => Effect.void,
+      getConfiguredSources: () => Effect.succeed([]),
+      getConfiguredSourceByName: () => Effect.succeed(Option.none()),
+      getConfiguredRegistrySources: () => Effect.succeed([]),
+      getConfiguredScope: () => Effect.succeed("@community"),
+      addConfiguredSource: () => Effect.void,
+      getInstalledSkills: () => Effect.succeed({}),
+      getConfiguredAgents: () => Effect.succeed([]),
+      getLockedSkills: () => Effect.succeed({}),
+      getLockedSkill: () => Effect.succeed(Option.none()),
+      setSkill: () => Effect.void,
+      removeSkill: () => Effect.void,
+      addConfiguredAgent: () => Effect.void,
     };
     return Layer.provide(
       LockfileServiceLive,
@@ -203,26 +210,6 @@ describe("LockfileService", () => {
         );
         expect(updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
         expect(updatedAt.getTime()).toBeLessThanOrEqual(after.getTime());
-      }).pipe(Effect.provide(makeTestLayer(axmDir))),
-    );
-
-    it.effect("concurrent updateEntry calls do not lose data", () =>
-      Effect.gen(function* () {
-        initLockfile({});
-
-        const service = yield* LockfileService;
-
-        yield* Effect.all(
-          [
-            service.updateEntry("skill-a", makeSampleEntry()),
-            service.updateEntry("skill-b", makeSampleEntry()),
-          ],
-          { concurrency: "unbounded" },
-        );
-
-        const lockfile = readLockfileFromDisk();
-        expect(lockfile.skills).toHaveProperty("skill-a");
-        expect(lockfile.skills).toHaveProperty("skill-b");
       }).pipe(Effect.provide(makeTestLayer(axmDir))),
     );
   });

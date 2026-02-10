@@ -1,9 +1,10 @@
 /**
  * Lockfile service for centralized lockfile I/O.
  *
- * Provides query and mutation methods backed by a Semaphore(1) to serialize
- * mutations. Auto-creates `axm-lock.yaml` with `{ lockfileVersion: 1, skills: {} }`
- * on first access if the file does not exist.
+ * @deprecated No longer used in production. The {@link Workspace} service in
+ * `workspace/service.ts` is now the sole public gateway for all lockfile
+ * read/write operations and calls the I/O functions (`readLockfile`,
+ * `writeLockfile`) directly. This service is retained only for its unit tests.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -28,8 +29,7 @@ import { Workspace } from "../workspace/service.js";
 /**
  * Lockfile service interface.
  *
- * Provides 2 query methods (no semaphore) and 2 mutation methods (serialized
- * by a Semaphore(1) to prevent interleaving of read-modify-write cycles).
+ * @deprecated Superseded by {@link Workspace} in `workspace/service.ts`.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -71,8 +71,10 @@ export class LockfileService extends Context.Tag("@axm.sh/cli/LockfileService")<
  * Live layer for {@link LockfileService}.
  *
  * Depends on {@link Workspace} for the `.axm` directory path and
- * `FileSystem`/`Path` for disk I/O. Constructs a Semaphore(1) to serialize
- * mutation methods.
+ * `FileSystem`/`Path` for disk I/O.
+ *
+ * @deprecated Superseded by {@link Workspace} in `workspace/service.ts`.
+ * Retained for unit tests only.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -86,8 +88,6 @@ export const LockfileServiceLive: Layer.Layer<
     const ws = yield* Workspace;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const semaphore = yield* Effect.makeSemaphore(1);
-
     const axmDir = ws.path;
     const fsLayer = Layer.merge(
       Layer.succeed(FileSystem.FileSystem, fs),
@@ -101,12 +101,6 @@ export const LockfileServiceLive: Layer.Layer<
     const read = () => readLockfile(axmDir).pipe(Effect.provide(fsLayer));
 
     // -------------------------------------------------------------------------
-    // Mutation wrapper
-    // -------------------------------------------------------------------------
-
-    const withMutex = semaphore.withPermits(1);
-
-    // -------------------------------------------------------------------------
     // Service implementation
     // -------------------------------------------------------------------------
 
@@ -117,37 +111,33 @@ export const LockfileServiceLive: Layer.Layer<
         read().pipe(Effect.map((lf) => Option.fromNullable(lf.skills[skillName]))),
 
       updateEntry: (skillName, entry) =>
-        withMutex(
-          Effect.gen(function* () {
-            const current = yield* read();
-            const updated = {
-              ...current,
-              skills: {
-                ...current.skills,
-                [skillName]: {
-                  ...entry,
-                  updatedAt: new Date(),
-                },
+        Effect.gen(function* () {
+          const current = yield* read();
+          const updated = {
+            ...current,
+            skills: {
+              ...current.skills,
+              [skillName]: {
+                ...entry,
+                updatedAt: new Date(),
               },
-            };
-            yield* writeLockfile(axmDir, updated).pipe(Effect.provide(fsLayer));
-          }),
-        ),
+            },
+          };
+          yield* writeLockfile(axmDir, updated).pipe(Effect.provide(fsLayer));
+        }),
 
       removeEntry: (skillName) =>
-        withMutex(
-          Effect.gen(function* () {
-            const current = yield* read();
-            if (!(skillName in current.skills)) return;
-            const { [skillName]: _, ...remainingSkills } = current.skills;
-            void _;
-            const updated = {
-              ...current,
-              skills: remainingSkills,
-            };
-            yield* writeLockfile(axmDir, updated).pipe(Effect.provide(fsLayer));
-          }),
-        ),
+        Effect.gen(function* () {
+          const current = yield* read();
+          if (!(skillName in current.skills)) return;
+          const { [skillName]: _, ...remainingSkills } = current.skills;
+          void _;
+          const updated = {
+            ...current,
+            skills: remainingSkills,
+          };
+          yield* writeLockfile(axmDir, updated).pipe(Effect.provide(fsLayer));
+        }),
     };
   }),
 );

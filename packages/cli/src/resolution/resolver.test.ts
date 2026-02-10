@@ -63,11 +63,18 @@ const mockWorkspaceLayer = (sources: ReadonlyArray<SourceConfig> = DEFAULT_SOURC
     nonInteractive: false,
     preview: false,
     resolvePlan: vi.fn(),
-    getSources: () => Effect.succeed(sources),
-    getSourceByName: vi.fn(),
-    getRegistrySources: vi.fn(),
-    getScope: () => Effect.succeed("default"),
-    addSource: vi.fn(),
+    getConfiguredSources: () => Effect.succeed(sources),
+    getConfiguredSourceByName: vi.fn(),
+    getConfiguredRegistrySources: vi.fn(),
+    getConfiguredScope: () => Effect.succeed("default"),
+    addConfiguredSource: vi.fn(),
+    getInstalledSkills: vi.fn(() => Effect.succeed({})),
+    getConfiguredAgents: vi.fn(() => Effect.succeed([])),
+    getLockedSkills: vi.fn(() => Effect.succeed({})),
+    getLockedSkill: vi.fn(() => Effect.succeed(Option.none())),
+    setSkill: vi.fn(() => Effect.void),
+    removeSkill: vi.fn(() => Effect.void),
+    addConfiguredAgent: vi.fn(() => Effect.void),
   });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

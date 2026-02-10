@@ -14,7 +14,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Log } from "../../../tui/index.js";
-import { LockfileService } from "../../../lockfile/index.js";
 import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
 import type { UninstallSkillOperation } from "../operations.js";
 import { buildPlan } from "./build-plan.js";
@@ -61,8 +60,7 @@ export const handleUninstall = (args: UninstallHandlerArgs) =>
     yield* log.info("axm skills uninstall");
 
     // Step 1: Load lockfile
-    const ls = yield* LockfileService;
-    const lockedSkills = yield* ls.getSkills();
+    const lockedSkills = yield* ws.getLockedSkills();
     const lockfile = { lockfileVersion: 1, skills: lockedSkills };
 
     // Step 2: Expand glob pattern

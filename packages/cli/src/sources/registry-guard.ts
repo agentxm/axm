@@ -17,14 +17,14 @@ import { RegistryNotConfiguredError } from "./provider.js";
  *
  * - If already configured: no-op
  * - If NOT configured:
- *   - Interactive mode: prompt for local registry path, persist via addSource
+ *   - Interactive mode: prompt for local registry path, persist via addConfiguredSource
  *   - Non-interactive mode: fail with RegistryNotConfiguredError
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const registryGuard = Effect.gen(function* () {
   const workspace = yield* WorkspaceContextTag;
-  const registrySources = yield* workspace.getRegistrySources(Option.none());
+  const registrySources = yield* workspace.getConfiguredRegistrySources(Option.none());
 
   // Already configured - no-op
   if (registrySources.length > 0) return;
@@ -49,7 +49,7 @@ export const registryGuard = Effect.gen(function* () {
     : pathService.resolve(path);
 
   // Persist to settings
-  yield* workspace.addSource({
+  yield* workspace.addConfiguredSource({
     name: "local",
     source: "registry",
     location: normalizedPath,

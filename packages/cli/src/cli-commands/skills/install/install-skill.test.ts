@@ -8,35 +8,20 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import { LockfileService, LockfileWriteError } from "../../../lockfile/index.js";
 import { makeLogTestLayer } from "../../../tui/index.js";
-import type { LockfileServiceInterface } from "../../../lockfile/service.js";
-import type { SkillLockEntry } from "../../../lockfile/schema.js";
-import {
-  SettingsService,
-  SettingsWriteError,
-  type SettingsServiceInterface,
-} from "../../../settings/index.js";
+import { SettingsWriteError } from "../../../settings/index.js";
+import { LockfileWriteError } from "../../../lockfile/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import type { InstallSkillOperation } from "../operations.js";
 import { installSkill } from "./install-skill.js";
 
-/** Creates a mock SettingsService with spy functions. */
-const makeSettingsServiceMock = () => {
-  const addSkillFn = vi.fn((_name: string, _source: string) => Effect.void);
-  const mock: SettingsServiceInterface = {
-    getScope: () => Effect.succeed("@community"),
-    getAgents: () => Effect.succeed<ReadonlyArray<string>>([]),
-    getSkills: () => Effect.succeed({}),
-    addSkill: (name, source) => addSkillFn(name, source),
-    removeSkill: () => Effect.void,
-    addAgent: () => Effect.void,
-  };
-  return { mock, addSkillFn };
-};
-
-/** Creates a mock LockfileService that writes to disk via the real lockfile path. */
-const makeLockfileServiceMock = (axmDir: string): LockfileServiceInterface => {
+/** Creates a workspace mock that writes lockfile + settings to disk. */
+const makeWorkspaceMock = (
+  axmDir: string,
+  overrides?: {
+    setSkillFn?: ReturnType<typeof vi.fn>;
+  },
+): WorkspaceContextService => {
   const readLf = () => {
     const lfPath = path.join(axmDir, "axm-lock.yaml");
     if (!fs.existsSync(lfPath)) return { lockfileVersion: 1, skills: {} };
@@ -45,59 +30,58 @@ const makeLockfileServiceMock = (axmDir: string): LockfileServiceInterface => {
   const writeLf = (data: unknown) => {
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(data));
   };
-  return {
-    getSkills: () => Effect.succeed(readLf().skills ?? {}),
-    getEntry: (name: string) =>
-      Effect.succeed(Option.fromNullable(readLf().skills?.[name] as SkillLockEntry | undefined)),
-    updateEntry: (name: string, entry: SkillLockEntry) =>
-      Effect.try({
-        try: () => {
-          const lf = readLf();
-          lf.skills[name] = { ...entry, updatedAt: new Date().toISOString() };
-          writeLf(lf);
-        },
-        catch: (error) =>
-          new LockfileWriteError({ message: "Mock write failed", cause: error, retryable: false }),
-      }),
-    removeEntry: (name: string) =>
-      Effect.try({
-        try: () => {
-          const lf = readLf();
-          delete lf.skills[name];
-          writeLf(lf);
-        },
-        catch: (error) =>
-          new LockfileWriteError({ message: "Mock write failed", cause: error, retryable: false }),
-      }),
-  };
-};
 
-/** Creates a layer providing FileSystem + a minimal Workspace service + SettingsService + LockfileService. */
-const withServices = (
-  axmDir: string,
-  ssMock?: { mock: SettingsServiceInterface; addSkillFn: ReturnType<typeof vi.fn> },
-) => {
-  const mockWs: WorkspaceContextService = {
+  const setSkillFn = overrides?.setSkillFn;
+
+  return {
     global: false,
     path: axmDir,
     nonInteractive: true,
     preview: false,
     resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
-    getSources: () => Effect.succeed([]),
-    getSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySources: () => Effect.succeed([]),
-    getScope: () => Effect.succeed("@community"),
-    addSource: () => Effect.void,
+    getConfiguredSources: () => Effect.succeed([]),
+    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
+    getConfiguredRegistrySources: () => Effect.succeed([]),
+    getConfiguredScope: () => Effect.succeed("@community"),
+    addConfiguredSource: () => Effect.void,
+    getInstalledSkills: () => Effect.succeed({}),
+    getConfiguredAgents: () => Effect.succeed([]),
+    getLockedSkills: () => Effect.succeed(readLf().skills ?? {}),
+    getLockedSkill: (name: string) => Effect.succeed(Option.fromNullable(readLf().skills?.[name])),
+    setSkill: setSkillFn
+      ? (name: string, source: string, entry: unknown) => setSkillFn(name, source, entry)
+      : (name: string, _source: string, entry: unknown) =>
+          Effect.try({
+            try: () => {
+              const lf = readLf();
+              lf.skills[name] = {
+                ...(entry as Record<string, unknown>),
+                updatedAt: new Date().toISOString(),
+              };
+              writeLf(lf);
+            },
+            catch: (error) =>
+              new LockfileWriteError({
+                message: "Mock write failed",
+                cause: error,
+                retryable: false,
+              }),
+          }),
+    removeSkill: () => Effect.void,
+    addConfiguredAgent: () => Effect.void,
   };
-  const ssService = ssMock?.mock ?? makeSettingsServiceMock().mock;
+};
+
+/** Creates a layer providing FileSystem + a minimal Workspace service. */
+const withServices = (
+  axmDir: string,
+  wsOverrides?: {
+    setSkillFn?: ReturnType<typeof vi.fn>;
+  },
+) => {
+  const mockWs = makeWorkspaceMock(axmDir, wsOverrides);
   const [logLayer] = makeLogTestLayer();
-  return Layer.mergeAll(
-    NodeContext.layer,
-    Workspace.layer(mockWs),
-    Layer.succeed(SettingsService, ssService),
-    Layer.succeed(LockfileService, makeLockfileServiceMock(axmDir)),
-    logLayer,
-  );
+  return Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs), logLayer);
 };
 
 /** Creates a minimal AddSkillOperation for testing. */
@@ -219,41 +203,39 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("calls SettingsService.addSkill after successful installation", () =>
+    it.effect("calls Workspace.setSkill after successful installation", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir } = setupBase();
-        const { mock, addSkillFn } = makeSettingsServiceMock();
+        const setSkillFn = vi.fn((_name: string, _source: string, _entry: unknown) => Effect.void);
 
         const result = yield* installSkill(
           makeOp({ agents: ["claude-code"], sourcePath: src }),
-        ).pipe(Effect.provide(withServices(axmDir, { mock, addSkillFn })));
+        ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
 
         expect(result.result).toBe("success");
-        expect(addSkillFn).toHaveBeenCalledOnce();
-        expect(addSkillFn).toHaveBeenCalledWith("my-skill", expect.any(String));
+        expect(setSkillFn).toHaveBeenCalledOnce();
+        expect(setSkillFn).toHaveBeenCalledWith("my-skill", expect.any(String), expect.any(Object));
       }),
     );
 
-    it.effect("swallows SettingsService.addSkill failure without failing installation", () =>
+    it.effect("swallows Workspace.setSkill failure without failing installation", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir } = setupBase();
-        const failingMock: SettingsServiceInterface = {
-          ...makeSettingsServiceMock().mock,
-          addSkill: () =>
-            Effect.fail(
-              new SettingsWriteError({
-                path: "",
-                message: "write failed",
-                cause: new Error("write failed"),
-              }),
-            ),
-        };
+        const setSkillFn = vi.fn(() =>
+          Effect.fail(
+            new SettingsWriteError({
+              path: "",
+              message: "write failed",
+              cause: new Error("write failed"),
+            }),
+          ),
+        );
 
         const result = yield* installSkill(
           makeOp({ agents: ["claude-code"], sourcePath: src }),
-        ).pipe(Effect.provide(withServices(axmDir, { mock: failingMock, addSkillFn: vi.fn() })));
+        ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
 
         expect(result.result).toBe("success");
       }),

@@ -10,7 +10,6 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { type Log, makeLogTestLayer, type Confirm, makeConfirmTestLayer } from "../tui/index.js";
 import type { Settings } from "../settings/index.js";
-import { SettingsService, SettingsServiceLive } from "../settings/index.js";
 import { Workspace } from "./service.js";
 import { ensureAgentsConfigured, EnsureAgentsError } from "./ensure-agents.js";
 
@@ -46,25 +45,41 @@ describe("ensureAgentsConfigured", () => {
       nonInteractive: true,
       preview: false,
       resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
-      getSources: () => Effect.succeed([]),
-      getSourceByName: () => Effect.succeed(Option.none()),
-      getRegistrySources: () => Effect.succeed([]),
-      getScope: () => Effect.succeed("@community"),
-      addSource: () => Effect.void,
+      getConfiguredSources: () => Effect.succeed([]),
+      getConfiguredSourceByName: () => Effect.succeed(Option.none()),
+      getConfiguredRegistrySources: () => Effect.succeed([]),
+      getConfiguredScope: () => Effect.succeed("@community"),
+      addConfiguredSource: () => Effect.void,
+      getInstalledSkills: () => Effect.succeed({}),
+      getConfiguredAgents: () =>
+        Effect.try(() => {
+          const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+          const settings = JSON.parse(content) as Settings;
+          return (settings.agents ?? []) as ReadonlyArray<string>;
+        }).pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<string>>([]))),
+      getLockedSkills: () => Effect.succeed({}),
+      getLockedSkill: () => Effect.succeed(Option.none()),
+      setSkill: () => Effect.void,
+      removeSkill: () => Effect.void,
+      addConfiguredAgent: (agentId: string) =>
+        Effect.try(() => {
+          const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+          const settings = JSON.parse(content) as Record<string, unknown>;
+          const agents = (settings["agents"] ?? []) as string[];
+          if (!agents.includes(agentId)) {
+            settings["agents"] = [...agents, agentId];
+            fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings, null, 2));
+          }
+        }).pipe(Effect.catchAll(() => Effect.void)),
     });
-    const SSLayer = Layer.provide(SettingsServiceLive, Layer.merge(WsLayer, NodeContext.layer));
-    const TestLayer = Layer.mergeAll(NodeContext.layer, logLayer, confirmLayer, SSLayer);
+    const TestLayer = Layer.mergeAll(NodeContext.layer, logLayer, confirmLayer, WsLayer);
     return { TestLayer, mockLog };
   };
 
   const withLayer =
-    (layer: Layer.Layer<FileSystem.FileSystem | Path.Path | Log | Confirm | SettingsService>) =>
+    (layer: Layer.Layer<FileSystem.FileSystem | Path.Path | Log | Confirm | Workspace>) =>
     <A, E>(
-      effect: Effect.Effect<
-        A,
-        E,
-        FileSystem.FileSystem | Path.Path | Log | Confirm | SettingsService
-      >,
+      effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Log | Confirm | Workspace>,
     ) =>
       effect.pipe(Effect.provide(layer));
 

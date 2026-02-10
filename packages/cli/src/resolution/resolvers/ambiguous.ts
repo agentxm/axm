@@ -136,7 +136,7 @@ const tryGitSources = (input: string, options: ResolutionOptions) => {
 
   return Effect.gen(function* () {
     const workspace = yield* WorkspaceContextTag;
-    const allSources = yield* workspace.getSources();
+    const allSources = yield* workspace.getConfiguredSources();
 
     // Filter to git-hosting sources
     const gitSources = allSources.filter(

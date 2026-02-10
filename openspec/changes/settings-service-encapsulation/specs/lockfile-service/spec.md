@@ -9,25 +9,25 @@ The lockfile service mutations SHALL NOT manage their own concurrency. The works
 - **WHEN** multiple fibers invoke mutation methods (`updateEntry`, `removeEntry`) concurrently
 - **THEN** each mutation completes in sequence because the workspace service's single semaphore serializes all workspace state mutations
 
-### Requirement: Lockfile service is injectable via Effect layers
+### Requirement: Lockfile service is not provided in production layers
 
-The lockfile service SHALL be provided internally by the workspace module's layer. It SHALL NOT be provided in the shared runtime layer or exported from the lockfile barrel file.
+The lockfile service SHALL NOT be provided in the shared runtime layer or exported from the lockfile barrel file. Workspace uses lockfile I/O functions directly — there is no `LockfileService` instance in production.
 
 #### Scenario: Production layer
 
 - **WHEN** the CLI runtime is composed
 - **THEN** `LockfileService` is NOT included in the shared runtime layer
-- **AND** `LockfileService` is provided internally within the workspace layer
+- **AND** workspace calls lockfile I/O functions (`readLockfile`, `writeLockfile`) directly
 
 #### Scenario: Test layer
 
 - **WHEN** a test needs to control lockfile behavior
 - **THEN** the test provides a mock `Workspace` via `Layer.succeed` which handles all lockfile operations
-- **OR** the test imports `LockfileService` directly from the lockfile module file (not barrel) for unit-testing the internal implementation
+- **OR** the test imports `LockfileService` directly from the lockfile module file (not barrel) for unit-testing the service in isolation
 
-### Requirement: Lockfile service is internal to workspace module
+### Requirement: Lockfile service is not exported from barrel
 
-The lockfile service SHALL be documented as an internal implementation detail of the workspace module. It SHALL NOT be exported from the lockfile barrel file (`lockfile/index.ts`).
+The lockfile service SHALL NOT be exported from the lockfile barrel file (`lockfile/index.ts`). It is no longer used in production — workspace calls I/O functions directly.
 
 #### Scenario: Barrel file exports
 
@@ -35,7 +35,7 @@ The lockfile service SHALL be documented as an internal implementation detail of
 - **THEN** `LockfileService`, `LockfileServiceLive`, and `LockfileServiceInterface` SHALL NOT be available
 - **AND** schemas, types, error classes, and I/O functions (`readLockfile`, `writeLockfile`, etc.) SHALL remain available
 
-#### Scenario: Internal documentation
+#### Scenario: Service documentation
 
 - **WHEN** reading the lockfile service source file
-- **THEN** a doc comment SHALL indicate the service is internal to the workspace module and must not be accessed directly by command handlers
+- **THEN** a doc comment SHALL indicate the service is not used in production and workspace calls I/O functions directly

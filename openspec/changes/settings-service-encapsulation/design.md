@@ -14,11 +14,11 @@ Meanwhile, the workspace service (`workspace/service.ts`) already handles source
 
 - Make workspace the sole public gateway for all settings and lockfile access
 - Consolidate ALL mutation serialization under a single workspace semaphore, ensuring operations that span both files are serialized (no interleaving)
-- Make settings and lockfile services internal to workspace module, removing them from public API and runtime layer
+- Remove settings and lockfile services from public API and runtime layer — workspace uses I/O functions directly
 
 **Non-Goals:**
 
-- Changing settings or lockfile service implementation logic (read/write, format-preserving JSON, etc.)
+- Changing I/O function behavior (read/write, format-preserving JSON, YAML handling, readOrCreate pattern)
 - Changing the settings file format, lockfile format, or schemas
 - Adding new capabilities beyond what exists today
 - Full transactional rollback (if settings write succeeds but lockfile write fails, we don't roll back settings)
@@ -33,27 +33,21 @@ Meanwhile, the workspace service (`workspace/service.ts`) already handles source
 
 **Alternative considered**: Keep per-file semaphores and add an outer operation-level lock. Rejected because it adds complexity (nested locking) without benefit — the single semaphore is simpler and sufficient given these are fast local file writes.
 
-### 2. Workspace delegates to internal services
+### 2. Workspace uses I/O functions directly, no internal service delegation
 
-**Decision**: Add compound skill mutations (`setSkill`, `removeSkill`), skill/lockfile queries (`getInstalledSkills`, `getLockedSkills`, `getLockedSkill`), and configured agent methods (`getConfiguredAgents`, `addConfiguredAgent`) to `WorkspaceContextService` interface. Rename existing methods to follow the naming convention (`getConfiguredSources`, `getConfiguredScope`, etc.). Workspace creates both services internally and delegates calls, wrapping all mutations in the consolidated semaphore. Compound skill methods acquire the semaphore once and write to both files atomically.
+**Decision**: Add compound skill mutations (`setSkill`, `removeSkill`), skill/lockfile queries (`getInstalledSkills`, `getLockedSkills`, `getLockedSkill`), and configured agent methods (`getConfiguredAgents`, `addConfiguredAgent`) to `WorkspaceContextService` interface. Rename existing methods to follow the naming convention (`getConfiguredSources`, `getConfiguredScope`, etc.). Workspace implements these by calling I/O functions (`readSettings`, `writeSettings`, `modifyJsonFile`, `readLockfile`, `writeLockfile`) directly — the same pattern workspace already uses for source and scope operations. Compound skill methods acquire the semaphore once and write to both files sequentially.
 
-**Rationale**: Preserves each service's implementation logic (format-preserving JSON, readOrCreate pattern, lockfile YAML handling) without duplicating it. The services become pure read/write helpers with no concurrency management.
+**Rationale**: Workspace already calls I/O functions directly for its existing methods. The services' only value-add beyond the raw I/O functions was the semaphore and read-modify-write cycle — both of which workspace now owns. Instantiating the services internally would create unnecessary indirection (services that need external serialization discipline and exist only to be called by one consumer). The I/O functions (`readSettings`, `writeSettings`, `modifyJsonFile`, `readLockfile`, `writeLockfile`) are well-tested and encapsulate format-preserving JSON, YAML handling, and readOrCreate patterns.
 
-**Alternative considered**: Inline all settings and lockfile logic directly into workspace. Rejected because it would create a large monolithic service and lose the benefit of focused, testable implementations.
+**Alternative considered**: Instantiate `SettingsService` and `LockfileService` as plain objects within workspace's `make` function and delegate to them. Rejected because it adds a layer of indirection with no benefit — the services would be stripped of their semaphores and called by exactly one consumer, making them thin wrappers over the I/O functions that workspace can call directly.
 
-### 3. Both services instantiated directly within workspace's `make` function
-
-**Decision**: The workspace `make` function instantiates `SettingsService` and `LockfileService` implementations directly, using the `workspaceDir`, `fs`, and `path` values it already has. The services are NOT composed via Layer — they are created as plain objects within `make` and used internally. Neither service is provided in the runtime's shared layer.
-
-**Rationale**: `SettingsServiceLive` and `LockfileServiceLive` currently depend on `Workspace` (for `ws.path`) via `yield* Workspace`. If workspace tried to provide these via Layer composition, there would be a circular dependency: workspace needs the services to expose methods, but the services need workspace for the path. Instantiating directly within `make` avoids this — `make` already has the resolved path and filesystem references. Both services remain independently testable via their own unit tests (tests can still construct them with a mock workspace).
-
-### 4. Barrel files export only types and I/O utilities
+### 3. Barrel files export only types and I/O utilities
 
 **Decision**: Remove service tags, layers, and interfaces from `settings/index.ts` and `lockfile/index.ts`. Keep exporting schemas, types, error classes, and I/O functions since workspace and other modules use these directly.
 
 **Rationale**: The I/O functions and schemas are value types with no service dependencies — they're safe to use anywhere. Only the service wrappers (which manage state) need encapsulation.
 
-### 5. Query methods remain non-blocking
+### 4. Query methods remain non-blocking
 
 **Decision**: Query methods (`getInstalledSkills`, `getConfiguredAgents`, `getConfiguredScope`, `getConfiguredSources`, `getConfiguredSourceByName`, `getConfiguredRegistrySources`, `getLockedSkills`, `getLockedSkill`) do NOT acquire the semaphore, consistent with the existing pattern.
 
@@ -63,9 +57,7 @@ Meanwhile, the workspace service (`workspace/service.ts`) already handles source
 
 **[Risk] Tests that mock SettingsService or LockfileService directly will break** → Tests should mock `Workspace` instead, or import the service directly from its module file (not barrel) for unit-testing the internal implementation.
 
-**[Risk] Services become unsafe when called outside workspace's semaphore** → Add doc comments warning that mutations require external serialization. Acceptable because the only caller is workspace.
-
-**[Trade-off] Workspace interface grows larger** → The interface gains ~10 methods. Acceptable because workspace is the central coordination point and the methods are thin delegations. The interface remains coherent (all workspace state operations in one place).
+**[Trade-off] Workspace interface grows larger** → The interface gains ~10 methods. Acceptable because workspace is the central coordination point and the methods are thin wrappers over I/O functions. The interface remains coherent (all workspace state operations in one place).
 
 **[Trade-off] Reduced mutation concurrency** → All mutations serialize globally, even if they touch different files. Acceptable because these are fast local file writes where the serialization overhead is negligible, and the consistency guarantee outweighs the throughput cost.
 

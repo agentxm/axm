@@ -1,3 +1,5 @@
+> **Note**: The current `workspace-plan` spec covers generic plan types and apply/display behavior only — it does not specify the `WorkspaceContextService` interface. The methods referenced below as MODIFIED (`getSources`, `getScope`, `addSource`) exist in the implementation but are not yet spec'd. This change both renames them and introduces them into the spec for the first time.
+
 ## MODIFIED Requirements
 
 ### Requirement: Workspace provides source queries
@@ -8,6 +10,21 @@ Existing source query methods SHALL be renamed to follow the `getConfigured*` na
 
 The existing `getScope` method SHALL be renamed to `getConfiguredScope`. Behavior is unchanged.
 
+#### Scenario: Scope configured in project settings
+
+- **WHEN** project settings contains `scope: "@acme"`
+- **THEN** `workspace.getConfiguredScope()` returns `"@acme"`
+
+#### Scenario: Scope configured in global settings only
+
+- **WHEN** project settings does not contain a `scope` field but global settings contains `scope: "@corp"`
+- **THEN** `workspace.getConfiguredScope()` returns `"@corp"`
+
+#### Scenario: Scope not configured
+
+- **WHEN** neither project nor global settings contain a `scope` field
+- **THEN** `workspace.getConfiguredScope()` returns the default scope `"@community"`
+
 ### Requirement: Workspace provides addSource mutation
 
 The existing `addSource` method SHALL be renamed to `addConfiguredSource` and serialized by the workspace's single semaphore (replacing its previous independent semaphore). Behavior is otherwise unchanged.
@@ -16,7 +33,7 @@ The existing `addSource` method SHALL be renamed to `addConfiguredSource` and se
 
 ### Requirement: Workspace provides getInstalledSkills query
 
-The workspace service SHALL provide a `getInstalledSkills` method that delegates to the internal settings service and returns the skills map.
+The workspace service SHALL provide a `getInstalledSkills` method that reads settings from disk and returns the skills map.
 
 #### Scenario: Skills configured
 
@@ -63,7 +80,7 @@ The workspace service SHALL provide a `removeSkill` method that atomically remov
 
 ### Requirement: Workspace provides getConfiguredAgents query
 
-The workspace service SHALL provide a `getConfiguredAgents` method that delegates to the internal settings service and returns the configured agent IDs.
+The workspace service SHALL provide a `getConfiguredAgents` method that reads settings from disk and returns the configured agent IDs.
 
 #### Scenario: Agents configured
 
@@ -77,7 +94,7 @@ The workspace service SHALL provide a `getConfiguredAgents` method that delegate
 
 ### Requirement: Workspace provides addConfiguredAgent mutation
 
-The workspace service SHALL provide an `addConfiguredAgent` method that delegates to the internal settings service, serialized by the workspace's single semaphore.
+The workspace service SHALL provide an `addConfiguredAgent` method that writes to settings on disk, serialized by the workspace's single semaphore.
 
 #### Scenario: Add a new agent
 
@@ -97,7 +114,7 @@ The workspace service SHALL provide an `addConfiguredAgent` method that delegate
 
 ### Requirement: Workspace provides getLockedSkills query
 
-The workspace service SHALL provide a `getLockedSkills` method that delegates to the internal lockfile service and returns the skills lock map.
+The workspace service SHALL provide a `getLockedSkills` method that reads the lockfile from disk and returns the skills lock map.
 
 #### Scenario: Lock entries present
 
@@ -111,7 +128,7 @@ The workspace service SHALL provide a `getLockedSkills` method that delegates to
 
 ### Requirement: Workspace provides getLockedSkill query
 
-The workspace service SHALL provide a `getLockedSkill` method that delegates to the internal lockfile service and returns the lock entry for a specific skill.
+The workspace service SHALL provide a `getLockedSkill` method that reads the lockfile from disk and returns the lock entry for a specific skill.
 
 #### Scenario: Skill exists in lockfile
 

@@ -9,11 +9,6 @@ The settings service mutations SHALL NOT manage their own concurrency. The works
 - **WHEN** multiple fibers invoke mutation methods (`addSkill`, `removeSkill`, `addAgent`) concurrently
 - **THEN** each mutation completes in sequence because the workspace service's single semaphore serializes all workspace state mutations (settings and lockfile)
 
-#### Scenario: Write failure releases semaphore
-
-- **WHEN** a mutation fails during the filesystem write
-- **THEN** the service fails with `SettingsWriteError` and the workspace semaphore is released for subsequent operations
-
 ### Requirement: Settings service is injectable via Effect layers
 
 The settings service SHALL be provided internally by the workspace module's layer. It SHALL NOT be provided in the shared runtime layer or exported from the settings barrel file.

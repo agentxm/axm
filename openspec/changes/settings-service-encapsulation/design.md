@@ -27,15 +27,15 @@ Meanwhile, the workspace service (`workspace/service.ts`) already handles source
 
 ### 1. Single semaphore at workspace level for ALL state mutations
 
-**Decision**: Remove semaphores from both `SettingsService` and `LockfileService`. Workspace owns a single `Semaphore(1)` that serializes ALL state mutations: `addSkill`, `removeSkill`, `addAgent`, `addSource`, `updateLockEntry`, and `removeLockEntry`.
+**Decision**: Remove semaphores from both `SettingsService` and `LockfileService`. Workspace owns a single `Semaphore(1)` that serializes ALL state mutations: `setInstalledSkill`, `removeInstalledSkill`, `addConfiguredAgent`, `addConfiguredSource`, `setLockedSkill`, and `removeLockedSkill`.
 
-**Rationale**: Install/uninstall operations span both files. Separate semaphores allow interleaving across files during concurrent operations. A single semaphore ensures each operation completes its full write cycle (settings + lockfile) before another begins. This also fixes the existing race between `addSource` (workspace semaphore) and `addSkill` (settings semaphore) on `settings.json`.
+**Rationale**: Install/uninstall operations span both files. Separate semaphores allow interleaving across files during concurrent operations. A single semaphore ensures each operation completes its full write cycle (settings + lockfile) before another begins. This also fixes the existing race between `addConfiguredSource` (workspace semaphore) and `setInstalledSkill` (settings semaphore) on `settings.json`.
 
 **Alternative considered**: Keep per-file semaphores and add an outer operation-level lock. Rejected because it adds complexity (nested locking) without benefit — the single semaphore is simpler and sufficient given these are fast local file writes.
 
 ### 2. Workspace delegates to internal services
 
-**Decision**: Add settings and lockfile methods to `WorkspaceContextService` interface. Workspace creates both services internally and delegates calls, wrapping all mutations in the consolidated semaphore.
+**Decision**: Add installed skill, configured agent, and locked skill methods to `WorkspaceContextService` interface. Rename existing methods to follow the naming convention (`getConfiguredSources`, `getConfiguredScope`, etc.). Workspace creates both services internally and delegates calls, wrapping all mutations in the consolidated semaphore.
 
 **Rationale**: Preserves each service's implementation logic (format-preserving JSON, readOrCreate pattern, lockfile YAML handling) without duplicating it. The services become pure read/write helpers with no concurrency management.
 
@@ -55,7 +55,7 @@ Meanwhile, the workspace service (`workspace/service.ts`) already handles source
 
 ### 5. Query methods remain non-blocking
 
-**Decision**: Query methods (`getSkills`, `getAgents`, `getScope`, `getSources`, `getLockEntries`, `getLockEntry`) do NOT acquire the semaphore, consistent with the existing pattern.
+**Decision**: Query methods (`getInstalledSkills`, `getConfiguredAgents`, `getConfiguredScope`, `getConfiguredSources`, `getLockedSkills`, `getLockedSkill`) do NOT acquire the semaphore, consistent with the existing pattern.
 
 **Rationale**: Queries read from disk on each call and don't perform read-modify-write cycles. Blocking queries behind the mutation semaphore would reduce throughput without preventing inconsistency (the file could change between a query returning and the caller acting on the result anyway).
 

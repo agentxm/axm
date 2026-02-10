@@ -5,6 +5,8 @@
 - **Install**: `parseSourceInput(source)` → `SourceProviders.resolve()` → discover skills → select → plan. Name filtering happens post-discovery via `--skill <name>` (exact match only, no globs).
 - **Fork**: Three-path `resolveInputSkills()` — glob against lockfile, exact lockfile lookup, or fallback to `parseSourceInput` → `SourceProviders.resolve()`.
 
+The source resolution layer has two distinct concerns today conflated under one name: `parseInputPattern` is the pure classifier (string → `InputPattern` union), while `parseSourceInput` is the effectful resolver (string → `Effect<SourceInput>`). The name `parseSourceInput` obscures the fact that it already does more than parsing — it dispatches to provider-specific resolvers and shorthand expanders.
+
 Install already has `--skill` for exact name filtering after discovery. Fork has inline glob matching but only against the lockfile. The `expandGlob` function lives in `uninstall/glob.ts` and is shared between fork and uninstall.
 
 ## Goals / Non-Goals
@@ -55,21 +57,26 @@ For the common case of forking an installed skill by name, the installed skill n
 
 **Why:** Aligns fork's CLI contract with install. One positional for source, flags for filtering. Eliminates the need for fork's bespoke 3-path resolver.
 
-### 3. Resolve installed skill names through `parseSourceInput`
+### 3. Rename `parseSourceInput` → `determineSourceInput` and resolve installed skill names
 
-Today, `parseSourceInput` returns `ParseError` for `NameInput` ("Name input is not yet supported"). Instead of special-casing installed name lookup in each command, extend the parser to resolve bare names against the lockfile as a local source.
+There are two layers today:
 
-When `parseSourceInput` encounters a `NameInput`:
+- `parseInputPattern` — pure function that classifies a string into an `InputPattern` discriminated union (no Effect, no dependencies)
+- `parseSourceInput` — effectful function that takes an `InputPattern` and resolves it to a `SourceInput`
 
-1. Look up the name in the lockfile
+The name `parseSourceInput` understates what this function does. It doesn't just parse — it resolves shorthands, looks up hosts, and dispatches to provider-specific parsers. Renaming to `determineSourceInput` makes the responsibility clear: it _determines_ the source from user input, which naturally includes looking things up.
+
+With the rename, adding a `LockfileService` dependency becomes obvious rather than surprising. When `determineSourceInput` encounters a `NameInput`:
+
+1. Look up the name in the lockfile via `LockfileService`
 2. If found, resolve to a local source pointing at the installed location
 3. If not found, fail with a descriptive error suggesting `axm skills list`
 
-This requires `parseSourceInput` to become effectful with a `LockfileService` dependency (it's already effectful, returning `Effect<SourceInput, ParseError>`). The lockfile dependency is acceptable because name resolution is inherently stateful.
+`determineSourceInput` already returns `Effect<SourceInput, ParseError>`. The new `LockfileService` requirement adds to the `R` channel and propagates automatically to callers via inference.
 
 **Why over keeping name lookup in each handler:** Centralizes resolution logic. Every command that accepts a source string gets installed-name resolution for free.
 
-**Alternative considered — keep name lookup in handlers:** Simpler change, no new dependency on `parseSourceInput`. Rejected because it perpetuates the pattern of each command reimplementing resolution logic.
+**Alternative considered — keep name lookup in handlers:** Simpler change, no new dependency. Rejected because it perpetuates the pattern of each command reimplementing resolution logic.
 
 ### 4. Apply glob filtering post-discovery via `expandGlob`
 
@@ -95,9 +102,117 @@ The existing `determineSkillsToInstall` in `select-skills.ts` does exact name ma
 
 If a `--skill` value contains `*`, treat it as a glob pattern. Otherwise, keep exact matching (preserving current behavior for non-glob inputs and error messages for missing exact names).
 
+## Code Sketches
+
+### Install handler — minimal change
+
+The install handler structure stays the same. The only change is in `select-skills.ts` where `determineSkillsToInstall` becomes glob-aware:
+
+```typescript
+// BEFORE (select-skills.ts): exact match only
+if (args.requestedSkills.length > 0) {
+  const invalidSkills = Array.filter(
+    args.requestedSkills,
+    (name) => !skills.some((s) => s.skill.name === name),
+  );
+  // ... error if invalid ...
+  return Array.filter(skills, (s) => args.requestedSkills.includes(s.skill.name));
+}
+
+// AFTER: glob-aware matching via expandGlobs
+if (args.requestedSkills.length > 0) {
+  const allNames = Array.map(skills, (s) => s.skill.name);
+  const matched = expandGlobs(args.requestedSkills, allNames);
+  if (matched.length === 0) {
+    // ... error listing available names ...
+  }
+  return Array.filter(skills, (s) => matched.includes(s.skill.name));
+}
+```
+
+Additionally, the install handler stops passing `args.skills` into `findOptions.names` (pass `[]` instead) so the provider discovers everything and glob filtering happens post-discovery in `determineSkillsToInstall`.
+
+### Fork handler — replace `resolveInputSkills` with shared flow
+
+The entire `resolveInputSkills` function (103-192), `ResolvedSkill` type, `isGlobPattern`, and `getInstalledSkillRelativePath` are deleted. The fork handler adopts the same parse → discover → filter structure as install:
+
+```typescript
+// BEFORE: bespoke 3-path resolveInputSkills(args.source, base)
+const resolvedSkills = yield * resolveInputSkills(args.source, base);
+
+// AFTER: shared flow (same as install)
+const source =
+  yield *
+  determineSourceInput(args.source).pipe(
+    Effect.mapError((e) => new ForkError({ message: `Invalid source: ${e.message}`, cause: e })),
+  );
+
+const allRefs = yield * sources.resolve(source, { names: [], agents: [], type: "skill" });
+const discoveredSkills = Array.filter(allRefs, (ref) => ref.type === "skill");
+
+// Apply --skill glob filter (new)
+const filtered =
+  args.skills.length > 0
+    ? Array.filter(discoveredSkills, (s) =>
+        expandGlobs(
+          args.skills,
+          Array.map(discoveredSkills, (r) => r.skill.name),
+        ).includes(s.skill.name),
+      )
+    : discoveredSkills;
+```
+
+The plan building (steps 4+) uses `filtered` and accesses `ref.skill.name` / `ref.location` directly from `SkillRef` instead of the intermediate `ResolvedSkill` type.
+
+### `determineSourceInput` — handle `NameInput` via lockfile
+
+In `parser.ts`, rename the function and resolve the `NameInput` branch:
+
+```typescript
+// BEFORE
+Match.tag("NameInput", () =>
+  Effect.fail(new ParseError({ message: "Name input is not yet supported", input })),
+),
+
+// AFTER
+Match.tag("NameInput", ({ name }) =>
+  Effect.gen(function* () {
+    const ls = yield* LockfileService;
+    const skills = yield* ls.getSkills();
+    if (!(name in skills)) {
+      return yield* new ParseError({
+        message: `Unknown skill "${name}". Check installed skills with \`axm skills list\`.`,
+        input,
+      });
+    }
+    return yield* parseLocalPath(getInstalledSkillPath(name, skills[name]));
+  }),
+),
+```
+
+### Shared `expandGlobs`
+
+New multi-pattern function alongside existing `expandGlob`, in a shared module:
+
+```typescript
+// packages/cli/src/skills/glob.ts (moved from uninstall/glob.ts)
+export const expandGlobs = (
+  patterns: ReadonlyArray<string>,
+  names: ReadonlyArray<string>,
+): ReadonlyArray<string> => {
+  const matched = new Set<string>();
+  for (const pattern of patterns) {
+    for (const name of expandGlob(pattern, names)) {
+      matched.add(name);
+    }
+  }
+  return names.filter((n) => matched.has(n)); // preserve original order
+};
+```
+
 ## Risks / Trade-offs
 
-**[Risk] `NameInput` resolution adds LockfileService dependency to parser** → Acceptable because `parseSourceInput` already returns an Effect. The lockfile lookup is a clean service dependency, not a side-channel. Commands that don't provide LockfileService (if any) would need to be updated.
+**[Risk] `NameInput` resolution adds LockfileService dependency to `determineSourceInput`** → The rename from `parseSourceInput` makes this natural — "determine" implies lookup, not just parsing. The `LockfileService` dependency propagates via Effect's `R` channel inference. Callers already provide `LockfileService` in their runtime layers.
 
 **[Risk] Fork's `fork my-skill` shorthand could break if lockfile structure changes** → Mitigated by resolving through the same lockfile service used everywhere else. The lockfile is the single source of truth for installed skill locations.
 

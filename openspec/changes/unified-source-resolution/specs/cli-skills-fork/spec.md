@@ -7,7 +7,7 @@ The fork command SHALL accept a `<source>` positional argument (same formats as 
 #### Scenario: Fork from a source string
 
 - **WHEN** running `axm skills fork github:owner/repo`
-- **THEN** the handler SHALL parse the source string via `parseSourceInput`
+- **THEN** the handler SHALL parse the source string via `determineSourceInput`
 - **AND** discover skills via `SourceProviders.resolve()`
 - **AND** fork all discovered skills
 
@@ -26,13 +26,13 @@ The fork command SHALL accept a `<source>` positional argument (same formats as 
 
 ### Requirement: Fork resolves installed skill names via source parsing
 
-When the `<source>` argument is a bare name (e.g. `my-skill`), `parseSourceInput` SHALL resolve it against the lockfile to determine the installed location and treat it as a local source.
+When the `<source>` argument is a bare name (e.g. `my-skill`), `determineSourceInput` SHALL resolve it against the lockfile to determine the installed location and treat it as a local source.
 
 #### Scenario: Fork an installed skill by name
 
 - **WHEN** running `axm skills fork my-skill`
 - **AND** `my-skill` exists in the lockfile
-- **THEN** `parseSourceInput` SHALL resolve `my-skill` to a local source pointing at the installed location
+- **THEN** `determineSourceInput` SHALL resolve `my-skill` to a local source pointing at the installed location
 - **AND** the fork handler SHALL discover and fork from that location
 
 #### Scenario: Fork a non-existent skill name
@@ -45,12 +45,12 @@ When the `<source>` argument is a bare name (e.g. `my-skill`), `parseSourceInput
 
 ### Requirement: Fork uses shared source resolution with install
 
-The fork handler SHALL use `parseSourceInput` and `SourceProviders.resolve()` for source resolution — the same path used by the install handler. The fork handler SHALL NOT implement its own source resolution logic.
+The fork handler SHALL use `determineSourceInput` and `SourceProviders.resolve()` for source resolution — the same path used by the install handler. The fork handler SHALL NOT implement its own source resolution logic.
 
-#### Scenario: Fork handler uses parseSourceInput
+#### Scenario: Fork handler uses determineSourceInput
 
 - **WHEN** the fork handler receives a source argument
-- **THEN** it SHALL call `parseSourceInput(source)` to parse the source
+- **THEN** it SHALL call `determineSourceInput(source)` to parse the source
 - **AND** it SHALL call `SourceProviders.resolve()` to discover skills
 - **AND** it SHALL NOT contain inline lockfile lookups for source resolution
 

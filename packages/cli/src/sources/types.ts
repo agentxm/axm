@@ -16,6 +16,7 @@ import type {
   GitHubSourceConfig,
   GitLabSourceConfig,
   RegistrySourceConfig,
+  SourceConfig,
 } from "../settings/schema.js";
 
 // -----------------------------------------------------------------------------
@@ -223,6 +224,20 @@ export type SourceInput =
   | GitRepositorySourceInput
   | RegistrySourceInput
   | LocalSourceInput;
+
+/**
+ * Result of parsing a source input string.
+ *
+ * Combines the parsed input coordinates with an optional explicit config
+ * (determined during two-phase parsing when a config-name prefix or URL
+ * hostname match identifies the source provider).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface ParseSourceInputResult {
+  readonly input: SourceInput;
+  readonly config: Option.Option<SourceConfig>;
+}
 
 // -----------------------------------------------------------------------------
 // Source (Input + Config)

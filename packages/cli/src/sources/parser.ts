@@ -21,6 +21,7 @@ import { descriptor as githubDescriptor } from "./github/index.js";
 import { descriptor as gitlabDescriptor } from "./gitlab/index.js";
 import { descriptor as localDescriptor, parseLocalPath } from "./local/index.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
+import type { ParseSourceInputResult } from "./types.js";
 import { Workspace } from "../workspace/index.js";
 
 /** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
@@ -205,20 +206,9 @@ const getInstalledSkillPath = (name: string, entry: SkillLockEntry): string => {
 // -----------------------------------------------------------------------------
 // Main Parser
 // -----------------------------------------------------------------------------
-//
-//
-
-/*
-TODO: determineSourceInput should return something like this:
-
-interface ExtensionSource
-
-
-
-*/
 
 /**
- * Determine the source from a user-provided input string.
+ * Parse a user-provided input string into a ParseSourceInputResult.
  *
  * Supported formats:
  * - Installed skill name: `my-skill` (resolved via lockfile to local path)
@@ -229,38 +219,43 @@ interface ExtensionSource
  * - Local paths: `./path`, `../path`, `/absolute/path`, `~/path`, `C:\path`
  *
  * @experimental This API is unstable and may change without notice.
- * @param input - The source string to determine
- * @returns Effect containing SourceInput or ParseError
+ * @param input - The source string to parse
+ * @returns Effect containing ParseSourceInputResult or ParseError
  */
-export const determineSourceInput = (input: string) => {
+export const parseSourceInput = (input: string) => {
   const trimmed = input.trim();
   if (!trimmed) {
     return Effect.fail(new ParseError({ message: "Source string cannot be empty", input }));
   }
+  const none = Option.none<import("../settings/schema.js").SourceConfig>();
+  const wrap = (si: Effect.Effect<import("./types.js").SourceInput, ParseError, Workspace>) =>
+    Effect.map(si, (i): ParseSourceInputResult => ({ input: i, config: none }));
   return parseInputPattern(trimmed).pipe(
     Option.match({
       onNone: () => Effect.fail(new ParseError({ message: "Unable to parse source", input })),
       onSome: Match.type<InputPattern>().pipe(
         Match.tag("NameInput", ({ name }) =>
-          Effect.gen(function* () {
-            const ws = yield* Workspace;
-            const skills = yield* ws.getLockedSkills().pipe(
-              Effect.mapError(
-                (e) =>
-                  new ParseError({
-                    message: `Failed to read lockfile: ${e._tag}`,
-                    input,
-                  }),
-              ),
-            );
-            if (!(name in skills)) {
-              return yield* new ParseError({
-                message: `Unknown skill "${name}". Check installed skills with \`axm skills list\`.`,
-                input,
-              });
-            }
-            return yield* parseLocalPath(getInstalledSkillPath(name, skills[name]!));
-          }),
+          wrap(
+            Effect.gen(function* () {
+              const ws = yield* Workspace;
+              const skills = yield* ws.getLockedSkills().pipe(
+                Effect.mapError(
+                  (e) =>
+                    new ParseError({
+                      message: `Failed to read lockfile: ${e._tag}`,
+                      input,
+                    }),
+                ),
+              );
+              if (!(name in skills)) {
+                return yield* new ParseError({
+                  message: `Unknown skill "${name}". Check installed skills with \`axm skills list\`.`,
+                  input,
+                });
+              }
+              return yield* parseLocalPath(getInstalledSkillPath(name, skills[name]!));
+            }),
+          ),
         ),
         Match.tag("RegistryPatternInput", () =>
           Effect.fail(
@@ -274,7 +269,7 @@ export const determineSourceInput = (input: string) => {
               new ParseError({ message: `Unsupported SCP host: "${scp.host}"`, input }),
             );
           }
-          return cfg.parseFromUrl.value.parseScp(`${scp.user}@${scp.host}:${scp.path}`);
+          return wrap(cfg.parseFromUrl.value.parseScp(`${scp.user}@${scp.host}:${scp.path}`));
         }),
         Match.tag("UrlInput", ({ url }) => {
           const cfg = DESCRIPTOR_BY_HOSTNAME.get(url.hostname);
@@ -286,9 +281,14 @@ export const determineSourceInput = (input: string) => {
               }),
             );
           }
-          return cfg.parseFromUrl.value.parseUrl(url);
+          return wrap(cfg.parseFromUrl.value.parseUrl(url));
         }),
         Match.tag("SlashPattern", (pattern) =>
+          /*
+          TODO:
+          * if one/two:
+          *   check to see if resolves to any registry extension of the known registry sources ()
+          */
           Effect.fail(
             new ParseError({
               message: `Ambiguous pattern '${pattern.owner}/${pattern.repo}' — use github:${pattern.owner}/${pattern.repo}, gitlab:${pattern.owner}/${pattern.repo}, or bitbucket:${pattern.owner}/${pattern.repo}`,
@@ -296,7 +296,7 @@ export const determineSourceInput = (input: string) => {
             }),
           ),
         ),
-        Match.tag("FilePathPattern", ({ path }) => parseLocalPath(path)),
+        Match.tag("FilePathPattern", ({ path }) => wrap(parseLocalPath(path))),
         Match.tag("ShorthandInput", ({ prefix, input: shorthandInput }) => {
           const cfg = DESCRIPTOR_BY_PREFIX.get(prefix);
           if (!cfg || Option.isNone(cfg.shorthand)) {
@@ -304,7 +304,7 @@ export const determineSourceInput = (input: string) => {
               new ParseError({ message: `Unknown shorthand prefix: "${prefix}"`, input }),
             );
           }
-          return cfg.shorthand.value.parse(shorthandInput);
+          return wrap(cfg.shorthand.value.parse(shorthandInput));
         }),
         Match.exhaustive,
       ),

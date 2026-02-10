@@ -13,8 +13,14 @@ import { descriptor as bitbucketDescriptor } from "./bitbucket/index.js";
 import { ParseError } from "./errors.js";
 import { descriptor as githubDescriptor } from "./github/index.js";
 import { descriptor as gitlabDescriptor } from "./gitlab/index.js";
-import { determineSourceInput, parseInputPattern } from "./parser.js";
-import type { Source, SourceDescriptor, SourceInput, SourceType } from "./types.js";
+import { parseSourceInput, parseInputPattern } from "./parser.js";
+import type {
+  ParseSourceInputResult,
+  Source,
+  SourceDescriptor,
+  SourceInput,
+  SourceType,
+} from "./types.js";
 import type { SourceConfig } from "../settings/schema.js";
 import { Workspace } from "../workspace/index.js";
 
@@ -117,7 +123,7 @@ const findConfig = (
 // -----------------------------------------------------------------------------
 
 /**
- * When `determineSourceInput` fails, check if the prefix before `:` matches
+ * When `parseSourceInput` fails, check if the prefix before `:` matches
  * a config name from workspace. If so, re-parse using that config's source
  * type descriptor shorthand.
  *
@@ -144,34 +150,34 @@ const tryConfigNameParse = (input: string, originalError: ParseError) =>
       );
 
     // Find config by name
-    const config = sources.find((s) => s.name === prefix);
-    if (!config) {
+    const matchedConfig = sources.find((s) => s.name === prefix);
+    if (!matchedConfig) {
       return yield* Effect.fail(originalError);
     }
 
     // Must be a git hosting type with a shorthand descriptor
-    if (!GIT_HOSTING_TYPES.has(config.source as SourceType)) {
+    if (!GIT_HOSTING_TYPES.has(matchedConfig.source as SourceType)) {
       return yield* Effect.fail(originalError);
     }
 
-    const desc = DESCRIPTOR_BY_TYPE.get(config.source);
+    const desc = DESCRIPTOR_BY_TYPE.get(matchedConfig.source);
     if (!desc || Option.isNone(desc.shorthand)) {
       return yield* Effect.fail(
         new ParseError({
-          message: `Source type "${config.source}" does not support shorthand syntax`,
+          message: `Source type "${matchedConfig.source}" does not support shorthand syntax`,
           input,
         }),
       );
     }
 
     // Re-parse: construct `{sourceType}:{remainder}` and parse with the descriptor
-    const reparsed = `${config.source}:${remainder}`;
-    const sourceInput = yield* desc.shorthand.value.parse(reparsed);
+    const reparsed = `${matchedConfig.source}:${remainder}`;
+    const parsedInput = yield* desc.shorthand.value.parse(reparsed);
 
     return {
-      sourceInput: sourceInput as SourceInput,
-      explicitConfig: Option.some(config),
-    };
+      input: parsedInput as SourceInput,
+      config: Option.some(matchedConfig),
+    } satisfies ParseSourceInputResult;
   });
 
 // -----------------------------------------------------------------------------
@@ -179,7 +185,7 @@ const tryConfigNameParse = (input: string, originalError: ParseError) =>
 // -----------------------------------------------------------------------------
 
 /**
- * When `determineSourceInput` fails for a URL with an unknown hostname, try to
+ * When `parseSourceInput` fails for a URL with an unknown hostname, try to
  * match the hostname against configured source URLs. If a match is found,
  * re-parse the URL by substituting the canonical hostname so the descriptor's
  * URL parser accepts it.
@@ -238,25 +244,25 @@ const tryUrlHostnameMatch = (input: string, originalError: ParseError) =>
       // Replace hostname in URL
       const canonicalUrl = new URL(p.url.href);
       canonicalUrl.hostname = canonicalHostname;
-      const sourceInput = yield* desc.parseFromUrl.value
+      const parsedInput = yield* desc.parseFromUrl.value
         .parseUrl(canonicalUrl)
         .pipe(Effect.mapError(() => originalError));
       return {
-        sourceInput: sourceInput as SourceInput,
-        explicitConfig: Option.some(matchingConfig),
-      };
+        input: parsedInput as SourceInput,
+        config: Option.some(matchingConfig),
+      } satisfies ParseSourceInputResult;
     }
 
     if (p._tag === "GitScpAddress") {
       // Replace host in SCP address
       const canonicalScp = `${p.user}@${canonicalHostname}:${p.path}`;
-      const sourceInput = yield* desc.parseFromUrl.value
+      const parsedInput = yield* desc.parseFromUrl.value
         .parseScp(canonicalScp)
         .pipe(Effect.mapError(() => originalError));
       return {
-        sourceInput: sourceInput as SourceInput,
-        explicitConfig: Option.some(matchingConfig),
-      };
+        input: parsedInput as SourceInput,
+        config: Option.some(matchingConfig),
+      } satisfies ParseSourceInputResult;
     }
 
     return yield* Effect.fail(originalError);
@@ -269,7 +275,7 @@ const tryUrlHostnameMatch = (input: string, originalError: ParseError) =>
 /**
  * Resolve a source input string into a fully resolved Source.
  *
- * Combines the parsed input coordinates from `determineSourceInput` with
+ * Combines the parsed input coordinates from `parseSourceInput` with
  * the matching source config from the Workspace service.
  *
  * For self-describing sources (local, git, registry) the input passes through
@@ -283,16 +289,12 @@ const tryUrlHostnameMatch = (input: string, originalError: ParseError) =>
 export const resolveSource = (input: string) =>
   Effect.gen(function* () {
     // Try standard parse, with fallback to config-name or URL hostname matching
-    const parseResult = yield* determineSourceInput(input).pipe(
-      Effect.map((si) => ({
-        sourceInput: si,
-        explicitConfig: Option.none<SourceConfig>(),
-      })),
+    const parseResult = yield* parseSourceInput(input).pipe(
       Effect.catchTag("ParseError", (error) => tryConfigNameParse(input, error)),
       Effect.catchTag("ParseError", (error) => tryUrlHostnameMatch(input, error)),
     );
 
-    const { sourceInput, explicitConfig } = parseResult;
+    const { input: sourceInput, config: explicitConfig } = parseResult;
 
     // Self-describing types pass through without config
     if (!GIT_HOSTING_TYPES.has(sourceInput.source)) {
@@ -325,8 +327,8 @@ export const resolveSource = (input: string) =>
     }
 
     // Find the matching config
-    const config = yield* findConfig(input, sourceInput.source, configs);
+    const matchedConfig = yield* findConfig(input, sourceInput.source, configs);
 
     // Merge input + config
-    return { ...sourceInput, ...config } as Source;
+    return { ...sourceInput, ...matchedConfig } as Source;
   });

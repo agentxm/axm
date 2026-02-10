@@ -21,6 +21,7 @@ import {
   type ExtensionIndex,
   type VersionEntry,
 } from "../../registry/index.js";
+import { computeChecksum } from "../../utils/checksum.js";
 import { RegistryError, SourceError } from "../provider.js";
 import type { ExtensionRef, FindOptions, SkillRef, SourceProvider } from "../provider.js";
 import type { RegistrySourceInput } from "../types.js";
@@ -89,14 +90,6 @@ const extensionDir = (
   join: (...parts: readonly string[]) => string,
 ): string => join(registryRoot, "extensions", scope, pluralizeType(type), name);
 
-/** Compute SHA-256 checksum in `sha256:<hex>` format. */
-const computeChecksum = (data: Uint8Array): Effect.Effect<string> =>
-  Effect.promise(async () => {
-    const { createHash } = await import("node:crypto");
-    const hex = createHash("sha256").update(data).digest("hex");
-    return `sha256:${hex}`;
-  });
-
 // -----------------------------------------------------------------------------
 // Local Registry Source Provider
 // -----------------------------------------------------------------------------
@@ -129,6 +122,7 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
 
           const refs: SkillRef[] = [];
 
+          // Sequential: each iteration reads from the filesystem and may early-return
           for (const extType of typeFilter) {
             if (extType !== "skill") continue; // Only skills implemented in this change
 
@@ -293,12 +287,13 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       }
 
       // Extract zip to temp directory
-      const tmpDir = yield* Effect.promise(async () => {
-        const { mkdtemp } = await import("node:fs/promises");
-        const { tmpdir } = await import("node:os");
-        const p = await import("node:path");
-        return mkdtemp(p.join(tmpdir(), "axm-registry-"));
-      });
+      const tmpDir = yield* fs
+        .makeTempDirectory()
+        .pipe(
+          Effect.mapError(
+            (e) => new SourceError({ message: "Failed to create temp directory", cause: e }),
+          ),
+        );
 
       yield* extractZip(archiveBytes, tmpDir);
 
@@ -506,6 +501,8 @@ const selectVersion = (
 /**
  * Extract a zip archive to a target directory.
  * Uses the `unzip` CLI command for simplicity.
+ *
+ * TODO: Replace `unzip` CLI with a JS zip library for Windows portability.
  */
 const extractZip = (archive: Uint8Array, targetDir: string) =>
   Effect.gen(function* () {

@@ -1,15 +1,19 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, beforeEach } from "vitest";
 import { copySkillDirectory } from "./copy-skill-directory.js";
 
-const withFileSystem = <A, E>(
-  effect: Effect.Effect<A, E, import("@effect/platform").FileSystem.FileSystem>,
-) => effect.pipe(Effect.provide(NodeFileSystem.layer));
+const withPlatform = <A, E>(
+  effect: Effect.Effect<
+    A,
+    E,
+    import("@effect/platform").FileSystem.FileSystem | import("@effect/platform").Path.Path
+  >,
+) => effect.pipe(Effect.provide(NodeContext.layer));
 
 describe("copySkillDirectory", () => {
   let tmpDir: string;
@@ -23,7 +27,7 @@ describe("copySkillDirectory", () => {
   });
 
   it.effect("copies regular files to destination", () =>
-    withFileSystem(
+    withPlatform(
       Effect.gen(function* () {
         const src = path.join(tmpDir, "src");
         const dest = path.join(tmpDir, "dest");
@@ -40,7 +44,7 @@ describe("copySkillDirectory", () => {
   );
 
   it.effect("excludes README.md", () =>
-    withFileSystem(
+    withPlatform(
       Effect.gen(function* () {
         const src = path.join(tmpDir, "src");
         const dest = path.join(tmpDir, "dest");
@@ -57,7 +61,7 @@ describe("copySkillDirectory", () => {
   );
 
   it.effect("excludes metadata.json", () =>
-    withFileSystem(
+    withPlatform(
       Effect.gen(function* () {
         const src = path.join(tmpDir, "src");
         const dest = path.join(tmpDir, "dest");
@@ -73,7 +77,7 @@ describe("copySkillDirectory", () => {
   );
 
   it.effect("excludes _-prefixed entries", () =>
-    withFileSystem(
+    withPlatform(
       Effect.gen(function* () {
         const src = path.join(tmpDir, "src");
         const dest = path.join(tmpDir, "dest");
@@ -92,7 +96,7 @@ describe("copySkillDirectory", () => {
   );
 
   it.effect("excludes .git directory", () =>
-    withFileSystem(
+    withPlatform(
       Effect.gen(function* () {
         const src = path.join(tmpDir, "src");
         const dest = path.join(tmpDir, "dest");
@@ -109,7 +113,7 @@ describe("copySkillDirectory", () => {
   );
 
   it.effect("copies nested directories recursively", () =>
-    withFileSystem(
+    withPlatform(
       Effect.gen(function* () {
         const src = path.join(tmpDir, "src");
         const dest = path.join(tmpDir, "dest");
@@ -130,7 +134,7 @@ describe("copySkillDirectory", () => {
   );
 
   it.effect("dereferences symlinks (copies content, not link)", () =>
-    withFileSystem(
+    withPlatform(
       Effect.gen(function* () {
         const src = path.join(tmpDir, "src");
         const dest = path.join(tmpDir, "dest");
@@ -152,7 +156,7 @@ describe("copySkillDirectory", () => {
   );
 
   it.effect("creates destination directory if it does not exist", () =>
-    withFileSystem(
+    withPlatform(
       Effect.gen(function* () {
         const src = path.join(tmpDir, "src");
         const dest = path.join(tmpDir, "a", "b", "dest");

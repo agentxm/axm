@@ -8,12 +8,12 @@
  * @packageDocumentation
  */
 
-import * as os from "node:os";
 import * as nodePath from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { ExtensionRef, ExtensionType, ResolutionOptions } from "../types.js";
+import { expandHome } from "./path-utils.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -49,20 +49,10 @@ const EXTENSION_FILES: ReadonlyArray<{ readonly file: string; readonly type: Ext
 export const isLocalPath = (input: string): boolean => LOCAL_PATH_PATTERN.test(input);
 
 /**
- * Expand ~ to home directory.
- */
-const expandTilde = (inputPath: string): string => {
-  if (inputPath.startsWith("~/") || inputPath.startsWith("~\\")) {
-    return nodePath.join(os.homedir(), inputPath.slice(2));
-  }
-  return inputPath;
-};
-
-/**
  * Resolve a potentially relative path against the cwd option.
  */
 const resolvePath = (input: string, cwd: string): string => {
-  const expanded = expandTilde(input);
+  const expanded = expandHome(input);
   if (nodePath.isAbsolute(expanded)) {
     return nodePath.normalize(expanded);
   }

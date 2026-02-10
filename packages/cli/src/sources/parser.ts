@@ -166,12 +166,11 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
   if (input.includes("/")) {
     const segments = input.split("/");
     if (segments.length === 2 && segments.every((s) => NAME_PATTERN.test(s))) {
-      const subPathStr = segments.slice(2).join("/");
       return Option.some({
         _tag: "SlashPattern",
         owner: segments[0]!,
         repo: segments[1]!,
-        subPath: Option.fromNullable(subPathStr || undefined),
+        subPath: Option.none(),
       });
     }
     return Option.none();

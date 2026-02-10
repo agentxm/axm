@@ -113,7 +113,7 @@ export const SettingsServiceLive: Layer.Layer<
     const readOrCreate = (): Effect.Effect<Settings, SettingsError> =>
       readSettings(axmDir).pipe(
         Effect.catchTag("SettingsNotFoundError", () =>
-          writeSettings(axmDir, {}).pipe(Effect.map(() => createDefaultSettings())),
+          writeSettings(axmDir, {}).pipe(Effect.as(createDefaultSettings())),
         ),
         Effect.provide(fsLayer),
       );

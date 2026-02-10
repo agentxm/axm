@@ -8,28 +8,31 @@
 import * as Effect from "effect/Effect";
 
 import { CloneUrlError } from "./errors.js";
-import type { SourceInput } from "./types.js";
+import type { Source } from "./types.js";
 
 /**
  * Build a git clone URL from a source.
  *
- * Only works for GitHub, GitLab, and Bitbucket sources. Returns CloneUrlError for other types.
+ * Only works for GitHub, GitLab, Bitbucket, and Azure Repos sources.
+ * Returns CloneUrlError for other types.
+ *
+ * Uses the configured `url` field from the source config as the base URL.
  *
  * @experimental This API is unstable and may change without notice.
- * @param source - The source to build a clone URL for
+ * @param source - The resolved source to build a clone URL for
  * @returns Effect containing the HTTPS clone URL or CloneUrlError
  */
-export const buildCloneUrl = (source: SourceInput): Effect.Effect<string, CloneUrlError> => {
+export const buildCloneUrl = (source: Source): Effect.Effect<string, CloneUrlError> => {
   switch (source.source) {
     case "github":
-      return Effect.succeed(`https://github.com/${source.owner}/${source.repo}.git`);
+      return Effect.succeed(`${source.url}/${source.owner}/${source.repo}.git`);
     case "gitlab":
-      return Effect.succeed(`https://gitlab.com/${source.owner}/${source.repo}.git`);
+      return Effect.succeed(`${source.url}/${source.owner}/${source.repo}.git`);
     case "bitbucket":
-      return Effect.succeed(`https://bitbucket.org/${source.owner}/${source.repo}.git`);
+      return Effect.succeed(`${source.url}/${source.owner}/${source.repo}.git`);
     case "azurerepos":
       return Effect.succeed(
-        `https://dev.azure.com/${source.organization}/${source.project}/_git/${source.repo}`,
+        `${source.url}/${source.organization}/${source.project}/_git/${source.repo}`,
       );
     default:
       return Effect.fail(
@@ -45,26 +48,29 @@ export const buildCloneUrl = (source: SourceInput): Effect.Effect<string, CloneU
  * Get the origin URL from a source.
  *
  * Returns the human-readable URL or path for the source.
- * - For GitHub: https://github.com/owner/repo
- * - For GitLab: https://gitlab.com/owner/repo
- * - For Bitbucket: https://bitbucket.org/owner/repo
+ * Uses the configured `url` field for git hosting sources.
+ *
+ * - For GitHub: {url}/owner/repo
+ * - For GitLab: {url}/owner/repo
+ * - For Bitbucket: {url}/owner/repo
+ * - For Azure Repos: {url}/organization/project/_git/repo
  * - For local: the path
  * - For git/registry: the url or path
  *
  * @experimental This API is unstable and may change without notice.
- * @param source - The source to get the origin from
+ * @param source - The resolved source to get the origin from
  * @returns The origin URL or path
  */
-export const getOrigin = (source: SourceInput): string => {
+export const getOrigin = (source: Source): string => {
   switch (source.source) {
     case "github":
-      return `https://github.com/${source.owner}/${source.repo}`;
+      return `${source.url}/${source.owner}/${source.repo}`;
     case "gitlab":
-      return `https://gitlab.com/${source.owner}/${source.repo}`;
+      return `${source.url}/${source.owner}/${source.repo}`;
     case "bitbucket":
-      return `https://bitbucket.org/${source.owner}/${source.repo}`;
+      return `${source.url}/${source.owner}/${source.repo}`;
     case "azurerepos":
-      return `https://dev.azure.com/${source.organization}/${source.project}/_git/${source.repo}`;
+      return `${source.url}/${source.organization}/${source.project}/_git/${source.repo}`;
     case "local":
       return source.path;
     case "git":

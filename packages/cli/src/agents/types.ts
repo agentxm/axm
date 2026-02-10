@@ -18,7 +18,7 @@ import type { Effect, Record } from "effect";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface AgentSkillsConfig {
+export interface AgentSkillsDescriptor {
   /** Skills directory, relative to cwd (e.g., ".claude/skills") */
   readonly dir: string;
 }
@@ -98,13 +98,13 @@ export type AgentDetectFn = () => Effect.Effect<
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface AgentConfig {
+export interface AgentDescriptor {
   /** Unique identifier (e.g., "claude-code") */
   readonly id: AgentId;
   /** Human-readable display name (e.g., "Claude Code") */
   readonly name: string;
   /** Skills installation configuration */
-  readonly skills: AgentSkillsConfig;
+  readonly skills: AgentSkillsDescriptor;
   /** Optional custom detection function. If not provided, default heuristic is used. */
   readonly detect?: AgentDetectFn;
 }
@@ -118,4 +118,4 @@ export interface AgentConfig {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type AgentRegistry = Record.ReadonlyRecord<AgentId, AgentConfig>;
+export type AgentRegistry = Record.ReadonlyRecord<AgentId, AgentDescriptor>;

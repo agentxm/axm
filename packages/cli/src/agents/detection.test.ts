@@ -299,7 +299,7 @@ describe("detectAgents", () => {
       }),
     );
 
-    it.effect("returns only AgentConfig objects from AGENTS registry", () =>
+    it.effect("returns only AgentDescriptor objects from AGENTS registry", () =>
       Effect.gen(function* () {
         const existingPaths = new Set([claudeHome, codexHome]);
         const result = yield* detectAgents().pipe(

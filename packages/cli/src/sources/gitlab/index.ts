@@ -6,7 +6,7 @@
  */
 
 export { resolveRepo } from "./resolve-repo.js";
-export { config } from "./config.js";
+export { descriptor } from "./descriptor.js";
 export { print } from "./print.js";
 export { parseShorthand, shorthandPrefix } from "./shorthand.js";
 export { parseUrl } from "./url.js";

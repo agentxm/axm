@@ -81,7 +81,7 @@ const STATIC_PRIORITY_DIRECTORIES: readonly string[] = [
  * Composition:
  * 1. `.` (searchPath root) — always first, highest priority
  * 2. Non-agent static dirs: skills/.curated, skills/.experimental, skills/.system
- * 3. Agent dirs: unique `skills.dir` values from the AgentConfig registry
+ * 3. Agent dirs: unique `skills.dir` values from the AgentDescriptor registry
  */
 export const getPriorityDirectories = (): ReadonlyArray<string> => {
   const agentDirs = Array.dedupe(Array.map(getAllAgents(), (agent) => agent.skills.dir));

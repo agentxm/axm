@@ -14,7 +14,7 @@
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
-import { type AgentConfig, detectAgents, getAllAgents, getAgentById } from "../agents/index.js";
+import { type AgentDescriptor, detectAgents, getAllAgents, getAgentById } from "../agents/index.js";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -119,7 +119,7 @@ export interface WorkspaceContextOptions {
 const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextOptions) =>
   Effect.gen(function* () {
     // Select agents based on options
-    let selectedAgents: AgentConfig[];
+    let selectedAgents: AgentDescriptor[];
 
     // If explicit agents are provided, use those (no detection needed)
     if (Option.isSome(options.agents) && options.agents.value.length > 0) {
@@ -156,7 +156,7 @@ const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextO
 
         const agentMultiselect = (initialIds: Option.Option<readonly string[]>) =>
           multiselect
-            .prompt<AgentConfig>({
+            .prompt<AgentDescriptor>({
               message: "Select agents to configure",
               items: allAgents,
               toOption: (agent) => ({

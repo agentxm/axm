@@ -26,7 +26,7 @@ import {
   makeSelectTestLayer,
 } from "../../../tui/index.js";
 import {
-  WorkspaceContextTag,
+  Workspace,
   layer as workspaceLayer,
   type WorkspaceContextOptions,
 } from "../../../workspace/index.js";
@@ -140,13 +140,7 @@ describe("uninstall.handler", () => {
       effect: Effect.Effect<
         A,
         E,
-        | FileSystem.FileSystem
-        | Path.Path
-        | Log
-        | Confirm
-        | Select
-        | Multiselect
-        | WorkspaceContextTag
+        FileSystem.FileSystem | Path.Path | Log | Confirm | Select | Multiselect | Workspace
       >,
     ) => effect.pipe(Effect.provide(FullLayer));
 

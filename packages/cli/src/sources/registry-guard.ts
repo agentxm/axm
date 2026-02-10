@@ -9,7 +9,7 @@ import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { TextInput } from "../tui/index.js";
-import { WorkspaceContextTag } from "../workspace/index.js";
+import { Workspace } from "../workspace/index.js";
 import { RegistryNotConfiguredError } from "./provider.js";
 
 /**
@@ -23,7 +23,7 @@ import { RegistryNotConfiguredError } from "./provider.js";
  * @experimental This API is unstable and may change without notice.
  */
 export const registryGuard = Effect.gen(function* () {
-  const workspace = yield* WorkspaceContextTag;
+  const workspace = yield* Workspace;
   const registrySources = yield* workspace.getConfiguredRegistrySources(Option.none());
 
   // Already configured - no-op

@@ -13,7 +13,7 @@ import { ParseError } from "./errors.js";
 import { type InputPattern, parseInputPattern, determineSourceInput } from "./parser.js";
 import { printSource } from "./printer.js";
 import type { SkillLockEntry, SkillsLockMap } from "../lockfile/index.js";
-import { WorkspaceContextTag as Workspace } from "../workspace/index.js";
+import { Workspace } from "../workspace/index.js";
 
 // -----------------------------------------------------------------------------
 // Test helpers

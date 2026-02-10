@@ -21,7 +21,7 @@ import { config as githubConfig } from "./github/index.js";
 import { config as gitlabConfig } from "./gitlab/index.js";
 import { config as localConfig, parseLocalPath } from "./local/index.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
-import { WorkspaceContextTag as Workspace } from "../workspace/index.js";
+import { Workspace } from "../workspace/index.js";
 
 /** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
 const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;

@@ -5,7 +5,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { SourceConfig } from "../settings/index.js";
 import { makeTextInputTestLayer } from "../tui/index.js";
-import { WorkspaceContextTag, type WorkspaceContextService } from "../workspace/index.js";
+import { Workspace, type WorkspaceContextService } from "../workspace/index.js";
 import { RegistryNotConfiguredError } from "./provider.js";
 import { registryGuard } from "./registry-guard.js";
 
@@ -40,7 +40,7 @@ describe("registryGuard", () => {
       addConfiguredAgent: vi.fn(() => Effect.void),
     };
 
-    return Layer.succeed(WorkspaceContextTag, mockWorkspace);
+    return Layer.succeed(Workspace, mockWorkspace);
   };
 
   it.effect("passes when registry sources already configured", () =>

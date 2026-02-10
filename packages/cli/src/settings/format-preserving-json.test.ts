@@ -100,6 +100,47 @@ describe("ensureTopLevelProperty", () => {
 });
 
 // -----------------------------------------------------------------------------
+// ensureTopLevelProperty with keyOrder
+// -----------------------------------------------------------------------------
+
+describe("ensureTopLevelProperty with keyOrder", () => {
+  const fmt2 = { tabSize: 2, insertSpaces: true, eol: "\n" } as const;
+  const order = ["scope", "sources", "agents", "skills", "commands", "packs", "mcp-servers"];
+
+  it("inserts before the first property that comes later in key order", () => {
+    // "agents" exists, inserting "skills" should go after "agents" (append)
+    // but inserting "sources" should go before "agents"
+    const text = '{\n  "agents": ["a"]\n}\n';
+    const result = ensureTopLevelProperty(text, "sources", [], fmt2, order);
+    expect(result).toBe('{\n  "sources": [],\n  "agents": ["a"]\n}\n');
+  });
+
+  it("appends at end when new key comes after all existing keys", () => {
+    const text = '{\n  "scope": "@acme",\n  "agents": ["a"]\n}\n';
+    const result = ensureTopLevelProperty(text, "skills", {}, fmt2, order);
+    expect(result).toBe('{\n  "scope": "@acme",\n  "agents": ["a"],\n  "skills": {}\n}\n');
+  });
+
+  it("inserts in the middle between existing keys", () => {
+    const text = '{\n  "scope": "@acme",\n  "skills": {}\n}\n';
+    const result = ensureTopLevelProperty(text, "agents", [], fmt2, order);
+    expect(result).toBe('{\n  "scope": "@acme",\n  "agents": [],\n  "skills": {}\n}\n');
+  });
+
+  it("falls back to append when keyOrder is not provided", () => {
+    const text = '{\n  "agents": ["a"]\n}\n';
+    const result = ensureTopLevelProperty(text, "skills", {}, fmt2);
+    expect(result).toBe('{\n  "agents": ["a"],\n  "skills": {}\n}\n');
+  });
+
+  it("falls back to append when key is not in keyOrder", () => {
+    const text = '{\n  "agents": ["a"]\n}\n';
+    const result = ensureTopLevelProperty(text, "custom", "val", fmt2, order);
+    expect(result).toBe('{\n  "agents": ["a"],\n  "custom": "val"\n}\n');
+  });
+});
+
+// -----------------------------------------------------------------------------
 // modifyJsonFile
 // -----------------------------------------------------------------------------
 

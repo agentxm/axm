@@ -21,7 +21,7 @@ import {
   ensureTopLevelProperty,
   modifyJsonFile,
 } from "./format-preserving-json.js";
-import type { Settings, SkillsMap } from "./schema.js";
+import { SETTINGS_KEY_ORDER, type Settings, type SkillsMap } from "./schema.js";
 import {
   createDefaultSettings,
   DEFAULT_SCOPE,
@@ -155,7 +155,13 @@ export const SettingsServiceLive: Layer.Layer<
                     }),
                 ),
               );
-              text = ensureTopLevelProperty(text, "skills", {}, detectFormatting(text));
+              text = ensureTopLevelProperty(
+                text,
+                "skills",
+                {},
+                detectFormatting(text),
+                SETTINGS_KEY_ORDER,
+              );
               yield* fs.writeFileString(settingsPath, text).pipe(
                 Effect.mapError(
                   (error) =>

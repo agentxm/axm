@@ -45,15 +45,15 @@ Depends on: Phase 1.
 
 Update `buildCloneUrl` and `getOrigin` to accept `Source` and use config `url` field.
 
-- [ ] 3.1 Update tests in `sources/clone-url.test.ts` (or create if missing) to pass `Source` objects with config `url` field, verify clone URLs use config base URL instead of hardcoded values
-- [ ] 3.2 Change `buildCloneUrl` signature from `(source: SourceInput)` to `(source: Source)` — use `source.url` for github/gitlab/bitbucket/azurerepos cases
-- [ ] 3.3 Update `getOrigin` signature from `(source: SourceInput)` to `(source: Source)` — use `source.url` for git hosting cases
-- [ ] 3.4 Fix all call sites of `buildCloneUrl` and `getOrigin` to pass `Source` instead of `SourceInput`
-- [ ] 3.5 Run `pnpm typecheck` and fix any errors
-- [ ] 3.6 Run `pnpm lint` and fix any errors
-- [ ] 3.7 Run `pnpm test` and fix any failures
-- [ ] 3.8 Run `pnpm test:e2e` and fix any failures
-- [ ] 3.9 Kill any vitest worker processes
+- [x] 3.1 Update tests in `sources/clone-url.test.ts` (or create if missing) to pass `Source` objects with config `url` field, verify clone URLs use config base URL instead of hardcoded values
+- [x] 3.2 Change `buildCloneUrl` signature from `(source: SourceInput)` to `(source: Source)` — use `source.url` for github/gitlab/bitbucket/azurerepos cases
+- [x] 3.3 Update `getOrigin` signature from `(source: SourceInput)` to `(source: Source)` — use `source.url` for git hosting cases
+- [x] 3.4 Fix all call sites of `buildCloneUrl` and `getOrigin` to pass `Source` instead of `SourceInput`
+- [x] 3.5 Run `pnpm typecheck` and fix any errors
+- [x] 3.6 Run `pnpm lint` and fix any errors
+- [x] 3.7 Run `pnpm test` and fix any failures
+- [x] 3.8 Run `pnpm test:e2e` and fix any failures
+- [x] 3.9 Kill any vitest worker processes
 
 ## 4. `SourceProviders` Service Interface
 
@@ -63,16 +63,16 @@ Depends on: Phase 1.
 
 Rename `resolve` → `resolveExtension` and change parameter from `SourceInput` to `Source`.
 
-- [ ] 4.1 Update `SourceProvidersService` interface in `sources/service.ts`: rename `resolve` to `resolveExtension`, change parameter type from `SourceInput` to `Source`
-- [ ] 4.2 Update `SourceProvidersLive` layer implementation: rename the `resolve` method to `resolveExtension` in the returned object
-- [ ] 4.3 Update the `SourceProvider` interface in `sources/provider.ts`: change `find` parameter type from the specific `SourceInput` variant to the corresponding `Source` variant
-- [ ] 4.4 Update provider implementations (github, gitlab, bitbucket, azurerepos, git, local, registry) to accept `Source` variants in `find` and `fetch` signatures
-- [ ] 4.5 Run `pnpm typecheck` and fix any errors
-- [ ] 4.6 Update tests for `sources/service.ts` and provider tests to use `Source` objects and `resolveExtension` name
-- [ ] 4.7 Run `pnpm lint` and fix any errors
-- [ ] 4.8 Run `pnpm test` and fix any failures
-- [ ] 4.9 Run `pnpm test:e2e` and fix any failures
-- [ ] 4.10 Kill any vitest worker processes
+- [x] 4.1 Update `SourceProvidersService` interface in `sources/service.ts`: rename `resolve` to `resolveExtension`, change parameter type from `SourceInput` to `Source`
+- [x] 4.2 Update `SourceProvidersLive` layer implementation: rename the `resolve` method to `resolveExtension` in the returned object
+- [x] 4.3 Update the `SourceProvider` interface in `sources/provider.ts`: change `find` parameter type from the specific `SourceInput` variant to the corresponding `Source` variant
+- [x] 4.4 Update provider implementations (github, gitlab, bitbucket, azurerepos, git, local, registry) to accept `Source` variants in `find` and `fetch` signatures
+- [x] 4.5 Run `pnpm typecheck` and fix any errors
+- [x] 4.6 Update tests for `sources/service.ts` and provider tests to use `Source` objects and `resolveExtension` name
+- [x] 4.7 Run `pnpm lint` and fix any errors
+- [x] 4.8 Run `pnpm test` and fix any failures
+- [x] 4.9 Run `pnpm test:e2e` and fix any failures
+- [x] 4.10 Kill any vitest worker processes
 
 ## 5. Handler and Resolver Migration
 

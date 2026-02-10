@@ -116,7 +116,7 @@ export const createRegistryMetaProvider = (): SourceProvider<
       const allRefs: ExtensionRef[] = [];
 
       for (const regSource of registrySources) {
-        const provider = createRegistryProvider(regSource.location);
+        const provider = createRegistryProvider(regSource.url.href);
         const result = yield* provider.find(_source, options).pipe(Effect.either);
 
         if (result._tag === "Left") {

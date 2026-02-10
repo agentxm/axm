@@ -187,7 +187,7 @@ export const publishSkill: OperationHandler<
       });
     }
 
-    const provider = createRegistryProvider(registrySource.value.location);
+    const provider = createRegistryProvider(registrySource.value.url.href);
 
     // Build version entry metadata
     const versionEntry: VersionEntry = {

@@ -13,6 +13,8 @@ describe("computeInstallPath", () => {
     it("computes external path for registry source", () => {
       const source: SkillSource = {
         source: "registry",
+        scope: "@community",
+        name: "commit",
       };
 
       const path = computeInstallPath(source, "commit");
@@ -23,6 +25,8 @@ describe("computeInstallPath", () => {
     it("uses skill name parameter for path", () => {
       const source: SkillSource = {
         source: "registry",
+        scope: "@community",
+        name: "commit",
       };
 
       const path = computeInstallPath(source, "different-name");
@@ -100,6 +104,8 @@ describe("computeInstallPath", () => {
     it("handles registry source", () => {
       const source: SkillSource = {
         source: "registry",
+        scope: "@community",
+        name: "commit",
       };
 
       const path = computeInstallPath(source, "skill");

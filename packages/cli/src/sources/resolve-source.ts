@@ -41,15 +41,9 @@ const DESCRIPTOR_BY_TYPE = new Map<string, AnySourceDescriptor>([
 // -----------------------------------------------------------------------------
 
 /**
- * Extract hostname from a URL string.
+ * Extract hostname from a URL object.
  */
-const hostnameFromUrl = (url: string): Option.Option<string> => {
-  try {
-    return Option.some(new URL(url).hostname);
-  } catch {
-    return Option.none();
-  }
-};
+const hostnameFromUrl = (url: URL): string => url.hostname;
 
 /**
  * Extract hostname from the original input string if it's a URL or SCP address.
@@ -88,8 +82,7 @@ const findConfig = (
     const hostname = inputHostname.value;
     const match = configs.find((c) => {
       if (!("url" in c)) return false;
-      const configHostname = hostnameFromUrl(c.url);
-      return Option.isSome(configHostname) && configHostname.value === hostname;
+      return hostnameFromUrl(c.url) === hostname;
     });
     if (match) return Effect.succeed(match);
 
@@ -142,11 +135,13 @@ const tryConfigNameParse = (input: string, originalError: ParseError) =>
     const remainder = trimmed.slice(colonIndex + 1);
 
     const ws = yield* Workspace;
-    const sources = yield* ws.getConfiguredSources().pipe(
-      Effect.mapError(
-        (e) => new ParseError({ message: `Failed to get configured sources: ${e._tag}`, input }),
-      ),
-    );
+    const sources = yield* ws
+      .getConfiguredSources()
+      .pipe(
+        Effect.mapError(
+          (e) => new ParseError({ message: `Failed to get configured sources: ${e._tag}`, input }),
+        ),
+      );
 
     // Find config by name
     const config = sources.find((s) => s.name === prefix);
@@ -207,17 +202,18 @@ const tryUrlHostnameMatch = (input: string, originalError: ParseError) =>
 
     // Get configured sources from workspace
     const ws = yield* Workspace;
-    const sources = yield* ws.getConfiguredSources().pipe(
-      Effect.mapError(
-        (e) => new ParseError({ message: `Failed to get configured sources: ${e._tag}`, input }),
-      ),
-    );
+    const sources = yield* ws
+      .getConfiguredSources()
+      .pipe(
+        Effect.mapError(
+          (e) => new ParseError({ message: `Failed to get configured sources: ${e._tag}`, input }),
+        ),
+      );
 
     // Find a config whose URL hostname matches the input hostname
     const matchingConfig = sources.find((c) => {
       if (!("url" in c)) return false;
-      const configHostname = hostnameFromUrl(c.url);
-      return Option.isSome(configHostname) && configHostname.value === hostname;
+      return hostnameFromUrl(c.url) === hostname;
     });
 
     if (!matchingConfig) {
@@ -242,9 +238,9 @@ const tryUrlHostnameMatch = (input: string, originalError: ParseError) =>
       // Replace hostname in URL
       const canonicalUrl = new URL(p.url.href);
       canonicalUrl.hostname = canonicalHostname;
-      const sourceInput = yield* desc.parseFromUrl.value.parseUrl(canonicalUrl).pipe(
-        Effect.mapError(() => originalError),
-      );
+      const sourceInput = yield* desc.parseFromUrl.value
+        .parseUrl(canonicalUrl)
+        .pipe(Effect.mapError(() => originalError));
       return {
         sourceInput: sourceInput as SourceInput,
         explicitConfig: Option.some(matchingConfig),
@@ -254,9 +250,9 @@ const tryUrlHostnameMatch = (input: string, originalError: ParseError) =>
     if (p._tag === "GitScpAddress") {
       // Replace host in SCP address
       const canonicalScp = `${p.user}@${canonicalHostname}:${p.path}`;
-      const sourceInput = yield* desc.parseFromUrl.value.parseScp(canonicalScp).pipe(
-        Effect.mapError(() => originalError),
-      );
+      const sourceInput = yield* desc.parseFromUrl.value
+        .parseScp(canonicalScp)
+        .pipe(Effect.mapError(() => originalError));
       return {
         sourceInput: sourceInput as SourceInput,
         explicitConfig: Option.some(matchingConfig),
@@ -310,11 +306,13 @@ export const resolveSource = (input: string) =>
 
     // Get configured sources for config matching
     const ws = yield* Workspace;
-    const allSources = yield* ws.getConfiguredSources().pipe(
-      Effect.mapError(
-        (e) => new ParseError({ message: `Failed to get configured sources: ${e._tag}`, input }),
-      ),
-    );
+    const allSources = yield* ws
+      .getConfiguredSources()
+      .pipe(
+        Effect.mapError(
+          (e) => new ParseError({ message: `Failed to get configured sources: ${e._tag}`, input }),
+        ),
+      );
 
     // Filter to configs of the same source type
     const configs = allSources.filter((c) => c.source === sourceInput.source);

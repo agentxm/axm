@@ -43,7 +43,7 @@ export const printSource = (source: Source | SourceInput): string => {
   // Fallback for types without a descriptor
   switch (source.source) {
     case "git":
-      return "url" in source ? source.url : source.path;
+      return source.url.href;
     case "registry":
       return source.source;
     default:

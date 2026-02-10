@@ -15,6 +15,7 @@ import type {
   BitbucketSourceConfig,
   GitHubSourceConfig,
   GitLabSourceConfig,
+  RegistrySourceConfig,
 } from "../settings/schema.js";
 
 // -----------------------------------------------------------------------------
@@ -186,16 +187,8 @@ export type GitRepositorySourceInput = {
   readonly source: "git";
   /** Git ref (tag, branch, or SHA) */
   readonly ref: Option.Option<string>;
-} & (
-  | {
-      /** Full git URL */
-      readonly url: string;
-    }
-  | {
-      /** Local path */
-      readonly path: string;
-    }
-);
+  readonly url: URL;
+};
 
 /**
  * Package registry source input (placeholder for future implementation).
@@ -203,6 +196,8 @@ export type GitRepositorySourceInput = {
  */
 export type RegistrySourceInput = {
   readonly source: "registry";
+  readonly scope: string;
+  readonly name: string;
 };
 
 /**
@@ -248,7 +243,7 @@ export type GitHubSource = GitHubSourceInput & GitHubSourceConfig;
 export type GitLabSource = GitLabSourceInput & GitLabSourceConfig;
 export type BitbucketSource = BitbucketSourceInput & BitbucketSourceConfig;
 export type AzureReposSource = AzureReposSourceInput & AzureReposSourceConfig;
-export type RegistrySource = RegistrySourceInput;
+export type RegistrySource = RegistrySourceInput & RegistrySourceConfig;
 export type GitRepositorySource = GitRepositorySourceInput;
 export type LocalSource = LocalSourceInput;
 

@@ -84,7 +84,10 @@ describe("LocalRegistrySourceProvider.find", () => {
     runEffect(
       Effect.gen(function* () {
         const provider = createLocalRegistryProvider("/nonexistent/path");
-        const refs = yield* provider.find({ source: "registry" }, defaultFindOptions);
+        const refs = yield* provider.find(
+          { source: "registry", scope: "@test", name: "my-skill" },
+          defaultFindOptions,
+        );
         expect(refs).toHaveLength(0);
       }),
     ));
@@ -104,7 +107,7 @@ describe("LocalRegistrySourceProvider.find", () => {
 
         const provider = createLocalRegistryProvider(registryRoot);
         const refs = yield* provider.find(
-          { source: "registry" },
+          { source: "registry", scope: "@test", name: "my-skill" },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
 
@@ -138,13 +141,13 @@ describe("LocalRegistrySourceProvider.find", () => {
         const provider = createLocalRegistryProvider(registryRoot);
 
         const found = yield* provider.find(
-          { source: "registry" },
+          { source: "registry", scope: "@test", name: "my-skill" },
           { ...defaultFindOptions, names: ["my-skill"], agents: ["cursor"] },
         );
         expect(found).toHaveLength(1);
 
         const notFound = yield* provider.find(
-          { source: "registry" },
+          { source: "registry", scope: "@test", name: "my-skill" },
           { ...defaultFindOptions, names: ["my-skill"], agents: ["claude-code"] },
         );
         expect(notFound).toHaveLength(0);
@@ -171,7 +174,7 @@ describe("LocalRegistrySourceProvider.find", () => {
 
         const provider = createLocalRegistryProvider(registryRoot);
         const refs = yield* provider.find(
-          { source: "registry" },
+          { source: "registry", scope: "@test", name: "my-skill" },
           { ...defaultFindOptions, names: ["nonexistent"] },
         );
         expect(refs).toHaveLength(0);
@@ -198,7 +201,7 @@ describe("LocalRegistrySourceProvider.find", () => {
 
         const provider = createLocalRegistryProvider(registryRoot);
         const refs = yield* provider.find(
-          { source: "registry" },
+          { source: "registry", scope: "@test", name: "my-skill" },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
         expect(refs).toHaveLength(0);
@@ -234,11 +237,11 @@ describe("LocalRegistrySourceProvider.fetch", () => {
 
         const provider = createLocalRegistryProvider(registryRoot);
         const result = yield* provider.fetch(
-          { source: "registry" },
+          { source: "registry", scope: "@test", name: "my-skill" },
           {
             type: "skill",
             skill: { name: "my-skill", description: "", metadata: Option.none() },
-            source: { source: "registry" },
+            source: { source: "registry", scope: "@test", name: "my-skill" },
             location: `file://${skillDir}`,
             version: Option.some("1.0.0"),
             gitTreeSha: Option.none(),
@@ -275,11 +278,11 @@ describe("LocalRegistrySourceProvider.fetch", () => {
         const provider = createLocalRegistryProvider(registryRoot);
         const result = yield* provider
           .fetch(
-            { source: "registry" },
+            { source: "registry", scope: "@test", name: "my-skill" },
             {
               type: "skill",
               skill: { name: "my-skill", description: "", metadata: Option.none() },
-              source: { source: "registry" },
+              source: { source: "registry", scope: "@test", name: "my-skill" },
               location: `file://${skillDir}`,
               version: Option.some("1.0.0"),
               gitTreeSha: Option.none(),
@@ -434,7 +437,7 @@ describe("RemoteRegistrySourceProvider", () => {
       Effect.gen(function* () {
         const provider = createRemoteRegistryProvider();
         const result = yield* provider
-          .find({ source: "registry" }, defaultFindOptions)
+          .find({ source: "registry", scope: "@test", name: "my-skill" }, defaultFindOptions)
           .pipe(Effect.either);
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
@@ -449,11 +452,11 @@ describe("RemoteRegistrySourceProvider", () => {
         const provider = createRemoteRegistryProvider();
         const result = yield* provider
           .fetch(
-            { source: "registry" },
+            { source: "registry", scope: "@test", name: "my-skill" },
             {
               type: "skill",
               skill: { name: "x", description: "", metadata: Option.none() },
-              source: { source: "registry" },
+              source: { source: "registry", scope: "@test", name: "my-skill" },
               location: "https://example.com",
               version: Option.some("1.0.0"),
               gitTreeSha: Option.none(),
@@ -515,7 +518,7 @@ describe("createRegistryProvider", () => {
     return runEffect(
       Effect.gen(function* () {
         const result = yield* provider
-          .find({ source: "registry" }, defaultFindOptions)
+          .find({ source: "registry", scope: "@test", name: "my-skill" }, defaultFindOptions)
           .pipe(Effect.either);
         expect(result._tag).toBe("Left");
       }),

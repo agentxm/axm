@@ -60,7 +60,7 @@ const commonFields = (input: SourceToLockEntryInput) => ({
  * Key mappings:
  * - `source.subPath` → lock entry `path` (field rename)
  * - `Option.some(v)` → `v`, `Option.none()` → omitted
- * - `GitRepositorySource` path variant puts `source.path` into lock entry `url`
+ * - `GitRepositorySource.url` is stored as `url.href` in lock entry
  * - `RegistrySourceInput` uses `registry.scope` and `registry.name` from input
  */
 export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry => {
@@ -109,16 +109,13 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
         ...common,
       };
 
-    case "git": {
-      // URL variant has `url`, path variant has `path` — both map to lock entry `url`
-      const url = "url" in source ? source.url : source.path;
+    case "git":
       return {
         source: "git",
-        url,
+        url: source.url.href,
         ...optionalField("ref", source.ref),
         ...common,
       };
-    }
 
     case "local":
       return {

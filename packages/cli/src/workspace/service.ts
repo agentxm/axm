@@ -56,9 +56,9 @@ import { applyPlan, type ExecutionContext, type Handlers } from "./apply-plan.js
  * @internal
  */
 const BUILT_IN_SOURCES: ReadonlyArray<SourceConfig> = [
-  { name: "github", source: "github", url: "https://github.com" },
-  { name: "gitlab", source: "gitlab", url: "https://gitlab.com" },
-  { name: "bitbucket", source: "bitbucket", url: "https://bitbucket.org" },
+  { name: "github", source: "github", url: new URL("https://github.com") },
+  { name: "gitlab", source: "gitlab", url: new URL("https://gitlab.com") },
+  { name: "bitbucket", source: "bitbucket", url: new URL("https://bitbucket.org") },
 ];
 
 /**

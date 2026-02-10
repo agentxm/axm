@@ -80,7 +80,7 @@ const buildProbeUrl = (
   repo: string,
 ): Option.Option<string> => {
   if (source.source === "github" || source.source === "gitlab" || source.source === "bitbucket") {
-    return Option.some(`${source.url}/${owner}/${repo}`);
+    return Option.some(`${source.url.origin}/${owner}/${repo}`);
   }
   // Azure Repos uses different URL format, registry/local don't apply
   return Option.none();

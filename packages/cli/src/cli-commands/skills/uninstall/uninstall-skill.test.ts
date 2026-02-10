@@ -166,6 +166,32 @@ const makeLocalLockEntryYaml = (agents: string[]) => ({
   updatedAt: new Date().toISOString(),
 });
 
+/** Creates a registry source lock entry for the in-memory mock (Date objects). */
+const makeRegistryLockEntry = (agents: string[]) => ({
+  source: "registry" as const,
+  scope: "@community",
+  name: "my-skill",
+  resolvedVersion: "1.0.0",
+  checksum: "sha256:abc123",
+  sourceName: "local",
+  agents,
+  installedAt: new Date(),
+  updatedAt: new Date(),
+});
+
+/** Creates a registry source lock entry for on-disk YAML (ISO strings). */
+const makeRegistryLockEntryYaml = (agents: string[]) => ({
+  source: "registry",
+  scope: "@community",
+  name: "my-skill",
+  resolvedVersion: "1.0.0",
+  checksum: "sha256:abc123",
+  sourceName: "local",
+  agents,
+  installedAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+});
+
 /** Creates a mock SettingsService with a spy on removeSkill. */
 const makeSettingsServiceMock = () => {
   const removeSkillFn = vi.fn((_name: string) => Effect.void);
@@ -685,6 +711,166 @@ describe("uninstallSkill", () => {
 
         expect(result.result).toBe("success");
         expect(fs.existsSync(canonicalPath)).toBe(false);
+      }),
+    );
+  });
+
+  describe("registry source uninstall", () => {
+    /** Sets up a workspace with a skill installed via registry source. */
+    const setupRegistryWorkspace = (
+      opts: {
+        skillName?: string;
+        scope?: string;
+        agents?: string[];
+        createSymlinks?: boolean;
+      } = {},
+    ) => {
+      const skillName = opts.skillName ?? "my-skill";
+      const scope = opts.scope ?? "@community";
+      const agents = opts.agents ?? ["claude-code"];
+
+      const base = path.join(tmpDir, "project");
+      const axmDir = path.join(base, ".axm");
+      fs.mkdirSync(axmDir, { recursive: true });
+
+      // Create registry canonical dir: .axm/extensions/@scope/skills/<name>/
+      const registryPath = path.join(base, ".axm", "extensions", scope, "skills", skillName);
+      fs.mkdirSync(registryPath, { recursive: true });
+      fs.writeFileSync(path.join(registryPath, "SKILL.md"), `# ${skillName}`);
+
+      // Create agent symlinks pointing to registry location
+      if (opts.createSymlinks !== false) {
+        for (const agentId of agents) {
+          const agentDirMap: Record<string, string> = {
+            "claude-code": ".claude/skills",
+            cursor: ".cursor/skills",
+          };
+          const agentSkillsDir = agentDirMap[agentId];
+          if (agentSkillsDir) {
+            const agentSkillPath = path.join(base, agentSkillsDir, skillName);
+            fs.mkdirSync(path.dirname(agentSkillPath), { recursive: true });
+            fs.symlinkSync(registryPath, agentSkillPath);
+          }
+        }
+      }
+
+      const lockfileSkills = {
+        [skillName]: makeRegistryLockEntry(agents),
+      };
+      const lockfileSkillsYaml = {
+        [skillName]: makeRegistryLockEntryYaml(agents),
+      };
+      writeLockfileYaml(axmDir, lockfileSkillsYaml);
+
+      return { base, axmDir, registryPath, lockfileSkills };
+    };
+
+    it.effect("removes registry-sourced skill from .axm/extensions/ and cleans lockfile", () =>
+      Effect.gen(function* () {
+        const { axmDir, base, registryPath, lockfileSkills } = setupRegistryWorkspace({
+          agents: ["claude-code"],
+        });
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toBe("Uninstalled my-skill");
+
+        // Registry canonical dir should be removed
+        expect(fs.existsSync(registryPath)).toBe(false);
+
+        // Agent symlink should be removed
+        expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
+
+        // Lockfile entry should be removed
+        const lockfile = readLockfileYaml(axmDir);
+        expect(lockfile.skills["my-skill"]).toBeUndefined();
+      }),
+    );
+
+    it.effect("removes skill from both legacy and registry locations during uninstall", () =>
+      Effect.gen(function* () {
+        // Setup: skill exists in BOTH locations (e.g., after a source type change)
+        const { axmDir, base, registryPath, lockfileSkills } = setupRegistryWorkspace({
+          agents: ["claude-code"],
+        });
+
+        // Also create the legacy canonical location
+        const legacyPath = path.join(base, ".agents", "skills", "my-skill");
+        fs.mkdirSync(legacyPath, { recursive: true });
+        fs.writeFileSync(path.join(legacyPath, "SKILL.md"), "# my-skill");
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills)),
+        );
+
+        expect(result.result).toBe("success");
+
+        // Both locations should be removed
+        expect(fs.existsSync(registryPath)).toBe(false);
+        expect(fs.existsSync(legacyPath)).toBe(false);
+      }),
+    );
+
+    it.effect("handles partial uninstall for registry-sourced skill", () =>
+      Effect.gen(function* () {
+        const { axmDir, base, registryPath, lockfileSkills } = setupRegistryWorkspace({
+          agents: ["claude-code", "cursor"],
+        });
+
+        const result = yield* uninstallSkill(makeOp({ agents: ["claude-code"] })).pipe(
+          Effect.provide(withServices(axmDir, lockfileSkills)),
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toBe("Uninstalled my-skill from claude-code");
+
+        // claude-code symlink should be removed
+        expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
+
+        // cursor symlink should still exist
+        expect(fs.existsSync(path.join(base, ".cursor", "skills", "my-skill"))).toBe(true);
+
+        // Registry canonical dir should still exist
+        expect(fs.existsSync(registryPath)).toBe(true);
+
+        // Lockfile should still have entry but without claude-code
+        const lockfile = readLockfileYaml(axmDir);
+        expect(lockfile.skills["my-skill"]).toBeDefined();
+        expect(lockfile.skills["my-skill"].agents).toEqual(["cursor"]);
+      }),
+    );
+
+    it.effect("detects registry-sourced skill on disk even without lockfile entry", () =>
+      Effect.gen(function* () {
+        // Setup: skill in registry location but no lockfile entry
+        const base = path.join(tmpDir, "project");
+        const axmDir = path.join(base, ".axm");
+        fs.mkdirSync(axmDir, { recursive: true });
+
+        const registryPath = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "@community",
+          "skills",
+          "my-skill",
+        );
+        fs.mkdirSync(registryPath, { recursive: true });
+        fs.writeFileSync(path.join(registryPath, "SKILL.md"), "# my-skill");
+        writeLockfileYaml(axmDir, {});
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(withServices(axmDir, {})),
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toBe("Uninstalled my-skill");
+
+        // Registry path should be removed
+        expect(fs.existsSync(registryPath)).toBe(false);
       }),
     );
   });

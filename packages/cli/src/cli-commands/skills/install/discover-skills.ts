@@ -1,29 +1,18 @@
 /**
- * Skill discovery from parsed sources.
+ * Skill discovery algorithm (3-phase: direct match, priority scan, recursive fallback).
  *
- * Resolves sources (cloning if remote), then discovers available skills
- * using a 3-phase algorithm: direct match, priority directory scan, recursive fallback.
+ * The `discoverSkillsInDir` function is used by source providers (local, git-hosting)
+ * to discover skills within a directory structure.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
-import {
-  buildCloneUrl,
-  getTreeSha,
-  printSource,
-  shallowClone,
-  type SourceInput,
-} from "../../../extensions/skills/index.js";
-import type { BitbucketSource, GitHubSource, GitLabSource } from "../../../sources/index.js";
+import type { SourceInput } from "../../../sources/types.js";
 import { getAllAgents } from "../../../agents/index.js";
-import { InstallError } from "./handler.js";
 import { parseManifests } from "./parse-manifests.js";
 import { parseSkillMd } from "./parse-skill-md.js";
-import { formatError } from "../../../utils/errors.js";
 import type { Skill, SkillRef } from "../operations.js";
 import * as Array from "effect/Array";
 import * as Data from "effect/Data";
@@ -322,173 +311,4 @@ export const discoverSkillsInDir = (
       seen.add(name);
       return true;
     });
-  });
-
-// -----------------------------------------------------------------------------
-// Source Resolution
-// -----------------------------------------------------------------------------
-
-/**
- * Discovers skills from a remote git source.
- *
- * Clones the repository into a scoped temp directory, discovers skills,
- * and enriches each with its folder's git tree SHA. Requires a `Scope` from
- * the caller to manage temp directory lifetime — the caller controls when
- * cleanup occurs (important when skill paths are used after discovery).
- */
-const discoverFromRemoteGitSource = (source: GitHubSource | GitLabSource | BitbucketSource) =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-
-    const cloneUrl = yield* buildCloneUrl(source).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: error.message,
-            cause: error,
-            retryable: false,
-          }),
-      ),
-    );
-
-    // Acquire scoped temp directory (cleaned up when scope closes)
-    const tempDir = yield* Effect.acquireRelease(
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const dir = path.join(tmpdir(), `axm-${randomUUID()}`);
-        yield* fs.makeDirectory(dir, { recursive: true });
-        return dir;
-      }),
-      (dir) =>
-        Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem;
-          yield* fs.remove(dir, { recursive: true });
-        }).pipe(Effect.ignoreLogged),
-    );
-
-    // Shallow clone for performance (depth 1, single branch)
-    yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(source.ref)).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: formatError(
-              `Failed to clone repository: ${error.message}`,
-              [`URL: ${cloneUrl}`],
-              "Check your network connection and repository access credentials.",
-            ),
-            cause: error,
-            retryable: true,
-          }),
-      ),
-    );
-
-    const skills = yield* discoverSkillsInDir(
-      tempDir,
-      source.subPath,
-      {
-        fullDepth: false,
-        includeInternal: false,
-      },
-      source,
-    ).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: `Failed to discover skills in ${printSource(source)}: ${error.message}`,
-            cause: error,
-            retryable: false,
-          }),
-      ),
-    );
-
-    return yield* Effect.forEach(
-      skills,
-      (skill) =>
-        Effect.gen(function* () {
-          const skillPath = skill.location.replace("file://", "");
-          const relativeDir = path.relative(tempDir, skillPath);
-          const gitTreeSha = yield* getTreeSha(tempDir, relativeDir).pipe(
-            Effect.mapError(
-              (error) =>
-                new InstallError({
-                  message: `Failed to get git tree SHA for skill "${skill.skill.name}": ${error.message}`,
-                  cause: error,
-                  retryable: false,
-                }),
-            ),
-          );
-          return { ...skill, gitTreeSha: Option.some(gitTreeSha) } satisfies SkillRef;
-        }),
-      { concurrency: "unbounded" },
-    );
-  });
-
-// -----------------------------------------------------------------------------
-// Public API
-// -----------------------------------------------------------------------------
-
-/**
- * Discovers skills from a parsed source.
- * Resolves the source (cloning if remote), then discovers available skills
- * within it. Returns an array of discovered skills.
- */
-export const discoverSkills = (source: SourceInput) =>
-  Effect.gen(function* () {
-    switch (source.source) {
-      case "github":
-      case "gitlab":
-      case "bitbucket": {
-        const skills: ReadonlyArray<SkillRef> = yield* discoverFromRemoteGitSource(source);
-        return skills;
-      }
-
-      case "azurerepos":
-        return yield* new InstallError({
-          message: formatError(
-            "Azure Repos sources are not yet supported",
-            [`Source: ${printSource(source)}`],
-            "Use GitHub, GitLab, Bitbucket, or a local path instead.",
-          ),
-          cause: undefined,
-          retryable: false,
-        });
-
-      case "local": {
-        const skills: ReadonlyArray<SkillRef> = yield* discoverSkillsInDir(
-          source.path,
-          Option.none(),
-          {
-            fullDepth: false,
-            includeInternal: false,
-          },
-          source,
-        ).pipe(
-          Effect.mapError(
-            (error) =>
-              new InstallError({
-                message: formatError(
-                  `Failed to discover skills: ${error.message}`,
-                  [`Path: ${source.path}`],
-                  "Verify the path exists and contains directories with SKILL.md files.",
-                ),
-                cause: error,
-                retryable: false,
-              }),
-          ),
-        );
-        return skills;
-      }
-
-      case "git":
-      case "registry":
-        return yield* new InstallError({
-          message: formatError(
-            `Source type "${source.source}" is not yet supported`,
-            [`Source: ${printSource(source)}`],
-            "Use GitHub, GitLab, Bitbucket, or a local path instead.",
-          ),
-          cause: undefined,
-          retryable: false,
-        });
-    }
   });

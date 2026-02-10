@@ -10,14 +10,25 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { FileSystem } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import { vi } from "vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import type { SourceConfig } from "../settings/index.js";
+import { WorkspaceContextTag } from "../workspace/index.js";
 import { defaultResolutionOptions, resolveExtension } from "./resolver.js";
 import type { ExtensionType, ResolutionOptions, Source } from "./types.js";
+
+/**
+ * Default built-in sources for tests.
+ */
+const DEFAULT_SOURCES: ReadonlyArray<SourceConfig> = [
+  { name: "github", source: "github", url: "https://github.com" },
+  { name: "gitlab", source: "gitlab", url: "https://gitlab.com" },
+  { name: "bitbucket", source: "bitbucket", url: "https://bitbucket.org" },
+];
 
 /**
  * Helper to create ResolutionOptions for tests.
@@ -42,8 +53,26 @@ const makeOptions = (opts: {
   agents: Option.fromNullable(opts.agents),
 });
 
-const withFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
-  effect.pipe(Effect.provide(NodeFileSystem.layer));
+/**
+ * Create mock Workspace layer with custom sources.
+ */
+const mockWorkspaceLayer = (sources: ReadonlyArray<SourceConfig> = DEFAULT_SOURCES) =>
+  Layer.succeed(WorkspaceContextTag, {
+    global: false,
+    path: "",
+    nonInteractive: false,
+    preview: false,
+    resolvePlan: vi.fn(),
+    getSources: () => Effect.succeed(sources),
+    getSourceByName: vi.fn(),
+    getRegistrySources: vi.fn(),
+    getScope: () => Effect.succeed("default"),
+    addSource: vi.fn(),
+  });
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const withDependencies = <A, E>(effect: Effect.Effect<A, E, any>) =>
+  effect.pipe(Effect.provide(Layer.merge(NodeFileSystem.layer, mockWorkspaceLayer())));
 
 describe("resolveExtension - integration tests", () => {
   let tempDir: string;
@@ -76,7 +105,7 @@ describe("resolveExtension - integration tests", () => {
 
   describe("resolver order and early exit", () => {
     it.effect("ambiguous pattern owner/repo resolves to GitHub", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           mockFetch({ "https://github.com/owner/repo": { ok: true } });
           const result = yield* resolveExtension("owner/repo", makeOptions({ cwd: tempDir }));
@@ -89,7 +118,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("explicit source github:owner/repo is resolved correctly", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveExtension("github:owner/repo", makeOptions({}));
 
@@ -102,7 +131,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("explicit source gitlab:owner/repo is resolved correctly", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveExtension("gitlab:owner/repo", makeOptions({}));
 
@@ -114,7 +143,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("URL https://github.com/owner/repo is resolved correctly", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveExtension("https://github.com/owner/repo", makeOptions({}));
 
@@ -126,7 +155,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("AXM name @scope/name resolves from project directory", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Create project .axm directory with skill
           const axmDir = path.join(tempDir, ".axm", "skills", "@scope", "name");
@@ -146,7 +175,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("bare name resolves with scope option", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Create AXM directory with scoped name
           const axmDir = path.join(tempDir, ".axm", "skills", "@myscope", "myskill");
@@ -175,7 +204,7 @@ describe("resolveExtension - integration tests", () => {
     // These tests verify the current behavior with skill type filtering.
 
     it.effect("returns skill when types: ['skill']", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Create registry directory
           const skillDir = path.join(tempDir, ".axm", "skills", "@scope", "my-skill");
@@ -193,7 +222,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("returns empty when filtering for command type (not yet supported)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Create registry directory - resolver returns skill type
           const skillDir = path.join(tempDir, ".axm", "skills", "@scope", "my-skill");
@@ -211,7 +240,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("returns skill when no type filter specified", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Create registry directory
           const skillDir = path.join(tempDir, ".axm", "skills", "@scope", "my-skill");
@@ -235,7 +264,7 @@ describe("resolveExtension - integration tests", () => {
 
   describe("source filtering", () => {
     it.effect("returns only github sources when sources: ['github']", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           mockFetch({ "https://github.com/owner/repo": { ok: true } });
           // Ambiguous pattern resolves to GitHub
@@ -252,7 +281,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("returns github for ambiguous pattern when sources not specified", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           mockFetch({ "https://github.com/owner/repo": { ok: true } });
           // Ambiguous pattern resolves to GitHub
@@ -265,7 +294,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("returns gitlab when sources: ['gitlab']", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Explicit gitlab source
           const result = yield* resolveExtension(
@@ -280,7 +309,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("returns empty when source is filtered out", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // GitHub URL but filter for git only
           const result = yield* resolveExtension(
@@ -294,7 +323,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("returns registry source for AXM name", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Create AXM directory
           const axmDir = path.join(tempDir, ".axm", "skills", "@scope", "name");
@@ -312,7 +341,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("filters multiple sources correctly", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // GitHub URL should pass through github/gitlab filter
           const result = yield* resolveExtension(
@@ -333,7 +362,7 @@ describe("resolveExtension - integration tests", () => {
 
   describe("end-to-end scenarios", () => {
     it.effect("empty input returns empty array", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveExtension("", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
@@ -342,7 +371,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("whitespace-only input returns empty array", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveExtension("   ", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
@@ -351,7 +380,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("unknown AXM name returns empty array", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveExtension(
             "@scope/nonexistent",
@@ -363,7 +392,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("bare name without scope returns empty array", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveExtension("myskill", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
@@ -372,7 +401,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("invalid input returns empty array", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveExtension("not@valid@input", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
@@ -381,7 +410,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("preserves originalInput through pipeline", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const input = "github:owner/repo";
           const result = yield* resolveExtension(input, makeOptions({}));
@@ -393,7 +422,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("handles version constraints in AXM names", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Create AXM directory
           const axmDir = path.join(tempDir, ".axm", "skills", "@scope", "name");
@@ -411,7 +440,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("handles git refs in GitHub URLs", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveExtension("github:owner/repo@v1.0.0", makeOptions({}));
 
@@ -422,7 +451,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("handles subpaths in GitHub URLs", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveExtension("github:owner/repo/some/path", makeOptions({}));
 
@@ -433,7 +462,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("non-git URLs return empty (unsupported)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Non-git URLs (like https://example.com) are not supported
           // and get filtered out by the resolver pipeline
@@ -445,7 +474,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("handles SSH URLs", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveExtension("git@github.com:owner/repo.git", makeOptions({}));
 
@@ -463,7 +492,7 @@ describe("resolveExtension - integration tests", () => {
 
   describe("local path resolution", () => {
     it.effect("resolves ./path to local extension", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const skillDir = path.join(tempDir, "my-skill");
           fs.mkdirSync(skillDir);
@@ -483,7 +512,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("resolves absolute path to local extension", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const skillDir = path.join(tempDir, "my-skill");
           fs.mkdirSync(skillDir);
@@ -499,7 +528,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("returns empty array for non-existent local path", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveExtension("./nonexistent", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
@@ -508,7 +537,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("filters local sources by source option", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const skillDir = path.join(tempDir, "my-skill");
           fs.mkdirSync(skillDir);
@@ -532,7 +561,7 @@ describe("resolveExtension - integration tests", () => {
 
   describe("combined type and source filtering", () => {
     it.effect("filters by both type and source", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Create registry directory with multiple types
           const mixedDir = path.join(tempDir, ".axm", "skills", "@scope", "mixed");
@@ -558,7 +587,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("returns empty when type matches but source filtered", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Registry skill, but filtering for github source
           const skillDir = path.join(tempDir, ".axm", "skills", "@scope", "my-skill");
@@ -581,7 +610,7 @@ describe("resolveExtension - integration tests", () => {
     );
 
     it.effect("returns empty when source matches but type filtered", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Registry skill, but filtering for command type
           const skillDir = path.join(tempDir, ".axm", "skills", "@scope", "my-skill");

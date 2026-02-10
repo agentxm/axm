@@ -15,13 +15,10 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { config as azurereposConfig } from "./azurerepos/index.js";
-import {
-  resolveRepo as resolveBitbucketRepo,
-  config as bitbucketConfig,
-} from "./bitbucket/index.js";
+import { config as bitbucketConfig } from "./bitbucket/index.js";
 import { ParseError } from "./errors.js";
-import { resolveRepo as resolveGitHubRepo, config as githubConfig } from "./github/index.js";
-import { resolveRepo as resolveGitLabRepo, config as gitlabConfig } from "./gitlab/index.js";
+import { config as githubConfig } from "./github/index.js";
+import { config as gitlabConfig } from "./gitlab/index.js";
 import { config as localConfig, parseLocalPath } from "./local/index.js";
 
 /** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
@@ -189,28 +186,6 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
 };
 
 // -----------------------------------------------------------------------------
-// SlashPattern Resolution
-// -----------------------------------------------------------------------------
-
-const resolveSlashPattern = (pattern: SlashPattern): Effect.Effect<SourceInput, ParseError> =>
-  Effect.gen(function* () {
-    const github = yield* resolveGitHubRepo(pattern);
-    if (Option.isSome(github)) return github.value;
-
-    const gitlab = yield* resolveGitLabRepo(pattern);
-    if (Option.isSome(gitlab)) return gitlab.value;
-
-    const bitbucket = yield* resolveBitbucketRepo(pattern);
-    if (Option.isSome(bitbucket)) return bitbucket.value;
-
-    const fullPath = `${pattern.owner}/${pattern.repo}${Option.match(pattern.subPath, { onNone: () => "", onSome: (sp) => `/${sp}` })}`;
-    return yield* new ParseError({
-      message: `Repository '${fullPath}' not found on GitHub, GitLab, or Bitbucket`,
-      input: fullPath,
-    });
-  });
-
-// -----------------------------------------------------------------------------
 // Main Parser
 // -----------------------------------------------------------------------------
 
@@ -266,7 +241,14 @@ export const parseSourceInput = (input: string): Effect.Effect<SourceInput, Pars
           }
           return cfg.parseFromUrl.value.parseUrl(url);
         }),
-        Match.tag("SlashPattern", (pattern) => resolveSlashPattern(pattern)),
+        Match.tag("SlashPattern", (pattern) =>
+          Effect.fail(
+            new ParseError({
+              message: `Ambiguous pattern '${pattern.owner}/${pattern.repo}' — use github:${pattern.owner}/${pattern.repo}, gitlab:${pattern.owner}/${pattern.repo}, or bitbucket:${pattern.owner}/${pattern.repo}`,
+              input: trimmed,
+            }),
+          ),
+        ),
         Match.tag("FilePathPattern", ({ path }) => parseLocalPath(path)),
         Match.tag("ShorthandInput", ({ prefix, input: shorthandInput }) => {
           const cfg = CONFIG_BY_PREFIX.get(prefix);

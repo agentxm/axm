@@ -171,15 +171,15 @@ Depends on: Phase 1 (SourceInput types).
 
 Depends on: Phase 5 (workspace getSources), Phase 8 (SourceProviders service).
 
-- [ ] 10.1 Refactor `resolution/resolvers/ambiguous.ts` — replace hardcoded GitHub → GitLab → Bitbucket try-order with iteration over `getSources()` filtered to git-hosting types
-- [ ] 10.2 Remove `resolveSlashPattern` from `sources/parser.ts` — ambiguous resolution moves to resolver layer
-- [ ] 10.3 Add `WorkspaceContext` dependency to the ambiguous resolver
-- [ ] 10.4 Update ambiguous resolver tests — default order preserved, user-customized order, multiple sources of same type, explicit prefix bypasses ordering
-- [ ] 10.5 Run `pnpm typecheck` and fix any errors
-- [ ] 10.6 Run `pnpm lint` and fix any errors
-- [ ] 10.7 Run `pnpm test` and fix any failures
-- [ ] 10.8 Run `pnpm test:e2e` and fix any failures
-- [ ] 10.9 Kill any vitest worker processes
+- [x] 10.1 Refactor `resolution/resolvers/ambiguous.ts` — replace hardcoded GitHub → GitLab → Bitbucket try-order with iteration over `getSources()` filtered to git-hosting types
+- [x] 10.2 Remove `resolveSlashPattern` from `sources/parser.ts` — ambiguous resolution moves to resolver layer
+- [x] 10.3 Add `WorkspaceContext` dependency to the ambiguous resolver
+- [x] 10.4 Update ambiguous resolver tests — default order preserved, user-customized order, multiple sources of same type, explicit prefix bypasses ordering
+- [x] 10.5 Run `pnpm typecheck` and fix any errors
+- [x] 10.6 Run `pnpm lint` and fix any errors
+- [x] 10.7 Run `pnpm test` and fix any failures
+- [x] 10.8 Run `pnpm test:e2e` and fix any failures
+- [x] 10.9 Kill any vitest worker processes
 
 ## 11. Registry guard
 
@@ -187,13 +187,13 @@ Depends on: Phase 5 (workspace getSources), Phase 8 (SourceProviders service).
 
 Depends on: Phase 5 (workspace getRegistrySources, addSource).
 
-- [ ] 11.1 Implement `registryGuard` shared function — check `getRegistrySources()`, prompt in interactive mode (path input, persist as `{ name: "local", source: "registry", location: "<path>" }`), fail with `RegistryNotConfiguredError` in non-interactive mode
-- [ ] 11.2 Define `RegistryNotConfiguredError` tagged error
-- [ ] 11.3 Write tests for registry guard — interactive prompt + persist, non-interactive error, already configured passes, guard changes visible to subsequent calls
-- [ ] 11.4 Run `pnpm typecheck` and fix any errors
-- [ ] 11.5 Run `pnpm lint` and fix any errors
-- [ ] 11.6 Run `pnpm test` and fix any failures
-- [ ] 11.7 Kill any vitest worker processes
+- [x] 11.1 Implement `registryGuard` shared function — check `getRegistrySources()`, prompt in interactive mode (path input, persist as `{ name: "local", source: "registry", location: "<path>" }`), fail with `RegistryNotConfiguredError` in non-interactive mode
+- [x] 11.2 Define `RegistryNotConfiguredError` tagged error
+- [x] 11.3 Write tests for registry guard — interactive prompt + persist, non-interactive error, already configured passes, guard changes visible to subsequent calls
+- [x] 11.4 Run `pnpm typecheck` and fix any errors
+- [x] 11.5 Run `pnpm lint` and fix any errors
+- [x] 11.6 Run `pnpm test` and fix any failures
+- [x] 11.7 Kill any vitest worker processes
 
 ## 12. Install handler migration to SourceProviders
 

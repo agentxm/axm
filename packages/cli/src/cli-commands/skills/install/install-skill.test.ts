@@ -434,4 +434,142 @@ describe("installSkill", () => {
       }),
     );
   });
+
+  describe("registry source canonical path", () => {
+    /** Sets up a source whose path contains an @scope segment for registry location extraction. */
+    const setupRegistrySource = (scope: string, name = "my-skill") => {
+      const src = path.join(tmpDir, "registry", "extensions", scope, "skills", name);
+      fs.mkdirSync(src, { recursive: true });
+      fs.writeFileSync(path.join(src, "SKILL.md"), `# ${name}`);
+      fs.writeFileSync(path.join(src, "prompt.md"), "prompt content");
+      return src;
+    };
+
+    it.effect("uses .axm/extensions/@scope/skills/<name> for registry sources", () =>
+      Effect.gen(function* () {
+        const src = setupRegistrySource("@community");
+        const { axmDir, base } = setupBase();
+
+        const result = yield* installSkill(
+          makeOp({
+            agents: ["claude-code"],
+            source: { source: "registry" },
+            location: `file://${src}`,
+          }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+
+        // Should be in the registry canonical location
+        const registryCanonical = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "@community",
+          "skills",
+          "my-skill",
+        );
+        expect(fs.existsSync(registryCanonical)).toBe(true);
+        expect(fs.existsSync(path.join(registryCanonical, "SKILL.md"))).toBe(true);
+
+        // Should NOT be in the old canonical location
+        const oldCanonical = path.join(base, ".agents", "skills", "my-skill");
+        expect(fs.existsSync(oldCanonical)).toBe(false);
+      }),
+    );
+
+    it.effect("extracts scope from registry location path", () =>
+      Effect.gen(function* () {
+        const src = setupRegistrySource("@myorg");
+        const { axmDir, base } = setupBase();
+
+        const result = yield* installSkill(
+          makeOp({
+            agents: ["claude-code"],
+            source: { source: "registry" },
+            location: `file://${src}`,
+          }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+
+        // Should use the extracted scope
+        const registryCanonical = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "@myorg",
+          "skills",
+          "my-skill",
+        );
+        expect(fs.existsSync(registryCanonical)).toBe(true);
+      }),
+    );
+  });
+
+  describe("pre-clean from all locations", () => {
+    it.effect("removes from .agents/skills/ when installing as registry source", () =>
+      Effect.gen(function* () {
+        // Set up source in a path with @scope segment
+        const src = path.join(tmpDir, "registry", "extensions", "@community", "skills", "my-skill");
+        fs.mkdirSync(src, { recursive: true });
+        fs.writeFileSync(path.join(src, "SKILL.md"), "# my-skill");
+        fs.writeFileSync(path.join(src, "prompt.md"), "prompt content");
+        const { axmDir, base } = setupBase();
+
+        // Pre-create in old canonical location
+        const oldCanonical = path.join(base, ".agents", "skills", "my-skill");
+        fs.mkdirSync(oldCanonical, { recursive: true });
+        fs.writeFileSync(path.join(oldCanonical, "old.txt"), "old content");
+
+        const result = yield* installSkill(
+          makeOp({
+            agents: ["claude-code"],
+            source: { source: "registry" },
+            location: `file://${src}`,
+          }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+
+        // Old location should be cleaned
+        expect(fs.existsSync(path.join(oldCanonical, "old.txt"))).toBe(false);
+      }),
+    );
+
+    it.effect("removes from .axm/extensions/ when installing as local source", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir, base } = setupBase();
+
+        // Pre-create in registry canonical location
+        const registryCanonical = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "@community",
+          "skills",
+          "my-skill",
+        );
+        fs.mkdirSync(registryCanonical, { recursive: true });
+        fs.writeFileSync(path.join(registryCanonical, "old.txt"), "old content");
+
+        const result = yield* installSkill(
+          makeOp({
+            agents: ["claude-code"],
+            sourcePath: src,
+          }),
+        ).pipe(Effect.provide(withServices(axmDir)));
+
+        expect(result.result).toBe("success");
+
+        // Registry location should be cleaned
+        expect(fs.existsSync(path.join(registryCanonical, "old.txt"))).toBe(false);
+
+        // New location should have files
+        const newCanonical = path.join(base, ".agents", "skills", "my-skill");
+        expect(fs.existsSync(path.join(newCanonical, "SKILL.md"))).toBe(true);
+      }),
+    );
+  });
 });

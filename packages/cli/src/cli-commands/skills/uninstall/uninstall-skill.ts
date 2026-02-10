@@ -25,6 +25,103 @@ import { sanitizeName } from "../install/skill-utils.js";
 // -----------------------------------------------------------------------------
 
 const CANONICAL_SKILLS_DIR = ".agents/skills";
+const REGISTRY_EXTENSIONS_DIR = ".axm/extensions";
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+/**
+ * Remove a directory if it exists, ignoring errors.
+ */
+const removeIfExists = (fsService: FileSystem.FileSystem, dirPath: string) =>
+  fsService.exists(dirPath).pipe(
+    Effect.catchAll(() => Effect.succeed(false)),
+    Effect.flatMap((exists) =>
+      exists ? fsService.remove(dirPath, { recursive: true }).pipe(Effect.ignore) : Effect.void,
+    ),
+  );
+
+/**
+ * Remove a skill from ALL known canonical locations.
+ *
+ * Ensures clean removal regardless of where the skill was installed:
+ * 1. `.agents/skills/<name>/` (non-registry canonical)
+ * 2. `.axm/extensions/<scope>/skills/<name>/` (registry canonical, any scope)
+ */
+const removeFromAllLocations = (
+  fsService: FileSystem.FileSystem,
+  base: string,
+  sanitizedName: string,
+  pathService: Path.Path,
+) =>
+  Effect.gen(function* () {
+    // Remove from non-registry canonical location
+    yield* removeIfExists(fsService, pathService.join(base, CANONICAL_SKILLS_DIR, sanitizedName));
+
+    // Remove from any registry canonical location
+    const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
+    const extensionsDirExists = yield* fsService
+      .exists(extensionsDir)
+      .pipe(Effect.catchAll(() => Effect.succeed(false)));
+
+    if (extensionsDirExists) {
+      const scopeDirs = yield* fsService
+        .readDirectory(extensionsDir)
+        .pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<string>>([])));
+
+      yield* Effect.forEach(
+        scopeDirs,
+        (scopeDir) => {
+          if (!scopeDir.startsWith("@")) return Effect.void;
+          const skillPath = pathService.join(extensionsDir, scopeDir, "skills", sanitizedName);
+          return removeIfExists(fsService, skillPath);
+        },
+        { concurrency: "unbounded" },
+      );
+    }
+  });
+
+/**
+ * Check if a skill exists in any known canonical location.
+ */
+const existsInAnyLocation = (
+  fsService: FileSystem.FileSystem,
+  base: string,
+  sanitizedName: string,
+  pathService: Path.Path,
+) =>
+  Effect.gen(function* () {
+    // Check non-registry canonical location
+    const canonicalExists = yield* fsService
+      .exists(pathService.join(base, CANONICAL_SKILLS_DIR, sanitizedName))
+      .pipe(Effect.catchAll(() => Effect.succeed(false)));
+    if (canonicalExists) return true;
+
+    // Check registry canonical locations
+    const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
+    const extensionsDirExists = yield* fsService
+      .exists(extensionsDir)
+      .pipe(Effect.catchAll(() => Effect.succeed(false)));
+
+    if (!extensionsDirExists) return false;
+
+    const scopeDirs = yield* fsService
+      .readDirectory(extensionsDir)
+      .pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<string>>([])));
+
+    const results = yield* Effect.forEach(
+      scopeDirs,
+      (scopeDir) => {
+        if (!scopeDir.startsWith("@")) return Effect.succeed(false);
+        const skillPath = pathService.join(extensionsDir, scopeDir, "skills", sanitizedName);
+        return fsService.exists(skillPath).pipe(Effect.catchAll(() => Effect.succeed(false)));
+      },
+      { concurrency: "unbounded" },
+    );
+
+    return results.some((exists) => exists);
+  });
 
 // -----------------------------------------------------------------------------
 // Public API
@@ -37,7 +134,7 @@ const CANONICAL_SKILLS_DIR = ".agents/skills";
  * 1. Sanitize skill name for filesystem
  * 2. Read lockfile to determine installed agents
  * 3. Remove agent symlinks concurrently (skip missing, skip self-reference)
- * 4. Remove canonical directory (full uninstall only)
+ * 4. Remove from all known canonical locations (full uninstall only)
  * 5. Remove or update lockfile entry
  */
 export const uninstallSkill: OperationHandler<
@@ -52,7 +149,6 @@ export const uninstallSkill: OperationHandler<
     const base = path.dirname(axmDir);
 
     const sanitizedName = sanitizeName(op.args.skillName);
-    const canonicalPath = path.join(base, CANONICAL_SKILLS_DIR, sanitizedName);
 
     // Read lockfile entry for this skill via LockfileService
     const ls = yield* LockfileService;
@@ -68,12 +164,10 @@ export const uninstallSkill: OperationHandler<
     );
     const lockEntry = Option.getOrUndefined(lockEntryOption);
 
-    // Determine if skill is installed anywhere
-    const canonicalExists = yield* fs
-      .exists(canonicalPath)
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
+    // Determine if skill is installed anywhere (check all known locations)
+    const installedOnDisk = yield* existsInAnyLocation(fs, base, sanitizedName, path);
 
-    if (!lockEntry && !canonicalExists) {
+    if (!lockEntry && !installedOnDisk) {
       return { result: "no-op", message: "not installed" } satisfies OperationResult;
     }
 
@@ -135,9 +229,9 @@ export const uninstallSkill: OperationHandler<
       // Fall through to full uninstall if no agents remain
     }
 
-    // Full uninstall: remove canonical dir
-    if (canonicalExists) {
-      yield* fs.remove(canonicalPath, { recursive: true }).pipe(Effect.catchAll(() => Effect.void));
+    // Full uninstall: remove from all known canonical locations
+    if (installedOnDisk) {
+      yield* removeFromAllLocations(fs, base, sanitizedName, path);
     }
 
     // Remove lockfile entry

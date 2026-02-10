@@ -1,15 +1,26 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { FileSystem } from "@effect/platform";
 import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import { vi } from "vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import type { SourceConfig } from "../../settings/index.js";
+import { WorkspaceContextTag } from "../../workspace/index.js";
 import { defaultResolutionOptions } from "../resolver.js";
 import type { ExtensionType, ResolutionOptions, Source } from "../types.js";
 import { resolveAmbiguous } from "./ambiguous.js";
+
+/**
+ * Default built-in sources for tests (matches workspace defaults).
+ */
+const DEFAULT_SOURCES: ReadonlyArray<SourceConfig> = [
+  { name: "github", source: "github", url: "https://github.com" },
+  { name: "gitlab", source: "gitlab", url: "https://gitlab.com" },
+  { name: "bitbucket", source: "bitbucket", url: "https://bitbucket.org" },
+];
 
 /**
  * Helper to create ResolutionOptions for tests.
@@ -61,12 +72,31 @@ describe("resolveAmbiguous", () => {
     }) as unknown as typeof globalThis.fetch;
   };
 
-  const withFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
-    effect.pipe(Effect.provide(NodeFileSystem.layer));
+  /**
+   * Create mock Workspace layer with custom sources.
+   */
+  const mockWorkspaceLayer = (sources: ReadonlyArray<SourceConfig> = []) =>
+    Layer.succeed(WorkspaceContextTag, {
+      global: false,
+      path: tempDir,
+      nonInteractive: false,
+      preview: false,
+      resolvePlan: vi.fn(),
+      getSources: () => Effect.succeed(sources),
+      getSourceByName: vi.fn(),
+      getRegistrySources: vi.fn(),
+      getScope: () => Effect.succeed("default"),
+      addSource: vi.fn(),
+    });
+
+  const withDependencies = <A, E, R>(
+    effect: Effect.Effect<A, E, R>,
+    sources: ReadonlyArray<SourceConfig> = DEFAULT_SOURCES,
+  ) => effect.pipe(Effect.provide(Layer.merge(NodeFileSystem.layer, mockWorkspaceLayer(sources))));
 
   describe("pattern detection (non-matching)", () => {
     it.effect("returns empty for github:owner/repo (has prefix)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
             "github:owner/repo",
@@ -78,7 +108,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for gitlab:owner/repo (has prefix)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
             "gitlab:owner/repo",
@@ -90,7 +120,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for @scope/name (starts with @)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous("@scope/name", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
@@ -99,7 +129,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for ./path (local path)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous("./path", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
@@ -108,7 +138,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for ../path (local path)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous("../path", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
@@ -117,7 +147,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for /absolute/path (local path)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous("/absolute/path", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
@@ -126,7 +156,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for ~/path (home directory path)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
             "~/my-skills/skill",
@@ -138,7 +168,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for https://github.com/owner/repo (URL)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
             "https://github.com/owner/repo",
@@ -150,7 +180,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for http://github.com/owner/repo (URL)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
             "http://github.com/owner/repo",
@@ -162,7 +192,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for empty string", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous("", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
@@ -171,7 +201,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for whitespace-only string", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous("   ", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
@@ -180,7 +210,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for git@github.com:owner/repo.git (SSH URL)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
             "git@github.com:owner/repo.git",
@@ -194,7 +224,7 @@ describe("resolveAmbiguous", () => {
 
   describe("resolution order", () => {
     it.effect("prefers AXM name when @owner/repo is installed", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Create AXM directory in project
           const axmSkillDir = path.join(projectAxmDir, "skills", "@owner", "repo");
@@ -218,7 +248,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("falls back to GitHub shorthand when AXM name not found", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           mockFetch({ "https://github.com/owner/repo": { ok: true } });
           const result = yield* resolveAmbiguous("owner/repo", makeOptions({ cwd: tempDir }));
@@ -231,11 +261,12 @@ describe("resolveAmbiguous", () => {
             originalInput: "owner/repo",
           });
         }),
+        DEFAULT_SOURCES,
       ),
     );
 
     it.effect("prefers AXM over GitHub when AXM exists", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Create AXM directory
           const axmSkillDir = path.join(projectAxmDir, "skills", "@owner", "repo");
@@ -259,7 +290,7 @@ describe("resolveAmbiguous", () => {
 
   describe("source filtering", () => {
     it.effect("skips registry check when sources excludes registry", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           mockFetch({ "https://github.com/owner/repo": { ok: true } });
           // Create AXM directory (should be ignored)
@@ -275,11 +306,12 @@ describe("resolveAmbiguous", () => {
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("github");
         }),
+        DEFAULT_SOURCES,
       ),
     );
 
     it.effect("returns empty when sources excludes both github and registry", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
             "owner/repo",
@@ -293,7 +325,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("skips GitHub when sources excludes github", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
             "owner/repo",
@@ -307,7 +339,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("respects sources filter with only registry", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Create AXM directory
           const axmSkillDir = path.join(projectAxmDir, "skills", "@owner", "repo");
@@ -325,7 +357,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("respects sources filter with only github", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           mockFetch({ "https://github.com/owner/repo": { ok: true } });
           const result = yield* resolveAmbiguous(
@@ -336,13 +368,14 @@ describe("resolveAmbiguous", () => {
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("github");
         }),
+        DEFAULT_SOURCES,
       ),
     );
   });
 
   describe("GitHub fallback patterns", () => {
     it.effect("returns GitHub ExtensionRef for owner/repo", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           mockFetch({ "https://github.com/owner/repo": { ok: true } });
           const result = yield* resolveAmbiguous("owner/repo", makeOptions({ cwd: tempDir }));
@@ -357,11 +390,12 @@ describe("resolveAmbiguous", () => {
           expect(Option.isNone(result[0]!.ref)).toBe(true);
           expect(Option.isNone(result[0]!.path)).toBe(true);
         }),
+        DEFAULT_SOURCES,
       ),
     );
 
     it.effect("returns empty for owner/repo@ref (use prefixed form)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
             "owner/repo@v1.0.0",
@@ -375,7 +409,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for owner/repo/path (use prefixed form)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
             "owner/repo/skills/my-skill",
@@ -389,7 +423,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for owner/repo/path@ref (use prefixed form)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
             "owner/repo/skills/my-skill@main",
@@ -403,7 +437,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for deeply nested path (use prefixed form)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
             "owner/repo/a/b/c/d",
@@ -416,7 +450,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for owner/repo@feature/branch (use prefixed form)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(
             "owner/repo@feature/branch",
@@ -431,7 +465,7 @@ describe("resolveAmbiguous", () => {
 
   describe("version handling in AXM fallback", () => {
     it.effect("preserves version constraint when falling back to AXM", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Create AXM directory
           const axmSkillDir = path.join(projectAxmDir, "skills", "@owner", "repo");
@@ -457,7 +491,7 @@ describe("resolveAmbiguous", () => {
 
   describe("edge cases", () => {
     it.effect("handles input with leading/trailing whitespace", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           mockFetch({ "https://github.com/owner/repo": { ok: true } });
           const result = yield* resolveAmbiguous("  owner/repo  ", makeOptions({ cwd: tempDir }));
@@ -468,11 +502,12 @@ describe("resolveAmbiguous", () => {
             origin: "https://github.com/owner/repo",
           });
         }),
+        DEFAULT_SOURCES,
       ),
     );
 
     it.effect("handles owner/repo with numbers and hyphens", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           mockFetch({ "https://github.com/my-org-123/my-repo-456": { ok: true } });
           const result = yield* resolveAmbiguous(
@@ -486,11 +521,12 @@ describe("resolveAmbiguous", () => {
             origin: "https://github.com/my-org-123/my-repo-456",
           });
         }),
+        DEFAULT_SOURCES,
       ),
     );
 
     it.effect("returns empty for owner/repo with underscores (not a valid name pattern)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous("my_org/my_repo", makeOptions({ cwd: tempDir }));
 
@@ -501,7 +537,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for single segment (no slash)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous("justname", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
@@ -510,7 +546,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("returns empty for input starting with dot", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           const result = yield* resolveAmbiguous(".hidden/repo", makeOptions({ cwd: tempDir }));
           expect(result).toEqual([]);
@@ -519,7 +555,7 @@ describe("resolveAmbiguous", () => {
     );
 
     it.effect("handles global AXM directory with ~", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           // Create global AXM directory
           const homeDir = os.homedir();
@@ -549,7 +585,7 @@ describe("resolveAmbiguous", () => {
 
   describe("local path precedence", () => {
     it.effect("skips local path check for a/b pattern (not a local path format)", () =>
-      withFileSystem(
+      withDependencies(
         Effect.gen(function* () {
           mockFetch({ "https://github.com/owner/repo": { ok: true } });
           // a/b doesn't match local path pattern (no ./, /, ~, etc.)
@@ -560,13 +596,14 @@ describe("resolveAmbiguous", () => {
           expect(result).toHaveLength(1);
           expect(result[0]?.source).toBe("github");
         }),
+        DEFAULT_SOURCES,
       ),
     );
 
     it.effect(
       "returns empty array for ./path inputs (handled by local-path resolver, not ambiguous)",
       () =>
-        withFileSystem(
+        withDependencies(
           Effect.gen(function* () {
             // Create a skill at ./my-skill
             const skillDir = path.join(tempDir, "my-skill");
@@ -580,6 +617,87 @@ describe("resolveAmbiguous", () => {
             expect(result).toEqual([]);
           }),
         ),
+    );
+  });
+
+  describe("workspace source ordering", () => {
+    it.effect("uses default order (github, gitlab, bitbucket)", () =>
+      withDependencies(
+        Effect.gen(function* () {
+          // GitLab responds 200, GitHub 404
+          mockFetch({
+            "https://github.com/owner/repo": { ok: false },
+            "https://gitlab.com/owner/repo": { ok: true },
+          });
+          const result = yield* resolveAmbiguous("owner/repo", makeOptions({ cwd: tempDir }));
+
+          // Should try GitHub first (default order), then GitLab
+          expect(result).toHaveLength(1);
+          expect(result[0]?.source).toBe("gitlab");
+        }),
+        DEFAULT_SOURCES,
+      ),
+    );
+
+    it.effect("respects custom source order (gitlab before github)", () =>
+      withDependencies(
+        Effect.gen(function* () {
+          // Both respond 200, but GitLab is first in custom order
+          mockFetch({
+            "https://github.com/owner/repo": { ok: true },
+            "https://gitlab.com/owner/repo": { ok: true },
+          });
+          const result = yield* resolveAmbiguous("owner/repo", makeOptions({ cwd: tempDir }));
+
+          // Should use GitLab (first in custom sources list)
+          expect(result).toHaveLength(1);
+          expect(result[0]?.source).toBe("gitlab");
+        }),
+        [
+          { name: "gitlab", source: "gitlab", url: "https://gitlab.com" },
+          { name: "github", source: "github", url: "https://github.com" },
+        ],
+      ),
+    );
+
+    it.effect("tries multiple sources of same type in order", () =>
+      withDependencies(
+        Effect.gen(function* () {
+          // github.acme responds 200, github.com 404
+          mockFetch({
+            "https://github.com/owner/repo": { ok: false },
+            "https://github.acme/owner/repo": { ok: true },
+          });
+          const result = yield* resolveAmbiguous("owner/repo", makeOptions({ cwd: tempDir }));
+
+          // Should try github.com first, then github.acme
+          expect(result).toHaveLength(1);
+          expect(result[0]).toMatchObject({
+            source: "github",
+            origin: "https://github.acme/owner/repo",
+          });
+        }),
+        [
+          { name: "github", source: "github", url: "https://github.com" },
+          { name: "github-acme", source: "github", url: "https://github.acme" },
+        ],
+      ),
+    );
+
+    it.effect("returns empty when all sources return 404", () =>
+      withDependencies(
+        Effect.gen(function* () {
+          mockFetch({
+            "https://github.com/owner/repo": { ok: false },
+            "https://gitlab.com/owner/repo": { ok: false },
+            "https://bitbucket.org/owner/repo": { ok: false },
+          });
+          const result = yield* resolveAmbiguous("owner/repo", makeOptions({ cwd: tempDir }));
+
+          expect(result).toEqual([]);
+        }),
+        DEFAULT_SOURCES,
+      ),
     );
   });
 });

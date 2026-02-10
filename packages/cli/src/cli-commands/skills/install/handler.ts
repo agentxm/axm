@@ -12,8 +12,12 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { parseSourceInput, printSource } from "../../../extensions/skills/index.js";
-import { discoverSkills } from "./discover-skills.js";
+import {
+  parseSourceInput,
+  printSource,
+  SourceProviders,
+  registryGuard,
+} from "../../../sources/index.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 import * as Array from "effect/Array";
 import * as Data from "effect/Data";
@@ -95,116 +99,137 @@ export class InstallError extends Data.TaggedError("InstallError")<{
 export const handleInstall = (args: InstallHandlerArgs) => {
   const scopeLabel = args.global ? "global" : "project";
 
-  // Scoped to manage temp directory lifecycle from remote git source discovery.
-  // The scope keeps the temp clone dir alive until plan application completes.
-  return Effect.scoped(
-    Effect.gen(function* () {
-      const ws = yield* Workspace;
-      // Get TUI services
-      const log = yield* Log;
-      const spinnerSvc = yield* Spinner;
+  return Effect.gen(function* () {
+    const ws = yield* Workspace;
+    const sources = yield* SourceProviders;
+    // Get TUI services
+    const log = yield* Log;
+    const spinnerSvc = yield* Spinner;
 
-      // Show intro
-      yield* log.info(`axm skills install (${scopeLabel})`);
+    // Show intro
+    yield* log.info(`axm skills install (${scopeLabel})`);
 
-      // Step 1: Parse source
-      let handle = yield* spinnerSvc.start("Parsing source...");
-      const source = yield* parseSourceInput(args.source).pipe(
-        Effect.mapError(
-          (error) =>
-            new InstallError({
-              message: formatError(
-                `Invalid source: ${error.message}`,
-                [`Provided: ${args.source || "(empty)"}`],
-                "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
-              ),
-              cause: error,
-              retryable: false,
-            }),
+    // Step 1: Parse source
+    let handle = yield* spinnerSvc.start("Parsing source...");
+    const source = yield* parseSourceInput(args.source).pipe(
+      Effect.mapError(
+        (error) =>
+          new InstallError({
+            message: formatError(
+              `Invalid source: ${error.message}`,
+              [`Provided: ${args.source || "(empty)"}`],
+              "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
+            ),
+            cause: error,
+            retryable: false,
+          }),
+      ),
+    );
+    yield* handle.stop(`Source: ${printSource(source)} (${source.source})`);
+
+    // Step 1.5: Registry guard — ensure a registry source is configured
+    if (source.source === "registry") {
+      yield* registryGuard;
+    }
+
+    // Step 2: Get workspace context (provided by runtime)
+
+    // TODO: Step 3 — Get agents from settings or --agent flag
+
+    // Step 5: Discover skills from source via SourceProviders
+    handle = yield* spinnerSvc.start("Discovering skills...");
+    const findOptions = {
+      names: args.skills as ReadonlyArray<string>,
+      agents: args.agents as ReadonlyArray<string>,
+      type: "skill" as const,
+    };
+    const allRefs = yield* sources.resolve(source, findOptions).pipe(
+      Effect.mapError(
+        (error) =>
+          new InstallError({
+            message: formatError(
+              `Failed to discover skills: ${error.message}`,
+              [`Source: ${printSource(source)}`],
+              "Verify the source path contains directories with SKILL.md files.",
+            ),
+            cause: error,
+            retryable: false,
+          }),
+      ),
+      Effect.tapError(() => handle.stop("Failed")),
+    );
+    // Filter to skill refs only
+    const discoveredSkills = Array.filter(allRefs, (ref) => ref.type === "skill");
+    if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
+      yield* handle.stop("No skills found");
+      return yield* new InstallError({
+        message: formatError(
+          "No skills found in source",
+          [`Source: ${printSource(source)}`],
+          "Verify the source path contains directories with SKILL.md files.",
         ),
-      );
-      yield* handle.stop(`Source: ${printSource(source)} (${source.source})`);
-
-      // Step 2: Get workspace context (provided by runtime)
-
-      // TODO: Step 3 — Get agents from settings or --agent flag
-
-      // Step 5: Discover skills from source
-      handle = yield* spinnerSvc.start("Discovering skills...");
-      const discoveredSkills = yield* discoverSkills(source).pipe(
-        Effect.tapError(() => handle.stop("Failed")),
-      );
-      if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
-        yield* handle.stop("No skills found");
-        return yield* new InstallError({
-          message: formatError(
-            "No skills found in source",
-            [`Source: ${printSource(source)}`],
-            "Verify the source path contains directories with SKILL.md files.",
-          ),
-          cause: undefined,
-          retryable: false,
-        });
-      }
-      yield* handle.stop(`Found ${discoveredSkills.length} skill(s)`);
-
-      // Step 6: List mode -> display and exit
-      if (args.list) {
-        yield* log.info("Available skills:");
-        for (const ref of discoveredSkills) {
-          const desc = ref.skill.description ? ` - ${ref.skill.description}` : "";
-          yield* log.message(`  ${ref.skill.name}${desc}`);
-        }
-        yield* log.success(`${discoveredSkills.length} skill(s) available`);
-        return;
-      }
-
-      // Step 7: Select skills to install
-      const selectedSkills = yield* determineSkillsToInstall(discoveredSkills, {
-        requestedSkills: args.skills,
-        all: args.all,
-        yes: args.yes,
+        cause: undefined,
+        retryable: false,
       });
+    }
+    yield* handle.stop(`Found ${discoveredSkills.length} skill(s)`);
 
-      if (!Array.isNonEmptyReadonlyArray(selectedSkills)) {
-        yield* log.warn("No skills selected.");
-        yield* log.success("Nothing to install.");
-        return;
+    // Step 6: List mode -> display and exit
+    if (args.list) {
+      yield* log.info("Available skills:");
+      for (const ref of discoveredSkills) {
+        const desc = ref.skill.description ? ` - ${ref.skill.description}` : "";
+        yield* log.message(`  ${ref.skill.name}${desc}`);
       }
+      yield* log.success(`${discoveredSkills.length} skill(s) available`);
+      return;
+    }
 
-      const ss = yield* SettingsService;
-      const agentIds = yield* ss.getAgents();
+    // Step 7: Select skills to install
+    const selectedSkills = yield* determineSkillsToInstall(discoveredSkills, {
+      requestedSkills: args.skills,
+      all: args.all,
+      yes: args.yes,
+    });
 
-      const ops = selectedSkills.map(
-        (s) =>
-          ({
-            name: "install-skill",
-            args: {
-              agents: agentIds,
-              force: args.force,
-              source: s.source,
-              skill: s.skill,
-              location: s.location,
-              version: s.version,
-              gitTreeSha: s.gitTreeSha,
-            },
-          }) satisfies AddSkillOperation,
-      );
+    if (!Array.isNonEmptyReadonlyArray(selectedSkills)) {
+      yield* log.warn("No skills selected.");
+      yield* log.success("Nothing to install.");
+      return;
+    }
 
-      // Build plan
-      const ls = yield* LockfileService;
-      const lockedSkills = yield* ls.getSkills();
-      const lockfile = { lockfileVersion: 1, skills: lockedSkills };
-      const plan = buildPlan(
-        ops,
-        lockfile,
-        "Install skill(s)",
-        Option.some(`Install skills from ${printSource(source)}`),
-      );
+    const ss = yield* SettingsService;
+    const agentIds = yield* ss.getAgents();
 
-      yield* ws.resolvePlan(plan, { "install-skill": installSkill });
+    const ops = selectedSkills.map(
+      (s) =>
+        ({
+          name: "install-skill",
+          args: {
+            agents: agentIds,
+            force: args.force,
+            source: s.source,
+            skill: s.skill,
+            location: s.location,
+            version: s.version,
+            gitTreeSha: s.gitTreeSha,
+          },
+        }) satisfies AddSkillOperation,
+    );
 
-      yield* log.success("Done");
-    }),
-  );
+    // Build plan
+    const ls = yield* LockfileService;
+    const lockedSkills = yield* ls.getSkills();
+    const lockfile = { lockfileVersion: 1, skills: lockedSkills };
+    const plan = buildPlan(
+      ops,
+      lockfile,
+      "Install skill(s)",
+      Option.some(`Install skills from ${printSource(source)}`),
+    );
+
+    yield* ws.resolvePlan(plan, { "install-skill": installSkill });
+
+    yield* log.success("Done");
+  });
 };

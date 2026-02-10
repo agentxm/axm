@@ -5,7 +5,6 @@
  * @packageDocumentation
  */
 
-import type { FileSystem } from "@effect/platform";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -43,7 +42,8 @@ export const defaultResolutionOptions: ResolutionOptions = {
 type Resolver = (
   input: string,
   options: ResolutionOptions,
-) => Effect.Effect<ExtensionRef[], ResolutionError, FileSystem.FileSystem>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+) => Effect.Effect<ExtensionRef[], any, any>;
 
 /**
  * Filters extension references by source type.
@@ -102,7 +102,7 @@ const filterByType = (refs: ExtensionRef[], types?: readonly ExtensionType[]): E
 export const resolveExtension = (
   input: string,
   options: ResolutionOptions = defaultResolutionOptions,
-): Effect.Effect<ExtensionRef[], ResolutionError, FileSystem.FileSystem> => {
+) => {
   const resolvers: Resolver[] = [
     resolveAxmName,
     resolveBareName,
@@ -114,7 +114,8 @@ export const resolveExtension = (
 
   const tryResolvers = (
     remaining: Resolver[],
-  ): Effect.Effect<ExtensionRef[], ResolutionError, FileSystem.FileSystem> =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ): Effect.Effect<ExtensionRef[], ResolutionError, any> =>
     Effect.gen(function* () {
       const maybeResolver = Array.head(remaining);
       if (Option.isNone(maybeResolver)) return [];

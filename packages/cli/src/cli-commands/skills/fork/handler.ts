@@ -117,7 +117,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
       Effect.tapError(() => handle.stop("Failed")),
     );
 
-    const allRefs = yield* sources.resolve(source, { names: [], agents: [], type: "skill" }).pipe(
+    const allRefs = yield* sources.resolveExtension(source, { names: [], agents: [], type: "skill" }).pipe(
       Effect.mapError(
         (error) =>
           new ForkError({

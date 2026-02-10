@@ -6,3 +6,4 @@ dist
 
 .reference/
 .axm/cache/
+.claude/worktrees/

@@ -53,7 +53,7 @@ const initWorkspace = (
   );
 };
 
-/** Create a managed extension in .axm/extensions/ with a manifest. */
+/** Create a managed extension in .axm/extensions/ with a manifest at root and content in src/. */
 const createManagedExtension = (
   tempDir: string,
   scope: string,
@@ -61,9 +61,10 @@ const createManagedExtension = (
   manifest: Record<string, unknown>,
 ) => {
   const extDir = path.join(tempDir, ".axm", "extensions", scope, "skills", name);
-  fs.mkdirSync(extDir, { recursive: true });
+  const srcDir = path.join(extDir, "src");
+  fs.mkdirSync(srcDir, { recursive: true });
   fs.writeFileSync(path.join(extDir, "axm-skill.json"), JSON.stringify(manifest));
-  fs.writeFileSync(path.join(extDir, "SKILL.md"), `---\nname: "${name}"\n---\n\n# ${name}\n`);
+  fs.writeFileSync(path.join(srcDir, "SKILL.md"), `---\nname: "${name}"\n---\n\n# ${name}\n`);
   return extDir;
 };
 
@@ -243,9 +244,17 @@ describe("publish.handler", () => {
       const registryRoot = path.join(tempDir, "registry");
 
       // Create extension directory without manifest
-      const extDir = path.join(tempDir, ".axm", "extensions", "@test", "skills", "no-manifest");
-      fs.mkdirSync(extDir, { recursive: true });
-      fs.writeFileSync(path.join(extDir, "SKILL.md"), "# No manifest\n");
+      const srcDir = path.join(
+        tempDir,
+        ".axm",
+        "extensions",
+        "@test",
+        "skills",
+        "no-manifest",
+        "src",
+      );
+      fs.mkdirSync(srcDir, { recursive: true });
+      fs.writeFileSync(path.join(srcDir, "SKILL.md"), "# No manifest\n");
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
 

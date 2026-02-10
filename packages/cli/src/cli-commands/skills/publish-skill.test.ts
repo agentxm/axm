@@ -66,10 +66,11 @@ describe("publishSkill", () => {
     const extensionDir = path.join(base, ".axm", "extensions", scope, "skills", name);
     const registryRoot = path.join(tmpDir, "registry");
 
-    fs.mkdirSync(extensionDir, { recursive: true });
+    const srcDir = path.join(extensionDir, "src");
+    fs.mkdirSync(srcDir, { recursive: true });
     fs.mkdirSync(registryRoot, { recursive: true });
 
-    // Write manifest
+    // Write manifest at extension root (not inside src/)
     const defaultManifest = {
       name: `${scope}/${name}`,
       version: "0.1.0",
@@ -82,9 +83,9 @@ describe("publishSkill", () => {
       JSON.stringify(defaultManifest, null, 2),
     );
 
-    // Write skill files
-    fs.writeFileSync(path.join(extensionDir, "SKILL.md"), `# ${name}`);
-    fs.writeFileSync(path.join(extensionDir, "prompt.md"), "prompt content");
+    // Write skill files in src/ subdirectory
+    fs.writeFileSync(path.join(srcDir, "SKILL.md"), `# ${name}`);
+    fs.writeFileSync(path.join(srcDir, "prompt.md"), "prompt content");
 
     return { base, axmDir, extensionDir, registryRoot };
   };
@@ -258,7 +259,7 @@ describe("publishSkill", () => {
         );
 
         // Change content (different checksum) but keep same version
-        fs.writeFileSync(path.join(extensionDir, "prompt.md"), "changed content");
+        fs.writeFileSync(path.join(extensionDir, "src", "prompt.md"), "changed content");
 
         // Publish again — same version, different content → should fail
         const result = yield* publishSkill(

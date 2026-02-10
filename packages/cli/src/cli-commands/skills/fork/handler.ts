@@ -209,7 +209,8 @@ export const handleFork = (args: ForkHandlerArgs) =>
           description: ref.skill.description,
           metadata: ref.skill.metadata,
         },
-        location: "file://" + path.join(base, ".axm/extensions", scope, "skills", ref.skill.name),
+        location:
+          "file://" + path.join(base, ".axm/extensions", scope, "skills", ref.skill.name, "src"),
         version: Option.some("0.1.0"),
         gitTreeSha: Option.none(),
       };

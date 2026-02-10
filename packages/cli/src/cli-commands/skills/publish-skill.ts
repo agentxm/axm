@@ -19,6 +19,7 @@ import {
 } from "../../extensions/skills/manifest-schema.js";
 import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryProvider } from "../../sources/providers/registry.js";
+import { computeChecksum } from "../../utils/checksum.js";
 import { OperationError, type OperationHandler } from "../../workspace/apply-plan.js";
 import type { OperationResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service.js";
@@ -47,16 +48,6 @@ const parseExtensionName = (
     skillName: name.slice(slashIdx + 1),
   };
 };
-
-/**
- * Compute SHA-256 checksum in `sha256:<hex>` format.
- */
-const computeChecksum = (data: Uint8Array): Effect.Effect<string> =>
-  Effect.promise(async () => {
-    const { createHash } = await import("node:crypto");
-    const hex = createHash("sha256").update(data).digest("hex");
-    return `sha256:${hex}`;
-  });
 
 /**
  * Build a zip archive of a directory.

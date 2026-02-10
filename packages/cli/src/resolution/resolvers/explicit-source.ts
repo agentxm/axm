@@ -12,6 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { parseSourceInput } from "../../sources/index.js";
 import type { ExtensionRef } from "../types.js";
+import { buildOriginUrl } from "./url-utils.js";
 
 /**
  * Supported source prefixes that this resolver handles.
@@ -51,30 +52,6 @@ const hasKnownPrefix = (input: string): boolean => {
  */
 const hasSupportedPrefix = (input: string): boolean => {
   return SUPPORTED_PREFIXES.some((prefix) => input.startsWith(prefix));
-};
-
-/**
- * Build HTTPS URL from source type and owner/repo.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const buildOriginUrl = (
-  sourceType: "github" | "gitlab" | "bitbucket" | "azure",
-  owner: string,
-  repo: string,
-): string => {
-  switch (sourceType) {
-    case "github":
-      return `https://github.com/${owner}/${repo}`;
-    case "gitlab":
-      return `https://gitlab.com/${owner}/${repo}`;
-    case "bitbucket":
-      return `https://bitbucket.org/${owner}/${repo}`;
-    case "azure":
-      // Azure DevOps URL format: https://dev.azure.com/{org}/{project}/_git/{repo}
-      // For simplicity, treating owner as org/project combined
-      return `https://dev.azure.com/${owner}/${repo}`;
-  }
 };
 
 /**

@@ -252,41 +252,40 @@ export const handleFork = (args: ForkHandlerArgs) =>
     const registryName = registrySources[0]!.name;
 
     // Step 6: Build plan — fork + publish per skill (2 sequential ops)
-    const steps: PlannedJobStep<ForkOp>[] = [];
-
-    for (const skill of resolvedSkills) {
+    const steps: ReadonlyArray<PlannedJobStep<ForkOp>> = resolvedSkills.flatMap((skill) => {
       const targetName = `${scope}/${skill.name}`;
-
-      // fork-skill operation
-      steps.push({
-        _tag: "PlannedJobStep",
-        operation: {
-          name: "fork-skill",
-          args: {
-            source: { source: "local" as const, path: skill.location.replace("file://", "") },
-            targetName,
-            agents: [...agentIds],
-            location: skill.location,
-          },
-        } satisfies ForkSkillOperation,
-        expectedResult: { result: "success", message: `Forked ${skill.name} to ${targetName}` },
-        label: `Fork ${skill.name}`,
-      });
-
-      // publish-skill operation
-      steps.push({
-        _tag: "PlannedJobStep",
-        operation: {
-          name: "publish-skill",
-          args: {
-            name: targetName,
-            registryName,
-          },
-        } satisfies PublishSkillOperation,
-        expectedResult: { result: "success", message: `Published ${targetName}` },
-        label: `Publish ${targetName}`,
-      });
-    }
+      return [
+        {
+          _tag: "PlannedJobStep" as const,
+          operation: {
+            name: "fork-skill",
+            args: {
+              source: {
+                source: "local",
+                path: skill.location.replace("file://", ""),
+              } satisfies ForkSkillOperation["args"]["source"],
+              targetName,
+              agents: [...agentIds],
+              location: skill.location,
+            },
+          } satisfies ForkSkillOperation,
+          expectedResult: { result: "success", message: `Forked ${skill.name} to ${targetName}` },
+          label: `Fork ${skill.name}`,
+        },
+        {
+          _tag: "PlannedJobStep" as const,
+          operation: {
+            name: "publish-skill",
+            args: {
+              name: targetName,
+              registryName,
+            },
+          } satisfies PublishSkillOperation,
+          expectedResult: { result: "success", message: `Published ${targetName}` },
+          label: `Publish ${targetName}`,
+        },
+      ];
+    });
 
     const plan = {
       name: "Fork skill(s)",

@@ -8,9 +8,9 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as nodePath from "node:path";
 import type { PlatformError } from "@effect/platform/Error";
 import * as FileSystem from "@effect/platform/FileSystem";
+import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 
 // -----------------------------------------------------------------------------
@@ -29,17 +29,18 @@ const copyEntry = (
   src: string,
   dest: string,
   fs: FileSystem.FileSystem,
+  path: Path.Path,
 ): Effect.Effect<void, PlatformError> =>
   Effect.gen(function* () {
     // Read through symlinks (stat follows symlinks by default)
     const info = yield* fs.stat(src);
 
     if (info.type === "Directory") {
-      yield* copyDir(src, dest, fs);
+      yield* copyDir(src, dest, fs, path);
     } else {
       // Copy file content — readFile follows symlinks, giving us dereferenced content
       const content = yield* fs.readFile(src);
-      yield* fs.makeDirectory(nodePath.dirname(dest), { recursive: true });
+      yield* fs.makeDirectory(path.dirname(dest), { recursive: true });
       yield* fs.writeFile(dest, content);
     }
   });
@@ -48,6 +49,7 @@ const copyDir = (
   src: string,
   dest: string,
   fs: FileSystem.FileSystem,
+  path: Path.Path,
 ): Effect.Effect<void, PlatformError> =>
   Effect.gen(function* () {
     yield* fs.makeDirectory(dest, { recursive: true });
@@ -55,7 +57,7 @@ const copyDir = (
 
     yield* Effect.forEach(
       entries.filter((name) => !isExcluded(name)),
-      (name) => copyEntry(nodePath.join(src, name), nodePath.join(dest, name), fs),
+      (name) => copyEntry(path.join(src, name), path.join(dest, name), fs, path),
       { concurrency: "unbounded" },
     );
   });
@@ -70,8 +72,9 @@ const copyDir = (
 export const copySkillDirectory = (
   src: string,
   dest: string,
-): Effect.Effect<void, PlatformError, FileSystem.FileSystem> =>
+): Effect.Effect<void, PlatformError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    yield* copyDir(src, dest, fs);
+    const path = yield* Path.Path;
+    yield* copyDir(src, dest, fs, path);
   });

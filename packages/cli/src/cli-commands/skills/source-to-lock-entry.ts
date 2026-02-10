@@ -130,6 +130,8 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
     case "registry": {
       const reg = input.registry;
       if (!reg) {
+        // Invariant violation (defect): callers must provide registry metadata
+        // for registry sources. This is a programming error, not a recoverable condition.
         throw new Error(
           "Registry source requires registry metadata (scope, name, resolvedVersion, checksum, sourceName)",
         );

@@ -112,6 +112,7 @@ export const createRegistryMetaProvider = (): SourceProvider<
       }
 
       // Try each registry source in order. 404 (empty results) → fallthrough.
+      // Sequential: early-exits on first non-404 error (can't use Effect.forEach)
       const allRefs: ExtensionRef[] = [];
 
       for (const regSource of registrySources) {

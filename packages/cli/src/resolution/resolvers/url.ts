@@ -12,6 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { parseSourceInput } from "../../sources/index.js";
 import type { ExtensionRef } from "../types.js";
+import { buildOriginUrl } from "./url-utils.js";
 
 /**
  * URL pattern for detecting URL-like inputs.
@@ -28,20 +29,6 @@ const URL_PATTERN = /^(?:https?:\/\/|git@)/;
  */
 const looksLikeUrl = (input: string): boolean => {
   return URL_PATTERN.test(input);
-};
-
-/**
- * Build HTTPS URL from source type and owner/repo.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const buildOriginUrl = (sourceType: "github" | "gitlab", owner: string, repo: string): string => {
-  switch (sourceType) {
-    case "github":
-      return `https://github.com/${owner}/${repo}`;
-    case "gitlab":
-      return `https://gitlab.com/${owner}/${repo}`;
-  }
 };
 
 /**

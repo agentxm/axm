@@ -8,12 +8,12 @@
  * @packageDocumentation
  */
 
-import * as os from "node:os";
 import * as nodePath from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { ExtensionRef, ResolutionOptions } from "../types.js";
+import { expandHome } from "./path-utils.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -35,18 +35,6 @@ const AXM_NAME_PATTERN = /^(@[^/@]+)\/([^/@]+)(?:@(.+))?$/;
  * @experimental This API is unstable and may change without notice.
  */
 export const isAxmName = (input: string): boolean => AXM_NAME_PATTERN.test(input);
-
-/**
- * Expand ~ to home directory.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const expandHome = (p: string): string => {
-  if (p.startsWith("~/") || p === "~") {
-    return nodePath.join(os.homedir(), p.slice(1));
-  }
-  return p;
-};
 
 /**
  * Check if a directory exists at the given path.

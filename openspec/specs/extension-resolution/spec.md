@@ -8,7 +8,7 @@ Resolves input strings to zero or more extension references with metadata. This 
 
 ### Requirement: Resolution Function
 
-The resolution module SHALL provide a function that accepts an input string and options, returning an array of extension references.
+The resolution module SHALL provide a function that accepts an input string and options, returning an array of extension references. Resolution dispatches through the `SourceProviders` service (via `yield* SourceProviders`).
 
 #### Scenario: Resolve with default options
 
@@ -65,17 +65,17 @@ The resolution module SHALL recognize home directory paths starting with `~` and
 
 ### Requirement: Input Syntax - AXM Name
 
-The resolution module SHALL recognize fully qualified AXM names in `@scope/name` format.
+The resolution module SHALL recognize fully qualified AXM names in `@scope/name` format and resolve them via registry sources.
 
 #### Scenario: Fully qualified AXM name
 
 - **WHEN** the input is `@wayne/grappling-hook`
-- **THEN** the module performs AXM name resolution (project → global → registry)
+- **THEN** the module performs registry resolution via the `SourceProviders` service
 
 #### Scenario: AXM name with version
 
 - **WHEN** the input is `@wayne/grappling-hook@^1.0.0`
-- **THEN** the module resolves the name and includes the version constraint in metadata
+- **THEN** the module resolves the name with the version constraint passed as a semver range to the registry provider
 
 ### Requirement: Input Syntax - Bare Name
 
@@ -141,7 +141,7 @@ The resolution module SHALL recognize URLs matching known source patterns.
 
 ### Requirement: Input Syntax - Ambiguous Pattern
 
-The resolution module SHALL disambiguate `a/b` patterns that could be AXM names or source shorthand.
+The resolution module SHALL disambiguate `a/b` patterns using the merged sources list from `getSources()` instead of a hardcoded try-order.
 
 #### Scenario: Ambiguous pattern matches local path
 
@@ -153,10 +153,10 @@ The resolution module SHALL disambiguate `a/b` patterns that could be AXM names 
 - **WHEN** the input is `wayne/grappling-hook` and `@wayne/grappling-hook` exists in `.axm/skills/`
 - **THEN** the module resolves as the installed AXM extension
 
-#### Scenario: Ambiguous pattern falls back to GitHub
+#### Scenario: Ambiguous pattern falls back to configured sources
 
 - **WHEN** the input is `owner/repo` and no local path or AXM name matches
-- **THEN** the module queries configured sources (GitHub by default) to resolve
+- **THEN** the module queries git-hosting sources from `getSources()` in array order (not hardcoded GitHub-first)
 
 #### Scenario: Ambiguous pattern with multiple source matches
 
@@ -184,22 +184,17 @@ The resolution module SHALL attempt resolution steps in a specific order, stoppi
 
 ### Requirement: AXM Name Resolution Levels
 
-The resolution module SHALL check AXM names at project, global, and registry levels in order.
+The resolution module SHALL resolve AXM names through registry sources configured via `getSources()`, replacing the previous project/global/placeholder lookup.
 
-#### Scenario: Project level match
+#### Scenario: Registry resolution via source providers
 
-- **WHEN** resolving `@wayne/skill` and `.axm/skills/@wayne/skill/` exists
-- **THEN** the module returns the project-level extension without checking global or registry
+- **WHEN** resolving `@wayne/skill`
+- **THEN** the module queries configured registry sources via `SourceProviders.resolve` with scope routing
 
-#### Scenario: Global level match
+#### Scenario: Registry not configured
 
-- **WHEN** resolving `@wayne/skill` and only `~/.axm/skills/@wayne/skill/` exists
-- **THEN** the module returns the global-level extension
-
-#### Scenario: Registry level placeholder
-
-- **WHEN** resolving `@wayne/skill` and it exists only in the remote registry
-- **THEN** the module returns the registry extension reference (future: actual lookup)
+- **WHEN** resolving `@wayne/skill` and no registry sources are configured
+- **THEN** the registry guard is invoked (prompt in interactive, error in non-interactive)
 
 ### Requirement: Path Resolution
 
@@ -246,22 +241,22 @@ The resolution module SHALL infer extension type from file patterns.
 
 ### Requirement: ExtensionRef Result Schema
 
-The resolution module SHALL return results conforming to the ExtensionRef schema.
+The resolution module SHALL return results conforming to the evolved ExtensionRef schema with `source`, `location`, and `version` fields replacing `path` and `registry`.
 
 #### Scenario: Required fields present
 
 - **WHEN** resolution succeeds
-- **THEN** the result contains `type`, `source`, `origin`, `originalInput`, and `metadata`
+- **THEN** the result contains `type`, `source` (SourceInput), `location` (materialized URL), and `version` (Option)
 
-#### Scenario: Optional fields when applicable
+#### Scenario: Registry-sourced ref includes version
 
-- **WHEN** resolving a git source with ref
-- **THEN** the result contains `ref` with the git ref value
+- **WHEN** resolving from a registry source
+- **THEN** `version` is `Some` with the resolved semver version
 
-#### Scenario: Metadata populated from manifest
+#### Scenario: Git-sourced ref has no version
 
-- **WHEN** resolving an extension with `axm-skill.json` containing version and description
-- **THEN** `metadata.version` and `metadata.description` are populated
+- **WHEN** resolving from a git source
+- **THEN** `version` is `None`
 
 ### Requirement: Error Handling
 

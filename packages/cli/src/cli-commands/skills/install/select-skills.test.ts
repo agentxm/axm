@@ -63,23 +63,21 @@ describe("determineSkillsToInstall", () => {
       ),
     );
 
-    it.effect("errors when any requested skill name is unknown", () =>
+    it.effect("ignores unmatched patterns when other patterns match", () =>
       provide(
         Effect.gen(function* () {
-          const error = yield* determineSkillsToInstall(skills("commit"), {
+          const result = yield* determineSkillsToInstall(skills("commit"), {
             requestedSkills: ["commit", "nonexistent"],
             all: false,
             yes: false,
-          }).pipe(Effect.flip);
+          });
 
-          expect(error._tag).toBe("InstallError");
-          expect((error as InstallError).message).toContain("Unknown skill(s)");
-          expect((error as InstallError).message).toContain("nonexistent");
+          expect(result.map((s) => s.skill.name)).toEqual(["commit"]);
         }),
       ),
     );
 
-    it.effect("errors when all requested skills are unknown", () =>
+    it.effect("errors when no requested patterns match any skill", () =>
       provide(
         Effect.gen(function* () {
           const error = yield* determineSkillsToInstall(skills("commit"), {
@@ -89,8 +87,82 @@ describe("determineSkillsToInstall", () => {
           }).pipe(Effect.flip);
 
           expect(error._tag).toBe("InstallError");
-          expect((error as InstallError).message).toContain("foo");
-          expect((error as InstallError).message).toContain("bar");
+          expect((error as InstallError).message).toContain("No skills matched");
+        }),
+      ),
+    );
+
+    it.effect("filters skills using a glob pattern", () =>
+      provide(
+        Effect.gen(function* () {
+          const result = yield* determineSkillsToInstall(
+            skills("effect-basics", "effect-stream", "testing-unit"),
+            {
+              requestedSkills: ["effect-*"],
+              all: false,
+              yes: false,
+            },
+          );
+
+          expect(result.map((s) => s.skill.name)).toEqual(["effect-basics", "effect-stream"]);
+        }),
+      ),
+    );
+
+    it.effect("combines matches from multiple glob patterns", () =>
+      provide(
+        Effect.gen(function* () {
+          const result = yield* determineSkillsToInstall(
+            skills("effect-basics", "effect-stream", "testing-unit", "commit"),
+            {
+              requestedSkills: ["effect-*", "commit"],
+              all: false,
+              yes: false,
+            },
+          );
+
+          expect(result.map((s) => s.skill.name)).toEqual([
+            "effect-basics",
+            "effect-stream",
+            "commit",
+          ]);
+        }),
+      ),
+    );
+
+    it.effect("supports exact name and glob pattern coexisting", () =>
+      provide(
+        Effect.gen(function* () {
+          const result = yield* determineSkillsToInstall(
+            skills("effect-basics", "effect-stream", "commit", "review-pr"),
+            {
+              requestedSkills: ["effect-*", "commit"],
+              all: false,
+              yes: false,
+            },
+          );
+
+          expect(result.map((s) => s.skill.name)).toEqual([
+            "effect-basics",
+            "effect-stream",
+            "commit",
+          ]);
+        }),
+      ),
+    );
+
+    it.effect("errors when glob pattern matches nothing", () =>
+      provide(
+        Effect.gen(function* () {
+          const error = yield* determineSkillsToInstall(skills("commit", "review-pr"), {
+            requestedSkills: ["effect-*"],
+            all: false,
+            yes: false,
+          }).pipe(Effect.flip);
+
+          expect(error._tag).toBe("InstallError");
+          expect((error as InstallError).message).toContain("commit");
+          expect((error as InstallError).message).toContain("review-pr");
         }),
       ),
     );

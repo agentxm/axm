@@ -332,6 +332,78 @@ describe("install.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Glob filtering
+  // ---------------------------------------------------------------------------
+
+  describe("glob filtering", () => {
+    it.effect("installs only skills matching a glob pattern", () => {
+      const { provide, mockLog } = makeLayers();
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "effect-basics"), "effect-basics", "Effect basics");
+      createSkillMd(path.join(skillsDir, "effect-stream"), "effect-stream", "Effect streams");
+      createSkillMd(path.join(skillsDir, "testing-unit"), "testing-unit", "Unit testing");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstall(defaultArgs(skillsDir, { skills: ["effect-*"], all: false }));
+
+          // effect-basics and effect-stream should be installed
+          expect(mockLog.logs.success.some((m) => m.includes("effect-basics"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("effect-stream"))).toBe(true);
+          // testing-unit should NOT be installed
+          expect(mockLog.logs.success.some((m) => m.includes("testing-unit"))).toBe(false);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("installs skills matching multiple patterns (glob + exact)", () => {
+      const { provide, mockLog } = makeLayers();
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "effect-basics"), "effect-basics", "Effect basics");
+      createSkillMd(path.join(skillsDir, "effect-stream"), "effect-stream", "Effect streams");
+      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
+      createSkillMd(path.join(skillsDir, "review-pr"), "review-pr", "PR review");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstall(
+            defaultArgs(skillsDir, { skills: ["effect-*", "commit"], all: false }),
+          );
+
+          expect(mockLog.logs.success.some((m) => m.includes("effect-basics"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("effect-stream"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("commit"))).toBe(true);
+          // review-pr should NOT be installed
+          expect(mockLog.logs.success.some((m) => m.includes("review-pr"))).toBe(false);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("fails when glob pattern matches no skills", () => {
+      const { provide } = makeLayers();
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* handleInstall(
+            defaultArgs(skillsDir, { skills: ["nonexistent-*"], all: false }),
+          ).pipe(Effect.flip);
+
+          expect(error._tag).toBe("InstallError");
+          expect(error.message).toContain("No skills matched");
+          expect(error.message).toContain("commit");
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Summary
   // ---------------------------------------------------------------------------
 

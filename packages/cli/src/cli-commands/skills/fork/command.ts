@@ -11,6 +11,7 @@ import { handleFork } from "./handler.js";
 
 export interface ForkCommandArgs {
   source: string;
+  skill: string[];
   yes: boolean;
   preview: boolean;
   "non-interactive": boolean | undefined;
@@ -24,8 +25,14 @@ export const forkCommand: CommandModule<{}, ForkCommandArgs> = {
     yargs
       .positional("source", {
         type: "string",
-        describe: "Installed skill name, source string, or glob pattern",
+        describe: "Installed skill name or source string (local path, github:owner/repo, etc.)",
         demandOption: true,
+      })
+      .option("skill", {
+        type: "string",
+        array: true,
+        describe: "Fork only specified skill(s) by name or glob pattern",
+        default: [],
       })
       .option("yes", {
         alias: "y",
@@ -44,11 +51,15 @@ export const forkCommand: CommandModule<{}, ForkCommandArgs> = {
       })
       .example("$0 skills fork my-skill", "Fork an installed skill to a managed extension")
       .example("$0 skills fork github:owner/repo", "Fork a skill from a GitHub repo")
-      .example('$0 skills fork "effect-*"', "Fork all installed skills matching the glob"),
+      .example(
+        '$0 skills fork ./local/path --skill "effect-*"',
+        "Fork only skills matching the glob from a local source",
+      ),
   handler: async (argv) => {
     await run(
       handleFork({
         source: argv.source,
+        skills: argv.skill,
         yes: argv.yes,
       }),
       {

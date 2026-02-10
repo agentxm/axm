@@ -6,17 +6,69 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { buildCloneUrl, getOrigin } from "./clone-url.js";
 import { ParseError } from "./errors.js";
-import { type InputPattern, parseInputPattern, parseSourceInput } from "./parser.js";
+import { type InputPattern, parseInputPattern, determineSourceInput } from "./parser.js";
 import { printSource } from "./printer.js";
+import { LockfileService } from "../lockfile/index.js";
+import type { SkillLockEntry, SkillsLockMap } from "../lockfile/index.js";
+
+// -----------------------------------------------------------------------------
+// Test helpers
+// -----------------------------------------------------------------------------
+
+const now = new Date();
+
+/** Create a mock LockfileService layer with the given skills map. */
+const makeLockfileLayer = (skills: SkillsLockMap) =>
+  Layer.succeed(LockfileService, {
+    getSkills: () => Effect.succeed(skills),
+    getEntry: (name) => Effect.succeed(Option.fromNullable(skills[name])),
+    updateEntry: () => Effect.void,
+    removeEntry: () => Effect.void,
+  });
+
+/** Empty lockfile layer for tests that don't exercise NameInput. */
+const EmptyLockfileLayer = makeLockfileLayer({});
+
+/** Helper: provide the empty lockfile layer for determineSourceInput calls. */
+const determine = (input: string) =>
+  determineSourceInput(input).pipe(Effect.provide(EmptyLockfileLayer));
+
+/** Helper: provide a specific lockfile layer for determineSourceInput calls. */
+const determineWith = (input: string, skills: SkillsLockMap) =>
+  determineSourceInput(input).pipe(Effect.provide(makeLockfileLayer(skills)));
+
+/** Create a GitHub lock entry for testing. */
+const makeGitHubLockEntry = (owner: string, repo: string): SkillLockEntry => ({
+  source: "github",
+  owner,
+  repo,
+  agents: [],
+  installedAt: now,
+  updatedAt: now,
+});
+
+/** Create a registry lock entry for testing. */
+const makeRegistryLockEntry = (scope: string, name: string): SkillLockEntry => ({
+  source: "registry",
+  scope,
+  name,
+  resolvedVersion: "1.0.0",
+  checksum: "abc123",
+  sourceName: "default",
+  agents: [],
+  installedAt: now,
+  updatedAt: now,
+});
 
 describe("source-parser", () => {
   describe("slash pattern (owner/repo)", () => {
     it.effect("rejects ambiguous owner/repo pattern", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceInput("owner/repo"));
+        const error = yield* Effect.flip(determine("owner/repo"));
         expect(error).toBeInstanceOf(ParseError);
         expect(error.message).toContain("Ambiguous pattern");
       }),
@@ -26,7 +78,7 @@ describe("source-parser", () => {
   describe("prefixed shorthand", () => {
     it.effect("parses github:owner/repo", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("github:owner/repo");
+        const result = yield* determine("github:owner/repo");
 
         expect(result.source).toBe("github");
         expect(printSource(result)).toBe("github:owner/repo");
@@ -39,7 +91,7 @@ describe("source-parser", () => {
 
     it.effect("parses gitlab:owner/repo", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("gitlab:owner/repo");
+        const result = yield* determine("gitlab:owner/repo");
 
         expect(result.source).toBe("gitlab");
         expect(printSource(result)).toBe("gitlab:owner/repo");
@@ -52,7 +104,7 @@ describe("source-parser", () => {
 
     it.effect("parses github:owner/repo/path@ref", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("github:owner/repo/skills/my-skill@v1.0.0");
+        const result = yield* determine("github:owner/repo/skills/my-skill@v1.0.0");
 
         expect(result.source).toBe("github");
         expect(printSource(result)).toBe("github:owner/repo/skills/my-skill@v1.0.0");
@@ -67,7 +119,7 @@ describe("source-parser", () => {
 
     it.effect("parses gitlab:owner/repo@ref", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("gitlab:owner/repo@main");
+        const result = yield* determine("gitlab:owner/repo@main");
 
         expect(result.source).toBe("gitlab");
         expect(printSource(result)).toBe("gitlab:owner/repo@main");
@@ -81,7 +133,7 @@ describe("source-parser", () => {
   describe("GitHub HTTPS URLs", () => {
     it.effect("parses https://github.com/owner/repo", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("https://github.com/owner/repo");
+        const result = yield* determine("https://github.com/owner/repo");
 
         expect(result.source).toBe("github");
         expect(printSource(result)).toBe("github:owner/repo");
@@ -94,7 +146,7 @@ describe("source-parser", () => {
 
     it.effect("parses https://github.com/owner/repo.git", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("https://github.com/owner/repo.git");
+        const result = yield* determine("https://github.com/owner/repo.git");
 
         expect(result.source).toBe("github");
         expect(printSource(result)).toBe("github:owner/repo");
@@ -107,7 +159,7 @@ describe("source-parser", () => {
 
     it.effect("parses https://github.com/owner/repo/tree/branch", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("https://github.com/owner/repo/tree/main");
+        const result = yield* determine("https://github.com/owner/repo/tree/main");
 
         expect(result.source).toBe("github");
         expect(printSource(result)).toBe("github:owner/repo@main");
@@ -120,9 +172,7 @@ describe("source-parser", () => {
 
     it.effect("parses https://github.com/owner/repo/tree/branch/path", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput(
-          "https://github.com/owner/repo/tree/main/skills/my-skill",
-        );
+        const result = yield* determine("https://github.com/owner/repo/tree/main/skills/my-skill");
 
         expect(result.source).toBe("github");
         expect(printSource(result)).toBe("github:owner/repo/skills/my-skill@main");
@@ -135,7 +185,7 @@ describe("source-parser", () => {
 
     it.effect("parses http://github.com/owner/repo (HTTP)", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("http://github.com/owner/repo");
+        const result = yield* determine("http://github.com/owner/repo");
 
         expect(result.source).toBe("github");
         expect(printSource(result)).toBe("github:owner/repo");
@@ -146,7 +196,7 @@ describe("source-parser", () => {
   describe("GitLab HTTPS URLs", () => {
     it.effect("parses https://gitlab.com/owner/repo", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("https://gitlab.com/owner/repo");
+        const result = yield* determine("https://gitlab.com/owner/repo");
 
         expect(result.source).toBe("gitlab");
         expect(printSource(result)).toBe("gitlab:owner/repo");
@@ -159,7 +209,7 @@ describe("source-parser", () => {
 
     it.effect("parses https://gitlab.com/owner/repo.git", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("https://gitlab.com/owner/repo.git");
+        const result = yield* determine("https://gitlab.com/owner/repo.git");
 
         expect(result.source).toBe("gitlab");
         expect(printSource(result)).toBe("gitlab:owner/repo");
@@ -168,7 +218,7 @@ describe("source-parser", () => {
 
     it.effect("parses https://gitlab.com/owner/repo/-/tree/branch", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("https://gitlab.com/owner/repo/-/tree/main");
+        const result = yield* determine("https://gitlab.com/owner/repo/-/tree/main");
 
         expect(result.source).toBe("gitlab");
         expect(printSource(result)).toBe("gitlab:owner/repo@main");
@@ -180,7 +230,7 @@ describe("source-parser", () => {
 
     it.effect("parses https://gitlab.com/owner/repo/-/tree/branch/path", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput(
+        const result = yield* determine(
           "https://gitlab.com/owner/repo/-/tree/main/skills/my-skill",
         );
 
@@ -197,7 +247,7 @@ describe("source-parser", () => {
   describe("GitHub SSH URLs", () => {
     it.effect("parses git@github.com:owner/repo.git", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("git@github.com:owner/repo.git");
+        const result = yield* determine("git@github.com:owner/repo.git");
 
         expect(result.source).toBe("github");
         expect(printSource(result)).toBe("github:owner/repo");
@@ -210,7 +260,7 @@ describe("source-parser", () => {
 
     it.effect("parses git@github.com:owner/repo.git", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("git@github.com:owner/repo.git");
+        const result = yield* determine("git@github.com:owner/repo.git");
 
         expect(result.source).toBe("github");
         expect(printSource(result)).toBe("github:owner/repo");
@@ -219,7 +269,7 @@ describe("source-parser", () => {
 
     it.effect("parses git@github.com:owner/repo (without .git)", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("git@github.com:owner/repo");
+        const result = yield* determine("git@github.com:owner/repo");
 
         expect(result.source).toBe("github");
         expect(printSource(result)).toBe("github:owner/repo");
@@ -230,7 +280,7 @@ describe("source-parser", () => {
   describe("GitLab SSH URLs", () => {
     it.effect("parses git@gitlab.com:owner/repo.git", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("git@gitlab.com:owner/repo.git");
+        const result = yield* determine("git@gitlab.com:owner/repo.git");
 
         expect(result.source).toBe("gitlab");
         expect(printSource(result)).toBe("gitlab:owner/repo");
@@ -243,7 +293,7 @@ describe("source-parser", () => {
 
     it.effect("parses git@gitlab.com:owner/repo (without .git)", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("git@gitlab.com:owner/repo");
+        const result = yield* determine("git@gitlab.com:owner/repo");
 
         expect(result.source).toBe("gitlab");
         expect(printSource(result)).toBe("gitlab:owner/repo");
@@ -254,7 +304,7 @@ describe("source-parser", () => {
   describe("Bitbucket HTTPS URLs", () => {
     it.effect("parses https://bitbucket.org/owner/repo", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("https://bitbucket.org/owner/repo");
+        const result = yield* determine("https://bitbucket.org/owner/repo");
 
         expect(result.source).toBe("bitbucket");
         expect(printSource(result)).toBe("bitbucket:owner/repo");
@@ -267,7 +317,7 @@ describe("source-parser", () => {
 
     it.effect("parses https://bitbucket.org/owner/repo.git", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("https://bitbucket.org/owner/repo.git");
+        const result = yield* determine("https://bitbucket.org/owner/repo.git");
 
         expect(result.source).toBe("bitbucket");
         expect(printSource(result)).toBe("bitbucket:owner/repo");
@@ -280,7 +330,7 @@ describe("source-parser", () => {
 
     it.effect("parses https://bitbucket.org/owner/repo/src/main", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("https://bitbucket.org/owner/repo/src/main");
+        const result = yield* determine("https://bitbucket.org/owner/repo/src/main");
 
         expect(result.source).toBe("bitbucket");
         expect(printSource(result)).toBe("bitbucket:owner/repo@main");
@@ -293,7 +343,7 @@ describe("source-parser", () => {
 
     it.effect("parses https://bitbucket.org/owner/repo/src/main/skills/my-skill", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput(
+        const result = yield* determine(
           "https://bitbucket.org/owner/repo/src/main/skills/my-skill",
         );
 
@@ -310,7 +360,7 @@ describe("source-parser", () => {
   describe("Bitbucket SSH URLs", () => {
     it.effect("parses git@bitbucket.org:owner/repo.git", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("git@bitbucket.org:owner/repo.git");
+        const result = yield* determine("git@bitbucket.org:owner/repo.git");
 
         expect(result.source).toBe("bitbucket");
         expect(printSource(result)).toBe("bitbucket:owner/repo");
@@ -323,7 +373,7 @@ describe("source-parser", () => {
 
     it.effect("parses git@bitbucket.org:owner/repo (without .git)", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("git@bitbucket.org:owner/repo");
+        const result = yield* determine("git@bitbucket.org:owner/repo");
 
         expect(result.source).toBe("bitbucket");
         expect(printSource(result)).toBe("bitbucket:owner/repo");
@@ -334,7 +384,7 @@ describe("source-parser", () => {
   describe("Azure Repos HTTPS URLs", () => {
     it.effect("parses https://dev.azure.com/org/project/_git/repo", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("https://dev.azure.com/myorg/myproject/_git/myrepo");
+        const result = yield* determine("https://dev.azure.com/myorg/myproject/_git/myrepo");
 
         expect(result.source).toBe("azurerepos");
         expect(printSource(result)).toBe("azurerepos:myorg/myproject/myrepo");
@@ -348,9 +398,7 @@ describe("source-parser", () => {
 
     it.effect("parses https://dev.azure.com/org/project/_git/repo.git", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput(
-          "https://dev.azure.com/myorg/myproject/_git/myrepo.git",
-        );
+        const result = yield* determine("https://dev.azure.com/myorg/myproject/_git/myrepo.git");
 
         expect(result.source).toBe("azurerepos");
         expect(printSource(result)).toBe("azurerepos:myorg/myproject/myrepo");
@@ -359,7 +407,7 @@ describe("source-parser", () => {
 
     it.effect("parses http://dev.azure.com/org/project/_git/repo (HTTP)", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("http://dev.azure.com/myorg/myproject/_git/myrepo");
+        const result = yield* determine("http://dev.azure.com/myorg/myproject/_git/myrepo");
 
         expect(result.source).toBe("azurerepos");
         expect(printSource(result)).toBe("azurerepos:myorg/myproject/myrepo");
@@ -370,9 +418,7 @@ describe("source-parser", () => {
   describe("Azure Repos SSH URLs", () => {
     it.effect("parses git@ssh.dev.azure.com:v3/org/project/repo.git", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput(
-          "git@ssh.dev.azure.com:v3/myorg/myproject/myrepo.git",
-        );
+        const result = yield* determine("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo.git");
 
         expect(result.source).toBe("azurerepos");
         expect(printSource(result)).toBe("azurerepos:myorg/myproject/myrepo");
@@ -386,7 +432,7 @@ describe("source-parser", () => {
 
     it.effect("parses git@ssh.dev.azure.com:v3/org/project/repo (without .git)", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo");
+        const result = yield* determine("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo");
 
         expect(result.source).toBe("azurerepos");
         expect(printSource(result)).toBe("azurerepos:myorg/myproject/myrepo");
@@ -397,7 +443,7 @@ describe("source-parser", () => {
   describe("Bitbucket shorthand", () => {
     it.effect("parses bitbucket:owner/repo", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("bitbucket:owner/repo");
+        const result = yield* determine("bitbucket:owner/repo");
 
         expect(result.source).toBe("bitbucket");
         expect(printSource(result)).toBe("bitbucket:owner/repo");
@@ -410,7 +456,7 @@ describe("source-parser", () => {
 
     it.effect("parses bitbucket:owner/repo@ref", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("bitbucket:owner/repo@v1.0.0");
+        const result = yield* determine("bitbucket:owner/repo@v1.0.0");
 
         expect(result.source).toBe("bitbucket");
         expect(printSource(result)).toBe("bitbucket:owner/repo@v1.0.0");
@@ -422,7 +468,7 @@ describe("source-parser", () => {
 
     it.effect("parses bitbucket:owner/repo/path@ref", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("bitbucket:owner/repo/skills/my-skill@main");
+        const result = yield* determine("bitbucket:owner/repo/skills/my-skill@main");
 
         expect(result.source).toBe("bitbucket");
         expect(printSource(result)).toBe("bitbucket:owner/repo/skills/my-skill@main");
@@ -437,7 +483,7 @@ describe("source-parser", () => {
   describe("local path parsing", () => {
     it.effect("parses relative path starting with ./", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("./my-skill");
+        const result = yield* determine("./my-skill");
         expect(result.source).toBe("local");
         if (result.source === "local") {
           expect(result.path).toBe("./my-skill");
@@ -448,7 +494,7 @@ describe("source-parser", () => {
 
     it.effect("parses relative path starting with ../", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("../sibling-skill");
+        const result = yield* determine("../sibling-skill");
         expect(result.source).toBe("local");
         expect(printSource(result)).toBe("../sibling-skill");
       }),
@@ -456,7 +502,7 @@ describe("source-parser", () => {
 
     it.effect("parses absolute POSIX path", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("/home/user/skills/my-skill");
+        const result = yield* determine("/home/user/skills/my-skill");
         expect(result.source).toBe("local");
         expect(printSource(result)).toBe("/home/user/skills/my-skill");
       }),
@@ -464,7 +510,7 @@ describe("source-parser", () => {
 
     it.effect("parses home directory path with ~/", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("~/my-skills/dev-skill");
+        const result = yield* determine("~/my-skills/dev-skill");
         expect(result.source).toBe("local");
         expect(printSource(result)).toBe("~/my-skills/dev-skill");
       }),
@@ -472,7 +518,7 @@ describe("source-parser", () => {
 
     it.effect("parses home directory path with ~\\ (Windows)", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("~\\my-skills\\dev-skill");
+        const result = yield* determine("~\\my-skills\\dev-skill");
         expect(result.source).toBe("local");
         expect(printSource(result)).toBe("~\\my-skills\\dev-skill");
       }),
@@ -480,7 +526,7 @@ describe("source-parser", () => {
 
     it.effect("parses Windows path with drive letter and backslash", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("C:\\Users\\name\\skills");
+        const result = yield* determine("C:\\Users\\name\\skills");
         expect(result.source).toBe("local");
         expect(printSource(result)).toBe("C:\\Users\\name\\skills");
       }),
@@ -488,7 +534,7 @@ describe("source-parser", () => {
 
     it.effect("parses Windows path with drive letter and forward slash", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("C:/Users/name/skills");
+        const result = yield* determine("C:/Users/name/skills");
         expect(result.source).toBe("local");
         expect(printSource(result)).toBe("C:/Users/name/skills");
       }),
@@ -496,7 +542,7 @@ describe("source-parser", () => {
 
     it.effect("fails on local: prefix (no shorthand)", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceInput("local:./my-skill"));
+        const error = yield* Effect.flip(determine("local:./my-skill"));
         expect(error).toBeInstanceOf(ParseError);
       }),
     );
@@ -505,7 +551,7 @@ describe("source-parser", () => {
   describe("unsupported URLs", () => {
     it.effect("fails on unknown HTTPS URLs", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceInput("https://example.com"));
+        const error = yield* Effect.flip(determine("https://example.com"));
 
         expect(error).toBeInstanceOf(ParseError);
         expect(error.message).toContain("Unsupported URL host");
@@ -516,7 +562,7 @@ describe("source-parser", () => {
   describe("error handling", () => {
     it.effect("fails on empty string", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceInput(""));
+        const error = yield* Effect.flip(determine(""));
 
         expect(error).toBeInstanceOf(ParseError);
         expect(error.message).toBe("Source string cannot be empty");
@@ -525,27 +571,69 @@ describe("source-parser", () => {
 
     it.effect("fails on whitespace-only string", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceInput("   "));
+        const error = yield* Effect.flip(determine("   "));
 
         expect(error).toBeInstanceOf(ParseError);
         expect(error.message).toBe("Source string cannot be empty");
       }),
     );
 
-    it.effect("fails on name input (not yet supported)", () =>
+    it.effect("fails on unknown skill name", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceInput("not-a-valid-source"));
+        const error = yield* Effect.flip(determine("not-a-valid-source"));
 
         expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toBe("Name input is not yet supported");
+        expect(error.message).toContain('Unknown skill "not-a-valid-source"');
+        expect(error.message).toContain("axm skills list");
       }),
     );
 
     it.effect("includes input in error", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceInput("invalid"));
+        const error = yield* Effect.flip(determine("invalid"));
 
         expect(error.input).toBe("invalid");
+      }),
+    );
+  });
+
+  describe("NameInput resolution", () => {
+    it.effect("resolves installed skill name to local source", () =>
+      Effect.gen(function* () {
+        const skills: SkillsLockMap = {
+          "my-skill": makeGitHubLockEntry("owner", "repo"),
+        };
+        const result = yield* determineWith("my-skill", skills);
+
+        expect(result.source).toBe("local");
+        if (result.source === "local") {
+          expect(result.path).toBe(".agents/skills/my-skill");
+        }
+      }),
+    );
+
+    it.effect("resolves registry skill name to registry extensions path", () =>
+      Effect.gen(function* () {
+        const skills: SkillsLockMap = {
+          "my-skill": makeRegistryLockEntry("acme", "my-skill"),
+        };
+        const result = yield* determineWith("my-skill", skills);
+
+        expect(result.source).toBe("local");
+        if (result.source === "local") {
+          expect(result.path).toBe(".axm/extensions/acme/skills/my-skill");
+        }
+      }),
+    );
+
+    it.effect("fails with descriptive error for unknown skill name", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(determineWith("unknown-skill", {}));
+
+        expect(error).toBeInstanceOf(ParseError);
+        expect(error.message).toContain('Unknown skill "unknown-skill"');
+        expect(error.message).toContain("axm skills list");
+        expect(error.input).toBe("unknown-skill");
       }),
     );
   });
@@ -553,14 +641,14 @@ describe("source-parser", () => {
   describe("edge cases", () => {
     it.effect("trims whitespace from input", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("  github:owner/repo  ");
+        const result = yield* determine("  github:owner/repo  ");
         expect(printSource(result)).toBe("github:owner/repo");
       }),
     );
 
     it.effect("handles repo names with dashes in prefixed form", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("github:owner/my-awesome-repo");
+        const result = yield* determine("github:owner/my-awesome-repo");
 
         expect(result.source).toBe("github");
         if (result.source === "github") {
@@ -571,7 +659,7 @@ describe("source-parser", () => {
 
     it.effect("handles owner names with dashes in prefixed form", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("github:my-org/repo");
+        const result = yield* determine("github:my-org/repo");
 
         expect(result.source).toBe("github");
         if (result.source === "github") {
@@ -582,7 +670,7 @@ describe("source-parser", () => {
 
     it.effect("rejects repo names with dots (use prefixed form)", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceInput("owner/repo.js"));
+        const error = yield* Effect.flip(determine("owner/repo.js"));
         expect(error).toBeInstanceOf(ParseError);
         expect(error.message).toBe("Unable to parse source");
       }),
@@ -590,7 +678,7 @@ describe("source-parser", () => {
 
     it.effect("parses ./ starting path as local", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("./owner/repo");
+        const result = yield* determine("./owner/repo");
         expect(result.source).toBe("local");
         expect(printSource(result)).toBe("./owner/repo");
       }),
@@ -598,7 +686,7 @@ describe("source-parser", () => {
 
     it.effect("parses ../ starting path as local", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("../owner/repo");
+        const result = yield* determine("../owner/repo");
         expect(result.source).toBe("local");
         expect(printSource(result)).toBe("../owner/repo");
       }),
@@ -878,10 +966,10 @@ describe("parseInputPattern", () => {
     });
   });
 
-  describe("parseSourceInput pattern handling", () => {
+  describe("determineSourceInput pattern handling", () => {
     it.effect("fails on empty input", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceInput(""));
+        const error = yield* Effect.flip(determine(""));
         expect(error).toBeInstanceOf(ParseError);
         expect(error.message).toBe("Source string cannot be empty");
       }),
@@ -889,23 +977,36 @@ describe("parseInputPattern", () => {
 
     it.effect("fails on whitespace-only input", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceInput("   "));
+        const error = yield* Effect.flip(determine("   "));
         expect(error).toBeInstanceOf(ParseError);
         expect(error.message).toBe("Source string cannot be empty");
       }),
     );
 
-    it.effect("fails with 'not yet supported' for NameInput", () =>
+    it.effect("resolves installed NameInput to local source", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceInput("some-name"));
+        const skills: SkillsLockMap = {
+          "some-name": makeGitHubLockEntry("owner", "repo"),
+        };
+        const result = yield* determineWith("some-name", skills);
+        expect(result.source).toBe("local");
+        if (result.source === "local") {
+          expect(result.path).toBe(".agents/skills/some-name");
+        }
+      }),
+    );
+
+    it.effect("fails for unknown NameInput", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(determine("some-name"));
         expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toBe("Name input is not yet supported");
+        expect(error.message).toContain('Unknown skill "some-name"');
       }),
     );
 
     it.effect("fails with 'not yet supported' for RegistryPatternInput", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceInput("@myorg/some-name"));
+        const error = yield* Effect.flip(determine("@myorg/some-name"));
         expect(error).toBeInstanceOf(ParseError);
         expect(error.message).toBe("Registry source input is not yet supported");
       }),
@@ -913,21 +1014,21 @@ describe("parseInputPattern", () => {
 
     it.effect("parses GitHub HTTPS URL via UrlInput", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("https://github.com/owner/repo");
+        const result = yield* determine("https://github.com/owner/repo");
         expect(result).toMatchObject({ source: "github", owner: "owner", repo: "repo" });
       }),
     );
 
     it.effect("parses GitLab HTTPS URL via UrlInput", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("https://gitlab.com/owner/repo");
+        const result = yield* determine("https://gitlab.com/owner/repo");
         expect(result).toMatchObject({ source: "gitlab", owner: "owner", repo: "repo" });
       }),
     );
 
     it.effect("parses Bitbucket HTTPS URL via UrlInput", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("https://bitbucket.org/owner/repo");
+        const result = yield* determine("https://bitbucket.org/owner/repo");
         expect(result).toMatchObject({
           source: "bitbucket",
           owner: "owner",
@@ -938,7 +1039,7 @@ describe("parseInputPattern", () => {
 
     it.effect("parses Azure Repos HTTPS URL via UrlInput", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("https://dev.azure.com/myorg/myproject/_git/myrepo");
+        const result = yield* determine("https://dev.azure.com/myorg/myproject/_git/myrepo");
         expect(result).toMatchObject({
           source: "azurerepos",
           organization: "myorg",
@@ -950,7 +1051,7 @@ describe("parseInputPattern", () => {
 
     it.effect("parses GitHub SSH via GitScpAddress", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("git@github.com:owner/repo.git");
+        const result = yield* determine("git@github.com:owner/repo.git");
         expect(result.source).toBe("github");
         expect(result).toMatchObject({ owner: "owner", repo: "repo" });
       }),
@@ -958,7 +1059,7 @@ describe("parseInputPattern", () => {
 
     it.effect("parses GitLab SSH via GitScpAddress", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("git@gitlab.com:owner/repo.git");
+        const result = yield* determine("git@gitlab.com:owner/repo.git");
         expect(result.source).toBe("gitlab");
         expect(result).toMatchObject({ owner: "owner", repo: "repo" });
       }),
@@ -966,7 +1067,7 @@ describe("parseInputPattern", () => {
 
     it.effect("parses Bitbucket SSH via GitScpAddress", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("git@bitbucket.org:owner/repo.git");
+        const result = yield* determine("git@bitbucket.org:owner/repo.git");
         expect(result.source).toBe("bitbucket");
         expect(result).toMatchObject({ owner: "owner", repo: "repo" });
       }),
@@ -974,9 +1075,7 @@ describe("parseInputPattern", () => {
 
     it.effect("parses Azure Repos SSH via GitScpAddress", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput(
-          "git@ssh.dev.azure.com:v3/myorg/myproject/myrepo.git",
-        );
+        const result = yield* determine("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo.git");
         expect(result.source).toBe("azurerepos");
         expect(result).toMatchObject({
           organization: "myorg",
@@ -988,7 +1087,7 @@ describe("parseInputPattern", () => {
 
     it.effect("fails for unsupported SCP host", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceInput("git@example.com:owner/repo.git"));
+        const error = yield* Effect.flip(determine("git@example.com:owner/repo.git"));
         expect(error).toBeInstanceOf(ParseError);
         expect(error.message).toContain("Unsupported SCP host");
       }),
@@ -996,7 +1095,7 @@ describe("parseInputPattern", () => {
 
     it.effect("fails for unsupported URL host", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceInput("https://example.com/owner/repo"));
+        const error = yield* Effect.flip(determine("https://example.com/owner/repo"));
         expect(error).toBeInstanceOf(ParseError);
         expect(error.message).toContain("Unsupported URL host");
       }),
@@ -1004,7 +1103,7 @@ describe("parseInputPattern", () => {
 
     it.effect("rejects invalid URL with unrecognized segments", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(parseSourceInput("http://"));
+        const error = yield* Effect.flip(determine("http://"));
         expect(error).toBeInstanceOf(ParseError);
         expect(error.message).toBe("Unable to parse source");
       }),
@@ -1013,7 +1112,7 @@ describe("parseInputPattern", () => {
     describe("SlashPattern resolution", () => {
       it.effect("rejects ambiguous owner/repo pattern", () =>
         Effect.gen(function* () {
-          const error = yield* Effect.flip(parseSourceInput("owner/repo"));
+          const error = yield* Effect.flip(determine("owner/repo"));
           expect(error).toBeInstanceOf(ParseError);
           expect(error.message).toContain("Ambiguous pattern 'owner/repo'");
           expect(error.message).toContain("use github:owner/repo");
@@ -1022,7 +1121,7 @@ describe("parseInputPattern", () => {
 
       it.effect("suggests prefixed forms for disambiguation", () =>
         Effect.gen(function* () {
-          const error = yield* Effect.flip(parseSourceInput("my-org/my-repo"));
+          const error = yield* Effect.flip(determine("my-org/my-repo"));
           expect(error).toBeInstanceOf(ParseError);
           expect(error.message).toContain("github:my-org/my-repo");
           expect(error.message).toContain("gitlab:my-org/my-repo");
@@ -1033,7 +1132,7 @@ describe("parseInputPattern", () => {
 
     it.effect("parses FilePathPattern via parseLocalPath", () =>
       Effect.gen(function* () {
-        const result = yield* parseSourceInput("./local/path");
+        const result = yield* determine("./local/path");
         expect(result.source).toBe("local");
         expect(printSource(result)).toBe("./local/path");
       }),
@@ -1042,7 +1141,7 @@ describe("parseInputPattern", () => {
     describe("ShorthandInput resolution", () => {
       it.effect("resolves github:owner/repo to GitHub source", () =>
         Effect.gen(function* () {
-          const result = yield* parseSourceInput("github:owner/repo");
+          const result = yield* determine("github:owner/repo");
           expect(result).toMatchObject({ source: "github", owner: "owner", repo: "repo" });
           expect(printSource(result)).toBe("github:owner/repo");
         }),
@@ -1050,7 +1149,7 @@ describe("parseInputPattern", () => {
 
       it.effect("resolves gitlab:owner/repo@main to GitLab source with ref", () =>
         Effect.gen(function* () {
-          const result = yield* parseSourceInput("gitlab:owner/repo@main");
+          const result = yield* determine("gitlab:owner/repo@main");
           expect(result).toMatchObject({ source: "gitlab", owner: "owner", repo: "repo" });
           if (result.source === "gitlab") {
             expect(result.ref).toEqual(Option.some("main"));
@@ -1060,7 +1159,7 @@ describe("parseInputPattern", () => {
 
       it.effect("resolves bitbucket:owner/repo/path@ref to Bitbucket source", () =>
         Effect.gen(function* () {
-          const result = yield* parseSourceInput("bitbucket:owner/repo/skills/my-skill@v1.0.0");
+          const result = yield* determine("bitbucket:owner/repo/skills/my-skill@v1.0.0");
           expect(result).toMatchObject({
             source: "bitbucket",
             owner: "owner",
@@ -1075,7 +1174,7 @@ describe("parseInputPattern", () => {
 
       it.effect("fails on local:./my-skill (no shorthand)", () =>
         Effect.gen(function* () {
-          const error = yield* Effect.flip(parseSourceInput("local:./my-skill"));
+          const error = yield* Effect.flip(determine("local:./my-skill"));
           expect(error).toBeInstanceOf(ParseError);
         }),
       );

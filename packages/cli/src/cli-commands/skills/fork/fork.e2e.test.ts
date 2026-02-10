@@ -128,8 +128,11 @@ describe("axm skills fork", () => {
         );
         expect(installResult.exitCode).toBe(0);
 
-        // Fork all skills matching glob
-        const forkResult = await runCli(["skills", "fork", "*-skill", "--yes"], { cwd: temp.path });
+        // Fork all skills matching glob via --skill filter
+        const forkResult = await runCli(
+          ["skills", "fork", SKILLS_REPO_FIXTURE, "--skill", "*-skill", "--yes"],
+          { cwd: temp.path },
+        );
         expect(forkResult.exitCode).toBe(0);
 
         // Verify both skills were forked

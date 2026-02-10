@@ -76,4 +76,19 @@ describe("skills fork command", () => {
     expect(capturedOptions["non-interactive"]).toBeDefined();
     expect(capturedOptions["non-interactive"]?.type).toBe("boolean");
   });
+
+  it("defines --skill flag as string array with default empty", () => {
+    const { mockYargs, capturedOptions } = createCapturingMock();
+    (forkCommand.builder as (yargs: Argv) => Argv)(mockYargs);
+    expect(capturedOptions["skill"]).toBeDefined();
+    expect(capturedOptions["skill"]?.type).toBe("string");
+    expect(capturedOptions["skill"]?.array).toBe(true);
+    expect(capturedOptions["skill"]?.default).toEqual([]);
+  });
+
+  it("parses --skill as string array via builder", () => {
+    const { mockYargs, capturedOptions } = createCapturingMock();
+    (forkCommand.builder as (yargs: Argv) => Argv)(mockYargs);
+    expect(capturedOptions["skill"]?.describe).toContain("glob pattern");
+  });
 });

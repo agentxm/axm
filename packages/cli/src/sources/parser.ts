@@ -20,10 +20,12 @@ import { ParseError } from "./errors.js";
 import { config as githubConfig } from "./github/index.js";
 import { config as gitlabConfig } from "./gitlab/index.js";
 import { config as localConfig, parseLocalPath } from "./local/index.js";
+import { LockfileService } from "../lockfile/index.js";
+import type { SkillLockEntry } from "../lockfile/index.js";
 
 /** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
 const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
-import type { SourceInput, SourceConfig } from "./types.js";
+import type { SourceConfig } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Input Pattern Types
@@ -185,13 +187,28 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
 };
 
 // -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+/**
+ * Get the relative path of an installed skill from its lockfile entry.
+ */
+const getInstalledSkillPath = (name: string, entry: SkillLockEntry): string => {
+  if (entry.source === "registry") {
+    return `.axm/extensions/${entry.scope}/skills/${name}`;
+  }
+  return `.agents/skills/${name}`;
+};
+
+// -----------------------------------------------------------------------------
 // Main Parser
 // -----------------------------------------------------------------------------
 
 /**
- * Parse a source string into a SourceInput.
+ * Determine the source from a user-provided input string.
  *
  * Supported formats:
+ * - Installed skill name: `my-skill` (resolved via lockfile to local path)
  * - Slash pattern: `owner/repo` (probes GitHub → GitLab → Bitbucket)
  * - Prefixed shorthand: `github:owner/repo[/path][@ref]`, `gitlab:...`, `bitbucket:...`, `local:...`
  * - HTTPS URLs: `https://github.com/owner/repo`, `https://gitlab.com/...`, `https://bitbucket.org/...`
@@ -199,10 +216,10 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
  * - Local paths: `./path`, `../path`, `/absolute/path`, `~/path`, `C:\path`
  *
  * @experimental This API is unstable and may change without notice.
- * @param input - The source string to parse
+ * @param input - The source string to determine
  * @returns Effect containing SourceInput or ParseError
  */
-export const parseSourceInput = (input: string): Effect.Effect<SourceInput, ParseError> => {
+export const determineSourceInput = (input: string) => {
   const trimmed = input.trim();
   if (!trimmed) {
     return Effect.fail(new ParseError({ message: "Source string cannot be empty", input }));
@@ -211,8 +228,26 @@ export const parseSourceInput = (input: string): Effect.Effect<SourceInput, Pars
     Option.match({
       onNone: () => Effect.fail(new ParseError({ message: "Unable to parse source", input })),
       onSome: Match.type<InputPattern>().pipe(
-        Match.tag("NameInput", () =>
-          Effect.fail(new ParseError({ message: "Name input is not yet supported", input })),
+        Match.tag("NameInput", ({ name }) =>
+          Effect.gen(function* () {
+            const ls = yield* LockfileService;
+            const skills = yield* ls.getSkills().pipe(
+              Effect.mapError(
+                (e) =>
+                  new ParseError({
+                    message: `Failed to read lockfile: ${e._tag}`,
+                    input,
+                  }),
+              ),
+            );
+            if (!(name in skills)) {
+              return yield* new ParseError({
+                message: `Unknown skill "${name}". Check installed skills with \`axm skills list\`.`,
+                input,
+              });
+            }
+            return yield* parseLocalPath(getInstalledSkillPath(name, skills[name]!));
+          }),
         ),
         Match.tag("RegistryPatternInput", () =>
           Effect.fail(

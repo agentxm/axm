@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { expandGlob } from "./glob.js";
+import { expandGlob, expandGlobs } from "./glob.js";
+
+// ---------------------------------------------------------------------------
+// expandGlob
+// ---------------------------------------------------------------------------
 
 describe("expandGlob", () => {
   it("matches wildcard prefix pattern", () => {
@@ -50,5 +54,36 @@ describe("expandGlob", () => {
 
   it("matches case-sensitively", () => {
     expect(expandGlob("Effect-*", ["effect-basics", "Effect-Basics"])).toEqual(["Effect-Basics"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// expandGlobs
+// ---------------------------------------------------------------------------
+
+describe("expandGlobs", () => {
+  it("multiple patterns produce union of matches", () => {
+    const names = ["effect-basics", "effect-stream", "testing-unit", "testing-e2e"];
+    const result = expandGlobs(["effect-*", "testing-*"], names);
+    expect(result).toEqual(["effect-basics", "effect-stream", "testing-unit", "testing-e2e"]);
+  });
+
+  it("overlapping patterns deduplicate", () => {
+    const names = ["effect-basics", "effect-stream", "testing-unit"];
+    const result = expandGlobs(["effect-*", "*-basics"], names);
+    expect(result).toEqual(["effect-basics", "effect-stream"]);
+  });
+
+  it("empty patterns return empty", () => {
+    const names = ["effect-basics", "testing-unit"];
+    const result = expandGlobs([], names);
+    expect(result).toEqual([]);
+  });
+
+  it("preserves original name order", () => {
+    const names = ["z-skill", "a-skill", "m-skill"];
+    // Patterns match in reverse order, but result preserves `names` order
+    const result = expandGlobs(["m-*", "a-*", "z-*"], names);
+    expect(result).toEqual(["z-skill", "a-skill", "m-skill"]);
   });
 });

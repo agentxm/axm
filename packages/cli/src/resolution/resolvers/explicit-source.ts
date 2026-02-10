@@ -10,7 +10,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { parseSourceInput } from "../../sources/index.js";
+import { determineSourceInput } from "../../sources/index.js";
 import type { ExtensionRef } from "../types.js";
 import { buildOriginUrl } from "./url-utils.js";
 
@@ -70,7 +70,7 @@ const hasSupportedPrefix = (input: string): boolean => {
  * @param _options - Resolution options (unused currently)
  * @returns Effect containing array of ExtensionRefs, or empty array if not a match
  */
-export const resolveExplicitSource = (input: string): Effect.Effect<ExtensionRef[], never> => {
+export const resolveExplicitSource = (input: string) => {
   const trimmed = input.trim();
 
   // Return empty array if input doesn't start with a known prefix
@@ -83,8 +83,8 @@ export const resolveExplicitSource = (input: string): Effect.Effect<ExtensionRef
     return Effect.succeed([]);
   }
 
-  // Use existing parseSourceInput for the heavy lifting
-  return parseSourceInput(trimmed).pipe(
+  // Use existing determineSourceInput for the heavy lifting
+  return determineSourceInput(trimmed).pipe(
     Effect.map((src) => {
       // Only handle github/gitlab types (bitbucket/azure not yet implemented in parser)
       if (src.source !== "github" && src.source !== "gitlab") {

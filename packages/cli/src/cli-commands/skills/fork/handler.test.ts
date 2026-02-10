@@ -1,7 +1,7 @@
 /**
  * Unit tests for the fork command handler.
  *
- * Tests the registry guard → resolve → scope → plan build → apply flow.
+ * Tests the registry guard → parse source → discover → filter → plan build → apply flow.
  */
 
 import * as fs from "node:fs";
@@ -67,6 +67,7 @@ const defaultArgs = (
   overrides: Partial<ForkHandlerArgs> = {},
 ): ForkHandlerArgs => ({
   source,
+  skills: [],
   yes: true,
   ...overrides,
 });
@@ -203,13 +204,139 @@ describe("fork.handler", () => {
     });
   });
 
+  describe("fork with --skill glob filter", () => {
+    it.effect("filters discovered skills by glob pattern", () => {
+      const { provide, mockLog } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      // Set up source directory with multiple skills
+      const sourceDir = path.join(tempDir, "source-skills");
+      createSkillMd(path.join(sourceDir, "effect-basics"), "effect-basics", "Effect basics");
+      createSkillMd(path.join(sourceDir, "effect-testing"), "effect-testing", "Effect testing");
+      createSkillMd(path.join(sourceDir, "other-skill"), "other-skill", "Other skill");
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleFork(defaultArgs(sourceDir, { skills: ["effect-*"] }));
+
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+
+          // Only effect-* skills should be forked
+          for (const name of ["effect-basics", "effect-testing"]) {
+            const managedDir = path.join(tempDir, ".axm", "extensions", "@test", "skills", name);
+            expect(fs.existsSync(managedDir)).toBe(true);
+          }
+
+          // other-skill should NOT be forked
+          const otherDir = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@test",
+            "skills",
+            "other-skill",
+          );
+          expect(fs.existsSync(otherDir)).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("fails when --skill matches no discovered skills", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      const sourceDir = path.join(tempDir, "source-skills");
+      createSkillMd(path.join(sourceDir, "my-skill"), "my-skill", "My skill");
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          const result = yield* handleFork(
+            defaultArgs(sourceDir, { skills: ["nonexistent-*"] }),
+          ).pipe(
+            Effect.catchTag("ForkError", (e) =>
+              Effect.succeed({ error: true, message: e.message }),
+            ),
+          );
+          expect(result).toHaveProperty("error", true);
+          expect((result as { message: string }).message).toContain("No skills matched");
+        }),
+      );
+    });
+  });
+
+  describe("installed skill name resolution", () => {
+    it.effect("resolves installed skill name via determineSourceInput", () => {
+      const { provide, mockLog } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      const skillsDir = path.join(tempDir, ".agents", "skills", "my-skill");
+      createSkillMd(skillsDir, "my-skill", "My skill");
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
+        "my-skill": {
+          source: "local",
+          path: skillsDir,
+          agents: ["claude-code"],
+          installedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleFork(defaultArgs("my-skill"));
+
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+
+          // Manifest should use the configured scope
+          const manifestPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@test",
+            "skills",
+            "my-skill",
+            "axm-skill.json",
+          );
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+          expect(manifest.name).toBe("@test/my-skill");
+        }),
+      );
+    });
+  });
+
+  describe("unknown skill name", () => {
+    it.effect("fails with descriptive error for unknown skill name", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          const result = yield* handleFork(defaultArgs("nonexistent-skill")).pipe(
+            Effect.catchTag("ForkError", (e) =>
+              Effect.succeed({ error: true, message: e.message }),
+            ),
+          );
+          expect(result).toHaveProperty("error", true);
+          expect((result as { message: string }).message).toContain("Invalid source");
+        }),
+      );
+    });
+  });
+
   describe("scope resolution", () => {
     it.effect("uses scope from project settings", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
       const skillsDir = path.join(tempDir, ".agents", "skills", "my-skill");
-      createSkillMd(skillsDir, "my-skill");
+      createSkillMd(skillsDir, "my-skill", "My skill");
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
         "my-skill": {
@@ -237,76 +364,6 @@ describe("fork.handler", () => {
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
           expect(manifest.name).toBe("@test/my-skill");
-        }),
-      );
-    });
-  });
-
-  describe("glob-based batch fork", () => {
-    it.effect("forks multiple skills matching a glob pattern", () => {
-      const { provide, mockLog } = makeLayers();
-      const registryRoot = path.join(tempDir, "registry");
-
-      // Set up multiple installed skills
-      for (const name of ["effect-basics", "effect-testing", "effect-errors"]) {
-        const dir = path.join(tempDir, ".agents", "skills", name);
-        createSkillMd(dir, name);
-      }
-
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
-        "effect-basics": {
-          source: "local",
-          path: path.join(tempDir, ".agents", "skills", "effect-basics"),
-          agents: ["claude-code"],
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        "effect-testing": {
-          source: "local",
-          path: path.join(tempDir, ".agents", "skills", "effect-testing"),
-          agents: ["claude-code"],
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        "effect-errors": {
-          source: "local",
-          path: path.join(tempDir, ".agents", "skills", "effect-errors"),
-          agents: ["claude-code"],
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      });
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleFork(defaultArgs("effect-*"));
-
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
-
-          // All three should be forked
-          for (const name of ["effect-basics", "effect-testing", "effect-errors"]) {
-            const managedDir = path.join(tempDir, ".axm", "extensions", "@test", "skills", name);
-            expect(fs.existsSync(managedDir)).toBe(true);
-          }
-        }),
-      );
-    });
-
-    it.effect("fails when glob matches no installed skills", () => {
-      const { provide } = makeLayers();
-      const registryRoot = path.join(tempDir, "registry");
-
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
-
-      return provide(
-        Effect.gen(function* () {
-          const result = yield* handleFork(defaultArgs("nonexistent-*")).pipe(
-            Effect.catchTag("ForkError", (e) =>
-              Effect.succeed({ error: true, message: e.message }),
-            ),
-          );
-          expect(result).toHaveProperty("error", true);
-          expect((result as { message: string }).message).toContain("No installed skills match");
         }),
       );
     });

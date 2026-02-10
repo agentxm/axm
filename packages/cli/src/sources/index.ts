@@ -75,6 +75,9 @@ export { CloneUrlError, ParseError } from "./errors.js";
 // Main parser
 export { determineSourceInput } from "./parser.js";
 
+// Source resolver
+export { resolveSource } from "./resolve-source.js";
+
 // Printer
 export { printSource } from "./printer.js";
 

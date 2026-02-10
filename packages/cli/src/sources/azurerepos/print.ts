@@ -1,8 +1,8 @@
 import * as Option from "effect/Option";
 
-import type { AzureReposSource } from "../types.js";
+import type { AzureReposSourceInput } from "../types.js";
 
-export const print = (source: AzureReposSource) => {
+export const print = (source: AzureReposSourceInput) => {
   let s = `azurerepos:${source.organization}/${source.project}/${source.repo}`;
   if (Option.isSome(source.subPath)) s += `/${source.subPath.value}`;
   if (Option.isSome(source.ref)) s += `@${source.ref.value}`;

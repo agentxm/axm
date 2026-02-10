@@ -11,14 +11,14 @@ import * as Effect from "effect/Effect";
 
 import { SourceError } from "../provider.js";
 import type { SourceProvider } from "../provider.js";
-import type { GitRepositorySource } from "../types.js";
+import type { GitRepositorySourceInput } from "../types.js";
 
 /**
  * Source provider for generic git URLs (stub).
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createGitProvider = (): SourceProvider<GitRepositorySource> => ({
+export const createGitProvider = (): SourceProvider<GitRepositorySourceInput> => ({
   type: "git",
 
   find: () =>

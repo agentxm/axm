@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
-import type { AzureReposSource } from "../types.js";
+import type { AzureReposSourceInput } from "../types.js";
 
 /** Matches: git@ssh.dev.azure.com:v3/{org}/{project}/{repo} */
 const AZUREREPOS_SSH_PATTERN =
@@ -20,5 +20,5 @@ export const parseScp = (input: string) => {
     repo: match[3],
     ref: Option.none(),
     subPath: Option.none(),
-  } satisfies AzureReposSource);
+  } satisfies AzureReposSourceInput);
 };

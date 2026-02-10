@@ -205,6 +205,17 @@ const getInstalledSkillPath = (name: string, entry: SkillLockEntry): string => {
 // -----------------------------------------------------------------------------
 // Main Parser
 // -----------------------------------------------------------------------------
+//
+//
+
+/*
+TODO: determineSourceInput should return something like this:
+
+interface ExtensionSource
+
+
+
+*/
 
 /**
  * Determine the source from a user-provided input string.

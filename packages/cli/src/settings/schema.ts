@@ -101,6 +101,17 @@ export const SourceConfigSchema = Schema.Union(
  */
 export type SourceConfig = typeof SourceConfigSchema.Type;
 
+/** @experimental */
+export type GitHubSourceConfig = typeof GitHubSourceConfigSchema.Type;
+/** @experimental */
+export type GitLabSourceConfig = typeof GitLabSourceConfigSchema.Type;
+/** @experimental */
+export type BitbucketSourceConfig = typeof BitbucketSourceConfigSchema.Type;
+/** @experimental */
+export type AzureReposSourceConfig = typeof AzureReposSourceConfigSchema.Type;
+/** @experimental */
+export type RegistrySourceConfig = typeof RegistrySourceConfigSchema.Type;
+
 /**
  * Pattern for skill names per agentskills.io specification:
  * - Max 64 characters
@@ -212,12 +223,12 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  */
 export const SettingsSchema = Schema.Struct({
   scope: Schema.optional(Schema.String),
-  sources: Schema.optional(Schema.Array(SourceConfigSchema)),
   agents: Schema.optional(Schema.Array(AgentIdSchema)),
-  skills: Schema.optional(SkillsMapSchema),
+  sources: Schema.optional(Schema.Array(SourceConfigSchema)),
   commands: Schema.optional(ExtensionMapSchema),
-  packs: Schema.optional(ExtensionMapSchema),
   "mcp-servers": Schema.optional(ExtensionMapSchema),
+  packs: Schema.optional(ExtensionMapSchema),
+  skills: Schema.optional(SkillsMapSchema),
 });
 
 /**

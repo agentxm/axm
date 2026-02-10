@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
-import type { AzureReposSource } from "../types.js";
+import type { AzureReposSourceInput } from "../types.js";
 
 /** Matches: https://dev.azure.com/{org}/{project}/_git/{repo} */
 const AZUREREPOS_HTTPS_PATTERN =
@@ -22,5 +22,5 @@ export const parseUrl = (url: URL) => {
     repo: match[3],
     ref: Option.none(),
     subPath: Option.none(),
-  } satisfies AzureReposSource);
+  } satisfies AzureReposSourceInput);
 };

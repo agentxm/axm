@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
-import type { BitbucketSource } from "../types.js";
+import type { BitbucketSourceInput } from "../types.js";
 
 /** Matches: git@bitbucket.org:owner/repo.git */
 const BITBUCKET_SSH_PATTERN = /^git@bitbucket\.org:([^/]+)\/([^/]+?)(?:\.git)?$/;
@@ -18,5 +18,5 @@ export const parseScp = (input: string) => {
     repo: match[2],
     ref: Option.none(),
     subPath: Option.none(),
-  } satisfies BitbucketSource);
+  } satisfies BitbucketSourceInput);
 };

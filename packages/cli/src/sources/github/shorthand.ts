@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { parseProviderShorthand } from "../parse-provider-shorthand.js";
-import type { GitHubSource } from "../types.js";
+import type { GitHubSourceInput } from "../types.js";
 
 export const shorthandPrefix = "github" as const;
 
@@ -16,5 +16,5 @@ export const parseShorthand = (input: string) =>
       repo: parts.repo,
       ref: Option.fromNullable(parts.ref),
       subPath: Option.fromNullable(parts.subPath),
-    } satisfies GitHubSource;
+    } satisfies GitHubSourceInput;
   });

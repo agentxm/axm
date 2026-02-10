@@ -21,7 +21,7 @@ import { getTreeSha, shallowClone } from "../../git/index.js";
 import { buildCloneUrl } from "../clone-url.js";
 import { SourceError } from "../provider.js";
 import type { ExtensionRef, FindOptions, SkillRef, SourceProvider } from "../provider.js";
-import type { BitbucketSource, GitHubSource, GitLabSource } from "../types.js";
+import type { BitbucketSourceInput, GitHubSourceInput, GitLabSourceInput } from "../types.js";
 
 // -----------------------------------------------------------------------------
 // Factory
@@ -37,7 +37,9 @@ import type { BitbucketSource, GitHubSource, GitLabSource } from "../types.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createGitHostingProvider = <S extends GitHubSource | GitLabSource | BitbucketSource>(
+export const createGitHostingProvider = <
+  S extends GitHubSourceInput | GitLabSourceInput | BitbucketSourceInput,
+>(
   sourceType: S["source"],
 ): SourceProvider<S, FileSystem.FileSystem | Path.Path | Scope.Scope> => ({
   type: sourceType,
@@ -169,18 +171,19 @@ const filterByOptions = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createGitHubProvider = () => createGitHostingProvider<GitHubSource>("github");
+export const createGitHubProvider = () => createGitHostingProvider<GitHubSourceInput>("github");
 
 /**
  * Source provider for GitLab repositories.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createGitLabProvider = () => createGitHostingProvider<GitLabSource>("gitlab");
+export const createGitLabProvider = () => createGitHostingProvider<GitLabSourceInput>("gitlab");
 
 /**
  * Source provider for Bitbucket repositories.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createBitbucketProvider = () => createGitHostingProvider<BitbucketSource>("bitbucket");
+export const createBitbucketProvider = () =>
+  createGitHostingProvider<BitbucketSourceInput>("bitbucket");

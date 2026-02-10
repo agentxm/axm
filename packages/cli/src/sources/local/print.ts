@@ -1,3 +1,3 @@
-import type { LocalSource } from "../types.js";
+import type { LocalSourceInput } from "../types.js";
 
-export const print = (source: LocalSource) => source.path;
+export const print = (source: LocalSourceInput) => source.path;

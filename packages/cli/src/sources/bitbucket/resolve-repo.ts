@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
-import type { BitbucketSource } from "../types.js";
+import type { BitbucketSourceInput } from "../types.js";
 
 const headRequest = (url: string, input: string) =>
   Effect.tryPromise({
@@ -18,7 +18,7 @@ export const resolveRepo = (args: {
   readonly owner: string;
   readonly repo: string;
   readonly subPath: Option.Option<string>;
-}): Effect.Effect<Option.Option<BitbucketSource>, ParseError> =>
+}): Effect.Effect<Option.Option<BitbucketSourceInput>, ParseError> =>
   Effect.gen(function* () {
     const repoUrl = `https://bitbucket.org/${args.owner}/${args.repo}`;
     const repoResponse = yield* headRequest(repoUrl, `${args.owner}/${args.repo}`);
@@ -39,5 +39,5 @@ export const resolveRepo = (args: {
       repo: args.repo,
       ref: Option.none(),
       subPath: args.subPath,
-    } satisfies BitbucketSource);
+    } satisfies BitbucketSourceInput);
   });

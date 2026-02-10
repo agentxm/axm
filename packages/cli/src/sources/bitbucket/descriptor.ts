@@ -1,12 +1,12 @@
 import * as Option from "effect/Option";
 
-import type { BitbucketSource, SourceDescriptor } from "../types.js";
+import type { BitbucketSourceInput, SourceDescriptor } from "../types.js";
 import { print } from "./print.js";
 import { parseScp } from "./scp.js";
 import { parseShorthand, shorthandPrefix } from "./shorthand.js";
 import { parseUrl } from "./url.js";
 
-export const descriptor: SourceDescriptor<"bitbucket", BitbucketSource> = {
+export const descriptor: SourceDescriptor<"bitbucket", BitbucketSourceInput> = {
   id: "bitbucket",
   print,
   shorthand: Option.some({

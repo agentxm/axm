@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
-import type { BitbucketSource } from "../types.js";
+import type { BitbucketSourceInput } from "../types.js";
 
 /** Matches: https://bitbucket.org/owner/repo[/src/ref/path] */
 const BITBUCKET_HTTPS_PATTERN =
@@ -21,5 +21,5 @@ export const parseUrl = (url: URL) => {
     repo: match[2],
     ref: Option.fromNullable(match[3]),
     subPath: Option.fromNullable(match[4]),
-  } satisfies BitbucketSource);
+  } satisfies BitbucketSourceInput);
 };

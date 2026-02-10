@@ -8,11 +8,11 @@
 import * as Effect from "effect/Effect";
 
 import type { ParseError } from "../errors.js";
-import type { LocalSource } from "../types.js";
+import type { LocalSourceInput } from "../types.js";
 
 /**
  * Parse a local filesystem path.
  */
-export const parseLocalPath = (input: string): Effect.Effect<LocalSource, ParseError> => {
+export const parseLocalPath = (input: string): Effect.Effect<LocalSourceInput, ParseError> => {
   return Effect.succeed({ source: "local" as const, path: input });
 };

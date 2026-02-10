@@ -1,7 +1,7 @@
 /**
  * Agent detection functions for identifying installed AI coding agents.
  *
- * Detection is effectful and separated from the pure config registry.
+ * Detection is effectful and separated from the pure descriptor registry.
  * Uses FileSystem service for testability.
  *
  * @experimental This API is unstable and may change without notice.
@@ -16,7 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { home } from "./constants.js";
 import { getAllAgents } from "./registry.js";
-import type { AgentConfig } from "./types.js";
+import type { AgentDescriptor } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Errors
@@ -40,7 +40,7 @@ export class DetectionError extends Data.TaggedError("DetectionError")<{
  * Default heuristic detection for agents without specific detection logic.
  * Checks common patterns: ~/.{agent-id} or first segment of projectDir.
  */
-const defaultDetect = (agent: AgentConfig) =>
+const defaultDetect = (agent: AgentDescriptor) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
 
@@ -76,7 +76,7 @@ const defaultDetect = (agent: AgentConfig) =>
  * Detection logic varies per agent based on their typical configuration directories.
  * Returns `true` if the agent appears to be installed, `false` otherwise.
  *
- * @param agent - The agent configuration to check
+ * @param agent - The agent descriptor to check
  * @returns Effect that resolves to boolean indicating installation status
  *
  * @example
@@ -98,7 +98,7 @@ const defaultDetect = (agent: AgentConfig) =>
  * @experimental This API is unstable and may change without notice.
  */
 export const detectAgent = (
-  agent: AgentConfig,
+  agent: AgentDescriptor,
 ): Effect.Effect<boolean, DetectionError, FileSystem.FileSystem> => {
   const detector = agent.detect ?? (() => defaultDetect(agent));
   return detector().pipe(
@@ -115,10 +115,10 @@ export const detectAgent = (
 /**
  * Detect all installed agents concurrently.
  *
- * Checks all registered agents and returns configurations for those
+ * Checks all registered agents and returns descriptors for those
  * that appear to be installed on the system.
  *
- * @returns Effect that resolves to array of installed agent configurations
+ * @returns Effect that resolves to array of installed agent descriptors
  *
  * @example
  * ```typescript
@@ -142,7 +142,7 @@ export const detectAgent = (
  * @experimental This API is unstable and may change without notice.
  */
 export const detectAgents = (): Effect.Effect<
-  AgentConfig[],
+  AgentDescriptor[],
   DetectionError,
   FileSystem.FileSystem
 > =>

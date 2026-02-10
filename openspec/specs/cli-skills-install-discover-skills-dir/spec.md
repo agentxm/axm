@@ -103,7 +103,7 @@ The priority directory list SHALL be composed as follows, in order:
 
 1. `.` (searchPath root) — always first, highest priority
 2. Non-agent static directories: `skills/.curated`, `skills/.experimental`, `skills/.system`
-3. Agent-specific directories: derived from the `AgentConfig` registry (`getAllAgents()` → unique `skills.dir` values, deduplicated)
+3. Agent-specific directories: derived from the `AgentDescriptor` registry (`getAllAgents()` → unique `skills.dir` values, deduplicated)
 
 Priority directories SHALL be processed concurrently. `Effect.forEach` with `concurrency: "unbounded"` preserves input order in results regardless of I/O completion timing, ensuring deduplication respects the priority ordering.
 

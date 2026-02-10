@@ -54,7 +54,7 @@ export type SourceType = typeof SourceTypeSchema.Type;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface ShorthandConfig<T extends SourceType, T2 extends SourceInput & { source: T }> {
+export interface ShorthandDescriptor<T extends SourceType, T2 extends SourceInput & { source: T }> {
   readonly prefix: T;
   readonly parse: (input: string) => Effect.Effect<T2, ParseError>;
 }
@@ -64,7 +64,7 @@ export interface ShorthandConfig<T extends SourceType, T2 extends SourceInput & 
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface UrlParseConfig<T extends SourceType, T2 extends SourceInput & { source: T }> {
+export interface UrlParseDescriptor<T extends SourceType, T2 extends SourceInput & { source: T }> {
   readonly hostname: string;
   readonly parseUrl: (url: URL) => Effect.Effect<T2, ParseError>;
   readonly parseScp: (input: string) => Effect.Effect<T2, ParseError>;
@@ -75,14 +75,14 @@ export interface UrlParseConfig<T extends SourceType, T2 extends SourceInput & {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface SourceConfig<
+export interface SourceDescriptor<
   T extends SourceType = SourceType,
   T2 extends SourceInput & { source: T } = SourceInput & { source: T },
 > {
   readonly id: T;
   readonly print: (source: T2) => string;
-  readonly shorthand: Option.Option<ShorthandConfig<T, T2>>;
-  readonly parseFromUrl: Option.Option<UrlParseConfig<T, T2>>;
+  readonly shorthand: Option.Option<ShorthandDescriptor<T, T2>>;
+  readonly parseFromUrl: Option.Option<UrlParseDescriptor<T, T2>>;
 }
 
 // -----------------------------------------------------------------------------
@@ -193,7 +193,7 @@ export type GitRepositorySource = {
 
 /**
  * Package registry source input (placeholder for future implementation).
- * Location resolved from SourceConfig at runtime.
+ * Location resolved from SourceDescriptor at runtime.
  */
 export type RegistrySourceInput = {
   readonly source: "registry";

@@ -6,5 +6,5 @@
  */
 
 export { codexHome } from "./constants.js";
-export { config } from "./config.js";
+export { descriptor } from "./descriptor.js";
 export { detect } from "./detection.js";

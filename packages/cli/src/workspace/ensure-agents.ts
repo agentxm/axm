@@ -13,7 +13,7 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { pipe } from "effect/Function";
-import { type AgentConfig, getAgentById } from "../agents/index.js";
+import { type AgentDescriptor, getAgentById } from "../agents/index.js";
 import { Confirm, Log } from "../tui/index.js";
 import { Workspace } from "./service.js";
 import { isInteractive } from "../utils/tty.js";
@@ -60,11 +60,11 @@ export interface EnsureAgentsOptions {
  * 1. Validates each ID against the agent registry, warns about unknown IDs
  * 2. Checks which valid agents are not yet in settings
  * 3. Prompts to add unconfigured agents (or auto-adds with --yes/--non-interactive)
- * 4. Returns resolved AgentConfig[]
+ * 4. Returns resolved AgentDescriptor[]
  *
  * When no flags are provided:
  * 1. Reads agents from settings
- * 2. Resolves to AgentConfig[]
+ * 2. Resolves to AgentDescriptor[]
  *
  * Fails with EnsureAgentsError if no agents result.
  *
@@ -75,7 +75,7 @@ export const ensureAgentsConfigured = (opts: EnsureAgentsOptions) =>
     const log = yield* Log;
     const ws = yield* Workspace;
 
-    let agents: AgentConfig[];
+    let agents: AgentDescriptor[];
 
     if (opts.agentFlags.length > 0) {
       // Resolve from --agent flags

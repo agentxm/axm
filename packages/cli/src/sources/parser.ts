@@ -14,18 +14,18 @@ import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { config as azurereposConfig } from "./azurerepos/index.js";
-import { config as bitbucketConfig } from "./bitbucket/index.js";
+import { descriptor as azurereposDescriptor } from "./azurerepos/index.js";
+import { descriptor as bitbucketDescriptor } from "./bitbucket/index.js";
 import { ParseError } from "./errors.js";
-import { config as githubConfig } from "./github/index.js";
-import { config as gitlabConfig } from "./gitlab/index.js";
-import { config as localConfig, parseLocalPath } from "./local/index.js";
+import { descriptor as githubDescriptor } from "./github/index.js";
+import { descriptor as gitlabDescriptor } from "./gitlab/index.js";
+import { descriptor as localDescriptor, parseLocalPath } from "./local/index.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import { Workspace } from "../workspace/index.js";
 
 /** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
 const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
-import type { SourceConfig } from "./types.js";
+import type { SourceDescriptor } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Input Pattern Types
@@ -86,36 +86,38 @@ const REGISTRY_SOURCE_PATTERN = /^@([^/]+)\/(.+)$/;
 const SCP_PATTERN = /^([^@]+)@([^:]+):(.+)$/;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnySourceConfig = SourceConfig<any, any>;
+type AnySourceDescriptor = SourceDescriptor<any, any>;
 
-/** All source configs, type-erased for map building. */
-const ALL_CONFIGS: ReadonlyArray<AnySourceConfig> = [
-  githubConfig,
-  gitlabConfig,
-  bitbucketConfig,
-  azurereposConfig,
-  localConfig,
+/** All source descriptors, type-erased for map building. */
+const ALL_DESCRIPTORS: ReadonlyArray<AnySourceDescriptor> = [
+  githubDescriptor,
+  gitlabDescriptor,
+  bitbucketDescriptor,
+  azurereposDescriptor,
+  localDescriptor,
 ];
 
-/** Map from shorthand prefix to its config. */
-const CONFIG_BY_PREFIX = new Map<string, AnySourceConfig>(
+/** Map from shorthand prefix to its descriptor. */
+const DESCRIPTOR_BY_PREFIX = new Map<string, AnySourceDescriptor>(
   Array.getSomes(
-    Array.map(ALL_CONFIGS, (c) => Option.map(c.shorthand, (sh) => [sh.prefix, c] as const)),
+    Array.map(ALL_DESCRIPTORS, (c) => Option.map(c.shorthand, (sh) => [sh.prefix, c] as const)),
   ),
 );
 
-/** Map from hostname to its config. */
-const CONFIG_BY_HOSTNAME = new Map<string, AnySourceConfig>(
+/** Map from hostname to its descriptor. */
+const DESCRIPTOR_BY_HOSTNAME = new Map<string, AnySourceDescriptor>(
   Array.getSomes(
-    Array.map(ALL_CONFIGS, (c) => Option.map(c.parseFromUrl, (url) => [url.hostname, c] as const)),
+    Array.map(ALL_DESCRIPTORS, (c) =>
+      Option.map(c.parseFromUrl, (url) => [url.hostname, c] as const),
+    ),
   ),
 );
 
 // Azure Repos uses a different hostname for SCP-style SSH URLs
-CONFIG_BY_HOSTNAME.set("ssh.dev.azure.com", azurereposConfig);
+DESCRIPTOR_BY_HOSTNAME.set("ssh.dev.azure.com", azurereposDescriptor);
 
-/** Known shorthand prefixes from source configs. */
-const SHORTHAND_PREFIXES = new Set(CONFIG_BY_PREFIX.keys());
+/** Known shorthand prefixes from source descriptors. */
+const SHORTHAND_PREFIXES = new Set(DESCRIPTOR_BY_PREFIX.keys());
 
 /** Simple name: alphanumeric with hyphens, no leading/trailing hyphen. */
 const NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
@@ -255,7 +257,7 @@ export const determineSourceInput = (input: string) => {
           ),
         ),
         Match.tag("GitScpAddress", (scp) => {
-          const cfg = CONFIG_BY_HOSTNAME.get(scp.host);
+          const cfg = DESCRIPTOR_BY_HOSTNAME.get(scp.host);
           if (!cfg || Option.isNone(cfg.parseFromUrl)) {
             return Effect.fail(
               new ParseError({ message: `Unsupported SCP host: "${scp.host}"`, input }),
@@ -264,7 +266,7 @@ export const determineSourceInput = (input: string) => {
           return cfg.parseFromUrl.value.parseScp(`${scp.user}@${scp.host}:${scp.path}`);
         }),
         Match.tag("UrlInput", ({ url }) => {
-          const cfg = CONFIG_BY_HOSTNAME.get(url.hostname);
+          const cfg = DESCRIPTOR_BY_HOSTNAME.get(url.hostname);
           if (!cfg || Option.isNone(cfg.parseFromUrl)) {
             return Effect.fail(
               new ParseError({
@@ -285,7 +287,7 @@ export const determineSourceInput = (input: string) => {
         ),
         Match.tag("FilePathPattern", ({ path }) => parseLocalPath(path)),
         Match.tag("ShorthandInput", ({ prefix, input: shorthandInput }) => {
-          const cfg = CONFIG_BY_PREFIX.get(prefix);
+          const cfg = DESCRIPTOR_BY_PREFIX.get(prefix);
           if (!cfg || Option.isNone(cfg.shorthand)) {
             return Effect.fail(
               new ParseError({ message: `Unknown shorthand prefix: "${prefix}"`, input }),

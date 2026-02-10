@@ -60,7 +60,7 @@ describe("getAgentById", () => {
     }
   });
 
-  it("returns correct config for known agent", () => {
+  it("returns correct descriptor for known agent", () => {
     const result = getAgentById("claude-code");
     expect(Option.isSome(result)).toBe(true);
     if (Option.isSome(result)) {
@@ -103,7 +103,7 @@ describe("getAllAgents", () => {
     expect(all.length).toBe(entryCount);
   });
 
-  it("returns array of AgentConfig objects", () => {
+  it("returns array of AgentDescriptor objects", () => {
     const all = getAllAgents();
     for (const agent of all) {
       expect(agent.id).toBeTruthy();

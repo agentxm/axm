@@ -3,7 +3,7 @@
  *
  * Converts an unmanaged skill into a managed extension:
  * 1. Registry guard (ensure registry configured)
- * 2. Parse source via determineSourceInput
+ * 2. Parse source via resolveSource
  * 3. Scope resolution
  * 4. Discover skills via SourceProviders
  * 5. Filter by --skill globs (if provided)
@@ -15,7 +15,7 @@
 
 import * as Path from "@effect/platform/Path";
 import {
-  determineSourceInput,
+  resolveSource,
   printSource,
   SourceProviders,
   registryGuard,
@@ -102,7 +102,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
     // Step 3: Parse source and discover skills
     const handle = yield* spinnerSvc.start("Resolving skills...");
 
-    const source = yield* determineSourceInput(args.source).pipe(
+    const source = yield* resolveSource(args.source).pipe(
       Effect.mapError(
         (error) =>
           new ForkError({

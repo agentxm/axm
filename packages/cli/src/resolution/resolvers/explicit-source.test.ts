@@ -11,14 +11,19 @@ import * as Option from "effect/Option";
 import { Workspace as Workspace } from "../../workspace/index.js";
 import { resolveExplicitSource } from "./explicit-source.js";
 
-/** Empty workspace layer — resolveExplicitSource never hits the NameInput branch. */
-const EmptyWorkspaceLayer = Layer.succeed(Workspace, {
+/** Workspace layer with configured sources for github/gitlab resolution. */
+const TestWorkspaceLayer = Layer.succeed(Workspace, {
   getLockedSkills: () => Effect.succeed({}),
+  getConfiguredSources: () =>
+    Effect.succeed([
+      { name: "github", source: "github", url: "https://github.com" },
+      { name: "gitlab", source: "gitlab", url: "https://gitlab.com" },
+    ]),
 } as unknown as Workspace["Type"]);
 
-/** Wrap resolveExplicitSource with the empty workspace layer. */
+/** Wrap resolveExplicitSource with the test workspace layer. */
 const resolve = (input: string) =>
-  resolveExplicitSource(input).pipe(Effect.provide(EmptyWorkspaceLayer));
+  resolveExplicitSource(input).pipe(Effect.provide(TestWorkspaceLayer));
 
 describe("explicit-source resolver", () => {
   describe("github: prefix", () => {

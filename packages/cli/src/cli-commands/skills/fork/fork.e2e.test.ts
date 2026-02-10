@@ -103,6 +103,11 @@ describe("axm skills fork", () => {
         expect(lock.skills["my-skill"]).toBeDefined();
         expect(lock.skills["my-skill"].source).toBe("registry");
         expect(lock.skills["my-skill"].scope).toBe("@test");
+
+        // 4. Verify settings.json was updated with forked skill
+        const settingsAfterFork = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settingsAfterFork.skills).toBeDefined();
+        expect(settingsAfterFork.skills["my-skill"]).toBe("registry");
       } finally {
         temp.cleanup();
         registryDir.cleanup();

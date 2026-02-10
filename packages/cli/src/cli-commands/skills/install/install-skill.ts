@@ -249,20 +249,26 @@ export const installSkill: OperationHandler<
     // Resolve source path — the skill files to copy from
     const sourcePath = op.args.location.replace("file://", "");
 
-    // Pre-clean from ALL known locations (ensures clean transitions between source types)
-    yield* preCleanAllLocations(fs, base, sanitizedName, path);
+    // Skip pre-clean and copy when source is already the canonical location
+    // (e.g., fork workflow where files are already in place)
+    const isSelfCopy = path.resolve(sourcePath) === path.resolve(canonicalPath);
 
-    // Copy skill files to canonical location
-    yield* copySkillDirectory(sourcePath, canonicalPath).pipe(
-      Effect.mapError(
-        (e) =>
-          new OperationError({
-            operation: "install-skill",
-            message: `Failed to copy skill files to ${canonicalPath}`,
-            cause: e,
-          }),
-      ),
-    );
+    if (!isSelfCopy) {
+      // Pre-clean from ALL known locations (ensures clean transitions between source types)
+      yield* preCleanAllLocations(fs, base, sanitizedName, path);
+
+      // Copy skill files to canonical location
+      yield* copySkillDirectory(sourcePath, canonicalPath).pipe(
+        Effect.mapError(
+          (e) =>
+            new OperationError({
+              operation: "install-skill",
+              message: `Failed to copy skill files to ${canonicalPath}`,
+              cause: e,
+            }),
+        ),
+      );
+    }
 
     // Create symlinks for each agent (concurrent)
     const agentResults = yield* Effect.forEach(

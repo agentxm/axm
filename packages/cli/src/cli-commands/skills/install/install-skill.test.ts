@@ -448,7 +448,7 @@ describe("installSkill", () => {
       return src;
     };
 
-    it.effect("uses .axm/extensions/@scope/skills/<name> for registry sources", () =>
+    it.effect("uses .axm/extensions/@scope/skills/<name>/src/ for registry sources", () =>
       Effect.gen(function* () {
         const src = setupRegistrySource("@community");
         const { axmDir, base } = setupBase();
@@ -463,7 +463,7 @@ describe("installSkill", () => {
 
         expect(result.result).toBe("success");
 
-        // Should be in the registry canonical location
+        // Content should be in the registry canonical src/ subdirectory
         const registryCanonical = path.join(
           base,
           ".axm",
@@ -473,7 +473,7 @@ describe("installSkill", () => {
           "my-skill",
         );
         expect(fs.existsSync(registryCanonical)).toBe(true);
-        expect(fs.existsSync(path.join(registryCanonical, "SKILL.md"))).toBe(true);
+        expect(fs.existsSync(path.join(registryCanonical, "src", "SKILL.md"))).toBe(true);
 
         // Should NOT be in the old canonical location
         const oldCanonical = path.join(base, ".agents", "skills", "my-skill");
@@ -496,7 +496,7 @@ describe("installSkill", () => {
 
         expect(result.result).toBe("success");
 
-        // Should use the extracted scope
+        // Should use the extracted scope with content in src/
         const registryCanonical = path.join(
           base,
           ".axm",
@@ -506,6 +506,7 @@ describe("installSkill", () => {
           "my-skill",
         );
         expect(fs.existsSync(registryCanonical)).toBe(true);
+        expect(fs.existsSync(path.join(registryCanonical, "src", "SKILL.md"))).toBe(true);
       }),
     );
 

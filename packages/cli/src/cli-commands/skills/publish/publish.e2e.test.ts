@@ -37,15 +37,16 @@ describe("axm skills publish", () => {
           "skills",
           "my-publish-skill",
         );
-        fs.mkdirSync(extensionDir, { recursive: true });
+        const srcDir = path.join(extensionDir, "src");
+        fs.mkdirSync(srcDir, { recursive: true });
 
-        // Create SKILL.md
+        // Create SKILL.md in src/ subdirectory
         fs.writeFileSync(
-          path.join(extensionDir, "SKILL.md"),
+          path.join(srcDir, "SKILL.md"),
           '---\nname: "my-publish-skill"\ndescription: "A test skill"\n---\n\n# My Publish Skill\n',
         );
 
-        // Create axm-skill.json manifest
+        // Create axm-skill.json manifest at extension root
         const manifest = {
           name: "@test/my-publish-skill",
           version: "1.0.0",
@@ -132,9 +133,10 @@ describe("axm skills publish", () => {
           "skills",
           "code-review",
         );
-        fs.mkdirSync(extensionDir, { recursive: true });
+        const srcDir = path.join(extensionDir, "src");
+        fs.mkdirSync(srcDir, { recursive: true });
         fs.writeFileSync(
-          path.join(extensionDir, "SKILL.md"),
+          path.join(srcDir, "SKILL.md"),
           '---\nname: "code-review"\n---\n\n# Code Review\n',
         );
         fs.writeFileSync(

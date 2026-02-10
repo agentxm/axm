@@ -62,11 +62,13 @@ describe("axm skills fork", () => {
           "my-skill",
         );
         expect(fs.existsSync(extensionDir)).toBe(true);
-        expect(fs.existsSync(path.join(extensionDir, "SKILL.md"))).toBe(true);
+        // Content files should be in src/ subdirectory
+        expect(fs.existsSync(path.join(extensionDir, "src", "SKILL.md"))).toBe(true);
 
-        // Verify axm-skill.json manifest was generated
+        // Verify axm-skill.json manifest was generated at extension root (not inside src/)
         const manifestPath = path.join(extensionDir, "axm-skill.json");
         expect(fs.existsSync(manifestPath)).toBe(true);
+        expect(fs.existsSync(path.join(extensionDir, "src", "axm-skill.json"))).toBe(false);
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
         expect(manifest.name).toBe("@test/my-skill");
         expect(manifest.version).toBe("0.1.0");

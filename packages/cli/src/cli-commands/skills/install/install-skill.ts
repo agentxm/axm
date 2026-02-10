@@ -22,7 +22,7 @@ import { OperationError, type OperationHandler } from "../../../workspace/apply-
 import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import { copySkillDirectory } from "../copy-skill-directory.js";
-import type { AddSkillOperation } from "../operations.js";
+import type { InstallSkillOperation } from "../operations.js";
 import { sourceToLockEntry } from "../source-to-lock-entry.js";
 import type { InstallResult } from "./install-result.js";
 import { sanitizeName } from "./skill-utils.js";
@@ -213,7 +213,7 @@ const preCleanAllLocations = (
  * 6. Update lockfile entry (failures swallowed)
  */
 export const installSkill: OperationHandler<
-  AddSkillOperation,
+  InstallSkillOperation,
   FileSystem.FileSystem | Path.Path | Workspace | SettingsService | LockfileService
 > = (op) =>
   Effect.gen(function* () {

@@ -28,7 +28,7 @@ import { LockfileService } from "../../../lockfile/index.js";
 import { SettingsService } from "../../../settings/index.js";
 import { formatError } from "../../../utils/errors.js";
 import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
-import type { AddSkillOperation } from "../operations.js";
+import type { InstallSkillOperation } from "../operations.js";
 import { buildPlan } from "./build-plan.js";
 import { installSkill } from "./install-skill.js";
 
@@ -214,7 +214,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
             version: s.version,
             gitTreeSha: s.gitTreeSha,
           },
-        }) satisfies AddSkillOperation,
+        }) satisfies InstallSkillOperation,
     );
 
     // Build plan

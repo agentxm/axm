@@ -7,14 +7,14 @@
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
 import type { Lockfile } from "../../../lockfile/schema.js";
-import type { AddSkillOperation } from "../operations.js";
+import type { InstallSkillOperation } from "../operations.js";
 import { buildPlan } from "./build-plan.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeOp = (name: string): AddSkillOperation => ({
+const makeOp = (name: string): InstallSkillOperation => ({
   name: "install-skill",
   args: {
     source: { source: "local", path: "/fake" },
@@ -115,7 +115,7 @@ describe("buildPlan", () => {
 
   it("marks already-installed skills as expected success when force is true", () => {
     const base = makeOp("commit");
-    const op: AddSkillOperation = { ...base, args: { ...base.args, force: true } };
+    const op: InstallSkillOperation = { ...base, args: { ...base.args, force: true } };
     const plan = buildPlan([op], lockfileWith("commit"), "Install", Option.none());
 
     expect(plan.jobs[0]!.steps[0]!.expectedResult.result).toBe("success");

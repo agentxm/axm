@@ -17,7 +17,7 @@ import {
   type SettingsServiceInterface,
 } from "../../../settings/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
-import type { AddSkillOperation } from "../operations.js";
+import type { InstallSkillOperation } from "../operations.js";
 import { installSkill } from "./install-skill.js";
 
 /** Creates a mock SettingsService with spy functions. */
@@ -99,8 +99,11 @@ const withServices = (
 
 /** Creates a minimal AddSkillOperation for testing. */
 const makeOp = (
-  overrides: Partial<AddSkillOperation["args"]> & { skillName?: string; sourcePath?: string } = {},
-): AddSkillOperation => ({
+  overrides: Partial<InstallSkillOperation["args"]> & {
+    skillName?: string;
+    sourcePath?: string;
+  } = {},
+): InstallSkillOperation => ({
   name: "install-skill",
   args: {
     source: overrides.source ?? { source: "local", path: "/tmp/source" },

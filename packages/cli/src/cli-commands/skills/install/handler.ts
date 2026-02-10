@@ -24,8 +24,6 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Log, Spinner } from "../../../tui/index.js";
-import { LockfileService } from "../../../lockfile/index.js";
-import { SettingsService } from "../../../settings/index.js";
 import { formatError } from "../../../utils/errors.js";
 import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
 import type { InstallSkillOperation } from "../operations.js";
@@ -196,8 +194,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       return;
     }
 
-    const ss = yield* SettingsService;
-    const agentIds = yield* ss.getAgents();
+    const agentIds = yield* ws.getConfiguredAgents();
 
     const ops = selectedSkills.map(
       (s) =>
@@ -216,8 +213,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     );
 
     // Build plan
-    const ls = yield* LockfileService;
-    const lockedSkills = yield* ls.getSkills();
+    const lockedSkills = yield* ws.getLockedSkills();
     const lockfile = { lockfileVersion: 1, skills: lockedSkills };
     const plan = buildPlan(
       ops,

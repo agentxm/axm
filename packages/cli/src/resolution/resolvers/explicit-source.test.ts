@@ -8,20 +8,17 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { LockfileService } from "../../lockfile/index.js";
+import { WorkspaceContextTag as Workspace } from "../../workspace/index.js";
 import { resolveExplicitSource } from "./explicit-source.js";
 
-/** Empty lockfile layer — resolveExplicitSource never hits the NameInput branch. */
-const EmptyLockfileLayer = Layer.succeed(LockfileService, {
-  getSkills: () => Effect.succeed({}),
-  getEntry: () => Effect.succeed(Option.none()),
-  updateEntry: () => Effect.void,
-  removeEntry: () => Effect.void,
-});
+/** Empty workspace layer — resolveExplicitSource never hits the NameInput branch. */
+const EmptyWorkspaceLayer = Layer.succeed(Workspace, {
+  getLockedSkills: () => Effect.succeed({}),
+} as unknown as Workspace["Type"]);
 
-/** Wrap resolveExplicitSource with the empty lockfile layer. */
+/** Wrap resolveExplicitSource with the empty workspace layer. */
 const resolve = (input: string) =>
-  resolveExplicitSource(input).pipe(Effect.provide(EmptyLockfileLayer));
+  resolveExplicitSource(input).pipe(Effect.provide(EmptyWorkspaceLayer));
 
 describe("explicit-source resolver", () => {
   describe("github: prefix", () => {

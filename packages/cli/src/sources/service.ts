@@ -71,7 +71,7 @@ export class SourceProviders extends Context.Tag("@axm.sh/cli/SourceProviders")<
  * Creates a registry meta-provider that wraps N configured registries
  * into a single `SourceProvider<RegistrySourceInput>`.
  *
- * Reads `workspace.getRegistrySources()` lazily on each call — always
+ * Reads `workspace.getConfiguredRegistrySources()` lazily on each call — always
  * reflects the current config (including sources added by the registry guard).
  *
  * Applies scope routing:
@@ -99,7 +99,7 @@ export const createRegistryMetaProvider = (): SourceProvider<
           : Option.none<string>();
 
       const registrySources = yield* ws
-        .getRegistrySources(scope)
+        .getConfiguredRegistrySources(scope)
         .pipe(
           Effect.mapError(
             (e) =>

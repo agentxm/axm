@@ -1,7 +1,12 @@
 /**
  * Workspace context service for CLI commands.
  *
- * Provides access to parsed workspace settings and lockfile.
+ * This is the sole public gateway for all settings and lockfile read/write
+ * operations. It calls the I/O functions (`readSettings`, `writeSettings`,
+ * `readLockfile`, `writeLockfile`) directly and manages mutation
+ * serialization via a single Semaphore(1). No other service should perform
+ * settings or lockfile I/O in production; the per-service semaphores in
+ * `settings/service.ts` and `lockfile/service.ts` have been removed.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -12,7 +17,16 @@ import * as Path from "@effect/platform/Path";
 import { type AgentConfig, detectAgents, getAllAgents, getAgentById } from "../agents/index.js";
 import * as Array from "effect/Array";
 import * as Option from "effect/Option";
-import { type LockfileError, LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
+import * as Schema from "effect/Schema";
+import {
+  type LockfileError,
+  LOCKFILE_NAME,
+  readLockfile,
+  writeLockfile,
+  type SkillLockEntry,
+  type SkillsLockMap,
+} from "../lockfile/index.js";
+import { AgentIdSchema } from "../extensions/common.js";
 import {
   createDefaultSettings,
   DEFAULT_SCOPE,
@@ -21,6 +35,7 @@ import {
   SettingsParseError,
   SETTINGS_FILENAME,
   type Settings,
+  type SkillsMap,
   type SourceConfig,
   writeSettings,
 } from "../settings/index.js";
@@ -357,8 +372,10 @@ const make = (options: WorkspaceContextOptions) =>
       Layer.succeed(Path.Path, path),
     );
 
-    // Mutable cache for merged sources (invalidated by addSource)
+    // Mutable cache for merged sources (invalidated by addConfiguredSource)
     let cachedSources: ReadonlyArray<SourceConfig> | null = null;
+
+    const withMutex = semaphore.withPermits(1);
 
     /**
      * Read settings from a directory, returning default settings if not found.
@@ -370,10 +387,15 @@ const make = (options: WorkspaceContextOptions) =>
       );
 
     /**
+     * Read lockfile from a directory, returning empty lockfile if not found.
+     */
+    const readLockfileSafe = (dir: string) => readLockfile(dir).pipe(Effect.provide(fsLayer));
+
+    /**
      * Three-layer merge: project sources -> global sources -> built-in sources.
      * Name-based deduplication: earlier layers win.
      */
-    const getSources = (): Effect.Effect<ReadonlyArray<SourceConfig>, SettingsError> =>
+    const getConfiguredSources = (): Effect.Effect<ReadonlyArray<SourceConfig>, SettingsError> =>
       Effect.gen(function* () {
         if (cachedSources !== null) return cachedSources;
 
@@ -435,15 +457,15 @@ const make = (options: WorkspaceContextOptions) =>
           }
         }),
 
-      getSources,
+      getConfiguredSources,
 
-      getSourceByName: (name: string) =>
-        getSources().pipe(
+      getConfiguredSourceByName: (name: string) =>
+        getConfiguredSources().pipe(
           Effect.map((sources) => Option.fromNullable(sources.find((s) => s.name === name))),
         ),
 
-      getRegistrySources: (scope: Option.Option<string>) =>
-        getSources().pipe(
+      getConfiguredRegistrySources: (scope: Option.Option<string>) =>
+        getConfiguredSources().pipe(
           Effect.map((sources) => {
             const registrySources = sources.filter(
               (s): s is Extract<SourceConfig, { source: "registry" }> => s.source === "registry",
@@ -458,7 +480,7 @@ const make = (options: WorkspaceContextOptions) =>
           }),
         ),
 
-      getScope: () =>
+      getConfiguredScope: () =>
         Effect.gen(function* () {
           const projectSettings = yield* readSettingsSafe(localDir);
           if (projectSettings.scope) return projectSettings.scope;
@@ -467,14 +489,102 @@ const make = (options: WorkspaceContextOptions) =>
           return DEFAULT_SCOPE;
         }),
 
-      addSource: (source: SourceConfig) =>
-        semaphore.withPermits(1)(
+      addConfiguredSource: (source: SourceConfig) =>
+        withMutex(
           Effect.gen(function* () {
-            const current = yield* readSettingsSafe(localDir);
+            const current = yield* readSettingsSafe(workspaceDir);
             const currentSources: ReadonlyArray<SourceConfig> = current.sources ?? [];
             const updatedSettings = { ...current, sources: [...currentSources, source] };
-            yield* writeSettings(localDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
             cachedSources = null; // invalidate cache
+          }),
+        ),
+
+      getInstalledSkills: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s) => s.skills ?? ({} satisfies SkillsMap)),
+        ),
+
+      getConfiguredAgents: () =>
+        readSettingsSafe(workspaceDir).pipe(Effect.map((s) => s.agents ?? [])),
+
+      getLockedSkills: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.skills)),
+
+      getLockedSkill: (name: string) =>
+        readLockfileSafe(workspaceDir).pipe(
+          Effect.map((lf) => Option.fromNullable(lf.skills[name])),
+        ),
+
+      setSkill: (name: string, source: string, lockEntry: SkillLockEntry) =>
+        withMutex(
+          Effect.gen(function* () {
+            // Update settings
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentSkills: SkillsMap = currentSettings.skills ?? {};
+            const updatedSettings = {
+              ...currentSettings,
+              skills: { ...currentSkills, [name]: source },
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+
+            // Update lockfile
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const updatedLockfile = {
+              ...currentLockfile,
+              skills: {
+                ...currentLockfile.skills,
+                [name]: {
+                  ...lockEntry,
+                  updatedAt: new Date(),
+                },
+              },
+            };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      removeSkill: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            // Update settings
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentSkills: SkillsMap = currentSettings.skills ?? {};
+            if (!(name in currentSkills)) return; // no-op
+
+            const { [name]: _, ...remainingSkills } = currentSkills;
+            void _;
+            const updatedSettings = { ...currentSettings, skills: remainingSkills };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+
+            // Update lockfile
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            if (name in currentLockfile.skills) {
+              const { [name]: __, ...remainingLockSkills } = currentLockfile.skills;
+              void __;
+              const updatedLockfile = { ...currentLockfile, skills: remainingLockSkills };
+              yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            }
+          }),
+        ),
+
+      addConfiguredAgent: (agentId: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const validId = yield* Schema.decodeUnknown(AgentIdSchema)(agentId).pipe(
+              Effect.mapError(
+                (error) =>
+                  new SettingsParseError({
+                    path: workspaceDir,
+                    message: `Invalid agent ID: ${agentId}`,
+                    cause: error,
+                  }),
+              ),
+            );
+            const current = yield* readSettingsSafe(workspaceDir);
+            const agents = current.agents ?? [];
+            if (agents.includes(validId)) return;
+            const updatedSettings: Settings = { ...current, agents: [...agents, validId] };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ),
     };
@@ -522,17 +632,37 @@ export interface WorkspaceContextService {
     handlers: T,
   ) => Effect.Effect<Plan<Op>, PromptCancelled | PromptError, Log | Confirm | ExecutionContext<T>>;
   /** Merged sources from project, global, and built-in defaults. Cached per workspace lifetime. */
-  readonly getSources: () => Effect.Effect<ReadonlyArray<SourceConfig>, SettingsError>;
+  readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceConfig>, SettingsError>;
   /** Lookup a source by name from the merged sources list. */
-  readonly getSourceByName: (
+  readonly getConfiguredSourceByName: (
     name: string,
   ) => Effect.Effect<Option.Option<SourceConfig>, SettingsError>;
   /** Filter merged sources to registry sources, optionally filtered by scope. */
-  readonly getRegistrySources: (
+  readonly getConfiguredRegistrySources: (
     scope: Option.Option<string>,
   ) => Effect.Effect<ReadonlyArray<Extract<SourceConfig, { source: "registry" }>>, SettingsError>;
   /** Resolve scope: project settings -> global settings -> DEFAULT_SCOPE. */
-  readonly getScope: () => Effect.Effect<string, SettingsError>;
-  /** Append a source to project settings. Invalidates the sources cache. */
-  readonly addSource: (source: SourceConfig) => Effect.Effect<void, SettingsError>;
+  readonly getConfiguredScope: () => Effect.Effect<string, SettingsError>;
+  /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
+  readonly addConfiguredSource: (source: SourceConfig) => Effect.Effect<void, SettingsError>;
+  /** Read settings and return the skills map, defaulting to `{}`. */
+  readonly getInstalledSkills: () => Effect.Effect<SkillsMap, SettingsError>;
+  /** Read settings and return the configured agent IDs, defaulting to `[]`. */
+  readonly getConfiguredAgents: () => Effect.Effect<ReadonlyArray<string>, SettingsError>;
+  /** Read lockfile and return the skills lock map. */
+  readonly getLockedSkills: () => Effect.Effect<SkillsLockMap, LockfileError>;
+  /** Read lockfile and return the entry for a specific skill, or Option.none(). */
+  readonly getLockedSkill: (
+    name: string,
+  ) => Effect.Effect<Option.Option<SkillLockEntry>, LockfileError>;
+  /** Add or update a skill in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
+  readonly setSkill: (
+    name: string,
+    source: string,
+    lockEntry: SkillLockEntry,
+  ) => Effect.Effect<void, SettingsError | LockfileError>;
+  /** Remove a skill from both settings and lockfile. No-op if absent. Serialized by semaphore. */
+  readonly removeSkill: (name: string) => Effect.Effect<void, SettingsError | LockfileError>;
+  /** Append an agent ID if not already present and write to disk. Fails with SettingsParseError if invalid. Serialized by semaphore. */
+  readonly addConfiguredAgent: (agentId: string) => Effect.Effect<void, SettingsError>;
 }

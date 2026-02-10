@@ -81,10 +81,10 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceConfig>): WorkspaceConte
   nonInteractive: true,
   preview: false,
   resolvePlan: () => Effect.die("not implemented in test"),
-  getSources: () => Effect.succeed(sources),
-  getSourceByName: (name: string) =>
+  getConfiguredSources: () => Effect.succeed(sources),
+  getConfiguredSourceByName: (name: string) =>
     Effect.succeed(Option.fromNullable(sources.find((s) => s.name === name))),
-  getRegistrySources: (scope: Option.Option<string>) =>
+  getConfiguredRegistrySources: (scope: Option.Option<string>) =>
     Effect.succeed(
       (() => {
         const registrySources = sources.filter(
@@ -99,8 +99,15 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceConfig>): WorkspaceConte
         return registrySources.filter((s) => s.scopes === undefined);
       })(),
     ),
-  getScope: () => Effect.succeed("@test") as Effect.Effect<string, SettingsError>,
-  addSource: () => Effect.void,
+  getConfiguredScope: () => Effect.succeed("@test") as Effect.Effect<string, SettingsError>,
+  addConfiguredSource: () => Effect.void,
+  getInstalledSkills: () => Effect.succeed({}),
+  getConfiguredAgents: () => Effect.succeed([]),
+  getLockedSkills: () => Effect.succeed({}),
+  getLockedSkill: () => Effect.succeed(Option.none()),
+  setSkill: () => Effect.void,
+  removeSkill: () => Effect.void,
+  addConfiguredAgent: () => Effect.void,
 });
 
 /** Run an effect with SourceProviders service and NodeContext wired up. */

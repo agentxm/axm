@@ -13,8 +13,6 @@ import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
-import { LockfileService } from "../../../lockfile/index.js";
-import { SettingsService } from "../../../settings/index.js";
 import { printSource } from "../../../sources/index.js";
 import { Log } from "../../../tui/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
@@ -215,7 +213,7 @@ const preCleanAllLocations = (
  */
 export const installSkill: OperationHandler<
   InstallSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | SettingsService | LockfileService | Log
+  FileSystem.FileSystem | Path.Path | Workspace | Log
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -289,11 +287,11 @@ export const installSkill: OperationHandler<
       { concurrency: "unbounded" },
     );
 
-    // Update lockfile (warn on errors)
-    const ls = yield* LockfileService;
-    yield* ls
-      .updateEntry(
-        sanitizedName,
+    // Update settings + lockfile atomically (warn on errors)
+    yield* ws
+      .setSkill(
+        op.args.skill.name,
+        printSource(op.args.source),
         sourceToLockEntry({
           source: op.args.source,
           agents: op.args.agents,
@@ -310,13 +308,7 @@ export const installSkill: OperationHandler<
           }),
         }),
       )
-      .pipe(Effect.catchAll((e) => log.warn(`Lockfile update failed: ${String(e)}`)));
-
-    // Update settings (warn on errors)
-    const ss = yield* SettingsService;
-    yield* ss
-      .addSkill(op.args.skill.name, printSource(op.args.source))
-      .pipe(Effect.catchAll((e) => log.warn(`Settings update failed: ${String(e)}`)));
+      .pipe(Effect.catchAll((e) => log.warn(`Skill update failed: ${String(e)}`)));
 
     // Determine overall result
     const anyFailed = agentResults.some((r) => !r.success);

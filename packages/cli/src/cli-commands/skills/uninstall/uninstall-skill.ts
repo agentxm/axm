@@ -12,10 +12,8 @@ import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
-import { LockfileService } from "../../../lockfile/index.js";
 import { OperationError, type OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
-import { SettingsService } from "../../../settings/index.js";
 import { Workspace } from "../../../workspace/service.js";
 import type { UninstallSkillOperation } from "../operations.js";
 import { sanitizeName } from "../install/skill-utils.js";
@@ -139,7 +137,7 @@ const existsInAnyLocation = (
  */
 export const uninstallSkill: OperationHandler<
   UninstallSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | SettingsService | LockfileService
+  FileSystem.FileSystem | Path.Path | Workspace
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -150,9 +148,8 @@ export const uninstallSkill: OperationHandler<
 
     const sanitizedName = sanitizeName(op.args.skillName);
 
-    // Read lockfile entry for this skill via LockfileService
-    const ls = yield* LockfileService;
-    const lockEntryOption = yield* ls.getEntry(op.args.skillName).pipe(
+    // Read lockfile entry for this skill via Workspace
+    const lockEntryOption = yield* ws.getLockedSkill(op.args.skillName).pipe(
       Effect.mapError(
         (e) =>
           new OperationError({
@@ -203,9 +200,20 @@ export const uninstallSkill: OperationHandler<
       const remainingAgents = lockAgents.filter((a) => !agentFilter.includes(a));
 
       if (remainingAgents.length > 0) {
-        // Update lockfile entry with remaining agents
-        yield* ls
-          .updateEntry(op.args.skillName, {
+        // Update lockfile entry with remaining agents via Workspace.setSkill
+        const installedSkills = yield* ws.getInstalledSkills().pipe(
+          Effect.mapError(
+            (e) =>
+              new OperationError({
+                operation: "uninstall-skill",
+                message: `Failed to read settings: ${e.message}`,
+                cause: e,
+              }),
+          ),
+        );
+        const currentSource = installedSkills[op.args.skillName] ?? lockEntry.source;
+        yield* ws
+          .setSkill(op.args.skillName, currentSource, {
             ...lockEntry,
             agents: remainingAgents,
           })
@@ -234,23 +242,8 @@ export const uninstallSkill: OperationHandler<
       yield* removeFromAllLocations(fs, base, sanitizedName, path);
     }
 
-    // Remove lockfile entry
-    if (lockEntry) {
-      yield* ls.removeEntry(op.args.skillName).pipe(
-        Effect.mapError(
-          (e) =>
-            new OperationError({
-              operation: "uninstall-skill",
-              message: `Failed to remove lockfile entry: ${e.message}`,
-              cause: e,
-            }),
-        ),
-      );
-    }
-
-    // Update settings (swallow errors) — only on full uninstall
-    const ss = yield* SettingsService;
-    yield* ss.removeSkill(op.args.skillName).pipe(Effect.catchAll(() => Effect.void));
+    // Remove from both settings and lockfile (swallow errors on full uninstall)
+    yield* ws.removeSkill(op.args.skillName).pipe(Effect.catchAll(() => Effect.void));
 
     return {
       result: "success",

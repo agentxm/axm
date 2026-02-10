@@ -20,8 +20,8 @@ import { ParseError } from "./errors.js";
 import { config as githubConfig } from "./github/index.js";
 import { config as gitlabConfig } from "./gitlab/index.js";
 import { config as localConfig, parseLocalPath } from "./local/index.js";
-import { LockfileService } from "../lockfile/index.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
+import { WorkspaceContextTag as Workspace } from "../workspace/index.js";
 
 /** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
 const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
@@ -230,8 +230,8 @@ export const determineSourceInput = (input: string) => {
       onSome: Match.type<InputPattern>().pipe(
         Match.tag("NameInput", ({ name }) =>
           Effect.gen(function* () {
-            const ls = yield* LockfileService;
-            const skills = yield* ls.getSkills().pipe(
+            const ws = yield* Workspace;
+            const skills = yield* ws.getLockedSkills().pipe(
               Effect.mapError(
                 (e) =>
                   new ParseError({

@@ -8,7 +8,7 @@
 
 import * as Effect from "effect/Effect";
 import { Log } from "../../../tui/index.js";
-import { LockfileService } from "../../../lockfile/index.js";
+import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -39,8 +39,8 @@ export interface ListHandlerArgs {
 export const handleList = (args: ListHandlerArgs) =>
   Effect.gen(function* () {
     const log = yield* Log;
-    const ls = yield* LockfileService;
-    const skills = yield* ls.getSkills();
+    const ws = yield* Workspace;
+    const skills = yield* ws.getLockedSkills();
 
     // Filter by agents if specified
     const entries = Object.entries(skills);

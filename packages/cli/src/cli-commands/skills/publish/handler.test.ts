@@ -21,8 +21,6 @@ import {
   makeSelectTestLayer,
   makeSpinnerTestLayer,
 } from "../../../tui/index.js";
-import { LockfileServiceLive } from "../../../lockfile/index.js";
-import { SettingsServiceLive } from "../../../settings/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceProvidersLive } from "../../../sources/index.js";
 import { handlePublish, type PublishHandlerArgs } from "./handler.js";
@@ -120,10 +118,8 @@ describe("publish.handler", () => {
       ...wsOverrides,
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
-    const SSLayer = Layer.provide(SettingsServiceLive, Layer.merge(BaseLayer, WsLayer));
-    const LSLayer = Layer.provide(LockfileServiceLive, Layer.merge(BaseLayer, WsLayer));
     const SPLayer = Layer.provide(SourceProvidersLive, Layer.merge(BaseLayer, WsLayer));
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SSLayer, LSLayer, SPLayer);
+    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>

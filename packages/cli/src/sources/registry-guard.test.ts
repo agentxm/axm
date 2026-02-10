@@ -26,11 +26,18 @@ describe("registryGuard", () => {
       nonInteractive: opts.nonInteractive ?? false,
       preview: false,
       resolvePlan: vi.fn(),
-      getSources: vi.fn(() => Effect.succeed([])),
-      getSourceByName: vi.fn(() => Effect.succeed(Option.none())),
-      getRegistrySources: () => Effect.succeed(registrySources),
-      getScope: () => Effect.succeed("default"),
-      addSource,
+      getConfiguredSources: vi.fn(() => Effect.succeed([])),
+      getConfiguredSourceByName: vi.fn(() => Effect.succeed(Option.none())),
+      getConfiguredRegistrySources: () => Effect.succeed(registrySources),
+      getConfiguredScope: () => Effect.succeed("default"),
+      addConfiguredSource: addSource,
+      getInstalledSkills: vi.fn(() => Effect.succeed({})),
+      getConfiguredAgents: vi.fn(() => Effect.succeed([])),
+      getLockedSkills: vi.fn(() => Effect.succeed({})),
+      getLockedSkill: vi.fn(() => Effect.succeed(Option.none())),
+      setSkill: vi.fn(() => Effect.void),
+      removeSkill: vi.fn(() => Effect.void),
+      addConfiguredAgent: vi.fn(() => Effect.void),
     };
 
     return Layer.succeed(WorkspaceContextTag, mockWorkspace);
@@ -135,7 +142,7 @@ describe("registryGuard", () => {
   it.effect("guard changes visible to subsequent calls", () =>
     Effect.gen(function* () {
       // This test verifies that after the guard persists a source,
-      // subsequent calls to getRegistrySources would see it.
+      // subsequent calls to getConfiguredRegistrySources would see it.
       // We test this by mocking addSource and verifying it was called with the correct args.
 
       const addSourceMock = vi.fn(() => Effect.void);

@@ -11,7 +11,6 @@ import { getAgentById } from "../../agents/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Log } from "../../tui/index.js";
-import { SettingsService } from "../../settings/index.js";
 import { WorkspaceContextTag } from "../../workspace/index.js";
 
 // -----------------------------------------------------------------------------
@@ -37,8 +36,7 @@ export const handleInit = () =>
     yield* log.info(`axm init (${scopeLabel})`);
 
     // Display result
-    const ss = yield* SettingsService;
-    const agentIds = yield* ss.getAgents();
+    const agentIds = yield* context.getConfiguredAgents();
     const agentNames = agentIds
       .map((id) =>
         Option.getOrElse(

@@ -25,7 +25,6 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Log, Spinner } from "../../../tui/index.js";
-import { SettingsService } from "../../../settings/index.js";
 import { formatError } from "../../../utils/errors.js";
 import { WorkspaceContextTag as Workspace } from "../../../workspace/index.js";
 import type {
@@ -90,7 +89,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
     yield* registryGuard;
 
     // Step 2: Resolve scope
-    const scope = yield* ws.getScope().pipe(
+    const scope = yield* ws.getConfiguredScope().pipe(
       Effect.mapError(
         (e) =>
           new ForkError({
@@ -175,12 +174,11 @@ export const handleFork = (args: ForkHandlerArgs) =>
 
     yield* handle.stop(`Found ${filtered.length} skill(s)`);
 
-    // Step 5: Get agents from settings
-    const ss = yield* SettingsService;
-    const agentIds = yield* ss.getAgents();
+    // Step 5: Get agents from workspace
+    const agentIds = yield* ws.getConfiguredAgents();
 
     // Step 6: Determine first registry source name for publishing
-    const registrySources = yield* ws.getRegistrySources(Option.none()).pipe(
+    const registrySources = yield* ws.getConfiguredRegistrySources(Option.none()).pipe(
       Effect.mapError(
         (e) =>
           new ForkError({

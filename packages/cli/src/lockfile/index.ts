@@ -33,8 +33,4 @@ export {
   LockfileWriteError,
 } from "./lockfile.js";
 
-/** @internal Bootstrap use only — prefer LockfileService for normal callers. */
-export { writeLockfile } from "./lockfile.js";
-
-// Lockfile service
-export { LockfileService, LockfileServiceLive } from "./service.js";
+export { readLockfile, writeLockfile } from "./lockfile.js";

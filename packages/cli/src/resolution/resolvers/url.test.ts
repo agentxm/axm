@@ -8,19 +8,16 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { LockfileService } from "../../lockfile/index.js";
+import { WorkspaceContextTag as Workspace } from "../../workspace/index.js";
 import { resolveUrl } from "./url.js";
 
-/** Empty lockfile layer — resolveUrl never hits the NameInput branch. */
-const EmptyLockfileLayer = Layer.succeed(LockfileService, {
-  getSkills: () => Effect.succeed({}),
-  getEntry: () => Effect.succeed(Option.none()),
-  updateEntry: () => Effect.void,
-  removeEntry: () => Effect.void,
-});
+/** Empty workspace layer — resolveUrl never hits the NameInput branch. */
+const EmptyWorkspaceLayer = Layer.succeed(Workspace, {
+  getLockedSkills: () => Effect.succeed({}),
+} as unknown as Workspace["Type"]);
 
-/** Wrap resolveUrl with the empty lockfile layer. */
-const resolve = (input: string) => resolveUrl(input).pipe(Effect.provide(EmptyLockfileLayer));
+/** Wrap resolveUrl with the empty workspace layer. */
+const resolve = (input: string) => resolveUrl(input).pipe(Effect.provide(EmptyWorkspaceLayer));
 
 describe("url resolver", () => {
   describe("GitHub HTTPS URLs", () => {

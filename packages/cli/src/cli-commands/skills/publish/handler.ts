@@ -92,7 +92,7 @@ export const handlePublish = (args: PublishHandlerArgs) =>
       extensionName = args.extension;
     } else {
       // Bare name -- resolve scope from settings
-      const scope = yield* ws.getScope().pipe(
+      const scope = yield* ws.getConfiguredScope().pipe(
         Effect.mapError(
           (e) =>
             new PublishError({
@@ -147,7 +147,7 @@ export const handlePublish = (args: PublishHandlerArgs) =>
     yield* handle.stop(`Validated ${extensionName}`);
 
     // Step 4: Determine target registry
-    const registrySources = yield* ws.getRegistrySources(Option.none()).pipe(
+    const registrySources = yield* ws.getConfiguredRegistrySources(Option.none()).pipe(
       Effect.mapError(
         (e) =>
           new PublishError({

@@ -39,7 +39,3 @@ export {
   ensureTopLevelProperty,
   modifyJsonFile,
 } from "./format-preserving-json.js";
-
-// Settings service
-export type { SettingsServiceInterface } from "./service.js";
-export { SettingsService, SettingsServiceLive } from "./service.js";

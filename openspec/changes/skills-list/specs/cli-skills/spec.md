@@ -1,0 +1,23 @@
+## MODIFIED Requirements
+
+### Requirement: Skills Sub-command
+
+The CLI SHALL provide a `skills` sub-command for managing agent skills.
+
+#### Scenario: Skills command invoked without sub-command
+
+- **WHEN** the user runs `axm skills`
+- **THEN** the CLI displays available skills sub-commands, examples, and usage
+  information
+- **AND** exits with code 0
+
+#### Scenario: Skills command displays help
+
+- **WHEN** the user runs `axm skills --help`
+- **THEN** the CLI displays detailed help for the skills command including all
+  sub-commands and their options
+
+#### Scenario: List sub-command is registered
+
+- **WHEN** the user runs `axm skills --help`
+- **THEN** `list` (alias `ls`) appears in the available sub-commands

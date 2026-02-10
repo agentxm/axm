@@ -1,0 +1,57 @@
+/**
+ * Registry guard - ensures at least one registry source is configured.
+ *
+ * @experimental This API is unstable and may change without notice.
+ * @packageDocumentation
+ */
+
+import * as Path from "@effect/platform/Path";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { TextInput } from "../tui/index.js";
+import { WorkspaceContextTag } from "../workspace/index.js";
+import { RegistryNotConfiguredError } from "./provider.js";
+
+/**
+ * Ensure at least one registry source is configured.
+ *
+ * - If already configured: no-op
+ * - If NOT configured:
+ *   - Interactive mode: prompt for local registry path, persist via addSource
+ *   - Non-interactive mode: fail with RegistryNotConfiguredError
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const registryGuard = Effect.gen(function* () {
+  const workspace = yield* WorkspaceContextTag;
+  const registrySources = yield* workspace.getRegistrySources(Option.none());
+
+  // Already configured - no-op
+  if (registrySources.length > 0) return;
+
+  // Not configured in non-interactive mode - fail
+  if (workspace.nonInteractive) {
+    return yield* new RegistryNotConfiguredError({
+      message: `No registry source configured. Add one to .axm/settings.json:\n\n{\n  "sources": [\n    { "name": "local", "source": "registry", "location": "/path/to/registry" }\n  ]\n}`,
+    });
+  }
+
+  // Interactive mode - prompt for path
+  const textInput = yield* TextInput;
+  const path = yield* textInput.prompt({
+    message: "No registry configured. Enter a local registry path:",
+  });
+
+  // Normalize path (expand ~, resolve relative)
+  const pathService = yield* Path.Path;
+  const normalizedPath = path.startsWith("~")
+    ? pathService.resolve(process.env["HOME"] ?? "~", path.slice(2))
+    : pathService.resolve(path);
+
+  // Persist to settings
+  yield* workspace.addSource({
+    name: "local",
+    source: "registry",
+    location: normalizedPath,
+  });
+});

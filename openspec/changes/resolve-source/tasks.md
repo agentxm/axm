@@ -104,10 +104,10 @@ Depends on: Phase 5.
 
 Ensure the public API is clean and no stale exports remain.
 
-- [ ] 6.1 Update `sources/index.ts` barrel: export `resolveSource`, verify `determineSourceInput` is still exported (lower-level API), ensure `Source` types are exported
-- [ ] 6.2 Remove any unused imports of `determineSourceInput` from files that now use `resolveSource`
-- [ ] 6.3 Run `pnpm typecheck` and fix any errors
-- [ ] 6.4 Run `pnpm lint` and fix any errors
-- [ ] 6.5 Run `pnpm test` and fix any failures
-- [ ] 6.6 Run `pnpm test:e2e` and fix any failures
-- [ ] 6.7 Kill any vitest worker processes
+- [x] 6.1 Update `sources/index.ts` barrel: export `resolveSource`, verify `determineSourceInput` is still exported (lower-level API), ensure `Source` types are exported
+- [x] 6.2 Remove any unused imports of `determineSourceInput` from files that now use `resolveSource`
+- [x] 6.3 Run `pnpm typecheck` and fix any errors
+- [x] 6.4 Run `pnpm lint` and fix any errors
+- [x] 6.5 Run `pnpm test` and fix any failures
+- [x] 6.6 Run `pnpm test:e2e` and fix any failures
+- [x] 6.7 Kill any vitest worker processes

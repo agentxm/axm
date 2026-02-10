@@ -180,6 +180,93 @@ const tryConfigNameParse = (input: string, originalError: ParseError) =>
   });
 
 // -----------------------------------------------------------------------------
+// URL hostname matching against workspace config
+// -----------------------------------------------------------------------------
+
+/**
+ * When `determineSourceInput` fails for a URL with an unknown hostname, try to
+ * match the hostname against configured source URLs. If a match is found,
+ * re-parse the URL by substituting the canonical hostname so the descriptor's
+ * URL parser accepts it.
+ *
+ * E.g., `https://github.example.com/owner/repo` with a config
+ * `{ name: "ghe", source: "github", url: "https://github.example.com" }`
+ * → replace hostname with `github.com` → parse → merge with config.
+ */
+const tryUrlHostnameMatch = (input: string, originalError: ParseError) =>
+  Effect.gen(function* () {
+    const trimmed = input.trim();
+
+    // Extract hostname from input — must be a URL or SCP
+    const inputHostname = extractInputHostname(trimmed);
+    if (Option.isNone(inputHostname)) {
+      return yield* Effect.fail(originalError);
+    }
+
+    const hostname = inputHostname.value;
+
+    // Get configured sources from workspace
+    const ws = yield* Workspace;
+    const sources = yield* ws.getConfiguredSources().pipe(
+      Effect.mapError(
+        (e) => new ParseError({ message: `Failed to get configured sources: ${e._tag}`, input }),
+      ),
+    );
+
+    // Find a config whose URL hostname matches the input hostname
+    const matchingConfig = sources.find((c) => {
+      if (!("url" in c)) return false;
+      const configHostname = hostnameFromUrl(c.url);
+      return Option.isSome(configHostname) && configHostname.value === hostname;
+    });
+
+    if (!matchingConfig) {
+      return yield* Effect.fail(originalError);
+    }
+
+    // Get the descriptor for this source type
+    const desc = DESCRIPTOR_BY_TYPE.get(matchingConfig.source);
+    if (!desc || Option.isNone(desc.parseFromUrl)) {
+      return yield* Effect.fail(originalError);
+    }
+
+    // Substitute the canonical hostname into the URL so the descriptor's parser accepts it
+    const canonicalHostname = desc.parseFromUrl.value.hostname;
+    const pattern = parseInputPattern(trimmed);
+    if (Option.isNone(pattern)) {
+      return yield* Effect.fail(originalError);
+    }
+
+    const p = pattern.value;
+    if (p._tag === "UrlInput") {
+      // Replace hostname in URL
+      const canonicalUrl = new URL(p.url.href);
+      canonicalUrl.hostname = canonicalHostname;
+      const sourceInput = yield* desc.parseFromUrl.value.parseUrl(canonicalUrl).pipe(
+        Effect.mapError(() => originalError),
+      );
+      return {
+        sourceInput: sourceInput as SourceInput,
+        explicitConfig: Option.some(matchingConfig),
+      };
+    }
+
+    if (p._tag === "GitScpAddress") {
+      // Replace host in SCP address
+      const canonicalScp = `${p.user}@${canonicalHostname}:${p.path}`;
+      const sourceInput = yield* desc.parseFromUrl.value.parseScp(canonicalScp).pipe(
+        Effect.mapError(() => originalError),
+      );
+      return {
+        sourceInput: sourceInput as SourceInput,
+        explicitConfig: Option.some(matchingConfig),
+      };
+    }
+
+    return yield* Effect.fail(originalError);
+  });
+
+// -----------------------------------------------------------------------------
 // Main resolver
 // -----------------------------------------------------------------------------
 
@@ -199,13 +286,14 @@ const tryConfigNameParse = (input: string, originalError: ParseError) =>
  */
 export const resolveSource = (input: string) =>
   Effect.gen(function* () {
-    // Try standard parse, with fallback to config-name two-phase parse
+    // Try standard parse, with fallback to config-name or URL hostname matching
     const parseResult = yield* determineSourceInput(input).pipe(
       Effect.map((si) => ({
         sourceInput: si,
         explicitConfig: Option.none<SourceConfig>(),
       })),
       Effect.catchTag("ParseError", (error) => tryConfigNameParse(input, error)),
+      Effect.catchTag("ParseError", (error) => tryUrlHostnameMatch(input, error)),
     );
 
     const { sourceInput, explicitConfig } = parseResult;

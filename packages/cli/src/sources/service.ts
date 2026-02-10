@@ -29,7 +29,7 @@ import {
   createLocalProvider,
   createRegistryProvider,
 } from "./providers/index.js";
-import type { RegistrySourceInput, SourceInput } from "./types.js";
+import type { RegistrySourceInput, Source } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Service Interface
@@ -45,8 +45,8 @@ import type { RegistrySourceInput, SourceInput } from "./types.js";
  */
 export interface SourceProvidersService {
   /** Discover extensions matching the given source and search criteria. */
-  readonly resolve: (
-    source: SourceInput,
+  readonly resolveExtension: (
+    source: Source,
     options: FindOptions,
   ) => Effect.Effect<ReadonlyArray<ExtensionRef>, SourceError | SettingsError, Scope.Scope>;
   /** Fetch and materialize extension files for a discovered ref. */
@@ -183,7 +183,7 @@ export const SourceProvidersLive: Layer.Layer<
     );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dispatch table: each key maps to correct provider
-    const providers: Record<SourceInput["source"], SourceProvider<any, any>> = {
+    const providers: Record<Source["source"], SourceProvider<any, any>> = {
       github: githubProvider,
       gitlab: gitlabProvider,
       bitbucket: bitbucketProvider,
@@ -194,7 +194,7 @@ export const SourceProvidersLive: Layer.Layer<
     };
 
     return {
-      resolve: (source, options) =>
+      resolveExtension: (source, options) =>
         providers[source.source]
           .find(source, options)
           .pipe(Effect.provide(depLayer)) as Effect.Effect<

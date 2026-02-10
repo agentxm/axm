@@ -148,7 +148,7 @@ describe("registry meta-provider scope routing", () => {
         );
 
         const svc = yield* SourceProviders;
-        const refs = yield* svc.resolve(
+        const refs = yield* svc.resolveExtension(
           { source: "registry" },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
@@ -166,7 +166,7 @@ describe("registry meta-provider scope routing", () => {
       [],
       Effect.gen(function* () {
         const svc = yield* SourceProviders;
-        const refs = yield* svc.resolve(
+        const refs = yield* svc.resolveExtension(
           { source: "registry" },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
@@ -187,7 +187,7 @@ describe("SourceProviders dispatch", () => {
         const svc = yield* SourceProviders;
         // Querying a nonexistent local path returns an error (not found)
         const result = yield* svc
-          .resolve({ source: "local", path: "/nonexistent/path" }, defaultFindOptions)
+          .resolveExtension({ source: "local", path: "/nonexistent/path" }, defaultFindOptions)
           .pipe(Effect.either);
 
         // Local provider will fail because the dir doesn't exist
@@ -201,7 +201,7 @@ describe("SourceProviders dispatch", () => {
       Effect.gen(function* () {
         const svc = yield* SourceProviders;
         const result = yield* svc
-          .resolve(
+          .resolveExtension(
             { source: "git", url: "git@example.com:repo.git", ref: Option.none() },
             defaultFindOptions,
           )
@@ -221,7 +221,7 @@ describe("SourceProviders dispatch", () => {
       Effect.gen(function* () {
         const svc = yield* SourceProviders;
         const result = yield* svc
-          .resolve(
+          .resolveExtension(
             {
               source: "azurerepos",
               organization: "org",
@@ -229,6 +229,8 @@ describe("SourceProviders dispatch", () => {
               repo: "repo",
               ref: Option.none(),
               subPath: Option.none(),
+              name: "test",
+              url: "https://dev.azure.com/org/proj/_git/repo",
             },
             defaultFindOptions,
           )
@@ -248,7 +250,7 @@ describe("SourceProviders dispatch", () => {
       [{ name: "local", source: "registry" as const, location: registryRoot }],
       Effect.gen(function* () {
         const svc = yield* SourceProviders;
-        const refs = yield* svc.resolve(
+        const refs = yield* svc.resolveExtension(
           { source: "registry" },
           { ...defaultFindOptions, names: ["nonexistent"] },
         );

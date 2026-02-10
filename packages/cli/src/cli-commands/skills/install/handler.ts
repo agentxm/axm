@@ -139,7 +139,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       agents: args.agents,
       type: "skill" as const,
     };
-    const allRefs = yield* sources.resolve(source, findOptions).pipe(
+    const allRefs = yield* sources.resolveExtension(source, findOptions).pipe(
       Effect.mapError(
         (error) =>
           new InstallError({

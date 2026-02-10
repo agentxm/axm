@@ -195,14 +195,17 @@ export const SourceProvidersLive: Layer.Layer<
       resolve: (source, options) =>
         providers[source.source]
           .find(source, options)
-          .pipe(Effect.provide(depLayer)) as Effect.Effect<
+          .pipe(Effect.scoped, Effect.provide(depLayer)) as Effect.Effect<
           ReadonlyArray<ExtensionRef>,
           SourceError | SettingsError
         >,
       fetch: (ref) =>
         providers[ref.source.source]
           .fetch(ref.source, ref)
-          .pipe(Effect.provide(depLayer)) as Effect.Effect<ExtensionFiles, SourceError>,
+          .pipe(Effect.scoped, Effect.provide(depLayer)) as Effect.Effect<
+          ExtensionFiles,
+          SourceError
+        >,
     };
   }),
 );

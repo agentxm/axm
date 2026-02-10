@@ -130,6 +130,25 @@ describe("settings", () => {
       ),
     );
 
+    it.effect("writes keys in schema-defined order regardless of input order", () =>
+      withContext(
+        Effect.gen(function* () {
+          // Provide settings with keys in reverse order
+          const settings = {
+            skills: { commit: "^1.0.0" },
+            agents: ["claude-code"],
+            scope: "@acme",
+          } as Settings;
+
+          yield* writeSettings(axmDir, settings);
+
+          const content = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+          const keys = Object.keys(JSON.parse(content) as Record<string, unknown>);
+          expect(keys).toEqual(["scope", "agents", "skills"]);
+        }),
+      ),
+    );
+
     it.effect("overwrites existing settings file", () =>
       withContext(
         Effect.gen(function* () {

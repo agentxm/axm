@@ -11,7 +11,7 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 
 import * as Schema from "effect/Schema";
-import { type Settings, SettingsSchema } from "./schema.js";
+import { SETTINGS_KEY_ORDER, type Settings, SettingsSchema } from "./schema.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -84,6 +84,28 @@ export type SettingsError = SettingsNotFoundError | SettingsParseError | Setting
  * @experimental This API is unstable and may change without notice.
  */
 export const createDefaultSettings = (): Settings => ({});
+
+// -----------------------------------------------------------------------------
+// Key Ordering
+// -----------------------------------------------------------------------------
+
+/**
+ * Reorder settings keys to match the canonical schema order.
+ *
+ * Creates a new object with keys in `SETTINGS_KEY_ORDER`, omitting keys
+ * not present in the input.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const orderSettingsKeys = (settings: Settings): Settings => {
+  const ordered: Record<string, unknown> = {};
+  for (const key of SETTINGS_KEY_ORDER) {
+    if (key in settings) {
+      ordered[key] = (settings as Record<string, unknown>)[key];
+    }
+  }
+  return ordered as Settings;
+};
 
 // -----------------------------------------------------------------------------
 // Core Functions
@@ -188,7 +210,7 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
     );
 
     // Serialize to JSON with pretty printing and trailing newline
-    const content = JSON.stringify(settings, null, 2) + "\n";
+    const content = JSON.stringify(orderSettingsKeys(settings), null, 2) + "\n";
 
     // Write file
     yield* fs.writeFileString(settingsPath, content).pipe(

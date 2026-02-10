@@ -79,6 +79,7 @@ export const ensureTopLevelProperty = (
   key: string,
   defaultValue: unknown,
   formatting: DetectedFormatting,
+  keyOrder?: ReadonlyArray<string>,
 ): string => {
   const tree = parseTree(text);
   if (!tree || tree.type !== "object") return text;
@@ -86,18 +87,46 @@ export const ensureTopLevelProperty = (
   // Already exists — no-op
   if (findNodeAtLocation(tree, [key])) return text;
 
+  const indent = formatting.insertSpaces ? " ".repeat(formatting.tabSize ?? 2) : "\t";
+  const serialized = JSON.stringify(defaultValue);
+  const newEntry = `${indent}"${key}": ${serialized}`;
+
+  // When keyOrder is provided, try to insert at the correct position
+  if (keyOrder && tree.children && tree.children.length > 0) {
+    const keyIndex = keyOrder.indexOf(key);
+    if (keyIndex !== -1) {
+      // Find the first existing property that comes after `key` in the schema order
+      for (const child of tree.children) {
+        const childKey = child.children?.[0]?.value as string | undefined;
+        if (!childKey) continue;
+        const childIndex = keyOrder.indexOf(childKey);
+        if (childIndex > keyIndex) {
+          // Insert before this child's line
+          const childOffset = child.offset;
+          // Find the start of the line containing this property
+          let lineStart = childOffset;
+          while (lineStart > 0 && text[lineStart - 1] !== "\n") {
+            lineStart--;
+          }
+          const before = text.substring(0, lineStart);
+          const after = text.substring(lineStart);
+          return `${before}${newEntry},${formatting.eol}${after}`;
+        }
+      }
+    }
+  }
+
+  // Fall back: append at the end (before closing brace)
   const closingBrace = text.lastIndexOf("}");
   if (closingBrace === -1) return text;
 
-  const indent = formatting.insertSpaces ? " ".repeat(formatting.tabSize ?? 2) : "\t";
   const hasProperties = (tree.children?.length ?? 0) > 0;
-  const serialized = JSON.stringify(defaultValue);
 
   const before = text.substring(0, closingBrace).trimEnd();
   const comma = hasProperties ? "," : "";
   const after = text.substring(closingBrace);
 
-  return `${before}${comma}${formatting.eol}${indent}"${key}": ${serialized}${formatting.eol}${after.trimStart()}`;
+  return `${before}${comma}${formatting.eol}${newEntry}${formatting.eol}${after.trimStart()}`;
 };
 
 // -----------------------------------------------------------------------------

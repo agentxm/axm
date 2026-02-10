@@ -179,6 +179,24 @@ export const SkillsMapSchema = Schema.Record({
 export type SkillsMap = typeof SkillsMapSchema.Type;
 
 /**
+ * Canonical key order for settings properties.
+ *
+ * Used by `writeSettings` and `ensureTopLevelProperty` to ensure properties
+ * appear in the same order as defined in `SettingsSchema`.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
+  "scope",
+  "sources",
+  "agents",
+  "skills",
+  "commands",
+  "packs",
+  "mcp-servers",
+];
+
+/**
  * AXM settings configuration schema.
  *
  * Settings define global configuration for AXM including:

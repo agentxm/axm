@@ -12,6 +12,7 @@
 export type { ExtensionMap, Settings, SkillsMap, SourceConfig } from "./schema.js";
 export {
   ExtensionMapSchema,
+  SETTINGS_KEY_ORDER,
   SettingsSchema,
   SkillsMapSchema,
   SourceConfigSchema,
@@ -22,6 +23,7 @@ export type { SettingsError } from "./settings.js";
 export {
   createDefaultSettings,
   DEFAULT_SCOPE,
+  orderSettingsKeys,
   readSettings,
   SETTINGS_FILENAME,
   SettingsNotFoundError,

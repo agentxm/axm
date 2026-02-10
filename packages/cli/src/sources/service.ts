@@ -14,6 +14,7 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import type * as Scope from "effect/Scope";
 
 import type { SettingsError } from "../settings/index.js";
 import { Workspace } from "../workspace/service.js";
@@ -47,9 +48,9 @@ export interface SourceProvidersService {
   readonly resolve: (
     source: SourceInput,
     options: FindOptions,
-  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, SourceError | SettingsError>;
+  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, SourceError | SettingsError, Scope.Scope>;
   /** Fetch and materialize extension files for a discovered ref. */
-  readonly fetch: (ref: ExtensionRef) => Effect.Effect<ExtensionFiles, SourceError>;
+  readonly fetch: (ref: ExtensionRef) => Effect.Effect<ExtensionFiles, SourceError, Scope.Scope>;
 }
 
 /**
@@ -195,16 +196,18 @@ export const SourceProvidersLive: Layer.Layer<
       resolve: (source, options) =>
         providers[source.source]
           .find(source, options)
-          .pipe(Effect.scoped, Effect.provide(depLayer)) as Effect.Effect<
+          .pipe(Effect.provide(depLayer)) as Effect.Effect<
           ReadonlyArray<ExtensionRef>,
-          SourceError | SettingsError
+          SourceError | SettingsError,
+          Scope.Scope
         >,
       fetch: (ref) =>
         providers[ref.source.source]
           .fetch(ref.source, ref)
-          .pipe(Effect.scoped, Effect.provide(depLayer)) as Effect.Effect<
+          .pipe(Effect.provide(depLayer)) as Effect.Effect<
           ExtensionFiles,
-          SourceError
+          SourceError,
+          Scope.Scope
         >,
     };
   }),

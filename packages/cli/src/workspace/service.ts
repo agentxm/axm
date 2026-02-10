@@ -429,8 +429,9 @@ const make = (options: WorkspaceContextOptions) =>
               return yield* applyPlan(plan, handlers);
             }
           } else {
-            yield* displayPlan(plan);
-            return yield* applyPlan(plan, handlers);
+            const applied = yield* applyPlan(plan, handlers);
+            yield* displayPlan(applied);
+            return applied;
           }
         }),
 

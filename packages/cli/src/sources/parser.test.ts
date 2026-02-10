@@ -691,13 +691,15 @@ describe("source-parser", () => {
   });
 
   describe("buildCloneUrl", () => {
-    it("builds GitHub clone URL", async () => {
+    it("builds GitHub clone URL from config url", async () => {
       const source = {
         source: "github",
         owner: "owner",
         repo: "repo",
         ref: Option.none(),
         subPath: Option.none(),
+        name: "github",
+        url: "https://github.com",
       } as const;
 
       const result = await Effect.runPromise(buildCloneUrl(source));
@@ -705,13 +707,31 @@ describe("source-parser", () => {
       expect(result).toBe("https://github.com/owner/repo.git");
     });
 
-    it("builds GitLab clone URL", async () => {
+    it("builds GitHub clone URL with custom url", async () => {
+      const source = {
+        source: "github",
+        owner: "owner",
+        repo: "repo",
+        ref: Option.none(),
+        subPath: Option.none(),
+        name: "my-ghe",
+        url: "https://github.example.com",
+      } as const;
+
+      const result = await Effect.runPromise(buildCloneUrl(source));
+
+      expect(result).toBe("https://github.example.com/owner/repo.git");
+    });
+
+    it("builds GitLab clone URL from config url", async () => {
       const source = {
         source: "gitlab",
         owner: "owner",
         repo: "repo",
         ref: Option.none(),
         subPath: Option.none(),
+        name: "gitlab",
+        url: "https://gitlab.com",
       } as const;
 
       const result = await Effect.runPromise(buildCloneUrl(source));
@@ -719,13 +739,15 @@ describe("source-parser", () => {
       expect(result).toBe("https://gitlab.com/owner/repo.git");
     });
 
-    it("builds Bitbucket clone URL", async () => {
+    it("builds Bitbucket clone URL from config url", async () => {
       const source = {
         source: "bitbucket",
         owner: "owner",
         repo: "repo",
         ref: Option.none(),
         subPath: Option.none(),
+        name: "bitbucket",
+        url: "https://bitbucket.org",
       } as const;
 
       const result = await Effect.runPromise(buildCloneUrl(source));
@@ -733,7 +755,7 @@ describe("source-parser", () => {
       expect(result).toBe("https://bitbucket.org/owner/repo.git");
     });
 
-    it("builds Azure Repos clone URL", async () => {
+    it("builds Azure Repos clone URL from config url", async () => {
       const source = {
         source: "azurerepos",
         organization: "myorg",
@@ -741,6 +763,8 @@ describe("source-parser", () => {
         repo: "myrepo",
         ref: Option.none(),
         subPath: Option.none(),
+        name: "azurerepos",
+        url: "https://dev.azure.com",
       } as const;
 
       const result = await Effect.runPromise(buildCloneUrl(source));
@@ -750,13 +774,15 @@ describe("source-parser", () => {
   });
 
   describe("getOrigin", () => {
-    it("returns GitHub origin URL", () => {
+    it("returns GitHub origin URL from config url", () => {
       const source = {
         source: "github",
         owner: "owner",
         repo: "repo",
         ref: Option.none(),
         subPath: Option.none(),
+        name: "github",
+        url: "https://github.com",
       } as const;
 
       const result = getOrigin(source);
@@ -764,13 +790,31 @@ describe("source-parser", () => {
       expect(result).toBe("https://github.com/owner/repo");
     });
 
-    it("returns GitLab origin URL", () => {
+    it("returns GitHub origin URL with custom url", () => {
+      const source = {
+        source: "github",
+        owner: "owner",
+        repo: "repo",
+        ref: Option.none(),
+        subPath: Option.none(),
+        name: "my-ghe",
+        url: "https://github.example.com",
+      } as const;
+
+      const result = getOrigin(source);
+
+      expect(result).toBe("https://github.example.com/owner/repo");
+    });
+
+    it("returns GitLab origin URL from config url", () => {
       const source = {
         source: "gitlab",
         owner: "owner",
         repo: "repo",
         ref: Option.none(),
         subPath: Option.none(),
+        name: "gitlab",
+        url: "https://gitlab.com",
       } as const;
 
       const result = getOrigin(source);
@@ -778,13 +822,15 @@ describe("source-parser", () => {
       expect(result).toBe("https://gitlab.com/owner/repo");
     });
 
-    it("returns Bitbucket origin URL", () => {
+    it("returns Bitbucket origin URL from config url", () => {
       const source = {
         source: "bitbucket",
         owner: "owner",
         repo: "repo",
         ref: Option.none(),
         subPath: Option.none(),
+        name: "bitbucket",
+        url: "https://bitbucket.org",
       } as const;
 
       const result = getOrigin(source);
@@ -792,7 +838,7 @@ describe("source-parser", () => {
       expect(result).toBe("https://bitbucket.org/owner/repo");
     });
 
-    it("returns Azure Repos origin URL", () => {
+    it("returns Azure Repos origin URL from config url", () => {
       const source = {
         source: "azurerepos",
         organization: "myorg",
@@ -800,6 +846,8 @@ describe("source-parser", () => {
         repo: "myrepo",
         ref: Option.none(),
         subPath: Option.none(),
+        name: "azurerepos",
+        url: "https://dev.azure.com",
       } as const;
 
       const result = getOrigin(source);

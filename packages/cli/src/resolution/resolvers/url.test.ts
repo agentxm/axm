@@ -11,13 +11,18 @@ import * as Option from "effect/Option";
 import { Workspace as Workspace } from "../../workspace/index.js";
 import { resolveUrl } from "./url.js";
 
-/** Empty workspace layer — resolveUrl never hits the NameInput branch. */
-const EmptyWorkspaceLayer = Layer.succeed(Workspace, {
+/** Workspace layer with configured sources for github/gitlab resolution. */
+const TestWorkspaceLayer = Layer.succeed(Workspace, {
   getLockedSkills: () => Effect.succeed({}),
+  getConfiguredSources: () =>
+    Effect.succeed([
+      { name: "github", source: "github", url: "https://github.com" },
+      { name: "gitlab", source: "gitlab", url: "https://gitlab.com" },
+    ]),
 } as unknown as Workspace["Type"]);
 
-/** Wrap resolveUrl with the empty workspace layer. */
-const resolve = (input: string) => resolveUrl(input).pipe(Effect.provide(EmptyWorkspaceLayer));
+/** Wrap resolveUrl with the test workspace layer. */
+const resolve = (input: string) => resolveUrl(input).pipe(Effect.provide(TestWorkspaceLayer));
 
 describe("url resolver", () => {
   describe("GitHub HTTPS URLs", () => {

@@ -10,7 +10,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { determineSourceInput } from "../../sources/index.js";
+import { resolveSource } from "../../sources/index.js";
 import type { ExtensionRef } from "../types.js";
 import { buildOriginUrl } from "./url-utils.js";
 
@@ -83,8 +83,8 @@ export const resolveExplicitSource = (input: string) => {
     return Effect.succeed([]);
   }
 
-  // Use existing determineSourceInput for the heavy lifting
-  return determineSourceInput(trimmed).pipe(
+  // Use resolveSource for the heavy lifting
+  return resolveSource(trimmed).pipe(
     Effect.map((src) => {
       // Only handle github/gitlab types (bitbucket/azure not yet implemented in parser)
       if (src.source !== "github" && src.source !== "gitlab") {

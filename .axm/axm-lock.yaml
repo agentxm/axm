@@ -1,2 +1,16 @@
 lockfileVersion: 1
-skills: {}
+skills:
+  brand-guidelines:
+    type: registry
+    scope: "@my-cool-org"
+    name: brand-guidelines
+    resolvedVersion: 0.1.0
+    checksum: ""
+    sourceName: default
+    agents:
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+    installedAt: 2026-02-11T16:41:59.519Z
+    updatedAt: 2026-02-11T16:41:59.525Z

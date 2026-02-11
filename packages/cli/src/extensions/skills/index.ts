@@ -26,7 +26,7 @@ export {
   isGitHostingProviderSource,
   ParseError,
   parseSourceInput,
-  printSource,
+  printSourceInput,
 } from "../../sources/index.js";
 
 // Types

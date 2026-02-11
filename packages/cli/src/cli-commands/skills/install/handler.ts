@@ -14,7 +14,7 @@
 
 import {
   resolveSource,
-  printSource,
+  printSourceInput,
   SourceProviders,
   registryGuard,
 } from "../../../sources/index.js";
@@ -123,7 +123,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
           }),
       ),
     );
-    yield* parseHandle.stop(`Source: ${printSource(source)} (${source.source})`);
+    yield* parseHandle.stop(`Source: ${printSourceInput(source)} (${source.source})`);
 
     // Step 1.5: Registry guard — ensure a registry source is configured
     if (source.source === "registry") {
@@ -145,7 +145,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
           new InstallError({
             message: formatError(
               `Failed to discover skills: ${error.message}`,
-              [`Source: ${printSource(source)}`],
+              [`Source: ${printSourceInput(source)}`],
               "Verify the source path contains directories with SKILL.md files.",
             ),
             cause: error,
@@ -161,7 +161,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       return yield* new InstallError({
         message: formatError(
           "No skills found in source",
-          [`Source: ${printSource(source)}`],
+          [`Source: ${printSourceInput(source)}`],
           "Verify the source path contains directories with SKILL.md files.",
         ),
         cause: undefined,
@@ -219,7 +219,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       ops,
       lockfile,
       "Install skill(s)",
-      Option.some(`Install skills from ${printSource(source)}`),
+      Option.some(`Install skills from ${printSourceInput(source)}`),
     );
 
     yield* ws.resolvePlan(plan, { "install-skill": installSkill });

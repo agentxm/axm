@@ -8,9 +8,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { SourceConfig } from "../../settings/index.js";
+import type { SourceType } from "../../sources/index.js";
 import { Workspace } from "../../workspace/index.js";
 import { defaultResolutionOptions } from "../resolver.js";
-import type { ExtensionType, ResolutionOptions, Source } from "../types.js";
+import type { ExtensionType, ResolutionOptions } from "../types.js";
 import { resolveAmbiguous } from "./ambiguous.js";
 
 /**
@@ -31,7 +32,7 @@ const makeOptions = (opts: {
   globalDir?: string;
   scope?: string;
   types?: readonly ExtensionType[];
-  sources?: readonly Source[];
+  sources?: readonly SourceType[];
   agents?: readonly string[];
 }): ResolutionOptions => ({
   ...defaultResolutionOptions,

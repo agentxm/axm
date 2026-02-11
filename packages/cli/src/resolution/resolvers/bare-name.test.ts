@@ -13,8 +13,9 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import type { SourceType } from "../../sources/index.js";
 import { defaultResolutionOptions } from "../resolver.js";
-import type { ExtensionType, ResolutionOptions, Source } from "../types.js";
+import type { ExtensionType, ResolutionOptions } from "../types.js";
 import { resolveBareName } from "./bare-name.js";
 
 /**
@@ -26,7 +27,7 @@ const makeOptions = (opts: {
   globalDir?: string;
   scope?: string;
   types?: readonly ExtensionType[];
-  sources?: readonly Source[];
+  sources?: readonly SourceType[];
   agents?: readonly string[];
 }): ResolutionOptions => ({
   ...defaultResolutionOptions,

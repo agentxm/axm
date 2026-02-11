@@ -16,7 +16,7 @@
 import * as Path from "@effect/platform/Path";
 import {
   resolveSource,
-  printSource,
+  printSourceInput,
   SourceProviders,
   registryGuard,
 } from "../../../sources/index.js";
@@ -125,7 +125,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
             new ForkError({
               message: formatError(
                 `Failed to discover skills: ${error.message}`,
-                [`Source: ${printSource(source)}`],
+                [`Source: ${printSourceInput(source)}`],
                 "Verify the source path contains directories with SKILL.md files.",
               ),
               cause: error,
@@ -140,7 +140,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
       return yield* new ForkError({
         message: formatError(
           "No skills found in source",
-          [`Source: ${printSource(source)}`],
+          [`Source: ${printSourceInput(source)}`],
           "Verify the source path contains directories with SKILL.md files.",
         ),
         cause: undefined,

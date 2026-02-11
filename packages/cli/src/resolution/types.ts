@@ -7,7 +7,7 @@
 
 import type { Option } from "effect";
 
-import type { SourceType as Source } from "../sources/index.js";
+import type { SourceType } from "../sources/index.js";
 
 /**
  * Discriminator for extension kinds.
@@ -15,15 +15,6 @@ import type { SourceType as Source } from "../sources/index.js";
  * @experimental This API is unstable and may change without notice.
  */
 export type ExtensionType = "skill" | "command" | "pack" | "mcp-server";
-
-/**
- * Where the extension comes from.
- *
- * Re-exported from canonical location at sources/types.ts.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type { Source };
 
 /**
  * Additional info about the extension.
@@ -50,7 +41,7 @@ export interface ExtensionRef {
   /** The kind of extension */
   readonly type: ExtensionType;
   /** Where the extension comes from */
-  readonly source: Source;
+  readonly source: SourceType;
   /** Fully resolved URL or path */
   readonly origin: string;
   /** Git ref if applicable (branch, tag, commit) */
@@ -74,7 +65,7 @@ export interface ResolutionOptions {
   /** Filter by extension types */
   readonly types: Option.Option<readonly ExtensionType[]>;
   /** Filter by source types */
-  readonly sources: Option.Option<readonly Source[]>;
+  readonly sources: Option.Option<readonly SourceType[]>;
   /** Filter by agent names */
   readonly agents: Option.Option<readonly string[]>;
   /** Current working directory */

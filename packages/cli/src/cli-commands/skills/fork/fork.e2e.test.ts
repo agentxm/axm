@@ -110,7 +110,7 @@ describe("axm skills fork", () => {
         // 4. Verify settings.json was updated with forked skill
         const settingsAfterFork = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settingsAfterFork.skills).toBeDefined();
-        expect(settingsAfterFork.skills["my-skill"]).toBe("registry");
+        expect(settingsAfterFork.skills["my-skill"]).toBe("@test/my-skill");
       } finally {
         temp.cleanup();
         registryDir.cleanup();

@@ -1,4 +1,5 @@
 {
+  "scope": "my-cool-org",
   "sources": [
     {
       "name": "local",
@@ -8,6 +9,6 @@
   ],
   "agents": ["antigravity", "claude-code", "codex", "cursor"],
   "skills": {
-    "frontend-design": "@community/frontend-design"
+    "brand-guidelines": "my-cool-org/brand-guidelines"
   }
 }

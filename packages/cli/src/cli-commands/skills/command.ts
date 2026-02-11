@@ -4,6 +4,7 @@ import { installCommand } from "./install/command.js";
 import { listCommand } from "./list/command.js";
 import { publishCommand } from "./publish/command.js";
 import { uninstallCommand } from "./uninstall/command.js";
+import { updateCommand } from "./update/command.js";
 
 export const skillsCommand: CommandModule = {
   command: "skills",
@@ -15,6 +16,7 @@ export const skillsCommand: CommandModule = {
       .command(listCommand)
       .command(forkCommand)
       .command(publishCommand)
+      .command(updateCommand)
       .demandCommand(1)
       .example("$0 skills install owner/repo", "Install skills from a GitHub repository")
       .example("$0 skills install owner/repo@v1.0.0", "Install skills from a specific version")

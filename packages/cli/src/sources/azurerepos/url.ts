@@ -4,6 +4,8 @@ import * as Option from "effect/Option";
 import { ParseError } from "../errors.js";
 import type { AzureReposSourceInput } from "../types.js";
 
+export const CANONICAL_HOSTNAME = "dev.azure.com";
+
 /** Matches: https://dev.azure.com/{org}/{project}/_git/{repo} */
 const AZUREREPOS_HTTPS_PATTERN =
   /^https?:\/\/dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\/([^/]+?)(?:\.git)?$/;

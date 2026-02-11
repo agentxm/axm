@@ -7,5 +7,5 @@
 
 export { checkAzureReposRepoExists } from "./repo-exists.js";
 export { print } from "./print.js";
-export { parseUrl } from "./url.js";
+export { CANONICAL_HOSTNAME, parseUrl } from "./url.js";
 export { parseScp } from "./scp.js";

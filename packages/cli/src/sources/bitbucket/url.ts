@@ -4,6 +4,8 @@ import * as Option from "effect/Option";
 import { ParseError } from "../errors.js";
 import type { BitbucketSourceInput } from "../types.js";
 
+export const CANONICAL_HOSTNAME = "bitbucket.org";
+
 /** Matches: https://bitbucket.org/owner/repo[/src/ref/path] */
 const BITBUCKET_HTTPS_PATTERN =
   /^https?:\/\/bitbucket\.org\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/src\/([^/]+)(?:\/(.+))?)?$/;

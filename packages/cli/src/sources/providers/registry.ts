@@ -138,6 +138,10 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
 
             for (const scopeDir of scopeDirs) {
               if (!scopeDir.startsWith("@")) continue;
+              // Scope filtering: when source specifies a scope, skip non-matching dirs
+              // Parser gives scope without @ (e.g., "community"), dirs have @ (e.g., "@community")
+              if (_source.scope && scopeDir !== `@${_source.scope}` && scopeDir !== _source.scope)
+                continue;
               const typeDir = path.join(extensionsDir, scopeDir, pluralizeType(extType));
               const typeDirExists = yield* fs
                 .exists(typeDir)

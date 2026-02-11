@@ -161,8 +161,8 @@ export const publishSkill: OperationHandler<
       ),
     );
 
-    // Build zip archive from src/ subdirectory (excludes manifest)
-    const archive = yield* buildZipArchive(path.join(extensionDir, "src"));
+    // Build zip archive from extension directory (includes manifest + src/)
+    const archive = yield* buildZipArchive(extensionDir);
 
     // Compute checksum
     const checksum = yield* computeChecksum(archive);

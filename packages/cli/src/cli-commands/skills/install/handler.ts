@@ -135,7 +135,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     // Step 5: Discover skills from source via SourceProviders
     const discoverHandle = yield* spinnerSvc.start("Discovering skills...");
     const findOptions = {
-      names: [] satisfies ReadonlyArray<string>,
+      names: (source.type === "registry" ? [source.name] : []) satisfies ReadonlyArray<string>,
       agents: args.agents,
       type: "skill" as const,
     };
@@ -194,9 +194,21 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       return;
     }
 
+    // For registry sources, fetch and extract the archive to a temp dir
+    const resolvedSkills = yield* Effect.forEach(
+      selectedSkills,
+      (s) => {
+        if (s.source.type !== "registry") return Effect.succeed(s);
+        return sources
+          .fetch(s)
+          .pipe(Effect.map((files) => ({ ...s, location: `file://${files.directory}` })));
+      },
+      { concurrency: "unbounded" },
+    );
+
     const agentIds = yield* ws.getConfiguredAgents();
 
-    const ops = selectedSkills.map(
+    const ops = resolvedSkills.map(
       (s) =>
         ({
           name: "install-skill",

@@ -28,6 +28,13 @@ describe("Settings schema", () => {
       expect(result.scope).toBe("@myorg");
     });
 
+    it("auto-prepends @ to bare scope", () => {
+      const input = { scope: "myorg" };
+      const result = Schema.decodeUnknownSync(SettingsSchema)(input);
+
+      expect(result.scope).toBe("@myorg");
+    });
+
     it("accepts settings with all fields", () => {
       const input = {
         scope: "@wayne",

@@ -690,6 +690,20 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
+    it.effect("normalizes bare scope by prepending @", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          scope: "myorg",
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const scope = yield* ws.getConfiguredScope();
+
+        expect(scope).toBe("@myorg");
+      }),
+    );
+
     it.effect("returns @community when no scope configured anywhere", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {

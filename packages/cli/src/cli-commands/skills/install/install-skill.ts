@@ -136,19 +136,6 @@ const installForAgent = (opts: {
 // -----------------------------------------------------------------------------
 
 /**
- * Extract the registry scope from a skill ref's location path.
- *
- * Registry locations have the form: `file:///path/to/registry/extensions/@scope/skills/name`
- * We look for the `@scope` segment in the path.
- */
-const extractRegistryScope = (location: string): string => {
-  const cleaned = location.replace(/^file:\/\//, "");
-  const segments = cleaned.split("/");
-  const scopeSegment = segments.find((s) => s.startsWith("@"));
-  return scopeSegment ?? "@community";
-};
-
-/**
  * Remove a directory if it exists, ignoring errors.
  */
 const removeIfExists = (fsService: FileSystem.FileSystem, dirPath: string) =>
@@ -227,14 +214,14 @@ export const installSkill: OperationHandler<
 
     // Determine canonical path based on source type
     const isRegistry = op.args.source.type === "registry";
+    // Normalize scope: parser gives "community" (no @), filesystem uses "@community"
+    const registryScope = isRegistry
+      ? op.args.source.scope.startsWith("@")
+        ? op.args.source.scope
+        : `@${op.args.source.scope}`
+      : undefined;
     const canonicalPath = isRegistry
-      ? path.join(
-          base,
-          REGISTRY_EXTENSIONS_DIR,
-          extractRegistryScope(op.args.location),
-          "skills",
-          sanitizedName,
-        )
+      ? path.join(base, REGISTRY_EXTENSIONS_DIR, registryScope!, "skills", sanitizedName)
       : path.join(base, CANONICAL_SKILLS_DIR, sanitizedName);
 
     // Validate canonical path safety
@@ -260,13 +247,15 @@ export const installSkill: OperationHandler<
       // Pre-clean from ALL known locations (ensures clean transitions between source types)
       yield* preCleanAllLocations(fs, base, sanitizedName, path);
 
-      // Copy skill files to content location
-      yield* copySkillDirectory(sourcePath, contentPath).pipe(
+      // For registry sources, copy to canonicalPath (extracted zip has manifest + src/)
+      // For other sources, copy to contentPath (no subdirectory structure)
+      const copyTarget = isRegistry ? canonicalPath : contentPath;
+      yield* copySkillDirectory(sourcePath, copyTarget).pipe(
         Effect.mapError(
           (e) =>
             new OperationError({
               operation: "install-skill",
-              message: `Failed to copy skill files to ${contentPath}`,
+              message: `Failed to copy skill files to ${copyTarget}`,
               cause: e,
             }),
         ),
@@ -299,7 +288,7 @@ export const installSkill: OperationHandler<
           now: new Date(),
           ...(isRegistry && {
             registry: {
-              scope: extractRegistryScope(op.args.location),
+              scope: registryScope!,
               name: sanitizedName,
               resolvedVersion: Option.getOrElse(op.args.version, () => "0.0.0"),
               checksum: "",

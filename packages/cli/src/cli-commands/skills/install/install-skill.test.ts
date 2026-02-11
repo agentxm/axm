@@ -424,12 +424,17 @@ describe("installSkill", () => {
   });
 
   describe("registry source canonical path", () => {
-    /** Sets up a source whose path contains an @scope segment for registry location extraction. */
+    /** Sets up a source dir matching extracted archive structure: axm-skill.json + src/. */
     const setupRegistrySource = (scope: string, name = "my-skill") => {
       const src = path.join(tmpDir, "registry", "extensions", scope, "skills", name);
-      fs.mkdirSync(src, { recursive: true });
-      fs.writeFileSync(path.join(src, "SKILL.md"), `# ${name}`);
-      fs.writeFileSync(path.join(src, "prompt.md"), "prompt content");
+      const srcDir = path.join(src, "src");
+      fs.mkdirSync(srcDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(src, "axm-skill.json"),
+        JSON.stringify({ name, version: "0.1.0" }),
+      );
+      fs.writeFileSync(path.join(srcDir, "SKILL.md"), `# ${name}`);
+      fs.writeFileSync(path.join(srcDir, "prompt.md"), "prompt content");
       return src;
     };
 
@@ -466,7 +471,7 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("extracts scope from registry location path", () =>
+    it.effect("uses scope from source, not location path", () =>
       Effect.gen(function* () {
         const src = setupRegistrySource("@myorg");
         const { axmDir, base } = setupBase();
@@ -474,14 +479,14 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { type: "registry", scope: "@community", name: "my-skill" },
+            source: { type: "registry", scope: "@myorg", name: "my-skill" },
             location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
 
-        // Should use the extracted scope with content in src/
+        // Should use source.scope for canonical path
         const registryCanonical = path.join(
           base,
           ".axm",

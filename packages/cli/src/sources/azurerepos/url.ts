@@ -22,7 +22,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
     );
   }
   return Effect.succeed({
-    source: "azurerepos",
+    type: "azurerepos",
     organization: match[1],
     project: match[2],
     repo: match[3],

@@ -9,7 +9,7 @@ describe("parseScp", () => {
     Effect.gen(function* () {
       const result = yield* parseScp("git@github.com:acme/widgets.git");
 
-      expect(result.source).toBe("github");
+      expect(result.type).toBe("github");
       expect(result.owner).toBe("acme");
       expect(result.repo).toBe("widgets");
       expect(Option.isNone(result.ref)).toBe(true);
@@ -30,7 +30,7 @@ describe("parseScp", () => {
     Effect.gen(function* () {
       const result = yield* parseScp("git@ghe.corp.com:acme/widgets.git", "ghe.corp.com");
 
-      expect(result.source).toBe("github");
+      expect(result.type).toBe("github");
       expect(result.owner).toBe("acme");
       expect(result.repo).toBe("widgets");
     }),

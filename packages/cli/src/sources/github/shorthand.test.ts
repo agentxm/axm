@@ -10,7 +10,7 @@ describe("shorthand", () => {
       Effect.gen(function* () {
         const result = yield* parseShorthand("github:acme/widgets");
 
-        expect(result.source).toBe("github");
+        expect(result.type).toBe("github");
         expect(result.owner).toBe("acme");
         expect(result.repo).toBe("widgets");
         expect(Option.isNone(result.ref)).toBe(true);

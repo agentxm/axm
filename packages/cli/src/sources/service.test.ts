@@ -88,7 +88,7 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceConfig>): WorkspaceConte
     Effect.succeed(
       (() => {
         const registrySources = sources.filter(
-          (s): s is Extract<SourceConfig, { source: "registry" }> => s.source === "registry",
+          (s): s is Extract<SourceConfig, { type: "registry" }> => s.type === "registry",
         );
         if (Option.isNone(scope)) return registrySources;
         const scopeValue = scope.value;
@@ -137,7 +137,7 @@ describe("registry meta-provider scope routing", () => {
     const checksum = computeChecksum(archive);
 
     return runWithService(
-      [{ name: "local", source: "registry" as const, url: new URL(`file://${registryRoot}`) }],
+      [{ name: "local", type: "registry" as const, url: new URL(`file://${registryRoot}`) }],
       Effect.gen(function* () {
         // Set up registry
         const fs = yield* FileSystem.FileSystem;
@@ -150,7 +150,7 @@ describe("registry meta-provider scope routing", () => {
         const svc = yield* SourceProviders;
         const refs = yield* svc.resolveExtension(
           {
-            source: "registry",
+            type: "registry",
             scope: "@test",
             name: "my-skill",
             url: new URL(`file://${registryRoot}`),
@@ -172,7 +172,7 @@ describe("registry meta-provider scope routing", () => {
       Effect.gen(function* () {
         const svc = yield* SourceProviders;
         const refs = yield* svc.resolveExtension(
-          { source: "registry", scope: "@test", name: "my-skill", url: new URL("file:///test") },
+          { type: "registry", scope: "@test", name: "my-skill", url: new URL("file:///test") },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
         expect(refs).toHaveLength(0);
@@ -192,7 +192,7 @@ describe("SourceProviders dispatch", () => {
         const svc = yield* SourceProviders;
         // Querying a nonexistent local path returns an error (not found)
         const result = yield* svc
-          .resolveExtension({ source: "local", path: "/nonexistent/path" }, defaultFindOptions)
+          .resolveExtension({ type: "local", path: "/nonexistent/path" }, defaultFindOptions)
           .pipe(Effect.either);
 
         // Local provider will fail because the dir doesn't exist
@@ -207,7 +207,7 @@ describe("SourceProviders dispatch", () => {
         const svc = yield* SourceProviders;
         const result = yield* svc
           .resolveExtension(
-            { source: "git", url: new URL("https://example.com/repo.git"), ref: Option.none() },
+            { type: "git", url: new URL("https://example.com/repo.git"), ref: Option.none() },
             defaultFindOptions,
           )
           .pipe(Effect.either);
@@ -228,7 +228,7 @@ describe("SourceProviders dispatch", () => {
         const result = yield* svc
           .resolveExtension(
             {
-              source: "azurerepos",
+              type: "azurerepos",
               organization: "org",
               project: "proj",
               repo: "repo",
@@ -252,12 +252,12 @@ describe("SourceProviders dispatch", () => {
     const registryRoot = makeRegistryDir();
 
     return runWithService(
-      [{ name: "local", source: "registry" as const, url: new URL(`file://${registryRoot}`) }],
+      [{ name: "local", type: "registry" as const, url: new URL(`file://${registryRoot}`) }],
       Effect.gen(function* () {
         const svc = yield* SourceProviders;
         const refs = yield* svc.resolveExtension(
           {
-            source: "registry",
+            type: "registry",
             scope: "@test",
             name: "nonexistent",
             url: new URL(`file://${registryRoot}`),

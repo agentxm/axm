@@ -179,7 +179,7 @@ export const publishSkill: OperationHandler<
       ),
     );
 
-    if (Option.isNone(registrySource) || registrySource.value.source !== "registry") {
+    if (Option.isNone(registrySource) || registrySource.value.type !== "registry") {
       return yield* new OperationError({
         operation: "publish-skill",
         message: `Registry source "${op.args.registryName}" not found or not a registry source`,

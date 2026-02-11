@@ -38,7 +38,7 @@ import type { BitbucketSource, GitHubSource, GitLabSource } from "../types.js";
  * @experimental This API is unstable and may change without notice.
  */
 export const createGitHostingProvider = <S extends GitHubSource | GitLabSource | BitbucketSource>(
-  sourceType: S["source"],
+  sourceType: S["type"],
 ): SourceProvider<S, FileSystem.FileSystem | Path.Path | Scope.Scope> => ({
   type: sourceType,
 

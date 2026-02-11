@@ -25,7 +25,7 @@ export const DateFromString = Schema.transform(Schema.String, Schema.DateFromSel
 });
 
 // =============================================================================
-// Flat Source Schemas (discriminated by source field)
+// Flat Source Schemas (discriminated by type field)
 // =============================================================================
 
 /**
@@ -46,7 +46,7 @@ const CommonFields = {
  * @experimental This API is unstable and may change without notice.
  */
 export const GitHubLockEntrySchema = Schema.Struct({
-  source: Schema.Literal("github"),
+  type: Schema.Literal("github"),
   owner: Schema.String,
   repo: Schema.String,
   ref: Schema.optional(Schema.String),
@@ -62,7 +62,7 @@ export const GitHubLockEntrySchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export const GitLabLockEntrySchema = Schema.Struct({
-  source: Schema.Literal("gitlab"),
+  type: Schema.Literal("gitlab"),
   owner: Schema.String,
   repo: Schema.String,
   ref: Schema.optional(Schema.String),
@@ -78,7 +78,7 @@ export const GitLabLockEntrySchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export const BitbucketLockEntrySchema = Schema.Struct({
-  source: Schema.Literal("bitbucket"),
+  type: Schema.Literal("bitbucket"),
   owner: Schema.String,
   repo: Schema.String,
   ref: Schema.optional(Schema.String),
@@ -94,7 +94,7 @@ export const BitbucketLockEntrySchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export const AzureReposLockEntrySchema = Schema.Struct({
-  source: Schema.Literal("azurerepos"),
+  type: Schema.Literal("azurerepos"),
   organization: Schema.String,
   project: Schema.String,
   repo: Schema.String,
@@ -111,7 +111,7 @@ export const AzureReposLockEntrySchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export const GitLockEntrySchema = Schema.Struct({
-  source: Schema.Literal("git"),
+  type: Schema.Literal("git"),
   url: Schema.String,
   ref: Schema.optional(Schema.String),
   path: Schema.optional(Schema.String),
@@ -125,7 +125,7 @@ export const GitLockEntrySchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export const LocalLockEntrySchema = Schema.Struct({
-  source: Schema.Literal("local"),
+  type: Schema.Literal("local"),
   path: Schema.String,
   ...CommonFields,
 });
@@ -137,7 +137,7 @@ export const LocalLockEntrySchema = Schema.Struct({
  * @experimental This API is unstable and may change without notice.
  */
 export const RegistryLockEntrySchema = Schema.Struct({
-  source: Schema.Literal("registry"),
+  type: Schema.Literal("registry"),
   scope: Schema.String,
   name: Schema.String,
   resolvedVersion: Schema.String,
@@ -152,10 +152,10 @@ export const RegistryLockEntrySchema = Schema.Struct({
 
 /**
  * Lock entry for a single installed skill.
- * Discriminated union by the `source` field.
+ * Discriminated union by the `type` field.
  *
  * Fields common to all entries:
- * - source: Source type ("github", "gitlab", "bitbucket", "azurerepos", "git", "local", "registry")
+ * - type: Source type ("github", "gitlab", "bitbucket", "azurerepos", "git", "local", "registry")
  * - agents: Agent IDs this skill is installed for (can be empty)
  * - installedAt: ISO 8601 timestamp of initial installation (Date in TS)
  * - updatedAt: ISO 8601 timestamp of last update (Date in TS)

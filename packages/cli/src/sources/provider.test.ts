@@ -20,7 +20,7 @@ const makeSkillRef = (overrides?: Partial<SkillRef>): SkillRef => ({
     metadata: Option.none(),
   },
   source: {
-    source: "github",
+    type: "github",
     owner: "owner",
     repo: "repo",
     ref: Option.none(),
@@ -36,7 +36,7 @@ const makeMcpServerRef = (overrides?: Partial<McpServerRef>): McpServerRef => ({
   type: "mcp-server",
   name: "my-server",
   source: {
-    source: "github",
+    type: "github",
     owner: "owner",
     repo: "repo",
     ref: Option.none(),
@@ -66,8 +66,8 @@ describe("SkillRef", () => {
 
   it("carries source input", () => {
     const ref = makeSkillRef();
-    expect(ref.source.source).toBe("github");
-    if (ref.source.source === "github") {
+    expect(ref.source.type).toBe("github");
+    if (ref.source.type === "github") {
       expect(ref.source.owner).toBe("owner");
       expect(ref.source.repo).toBe("repo");
     }
@@ -107,10 +107,10 @@ describe("McpServerRef", () => {
 
   it("carries source input", () => {
     const ref = makeMcpServerRef({
-      source: { source: "local", path: "/home/user/servers/my-server" },
+      source: { type: "local", path: "/home/user/servers/my-server" },
     });
-    expect(ref.source.source).toBe("local");
-    if (ref.source.source === "local") {
+    expect(ref.source.type).toBe("local");
+    if (ref.source.type === "local") {
       expect(ref.source.path).toBe("/home/user/servers/my-server");
     }
   });
@@ -149,7 +149,7 @@ describe("version Option semantics", () => {
   it("is None for git-sourced refs", () => {
     const ref = makeSkillRef({
       source: {
-        source: "github",
+        type: "github",
         owner: "o",
         repo: "r",
         ref: Option.some("main"),
@@ -162,7 +162,7 @@ describe("version Option semantics", () => {
 
   it("is None for local-sourced refs", () => {
     const ref = makeSkillRef({
-      source: { source: "local", path: "/home/user/skills/my-skill" },
+      source: { type: "local", path: "/home/user/skills/my-skill" },
       location: "file:///home/user/skills/my-skill",
       version: Option.none(),
     });
@@ -171,7 +171,7 @@ describe("version Option semantics", () => {
 
   it("is Some for registry-sourced refs", () => {
     const ref = makeSkillRef({
-      source: { source: "registry", scope: "@acme", name: "code-review" },
+      source: { type: "registry", scope: "@acme", name: "code-review" },
       location: "file:///registry/extensions/@acme/skills/code-review",
       version: Option.some("1.2.3"),
     });
@@ -181,7 +181,7 @@ describe("version Option semantics", () => {
 
   it("is Some for registry-sourced McpServerRef", () => {
     const ref = makeMcpServerRef({
-      source: { source: "registry", scope: "@acme", name: "code-review" },
+      source: { type: "registry", scope: "@acme", name: "code-review" },
       location: "file:///registry/extensions/@acme/mcp-servers/my-server",
       version: Option.some("2.0.0"),
     });
@@ -191,7 +191,7 @@ describe("version Option semantics", () => {
 
   it("is None for generic git-sourced refs", () => {
     const ref = makeSkillRef({
-      source: { source: "git", url: new URL("https://example.com/repo.git"), ref: Option.none() },
+      source: { type: "git", url: new URL("https://example.com/repo.git"), ref: Option.none() },
       version: Option.none(),
     });
     expect(Option.isNone(ref.version)).toBe(true);

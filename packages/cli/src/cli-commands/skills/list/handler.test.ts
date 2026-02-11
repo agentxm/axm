@@ -51,7 +51,7 @@ const initWorkspace = (
 };
 
 const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
-  source: "local",
+  type: "local",
   path: "/installed",
   agents,
   installedAt: new Date().toISOString(),

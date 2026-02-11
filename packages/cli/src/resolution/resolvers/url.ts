@@ -60,11 +60,11 @@ export const resolveUrl = (input: string) => {
   return resolveSource(trimmed).pipe(
     Effect.map((src) => {
       // Handle github/gitlab sources
-      if (src.source === "github" || src.source === "gitlab") {
+      if (src.type === "github" || src.type === "gitlab") {
         const ref: ExtensionRef = {
           type: "skill", // Infer as skill for now (will be enhanced later with manifest fetch)
-          source: src.source,
-          origin: buildOriginUrl(src.source, src.owner, src.repo),
+          source: src.type,
+          origin: buildOriginUrl(src.type, src.owner, src.repo),
           originalInput: input,
           name: Option.none(),
           ref: src.ref,

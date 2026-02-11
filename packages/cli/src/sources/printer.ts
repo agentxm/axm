@@ -18,7 +18,7 @@ import type { SourceInput } from "./types.js";
  * @experimental This API is unstable and may change without notice.
  */
 export const printSourceInput = (source: SourceInput): string => {
-  switch (source.source) {
+  switch (source.type) {
     case "github":
       return githubPrint(source);
     case "gitlab":

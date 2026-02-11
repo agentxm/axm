@@ -58,7 +58,7 @@ export type SourceType = typeof SourceTypeSchema.Type;
  * GitHub repository source.
  */
 export interface GitHubSourceInput {
-  readonly source: "github";
+  readonly type: "github";
   /** Repository owner (user or organization) */
   readonly owner: string;
   /** Repository name */
@@ -73,7 +73,7 @@ export interface GitHubSourceInput {
  * GitLab repository source.
  */
 export interface GitLabSourceInput {
-  readonly source: "gitlab";
+  readonly type: "gitlab";
   /** Repository owner (user or group) */
   readonly owner: string;
   /** Repository name */
@@ -88,7 +88,7 @@ export interface GitLabSourceInput {
  * Bitbucket repository source.
  */
 export interface BitbucketSourceInput {
-  readonly source: "bitbucket";
+  readonly type: "bitbucket";
   /** Workspace (formerly team or user) */
   readonly owner: string;
   /** Repository slug */
@@ -119,7 +119,7 @@ export type GitSource = GitHostingProviderSource | GitRepositorySourceInput;
  * URL format: https://dev.azure.com/{organization}/{project}/_git/{repo}
  */
 export interface AzureReposSourceInput {
-  readonly source: "azurerepos";
+  readonly type: "azurerepos";
   /** Azure DevOps organization */
   readonly organization: string;
   /** Azure DevOps project */
@@ -142,7 +142,7 @@ export interface AzureReposSourceInput {
  * - File URI: file:///path/to/repo.git
  */
 export type GitRepositorySourceInput = {
-  readonly source: "git";
+  readonly type: "git";
   /** Git ref (tag, branch, or SHA) */
   readonly ref: Option.Option<string>;
   readonly url: URL;
@@ -152,7 +152,7 @@ export type GitRepositorySourceInput = {
  * Package registry source input (placeholder for future implementation).
  */
 export type RegistrySourceInput = {
-  readonly source: "registry";
+  readonly type: "registry";
   readonly scope: string;
   readonly name: string;
 };
@@ -161,14 +161,14 @@ export type RegistrySourceInput = {
  * Local filesystem path source.
  */
 export interface LocalSourceInput {
-  readonly source: "local";
+  readonly type: "local";
   /** Absolute path for local sources (after ~ expansion) */
   readonly path: string;
 }
 
 /**
  * Union of all source input types.
- * Discriminated union based on the `source` field.
+ * Discriminated union based on the `type` field.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -206,7 +206,7 @@ export type LocalSource = LocalSourceInput;
 
 /**
  * Union of all resolved source types.
- * Discriminated union based on the `source` field.
+ * Discriminated union based on the `type` field.
  *
  * @experimental This API is unstable and may change without notice.
  */

@@ -56,9 +56,9 @@ import { applyPlan, type ExecutionContext, type Handlers } from "./apply-plan.js
  * @internal
  */
 const BUILT_IN_SOURCES: ReadonlyArray<SourceConfig> = [
-  { name: "github", source: "github", url: new URL("https://github.com") },
-  { name: "gitlab", source: "gitlab", url: new URL("https://gitlab.com") },
-  { name: "bitbucket", source: "bitbucket", url: new URL("https://bitbucket.org") },
+  { name: "github", type: "github", url: new URL("https://github.com") },
+  { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
+  { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
 ];
 
 /**
@@ -468,7 +468,7 @@ const make = (options: WorkspaceContextOptions) =>
         getConfiguredSources().pipe(
           Effect.map((sources) => {
             const registrySources = sources.filter(
-              (s): s is Extract<SourceConfig, { source: "registry" }> => s.source === "registry",
+              (s): s is Extract<SourceConfig, { type: "registry" }> => s.type === "registry",
             );
             if (Option.isNone(scope)) return registrySources;
             const scopeValue = scope.value;
@@ -640,7 +640,7 @@ export interface WorkspaceContextService {
   /** Filter merged sources to registry sources, optionally filtered by scope. */
   readonly getConfiguredRegistrySources: (
     scope: Option.Option<string>,
-  ) => Effect.Effect<ReadonlyArray<Extract<SourceConfig, { source: "registry" }>>, SettingsError>;
+  ) => Effect.Effect<ReadonlyArray<Extract<SourceConfig, { type: "registry" }>>, SettingsError>;
   /** Resolve scope: project settings -> global settings -> DEFAULT_SCOPE. */
   readonly getConfiguredScope: () => Effect.Effect<string, SettingsError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */

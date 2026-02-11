@@ -211,7 +211,7 @@ export const uninstallSkill: OperationHandler<
               }),
           ),
         );
-        const currentSource = installedSkills[op.args.skillName] ?? lockEntry.source;
+        const currentSource = installedSkills[op.args.skillName] ?? lockEntry.type;
         yield* ws
           .setSkill(op.args.skillName, currentSource, {
             ...lockEntry,

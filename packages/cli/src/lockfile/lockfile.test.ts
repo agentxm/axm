@@ -26,14 +26,14 @@ describe("lockfile", () => {
 
   const createTestEntry = (
     overrides?: Partial<SkillLockEntry>,
-  ): SkillLockEntry & { source: "github" } => ({
-    source: "github",
+  ): SkillLockEntry & { type: "github" } => ({
+    type: "github",
     owner: "example-org",
     repo: "agent-skills",
     agents: ["claude-code"],
     installedAt: new Date("2026-01-28T10:00:00.000Z"),
     updatedAt: new Date("2026-01-28T10:00:00.000Z"),
-    ...(overrides as Partial<SkillLockEntry & { source: "github" }>),
+    ...(overrides as Partial<SkillLockEntry & { type: "github" }>),
   });
 
   describe("readLockfile", () => {
@@ -56,7 +56,7 @@ describe("lockfile", () => {
             lockfileVersion: 1,
             skills: {
               "pr-review": {
-                source: "github",
+                type: "github",
                 owner: "example-org",
                 repo: "agent-skills",
                 agents: ["claude-code"],
@@ -72,8 +72,8 @@ describe("lockfile", () => {
           expect(result.lockfileVersion).toBe(1);
           const prReview = result.skills["pr-review"];
           expect(prReview).toBeDefined();
-          expect(prReview?.source).toBe("github");
-          if (prReview?.source === "github") {
+          expect(prReview?.type).toBe("github");
+          if (prReview?.type === "github") {
             expect(prReview?.owner).toBe("example-org");
             expect(prReview?.repo).toBe("agent-skills");
           }
@@ -157,7 +157,7 @@ describe("lockfile", () => {
           const parsed = YAML.parse(content);
           expect(parsed.lockfileVersion).toBe(1);
           expect(parsed.skills["pr-review"]).toBeDefined();
-          expect(parsed.skills["pr-review"].source).toBe("github");
+          expect(parsed.skills["pr-review"].type).toBe("github");
           expect(parsed.skills["pr-review"].owner).toBe("example-org");
           expect(parsed.skills["pr-review"].repo).toBe("agent-skills");
         }),
@@ -197,7 +197,7 @@ describe("lockfile", () => {
       withContext(
         Effect.gen(function* () {
           const entry: SkillLockEntry = {
-            source: "github",
+            type: "github",
             owner: "example-org",
             repo: "agent-skills",
             ref: "main",
@@ -219,8 +219,8 @@ describe("lockfile", () => {
 
           expect(result.lockfileVersion).toBe(1);
           const prReview = result.skills["pr-review"];
-          expect(prReview?.source).toBe("github");
-          if (prReview?.source === "github") {
+          expect(prReview?.type).toBe("github");
+          if (prReview?.type === "github") {
             expect(prReview?.owner).toBe(entry.owner);
             expect(prReview?.repo).toBe(entry.repo);
             expect(prReview?.ref).toBe(entry.ref);

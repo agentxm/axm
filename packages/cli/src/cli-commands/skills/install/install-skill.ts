@@ -226,7 +226,7 @@ export const installSkill: OperationHandler<
     const sanitizedName = sanitizeName(op.args.skill.name);
 
     // Determine canonical path based on source type
-    const isRegistry = op.args.source.source === "registry";
+    const isRegistry = op.args.source.type === "registry";
     const canonicalPath = isRegistry
       ? path.join(
           base,

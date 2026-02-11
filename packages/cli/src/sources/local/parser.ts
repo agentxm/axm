@@ -14,5 +14,5 @@ import type { LocalSourceInput } from "../types.js";
  * Parse a local filesystem path.
  */
 export const parseLocalPath = (input: string): Effect.Effect<LocalSourceInput, ParseError> => {
-  return Effect.succeed({ source: "local" as const, path: input });
+  return Effect.succeed({ type: "local" as const, path: input });
 };

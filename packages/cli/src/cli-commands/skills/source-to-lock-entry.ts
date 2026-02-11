@@ -67,10 +67,10 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
   const common = commonFields(input);
   const { source } = input;
 
-  switch (source.source) {
+  switch (source.type) {
     case "github":
       return {
-        source: "github",
+        type: "github",
         owner: source.owner,
         repo: source.repo,
         ...optionalField("ref", source.ref),
@@ -80,7 +80,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
 
     case "gitlab":
       return {
-        source: "gitlab",
+        type: "gitlab",
         owner: source.owner,
         repo: source.repo,
         ...optionalField("ref", source.ref),
@@ -90,7 +90,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
 
     case "bitbucket":
       return {
-        source: "bitbucket",
+        type: "bitbucket",
         owner: source.owner,
         repo: source.repo,
         ...optionalField("ref", source.ref),
@@ -100,7 +100,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
 
     case "azurerepos":
       return {
-        source: "azurerepos",
+        type: "azurerepos",
         organization: source.organization,
         project: source.project,
         repo: source.repo,
@@ -111,7 +111,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
 
     case "git":
       return {
-        source: "git",
+        type: "git",
         url: source.url.href,
         ...optionalField("ref", source.ref),
         ...common,
@@ -119,7 +119,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
 
     case "local":
       return {
-        source: "local",
+        type: "local",
         path: source.path,
         ...common,
       };
@@ -134,7 +134,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
         );
       }
       return {
-        source: "registry",
+        type: "registry",
         scope: reg.scope,
         name: reg.name,
         resolvedVersion: reg.resolvedVersion,

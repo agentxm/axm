@@ -38,7 +38,7 @@ describe("createLocalProvider", () => {
       Effect.gen(function* () {
         const provider = createLocalProvider();
         const refs = yield* provider.find(
-          { source: "local", path: dir },
+          { type: "local", path: dir },
           { names: [], agents: [], type: "skill" },
         );
         expect(refs.length).toBeGreaterThanOrEqual(1);
@@ -56,7 +56,7 @@ describe("createLocalProvider", () => {
         const provider = createLocalProvider();
         const result = yield* provider
           .find(
-            { source: "local", path: "/nonexistent/path/that/does/not/exist" },
+            { type: "local", path: "/nonexistent/path/that/does/not/exist" },
             { names: [], agents: [], type: "skill" },
           )
           .pipe(Effect.either);
@@ -84,7 +84,7 @@ describe("createLocalProvider", () => {
       Effect.gen(function* () {
         const provider = createLocalProvider();
         const refs = yield* provider.find(
-          { source: "local", path: dir },
+          { type: "local", path: dir },
           { names: ["skill-a"], agents: [], type: "skill" },
         );
         expect(refs).toHaveLength(1);
@@ -105,11 +105,11 @@ describe("createLocalProvider", () => {
       Effect.gen(function* () {
         const provider = createLocalProvider();
         const result = yield* provider.fetch(
-          { source: "local", path: dir },
+          { type: "local", path: dir },
           {
             type: "skill",
             skill: { name: "x", description: "", metadata: Option.none() },
-            source: { source: "local", path: dir },
+            source: { type: "local", path: dir },
             location: `file://${dir}`,
             version: Option.none(),
             gitTreeSha: Option.none(),

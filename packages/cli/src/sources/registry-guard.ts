@@ -32,7 +32,7 @@ export const registryGuard = Effect.gen(function* () {
   // Not configured in non-interactive mode - fail
   if (workspace.nonInteractive) {
     return yield* new RegistryNotConfiguredError({
-      message: `No registry source configured. Add one to .axm/settings.json:\n\n{\n  "sources": [\n    { "name": "local", "source": "registry", "url": "/path/to/registry" }\n  ]\n}`,
+      message: `No registry source configured. Add one to .axm/settings.json:\n\n{\n  "sources": [\n    { "name": "local", "type": "registry", "url": "/path/to/registry" }\n  ]\n}`,
     });
   }
 
@@ -51,7 +51,7 @@ export const registryGuard = Effect.gen(function* () {
   // Persist to settings
   yield* workspace.addConfiguredSource({
     name: "local",
-    source: "registry",
+    type: "registry",
     url: new URL(`file://${normalizedPath}`),
   });
 });

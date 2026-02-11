@@ -23,7 +23,7 @@ import type { Source } from "./types.js";
  * @returns Effect containing the HTTPS clone URL or CloneUrlError
  */
 export const buildCloneUrl = (source: Source): Effect.Effect<string, CloneUrlError> => {
-  switch (source.source) {
+  switch (source.type) {
     case "github":
       return Effect.succeed(`${source.url.origin}/${source.owner}/${source.repo}.git`);
     case "gitlab":
@@ -37,8 +37,8 @@ export const buildCloneUrl = (source: Source): Effect.Effect<string, CloneUrlErr
     default:
       return Effect.fail(
         new CloneUrlError({
-          message: `Cannot build clone URL for source type: ${source.source}`,
-          sourceType: source.source,
+          message: `Cannot build clone URL for source type: ${source.type}`,
+          sourceType: source.type,
         }),
       );
   }
@@ -62,7 +62,7 @@ export const buildCloneUrl = (source: Source): Effect.Effect<string, CloneUrlErr
  * @returns The origin URL or path
  */
 export const getOrigin = (source: Source): string => {
-  switch (source.source) {
+  switch (source.type) {
     case "github":
       return `${source.url.origin}/${source.owner}/${source.repo}`;
     case "gitlab":
@@ -76,6 +76,6 @@ export const getOrigin = (source: Source): string => {
     case "git":
       return source.url.href;
     case "registry":
-      return source.source;
+      return source.type;
   }
 };

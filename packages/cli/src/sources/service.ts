@@ -183,7 +183,7 @@ export const SourceProvidersLive: Layer.Layer<
     );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dispatch table: each key maps to correct provider
-    const providers: Record<Source["source"], SourceProvider<any, any>> = {
+    const providers: Record<Source["type"], SourceProvider<any, any>> = {
       github: githubProvider,
       gitlab: gitlabProvider,
       bitbucket: bitbucketProvider,
@@ -195,7 +195,7 @@ export const SourceProvidersLive: Layer.Layer<
 
     return {
       resolveExtension: (source, options) =>
-        providers[source.source]
+        providers[source.type]
           .find(source, options)
           .pipe(Effect.provide(depLayer)) as Effect.Effect<
           ReadonlyArray<ExtensionRef>,
@@ -203,7 +203,7 @@ export const SourceProvidersLive: Layer.Layer<
           Scope.Scope
         >,
       fetch: (ref) =>
-        providers[ref.source.source]
+        providers[ref.source.type]
           .fetch(ref.source, ref)
           .pipe(Effect.provide(depLayer)) as Effect.Effect<
           ExtensionFiles,

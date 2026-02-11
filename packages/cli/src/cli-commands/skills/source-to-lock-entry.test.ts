@@ -22,7 +22,7 @@ describe("sourceToLockEntry", () => {
 
   it("maps GitHub source with all optional fields", () => {
     const source: GitHubSourceInput = {
-      source: "github",
+      type: "github",
       owner: "acme",
       repo: "skills",
       ref: Option.some("v1.0"),
@@ -37,7 +37,7 @@ describe("sourceToLockEntry", () => {
     });
 
     expect(result).toEqual({
-      source: "github",
+      type: "github",
       owner: "acme",
       repo: "skills",
       ref: "v1.0",
@@ -51,7 +51,7 @@ describe("sourceToLockEntry", () => {
 
   it("maps GitHub source with none optional fields", () => {
     const source: GitHubSourceInput = {
-      source: "github",
+      type: "github",
       owner: "acme",
       repo: "skills",
       ref: Option.none(),
@@ -66,7 +66,7 @@ describe("sourceToLockEntry", () => {
     });
 
     expect(result).toEqual({
-      source: "github",
+      type: "github",
       owner: "acme",
       repo: "skills",
       agents,
@@ -81,7 +81,7 @@ describe("sourceToLockEntry", () => {
 
   it("maps GitLab source", () => {
     const source: GitLabSourceInput = {
-      source: "gitlab",
+      type: "gitlab",
       owner: "team",
       repo: "prompts",
       ref: Option.some("main"),
@@ -96,7 +96,7 @@ describe("sourceToLockEntry", () => {
     });
 
     expect(result).toEqual({
-      source: "gitlab",
+      type: "gitlab",
       owner: "team",
       repo: "prompts",
       ref: "main",
@@ -112,7 +112,7 @@ describe("sourceToLockEntry", () => {
 
   it("maps Bitbucket source", () => {
     const source: BitbucketSourceInput = {
-      source: "bitbucket",
+      type: "bitbucket",
       owner: "workspace",
       repo: "skills-repo",
       ref: Option.none(),
@@ -127,7 +127,7 @@ describe("sourceToLockEntry", () => {
     });
 
     expect(result).toEqual({
-      source: "bitbucket",
+      type: "bitbucket",
       owner: "workspace",
       repo: "skills-repo",
       path: "skills/lint",
@@ -143,7 +143,7 @@ describe("sourceToLockEntry", () => {
 
   it("maps Azure Repos source", () => {
     const source: AzureReposSourceInput = {
-      source: "azurerepos",
+      type: "azurerepos",
       organization: "myorg",
       project: "myproject",
       repo: "skills",
@@ -159,7 +159,7 @@ describe("sourceToLockEntry", () => {
     });
 
     expect(result).toEqual({
-      source: "azurerepos",
+      type: "azurerepos",
       organization: "myorg",
       project: "myproject",
       repo: "skills",
@@ -178,7 +178,7 @@ describe("sourceToLockEntry", () => {
 
   it("maps Git URL source", () => {
     const source: GitRepositorySourceInput = {
-      source: "git",
+      type: "git",
       url: new URL("https://example.com/repo.git"),
       ref: Option.some("main"),
     };
@@ -191,7 +191,7 @@ describe("sourceToLockEntry", () => {
     });
 
     expect(result).toEqual({
-      source: "git",
+      type: "git",
       url: "https://example.com/repo.git",
       ref: "main",
       agents,
@@ -206,7 +206,7 @@ describe("sourceToLockEntry", () => {
 
   it("maps Local source", () => {
     const source: LocalSourceInput = {
-      source: "local",
+      type: "local",
       path: "/home/user/skills/my-skill",
     };
 
@@ -218,7 +218,7 @@ describe("sourceToLockEntry", () => {
     });
 
     expect(result).toEqual({
-      source: "local",
+      type: "local",
       path: "/home/user/skills/my-skill",
       agents,
       installedAt: now,
@@ -232,7 +232,7 @@ describe("sourceToLockEntry", () => {
 
   it("maps Registry source", () => {
     const source: RegistrySourceInput = {
-      source: "registry",
+      type: "registry",
       scope: "@community",
       name: "my-skill",
     };
@@ -252,7 +252,7 @@ describe("sourceToLockEntry", () => {
     });
 
     expect(result).toEqual({
-      source: "registry",
+      type: "registry",
       scope: "@acme",
       name: "code-review",
       resolvedVersion: "2.1.0",
@@ -270,7 +270,7 @@ describe("sourceToLockEntry", () => {
 
   it("converts Option.some to plain value", () => {
     const source: GitHubSourceInput = {
-      source: "github",
+      type: "github",
       owner: "a",
       repo: "b",
       ref: Option.some("v1"),
@@ -284,8 +284,8 @@ describe("sourceToLockEntry", () => {
       now,
     });
 
-    expect(result.source).toBe("github");
-    if (result.source !== "github") throw new Error("Expected github");
+    expect(result.type).toBe("github");
+    if (result.type !== "github") throw new Error("Expected github");
     expect(result.ref).toBe("v1");
     expect(result.path).toBe("dir");
     expect(result.gitTreeHash).toBe("sha");
@@ -293,7 +293,7 @@ describe("sourceToLockEntry", () => {
 
   it("converts Option.none to undefined (omitted)", () => {
     const source: GitHubSourceInput = {
-      source: "github",
+      type: "github",
       owner: "a",
       repo: "b",
       ref: Option.none(),

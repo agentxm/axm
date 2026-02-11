@@ -57,6 +57,6 @@ export const handleList = (args: ListHandlerArgs) =>
     // Display each skill
     for (const [name, entry] of filtered) {
       const agents = entry.agents.length > 0 ? entry.agents.join(", ") : "none";
-      yield* log.message(`${name}  (${entry.source})  [${agents}]`);
+      yield* log.message(`${name}  (${entry.type})  [${agents}]`);
     }
   });

@@ -51,7 +51,7 @@ const initWorkspace = (
     JSON.stringify({
       scope: "@test",
       agents: ["claude-code"],
-      sources: [{ name: "local", source: "registry", url: new URL(`file://${registryRoot}`) }],
+      sources: [{ name: "local", type: "registry", url: new URL(`file://${registryRoot}`) }],
     }),
   );
   fs.writeFileSync(
@@ -133,7 +133,7 @@ describe("fork.handler", () => {
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
         commit: {
-          source: "local",
+          type: "local",
           path: skillsDir,
           agents: ["claude-code"],
           installedAt: new Date().toISOString(),
@@ -280,7 +280,7 @@ describe("fork.handler", () => {
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
         "my-skill": {
-          source: "local",
+          type: "local",
           path: skillsDir,
           agents: ["claude-code"],
           installedAt: new Date().toISOString(),
@@ -342,7 +342,7 @@ describe("fork.handler", () => {
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
         "my-skill": {
-          source: "local",
+          type: "local",
           path: skillsDir,
           agents: ["claude-code"],
           installedAt: new Date().toISOString(),

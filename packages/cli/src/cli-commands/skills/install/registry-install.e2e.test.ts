@@ -27,7 +27,7 @@ describe("axm skills install from local registry (via fork)", () => {
       // Set up registry source and scope in settings
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-      settings.sources = [{ name: "local", source: "registry", url: `file://${registryDir.path}` }];
+      settings.sources = [{ name: "local", type: "registry", url: `file://${registryDir.path}` }];
       settings.scope = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
@@ -81,11 +81,11 @@ describe("axm skills install from local registry (via fork)", () => {
       expect(lock.skills["my-skill"]).toBeDefined();
 
       const entry = lock.skills["my-skill"];
-      expect(entry.source).toBe("registry");
+      expect(entry.type).toBe("registry");
       expect(entry.scope).toBe("@test");
       expect(entry.name).toBe("my-skill");
       expect(entry.resolvedVersion).toBeDefined();
-      expect(entry.sourceName).toBeDefined();
+      expect(entry.typeName).toBeDefined();
       expect(entry.agents).toContain("claude-code");
       expect(entry.installedAt).toBeDefined();
       expect(entry.updatedAt).toBeDefined();
@@ -105,7 +105,7 @@ describe("axm skills install from local registry (via fork)", () => {
       // Set up registry source
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-      settings.sources = [{ name: "local", source: "registry", url: `file://${registryDir.path}` }];
+      settings.sources = [{ name: "local", type: "registry", url: `file://${registryDir.path}` }];
       settings.scope = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
@@ -174,7 +174,7 @@ describe("axm skills install from local registry (via fork)", () => {
 
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-      settings.sources = [{ name: "local", source: "registry", url: `file://${registryDir.path}` }];
+      settings.sources = [{ name: "local", type: "registry", url: `file://${registryDir.path}` }];
       settings.scope = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 

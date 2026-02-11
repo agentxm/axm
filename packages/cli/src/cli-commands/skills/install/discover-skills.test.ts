@@ -20,7 +20,7 @@ import { getAllAgents } from "../../../agents/index.js";
 import type { SourceInput } from "../../../sources/types.js";
 
 /** Default source for tests. */
-const testSource: SourceInput = { source: "local", path: "/test" };
+const testSource: SourceInput = { type: "local", path: "/test" };
 
 // -----------------------------------------------------------------------------
 // Helpers

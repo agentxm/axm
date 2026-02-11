@@ -1,2 +1,16 @@
 lockfileVersion: 1
-skills: {}
+skills:
+  frontend-design:
+    type: registry
+    scope: "@community"
+    name: frontend-design
+    resolvedVersion: 0.1.0
+    checksum: ""
+    sourceName: default
+    agents:
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+    installedAt: 2026-02-11T03:37:35.368Z
+    updatedAt: 2026-02-11T03:37:35.372Z

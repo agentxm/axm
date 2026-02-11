@@ -127,12 +127,28 @@ describe("resolveSource", () => {
     );
   });
 
-  describe("registry passthrough", () => {
-    it.effect("registry pattern is not yet supported (passthrough as ParseError)", () =>
+  describe("registry resolution", () => {
+    it.effect("resolves @scope/name to registry source with no config fields", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(resolve("@scope/my-skill"));
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toContain("not yet supported");
+        const result = yield* resolve("@scope/name");
+        expect(result.type).toBe("registry");
+        if (result.type === "registry") {
+          expect(result.scope).toBe("scope");
+          expect(result.name).toBe("name");
+        }
+        // No config fields (name, url) — registry source is self-describing
+        expect(Object.keys(result)).toEqual(["type", "scope", "name"]);
+      }),
+    );
+
+    it.effect("resolves @acme/my-skill to registry source", () =>
+      Effect.gen(function* () {
+        const result = yield* resolve("@acme/my-skill");
+        expect(result.type).toBe("registry");
+        if (result.type === "registry") {
+          expect(result.scope).toBe("acme");
+          expect(result.name).toBe("my-skill");
+        }
       }),
     );
   });

@@ -7,5 +7,7 @@
     }
   ],
   "agents": ["antigravity", "claude-code", "codex", "cursor"],
-  "skills": {}
+  "skills": {
+    "frontend-design": "@community/frontend-design"
+  }
 }

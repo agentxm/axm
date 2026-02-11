@@ -6,12 +6,16 @@ import type { BitbucketSourceInput } from "../types.js";
 
 export const CANONICAL_HOSTNAME = "bitbucket.org";
 
-/** Matches: https://bitbucket.org/owner/repo[/src/ref/path] */
-const BITBUCKET_HTTPS_PATTERN =
-  /^https?:\/\/bitbucket\.org\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/src\/([^/]+)(?:\/(.+))?)?$/;
+/** Matches: /owner/repo[/src/ref/path] */
+const BITBUCKET_PATH_PATTERN = /^\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/src\/([^/]+)(?:\/(.+))?)?$/;
 
-export const parseUrl = (url: URL) => {
-  const match = url.href.match(BITBUCKET_HTTPS_PATTERN);
+export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
+  if (url.hostname !== hostname) {
+    return Effect.fail(
+      new ParseError({ message: "Invalid Bitbucket URL format", input: url.href }),
+    );
+  }
+  const match = url.pathname.match(BITBUCKET_PATH_PATTERN);
   if (!match || !match[1] || !match[2]) {
     return Effect.fail(
       new ParseError({ message: "Invalid Bitbucket URL format", input: url.href }),

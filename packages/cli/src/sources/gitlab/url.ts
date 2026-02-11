@@ -6,12 +6,14 @@ import type { GitLabSourceInput } from "../types.js";
 
 export const CANONICAL_HOSTNAME = "gitlab.com";
 
-/** Matches: https://gitlab.com/owner/repo[/-/tree/ref/path] */
-const GITLAB_HTTPS_PATTERN =
-  /^https?:\/\/gitlab\.com\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/-\/tree\/([^/]+)(?:\/(.+))?)?$/;
+/** Matches: /owner/repo[/-/tree/ref/path] */
+const GITLAB_PATH_PATTERN = /^\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/-\/tree\/([^/]+)(?:\/(.+))?)?$/;
 
-export const parseUrl = (url: URL) => {
-  const match = url.href.match(GITLAB_HTTPS_PATTERN);
+export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
+  if (url.hostname !== hostname) {
+    return Effect.fail(new ParseError({ message: "Invalid GitLab URL format", input: url.href }));
+  }
+  const match = url.pathname.match(GITLAB_PATH_PATTERN);
   if (!match || !match[1] || !match[2]) {
     return Effect.fail(new ParseError({ message: "Invalid GitLab URL format", input: url.href }));
   }

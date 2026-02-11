@@ -16,8 +16,8 @@ const TestWorkspaceLayer = Layer.succeed(Workspace, {
   getLockedSkills: () => Effect.succeed({}),
   getConfiguredSources: () =>
     Effect.succeed([
-      { name: "github", source: "github", url: "https://github.com" },
-      { name: "gitlab", source: "gitlab", url: "https://gitlab.com" },
+      { name: "github", source: "github", url: new URL("https://github.com") },
+      { name: "gitlab", source: "gitlab", url: new URL("https://gitlab.com") },
     ]),
 } as unknown as Workspace["Type"]);
 

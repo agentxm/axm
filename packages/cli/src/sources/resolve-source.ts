@@ -1,11 +1,18 @@
 /**
- * Source resolution: combines parsed input with matching source config.
+ * Source resolution: classifies input via parseInputPattern, then routes
+ * each pattern type to the appropriate resolution logic.
+ *
+ * For URL and SCP patterns, resolution iterates configured sources and
+ * matches by hostname + provider parse. For other patterns, resolution
+ * handles them directly.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
+import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 
 import * as azurerepos from "./azurerepos/index.js";
@@ -13,9 +20,11 @@ import * as bitbucket from "./bitbucket/index.js";
 import { ParseError } from "./errors.js";
 import * as github from "./github/index.js";
 import * as gitlab from "./gitlab/index.js";
-import { parseSourceInput, parseInputPattern } from "./parser.js";
-import type { ParseSourceInputResult, Source, SourceInput, SourceType } from "./types.js";
+import { parseLocalPath } from "./local/index.js";
+import { parseInputPattern } from "./parser.js";
+import type { Source, SourceInput, SourceType } from "./types.js";
 import type { SourceConfig } from "../settings/schema.js";
+import type { SkillLockEntry } from "../lockfile/index.js";
 import { Workspace } from "../workspace/index.js";
 
 // -----------------------------------------------------------------------------
@@ -29,86 +38,32 @@ const GIT_HOSTING_TYPES = new Set<SourceType>(["github", "gitlab", "bitbucket", 
 // Helpers
 // -----------------------------------------------------------------------------
 
-/**
- * Extract hostname from a URL object.
- */
-const hostnameFromUrl = (url: URL): string => url.hostname;
+/** Get configured sources from workspace, mapping errors to ParseError. */
+const getConfiguredSources = (input: string) =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace;
+    return yield* ws
+      .getConfiguredSources()
+      .pipe(
+        Effect.mapError(
+          (e) => new ParseError({ message: `Failed to get configured sources: ${e._tag}`, input }),
+        ),
+      );
+  });
 
-/**
- * Extract hostname from the original input string if it's a URL or SCP address.
- */
-const extractInputHostname = (input: string): Option.Option<string> => {
-  const pattern = parseInputPattern(input.trim());
-  if (Option.isNone(pattern)) return Option.none();
-  const p = pattern.value;
-  switch (p._tag) {
-    case "UrlInput":
-      return Option.some(p.url.hostname);
-    case "GitScpAddress":
-      return Option.some(p.host);
-    default:
-      return Option.none();
+/** Get the relative path of an installed skill from its lockfile entry. */
+const getInstalledSkillPath = (name: string, entry: SkillLockEntry): string => {
+  if (entry.source === "registry") {
+    return `.axm/extensions/${entry.scope}/skills/${name}`;
   }
+  return `.agents/skills/${name}`;
 };
 
-/**
- * Find matching config for a git hosting source type, given the original input
- * and the available configs of that type.
- */
-const findConfig = (
+/** Parse shorthand input using the provider for the given source type. */
+const parseShorthandForSource = (
+  sourceType: string,
   input: string,
-  sourceType: SourceType,
-  configs: ReadonlyArray<SourceConfig>,
-): Effect.Effect<SourceConfig, ParseError> => {
-  // Single config fallback
-  if (configs.length === 1) {
-    return Effect.succeed(configs[0]!);
-  }
-
-  // Try hostname matching for URL/SCP inputs
-  const inputHostname = extractInputHostname(input);
-  if (Option.isSome(inputHostname)) {
-    const hostname = inputHostname.value;
-    const match = configs.find((c) => {
-      if (!("url" in c)) return false;
-      return hostnameFromUrl(c.url) === hostname;
-    });
-    if (match) return Effect.succeed(match);
-
-    const configNames = configs.map((c) => c.name).join(", ");
-    return Effect.fail(
-      new ParseError({
-        message: `No source config matches hostname "${hostname}" for ${sourceType}. Available configs: ${configNames}`,
-        input,
-      }),
-    );
-  }
-
-  // Shorthand input: take first config of that type
-  const trimmed = input.trim();
-  const patternOpt = parseInputPattern(trimmed);
-  if (Option.isSome(patternOpt) && patternOpt.value._tag === "ShorthandInput") {
-    return Effect.succeed(configs[0]!);
-  }
-
-  // Ambiguous: multiple configs and can't disambiguate
-  const configNames = configs.map((c) => c.name).join(", ");
-  return Effect.fail(
-    new ParseError({
-      message: `Ambiguous source: multiple configs for ${sourceType}. Use a URL or config name prefix to disambiguate. Available: ${configNames}`,
-      input,
-    }),
-  );
-};
-
-// -----------------------------------------------------------------------------
-// Two-phase parse for config-name prefix
-// -----------------------------------------------------------------------------
-
-/**
- * Parse shorthand input using the provider for the given source type.
- */
-const parseShorthandForSource = (sourceType: string, input: string) => {
+): Effect.Effect<SourceInput, ParseError> => {
   switch (sourceType) {
     case "github":
       return github.parseShorthand(input);
@@ -126,177 +81,265 @@ const parseShorthandForSource = (sourceType: string, input: string) => {
   }
 };
 
-/**
- * Rewrite a URL by substituting the canonical hostname, then parse with the provider.
- */
-const rewriteUrl = (sourceType: string, url: URL): Effect.Effect<SourceInput, ParseError> => {
-  const canonicalUrl = new URL(url.href);
-  switch (sourceType) {
-    case "github":
-      canonicalUrl.hostname = github.CANONICAL_HOSTNAME;
-      return github.parseUrl(canonicalUrl);
-    case "gitlab":
-      canonicalUrl.hostname = gitlab.CANONICAL_HOSTNAME;
-      return gitlab.parseUrl(canonicalUrl);
-    case "bitbucket":
-      canonicalUrl.hostname = bitbucket.CANONICAL_HOSTNAME;
-      return bitbucket.parseUrl(canonicalUrl);
-    case "azurerepos":
-      canonicalUrl.hostname = azurerepos.CANONICAL_HOSTNAME;
-      return azurerepos.parseUrl(canonicalUrl);
-    default:
-      return Effect.fail(
-        new ParseError({ message: `Unknown source type "${sourceType}"`, input: url.href }),
-      );
-  }
-};
+// -----------------------------------------------------------------------------
+// URL routing
+// -----------------------------------------------------------------------------
 
 /**
- * Rewrite an SCP address by substituting the canonical hostname, then parse with the provider.
+ * Route a URL input by iterating configured sources and matching by
+ * hostname + provider parse. First successful match wins.
  */
-const rewriteScp = (
-  sourceType: string,
-  scp: { user: string; host: string; path: string },
-): Effect.Effect<SourceInput, ParseError> => {
-  switch (sourceType) {
-    case "github":
-      return github.parseScp(`${scp.user}@${github.CANONICAL_HOSTNAME}:${scp.path}`);
-    case "gitlab":
-      return gitlab.parseScp(`${scp.user}@${gitlab.CANONICAL_HOSTNAME}:${scp.path}`);
-    case "bitbucket":
-      return bitbucket.parseScp(`${scp.user}@${bitbucket.CANONICAL_HOSTNAME}:${scp.path}`);
-    case "azurerepos":
-      return azurerepos.parseScp(`${scp.user}@${azurerepos.CANONICAL_HOSTNAME}:${scp.path}`);
-    default:
-      return Effect.fail(
-        new ParseError({
-          message: `Unknown source type "${sourceType}"`,
-          input: `${scp.user}@${scp.host}:${scp.path}`,
-        }),
-      );
-  }
-};
-
-/**
- * When `parseSourceInput` fails, check if the prefix before `:` matches
- * a config name from workspace. If so, re-parse using that config's source
- * type shorthand parser.
- *
- * E.g., `ghe:owner/repo` where `ghe` is a config name for GitHub.
- */
-const tryConfigNameParse = (input: string, originalError: ParseError) =>
+const routeUrlInput = (url: URL, input: string) =>
   Effect.gen(function* () {
-    const trimmed = input.trim();
-    const colonIndex = trimmed.indexOf(":");
+    // Opaque URLs (empty hostname, e.g. "ghe:owner/repo") may be config-name shorthands
+    if (!url.hostname) {
+      return yield* routeOpaqueUrl(url, input);
+    }
+
+    const sources = yield* getConfiguredSources(input);
+    const noMatch = new ParseError({
+      message: `No configured source matches URL "${url.href}"`,
+      input,
+    });
+
+    const tryParseUrl = (
+      configUrl: URL,
+      config: SourceConfig,
+      parse: (url: URL, hostname: string) => Effect.Effect<SourceInput, ParseError>,
+    ) =>
+      configUrl.hostname !== url.hostname
+        ? Effect.fail(noMatch)
+        : Effect.map(parse(url, configUrl.hostname), (si) => ({ ...si, ...config }) as Source);
+
+    const tryMatch = Match.type<SourceConfig>().pipe(
+      Match.when({ source: "github" }, (c) => tryParseUrl(c.url, c, github.parseUrl)),
+      Match.when({ source: "gitlab" }, (c) => tryParseUrl(c.url, c, gitlab.parseUrl)),
+      Match.when({ source: "bitbucket" }, (c) => tryParseUrl(c.url, c, bitbucket.parseUrl)),
+      Match.when({ source: "azurerepos" }, (c) => tryParseUrl(c.url, c, azurerepos.parseUrl)),
+      Match.when({ source: "registry" }, () => Effect.fail(noMatch)),
+      Match.exhaustive,
+    );
+
+    const attempts = Array.map(sources, tryMatch);
+    if (Array.isEmptyReadonlyArray(attempts)) {
+      return yield* noMatch;
+    }
+
+    return yield* Effect.firstSuccessOf(attempts).pipe(
+      Effect.mapError(
+        () =>
+          new ParseError({
+            message: `No configured source matches URL "${url.href}"`,
+            input,
+          }),
+      ),
+    );
+  });
+
+/**
+ * Handle opaque URLs (no hostname, e.g. "ghe:owner/repo") by checking if
+ * the scheme matches a config name for a git hosting source type.
+ */
+const routeOpaqueUrl = (url: URL, input: string) =>
+  Effect.gen(function* () {
+    const colonIndex = input.indexOf(":");
     if (colonIndex <= 0) {
-      return yield* Effect.fail(originalError);
+      return yield* new ParseError({ message: "Unable to parse source", input });
     }
 
-    const prefix = trimmed.slice(0, colonIndex);
-    const remainder = trimmed.slice(colonIndex + 1);
+    const prefix = input.slice(0, colonIndex);
+    const sources = yield* getConfiguredSources(input);
 
-    const ws = yield* Workspace;
-    const sources = yield* ws
-      .getConfiguredSources()
-      .pipe(
-        Effect.mapError(
-          (e) => new ParseError({ message: `Failed to get configured sources: ${e._tag}`, input }),
-        ),
-      );
-
-    // Find config by name
+    // Check if the scheme matches a config name
     const matchedConfig = sources.find((s) => s.name === prefix);
-    if (!matchedConfig) {
-      return yield* Effect.fail(originalError);
+    if (matchedConfig && GIT_HOSTING_TYPES.has(matchedConfig.source as SourceType)) {
+      const remainder = input.slice(colonIndex + 1);
+      const reparsed = `${matchedConfig.source}:${remainder}`;
+      const parsedInput = yield* parseShorthandForSource(matchedConfig.source, reparsed);
+      return { ...parsedInput, ...matchedConfig } as Source;
     }
 
-    // Must be a git hosting type with a shorthand
-    if (!GIT_HOSTING_TYPES.has(matchedConfig.source as SourceType)) {
-      return yield* Effect.fail(originalError);
-    }
-
-    const reparsed = `${matchedConfig.source}:${remainder}`;
-    const parsedInput = yield* parseShorthandForSource(matchedConfig.source, reparsed);
-    return {
-      input: parsedInput,
-      config: Option.some(matchedConfig),
-    } satisfies ParseSourceInputResult;
+    // Not a config name — fail
+    return yield* new ParseError({
+      message: `No configured source matches URL "${url.href}"`,
+      input,
+    });
   });
 
 // -----------------------------------------------------------------------------
-// URL hostname matching against workspace config
+// SCP routing
 // -----------------------------------------------------------------------------
 
 /**
- * When `parseSourceInput` fails for a URL with an unknown hostname, try to
- * match the hostname against configured source URLs. If a match is found,
- * re-parse the URL by substituting the canonical hostname so the provider's
- * URL parser accepts it.
- *
- * E.g., `https://github.example.com/owner/repo` with a config
- * `{ name: "ghe", source: "github", url: "https://github.example.com" }`
- * → replace hostname with `github.com` → parse → merge with config.
+ * Route an SCP address by iterating configured sources and matching by
+ * hostname + provider parse. First successful match wins.
  */
-const tryUrlHostnameMatch = (input: string, originalError: ParseError) =>
+const routeScpInput = (
+  scp: { readonly user: string; readonly host: string; readonly path: string },
+  input: string,
+) =>
   Effect.gen(function* () {
-    const trimmed = input.trim();
-
-    // Extract hostname from input — must be a URL or SCP
-    const inputHostname = extractInputHostname(trimmed);
-    if (Option.isNone(inputHostname)) {
-      return yield* Effect.fail(originalError);
-    }
-
-    const hostname = inputHostname.value;
-
-    // Get configured sources from workspace
-    const ws = yield* Workspace;
-    const sources = yield* ws
-      .getConfiguredSources()
-      .pipe(
-        Effect.mapError(
-          (e) => new ParseError({ message: `Failed to get configured sources: ${e._tag}`, input }),
-        ),
-      );
-
-    // Find a config whose URL hostname matches the input hostname
-    const matchingConfig = sources.find((c) => {
-      if (!("url" in c)) return false;
-      return hostnameFromUrl(c.url) === hostname;
+    const sources = yield* getConfiguredSources(input);
+    const scpInput = `${scp.user}@${scp.host}:${scp.path}`;
+    const noMatch = new ParseError({
+      message: `No configured source matches SCP address "${scpInput}"`,
+      input,
     });
 
-    if (!matchingConfig) {
-      return yield* Effect.fail(originalError);
+    const tryParseScp = (
+      scpHostname: string,
+      config: SourceConfig,
+      parse: (input: string, hostname: string) => Effect.Effect<SourceInput, ParseError>,
+    ) =>
+      scp.host !== scpHostname
+        ? Effect.fail(noMatch)
+        : Effect.map(parse(scpInput, scp.host), (si) => ({ ...si, ...config }) as Source);
+
+    const tryMatch = Match.type<SourceConfig>().pipe(
+      Match.when({ source: "github" }, (c) => tryParseScp(c.url.hostname, c, github.parseScp)),
+      Match.when({ source: "gitlab" }, (c) => tryParseScp(c.url.hostname, c, gitlab.parseScp)),
+      Match.when({ source: "bitbucket" }, (c) =>
+        tryParseScp(c.url.hostname, c, bitbucket.parseScp),
+      ),
+      Match.when({ source: "azurerepos" }, (c) =>
+        tryParseScp(`ssh.${c.url.hostname}`, c, azurerepos.parseScp),
+      ),
+      Match.when({ source: "registry" }, () => Effect.fail(noMatch)),
+      Match.exhaustive,
+    );
+
+    const attempts = Array.map(sources, tryMatch);
+    if (Array.isEmptyReadonlyArray(attempts)) {
+      return yield* noMatch;
     }
 
-    // Substitute the canonical hostname and re-parse with the provider's parser
-    const pattern = parseInputPattern(trimmed);
-    if (Option.isNone(pattern)) {
-      return yield* Effect.fail(originalError);
+    return yield* Effect.firstSuccessOf(attempts).pipe(
+      Effect.mapError(
+        () =>
+          new ParseError({
+            message: `No configured source matches SCP address "${scpInput}"`,
+            input,
+          }),
+      ),
+    );
+  });
+
+// -----------------------------------------------------------------------------
+// Shorthand routing
+// -----------------------------------------------------------------------------
+
+/**
+ * Route shorthand input (github:owner/repo, ghe:owner/repo, etc.).
+ *
+ * Known source-type prefixes dispatch directly to the provider's shorthand
+ * parser. Config-name prefixes look up the config and parse using its source
+ * type's shorthand parser.
+ */
+const routeShorthandInput = (prefix: string, shorthandInput: string, input: string) =>
+  Effect.gen(function* () {
+    const sources = yield* getConfiguredSources(input);
+
+    // Known source-type prefix → dispatch directly, select first config of that type
+    const isKnownType = prefix === "github" || prefix === "gitlab" || prefix === "bitbucket";
+    if (isKnownType) {
+      const parsedInput = yield* parseShorthandForSource(prefix, shorthandInput);
+      const config = sources.find((s) => s.source === prefix);
+      if (!config) {
+        return yield* new ParseError({
+          message: `No source config found for source type "${prefix}". Add a source config via settings.`,
+          input,
+        });
+      }
+      return { ...parsedInput, ...config } as Source;
     }
 
-    const p = pattern.value;
-    if (p._tag === "UrlInput") {
-      const parsedInput = yield* rewriteUrl(matchingConfig.source, p.url).pipe(
-        Effect.mapError(() => originalError),
+    // Config-name prefix → find config, parse with its source type parser
+    const matchedConfig = sources.find((s) => s.name === prefix);
+    if (!matchedConfig || !GIT_HOSTING_TYPES.has(matchedConfig.source as SourceType)) {
+      return yield* new ParseError({
+        message: `Unknown shorthand prefix: "${prefix}"`,
+        input,
+      });
+    }
+
+    const remainder = shorthandInput.slice(prefix.length + 1);
+    const reparsed = `${matchedConfig.source}:${remainder}`;
+    const parsedInput = yield* parseShorthandForSource(matchedConfig.source, reparsed);
+    return { ...parsedInput, ...matchedConfig } as Source;
+  });
+
+// -----------------------------------------------------------------------------
+// Simple pattern routing
+// -----------------------------------------------------------------------------
+
+/** Route NameInput: look up installed skill in lockfile and resolve to local path. */
+const routeNameInput = (name: string, input: string) =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace;
+    const skills = yield* ws
+      .getLockedSkills()
+      .pipe(
+        Effect.mapError(
+          (e) => new ParseError({ message: `Failed to read lockfile: ${e._tag}`, input }),
+        ),
       );
-      return {
-        input: parsedInput,
-        config: Option.some(matchingConfig),
-      } satisfies ParseSourceInputResult;
+    if (!(name in skills)) {
+      return yield* new ParseError({
+        message: `Unknown skill "${name}". Check installed skills with \`axm skills list\`.`,
+        input,
+      });
     }
+    return (yield* parseLocalPath(getInstalledSkillPath(name, skills[name]!))) as Source;
+  });
 
-    if (p._tag === "GitScpAddress") {
-      const parsedInput = yield* rewriteScp(matchingConfig.source, p).pipe(
-        Effect.mapError(() => originalError),
+/** Route FilePathPattern: parse as local source. */
+const routeFilePathInput = (path: string) =>
+  Effect.map(parseLocalPath(path), (source) => source as Source);
+
+/** Route RegistryPatternInput: not yet supported. */
+const routeRegistryInput = (input: string) =>
+  Effect.fail(new ParseError({ message: "Registry source input is not yet supported", input }));
+
+/**
+ * Route SlashPattern (owner/repo): iterate git-hosting configs that support
+ * shorthand, try each provider in config order. First success wins.
+ */
+const routeSlashInput = (
+  pattern: { readonly owner: string; readonly repo: string },
+  input: string,
+) =>
+  Effect.gen(function* () {
+    const sources = yield* getConfiguredSources(input);
+    const shorthandTypes = ["github", "gitlab", "bitbucket"] as const;
+    const shorthandBody = `${pattern.owner}/${pattern.repo}`;
+
+    const attempts = Array.filterMap(sources, (config) => {
+      const sourceType = shorthandTypes.find((t) => t === config.source);
+      if (!sourceType) return Option.none();
+      return Option.some(
+        Effect.map(
+          parseShorthandForSource(sourceType, `${sourceType}:${shorthandBody}`),
+          (si) => ({ ...si, ...config }) as Source,
+        ),
       );
-      return {
-        input: parsedInput,
-        config: Option.some(matchingConfig),
-      } satisfies ParseSourceInputResult;
+    });
+
+    if (Array.isEmptyReadonlyArray(attempts)) {
+      return yield* new ParseError({
+        message: `Ambiguous pattern '${pattern.owner}/${pattern.repo}' — no git hosting sources configured`,
+        input,
+      });
     }
 
-    return yield* Effect.fail(originalError);
+    return yield* Effect.firstSuccessOf(attempts).pipe(
+      Effect.mapError(
+        () =>
+          new ParseError({
+            message: `Ambiguous pattern '${pattern.owner}/${pattern.repo}' — use github:${pattern.owner}/${pattern.repo}, gitlab:${pattern.owner}/${pattern.repo}, or bitbucket:${pattern.owner}/${pattern.repo}`,
+            input,
+          }),
+      ),
+    );
   });
 
 // -----------------------------------------------------------------------------
@@ -306,60 +349,42 @@ const tryUrlHostnameMatch = (input: string, originalError: ParseError) =>
 /**
  * Resolve a source input string into a fully resolved Source.
  *
- * Combines the parsed input coordinates from `parseSourceInput` with
- * the matching source config from the Workspace service.
- *
- * For self-describing sources (local, git, registry) the input passes through
- * as-is. For git hosting types (github, gitlab, bitbucket, azurerepos) the
- * input is merged with the matching SourceConfig.
+ * Classifies the input via `parseInputPattern`, then routes each pattern
+ * type to the appropriate resolution logic. For URL and SCP patterns,
+ * resolution iterates configured sources and matches by hostname + provider
+ * parse. For other patterns, resolution handles them directly.
  *
  * @experimental This API is unstable and may change without notice.
  * @param input - The source string to resolve
  * @returns Effect containing a resolved Source or ParseError
  */
-export const resolveSource = (input: string) =>
+export const resolveSource = (input: string): Effect.Effect<Source, ParseError, Workspace> =>
   Effect.gen(function* () {
-    // Try standard parse, with fallback to config-name or URL hostname matching
-    const parseResult = yield* parseSourceInput(input).pipe(
-      Effect.catchTag("ParseError", (error) => tryConfigNameParse(input, error)),
-      Effect.catchTag("ParseError", (error) => tryUrlHostnameMatch(input, error)),
-    );
-
-    const { input: sourceInput, config: explicitConfig } = parseResult;
-
-    // Self-describing types pass through without config
-    if (!GIT_HOSTING_TYPES.has(sourceInput.source)) {
-      return sourceInput as Source;
+    const trimmed = input.trim();
+    if (!trimmed) {
+      return yield* new ParseError({ message: "Source string cannot be empty", input });
     }
 
-    // If config was explicitly determined by two-phase parse, merge directly
-    if (Option.isSome(explicitConfig)) {
-      return { ...sourceInput, ...explicitConfig.value } as Source;
+    const patternOpt = parseInputPattern(trimmed);
+    if (Option.isNone(patternOpt)) {
+      return yield* new ParseError({ message: "Unable to parse source", input });
     }
 
-    // Get configured sources for config matching
-    const ws = yield* Workspace;
-    const allSources = yield* ws
-      .getConfiguredSources()
-      .pipe(
-        Effect.mapError(
-          (e) => new ParseError({ message: `Failed to get configured sources: ${e._tag}`, input }),
-        ),
-      );
-
-    // Filter to configs of the same source type
-    const configs = allSources.filter((c) => c.source === sourceInput.source);
-
-    if (configs.length === 0) {
-      return yield* new ParseError({
-        message: `No source config found for source type "${sourceInput.source}". Add a source config via settings.`,
-        input,
-      });
+    const pattern = patternOpt.value;
+    switch (pattern._tag) {
+      case "UrlInput":
+        return yield* routeUrlInput(pattern.url, trimmed);
+      case "GitScpAddress":
+        return yield* routeScpInput(pattern, trimmed);
+      case "ShorthandInput":
+        return yield* routeShorthandInput(pattern.prefix, pattern.input, trimmed);
+      case "NameInput":
+        return yield* routeNameInput(pattern.name, trimmed);
+      case "FilePathPattern":
+        return yield* routeFilePathInput(pattern.path);
+      case "RegistryPatternInput":
+        return yield* routeRegistryInput(trimmed);
+      case "SlashPattern":
+        return yield* routeSlashInput(pattern, trimmed);
     }
-
-    // Find the matching config
-    const matchedConfig = yield* findConfig(input, sourceInput.source, configs);
-
-    // Merge input + config
-    return { ...sourceInput, ...matchedConfig } as Source;
   });

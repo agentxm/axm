@@ -26,6 +26,26 @@ describe("parseScp", () => {
     }),
   );
 
+  it.effect("parses SCP with custom hostname", () =>
+    Effect.gen(function* () {
+      const result = yield* parseScp("git@ghe.corp.com:acme/widgets.git", "ghe.corp.com");
+
+      expect(result.source).toBe("github");
+      expect(result.owner).toBe("acme");
+      expect(result.repo).toBe("widgets");
+    }),
+  );
+
+  it.effect("fails when hostname does not match", () =>
+    Effect.gen(function* () {
+      const error = yield* parseScp("git@other.com:acme/widgets.git", "ghe.corp.com").pipe(
+        Effect.flip,
+      );
+
+      expect(error._tag).toBe("ParseError");
+    }),
+  );
+
   it.effect("fails on invalid SSH URL", () =>
     Effect.gen(function* () {
       const error = yield* parseScp("not-a-valid-ssh-url").pipe(Effect.flip);

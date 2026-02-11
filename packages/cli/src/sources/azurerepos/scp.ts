@@ -4,20 +4,21 @@ import * as Option from "effect/Option";
 import { ParseError } from "../errors.js";
 import type { AzureReposSourceInput } from "../types.js";
 
-/** Matches: git@ssh.dev.azure.com:v3/{org}/{project}/{repo} */
-const AZUREREPOS_SSH_PATTERN =
-  /^git@ssh\.dev\.azure\.com:v3\/([^/]+)\/([^/]+)\/([^/]+?)(?:\.git)?$/;
+const CANONICAL_SSH_HOSTNAME = "ssh.dev.azure.com";
 
-export const parseScp = (input: string) => {
-  const match = input.match(AZUREREPOS_SSH_PATTERN);
-  if (!match || !match[1] || !match[2] || !match[3]) {
+/** Matches: git@{hostname}:v3/{org}/{project}/{repo} */
+const SCP_PATTERN = /^git@([^:]+):v3\/([^/]+)\/([^/]+)\/([^/]+?)(?:\.git)?$/;
+
+export const parseScp = (input: string, hostname: string = CANONICAL_SSH_HOSTNAME) => {
+  const match = input.match(SCP_PATTERN);
+  if (!match || !match[1] || !match[2] || !match[3] || !match[4] || match[1] !== hostname) {
     return Effect.fail(new ParseError({ message: "Invalid Azure Repos SSH URL format", input }));
   }
   return Effect.succeed({
     source: "azurerepos",
-    organization: match[1],
-    project: match[2],
-    repo: match[3],
+    organization: match[2],
+    project: match[3],
+    repo: match[4],
     ref: Option.none(),
     subPath: Option.none(),
   } satisfies AzureReposSourceInput);

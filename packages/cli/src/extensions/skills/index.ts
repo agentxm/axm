@@ -25,7 +25,6 @@ export {
   getOrigin,
   isGitHostingProviderSource,
   ParseError,
-  parseSourceInput,
   printSourceInput,
 } from "../../sources/index.js";
 

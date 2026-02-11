@@ -482,10 +482,11 @@ const make = (options: WorkspaceContextOptions) =>
 
       getConfiguredScope: () =>
         Effect.gen(function* () {
+          const normalizeScope = (s: string): string => (s.startsWith("@") ? s : `@${s}`);
           const projectSettings = yield* readSettingsSafe(localDir);
-          if (projectSettings.scope) return projectSettings.scope;
+          if (projectSettings.scope) return normalizeScope(projectSettings.scope);
           const globalSettings = yield* readSettingsSafe(globalDir);
-          if (globalSettings.scope) return globalSettings.scope;
+          if (globalSettings.scope) return normalizeScope(globalSettings.scope);
           return DEFAULT_SCOPE;
         }),
 

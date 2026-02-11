@@ -44,7 +44,7 @@ describe("example files", () => {
     const example = readJsonExample("settings/settings.example.json");
     const result = Schema.decodeUnknownSync(SettingsSchema)(example);
     expect(result).toBeDefined();
-    expect(result.scope).toBe("acme");
+    expect(result.scope).toBe("@acme");
     expect(result.agents).toContain("claude-code");
   });
 

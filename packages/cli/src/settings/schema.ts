@@ -221,8 +221,14 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  *
  * @experimental This API is unstable and may change without notice.
  */
+const ScopeSchema = Schema.transform(Schema.String, Schema.String, {
+  strict: true,
+  decode: (s) => (s.startsWith("@") ? s : `@${s}`),
+  encode: (s) => s,
+});
+
 export const SettingsSchema = Schema.Struct({
-  scope: Schema.optional(Schema.String),
+  scope: Schema.optional(ScopeSchema),
   agents: Schema.optional(Schema.Array(AgentIdSchema)),
   sources: Schema.optional(Schema.Array(SourceConfigSchema)),
   commands: Schema.optional(ExtensionMapSchema),

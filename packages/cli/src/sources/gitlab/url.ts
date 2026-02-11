@@ -4,6 +4,8 @@ import * as Option from "effect/Option";
 import { ParseError } from "../errors.js";
 import type { GitLabSourceInput } from "../types.js";
 
+export const CANONICAL_HOSTNAME = "gitlab.com";
+
 /** Matches: https://gitlab.com/owner/repo[/-/tree/ref/path] */
 const GITLAB_HTTPS_PATTERN =
   /^https?:\/\/gitlab\.com\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/-\/tree\/([^/]+)(?:\/(.+))?)?$/;

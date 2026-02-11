@@ -4,6 +4,8 @@ import * as Option from "effect/Option";
 import { ParseError } from "../errors.js";
 import type { GitHubSourceInput } from "../types.js";
 
+export const CANONICAL_HOSTNAME = "github.com";
+
 /** Matches: https://github.com/owner/repo[/tree/ref/path] */
 const GITHUB_HTTPS_PATTERN =
   /^https?:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/tree\/([^/]+)(?:\/(.+))?)?$/;

@@ -1,0 +1,1 @@
+No spec-level changes. This is a pure internal refactor — the `SourceDescriptor` abstraction is removed but all parsing, printing, and resolution behavior remains identical. All existing requirements in `extension-sources` continue to apply as-is.

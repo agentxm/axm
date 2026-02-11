@@ -92,9 +92,13 @@ export const createRegistryMetaProvider = (): SourceProvider<
     Effect.gen(function* () {
       const ws = yield* Workspace;
 
-      // Determine scope from the first name in options (if it has @scope/ prefix)
-      const scope =
-        options.names.length > 0
+      // Determine scope from source (e.g. @scope/name install) or from options names
+      const sourceScope = _source.scope
+        ? Option.some(_source.scope.startsWith("@") ? _source.scope : `@${_source.scope}`)
+        : Option.none<string>();
+      const scope = Option.isSome(sourceScope)
+        ? sourceScope
+        : options.names.length > 0
           ? Option.fromNullable(options.names.find((n) => n.startsWith("@"))?.split("/")[0] ?? null)
           : Option.none<string>();
 

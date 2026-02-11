@@ -76,6 +76,10 @@ describe("axm skills uninstall (registry-sourced)", () => {
       lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
       expect(lock.skills?.["my-skill"]).toBeUndefined();
 
+      // Verify settings.json entry removed
+      const settingsAfter = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+      expect(settingsAfter.skills?.["my-skill"]).toBeUndefined();
+
       // Verify agent symlink removed
       const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
       expect(fs.existsSync(agentSkillDir)).toBe(false);

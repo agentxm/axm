@@ -487,8 +487,9 @@ const selectVersion = (
   options: FindOptions,
 ): Option.Option<VersionEntry> => {
   for (const version of versions) {
-    // Agent filter: if options.agents is non-empty, require at least one intersection
-    if (options.agents.length > 0) {
+    // Agent filter: if both options.agents and version.agents are non-empty,
+    // require at least one intersection. Empty version.agents = universal (all agents).
+    if (options.agents.length > 0 && version.agents.length > 0) {
       const agentSet = new Set(version.agents);
       const hasMatch = options.agents.some((a) => agentSet.has(a));
       if (!hasMatch) continue;

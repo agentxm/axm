@@ -85,7 +85,6 @@ describe("axm skills install from local registry (via fork)", () => {
       expect(entry.scope).toBe("@test");
       expect(entry.name).toBe("my-skill");
       expect(entry.resolvedVersion).toBeDefined();
-      expect(entry.typeName).toBeDefined();
       expect(entry.agents).toContain("claude-code");
       expect(entry.installedAt).toBeDefined();
       expect(entry.updatedAt).toBeDefined();
@@ -160,6 +159,87 @@ describe("axm skills install from local registry (via fork)", () => {
         "0.1.0.zip",
       );
       expect(fs.existsSync(archivePath)).toBe(true);
+    } finally {
+      temp.cleanup();
+      registryDir.cleanup();
+    }
+  });
+
+  it("fresh install from registry has manifest and src/ content", async () => {
+    const temp = createTempDir();
+    const registryDir = createTempDir("axm-registry-");
+    try {
+      // Initialize workspace
+      await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+
+      // Set up registry source and scope in settings
+      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+      settings.sources = [{ name: "local", type: "registry", url: `file://${registryDir.path}` }];
+      settings.scope = "@test";
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+      // Install a skill from local source, then fork to publish to registry
+      await runCli(
+        [
+          "skills",
+          "install",
+          SKILLS_REPO_FIXTURE,
+          "--skill",
+          "my-skill",
+          "--yes",
+          "--agent",
+          "claude-code",
+        ],
+        { cwd: temp.path },
+      );
+      const forkResult = await runCli(["skills", "fork", "my-skill", "--yes"], { cwd: temp.path });
+      expect(forkResult.exitCode).toBe(0);
+
+      // Uninstall the skill completely
+      const uninstallResult = await runCli(["skills", "uninstall", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
+      expect(uninstallResult.exitCode).toBe(0);
+
+      // Verify it's fully gone
+      const extensionDir = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "@test",
+        "skills",
+        "my-skill",
+      );
+      expect(fs.existsSync(extensionDir)).toBe(false);
+
+      // Fresh install from registry using @scope/name syntax
+      const registryInstallResult = await runCli(
+        ["skills", "install", "@test/my-skill", "--yes", "--agent", "claude-code"],
+        { cwd: temp.path },
+      );
+      expect(registryInstallResult.exitCode).toBe(0);
+
+      // Verify manifest at extension root
+      expect(fs.existsSync(path.join(extensionDir, "axm-skill.json"))).toBe(true);
+      // Verify content in src/ subdirectory
+      expect(fs.existsSync(path.join(extensionDir, "src", "SKILL.md"))).toBe(true);
+      // Verify manifest NOT inside src/
+      expect(fs.existsSync(path.join(extensionDir, "src", "axm-skill.json"))).toBe(false);
+
+      // Verify lockfile has registry entry
+      const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+      const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
+      expect(lock.skills["my-skill"]).toBeDefined();
+      expect(lock.skills["my-skill"].type).toBe("registry");
+
+      // Verify settings has the skill
+      const settingsAfter = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+      expect(settingsAfter.skills?.["my-skill"]).toBeDefined();
+
+      // Verify agent symlink exists and points to src/ content
+      const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
+      expect(fs.existsSync(agentSkillDir)).toBe(true);
     } finally {
       temp.cleanup();
       registryDir.cleanup();

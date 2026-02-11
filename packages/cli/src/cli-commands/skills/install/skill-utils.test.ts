@@ -16,7 +16,7 @@ import { getSkillDisplayName, sanitizeName } from "./skill-utils.js";
 const makeSkill = (name: string, path: string = `/fake/${name || "unnamed"}`): SkillRef => ({
   type: "skill",
   skill: { name, description: "", metadata: Option.none() },
-  source: { source: "local", path },
+  source: { type: "local", path },
   location: `file://${path}`,
   version: Option.none(),
   gitTreeSha: Option.none(),

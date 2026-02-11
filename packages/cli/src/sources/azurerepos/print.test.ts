@@ -10,7 +10,7 @@ const makeSource = (
     subPath?: string;
   } = {},
 ): AzureReposSourceInput => ({
-  source: "azurerepos",
+  type: "azurerepos",
   organization: overrides.organization ?? "myorg",
   project: overrides.project ?? "myproject",
   repo: overrides.repo ?? "myrepo",

@@ -10,7 +10,7 @@ import { RegistryNotConfiguredError } from "./provider.js";
 import { registryGuard } from "./registry-guard.js";
 
 describe("registryGuard", () => {
-  type RegistrySource = Extract<SourceConfig, { source: "registry" }>;
+  type RegistrySource = Extract<SourceConfig, { type: "registry" }>;
 
   const makeWorkspaceLayer = (opts: {
     registrySources?: ReadonlyArray<RegistrySource>;
@@ -47,7 +47,7 @@ describe("registryGuard", () => {
     Effect.gen(function* () {
       const existingRegistry: SourceConfig = {
         name: "existing",
-        source: "registry",
+        type: "registry",
         url: new URL("file:///path/to/registry"),
       };
 
@@ -99,7 +99,7 @@ describe("registryGuard", () => {
       // Verify addSource was called with normalized path
       expect(addSourceMock).toHaveBeenCalledWith({
         name: "local",
-        source: "registry",
+        type: "registry",
         url: new URL("file:///home/user/registry"),
       });
     }),
@@ -129,7 +129,7 @@ describe("registryGuard", () => {
       expect(call).toBeDefined();
       if (call) {
         const config = call[0];
-        if (config?.source === "registry") {
+        if (config?.type === "registry") {
           expect(config.url.href).not.toContain("~");
           expect(config.url.href).toMatch(/^file:\/\/\/.*my-registry$/);
         } else {
@@ -165,7 +165,7 @@ describe("registryGuard", () => {
       expect(addSourceMock).toHaveBeenCalledTimes(1);
       expect(addSourceMock).toHaveBeenCalledWith({
         name: "local",
-        source: "registry",
+        type: "registry",
         url: new URL("file:///new/registry"),
       });
     }),

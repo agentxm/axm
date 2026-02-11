@@ -12,7 +12,7 @@ const makeSource = (
     subPath?: string;
   } = {},
 ): BitbucketSourceInput => ({
-  source: "bitbucket",
+  type: "bitbucket",
   owner: overrides.owner ?? "acme",
   repo: overrides.repo ?? "widgets",
   ref: Option.fromNullable(overrides.ref),

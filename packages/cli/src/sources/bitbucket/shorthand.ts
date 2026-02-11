@@ -9,7 +9,7 @@ export const parseShorthand = (input: string) =>
     const body = input.slice("bitbucket:".length);
     const parts = yield* parseProviderShorthand(body, input);
     return {
-      source: "bitbucket",
+      type: "bitbucket",
       owner: parts.owner,
       repo: parts.repo,
       ref: Option.fromNullable(parts.ref),

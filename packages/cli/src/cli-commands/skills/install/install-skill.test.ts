@@ -93,7 +93,7 @@ const makeOp = (
 ): InstallSkillOperation => ({
   name: "install-skill",
   args: {
-    source: overrides.source ?? { source: "local", path: "/tmp/source" },
+    source: overrides.source ?? { type: "local", path: "/tmp/source" },
     agents: overrides.agents ?? ["claude-code"],
     force: overrides.force ?? false,
     skill: overrides.skill ?? {
@@ -441,7 +441,7 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { source: "registry", scope: "@community", name: "my-skill" },
+            source: { type: "registry", scope: "@community", name: "my-skill" },
             location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -474,7 +474,7 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { source: "registry", scope: "@community", name: "my-skill" },
+            source: { type: "registry", scope: "@community", name: "my-skill" },
             location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -506,7 +506,7 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { source: "registry", scope: "@community", name: "my-skill" },
+            source: { type: "registry", scope: "@community", name: "my-skill" },
             location: `file://${src}`,
             version: Option.some("1.2.3"),
           }),
@@ -519,7 +519,7 @@ describe("installSkill", () => {
         const lockfile = YAML.parse(lockContent);
         const entry = lockfile.skills["my-skill"];
         expect(entry).toBeDefined();
-        expect(entry.source).toBe("registry");
+        expect(entry.type).toBe("registry");
         expect(entry.scope).toBe("@community");
         expect(entry.name).toBe("my-skill");
         expect(entry.resolvedVersion).toBe("1.2.3");
@@ -546,7 +546,7 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { source: "registry", scope: "@community", name: "my-skill" },
+            source: { type: "registry", scope: "@community", name: "my-skill" },
             location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));

@@ -9,7 +9,7 @@ describe("parseUrl", () => {
     Effect.gen(function* () {
       const result = yield* parseUrl(new URL("https://github.com/acme/widgets"));
 
-      expect(result.source).toBe("github");
+      expect(result.type).toBe("github");
       expect(result.owner).toBe("acme");
       expect(result.repo).toBe("widgets");
       expect(Option.isNone(result.ref)).toBe(true);
@@ -52,7 +52,7 @@ describe("parseUrl", () => {
     Effect.gen(function* () {
       const result = yield* parseUrl(new URL("https://ghe.corp.com/acme/widgets"), "ghe.corp.com");
 
-      expect(result.source).toBe("github");
+      expect(result.type).toBe("github");
       expect(result.owner).toBe("acme");
       expect(result.repo).toBe("widgets");
     }),

@@ -67,7 +67,7 @@ export type SkillSource = SourceInput;
  * @experimental This API is unstable and may change without notice.
  */
 export const computeInstallPath = (source: SkillSource, name: string): string => {
-  switch (source.source) {
+  switch (source.type) {
     case "registry":
       // Registry sources don't have scope in the unified Source type
       return `.axm/extensions/external/skills/${name}`;

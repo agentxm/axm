@@ -1,7 +1,7 @@
 lockfileVersion: 1
 skills:
   code-review:
-    source: github
+    type: github
     owner: acme
     repo: code-review
     ref: v1.0.0
@@ -12,7 +12,7 @@ skills:
     updatedAt: 2024-01-15T10:30:00.000Z
     gitTreeHash: abc123def456
   local-skill:
-    source: local
+    type: local
     path: /home/user/skills/my-skill
     agents:
       - claude-code

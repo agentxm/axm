@@ -182,7 +182,7 @@ describe("parseInputPattern", () => {
 describe("buildCloneUrl", () => {
   it("builds GitHub clone URL from config url", async () => {
     const source = {
-      source: "github",
+      type: "github",
       owner: "owner",
       repo: "repo",
       ref: Option.none(),
@@ -198,7 +198,7 @@ describe("buildCloneUrl", () => {
 
   it("builds GitHub clone URL with custom url", async () => {
     const source = {
-      source: "github",
+      type: "github",
       owner: "owner",
       repo: "repo",
       ref: Option.none(),
@@ -214,7 +214,7 @@ describe("buildCloneUrl", () => {
 
   it("builds GitLab clone URL from config url", async () => {
     const source = {
-      source: "gitlab",
+      type: "gitlab",
       owner: "owner",
       repo: "repo",
       ref: Option.none(),
@@ -230,7 +230,7 @@ describe("buildCloneUrl", () => {
 
   it("builds Bitbucket clone URL from config url", async () => {
     const source = {
-      source: "bitbucket",
+      type: "bitbucket",
       owner: "owner",
       repo: "repo",
       ref: Option.none(),
@@ -246,7 +246,7 @@ describe("buildCloneUrl", () => {
 
   it("builds Azure Repos clone URL from config url", async () => {
     const source = {
-      source: "azurerepos",
+      type: "azurerepos",
       organization: "myorg",
       project: "myproject",
       repo: "myrepo",
@@ -265,7 +265,7 @@ describe("buildCloneUrl", () => {
 describe("getOrigin", () => {
   it("returns GitHub origin URL from config url", () => {
     const source = {
-      source: "github",
+      type: "github",
       owner: "owner",
       repo: "repo",
       ref: Option.none(),
@@ -281,7 +281,7 @@ describe("getOrigin", () => {
 
   it("returns GitHub origin URL with custom url", () => {
     const source = {
-      source: "github",
+      type: "github",
       owner: "owner",
       repo: "repo",
       ref: Option.none(),
@@ -297,7 +297,7 @@ describe("getOrigin", () => {
 
   it("returns GitLab origin URL from config url", () => {
     const source = {
-      source: "gitlab",
+      type: "gitlab",
       owner: "owner",
       repo: "repo",
       ref: Option.none(),
@@ -313,7 +313,7 @@ describe("getOrigin", () => {
 
   it("returns Bitbucket origin URL from config url", () => {
     const source = {
-      source: "bitbucket",
+      type: "bitbucket",
       owner: "owner",
       repo: "repo",
       ref: Option.none(),
@@ -329,7 +329,7 @@ describe("getOrigin", () => {
 
   it("returns Azure Repos origin URL from config url", () => {
     const source = {
-      source: "azurerepos",
+      type: "azurerepos",
       organization: "myorg",
       project: "myproject",
       repo: "myrepo",

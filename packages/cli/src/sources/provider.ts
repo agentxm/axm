@@ -155,8 +155,8 @@ export class RegistryNotConfiguredError extends Data.TaggedError("RegistryNotCon
  * @experimental This API is unstable and may change without notice.
  */
 export interface SourceProvider<S extends SourceInput = SourceInput, R = never> {
-  /** Source type discriminator matching `S["source"]`. */
-  readonly type: S["source"];
+  /** Source type discriminator matching `S["type"]`. */
+  readonly type: S["type"];
   /** Discover extensions at the given source matching the search criteria. */
   readonly find: (
     source: S,
@@ -182,5 +182,5 @@ export interface SourceProvider<S extends SourceInput = SourceInput, R = never> 
  */
 export type ProviderRegistry = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- R is existential per provider
-  [K in SourceInput["source"]]: SourceProvider<Extract<SourceInput, { source: K }>, any>;
+  [K in SourceInput["type"]]: SourceProvider<Extract<SourceInput, { type: K }>, any>;
 };

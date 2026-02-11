@@ -79,7 +79,7 @@ const buildProbeUrl = (
   owner: string,
   repo: string,
 ): Option.Option<string> => {
-  if (source.source === "github" || source.source === "gitlab" || source.source === "bitbucket") {
+  if (source.type === "github" || source.type === "gitlab" || source.type === "bitbucket") {
     return Option.some(`${source.url.origin}/${owner}/${repo}`);
   }
   // Azure Repos uses different URL format, registry/local don't apply
@@ -140,14 +140,14 @@ const tryGitSources = (input: string, options: ResolutionOptions) => {
 
     // Filter to git-hosting sources
     const gitSources = allSources.filter(
-      (s): s is Extract<SourceConfig, { source: "github" | "gitlab" | "bitbucket" }> =>
-        s.source === "github" || s.source === "gitlab" || s.source === "bitbucket",
+      (s): s is Extract<SourceConfig, { type: "github" | "gitlab" | "bitbucket" }> =>
+        s.type === "github" || s.type === "gitlab" || s.type === "bitbucket",
     );
 
     // Apply source filter if provided
     const sourcesFilter = Option.getOrUndefined(options.sources);
     const filteredSources = sourcesFilter
-      ? gitSources.filter((s) => sourcesFilter.includes(s.source))
+      ? gitSources.filter((s) => sourcesFilter.includes(s.type))
       : gitSources;
 
     // Try each source in order
@@ -165,7 +165,7 @@ const tryGitSources = (input: string, options: ResolutionOptions) => {
         // Found it! Build ExtensionRef
         const ref: ExtensionRef = {
           type: "skill",
-          source: source.source,
+          source: source.type,
           origin: probeUrl.value,
           originalInput: input,
           name: Option.none(),

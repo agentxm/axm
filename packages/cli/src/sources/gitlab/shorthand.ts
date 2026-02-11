@@ -9,7 +9,7 @@ export const parseShorthand = (input: string) =>
     const body = input.slice("gitlab:".length);
     const parts = yield* parseProviderShorthand(body, input);
     return {
-      source: "gitlab",
+      type: "gitlab",
       owner: parts.owner,
       repo: parts.repo,
       ref: Option.fromNullable(parts.ref),

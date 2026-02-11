@@ -1,8 +1,8 @@
 {
   "scope": "acme",
   "sources": [
-    { "name": "github", "source": "github", "url": "https://github.com" },
-    { "name": "main-registry", "source": "registry", "url": "https://registry.agentskills.io" }
+    { "name": "github", "type": "github", "url": "https://github.com" },
+    { "name": "main-registry", "type": "registry", "url": "https://registry.agentskills.io" }
   ],
   "agents": ["claude-code", "cursor"],
   "skills": {

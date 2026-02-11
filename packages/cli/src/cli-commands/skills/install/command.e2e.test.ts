@@ -139,8 +139,8 @@ describe("axm skills install", () => {
         for (const skillName of ["my-skill", "another-skill"]) {
           const entry = lock.skills[skillName];
           expect(entry).toBeDefined();
-          // Flat schema: source is a string discriminator, not nested object
-          expect(entry.source).toBe("local");
+          // Flat schema: type is a string discriminator, not nested object
+          expect(entry.type).toBe("local");
           expect(entry.path).toBeDefined();
           expect(entry).toHaveProperty("agents");
           expect(entry).toHaveProperty("installedAt");
@@ -324,7 +324,7 @@ describe("axm skills install", () => {
 
         const entry = lock.skills["my-skill"];
         // Flat schema: source is a string discriminator, path is at top level
-        expect(entry.source).toBe("local");
+        expect(entry.type).toBe("local");
         expect(entry.path).toBeDefined();
         expect(entry.agents).toBeDefined();
         expect(Array.isArray(entry.agents)).toBe(true);
@@ -723,10 +723,10 @@ describe("axm skills install", () => {
         expect(entry).toBeDefined();
 
         // Source should be a structured object with _tag discriminator
-        expect(entry.source).toBeDefined();
-        expect(entry.source._tag).toBe("Local");
-        expect(entry.source.path).toBeDefined();
-        expect(typeof entry.source.path).toBe("string");
+        expect(entry.type).toBeDefined();
+        expect(entry.type._tag).toBe("Local");
+        expect(entry.type.path).toBeDefined();
+        expect(typeof entry.type.path).toBe("string");
       } finally {
         temp.cleanup();
       }
@@ -876,8 +876,8 @@ describe("axm skills install", () => {
         for (const skillName of ["my-skill", "another-skill"]) {
           const entry = lock.skills[skillName];
           expect(entry).toBeDefined();
-          expect(entry.source).toBeDefined();
-          expect(entry.source._tag).toBe("Local");
+          expect(entry.type).toBeDefined();
+          expect(entry.type._tag).toBe("Local");
           expect(entry.agents).toContain("claude-code");
           expect(entry.installedAt).toBeDefined();
           expect(entry.updatedAt).toBeDefined();

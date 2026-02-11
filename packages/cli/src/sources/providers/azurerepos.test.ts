@@ -19,7 +19,7 @@ describe("createAzureReposProvider", () => {
       provider
         .find(
           {
-            source: "azurerepos",
+            type: "azurerepos",
             organization: "org",
             project: "proj",
             repo: "repo",
@@ -42,7 +42,7 @@ describe("createAzureReposProvider", () => {
       provider
         .fetch(
           {
-            source: "azurerepos",
+            type: "azurerepos",
             organization: "org",
             project: "proj",
             repo: "repo",
@@ -53,7 +53,7 @@ describe("createAzureReposProvider", () => {
             type: "skill",
             skill: { name: "x", description: "", metadata: Option.none() },
             source: {
-              source: "azurerepos",
+              type: "azurerepos",
               organization: "org",
               project: "proj",
               repo: "repo",

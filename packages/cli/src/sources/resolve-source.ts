@@ -53,7 +53,7 @@ const getConfiguredSources = (input: string) =>
 
 /** Get the relative path of an installed skill from its lockfile entry. */
 const getInstalledSkillPath = (name: string, entry: SkillLockEntry): string => {
-  if (entry.source === "registry") {
+  if (entry.type === "registry") {
     return `.axm/extensions/${entry.scope}/skills/${name}`;
   }
   return `.agents/skills/${name}`;
@@ -112,11 +112,11 @@ const routeUrlInput = (url: URL, input: string) =>
         : Effect.map(parse(url, configUrl.hostname), (si) => ({ ...si, ...config }) as Source);
 
     const tryMatch = Match.type<SourceConfig>().pipe(
-      Match.when({ source: "github" }, (c) => tryParseUrl(c.url, c, github.parseUrl)),
-      Match.when({ source: "gitlab" }, (c) => tryParseUrl(c.url, c, gitlab.parseUrl)),
-      Match.when({ source: "bitbucket" }, (c) => tryParseUrl(c.url, c, bitbucket.parseUrl)),
-      Match.when({ source: "azurerepos" }, (c) => tryParseUrl(c.url, c, azurerepos.parseUrl)),
-      Match.when({ source: "registry" }, () => Effect.fail(noMatch)),
+      Match.when({ type: "github" }, (c) => tryParseUrl(c.url, c, github.parseUrl)),
+      Match.when({ type: "gitlab" }, (c) => tryParseUrl(c.url, c, gitlab.parseUrl)),
+      Match.when({ type: "bitbucket" }, (c) => tryParseUrl(c.url, c, bitbucket.parseUrl)),
+      Match.when({ type: "azurerepos" }, (c) => tryParseUrl(c.url, c, azurerepos.parseUrl)),
+      Match.when({ type: "registry" }, () => Effect.fail(noMatch)),
       Match.exhaustive,
     );
 
@@ -152,10 +152,10 @@ const routeOpaqueUrl = (url: URL, input: string) =>
 
     // Check if the scheme matches a config name
     const matchedConfig = sources.find((s) => s.name === prefix);
-    if (matchedConfig && GIT_HOSTING_TYPES.has(matchedConfig.source as SourceType)) {
+    if (matchedConfig && GIT_HOSTING_TYPES.has(matchedConfig.type as SourceType)) {
       const remainder = input.slice(colonIndex + 1);
-      const reparsed = `${matchedConfig.source}:${remainder}`;
-      const parsedInput = yield* parseShorthandForSource(matchedConfig.source, reparsed);
+      const reparsed = `${matchedConfig.type}:${remainder}`;
+      const parsedInput = yield* parseShorthandForSource(matchedConfig.type, reparsed);
       return { ...parsedInput, ...matchedConfig } as Source;
     }
 
@@ -196,15 +196,13 @@ const routeScpInput = (
         : Effect.map(parse(scpInput, scp.host), (si) => ({ ...si, ...config }) as Source);
 
     const tryMatch = Match.type<SourceConfig>().pipe(
-      Match.when({ source: "github" }, (c) => tryParseScp(c.url.hostname, c, github.parseScp)),
-      Match.when({ source: "gitlab" }, (c) => tryParseScp(c.url.hostname, c, gitlab.parseScp)),
-      Match.when({ source: "bitbucket" }, (c) =>
-        tryParseScp(c.url.hostname, c, bitbucket.parseScp),
-      ),
-      Match.when({ source: "azurerepos" }, (c) =>
+      Match.when({ type: "github" }, (c) => tryParseScp(c.url.hostname, c, github.parseScp)),
+      Match.when({ type: "gitlab" }, (c) => tryParseScp(c.url.hostname, c, gitlab.parseScp)),
+      Match.when({ type: "bitbucket" }, (c) => tryParseScp(c.url.hostname, c, bitbucket.parseScp)),
+      Match.when({ type: "azurerepos" }, (c) =>
         tryParseScp(`ssh.${c.url.hostname}`, c, azurerepos.parseScp),
       ),
-      Match.when({ source: "registry" }, () => Effect.fail(noMatch)),
+      Match.when({ type: "registry" }, () => Effect.fail(noMatch)),
       Match.exhaustive,
     );
 
@@ -243,7 +241,7 @@ const routeShorthandInput = (prefix: string, shorthandInput: string, input: stri
     const isKnownType = prefix === "github" || prefix === "gitlab" || prefix === "bitbucket";
     if (isKnownType) {
       const parsedInput = yield* parseShorthandForSource(prefix, shorthandInput);
-      const config = sources.find((s) => s.source === prefix);
+      const config = sources.find((s) => s.type === prefix);
       if (!config) {
         return yield* new ParseError({
           message: `No source config found for source type "${prefix}". Add a source config via settings.`,
@@ -255,7 +253,7 @@ const routeShorthandInput = (prefix: string, shorthandInput: string, input: stri
 
     // Config-name prefix → find config, parse with its source type parser
     const matchedConfig = sources.find((s) => s.name === prefix);
-    if (!matchedConfig || !GIT_HOSTING_TYPES.has(matchedConfig.source as SourceType)) {
+    if (!matchedConfig || !GIT_HOSTING_TYPES.has(matchedConfig.type as SourceType)) {
       return yield* new ParseError({
         message: `Unknown shorthand prefix: "${prefix}"`,
         input,
@@ -263,8 +261,8 @@ const routeShorthandInput = (prefix: string, shorthandInput: string, input: stri
     }
 
     const remainder = shorthandInput.slice(prefix.length + 1);
-    const reparsed = `${matchedConfig.source}:${remainder}`;
-    const parsedInput = yield* parseShorthandForSource(matchedConfig.source, reparsed);
+    const reparsed = `${matchedConfig.type}:${remainder}`;
+    const parsedInput = yield* parseShorthandForSource(matchedConfig.type, reparsed);
     return { ...parsedInput, ...matchedConfig } as Source;
   });
 
@@ -314,7 +312,7 @@ const routeSlashInput = (
     const shorthandBody = `${pattern.owner}/${pattern.repo}`;
 
     const attempts = Array.filterMap(sources, (config) => {
-      const sourceType = shorthandTypes.find((t) => t === config.source);
+      const sourceType = shorthandTypes.find((t) => t === config.type);
       if (!sourceType) return Option.none();
       return Option.some(
         Effect.map(

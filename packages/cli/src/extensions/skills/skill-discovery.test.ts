@@ -18,7 +18,7 @@ import {
 import type { SourceInput } from "../../sources/types.js";
 
 const defaultOptions = { fullDepth: false, includeInternal: false };
-const testSource: SourceInput = { source: "local", path: "/test" };
+const testSource: SourceInput = { type: "local", path: "/test" };
 
 /**
  * Create a SKILL.md with valid frontmatter.

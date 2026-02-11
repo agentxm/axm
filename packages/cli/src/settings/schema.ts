@@ -10,7 +10,7 @@ import * as Schema from "effect/Schema";
 import { AgentIdSchema } from "../extensions/common.js";
 
 // -----------------------------------------------------------------------------
-// Source Config (array-based, discriminated on `source` field)
+// Source Config (array-based, discriminated on `type` field)
 // -----------------------------------------------------------------------------
 
 /**
@@ -30,7 +30,7 @@ const SourceNameSchema = Schema.String.pipe(Schema.pattern(SOURCE_NAME_PATTERN))
  */
 const GitHubSourceConfigSchema = Schema.Struct({
   name: SourceNameSchema,
-  source: Schema.Literal("github"),
+  type: Schema.Literal("github"),
   url: Schema.URL,
 });
 
@@ -41,7 +41,7 @@ const GitHubSourceConfigSchema = Schema.Struct({
  */
 const GitLabSourceConfigSchema = Schema.Struct({
   name: SourceNameSchema,
-  source: Schema.Literal("gitlab"),
+  type: Schema.Literal("gitlab"),
   url: Schema.URL,
 });
 
@@ -52,7 +52,7 @@ const GitLabSourceConfigSchema = Schema.Struct({
  */
 const BitbucketSourceConfigSchema = Schema.Struct({
   name: SourceNameSchema,
-  source: Schema.Literal("bitbucket"),
+  type: Schema.Literal("bitbucket"),
   url: Schema.URL,
 });
 
@@ -63,7 +63,7 @@ const BitbucketSourceConfigSchema = Schema.Struct({
  */
 const AzureReposSourceConfigSchema = Schema.Struct({
   name: SourceNameSchema,
-  source: Schema.Literal("azurerepos"),
+  type: Schema.Literal("azurerepos"),
   url: Schema.URL,
 });
 
@@ -74,13 +74,13 @@ const AzureReposSourceConfigSchema = Schema.Struct({
  */
 const RegistrySourceConfigSchema = Schema.Struct({
   name: SourceNameSchema,
-  source: Schema.Literal("registry"),
+  type: Schema.Literal("registry"),
   url: Schema.URL,
   scopes: Schema.optional(Schema.Array(Schema.String)),
 });
 
 /**
- * Discriminated union of source configurations on the `source` field.
+ * Discriminated union of source configurations on the `type` field.
  *
  * Variants: github, gitlab, bitbucket, azurerepos, registry.
  *

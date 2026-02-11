@@ -12,7 +12,7 @@ const makeSource = (
     subPath?: string;
   } = {},
 ): GitLabSourceInput => ({
-  source: "gitlab",
+  type: "gitlab",
   owner: overrides.owner ?? "acme",
   repo: overrides.repo ?? "widgets",
   ref: Option.fromNullable(overrides.ref),

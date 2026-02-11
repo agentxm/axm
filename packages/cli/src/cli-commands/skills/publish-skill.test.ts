@@ -15,7 +15,7 @@ import { publishSkill } from "./publish-skill.js";
 const withServices = (axmDir: string, registryRoot: string) => {
   const registrySource = {
     name: "local",
-    source: "registry" as const,
+    type: "registry" as const,
     url: new URL(`file://${registryRoot}`),
   };
 

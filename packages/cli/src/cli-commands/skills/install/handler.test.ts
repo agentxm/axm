@@ -169,7 +169,7 @@ describe("install.handler", () => {
       // Pre-install "commit" in lockfile
       initWorkspace(path.join(tempDir, ".axm"), {
         commit: {
-          source: "local",
+          type: "local",
           path: "/old",
           agents: [],
           installedAt: new Date().toISOString(),
@@ -321,7 +321,7 @@ describe("install.handler", () => {
           );
           const lockfile = YAML.parse(lockfileContent);
           expect(lockfile.skills.commit).toBeDefined();
-          expect(lockfile.skills.commit.source).toBe("local");
+          expect(lockfile.skills.commit.type).toBe("local");
         }),
       );
     });

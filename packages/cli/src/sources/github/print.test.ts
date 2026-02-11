@@ -12,7 +12,7 @@ const makeSource = (
     subPath?: string;
   } = {},
 ): GitHubSourceInput => ({
-  source: "github",
+  type: "github",
   owner: overrides.owner ?? "acme",
   repo: overrides.repo ?? "widgets",
   ref: Option.fromNullable(overrides.ref),

@@ -17,7 +17,7 @@ import { buildPlan } from "./build-plan.js";
 const makeOp = (name: string): InstallSkillOperation => ({
   name: "install-skill",
   args: {
-    source: { source: "local", path: "/fake" },
+    source: { type: "local", path: "/fake" },
     agents: [],
     force: false,
     skill: { name, description: `${name} skill`, metadata: Option.none() },
@@ -38,7 +38,7 @@ const lockfileWith = (...names: string[]): Lockfile => ({
     names.map((name) => [
       name,
       {
-        source: "local" as const,
+        type: "local" as const,
         path: "/installed",
         agents: [],
         installedAt: new Date(),

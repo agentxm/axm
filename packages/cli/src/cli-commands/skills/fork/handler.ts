@@ -201,7 +201,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
     const steps: ReadonlyArray<PlannedJobStep<ForkOp>> = Array.flatMap(filtered, (ref) => {
       const targetName = `${scope}/${ref.skill.name}`;
       const installArgs: InstallSkillOperationArgs = {
-        source: { source: "registry", scope, name: ref.skill.name },
+        source: { type: "registry", scope, name: ref.skill.name },
         agents: [...agentIds],
         force: true,
         skill: {
@@ -221,7 +221,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
             name: "copy-skill",
             args: {
               source: {
-                source: "local",
+                type: "local",
                 path: ref.location.replace("file://", ""),
               } satisfies CopySkillOperation["args"]["source"],
               targetName,

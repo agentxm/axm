@@ -34,7 +34,7 @@ export const resolveRepo = (args: {
     }
 
     return Option.some({
-      source: "bitbucket",
+      type: "bitbucket",
       owner: args.owner,
       repo: args.repo,
       ref: Option.none(),

@@ -12,7 +12,7 @@ describe("computeInstallPath", () => {
   describe("Registry sources", () => {
     it("computes external path for registry source", () => {
       const source: SkillSource = {
-        source: "registry",
+        type: "registry",
         scope: "@community",
         name: "commit",
       };
@@ -24,7 +24,7 @@ describe("computeInstallPath", () => {
 
     it("uses skill name parameter for path", () => {
       const source: SkillSource = {
-        source: "registry",
+        type: "registry",
         scope: "@community",
         name: "commit",
       };
@@ -38,7 +38,7 @@ describe("computeInstallPath", () => {
   describe("GitHub sources", () => {
     it("computes external path for GitHub source", () => {
       const source: SkillSource = {
-        source: "github",
+        type: "github",
         owner: "anthropics",
         repo: "claude-skills",
         ref: Option.some("main"),
@@ -52,7 +52,7 @@ describe("computeInstallPath", () => {
 
     it("computes external path regardless of ref and subpath", () => {
       const source: SkillSource = {
-        source: "github",
+        type: "github",
         owner: "user",
         repo: "repo",
         ref: Option.none(),
@@ -68,7 +68,7 @@ describe("computeInstallPath", () => {
   describe("Local sources", () => {
     it("computes external path for local source", () => {
       const source: SkillSource = {
-        source: "local",
+        type: "local",
         path: "/Users/dev/my-skill",
       };
 
@@ -79,7 +79,7 @@ describe("computeInstallPath", () => {
 
     it("computes external path for any local path", () => {
       const source: SkillSource = {
-        source: "local",
+        type: "local",
         path: "../relative/path/to/skill",
       };
 
@@ -92,7 +92,7 @@ describe("computeInstallPath", () => {
   describe("edge cases", () => {
     it("handles skill names with hyphens", () => {
       const source: SkillSource = {
-        source: "local",
+        type: "local",
         path: "/path",
       };
 
@@ -103,7 +103,7 @@ describe("computeInstallPath", () => {
 
     it("handles registry source", () => {
       const source: SkillSource = {
-        source: "registry",
+        type: "registry",
         scope: "@community",
         name: "commit",
       };

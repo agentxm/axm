@@ -39,7 +39,7 @@ const withServices = (axmDir: string) => {
 const makeOp = (overrides: Partial<CopySkillOperation["args"]> = {}): CopySkillOperation => ({
   name: "copy-skill",
   args: {
-    source: overrides.source ?? { source: "local", path: "/tmp/source" },
+    source: overrides.source ?? { type: "local", path: "/tmp/source" },
     targetName: overrides.targetName ?? "@community/my-skill",
     location: overrides.location ?? "file:///tmp/source",
   },

@@ -30,7 +30,7 @@ const lockfileWith = (...names: string[]): Lockfile => ({
     names.map((name) => [
       name,
       {
-        source: "local" as const,
+        type: "local" as const,
         path: "/installed",
         agents: [],
         installedAt: new Date(),

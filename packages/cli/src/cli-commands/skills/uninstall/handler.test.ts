@@ -46,8 +46,8 @@ const initWorkspace = (
   // Build settings skills map so removeSkill can find them
   const settingsSkills: Record<string, string> = {};
   for (const name of Object.keys(lockfileSkills)) {
-    const entry = lockfileSkills[name] as { source?: string };
-    settingsSkills[name] = entry?.source ?? "local";
+    const entry = lockfileSkills[name] as { type?: string };
+    settingsSkills[name] = entry?.type ?? "local";
   }
   const settings: Record<string, unknown> = { agents };
   if (Object.keys(settingsSkills).length > 0) {
@@ -77,7 +77,7 @@ const createAgentSymlink = (base: string, agentDir: string, name: string) => {
 };
 
 const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
-  source: "local",
+  type: "local",
   path: "/installed",
   agents,
   installedAt: new Date().toISOString(),

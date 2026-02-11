@@ -29,7 +29,7 @@ describe("lockfile schema", () => {
         lockfileVersion: 1,
         skills: {
           "my-skill": {
-            source: "github",
+            type: "github",
             owner: "wayne-industries",
             repo: "skills",
             ref: "main",
@@ -47,8 +47,8 @@ describe("lockfile schema", () => {
       expect(result.lockfileVersion).toBe(1);
       const skill = result.skills["my-skill"];
       expect(skill).toBeDefined();
-      expect(skill?.source).toBe("github");
-      if (skill?.source === "github") {
+      expect(skill?.type).toBe("github");
+      if (skill?.type === "github") {
         expect(skill.owner).toBe("wayne-industries");
         expect(skill.repo).toBe("skills");
       }
@@ -64,7 +64,7 @@ describe("lockfile schema", () => {
         lockfileVersion: 1,
         skills: {
           "my-skill": {
-            source: "local",
+            type: "local",
             path: "./my-skills",
             agents: ["claude-code"],
             installedAt: "2025-01-15T10:30:00Z",
@@ -77,8 +77,8 @@ describe("lockfile schema", () => {
 
       const skill = result.skills["my-skill"];
       expect(skill).toBeDefined();
-      expect(skill?.source).toBe("local");
-      if (skill?.source === "local") {
+      expect(skill?.type).toBe("local");
+      if (skill?.type === "local") {
         expect(skill.path).toBe("./my-skills");
       }
     });
@@ -88,7 +88,7 @@ describe("lockfile schema", () => {
         lockfileVersion: 1,
         skills: {
           "my-skill": {
-            source: "git",
+            type: "git",
             url: "https://gitlab.com/example/skills.git",
             ref: "v1.0.0",
             path: "skills/my-skill",
@@ -104,8 +104,8 @@ describe("lockfile schema", () => {
 
       const skill = result.skills["my-skill"];
       expect(skill).toBeDefined();
-      expect(skill?.source).toBe("git");
-      if (skill?.source === "git") {
+      expect(skill?.type).toBe("git");
+      if (skill?.type === "git") {
         expect(skill.url).toBe("https://gitlab.com/example/skills.git");
         expect(skill.ref).toBe("v1.0.0");
         expect(skill.path).toBe("skills/my-skill");
@@ -117,7 +117,7 @@ describe("lockfile schema", () => {
         lockfileVersion: 1,
         skills: {
           "my-skill": {
-            source: "git",
+            type: "git",
             url: "https://bitbucket.org/example/skills.git",
             agents: ["claude-code"],
             installedAt: "2025-01-15T10:30:00Z",
@@ -130,8 +130,8 @@ describe("lockfile schema", () => {
 
       const skill = result.skills["my-skill"];
       expect(skill).toBeDefined();
-      expect(skill?.source).toBe("git");
-      if (skill?.source === "git") {
+      expect(skill?.type).toBe("git");
+      if (skill?.type === "git") {
         expect(skill.url).toBe("https://bitbucket.org/example/skills.git");
         expect(skill.ref).toBeUndefined();
         expect(skill.path).toBeUndefined();
@@ -143,7 +143,7 @@ describe("lockfile schema", () => {
         lockfileVersion: 1,
         skills: {
           "my-skill": {
-            source: "registry",
+            type: "registry",
             scope: "@acme",
             name: "my-skill",
             resolvedVersion: "1.0.0",
@@ -160,8 +160,8 @@ describe("lockfile schema", () => {
 
       const skill = result.skills["my-skill"];
       expect(skill).toBeDefined();
-      expect(skill?.source).toBe("registry");
-      if (skill?.source === "registry") {
+      expect(skill?.type).toBe("registry");
+      if (skill?.type === "registry") {
         expect(skill.scope).toBe("@acme");
         expect(skill.name).toBe("my-skill");
         expect(skill.resolvedVersion).toBe("1.0.0");
@@ -175,14 +175,14 @@ describe("lockfile schema", () => {
         lockfileVersion: 1,
         skills: {
           "skill-one": {
-            source: "local",
+            type: "local",
             path: "./skills/one",
             agents: ["claude-code"],
             installedAt: "2025-01-15T10:30:00Z",
             updatedAt: "2025-01-15T10:30:00Z",
           },
           "skill-two": {
-            source: "local",
+            type: "local",
             path: "./skills/two",
             agents: ["cursor"],
             installedAt: "2025-01-15T11:00:00Z",
@@ -203,7 +203,7 @@ describe("lockfile schema", () => {
         lockfileVersion: 1,
         skills: {
           "my-skill": {
-            source: "local",
+            type: "local",
             path: "./my-skill",
             agents: [],
             installedAt: "2025-01-15T10:30:00Z",
@@ -221,7 +221,7 @@ describe("lockfile schema", () => {
   describe("SkillLockEntry", () => {
     it("accepts valid GitHub lock entry with required fields", () => {
       const input = {
-        source: "github",
+        type: "github",
         owner: "example",
         repo: "skills",
         agents: ["claude-code"],
@@ -231,8 +231,8 @@ describe("lockfile schema", () => {
 
       const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
 
-      expect(result.source).toBe("github");
-      if (result.source === "github") {
+      expect(result.type).toBe("github");
+      if (result.type === "github") {
         expect(result.owner).toBe("example");
         expect(result.repo).toBe("skills");
       }
@@ -243,7 +243,7 @@ describe("lockfile schema", () => {
 
     it("accepts valid GitHub lock entry with optional gitTreeHash", () => {
       const input = {
-        source: "github",
+        type: "github",
         owner: "example",
         repo: "skills",
         ref: "main",
@@ -261,7 +261,7 @@ describe("lockfile schema", () => {
 
     it("accepts valid local lock entry", () => {
       const input = {
-        source: "local",
+        type: "local",
         path: "./my-skill",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
@@ -270,15 +270,15 @@ describe("lockfile schema", () => {
 
       const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
 
-      expect(result.source).toBe("local");
-      if (result.source === "local") {
+      expect(result.type).toBe("local");
+      if (result.type === "local") {
         expect(result.path).toBe("./my-skill");
       }
     });
 
     it("accepts valid git lock entry", () => {
       const input = {
-        source: "git",
+        type: "git",
         url: "https://gitlab.com/example/skills.git",
         ref: "main",
         path: "skills/my-skill",
@@ -290,8 +290,8 @@ describe("lockfile schema", () => {
 
       const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
 
-      expect(result.source).toBe("git");
-      if (result.source === "git") {
+      expect(result.type).toBe("git");
+      if (result.type === "git") {
         expect(result.url).toBe("https://gitlab.com/example/skills.git");
         expect(result.ref).toBe("main");
         expect(result.path).toBe("skills/my-skill");
@@ -301,7 +301,7 @@ describe("lockfile schema", () => {
 
     it("accepts valid registry lock entry", () => {
       const input = {
-        source: "registry",
+        type: "registry",
         scope: "@acme",
         name: "my-skill",
         resolvedVersion: "1.0.0",
@@ -314,8 +314,8 @@ describe("lockfile schema", () => {
 
       const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
 
-      expect(result.source).toBe("registry");
-      if (result.source === "registry") {
+      expect(result.type).toBe("registry");
+      if (result.type === "registry") {
         expect(result.scope).toBe("@acme");
         expect(result.name).toBe("my-skill");
         expect(result.resolvedVersion).toBe("1.0.0");
@@ -326,7 +326,7 @@ describe("lockfile schema", () => {
 
     it("accepts lock entry with empty agents array", () => {
       const input = {
-        source: "local",
+        type: "local",
         path: "./my-skill",
         agents: [],
         installedAt: "2025-01-15T10:30:00Z",
@@ -351,7 +351,7 @@ describe("lockfile schema", () => {
 
     it("rejects lock entry missing agents", () => {
       const input = {
-        source: "local",
+        type: "local",
         path: "./my-skill",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -362,7 +362,7 @@ describe("lockfile schema", () => {
 
     it("rejects lock entry missing installedAt", () => {
       const input = {
-        source: "local",
+        type: "local",
         path: "./my-skill",
         agents: ["claude-code"],
         updatedAt: "2025-01-15T10:30:00Z",
@@ -373,7 +373,7 @@ describe("lockfile schema", () => {
 
     it("rejects lock entry missing updatedAt", () => {
       const input = {
-        source: "local",
+        type: "local",
         path: "./my-skill",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
@@ -384,7 +384,7 @@ describe("lockfile schema", () => {
 
     it("rejects lock entry with invalid source type", () => {
       const input = {
-        source: "invalid",
+        type: "invalid",
         path: "./my-skill",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
@@ -396,7 +396,7 @@ describe("lockfile schema", () => {
 
     it("rejects GitHub lock entry missing owner", () => {
       const input = {
-        source: "github",
+        type: "github",
         repo: "skills",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
@@ -408,7 +408,7 @@ describe("lockfile schema", () => {
 
     it("rejects GitHub lock entry missing repo", () => {
       const input = {
-        source: "github",
+        type: "github",
         owner: "example",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
@@ -420,7 +420,7 @@ describe("lockfile schema", () => {
 
     it("rejects local lock entry missing path", () => {
       const input = {
-        source: "local",
+        type: "local",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -431,7 +431,7 @@ describe("lockfile schema", () => {
 
     it("rejects git lock entry missing url", () => {
       const input = {
-        source: "git",
+        type: "git",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -442,7 +442,7 @@ describe("lockfile schema", () => {
 
     it("rejects registry lock entry missing scope", () => {
       const input = {
-        source: "registry",
+        type: "registry",
         name: "my-skill",
         resolvedVersion: "1.0.0",
         checksum: "sha256:abc123def456",
@@ -457,7 +457,7 @@ describe("lockfile schema", () => {
 
     it("rejects registry lock entry missing name", () => {
       const input = {
-        source: "registry",
+        type: "registry",
         scope: "@acme",
         resolvedVersion: "1.0.0",
         checksum: "sha256:abc123def456",
@@ -472,7 +472,7 @@ describe("lockfile schema", () => {
 
     it("rejects registry lock entry missing resolvedVersion", () => {
       const input = {
-        source: "registry",
+        type: "registry",
         scope: "@acme",
         name: "my-skill",
         checksum: "sha256:abc123def456",
@@ -487,7 +487,7 @@ describe("lockfile schema", () => {
 
     it("rejects registry lock entry missing checksum", () => {
       const input = {
-        source: "registry",
+        type: "registry",
         scope: "@acme",
         name: "my-skill",
         resolvedVersion: "1.0.0",
@@ -502,7 +502,7 @@ describe("lockfile schema", () => {
 
     it("rejects registry lock entry missing sourceName", () => {
       const input = {
-        source: "registry",
+        type: "registry",
         scope: "@acme",
         name: "my-skill",
         resolvedVersion: "1.0.0",
@@ -528,14 +528,14 @@ describe("lockfile schema", () => {
     it("accepts map with valid skill names", () => {
       const input = {
         "my-skill": {
-          source: "local",
+          type: "local",
           path: "./skills/my-skill",
           agents: ["claude-code"],
           installedAt: "2025-01-15T10:30:00Z",
           updatedAt: "2025-01-15T10:30:00Z",
         },
         "another-skill": {
-          source: "local",
+          type: "local",
           path: "./skills/another-skill",
           agents: ["claude-code"],
           installedAt: "2025-01-15T10:30:00Z",

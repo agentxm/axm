@@ -147,7 +147,7 @@ const readLockfileYaml = (axmDir: string) => {
 
 /** Creates a local source lock entry for the in-memory mock (Date objects). */
 const makeLocalLockEntry = (agents: string[]) => ({
-  source: "local" as const,
+  type: "local" as const,
   path: "/tmp/source",
   agents,
   installedAt: new Date(),
@@ -156,7 +156,7 @@ const makeLocalLockEntry = (agents: string[]) => ({
 
 /** Creates a local source lock entry for on-disk YAML (ISO strings). */
 const makeLocalLockEntryYaml = (agents: string[]) => ({
-  source: "local",
+  type: "local",
   path: "/tmp/source",
   agents,
   installedAt: new Date().toISOString(),
@@ -165,7 +165,7 @@ const makeLocalLockEntryYaml = (agents: string[]) => ({
 
 /** Creates a registry source lock entry for the in-memory mock (Date objects). */
 const makeRegistryLockEntry = (agents: string[]) => ({
-  source: "registry" as const,
+  type: "registry" as const,
   scope: "@community",
   name: "my-skill",
   resolvedVersion: "1.0.0",
@@ -178,7 +178,7 @@ const makeRegistryLockEntry = (agents: string[]) => ({
 
 /** Creates a registry source lock entry for on-disk YAML (ISO strings). */
 const makeRegistryLockEntryYaml = (agents: string[]) => ({
-  source: "registry",
+  type: "registry",
   scope: "@community",
   name: "my-skill",
   resolvedVersion: "1.0.0",

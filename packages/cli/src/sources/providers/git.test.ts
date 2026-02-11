@@ -18,7 +18,7 @@ describe("createGitProvider", () => {
     const result = Effect.runSync(
       provider
         .find(
-          { source: "git", url: new URL("https://example.com/repo.git"), ref: Option.none() },
+          { type: "git", url: new URL("https://example.com/repo.git"), ref: Option.none() },
           { names: [], agents: [], type: "skill" },
         )
         .pipe(Effect.either),
@@ -34,12 +34,12 @@ describe("createGitProvider", () => {
     const result = Effect.runSync(
       provider
         .fetch(
-          { source: "git", url: new URL("https://example.com/repo.git"), ref: Option.none() },
+          { type: "git", url: new URL("https://example.com/repo.git"), ref: Option.none() },
           {
             type: "skill",
             skill: { name: "x", description: "", metadata: Option.none() },
             source: {
-              source: "git",
+              type: "git",
               url: new URL("https://example.com/repo.git"),
               ref: Option.none(),
             },

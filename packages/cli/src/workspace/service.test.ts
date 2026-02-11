@@ -406,12 +406,12 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         const projectSource: SourceConfig = {
           name: "my-registry",
-          source: "registry",
+          type: "registry",
           url: new URL("https://registry.example.com"),
         };
         const globalSource: SourceConfig = {
           name: "corp-registry",
-          source: "registry",
+          type: "registry",
           url: new URL("https://corp.example.com"),
         };
 
@@ -435,12 +435,12 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         const projectSource: SourceConfig = {
           name: "github",
-          source: "github",
+          type: "github",
           url: new URL("https://github.mycompany.com"),
         };
         const globalSource: SourceConfig = {
           name: "github",
-          source: "github",
+          type: "github",
           url: new URL("https://github.example.com"),
         };
 
@@ -470,7 +470,7 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         const globalSource: SourceConfig = {
           name: "gitlab",
-          source: "gitlab",
+          type: "gitlab",
           url: new URL("https://gitlab.corp.example.com"),
         };
 
@@ -494,7 +494,7 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          sources: [{ name: "custom", source: "registry", url: new URL("https://r.example.com") }],
+          sources: [{ name: "custom", type: "registry", url: new URL("https://r.example.com") }],
         });
 
         const ws = yield* getService(defaultOptions);
@@ -546,13 +546,13 @@ describe("WorkspaceContextService", () => {
           sources: [
             {
               name: "r1",
-              source: "registry",
+              type: "registry",
               url: new URL("https://r1.example.com"),
               scopes: ["@corp"],
             },
             {
               name: "r2",
-              source: "registry",
+              type: "registry",
               url: new URL("https://r2.example.com"),
             },
           ],
@@ -573,13 +573,13 @@ describe("WorkspaceContextService", () => {
           sources: [
             {
               name: "corp-reg",
-              source: "registry",
+              type: "registry",
               url: new URL("https://corp.example.com"),
               scopes: ["@corp"],
             },
             {
               name: "public-reg",
-              source: "registry",
+              type: "registry",
               url: new URL("https://public.example.com"),
             },
           ],
@@ -601,13 +601,13 @@ describe("WorkspaceContextService", () => {
           sources: [
             {
               name: "corp-reg",
-              source: "registry",
+              type: "registry",
               url: new URL("https://corp.example.com"),
               scopes: ["@corp"],
             },
             {
               name: "public-reg",
-              source: "registry",
+              type: "registry",
               url: new URL("https://public.example.com"),
             },
           ],
@@ -629,18 +629,18 @@ describe("WorkspaceContextService", () => {
           sources: [
             {
               name: "corp-reg",
-              source: "registry",
+              type: "registry",
               url: new URL("https://corp.example.com"),
               scopes: ["@corp"],
             },
             {
               name: "public-reg",
-              source: "registry",
+              type: "registry",
               url: new URL("https://public.example.com"),
             },
             {
               name: "another-corp",
-              source: "registry",
+              type: "registry",
               url: new URL("https://another.example.com"),
               scopes: ["@corp", "@internal"],
             },
@@ -712,7 +712,7 @@ describe("WorkspaceContextService", () => {
 
         const newSource: SourceConfig = {
           name: "my-registry",
-          source: "registry",
+          type: "registry",
           url: new URL("https://registry.example.com"),
         };
         yield* ws.addConfiguredSource(newSource);
@@ -737,7 +737,7 @@ describe("WorkspaceContextService", () => {
         // Add a new source
         const newSource: SourceConfig = {
           name: "new-source",
-          source: "registry",
+          type: "registry",
           url: new URL("https://new.example.com"),
         };
         yield* ws.addConfiguredSource(newSource);
@@ -774,7 +774,7 @@ describe("WorkspaceContextService", () => {
 
   /** Create a sample SkillLockEntry for testing. */
   const makeSampleLockEntry = (agents: readonly string[] = ["claude-code"]): SkillLockEntry => ({
-    source: "github" as const,
+    type: "github" as const,
     owner: "acme",
     repo: "code-review",
     agents: [...agents],
@@ -845,7 +845,7 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeLockfileTo(projectDir, {
           "code-review": {
-            source: "github",
+            type: "github",
             owner: "acme",
             repo: "code-review",
             agents: ["claude-code"],
@@ -858,7 +858,7 @@ describe("WorkspaceContextService", () => {
         const skills = yield* ws.getLockedSkills();
 
         expect(Object.keys(skills)).toEqual(["code-review"]);
-        expect(skills["code-review"]?.source).toBe("github");
+        expect(skills["code-review"]?.type).toBe("github");
       }),
     );
 
@@ -879,7 +879,7 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeLockfileTo(projectDir, {
           "code-review": {
-            source: "github",
+            type: "github",
             owner: "acme",
             repo: "code-review",
             agents: ["claude-code"],
@@ -893,7 +893,7 @@ describe("WorkspaceContextService", () => {
 
         expect(Option.isSome(entry)).toBe(true);
         if (Option.isSome(entry)) {
-          expect(entry.value.source).toBe("github");
+          expect(entry.value.type).toBe("github");
         }
       }),
     );
@@ -932,7 +932,7 @@ describe("WorkspaceContextService", () => {
         // Verify lockfile on disk
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.skills).toHaveProperty("code-review");
-        expect((lockfile.skills["code-review"] as { source: string }).source).toBe("github");
+        expect((lockfile.skills["code-review"] as { type: string }).type).toBe("github");
       }),
     );
 
@@ -963,7 +963,7 @@ describe("WorkspaceContextService", () => {
         });
         writeLockfileTo(projectDir, {
           "code-review": {
-            source: "github",
+            type: "github",
             owner: "acme",
             repo: "code-review",
             agents: ["claude-code"],
@@ -1003,7 +1003,7 @@ describe("WorkspaceContextService", () => {
         });
         writeLockfileTo(projectDir, {
           "code-review": {
-            source: "github",
+            type: "github",
             owner: "acme",
             repo: "code-review",
             agents: ["claude-code"],
@@ -1011,7 +1011,7 @@ describe("WorkspaceContextService", () => {
             updatedAt: "2025-01-01T00:00:00.000Z",
           },
           "test-gen": {
-            source: "local",
+            type: "local",
             path: "/tmp/test-gen",
             agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
@@ -1043,7 +1043,7 @@ describe("WorkspaceContextService", () => {
         });
         writeLockfileTo(projectDir, {
           "test-gen": {
-            source: "local",
+            type: "local",
             path: "/tmp/test-gen",
             agents: ["claude-code"],
             installedAt: "2025-01-01T00:00:00.000Z",
@@ -1125,7 +1125,7 @@ describe("WorkspaceContextService", () => {
 
         const newSource: SourceConfig = {
           name: "my-registry",
-          source: "registry",
+          type: "registry",
           url: new URL("https://registry.example.com"),
         };
 

@@ -18,7 +18,7 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
     return Effect.fail(new ParseError({ message: "Invalid GitHub URL format", input: url.href }));
   }
   return Effect.succeed({
-    source: "github",
+    type: "github",
     owner: match[1],
     repo: match[2],
     ref: Option.fromNullable(match[3]),

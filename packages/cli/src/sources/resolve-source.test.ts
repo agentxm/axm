@@ -29,9 +29,9 @@ const makeWorkspaceLayer = (sources: ReadonlyArray<SourceConfig>, skills: Skills
 
 /** Default built-in sources matching workspace defaults. */
 const BUILT_IN_SOURCES: ReadonlyArray<SourceConfig> = [
-  { name: "github", source: "github", url: new URL("https://github.com") },
-  { name: "gitlab", source: "gitlab", url: new URL("https://gitlab.com") },
-  { name: "bitbucket", source: "bitbucket", url: new URL("https://bitbucket.org") },
+  { name: "github", type: "github", url: new URL("https://github.com") },
+  { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
+  { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
 ];
 
 /** Helper: resolve with default built-in sources. */
@@ -47,8 +47,8 @@ describe("resolveSource", () => {
     it.effect("resolves github:owner/repo to GitHubSource with config", () =>
       Effect.gen(function* () {
         const result = yield* resolve("github:owner/repo");
-        expect(result.source).toBe("github");
-        if (result.source === "github") {
+        expect(result.type).toBe("github");
+        if (result.type === "github") {
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
           expect(result.name).toBe("github");
@@ -62,8 +62,8 @@ describe("resolveSource", () => {
     it.effect("resolves github:owner/repo/path@ref with config", () =>
       Effect.gen(function* () {
         const result = yield* resolve("github:owner/repo/skills/my-skill@v1.0.0");
-        expect(result.source).toBe("github");
-        if (result.source === "github") {
+        expect(result.type).toBe("github");
+        if (result.type === "github") {
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
           expect(result.subPath).toEqual(Option.some("skills/my-skill"));
@@ -79,8 +79,8 @@ describe("resolveSource", () => {
     it.effect("resolves gitlab:owner/repo to GitLabSource with config", () =>
       Effect.gen(function* () {
         const result = yield* resolve("gitlab:owner/repo");
-        expect(result.source).toBe("gitlab");
-        if (result.source === "gitlab") {
+        expect(result.type).toBe("gitlab");
+        if (result.type === "gitlab") {
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
           expect(result.name).toBe("gitlab");
@@ -94,8 +94,8 @@ describe("resolveSource", () => {
     it.effect("resolves bitbucket:owner/repo to BitbucketSource with config", () =>
       Effect.gen(function* () {
         const result = yield* resolve("bitbucket:owner/repo");
-        expect(result.source).toBe("bitbucket");
-        if (result.source === "bitbucket") {
+        expect(result.type).toBe("bitbucket");
+        if (result.type === "bitbucket") {
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
           expect(result.name).toBe("bitbucket");
@@ -109,8 +109,8 @@ describe("resolveSource", () => {
     it.effect("resolves local path without config", () =>
       Effect.gen(function* () {
         const result = yield* resolve("./my-skill");
-        expect(result.source).toBe("local");
-        if (result.source === "local") {
+        expect(result.type).toBe("local");
+        if (result.type === "local") {
           expect(result.path).toBe("./my-skill");
         }
       }),
@@ -119,8 +119,8 @@ describe("resolveSource", () => {
     it.effect("resolves absolute path without config", () =>
       Effect.gen(function* () {
         const result = yield* resolve("/home/user/skills/my-skill");
-        expect(result.source).toBe("local");
-        if (result.source === "local") {
+        expect(result.type).toBe("local");
+        if (result.type === "local") {
           expect(result.path).toBe("/home/user/skills/my-skill");
         }
       }),
@@ -152,13 +152,13 @@ describe("resolveSource", () => {
     it.effect("uses single config when only one exists for source type", () =>
       Effect.gen(function* () {
         const sources: ReadonlyArray<SourceConfig> = [
-          { name: "my-github", source: "github", url: new URL("https://github.example.com") },
+          { name: "my-github", type: "github", url: new URL("https://github.example.com") },
         ];
         const result = yield* resolveSource("github:owner/repo").pipe(
           Effect.provide(makeWorkspaceLayer(sources)),
         );
-        expect(result.source).toBe("github");
-        if (result.source === "github") {
+        expect(result.type).toBe("github");
+        if (result.type === "github") {
           expect(result.name).toBe("my-github");
           expect(result.url).toEqual(new URL("https://github.example.com"));
         }
@@ -171,7 +171,7 @@ describe("resolveSource", () => {
       Effect.gen(function* () {
         // Only gitlab config, trying github
         const sources: ReadonlyArray<SourceConfig> = [
-          { name: "gitlab", source: "gitlab", url: new URL("https://gitlab.com") },
+          { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
         ];
         const error = yield* Effect.flip(
           resolveSource("github:owner/repo").pipe(Effect.provide(makeWorkspaceLayer(sources))),
@@ -188,8 +188,8 @@ describe("resolveSource", () => {
 
   describe("multi-config URL hostname matching", () => {
     const multiGitHubSources: ReadonlyArray<SourceConfig> = [
-      { name: "github", source: "github", url: new URL("https://github.com") },
-      { name: "ghe", source: "github", url: new URL("https://github.example.com") },
+      { name: "github", type: "github", url: new URL("https://github.com") },
+      { name: "ghe", type: "github", url: new URL("https://github.example.com") },
     ];
 
     it.effect("URL input matches correct config by hostname", () =>
@@ -197,8 +197,8 @@ describe("resolveSource", () => {
         const result = yield* resolveSource("https://github.example.com/owner/repo").pipe(
           Effect.provide(makeWorkspaceLayer(multiGitHubSources)),
         );
-        expect(result.source).toBe("github");
-        if (result.source === "github") {
+        expect(result.type).toBe("github");
+        if (result.type === "github") {
           expect(result.name).toBe("ghe");
           expect(result.url).toEqual(new URL("https://github.example.com"));
           expect(result.owner).toBe("owner");
@@ -212,8 +212,8 @@ describe("resolveSource", () => {
         const result = yield* resolveSource("https://github.com/owner/repo").pipe(
           Effect.provide(makeWorkspaceLayer(multiGitHubSources)),
         );
-        expect(result.source).toBe("github");
-        if (result.source === "github") {
+        expect(result.type).toBe("github");
+        if (result.type === "github") {
           expect(result.name).toBe("github");
           expect(result.url).toEqual(new URL("https://github.com"));
         }
@@ -225,8 +225,8 @@ describe("resolveSource", () => {
         const result = yield* resolveSource("git@github.com:owner/repo.git").pipe(
           Effect.provide(makeWorkspaceLayer(multiGitHubSources)),
         );
-        expect(result.source).toBe("github");
-        if (result.source === "github") {
+        expect(result.type).toBe("github");
+        if (result.type === "github") {
           expect(result.name).toBe("github");
           expect(result.url).toEqual(new URL("https://github.com"));
         }
@@ -238,8 +238,8 @@ describe("resolveSource", () => {
         const result = yield* resolveSource("github:owner/repo").pipe(
           Effect.provide(makeWorkspaceLayer(multiGitHubSources)),
         );
-        expect(result.source).toBe("github");
-        if (result.source === "github") {
+        expect(result.type).toBe("github");
+        if (result.type === "github") {
           // Shorthand takes first config of that type
           expect(result.name).toBe("github");
           expect(result.url).toEqual(new URL("https://github.com"));
@@ -250,8 +250,8 @@ describe("resolveSource", () => {
     it.effect("fails when URL hostname matches no config", () =>
       Effect.gen(function* () {
         const sources: ReadonlyArray<SourceConfig> = [
-          { name: "ghe1", source: "github", url: new URL("https://github.acme.com") },
-          { name: "ghe2", source: "github", url: new URL("https://github.corp.com") },
+          { name: "ghe1", type: "github", url: new URL("https://github.acme.com") },
+          { name: "ghe2", type: "github", url: new URL("https://github.corp.com") },
         ];
         const error = yield* Effect.flip(
           resolveSource("https://github.com/owner/repo").pipe(
@@ -266,15 +266,15 @@ describe("resolveSource", () => {
       Effect.gen(function* () {
         // GitLab URL structure (/-/tree/) with two configs sharing same hostname
         const sources: ReadonlyArray<SourceConfig> = [
-          { name: "gh-corp", source: "github", url: new URL("https://git.corp.com") },
-          { name: "gl-corp", source: "gitlab", url: new URL("https://git.corp.com") },
+          { name: "gh-corp", type: "github", url: new URL("https://git.corp.com") },
+          { name: "gl-corp", type: "gitlab", url: new URL("https://git.corp.com") },
         ];
         const result = yield* resolveSource("https://git.corp.com/owner/repo/-/tree/main").pipe(
           Effect.provide(makeWorkspaceLayer(sources)),
         );
         // GitHub parser fails (GitLab URL structure), GitLab parser succeeds
-        expect(result.source).toBe("gitlab");
-        if (result.source === "gitlab") {
+        expect(result.type).toBe("gitlab");
+        if (result.type === "gitlab") {
           expect(result.name).toBe("gl-corp");
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
@@ -286,14 +286,14 @@ describe("resolveSource", () => {
     it.effect("custom hostname SCP matches user config", () =>
       Effect.gen(function* () {
         const sources: ReadonlyArray<SourceConfig> = [
-          { name: "github", source: "github", url: new URL("https://github.com") },
-          { name: "ghe", source: "github", url: new URL("https://ghe.corp.com") },
+          { name: "github", type: "github", url: new URL("https://github.com") },
+          { name: "ghe", type: "github", url: new URL("https://ghe.corp.com") },
         ];
         const result = yield* resolveSource("git@ghe.corp.com:team/repo.git").pipe(
           Effect.provide(makeWorkspaceLayer(sources)),
         );
-        expect(result.source).toBe("github");
-        if (result.source === "github") {
+        expect(result.type).toBe("github");
+        if (result.type === "github") {
           expect(result.name).toBe("ghe");
           expect(result.url).toEqual(new URL("https://ghe.corp.com"));
           expect(result.owner).toBe("team");
@@ -317,15 +317,15 @@ describe("resolveSource", () => {
       Effect.gen(function* () {
         const sources: ReadonlyArray<SourceConfig> = [
           // Project config first (takes precedence)
-          { name: "my-github", source: "github", url: new URL("https://github.com") },
+          { name: "my-github", type: "github", url: new URL("https://github.com") },
           // Built-in default second
-          { name: "github", source: "github", url: new URL("https://github.com") },
+          { name: "github", type: "github", url: new URL("https://github.com") },
         ];
         const result = yield* resolveSource("https://github.com/owner/repo").pipe(
           Effect.provide(makeWorkspaceLayer(sources)),
         );
-        expect(result.source).toBe("github");
-        if (result.source === "github") {
+        expect(result.type).toBe("github");
+        if (result.type === "github") {
           expect(result.name).toBe("my-github");
         }
       }),
@@ -340,14 +340,14 @@ describe("resolveSource", () => {
     it.effect("resolves ghe:owner/repo when ghe is a config name for github", () =>
       Effect.gen(function* () {
         const sources: ReadonlyArray<SourceConfig> = [
-          { name: "github", source: "github", url: new URL("https://github.com") },
-          { name: "ghe", source: "github", url: new URL("https://github.example.com") },
+          { name: "github", type: "github", url: new URL("https://github.com") },
+          { name: "ghe", type: "github", url: new URL("https://github.example.com") },
         ];
         const result = yield* resolveSource("ghe:owner/repo").pipe(
           Effect.provide(makeWorkspaceLayer(sources)),
         );
-        expect(result.source).toBe("github");
-        if (result.source === "github") {
+        expect(result.type).toBe("github");
+        if (result.type === "github") {
           expect(result.name).toBe("ghe");
           expect(result.url).toEqual(new URL("https://github.example.com"));
           expect(result.owner).toBe("owner");
@@ -359,14 +359,14 @@ describe("resolveSource", () => {
     it.effect("resolves config-name shorthand with ref and path", () =>
       Effect.gen(function* () {
         const sources: ReadonlyArray<SourceConfig> = [
-          { name: "github", source: "github", url: new URL("https://github.com") },
-          { name: "ghe", source: "github", url: new URL("https://github.example.com") },
+          { name: "github", type: "github", url: new URL("https://github.com") },
+          { name: "ghe", type: "github", url: new URL("https://github.example.com") },
         ];
         const result = yield* resolveSource("ghe:owner/repo/skills/my-skill@v1.0.0").pipe(
           Effect.provide(makeWorkspaceLayer(sources)),
         );
-        expect(result.source).toBe("github");
-        if (result.source === "github") {
+        expect(result.type).toBe("github");
+        if (result.type === "github") {
           expect(result.name).toBe("ghe");
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
@@ -379,14 +379,14 @@ describe("resolveSource", () => {
     it.effect("standard shorthand still works alongside config names", () =>
       Effect.gen(function* () {
         const sources: ReadonlyArray<SourceConfig> = [
-          { name: "github", source: "github", url: new URL("https://github.com") },
-          { name: "ghe", source: "github", url: new URL("https://github.example.com") },
+          { name: "github", type: "github", url: new URL("https://github.com") },
+          { name: "ghe", type: "github", url: new URL("https://github.example.com") },
         ];
         const result = yield* resolveSource("github:owner/repo").pipe(
           Effect.provide(makeWorkspaceLayer(sources)),
         );
-        expect(result.source).toBe("github");
-        if (result.source === "github") {
+        expect(result.type).toBe("github");
+        if (result.type === "github") {
           expect(result.name).toBe("github");
           expect(result.url).toEqual(new URL("https://github.com"));
         }
@@ -403,14 +403,14 @@ describe("resolveSource", () => {
     it.effect("config-name for gitlab works", () =>
       Effect.gen(function* () {
         const sources: ReadonlyArray<SourceConfig> = [
-          { name: "gitlab", source: "gitlab", url: new URL("https://gitlab.com") },
-          { name: "gl-corp", source: "gitlab", url: new URL("https://gitlab.corp.com") },
+          { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
+          { name: "gl-corp", type: "gitlab", url: new URL("https://gitlab.corp.com") },
         ];
         const result = yield* resolveSource("gl-corp:owner/repo").pipe(
           Effect.provide(makeWorkspaceLayer(sources)),
         );
-        expect(result.source).toBe("gitlab");
-        if (result.source === "gitlab") {
+        expect(result.type).toBe("gitlab");
+        if (result.type === "gitlab") {
           expect(result.name).toBe("gl-corp");
           expect(result.url).toEqual(new URL("https://gitlab.corp.com"));
           expect(result.owner).toBe("owner");
@@ -422,14 +422,14 @@ describe("resolveSource", () => {
     it.effect("config-name for bitbucket works", () =>
       Effect.gen(function* () {
         const sources: ReadonlyArray<SourceConfig> = [
-          { name: "bitbucket", source: "bitbucket", url: new URL("https://bitbucket.org") },
-          { name: "bb-corp", source: "bitbucket", url: new URL("https://bitbucket.corp.com") },
+          { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
+          { name: "bb-corp", type: "bitbucket", url: new URL("https://bitbucket.corp.com") },
         ];
         const result = yield* resolveSource("bb-corp:owner/repo").pipe(
           Effect.provide(makeWorkspaceLayer(sources)),
         );
-        expect(result.source).toBe("bitbucket");
-        if (result.source === "bitbucket") {
+        expect(result.type).toBe("bitbucket");
+        if (result.type === "bitbucket") {
           expect(result.name).toBe("bb-corp");
           expect(result.url).toEqual(new URL("https://bitbucket.corp.com"));
           expect(result.owner).toBe("owner");
@@ -441,14 +441,14 @@ describe("resolveSource", () => {
     it.effect("source-type prefix selects first config when multiple exist", () =>
       Effect.gen(function* () {
         const sources: ReadonlyArray<SourceConfig> = [
-          { name: "ghe1", source: "github", url: new URL("https://github.acme.com") },
-          { name: "ghe2", source: "github", url: new URL("https://github.corp.com") },
+          { name: "ghe1", type: "github", url: new URL("https://github.acme.com") },
+          { name: "ghe2", type: "github", url: new URL("https://github.corp.com") },
         ];
         const result = yield* resolveSource("github:owner/repo").pipe(
           Effect.provide(makeWorkspaceLayer(sources)),
         );
-        expect(result.source).toBe("github");
-        if (result.source === "github") {
+        expect(result.type).toBe("github");
+        if (result.type === "github") {
           expect(result.name).toBe("ghe1");
           expect(result.url).toEqual(new URL("https://github.acme.com"));
         }
@@ -464,13 +464,13 @@ describe("resolveSource", () => {
     it.effect("resolves Azure Repos URL with config", () =>
       Effect.gen(function* () {
         const sources: ReadonlyArray<SourceConfig> = [
-          { name: "azure", source: "azurerepos", url: new URL("https://dev.azure.com") },
+          { name: "azure", type: "azurerepos", url: new URL("https://dev.azure.com") },
         ];
         const result = yield* resolveSource(
           "https://dev.azure.com/myorg/myproject/_git/myrepo",
         ).pipe(Effect.provide(makeWorkspaceLayer(sources)));
-        expect(result.source).toBe("azurerepos");
-        if (result.source === "azurerepos") {
+        expect(result.type).toBe("azurerepos");
+        if (result.type === "azurerepos") {
           expect(result.organization).toBe("myorg");
           expect(result.project).toBe("myproject");
           expect(result.repo).toBe("myrepo");

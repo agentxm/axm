@@ -123,10 +123,10 @@ export const handleInstall = (args: InstallHandlerArgs) => {
           }),
       ),
     );
-    yield* parseHandle.stop(`Source: ${printSourceInput(source)} (${source.source})`);
+    yield* parseHandle.stop(`Source: ${printSourceInput(source)} (${source.type})`);
 
     // Step 1.5: Registry guard — ensure a registry source is configured
-    if (source.source === "registry") {
+    if (source.type === "registry") {
       yield* registryGuard;
     }
 

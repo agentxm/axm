@@ -80,7 +80,7 @@ export { parseSourceInput } from "./parser.js";
 export { resolveSource } from "./resolve-source.js";
 
 // Printer
-export { printSource } from "./printer.js";
+export { printSourceInput } from "./printer.js";
 
 // Clone URL utilities
 export { buildCloneUrl, getOrigin } from "./clone-url.js";

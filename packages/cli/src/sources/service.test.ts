@@ -153,7 +153,6 @@ describe("registry meta-provider scope routing", () => {
             type: "registry",
             scope: "@test",
             name: "my-skill",
-            url: new URL(`file://${registryRoot}`),
           },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
@@ -172,7 +171,7 @@ describe("registry meta-provider scope routing", () => {
       Effect.gen(function* () {
         const svc = yield* SourceProviders;
         const refs = yield* svc.resolveExtension(
-          { type: "registry", scope: "@test", name: "my-skill", url: new URL("file:///test") },
+          { type: "registry", scope: "@test", name: "my-skill" },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
         expect(refs).toHaveLength(0);
@@ -260,7 +259,6 @@ describe("SourceProviders dispatch", () => {
             type: "registry",
             scope: "@test",
             name: "nonexistent",
-            url: new URL(`file://${registryRoot}`),
           },
           { ...defaultFindOptions, names: ["nonexistent"] },
         );

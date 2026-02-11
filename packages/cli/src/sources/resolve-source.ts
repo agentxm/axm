@@ -294,9 +294,9 @@ const routeNameInput = (name: string, input: string) =>
 const routeFilePathInput = (path: string) =>
   Effect.map(parseLocalPath(path), (source) => source as Source);
 
-/** Route RegistryPatternInput: not yet supported. */
-const routeRegistryInput = (input: string) =>
-  Effect.fail(new ParseError({ message: "Registry source input is not yet supported", input }));
+/** Route RegistryPatternInput: construct registry source from parsed scope and name. */
+const routeRegistryInput = (pattern: { readonly scope: string; readonly name: string }) =>
+  Effect.succeed({ type: "registry" as const, scope: pattern.scope, name: pattern.name });
 
 /**
  * Route SlashPattern (owner/repo): iterate git-hosting configs that support
@@ -381,7 +381,7 @@ export const resolveSource = (input: string): Effect.Effect<Source, ParseError, 
       case "FilePathPattern":
         return yield* routeFilePathInput(pattern.path);
       case "RegistryPatternInput":
-        return yield* routeRegistryInput(trimmed);
+        return yield* routeRegistryInput(pattern);
       case "SlashPattern":
         return yield* routeSlashInput(pattern, trimmed);
     }

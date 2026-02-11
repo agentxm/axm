@@ -10,12 +10,17 @@ Source strings SHALL follow these formats:
 | github   | `github:owner/repo[/path][#ref]`       | `github:acme/skills`, `github:acme/repo/path#v1` |
 | git      | `git:url[#ref]`                        | `git:https://example.com/repo.git#main`          |
 | local    | bare path (no prefix)                  | `./skills`, `~/my-skills`, `/absolute/path`      |
+| local    | `file://` URL                          | `file:///absolute/path/to/skill`                 |
 
 Bare paths starting with `./`, `../`, `/`, `~/`, or Windows drive letters (e.g., `C:\`) are recognized as local sources and stored as-is (not normalized with a prefix).
 
+`file://` URLs SHALL be classified as local file paths by extracting the URL pathname. They are handled at the input classification layer and never reach URL-based source routing.
+
 The `~` prefix represents the user's home directory and is expanded at resolution time.
 
-The registry source string no longer carries location information — location is resolved from `SourceConfig` (named source configuration). The parser (`parseSourceInput`, renamed from `parseSource`) returns `{ source: "registry" }` without `url` or `path` fields.
+The registry source string no longer carries location information — location is resolved from `SourceConfig` (named source configuration). The parser returns `{ source: "registry" }` without `url` or `path` fields.
+
+HTTPS and SSH URLs (e.g., `https://github.com/owner/repo`, `git@github.com:owner/repo.git`) are classified as URL or SCP patterns by `parseInputPattern` but are NOT resolved to a specific source type at classification time. Source type determination for URLs and SCPs happens in `resolveSource` via config-driven hostname matching.
 
 #### Scenario: Registry source string
 
@@ -51,6 +56,24 @@ The registry source string no longer carries location information — location i
 
 - **WHEN** parsing source string `~/path/to/skill`
 - **THEN** source type is `local` with path containing `~` (expanded at resolution time)
+
+#### Scenario: file:// URL classified as local path
+
+- **WHEN** parsing source string `file:///Users/dev/skills/my-skill`
+- **THEN** the input is classified as a file path with path `/Users/dev/skills/my-skill`
+- **AND** it resolves as a local source
+
+#### Scenario: HTTPS URL classified as UrlInput
+
+- **WHEN** classifying input `https://github.com/owner/repo`
+- **THEN** the input is classified as `UrlInput` (not resolved to a source type)
+- **AND** source type determination happens in `resolveSource` via config matching
+
+#### Scenario: SCP address classified as GitScpAddress
+
+- **WHEN** classifying input `git@github.com:owner/repo.git`
+- **THEN** the input is classified as `GitScpAddress` (not resolved to a source type)
+- **AND** source type determination happens in `resolveSource` via config matching
 
 ### Requirement: Source configuration schema
 

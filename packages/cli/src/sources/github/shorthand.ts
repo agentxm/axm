@@ -4,8 +4,6 @@ import * as Option from "effect/Option";
 import { parseProviderShorthand } from "../parse-provider-shorthand.js";
 import type { GitHubSourceInput } from "../types.js";
 
-export const shorthandPrefix = "github" as const;
-
 export const parseShorthand = (input: string) =>
   Effect.gen(function* () {
     const body = input.slice("github:".length);

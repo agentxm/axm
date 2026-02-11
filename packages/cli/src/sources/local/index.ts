@@ -6,5 +6,4 @@
  */
 
 export { parseLocalPath } from "./parser.js";
-export { descriptor } from "./descriptor.js";
 export { print } from "./print.js";

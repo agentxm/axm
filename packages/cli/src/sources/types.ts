@@ -5,11 +5,9 @@
  * @packageDocumentation
  */
 
-import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import type { ParseError } from "./errors.js";
 import type {
   AzureReposSourceConfig,
   BitbucketSourceConfig,
@@ -52,46 +50,6 @@ export const SourceTypeSchema = Schema.Literal(
  * @experimental This API is unstable and may change without notice.
  */
 export type SourceType = typeof SourceTypeSchema.Type;
-
-// -----------------------------------------------------------------------------
-// Source Config
-// -----------------------------------------------------------------------------
-
-/**
- * Shorthand configuration for a source provider (e.g. `github:owner/repo`).
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface ShorthandDescriptor<T extends SourceType, T2 extends SourceInput & { source: T }> {
-  readonly prefix: T;
-  readonly parse: (input: string) => Effect.Effect<T2, ParseError>;
-}
-
-/**
- * URL parse configuration for a source provider (e.g. `https://github.com/...`, `git@github.com:...`).
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface UrlParseDescriptor<T extends SourceType, T2 extends SourceInput & { source: T }> {
-  readonly hostname: string;
-  readonly parseUrl: (url: URL) => Effect.Effect<T2, ParseError>;
-  readonly parseScp: (input: string) => Effect.Effect<T2, ParseError>;
-}
-
-/**
- * Configuration for a source provider.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface SourceDescriptor<
-  T extends SourceType = SourceType,
-  T2 extends SourceInput & { source: T } = SourceInput & { source: T },
-> {
-  readonly id: T;
-  readonly print: (source: T2) => string;
-  readonly shorthand: Option.Option<ShorthandDescriptor<T, T2>>;
-  readonly parseFromUrl: Option.Option<UrlParseDescriptor<T, T2>>;
-}
 
 // -----------------------------------------------------------------------------
 // Discriminated Union Types
@@ -193,7 +151,6 @@ export type GitRepositorySourceInput = {
 
 /**
  * Package registry source input (placeholder for future implementation).
- * Location resolved from SourceDescriptor at runtime.
  */
 export type RegistrySourceInput = {
   readonly source: "registry";

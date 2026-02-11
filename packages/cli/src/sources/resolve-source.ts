@@ -8,19 +8,28 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { descriptor as azurereposDescriptor } from "./azurerepos/index.js";
-import { descriptor as bitbucketDescriptor } from "./bitbucket/index.js";
+import {
+  parseScp as azurereposParseScp,
+  parseUrl as azurereposParseUrl,
+} from "./azurerepos/index.js";
+import {
+  parseShorthand as bitbucketParseShorthand,
+  parseScp as bitbucketParseScp,
+  parseUrl as bitbucketParseUrl,
+} from "./bitbucket/index.js";
 import { ParseError } from "./errors.js";
-import { descriptor as githubDescriptor } from "./github/index.js";
-import { descriptor as gitlabDescriptor } from "./gitlab/index.js";
+import {
+  parseShorthand as githubParseShorthand,
+  parseScp as githubParseScp,
+  parseUrl as githubParseUrl,
+} from "./github/index.js";
+import {
+  parseShorthand as gitlabParseShorthand,
+  parseScp as gitlabParseScp,
+  parseUrl as gitlabParseUrl,
+} from "./gitlab/index.js";
 import { parseSourceInput, parseInputPattern } from "./parser.js";
-import type {
-  ParseSourceInputResult,
-  Source,
-  SourceDescriptor,
-  SourceInput,
-  SourceType,
-} from "./types.js";
+import type { ParseSourceInputResult, Source, SourceInput, SourceType } from "./types.js";
 import type { SourceConfig } from "../settings/schema.js";
 import { Workspace } from "../workspace/index.js";
 
@@ -30,17 +39,6 @@ import { Workspace } from "../workspace/index.js";
 
 /** Source types that require a matching config from workspace. */
 const GIT_HOSTING_TYPES = new Set<SourceType>(["github", "gitlab", "bitbucket", "azurerepos"]);
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnySourceDescriptor = SourceDescriptor<any, any>;
-
-/** Map from source type id to its descriptor. */
-const DESCRIPTOR_BY_TYPE = new Map<string, AnySourceDescriptor>([
-  ["github", githubDescriptor],
-  ["gitlab", gitlabDescriptor],
-  ["bitbucket", bitbucketDescriptor],
-  ["azurerepos", azurereposDescriptor],
-]);
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -119,13 +117,57 @@ const findConfig = (
 };
 
 // -----------------------------------------------------------------------------
+// Canonical URL parsers helper
+// -----------------------------------------------------------------------------
+
+/**
+ * Get the canonical hostname and URL/SCP parsers for a source type.
+ */
+const getCanonicalUrlParsers = (
+  sourceType: string,
+): Option.Option<{
+  readonly hostname: string;
+  readonly parseUrl: (url: URL) => Effect.Effect<SourceInput, ParseError>;
+  readonly parseScp: (input: string) => Effect.Effect<SourceInput, ParseError>;
+}> => {
+  switch (sourceType) {
+    case "github":
+      return Option.some({
+        hostname: "github.com",
+        parseUrl: githubParseUrl,
+        parseScp: githubParseScp,
+      });
+    case "gitlab":
+      return Option.some({
+        hostname: "gitlab.com",
+        parseUrl: gitlabParseUrl,
+        parseScp: gitlabParseScp,
+      });
+    case "bitbucket":
+      return Option.some({
+        hostname: "bitbucket.org",
+        parseUrl: bitbucketParseUrl,
+        parseScp: bitbucketParseScp,
+      });
+    case "azurerepos":
+      return Option.some({
+        hostname: "dev.azure.com",
+        parseUrl: azurereposParseUrl,
+        parseScp: azurereposParseScp,
+      });
+    default:
+      return Option.none();
+  }
+};
+
+// -----------------------------------------------------------------------------
 // Two-phase parse for config-name prefix
 // -----------------------------------------------------------------------------
 
 /**
  * When `parseSourceInput` fails, check if the prefix before `:` matches
  * a config name from workspace. If so, re-parse using that config's source
- * type descriptor shorthand.
+ * type shorthand parser.
  *
  * E.g., `ghe:owner/repo` where `ghe` is a config name for GitHub.
  */
@@ -155,29 +197,43 @@ const tryConfigNameParse = (input: string, originalError: ParseError) =>
       return yield* Effect.fail(originalError);
     }
 
-    // Must be a git hosting type with a shorthand descriptor
+    // Must be a git hosting type with a shorthand
     if (!GIT_HOSTING_TYPES.has(matchedConfig.source as SourceType)) {
       return yield* Effect.fail(originalError);
     }
 
-    const desc = DESCRIPTOR_BY_TYPE.get(matchedConfig.source);
-    if (!desc || Option.isNone(desc.shorthand)) {
-      return yield* Effect.fail(
-        new ParseError({
-          message: `Source type "${matchedConfig.source}" does not support shorthand syntax`,
-          input,
-        }),
-      );
-    }
-
-    // Re-parse: construct `{sourceType}:{remainder}` and parse with the descriptor
+    // Re-parse: construct `{sourceType}:{remainder}` and parse with the provider
     const reparsed = `${matchedConfig.source}:${remainder}`;
-    const parsedInput = yield* desc.shorthand.value.parse(reparsed);
-
-    return {
-      input: parsedInput as SourceInput,
-      config: Option.some(matchedConfig),
-    } satisfies ParseSourceInputResult;
+    switch (matchedConfig.source) {
+      case "github": {
+        const parsedInput = yield* githubParseShorthand(reparsed);
+        return {
+          input: parsedInput,
+          config: Option.some(matchedConfig),
+        } satisfies ParseSourceInputResult;
+      }
+      case "gitlab": {
+        const parsedInput = yield* gitlabParseShorthand(reparsed);
+        return {
+          input: parsedInput,
+          config: Option.some(matchedConfig),
+        } satisfies ParseSourceInputResult;
+      }
+      case "bitbucket": {
+        const parsedInput = yield* bitbucketParseShorthand(reparsed);
+        return {
+          input: parsedInput,
+          config: Option.some(matchedConfig),
+        } satisfies ParseSourceInputResult;
+      }
+      default:
+        return yield* Effect.fail(
+          new ParseError({
+            message: `Source type "${matchedConfig.source}" does not support shorthand syntax`,
+            input,
+          }),
+        );
+    }
   });
 
 // -----------------------------------------------------------------------------
@@ -187,7 +243,7 @@ const tryConfigNameParse = (input: string, originalError: ParseError) =>
 /**
  * When `parseSourceInput` fails for a URL with an unknown hostname, try to
  * match the hostname against configured source URLs. If a match is found,
- * re-parse the URL by substituting the canonical hostname so the descriptor's
+ * re-parse the URL by substituting the canonical hostname so the provider's
  * URL parser accepts it.
  *
  * E.g., `https://github.example.com/owner/repo` with a config
@@ -226,14 +282,14 @@ const tryUrlHostnameMatch = (input: string, originalError: ParseError) =>
       return yield* Effect.fail(originalError);
     }
 
-    // Get the descriptor for this source type
-    const desc = DESCRIPTOR_BY_TYPE.get(matchingConfig.source);
-    if (!desc || Option.isNone(desc.parseFromUrl)) {
+    // Get the canonical URL parsers for this source type
+    const parsers = getCanonicalUrlParsers(matchingConfig.source);
+    if (Option.isNone(parsers)) {
       return yield* Effect.fail(originalError);
     }
 
-    // Substitute the canonical hostname into the URL so the descriptor's parser accepts it
-    const canonicalHostname = desc.parseFromUrl.value.hostname;
+    // Substitute the canonical hostname into the URL so the provider's parser accepts it
+    const { hostname: canonicalHostname, parseUrl, parseScp } = parsers.value;
     const pattern = parseInputPattern(trimmed);
     if (Option.isNone(pattern)) {
       return yield* Effect.fail(originalError);
@@ -244,9 +300,7 @@ const tryUrlHostnameMatch = (input: string, originalError: ParseError) =>
       // Replace hostname in URL
       const canonicalUrl = new URL(p.url.href);
       canonicalUrl.hostname = canonicalHostname;
-      const parsedInput = yield* desc.parseFromUrl.value
-        .parseUrl(canonicalUrl)
-        .pipe(Effect.mapError(() => originalError));
+      const parsedInput = yield* parseUrl(canonicalUrl).pipe(Effect.mapError(() => originalError));
       return {
         input: parsedInput as SourceInput,
         config: Option.some(matchingConfig),
@@ -256,9 +310,7 @@ const tryUrlHostnameMatch = (input: string, originalError: ParseError) =>
     if (p._tag === "GitScpAddress") {
       // Replace host in SCP address
       const canonicalScp = `${p.user}@${canonicalHostname}:${p.path}`;
-      const parsedInput = yield* desc.parseFromUrl.value
-        .parseScp(canonicalScp)
-        .pipe(Effect.mapError(() => originalError));
+      const parsedInput = yield* parseScp(canonicalScp).pipe(Effect.mapError(() => originalError));
       return {
         input: parsedInput as SourceInput,
         config: Option.some(matchingConfig),

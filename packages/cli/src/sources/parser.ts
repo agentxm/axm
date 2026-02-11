@@ -8,25 +8,38 @@
  * @packageDocumentation
  */
 
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { descriptor as azurereposDescriptor } from "./azurerepos/index.js";
-import { descriptor as bitbucketDescriptor } from "./bitbucket/index.js";
+import {
+  parseScp as azurereposParseScp,
+  parseUrl as azurereposParseUrl,
+} from "./azurerepos/index.js";
+import {
+  parseShorthand as bitbucketParseShorthand,
+  parseScp as bitbucketParseScp,
+  parseUrl as bitbucketParseUrl,
+} from "./bitbucket/index.js";
 import { ParseError } from "./errors.js";
-import { descriptor as githubDescriptor } from "./github/index.js";
-import { descriptor as gitlabDescriptor } from "./gitlab/index.js";
-import { descriptor as localDescriptor, parseLocalPath } from "./local/index.js";
+import {
+  parseShorthand as githubParseShorthand,
+  parseScp as githubParseScp,
+  parseUrl as githubParseUrl,
+} from "./github/index.js";
+import {
+  parseShorthand as gitlabParseShorthand,
+  parseScp as gitlabParseScp,
+  parseUrl as gitlabParseUrl,
+} from "./gitlab/index.js";
+import { parseLocalPath } from "./local/index.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import type { ParseSourceInputResult } from "./types.js";
 import { Workspace } from "../workspace/index.js";
 
 /** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
 const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
-import type { SourceDescriptor } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Input Pattern Types
@@ -86,39 +99,8 @@ const REGISTRY_SOURCE_PATTERN = /^@([^/]+)\/(.+)$/;
 /** SCP-style: `user@host:path` — no `://` scheme. */
 const SCP_PATTERN = /^([^@]+)@([^:]+):(.+)$/;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnySourceDescriptor = SourceDescriptor<any, any>;
-
-/** All source descriptors, type-erased for map building. */
-const ALL_DESCRIPTORS: ReadonlyArray<AnySourceDescriptor> = [
-  githubDescriptor,
-  gitlabDescriptor,
-  bitbucketDescriptor,
-  azurereposDescriptor,
-  localDescriptor,
-];
-
-/** Map from shorthand prefix to its descriptor. */
-const DESCRIPTOR_BY_PREFIX = new Map<string, AnySourceDescriptor>(
-  Array.getSomes(
-    Array.map(ALL_DESCRIPTORS, (c) => Option.map(c.shorthand, (sh) => [sh.prefix, c] as const)),
-  ),
-);
-
-/** Map from hostname to its descriptor. */
-const DESCRIPTOR_BY_HOSTNAME = new Map<string, AnySourceDescriptor>(
-  Array.getSomes(
-    Array.map(ALL_DESCRIPTORS, (c) =>
-      Option.map(c.parseFromUrl, (url) => [url.hostname, c] as const),
-    ),
-  ),
-);
-
-// Azure Repos uses a different hostname for SCP-style SSH URLs
-DESCRIPTOR_BY_HOSTNAME.set("ssh.dev.azure.com", azurereposDescriptor);
-
-/** Known shorthand prefixes from source descriptors. */
-const SHORTHAND_PREFIXES = new Set(DESCRIPTOR_BY_PREFIX.keys());
+/** Known shorthand prefixes. */
+const SHORTHAND_PREFIXES = new Set(["github", "gitlab", "bitbucket"]);
 
 /** Simple name: alphanumeric with hyphens, no leading/trailing hyphen. */
 const NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
@@ -263,25 +245,41 @@ export const parseSourceInput = (input: string) => {
           ),
         ),
         Match.tag("GitScpAddress", (scp) => {
-          const cfg = DESCRIPTOR_BY_HOSTNAME.get(scp.host);
-          if (!cfg || Option.isNone(cfg.parseFromUrl)) {
-            return Effect.fail(
-              new ParseError({ message: `Unsupported SCP host: "${scp.host}"`, input }),
-            );
+          const scpInput = `${scp.user}@${scp.host}:${scp.path}`;
+          switch (scp.host) {
+            case "github.com":
+              return wrap(githubParseScp(scpInput));
+            case "gitlab.com":
+              return wrap(gitlabParseScp(scpInput));
+            case "bitbucket.org":
+              return wrap(bitbucketParseScp(scpInput));
+            case "dev.azure.com":
+            case "ssh.dev.azure.com":
+              return wrap(azurereposParseScp(scpInput));
+            default:
+              return Effect.fail(
+                new ParseError({ message: `Unsupported SCP host: "${scp.host}"`, input }),
+              );
           }
-          return wrap(cfg.parseFromUrl.value.parseScp(`${scp.user}@${scp.host}:${scp.path}`));
         }),
         Match.tag("UrlInput", ({ url }) => {
-          const cfg = DESCRIPTOR_BY_HOSTNAME.get(url.hostname);
-          if (!cfg || Option.isNone(cfg.parseFromUrl)) {
-            return Effect.fail(
-              new ParseError({
-                message: `Unsupported URL host: "${url.hostname}"`,
-                input: trimmed,
-              }),
-            );
+          switch (url.hostname) {
+            case "github.com":
+              return wrap(githubParseUrl(url));
+            case "gitlab.com":
+              return wrap(gitlabParseUrl(url));
+            case "bitbucket.org":
+              return wrap(bitbucketParseUrl(url));
+            case "dev.azure.com":
+              return wrap(azurereposParseUrl(url));
+            default:
+              return Effect.fail(
+                new ParseError({
+                  message: `Unsupported URL host: "${url.hostname}"`,
+                  input: trimmed,
+                }),
+              );
           }
-          return wrap(cfg.parseFromUrl.value.parseUrl(url));
         }),
         Match.tag("SlashPattern", (pattern) =>
           /*
@@ -298,13 +296,18 @@ export const parseSourceInput = (input: string) => {
         ),
         Match.tag("FilePathPattern", ({ path }) => wrap(parseLocalPath(path))),
         Match.tag("ShorthandInput", ({ prefix, input: shorthandInput }) => {
-          const cfg = DESCRIPTOR_BY_PREFIX.get(prefix);
-          if (!cfg || Option.isNone(cfg.shorthand)) {
-            return Effect.fail(
-              new ParseError({ message: `Unknown shorthand prefix: "${prefix}"`, input }),
-            );
+          switch (prefix) {
+            case "github":
+              return wrap(githubParseShorthand(shorthandInput));
+            case "gitlab":
+              return wrap(gitlabParseShorthand(shorthandInput));
+            case "bitbucket":
+              return wrap(bitbucketParseShorthand(shorthandInput));
+            default:
+              return Effect.fail(
+                new ParseError({ message: `Unknown shorthand prefix: "${prefix}"`, input }),
+              );
           }
-          return wrap(cfg.shorthand.value.parse(shorthandInput));
         }),
         Match.exhaustive,
       ),

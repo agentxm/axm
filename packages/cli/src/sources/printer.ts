@@ -5,11 +5,11 @@
  * @packageDocumentation
  */
 
-import { descriptor as azurereposDescriptor } from "./azurerepos/index.js";
-import { descriptor as bitbucketDescriptor } from "./bitbucket/index.js";
-import { descriptor as githubDescriptor } from "./github/index.js";
-import { descriptor as gitlabDescriptor } from "./gitlab/index.js";
-import { descriptor as localDescriptor } from "./local/index.js";
+import { print as azurereposPrint } from "./azurerepos/index.js";
+import { print as bitbucketPrint } from "./bitbucket/index.js";
+import { print as githubPrint } from "./github/index.js";
+import { print as gitlabPrint } from "./gitlab/index.js";
+import { print as localPrint } from "./local/index.js";
 import type { SourceInput } from "./types.js";
 
 /**
@@ -20,15 +20,15 @@ import type { SourceInput } from "./types.js";
 export const printSourceInput = (source: SourceInput): string => {
   switch (source.source) {
     case "github":
-      return githubDescriptor.print(source);
+      return githubPrint(source);
     case "gitlab":
-      return gitlabDescriptor.print(source);
+      return gitlabPrint(source);
     case "bitbucket":
-      return bitbucketDescriptor.print(source);
+      return bitbucketPrint(source);
     case "azurerepos":
-      return azurereposDescriptor.print(source);
+      return azurereposPrint(source);
     case "local":
-      return localDescriptor.print(source);
+      return localPrint(source);
     case "git":
       return source.url.href;
     case "registry":

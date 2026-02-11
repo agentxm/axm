@@ -18,7 +18,6 @@ export type {
   GitRepositorySourceInput,
   GitSource,
   LocalSourceInput,
-  ParseSourceInputResult,
   RegistrySourceInput,
   SourceInput,
   SourceType,
@@ -73,8 +72,9 @@ export { SourceProviders, SourceProvidersLive, createRegistryMetaProvider } from
 // Errors
 export { CloneUrlError, ParseError } from "./errors.js";
 
-// Main parser
-export { parseSourceInput } from "./parser.js";
+// Input pattern classifier
+export { parseInputPattern } from "./parser.js";
+export type { InputPattern } from "./parser.js";
 
 // Source resolver
 export { resolveSource } from "./resolve-source.js";

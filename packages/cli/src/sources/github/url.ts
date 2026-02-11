@@ -6,12 +6,14 @@ import type { GitHubSourceInput } from "../types.js";
 
 export const CANONICAL_HOSTNAME = "github.com";
 
-/** Matches: https://github.com/owner/repo[/tree/ref/path] */
-const GITHUB_HTTPS_PATTERN =
-  /^https?:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/tree\/([^/]+)(?:\/(.+))?)?$/;
+/** Matches: /owner/repo[/tree/ref/path] */
+const GITHUB_PATH_PATTERN = /^\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/tree\/([^/]+)(?:\/(.+))?)?$/;
 
-export const parseUrl = (url: URL) => {
-  const match = url.href.match(GITHUB_HTTPS_PATTERN);
+export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
+  if (url.hostname !== hostname) {
+    return Effect.fail(new ParseError({ message: "Invalid GitHub URL format", input: url.href }));
+  }
+  const match = url.pathname.match(GITHUB_PATH_PATTERN);
   if (!match || !match[1] || !match[2]) {
     return Effect.fail(new ParseError({ message: "Invalid GitHub URL format", input: url.href }));
   }

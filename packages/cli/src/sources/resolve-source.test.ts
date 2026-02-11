@@ -140,8 +140,8 @@ describe("resolveSource", () => {
   describe("git passthrough", () => {
     it.effect("git SCP address for unknown host passes through as git source", () =>
       Effect.gen(function* () {
-        // git@example.com:owner/repo.git would fail in parseSourceInput
-        // since example.com is not a known host. This should fail with ParseError.
+        // git@example.com:owner/repo.git fails in resolveSource
+        // since example.com is not a configured host. This should fail with ParseError.
         const error = yield* Effect.flip(resolve("git@example.com:owner/repo.git"));
         expect(error).toBeInstanceOf(ParseError);
       }),
@@ -247,11 +247,8 @@ describe("resolveSource", () => {
       }),
     );
 
-    it.effect("fails with ambiguous error when URL hostname matches no config", () =>
+    it.effect("fails when URL hostname matches no config", () =>
       Effect.gen(function* () {
-        // URL with hostname that doesn't match any config
-        // But parseSourceInput will parse it — the hostname won't match
-        // any config. This should fail.
         const sources: ReadonlyArray<SourceConfig> = [
           { name: "ghe1", source: "github", url: new URL("https://github.acme.com") },
           { name: "ghe2", source: "github", url: new URL("https://github.corp.com") },
@@ -262,6 +259,75 @@ describe("resolveSource", () => {
           ),
         );
         expect(error).toBeInstanceOf(ParseError);
+      }),
+    );
+
+    it.effect("hostname match but parse failure continues to next source", () =>
+      Effect.gen(function* () {
+        // GitLab URL structure (/-/tree/) with two configs sharing same hostname
+        const sources: ReadonlyArray<SourceConfig> = [
+          { name: "gh-corp", source: "github", url: new URL("https://git.corp.com") },
+          { name: "gl-corp", source: "gitlab", url: new URL("https://git.corp.com") },
+        ];
+        const result = yield* resolveSource("https://git.corp.com/owner/repo/-/tree/main").pipe(
+          Effect.provide(makeWorkspaceLayer(sources)),
+        );
+        // GitHub parser fails (GitLab URL structure), GitLab parser succeeds
+        expect(result.source).toBe("gitlab");
+        if (result.source === "gitlab") {
+          expect(result.name).toBe("gl-corp");
+          expect(result.owner).toBe("owner");
+          expect(result.repo).toBe("repo");
+          expect(result.ref).toEqual(Option.some("main"));
+        }
+      }),
+    );
+
+    it.effect("custom hostname SCP matches user config", () =>
+      Effect.gen(function* () {
+        const sources: ReadonlyArray<SourceConfig> = [
+          { name: "github", source: "github", url: new URL("https://github.com") },
+          { name: "ghe", source: "github", url: new URL("https://ghe.corp.com") },
+        ];
+        const result = yield* resolveSource("git@ghe.corp.com:team/repo.git").pipe(
+          Effect.provide(makeWorkspaceLayer(sources)),
+        );
+        expect(result.source).toBe("github");
+        if (result.source === "github") {
+          expect(result.name).toBe("ghe");
+          expect(result.url).toEqual(new URL("https://ghe.corp.com"));
+          expect(result.owner).toBe("team");
+          expect(result.repo).toBe("repo");
+        }
+      }),
+    );
+
+    it.effect("SCP with no matching config fails", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(
+          resolveSource("git@unknown-host.com:owner/repo.git").pipe(
+            Effect.provide(makeWorkspaceLayer(BUILT_IN_SOURCES)),
+          ),
+        );
+        expect(error).toBeInstanceOf(ParseError);
+      }),
+    );
+
+    it.effect("user config takes precedence over built-in for URLs", () =>
+      Effect.gen(function* () {
+        const sources: ReadonlyArray<SourceConfig> = [
+          // Project config first (takes precedence)
+          { name: "my-github", source: "github", url: new URL("https://github.com") },
+          // Built-in default second
+          { name: "github", source: "github", url: new URL("https://github.com") },
+        ];
+        const result = yield* resolveSource("https://github.com/owner/repo").pipe(
+          Effect.provide(makeWorkspaceLayer(sources)),
+        );
+        expect(result.source).toBe("github");
+        if (result.source === "github") {
+          expect(result.name).toBe("my-github");
+        }
       }),
     );
   });

@@ -1,863 +1,14 @@
 /**
  * Unit tests for source-parser module.
  *
- * Tests parsing of various source formats into normalized SourceInput structures.
+ * Tests classification of input strings into InputPattern types.
  */
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { buildCloneUrl, getOrigin } from "./clone-url.js";
-import { ParseError } from "./errors.js";
-import { type InputPattern, parseInputPattern, parseSourceInput } from "./parser.js";
-import { printSourceInput } from "./printer.js";
-import type { SkillLockEntry, SkillsLockMap } from "../lockfile/index.js";
-import { Workspace } from "../workspace/index.js";
-
-// -----------------------------------------------------------------------------
-// Test helpers
-// -----------------------------------------------------------------------------
-
-const now = new Date();
-
-/** Create a mock Workspace layer with the given skills map. */
-const makeWorkspaceLayer = (skills: SkillsLockMap) =>
-  Layer.succeed(Workspace, {
-    getLockedSkills: () => Effect.succeed(skills),
-  } as unknown as Workspace["Type"]);
-
-/** Empty workspace layer for tests that don't exercise NameInput. */
-const EmptyWorkspaceLayer = makeWorkspaceLayer({});
-
-/** Helper: provide the empty workspace layer for parseSourceInput calls. */
-const parse = (input: string) =>
-  parseSourceInput(input).pipe(
-    Effect.map((r) => r.input),
-    Effect.provide(EmptyWorkspaceLayer),
-  );
-
-/** Helper: provide a specific workspace layer for parseSourceInput calls. */
-const parseWith = (input: string, skills: SkillsLockMap) =>
-  parseSourceInput(input).pipe(
-    Effect.map((r) => r.input),
-    Effect.provide(makeWorkspaceLayer(skills)),
-  );
-
-/** Create a GitHub lock entry for testing. */
-const makeGitHubLockEntry = (owner: string, repo: string): SkillLockEntry => ({
-  source: "github",
-  owner,
-  repo,
-  agents: [],
-  installedAt: now,
-  updatedAt: now,
-});
-
-/** Create a registry lock entry for testing. */
-const makeRegistryLockEntry = (scope: string, name: string): SkillLockEntry => ({
-  source: "registry",
-  scope,
-  name,
-  resolvedVersion: "1.0.0",
-  checksum: "abc123",
-  sourceName: "default",
-  agents: [],
-  installedAt: now,
-  updatedAt: now,
-});
-
-describe("source-parser", () => {
-  describe("slash pattern (owner/repo)", () => {
-    it.effect("rejects ambiguous owner/repo pattern", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parse("owner/repo"));
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toContain("Ambiguous pattern");
-      }),
-    );
-  });
-
-  describe("prefixed shorthand", () => {
-    it.effect("parses github:owner/repo", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("github:owner/repo");
-
-        expect(result.source).toBe("github");
-        expect(printSourceInput(result)).toBe("github:owner/repo");
-        if (result.source === "github") {
-          expect(result.owner).toBe("owner");
-          expect(result.repo).toBe("repo");
-        }
-      }),
-    );
-
-    it.effect("parses gitlab:owner/repo", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("gitlab:owner/repo");
-
-        expect(result.source).toBe("gitlab");
-        expect(printSourceInput(result)).toBe("gitlab:owner/repo");
-        if (result.source === "gitlab") {
-          expect(result.owner).toBe("owner");
-          expect(result.repo).toBe("repo");
-        }
-      }),
-    );
-
-    it.effect("parses github:owner/repo/path@ref", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("github:owner/repo/skills/my-skill@v1.0.0");
-
-        expect(result.source).toBe("github");
-        expect(printSourceInput(result)).toBe("github:owner/repo/skills/my-skill@v1.0.0");
-        if (result.source === "github") {
-          expect(result.owner).toBe("owner");
-          expect(result.repo).toBe("repo");
-          expect(result.subPath).toEqual(Option.some("skills/my-skill"));
-          expect(result.ref).toEqual(Option.some("v1.0.0"));
-        }
-      }),
-    );
-
-    it.effect("parses gitlab:owner/repo@ref", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("gitlab:owner/repo@main");
-
-        expect(result.source).toBe("gitlab");
-        expect(printSourceInput(result)).toBe("gitlab:owner/repo@main");
-        if (result.source === "gitlab") {
-          expect(result.ref).toEqual(Option.some("main"));
-        }
-      }),
-    );
-  });
-
-  describe("GitHub HTTPS URLs", () => {
-    it.effect("parses https://github.com/owner/repo", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://github.com/owner/repo");
-
-        expect(result.source).toBe("github");
-        expect(printSourceInput(result)).toBe("github:owner/repo");
-        if (result.source === "github") {
-          expect(result.owner).toBe("owner");
-          expect(result.repo).toBe("repo");
-        }
-      }),
-    );
-
-    it.effect("parses https://github.com/owner/repo.git", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://github.com/owner/repo.git");
-
-        expect(result.source).toBe("github");
-        expect(printSourceInput(result)).toBe("github:owner/repo");
-        if (result.source === "github") {
-          expect(result.owner).toBe("owner");
-          expect(result.repo).toBe("repo");
-        }
-      }),
-    );
-
-    it.effect("parses https://github.com/owner/repo/tree/branch", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://github.com/owner/repo/tree/main");
-
-        expect(result.source).toBe("github");
-        expect(printSourceInput(result)).toBe("github:owner/repo@main");
-        if (result.source === "github") {
-          expect(result.ref).toEqual(Option.some("main"));
-          expect(Option.isNone(result.subPath)).toBe(true);
-        }
-      }),
-    );
-
-    it.effect("parses https://github.com/owner/repo/tree/branch/path", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://github.com/owner/repo/tree/main/skills/my-skill");
-
-        expect(result.source).toBe("github");
-        expect(printSourceInput(result)).toBe("github:owner/repo/skills/my-skill@main");
-        if (result.source === "github") {
-          expect(result.ref).toEqual(Option.some("main"));
-          expect(result.subPath).toEqual(Option.some("skills/my-skill"));
-        }
-      }),
-    );
-
-    it.effect("parses http://github.com/owner/repo (HTTP)", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("http://github.com/owner/repo");
-
-        expect(result.source).toBe("github");
-        expect(printSourceInput(result)).toBe("github:owner/repo");
-      }),
-    );
-  });
-
-  describe("GitLab HTTPS URLs", () => {
-    it.effect("parses https://gitlab.com/owner/repo", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://gitlab.com/owner/repo");
-
-        expect(result.source).toBe("gitlab");
-        expect(printSourceInput(result)).toBe("gitlab:owner/repo");
-        if (result.source === "gitlab") {
-          expect(result.owner).toBe("owner");
-          expect(result.repo).toBe("repo");
-        }
-      }),
-    );
-
-    it.effect("parses https://gitlab.com/owner/repo.git", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://gitlab.com/owner/repo.git");
-
-        expect(result.source).toBe("gitlab");
-        expect(printSourceInput(result)).toBe("gitlab:owner/repo");
-      }),
-    );
-
-    it.effect("parses https://gitlab.com/owner/repo/-/tree/branch", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://gitlab.com/owner/repo/-/tree/main");
-
-        expect(result.source).toBe("gitlab");
-        expect(printSourceInput(result)).toBe("gitlab:owner/repo@main");
-        if (result.source === "gitlab") {
-          expect(result.ref).toEqual(Option.some("main"));
-        }
-      }),
-    );
-
-    it.effect("parses https://gitlab.com/owner/repo/-/tree/branch/path", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://gitlab.com/owner/repo/-/tree/main/skills/my-skill");
-
-        expect(result.source).toBe("gitlab");
-        expect(printSourceInput(result)).toBe("gitlab:owner/repo/skills/my-skill@main");
-        if (result.source === "gitlab") {
-          expect(result.ref).toEqual(Option.some("main"));
-          expect(result.subPath).toEqual(Option.some("skills/my-skill"));
-        }
-      }),
-    );
-  });
-
-  describe("GitHub SSH URLs", () => {
-    it.effect("parses git@github.com:owner/repo.git", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("git@github.com:owner/repo.git");
-
-        expect(result.source).toBe("github");
-        expect(printSourceInput(result)).toBe("github:owner/repo");
-        if (result.source === "github") {
-          expect(result.owner).toBe("owner");
-          expect(result.repo).toBe("repo");
-        }
-      }),
-    );
-
-    it.effect("parses git@github.com:owner/repo.git", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("git@github.com:owner/repo.git");
-
-        expect(result.source).toBe("github");
-        expect(printSourceInput(result)).toBe("github:owner/repo");
-      }),
-    );
-
-    it.effect("parses git@github.com:owner/repo (without .git)", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("git@github.com:owner/repo");
-
-        expect(result.source).toBe("github");
-        expect(printSourceInput(result)).toBe("github:owner/repo");
-      }),
-    );
-  });
-
-  describe("GitLab SSH URLs", () => {
-    it.effect("parses git@gitlab.com:owner/repo.git", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("git@gitlab.com:owner/repo.git");
-
-        expect(result.source).toBe("gitlab");
-        expect(printSourceInput(result)).toBe("gitlab:owner/repo");
-        if (result.source === "gitlab") {
-          expect(result.owner).toBe("owner");
-          expect(result.repo).toBe("repo");
-        }
-      }),
-    );
-
-    it.effect("parses git@gitlab.com:owner/repo (without .git)", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("git@gitlab.com:owner/repo");
-
-        expect(result.source).toBe("gitlab");
-        expect(printSourceInput(result)).toBe("gitlab:owner/repo");
-      }),
-    );
-  });
-
-  describe("Bitbucket HTTPS URLs", () => {
-    it.effect("parses https://bitbucket.org/owner/repo", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://bitbucket.org/owner/repo");
-
-        expect(result.source).toBe("bitbucket");
-        expect(printSourceInput(result)).toBe("bitbucket:owner/repo");
-        if (result.source === "bitbucket") {
-          expect(result.owner).toBe("owner");
-          expect(result.repo).toBe("repo");
-        }
-      }),
-    );
-
-    it.effect("parses https://bitbucket.org/owner/repo.git", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://bitbucket.org/owner/repo.git");
-
-        expect(result.source).toBe("bitbucket");
-        expect(printSourceInput(result)).toBe("bitbucket:owner/repo");
-        if (result.source === "bitbucket") {
-          expect(result.owner).toBe("owner");
-          expect(result.repo).toBe("repo");
-        }
-      }),
-    );
-
-    it.effect("parses https://bitbucket.org/owner/repo/src/main", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://bitbucket.org/owner/repo/src/main");
-
-        expect(result.source).toBe("bitbucket");
-        expect(printSourceInput(result)).toBe("bitbucket:owner/repo@main");
-        if (result.source === "bitbucket") {
-          expect(result.ref).toEqual(Option.some("main"));
-          expect(Option.isNone(result.subPath)).toBe(true);
-        }
-      }),
-    );
-
-    it.effect("parses https://bitbucket.org/owner/repo/src/main/skills/my-skill", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://bitbucket.org/owner/repo/src/main/skills/my-skill");
-
-        expect(result.source).toBe("bitbucket");
-        expect(printSourceInput(result)).toBe("bitbucket:owner/repo/skills/my-skill@main");
-        if (result.source === "bitbucket") {
-          expect(result.ref).toEqual(Option.some("main"));
-          expect(result.subPath).toEqual(Option.some("skills/my-skill"));
-        }
-      }),
-    );
-  });
-
-  describe("Bitbucket SSH URLs", () => {
-    it.effect("parses git@bitbucket.org:owner/repo.git", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("git@bitbucket.org:owner/repo.git");
-
-        expect(result.source).toBe("bitbucket");
-        expect(printSourceInput(result)).toBe("bitbucket:owner/repo");
-        if (result.source === "bitbucket") {
-          expect(result.owner).toBe("owner");
-          expect(result.repo).toBe("repo");
-        }
-      }),
-    );
-
-    it.effect("parses git@bitbucket.org:owner/repo (without .git)", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("git@bitbucket.org:owner/repo");
-
-        expect(result.source).toBe("bitbucket");
-        expect(printSourceInput(result)).toBe("bitbucket:owner/repo");
-      }),
-    );
-  });
-
-  describe("Azure Repos HTTPS URLs", () => {
-    it.effect("parses https://dev.azure.com/org/project/_git/repo", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://dev.azure.com/myorg/myproject/_git/myrepo");
-
-        expect(result.source).toBe("azurerepos");
-        expect(printSourceInput(result)).toBe("azurerepos:myorg/myproject/myrepo");
-        if (result.source === "azurerepos") {
-          expect(result.organization).toBe("myorg");
-          expect(result.project).toBe("myproject");
-          expect(result.repo).toBe("myrepo");
-        }
-      }),
-    );
-
-    it.effect("parses https://dev.azure.com/org/project/_git/repo.git", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://dev.azure.com/myorg/myproject/_git/myrepo.git");
-
-        expect(result.source).toBe("azurerepos");
-        expect(printSourceInput(result)).toBe("azurerepos:myorg/myproject/myrepo");
-      }),
-    );
-
-    it.effect("parses http://dev.azure.com/org/project/_git/repo (HTTP)", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("http://dev.azure.com/myorg/myproject/_git/myrepo");
-
-        expect(result.source).toBe("azurerepos");
-        expect(printSourceInput(result)).toBe("azurerepos:myorg/myproject/myrepo");
-      }),
-    );
-  });
-
-  describe("Azure Repos SSH URLs", () => {
-    it.effect("parses git@ssh.dev.azure.com:v3/org/project/repo.git", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo.git");
-
-        expect(result.source).toBe("azurerepos");
-        expect(printSourceInput(result)).toBe("azurerepos:myorg/myproject/myrepo");
-        if (result.source === "azurerepos") {
-          expect(result.organization).toBe("myorg");
-          expect(result.project).toBe("myproject");
-          expect(result.repo).toBe("myrepo");
-        }
-      }),
-    );
-
-    it.effect("parses git@ssh.dev.azure.com:v3/org/project/repo (without .git)", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo");
-
-        expect(result.source).toBe("azurerepos");
-        expect(printSourceInput(result)).toBe("azurerepos:myorg/myproject/myrepo");
-      }),
-    );
-  });
-
-  describe("Bitbucket shorthand", () => {
-    it.effect("parses bitbucket:owner/repo", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("bitbucket:owner/repo");
-
-        expect(result.source).toBe("bitbucket");
-        expect(printSourceInput(result)).toBe("bitbucket:owner/repo");
-        if (result.source === "bitbucket") {
-          expect(result.owner).toBe("owner");
-          expect(result.repo).toBe("repo");
-        }
-      }),
-    );
-
-    it.effect("parses bitbucket:owner/repo@ref", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("bitbucket:owner/repo@v1.0.0");
-
-        expect(result.source).toBe("bitbucket");
-        expect(printSourceInput(result)).toBe("bitbucket:owner/repo@v1.0.0");
-        if (result.source === "bitbucket") {
-          expect(result.ref).toEqual(Option.some("v1.0.0"));
-        }
-      }),
-    );
-
-    it.effect("parses bitbucket:owner/repo/path@ref", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("bitbucket:owner/repo/skills/my-skill@main");
-
-        expect(result.source).toBe("bitbucket");
-        expect(printSourceInput(result)).toBe("bitbucket:owner/repo/skills/my-skill@main");
-        if (result.source === "bitbucket") {
-          expect(result.subPath).toEqual(Option.some("skills/my-skill"));
-          expect(result.ref).toEqual(Option.some("main"));
-        }
-      }),
-    );
-  });
-
-  describe("local path parsing", () => {
-    it.effect("parses relative path starting with ./", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("./my-skill");
-        expect(result.source).toBe("local");
-        if (result.source === "local") {
-          expect(result.path).toBe("./my-skill");
-        }
-        expect(printSourceInput(result)).toBe("./my-skill");
-      }),
-    );
-
-    it.effect("parses relative path starting with ../", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("../sibling-skill");
-        expect(result.source).toBe("local");
-        expect(printSourceInput(result)).toBe("../sibling-skill");
-      }),
-    );
-
-    it.effect("parses absolute POSIX path", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("/home/user/skills/my-skill");
-        expect(result.source).toBe("local");
-        expect(printSourceInput(result)).toBe("/home/user/skills/my-skill");
-      }),
-    );
-
-    it.effect("parses home directory path with ~/", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("~/my-skills/dev-skill");
-        expect(result.source).toBe("local");
-        expect(printSourceInput(result)).toBe("~/my-skills/dev-skill");
-      }),
-    );
-
-    it.effect("parses home directory path with ~\\ (Windows)", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("~\\my-skills\\dev-skill");
-        expect(result.source).toBe("local");
-        expect(printSourceInput(result)).toBe("~\\my-skills\\dev-skill");
-      }),
-    );
-
-    it.effect("parses Windows path with drive letter and backslash", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("C:\\Users\\name\\skills");
-        expect(result.source).toBe("local");
-        expect(printSourceInput(result)).toBe("C:\\Users\\name\\skills");
-      }),
-    );
-
-    it.effect("parses Windows path with drive letter and forward slash", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("C:/Users/name/skills");
-        expect(result.source).toBe("local");
-        expect(printSourceInput(result)).toBe("C:/Users/name/skills");
-      }),
-    );
-
-    it.effect("fails on local: prefix (no shorthand)", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parse("local:./my-skill"));
-        expect(error).toBeInstanceOf(ParseError);
-      }),
-    );
-  });
-
-  describe("unsupported URLs", () => {
-    it.effect("fails on unknown HTTPS URLs", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parse("https://example.com"));
-
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toContain("Unsupported URL host");
-      }),
-    );
-  });
-
-  describe("error handling", () => {
-    it.effect("fails on empty string", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parse(""));
-
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toBe("Source string cannot be empty");
-      }),
-    );
-
-    it.effect("fails on whitespace-only string", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parse("   "));
-
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toBe("Source string cannot be empty");
-      }),
-    );
-
-    it.effect("fails on unknown skill name", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parse("not-a-valid-source"));
-
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toContain('Unknown skill "not-a-valid-source"');
-        expect(error.message).toContain("axm skills list");
-      }),
-    );
-
-    it.effect("includes input in error", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parse("invalid"));
-
-        expect(error.input).toBe("invalid");
-      }),
-    );
-  });
-
-  describe("NameInput resolution", () => {
-    it.effect("resolves installed skill name to local source", () =>
-      Effect.gen(function* () {
-        const skills: SkillsLockMap = {
-          "my-skill": makeGitHubLockEntry("owner", "repo"),
-        };
-        const result = yield* parseWith("my-skill", skills);
-
-        expect(result.source).toBe("local");
-        if (result.source === "local") {
-          expect(result.path).toBe(".agents/skills/my-skill");
-        }
-      }),
-    );
-
-    it.effect("resolves registry skill name to registry extensions path", () =>
-      Effect.gen(function* () {
-        const skills: SkillsLockMap = {
-          "my-skill": makeRegistryLockEntry("acme", "my-skill"),
-        };
-        const result = yield* parseWith("my-skill", skills);
-
-        expect(result.source).toBe("local");
-        if (result.source === "local") {
-          expect(result.path).toBe(".axm/extensions/acme/skills/my-skill");
-        }
-      }),
-    );
-
-    it.effect("fails with descriptive error for unknown skill name", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parseWith("unknown-skill", {}));
-
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toContain('Unknown skill "unknown-skill"');
-        expect(error.message).toContain("axm skills list");
-        expect(error.input).toBe("unknown-skill");
-      }),
-    );
-  });
-
-  describe("edge cases", () => {
-    it.effect("trims whitespace from input", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("  github:owner/repo  ");
-        expect(printSourceInput(result)).toBe("github:owner/repo");
-      }),
-    );
-
-    it.effect("handles repo names with dashes in prefixed form", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("github:owner/my-awesome-repo");
-
-        expect(result.source).toBe("github");
-        if (result.source === "github") {
-          expect(result.repo).toBe("my-awesome-repo");
-        }
-      }),
-    );
-
-    it.effect("handles owner names with dashes in prefixed form", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("github:my-org/repo");
-
-        expect(result.source).toBe("github");
-        if (result.source === "github") {
-          expect(result.owner).toBe("my-org");
-        }
-      }),
-    );
-
-    it.effect("rejects repo names with dots (use prefixed form)", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parse("owner/repo.js"));
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toBe("Unable to parse source");
-      }),
-    );
-
-    it.effect("parses ./ starting path as local", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("./owner/repo");
-        expect(result.source).toBe("local");
-        expect(printSourceInput(result)).toBe("./owner/repo");
-      }),
-    );
-
-    it.effect("parses ../ starting path as local", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("../owner/repo");
-        expect(result.source).toBe("local");
-        expect(printSourceInput(result)).toBe("../owner/repo");
-      }),
-    );
-  });
-
-  describe("buildCloneUrl", () => {
-    it("builds GitHub clone URL from config url", async () => {
-      const source = {
-        source: "github",
-        owner: "owner",
-        repo: "repo",
-        ref: Option.none(),
-        subPath: Option.none(),
-        name: "github",
-        url: new URL("https://github.com"),
-      } as const;
-
-      const result = await Effect.runPromise(buildCloneUrl(source));
-
-      expect(result).toBe("https://github.com/owner/repo.git");
-    });
-
-    it("builds GitHub clone URL with custom url", async () => {
-      const source = {
-        source: "github",
-        owner: "owner",
-        repo: "repo",
-        ref: Option.none(),
-        subPath: Option.none(),
-        name: "my-ghe",
-        url: new URL("https://github.example.com"),
-      } as const;
-
-      const result = await Effect.runPromise(buildCloneUrl(source));
-
-      expect(result).toBe("https://github.example.com/owner/repo.git");
-    });
-
-    it("builds GitLab clone URL from config url", async () => {
-      const source = {
-        source: "gitlab",
-        owner: "owner",
-        repo: "repo",
-        ref: Option.none(),
-        subPath: Option.none(),
-        name: "gitlab",
-        url: new URL("https://gitlab.com"),
-      } as const;
-
-      const result = await Effect.runPromise(buildCloneUrl(source));
-
-      expect(result).toBe("https://gitlab.com/owner/repo.git");
-    });
-
-    it("builds Bitbucket clone URL from config url", async () => {
-      const source = {
-        source: "bitbucket",
-        owner: "owner",
-        repo: "repo",
-        ref: Option.none(),
-        subPath: Option.none(),
-        name: "bitbucket",
-        url: new URL("https://bitbucket.org"),
-      } as const;
-
-      const result = await Effect.runPromise(buildCloneUrl(source));
-
-      expect(result).toBe("https://bitbucket.org/owner/repo.git");
-    });
-
-    it("builds Azure Repos clone URL from config url", async () => {
-      const source = {
-        source: "azurerepos",
-        organization: "myorg",
-        project: "myproject",
-        repo: "myrepo",
-        ref: Option.none(),
-        subPath: Option.none(),
-        name: "azurerepos",
-        url: new URL("https://dev.azure.com"),
-      } as const;
-
-      const result = await Effect.runPromise(buildCloneUrl(source));
-
-      expect(result).toBe("https://dev.azure.com/myorg/myproject/_git/myrepo");
-    });
-  });
-
-  describe("getOrigin", () => {
-    it("returns GitHub origin URL from config url", () => {
-      const source = {
-        source: "github",
-        owner: "owner",
-        repo: "repo",
-        ref: Option.none(),
-        subPath: Option.none(),
-        name: "github",
-        url: new URL("https://github.com"),
-      } as const;
-
-      const result = getOrigin(source);
-
-      expect(result).toBe("https://github.com/owner/repo");
-    });
-
-    it("returns GitHub origin URL with custom url", () => {
-      const source = {
-        source: "github",
-        owner: "owner",
-        repo: "repo",
-        ref: Option.none(),
-        subPath: Option.none(),
-        name: "my-ghe",
-        url: new URL("https://github.example.com"),
-      } as const;
-
-      const result = getOrigin(source);
-
-      expect(result).toBe("https://github.example.com/owner/repo");
-    });
-
-    it("returns GitLab origin URL from config url", () => {
-      const source = {
-        source: "gitlab",
-        owner: "owner",
-        repo: "repo",
-        ref: Option.none(),
-        subPath: Option.none(),
-        name: "gitlab",
-        url: new URL("https://gitlab.com"),
-      } as const;
-
-      const result = getOrigin(source);
-
-      expect(result).toBe("https://gitlab.com/owner/repo");
-    });
-
-    it("returns Bitbucket origin URL from config url", () => {
-      const source = {
-        source: "bitbucket",
-        owner: "owner",
-        repo: "repo",
-        ref: Option.none(),
-        subPath: Option.none(),
-        name: "bitbucket",
-        url: new URL("https://bitbucket.org"),
-      } as const;
-
-      const result = getOrigin(source);
-
-      expect(result).toBe("https://bitbucket.org/owner/repo");
-    });
-
-    it("returns Azure Repos origin URL from config url", () => {
-      const source = {
-        source: "azurerepos",
-        organization: "myorg",
-        project: "myproject",
-        repo: "myrepo",
-        ref: Option.none(),
-        subPath: Option.none(),
-        name: "azurerepos",
-        url: new URL("https://dev.azure.com"),
-      } as const;
-
-      const result = getOrigin(source);
-
-      expect(result).toBe("https://dev.azure.com/myorg/myproject/_git/myrepo");
-    });
-  });
-});
+import { type InputPattern, parseInputPattern } from "./parser.js";
 
 describe("parseInputPattern", () => {
   describe("classification", () => {
@@ -887,6 +38,20 @@ describe("parseInputPattern", () => {
       expectSome("https://github.com/owner/repo", {
         _tag: "UrlInput",
         url: new URL("https://github.com/owner/repo"),
+      });
+    });
+
+    it("classifies file:// URL as FilePathPattern", () => {
+      expectSome("file:///absolute/path/to/skill", {
+        _tag: "FilePathPattern",
+        path: "/absolute/path/to/skill",
+      });
+    });
+
+    it("classifies file:// URL with nested path as FilePathPattern", () => {
+      expectSome("file:///Users/dev/skills/my-skill", {
+        _tag: "FilePathPattern",
+        path: "/Users/dev/skills/my-skill",
       });
     });
 
@@ -1012,219 +177,170 @@ describe("parseInputPattern", () => {
       expectNone("   ");
     });
   });
+});
 
-  describe("parseSourceInput pattern handling", () => {
-    it.effect("fails on empty input", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parse(""));
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toBe("Source string cannot be empty");
-      }),
-    );
+describe("buildCloneUrl", () => {
+  it("builds GitHub clone URL from config url", async () => {
+    const source = {
+      source: "github",
+      owner: "owner",
+      repo: "repo",
+      ref: Option.none(),
+      subPath: Option.none(),
+      name: "github",
+      url: new URL("https://github.com"),
+    } as const;
 
-    it.effect("fails on whitespace-only input", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parse("   "));
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toBe("Source string cannot be empty");
-      }),
-    );
+    const result = await Effect.runPromise(buildCloneUrl(source));
 
-    it.effect("resolves installed NameInput to local source", () =>
-      Effect.gen(function* () {
-        const skills: SkillsLockMap = {
-          "some-name": makeGitHubLockEntry("owner", "repo"),
-        };
-        const result = yield* parseWith("some-name", skills);
-        expect(result.source).toBe("local");
-        if (result.source === "local") {
-          expect(result.path).toBe(".agents/skills/some-name");
-        }
-      }),
-    );
+    expect(result).toBe("https://github.com/owner/repo.git");
+  });
 
-    it.effect("fails for unknown NameInput", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parse("some-name"));
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toContain('Unknown skill "some-name"');
-      }),
-    );
+  it("builds GitHub clone URL with custom url", async () => {
+    const source = {
+      source: "github",
+      owner: "owner",
+      repo: "repo",
+      ref: Option.none(),
+      subPath: Option.none(),
+      name: "my-ghe",
+      url: new URL("https://github.example.com"),
+    } as const;
 
-    it.effect("fails with 'not yet supported' for RegistryPatternInput", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parse("@myorg/some-name"));
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toBe("Registry source input is not yet supported");
-      }),
-    );
+    const result = await Effect.runPromise(buildCloneUrl(source));
 
-    it.effect("parses GitHub HTTPS URL via UrlInput", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://github.com/owner/repo");
-        expect(result).toMatchObject({ source: "github", owner: "owner", repo: "repo" });
-      }),
-    );
+    expect(result).toBe("https://github.example.com/owner/repo.git");
+  });
 
-    it.effect("parses GitLab HTTPS URL via UrlInput", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://gitlab.com/owner/repo");
-        expect(result).toMatchObject({ source: "gitlab", owner: "owner", repo: "repo" });
-      }),
-    );
+  it("builds GitLab clone URL from config url", async () => {
+    const source = {
+      source: "gitlab",
+      owner: "owner",
+      repo: "repo",
+      ref: Option.none(),
+      subPath: Option.none(),
+      name: "gitlab",
+      url: new URL("https://gitlab.com"),
+    } as const;
 
-    it.effect("parses Bitbucket HTTPS URL via UrlInput", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://bitbucket.org/owner/repo");
-        expect(result).toMatchObject({
-          source: "bitbucket",
-          owner: "owner",
-          repo: "repo",
-        });
-      }),
-    );
+    const result = await Effect.runPromise(buildCloneUrl(source));
 
-    it.effect("parses Azure Repos HTTPS URL via UrlInput", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("https://dev.azure.com/myorg/myproject/_git/myrepo");
-        expect(result).toMatchObject({
-          source: "azurerepos",
-          organization: "myorg",
-          project: "myproject",
-          repo: "myrepo",
-        });
-      }),
-    );
+    expect(result).toBe("https://gitlab.com/owner/repo.git");
+  });
 
-    it.effect("parses GitHub SSH via GitScpAddress", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("git@github.com:owner/repo.git");
-        expect(result.source).toBe("github");
-        expect(result).toMatchObject({ owner: "owner", repo: "repo" });
-      }),
-    );
+  it("builds Bitbucket clone URL from config url", async () => {
+    const source = {
+      source: "bitbucket",
+      owner: "owner",
+      repo: "repo",
+      ref: Option.none(),
+      subPath: Option.none(),
+      name: "bitbucket",
+      url: new URL("https://bitbucket.org"),
+    } as const;
 
-    it.effect("parses GitLab SSH via GitScpAddress", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("git@gitlab.com:owner/repo.git");
-        expect(result.source).toBe("gitlab");
-        expect(result).toMatchObject({ owner: "owner", repo: "repo" });
-      }),
-    );
+    const result = await Effect.runPromise(buildCloneUrl(source));
 
-    it.effect("parses Bitbucket SSH via GitScpAddress", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("git@bitbucket.org:owner/repo.git");
-        expect(result.source).toBe("bitbucket");
-        expect(result).toMatchObject({ owner: "owner", repo: "repo" });
-      }),
-    );
+    expect(result).toBe("https://bitbucket.org/owner/repo.git");
+  });
 
-    it.effect("parses Azure Repos SSH via GitScpAddress", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("git@ssh.dev.azure.com:v3/myorg/myproject/myrepo.git");
-        expect(result.source).toBe("azurerepos");
-        expect(result).toMatchObject({
-          organization: "myorg",
-          project: "myproject",
-          repo: "myrepo",
-        });
-      }),
-    );
+  it("builds Azure Repos clone URL from config url", async () => {
+    const source = {
+      source: "azurerepos",
+      organization: "myorg",
+      project: "myproject",
+      repo: "myrepo",
+      ref: Option.none(),
+      subPath: Option.none(),
+      name: "azurerepos",
+      url: new URL("https://dev.azure.com"),
+    } as const;
 
-    it.effect("fails for unsupported SCP host", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parse("git@example.com:owner/repo.git"));
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toContain("Unsupported SCP host");
-      }),
-    );
+    const result = await Effect.runPromise(buildCloneUrl(source));
 
-    it.effect("fails for unsupported URL host", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parse("https://example.com/owner/repo"));
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toContain("Unsupported URL host");
-      }),
-    );
+    expect(result).toBe("https://dev.azure.com/myorg/myproject/_git/myrepo");
+  });
+});
 
-    it.effect("rejects invalid URL with unrecognized segments", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(parse("http://"));
-        expect(error).toBeInstanceOf(ParseError);
-        expect(error.message).toBe("Unable to parse source");
-      }),
-    );
+describe("getOrigin", () => {
+  it("returns GitHub origin URL from config url", () => {
+    const source = {
+      source: "github",
+      owner: "owner",
+      repo: "repo",
+      ref: Option.none(),
+      subPath: Option.none(),
+      name: "github",
+      url: new URL("https://github.com"),
+    } as const;
 
-    describe("SlashPattern resolution", () => {
-      it.effect("rejects ambiguous owner/repo pattern", () =>
-        Effect.gen(function* () {
-          const error = yield* Effect.flip(parse("owner/repo"));
-          expect(error).toBeInstanceOf(ParseError);
-          expect(error.message).toContain("Ambiguous pattern 'owner/repo'");
-          expect(error.message).toContain("use github:owner/repo");
-        }),
-      );
+    const result = getOrigin(source);
 
-      it.effect("suggests prefixed forms for disambiguation", () =>
-        Effect.gen(function* () {
-          const error = yield* Effect.flip(parse("my-org/my-repo"));
-          expect(error).toBeInstanceOf(ParseError);
-          expect(error.message).toContain("github:my-org/my-repo");
-          expect(error.message).toContain("gitlab:my-org/my-repo");
-          expect(error.message).toContain("bitbucket:my-org/my-repo");
-        }),
-      );
-    });
+    expect(result).toBe("https://github.com/owner/repo");
+  });
 
-    it.effect("parses FilePathPattern via parseLocalPath", () =>
-      Effect.gen(function* () {
-        const result = yield* parse("./local/path");
-        expect(result.source).toBe("local");
-        expect(printSourceInput(result)).toBe("./local/path");
-      }),
-    );
+  it("returns GitHub origin URL with custom url", () => {
+    const source = {
+      source: "github",
+      owner: "owner",
+      repo: "repo",
+      ref: Option.none(),
+      subPath: Option.none(),
+      name: "my-ghe",
+      url: new URL("https://github.example.com"),
+    } as const;
 
-    describe("ShorthandInput resolution", () => {
-      it.effect("resolves github:owner/repo to GitHub source", () =>
-        Effect.gen(function* () {
-          const result = yield* parse("github:owner/repo");
-          expect(result).toMatchObject({ source: "github", owner: "owner", repo: "repo" });
-          expect(printSourceInput(result)).toBe("github:owner/repo");
-        }),
-      );
+    const result = getOrigin(source);
 
-      it.effect("resolves gitlab:owner/repo@main to GitLab source with ref", () =>
-        Effect.gen(function* () {
-          const result = yield* parse("gitlab:owner/repo@main");
-          expect(result).toMatchObject({ source: "gitlab", owner: "owner", repo: "repo" });
-          if (result.source === "gitlab") {
-            expect(result.ref).toEqual(Option.some("main"));
-          }
-        }),
-      );
+    expect(result).toBe("https://github.example.com/owner/repo");
+  });
 
-      it.effect("resolves bitbucket:owner/repo/path@ref to Bitbucket source", () =>
-        Effect.gen(function* () {
-          const result = yield* parse("bitbucket:owner/repo/skills/my-skill@v1.0.0");
-          expect(result).toMatchObject({
-            source: "bitbucket",
-            owner: "owner",
-            repo: "repo",
-          });
-          if (result.source === "bitbucket") {
-            expect(result.subPath).toEqual(Option.some("skills/my-skill"));
-            expect(result.ref).toEqual(Option.some("v1.0.0"));
-          }
-        }),
-      );
+  it("returns GitLab origin URL from config url", () => {
+    const source = {
+      source: "gitlab",
+      owner: "owner",
+      repo: "repo",
+      ref: Option.none(),
+      subPath: Option.none(),
+      name: "gitlab",
+      url: new URL("https://gitlab.com"),
+    } as const;
 
-      it.effect("fails on local:./my-skill (no shorthand)", () =>
-        Effect.gen(function* () {
-          const error = yield* Effect.flip(parse("local:./my-skill"));
-          expect(error).toBeInstanceOf(ParseError);
-        }),
-      );
-    });
+    const result = getOrigin(source);
+
+    expect(result).toBe("https://gitlab.com/owner/repo");
+  });
+
+  it("returns Bitbucket origin URL from config url", () => {
+    const source = {
+      source: "bitbucket",
+      owner: "owner",
+      repo: "repo",
+      ref: Option.none(),
+      subPath: Option.none(),
+      name: "bitbucket",
+      url: new URL("https://bitbucket.org"),
+    } as const;
+
+    const result = getOrigin(source);
+
+    expect(result).toBe("https://bitbucket.org/owner/repo");
+  });
+
+  it("returns Azure Repos origin URL from config url", () => {
+    const source = {
+      source: "azurerepos",
+      organization: "myorg",
+      project: "myproject",
+      repo: "myrepo",
+      ref: Option.none(),
+      subPath: Option.none(),
+      name: "azurerepos",
+      url: new URL("https://dev.azure.com"),
+    } as const;
+
+    const result = getOrigin(source);
+
+    expect(result).toBe("https://dev.azure.com/myorg/myproject/_git/myrepo");
   });
 });

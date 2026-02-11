@@ -6,12 +6,16 @@ import type { AzureReposSourceInput } from "../types.js";
 
 export const CANONICAL_HOSTNAME = "dev.azure.com";
 
-/** Matches: https://dev.azure.com/{org}/{project}/_git/{repo} */
-const AZUREREPOS_HTTPS_PATTERN =
-  /^https?:\/\/dev\.azure\.com\/([^/]+)\/([^/]+)\/_git\/([^/]+?)(?:\.git)?$/;
+/** Matches: /{org}/{project}/_git/{repo} */
+const AZUREREPOS_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/_git\/([^/]+?)(?:\.git)?$/;
 
-export const parseUrl = (url: URL) => {
-  const match = url.href.match(AZUREREPOS_HTTPS_PATTERN);
+export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
+  if (url.hostname !== hostname) {
+    return Effect.fail(
+      new ParseError({ message: "Invalid Azure Repos URL format", input: url.href }),
+    );
+  }
+  const match = url.pathname.match(AZUREREPOS_PATH_PATTERN);
   if (!match || !match[1] || !match[2] || !match[3]) {
     return Effect.fail(
       new ParseError({ message: "Invalid Azure Repos URL format", input: url.href }),

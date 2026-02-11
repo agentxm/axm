@@ -3,19 +3,20 @@ import * as Option from "effect/Option";
 
 import { ParseError } from "../errors.js";
 import type { GitHubSourceInput } from "../types.js";
+import { CANONICAL_HOSTNAME } from "./url.js";
 
-/** Matches: git@github.com:owner/repo.git */
-const GITHUB_SSH_PATTERN = /^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/;
+/** Matches: git@{hostname}:owner/repo.git */
+const SCP_PATTERN = /^git@([^:]+):([^/]+)\/([^/]+?)(?:\.git)?$/;
 
-export const parseScp = (input: string) => {
-  const match = input.match(GITHUB_SSH_PATTERN);
-  if (!match || !match[1] || !match[2]) {
+export const parseScp = (input: string, hostname: string = CANONICAL_HOSTNAME) => {
+  const match = input.match(SCP_PATTERN);
+  if (!match || !match[1] || !match[2] || !match[3] || match[1] !== hostname) {
     return Effect.fail(new ParseError({ message: "Invalid GitHub SSH URL format", input }));
   }
   return Effect.succeed({
     source: "github",
-    owner: match[1],
-    repo: match[2],
+    owner: match[2],
+    repo: match[3],
     ref: Option.none(),
     subPath: Option.none(),
   } satisfies GitHubSourceInput);

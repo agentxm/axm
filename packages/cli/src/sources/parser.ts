@@ -1,42 +1,16 @@
 /**
- * Source string parser for skills.
+ * Input pattern classification for source strings.
  *
- * Parses various source formats (GitHub shorthand, URLs)
- * into a normalized SourceInput structure.
+ * Classifies raw input strings into typed `InputPattern` variants
+ * (URL, SCP, shorthand, file path, etc.) for downstream routing
+ * by `resolveSource`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
-import * as Effect from "effect/Effect";
-import * as Match from "effect/Match";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-
-import {
-  parseScp as azurereposParseScp,
-  parseUrl as azurereposParseUrl,
-} from "./azurerepos/index.js";
-import {
-  parseShorthand as bitbucketParseShorthand,
-  parseScp as bitbucketParseScp,
-  parseUrl as bitbucketParseUrl,
-} from "./bitbucket/index.js";
-import { ParseError } from "./errors.js";
-import {
-  parseShorthand as githubParseShorthand,
-  parseScp as githubParseScp,
-  parseUrl as githubParseUrl,
-} from "./github/index.js";
-import {
-  parseShorthand as gitlabParseShorthand,
-  parseScp as gitlabParseScp,
-  parseUrl as gitlabParseUrl,
-} from "./gitlab/index.js";
-import { parseLocalPath } from "./local/index.js";
-import type { SkillLockEntry } from "../lockfile/index.js";
-import type { ParseSourceInputResult } from "./types.js";
-import { Workspace } from "../workspace/index.js";
 
 /** Matches: ./path, ../path, /path, ~/path, ~\path, or Windows paths like C:\path */
 const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
@@ -136,6 +110,9 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
   // 4. URL (validated via Schema.URL)
   const urlOption = Schema.decodeUnknownOption(Schema.URL)(input);
   if (Option.isSome(urlOption)) {
+    if (urlOption.value.protocol === "file:") {
+      return Option.some({ _tag: "FilePathPattern", path: urlOption.value.pathname });
+    }
     return Option.some({ _tag: "UrlInput", url: urlOption.value });
   }
 
@@ -169,148 +146,4 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
   }
 
   return Option.none();
-};
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-/**
- * Get the relative path of an installed skill from its lockfile entry.
- */
-const getInstalledSkillPath = (name: string, entry: SkillLockEntry): string => {
-  if (entry.source === "registry") {
-    return `.axm/extensions/${entry.scope}/skills/${name}`;
-  }
-  return `.agents/skills/${name}`;
-};
-
-// -----------------------------------------------------------------------------
-// Main Parser
-// -----------------------------------------------------------------------------
-
-/**
- * Parse a user-provided input string into a ParseSourceInputResult.
- *
- * Supported formats:
- * - Installed skill name: `my-skill` (resolved via lockfile to local path)
- * - Slash pattern: `owner/repo` (probes GitHub → GitLab → Bitbucket)
- * - Prefixed shorthand: `github:owner/repo[/path][@ref]`, `gitlab:...`, `bitbucket:...`, `local:...`
- * - HTTPS URLs: `https://github.com/owner/repo`, `https://gitlab.com/...`, `https://bitbucket.org/...`
- * - SSH URLs: `git@github.com:owner/repo.git`, `git@gitlab.com:...`, `git@bitbucket.org:...`
- * - Local paths: `./path`, `../path`, `/absolute/path`, `~/path`, `C:\path`
- *
- * @experimental This API is unstable and may change without notice.
- * @param input - The source string to parse
- * @returns Effect containing ParseSourceInputResult or ParseError
- */
-export const parseSourceInput = (input: string) => {
-  const trimmed = input.trim();
-  if (!trimmed) {
-    return Effect.fail(new ParseError({ message: "Source string cannot be empty", input }));
-  }
-  const none = Option.none<import("../settings/schema.js").SourceConfig>();
-  const wrap = (si: Effect.Effect<import("./types.js").SourceInput, ParseError, Workspace>) =>
-    Effect.map(si, (i): ParseSourceInputResult => ({ input: i, config: none }));
-  return parseInputPattern(trimmed).pipe(
-    Option.match({
-      onNone: () => Effect.fail(new ParseError({ message: "Unable to parse source", input })),
-      onSome: Match.type<InputPattern>().pipe(
-        Match.tag("NameInput", ({ name }) =>
-          wrap(
-            Effect.gen(function* () {
-              const ws = yield* Workspace;
-              const skills = yield* ws.getLockedSkills().pipe(
-                Effect.mapError(
-                  (e) =>
-                    new ParseError({
-                      message: `Failed to read lockfile: ${e._tag}`,
-                      input,
-                    }),
-                ),
-              );
-              if (!(name in skills)) {
-                return yield* new ParseError({
-                  message: `Unknown skill "${name}". Check installed skills with \`axm skills list\`.`,
-                  input,
-                });
-              }
-              return yield* parseLocalPath(getInstalledSkillPath(name, skills[name]!));
-            }),
-          ),
-        ),
-        Match.tag("RegistryPatternInput", () =>
-          Effect.fail(
-            new ParseError({ message: "Registry source input is not yet supported", input }),
-          ),
-        ),
-        Match.tag("GitScpAddress", (scp) => {
-          const scpInput = `${scp.user}@${scp.host}:${scp.path}`;
-          switch (scp.host) {
-            case "github.com":
-              return wrap(githubParseScp(scpInput));
-            case "gitlab.com":
-              return wrap(gitlabParseScp(scpInput));
-            case "bitbucket.org":
-              return wrap(bitbucketParseScp(scpInput));
-            case "dev.azure.com":
-            case "ssh.dev.azure.com":
-              return wrap(azurereposParseScp(scpInput));
-            default:
-              return Effect.fail(
-                new ParseError({ message: `Unsupported SCP host: "${scp.host}"`, input }),
-              );
-          }
-        }),
-        Match.tag("UrlInput", ({ url }) => {
-          switch (url.hostname) {
-            case "github.com":
-              return wrap(githubParseUrl(url));
-            case "gitlab.com":
-              return wrap(gitlabParseUrl(url));
-            case "bitbucket.org":
-              return wrap(bitbucketParseUrl(url));
-            case "dev.azure.com":
-              return wrap(azurereposParseUrl(url));
-            default:
-              return Effect.fail(
-                new ParseError({
-                  message: `Unsupported URL host: "${url.hostname}"`,
-                  input: trimmed,
-                }),
-              );
-          }
-        }),
-        Match.tag("SlashPattern", (pattern) =>
-          /*
-          TODO:
-          * if one/two:
-          *   check to see if resolves to any registry extension of the known registry sources ()
-          */
-          Effect.fail(
-            new ParseError({
-              message: `Ambiguous pattern '${pattern.owner}/${pattern.repo}' — use github:${pattern.owner}/${pattern.repo}, gitlab:${pattern.owner}/${pattern.repo}, or bitbucket:${pattern.owner}/${pattern.repo}`,
-              input: trimmed,
-            }),
-          ),
-        ),
-        Match.tag("FilePathPattern", ({ path }) => wrap(parseLocalPath(path))),
-        Match.tag("ShorthandInput", ({ prefix, input: shorthandInput }) => {
-          switch (prefix) {
-            case "github":
-              return wrap(githubParseShorthand(shorthandInput));
-            case "gitlab":
-              return wrap(gitlabParseShorthand(shorthandInput));
-            case "bitbucket":
-              return wrap(bitbucketParseShorthand(shorthandInput));
-            default:
-              return Effect.fail(
-                new ParseError({ message: `Unknown shorthand prefix: "${prefix}"`, input }),
-              );
-          }
-        }),
-        Match.exhaustive,
-      ),
-    }),
-  );
 };

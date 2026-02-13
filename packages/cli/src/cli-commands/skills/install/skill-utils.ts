@@ -7,10 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-// Boundary exception: pure string utility using basename — not filesystem I/O.
-// See design decision D1 in the install-command-cleanup change.
-import * as nodePath from "node:path";
-import type { SkillRef } from "../operations.js";
+import type { SkillRef } from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Display Name
@@ -21,8 +18,16 @@ import type { SkillRef } from "../operations.js";
  *
  * Uses `skill.name` when present, falls back to `basename(location)`.
  */
+/**
+ * Extract the last path segment from a location string.
+ */
+const basenamePure = (location: string): string => {
+  const stripped = location.replace(/^file:\/\//, "");
+  return stripped.split("/").pop() ?? stripped;
+};
+
 export const getSkillDisplayName = (ref: SkillRef): string =>
-  ref.skill.name || nodePath.basename(ref.location.replace(/^file:\/\//, ""));
+  ref.skill.name || basenamePure(ref.location);
 
 // -----------------------------------------------------------------------------
 // Sanitization

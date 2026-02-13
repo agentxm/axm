@@ -17,29 +17,14 @@ import type { OperationResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service.js";
 import { copySkillDirectory } from "./copy-skill-directory.js";
 import type { CopySkillOperation } from "./operations.js";
+import { REGISTRY_EXTENSIONS_DIR, MANIFEST_FILENAME } from "./constants.js";
+import { parseScopedName } from "./naming.js";
 
 // -----------------------------------------------------------------------------
 // Constants
 // -----------------------------------------------------------------------------
 
-const REGISTRY_EXTENSIONS_DIR = ".axm/extensions";
-const MANIFEST_FILENAME = "axm-skill.json";
 const DEFAULT_VERSION = "0.1.0";
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-/**
- * Parse `@scope/name` into its parts.
- */
-const parseTargetName = (targetName: string): { readonly scope: string; readonly name: string } => {
-  const slashIdx = targetName.indexOf("/");
-  return {
-    scope: targetName.slice(0, slashIdx),
-    name: targetName.slice(slashIdx + 1),
-  };
-};
 
 // -----------------------------------------------------------------------------
 // Public API
@@ -63,13 +48,13 @@ export const copySkill: OperationHandler<
     const ws = yield* Workspace;
     const base = path.dirname(ws.path);
 
-    const { scope, name } = parseTargetName(op.args.targetName);
+    const { scope, skillName: name } = parseScopedName(op.args.targetName);
 
     // Target path in the managed extensions store
     const targetDir = path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "skills", name);
 
     // Source path from the location URL
-    const sourcePath = op.args.location.replace("file://", "");
+    const sourcePath = op.args.location.replace(/^file:\/\//, "");
 
     // Copy source files to src/ subdirectory (manifest stays at extension root)
     yield* copySkillDirectory(sourcePath, path.join(targetDir, "src")).pipe(

@@ -22,16 +22,11 @@ import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import { copySkillDirectory } from "../copy-skill-directory.js";
 import type { InstallSkillOperation } from "../operations.js";
+import { CANONICAL_SKILLS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.js";
+import { removeIfExists } from "../fs-helpers.js";
 import { sourceToLockEntry } from "../source-to-lock-entry.js";
 import type { InstallResult } from "./install-result.js";
 import { sanitizeName } from "./skill-utils.js";
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-const CANONICAL_SKILLS_DIR = ".agents/skills";
-const REGISTRY_EXTENSIONS_DIR = ".axm/extensions";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -135,17 +130,6 @@ const installForAgent = (opts: {
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
-
-/**
- * Remove a directory if it exists, ignoring errors.
- */
-const removeIfExists = (fsService: FileSystem.FileSystem, dirPath: string) =>
-  fsService.exists(dirPath).pipe(
-    Effect.catchAll(() => Effect.succeed(false)),
-    Effect.flatMap((exists) =>
-      exists ? fsService.remove(dirPath, { recursive: true }).pipe(Effect.ignore) : Effect.void,
-    ),
-  );
 
 /**
  * Pre-clean from ALL known canonical locations for a skill.

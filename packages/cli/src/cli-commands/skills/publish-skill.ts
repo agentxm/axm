@@ -25,30 +25,8 @@ import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { OperationResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service.js";
 import type { PublishSkillOperation } from "./operations.js";
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-const REGISTRY_EXTENSIONS_DIR = ".axm/extensions";
-const MANIFEST_FILENAME = "axm-skill.json";
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-/**
- * Parse `@scope/name` into its parts.
- */
-const parseExtensionName = (
-  name: string,
-): { readonly scope: string; readonly skillName: string } => {
-  const slashIdx = name.indexOf("/");
-  return {
-    scope: name.slice(0, slashIdx),
-    skillName: name.slice(slashIdx + 1),
-  };
-};
+import { REGISTRY_EXTENSIONS_DIR, MANIFEST_FILENAME } from "./constants.js";
+import { parseScopedName } from "./naming.js";
 
 /**
  * Build a zip archive of a directory.
@@ -57,8 +35,8 @@ const parseExtensionName = (
 const buildZipArchive = (dir: string) =>
   Effect.tryPromise({
     try: async () => {
-      const { execSync } = await import("node:child_process");
-      const { readFile, mkdtemp } = await import("node:fs/promises");
+      const { execFileSync } = await import("node:child_process");
+      const { readFile, mkdtemp, rm } = await import("node:fs/promises");
       const { tmpdir } = await import("node:os");
       const p = await import("node:path");
 
@@ -68,14 +46,13 @@ const buildZipArchive = (dir: string) =>
       // Create deterministic zip (strip extra attributes, normalize timestamps)
       // -X strips extra file attributes, -D disables directory entries
       // find + touch normalizes file timestamps for reproducible archives
-      execSync(
-        `find "${dir}" -exec touch -t 202001010000.00 {} + && cd "${dir}" && zip -r -q -X -D "${archivePath}" .`,
-        { stdio: "pipe" },
-      );
+      execFileSync("find", [dir, "-exec", "touch", "-t", "202001010000.00", "{}", "+"]);
+      execFileSync("zip", ["-r", "-q", "-X", "-D", archivePath, "."], {
+        cwd: dir,
+        stdio: "pipe",
+      });
 
       const bytes = await readFile(archivePath);
-      // Clean up temp file
-      const { rm } = await import("node:fs/promises");
       await rm(tmpDir, { recursive: true, force: true });
 
       return new Uint8Array(bytes);
@@ -111,7 +88,7 @@ export const publishSkill: OperationHandler<
     const ws = yield* Workspace;
     const base = path.dirname(ws.path);
 
-    const { scope, skillName } = parseExtensionName(op.args.name);
+    const { scope, skillName } = parseScopedName(op.args.name);
 
     // Locate the managed extension directory
     const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "skills", skillName);

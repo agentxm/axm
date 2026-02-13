@@ -90,65 +90,72 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
     }
 
     // Step 2: Filter by source argument if provided
-    let filteredEntries = skillEntries;
-    if (Option.isSome(args.source)) {
-      const sourceArg = yield* resolveSource(args.source.value).pipe(
-        Effect.mapError((error) =>
-          makeCliError({
-            code: "INVALID_SOURCE",
-            what: `Invalid source: ${error.message}`,
-            details: [`Provided: ${args.source.pipe(Option.getOrElse(() => "(empty)"))}`],
-            cause: error,
-          }),
-        ),
-      );
-      filteredEntries = yield* Effect.forEach(
-        filteredEntries,
-        ([name, sourceStr]) =>
-          resolveSource(sourceStr).pipe(
-            Effect.map((resolved) => {
-              // Compare by type + identity fields (ignoring ref/version)
-              if (resolved.type !== sourceArg.type) return Option.none<[string, string]>();
-              switch (resolved.type) {
-                case "github":
-                case "gitlab":
-                case "bitbucket":
-                  if (
-                    sourceArg.type === resolved.type &&
-                    "owner" in sourceArg &&
-                    "repo" in sourceArg
-                  ) {
-                    return resolved.owner === sourceArg.owner && resolved.repo === sourceArg.repo
-                      ? Option.some([name, sourceStr] as [string, string])
-                      : Option.none<[string, string]>();
-                  }
-                  return Option.none<[string, string]>();
-                case "local":
-                  return sourceArg.type === "local" && resolved.path === sourceArg.path
-                    ? Option.some([name, sourceStr] as [string, string])
-                    : Option.none<[string, string]>();
-                case "registry":
-                  return sourceArg.type === "registry" &&
-                    resolved.scope === sourceArg.scope &&
-                    resolved.name === sourceArg.name
-                    ? Option.some([name, sourceStr] as [string, string])
-                    : Option.none<[string, string]>();
-                default:
-                  return Option.some([name, sourceStr] as [string, string]);
-              }
-            }),
-            Effect.catchAll(() => Effect.succeed(Option.none<[string, string]>())),
-          ),
-        { concurrency: "unbounded" },
-      ).pipe(Effect.map(Array.getSomes));
-    }
+    const sourceValue = Option.getOrUndefined(args.source);
+    const sourceFilteredEntries =
+      sourceValue !== undefined
+        ? yield* Effect.gen(function* () {
+            const sourceArg = yield* resolveSource(sourceValue).pipe(
+              Effect.mapError((error) =>
+                makeCliError({
+                  code: "INVALID_SOURCE",
+                  what: `Invalid source: ${error.message}`,
+                  details: [`Provided: ${sourceValue}`],
+                  cause: error,
+                }),
+              ),
+            );
+            return yield* Effect.forEach(
+              skillEntries,
+              ([name, sourceStr]) =>
+                resolveSource(sourceStr).pipe(
+                  Effect.map((resolved) => {
+                    // Compare by type + identity fields (ignoring ref/version)
+                    if (resolved.type !== sourceArg.type) return Option.none<[string, string]>();
+                    switch (resolved.type) {
+                      case "github":
+                      case "gitlab":
+                      case "bitbucket":
+                        if (
+                          sourceArg.type === resolved.type &&
+                          "owner" in sourceArg &&
+                          "repo" in sourceArg
+                        ) {
+                          return resolved.owner === sourceArg.owner &&
+                            resolved.repo === sourceArg.repo
+                            ? Option.some([name, sourceStr] as [string, string])
+                            : Option.none<[string, string]>();
+                        }
+                        return Option.none<[string, string]>();
+                      case "local":
+                        return sourceArg.type === "local" && resolved.path === sourceArg.path
+                          ? Option.some([name, sourceStr] as [string, string])
+                          : Option.none<[string, string]>();
+                      case "registry":
+                        return sourceArg.type === "registry" &&
+                          resolved.scope === sourceArg.scope &&
+                          resolved.name === sourceArg.name
+                          ? Option.some([name, sourceStr] as [string, string])
+                          : Option.none<[string, string]>();
+                      default:
+                        return Option.some([name, sourceStr] as [string, string]);
+                    }
+                  }),
+                  Effect.catchAll(() => Effect.succeed(Option.none<[string, string]>())),
+                ),
+              { concurrency: "unbounded" },
+            ).pipe(Effect.map(Array.getSomes));
+          })
+        : skillEntries;
 
     // Step 3: Filter by --skill glob patterns
-    if (args.skills.length > 0) {
-      const allNames = filteredEntries.map(([name]) => name);
+    const filteredEntries = (() => {
+      if (args.skills.length === 0) return sourceFilteredEntries;
+      const allNames = sourceFilteredEntries.map(([name]) => name);
       const matchedNames = expandGlobs(args.skills, allNames);
       const matchedSet = new Set(matchedNames);
-      filteredEntries = filteredEntries.filter(([name]) => matchedSet.has(name));
+      return sourceFilteredEntries.filter(([name]) => matchedSet.has(name));
+    })();
+    if (args.skills.length > 0) {
       if (filteredEntries.length === 0) {
         yield* log.warn("No installed skills match the --skill filter. Nothing to update.");
         return;

@@ -42,17 +42,15 @@ const GIT_HOSTING_TYPES = new Set<SourceType>(["github", "gitlab", "bitbucket", 
 const getConfiguredSources = (input: string) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    return yield* ws
-      .getConfiguredSources()
-      .pipe(
-        Effect.mapError((e) =>
-          makeCliError({
-            code: "SOURCE_PARSE_FAILED",
-            what: `Failed to get configured sources: ${e._tag}`,
-            details: [input],
-          }),
-        ),
-      );
+    return yield* ws.getConfiguredSources().pipe(
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "SOURCE_PARSE_FAILED",
+          what: `Failed to get configured sources: ${e._tag}`,
+          details: [input],
+        }),
+      ),
+    );
   });
 
 /** Get the relative path of an installed skill from its lockfile entry. */
@@ -288,17 +286,15 @@ const routeShorthandInput = (prefix: string, shorthandInput: string, input: stri
 const routeNameInput = (name: string, input: string) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const skills = yield* ws
-      .getLockedSkills()
-      .pipe(
-        Effect.mapError((e) =>
-          makeCliError({
-            code: "SOURCE_PARSE_FAILED",
-            what: `Failed to read lockfile: ${e._tag}`,
-            details: [input],
-          }),
-        ),
-      );
+    const skills = yield* ws.getLockedSkills().pipe(
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "SOURCE_PARSE_FAILED",
+          what: `Failed to read lockfile: ${e._tag}`,
+          details: [input],
+        }),
+      ),
+    );
     if (!(name in skills)) {
       return yield* makeCliError({
         code: "SOURCE_PARSE_FAILED",

@@ -22,6 +22,8 @@ import { Workspace as Workspace } from "../../../workspace/index.js";
 import type { PublishSkillOperation } from "../operations.js";
 import { publishSkill } from "../publish-skill.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
+import { REGISTRY_EXTENSIONS_DIR, MANIFEST_FILENAME } from "../constants.js";
+import { hasScopePrefix, parseScopedName } from "../naming.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -38,22 +40,6 @@ export interface PublishHandlerArgs {
   /** Skip confirmations. */
   readonly yes: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-const REGISTRY_EXTENSIONS_DIR = ".axm/extensions";
-const MANIFEST_FILENAME = "axm-skill.json";
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-/**
- * Determine whether the extension name already contains a scope (`@scope/name`).
- */
-const hasScopePrefix = (name: string): boolean => name.startsWith("@") && name.includes("/");
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -77,28 +63,22 @@ export const handlePublish = (args: PublishHandlerArgs) =>
     yield* registryGuard;
 
     // Step 2: Resolve extension name
-    let extensionName: string;
-    if (hasScopePrefix(args.extension)) {
-      extensionName = args.extension;
-    } else {
-      // Bare name -- resolve scope from settings
-      const scope = yield* ws.getConfiguredScope().pipe(
-        Effect.mapError((e) =>
-          makeCliError({
-            code: "SCOPE_RESOLUTION_FAILED",
-            what: `Failed to resolve scope: ${e._tag}`,
-            howToFix: "Configure a scope in your settings with `axm init`.",
-            cause: e,
-          }),
-        ),
-      );
-      extensionName = `${scope}/${args.extension}`;
-    }
+    const extensionName = yield* hasScopePrefix(args.extension)
+      ? Effect.succeed(args.extension)
+      : ws.getConfiguredScope().pipe(
+          Effect.map((scope) => `${scope}/${args.extension}`),
+          Effect.mapError((e) =>
+            makeCliError({
+              code: "SCOPE_RESOLUTION_FAILED",
+              what: `Failed to resolve scope: ${e._tag}`,
+              howToFix: "Configure a scope in your settings with `axm init`.",
+              cause: e,
+            }),
+          ),
+        );
 
     // Parse scope and skill name from the extension name
-    const slashIdx = extensionName.indexOf("/");
-    const scope = extensionName.slice(0, slashIdx);
-    const skillName = extensionName.slice(slashIdx + 1);
+    const { scope, skillName } = parseScopedName(extensionName);
 
     // Step 3: Validate managed extension exists
     const handle = yield* spinnerSvc.start("Validating extension...");

@@ -20,11 +20,10 @@ import {
 } from "../../../sources/index.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 import * as Array from "effect/Array";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
-import { formatError } from "../../../utils/errors.js";
 import { Workspace as Workspace } from "../../../workspace/index.js";
 import type { InstallSkillOperation } from "../operations.js";
 import { buildPlan } from "./build-plan.js";
@@ -57,21 +56,6 @@ export interface InstallHandlerArgs {
   /** Disable all prompts */
   readonly nonInteractive: Option.Option<boolean>;
 }
-
-// -----------------------------------------------------------------------------
-// Errors
-// -----------------------------------------------------------------------------
-
-/**
- * Error that occurs during skill installation.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class InstallError extends Data.TaggedError("InstallError")<{
-  readonly message: string;
-  readonly cause: unknown;
-  readonly retryable: boolean;
-}> {}
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -110,17 +94,15 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     // Step 1: Parse source
     const parseHandle = yield* spinnerSvc.start("Parsing source...");
     const source = yield* resolveSource(args.source).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: formatError(
-              `Invalid source: ${error.message}`,
-              [`Provided: ${args.source || "(empty)"}`],
-              "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
-            ),
-            cause: error,
-            retryable: false,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "INVALID_SOURCE",
+          what: `Invalid source: ${error.message}`,
+          details: [`Provided: ${args.source || "(empty)"}`],
+          howToFix:
+            "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
+          cause: error,
+        }),
       ),
     );
     yield* parseHandle.stop(`Source: ${printSourceInput(source)} (${source.type})`);
@@ -140,17 +122,14 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       type: "skill" as const,
     };
     const allRefs = yield* sources.resolveExtension(source, findOptions).pipe(
-      Effect.mapError(
-        (error) =>
-          new InstallError({
-            message: formatError(
-              `Failed to discover skills: ${error.message}`,
-              [`Source: ${printSourceInput(source)}`],
-              "Verify the source path contains directories with SKILL.md files.",
-            ),
-            cause: error,
-            retryable: false,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "DISCOVER_FAILED",
+          what: `Failed to discover skills: ${error.message}`,
+          details: [`Source: ${printSourceInput(source)}`],
+          howToFix: "Verify the source path contains directories with SKILL.md files.",
+          cause: error,
+        }),
       ),
       Effect.tapError(() => discoverHandle.stop("Failed")),
     );
@@ -158,15 +137,14 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     const discoveredSkills = Array.filter(allRefs, (ref) => ref.type === "skill");
     if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
       yield* discoverHandle.stop("No skills found");
-      return yield* new InstallError({
-        message: formatError(
-          "No skills found in source",
-          [`Source: ${printSourceInput(source)}`],
-          "Verify the source path contains directories with SKILL.md files.",
-        ),
-        cause: undefined,
-        retryable: false,
-      });
+      return yield* Effect.fail(
+        makeCliError({
+          code: "NO_SKILLS_FOUND",
+          what: "No skills found in source",
+          details: [`Source: ${printSourceInput(source)}`],
+          howToFix: "Verify the source path contains directories with SKILL.md files.",
+        }),
+      );
     }
     yield* discoverHandle.stop(`Found ${discoveredSkills.length} skill(s)`);
 
@@ -237,5 +215,5 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     yield* ws.resolvePlan(plan, { "install-skill": installSkill });
 
     yield* log.success("Done");
-  });
+  }).pipe(Effect.withSpan("Install.handle"));
 };

@@ -13,7 +13,37 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Select } from "../../tui/index.js";
-import { formatEmptyResolutionError, formatError } from "../../utils/errors.js";
+
+// -----------------------------------------------------------------------------
+// Formatting Helpers
+// -----------------------------------------------------------------------------
+
+function formatError(what: string, details?: ReadonlyArray<string>, howToFix?: string): string {
+  const lines: string[] = [`\u2717 ${what}`];
+  if (details && details.length > 0) {
+    for (const detail of details) {
+      lines.push(`  ${detail}`);
+    }
+  }
+  if (howToFix) {
+    lines.push(`  ${howToFix}`);
+  }
+  return lines.join("\n");
+}
+
+function formatEmptyResolutionError(input: string): string {
+  return formatError(
+    `Could not resolve "${input}"`,
+    ["No matching extensions found"],
+    [
+      "Try one of these formats:",
+      "  \u2022 Local path: ./path/to/skill or /absolute/path",
+      "  \u2022 GitHub: github:owner/repo or owner/repo",
+      "  \u2022 GitLab: gitlab:owner/repo",
+      "  \u2022 AXM name: @scope/name (if installed)",
+    ].join("\n"),
+  );
+}
 
 // -----------------------------------------------------------------------------
 // Types

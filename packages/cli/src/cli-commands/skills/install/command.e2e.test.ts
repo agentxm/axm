@@ -174,7 +174,7 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).not.toBe(0);
-        expect(result.stderr).toContain("Error");
+        expect(result.stderr).toContain("Failed to discover skills");
       } finally {
         temp.cleanup();
       }

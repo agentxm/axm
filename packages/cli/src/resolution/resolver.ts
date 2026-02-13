@@ -135,5 +135,5 @@ export const resolveExtension = (
     const results = yield* tryResolvers(resolvers);
     const filteredBySource = filterBySource(results, Option.getOrUndefined(options.sources));
     return filterByType(filteredBySource, Option.getOrUndefined(options.types));
-  });
+  }).pipe(Effect.withSpan("Resolution.resolveExtension"));
 };

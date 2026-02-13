@@ -252,5 +252,5 @@ export const resolveAmbiguous = (input: string, options: ResolutionOptions) => {
 
     // No matches found
     return [];
-  });
+  }).pipe(Effect.withSpan("Resolution.resolveAmbiguous"));
 };

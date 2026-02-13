@@ -258,13 +258,9 @@ describe("fork.handler", () => {
         Effect.gen(function* () {
           const result = yield* handleFork(
             defaultArgs(sourceDir, { skills: ["nonexistent-*"] }),
-          ).pipe(
-            Effect.catchTag("ForkError", (e) =>
-              Effect.succeed({ error: true, message: e.message }),
-            ),
-          );
+          ).pipe(Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, what: e.what })));
           expect(result).toHaveProperty("error", true);
-          expect((result as { message: string }).message).toContain("No skills matched");
+          expect((result as { what: string }).what).toContain("No skills matched");
         }),
       );
     });
@@ -321,12 +317,10 @@ describe("fork.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handleFork(defaultArgs("nonexistent-skill")).pipe(
-            Effect.catchTag("ForkError", (e) =>
-              Effect.succeed({ error: true, message: e.message }),
-            ),
+            Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, what: e.what })),
           );
           expect(result).toHaveProperty("error", true);
-          expect((result as { message: string }).message).toContain("Invalid source");
+          expect((result as { what: string }).what).toContain("Invalid source");
         }),
       );
     });

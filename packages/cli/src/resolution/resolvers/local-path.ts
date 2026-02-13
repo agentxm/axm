@@ -231,4 +231,4 @@ export const resolveLocalPath = (
 
     // Handle direct file path
     return yield* handleFilePath(absolutePath, input);
-  });
+  }).pipe(Effect.withSpan("Resolution.resolveLocalPath"));

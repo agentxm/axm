@@ -355,7 +355,7 @@ describe("update.handler", () => {
 
           const error = yield* handleUpdate(defaultUpdateArgs()).pipe(Effect.flip);
 
-          expect(error._tag).toBe("UpdateError");
+          expect(error._tag).toBe("CliError");
         }),
       );
     });

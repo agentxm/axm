@@ -117,4 +117,4 @@ export const applyPlan = <Op extends Operation<string, unknown>, T extends Handl
         steps,
       })),
     }),
-  );
+  ).pipe(Effect.withSpan("Workspace.applyPlan"));

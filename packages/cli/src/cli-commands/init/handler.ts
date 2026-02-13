@@ -10,6 +10,7 @@
 import { getAgentById } from "../../agents/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { makeCliError } from "../../cli-error/index.js";
 import { Log } from "../../tui/index.js";
 import { Workspace } from "../../workspace/index.js";
 
@@ -53,4 +54,14 @@ export const handleInit = () =>
     yield* log.success(
       agentIds.length > 0 ? `Initialized with agents: ${agentNames}` : "Workspace initialized",
     );
-  }).pipe(Effect.asVoid);
+  }).pipe(
+    Effect.asVoid,
+    Effect.mapError((error) =>
+      makeCliError({
+        code: "INIT_FAILED",
+        what: "Failed to initialize workspace",
+        cause: error,
+      }),
+    ),
+    Effect.withSpan("Init.handle"),
+  );

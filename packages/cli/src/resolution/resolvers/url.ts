@@ -85,5 +85,6 @@ export const resolveUrl = (input: string) => {
     }),
     // On parse error, return empty array (not a match for this resolver)
     Effect.catchAll(() => Effect.succeed([])),
+    Effect.withSpan("Resolution.resolveUrl"),
   );
 };

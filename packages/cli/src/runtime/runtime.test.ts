@@ -28,23 +28,29 @@ describe("classifyError", () => {
     const result = classifyError(error);
 
     expect(result.exitCode).toBe(1);
-    expect(result.message).toContain("Something failed");
-    expect(result.message).toContain("TEST_ERROR");
-    expect(result.message).toContain("detail line");
-    expect(result.message).toContain("Try again");
+    if (result.exitCode !== 0) {
+      expect(result.message).toContain("Something failed");
+      expect(result.message).toContain("TEST_ERROR");
+      expect(result.message).toContain("detail line");
+      expect(result.message).toContain("Try again");
+    }
   });
 
   it("returns exit 2 with defect message for unknown errors", () => {
     const result = classifyError(new UnknownDomainError({ message: "unexpected" }));
 
     expect(result.exitCode).toBe(2);
-    expect(result.message).toContain("unexpected error occurred");
+    if (result.exitCode !== 0) {
+      expect(result.message).toContain("unexpected error occurred");
+    }
   });
 
   it("returns exit 2 for plain Error", () => {
     const result = classifyError(new Error("boom"));
 
     expect(result.exitCode).toBe(2);
-    expect(result.message).toContain("boom");
+    if (result.exitCode !== 0) {
+      expect(result.message).toContain("boom");
+    }
   });
 });

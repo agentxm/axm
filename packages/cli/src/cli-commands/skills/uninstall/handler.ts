@@ -13,6 +13,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace as Workspace } from "../../../workspace/index.js";
 import type { UninstallSkillOperation } from "../operations.js";
@@ -95,4 +96,13 @@ export const handleUninstall = (args: UninstallHandlerArgs) =>
     yield* ws.resolvePlan(plan, { "uninstall-skill": uninstallSkill });
 
     yield* log.success("Done");
-  });
+  }).pipe(
+    Effect.mapError((error) =>
+      makeCliError({
+        code: "UNINSTALL_FAILED",
+        what: "Failed to uninstall skill",
+        cause: error,
+      }),
+    ),
+    Effect.withSpan("Uninstall.handle"),
+  );

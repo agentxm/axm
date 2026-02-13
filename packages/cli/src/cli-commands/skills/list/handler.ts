@@ -7,6 +7,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace as Workspace } from "../../../workspace/index.js";
 
@@ -59,4 +60,13 @@ export const handleList = (args: ListHandlerArgs) =>
       const agents = entry.agents.length > 0 ? entry.agents.join(", ") : "none";
       yield* log.message(`${name}  (${entry.type})  [${agents}]`);
     }
-  });
+  }).pipe(
+    Effect.mapError((error) =>
+      makeCliError({
+        code: "LIST_FAILED",
+        what: "Failed to list installed skills",
+        cause: error,
+      }),
+    ),
+    Effect.withSpan("List.handle"),
+  );

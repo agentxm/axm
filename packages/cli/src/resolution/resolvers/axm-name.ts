@@ -154,4 +154,4 @@ export const resolveAxmName = (
     // Step 3: Registry lookup (placeholder - return empty)
     // Future: Query remote registry API
     return [];
-  });
+  }).pipe(Effect.withSpan("Resolution.resolveAxmName"));

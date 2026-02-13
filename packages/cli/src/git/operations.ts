@@ -88,7 +88,7 @@ export const cloneRepo = (
         catch: mapGitError("checkout", `Failed to checkout ref '${ref}'`),
       });
     }
-  });
+  }).pipe(Effect.withSpan("Git.cloneRepo"));
 
 /**
  * Shallow clone a git repository (depth 1, single branch).
@@ -115,7 +115,7 @@ export const shallowClone = (
         ...(ref ? ["--branch", ref] : []),
       ]),
     catch: mapGitError("clone", `Failed to shallow clone ${url}`),
-  });
+  }).pipe(Effect.withSpan("Git.shallowClone"));
 
 /**
  * Resolve a ref (tag, branch, SHA) to a full commit SHA.
@@ -135,7 +135,7 @@ export const resolveRef = (repoPath: string, ref: string): Effect.Effect<string,
       return sha.trim();
     },
     catch: mapGitError("resolve-ref", `Failed to resolve ref '${ref}'`),
-  });
+  }).pipe(Effect.withSpan("Git.resolveRef"));
 
 /**
  * Get the current HEAD commit SHA.
@@ -154,7 +154,7 @@ export const getCurrentCommit = (repoPath: string): Effect.Effect<string, GitErr
       return sha.trim();
     },
     catch: mapGitError("get-commit", "Failed to get current commit"),
-  });
+  }).pipe(Effect.withSpan("Git.getCurrentCommit"));
 
 /**
  * Get the git tree SHA for a path within a repository.
@@ -195,7 +195,7 @@ export const getTreeSha = (repoPath: string, subPath = "."): Effect.Effect<strin
       return sha;
     },
     catch: mapGitError("get-tree-sha", `Failed to get tree SHA for '${subPath}'`),
-  });
+  }).pipe(Effect.withSpan("Git.getTreeSha"));
 
 /**
  * Check if a directory is within a git repository.
@@ -212,4 +212,5 @@ export const isGitRepository = (dirPath: string): Effect.Effect<boolean, never> 
   }).pipe(
     Effect.as(true),
     Effect.catchAll(() => Effect.succeed(false)),
+    Effect.withSpan("Git.isGitRepository"),
   );

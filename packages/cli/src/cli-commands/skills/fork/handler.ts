@@ -21,11 +21,10 @@ import {
   registryGuard,
 } from "../../../sources/index.js";
 import * as Array from "effect/Array";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
-import { formatError } from "../../../utils/errors.js";
 import { Workspace as Workspace } from "../../../workspace/index.js";
 import type {
   CopySkillOperation,
@@ -59,15 +58,6 @@ export interface ForkHandlerArgs {
 type ForkOp = CopySkillOperation | PublishSkillOperation | InstallSkillOperation;
 
 // -----------------------------------------------------------------------------
-// Errors
-// -----------------------------------------------------------------------------
-
-export class ForkError extends Data.TaggedError("ForkError")<{
-  readonly message: string;
-  readonly cause: unknown;
-}> {}
-
-// -----------------------------------------------------------------------------
 // Main Handler
 // -----------------------------------------------------------------------------
 
@@ -90,12 +80,13 @@ export const handleFork = (args: ForkHandlerArgs) =>
 
     // Step 2: Resolve scope
     const scope = yield* ws.getConfiguredScope().pipe(
-      Effect.mapError(
-        (e) =>
-          new ForkError({
-            message: `Failed to resolve scope: ${e._tag}`,
-            cause: e,
-          }),
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "SCOPE_RESOLUTION_FAILED",
+          what: `Failed to resolve scope: ${e._tag}`,
+          howToFix: "Configure a scope in your settings with `axm init`.",
+          cause: e,
+        }),
       ),
     );
 
@@ -103,16 +94,14 @@ export const handleFork = (args: ForkHandlerArgs) =>
     const handle = yield* spinnerSvc.start("Resolving skills...");
 
     const source = yield* resolveSource(args.source).pipe(
-      Effect.mapError(
-        (error) =>
-          new ForkError({
-            message: formatError(
-              `Invalid source: ${error.message}`,
-              [`Provided: ${args.source}`],
-              "Valid formats: installed skill name, local path, github:owner/repo",
-            ),
-            cause: error,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "INVALID_SOURCE",
+          what: `Invalid source: ${error.message}`,
+          details: [`Provided: ${args.source}`],
+          howToFix: "Valid formats: installed skill name, local path, github:owner/repo",
+          cause: error,
+        }),
       ),
       Effect.tapError(() => handle.stop("Failed")),
     );
@@ -120,16 +109,14 @@ export const handleFork = (args: ForkHandlerArgs) =>
     const allRefs = yield* sources
       .resolveExtension(source, { names: [], agents: [], type: "skill" })
       .pipe(
-        Effect.mapError(
-          (error) =>
-            new ForkError({
-              message: formatError(
-                `Failed to discover skills: ${error.message}`,
-                [`Source: ${printSourceInput(source)}`],
-                "Verify the source path contains directories with SKILL.md files.",
-              ),
-              cause: error,
-            }),
+        Effect.mapError((error) =>
+          makeCliError({
+            code: "DISCOVER_FAILED",
+            what: `Failed to discover skills: ${error.message}`,
+            details: [`Source: ${printSourceInput(source)}`],
+            howToFix: "Verify the source path contains directories with SKILL.md files.",
+            cause: error,
+          }),
         ),
         Effect.tapError(() => handle.stop("Failed")),
       );
@@ -137,14 +124,14 @@ export const handleFork = (args: ForkHandlerArgs) =>
     const discoveredSkills = Array.filter(allRefs, (ref): ref is SkillRef => ref.type === "skill");
     if (discoveredSkills.length === 0) {
       yield* handle.stop("No skills found");
-      return yield* new ForkError({
-        message: formatError(
-          "No skills found in source",
-          [`Source: ${printSourceInput(source)}`],
-          "Verify the source path contains directories with SKILL.md files.",
-        ),
-        cause: undefined,
-      });
+      return yield* Effect.fail(
+        makeCliError({
+          code: "NO_SKILLS_FOUND",
+          what: "No skills found in source",
+          details: [`Source: ${printSourceInput(source)}`],
+          howToFix: "Verify the source path contains directories with SKILL.md files.",
+        }),
+      );
     }
 
     // Step 4: Filter by --skill globs (if provided)
@@ -164,14 +151,14 @@ export const handleFork = (args: ForkHandlerArgs) =>
     if (args.skills.length > 0 && filtered.length === 0) {
       yield* handle.stop("No matches");
       const allNames = Array.map(discoveredSkills, (r) => r.skill.name);
-      return yield* new ForkError({
-        message: formatError(
-          "No skills matched the given patterns",
-          [`Patterns: ${args.skills.join(", ")}`, `Available: ${allNames.join(", ")}`],
-          "Check skill names with `axm skills install --list <source>`.",
-        ),
-        cause: undefined,
-      });
+      return yield* Effect.fail(
+        makeCliError({
+          code: "NO_SKILLS_MATCHED",
+          what: "No skills matched the given patterns",
+          details: [`Patterns: ${args.skills.join(", ")}`, `Available: ${allNames.join(", ")}`],
+          howToFix: "Check skill names with `axm skills install --list <source>`.",
+        }),
+      );
     }
 
     yield* handle.stop(`Found ${filtered.length} skill(s)`);
@@ -181,19 +168,22 @@ export const handleFork = (args: ForkHandlerArgs) =>
 
     // Step 6: Determine first registry source name for publishing
     const registrySources = yield* ws.getConfiguredRegistrySources(Option.none()).pipe(
-      Effect.mapError(
-        (e) =>
-          new ForkError({
-            message: `Failed to get registry sources: ${e._tag}`,
-            cause: e,
-          }),
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "REGISTRY_SOURCES_FAILED",
+          what: `Failed to get registry sources: ${e._tag}`,
+          cause: e,
+        }),
       ),
     );
     if (registrySources.length === 0) {
-      return yield* new ForkError({
-        message: "No registry sources configured. Run the registry guard first.",
-        cause: undefined,
-      });
+      return yield* Effect.fail(
+        makeCliError({
+          code: "NO_REGISTRY_CONFIGURED",
+          what: "No registry sources configured",
+          howToFix: "Run the registry guard first.",
+        }),
+      );
     }
     const registryName = registrySources[0]!.name;
 
@@ -271,4 +261,4 @@ export const handleFork = (args: ForkHandlerArgs) =>
     });
 
     yield* log.success("Done");
-  });
+  }).pipe(Effect.withSpan("Fork.handle"));

@@ -24,6 +24,7 @@ import {
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceProvidersLive } from "../../../sources/index.js";
 import { handleInstall, type InstallHandlerArgs } from "./handler.js";
+import { CliError } from "../../../cli-error/index.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -391,9 +392,9 @@ describe("install.handler", () => {
             defaultArgs(skillsDir, { skills: ["nonexistent-*"], all: false }),
           ).pipe(Effect.flip);
 
-          expect(error._tag).toBe("InstallError");
-          expect(error.message).toContain("No skills matched");
-          expect(error.message).toContain("commit");
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).what).toContain("No skills matched");
+          expect((error as CliError).details.join(", ")).toContain("commit");
         }),
       );
     });

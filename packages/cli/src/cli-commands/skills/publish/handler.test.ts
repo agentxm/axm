@@ -257,12 +257,10 @@ describe("publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handlePublish(defaultArgs("@test/no-manifest")).pipe(
-            Effect.catchTag("PublishError", (e) =>
-              Effect.succeed({ error: true, message: e.message }),
-            ),
+            Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, what: e.what })),
           );
           expect(result).toHaveProperty("error", true);
-          expect((result as { message: string }).message).toContain("Missing manifest");
+          expect((result as { what: string }).what).toContain("Missing manifest");
         }),
       );
     });
@@ -278,13 +276,17 @@ describe("publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handlePublish(defaultArgs("@test/nonexistent")).pipe(
-            Effect.catchTag("PublishError", (e) =>
-              Effect.succeed({ error: true, message: e.message }),
+            Effect.catchTag("CliError", (e) =>
+              Effect.succeed({
+                error: true,
+                what: e.what,
+                howToFix: Option.getOrElse(e.howToFix, () => ""),
+              }),
             ),
           );
           expect(result).toHaveProperty("error", true);
-          expect((result as { message: string }).message).toContain("Managed extension not found");
-          expect((result as { message: string }).message).toContain("axm skills fork");
+          expect((result as { what: string }).what).toContain("Managed extension not found");
+          expect((result as { howToFix: string }).howToFix).toContain("axm skills fork");
         }),
       );
     });

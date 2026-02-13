@@ -451,9 +451,9 @@ describe("init.handler", () => {
         fs.writeFileSync(path.join(axmDir, "settings.json"), "not valid json {{{");
         fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
 
-        const error = yield* handleInit().pipe(Effect.sandbox, Effect.flip);
+        const error = yield* handleInit().pipe(Effect.flip);
 
-        expect((Cause.squash(error) as { _tag: string })._tag).toBe("SettingsParseError");
+        expect(error._tag).toBe("CliError");
       }).pipe(Effect.provide(Layer.mergeAll(TestLayer, WsLayer)));
     });
   });

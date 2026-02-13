@@ -72,5 +72,5 @@ export const resolveBareName = (
       ...ref,
       originalInput: input,
     }));
-  });
+  }).pipe(Effect.withSpan("Resolution.resolveBareName"));
 };

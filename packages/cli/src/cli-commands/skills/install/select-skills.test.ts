@@ -16,7 +16,7 @@ import {
   makeMultiselectTestLayer,
 } from "../../../tui/index.js";
 import type { SkillRef } from "../operations.js";
-import { InstallError } from "./handler.js";
+import { CliError } from "../../../cli-error/index.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 
 // -----------------------------------------------------------------------------
@@ -86,8 +86,8 @@ describe("determineSkillsToInstall", () => {
             yes: false,
           }).pipe(Effect.flip);
 
-          expect(error._tag).toBe("InstallError");
-          expect((error as InstallError).message).toContain("No skills matched");
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).what).toContain("No skills matched");
         }),
       ),
     );
@@ -160,9 +160,9 @@ describe("determineSkillsToInstall", () => {
             yes: false,
           }).pipe(Effect.flip);
 
-          expect(error._tag).toBe("InstallError");
-          expect((error as InstallError).message).toContain("commit");
-          expect((error as InstallError).message).toContain("review-pr");
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).details.join(", ")).toContain("commit");
+          expect((error as CliError).details.join(", ")).toContain("review-pr");
         }),
       ),
     );

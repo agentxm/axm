@@ -14,12 +14,11 @@ import {
   type SkillRef,
 } from "../../../sources/index.js";
 import * as Array from "effect/Array";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { makeCliError } from "../../../cli-error/index.js";
 import { expandGlobs } from "../../../skills/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
-import { formatError } from "../../../utils/errors.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { InstallSkillOperation } from "../operations.js";
 import { buildUpdatePlan } from "./build-plan.js";
@@ -48,20 +47,6 @@ export interface UpdateHandlerArgs {
   /** Disable prompts */
   readonly nonInteractive: Option.Option<boolean>;
 }
-
-// -----------------------------------------------------------------------------
-// Errors
-// -----------------------------------------------------------------------------
-
-/**
- * Error that occurs during skill update.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class UpdateError extends Data.TaggedError("UpdateError")<{
-  readonly message: string;
-  readonly cause: unknown;
-}> {}
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -108,14 +93,13 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
     let filteredEntries = skillEntries;
     if (Option.isSome(args.source)) {
       const sourceArg = yield* resolveSource(args.source.value).pipe(
-        Effect.mapError(
-          (error) =>
-            new UpdateError({
-              message: formatError(`Invalid source: ${error.message}`, [
-                `Provided: ${args.source.pipe(Option.getOrElse(() => "(empty)"))}`,
-              ]),
-              cause: error,
-            }),
+        Effect.mapError((error) =>
+          makeCliError({
+            code: "INVALID_SOURCE",
+            what: `Invalid source: ${error.message}`,
+            details: [`Provided: ${args.source.pipe(Option.getOrElse(() => "(empty)"))}`],
+            cause: error,
+          }),
         ),
       );
       filteredEntries = yield* Effect.forEach(
@@ -210,10 +194,13 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
     // Step 5: Collect successful resolutions
     const resolved = Array.getSomes(results);
     if (resolved.length === 0) {
-      return yield* new UpdateError({
-        message: "All source re-resolutions failed. Nothing to update.",
-        cause: undefined,
-      });
+      return yield* Effect.fail(
+        makeCliError({
+          code: "UPDATE_FAILED",
+          what: "All source re-resolutions failed. Nothing to update.",
+          howToFix: "Verify the original source paths are still accessible.",
+        }),
+      );
     }
 
     // Step 6: Build operations
@@ -247,5 +234,5 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
     yield* ws.resolvePlan(plan, { "install-skill": installSkill });
 
     yield* log.success("Done");
-  });
+  }).pipe(Effect.withSpan("Update.handle"));
 };

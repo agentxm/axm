@@ -14,11 +14,10 @@
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import { registryGuard } from "../../../sources/index.js";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
-import { formatError } from "../../../utils/errors.js";
 import { Workspace as Workspace } from "../../../workspace/index.js";
 import type { PublishSkillOperation } from "../operations.js";
 import { publishSkill } from "../publish-skill.js";
@@ -39,15 +38,6 @@ export interface PublishHandlerArgs {
   /** Skip confirmations. */
   readonly yes: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Errors
-// -----------------------------------------------------------------------------
-
-export class PublishError extends Data.TaggedError("PublishError")<{
-  readonly message: string;
-  readonly cause: unknown;
-}> {}
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -93,12 +83,13 @@ export const handlePublish = (args: PublishHandlerArgs) =>
     } else {
       // Bare name -- resolve scope from settings
       const scope = yield* ws.getConfiguredScope().pipe(
-        Effect.mapError(
-          (e) =>
-            new PublishError({
-              message: `Failed to resolve scope: ${e._tag}`,
-              cause: e,
-            }),
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "SCOPE_RESOLUTION_FAILED",
+            what: `Failed to resolve scope: ${e._tag}`,
+            howToFix: "Configure a scope in your settings with `axm init`.",
+            cause: e,
+          }),
         ),
       );
       extensionName = `${scope}/${args.extension}`;
@@ -118,14 +109,15 @@ export const handlePublish = (args: PublishHandlerArgs) =>
 
     if (!extensionDirExists) {
       yield* handle.stop("Failed");
-      return yield* new PublishError({
-        message: formatError(
-          `Managed extension not found: ${extensionName}`,
-          [`Expected at: ${extensionDir}`],
-          "Only managed extensions (in .axm/extensions/) can be published. Use `axm skills fork` first.",
-        ),
-        cause: undefined,
-      });
+      return yield* Effect.fail(
+        makeCliError({
+          code: "EXTENSION_NOT_FOUND",
+          what: `Managed extension not found: ${extensionName}`,
+          details: [`Expected at: ${extensionDir}`],
+          howToFix:
+            "Only managed extensions (in .axm/extensions/) can be published. Use `axm skills fork` first.",
+        }),
+      );
     }
 
     // Validate manifest exists
@@ -134,34 +126,37 @@ export const handlePublish = (args: PublishHandlerArgs) =>
 
     if (!manifestExists) {
       yield* handle.stop("Failed");
-      return yield* new PublishError({
-        message: formatError(
-          `Missing manifest: ${MANIFEST_FILENAME}`,
-          [`Expected at: ${manifestPath}`],
-          "Ensure the extension has a valid axm-skill.json manifest.",
-        ),
-        cause: undefined,
-      });
+      return yield* Effect.fail(
+        makeCliError({
+          code: "MISSING_MANIFEST",
+          what: `Missing manifest: ${MANIFEST_FILENAME}`,
+          details: [`Expected at: ${manifestPath}`],
+          howToFix: "Ensure the extension has a valid axm-skill.json manifest.",
+        }),
+      );
     }
 
     yield* handle.stop(`Validated ${extensionName}`);
 
     // Step 4: Determine target registry
     const registrySources = yield* ws.getConfiguredRegistrySources(Option.none()).pipe(
-      Effect.mapError(
-        (e) =>
-          new PublishError({
-            message: `Failed to get registry sources: ${e._tag}`,
-            cause: e,
-          }),
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "REGISTRY_SOURCES_FAILED",
+          what: `Failed to get registry sources: ${e._tag}`,
+          cause: e,
+        }),
       ),
     );
 
     if (registrySources.length === 0) {
-      return yield* new PublishError({
-        message: "No registry sources configured. Run the registry guard first.",
-        cause: undefined,
-      });
+      return yield* Effect.fail(
+        makeCliError({
+          code: "NO_REGISTRY_CONFIGURED",
+          what: "No registry sources configured",
+          howToFix: "Run the registry guard first.",
+        }),
+      );
     }
 
     const registryName = Option.match(args.registry, {
@@ -196,4 +191,4 @@ export const handlePublish = (args: PublishHandlerArgs) =>
     });
 
     yield* log.success("Done");
-  });
+  }).pipe(Effect.withSpan("Publish.handle"));

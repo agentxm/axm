@@ -16,7 +16,7 @@ import type * as Scope from "effect/Scope";
 import {
   TuiLive,
   type Log,
-  type Spinner,
+  Spinner,
   type Note,
   type TextInput,
   type PasswordInput,
@@ -94,6 +94,12 @@ export function run<A, E>(
     : (program as Effect.Effect<A, E, AppLayer>);
 
   return provided.pipe(
+    Effect.onError(() =>
+      Effect.gen(function* () {
+        const spinner = yield* Spinner;
+        yield* spinner.stopAll;
+      }),
+    ),
     Effect.catchAll((error) =>
       Effect.sync(() => {
         const result = classifyError(error);

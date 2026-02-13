@@ -9,8 +9,7 @@
 
 import type { SkillRef } from "../operations.js";
 import { Log, Multiselect } from "../../../tui/index.js";
-import { InstallError } from "./handler.js";
-import { formatError } from "../../../utils/errors.js";
+import { makeCliError } from "../../../cli-error/index.js";
 import { expandGlobs } from "../../../skills/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
@@ -52,15 +51,14 @@ export const determineSkillsToInstall = (
       const matched = expandGlobs(args.requestedSkills, allNames);
 
       if (matched.length === 0) {
-        return yield* new InstallError({
-          message: formatError(
-            `No skills matched: ${args.requestedSkills.join(", ")}`,
-            [`Available: ${skills.map((s) => s.skill.name).join(", ")}`],
-            "Check the skill names or patterns and try again.",
-          ),
-          cause: undefined,
-          retryable: false,
-        });
+        return yield* Effect.fail(
+          makeCliError({
+            code: "NO_SKILLS_MATCHED",
+            what: `No skills matched: ${args.requestedSkills.join(", ")}`,
+            details: [`Available: ${skills.map((s) => s.skill.name).join(", ")}`],
+            howToFix: "Check the skill names or patterns and try again.",
+          }),
+        );
       }
 
       return Array.filter(skills, (s) => matched.includes(s.skill.name));
@@ -85,7 +83,7 @@ export const determineSkillsToInstall = (
  * Prompts the user to select which skills to install from a list.
  *
  * Shows a multiselect prompt with no skills pre-selected.
- * Maps prompt errors to `InstallError`.
+ * PromptCancelled bubbles up to the runtime; other errors become CliError.
  */
 export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<SkillRef>) =>
   Effect.gen(function* () {
@@ -104,17 +102,14 @@ export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<Skill
         required: Option.some(true),
       })
       .pipe(
-        Effect.mapError(
-          (error) =>
-            new InstallError(
-              error._tag === "PromptCancelled"
-                ? { message: "Operation cancelled.", cause: undefined, retryable: false }
-                : {
-                    message: "Failed to prompt for skill selection",
-                    cause: error,
-                    retryable: false,
-                  },
-            ),
+        Effect.mapError((error) =>
+          error._tag === "PromptCancelled"
+            ? error
+            : makeCliError({
+                code: "PROMPT_FAILED",
+                what: "Failed to prompt for skill selection",
+                cause: error,
+              }),
         ),
       );
   });

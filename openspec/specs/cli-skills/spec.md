@@ -30,3 +30,8 @@ help display and exit 0, per CLI design guidelines._
 
 - **WHEN** the user runs `axm skills --help`
 - **THEN** `list` (alias `ls`) appears in the available sub-commands
+
+#### Scenario: Update sub-command is registered
+
+- **WHEN** the user runs `axm skills --help`
+- **THEN** `update` appears in the available sub-commands

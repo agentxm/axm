@@ -16,7 +16,3 @@ export { AGENTS, getAgentById, getAgentIds, getAllAgents } from "./registry.js";
 
 // Types
 export type { AgentDescriptor, AgentId, AgentRegistry, AgentSkillsDescriptor } from "./types.js";
-
-// Agent-specific exports (for consumers that need direct access)
-export { claudeHome } from "./claude-code/index.js";
-export { codexHome } from "./codex/index.js";

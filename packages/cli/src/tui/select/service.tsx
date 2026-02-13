@@ -28,7 +28,6 @@ const makeLiveSelectService = (): SelectService => ({
                   makeCliError({
                     code: "PROMPT_RENDER_FAILED",
                     what: `Invalid selection index: ${String(index)}`,
-                    cause: undefined,
                   }),
                 ),
               );

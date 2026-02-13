@@ -161,17 +161,15 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
                 const idxExists = yield* fs.exists(idxPath).pipe(Effect.orElseSucceed(() => false));
                 if (!idxExists) continue;
 
-                const content = yield* fs
-                  .readFileString(idxPath)
-                  .pipe(
-                    Effect.mapError((e) =>
-                      makeCliError({
-                        code: "SOURCE_FETCH_FAILED",
-                        what: `Failed to read index: ${idxPath}`,
-                        cause: e,
-                      }),
-                    ),
-                  );
+                const content = yield* fs.readFileString(idxPath).pipe(
+                  Effect.mapError((e) =>
+                    makeCliError({
+                      code: "SOURCE_FETCH_FAILED",
+                      what: `Failed to read index: ${idxPath}`,
+                      cause: e,
+                    }),
+                  ),
+                );
                 const json = yield* Effect.try({
                   try: () => JSON.parse(content) as unknown,
                   catch: (e) =>
@@ -255,31 +253,27 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
         );
       }
 
-      const archiveBytes = yield* fs
-        .readFile(archivePath)
-        .pipe(
-          Effect.mapError((e) =>
-            makeCliError({
-              code: "SOURCE_FETCH_FAILED",
-              what: `Failed to read archive: ${archivePath}`,
-              cause: e,
-            }),
-          ),
-        );
+      const archiveBytes = yield* fs.readFile(archivePath).pipe(
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: `Failed to read archive: ${archivePath}`,
+            cause: e,
+          }),
+        ),
+      );
 
       // Read index.json to get expected checksum
       const indexPath = path.join(dir, "index.json");
-      const indexContent = yield* fs
-        .readFileString(indexPath)
-        .pipe(
-          Effect.mapError((e) =>
-            makeCliError({
-              code: "SOURCE_FETCH_FAILED",
-              what: `Failed to read index: ${indexPath}`,
-              cause: e,
-            }),
-          ),
-        );
+      const indexContent = yield* fs.readFileString(indexPath).pipe(
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: `Failed to read index: ${indexPath}`,
+            cause: e,
+          }),
+        ),
+      );
       const indexJson = yield* Effect.try({
         try: () => JSON.parse(indexContent) as unknown,
         catch: (e) =>
@@ -314,17 +308,15 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       }
 
       // Extract zip to temp directory
-      const tmpDir = yield* fs
-        .makeTempDirectory()
-        .pipe(
-          Effect.mapError((e) =>
-            makeCliError({
-              code: "SOURCE_FETCH_FAILED",
-              what: "Failed to create temp directory",
-              cause: e,
-            }),
-          ),
-        );
+      const tmpDir = yield* fs.makeTempDirectory().pipe(
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: "Failed to create temp directory",
+            cause: e,
+          }),
+        ),
+      );
 
       yield* extractZip(archiveBytes, tmpDir);
 
@@ -344,22 +336,19 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
           makeCliError({
             code: "REGISTRY_FETCH_FAILED",
             what: `Index not found: ${indexPath}`,
-            cause: undefined,
           }),
         );
       }
 
-      const content = yield* fs
-        .readFileString(indexPath)
-        .pipe(
-          Effect.mapError((e) =>
-            makeCliError({
-              code: "REGISTRY_FETCH_FAILED",
-              what: `Failed to read index: ${indexPath}`,
-              cause: e,
-            }),
-          ),
-        );
+      const content = yield* fs.readFileString(indexPath).pipe(
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "REGISTRY_FETCH_FAILED",
+            what: `Failed to read index: ${indexPath}`,
+            cause: e,
+          }),
+        ),
+      );
       const json = yield* Effect.try({
         try: () => JSON.parse(content) as unknown,
         catch: (e) =>
@@ -394,22 +383,19 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
           makeCliError({
             code: "REGISTRY_FETCH_FAILED",
             what: `Archive not found: ${archivePath}`,
-            cause: undefined,
           }),
         );
       }
 
-      return yield* fs
-        .readFile(archivePath)
-        .pipe(
-          Effect.mapError((e) =>
-            makeCliError({
-              code: "REGISTRY_FETCH_FAILED",
-              what: `Failed to read archive: ${archivePath}`,
-              cause: e,
-            }),
-          ),
-        );
+      return yield* fs.readFile(archivePath).pipe(
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "REGISTRY_FETCH_FAILED",
+            what: `Failed to read archive: ${archivePath}`,
+            cause: e,
+          }),
+        ),
+      );
     }),
 
   publishVersion: (scope, type, name, version, archive, metadata) =>
@@ -419,17 +405,15 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       const dir = extensionDir(registryRoot, scope, type, name, p.join);
 
       // Ensure directory exists
-      yield* fs
-        .makeDirectory(dir, { recursive: true })
-        .pipe(
-          Effect.mapError((e) =>
-            makeCliError({
-              code: "REGISTRY_FETCH_FAILED",
-              what: `Failed to create directory: ${dir}`,
-              cause: e,
-            }),
-          ),
-        );
+      yield* fs.makeDirectory(dir, { recursive: true }).pipe(
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "REGISTRY_FETCH_FAILED",
+            what: `Failed to create directory: ${dir}`,
+            cause: e,
+          }),
+        ),
+      );
 
       const indexPath = p.join(dir, "index.json");
       const archivePath = p.join(dir, `${version}.zip`);
@@ -439,17 +423,15 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
 
       if (indexExists) {
         // Read existing index
-        const content = yield* fs
-          .readFileString(indexPath)
-          .pipe(
-            Effect.mapError((e) =>
-              makeCliError({
-                code: "REGISTRY_FETCH_FAILED",
-                what: `Failed to read index: ${indexPath}`,
-                cause: e,
-              }),
-            ),
-          );
+        const content = yield* fs.readFileString(indexPath).pipe(
+          Effect.mapError((e) =>
+            makeCliError({
+              code: "REGISTRY_FETCH_FAILED",
+              what: `Failed to read index: ${indexPath}`,
+              cause: e,
+            }),
+          ),
+        );
         const json = yield* Effect.try({
           try: () => JSON.parse(content) as unknown,
           catch: (e) =>
@@ -485,17 +467,15 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
           ...existingIndex,
           versions: [metadata, ...existingIndex.versions],
         };
-        yield* fs
-          .writeFileString(indexPath, JSON.stringify(updatedIndex, null, 2) + "\n")
-          .pipe(
-            Effect.mapError((e) =>
-              makeCliError({
-                code: "REGISTRY_FETCH_FAILED",
-                what: `Failed to write index: ${indexPath}`,
-                cause: e,
-              }),
-            ),
-          );
+        yield* fs.writeFileString(indexPath, JSON.stringify(updatedIndex, null, 2) + "\n").pipe(
+          Effect.mapError((e) =>
+            makeCliError({
+              code: "REGISTRY_FETCH_FAILED",
+              what: `Failed to write index: ${indexPath}`,
+              cause: e,
+            }),
+          ),
+        );
       } else {
         // Create new index
         const newIndex: ExtensionIndex = {
@@ -504,31 +484,27 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
           type: type,
           versions: [metadata],
         };
-        yield* fs
-          .writeFileString(indexPath, JSON.stringify(newIndex, null, 2) + "\n")
-          .pipe(
-            Effect.mapError((e) =>
-              makeCliError({
-                code: "REGISTRY_FETCH_FAILED",
-                what: `Failed to write index: ${indexPath}`,
-                cause: e,
-              }),
-            ),
-          );
-      }
-
-      // Write archive
-      yield* fs
-        .writeFile(archivePath, archive)
-        .pipe(
+        yield* fs.writeFileString(indexPath, JSON.stringify(newIndex, null, 2) + "\n").pipe(
           Effect.mapError((e) =>
             makeCliError({
               code: "REGISTRY_FETCH_FAILED",
-              what: `Failed to write archive: ${archivePath}`,
+              what: `Failed to write index: ${indexPath}`,
               cause: e,
             }),
           ),
         );
+      }
+
+      // Write archive
+      yield* fs.writeFile(archivePath, archive).pipe(
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "REGISTRY_FETCH_FAILED",
+            what: `Failed to write archive: ${archivePath}`,
+            cause: e,
+          }),
+        ),
+      );
     }),
 
   checkNameExists: (scope, type, name) =>
@@ -585,17 +561,15 @@ const extractZip = (archive: Uint8Array, targetDir: string) =>
 
     // Write archive to a temp file
     const archivePath = path.join(targetDir, "__archive__.zip");
-    yield* fs
-      .writeFile(archivePath, archive)
-      .pipe(
-        Effect.mapError((e) =>
-          makeCliError({
-            code: "SOURCE_FETCH_FAILED",
-            what: `Failed to write temp archive`,
-            cause: e,
-          }),
-        ),
-      );
+    yield* fs.writeFile(archivePath, archive).pipe(
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "SOURCE_FETCH_FAILED",
+          what: `Failed to write temp archive`,
+          cause: e,
+        }),
+      ),
+    );
 
     // Extract using unzip command
     yield* Effect.tryPromise({

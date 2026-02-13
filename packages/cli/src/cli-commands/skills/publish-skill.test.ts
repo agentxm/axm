@@ -269,15 +269,16 @@ describe("publishSkill", () => {
         fs.writeFileSync(path.join(extensionDir, "src", "prompt.md"), "changed content");
 
         // Publish again — same version, different content → should fail
-        const result = yield* publishSkill(
+        const error = yield* publishSkill(
           makeOp({ name: "@community/my-skill", registryName: "local" }),
-        ).pipe(
-          Effect.provide(withServices(axmDir, registryRoot)),
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
-        );
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)), Effect.flip);
 
-        expect(result.result).toBe("error");
-        expect(result.message).toContain("already exists with different checksum");
+        expect(error.what).toBe("Failed to publish to registry");
+        expect(error.details).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining("already exists with different checksum"),
+          ]),
+        );
       }),
     );
   });

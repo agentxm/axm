@@ -1,0 +1,144 @@
+/**
+ * E2E tests for the `axm skills enable` command.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { describe, expect, it } from "vitest";
+import YAML from "yaml";
+import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
+
+describe("axm skills enable", () => {
+  it("enables a disabled skill: restores files and updates settings", async () => {
+    const temp = createTempDir();
+    try {
+      // Initialize workspace
+      await runCli(["init", "--yes", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
+
+      // Install a skill
+      await runCli(
+        [
+          "skills",
+          "install",
+          SKILLS_REPO_FIXTURE,
+          "--skill",
+          "my-skill",
+          "--yes",
+          "--agent",
+          "claude-code",
+        ],
+        { cwd: temp.path },
+      );
+
+      // Disable the skill first
+      await runCli(["skills", "disable", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
+
+      // Verify skill files are removed after disable
+      const canonicalSkillDir = path.join(temp.path, ".agents", "skills", "my-skill");
+      expect(fs.existsSync(canonicalSkillDir)).toBe(false);
+
+      // Enable the skill
+      const result = await runCli(["skills", "enable", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
+
+      expect(result.exitCode).toBe(0);
+
+      // Verify canonical skill files are restored
+      expect(fs.existsSync(canonicalSkillDir)).toBe(true);
+      expect(fs.existsSync(path.join(canonicalSkillDir, "SKILL.md"))).toBe(true);
+
+      // Verify agent symlink is restored
+      const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
+      expect(fs.existsSync(agentSkillDir)).toBe(true);
+
+      // Verify settings updated (collapsed to string or enabled: true)
+      const settingsPath = path.join(temp.path, ".axm", "settings.json");
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+      expect(settings.skills["my-skill"]).toBeDefined();
+      const entry = settings.skills["my-skill"];
+      // When enabled, collapseSkillEntry returns just the source string
+      if (typeof entry === "string") {
+        // Collapsed to string — correct
+        expect(entry.length).toBeGreaterThan(0);
+      } else {
+        // Object form — enabled should be true (or absent, defaulting to true)
+        expect(entry.enabled).not.toBe(false);
+      }
+
+      // Verify lockfile entry still exists
+      const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+      const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
+      expect(lock.skills["my-skill"]).toBeDefined();
+    } finally {
+      temp.cleanup();
+    }
+  });
+
+  it("shows already enabled message for already enabled skill", async () => {
+    const temp = createTempDir();
+    try {
+      await runCli(["init", "--yes", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
+
+      await runCli(
+        [
+          "skills",
+          "install",
+          SKILLS_REPO_FIXTURE,
+          "--skill",
+          "my-skill",
+          "--yes",
+          "--agent",
+          "claude-code",
+        ],
+        { cwd: temp.path },
+      );
+
+      // Enable without disabling first — should indicate already enabled
+      const result = await runCli(["skills", "enable", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toMatch(/already enabled/i);
+    } finally {
+      temp.cleanup();
+    }
+  });
+
+  it("errors when skill is not found", async () => {
+    const temp = createTempDir();
+    try {
+      await runCli(["init", "--yes", "--agent", "claude-code"], {
+        cwd: temp.path,
+      });
+
+      const result = await runCli(["skills", "enable", "nonexistent-skill", "--yes"], {
+        cwd: temp.path,
+      });
+
+      expect(result.exitCode).not.toBe(0);
+      expect(result.stderr).toContain("not found");
+    } finally {
+      temp.cleanup();
+    }
+  });
+
+  describe("--help", () => {
+    it("displays usage information", async () => {
+      const result = await runCli(["skills", "enable", "--help"]);
+
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toContain("skills enable");
+      expect(result.stdout).toContain("--yes");
+    });
+  });
+});

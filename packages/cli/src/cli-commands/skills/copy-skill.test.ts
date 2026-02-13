@@ -24,12 +24,16 @@ const withServices = (axmDir: string) => {
     getConfiguredRegistrySources: () => Effect.succeed([]),
     getConfiguredScope: () => Effect.succeed("@community"),
     addConfiguredSource: () => Effect.void,
+    getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed([]),
     getLockedSkills: () => Effect.succeed({}),
     getLockedSkill: () => Effect.succeed(Option.none()),
     setSkill: () => Effect.void,
     removeSkill: () => Effect.void,
+    updateSkillEntry: () => Effect.void,
+    renameSkill: () => Effect.void,
+    updateLockEntryAgents: () => Effect.void,
     addConfiguredAgent: () => Effect.void,
   };
   return Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs));

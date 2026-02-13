@@ -9,14 +9,21 @@
  */
 
 // Schema types and schemas
-export type { ExtensionMap, Settings, SkillsMap, SourceConfig } from "./schema.js";
+export type { ExtensionMap, Settings, SkillEntry, SkillsMap, SourceConfig } from "./schema.js";
 export {
   ExtensionMapSchema,
   SETTINGS_KEY_ORDER,
   SettingsSchema,
+  SkillEntryObjectSchema,
+  SkillEntrySchema,
   SkillsMapSchema,
   SourceConfigSchema,
+  UnmanagedSkillEntrySchema,
 } from "./schema.js";
+
+// Skill entry normalization
+export type { NormalizedSkillEntry } from "./skill-entry.js";
+export { collapseSkillEntry, getSkillEntrySource, normalizeSkillEntry } from "./skill-entry.js";
 
 // Settings I/O
 export {

@@ -11,7 +11,13 @@
 import * as Option from "effect/Option";
 import type { Lockfile, SkillLockEntry } from "../../../lockfile/schema.js";
 import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
-import type { InstallSkillOperation } from "../operations.js";
+import type { InstallSkillOperation, UninstallSkillOperation } from "../operations.js";
+
+// -----------------------------------------------------------------------------
+// Types
+// -----------------------------------------------------------------------------
+
+type UpdateOperation = InstallSkillOperation | UninstallSkillOperation;
 
 // -----------------------------------------------------------------------------
 // Git hosting source types that use gitTreeHash comparison
@@ -53,46 +59,62 @@ const hasChanged = (op: InstallSkillOperation, entry: SkillLockEntry): boolean =
 };
 
 // -----------------------------------------------------------------------------
+// Step builders
+// -----------------------------------------------------------------------------
+
+const buildInstallStep = (
+  op: InstallSkillOperation,
+  lockfile: Lockfile,
+): PlannedJobStep<UpdateOperation> => {
+  const entry = lockfile.skills[op.args.skill.name];
+  const needsUpdate = !entry || op.args.force || hasChanged(op, entry);
+
+  return {
+    _tag: "PlannedJobStep",
+    operation: op,
+    expectedResult: needsUpdate
+      ? { result: "success", message: `Updated ${op.args.skill.name}` }
+      : { result: "no-op", message: "already up to date" },
+    label: op.args.skill.name,
+  };
+};
+
+const buildUninstallStep = (op: UninstallSkillOperation): PlannedJobStep<UpdateOperation> => ({
+  _tag: "PlannedJobStep",
+  operation: op,
+  expectedResult: {
+    result: "success",
+    message: `Clean up ${op.args.skillName} (renamed)`,
+  },
+  label: `${op.args.skillName} (renamed)`,
+});
+
+// -----------------------------------------------------------------------------
 // Plan builder
 // -----------------------------------------------------------------------------
 
 /**
  * Build an update plan by comparing operations against lockfile entries.
  *
+ * Accepts both install operations (compared against lockfile) and uninstall
+ * operations (rename cleanup — always marked as success).
+ *
  * Pure function -- no Effect needed.
  */
 export const buildUpdatePlan = (
-  ops: ReadonlyArray<InstallSkillOperation>,
+  ops: ReadonlyArray<UpdateOperation>,
   lockfile: Lockfile,
   name: string,
   description: Option.Option<string>,
-): Plan<InstallSkillOperation> => ({
+): Plan<UpdateOperation> => ({
   name,
   description,
   jobs: [
     {
       concurrency: "unbounded",
-      steps: ops.map((op) => {
-        const entry = lockfile.skills[op.args.skill.name];
-        const needsUpdate = !entry || op.args.force || hasChanged(op, entry);
-
-        return needsUpdate
-          ? ({
-              _tag: "PlannedJobStep",
-              operation: op,
-              expectedResult: {
-                result: "success",
-                message: `Updated ${op.args.skill.name}`,
-              },
-              label: op.args.skill.name,
-            } satisfies PlannedJobStep<InstallSkillOperation>)
-          : ({
-              _tag: "PlannedJobStep",
-              operation: op,
-              expectedResult: { result: "no-op", message: "already up to date" },
-              label: op.args.skill.name,
-            } satisfies PlannedJobStep<InstallSkillOperation>);
-      }),
+      steps: ops.map((op) =>
+        op.name === "install-skill" ? buildInstallStep(op, lockfile) : buildUninstallStep(op),
+      ),
     },
   ],
 });

@@ -20,9 +20,10 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { expandGlobs } from "../../../skills/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import type { InstallSkillOperation } from "../operations.js";
+import type { InstallSkillOperation, UninstallSkillOperation } from "../operations.js";
 import { buildUpdatePlan } from "./build-plan.js";
 import { installSkill } from "../install/install-skill.js";
+import { uninstallSkill } from "../uninstall/uninstall-skill.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -56,15 +57,16 @@ export interface UpdateHandlerArgs {
  * Handles the `axm skills update` command.
  *
  * Flow:
- * 1. Load installed skills from settings and locked skills from lockfile
- * 2. If no skills installed, log info and return
+ * 1. Load configured skills and filter to managed + enabled
+ * 2. If no eligible skills, log info and return
  * 3. Filter by source argument if provided
  * 4. Filter by --skill glob patterns
  * 5. Re-resolve each source string and discover skills
  * 6. Handle re-resolution failures (warn individual, error if all fail)
- * 7. Build InstallSkillOperations with force flag
- * 8. Build update plan
- * 9. Resolve plan via workspace
+ * 7. Detect renames (skill name not found in source)
+ * 8. Build operations with force flag
+ * 9. Build update plan
+ * 10. Resolve plan via workspace
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -79,10 +81,24 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
 
     yield* log.info(`axm skills update (${scopeLabel})`);
 
-    // Step 1: Load installed skills (settings) and locked skills (lockfile)
-    const installedSkills = yield* ws.getInstalledSkills();
+    // Step 1: Load all configured skills and filter to managed + enabled
+    const allSkills = yield* ws.getConfiguredSkills();
     const lockedSkills = yield* ws.getLockedSkills();
-    const skillEntries = Object.entries(installedSkills);
+
+    const skillEntries: Array<[string, string]> = [];
+    for (const [name, entry] of Object.entries(allSkills)) {
+      if (!entry.managed) {
+        yield* log.info(`Skipping ${name} (unmanaged)`);
+        continue;
+      }
+      if (!entry.enabled) {
+        yield* log.info(`Skipping ${name} (disabled)`);
+        continue;
+      }
+      // Managed + enabled entries always have Some source
+      const source = Option.getOrThrow(entry.source);
+      skillEntries.push([name, source]);
+    }
 
     if (skillEntries.length === 0) {
       yield* log.info("No skills installed. Nothing to update.");
@@ -163,35 +179,74 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
     }
 
     // Step 4: Re-resolve each source and discover skills
+    type ResolveResult =
+      | { type: "match"; ref: SkillRef }
+      | { type: "rename"; oldName: string; newRef: SkillRef };
+
     const resolveHandle = yield* spinnerSvc.start("Resolving sources...");
     const results = yield* Effect.forEach(
       filteredEntries,
       ([name, sourceStr]) =>
         Effect.gen(function* () {
           const source = yield* resolveSource(sourceStr);
-          const refs = yield* sources.resolveExtension(source, {
+
+          // First try with name filter (fast path)
+          const namedRefs = yield* sources.resolveExtension(source, {
             names: [name],
             agents: args.agents,
             type: "skill",
           });
-          // Filter to skill refs only and find matching name
-          const skillRefs = Array.filter(refs, (r): r is SkillRef => r.type === "skill");
-          const skillRef = skillRefs.find((r) => r.skill.name === name);
-          if (!skillRef) {
+          const namedSkillRefs = Array.filter(namedRefs, (r): r is SkillRef => r.type === "skill");
+          const skillRef = namedSkillRefs.find((r) => r.skill.name === name);
+
+          if (skillRef) {
+            // For registry sources, fetch to temp
+            if (skillRef.source.type === "registry") {
+              const files = yield* sources.fetch(skillRef);
+              return Option.some<ResolveResult>({
+                type: "match",
+                ref: { ...skillRef, location: `file://${files.directory}` },
+              });
+            }
+            return Option.some<ResolveResult>({ type: "match", ref: skillRef });
+          }
+
+          // Skill not found by name — re-resolve without name filter for rename detection
+          const allRefs = yield* sources.resolveExtension(source, {
+            names: [],
+            agents: args.agents,
+            type: "skill",
+          });
+          const allSkillRefs = Array.filter(allRefs, (r): r is SkillRef => r.type === "skill");
+
+          if (allSkillRefs.length === 1) {
+            // Single-skill source: treat as rename
+            const newRef = allSkillRefs[0]!;
+            const resolvedNewRef =
+              newRef.source.type === "registry"
+                ? { ...newRef, location: `file://${(yield* sources.fetch(newRef)).directory}` }
+                : newRef;
+            return Option.some<ResolveResult>({
+              type: "rename",
+              oldName: name,
+              newRef: resolvedNewRef,
+            });
+          } else if (allSkillRefs.length > 1) {
+            // Multi-skill source: ambiguous rename
+            const availableNames = allSkillRefs.map((r) => r.skill.name).join(", ");
+            yield* log.warn(
+              `Skill "${name}" not found in source. Available skills: ${availableNames}. Use \`axm skills rename ${name} <new-name>\` to update.`,
+            );
+            return Option.none<ResolveResult>();
+          } else {
             yield* log.warn(`Skill "${name}" not found in source ${printSourceInput(source)}`);
-            return Option.none<SkillRef>();
+            return Option.none<ResolveResult>();
           }
-          // For registry sources, fetch to temp
-          if (skillRef.source.type === "registry") {
-            const files = yield* sources.fetch(skillRef);
-            return Option.some({ ...skillRef, location: `file://${files.directory}` });
-          }
-          return Option.some(skillRef);
         }).pipe(
           Effect.catchAll((error) => {
             return log
               .warn(`Failed to resolve "${name}": ${String(error)}`)
-              .pipe(Effect.map(() => Option.none<SkillRef>()));
+              .pipe(Effect.map(() => Option.none<ResolveResult>()));
           }),
         ),
       { concurrency: "unbounded" },
@@ -212,21 +267,45 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
 
     // Step 6: Build operations
     const agentIds = yield* ws.getConfiguredAgents();
-    const ops = resolved.map(
-      (ref) =>
-        ({
+    const ops: Array<InstallSkillOperation | UninstallSkillOperation> = [];
+
+    for (const item of resolved) {
+      if (item.type === "match") {
+        ops.push({
           name: "install-skill",
           args: {
             agents: agentIds,
             force: args.force,
-            source: ref.source,
-            skill: ref.skill,
-            location: ref.location,
-            version: ref.version,
-            gitTreeSha: ref.gitTreeSha,
+            source: item.ref.source,
+            skill: item.ref.skill,
+            location: item.ref.location,
+            version: item.ref.version,
+            gitTreeSha: item.ref.gitTreeSha,
           },
-        }) satisfies InstallSkillOperation,
-    );
+        } satisfies InstallSkillOperation);
+      } else {
+        // Rename: install new name + uninstall old name
+        ops.push({
+          name: "install-skill",
+          args: {
+            agents: agentIds,
+            force: args.force,
+            source: item.newRef.source,
+            skill: item.newRef.skill,
+            location: item.newRef.location,
+            version: item.newRef.version,
+            gitTreeSha: item.newRef.gitTreeSha,
+          },
+        } satisfies InstallSkillOperation);
+        ops.push({
+          name: "uninstall-skill",
+          args: {
+            skillName: item.oldName,
+            agents: [],
+          },
+        } satisfies UninstallSkillOperation);
+      }
+    }
 
     // Step 7: Build plan
     const lockfile = { lockfileVersion: 1, skills: lockedSkills };
@@ -238,7 +317,10 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
     );
 
     // Step 8: Resolve plan
-    yield* ws.resolvePlan(plan, { "install-skill": installSkill });
+    yield* ws.resolvePlan(plan, {
+      "install-skill": installSkill,
+      "uninstall-skill": uninstallSkill,
+    });
 
     yield* log.success("Done");
   }).pipe(Effect.withSpan("Update.handle"));

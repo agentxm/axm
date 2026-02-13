@@ -43,7 +43,7 @@ const createSkillMd = (dir: string, name: string, description = "") => {
 const initWorkspace = (
   axmDir: string,
   opts?: {
-    skills?: Record<string, string>;
+    skills?: Record<string, unknown>;
     lockfileSkills?: Record<string, unknown>;
   },
 ) => {
@@ -59,6 +59,14 @@ const initWorkspace = (
     path.join(axmDir, "axm-lock.yaml"),
     YAML.stringify({ lockfileVersion: 1, skills: opts?.lockfileSkills ?? {} }),
   );
+};
+
+/** Patch settings.json to update/add skill entries. */
+const patchSettings = (axmDir: string, skills: Record<string, unknown>) => {
+  const settingsPath = path.join(axmDir, "settings.json");
+  const settings = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+  settings.skills = { ...settings.skills, ...skills };
+  fs.writeFileSync(settingsPath, JSON.stringify(settings));
 };
 
 const defaultInstallArgs = (
@@ -303,18 +311,21 @@ describe("update.handler", () => {
   describe("partial re-resolution failure", () => {
     it.effect("warns for individual failures but continues with successful ones", () => {
       const { provide, mockLog } = makeLayers();
-      const skillsDir = path.join(tempDir, "skills-source");
-      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
-      createSkillMd(path.join(skillsDir, "review-pr"), "review-pr", "PR review");
+      // Use separate source directories so removing one doesn't affect the other
+      const commitDir = path.join(tempDir, "source-commit");
+      const reviewDir = path.join(tempDir, "source-review");
+      createSkillMd(commitDir, "commit", "Auto-commit");
+      createSkillMd(reviewDir, "review-pr", "PR review");
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
         Effect.gen(function* () {
-          // Install both skills
-          yield* handleInstall(defaultInstallArgs(skillsDir));
+          // Install from separate sources
+          yield* handleInstall(defaultInstallArgs(commitDir));
+          yield* handleInstall(defaultInstallArgs(reviewDir));
 
-          // Remove the source for one skill so re-resolution fails
-          fs.rmSync(path.join(skillsDir, "review-pr"), { recursive: true, force: true });
+          // Remove the entire source for review-pr so re-resolution fails
+          fs.rmSync(reviewDir, { recursive: true, force: true });
 
           mockLog.logs.info.length = 0;
           mockLog.logs.success.length = 0;
@@ -356,6 +367,203 @@ describe("update.handler", () => {
           const error = yield* handleUpdate(defaultUpdateArgs()).pipe(Effect.flip);
 
           expect(error._tag).toBe("CliError");
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Skip conditions (disabled / unmanaged)
+  // ---------------------------------------------------------------------------
+
+  describe("skip conditions", () => {
+    it.effect("skips disabled skills with a log message", () => {
+      const { provide, mockLog } = makeLayers();
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
+      createSkillMd(path.join(skillsDir, "review-pr"), "review-pr", "PR review");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          // Install both skills
+          yield* handleInstall(defaultInstallArgs(skillsDir));
+
+          // Disable review-pr in settings
+          patchSettings(path.join(tempDir, ".axm"), {
+            "review-pr": { source: skillsDir, enabled: false },
+          });
+
+          mockLog.logs.info.length = 0;
+          mockLog.logs.success.length = 0;
+          mockLog.logs.warn.length = 0;
+          mockLog.logs.message.length = 0;
+
+          yield* handleUpdate(defaultUpdateArgs());
+
+          // Should skip disabled skill with log
+          const allInfoLogs = [...mockLog.logs.info, ...mockLog.logs.warn];
+          expect(allInfoLogs.some((m) => m.includes("review-pr") && m.includes("disabled"))).toBe(
+            true,
+          );
+          // Enabled skill should still be updated
+          const allLogs = [...mockLog.logs.success, ...mockLog.logs.message];
+          expect(allLogs.some((m) => m.includes("commit"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("skips unmanaged skills with a log message", () => {
+      const { provide, mockLog } = makeLayers();
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          // Install the managed skill
+          yield* handleInstall(defaultInstallArgs(skillsDir));
+
+          // Add an unmanaged skill entry
+          patchSettings(path.join(tempDir, ".axm"), {
+            "manual-skill": { managed: false },
+          });
+
+          mockLog.logs.info.length = 0;
+          mockLog.logs.success.length = 0;
+          mockLog.logs.warn.length = 0;
+          mockLog.logs.message.length = 0;
+
+          yield* handleUpdate(defaultUpdateArgs());
+
+          // Should skip unmanaged skill with log
+          const allInfoLogs = [...mockLog.logs.info, ...mockLog.logs.warn];
+          expect(
+            allInfoLogs.some((m) => m.includes("manual-skill") && m.includes("unmanaged")),
+          ).toBe(true);
+          // Managed skill should still update
+          const allLogs = [...mockLog.logs.success, ...mockLog.logs.message];
+          expect(allLogs.some((m) => m.includes("commit"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("only processes managed and enabled skills", () => {
+      const { provide, mockLog } = makeLayers();
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "commit"), "commit", "Auto-commit");
+      createSkillMd(path.join(skillsDir, "review-pr"), "review-pr", "PR review");
+      createSkillMd(path.join(skillsDir, "lint"), "lint", "Lint code");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          // Install all skills
+          yield* handleInstall(defaultInstallArgs(skillsDir));
+
+          // Disable review-pr and add an unmanaged skill
+          patchSettings(path.join(tempDir, ".axm"), {
+            "review-pr": { source: skillsDir, enabled: false },
+            "manual-skill": { managed: false },
+          });
+
+          mockLog.logs.info.length = 0;
+          mockLog.logs.success.length = 0;
+          mockLog.logs.warn.length = 0;
+          mockLog.logs.message.length = 0;
+
+          yield* handleUpdate(defaultUpdateArgs());
+
+          // Only commit and lint should be updated
+          const allLogs = [...mockLog.logs.success, ...mockLog.logs.message];
+          expect(allLogs.some((m) => m.includes("commit"))).toBe(true);
+          expect(allLogs.some((m) => m.includes("lint"))).toBe(true);
+          // review-pr and manual-skill should be skipped
+          const skipLogs = [...mockLog.logs.info, ...mockLog.logs.warn];
+          expect(skipLogs.some((m) => m.includes("review-pr") && m.includes("disabled"))).toBe(
+            true,
+          );
+          expect(skipLogs.some((m) => m.includes("manual-skill") && m.includes("unmanaged"))).toBe(
+            true,
+          );
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Rename detection
+  // ---------------------------------------------------------------------------
+
+  describe("rename detection", () => {
+    it.effect(
+      "detects single-skill source rename and produces install + uninstall operations",
+      () => {
+        const { provide, mockLog } = makeLayers();
+        const skillsDir = path.join(tempDir, "skills-source");
+        createSkillMd(path.join(skillsDir, "old-name"), "old-name", "A skill");
+        initWorkspace(path.join(tempDir, ".axm"));
+
+        return provide(
+          Effect.gen(function* () {
+            // Install skill with old name
+            yield* handleInstall(defaultInstallArgs(skillsDir));
+
+            // Rename the skill at the source (remove old, create new)
+            fs.rmSync(path.join(skillsDir, "old-name"), { recursive: true, force: true });
+            createSkillMd(path.join(skillsDir, "new-name"), "new-name", "A renamed skill");
+
+            mockLog.logs.info.length = 0;
+            mockLog.logs.success.length = 0;
+            mockLog.logs.warn.length = 0;
+            mockLog.logs.message.length = 0;
+
+            yield* handleUpdate(defaultUpdateArgs());
+
+            // Should show both new-name install and old-name cleanup
+            const allLogs = [
+              ...mockLog.logs.success,
+              ...mockLog.logs.message,
+              ...mockLog.logs.info,
+            ];
+            expect(allLogs.some((m) => m.includes("new-name"))).toBe(true);
+            expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          }),
+        );
+      },
+    );
+
+    it.effect("logs warning for multi-skill source when expected skill not found", () => {
+      const { provide, mockLog } = makeLayers();
+      const skillsDir = path.join(tempDir, "skills-source");
+      createSkillMd(path.join(skillsDir, "old-name"), "old-name", "A skill");
+      createSkillMd(path.join(skillsDir, "other-skill"), "other-skill", "Another skill");
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          // Install only old-name
+          yield* handleInstall(defaultInstallArgs(skillsDir, { skills: ["old-name"] }));
+
+          // Rename old-name at source, but other-skill remains (multi-skill source)
+          fs.rmSync(path.join(skillsDir, "old-name"), { recursive: true, force: true });
+          createSkillMd(path.join(skillsDir, "renamed-skill"), "renamed-skill", "Renamed");
+
+          mockLog.logs.info.length = 0;
+          mockLog.logs.success.length = 0;
+          mockLog.logs.warn.length = 0;
+          mockLog.logs.message.length = 0;
+
+          // Should fail because the only skill's resolution was skipped (multi-skill ambiguity)
+          const error = yield* handleUpdate(defaultUpdateArgs()).pipe(Effect.flip);
+          expect(error._tag).toBe("CliError");
+
+          // Should have warned about ambiguous rename with available skill names
+          expect(
+            mockLog.logs.warn.some((m) => m.includes("old-name") && m.includes("not found")),
+          ).toBe(true);
         }),
       );
     });

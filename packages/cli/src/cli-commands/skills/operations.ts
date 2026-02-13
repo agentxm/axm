@@ -109,3 +109,31 @@ export type PublishSkillOperationArgs = {
  * @experimental This API is unstable and may change without notice.
  */
 export type PublishSkillOperation = Operation<"publish-skill", PublishSkillOperationArgs>;
+
+// -----------------------------------------------------------------------------
+// Enable / Disable / Rename Operations
+// -----------------------------------------------------------------------------
+
+/**
+ * Enable a previously disabled skill (re-install files and update state).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type EnableSkillOperation = Operation<"enable-skill", { readonly skillName: string }>;
+
+/**
+ * Disable a skill (remove files but keep settings/lockfile entry).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type DisableSkillOperation = Operation<"disable-skill", { readonly skillName: string }>;
+
+/**
+ * Rename a skill (rename files and update settings/lockfile keys).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type RenameSkillOperation = Operation<
+  "rename-skill",
+  { readonly oldName: string; readonly newName: string }
+>;

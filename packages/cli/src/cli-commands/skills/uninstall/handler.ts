@@ -59,6 +59,18 @@ export const handleUninstall = (args: UninstallHandlerArgs) =>
 
     yield* log.info("axm skills uninstall");
 
+    // Check if the target is an unmanaged skill (bypass plan system entirely)
+    if (!args.skill.includes("*")) {
+      const configuredSkills = yield* ws.getConfiguredSkills();
+      const entry = configuredSkills[args.skill];
+      if (entry !== undefined && !entry.managed) {
+        yield* ws.removeSkill(args.skill);
+        yield* log.info(`Removed unmanaged skill marker '${args.skill}'`);
+        yield* log.success("Done");
+        return;
+      }
+    }
+
     // Step 1: Load lockfile
     const lockedSkills = yield* ws.getLockedSkills();
     const lockfile = { lockfileVersion: 1, skills: lockedSkills };

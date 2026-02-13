@@ -1,7 +1,20 @@
 {
   "name": "@axm.sh/cli",
   "version": "0.0.1",
+  "description": "Open agent extension manager for skills and more",
   "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/cli"
+  },
+  "keywords": [
+    "agent",
+    "extension",
+    "skills",
+    "cli"
+  ],
   "exports": {
     "./agents/index.js": {
       "types": "./src/agents/index.ts",
@@ -49,11 +62,17 @@
     }
   },
   "bin": {
-    "axm": "./src/main.ts",
-    "axm-dev": "./src/dev-main.ts"
+    "axm": "./dist/src/main.js"
+  },
+  "files": [
+    "dist/src/"
+  ],
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "pnpm run build",
     "generate:schemas": "bun scripts/generate-schemas.ts",
     "test": "vitest run",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
@@ -61,7 +80,7 @@
     "typecheck": "tsc --noEmit"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=18"
   },
   "dependencies": {
     "@effect/platform": "^0.94.2",

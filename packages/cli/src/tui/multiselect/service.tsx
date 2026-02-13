@@ -3,7 +3,6 @@ import { render } from "ink";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import { PromptCancelled, PromptError } from "../errors.js";
 import { MultiselectPrompt } from "./component.js";
 import type { MultiselectConfig } from "./types.js";
@@ -42,7 +41,7 @@ const makeLiveMultiselectService = (): MultiselectService => ({
           Effect.fail(
             new PromptError({
               message: "Failed to render multiselect.",
-              cause: Option.some(error),
+              cause: error,
             }),
           ),
         );

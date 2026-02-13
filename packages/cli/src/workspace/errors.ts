@@ -33,5 +33,5 @@ export class WorkspaceNotInitializedError extends Data.TaggedError("WorkspaceNot
  */
 export class WorkspaceInitializationError extends Data.TaggedError("WorkspaceInitializationError")<{
   readonly message: string;
-  readonly cause?: unknown;
+  readonly cause: unknown;
 }> {}

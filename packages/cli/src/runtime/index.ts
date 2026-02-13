@@ -30,6 +30,7 @@ import {
   layer as workspaceLayer,
   type WorkspaceContextOptions,
 } from "../workspace/index.js";
+import { classifyError } from "./error-handling.js";
 
 /**
  * Standard dependencies available to all CLI commands:
@@ -66,7 +67,7 @@ export const Runtime = ManagedRuntime.make(AppLayer);
 
 /**
  * Run an Effect program with CLI dependencies and error handling.
- * Exits process with code 1 on failure.
+ * Exit codes: 0 (prompt cancelled), 1 (expected error), 2 (defect).
  *
  * When workspace options are provided, the WorkspaceContext layer is
  * composed into the runtime so handlers can yield WorkspaceContextTag
@@ -95,8 +96,11 @@ export function run<A, E>(
   return provided.pipe(
     Effect.catchAll((error) =>
       Effect.sync(() => {
-        console.error(error);
-        process.exit(1);
+        const result = classifyError(error);
+        if (result.exitCode !== 0) {
+          console.error(result.message);
+        }
+        return process.exit(result.exitCode);
       }),
     ),
     Runtime.runPromise,

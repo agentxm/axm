@@ -146,6 +146,7 @@ const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextO
             message:
               "Cannot initialize workspace in non-interactive mode. " +
               "Use --yes to auto-select detected agents, or run interactively.",
+            cause: undefined,
           }),
         );
       } else {

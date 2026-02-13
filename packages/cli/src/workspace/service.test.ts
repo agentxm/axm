@@ -24,7 +24,7 @@ import {
 } from "../tui/index.js";
 import YAML from "yaml";
 import { CliError } from "../cli-error/index.js";
-import type { SourceConfig } from "../settings/index.js";
+import type { NormalizedSkillEntry, SourceConfig } from "../settings/index.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import type { OperationResult } from "./plan.js";
 import type { Operation, Plan, PlannedJobStep } from "./plan.js";
@@ -802,7 +802,7 @@ describe("WorkspaceContextService", () => {
   // ---------------------------------------------------------------------------
 
   describe("getInstalledSkills", () => {
-    it.effect("returns skills map when skills are configured", () =>
+    it.effect("returns normalized managed skills when skills are configured", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -813,8 +813,16 @@ describe("WorkspaceContextService", () => {
         const skills = yield* ws.getInstalledSkills();
 
         expect(skills).toEqual({
-          "code-review": "github:acme/code-review",
-          "test-gen": "local:/tmp/test-gen",
+          "code-review": {
+            source: Option.some("github:acme/code-review"),
+            enabled: true,
+            managed: true,
+          },
+          "test-gen": {
+            source: Option.some("local:/tmp/test-gen"),
+            enabled: true,
+            managed: true,
+          },
         });
       }),
     );
@@ -1249,6 +1257,311 @@ describe("WorkspaceContextService", () => {
 
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.skills).toHaveProperty("code-review");
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // getConfiguredSkills
+  // ---------------------------------------------------------------------------
+
+  describe("getConfiguredSkills", () => {
+    it.effect("returns all entries normalized (managed + unmanaged)", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: {
+            "code-review": "github:acme/code-review",
+            "my-linter": { source: "github:acme/linter", enabled: false },
+            "external-tool": { managed: false },
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const skills = yield* ws.getConfiguredSkills();
+
+        expect(Object.keys(skills)).toEqual(["code-review", "my-linter", "external-tool"]);
+
+        // String entry normalizes to managed + enabled with source
+        expect(skills["code-review"]).toEqual({
+          source: Option.some("github:acme/code-review"),
+          enabled: true,
+          managed: true,
+        } satisfies NormalizedSkillEntry);
+
+        // Object entry normalizes to managed + disabled with source
+        expect(skills["my-linter"]).toEqual({
+          source: Option.some("github:acme/linter"),
+          enabled: false,
+          managed: true,
+        } satisfies NormalizedSkillEntry);
+
+        // Unmanaged entry normalizes to unmanaged, no source
+        expect(skills["external-tool"]).toEqual({
+          source: Option.none(),
+          enabled: true,
+          managed: false,
+        } satisfies NormalizedSkillEntry);
+      }),
+    );
+
+    it.effect("returns empty record when no skills configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const skills = yield* ws.getConfiguredSkills();
+
+        expect(skills).toEqual({});
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // getInstalledSkills (modified — managed only, normalized)
+  // ---------------------------------------------------------------------------
+
+  describe("getInstalledSkills (normalized)", () => {
+    it.effect("returns only managed entries as NormalizedSkillEntry", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: {
+            "code-review": "github:acme/code-review",
+            "my-linter": { source: "github:acme/linter", enabled: false },
+            "external-tool": { managed: false },
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const skills = yield* ws.getInstalledSkills();
+
+        // Only managed entries (external-tool excluded)
+        expect(Object.keys(skills)).toEqual(["code-review", "my-linter"]);
+
+        expect(skills["code-review"]).toEqual({
+          source: Option.some("github:acme/code-review"),
+          enabled: true,
+          managed: true,
+        } satisfies NormalizedSkillEntry);
+
+        expect(skills["my-linter"]).toEqual({
+          source: Option.some("github:acme/linter"),
+          enabled: false,
+          managed: true,
+        } satisfies NormalizedSkillEntry);
+      }),
+    );
+
+    it.effect("returns empty record when no skills configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const skills = yield* ws.getInstalledSkills();
+
+        expect(skills).toEqual({});
+      }),
+    );
+
+    it.effect("all returned entries have source as Some", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: {
+            "code-review": "github:acme/code-review",
+            "external-tool": { managed: false },
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const skills = yield* ws.getInstalledSkills();
+
+        for (const entry of Object.values(skills)) {
+          expect(Option.isSome(entry.source)).toBe(true);
+        }
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // updateSkillEntry
+  // ---------------------------------------------------------------------------
+
+  describe("updateSkillEntry", () => {
+    it.effect("applies updater and collapses result back to settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "code-review": "github:acme/code-review" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.updateSkillEntry("code-review", (entry) => ({ ...entry, enabled: false }));
+
+        // Verify on disk: collapsed to object form since enabled=false
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.skills["code-review"]).toEqual({
+          source: "github:acme/code-review",
+          enabled: false,
+        });
+      }),
+    );
+
+    it.effect("collapses to string form when enabled stays true", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "code-review": { source: "github:acme/code-review", enabled: false } },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.updateSkillEntry("code-review", (entry) => ({ ...entry, enabled: true }));
+
+        // Collapsed to plain string since enabled=true
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.skills["code-review"]).toBe("github:acme/code-review");
+      }),
+    );
+
+    it.effect("fails with CliError for missing skill name", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"], skills: {} });
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws
+          .updateSkillEntry("nonexistent", (entry) => entry)
+          .pipe(Effect.flip);
+
+        expect(result).toBeInstanceOf(CliError);
+        expect(result.code).toBe("SKILL_NOT_FOUND");
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // renameSkill
+  // ---------------------------------------------------------------------------
+
+  describe("renameSkill", () => {
+    it.effect("atomically renames in both settings and lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "old-name": "github:acme/code-review" },
+        });
+        writeLockfileTo(projectDir, {
+          "old-name": {
+            type: "github",
+            owner: "acme",
+            repo: "code-review",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.renameSkill("old-name", "new-name");
+
+        // Verify settings
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.skills).not.toHaveProperty("old-name");
+        expect(settings.skills["new-name"]).toBe("github:acme/code-review");
+
+        // Verify lockfile
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.skills).not.toHaveProperty("old-name");
+        expect(lockfile.skills).toHaveProperty("new-name");
+        expect((lockfile.skills["new-name"] as { type: string }).type).toBe("github");
+      }),
+    );
+
+    it.effect("fails with CliError when old name does not exist", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"], skills: {} });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.renameSkill("nonexistent", "new-name").pipe(Effect.flip);
+
+        expect(result).toBeInstanceOf(CliError);
+        expect(result.code).toBe("SKILL_NOT_FOUND");
+      }),
+    );
+
+    it.effect("handles rename when lockfile entry does not exist (settings only)", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "old-name": "github:acme/code-review" },
+        });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.renameSkill("old-name", "new-name");
+
+        // Settings renamed
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.skills).not.toHaveProperty("old-name");
+        expect(settings.skills["new-name"]).toBe("github:acme/code-review");
+
+        // Lockfile unchanged (empty)
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(Object.keys(lockfile.skills)).toHaveLength(0);
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // updateLockEntryAgents
+  // ---------------------------------------------------------------------------
+
+  describe("updateLockEntryAgents", () => {
+    it.effect("updates agents field on lock entry", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "code-review": "github:acme/code-review" },
+        });
+        writeLockfileTo(projectDir, {
+          "code-review": {
+            type: "github",
+            owner: "acme",
+            repo: "code-review",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.updateLockEntryAgents("code-review", ["claude-code", "cursor"]);
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect((lockfile.skills["code-review"] as { agents: string[] }).agents).toEqual([
+          "claude-code",
+          "cursor",
+        ]);
+      }),
+    );
+
+    it.effect("fails with CliError when lock entry does not exist", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws
+          .updateLockEntryAgents("nonexistent", ["claude-code"])
+          .pipe(Effect.flip);
+
+        expect(result).toBeInstanceOf(CliError);
+        expect(result.code).toBe("LOCK_ENTRY_NOT_FOUND");
       }),
     );
   });

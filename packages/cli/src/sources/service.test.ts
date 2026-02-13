@@ -102,12 +102,16 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceConfig>): WorkspaceConte
     ),
   getConfiguredScope: () => Effect.succeed("@test") as Effect.Effect<string, CliError>,
   addConfiguredSource: () => Effect.void,
+  getConfiguredSkills: () => Effect.succeed({}),
   getInstalledSkills: () => Effect.succeed({}),
   getConfiguredAgents: () => Effect.succeed([]),
   getLockedSkills: () => Effect.succeed({}),
   getLockedSkill: () => Effect.succeed(Option.none()),
   setSkill: () => Effect.void,
   removeSkill: () => Effect.void,
+  updateSkillEntry: () => Effect.void,
+  renameSkill: () => Effect.void,
+  updateLockEntryAgents: () => Effect.void,
   addConfiguredAgent: () => Effect.void,
 });
 

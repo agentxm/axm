@@ -126,7 +126,7 @@ const SKILL_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$|^[a-z0-9]$/;
  * Shared validation callback for skill name keys per agentskills.io spec.
  * Used by both ExtensionMapSchema and SkillsMapSchema via Schema.filter.
  */
-const validateSkillNameKeys = (record: { readonly [x: string]: string }) => {
+const validateSkillNameKeys = (record: { readonly [x: string]: unknown }) => {
   const invalidKeys = Object.keys(record).filter(
     (key) => key.length > 64 || !SKILL_NAME_PATTERN.test(key),
   );
@@ -162,24 +162,57 @@ export const ExtensionMapSchema = Schema.Record({
 export type ExtensionMap = typeof ExtensionMapSchema.Type;
 
 /**
- * Skills map - maps skill names to source strings.
+ * Managed skill with source and optional config flags.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SkillEntryObjectSchema = Schema.Struct({
+  source: Schema.String,
+  enabled: Schema.optional(Schema.Boolean),
+});
+
+/**
+ * Unmanaged skill — just a marker, no source or enabled fields.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const UnmanagedSkillEntrySchema = Schema.Struct({
+  managed: Schema.Literal(false),
+});
+
+/**
+ * Union of skill entry forms: plain string, managed object, or unmanaged marker.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const SkillEntrySchema = Schema.Union(
+  Schema.String,
+  SkillEntryObjectSchema,
+  UnmanagedSkillEntrySchema,
+);
+
+/**
+ * Inferred type for SkillEntry schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type SkillEntry = typeof SkillEntrySchema.Type;
+
+/**
+ * Skills map - maps skill names to skill entries.
  *
  * Keys must be valid skill names per agentskills.io specification:
  * - Max 64 characters
  * - Lowercase letters, numbers, and hyphens only
  * - Must not start or end with a hyphen
  *
- * Values are source strings in one of these formats:
- * - Registry: `@scope/name` or `@scope/name@version`
- * - GitHub: `github:owner/repo[/path][#ref]`
- * - Git: `git:url[#ref]`
- * - Local: `local:path`
+ * Values are skill entries: plain source strings, managed objects, or unmanaged markers.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const SkillsMapSchema = Schema.Record({
   key: Schema.String,
-  value: Schema.String,
+  value: SkillEntrySchema,
 }).pipe(Schema.filter(validateSkillNameKeys));
 
 /**

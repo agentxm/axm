@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
 import type { Lockfile, SkillLockEntry } from "../../../lockfile/schema.js";
-import type { InstallSkillOperation } from "../operations.js";
+import type { InstallSkillOperation, UninstallSkillOperation } from "../operations.js";
 import { buildUpdatePlan } from "./build-plan.js";
 
 // -----------------------------------------------------------------------------
@@ -473,5 +473,61 @@ describe("buildUpdatePlan", () => {
     expect(steps[1]!.label).toBe("unchanged");
     expect(steps[2]!.expectedResult.result).toBe("success");
     expect(steps[2]!.label).toBe("local-skill");
+  });
+
+  // ---------------------------------------------------------------------------
+  // UninstallSkillOperation support (rename cleanup)
+  // ---------------------------------------------------------------------------
+
+  it("accepts UninstallSkillOperation in the operations array", () => {
+    const installOp = makeOp("new-name");
+    const uninstallOp: UninstallSkillOperation = {
+      name: "uninstall-skill",
+      args: { skillName: "old-name", agents: [] },
+    };
+
+    const plan = buildUpdatePlan([installOp, uninstallOp], emptyLockfile, "Update", Option.none());
+
+    expect(plan.jobs[0]!.steps).toHaveLength(2);
+    expect(plan.jobs[0]!.steps[0]!.operation.name).toBe("install-skill");
+    expect(plan.jobs[0]!.steps[1]!.operation.name).toBe("uninstall-skill");
+  });
+
+  it("gives UninstallSkillOperation steps a rename cleanup label", () => {
+    const uninstallOp: UninstallSkillOperation = {
+      name: "uninstall-skill",
+      args: { skillName: "old-name", agents: [] },
+    };
+
+    const plan = buildUpdatePlan([uninstallOp], emptyLockfile, "Update", Option.none());
+
+    const step = plan.jobs[0]!.steps[0]!;
+    expect(step.label).toContain("old-name");
+    expect(step.label).toContain("renamed");
+    expect(step.expectedResult.result).toBe("success");
+  });
+
+  it("handles mixed install and uninstall operations", () => {
+    const installOp = makeOp("new-skill", {
+      sourceType: "github",
+      gitTreeSha: Option.some("sha-123"),
+    });
+    const uninstallOp: UninstallSkillOperation = {
+      name: "uninstall-skill",
+      args: { skillName: "old-skill", agents: [] },
+    };
+
+    const plan = buildUpdatePlan(
+      [installOp, uninstallOp],
+      emptyLockfile,
+      "Update skill(s)",
+      Option.some("Rename detected"),
+    );
+
+    expect(plan.jobs[0]!.steps).toHaveLength(2);
+    expect(plan.jobs[0]!.steps[0]!.label).toBe("new-skill");
+    expect(plan.jobs[0]!.steps[0]!.expectedResult.message).toContain("Updated new-skill");
+    expect(plan.jobs[0]!.steps[1]!.label).toContain("old-skill");
+    expect(plan.jobs[0]!.steps[1]!.label).toContain("renamed");
   });
 });

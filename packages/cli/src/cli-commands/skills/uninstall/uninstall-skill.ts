@@ -190,7 +190,9 @@ export const uninstallSkill: OperationHandler<
             }),
           ),
         );
-        const currentSource = installedSkills[op.args.skillName] ?? lockEntry.type;
+        const entry = installedSkills[op.args.skillName];
+        const currentSource =
+          (entry !== undefined ? Option.getOrUndefined(entry.source) : undefined) ?? lockEntry.type;
         yield* ws
           .setSkill(op.args.skillName, currentSource, {
             ...lockEntry,

@@ -88,12 +88,16 @@ describe("resolveAmbiguous", () => {
       getConfiguredRegistrySources: vi.fn(),
       getConfiguredScope: () => Effect.succeed("default"),
       addConfiguredSource: vi.fn(),
+      getConfiguredSkills: vi.fn(() => Effect.succeed({})),
       getInstalledSkills: vi.fn(() => Effect.succeed({})),
       getConfiguredAgents: vi.fn(() => Effect.succeed([])),
       getLockedSkills: vi.fn(() => Effect.succeed({})),
       getLockedSkill: vi.fn(() => Effect.succeed(Option.none())),
       setSkill: vi.fn(() => Effect.void),
       removeSkill: vi.fn(() => Effect.void),
+      updateSkillEntry: vi.fn(() => Effect.void),
+      renameSkill: vi.fn(() => Effect.void),
+      updateLockEntryAgents: vi.fn(() => Effect.void),
       addConfiguredAgent: vi.fn(() => Effect.void),
     });
 

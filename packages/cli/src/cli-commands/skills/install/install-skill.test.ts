@@ -43,6 +43,7 @@ const makeWorkspaceMock = (
     getConfiguredRegistrySources: () => Effect.succeed([]),
     getConfiguredScope: () => Effect.succeed("@community"),
     addConfiguredSource: () => Effect.void,
+    getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
     getConfiguredAgents: () => Effect.succeed([]),
     getLockedSkills: () => Effect.succeed(readLf().skills ?? {}),
@@ -67,6 +68,9 @@ const makeWorkspaceMock = (
               }),
           }),
     removeSkill: () => Effect.void,
+    updateSkillEntry: () => Effect.void,
+    renameSkill: () => Effect.void,
+    updateLockEntryAgents: () => Effect.void,
     addConfiguredAgent: () => Effect.void,
   };
 };

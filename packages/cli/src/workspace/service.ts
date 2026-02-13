@@ -28,8 +28,11 @@ import {
 import { AgentIdSchema } from "../extensions/common.js";
 import { type CliError, makeCliError } from "../cli-error/index.js";
 import {
+  collapseSkillEntry,
   createDefaultSettings,
   DEFAULT_SCOPE,
+  type NormalizedSkillEntry,
+  normalizeSkillEntry,
   readSettings,
   SETTINGS_FILENAME,
   type Settings,
@@ -37,6 +40,7 @@ import {
   type SourceConfig,
   writeSettings,
 } from "../settings/index.js";
+import * as Record from "effect/Record";
 import { getAxmDir } from "./paths.js";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -423,9 +427,21 @@ const make = (options: WorkspaceContextOptions) =>
           }),
         ),
 
+      getConfiguredSkills: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s) => {
+            const skills = s.skills ?? {};
+            return Record.map(skills, (entry) => normalizeSkillEntry(entry));
+          }),
+        ),
+
       getInstalledSkills: () =>
         readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s) => s.skills ?? ({} satisfies SkillsMap)),
+          Effect.map((s) => {
+            const skills = s.skills ?? {};
+            const normalized = Record.map(skills, (entry) => normalizeSkillEntry(entry));
+            return Record.filter(normalized, (entry) => entry.managed);
+          }),
         ),
 
       getConfiguredAgents: () =>
@@ -487,6 +503,91 @@ const make = (options: WorkspaceContextOptions) =>
               const updatedLockfile = { ...currentLockfile, skills: remainingLockSkills };
               yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
             }
+          }),
+        ),
+
+      updateSkillEntry: (
+        name: string,
+        updater: (entry: NormalizedSkillEntry) => NormalizedSkillEntry,
+      ) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentSkills: SkillsMap = currentSettings.skills ?? {};
+            if (!(name in currentSkills)) {
+              return yield* makeCliError({
+                code: "SKILL_NOT_FOUND",
+                what: `Skill "${name}" not found in settings`,
+              });
+            }
+            const normalized = normalizeSkillEntry(currentSkills[name]!);
+            const updated = updater(normalized);
+            const collapsed = collapseSkillEntry(updated);
+            const updatedSettings = {
+              ...currentSettings,
+              skills: { ...currentSkills, [name]: collapsed },
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      renameSkill: (oldName: string, newName: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            // Read and validate settings
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentSkills: SkillsMap = currentSettings.skills ?? {};
+            if (!(oldName in currentSkills)) {
+              return yield* makeCliError({
+                code: "SKILL_NOT_FOUND",
+                what: `Skill "${oldName}" not found in settings`,
+              });
+            }
+
+            // Rename in settings
+            const oldEntry = currentSkills[oldName]!;
+            const { [oldName]: _, ...remainingSkills } = currentSkills;
+            void _;
+            const updatedSettings = {
+              ...currentSettings,
+              skills: { ...remainingSkills, [newName]: oldEntry },
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+
+            // Rename in lockfile if entry exists
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            if (oldName in currentLockfile.skills) {
+              const oldLockEntry = currentLockfile.skills[oldName]!;
+              const { [oldName]: __, ...remainingLockSkills } = currentLockfile.skills;
+              void __;
+              const updatedLockfile = {
+                ...currentLockfile,
+                skills: { ...remainingLockSkills, [newName]: oldLockEntry },
+              };
+              yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            }
+          }),
+        ),
+
+      updateLockEntryAgents: (name: string, agents: ReadonlyArray<string>) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            if (!(name in currentLockfile.skills)) {
+              return yield* makeCliError({
+                code: "LOCK_ENTRY_NOT_FOUND",
+                what: `Lock entry "${name}" not found in lockfile`,
+              });
+            }
+            const oldEntry = currentLockfile.skills[name]!;
+            const updatedLockfile = {
+              ...currentLockfile,
+              skills: {
+                ...currentLockfile.skills,
+                [name]: { ...oldEntry, agents: [...agents] },
+              },
+            };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -567,8 +668,16 @@ export interface WorkspaceContextService {
   readonly getConfiguredScope: () => Effect.Effect<string, CliError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
   readonly addConfiguredSource: (source: SourceConfig) => Effect.Effect<void, CliError>;
-  /** Read settings and return the skills map, defaulting to `{}`. */
-  readonly getInstalledSkills: () => Effect.Effect<SkillsMap, CliError>;
+  /** Read settings and return all skill entries normalized (managed + unmanaged). */
+  readonly getConfiguredSkills: () => Effect.Effect<
+    Record.ReadonlyRecord<string, NormalizedSkillEntry>,
+    CliError
+  >;
+  /** Read settings and return only managed skill entries, normalized. Filters out unmanaged. */
+  readonly getInstalledSkills: () => Effect.Effect<
+    Record.ReadonlyRecord<string, NormalizedSkillEntry>,
+    CliError
+  >;
   /** Read settings and return the configured agent IDs, defaulting to `[]`. */
   readonly getConfiguredAgents: () => Effect.Effect<ReadonlyArray<string>, CliError>;
   /** Read lockfile and return the skills lock map. */
@@ -583,6 +692,18 @@ export interface WorkspaceContextService {
   ) => Effect.Effect<void, CliError>;
   /** Remove a skill from both settings and lockfile. No-op if absent. Serialized by semaphore. */
   readonly removeSkill: (name: string) => Effect.Effect<void, CliError>;
+  /** Update a skill entry by applying an updater function. Collapses back to settings form. Serialized by semaphore. */
+  readonly updateSkillEntry: (
+    name: string,
+    updater: (entry: NormalizedSkillEntry) => NormalizedSkillEntry,
+  ) => Effect.Effect<void, CliError>;
+  /** Atomically rename a skill in both settings and lockfile. Serialized by semaphore. */
+  readonly renameSkill: (oldName: string, newName: string) => Effect.Effect<void, CliError>;
+  /** Update the agents field on a lock entry. Serialized by semaphore. */
+  readonly updateLockEntryAgents: (
+    name: string,
+    agents: ReadonlyArray<string>,
+  ) => Effect.Effect<void, CliError>;
   /** Append an agent ID if not already present and write to disk. Fails with CliError if invalid. Serialized by semaphore. */
   readonly addConfiguredAgent: (agentId: string) => Effect.Effect<void, CliError>;
 }

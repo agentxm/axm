@@ -122,6 +122,95 @@ describe("axm skills update", () => {
     });
   });
 
+  describe("skip conditions", () => {
+    it("skips disabled skills during update", async () => {
+      const temp = createTempDir();
+      try {
+        // Initialize and install
+        await runCli(["init", "--yes", "--agent", "claude-code"], {
+          cwd: temp.path,
+        });
+
+        await runCli(
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes", "--agent", "claude-code"],
+          { cwd: temp.path },
+        );
+
+        // Disable my-skill
+        await runCli(["skills", "disable", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
+
+        // Record lockfile state before update
+        const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+        const lockBefore = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
+        const anotherUpdatedBefore = lockBefore.skills["another-skill"].updatedAt;
+
+        // Wait to ensure timestamp difference
+        await new Promise((r) => setTimeout(r, 50));
+
+        // Run update
+        const result = await runCli(["skills", "update", "--yes"], {
+          cwd: temp.path,
+        });
+
+        expect(result.exitCode).toBe(0);
+        // Should log that my-skill was skipped (disabled)
+        expect(result.stdout).toMatch(/[Ss]kipping.*my-skill.*disabled/);
+
+        // another-skill should have been updated (updatedAt changed)
+        const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
+        const anotherUpdatedAfter = lockAfter.skills["another-skill"].updatedAt;
+        expect(new Date(anotherUpdatedAfter).getTime()).toBeGreaterThan(
+          new Date(anotherUpdatedBefore).getTime(),
+        );
+      } finally {
+        temp.cleanup();
+      }
+    });
+
+    it("skips unmanaged skills during update", async () => {
+      const temp = createTempDir();
+      try {
+        // Initialize and install
+        await runCli(["init", "--yes", "--agent", "claude-code"], {
+          cwd: temp.path,
+        });
+
+        await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--skill",
+            "my-skill",
+            "--yes",
+            "--agent",
+            "claude-code",
+          ],
+          { cwd: temp.path },
+        );
+
+        // Manually add an unmanaged skill marker to settings
+        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        settings.skills["manual-skill"] = { managed: false };
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+        // Run update
+        const result = await runCli(["skills", "update", "--yes"], {
+          cwd: temp.path,
+        });
+
+        expect(result.exitCode).toBe(0);
+        // Should log that manual-skill was skipped (unmanaged)
+        expect(result.stdout).toMatch(/[Ss]kipping.*manual-skill.*unmanaged/);
+      } finally {
+        temp.cleanup();
+      }
+    });
+  });
+
   describe("--skill filters correctly", () => {
     it("updates only the named skill when --skill is provided", async () => {
       const temp = createTempDir();

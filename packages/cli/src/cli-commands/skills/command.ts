@@ -1,8 +1,11 @@
 import type { CommandModule } from "yargs";
+import { disableCommand } from "./disable/command.js";
+import { enableCommand } from "./enable/command.js";
 import { forkCommand } from "./fork/command.js";
 import { installCommand } from "./install/command.js";
 import { listCommand } from "./list/command.js";
 import { publishCommand } from "./publish/command.js";
+import { renameCommand } from "./rename/command.js";
 import { uninstallCommand } from "./uninstall/command.js";
 import { updateCommand } from "./update/command.js";
 
@@ -17,6 +20,9 @@ export const skillsCommand: CommandModule = {
       .command(forkCommand)
       .command(publishCommand)
       .command(updateCommand)
+      .command(enableCommand)
+      .command(disableCommand)
+      .command(renameCommand)
       .demandCommand(1)
       .example("$0 skills install owner/repo", "Install skills from a GitHub repository")
       .example("$0 skills install owner/repo@v1.0.0", "Install skills from a specific version")

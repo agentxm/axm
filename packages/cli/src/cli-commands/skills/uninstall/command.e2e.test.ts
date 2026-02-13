@@ -605,6 +605,38 @@ describe("axm skills uninstall", () => {
     });
   });
 
+  describe("unmanaged skill uninstall", () => {
+    it("removes unmanaged skill marker from settings", async () => {
+      const temp = createTempDir();
+      try {
+        await runCli(["init", "--yes", "--agent", "claude-code"], {
+          cwd: temp.path,
+        });
+
+        // Manually add an unmanaged skill marker to settings
+        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        settings.skills = { ...settings.skills, "manual-skill": { managed: false } };
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+        // Uninstall the unmanaged skill
+        const result = await runCli(["skills", "uninstall", "manual-skill", "--yes"], {
+          cwd: temp.path,
+        });
+
+        expect(result.exitCode).toBe(0);
+        // Should indicate the unmanaged marker was removed
+        expect(result.stdout).toMatch(/[Rr]emoved.*unmanaged/);
+
+        // Verify settings no longer has the unmanaged marker
+        const updatedSettings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(updatedSettings.skills?.["manual-skill"]).toBeUndefined();
+      } finally {
+        temp.cleanup();
+      }
+    });
+  });
+
   describe("uninitialized workspace", () => {
     it("auto-initializes and shows no-op when workspace is not initialized", async () => {
       const temp = createTempDir();

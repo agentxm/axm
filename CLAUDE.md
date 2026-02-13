@@ -42,20 +42,20 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 
 ## Code Organization
 
-Group by feature, not by type. Co-locate constants, errors, and types with the components that use them.
+Group by feature, not by type. Co-locate constants, types, and schemas with the components that use them.
 
 - **Single-use** → in the component file
-- **Shared within feature** → in a dedicated file in the feature folder (e.g., `errors.ts`)
-- **Never** → cross-feature "constants.ts" or "errors.ts" at the root
+- **Shared within feature** → in a dedicated file in the feature folder (e.g., `schema.ts`)
+- **Never** → cross-feature "constants.ts" or "types.ts" at the root
 
 ```typescript
 // Good: constant lives with its feature
 // settings/settings.ts
 export const SETTINGS_FILENAME = "settings.json";
 
-// Good: error shared across feature components
-// workspace/errors.ts (used by multiple workspace components)
-export class WorkspaceError extends Data.TaggedError("WorkspaceError")<{...}> {}
+// Good: schema shared across feature components
+// lockfile/schema.ts (used by multiple lockfile components)
+export class LockfileSchema extends Schema.Class<LockfileSchema>("LockfileSchema")({...}) {}
 
 // Bad: generic constants file far from usage
 // src/constants.ts
@@ -84,7 +84,6 @@ packages/
         lockfile.ts              # Core logic + LOCKFILE_NAME constant
         lockfile.test.ts
         schema.ts                # Lockfile schemas
-        errors.ts                # LockfileError (if shared across feature)
         index.ts                 # Barrel: public API
       settings/     # Settings feature
         settings.ts              # Core logic + SETTINGS_FILENAME constant
@@ -92,7 +91,6 @@ packages/
         index.ts                 # Barrel: public API
       workspace/    # Workspace feature
         workspace.ts             # Core logic
-        errors.ts                # WorkspaceError (shared across feature)
         index.ts                 # Barrel: public API
       agents/       # Agent definitions
         agent.ts                 # Agent types and logic
@@ -134,12 +132,12 @@ One barrel file (`index.ts`) per folder. Each type is exported from exactly one 
 
 ```typescript
 // Good: import from the module that owns it
-import { WorkspaceError } from "@/workspace";
-import { SettingsError } from "@/settings";
+import { WorkspaceContextService } from "@/workspace";
+import { CliError } from "@/cli-error";
 
 // Bad: re-exporting types from other modules
-// src/errors.ts that re-exports WorkspaceError, SettingsError, etc.
-import { WorkspaceError } from "@/errors";
+// src/types.ts that re-exports WorkspaceContextService, CliError, etc.
+import { WorkspaceContextService } from "@/types";
 ```
 
 ### Minimize Type Assertions
@@ -347,74 +345,88 @@ const results = yield * Effect.forEach(ids, (id) => fetchUser(id));
 
 ### Error Handling Patterns
 
-See /effect-errors skill for comprehensive error modeling guidance.
+**Single error type: `CliError`** — all expected failures use `CliError`, created at the point of failure by the code with the best context. No domain error types (`SettingsError`, `GitError`, `SourceError`, etc.).
+
+```typescript
+// Create CliError where the failure occurs
+yield *
+  Schema.decodeUnknown(SettingsSchema)(json).pipe(
+    Effect.mapError((e) =>
+      makeCliError({
+        code: "SETTINGS_PARSE_FAILED",
+        what: "Failed to parse settings file",
+        details: [e.message],
+        howToFix: Option.some("Check settings.json syntax"),
+        cause: e,
+      }),
+    ),
+  );
+```
+
+**Error codes** — `AREA_REASON` format: `SETTINGS_PARSE_FAILED`, `GIT_CLONE_FAILED`, `REGISTRY_FETCH_FAILED`. Uppercase, greppable, stable across versions.
+
+**Runtime constraint** — `run` only accepts `Effect<A, CliError | PromptCancelled, R>`. Unmapped errors are compile-time failures.
+
+**`PromptCancelled`** — control flow signal (exit 0), not an error. Stays distinct from `CliError`.
 
 **Expected errors vs defects:**
 
-- **Expected errors** (E channel): Validation failures, not-found, rate limits — caller can recover
+- **Expected errors** (E channel): `CliError` — user-recoverable failures with code, what, details, howToFix
 - **Defects**: Bugs, invariant violations — crash the program, no recovery
 - Use `Effect.orDie` only when no caller can sensibly recover (e.g., missing config at startup)
 
-**Defining errors with TaggedError:**
-
-- `Data.TaggedError` — internal errors, never serialized, include `cause: unknown`
-- `Schema.TaggedError` — API-facing errors, serializable, use `Schema.Defect` for cause
+**Never throw in helper functions** — return `CliError`:
 
 ```typescript
-// Internal: preserve original error
-class DbError extends Data.TaggedError("DbError")<{ cause: unknown }> {}
-
-// API-facing: safe serialization
-class UserNotFoundError extends Schema.TaggedError<UserNotFoundError>()("UserNotFoundError", {
-  id: Schema.String,
-}) {}
-```
-
-**Never throw in helper functions** — return typed Effect errors:
-
-```typescript
-// Bad: throws raw error
+// Bad: throws
 const getPath = (source: Source): string => {
   if (source._tag === "Remote") throw new Error("Not supported");
   return source.path;
 };
 
-// Good: returns typed Effect
-const getPath = (source: Source): Effect.Effect<string, SourceError> =>
+// Good: typed Effect with CliError
+const getPath = (source: Source) =>
   source._tag === "Remote"
-    ? Effect.fail(new SourceError({ message: "Not supported" }))
+    ? Effect.fail(
+        makeCliError({ code: "SOURCE_INVALID_TYPE", what: "Remote sources have no local path" }),
+      )
     : Effect.succeed(source.path);
 ```
 
 Exception: Functions named `unsafe*` or `*OrThrow` may throw intentionally (like `Option.getOrThrow`). Use this pattern sparingly for escape hatches where the caller explicitly opts out of Effect error handling.
 
-**Yielding errors in Effect.gen** — `Data.TaggedError` is directly yieldable:
+**Yielding errors** — `CliError` is directly yieldable (extends `YieldableError`):
 
 ```typescript
-// Preferred: direct yield for conciseness (TaggedError extends YieldableError)
-yield * new WorkspaceError({ message: "Not found" });
-
-// Also valid: explicit Effect.fail
-yield * Effect.fail(new WorkspaceError({ message: "Not found" }));
+yield * makeCliError({ code: "WORKSPACE_NOT_FOUND", what: "Workspace not initialized" });
 ```
 
-**Preserve error context** — always include `cause` when wrapping external errors:
+**Preserve error context** — always include `cause`:
 
 ```typescript
-// Bad: original error lost
 Effect.tryPromise({
   try: () => externalLib.call(),
-  catch: () => new MyError(), // Where did the real error go?
-});
-
-// Good: preserve cause
-Effect.tryPromise({
-  try: () => externalLib.call(),
-  catch: (error) => new MyError({ cause: error }),
+  catch: (error) =>
+    makeCliError({
+      code: "EXTERNAL_CALL_FAILED",
+      what: "External operation failed",
+      cause: error,
+    }),
 });
 ```
 
-**Convert errors at source** — transform library errors to domain errors immediately, not far from where they occurred.
+**Recovery** — scoped `catchAll` on sub-expressions (safe because error channel is already narrow):
+
+```typescript
+yield * createSymlink(source, target).pipe(Effect.catchAll(() => copyDirectory(source, target)));
+```
+
+**Option for not-found** — return `Option<T>` instead of failing with a not-found error:
+
+```typescript
+const settings =
+  yield * readSettings(dir).pipe(Effect.map(Option.getOrElse(() => createDefaultSettings())));
+```
 
 **Always validate parsed data with Schema:**
 
@@ -427,7 +439,14 @@ const json = yield * Effect.try({ try: () => YAML.parse(content) });
 const data =
   yield *
   Schema.decodeUnknown(ConfigSchema)(json).pipe(
-    Effect.mapError((e) => new ParseError({ message: e.message })),
+    Effect.mapError((e) =>
+      makeCliError({
+        code: "CONFIG_PARSE_FAILED",
+        what: "Failed to parse configuration",
+        details: [e.message],
+        cause: e,
+      }),
+    ),
   );
 ```
 

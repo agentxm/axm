@@ -71,8 +71,8 @@ pnpm build && pnpm test && pnpm lint
 **2. Bump the version in `packages/cli/package.json`:**
 
 ```bash
-# Edit packages/cli/package.json — update the "version" field
-# e.g., "0.0.1" → "0.1.0"
+# patch (0.1.0 → 0.1.1), minor (0.1.0 → 0.2.0), or major (0.1.0 → 1.0.0)
+pnpm --filter @axm.sh/cli exec npm version minor --no-git-tag-version
 ```
 
 **3. Commit the version bump and push:**

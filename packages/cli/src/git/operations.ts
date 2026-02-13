@@ -43,14 +43,14 @@ const mapGitError =
       return new GitError({
         operation,
         message: `${baseMessage}: ${error.message}`,
-        cause: Option.some(error),
+        cause: error,
       });
     }
 
     return new GitError({
       operation,
       message: `${baseMessage}: ${String(error)}`,
-      cause: Option.some(error),
+      cause: error,
     });
   };
 

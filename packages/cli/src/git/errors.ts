@@ -6,7 +6,6 @@
  */
 
 import * as Data from "effect/Data";
-import * as Option from "effect/Option";
 
 /**
  * Error type for git operations.
@@ -25,5 +24,5 @@ export class GitError extends Data.TaggedError("GitError")<{
   /** Human-readable error message */
   readonly message: string;
   /** Original error cause */
-  readonly cause: Option.Option<unknown>;
+  readonly cause: unknown;
 }> {}

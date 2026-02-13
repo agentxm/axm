@@ -6,4 +6,3 @@
  */
 
 export { descriptor } from "./descriptor.js";
-export { detect } from "./detection.js";

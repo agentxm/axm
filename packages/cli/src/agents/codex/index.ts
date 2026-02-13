@@ -5,6 +5,4 @@
  * @packageDocumentation
  */
 
-export { codexHome } from "./constants.js";
 export { descriptor } from "./descriptor.js";
-export { detect } from "./detection.js";

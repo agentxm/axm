@@ -43,7 +43,7 @@ import { getAxmDir } from "./paths.js";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { Confirm, Log, Multiselect, Select } from "../tui/index.js";
+import { Confirm, Log, Multiselect } from "../tui/index.js";
 import { PromptCancelled, PromptError } from "../tui/index.js";
 import { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./errors.js";
 import type { Operation, Plan } from "./plan.js";
@@ -126,7 +126,7 @@ const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextO
       selectedAgents = Array.filterMap([...options.agents.value], (id) => getAgentById(id));
     } else {
       // Detect installed agents
-      const detectedAgents = yield* detectAgents().pipe(
+      const detectedAgents = yield* detectAgents(process.cwd()).pipe(
         Effect.mapError(
           (error) =>
             new WorkspaceInitializationError({
@@ -149,78 +149,35 @@ const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextO
           }),
         );
       } else {
-        // Interactive mode - prompt for agent selection
-        const select = yield* Select;
+        // Interactive mode — single multiselect with detected agents pre-selected
         const multiselect = yield* Multiselect;
         const allAgents = getAllAgents();
+        const detectedIds = Array.map(detectedAgents, (a) => a.id);
 
-        const agentMultiselect = (initialIds: Option.Option<readonly string[]>) =>
-          multiselect
-            .prompt<AgentDescriptor>({
-              message: "Select agents to configure",
-              items: allAgents,
-              toOption: (agent) => ({
-                value: agent.id,
-                label: agent.name,
-                hint: Option.some(`skills: ${agent.skills.dir}`),
-              }),
-              initialValues: initialIds,
-              required: Option.some(false),
-            })
-            .pipe(
-              Effect.map((agents) => [...agents]),
-              Effect.mapError((error) => {
-                if (error._tag === "PromptCancelled") {
-                  return error;
-                }
-                return new WorkspaceInitializationError({
-                  message: `Failed to prompt for agent selection: ${error.message}`,
-                  cause: error,
-                });
-              }),
-            );
-
-        if (detectedAgents.length === 0) {
-          // No agents detected — go straight to multiselect of all agents, none pre-selected
-          selectedAgents = yield* agentMultiselect(Option.none());
-        } else {
-          // Show choice: use detected agents or pick manually
-          const detectedNames = Array.map(detectedAgents, (a) => a.name).join(", ");
-          type InitChoice = "auto" | "choose";
-          const items: readonly { id: InitChoice; label: string }[] = [
-            { id: "auto", label: `Setup with auto-detected agents (${detectedNames})` },
-            { id: "choose", label: "Let me choose" },
-          ];
-
-          const choice = yield* select
-            .prompt<{ id: InitChoice; label: string }>({
-              message: "How would you like to configure agents?",
-              items,
-              toOption: (item) => ({
-                label: item.label,
-                hint: item.id === "auto" ? Option.some("Recommended") : Option.none(),
-              }),
-            })
-            .pipe(
-              Effect.mapError((error) => {
-                if (error._tag === "PromptCancelled") {
-                  return error;
-                }
-                return new WorkspaceInitializationError({
-                  message: `Failed to prompt for agent selection: ${error.message}`,
-                  cause: error,
-                });
-              }),
-            );
-
-          if (choice.id === "auto") {
-            selectedAgents = detectedAgents;
-          } else {
-            // Show multiselect of ALL agents, detected ones pre-selected
-            const detectedIds = Array.map(detectedAgents, (a) => a.id);
-            selectedAgents = yield* agentMultiselect(Option.some(detectedIds));
-          }
-        }
+        selectedAgents = yield* multiselect
+          .prompt<AgentDescriptor>({
+            message: "Select agents to configure",
+            items: allAgents,
+            toOption: (agent) => ({
+              value: agent.id,
+              label: agent.name,
+              hint: Option.some(`skills: ${agent.skills.dir}`),
+            }),
+            initialValues: detectedIds.length > 0 ? Option.some(detectedIds) : Option.none(),
+            required: Option.some(false),
+          })
+          .pipe(
+            Effect.map((agents) => [...agents]),
+            Effect.mapError((error) => {
+              if (error._tag === "PromptCancelled") {
+                return error;
+              }
+              return new WorkspaceInitializationError({
+                message: `Failed to prompt for agent selection: ${error.message}`,
+                cause: error,
+              });
+            }),
+          );
       }
     }
 

@@ -6,7 +6,6 @@
  */
 
 import type { AgentDescriptor } from "../types.js";
-import { detect } from "./detection.js";
 
 /**
  * Claude Code agent descriptor.
@@ -19,5 +18,4 @@ export const descriptor: AgentDescriptor = {
   skills: {
     dir: ".claude/skills",
   },
-  detect,
 };

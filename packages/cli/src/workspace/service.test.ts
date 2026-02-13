@@ -1126,6 +1126,92 @@ describe("WorkspaceContextService", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Initialization flow (initializeProjectWorkspace)
+  // ---------------------------------------------------------------------------
+
+  describe("initializeProjectWorkspace", () => {
+    /**
+     * Helper to remove the pre-created settings so init triggers.
+     */
+    const removePreCreatedSettings = () => {
+      const axmDir = path.join(projectDir, ".axm");
+      fs.rmSync(axmDir, { recursive: true, force: true });
+    };
+
+    /**
+     * Helper to create workspace layer with custom TUI behaviors for init testing.
+     * Uses multiselect behavior to control which agents are "selected".
+     */
+    const getServiceWithInit = (
+      options: WorkspaceContextOptions,
+      multiselectBehavior?: { type: "return"; indices: readonly number[] } | { type: "cancel" },
+    ) => {
+      const [logLayer] = makeLogTestLayer();
+      const [confirmLayer] = makeConfirmTestLayer();
+      const [selectLayer] = makeSelectTestLayer();
+      const [multiselectLayer, multiselectMock] = makeMultiselectTestLayer(multiselectBehavior);
+      const base = Layer.mergeAll(
+        NodeContext.layer,
+        logLayer,
+        confirmLayer,
+        selectLayer,
+        multiselectLayer,
+      );
+      const wsLayer = Layer.provide(workspaceLayer(options), base);
+      return {
+        run: Workspace.pipe(Effect.provide(Layer.merge(base, wsLayer))),
+        multiselectMock,
+      };
+    };
+
+    it.effect("interactive mode calls multiselect directly (no select prompt)", () =>
+      Effect.gen(function* () {
+        removePreCreatedSettings();
+        const { run, multiselectMock } = getServiceWithInit(
+          {
+            global: false,
+            yes: false,
+            nonInteractive: Option.some(false),
+            preview: false,
+            agents: Option.none(),
+          },
+          { type: "return", indices: [] },
+        );
+
+        yield* run;
+
+        // Should have called multiselect once (no select prompt)
+        expect(multiselectMock.calls).toHaveLength(1);
+        expect(multiselectMock.calls[0]!.message).toBe("Select agents to configure");
+      }),
+    );
+
+    it.effect("--yes auto-selects detected agents without prompting", () =>
+      Effect.gen(function* () {
+        removePreCreatedSettings();
+        // Create .claude dir in project to trigger detection
+        fs.mkdirSync(path.join(projectDir, ".claude"), { recursive: true });
+
+        const { run, multiselectMock } = getServiceWithInit({
+          global: false,
+          yes: true,
+          nonInteractive: Option.some(false),
+          preview: false,
+          agents: Option.none(),
+        });
+
+        const ws = yield* run;
+        const agents = yield* ws.getConfiguredAgents();
+
+        // --yes skips prompting entirely
+        expect(multiselectMock.calls).toHaveLength(0);
+        // claude-code should be auto-selected via project-level detection
+        expect(agents).toContain("claude-code");
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
   // Semaphore serialization
   // ---------------------------------------------------------------------------
 

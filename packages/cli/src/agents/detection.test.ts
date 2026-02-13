@@ -14,9 +14,7 @@ import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { claudeHome } from "./claude-code/index.js";
-import { codexHome } from "./codex/index.js";
-import { configHome, home } from "./constants.js";
+import { home } from "./constants.js";
 import { DetectionError, detectAgent, detectAgents } from "./detection.js";
 import { AGENTS } from "./registry.js";
 
@@ -55,16 +53,57 @@ const createFailingFileSystem = (errorMessage: string) =>
 const withRealFileSystem = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem>) =>
   effect.pipe(Effect.provide(NodeFileSystem.layer));
 
+/** A temporary directory path used as projectDir in tests. */
+const testProjectDir = "/tmp/test-project";
+
 // =============================================================================
 // detectAgent Tests
 // =============================================================================
 
 describe("detectAgent", () => {
-  describe("returns true when agent's detection path exists", () => {
-    it.effect("detects claude-code when claudeHome exists", () =>
+  describe("project-level detection (skills.dir first segment in project dir)", () => {
+    it.effect("detects claude-code when .claude/ exists in project dir", () =>
       Effect.gen(function* () {
-        const existingPaths = new Set([claudeHome]);
-        const result = yield* detectAgent(AGENTS["claude-code"]).pipe(
+        // claude-code has skills.dir: ".claude/skills", first segment: ".claude"
+        const projectPath = path.join(testProjectDir, ".claude");
+        const existingPaths = new Set([projectPath]);
+        const result = yield* detectAgent(AGENTS["claude-code"], testProjectDir).pipe(
+          Effect.provide(createMockFileSystem(existingPaths)),
+        );
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("detects cursor when .cursor/ exists in project dir", () =>
+      Effect.gen(function* () {
+        const projectPath = path.join(testProjectDir, ".cursor");
+        const existingPaths = new Set([projectPath]);
+        const result = yield* detectAgent(AGENTS["cursor"], testProjectDir).pipe(
+          Effect.provide(createMockFileSystem(existingPaths)),
+        );
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("detects amp when .agents/ exists in project dir", () =>
+      Effect.gen(function* () {
+        // amp has skills.dir: ".agents/skills", first segment: ".agents"
+        const projectPath = path.join(testProjectDir, ".agents");
+        const existingPaths = new Set([projectPath]);
+        const result = yield* detectAgent(AGENTS["amp"], testProjectDir).pipe(
+          Effect.provide(createMockFileSystem(existingPaths)),
+        );
+        expect(result).toBe(true);
+      }),
+    );
+  });
+
+  describe("global detection (~/.{agent-id})", () => {
+    it.effect("detects claude-code when ~/.claude-code exists", () =>
+      Effect.gen(function* () {
+        const globalPath = path.join(home, ".claude-code");
+        const existingPaths = new Set([globalPath]);
+        const result = yield* detectAgent(AGENTS["claude-code"], testProjectDir).pipe(
           Effect.provide(createMockFileSystem(existingPaths)),
         );
         expect(result).toBe(true);
@@ -73,62 +112,20 @@ describe("detectAgent", () => {
 
     it.effect("detects cursor when ~/.cursor exists", () =>
       Effect.gen(function* () {
-        const cursorPath = path.join(home, ".cursor");
-        const existingPaths = new Set([cursorPath]);
-        const result = yield* detectAgent(AGENTS["cursor"]).pipe(
+        const globalPath = path.join(home, ".cursor");
+        const existingPaths = new Set([globalPath]);
+        const result = yield* detectAgent(AGENTS["cursor"], testProjectDir).pipe(
           Effect.provide(createMockFileSystem(existingPaths)),
         );
         expect(result).toBe(true);
       }),
     );
 
-    it.effect("detects codex when codexHome exists", () =>
+    it.effect("detects cline when ~/.cline exists", () =>
       Effect.gen(function* () {
-        const existingPaths = new Set([codexHome]);
-        const result = yield* detectAgent(AGENTS["codex"]).pipe(
-          Effect.provide(createMockFileSystem(existingPaths)),
-        );
-        expect(result).toBe(true);
-      }),
-    );
-
-    it.effect("detects codex when /etc/codex exists (alternative path)", () =>
-      Effect.gen(function* () {
-        const existingPaths = new Set(["/etc/codex"]);
-        const result = yield* detectAgent(AGENTS["codex"]).pipe(
-          Effect.provide(createMockFileSystem(existingPaths)),
-        );
-        expect(result).toBe(true);
-      }),
-    );
-
-    it.effect("detects opencode when configHome/opencode exists", () =>
-      Effect.gen(function* () {
-        const opencodePath = path.join(configHome, "opencode");
-        const existingPaths = new Set([opencodePath]);
-        const result = yield* detectAgent(AGENTS["opencode"]).pipe(
-          Effect.provide(createMockFileSystem(existingPaths)),
-        );
-        expect(result).toBe(true);
-      }),
-    );
-
-    it.effect("detects windsurf when ~/.codeium exists", () =>
-      Effect.gen(function* () {
-        const windsurfPath = path.join(home, ".codeium");
-        const existingPaths = new Set([windsurfPath]);
-        const result = yield* detectAgent(AGENTS["windsurf"]).pipe(
-          Effect.provide(createMockFileSystem(existingPaths)),
-        );
-        expect(result).toBe(true);
-      }),
-    );
-
-    it.effect("detects continue when ~/.continue exists", () =>
-      Effect.gen(function* () {
-        const continuePath = path.join(home, ".continue");
-        const existingPaths = new Set([continuePath]);
-        const result = yield* detectAgent(AGENTS["continue"]).pipe(
+        const globalPath = path.join(home, ".cline");
+        const existingPaths = new Set([globalPath]);
+        const result = yield* detectAgent(AGENTS["cline"], testProjectDir).pipe(
           Effect.provide(createMockFileSystem(existingPaths)),
         );
         expect(result).toBe(true);
@@ -136,61 +133,90 @@ describe("detectAgent", () => {
     );
   });
 
-  describe("returns false when agent's detection path doesn't exist", () => {
-    it.effect("returns false for claude-code when claudeHome doesn't exist", () =>
+  describe("combined OR logic", () => {
+    it.effect("detects when both project-level and global paths exist", () =>
+      Effect.gen(function* () {
+        const projectPath = path.join(testProjectDir, ".claude");
+        const globalPath = path.join(home, ".claude-code");
+        const existingPaths = new Set([projectPath, globalPath]);
+        const result = yield* detectAgent(AGENTS["claude-code"], testProjectDir).pipe(
+          Effect.provide(createMockFileSystem(existingPaths)),
+        );
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("detects when only project-level path exists (no global)", () =>
+      Effect.gen(function* () {
+        const projectPath = path.join(testProjectDir, ".cursor");
+        const existingPaths = new Set([projectPath]);
+        const result = yield* detectAgent(AGENTS["cursor"], testProjectDir).pipe(
+          Effect.provide(createMockFileSystem(existingPaths)),
+        );
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("detects when only global path exists (no project-level)", () =>
+      Effect.gen(function* () {
+        const globalPath = path.join(home, ".cursor");
+        const existingPaths = new Set([globalPath]);
+        const result = yield* detectAgent(AGENTS["cursor"], testProjectDir).pipe(
+          Effect.provide(createMockFileSystem(existingPaths)),
+        );
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("returns false when neither path exists", () =>
       Effect.gen(function* () {
         const existingPaths = new Set<string>();
-        const result = yield* detectAgent(AGENTS["claude-code"]).pipe(
+        const result = yield* detectAgent(AGENTS["cursor"], testProjectDir).pipe(
+          Effect.provide(createMockFileSystem(existingPaths)),
+        );
+        expect(result).toBe(false);
+      }),
+    );
+  });
+
+  describe("shared skills.dir detecting multiple agents", () => {
+    it.effect("detects all agents sharing .agents/ when .agents/ exists in project", () =>
+      Effect.gen(function* () {
+        // amp, kimi-cli, replit all use ".agents/skills"
+        const projectPath = path.join(testProjectDir, ".agents");
+        const existingPaths = new Set([projectPath]);
+
+        const [ampResult, kimiResult, replitResult] = yield* Effect.all(
+          [
+            detectAgent(AGENTS["amp"], testProjectDir),
+            detectAgent(AGENTS["kimi-cli"], testProjectDir),
+            detectAgent(AGENTS["replit"], testProjectDir),
+          ],
+          { concurrency: "unbounded" },
+        ).pipe(Effect.provide(createMockFileSystem(existingPaths)));
+
+        expect(ampResult).toBe(true);
+        expect(kimiResult).toBe(true);
+        expect(replitResult).toBe(true);
+      }),
+    );
+  });
+
+  describe("returns false when agent's detection paths don't exist", () => {
+    it.effect("returns false for claude-code when no paths exist", () =>
+      Effect.gen(function* () {
+        const existingPaths = new Set<string>();
+        const result = yield* detectAgent(AGENTS["claude-code"], testProjectDir).pipe(
           Effect.provide(createMockFileSystem(existingPaths)),
         );
         expect(result).toBe(false);
       }),
     );
 
-    it.effect("returns false for cursor when ~/.cursor doesn't exist", () =>
+    it.effect("returns false for codex when no paths exist", () =>
       Effect.gen(function* () {
         const existingPaths = new Set<string>();
-        const result = yield* detectAgent(AGENTS["cursor"]).pipe(
-          Effect.provide(createMockFileSystem(existingPaths)),
-        );
-        expect(result).toBe(false);
-      }),
-    );
-
-    it.effect("returns false for codex when neither path exists", () =>
-      Effect.gen(function* () {
-        const existingPaths = new Set<string>();
-        const result = yield* detectAgent(AGENTS["codex"]).pipe(
-          Effect.provide(createMockFileSystem(existingPaths)),
-        );
-        expect(result).toBe(false);
-      }),
-    );
-
-    it.effect("returns false for opencode when configHome/opencode doesn't exist", () =>
-      Effect.gen(function* () {
-        const existingPaths = new Set<string>();
-        const result = yield* detectAgent(AGENTS["opencode"]).pipe(
-          Effect.provide(createMockFileSystem(existingPaths)),
-        );
-        expect(result).toBe(false);
-      }),
-    );
-
-    it.effect("returns false for windsurf when ~/.codeium doesn't exist", () =>
-      Effect.gen(function* () {
-        const existingPaths = new Set<string>();
-        const result = yield* detectAgent(AGENTS["windsurf"]).pipe(
-          Effect.provide(createMockFileSystem(existingPaths)),
-        );
-        expect(result).toBe(false);
-      }),
-    );
-
-    it.effect("returns false for continue when ~/.continue doesn't exist", () =>
-      Effect.gen(function* () {
-        const existingPaths = new Set<string>();
-        const result = yield* detectAgent(AGENTS["continue"]).pipe(
+        const result = yield* detectAgent(AGENTS["codex"], testProjectDir).pipe(
           Effect.provide(createMockFileSystem(existingPaths)),
         );
         expect(result).toBe(false);
@@ -201,7 +227,7 @@ describe("detectAgent", () => {
   describe("handles filesystem errors", () => {
     it.effect("wraps filesystem error in DetectionError", () =>
       Effect.gen(function* () {
-        const error = yield* detectAgent(AGENTS["claude-code"]).pipe(
+        const error = yield* detectAgent(AGENTS["claude-code"], testProjectDir).pipe(
           Effect.provide(createFailingFileSystem("Permission denied")),
           Effect.flip,
         );
@@ -213,41 +239,12 @@ describe("detectAgent", () => {
 
     it.effect("preserves original error as cause", () =>
       Effect.gen(function* () {
-        const error = yield* detectAgent(AGENTS["cursor"]).pipe(
+        const error = yield* detectAgent(AGENTS["cursor"], testProjectDir).pipe(
           Effect.provide(createFailingFileSystem("I/O error")),
           Effect.flip,
         );
         expect(error.cause).toBeDefined();
         expect((error.cause as PlatformError.SystemError).message).toContain("I/O error");
-      }),
-    );
-  });
-
-  describe("default case for agents without specific detection logic", () => {
-    it.effect("uses heuristic detection for unknown agent patterns", () =>
-      Effect.gen(function* () {
-        // Agents without explicit case in switch use the default heuristic
-        // which checks ~/.{agent-id} or the first segment of projectDir
-        const clineAgent = AGENTS["cline"];
-        const clineHomePath = path.join(home, ".cline");
-        const existingPaths = new Set([clineHomePath]);
-
-        const result = yield* detectAgent(clineAgent).pipe(
-          Effect.provide(createMockFileSystem(existingPaths)),
-        );
-        expect(result).toBe(true);
-      }),
-    );
-
-    it.effect("returns false when heuristic paths don't exist", () =>
-      Effect.gen(function* () {
-        const rooAgent = AGENTS["roo"];
-        const existingPaths = new Set<string>();
-
-        const result = yield* detectAgent(rooAgent).pipe(
-          Effect.provide(createMockFileSystem(existingPaths)),
-        );
-        expect(result).toBe(false);
       }),
     );
   });
@@ -262,7 +259,7 @@ describe("detectAgents", () => {
     it.effect("returns empty array when no agents are detected", () =>
       Effect.gen(function* () {
         const existingPaths = new Set<string>();
-        const result = yield* detectAgents().pipe(
+        const result = yield* detectAgents(testProjectDir).pipe(
           Effect.provide(createMockFileSystem(existingPaths)),
         );
         expect(Array.isArray(result)).toBe(true);
@@ -272,8 +269,9 @@ describe("detectAgents", () => {
 
     it.effect("returns single agent when only one is detected", () =>
       Effect.gen(function* () {
-        const existingPaths = new Set([claudeHome]);
-        const result = yield* detectAgents().pipe(
+        // Use project-level detection for claude-code
+        const existingPaths = new Set([path.join(testProjectDir, ".claude")]);
+        const result = yield* detectAgents(testProjectDir).pipe(
           Effect.provide(createMockFileSystem(existingPaths)),
         );
         expect(result.length).toBe(1);
@@ -284,11 +282,11 @@ describe("detectAgents", () => {
     it.effect("returns multiple agents when several are detected", () =>
       Effect.gen(function* () {
         const existingPaths = new Set([
-          claudeHome,
+          path.join(testProjectDir, ".claude"),
           path.join(home, ".cursor"),
           path.join(home, ".continue"),
         ]);
-        const result = yield* detectAgents().pipe(
+        const result = yield* detectAgents(testProjectDir).pipe(
           Effect.provide(createMockFileSystem(existingPaths)),
         );
         expect(result.length).toBeGreaterThanOrEqual(3);
@@ -301,13 +299,15 @@ describe("detectAgents", () => {
 
     it.effect("returns only AgentDescriptor objects from AGENTS registry", () =>
       Effect.gen(function* () {
-        const existingPaths = new Set([claudeHome, codexHome]);
-        const result = yield* detectAgents().pipe(
+        const existingPaths = new Set([
+          path.join(testProjectDir, ".claude"),
+          path.join(home, ".codex"),
+        ]);
+        const result = yield* detectAgents(testProjectDir).pipe(
           Effect.provide(createMockFileSystem(existingPaths)),
         );
 
         for (const agent of result) {
-          // Each returned agent should be the exact object from registry
           expect(AGENTS[agent.id]).toBe(agent);
         }
       }),
@@ -318,10 +318,8 @@ describe("detectAgents", () => {
     it.effect("completes detection for all agents in reasonable time", () =>
       withRealFileSystem(
         Effect.gen(function* () {
-          // This test uses real filesystem and verifies concurrency
-          // by checking the function completes quickly despite many agents
           const startTime = Date.now();
-          const result = yield* detectAgents();
+          const result = yield* detectAgents(testProjectDir);
           const elapsed = Date.now() - startTime;
 
           // With 40+ agents, sequential execution would be slow
@@ -334,8 +332,12 @@ describe("detectAgents", () => {
 
     it.effect("returns no duplicates", () =>
       Effect.gen(function* () {
-        const existingPaths = new Set([claudeHome, path.join(home, ".cursor"), codexHome]);
-        const result = yield* detectAgents().pipe(
+        const existingPaths = new Set([
+          path.join(testProjectDir, ".claude"),
+          path.join(home, ".cursor"),
+          path.join(home, ".codex"),
+        ]);
+        const result = yield* detectAgents(testProjectDir).pipe(
           Effect.provide(createMockFileSystem(existingPaths)),
         );
 
@@ -349,7 +351,7 @@ describe("detectAgents", () => {
   describe("handles errors gracefully", () => {
     it.effect("fails with DetectionError when filesystem fails", () =>
       Effect.gen(function* () {
-        const error = yield* detectAgents().pipe(
+        const error = yield* detectAgents(testProjectDir).pipe(
           Effect.provide(createFailingFileSystem("Disk error")),
           Effect.flip,
         );

@@ -10,10 +10,8 @@
 
 import * as path from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
-import * as Array from "effect/Array";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { home } from "./constants.js";
 import { getAllAgents } from "./registry.js";
 import type { AgentDescriptor } from "./types.js";
@@ -33,75 +31,46 @@ export class DetectionError extends Data.TaggedError("DetectionError")<{
 }> {}
 
 // -----------------------------------------------------------------------------
-// Default Detection Heuristic
-// -----------------------------------------------------------------------------
-
-/**
- * Default heuristic detection for agents without specific detection logic.
- * Checks common patterns: ~/.{agent-id} or first segment of projectDir.
- */
-const defaultDetect = (agent: AgentDescriptor) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-
-    // Try common patterns for detection
-    const patterns = [
-      // ~/.{agent-id} pattern
-      path.join(home, `.${agent.id}`),
-      // Project-level directory pattern (first segment without leading dot)
-      path.join(
-        home,
-        Option.getOrElse(
-          Option.map(Array.head(agent.skills.dir.split("/")), (s) => s.replace(/^\./, "")),
-          () => "",
-        ),
-      ),
-    ];
-
-    for (const pattern of patterns) {
-      if (pattern && (yield* fs.exists(pattern))) {
-        return true;
-      }
-    }
-    return false;
-  });
-
-// -----------------------------------------------------------------------------
 // Detection Functions
 // -----------------------------------------------------------------------------
 
 /**
- * Check if a specific agent is installed.
+ * Check if a specific agent is installed by checking both project-level
+ * and global directories.
  *
- * Detection logic varies per agent based on their typical configuration directories.
- * Returns `true` if the agent appears to be installed, `false` otherwise.
+ * - **Project-level**: Checks if the first path segment of `skills.dir`
+ *   exists in `projectDir` (e.g., `.claude/` for Claude Code)
+ * - **Global**: Checks if `~/.{agent-id}` exists in the user's home
+ *
+ * Returns `true` if either check passes (logical OR).
  *
  * @param agent - The agent descriptor to check
- * @returns Effect that resolves to boolean indicating installation status
- *
- * @example
- * ```typescript
- * import { Effect } from "effect";
- * import { NodeFileSystem } from "@effect/platform-node";
- * import { detectAgent, AGENTS } from "@axm.sh/core/experimental/agents";
- *
- * const program = Effect.gen(function* () {
- *   const isInstalled = yield* detectAgent(AGENTS["claude-code"]);
- *   console.log(`Claude Code installed: ${isInstalled}`);
- * });
- *
- * Effect.runPromise(
- *   program.pipe(Effect.provide(NodeFileSystem.layer))
- * );
- * ```
+ * @param projectDir - The project directory to check for agent config
+ * @returns Effect that resolves to boolean indicating detection status
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const detectAgent = (
   agent: AgentDescriptor,
-): Effect.Effect<boolean, DetectionError, FileSystem.FileSystem> => {
-  const detector = agent.detect ?? (() => defaultDetect(agent));
-  return detector().pipe(
+  projectDir: string,
+): Effect.Effect<boolean, DetectionError, FileSystem.FileSystem> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+
+    // Project-level: first segment of skills.dir in projectDir
+    const firstSegment = agent.skills.dir.split("/")[0] ?? "";
+    const projectPath = path.join(projectDir, firstSegment);
+
+    // Global: ~/.{agent-id} in home directory
+    const globalPath = path.join(home, `.${agent.id}`);
+
+    const [projectExists, globalExists] = yield* Effect.all(
+      [fs.exists(projectPath), fs.exists(globalPath)],
+      { concurrency: "unbounded" },
+    );
+
+    return projectExists || globalExists;
+  }).pipe(
     Effect.mapError(
       (error) =>
         new DetectionError({
@@ -110,7 +79,6 @@ export const detectAgent = (
         }),
     ),
   );
-};
 
 /**
  * Detect all installed agents concurrently.
@@ -118,34 +86,14 @@ export const detectAgent = (
  * Checks all registered agents and returns descriptors for those
  * that appear to be installed on the system.
  *
- * @returns Effect that resolves to array of installed agent descriptors
- *
- * @example
- * ```typescript
- * import { Effect } from "effect";
- * import { NodeFileSystem } from "@effect/platform-node";
- * import { detectAgents } from "@axm.sh/core/experimental/agents";
- *
- * const program = Effect.gen(function* () {
- *   const installed = yield* detectAgents();
- *   console.log(`Found ${installed.length} installed agents`);
- *   for (const agent of installed) {
- *     console.log(`- ${agent.name}`);
- *   }
- * });
- *
- * Effect.runPromise(
- *   program.pipe(Effect.provide(NodeFileSystem.layer))
- * );
- * ```
+ * @param projectDir - The project directory to check for agent config
+ * @returns Effect that resolves to array of detected agent descriptors
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const detectAgents = (): Effect.Effect<
-  AgentDescriptor[],
-  DetectionError,
-  FileSystem.FileSystem
-> =>
-  Effect.filter(getAllAgents(), (agent) => detectAgent(agent), {
+export const detectAgents = (
+  projectDir: string,
+): Effect.Effect<AgentDescriptor[], DetectionError, FileSystem.FileSystem> =>
+  Effect.filter(getAllAgents(), (agent) => detectAgent(agent, projectDir), {
     concurrency: "unbounded",
   });

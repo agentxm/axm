@@ -5,7 +5,6 @@
  * @packageDocumentation
  */
 
-export { GitError } from "./errors.js";
 export {
   cloneRepo,
   getCurrentCommit,

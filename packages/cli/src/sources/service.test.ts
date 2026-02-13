@@ -19,7 +19,8 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "vitest";
 
-import type { SettingsError, SourceConfig } from "../settings/index.js";
+import type { CliError } from "../cli-error/index.js";
+import type { SourceConfig } from "../settings/index.js";
 import type { WorkspaceContextService } from "../workspace/service.js";
 import { Workspace } from "../workspace/service.js";
 import type { ExtensionIndex, VersionEntry } from "../registry/index.js";
@@ -99,7 +100,7 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceConfig>): WorkspaceConte
         return registrySources.filter((s) => s.scopes === undefined);
       })(),
     ),
-  getConfiguredScope: () => Effect.succeed("@test") as Effect.Effect<string, SettingsError>,
+  getConfiguredScope: () => Effect.succeed("@test") as Effect.Effect<string, CliError>,
   addConfiguredSource: () => Effect.void,
   getInstalledSkills: () => Effect.succeed({}),
   getConfiguredAgents: () => Effect.succeed([]),
@@ -214,7 +215,7 @@ describe("SourceProviders dispatch", () => {
         // Git provider is a stub that always fails
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
-          expect(result.left.message).toContain("not yet supported");
+          expect(result.left.what).toContain("not yet supported");
         }
       }),
     ));
@@ -242,7 +243,7 @@ describe("SourceProviders dispatch", () => {
 
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
-          expect(result.left.message).toContain("not yet supported");
+          expect(result.left.what).toContain("not yet supported");
         }
       }),
     ));

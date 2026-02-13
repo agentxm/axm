@@ -9,9 +9,9 @@
 
 import type { ExtensionRef } from "../../resolution/index.js";
 import * as Array from "effect/Array";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { makeCliError } from "../../cli-error/index.js";
 import { Select } from "../../tui/index.js";
 
 // -----------------------------------------------------------------------------
@@ -49,16 +49,6 @@ function formatEmptyResolutionError(input: string): string {
 // Types
 // -----------------------------------------------------------------------------
 
-/**
- * Error that occurs during skills operations.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class SkillsError extends Data.TaggedError("SkillsError")<{
-  readonly message: string;
-  readonly retryable: boolean;
-}> {}
-
 // -----------------------------------------------------------------------------
 // Extension Reference Selection
 // -----------------------------------------------------------------------------
@@ -74,7 +64,7 @@ export class SkillsError extends Data.TaggedError("SkillsError")<{
  * @param refs - Extension references from resolution
  * @param input - Original input string for error messages
  * @param canPrompt - Whether interactive prompts are available
- * @returns Effect that succeeds with selected ExtensionRef or fails with SkillsError
+ * @returns Effect that succeeds with selected ExtensionRef or fails with CliError
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -87,9 +77,9 @@ export function selectExtensionRef(
     // Empty results - fail with suggestions
     if (refs.length === 0) {
       return yield* Effect.fail(
-        new SkillsError({
-          message: formatEmptyResolutionError(input),
-          retryable: false,
+        makeCliError({
+          code: "SKILLS_OPERATION_FAILED",
+          what: formatEmptyResolutionError(input),
         }),
       );
     }
@@ -105,13 +95,13 @@ export function selectExtensionRef(
         .map((r) => `  • ${Option.getOrElse(r.name, () => r.origin)} (${r.source})`)
         .join("\n");
       return yield* Effect.fail(
-        new SkillsError({
-          message: formatError(
+        makeCliError({
+          code: "SKILLS_OPERATION_FAILED",
+          what: formatError(
             `Ambiguous input "${input}" matches multiple sources`,
             [`Found ${refs.length} matches:\n${sources}`],
             "Use --yes or --non-interactive with a more specific source identifier.",
           ),
-          retryable: false,
         }),
       );
     }
@@ -130,12 +120,14 @@ export function selectExtensionRef(
         }),
       })
       .pipe(
-        Effect.mapError(
-          (error) =>
-            new SkillsError({
-              message: `Failed to prompt for extension selection: ${error.message}`,
-              retryable: false,
-            }),
+        Effect.mapError((error) =>
+          error._tag === "PromptCancelled"
+            ? error
+            : makeCliError({
+                code: "SKILLS_OPERATION_FAILED",
+                what: `Failed to prompt for extension selection: ${error.message}`,
+                cause: error,
+              }),
         ),
       );
 

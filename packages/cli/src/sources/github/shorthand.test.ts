@@ -55,7 +55,7 @@ describe("shorthand", () => {
       Effect.gen(function* () {
         const error = yield* parseShorthand("github:invalid").pipe(Effect.flip);
 
-        expect(error._tag).toBe("ParseError");
+        expect(error._tag).toBe("CliError");
       }),
     );
   });

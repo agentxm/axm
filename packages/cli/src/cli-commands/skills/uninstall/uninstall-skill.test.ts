@@ -8,14 +8,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
-import {
-  LockfileParseError,
-  LockfileWriteError,
-  type LockfileError,
-} from "../../../lockfile/index.js";
 import type { SkillLockEntry } from "../../../lockfile/schema.js";
-import { SettingsWriteError } from "../../../settings/index.js";
-import { OperationError } from "../../../workspace/apply-plan.js";
+import { CliError, makeCliError } from "../../../cli-error/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import type { UninstallSkillOperation } from "../operations.js";
 import { uninstallSkill } from "./uninstall-skill.js";
@@ -31,9 +25,9 @@ const makeWorkspaceMock = (
   lockfileSkills: Record<string, any> = {},
   overrides?: {
     removeSkillFn?: ReturnType<typeof vi.fn>;
-    lockfileErrorOverride?: () => Effect.Effect<never, LockfileError>;
-    setSkillErrorOverride?: () => Effect.Effect<never, LockfileError>;
-    removeSkillErrorOverride?: () => Effect.Effect<never, LockfileError>;
+    lockfileErrorOverride?: () => Effect.Effect<never, CliError>;
+    setSkillErrorOverride?: () => Effect.Effect<never, CliError>;
+    removeSkillErrorOverride?: () => Effect.Effect<never, CliError>;
   },
 ): WorkspaceContextService => {
   // Use in-memory skills for reads, write to disk for mutations
@@ -72,11 +66,11 @@ const makeWorkspaceMock = (
     getConfiguredAgents: () => Effect.succeed([]),
     getLockedSkills: () =>
       overrides?.lockfileErrorOverride
-        ? (overrides.lockfileErrorOverride() as Effect.Effect<never, LockfileError>)
+        ? (overrides.lockfileErrorOverride() as Effect.Effect<never, CliError>)
         : Effect.succeed(skills),
     getLockedSkill: (name: string) =>
       overrides?.lockfileErrorOverride
-        ? (overrides.lockfileErrorOverride() as Effect.Effect<never, LockfileError>)
+        ? (overrides.lockfileErrorOverride() as Effect.Effect<never, CliError>)
         : Effect.succeed(Option.fromNullable(skills[name] as SkillLockEntry | undefined)),
     setSkill: overrides?.setSkillErrorOverride
       ? () => overrides.setSkillErrorOverride!()
@@ -110,9 +104,9 @@ const withServices = (
   lockfileSkills: Record<string, any> = {},
   wsOverrides?: {
     removeSkillFn?: ReturnType<typeof vi.fn>;
-    lockfileErrorOverride?: () => Effect.Effect<never, LockfileError>;
-    setSkillErrorOverride?: () => Effect.Effect<never, LockfileError>;
-    removeSkillErrorOverride?: () => Effect.Effect<never, LockfileError>;
+    lockfileErrorOverride?: () => Effect.Effect<never, CliError>;
+    setSkillErrorOverride?: () => Effect.Effect<never, CliError>;
+    removeSkillErrorOverride?: () => Effect.Effect<never, CliError>;
   },
 ) => {
   return Layer.mergeAll(
@@ -334,9 +328,9 @@ describe("uninstallSkill", () => {
         const { axmDir, lockfileSkills } = setupWorkspace({ agents: ["claude-code"] });
         const removeSkillFn = vi.fn(() =>
           Effect.fail(
-            new SettingsWriteError({
-              path: "",
-              message: "write failed",
+            makeCliError({
+              code: "SETTINGS_WRITE_FAILED",
+              what: "write failed",
               cause: new Error("write failed"),
             }),
           ),
@@ -540,7 +534,7 @@ describe("uninstallSkill", () => {
   });
 
   describe("lockfile read error handling", () => {
-    it.effect("propagates LockfileParseError as OperationError", () =>
+    it.effect("propagates CliError from lockfile read failure", () =>
       Effect.gen(function* () {
         const { axmDir, canonicalPath } = setupWorkspace({ agents: ["claude-code"] });
 
@@ -552,9 +546,9 @@ describe("uninstallSkill", () => {
               {
                 lockfileErrorOverride: () =>
                   Effect.fail(
-                    new LockfileParseError({
-                      message: "corrupt lockfile",
-                      retryable: false,
+                    makeCliError({
+                      code: "LOCKFILE_PARSE_FAILED",
+                      what: "corrupt lockfile",
                     }),
                   ),
               },
@@ -563,8 +557,9 @@ describe("uninstallSkill", () => {
           Effect.flip,
         );
 
-        expect(result._tag).toBe("OperationError");
-        expect((result as OperationError).cause).toBeInstanceOf(LockfileParseError);
+        expect(result._tag).toBe("CliError");
+        expect((result as CliError).code).toBe("UNINSTALL_SKILL_LOCKFILE_READ_FAILED");
+        expect((result as CliError).cause).toBeInstanceOf(CliError);
         // Canonical dir should still exist (error propagated before removal)
         expect(fs.existsSync(canonicalPath)).toBe(true);
       }),
@@ -580,9 +575,9 @@ describe("uninstallSkill", () => {
         const lockfileSkills: Record<string, ReturnType<typeof makeLocalLockEntry>> = {
           "my-skill": makeLocalLockEntry(["claude-code", "cursor"]),
         };
-        const writeError = new LockfileWriteError({
-          message: "write failed",
-          retryable: false,
+        const writeError = makeCliError({
+          code: "LOCKFILE_WRITE_FAILED",
+          what: "write failed",
         });
 
         const result = yield* uninstallSkill(makeOp({ agents: ["claude-code"] })).pipe(
@@ -594,8 +589,8 @@ describe("uninstallSkill", () => {
           Effect.flip,
         );
 
-        expect(result._tag).toBe("OperationError");
-        expect(result.message).toContain("Failed to update lockfile");
+        expect(result._tag).toBe("CliError");
+        expect((result as CliError).what).toContain("Failed to update lockfile");
       }),
     );
 
@@ -607,9 +602,9 @@ describe("uninstallSkill", () => {
         const lockfileSkills: Record<string, ReturnType<typeof makeLocalLockEntry>> = {
           "my-skill": makeLocalLockEntry(["claude-code"]),
         };
-        const writeError = new LockfileWriteError({
-          message: "write failed",
-          retryable: false,
+        const writeError = makeCliError({
+          code: "LOCKFILE_WRITE_FAILED",
+          what: "write failed",
         });
 
         // Full uninstall now swallows removeSkill errors (catchAll in the handler)

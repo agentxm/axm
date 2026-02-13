@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import YAML from "yaml";
 import type { Lockfile, SkillLockEntry } from "./schema.js";
-import { LockfileParseError, readLockfile, writeLockfile } from "./lockfile.js";
+import { CliError } from "../cli-error/index.js";
+import { readLockfile, writeLockfile } from "./lockfile.js";
 
 describe("lockfile", () => {
   let tempDir: string;
@@ -82,7 +83,7 @@ describe("lockfile", () => {
       ),
     );
 
-    it.effect("returns LockfileParseError for invalid YAML", () =>
+    it.effect("returns CliError for invalid YAML", () =>
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
@@ -90,13 +91,14 @@ describe("lockfile", () => {
 
           const error = yield* readLockfile(axmDir).pipe(Effect.flip);
 
-          expect(error).toBeInstanceOf(LockfileParseError);
-          expect(error._tag).toBe("LockfileParseError");
+          expect(error).toBeInstanceOf(CliError);
+          expect(error._tag).toBe("CliError");
+          expect(error.code).toBe("LOCKFILE_PARSE_FAILED");
         }),
       ),
     );
 
-    it.effect("returns LockfileParseError for null content", () =>
+    it.effect("returns CliError for null content", () =>
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
@@ -104,13 +106,14 @@ describe("lockfile", () => {
 
           const error = yield* readLockfile(axmDir).pipe(Effect.flip);
 
-          expect(error).toBeInstanceOf(LockfileParseError);
-          expect(error._tag).toBe("LockfileParseError");
+          expect(error).toBeInstanceOf(CliError);
+          expect(error._tag).toBe("CliError");
+          expect(error.code).toBe("LOCKFILE_PARSE_FAILED");
         }),
       ),
     );
 
-    it.effect("returns LockfileParseError when lockfileVersion is missing", () =>
+    it.effect("returns CliError when lockfileVersion is missing", () =>
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
@@ -118,8 +121,9 @@ describe("lockfile", () => {
 
           const error = yield* readLockfile(axmDir).pipe(Effect.flip);
 
-          expect(error).toBeInstanceOf(LockfileParseError);
-          expect(error._tag).toBe("LockfileParseError");
+          expect(error).toBeInstanceOf(CliError);
+          expect(error._tag).toBe("CliError");
+          expect(error.code).toBe("LOCKFILE_PARSE_FAILED");
         }),
       ),
     );

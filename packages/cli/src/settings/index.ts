@@ -19,16 +19,12 @@ export {
 } from "./schema.js";
 
 // Settings I/O
-export type { SettingsError } from "./settings.js";
 export {
   createDefaultSettings,
   DEFAULT_SCOPE,
   orderSettingsKeys,
   readSettings,
   SETTINGS_FILENAME,
-  SettingsNotFoundError,
-  SettingsParseError,
-  SettingsWriteError,
   writeSettings,
 } from "./settings.js";
 

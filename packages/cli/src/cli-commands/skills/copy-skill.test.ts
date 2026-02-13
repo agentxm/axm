@@ -114,15 +114,13 @@ describe("copySkill", () => {
       }),
     );
 
-    it.effect("fails with OperationError when source does not exist", () =>
+    it.effect("fails with CliError when source does not exist", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
 
         const result = yield* copySkill(makeOp({ location: "file:///nonexistent/path" })).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catchTag("OperationError", (e) =>
-            Effect.succeed({ result: "error" as const, message: e.message }),
-          ),
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");

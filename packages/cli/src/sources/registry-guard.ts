@@ -8,9 +8,9 @@
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { makeCliError } from "../cli-error/index.js";
 import { TextInput } from "../tui/index.js";
 import { Workspace } from "../workspace/index.js";
-import { RegistryNotConfiguredError } from "./provider.js";
 
 /**
  * Ensure at least one registry source is configured.
@@ -18,7 +18,7 @@ import { RegistryNotConfiguredError } from "./provider.js";
  * - If already configured: no-op
  * - If NOT configured:
  *   - Interactive mode: prompt for local registry path, persist via addConfiguredSource
- *   - Non-interactive mode: fail with RegistryNotConfiguredError
+ *   - Non-interactive mode: fail with CliError (REGISTRY_NOT_CONFIGURED)
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -31,8 +31,10 @@ export const registryGuard = Effect.gen(function* () {
 
   // Not configured in non-interactive mode - fail
   if (workspace.nonInteractive) {
-    return yield* new RegistryNotConfiguredError({
-      message: `No registry source configured. Add one to .axm/settings.json:\n\n{\n  "sources": [\n    { "name": "local", "type": "registry", "url": "/path/to/registry" }\n  ]\n}`,
+    return yield* makeCliError({
+      code: "REGISTRY_NOT_CONFIGURED",
+      what: `No registry source configured`,
+      howToFix: `Add a registry source to .axm/settings.json:\n\n{\n  "sources": [\n    { "name": "local", "type": "registry", "url": "/path/to/registry" }\n  ]\n}`,
     });
   }
 

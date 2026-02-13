@@ -8,10 +8,10 @@
  * @packageDocumentation
  */
 
-import * as Data from "effect/Data";
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 
+import type { CliError } from "../cli-error/index.js";
 import type { ExtensionType } from "../extensions/common.js";
 import type { Skill } from "../extensions/skills/types.js";
 import type { SourceInput } from "./types.js";
@@ -103,42 +103,6 @@ export interface ExtensionFiles {
 }
 
 // -----------------------------------------------------------------------------
-// Errors
-// -----------------------------------------------------------------------------
-
-/**
- * Error for source provider operations (find/fetch).
- *
- * Subsumes existing `DiscoveryError` and `CloneUrlError` as providers
- * replace the current discovery code.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class SourceError extends Data.TaggedError("SourceError")<{
-  readonly message: string;
-  readonly cause: unknown;
-}> {}
-
-/**
- * Error for registry-specific operations (fetchIndex, publishVersion, etc.).
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class RegistryError extends Data.TaggedError("RegistryError")<{
-  readonly message: string;
-  readonly cause: unknown;
-}> {}
-
-/**
- * Error when no registry source is configured.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class RegistryNotConfiguredError extends Data.TaggedError("RegistryNotConfiguredError")<{
-  readonly message: string;
-}> {}
-
-// -----------------------------------------------------------------------------
 // Provider Interface
 // -----------------------------------------------------------------------------
 
@@ -161,12 +125,12 @@ export interface SourceProvider<S extends SourceInput = SourceInput, R = never> 
   readonly find: (
     source: S,
     options: FindOptions,
-  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, SourceError, R>;
+  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, CliError, R>;
   /** Fetch and materialize extension files for a discovered ref. */
   readonly fetch: (
     source: S,
     extension: ExtensionRef,
-  ) => Effect.Effect<ExtensionFiles, SourceError, R>;
+  ) => Effect.Effect<ExtensionFiles, CliError, R>;
 }
 
 // -----------------------------------------------------------------------------

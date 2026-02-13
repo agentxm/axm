@@ -49,7 +49,6 @@ export type {
   SkillRef,
   SourceProvider,
 } from "./provider.js";
-export { RegistryError, RegistryNotConfiguredError, SourceError } from "./provider.js";
 
 // Provider implementations
 export type { RegistrySourceProvider } from "./providers/index.js";
@@ -69,9 +68,6 @@ export {
 export type { SourceProvidersService } from "./service.js";
 export { SourceProviders, SourceProvidersLive, createRegistryMetaProvider } from "./service.js";
 
-// Errors
-export { CloneUrlError, ParseError } from "./errors.js";
-
 // Input pattern classifier
 export { parseInputPattern } from "./parser.js";
 export type { InputPattern } from "./parser.js";
@@ -86,7 +82,6 @@ export { printSourceInput } from "./printer.js";
 export { buildCloneUrl, getOrigin } from "./clone-url.js";
 
 // Git operations
-export type { GitError } from "../git/index.js";
 export {
   cloneRepo,
   getCurrentCommit,
@@ -97,7 +92,6 @@ export {
 } from "../git/index.js";
 
 // GitHub API
-export type { GitHubApiError } from "./github/index.js";
 export { fetchGitHubTreeHash } from "./github/index.js";
 
 // Registry guard

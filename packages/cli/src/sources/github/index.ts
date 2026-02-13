@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-export { fetchGitHubTreeHash, GitHubApiError } from "./api.js";
+export { fetchGitHubTreeHash } from "./api.js";
 export { resolveRepo } from "./resolve-repo.js";
 export { print } from "./print.js";
 export { parseShorthand } from "./shorthand.js";

@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 
 import * as azurerepos from "./azurerepos/index.js";
 import * as bitbucket from "./bitbucket/index.js";
-import { ParseError } from "./errors.js";
+import { makeCliError, type CliError } from "../cli-error/index.js";
 import * as github from "./github/index.js";
 import * as gitlab from "./gitlab/index.js";
 import { parseLocalPath } from "./local/index.js";
@@ -38,15 +38,19 @@ const GIT_HOSTING_TYPES = new Set<SourceType>(["github", "gitlab", "bitbucket", 
 // Helpers
 // -----------------------------------------------------------------------------
 
-/** Get configured sources from workspace, mapping errors to ParseError. */
+/** Get configured sources from workspace, mapping errors to CliError. */
 const getConfiguredSources = (input: string) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
     return yield* ws
       .getConfiguredSources()
       .pipe(
-        Effect.mapError(
-          (e) => new ParseError({ message: `Failed to get configured sources: ${e._tag}`, input }),
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "SOURCE_PARSE_FAILED",
+            what: `Failed to get configured sources: ${e._tag}`,
+            details: [input],
+          }),
         ),
       );
   });
@@ -63,7 +67,7 @@ const getInstalledSkillPath = (name: string, entry: SkillLockEntry): string => {
 const parseShorthandForSource = (
   sourceType: string,
   input: string,
-): Effect.Effect<SourceInput, ParseError> => {
+): Effect.Effect<SourceInput, CliError> => {
   switch (sourceType) {
     case "github":
       return github.parseShorthand(input);
@@ -73,9 +77,10 @@ const parseShorthandForSource = (
       return bitbucket.parseShorthand(input);
     default:
       return Effect.fail(
-        new ParseError({
-          message: `Source type "${sourceType}" does not support shorthand syntax`,
-          input,
+        makeCliError({
+          code: "SOURCE_PARSE_FAILED",
+          what: `Source type "${sourceType}" does not support shorthand syntax`,
+          details: [input],
         }),
       );
   }
@@ -97,15 +102,16 @@ const routeUrlInput = (url: URL, input: string) =>
     }
 
     const sources = yield* getConfiguredSources(input);
-    const noMatch = new ParseError({
-      message: `No configured source matches URL "${url.href}"`,
-      input,
+    const noMatch = makeCliError({
+      code: "SOURCE_PARSE_FAILED",
+      what: `No configured source matches URL "${url.href}"`,
+      details: [input],
     });
 
     const tryParseUrl = (
       configUrl: URL,
       config: SourceConfig,
-      parse: (url: URL, hostname: string) => Effect.Effect<SourceInput, ParseError>,
+      parse: (url: URL, hostname: string) => Effect.Effect<SourceInput, CliError>,
     ) =>
       configUrl.hostname !== url.hostname
         ? Effect.fail(noMatch)
@@ -126,12 +132,12 @@ const routeUrlInput = (url: URL, input: string) =>
     }
 
     return yield* Effect.firstSuccessOf(attempts).pipe(
-      Effect.mapError(
-        () =>
-          new ParseError({
-            message: `No configured source matches URL "${url.href}"`,
-            input,
-          }),
+      Effect.mapError(() =>
+        makeCliError({
+          code: "SOURCE_PARSE_FAILED",
+          what: `No configured source matches URL "${url.href}"`,
+          details: [input],
+        }),
       ),
     );
   });
@@ -144,7 +150,11 @@ const routeOpaqueUrl = (url: URL, input: string) =>
   Effect.gen(function* () {
     const colonIndex = input.indexOf(":");
     if (colonIndex <= 0) {
-      return yield* new ParseError({ message: "Unable to parse source", input });
+      return yield* makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: "Unable to parse source",
+        details: [input],
+      });
     }
 
     const prefix = input.slice(0, colonIndex);
@@ -160,9 +170,10 @@ const routeOpaqueUrl = (url: URL, input: string) =>
     }
 
     // Not a config name — fail
-    return yield* new ParseError({
-      message: `No configured source matches URL "${url.href}"`,
-      input,
+    return yield* makeCliError({
+      code: "SOURCE_PARSE_FAILED",
+      what: `No configured source matches URL "${url.href}"`,
+      details: [input],
     });
   });
 
@@ -181,15 +192,16 @@ const routeScpInput = (
   Effect.gen(function* () {
     const sources = yield* getConfiguredSources(input);
     const scpInput = `${scp.user}@${scp.host}:${scp.path}`;
-    const noMatch = new ParseError({
-      message: `No configured source matches SCP address "${scpInput}"`,
-      input,
+    const noMatch = makeCliError({
+      code: "SOURCE_PARSE_FAILED",
+      what: `No configured source matches SCP address "${scpInput}"`,
+      details: [input],
     });
 
     const tryParseScp = (
       scpHostname: string,
       config: SourceConfig,
-      parse: (input: string, hostname: string) => Effect.Effect<SourceInput, ParseError>,
+      parse: (input: string, hostname: string) => Effect.Effect<SourceInput, CliError>,
     ) =>
       scp.host !== scpHostname
         ? Effect.fail(noMatch)
@@ -212,12 +224,12 @@ const routeScpInput = (
     }
 
     return yield* Effect.firstSuccessOf(attempts).pipe(
-      Effect.mapError(
-        () =>
-          new ParseError({
-            message: `No configured source matches SCP address "${scpInput}"`,
-            input,
-          }),
+      Effect.mapError(() =>
+        makeCliError({
+          code: "SOURCE_PARSE_FAILED",
+          what: `No configured source matches SCP address "${scpInput}"`,
+          details: [input],
+        }),
       ),
     );
   });
@@ -243,9 +255,10 @@ const routeShorthandInput = (prefix: string, shorthandInput: string, input: stri
       const parsedInput = yield* parseShorthandForSource(prefix, shorthandInput);
       const config = sources.find((s) => s.type === prefix);
       if (!config) {
-        return yield* new ParseError({
-          message: `No source config found for source type "${prefix}". Add a source config via settings.`,
-          input,
+        return yield* makeCliError({
+          code: "SOURCE_PARSE_FAILED",
+          what: `No source config found for source type "${prefix}". Add a source config via settings.`,
+          details: [input],
         });
       }
       return { ...parsedInput, ...config } as Source;
@@ -254,9 +267,10 @@ const routeShorthandInput = (prefix: string, shorthandInput: string, input: stri
     // Config-name prefix → find config, parse with its source type parser
     const matchedConfig = sources.find((s) => s.name === prefix);
     if (!matchedConfig || !GIT_HOSTING_TYPES.has(matchedConfig.type as SourceType)) {
-      return yield* new ParseError({
-        message: `Unknown shorthand prefix: "${prefix}"`,
-        input,
+      return yield* makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: `Unknown shorthand prefix: "${prefix}"`,
+        details: [input],
       });
     }
 
@@ -277,14 +291,19 @@ const routeNameInput = (name: string, input: string) =>
     const skills = yield* ws
       .getLockedSkills()
       .pipe(
-        Effect.mapError(
-          (e) => new ParseError({ message: `Failed to read lockfile: ${e._tag}`, input }),
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "SOURCE_PARSE_FAILED",
+            what: `Failed to read lockfile: ${e._tag}`,
+            details: [input],
+          }),
         ),
       );
     if (!(name in skills)) {
-      return yield* new ParseError({
-        message: `Unknown skill "${name}". Check installed skills with \`axm skills list\`.`,
-        input,
+      return yield* makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: `Unknown skill "${name}". Check installed skills with \`axm skills list\`.`,
+        details: [input],
       });
     }
     return (yield* parseLocalPath(getInstalledSkillPath(name, skills[name]!))) as Source;
@@ -323,19 +342,20 @@ const routeSlashInput = (
     });
 
     if (Array.isEmptyReadonlyArray(attempts)) {
-      return yield* new ParseError({
-        message: `Ambiguous pattern '${pattern.owner}/${pattern.repo}' — no git hosting sources configured`,
-        input,
+      return yield* makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: `Ambiguous pattern '${pattern.owner}/${pattern.repo}' — no git hosting sources configured`,
+        details: [input],
       });
     }
 
     return yield* Effect.firstSuccessOf(attempts).pipe(
-      Effect.mapError(
-        () =>
-          new ParseError({
-            message: `Ambiguous pattern '${pattern.owner}/${pattern.repo}' — use github:${pattern.owner}/${pattern.repo}, gitlab:${pattern.owner}/${pattern.repo}, or bitbucket:${pattern.owner}/${pattern.repo}`,
-            input,
-          }),
+      Effect.mapError(() =>
+        makeCliError({
+          code: "SOURCE_PARSE_FAILED",
+          what: `Ambiguous pattern '${pattern.owner}/${pattern.repo}' — use github:${pattern.owner}/${pattern.repo}, gitlab:${pattern.owner}/${pattern.repo}, or bitbucket:${pattern.owner}/${pattern.repo}`,
+          details: [input],
+        }),
       ),
     );
   });
@@ -354,18 +374,26 @@ const routeSlashInput = (
  *
  * @experimental This API is unstable and may change without notice.
  * @param input - The source string to resolve
- * @returns Effect containing a resolved Source or ParseError
+ * @returns Effect containing a resolved Source or CliError
  */
-export const resolveSource = (input: string): Effect.Effect<Source, ParseError, Workspace> =>
+export const resolveSource = (input: string): Effect.Effect<Source, CliError, Workspace> =>
   Effect.gen(function* () {
     const trimmed = input.trim();
     if (!trimmed) {
-      return yield* new ParseError({ message: "Source string cannot be empty", input });
+      return yield* makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: "Source string cannot be empty",
+        details: [input],
+      });
     }
 
     const patternOpt = parseInputPattern(trimmed);
     if (Option.isNone(patternOpt)) {
-      return yield* new ParseError({ message: "Unable to parse source", input });
+      return yield* makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: "Unable to parse source",
+        details: [input],
+      });
     }
 
     const pattern = patternOpt.value;

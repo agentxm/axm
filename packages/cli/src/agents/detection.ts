@@ -10,25 +10,11 @@
 
 import * as path from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import { type CliError, makeCliError } from "../cli-error/index.js";
 import { home } from "./constants.js";
 import { getAllAgents } from "./registry.js";
 import type { AgentDescriptor } from "./types.js";
-
-// -----------------------------------------------------------------------------
-// Errors
-// -----------------------------------------------------------------------------
-
-/**
- * Error thrown when agent detection fails.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class DetectionError extends Data.TaggedError("DetectionError")<{
-  readonly message: string;
-  readonly cause?: unknown;
-}> {}
 
 // -----------------------------------------------------------------------------
 // Detection Functions
@@ -53,7 +39,7 @@ export class DetectionError extends Data.TaggedError("DetectionError")<{
 export const detectAgent = (
   agent: AgentDescriptor,
   projectDir: string,
-): Effect.Effect<boolean, DetectionError, FileSystem.FileSystem> =>
+): Effect.Effect<boolean, CliError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
 
@@ -71,12 +57,12 @@ export const detectAgent = (
 
     return projectExists || globalExists;
   }).pipe(
-    Effect.mapError(
-      (error) =>
-        new DetectionError({
-          message: `Failed to detect ${agent.name}`,
-          cause: error,
-        }),
+    Effect.mapError((error) =>
+      makeCliError({
+        code: "AGENT_DETECTION_FAILED",
+        what: `Failed to detect ${agent.name}`,
+        cause: error,
+      }),
     ),
   );
 
@@ -93,7 +79,7 @@ export const detectAgent = (
  */
 export const detectAgents = (
   projectDir: string,
-): Effect.Effect<AgentDescriptor[], DetectionError, FileSystem.FileSystem> =>
+): Effect.Effect<AgentDescriptor[], CliError, FileSystem.FileSystem> =>
   Effect.filter(getAllAgents(), (agent) => detectAgent(agent, projectDir), {
     concurrency: "unbounded",
   });

@@ -10,8 +10,9 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import { type Log, makeLogTestLayer, type Confirm, makeConfirmTestLayer } from "../tui/index.js";
 import type { Settings } from "../settings/index.js";
+import { CliError } from "../cli-error/index.js";
 import { Workspace } from "./service.js";
-import { ensureAgentsConfigured, EnsureAgentsError } from "./ensure-agents.js";
+import { ensureAgentsConfigured } from "./ensure-agents.js";
 
 // Mock TTY utilities so isInteractive() returns true in tests
 vi.mock("../utils/tty.js", () => ({
@@ -106,7 +107,7 @@ describe("ensureAgentsConfigured", () => {
       );
     });
 
-    it.effect("fails with EnsureAgentsError when settings has no agents", () => {
+    it.effect("fails with CliError when settings has no agents", () => {
       const { TestLayer } = makeTestLayer();
       return withLayer(TestLayer)(
         Effect.gen(function* () {
@@ -114,13 +115,13 @@ describe("ensureAgentsConfigured", () => {
 
           const error = yield* ensureAgentsConfigured(baseOpts()).pipe(Effect.flip);
 
-          expect(error._tag).toBe("EnsureAgentsError");
-          expect((error as EnsureAgentsError).message).toContain("No agents configured");
+          expect(error).toBeInstanceOf(CliError);
+          expect((error as CliError).code).toBe("AGENTS_NOT_CONFIGURED");
         }),
       );
     });
 
-    it.effect("fails with EnsureAgentsError when settings has empty agents", () => {
+    it.effect("fails with CliError when settings has empty agents", () => {
       const { TestLayer } = makeTestLayer();
       return withLayer(TestLayer)(
         Effect.gen(function* () {
@@ -128,7 +129,8 @@ describe("ensureAgentsConfigured", () => {
 
           const error = yield* ensureAgentsConfigured(baseOpts()).pipe(Effect.flip);
 
-          expect(error._tag).toBe("EnsureAgentsError");
+          expect(error).toBeInstanceOf(CliError);
+          expect((error as CliError).code).toBe("AGENTS_NOT_CONFIGURED");
         }),
       );
     });
@@ -178,7 +180,8 @@ describe("ensureAgentsConfigured", () => {
             baseOpts({ agentFlags: ["fake-agent-1", "fake-agent-2"], yes: true }),
           ).pipe(Effect.flip);
 
-          expect(error._tag).toBe("EnsureAgentsError");
+          expect(error).toBeInstanceOf(CliError);
+          expect((error as CliError).code).toBe("AGENTS_NOT_CONFIGURED");
           expect(mockLog.logs.warn.some((m) => m.includes("fake-agent-1"))).toBe(true);
         }),
       );

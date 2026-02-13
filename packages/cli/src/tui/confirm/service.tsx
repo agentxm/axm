@@ -4,19 +4,19 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { PromptCancelled } from "../errors.js";
-import type { PromptError } from "../errors.js";
+import type { CliError } from "../../cli-error/index.js";
 import { ConfirmPrompt } from "./component.js";
 import type { ConfirmConfig } from "./types.js";
 
 export interface ConfirmService {
-  readonly prompt: (config: ConfirmConfig) => Effect.Effect<boolean, PromptError | PromptCancelled>;
+  readonly prompt: (config: ConfirmConfig) => Effect.Effect<boolean, CliError | PromptCancelled>;
 }
 
 export class Confirm extends Context.Tag("@axm.sh/cli/tui/Confirm")<Confirm, ConfirmService>() {}
 
 const makeLiveConfirmService = (): ConfirmService => ({
   prompt: (config) =>
-    Effect.async<boolean, PromptError | PromptCancelled>((resume) => {
+    Effect.async<boolean, CliError | PromptCancelled>((resume) => {
       const instance = render(
         <ConfirmPrompt
           config={config}

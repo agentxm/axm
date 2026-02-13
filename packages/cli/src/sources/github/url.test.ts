@@ -77,7 +77,7 @@ describe("parseUrl", () => {
         Effect.flip,
       );
 
-      expect(error._tag).toBe("ParseError");
+      expect(error._tag).toBe("CliError");
     }),
   );
 
@@ -85,7 +85,7 @@ describe("parseUrl", () => {
     Effect.gen(function* () {
       const error = yield* parseUrl(new URL("https://github.com/invalid")).pipe(Effect.flip);
 
-      expect(error._tag).toBe("ParseError");
+      expect(error._tag).toBe("CliError");
     }),
   );
 });

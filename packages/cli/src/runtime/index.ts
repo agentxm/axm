@@ -13,6 +13,7 @@ import * as Layer from "effect/Layer";
 import * as ManagedRuntime from "effect/ManagedRuntime";
 import type * as Scope from "effect/Scope";
 
+import type { CliError } from "../cli-error/index.js";
 import {
   TuiLive,
   type Log,
@@ -23,6 +24,7 @@ import {
   type Confirm,
   type Select,
   type Multiselect,
+  type PromptCancelled,
 } from "../tui/index.js";
 import { type SourceProviders, SourceProvidersLive } from "../sources/index.js";
 import {
@@ -67,19 +69,27 @@ export const Runtime = ManagedRuntime.make(AppLayer);
 
 /**
  * Run an Effect program with CLI dependencies and error handling.
- * Exit codes: 0 (prompt cancelled), 1 (expected error), 2 (defect).
+ * Exit codes: 0 (prompt cancelled), 1 (expected error).
  *
  * When workspace options are provided, the WorkspaceContext layer is
  * composed into the runtime so handlers can yield WorkspaceContextTag
  * directly.
  */
-export function run<A, E>(program: Effect.Effect<A, E, AppLayer>): Promise<A>;
-export function run<A, E>(
-  program: Effect.Effect<A, E, AppLayer | Workspace | SourceProviders | Scope.Scope>,
+export function run<A>(program: Effect.Effect<A, CliError | PromptCancelled, AppLayer>): Promise<A>;
+export function run<A>(
+  program: Effect.Effect<
+    A,
+    CliError | PromptCancelled,
+    AppLayer | Workspace | SourceProviders | Scope.Scope
+  >,
   options: { readonly workspace: WorkspaceContextOptions },
 ): Promise<A>;
-export function run<A, E>(
-  program: Effect.Effect<A, E, AppLayer | Workspace | SourceProviders | Scope.Scope>,
+export function run<A>(
+  program: Effect.Effect<
+    A,
+    CliError | PromptCancelled,
+    AppLayer | Workspace | SourceProviders | Scope.Scope
+  >,
   options?: { readonly workspace: WorkspaceContextOptions },
 ): Promise<A> {
   const provided = options?.workspace
@@ -91,7 +101,7 @@ export function run<A, E>(
           Effect.scoped,
         );
       })()
-    : (program as Effect.Effect<A, E, AppLayer>);
+    : (program as Effect.Effect<A, CliError | PromptCancelled, AppLayer>);
 
   return provided.pipe(
     Effect.onError(() =>

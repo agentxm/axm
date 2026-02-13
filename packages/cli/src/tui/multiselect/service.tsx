@@ -3,14 +3,15 @@ import { render } from "ink";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { PromptCancelled, PromptError } from "../errors.js";
+import { PromptCancelled } from "../errors.js";
+import { type CliError, makeCliError } from "../../cli-error/index.js";
 import { MultiselectPrompt } from "./component.js";
 import type { MultiselectConfig } from "./types.js";
 
 export interface MultiselectService {
   readonly prompt: <T>(
     config: MultiselectConfig<T>,
-  ) => Effect.Effect<readonly T[], PromptError | PromptCancelled>;
+  ) => Effect.Effect<readonly T[], CliError | PromptCancelled>;
 }
 
 export class Multiselect extends Context.Tag("@axm.sh/cli/tui/Multiselect")<
@@ -20,7 +21,7 @@ export class Multiselect extends Context.Tag("@axm.sh/cli/tui/Multiselect")<
 
 const makeLiveMultiselectService = (): MultiselectService => ({
   prompt: <T,>(config: MultiselectConfig<T>) =>
-    Effect.async<readonly T[], PromptError | PromptCancelled>((resume) => {
+    Effect.async<readonly T[], CliError | PromptCancelled>((resume) => {
       try {
         const instance = render(
           <MultiselectPrompt
@@ -39,8 +40,10 @@ const makeLiveMultiselectService = (): MultiselectService => ({
       } catch (error) {
         resume(
           Effect.fail(
-            new PromptError({
-              message: "Failed to render multiselect.",
+            makeCliError({
+              code: "PROMPT_RENDER_FAILED",
+              what: "Failed to render prompt",
+              howToFix: "Run with --yes to skip prompts, or ensure stdin is a terminal",
               cause: error,
             }),
           ),

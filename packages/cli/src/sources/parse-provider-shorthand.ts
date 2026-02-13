@@ -9,7 +9,7 @@
 
 import * as Effect from "effect/Effect";
 
-import { ParseError } from "./errors.js";
+import { makeCliError } from "../cli-error/index.js";
 
 /** Matches: owner/repo[/path][@ref] */
 const PROVIDER_SHORTHAND_PATTERN = /^([^/@]+)\/([^/@]+)(?:\/([^@]+))?(?:@(.+))?$/;
@@ -17,13 +17,17 @@ const PROVIDER_SHORTHAND_PATTERN = /^([^/@]+)\/([^/@]+)(?:\/([^@]+))?(?:@(.+))?$
 /**
  * Parse the body of a provider shorthand (the part after the `prefix:` prefix).
  *
- * Returns `{ owner, repo, subPath?, ref? }` or fails with ParseError.
+ * Returns `{ owner, repo, subPath?, ref? }` or fails with CliError.
  */
 export const parseProviderShorthand = (input: string, original: string) =>
   Effect.gen(function* () {
     const match = input.match(PROVIDER_SHORTHAND_PATTERN);
     if (!match || !match[1] || !match[2]) {
-      return yield* new ParseError({ message: "Invalid shorthand format", input: original });
+      return yield* makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: "Invalid shorthand format",
+        details: [original],
+      });
     }
 
     return {

@@ -4,7 +4,9 @@ import * as path from "node:path";
 import * as NodeContext from "@effect/platform-node/NodeContext";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
+import { CliError } from "../cli-error/index.js";
 import { createDefaultSettings, readSettings, writeSettings } from "./settings.js";
 import type { Settings } from "./schema.js";
 
@@ -32,11 +34,11 @@ describe("settings", () => {
   });
 
   describe("readSettings", () => {
-    it.effect("returns SettingsNotFoundError when file does not exist", () =>
+    it.effect("returns Option.none() when file does not exist", () =>
       withContext(
         Effect.gen(function* () {
-          const error = yield* readSettings(axmDir).pipe(Effect.flip);
-          expect(error._tag).toBe("SettingsNotFoundError");
+          const result = yield* readSettings(axmDir);
+          expect(Option.isNone(result)).toBe(true);
         }),
       ),
     );
@@ -55,8 +57,10 @@ describe("settings", () => {
 
           const result = yield* readSettings(axmDir);
 
-          expect(result.agents).toEqual(["claude-code"]);
-          expect(result.skills?.["commit"]).toBe("^1.0.0");
+          expect(Option.isSome(result)).toBe(true);
+          const value = Option.getOrThrow(result);
+          expect(value.agents).toEqual(["claude-code"]);
+          expect(value.skills?.["commit"]).toBe("^1.0.0");
         }),
       ),
     );
@@ -70,9 +74,11 @@ describe("settings", () => {
 
           const result = yield* readSettings(axmDir);
 
-          expect(result.scope).toBe("@myorg");
-          expect(result.agents).toBeUndefined();
-          expect(result.skills).toBeUndefined();
+          expect(Option.isSome(result)).toBe(true);
+          const value = Option.getOrThrow(result);
+          expect(value.scope).toBe("@myorg");
+          expect(value.agents).toBeUndefined();
+          expect(value.skills).toBeUndefined();
         }),
       ),
     );
@@ -85,19 +91,21 @@ describe("settings", () => {
 
           const result = yield* readSettings(axmDir);
 
-          expect(result).toEqual({});
+          expect(Option.isSome(result)).toBe(true);
+          expect(Option.getOrThrow(result)).toEqual({});
         }),
       ),
     );
 
-    it.effect("returns SettingsParseError for invalid JSON", () =>
+    it.effect("returns CliError with SETTINGS_PARSE_FAILED for invalid JSON", () =>
       withContext(
         Effect.gen(function* () {
           fs.mkdirSync(axmDir, { recursive: true });
           fs.writeFileSync(path.join(axmDir, "settings.json"), "not valid json");
 
           const error = yield* readSettings(axmDir).pipe(Effect.flip);
-          expect(error._tag).toBe("SettingsParseError");
+          expect(error).toBeInstanceOf(CliError);
+          expect(error.code).toBe("SETTINGS_PARSE_FAILED");
         }),
       ),
     );
@@ -164,7 +172,8 @@ describe("settings", () => {
           yield* writeSettings(axmDir, newSettings);
 
           const result = yield* readSettings(axmDir);
-          expect(result.agents).toEqual(["windsurf"]);
+          expect(Option.isSome(result)).toBe(true);
+          expect(Option.getOrThrow(result).agents).toEqual(["windsurf"]);
         }),
       ),
     );

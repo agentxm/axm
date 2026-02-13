@@ -9,8 +9,7 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { makeLogTestLayer } from "../../../tui/index.js";
-import { SettingsWriteError } from "../../../settings/index.js";
-import { LockfileWriteError } from "../../../lockfile/index.js";
+import { makeCliError } from "../../../cli-error/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import type { InstallSkillOperation } from "../operations.js";
 import { installSkill } from "./install-skill.js";
@@ -61,10 +60,10 @@ const makeWorkspaceMock = (
               writeLf(lf);
             },
             catch: (error) =>
-              new LockfileWriteError({
-                message: "Mock write failed",
+              makeCliError({
+                code: "LOCKFILE_WRITE_FAILED",
+                what: "Mock write failed",
                 cause: error,
-                retryable: false,
               }),
           }),
     removeSkill: () => Effect.void,
@@ -225,9 +224,9 @@ describe("installSkill", () => {
         const { axmDir } = setupBase();
         const setSkillFn = vi.fn(() =>
           Effect.fail(
-            new SettingsWriteError({
-              path: "",
-              message: "write failed",
+            makeCliError({
+              code: "SETTINGS_WRITE_FAILED",
+              what: "write failed",
               cause: new Error("write failed"),
             }),
           ),
@@ -289,16 +288,14 @@ describe("installSkill", () => {
   });
 
   describe("error cases", () => {
-    it.effect("yields OperationError on copy failure when location is invalid", () =>
+    it.effect("yields CliError on copy failure when location is invalid", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
 
         const result = yield* installSkill(makeOp({ location: "file:///nonexistent/path" })).pipe(
           Effect.provide(withServices(axmDir)),
-          // OperationError is in the E channel — catch it as applyPlan would
-          Effect.catchTag("OperationError", (e) =>
-            Effect.succeed({ result: "error" as const, message: e.message }),
-          ),
+          // CliError is in the E channel — catch it as applyPlan would
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");
@@ -306,7 +303,7 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("yields OperationError on copy failure (non-existent source)", () =>
+    it.effect("yields CliError on copy failure (non-existent source)", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
 
@@ -317,9 +314,7 @@ describe("installSkill", () => {
           }),
         ).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catchTag("OperationError", (e) =>
-            Effect.succeed({ result: "error" as const, message: e.message }),
-          ),
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");

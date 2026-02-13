@@ -9,7 +9,7 @@ import { SpinnerLive } from "./spinner/index.js";
 import { TextInputLive } from "./text-input/index.js";
 
 // Errors
-export { PromptCancelled, PromptError } from "./errors.js";
+export { PromptCancelled } from "./errors.js";
 
 // Log
 export { Log, LogLive, type LogService } from "./log/index.js";

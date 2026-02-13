@@ -144,8 +144,8 @@ describe("axm init", () => {
       try {
         const result = await runCli(["init", "--non-interactive"], { cwd: temp.path });
 
-        // Should fail since prompting would be needed (exit 2 = unhandled domain error)
-        expect(result.exitCode).toBe(2);
+        // Should fail since prompting would be needed (exit 1 = CliError)
+        expect(result.exitCode).toBe(1);
         expect(result.stderr).toContain("non-interactive");
       } finally {
         temp.cleanup();

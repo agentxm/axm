@@ -16,10 +16,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
-import type { SettingsError } from "../settings/index.js";
+import type { CliError } from "../cli-error/index.js";
+import { makeCliError } from "../cli-error/index.js";
 import { Workspace } from "../workspace/service.js";
 import type { ExtensionFiles, ExtensionRef, FindOptions, SourceProvider } from "./provider.js";
-import { SourceError } from "./provider.js";
 import {
   createAzureReposProvider,
   createBitbucketProvider,
@@ -48,9 +48,9 @@ export interface SourceProvidersService {
   readonly resolveExtension: (
     source: Source,
     options: FindOptions,
-  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, SourceError | SettingsError, Scope.Scope>;
+  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, CliError, Scope.Scope>;
   /** Fetch and materialize extension files for a discovered ref. */
-  readonly fetch: (ref: ExtensionRef) => Effect.Effect<ExtensionFiles, SourceError, Scope.Scope>;
+  readonly fetch: (ref: ExtensionRef) => Effect.Effect<ExtensionFiles, CliError, Scope.Scope>;
 }
 
 /**
@@ -102,14 +102,15 @@ export const createRegistryMetaProvider = (): SourceProvider<
           ? Option.fromNullable(options.names.find((n) => n.startsWith("@"))?.split("/")[0] ?? null)
           : Option.none<string>();
 
-      const registrySources = yield* ws
-        .getConfiguredRegistrySources(scope)
-        .pipe(
-          Effect.mapError(
-            (e) =>
-              new SourceError({ message: `Failed to get registry sources: ${e._tag}`, cause: e }),
-          ),
-        );
+      const registrySources = yield* ws.getConfiguredRegistrySources(scope).pipe(
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: `Failed to get registry sources: ${e._tag}`,
+            cause: e,
+          }),
+        ),
+      );
 
       if (registrySources.length === 0) {
         return [] as ReadonlyArray<ExtensionRef>;
@@ -203,17 +204,13 @@ export const SourceProvidersLive: Layer.Layer<
           .find(source, options)
           .pipe(Effect.provide(depLayer)) as Effect.Effect<
           ReadonlyArray<ExtensionRef>,
-          SourceError | SettingsError,
+          CliError,
           Scope.Scope
         >,
       fetch: (ref) =>
         providers[ref.source.type]
           .fetch(ref.source, ref)
-          .pipe(Effect.provide(depLayer)) as Effect.Effect<
-          ExtensionFiles,
-          SourceError,
-          Scope.Scope
-        >,
+          .pipe(Effect.provide(depLayer)) as Effect.Effect<ExtensionFiles, CliError, Scope.Scope>,
     };
   }),
 );

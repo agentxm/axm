@@ -25,7 +25,7 @@ describe("createGitProvider", () => {
     );
     expect(result._tag).toBe("Left");
     if (result._tag === "Left") {
-      expect(result.left.message).toContain("not yet supported");
+      expect(result.left.what).toContain("not yet supported");
     }
   });
 

@@ -1,18 +1,9 @@
 import * as nodePath from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { makeCliError } from "../cli-error/index.js";
 import { resolveParentSymlinks } from "./resolve-parent-symlinks.js";
-
-/**
- * Typed error for symlink creation failures.
- * Callers can catch this to fall back to copy mode.
- */
-export class SymlinkError extends Data.TaggedError("SymlinkError")<{
-  readonly message: string;
-  readonly cause: unknown;
-}> {}
 
 /**
  * Result of a createSymlink operation.
@@ -32,17 +23,18 @@ export type SymlinkResult = "created" | "replaced" | "no-op" | "skipped";
  * Relative paths are computed using resolved parent directories to handle
  * cases where parent directories are themselves symlinks.
  */
-export const createSymlink = (opts: {
-  readonly target: string;
-  readonly link: string;
-}): Effect.Effect<SymlinkResult, SymlinkError, FileSystem.FileSystem> =>
+export const createSymlink = (opts: { readonly target: string; readonly link: string }) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
 
     // Resolve both paths through parent symlinks for accurate comparison
     const resolvedTarget = yield* resolveParentSymlinks(opts.target).pipe(
-      Effect.mapError(
-        (e) => new SymlinkError({ message: `Failed to resolve target path`, cause: e }),
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "SYMLINK_CREATE_FAILED",
+          what: `Failed to resolve target path`,
+          cause: e,
+        }),
       ),
     );
     const resolvedLink = yield* resolveParentSymlinks(opts.link).pipe(
@@ -66,12 +58,12 @@ export const createSymlink = (opts: {
     // If something exists that needs replacing, remove it
     if (existingResult === "replace") {
       yield* fs.remove(opts.link, { recursive: true }).pipe(
-        Effect.mapError(
-          (e) =>
-            new SymlinkError({
-              message: `Failed to remove existing path at ${opts.link}`,
-              cause: e,
-            }),
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "SYMLINK_CREATE_FAILED",
+            what: `Failed to remove existing path at ${opts.link}`,
+            cause: e,
+          }),
         ),
       );
     }
@@ -79,29 +71,28 @@ export const createSymlink = (opts: {
     // Create parent directories
     const linkParent = nodePath.dirname(opts.link);
     yield* fs.makeDirectory(linkParent, { recursive: true }).pipe(
-      Effect.mapError(
-        (e) =>
-          new SymlinkError({
-            message: `Failed to create parent directory ${linkParent}`,
-            cause: e,
-          }),
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "SYMLINK_CREATE_FAILED",
+          what: `Failed to create parent directory ${linkParent}`,
+          cause: e,
+        }),
       ),
     );
 
     // Create the symlink
-    yield* fs
-      .symlink(relTarget, opts.link)
-      .pipe(
-        Effect.mapError(
-          (e) =>
-            new SymlinkError({ message: `Failed to create symlink at ${opts.link}`, cause: e }),
-        ),
-      );
+    yield* fs.symlink(relTarget, opts.link).pipe(
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "SYMLINK_CREATE_FAILED",
+          what: `Failed to create symlink at ${opts.link}`,
+          cause: e,
+        }),
+      ),
+    );
 
     return existingResult === "replace" ? ("replaced" as const) : ("created" as const);
   });
-
-type InspectResult = "no-op" | "replace" | "create";
 
 /**
  * Inspect what exists at the link path.
@@ -110,11 +101,7 @@ type InspectResult = "no-op" | "replace" | "create";
  * follows symlinks — there is no lstat equivalent). Falls back to stat
  * for non-symlink entries.
  */
-const inspectExisting = (
-  fs: FileSystem.FileSystem,
-  linkPath: string,
-  resolvedAbsTarget: string,
-): Effect.Effect<InspectResult, SymlinkError, never> =>
+const inspectExisting = (fs: FileSystem.FileSystem, linkPath: string, resolvedAbsTarget: string) =>
   Effect.gen(function* () {
     // Try readLink first — succeeds only if linkPath is a symlink
     const linkTarget = yield* fs.readLink(linkPath).pipe(Effect.option);

@@ -22,7 +22,6 @@ export { displayPlan } from "./display-plan.js";
 // Plan apply
 export {
   applyPlan,
-  OperationError,
   type ExecutionContext,
   type Handlers,
   type OperationHandler,
@@ -32,7 +31,6 @@ export {
 export { getAxmDir, getGlobalDir, getProjectDir } from "./paths.js";
 
 // Workspace context service (for CLI commands)
-export { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./errors.js";
 export {
   layer,
   type WorkspaceContextService,

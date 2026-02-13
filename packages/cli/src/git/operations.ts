@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import simpleGit, { type SimpleGit, type SimpleGitOptions } from "simple-git";
 
-import { GitError } from "./errors.js";
+import { type CliError, makeCliError } from "../cli-error/index.js";
 
 // -----------------------------------------------------------------------------
 // Internal Helpers
@@ -31,25 +31,36 @@ const createGit = (baseDir?: string): SimpleGit => {
   return simpleGit(options);
 };
 
+type GitOperation =
+  | "clone"
+  | "checkout"
+  | "resolve-ref"
+  | "get-commit"
+  | "get-tree-sha"
+  | "is-git-repo";
+
+const operationToCode: Record<GitOperation, string> = {
+  clone: "GIT_CLONE_FAILED",
+  checkout: "GIT_CHECKOUT_FAILED",
+  "resolve-ref": "GIT_RESOLVE_REF_FAILED",
+  "get-commit": "GIT_GET_COMMIT_FAILED",
+  "get-tree-sha": "GIT_GET_TREE_SHA_FAILED",
+  "is-git-repo": "GIT_IS_GIT_REPO_FAILED",
+};
+
 /**
- * Maps unknown errors to GitError with appropriate context.
+ * Maps unknown errors to CliError with appropriate context.
  */
 const mapGitError =
-  (operation: GitError["operation"], context?: string) =>
-  (error: unknown): GitError => {
+  (operation: GitOperation, context?: string) =>
+  (error: unknown): CliError => {
     const baseMessage = context ?? `Git ${operation} failed`;
+    const details = error instanceof Error ? [error.message] : [String(error)];
 
-    if (error instanceof Error) {
-      return new GitError({
-        operation,
-        message: `${baseMessage}: ${error.message}`,
-        cause: error,
-      });
-    }
-
-    return new GitError({
-      operation,
-      message: `${baseMessage}: ${String(error)}`,
+    return makeCliError({
+      code: operationToCode[operation],
+      what: baseMessage,
+      details,
       cause: error,
     });
   };
@@ -69,11 +80,7 @@ const mapGitError =
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const cloneRepo = (
-  url: string,
-  destination: string,
-  ref?: string,
-): Effect.Effect<void, GitError> =>
+export const cloneRepo = (url: string, destination: string, ref?: string) =>
   Effect.gen(function* () {
     // Clone the repository
     yield* Effect.tryPromise({
@@ -101,11 +108,7 @@ export const cloneRepo = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const shallowClone = (
-  url: string,
-  destination: string,
-  ref?: string,
-): Effect.Effect<void, GitError> =>
+export const shallowClone = (url: string, destination: string, ref?: string) =>
   Effect.tryPromise({
     try: () =>
       createGit().clone(url, destination, [
@@ -126,7 +129,7 @@ export const shallowClone = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const resolveRef = (repoPath: string, ref: string): Effect.Effect<string, GitError> =>
+export const resolveRef = (repoPath: string, ref: string) =>
   Effect.tryPromise({
     try: async () => {
       const git = createGit(repoPath);
@@ -146,7 +149,7 @@ export const resolveRef = (repoPath: string, ref: string): Effect.Effect<string,
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const getCurrentCommit = (repoPath: string): Effect.Effect<string, GitError> =>
+export const getCurrentCommit = (repoPath: string) =>
   Effect.tryPromise({
     try: async () => {
       const git = createGit(repoPath);
@@ -168,7 +171,7 @@ export const getCurrentCommit = (repoPath: string): Effect.Effect<string, GitErr
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const getTreeSha = (repoPath: string, subPath = "."): Effect.Effect<string, GitError> =>
+export const getTreeSha = (repoPath: string, subPath = ".") =>
   Effect.tryPromise({
     try: async () => {
       const git = createGit(repoPath);
@@ -205,7 +208,7 @@ export const getTreeSha = (repoPath: string, subPath = "."): Effect.Effect<strin
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const isGitRepository = (dirPath: string): Effect.Effect<boolean, never> =>
+export const isGitRepository = (dirPath: string) =>
   Effect.tryPromise({
     try: () => createGit(dirPath).revparse(["--git-dir"]),
     catch: mapGitError("is-git-repo", `Failed to check git repository at '${dirPath}'`),

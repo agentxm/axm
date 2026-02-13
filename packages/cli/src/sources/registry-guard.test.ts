@@ -3,10 +3,10 @@ import { describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { CliError } from "../cli-error/index.js";
 import type { SourceConfig } from "../settings/index.js";
 import { makeTextInputTestLayer } from "../tui/index.js";
 import { Workspace, type WorkspaceContextService } from "../workspace/index.js";
-import { RegistryNotConfiguredError } from "./provider.js";
 import { registryGuard } from "./registry-guard.js";
 
 describe("registryGuard", () => {
@@ -62,7 +62,7 @@ describe("registryGuard", () => {
     }),
   );
 
-  it.effect("fails with RegistryNotConfiguredError in non-interactive mode", () =>
+  it.effect("fails with CliError in non-interactive mode", () =>
     Effect.gen(function* () {
       const workspaceLayer = makeWorkspaceLayer({
         registrySources: [],
@@ -73,8 +73,11 @@ describe("registryGuard", () => {
 
       const result = yield* registryGuard.pipe(Effect.provide(testLayer), Effect.flip);
 
-      expect(result).toBeInstanceOf(RegistryNotConfiguredError);
-      expect(result.message).toContain("No registry source configured");
+      expect(result).toBeInstanceOf(CliError);
+      if (result instanceof CliError) {
+        expect(result.code).toBe("REGISTRY_NOT_CONFIGURED");
+        expect(result.what).toContain("No registry source configured");
+      }
     }),
   );
 

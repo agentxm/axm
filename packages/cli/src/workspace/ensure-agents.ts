@@ -9,27 +9,14 @@
  */
 
 import * as Array from "effect/Array";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { pipe } from "effect/Function";
 import { type AgentDescriptor, getAgentById } from "../agents/index.js";
+import { makeCliError } from "../cli-error/index.js";
 import { Confirm, Log } from "../tui/index.js";
 import { Workspace } from "./service.js";
 import { isInteractive } from "../utils/tty.js";
-
-// -----------------------------------------------------------------------------
-// Error
-// -----------------------------------------------------------------------------
-
-/**
- * Error when no agents are configured or resolved.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class EnsureAgentsError extends Data.TaggedError("EnsureAgentsError")<{
-  readonly message: string;
-}> {}
 
 // -----------------------------------------------------------------------------
 // Options
@@ -66,7 +53,7 @@ export interface EnsureAgentsOptions {
  * 1. Reads agents from settings
  * 2. Resolves to AgentDescriptor[]
  *
- * Fails with EnsureAgentsError if no agents result.
+ * Fails with CliError (code AGENTS_NOT_CONFIGURED) if no agents result.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -108,7 +95,7 @@ export const ensureAgentsConfigured = (opts: EnsureAgentsOptions) =>
             const confirm = yield* Confirm;
             shouldAdd = yield* confirm.prompt({ message: `Add ${names} to workspace?` }).pipe(
               Effect.catchTag("PromptCancelled", () => Effect.succeed(false)),
-              Effect.catchTag("PromptError", () => Effect.succeed(false)),
+              Effect.catchAll(() => Effect.succeed(false)),
             );
           }
 
@@ -130,9 +117,13 @@ export const ensureAgentsConfigured = (opts: EnsureAgentsOptions) =>
     }
 
     if (agents.length === 0) {
-      return yield* new EnsureAgentsError({
-        message: "No agents configured. Run 'axm init' first or use --agent to specify agents.",
-      });
+      return yield* Effect.fail(
+        makeCliError({
+          code: "AGENTS_NOT_CONFIGURED",
+          what: "No agents configured",
+          howToFix: "Run 'axm init' first or use --agent to specify agents",
+        }),
+      );
     }
 
     return agents;

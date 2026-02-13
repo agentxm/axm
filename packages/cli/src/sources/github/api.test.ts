@@ -6,8 +6,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import { fetchGitHubTreeHash, GitHubApiError } from "./api.js";
+import { CliError } from "../../cli-error/index.js";
+import { fetchGitHubTreeHash } from "./api.js";
 
 describe("github-api", () => {
   const originalFetch = global.fetch;
@@ -188,43 +188,43 @@ describe("github-api", () => {
     });
 
     describe("API error cases", () => {
-      it.effect("fails with GitHubApiError on rate limit (403)", () =>
+      it.effect("fails with CliError on rate limit (403)", () =>
         Effect.gen(function* () {
           mockFetchError(403, "API rate limit exceeded");
 
           const error = yield* fetchGitHubTreeHash("owner", "repo", "main", "").pipe(Effect.flip);
 
-          expect(error).toBeInstanceOf(GitHubApiError);
-          expect(error._tag).toBe("GitHubApiError");
-          expect(Option.getOrNull(error.status)).toBe(403);
-          expect(error.message).toContain("403");
+          expect(error).toBeInstanceOf(CliError);
+          expect(error._tag).toBe("CliError");
+          expect(error.code).toBe("GITHUB_API_FAILED");
+          expect(error.what).toContain("403");
         }),
       );
 
-      it.effect("fails with GitHubApiError on server error (500)", () =>
+      it.effect("fails with CliError on server error (500)", () =>
         Effect.gen(function* () {
           mockFetchError(500, "Internal Server Error");
 
           const error = yield* fetchGitHubTreeHash("owner", "repo", "main", "").pipe(Effect.flip);
 
-          expect(error).toBeInstanceOf(GitHubApiError);
-          expect(Option.getOrNull(error.status)).toBe(500);
+          expect(error).toBeInstanceOf(CliError);
+          expect(error.code).toBe("GITHUB_API_FAILED");
+          expect(error.what).toContain("500");
         }),
       );
 
-      it.effect("fails with GitHubApiError on network failure", () =>
+      it.effect("fails with CliError on network failure", () =>
         Effect.gen(function* () {
           mockFetchNetworkError(new Error("Network request failed"));
 
           const error = yield* fetchGitHubTreeHash("owner", "repo", "main", "").pipe(Effect.flip);
 
-          expect(error).toBeInstanceOf(GitHubApiError);
-          expect(error.message).toContain("Network request failed");
-          expect(Option.getOrNull(error.cause)).toBeInstanceOf(Error);
+          expect(error).toBeInstanceOf(CliError);
+          expect(error.what).toContain("Network request failed");
         }),
       );
 
-      it.effect("fails with GitHubApiError on invalid JSON response", () =>
+      it.effect("fails with CliError on invalid JSON response", () =>
         Effect.gen(function* () {
           const mockFn = vi.fn(() =>
             Promise.resolve({
@@ -238,44 +238,10 @@ describe("github-api", () => {
 
           const error = yield* fetchGitHubTreeHash("owner", "repo", "main", "").pipe(Effect.flip);
 
-          expect(error).toBeInstanceOf(GitHubApiError);
-          expect(error.message).toContain("parse");
+          expect(error).toBeInstanceOf(CliError);
+          expect(error.what).toContain("parse");
         }),
       );
-    });
-  });
-
-  describe("GitHubApiError", () => {
-    it("is a tagged error with correct tag", () => {
-      const error = new GitHubApiError({
-        message: "Test error",
-        status: Option.none(),
-        cause: Option.none(),
-      });
-
-      expect(error._tag).toBe("GitHubApiError");
-      expect(error.message).toBe("Test error");
-    });
-
-    it("can include status code", () => {
-      const error = new GitHubApiError({
-        status: Option.some(403),
-        message: "Rate limited",
-        cause: Option.none(),
-      });
-
-      expect(Option.getOrNull(error.status)).toBe(403);
-    });
-
-    it("can include a cause", () => {
-      const cause = new Error("Original error");
-      const error = new GitHubApiError({
-        message: "Test error",
-        status: Option.none(),
-        cause: Option.some(cause),
-      });
-
-      expect(Option.getOrNull(error.cause)).toBe(cause);
     });
   });
 });

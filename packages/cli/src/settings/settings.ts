@@ -7,10 +7,11 @@
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 
 import * as Schema from "effect/Schema";
+import { makeCliError } from "../cli-error/index.js";
 import { SETTINGS_KEY_ORDER, type Settings, SettingsSchema } from "./schema.js";
 
 // -----------------------------------------------------------------------------
@@ -30,49 +31,6 @@ export const SETTINGS_FILENAME = "settings.json";
  * @experimental This API is unstable and may change without notice.
  */
 export const DEFAULT_SCOPE = "@community";
-
-// -----------------------------------------------------------------------------
-// Error Types
-// -----------------------------------------------------------------------------
-
-/**
- * Settings file not found.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class SettingsNotFoundError extends Data.TaggedError("SettingsNotFoundError")<{
-  readonly path: string;
-  readonly message: string;
-}> {}
-
-/**
- * Failed to parse settings JSON.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class SettingsParseError extends Data.TaggedError("SettingsParseError")<{
-  readonly path: string;
-  readonly message: string;
-  readonly cause: unknown;
-}> {}
-
-/**
- * Failed to write settings file.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class SettingsWriteError extends Data.TaggedError("SettingsWriteError")<{
-  readonly path: string;
-  readonly message: string;
-  readonly cause: unknown;
-}> {}
-
-/**
- * Union of all settings errors.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type SettingsError = SettingsNotFoundError | SettingsParseError | SettingsWriteError;
 
 // -----------------------------------------------------------------------------
 // Default Settings
@@ -127,31 +85,26 @@ export const readSettings = (axmDir: string) =>
 
     // Check if file exists
     const exists = yield* fs.exists(settingsPath).pipe(
-      Effect.mapError(
-        (error) =>
-          new SettingsParseError({
-            path: settingsPath,
-            message: `Failed to check if settings file exists: ${settingsPath}`,
-            cause: error,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "SETTINGS_PARSE_FAILED",
+          what: `Failed to check if settings file exists: ${settingsPath}`,
+          cause: error,
+        }),
       ),
     );
     if (!exists) {
-      return yield* new SettingsNotFoundError({
-        path: settingsPath,
-        message: `Settings file not found: ${settingsPath}`,
-      });
+      return Option.none<Settings>();
     }
 
     // Read file contents
     const content = yield* fs.readFileString(settingsPath).pipe(
-      Effect.mapError(
-        (error) =>
-          new SettingsParseError({
-            path: settingsPath,
-            message: `Failed to read settings file: ${settingsPath}`,
-            cause: error,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "SETTINGS_PARSE_FAILED",
+          what: `Failed to read settings file: ${settingsPath}`,
+          cause: error,
+        }),
       ),
     );
 
@@ -159,26 +112,25 @@ export const readSettings = (axmDir: string) =>
     const json = yield* Effect.try({
       try: () => JSON.parse(content) as unknown,
       catch: (error) =>
-        new SettingsParseError({
-          path: settingsPath,
-          message: `Failed to parse settings JSON: ${String(error)}`,
+        makeCliError({
+          code: "SETTINGS_PARSE_FAILED",
+          what: `Failed to parse settings JSON: ${String(error)}`,
           cause: error,
         }),
     });
 
     // Validate schema
     const parsed = yield* Schema.decodeUnknown(SettingsSchema)(json).pipe(
-      Effect.mapError(
-        (error) =>
-          new SettingsParseError({
-            path: settingsPath,
-            message: `Invalid settings format: ${error.message}`,
-            cause: error,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "SETTINGS_PARSE_FAILED",
+          what: `Invalid settings format: ${error.message}`,
+          cause: error,
+        }),
       ),
     );
 
-    return parsed;
+    return Option.some(parsed);
   });
 
 /**
@@ -199,13 +151,12 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
 
     // Ensure directory exists
     yield* fs.makeDirectory(axmDir, { recursive: true }).pipe(
-      Effect.mapError(
-        (error) =>
-          new SettingsWriteError({
-            path: settingsPath,
-            message: `Failed to create directory: ${axmDir}`,
-            cause: error,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "SETTINGS_WRITE_FAILED",
+          what: `Failed to create directory: ${axmDir}`,
+          cause: error,
+        }),
       ),
     );
 
@@ -214,13 +165,12 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
 
     // Write file
     yield* fs.writeFileString(settingsPath, content).pipe(
-      Effect.mapError(
-        (error) =>
-          new SettingsWriteError({
-            path: settingsPath,
-            message: `Failed to write settings file: ${settingsPath}`,
-            cause: error,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "SETTINGS_WRITE_FAILED",
+          what: `Failed to write settings file: ${settingsPath}`,
+          cause: error,
+        }),
       ),
     );
   });

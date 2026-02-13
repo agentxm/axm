@@ -8,8 +8,6 @@
  * @packageDocumentation
  */
 
-// Re-export errors
-export { ResolutionError, type ResolutionErrorCode } from "./errors.js";
 // Re-export resolver
 export { defaultResolutionOptions, resolveExtension } from "./resolver.js";
 // Re-export types

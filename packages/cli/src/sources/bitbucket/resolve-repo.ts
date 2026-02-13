@@ -1,16 +1,17 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { ParseError } from "../errors.js";
+import { makeCliError, type CliError } from "../../cli-error/index.js";
 import type { BitbucketSourceInput } from "../types.js";
 
 const headRequest = (url: string, input: string) =>
   Effect.tryPromise({
     try: () => fetch(url, { method: "HEAD" }),
     catch: (error) =>
-      new ParseError({
-        message: `Failed to check Bitbucket: ${error instanceof Error ? error.message : String(error)}`,
-        input,
+      makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: `Failed to check Bitbucket: ${error instanceof Error ? error.message : String(error)}`,
+        details: [input],
       }),
   });
 
@@ -18,7 +19,7 @@ export const resolveRepo = (args: {
   readonly owner: string;
   readonly repo: string;
   readonly subPath: Option.Option<string>;
-}): Effect.Effect<Option.Option<BitbucketSourceInput>, ParseError> =>
+}): Effect.Effect<Option.Option<BitbucketSourceInput>, CliError> =>
   Effect.gen(function* () {
     const repoUrl = `https://bitbucket.org/${args.owner}/${args.repo}`;
     const repoResponse = yield* headRequest(repoUrl, `${args.owner}/${args.repo}`);

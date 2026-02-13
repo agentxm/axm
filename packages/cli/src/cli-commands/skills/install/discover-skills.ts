@@ -15,9 +15,9 @@ import { parseManifests } from "./parse-manifests.js";
 import { parseSkillMd } from "./parse-skill-md.js";
 import type { Skill, SkillRef } from "../operations.js";
 import * as Array from "effect/Array";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { type CliError, makeCliError } from "../../../cli-error/index.js";
 
 /**
  * Build a SkillRef from a skill, its directory path, and source.
@@ -40,22 +40,6 @@ export interface DiscoveryOptions {
   /** Include skills with metadata.internal: true */
   readonly includeInternal: boolean;
 }
-
-// -----------------------------------------------------------------------------
-// Errors
-// -----------------------------------------------------------------------------
-
-/**
- * Error during skill discovery.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class DiscoveryError extends Data.TaggedError("DiscoveryError")<{
-  readonly message: string;
-  readonly path: unknown;
-  readonly cause: unknown;
-  readonly retryable: boolean;
-}> {}
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -234,7 +218,7 @@ export const discoverSkillsInDir = (
   subPath: Option.Option<string>,
   options: DiscoveryOptions,
   source: SourceInput,
-): Effect.Effect<ReadonlyArray<SkillRef>, DiscoveryError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<ReadonlyArray<SkillRef>, CliError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -247,23 +231,19 @@ export const discoverSkillsInDir = (
 
     // Verify the search root exists and is a directory
     const stat = yield* fs.stat(searchRoot).pipe(
-      Effect.mapError(
-        (error) =>
-          new DiscoveryError({
-            message: `Directory does not exist or is not accessible: ${searchRoot}`,
-            path: searchRoot,
-            cause: error,
-            retryable: false,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "SKILLS_DISCOVERY_FAILED",
+          what: `Directory does not exist or is not accessible: ${searchRoot}`,
+          cause: error,
+        }),
       ),
     );
 
     if (stat.type !== "Directory") {
-      return yield* new DiscoveryError({
-        message: `Path is not a directory: ${searchRoot}`,
-        path: searchRoot,
-        cause: undefined,
-        retryable: false,
+      return yield* makeCliError({
+        code: "SKILLS_DISCOVERY_FAILED",
+        what: `Path is not a directory: ${searchRoot}`,
       });
     }
 

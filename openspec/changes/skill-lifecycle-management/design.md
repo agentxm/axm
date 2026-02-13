@@ -6,11 +6,11 @@ Today skills have a binary lifecycle — installed or not — expressed as a fla
 
 **Goals:**
 
-- Enriched `SkillEntry` schema that supports `enabled` and `managed` flags
+- Enriched `SkillEntry` schema: `SkillEntryObjectSchema` (managed, with source and config) and `UnmanagedSkillEntrySchema` (just a marker)
 - Enable/disable commands with agent file management
 - Manual rename command and detected rename during update
 - Update/uninstall respect `managed` and `enabled` flags
-- Pack override entries (sourceless `{ "enabled": false }`)
+- Unmanaged skill entries (`{ managed: false }`) for skills not managed by axm
 
 **Non-Goals:**
 
@@ -23,17 +23,32 @@ Today skills have a binary lifecycle — installed or not — expressed as a fla
 
 ### 1. SkillEntry schema as a union type
 
-`SkillsMapSchema` value changes from `Schema.String` to `Schema.Union(Schema.String, SkillEntryObjectSchema)`.
+`SkillsMapSchema` value changes from `Schema.String` to `Schema.Union(Schema.String, SkillEntryObjectSchema, UnmanagedSkillEntrySchema)`.
+
+Two distinct object schemas reflect two structurally different cases:
 
 ```typescript
+// Managed skill with source and optional config flags.
+// `managed` never appears here — being in this form means managed.
 const SkillEntryObjectSchema = Schema.Struct({
-  source: Schema.optional(Schema.String),
+  source: Schema.String,
   enabled: Schema.optional(Schema.Boolean),
-  managed: Schema.optional(Schema.Boolean),
 });
 
-export const SkillEntrySchema = Schema.Union(Schema.String, SkillEntryObjectSchema);
+// Unmanaged skill — just a marker. No source or config needed
+// because axm doesn't manage it.
+const UnmanagedSkillEntrySchema = Schema.Struct({
+  managed: Schema.Literal(false),
+});
+
+export const SkillEntrySchema = Schema.Union(
+  Schema.String,
+  SkillEntryObjectSchema,
+  UnmanagedSkillEntrySchema,
+);
 ```
+
+**Why two object schemas over one with all-optional fields:** Managed and unmanaged entries are structurally different. Managed entries always have a source and may carry config (enabled, future fields); unmanaged entries are just a flag — source and config are irrelevant since axm doesn't manage them. A single struct with all-optional fields allows nonsense combinations like `{ managed: false, enabled: false, source: "..." }`.
 
 **Why union over always-object:** Backwards compatibility with existing settings files. Most skills will remain plain strings — the object form only appears when a non-default flag is set. This also keeps settings.json clean and human-readable.
 
@@ -53,8 +68,8 @@ interface NormalizedSkillEntry {
 
 Two conversion functions at the settings boundary:
 
-- `normalizeSkillEntry(entry: string | SkillEntryObject): NormalizedSkillEntry` — expands strings to `{ source: Some(s), enabled: true, managed: true }`.
-- `collapseSkillEntry(entry: NormalizedSkillEntry): string | SkillEntryObject` — collapses back to string when `enabled: true`, `managed: true`, and `source` is `Some`. Otherwise writes the object form, omitting fields at defaults.
+- `normalizeSkillEntry(entry: string | SkillEntryObject | UnmanagedSkillEntry): NormalizedSkillEntry` — expands strings to `{ source: Some(s), enabled: true, managed: true }`, object entries to `{ source: Some(s), enabled, managed: true }`, unmanaged entries to `{ source: None, enabled: true, managed: false }`.
+- `collapseSkillEntry(entry: NormalizedSkillEntry): string | SkillEntryObject | UnmanagedSkillEntry` — collapses to string when `enabled: true`, `managed: true`, and `source` is `Some`. Collapses to `{ managed: false }` when `managed: false`. Otherwise writes `SkillEntryObject` form, omitting fields at defaults.
 
 All handler code works with `NormalizedSkillEntry`. The workspace service handles conversion at its boundary.
 
@@ -77,39 +92,23 @@ All handler code works with `NormalizedSkillEntry`. The workspace service handle
 Three new operation types, following the existing `Operation<TName, TArgs>` pattern:
 
 ```typescript
-export type EnableSkillOperation = Operation<
-  "enable-skill",
-  {
-    readonly skillName: string;
-    readonly agents: ReadonlyArray<string>;
-    readonly lockEntry: SkillLockEntry;
-  }
->;
+export type EnableSkillOperation = Operation<"enable-skill", { readonly skillName: string }>;
 
-export type DisableSkillOperation = Operation<
-  "disable-skill",
-  {
-    readonly skillName: string;
-    readonly agents: ReadonlyArray<string>;
-  }
->;
+export type DisableSkillOperation = Operation<"disable-skill", { readonly skillName: string }>;
 
 export type RenameSkillOperation = Operation<
   "rename-skill",
-  {
-    readonly oldName: string;
-    readonly newName: string;
-    readonly agents: ReadonlyArray<string>;
-    readonly lockEntry: SkillLockEntry;
-  }
+  { readonly oldName: string; readonly newName: string }
 >;
 ```
 
+Operations carry only names — no `agents` or `lockEntry`. Handlers read all runtime state (configured agents, lock entries) from the workspace at execution time. This avoids stale snapshots and keeps operations minimal.
+
 **Operation handlers (new files):**
 
-- `enableSkill(op: EnableSkillOperation)` — calls `ws.updateSkillEntry(name, e => { ...e, enabled: true })`, then installs agent files (symlink or copy, same as installSkill's agent-install phase). The lockEntry carries source type to determine whether to symlink from canonical (registry/local) or re-download (git).
-- `disableSkill(op: DisableSkillOperation)` — calls `ws.updateSkillEntry(name, e => { ...e, enabled: false })`, then removes agent skill directories (same removal logic as uninstallSkill's agent-removal phase).
-- `renameSkill(op: RenameSkillOperation)` — calls `ws.renameSkill(oldName, newName)`, then removes old agent directories and installs new ones under the new name.
+- `enableSkill(op: EnableSkillOperation)` — reads configured agents and lock entry from workspace, calls `ws.updateSkillEntry(name, e => { ...e, enabled: true })`, then installs agent files (symlink or copy, same as installSkill's agent-install phase). The lock entry's source type determines whether to symlink from canonical (registry/local) or re-download (git).
+- `disableSkill(op: DisableSkillOperation)` — reads configured agents from workspace, calls `ws.updateSkillEntry(name, e => { ...e, enabled: false })`, then removes agent skill directories (same removal logic as uninstallSkill's agent-removal phase).
+- `renameSkill(op: RenameSkillOperation)` — reads configured agents and lock entry from workspace, calls `ws.renameSkill(oldName, newName)`, then removes old agent directories and installs new ones under the new name.
 
 **Why use the plan system for enable/disable/rename:** Consistency with install/update/uninstall. Users get `--preview`, `--yes`, confirmation prompts, and result display through the same `ws.resolvePlan()` flow. The plan may be trivially simple (one step), but the UX is uniform.
 
@@ -123,9 +122,9 @@ Three new command directories under `packages/cli/src/cli-commands/skills/`:
 
 - `command.ts` — `axm skills enable <name>` with `--yes`, `--preview`, `--global`, `--non-interactive` flags
 - `handler.ts` — `handleEnable(args: EnableHandlerArgs)`:
-  1. Load installed skills and locked skills from workspace
+  1. Load installed skills from workspace
   2. Validate skill exists and is currently disabled (error if not found, no-op if already enabled)
-  3. Build `EnableSkillOperation` with agents from lockfile entry
+  3. Build `EnableSkillOperation` with skill name
   4. Build single-step plan
   5. Resolve plan via `ws.resolvePlan()`
 
@@ -135,7 +134,7 @@ Three new command directories under `packages/cli/src/cli-commands/skills/`:
 - `handler.ts` — `handleDisable(args: DisableHandlerArgs)`:
   1. Load installed skills from workspace
   2. Validate skill exists and is currently enabled (error if not found, no-op if already disabled)
-  3. Build `DisableSkillOperation` with agents from lockfile
+  3. Build `DisableSkillOperation`
   4. Build single-step plan
   5. Resolve plan via `ws.resolvePlan()`
 

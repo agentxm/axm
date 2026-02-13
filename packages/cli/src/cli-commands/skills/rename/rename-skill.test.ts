@@ -67,7 +67,6 @@ const makeWorkspaceMock = (
       Effect.succeed(Option.fromNullable(lockfileSkills[name] as SkillLockEntry | undefined)),
     getSkillDir: (name: string, source?: SkillPathSource) => {
       const base = path.dirname(axmDir);
-      const sanitized = sanitizeName(name);
       // Use explicit source if provided, else look up lock entry
       const srcType = source?.type ?? (lockfileSkills[name] as SkillLockEntry | undefined)?.type;
       if (srcType === "registry") {
@@ -77,9 +76,14 @@ const makeWorkspaceMock = (
             : "scope" in (lockfileSkills[name] ?? {})
               ? (lockfileSkills[name] as { scope: string }).scope
               : "@community";
+        // Resolve immutable registry name from lock entry, not user-facing name
+        const lockEntry = lockfileSkills[name] as (SkillLockEntry & { name?: string }) | undefined;
+        const dirName = lockEntry?.name ?? name;
+        const sanitized = sanitizeName(dirName);
         const canonicalPath = path.join(base, ".axm", "extensions", scope, "skills", sanitized);
         return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
       }
+      const sanitized = sanitizeName(name);
       const canonicalPath = path.join(base, ".agents", "skills", sanitized);
       return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
     },
@@ -392,9 +396,9 @@ describe("renameSkill", () => {
       return { base, axmDir, canonicalPath, srcPath };
     };
 
-    it.effect("renames registry-sourced skill using correct canonical paths", () =>
+    it.effect("keeps registry directory unchanged on rename", () =>
       Effect.gen(function* () {
-        const { axmDir, base, canonicalPath } = setupRegistryWorkspace({
+        const { axmDir, base, canonicalPath, srcPath } = setupRegistryWorkspace({
           agents: ["claude-code"],
         });
 
@@ -412,11 +416,12 @@ describe("renameSkill", () => {
 
         expect(result.result).toBe("success");
 
-        // Old registry canonical dir should not exist
-        expect(fs.existsSync(canonicalPath)).toBe(false);
+        // Registry canonical dir stays the same (named after registry name, not alias)
+        expect(fs.existsSync(canonicalPath)).toBe(true);
+        expect(fs.existsSync(path.join(srcPath, "SKILL.md"))).toBe(true);
 
-        // New registry canonical dir should exist (under same scope)
-        const newCanonical = path.join(
+        // No renamed directory should exist
+        const renamedCanonical = path.join(
           base,
           ".axm",
           "extensions",
@@ -424,25 +429,24 @@ describe("renameSkill", () => {
           "skills",
           "renamed-skill",
         );
-        expect(fs.existsSync(newCanonical)).toBe(true);
-        expect(fs.existsSync(path.join(newCanonical, "src", "SKILL.md"))).toBe(true);
+        expect(fs.existsSync(renamedCanonical)).toBe(false);
 
         // Old agent symlink should be removed
         expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
 
-        // New agent symlink should point to src/ subdirectory
+        // New agent symlink should point to the unchanged src/ directory
         const newSymlink = path.join(base, ".claude", "skills", "renamed-skill");
         expect(fs.existsSync(newSymlink)).toBe(true);
         expect(fs.lstatSync(newSymlink).isSymbolicLink()).toBe(true);
         const target = fs.readlinkSync(newSymlink);
         const resolved = path.resolve(path.dirname(newSymlink), target);
-        expect(resolved).toBe(path.join(newCanonical, "src"));
+        expect(resolved).toBe(srcPath);
       }),
     );
 
     it.effect("updates SKILL.md frontmatter in src/ for registry skills", () =>
       Effect.gen(function* () {
-        const { axmDir, base } = setupRegistryWorkspace({ agents: ["claude-code"] });
+        const { axmDir, srcPath } = setupRegistryWorkspace({ agents: ["claude-code"] });
 
         yield* renameSkill(makeOp()).pipe(
           Effect.provide(
@@ -456,19 +460,8 @@ describe("renameSkill", () => {
           ),
         );
 
-        const skillMd = fs.readFileSync(
-          path.join(
-            base,
-            ".axm",
-            "extensions",
-            "@community",
-            "skills",
-            "renamed-skill",
-            "src",
-            "SKILL.md",
-          ),
-          "utf-8",
-        );
+        // SKILL.md is in the unchanged directory
+        const skillMd = fs.readFileSync(path.join(srcPath, "SKILL.md"), "utf-8");
         const parsed = matter(skillMd);
         expect(parsed.data["name"]).toBe("renamed-skill");
       }),

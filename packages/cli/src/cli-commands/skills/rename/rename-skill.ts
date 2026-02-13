@@ -77,18 +77,23 @@ export const renameSkill: OperationHandler<
         ? { type: "registry", scope: lockEntry.scope }
         : { type: lockEntry.type };
     const oldPaths = yield* ws.getSkillDir(op.args.oldName, pathSource);
-    const newPaths = yield* ws.getSkillDir(op.args.newName, pathSource);
 
-    // Rename canonical directory — files before state
-    yield* fs.rename(oldPaths.canonicalPath, newPaths.canonicalPath).pipe(
-      Effect.mapError((e) =>
-        makeCliError({
-          code: "RENAME_SKILL_DIR_FAILED",
-          what: `Failed to rename skill directory from "${op.args.oldName}" to "${op.args.newName}"`,
-          cause: e,
-        }),
-      ),
-    );
+    // Registry directories are tied to the immutable registry name — no rename needed
+    const isRegistry = lockEntry.type === "registry";
+    const newPaths = isRegistry ? oldPaths : yield* ws.getSkillDir(op.args.newName, pathSource);
+
+    if (!isRegistry) {
+      // Rename canonical directory — files before state
+      yield* fs.rename(oldPaths.canonicalPath, newPaths.canonicalPath).pipe(
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "RENAME_SKILL_DIR_FAILED",
+            what: `Failed to rename skill directory from "${op.args.oldName}" to "${op.args.newName}"`,
+            cause: e,
+          }),
+        ),
+      );
+    }
 
     // 2b. Update SKILL.md frontmatter name — best-effort
     yield* updateSkillMdName(

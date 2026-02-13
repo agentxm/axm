@@ -37,6 +37,7 @@ import {
   collapseSkillEntry,
   createDefaultSettings,
   DEFAULT_SCOPE,
+  getSkillEntrySource,
   type NormalizedSkillEntry,
   normalizeSkillEntry,
   readSettings,
@@ -46,6 +47,7 @@ import {
   type SourceConfig,
   writeSettings,
 } from "../settings/index.js";
+import { parseInputPattern } from "../sources/index.js";
 import * as Record from "effect/Record";
 import { getAxmDir } from "./paths.js";
 import * as Context from "effect/Context";
@@ -324,6 +326,45 @@ const make = (options: WorkspaceContextOptions) =>
     const readLockfileSafe = (dir: string) => readLockfile(dir).pipe(Effect.provide(fsLayer));
 
     /**
+     * Resolve the immutable registry name for a skill's directory.
+     *
+     * Registry skill directories are tied to the registry name, not the
+     * user-facing alias. This helper tries the lockfile first, then falls
+     * back to parsing the settings source string, and finally returns the
+     * passed-in name (correct for fresh installs).
+     */
+    const resolveRegistryDirName = (name: string) =>
+      Effect.gen(function* () {
+        // Try lockfile
+        const lockEntry = yield* readLockfileSafe(workspaceDir).pipe(
+          Effect.map((lf) => Option.fromNullable(lf.skills[name])),
+        );
+        if (Option.isSome(lockEntry) && lockEntry.value.type === "registry") {
+          return lockEntry.value.name;
+        }
+
+        // Fallback to settings source string
+        const settings = yield* readSettingsSafe(workspaceDir);
+        const skills = settings.skills ?? {};
+        const entry = skills[name];
+        if (entry !== undefined) {
+          const sourceStr = getSkillEntrySource(entry);
+          if (sourceStr !== undefined) {
+            const parts = sourceStr.split(":");
+            if (parts.length >= 2 && parts[0] === "registry") {
+              const parsed = parseInputPattern(parts.slice(1).join(":"));
+              if (Option.isSome(parsed) && parsed.value._tag === "RegistryPatternInput") {
+                return parsed.value.name;
+              }
+            }
+          }
+        }
+
+        // Final fallback: passed-in name (correct for fresh installs)
+        return name;
+      });
+
+    /**
      * Three-layer merge: project sources -> global sources -> built-in sources.
      * Name-based deduplication: earlier layers win.
      */
@@ -463,10 +504,10 @@ const make = (options: WorkspaceContextOptions) =>
       getSkillDir: (name: string, source?: SkillPathSource) =>
         Effect.gen(function* () {
           const base = path.dirname(workspaceDir);
-          const sanitized = sanitizeName(name);
 
           if (source !== undefined) {
-            return computeSkillPaths(path.join, base, source, sanitized);
+            const dirName = source.type === "registry" ? yield* resolveRegistryDirName(name) : name;
+            return computeSkillPaths(path.join, base, source, sanitizeName(dirName));
           }
 
           const lockEntry = yield* readLockfileSafe(workspaceDir).pipe(
@@ -487,7 +528,8 @@ const make = (options: WorkspaceContextOptions) =>
               ? { type: "registry", scope: entry.scope }
               : { type: entry.type };
 
-          return computeSkillPaths(path.join, base, entrySource, sanitized);
+          const dirName = entry.type === "registry" ? entry.name : name;
+          return computeSkillPaths(path.join, base, entrySource, sanitizeName(dirName));
         }),
 
       setSkill: (name: string, source: string, lockEntry: SkillLockEntry) =>

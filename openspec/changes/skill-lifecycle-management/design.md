@@ -17,7 +17,7 @@ Today skills have a binary lifecycle — installed or not — expressed as a fla
 - Access policy (allow/block lists) — separate concern, separate proposal
 - Enriched entry types for commands, mcp-servers — same pattern applied later when those types are implemented
 - Dependency resolution for packs — pack expansion is a separate capability
-- Canonical storage for git-sourced skills — re-enable for git sources re-downloads (acceptable trade-off)
+- Disabled skill staging area — re-enable re-installs from source for all source types (acceptable trade-off)
 
 ## Decisions
 
@@ -69,7 +69,7 @@ interface NormalizedSkillEntry {
 Two conversion functions at the settings boundary:
 
 - `normalizeSkillEntry(entry: string | SkillEntryObject | UnmanagedSkillEntry): NormalizedSkillEntry` — expands strings to `{ source: Some(s), enabled: true, managed: true }`, object entries to `{ source: Some(s), enabled, managed: true }`, unmanaged entries to `{ source: None, enabled: true, managed: false }`.
-- `collapseSkillEntry(entry: NormalizedSkillEntry): string | SkillEntryObject | UnmanagedSkillEntry` — collapses to string when `enabled: true`, `managed: true`, and `source` is `Some`. Collapses to `{ managed: false }` when `managed: false`. Otherwise writes `SkillEntryObject` form, omitting fields at defaults.
+- `collapseSkillEntry(entry: NormalizedSkillEntry): string | SkillEntryObject | UnmanagedSkillEntry` — `managed: false` is dominant: always collapses to `{ managed: false }` regardless of `enabled` (axm can't disable what it doesn't manage, so `enabled` is meaningless for unmanaged entries). For managed entries: collapses to string when `enabled: true` and `source` is `Some`; otherwise writes `SkillEntryObject` form, omitting fields at defaults.
 
 All handler code works with `NormalizedSkillEntry`. The workspace service handles conversion at its boundary.
 
@@ -106,9 +106,9 @@ Operations carry only names — no `agents` or `lockEntry`. Handlers read all ru
 
 **Operation handlers (new files):**
 
-- `enableSkill(op: EnableSkillOperation)` — reads configured agents and lock entry from workspace, calls `ws.updateSkillEntry(name, e => { ...e, enabled: true })`, then installs agent files (symlink or copy, same as installSkill's agent-install phase). The lock entry's source type determines whether to symlink from canonical (registry/local) or re-download (git).
-- `disableSkill(op: DisableSkillOperation)` — reads configured agents from workspace, calls `ws.updateSkillEntry(name, e => { ...e, enabled: false })`, then removes agent skill directories (same removal logic as uninstallSkill's agent-removal phase).
-- `renameSkill(op: RenameSkillOperation)` — reads configured agents and lock entry from workspace, calls `ws.renameSkill(oldName, newName)`, then removes old agent directories and installs new ones under the new name.
+- `enableSkill(op: EnableSkillOperation)` — reads configured agents and lock entry from workspace, calls `ws.updateSkillEntry(name, e => { ...e, enabled: true })`, then re-installs skill files. The lock entry's `type` field determines the canonical path: `registry` → `.axm/extensions/@<scope>/skills/<name>/` (scope from lock entry), all others → `.agents/skills/<name>/`. For registry and local sources, the handler re-resolves the source from the settings entry, fetches/copies to canonical, and creates agent symlinks (same pipeline as `installSkill`). For git sources, the handler re-resolves and re-downloads (the canonical files were removed during disable). Agent symlink creation uses the same `installForAgent` logic as `installSkill`.
+- `disableSkill(op: DisableSkillOperation)` — reads configured agents and lock entry from workspace, calls `ws.updateSkillEntry(name, e => { ...e, enabled: false })`, then removes both agent symlinks and canonical skill directories. Agent symlink removal uses the same logic as uninstallSkill's agent-removal phase. Canonical removal is required because agents whose `skills.dir` resolves to the canonical location (e.g., `.agents/skills/`) read directly from canonical with no symlink — removing only symlinks would leave the skill visible to those agents. The lock entry's source type determines the canonical path: registry sources use `.axm/extensions/@<scope>/skills/<name>/`, others use `.agents/skills/<name>/`.
+- `renameSkill(op: RenameSkillOperation)` — reads configured agents and lock entry from workspace **before** calling `ws.renameSkill(oldName, newName)` (since the rename moves the key). Then renames the canonical directory from old name to new name (same canonical path logic: registry → `.axm/extensions/@<scope>/skills/`, others → `.agents/skills/`). Finally removes old agent symlinks and creates new ones under the new name using `installForAgent`.
 
 **Why use the plan system for enable/disable/rename:** Consistency with install/update/uninstall. Users get `--preview`, `--yes`, confirmation prompts, and result display through the same `ws.resolvePlan()` flow. The plan may be trivially simple (one step), but the UX is uniform.
 
@@ -152,7 +152,7 @@ Three new command directories under `packages/cli/src/cli-commands/skills/`:
 
 **`skills/update/handler.ts`** — two changes:
 
-1. **Skip conditions.** After loading installed skills, filter out entries where `enabled: false` or `managed: false`. Log a skip message for each (e.g., "Skipping my-skill (disabled)" or "Skipping my-skill (unmanaged)").
+1. **Skip conditions and type change.** After loading installed skills (now `ReadonlyRecord<string, NormalizedSkillEntry>`), filter out entries where `enabled: false` or `managed: false`. Log a skip message for each (e.g., "Skipping my-skill (disabled)" or "Skipping my-skill (unmanaged)"). Remaining entries extract the source string via `Option.getOrThrow(entry.source)` — safe because unmanaged entries (where `source` is `None`) are filtered out first.
 
 2. **Rename detection.** After re-resolving a source, if the expected skill name is not found in the discovered skills:
    - Count how many skills the source provides.
@@ -162,7 +162,9 @@ Three new command directories under `packages/cli/src/cli-commands/skills/`:
 
 **`skills/update/build-plan.ts`** — accept `RenameSkillOperation` alongside `InstallSkillOperation` in the plan. The step type is a union: `InstallSkillOperation | RenameSkillOperation`. Rename steps always have `expectedResult: { result: "success" }`.
 
-**`skills/uninstall/handler.ts`** — after loading installed skills, check the `managed` flag. If `managed: false` and `--force` is not set, log a warning and skip: "Skill 'X' is not managed by axm. Use --force to uninstall anyway."
+**`skills/uninstall/handler.ts`** — after loading installed skills via `getInstalledSkills()`, check the `managed` flag. If `managed: false`, include a warning label in the plan step (e.g., "my-skill (unmanaged)") so the user sees it during plan confirmation. The normal `--yes` / confirmation flow serves as the safety gate — no `--force` flag needed.
+
+**`skills/list/handler.ts`** — currently reads only from `getLockedSkills()`. Must also read from `getInstalledSkills()` to cross-reference `enabled` and `managed` flags. Unmanaged entries (`{ managed: false }`) exist only in settings — they have no lockfile entry — so list must merge both sources to display them. Show status indicators: `(disabled)`, `(unmanaged)`.
 
 **`skills/install/handler.ts`** — when writing the skill entry via `ws.setSkill()`, the workspace service handles normalization. No handler change needed since install always writes `enabled: true, managed: true` (the default, collapsed to a string).
 
@@ -191,15 +193,14 @@ This is type-safe via the existing `Handlers<Op>` exhaustive mapping type.
 
 ## Risks / Trade-offs
 
-**Re-enable for git sources requires re-download** → Acceptable. The primary value of disable is preserving the settings entry (source, flags). Registry and local sources re-enable instantly. If git source re-download becomes a pain point, a future change can add canonical storage for git sources.
+**Re-enable requires re-install from source** → Disable removes canonical files (necessary to prevent agents that read directly from canonical from seeing disabled skills). Re-enable must re-resolve the source and re-install: registry sources re-download from the registry, local sources re-copy from the local path, git sources re-clone. The primary value of disable is preserving the settings and lockfile entries (source, flags, resolved version). If re-download latency becomes a pain point, a future change can add a "disabled" staging area that preserves canonical files outside the agent-visible path.
 
 **Plan system for single-operation commands (enable/disable) adds ceremony** → The plan is trivially simple (one step) but gives users consistent `--preview`/`--yes` behavior. The alternative (direct mutation) would save a few lines but break UX consistency.
 
 **Rename detection for multi-skill sources is limited to reporting** → No automatic inference. False positives (guessing wrong rename) would be worse than asking the user to run `axm skills rename`. Single-skill sources get automatic detection since the mapping is unambiguous.
 
-**SkillsMap type change ripples through callers** → `getInstalledSkills()` return type changes from `Record<string, string>` to `Record<string, NormalizedSkillEntry>`. All callers (install, update, uninstall, list, fork) need to extract `.source` where they previously used the string directly. This is mechanical but touches multiple files.
+**SkillsMap type change ripples through callers** → `getInstalledSkills()` return type changes from `Record<string, string>` to `Record<string, NormalizedSkillEntry>`. Currently only the update handler calls `getInstalledSkills()` directly — install, uninstall, list, and fork read from the lockfile via `getLockedSkills()`. The update handler must extract `Option.getOrThrow(entry.source)` where it previously used the string value directly (safe because unmanaged entries are filtered out before source re-resolution). The new enable/disable/rename handlers and the modified list handler (see Section 6) are new callers that work with `NormalizedSkillEntry` from the start.
 
 ## Open Questions
 
-- Should `axm skills list` show a visual indicator for disabled/unmanaged skills? Likely yes (e.g., `(disabled)`, `(unmanaged)`) but the exact format can be decided during implementation.
-- Should `axm skills enable` on a git-sourced skill that requires re-download show a different message than one that symlinks instantly? Could be helpful UX but adds complexity.
+- Should `axm skills enable` show a different message for sources that require re-download vs local re-copy? Could be helpful UX but adds complexity.

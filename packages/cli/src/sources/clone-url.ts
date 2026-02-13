@@ -7,22 +7,22 @@
 
 import * as Effect from "effect/Effect";
 
-import { CloneUrlError } from "./errors.js";
+import { makeCliError } from "../cli-error/index.js";
 import type { Source } from "./types.js";
 
 /**
  * Build a git clone URL from a source.
  *
  * Only works for GitHub, GitLab, Bitbucket, and Azure Repos sources.
- * Returns CloneUrlError for other types.
+ * Returns CliError for other types.
  *
  * Uses the configured `url` field from the source config as the base URL.
  *
  * @experimental This API is unstable and may change without notice.
  * @param source - The resolved source to build a clone URL for
- * @returns Effect containing the HTTPS clone URL or CloneUrlError
+ * @returns Effect containing the HTTPS clone URL or CliError
  */
-export const buildCloneUrl = (source: Source): Effect.Effect<string, CloneUrlError> => {
+export const buildCloneUrl = (source: Source) => {
   switch (source.type) {
     case "github":
       return Effect.succeed(`${source.url.origin}/${source.owner}/${source.repo}.git`);
@@ -36,9 +36,9 @@ export const buildCloneUrl = (source: Source): Effect.Effect<string, CloneUrlErr
       );
     default:
       return Effect.fail(
-        new CloneUrlError({
-          message: `Cannot build clone URL for source type: ${source.type}`,
-          sourceType: source.type,
+        makeCliError({
+          code: "SOURCE_CLONE_URL_FAILED",
+          what: `Cannot build clone URL for source type: ${source.type}`,
         }),
       );
   }

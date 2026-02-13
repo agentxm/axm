@@ -6,27 +6,10 @@
  */
 
 import * as Array from "effect/Array";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-// -----------------------------------------------------------------------------
-// Error Types
-// -----------------------------------------------------------------------------
-
-/**
- * Error type for GitHub API operations.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class GitHubApiError extends Data.TaggedError("GitHubApiError")<{
-  /** HTTP status code (if applicable) */
-  readonly status: Option.Option<number>;
-  /** Human-readable error message */
-  readonly message: string;
-  /** Original error cause */
-  readonly cause: Option.Option<unknown>;
-}> {}
+import { makeCliError, type CliError } from "../../cli-error/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -67,7 +50,7 @@ interface GitHubTreeResponse {
  * @param repo - Repository name
  * @param ref - Git ref (branch, tag, or commit SHA)
  * @param path - Path within the repository (empty string or "." for root)
- * @returns Effect that resolves to the tree SHA, null if path not found, or fails with GitHubApiError
+ * @returns Effect that resolves to the tree SHA, null if path not found, or fails with CliError
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -76,7 +59,7 @@ export const fetchGitHubTreeHash = (
   repo: string,
   ref: string,
   path: string,
-): Effect.Effect<string | null, GitHubApiError> =>
+): Effect.Effect<string | null, CliError> =>
   Effect.gen(function* () {
     const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(ref)}?recursive=1`;
 
@@ -89,10 +72,10 @@ export const fetchGitHubTreeHash = (
           },
         }),
       catch: (error) =>
-        new GitHubApiError({
-          status: Option.none(),
-          message: `Failed to fetch GitHub tree: ${error instanceof Error ? error.message : String(error)}`,
-          cause: Option.some(error),
+        makeCliError({
+          code: "GITHUB_API_FAILED",
+          what: `Failed to fetch GitHub tree: ${error instanceof Error ? error.message : String(error)}`,
+          cause: error,
         }),
     });
 
@@ -105,16 +88,14 @@ export const fetchGitHubTreeHash = (
       const body = yield* Effect.tryPromise({
         try: () => response.text(),
         catch: () =>
-          new GitHubApiError({
-            status: Option.some(response.status),
-            message: `GitHub API returned ${response.status}`,
-            cause: Option.none(),
+          makeCliError({
+            code: "GITHUB_API_FAILED",
+            what: `GitHub API returned ${response.status}`,
           }),
       });
-      return yield* new GitHubApiError({
-        status: Option.some(response.status),
-        message: `GitHub API returned ${response.status}: ${body}`,
-        cause: Option.none(),
+      return yield* makeCliError({
+        code: "GITHUB_API_FAILED",
+        what: `GitHub API returned ${response.status}: ${body}`,
       });
     }
 
@@ -122,10 +103,10 @@ export const fetchGitHubTreeHash = (
     const data = yield* Effect.tryPromise({
       try: () => response.json() as Promise<GitHubTreeResponse>,
       catch: (error) =>
-        new GitHubApiError({
-          status: Option.none(),
-          message: `Failed to parse GitHub API response: ${error instanceof Error ? error.message : String(error)}`,
-          cause: Option.some(error),
+        makeCliError({
+          code: "GITHUB_API_FAILED",
+          what: `Failed to parse GitHub API response: ${error instanceof Error ? error.message : String(error)}`,
+          cause: error,
         }),
     });
 

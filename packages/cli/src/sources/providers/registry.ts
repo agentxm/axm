@@ -15,14 +15,15 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
+import type { CliError } from "../../cli-error/index.js";
 import type { RegistryExtensionType } from "../../registry/index.js";
 import {
   ExtensionIndexSchema,
   type ExtensionIndex,
   type VersionEntry,
 } from "../../registry/index.js";
+import { makeCliError } from "../../cli-error/index.js";
 import { computeChecksum } from "../../utils/checksum.js";
-import { RegistryError, SourceError } from "../provider.js";
 import type { ExtensionRef, FindOptions, SkillRef, SourceProvider } from "../provider.js";
 import type { RegistrySourceInput } from "../types.js";
 
@@ -48,14 +49,14 @@ export interface RegistrySourceProvider extends SourceProvider<
     scope: string,
     type: RegistryExtensionType,
     name: string,
-  ) => Effect.Effect<ExtensionIndex, RegistryError, FileSystem.FileSystem | Path.Path>;
+  ) => Effect.Effect<ExtensionIndex, CliError, FileSystem.FileSystem | Path.Path>;
   /** Read the archive bytes for a specific version. */
   readonly fetchArchive: (
     scope: string,
     type: RegistryExtensionType,
     name: string,
     version: string,
-  ) => Effect.Effect<Uint8Array, RegistryError, FileSystem.FileSystem | Path.Path>;
+  ) => Effect.Effect<Uint8Array, CliError, FileSystem.FileSystem | Path.Path>;
   /** Publish a version to the registry. */
   readonly publishVersion: (
     scope: string,
@@ -64,13 +65,13 @@ export interface RegistrySourceProvider extends SourceProvider<
     version: string,
     archive: Uint8Array,
     metadata: VersionEntry,
-  ) => Effect.Effect<void, RegistryError, FileSystem.FileSystem | Path.Path>;
+  ) => Effect.Effect<void, CliError, FileSystem.FileSystem | Path.Path>;
   /** Check if an extension name exists in the registry. */
   readonly checkNameExists: (
     scope: string,
     type: RegistryExtensionType,
     name: string,
-  ) => Effect.Effect<boolean, RegistryError, FileSystem.FileSystem | Path.Path>;
+  ) => Effect.Effect<boolean, CliError, FileSystem.FileSystem | Path.Path>;
 }
 
 // -----------------------------------------------------------------------------
@@ -163,20 +164,30 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
                 const content = yield* fs
                   .readFileString(idxPath)
                   .pipe(
-                    Effect.mapError(
-                      (e) =>
-                        new SourceError({ message: `Failed to read index: ${idxPath}`, cause: e }),
+                    Effect.mapError((e) =>
+                      makeCliError({
+                        code: "SOURCE_FETCH_FAILED",
+                        what: `Failed to read index: ${idxPath}`,
+                        cause: e,
+                      }),
                     ),
                   );
                 const json = yield* Effect.try({
                   try: () => JSON.parse(content) as unknown,
                   catch: (e) =>
-                    new SourceError({ message: `Invalid JSON in index: ${idxPath}`, cause: e }),
+                    makeCliError({
+                      code: "SOURCE_FETCH_FAILED",
+                      what: `Invalid JSON in index: ${idxPath}`,
+                      cause: e,
+                    }),
                 });
                 const index = yield* Schema.decodeUnknown(ExtensionIndexSchema)(json).pipe(
-                  Effect.mapError(
-                    (e) =>
-                      new SourceError({ message: `Invalid index schema: ${idxPath}`, cause: e }),
+                  Effect.mapError((e) =>
+                    makeCliError({
+                      code: "SOURCE_FETCH_FAILED",
+                      what: `Invalid index schema: ${idxPath}`,
+                      cause: e,
+                    }),
                   ),
                 );
 
@@ -223,9 +234,9 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
 
       if (extension.type !== "skill" || Option.isNone(extension.version)) {
         return yield* Effect.fail(
-          new SourceError({
-            message: "Cannot fetch non-skill or versionless extension from registry",
-            cause: undefined,
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: "Cannot fetch non-skill or versionless extension from registry",
           }),
         );
       }
@@ -237,9 +248,9 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       const archiveExists = yield* fs.exists(archivePath).pipe(Effect.orElseSucceed(() => false));
       if (!archiveExists) {
         return yield* Effect.fail(
-          new SourceError({
-            message: `Archive not found: ${archivePath}`,
-            cause: undefined,
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: `Archive not found: ${archivePath}`,
           }),
         );
       }
@@ -247,8 +258,12 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       const archiveBytes = yield* fs
         .readFile(archivePath)
         .pipe(
-          Effect.mapError(
-            (e) => new SourceError({ message: `Failed to read archive: ${archivePath}`, cause: e }),
+          Effect.mapError((e) =>
+            makeCliError({
+              code: "SOURCE_FETCH_FAILED",
+              what: `Failed to read archive: ${archivePath}`,
+              cause: e,
+            }),
           ),
         );
 
@@ -257,24 +272,31 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       const indexContent = yield* fs
         .readFileString(indexPath)
         .pipe(
-          Effect.mapError(
-            (e) => new SourceError({ message: `Failed to read index: ${indexPath}`, cause: e }),
+          Effect.mapError((e) =>
+            makeCliError({
+              code: "SOURCE_FETCH_FAILED",
+              what: `Failed to read index: ${indexPath}`,
+              cause: e,
+            }),
           ),
         );
       const indexJson = yield* Effect.try({
         try: () => JSON.parse(indexContent) as unknown,
-        catch: (e) => new SourceError({ message: `Invalid JSON in index`, cause: e }),
+        catch: (e) =>
+          makeCliError({ code: "SOURCE_FETCH_FAILED", what: `Invalid JSON in index`, cause: e }),
       });
       const index = yield* Schema.decodeUnknown(ExtensionIndexSchema)(indexJson).pipe(
-        Effect.mapError((e) => new SourceError({ message: `Invalid index schema`, cause: e })),
+        Effect.mapError((e) =>
+          makeCliError({ code: "SOURCE_FETCH_FAILED", what: `Invalid index schema`, cause: e }),
+        ),
       );
 
       const versionEntry = index.versions.find((v) => v.version === version);
       if (!versionEntry) {
         return yield* Effect.fail(
-          new SourceError({
-            message: `Version ${version} not found in index`,
-            cause: undefined,
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: `Version ${version} not found in index`,
           }),
         );
       }
@@ -283,9 +305,10 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       const actualChecksum = yield* computeChecksum(archiveBytes);
       if (actualChecksum !== versionEntry.checksum) {
         return yield* Effect.fail(
-          new SourceError({
-            message: `Checksum mismatch for ${version}: expected ${versionEntry.checksum}, got ${actualChecksum}`,
-            cause: undefined,
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: `Checksum mismatch for ${version}`,
+            details: [`Expected ${versionEntry.checksum}, got ${actualChecksum}`],
           }),
         );
       }
@@ -294,8 +317,12 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       const tmpDir = yield* fs
         .makeTempDirectory()
         .pipe(
-          Effect.mapError(
-            (e) => new SourceError({ message: "Failed to create temp directory", cause: e }),
+          Effect.mapError((e) =>
+            makeCliError({
+              code: "SOURCE_FETCH_FAILED",
+              what: "Failed to create temp directory",
+              cause: e,
+            }),
           ),
         );
 
@@ -314,8 +341,9 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       const exists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
       if (!exists) {
         return yield* Effect.fail(
-          new RegistryError({
-            message: `Index not found: ${indexPath}`,
+          makeCliError({
+            code: "REGISTRY_FETCH_FAILED",
+            what: `Index not found: ${indexPath}`,
             cause: undefined,
           }),
         );
@@ -324,19 +352,31 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       const content = yield* fs
         .readFileString(indexPath)
         .pipe(
-          Effect.mapError(
-            (e) => new RegistryError({ message: `Failed to read index: ${indexPath}`, cause: e }),
+          Effect.mapError((e) =>
+            makeCliError({
+              code: "REGISTRY_FETCH_FAILED",
+              what: `Failed to read index: ${indexPath}`,
+              cause: e,
+            }),
           ),
         );
       const json = yield* Effect.try({
         try: () => JSON.parse(content) as unknown,
         catch: (e) =>
-          new RegistryError({ message: `Invalid JSON in index: ${indexPath}`, cause: e }),
+          makeCliError({
+            code: "REGISTRY_FETCH_FAILED",
+            what: `Invalid JSON in index: ${indexPath}`,
+            cause: e,
+          }),
       });
 
       return yield* Schema.decodeUnknown(ExtensionIndexSchema)(json).pipe(
-        Effect.mapError(
-          (e) => new RegistryError({ message: `Invalid index schema: ${indexPath}`, cause: e }),
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "REGISTRY_FETCH_FAILED",
+            what: `Invalid index schema: ${indexPath}`,
+            cause: e,
+          }),
         ),
       );
     }),
@@ -351,8 +391,9 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       const exists = yield* fs.exists(archivePath).pipe(Effect.orElseSucceed(() => false));
       if (!exists) {
         return yield* Effect.fail(
-          new RegistryError({
-            message: `Archive not found: ${archivePath}`,
+          makeCliError({
+            code: "REGISTRY_FETCH_FAILED",
+            what: `Archive not found: ${archivePath}`,
             cause: undefined,
           }),
         );
@@ -361,9 +402,12 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       return yield* fs
         .readFile(archivePath)
         .pipe(
-          Effect.mapError(
-            (e) =>
-              new RegistryError({ message: `Failed to read archive: ${archivePath}`, cause: e }),
+          Effect.mapError((e) =>
+            makeCliError({
+              code: "REGISTRY_FETCH_FAILED",
+              what: `Failed to read archive: ${archivePath}`,
+              cause: e,
+            }),
           ),
         );
     }),
@@ -378,8 +422,12 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       yield* fs
         .makeDirectory(dir, { recursive: true })
         .pipe(
-          Effect.mapError(
-            (e) => new RegistryError({ message: `Failed to create directory: ${dir}`, cause: e }),
+          Effect.mapError((e) =>
+            makeCliError({
+              code: "REGISTRY_FETCH_FAILED",
+              what: `Failed to create directory: ${dir}`,
+              cause: e,
+            }),
           ),
         );
 
@@ -394,16 +442,27 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
         const content = yield* fs
           .readFileString(indexPath)
           .pipe(
-            Effect.mapError(
-              (e) => new RegistryError({ message: `Failed to read index: ${indexPath}`, cause: e }),
+            Effect.mapError((e) =>
+              makeCliError({
+                code: "REGISTRY_FETCH_FAILED",
+                what: `Failed to read index: ${indexPath}`,
+                cause: e,
+              }),
             ),
           );
         const json = yield* Effect.try({
           try: () => JSON.parse(content) as unknown,
-          catch: (e) => new RegistryError({ message: `Invalid JSON in index`, cause: e }),
+          catch: (e) =>
+            makeCliError({
+              code: "REGISTRY_FETCH_FAILED",
+              what: `Invalid JSON in index`,
+              cause: e,
+            }),
         });
         const existingIndex = yield* Schema.decodeUnknown(ExtensionIndexSchema)(json).pipe(
-          Effect.mapError((e) => new RegistryError({ message: `Invalid index schema`, cause: e })),
+          Effect.mapError((e) =>
+            makeCliError({ code: "REGISTRY_FETCH_FAILED", what: `Invalid index schema`, cause: e }),
+          ),
         );
 
         // Check idempotency: same version + same checksum = no-op
@@ -413,9 +472,10 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
             return; // Idempotent: same version, same checksum → no-op
           }
           return yield* Effect.fail(
-            new RegistryError({
-              message: `Version ${version} already exists with different checksum. Expected ${existingVersion.checksum}, got ${metadata.checksum}`,
-              cause: undefined,
+            makeCliError({
+              code: "REGISTRY_FETCH_FAILED",
+              what: `Version ${version} already exists with different checksum`,
+              details: [`Expected ${existingVersion.checksum}, got ${metadata.checksum}`],
             }),
           );
         }
@@ -428,9 +488,12 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
         yield* fs
           .writeFileString(indexPath, JSON.stringify(updatedIndex, null, 2) + "\n")
           .pipe(
-            Effect.mapError(
-              (e) =>
-                new RegistryError({ message: `Failed to write index: ${indexPath}`, cause: e }),
+            Effect.mapError((e) =>
+              makeCliError({
+                code: "REGISTRY_FETCH_FAILED",
+                what: `Failed to write index: ${indexPath}`,
+                cause: e,
+              }),
             ),
           );
       } else {
@@ -444,9 +507,12 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
         yield* fs
           .writeFileString(indexPath, JSON.stringify(newIndex, null, 2) + "\n")
           .pipe(
-            Effect.mapError(
-              (e) =>
-                new RegistryError({ message: `Failed to write index: ${indexPath}`, cause: e }),
+            Effect.mapError((e) =>
+              makeCliError({
+                code: "REGISTRY_FETCH_FAILED",
+                what: `Failed to write index: ${indexPath}`,
+                cause: e,
+              }),
             ),
           );
       }
@@ -455,9 +521,12 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       yield* fs
         .writeFile(archivePath, archive)
         .pipe(
-          Effect.mapError(
-            (e) =>
-              new RegistryError({ message: `Failed to write archive: ${archivePath}`, cause: e }),
+          Effect.mapError((e) =>
+            makeCliError({
+              code: "REGISTRY_FETCH_FAILED",
+              what: `Failed to write archive: ${archivePath}`,
+              cause: e,
+            }),
           ),
         );
     }),
@@ -519,8 +588,12 @@ const extractZip = (archive: Uint8Array, targetDir: string) =>
     yield* fs
       .writeFile(archivePath, archive)
       .pipe(
-        Effect.mapError(
-          (e) => new SourceError({ message: `Failed to write temp archive`, cause: e }),
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: `Failed to write temp archive`,
+            cause: e,
+          }),
         ),
       );
 
@@ -532,7 +605,8 @@ const extractZip = (archive: Uint8Array, targetDir: string) =>
           stdio: "pipe",
         });
       },
-      catch: (e) => new SourceError({ message: `Failed to extract archive`, cause: e }),
+      catch: (e) =>
+        makeCliError({ code: "SOURCE_FETCH_FAILED", what: `Failed to extract archive`, cause: e }),
     });
 
     // Clean up temp archive file
@@ -555,49 +629,49 @@ export const createRemoteRegistryProvider = (): RegistrySourceProvider => ({
 
   find: () =>
     Effect.fail(
-      new SourceError({
-        message: "Remote registry sources are not yet supported",
-        cause: undefined,
+      makeCliError({
+        code: "SOURCE_FETCH_FAILED",
+        what: "Remote registry sources are not yet supported",
       }),
     ),
 
   fetch: () =>
     Effect.fail(
-      new SourceError({
-        message: "Remote registry sources are not yet supported",
-        cause: undefined,
+      makeCliError({
+        code: "SOURCE_FETCH_FAILED",
+        what: "Remote registry sources are not yet supported",
       }),
     ),
 
   fetchIndex: () =>
     Effect.fail(
-      new RegistryError({
-        message: "Remote registry sources are not yet supported",
-        cause: undefined,
+      makeCliError({
+        code: "REGISTRY_FETCH_FAILED",
+        what: "Remote registry sources are not yet supported",
       }),
     ),
 
   fetchArchive: () =>
     Effect.fail(
-      new RegistryError({
-        message: "Remote registry sources are not yet supported",
-        cause: undefined,
+      makeCliError({
+        code: "REGISTRY_FETCH_FAILED",
+        what: "Remote registry sources are not yet supported",
       }),
     ),
 
   publishVersion: () =>
     Effect.fail(
-      new RegistryError({
-        message: "Remote registry sources are not yet supported",
-        cause: undefined,
+      makeCliError({
+        code: "REGISTRY_FETCH_FAILED",
+        what: "Remote registry sources are not yet supported",
       }),
     ),
 
   checkNameExists: () =>
     Effect.fail(
-      new RegistryError({
-        message: "Remote registry sources are not yet supported",
-        cause: undefined,
+      makeCliError({
+        code: "REGISTRY_FETCH_FAILED",
+        what: "Remote registry sources are not yet supported",
       }),
     ),
 });

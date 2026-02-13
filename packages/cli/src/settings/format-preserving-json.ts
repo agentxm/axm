@@ -12,7 +12,7 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import * as Effect from "effect/Effect";
 import { applyEdits, findNodeAtLocation, modify, parseTree } from "jsonc-parser";
 import type { FormattingOptions } from "jsonc-parser";
-import { SettingsWriteError } from "./settings.js";
+import { makeCliError } from "../cli-error/index.js";
 
 // -----------------------------------------------------------------------------
 // Formatting Detection
@@ -157,13 +157,12 @@ export const modifyJsonFile = (filePath: string, modifications: ReadonlyArray<Js
 
     // Read raw text
     let text = yield* fs.readFileString(filePath).pipe(
-      Effect.mapError(
-        (error) =>
-          new SettingsWriteError({
-            path: filePath,
-            message: `Failed to read file for modification: ${filePath}`,
-            cause: error,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "SETTINGS_WRITE_FAILED",
+          what: `Failed to read file for modification: ${filePath}`,
+          cause: error,
+        }),
       ),
     );
 
@@ -178,13 +177,12 @@ export const modifyJsonFile = (filePath: string, modifications: ReadonlyArray<Js
 
     // Write back
     yield* fs.writeFileString(filePath, text).pipe(
-      Effect.mapError(
-        (error) =>
-          new SettingsWriteError({
-            path: filePath,
-            message: `Failed to write modified file: ${filePath}`,
-            cause: error,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "SETTINGS_WRITE_FAILED",
+          what: `Failed to write modified file: ${filePath}`,
+          cause: error,
+        }),
       ),
     );
   });

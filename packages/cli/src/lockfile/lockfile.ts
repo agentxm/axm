@@ -10,11 +10,11 @@
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 
+import { type CliError, makeCliError } from "../cli-error/index.js";
 import { type Lockfile, LockfileSchema } from "./schema.js";
 
 // -----------------------------------------------------------------------------
@@ -31,49 +31,6 @@ export const LOCKFILE_NAME = "axm-lock.yaml";
 const LOCKFILE_VERSION = 1;
 
 // -----------------------------------------------------------------------------
-// Error Types
-// -----------------------------------------------------------------------------
-
-/**
- * Error when lockfile does not exist.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class LockfileNotFoundError extends Data.TaggedError("LockfileNotFoundError")<{
-  readonly path: string;
-  readonly message: string;
-}> {}
-
-/**
- * Error parsing the lockfile YAML content.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class LockfileParseError extends Data.TaggedError("LockfileParseError")<{
-  readonly message: string;
-  readonly cause?: unknown;
-  readonly retryable: boolean;
-}> {}
-
-/**
- * Error writing the lockfile to disk.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export class LockfileWriteError extends Data.TaggedError("LockfileWriteError")<{
-  readonly message: string;
-  readonly cause?: unknown;
-  readonly retryable: boolean;
-}> {}
-
-/**
- * Union of all lockfile-related errors.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type LockfileError = LockfileNotFoundError | LockfileParseError | LockfileWriteError;
-
-// -----------------------------------------------------------------------------
 // Internal Helpers
 // -----------------------------------------------------------------------------
 
@@ -87,17 +44,16 @@ const createEmptyLockfile = (): Lockfile => ({
 
 /**
  * Validates parsed YAML data against the lockfile schema.
- * Returns a typed LockfileParseError on validation failure.
+ * Returns a CliError on validation failure.
  */
-const decodeLockfile = (data: unknown): Effect.Effect<Lockfile, LockfileParseError> =>
+const decodeLockfile = (data: unknown): Effect.Effect<Lockfile, CliError> =>
   Schema.decodeUnknown(LockfileSchema)(data).pipe(
-    Effect.mapError(
-      (e) =>
-        new LockfileParseError({
-          message: "Invalid lockfile format",
-          cause: e,
-          retryable: false,
-        }),
+    Effect.mapError((e) =>
+      makeCliError({
+        code: "LOCKFILE_PARSE_FAILED",
+        what: "Invalid lockfile format",
+        cause: e,
+      }),
     ),
   );
 
@@ -109,16 +65,14 @@ const decodeLockfile = (data: unknown): Effect.Effect<Lockfile, LockfileParseErr
  * Reads and parses the lockfile from `.axm/axm-lock.yaml`.
  *
  * Returns an empty lockfile if the file does not exist.
- * Returns a LockfileParseError if the file exists but is invalid.
+ * Returns a CliError if the file exists but is invalid.
  *
  * @param axmDir - Path to the `.axm` directory
  * @returns Effect yielding the parsed Lockfile
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const readLockfile = (
-  axmDir: string,
-): Effect.Effect<Lockfile, LockfileError, FileSystem.FileSystem | Path.Path> =>
+export const readLockfile = (axmDir: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -126,13 +80,12 @@ export const readLockfile = (
 
     // Check if file exists
     const exists = yield* fs.exists(lockfilePath).pipe(
-      Effect.mapError(
-        (error) =>
-          new LockfileParseError({
-            message: `Failed to check if lockfile exists at ${lockfilePath}`,
-            cause: error,
-            retryable: false,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "LOCKFILE_PARSE_FAILED",
+          what: `Failed to check if lockfile exists at ${lockfilePath}`,
+          cause: error,
+        }),
       ),
     );
     if (!exists) {
@@ -141,13 +94,12 @@ export const readLockfile = (
 
     // Read and parse the file
     const content = yield* fs.readFileString(lockfilePath).pipe(
-      Effect.mapError(
-        (error) =>
-          new LockfileParseError({
-            message: `Failed to read lockfile at ${lockfilePath}`,
-            cause: error,
-            retryable: false,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "LOCKFILE_PARSE_FAILED",
+          what: `Failed to read lockfile at ${lockfilePath}`,
+          cause: error,
+        }),
       ),
     );
 
@@ -155,10 +107,10 @@ export const readLockfile = (
     const parsed = yield* Effect.try({
       try: () => YAML.parse(content),
       catch: (error) =>
-        new LockfileParseError({
-          message: `Failed to parse lockfile YAML at ${lockfilePath}`,
+        makeCliError({
+          code: "LOCKFILE_PARSE_FAILED",
+          what: `Failed to parse lockfile YAML at ${lockfilePath}`,
           cause: error,
-          retryable: false,
         }),
     });
 
@@ -177,10 +129,7 @@ export const readLockfile = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const writeLockfile = (
-  axmDir: string,
-  lockfile: Lockfile,
-): Effect.Effect<void, LockfileError, FileSystem.FileSystem | Path.Path> =>
+export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -188,13 +137,12 @@ export const writeLockfile = (
 
     // Ensure directory exists
     yield* fs.makeDirectory(axmDir, { recursive: true }).pipe(
-      Effect.mapError(
-        (error) =>
-          new LockfileWriteError({
-            message: `Failed to create directory ${axmDir}`,
-            cause: error,
-            retryable: false,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "LOCKFILE_WRITE_FAILED",
+          what: `Failed to create directory ${axmDir}`,
+          cause: error,
+        }),
       ),
     );
 
@@ -202,10 +150,10 @@ export const writeLockfile = (
     const encoded = yield* Effect.try({
       try: () => Schema.encodeSync(LockfileSchema)(lockfile),
       catch: (error) =>
-        new LockfileWriteError({
-          message: "Failed to encode lockfile",
+        makeCliError({
+          code: "LOCKFILE_WRITE_FAILED",
+          what: "Failed to encode lockfile",
           cause: error,
-          retryable: false,
         }),
     });
 
@@ -213,22 +161,21 @@ export const writeLockfile = (
     const yamlContent = yield* Effect.try({
       try: () => YAML.stringify(encoded),
       catch: (error) =>
-        new LockfileWriteError({
-          message: "Failed to serialize lockfile to YAML",
+        makeCliError({
+          code: "LOCKFILE_WRITE_FAILED",
+          what: "Failed to serialize lockfile to YAML",
           cause: error,
-          retryable: false,
         }),
     });
 
     // Write file
     yield* fs.writeFileString(lockfilePath, yamlContent).pipe(
-      Effect.mapError(
-        (error) =>
-          new LockfileWriteError({
-            message: `Failed to write lockfile at ${lockfilePath}`,
-            cause: error,
-            retryable: false,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "LOCKFILE_WRITE_FAILED",
+          what: `Failed to write lockfile at ${lockfilePath}`,
+          cause: error,
+        }),
       ),
     );
   });

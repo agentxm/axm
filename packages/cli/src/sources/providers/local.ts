@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
-import { SourceError } from "../provider.js";
+import { makeCliError } from "../../cli-error/index.js";
 import type { ExtensionRef, FindOptions, SourceProvider } from "../provider.js";
 import type { LocalSourceInput } from "../types.js";
 
@@ -40,12 +40,13 @@ export const createLocalProvider = (): SourceProvider<
         },
         source,
       ).pipe(
-        Effect.mapError(
-          (error) =>
-            new SourceError({
-              message: `Failed to discover skills: ${error.message}`,
-              cause: error,
-            }),
+        Effect.mapError((error) =>
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: `Failed to discover skills`,
+            details: [error.message],
+            cause: error,
+          }),
         ),
       );
 

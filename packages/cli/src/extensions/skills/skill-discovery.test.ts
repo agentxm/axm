@@ -11,10 +11,8 @@ import * as NodeContext from "@effect/platform-node/NodeContext";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import {
-  DiscoveryError,
-  discoverSkillsInDir,
-} from "../../cli-commands/skills/install/discover-skills.js";
+import { CliError } from "../../cli-error/index.js";
+import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
 import type { SourceInput } from "../../sources/types.js";
 
 const defaultOptions = { fullDepth: false, includeInternal: false };
@@ -178,7 +176,7 @@ describe("discoverSkills", () => {
     ),
   );
 
-  it.effect("fails with DiscoveryError for non-existent directory", () =>
+  it.effect("fails with CliError for non-existent directory", () =>
     withFileSystem(
       Effect.gen(function* () {
         const nonExistentDir = path.join(tempDir, "does-not-exist");
@@ -190,13 +188,14 @@ describe("discoverSkills", () => {
           testSource,
         ).pipe(Effect.flip);
 
-        expect(error).toBeInstanceOf(DiscoveryError);
-        expect(error.message).toContain("does not exist");
+        expect(error).toBeInstanceOf(CliError);
+        expect(error.code).toBe("SKILLS_DISCOVERY_FAILED");
+        expect(error.what).toContain("does not exist");
       }),
     ),
   );
 
-  it.effect("fails with DiscoveryError when path is a file, not a directory", () =>
+  it.effect("fails with CliError when path is a file, not a directory", () =>
     withFileSystem(
       Effect.gen(function* () {
         const filePath = path.join(tempDir, "not-a-directory.txt");
@@ -209,8 +208,9 @@ describe("discoverSkills", () => {
           testSource,
         ).pipe(Effect.flip);
 
-        expect(error).toBeInstanceOf(DiscoveryError);
-        expect(error.message).toContain("not a directory");
+        expect(error).toBeInstanceOf(CliError);
+        expect(error.code).toBe("SKILLS_DISCOVERY_FAILED");
+        expect(error.what).toContain("not a directory");
       }),
     ),
   );

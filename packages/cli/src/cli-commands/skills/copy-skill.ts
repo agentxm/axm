@@ -11,7 +11,8 @@
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
-import { OperationError, type OperationHandler } from "../../workspace/apply-plan.js";
+import { makeCliError } from "../../cli-error/index.js";
+import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { OperationResult } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service.js";
 import { copySkillDirectory } from "./copy-skill-directory.js";
@@ -72,13 +73,12 @@ export const copySkill: OperationHandler<
 
     // Copy source files to src/ subdirectory (manifest stays at extension root)
     yield* copySkillDirectory(sourcePath, path.join(targetDir, "src")).pipe(
-      Effect.mapError(
-        (e) =>
-          new OperationError({
-            operation: "copy-skill",
-            message: `Failed to copy skill files to ${targetDir}`,
-            cause: e,
-          }),
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "COPY_SKILL_FAILED",
+          what: `Failed to copy skill files to ${targetDir}`,
+          cause: e,
+        }),
       ),
     );
 
@@ -91,13 +91,12 @@ export const copySkill: OperationHandler<
 
     const manifestPath = path.join(targetDir, MANIFEST_FILENAME);
     yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
-      Effect.mapError(
-        (e) =>
-          new OperationError({
-            operation: "copy-skill",
-            message: `Failed to write manifest: ${manifestPath}`,
-            cause: e,
-          }),
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "COPY_SKILL_MANIFEST_WRITE_FAILED",
+          what: `Failed to write manifest: ${manifestPath}`,
+          cause: e,
+        }),
       ),
     );
 

@@ -17,9 +17,9 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
 import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
+import { makeCliError } from "../../cli-error/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
 import { buildCloneUrl } from "../clone-url.js";
-import { SourceError } from "../provider.js";
 import type { ExtensionRef, FindOptions, SkillRef, SourceProvider } from "../provider.js";
 import type { BitbucketSource, GitHubSource, GitLabSource } from "../types.js";
 
@@ -46,15 +46,7 @@ export const createGitHostingProvider = <S extends GitHubSource | GitLabSource |
     Effect.gen(function* () {
       const path = yield* Path.Path;
 
-      const cloneUrl = yield* buildCloneUrl(source).pipe(
-        Effect.mapError(
-          (error) =>
-            new SourceError({
-              message: `Failed to build clone URL: ${error.message}`,
-              cause: error,
-            }),
-        ),
-      );
+      const cloneUrl = yield* buildCloneUrl(source);
 
       // Acquire scoped temp directory (cleaned up when scope closes)
       const tempDir = yield* Effect.acquireRelease(
@@ -62,12 +54,13 @@ export const createGitHostingProvider = <S extends GitHubSource | GitLabSource |
           const fs = yield* FileSystem.FileSystem;
           const dir = path.join(tmpdir(), `axm-${randomUUID()}`);
           yield* fs.makeDirectory(dir, { recursive: true }).pipe(
-            Effect.mapError(
-              (error) =>
-                new SourceError({
-                  message: `Failed to create temp directory: ${error.message}`,
-                  cause: error,
-                }),
+            Effect.mapError((error) =>
+              makeCliError({
+                code: "SOURCE_FETCH_FAILED",
+                what: "Failed to create temp directory",
+                details: [error.message],
+                cause: error,
+              }),
             ),
           );
           return dir;
@@ -79,15 +72,7 @@ export const createGitHostingProvider = <S extends GitHubSource | GitLabSource |
           }).pipe(Effect.ignoreLogged),
       );
 
-      yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(source.ref)).pipe(
-        Effect.mapError(
-          (error) =>
-            new SourceError({
-              message: `Failed to clone repository: ${error.message}`,
-              cause: error,
-            }),
-        ),
-      );
+      yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(source.ref));
 
       const oldRefs = yield* discoverSkillsInDir(
         tempDir,
@@ -98,12 +83,13 @@ export const createGitHostingProvider = <S extends GitHubSource | GitLabSource |
         },
         source,
       ).pipe(
-        Effect.mapError(
-          (error) =>
-            new SourceError({
-              message: `Failed to discover skills: ${error.message}`,
-              cause: error,
-            }),
+        Effect.mapError((error) =>
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: "Failed to discover skills",
+            details: [error.message],
+            cause: error,
+          }),
         ),
       );
 
@@ -114,15 +100,7 @@ export const createGitHostingProvider = <S extends GitHubSource | GitLabSource |
           Effect.gen(function* () {
             const skillPath = ref.location.replace("file://", "");
             const relativeDir = path.relative(tempDir, skillPath);
-            const gitTreeSha = yield* getTreeSha(tempDir, relativeDir).pipe(
-              Effect.mapError(
-                (error) =>
-                  new SourceError({
-                    message: `Failed to get git tree SHA for skill "${ref.skill.name}": ${error.message}`,
-                    cause: error,
-                  }),
-              ),
-            );
+            const gitTreeSha = yield* getTreeSha(tempDir, relativeDir);
             return {
               ...ref,
               source,

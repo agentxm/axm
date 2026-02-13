@@ -1,13 +1,8 @@
-import * as Data from "effect/Data";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import { CliError } from "../cli-error/index.js";
 import { PromptCancelled } from "../tui/errors.js";
 import { classifyError } from "./error-handling.js";
-
-class UnknownDomainError extends Data.TaggedError("UnknownDomainError")<{
-  readonly message: string;
-}> {}
 
 describe("classifyError", () => {
   it("returns exit 0 with no message for PromptCancelled", () => {
@@ -33,24 +28,6 @@ describe("classifyError", () => {
       expect(result.message).toContain("TEST_ERROR");
       expect(result.message).toContain("detail line");
       expect(result.message).toContain("Try again");
-    }
-  });
-
-  it("returns exit 2 with defect message for unknown errors", () => {
-    const result = classifyError(new UnknownDomainError({ message: "unexpected" }));
-
-    expect(result.exitCode).toBe(2);
-    if (result.exitCode !== 0) {
-      expect(result.message).toContain("unexpected error occurred");
-    }
-  });
-
-  it("returns exit 2 for plain Error", () => {
-    const result = classifyError(new Error("boom"));
-
-    expect(result.exitCode).toBe(2);
-    if (result.exitCode !== 0) {
-      expect(result.message).toContain("boom");
     }
   });
 });

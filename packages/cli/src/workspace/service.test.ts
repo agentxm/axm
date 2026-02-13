@@ -23,6 +23,7 @@ import {
   Log,
 } from "../tui/index.js";
 import YAML from "yaml";
+import { CliError } from "../cli-error/index.js";
 import type { SourceConfig } from "../settings/index.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import type { OperationResult } from "./plan.js";
@@ -1108,14 +1109,15 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("fails with SettingsParseError for invalid agent ID", () =>
+    it.effect("fails with CliError for invalid agent ID", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, { agents: ["claude-code"] });
 
         const ws = yield* getService(defaultOptions);
         const result = yield* ws.addConfiguredAgent("invalid-agent-xyz").pipe(Effect.flip);
 
-        expect(result._tag).toBe("SettingsParseError");
+        expect(result).toBeInstanceOf(CliError);
+        expect(result.code).toBe("SETTINGS_PARSE_FAILED");
 
         // Verify settings were not changed
         const settingsPath = path.join(projectDir, ".axm", "settings.json");

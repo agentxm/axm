@@ -9,7 +9,7 @@
  */
 
 // Detection (effectful)
-export { DetectionError, detectAgent, detectAgents } from "./detection.js";
+export { detectAgent, detectAgents } from "./detection.js";
 
 // Registry (pure data)
 export { AGENTS, getAgentById, getAgentIds, getAllAgents } from "./registry.js";

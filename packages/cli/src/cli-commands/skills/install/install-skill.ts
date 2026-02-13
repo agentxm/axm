@@ -7,7 +7,6 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { PlatformError } from "@effect/platform/Error";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
@@ -17,7 +16,8 @@ import { printSourceInput } from "../../../sources/index.js";
 import { Log } from "../../../tui/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
 import { isPathSafe } from "../../../utils/path-safety.js";
-import { OperationError, type OperationHandler } from "../../../workspace/apply-plan.js";
+import { makeCliError } from "../../../cli-error/index.js";
+import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import { copySkillDirectory } from "../copy-skill-directory.js";
@@ -102,7 +102,7 @@ const installForAgent = (opts: {
             canonicalPath: opts.canonicalPath,
           }) satisfies InstallResult,
       ),
-      Effect.catchTag("SymlinkError", () =>
+      Effect.catchAll(() =>
         // Fallback: copy the canonical directory to the agent path
         copySkillDirectory(opts.canonicalPath, agentSkillPath).pipe(
           Effect.map(
@@ -116,7 +116,7 @@ const installForAgent = (opts: {
                 canonicalPath: opts.canonicalPath,
               }) satisfies InstallResult,
           ),
-          Effect.catchAll((copyErr: PlatformError) =>
+          Effect.catchAll((copyErr) =>
             Effect.succeed({
               success: false,
               mode: "copy",
@@ -226,10 +226,9 @@ export const installSkill: OperationHandler<
 
     // Validate canonical path safety
     if (!isPathSafe(base, canonicalPath)) {
-      return yield* new OperationError({
-        operation: "install-skill",
-        message: `Path traversal detected in skill name "${op.args.skill.name}"`,
-        cause: null,
+      return yield* makeCliError({
+        code: "INSTALL_SKILL_PATH_TRAVERSAL",
+        what: `Path traversal detected in skill name "${op.args.skill.name}"`,
       });
     }
 
@@ -251,13 +250,12 @@ export const installSkill: OperationHandler<
       // For other sources, copy to contentPath (no subdirectory structure)
       const copyTarget = isRegistry ? canonicalPath : contentPath;
       yield* copySkillDirectory(sourcePath, copyTarget).pipe(
-        Effect.mapError(
-          (e) =>
-            new OperationError({
-              operation: "install-skill",
-              message: `Failed to copy skill files to ${copyTarget}`,
-              cause: e,
-            }),
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "INSTALL_SKILL_COPY_FAILED",
+            what: `Failed to copy skill files to ${copyTarget}`,
+            cause: e,
+          }),
         ),
       );
     }

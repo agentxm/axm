@@ -12,7 +12,8 @@ import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
-import { OperationError, type OperationHandler } from "../../../workspace/apply-plan.js";
+import { makeCliError } from "../../../cli-error/index.js";
+import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import type { UninstallSkillOperation } from "../operations.js";
@@ -150,13 +151,12 @@ export const uninstallSkill: OperationHandler<
 
     // Read lockfile entry for this skill via Workspace
     const lockEntryOption = yield* ws.getLockedSkill(op.args.skillName).pipe(
-      Effect.mapError(
-        (e) =>
-          new OperationError({
-            operation: "uninstall-skill",
-            message: `Failed to read lockfile: ${e.message}`,
-            cause: e,
-          }),
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "UNINSTALL_SKILL_LOCKFILE_READ_FAILED",
+          what: `Failed to read lockfile: ${e.what}`,
+          cause: e,
+        }),
       ),
     );
     const lockEntry = Option.getOrUndefined(lockEntryOption);
@@ -202,13 +202,12 @@ export const uninstallSkill: OperationHandler<
       if (remainingAgents.length > 0) {
         // Update lockfile entry with remaining agents via Workspace.setSkill
         const installedSkills = yield* ws.getInstalledSkills().pipe(
-          Effect.mapError(
-            (e) =>
-              new OperationError({
-                operation: "uninstall-skill",
-                message: `Failed to read settings: ${e.message}`,
-                cause: e,
-              }),
+          Effect.mapError((e) =>
+            makeCliError({
+              code: "UNINSTALL_SKILL_SETTINGS_READ_FAILED",
+              what: `Failed to read settings: ${e.what}`,
+              cause: e,
+            }),
           ),
         );
         const currentSource = installedSkills[op.args.skillName] ?? lockEntry.type;
@@ -218,13 +217,12 @@ export const uninstallSkill: OperationHandler<
             agents: remainingAgents,
           })
           .pipe(
-            Effect.mapError(
-              (e) =>
-                new OperationError({
-                  operation: "uninstall-skill",
-                  message: `Failed to update lockfile: ${e.message}`,
-                  cause: e,
-                }),
+            Effect.mapError((e) =>
+              makeCliError({
+                code: "UNINSTALL_SKILL_LOCKFILE_WRITE_FAILED",
+                what: `Failed to update lockfile: ${e.what}`,
+                cause: e,
+              }),
             ),
           );
 

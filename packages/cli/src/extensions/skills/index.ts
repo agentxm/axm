@@ -16,15 +16,11 @@ export {
   resolveRef,
   shallowClone,
 } from "../../sources/index.js";
-export type { GitError } from "../../sources/index.js";
-
 // Source Parser - re-exported from sources/
 export {
   buildCloneUrl,
-  CloneUrlError,
   getOrigin,
   isGitHostingProviderSource,
-  ParseError,
   printSourceInput,
 } from "../../sources/index.js";
 

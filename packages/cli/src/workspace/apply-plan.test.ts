@@ -2,13 +2,14 @@
  * Unit tests for applyPlan.
  *
  * Tests the executor registry pattern: dispatches steps expected to succeed
- * to handlers keyed by name, skips non-success steps, catches OperationError.
+ * to handlers keyed by name, skips non-success steps, catches CliError.
  */
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { applyPlan, OperationError } from "./apply-plan.js";
+import { type CliError, makeCliError } from "../cli-error/index.js";
+import { applyPlan } from "./apply-plan.js";
 import type { OperationResult } from "./plan.js";
 import type { Operation, Plan, PlannedJobStep } from "./plan.js";
 
@@ -30,12 +31,11 @@ const makePlan = (overrides: Partial<Plan<TestOp>> = {}): Plan<TestOp> => ({
 const successHandler = (op: TestOp): Effect.Effect<OperationResult> =>
   Effect.succeed({ result: "success", message: `Installed ${op.args.label}` });
 
-const errorHandler = (op: TestOp): Effect.Effect<OperationResult, OperationError> =>
+const errorHandler = (op: TestOp): Effect.Effect<OperationResult, CliError> =>
   Effect.fail(
-    new OperationError({
-      operation: "test-op",
-      message: `Failed to install ${op.args.label}`,
-      cause: null,
+    makeCliError({
+      code: "TEST_OP_FAILED",
+      what: `Failed to install ${op.args.label}`,
     }),
   );
 
@@ -198,7 +198,7 @@ describe("applyPlan", () => {
     }),
   );
 
-  it.effect("catches OperationError and converts to error result", () =>
+  it.effect("catches CliError and converts to error result", () =>
     Effect.gen(function* () {
       const applied = yield* applyPlan(
         makePlan({
@@ -253,25 +253,23 @@ describe("applyPlan", () => {
   );
 });
 
-describe("OperationError", () => {
-  it("constructs with operation, message, and cause", () => {
-    const error = new OperationError({
-      operation: "install-skill",
-      message: "Path traversal detected",
-      cause: null,
+describe("CliError in applyPlan", () => {
+  it("constructs with code, what, and cause", () => {
+    const error = makeCliError({
+      code: "INSTALL_OPERATION_FAILED",
+      what: "Path traversal detected",
     });
 
-    expect(error._tag).toBe("OperationError");
-    expect(error.operation).toBe("install-skill");
-    expect(error.message).toBe("Path traversal detected");
-    expect(error.cause).toBe(null);
+    expect(error._tag).toBe("CliError");
+    expect(error.code).toBe("INSTALL_OPERATION_FAILED");
+    expect(error.what).toBe("Path traversal detected");
   });
 
   it("preserves original cause", () => {
     const originalError = new Error("EACCES");
-    const error = new OperationError({
-      operation: "install-skill",
-      message: "Copy failed",
+    const error = makeCliError({
+      code: "INSTALL_OPERATION_FAILED",
+      what: "Copy failed",
       cause: originalError,
     });
 

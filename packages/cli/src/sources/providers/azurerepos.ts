@@ -9,7 +9,7 @@
 
 import * as Effect from "effect/Effect";
 
-import { SourceError } from "../provider.js";
+import { makeCliError } from "../../cli-error/index.js";
 import type { SourceProvider } from "../provider.js";
 import type { AzureReposSourceInput } from "../types.js";
 
@@ -23,17 +23,17 @@ export const createAzureReposProvider = (): SourceProvider<AzureReposSourceInput
 
   find: () =>
     Effect.fail(
-      new SourceError({
-        message: "Azure Repos sources are not yet supported",
-        cause: undefined,
+      makeCliError({
+        code: "SOURCE_FETCH_FAILED",
+        what: "Azure Repos sources are not yet supported",
       }),
     ),
 
   fetch: () =>
     Effect.fail(
-      new SourceError({
-        message: "Azure Repos sources are not yet supported",
-        cause: undefined,
+      makeCliError({
+        code: "SOURCE_FETCH_FAILED",
+        what: "Azure Repos sources are not yet supported",
       }),
     ),
 });

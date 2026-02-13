@@ -309,7 +309,7 @@ describe("init.handler", () => {
           Effect.flip,
         );
 
-        expect((Cause.squash(error) as { _tag: string })._tag).toBe("WorkspaceInitializationError");
+        expect((Cause.squash(error) as { _tag: string })._tag).toBe("CliError");
       }),
     );
 

@@ -25,12 +25,6 @@ export {
 } from "./schema.js";
 
 // Lockfile I/O
-export type { LockfileError } from "./lockfile.js";
-export {
-  LOCKFILE_NAME,
-  LockfileNotFoundError,
-  LockfileParseError,
-  LockfileWriteError,
-} from "./lockfile.js";
+export { LOCKFILE_NAME } from "./lockfile.js";
 
 export { readLockfile, writeLockfile } from "./lockfile.js";

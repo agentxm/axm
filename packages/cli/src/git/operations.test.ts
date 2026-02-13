@@ -16,7 +16,7 @@ import {
   isGitRepository,
   resolveRef,
 } from "./operations.js";
-import { GitError } from "./errors.js";
+import { makeCliError } from "../cli-error/index.js";
 
 describe("git", () => {
   let tempDir: string;
@@ -94,19 +94,19 @@ describe("git", () => {
       }),
     );
 
-    it.effect("fails with GitError for non-existent repository", () =>
+    it.effect("fails with CliError for non-existent repository", () =>
       Effect.gen(function* () {
         const destRepo = path.join(tempDir, "dest");
         const nonExistentRepo = path.join(tempDir, "does-not-exist");
 
         const error = yield* cloneRepo(nonExistentRepo, destRepo).pipe(Effect.flip);
 
-        expect(error).toBeInstanceOf(GitError);
-        expect(error.operation).toBe("clone");
+        expect(error._tag).toBe("CliError");
+        expect(error.code).toBe("GIT_CLONE_FAILED");
       }),
     );
 
-    it.effect("fails with GitError for invalid ref", () =>
+    it.effect("fails with CliError for invalid ref", () =>
       Effect.gen(function* () {
         const sourceRepo = path.join(tempDir, "source");
         const destRepo = path.join(tempDir, "dest");
@@ -114,8 +114,8 @@ describe("git", () => {
 
         const error = yield* cloneRepo(sourceRepo, destRepo, "non-existent-ref").pipe(Effect.flip);
 
-        expect(error).toBeInstanceOf(GitError);
-        expect(error.operation).toBe("checkout");
+        expect(error._tag).toBe("CliError");
+        expect(error.code).toBe("GIT_CHECKOUT_FAILED");
       }),
     );
   });
@@ -193,27 +193,27 @@ describe("git", () => {
       }),
     );
 
-    it.effect("fails with GitError for invalid ref", () =>
+    it.effect("fails with CliError for invalid ref", () =>
       Effect.gen(function* () {
         const repoPath = path.join(tempDir, "repo");
         yield* Effect.promise(() => createLocalRepo(repoPath));
 
         const error = yield* resolveRef(repoPath, "non-existent-ref").pipe(Effect.flip);
 
-        expect(error).toBeInstanceOf(GitError);
-        expect(error.operation).toBe("resolve-ref");
+        expect(error._tag).toBe("CliError");
+        expect(error.code).toBe("GIT_RESOLVE_REF_FAILED");
       }),
     );
 
-    it.effect("fails with GitError for non-git directory", () =>
+    it.effect("fails with CliError for non-git directory", () =>
       Effect.gen(function* () {
         const nonGitPath = path.join(tempDir, "not-a-repo");
         fs.mkdirSync(nonGitPath, { recursive: true });
 
         const error = yield* resolveRef(nonGitPath, "HEAD").pipe(Effect.flip);
 
-        expect(error).toBeInstanceOf(GitError);
-        expect(error.operation).toBe("resolve-ref");
+        expect(error._tag).toBe("CliError");
+        expect(error.code).toBe("GIT_RESOLVE_REF_FAILED");
       }),
     );
   });
@@ -251,15 +251,15 @@ describe("git", () => {
       }),
     );
 
-    it.effect("fails with GitError for non-git directory", () =>
+    it.effect("fails with CliError for non-git directory", () =>
       Effect.gen(function* () {
         const nonGitPath = path.join(tempDir, "not-a-repo");
         fs.mkdirSync(nonGitPath, { recursive: true });
 
         const error = yield* getCurrentCommit(nonGitPath).pipe(Effect.flip);
 
-        expect(error).toBeInstanceOf(GitError);
-        expect(error.operation).toBe("get-commit");
+        expect(error._tag).toBe("CliError");
+        expect(error.code).toBe("GIT_GET_COMMIT_FAILED");
       }),
     );
   });
@@ -315,27 +315,27 @@ describe("git", () => {
       }),
     );
 
-    it.effect("fails with GitError for non-existent path", () =>
+    it.effect("fails with CliError for non-existent path", () =>
       Effect.gen(function* () {
         const repoPath = path.join(tempDir, "repo");
         yield* Effect.promise(() => createLocalRepo(repoPath));
 
         const error = yield* getTreeSha(repoPath, "non-existent").pipe(Effect.flip);
 
-        expect(error).toBeInstanceOf(GitError);
-        expect(error.operation).toBe("get-tree-sha");
+        expect(error._tag).toBe("CliError");
+        expect(error.code).toBe("GIT_GET_TREE_SHA_FAILED");
       }),
     );
 
-    it.effect("fails with GitError for non-git directory", () =>
+    it.effect("fails with CliError for non-git directory", () =>
       Effect.gen(function* () {
         const nonGitPath = path.join(tempDir, "not-a-repo");
         fs.mkdirSync(nonGitPath, { recursive: true });
 
         const error = yield* getTreeSha(nonGitPath).pipe(Effect.flip);
 
-        expect(error).toBeInstanceOf(GitError);
-        expect(error.operation).toBe("get-tree-sha");
+        expect(error._tag).toBe("CliError");
+        expect(error.code).toBe("GIT_GET_TREE_SHA_FAILED");
       }),
     );
   });
@@ -387,24 +387,23 @@ describe("git", () => {
     );
   });
 
-  describe("GitError", () => {
+  describe("CliError", () => {
     it("is a tagged error with correct tag", () => {
-      const error = new GitError({
-        operation: "clone",
-        message: "Test error",
-        cause: undefined,
+      const error = makeCliError({
+        code: "GIT_CLONE_FAILED",
+        what: "Failed to clone repository",
       });
 
-      expect(error._tag).toBe("GitError");
-      expect(error.operation).toBe("clone");
-      expect(error.message).toBe("Test error");
+      expect(error._tag).toBe("CliError");
+      expect(error.code).toBe("GIT_CLONE_FAILED");
+      expect(error.what).toBe("Failed to clone repository");
     });
 
     it("can include a cause", () => {
       const cause = new Error("Original error");
-      const error = new GitError({
-        operation: "clone",
-        message: "Test error",
+      const error = makeCliError({
+        code: "GIT_CLONE_FAILED",
+        what: "Failed to clone repository",
         cause,
       });
 

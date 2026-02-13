@@ -8,7 +8,7 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { ResolutionError } from "./errors.js";
+import type { CliError } from "../cli-error/index.js";
 import {
   resolveAmbiguous,
   resolveAxmName,
@@ -116,7 +116,7 @@ export const resolveExtension = (
   const tryResolvers = (
     remaining: Resolver[],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ): Effect.Effect<ExtensionRef[], ResolutionError, any> =>
+  ): Effect.Effect<ExtensionRef[], CliError, any> =>
     Effect.gen(function* () {
       const maybeResolver = Array.head(remaining);
       if (Option.isNone(maybeResolver)) return [];

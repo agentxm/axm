@@ -273,9 +273,7 @@ describe("publishSkill", () => {
           makeOp({ name: "@community/my-skill", registryName: "local" }),
         ).pipe(
           Effect.provide(withServices(axmDir, registryRoot)),
-          Effect.catchTag("OperationError", (e) =>
-            Effect.succeed({ result: "error" as const, message: e.message }),
-          ),
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");
@@ -297,9 +295,7 @@ describe("publishSkill", () => {
           makeOp({ name: "@community/nonexistent", registryName: "local" }),
         ).pipe(
           Effect.provide(withServices(axmDir, registryRoot)),
-          Effect.catchTag("OperationError", (e) =>
-            Effect.succeed({ result: "error" as const, message: e.message }),
-          ),
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");
@@ -315,9 +311,7 @@ describe("publishSkill", () => {
           makeOp({ name: "@community/my-skill", registryName: "nonexistent" }),
         ).pipe(
           Effect.provide(withServices(axmDir, registryRoot)),
-          Effect.catchTag("OperationError", (e) =>
-            Effect.succeed({ result: "error" as const, message: e.message }),
-          ),
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");

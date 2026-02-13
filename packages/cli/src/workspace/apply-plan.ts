@@ -9,8 +9,8 @@
  */
 
 import * as Array from "effect/Array";
-import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import type { CliError } from "../cli-error/index.js";
 import type { JobStepResult, Operation, OperationResult, Plan, PlannedJobStep } from "./plan.js";
 
 // -----------------------------------------------------------------------------
@@ -18,20 +18,11 @@ import type { JobStepResult, Operation, OperationResult, Plan, PlannedJobStep } 
 // -----------------------------------------------------------------------------
 
 /**
- * Yielded by handlers for hard failures — applyPlan catches and converts to error result.
- */
-export class OperationError extends Data.TaggedError("OperationError")<{
-  readonly operation: string;
-  readonly message: string;
-  readonly cause: unknown;
-}> {}
-
-/**
  * Handler function for a specific operation type.
  */
 export type OperationHandler<Op, R = never> = (
   op: Op,
-) => Effect.Effect<OperationResult, OperationError, R>;
+) => Effect.Effect<OperationResult, CliError, R>;
 
 /**
  * Executor registry — a handler for every `name` in the operation union.
@@ -44,7 +35,7 @@ export type Handlers<Op extends Operation<string, unknown>> = {
   [K in Op["name"]]: (
     op: Extract<Op, { name: K }>,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ) => Effect.Effect<OperationResult, OperationError, any>;
+  ) => Effect.Effect<OperationResult, CliError, any>;
 };
 
 /**
@@ -54,7 +45,7 @@ export type ExecutionContext<T> = {
   [K in keyof T]: T[K] extends (
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...args: any[]
-  ) => Effect.Effect<OperationResult, OperationError, infer R>
+  ) => Effect.Effect<OperationResult, CliError, infer R>
     ? R
     : never;
 }[keyof T];
@@ -81,11 +72,11 @@ const applyStep = <Op extends Operation<string, unknown>, T extends Handlers<Op>
   // Cast needed: TS can't correlate dynamic name lookup with the Extract<Op, {name: K}> parameter
   const handler = handlers[step.operation.name as Op["name"]] as unknown as (
     op: Op,
-  ) => Effect.Effect<OperationResult, OperationError, ExecutionContext<T>>;
+  ) => Effect.Effect<OperationResult, CliError, ExecutionContext<T>>;
   return handler(step.operation).pipe(
     Effect.map(promote),
-    Effect.catchTag("OperationError", (error) =>
-      Effect.succeed(promote({ result: "error" as const, message: error.message })),
+    Effect.catchAll((error) =>
+      Effect.succeed(promote({ result: "error" as const, message: error.what })),
     ),
   );
 };
@@ -95,7 +86,7 @@ const applyStep = <Op extends Operation<string, unknown>, T extends Handlers<Op>
  *
  * Uses `Effect.forEach` with each job's `concurrency` setting.
  * Only dispatches steps with `expectedResult.result === "success"` — others are promoted with expectedResult as actualResult.
- * Never fails — catches OperationError and converts to error results.
+ * Never fails — catches CliError and converts to error results.
  */
 export const applyPlan = <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
   plan: Plan<Op>,

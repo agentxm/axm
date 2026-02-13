@@ -8,8 +8,15 @@ import type { ExtensionRef } from "../../resolution/index.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { CliError } from "../../cli-error/index.js";
 import { makeSelectTestLayer } from "../../tui/index.js";
-import { SkillsError, selectExtensionRef } from "./utils.js";
+import { selectExtensionRef } from "./utils.js";
+
+/** Narrow a flipped error to CliError, failing the test if it's not. */
+const expectCliError = (error: CliError | { readonly _tag: string }): CliError => {
+  expect(error._tag).toBe("CliError");
+  return error as CliError;
+};
 
 describe("selectExtensionRef", () => {
   // Create a test layer for Select - tests don't actually prompt since canPrompt=false
@@ -34,33 +41,35 @@ describe("selectExtensionRef", () => {
   });
 
   describe("empty results", () => {
-    it.effect("fails with SkillsError when refs array is empty", () =>
+    it.effect("fails with CliError when refs array is empty", () =>
       Effect.gen(function* () {
-        const error = yield* selectExtensionRef([], "my-skill", false).pipe(Effect.flip);
+        const raw = yield* selectExtensionRef([], "my-skill", false).pipe(Effect.flip);
+        const error = expectCliError(raw);
 
-        expect(error._tag).toBe("SkillsError");
-        expect(error.message).toContain('Could not resolve "my-skill"');
-        expect(error.retryable).toBe(false);
+        expect(error.code).toBe("SKILLS_OPERATION_FAILED");
+        expect(error.what).toContain('Could not resolve "my-skill"');
       }).pipe(Effect.provide(SelectTestLayer)),
     );
 
     it.effect("includes format suggestions in error message", () =>
       Effect.gen(function* () {
-        const error = yield* selectExtensionRef([], "invalid-input", false).pipe(Effect.flip);
+        const raw = yield* selectExtensionRef([], "invalid-input", false).pipe(Effect.flip);
+        const error = expectCliError(raw);
 
-        expect(error.message).toContain("No matching extensions found");
-        expect(error.message).toContain("Try one of these formats:");
-        expect(error.message).toContain("Local path:");
-        expect(error.message).toContain("GitHub:");
-        expect(error.message).toContain("GitLab:");
+        expect(error.what).toContain("No matching extensions found");
+        expect(error.what).toContain("Try one of these formats:");
+        expect(error.what).toContain("Local path:");
+        expect(error.what).toContain("GitHub:");
+        expect(error.what).toContain("GitLab:");
       }).pipe(Effect.provide(SelectTestLayer)),
     );
 
     it.effect("uses formatEmptyResolutionError (has X marker)", () =>
       Effect.gen(function* () {
-        const error = yield* selectExtensionRef([], "test", false).pipe(Effect.flip);
+        const raw = yield* selectExtensionRef([], "test", false).pipe(Effect.flip);
+        const error = expectCliError(raw);
 
-        expect(error.message).toMatch(/^✗/);
+        expect(error.what).toMatch(/^✗/);
       }).pipe(Effect.provide(SelectTestLayer)),
     );
   });
@@ -122,17 +131,17 @@ describe("selectExtensionRef", () => {
   });
 
   describe("multiple results (non-interactive)", () => {
-    it.effect("fails with SkillsError when canPrompt is false", () =>
+    it.effect("fails with CliError when canPrompt is false", () =>
       Effect.gen(function* () {
         const refs = [
           createRef({ origin: "https://github.com/owner1/repo", source: "github" }),
           createRef({ origin: "https://gitlab.com/owner2/repo", source: "gitlab" }),
         ];
 
-        const error = yield* selectExtensionRef(refs, "repo", false).pipe(Effect.flip);
+        const raw = yield* selectExtensionRef(refs, "repo", false).pipe(Effect.flip);
+        const error = expectCliError(raw);
 
-        expect(error._tag).toBe("SkillsError");
-        expect(error.retryable).toBe(false);
+        expect(error.code).toBe("SKILLS_OPERATION_FAILED");
       }).pipe(Effect.provide(SelectTestLayer)),
     );
 
@@ -143,10 +152,11 @@ describe("selectExtensionRef", () => {
           createRef({ origin: "https://github.com/owner2/repo" }),
         ];
 
-        const error = yield* selectExtensionRef(refs, "my-input", false).pipe(Effect.flip);
+        const raw = yield* selectExtensionRef(refs, "my-input", false).pipe(Effect.flip);
+        const error = expectCliError(raw);
 
-        expect(error.message).toContain('Ambiguous input "my-input"');
-        expect(error.message).toContain("matches multiple sources");
+        expect(error.what).toContain('Ambiguous input "my-input"');
+        expect(error.what).toContain("matches multiple sources");
       }).pipe(Effect.provide(SelectTestLayer)),
     );
 
@@ -165,11 +175,12 @@ describe("selectExtensionRef", () => {
           }),
         ];
 
-        const error = yield* selectExtensionRef(refs, "skill", false).pipe(Effect.flip);
+        const raw = yield* selectExtensionRef(refs, "skill", false).pipe(Effect.flip);
+        const error = expectCliError(raw);
 
-        expect(error.message).toContain("Found 2 matches:");
-        expect(error.message).toContain("@scope/skill-a (github)");
-        expect(error.message).toContain("@scope/skill-b (gitlab)");
+        expect(error.what).toContain("Found 2 matches:");
+        expect(error.what).toContain("@scope/skill-a (github)");
+        expect(error.what).toContain("@scope/skill-b (gitlab)");
       }).pipe(Effect.provide(SelectTestLayer)),
     );
 
@@ -180,10 +191,11 @@ describe("selectExtensionRef", () => {
           createRef({ origin: "/local/path/to/skills", source: "git" }),
         ];
 
-        const error = yield* selectExtensionRef(refs, "skills", false).pipe(Effect.flip);
+        const raw = yield* selectExtensionRef(refs, "skills", false).pipe(Effect.flip);
+        const error = expectCliError(raw);
 
-        expect(error.message).toContain("https://github.com/owner/repo (github)");
-        expect(error.message).toContain("/local/path/to/skills (git)");
+        expect(error.what).toContain("https://github.com/owner/repo (github)");
+        expect(error.what).toContain("/local/path/to/skills (git)");
       }).pipe(Effect.provide(SelectTestLayer)),
     );
 
@@ -191,39 +203,25 @@ describe("selectExtensionRef", () => {
       Effect.gen(function* () {
         const refs = [createRef(), createRef()];
 
-        const error = yield* selectExtensionRef(refs, "test", false).pipe(Effect.flip);
+        const raw = yield* selectExtensionRef(refs, "test", false).pipe(Effect.flip);
+        const error = expectCliError(raw);
 
-        expect(error.message).toContain("--yes");
-        expect(error.message).toContain("--non-interactive");
-        expect(error.message).toContain("more specific source identifier");
+        expect(error.what).toContain("--yes");
+        expect(error.what).toContain("--non-interactive");
+        expect(error.what).toContain("more specific source identifier");
       }).pipe(Effect.provide(SelectTestLayer)),
     );
   });
 
-  describe("SkillsError", () => {
-    it("is a tagged error with correct tag", () => {
-      const error = new SkillsError({
-        message: "Test error message",
-        retryable: false,
-      });
+  describe("CliError from selectExtensionRef", () => {
+    it.effect("produces CliError with correct code", () =>
+      Effect.gen(function* () {
+        const raw = yield* selectExtensionRef([], "test", false).pipe(Effect.flip);
+        const error = expectCliError(raw);
 
-      expect(error._tag).toBe("SkillsError");
-      expect(error.message).toBe("Test error message");
-    });
-
-    it("can indicate retryable errors", () => {
-      const retryable = new SkillsError({
-        message: "Network error",
-        retryable: true,
-      });
-
-      const nonRetryable = new SkillsError({
-        message: "Invalid input",
-        retryable: false,
-      });
-
-      expect(retryable.retryable).toBe(true);
-      expect(nonRetryable.retryable).toBe(false);
-    });
+        expect(error).toBeInstanceOf(CliError);
+        expect(error.code).toBe("SKILLS_OPERATION_FAILED");
+      }).pipe(Effect.provide(SelectTestLayer)),
+    );
   });
 });

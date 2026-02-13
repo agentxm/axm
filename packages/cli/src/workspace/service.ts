@@ -19,7 +19,6 @@ import * as Array from "effect/Array";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import {
-  type LockfileError,
   LOCKFILE_NAME,
   readLockfile,
   writeLockfile,
@@ -27,12 +26,11 @@ import {
   type SkillsLockMap,
 } from "../lockfile/index.js";
 import { AgentIdSchema } from "../extensions/common.js";
+import { type CliError, makeCliError } from "../cli-error/index.js";
 import {
   createDefaultSettings,
   DEFAULT_SCOPE,
   readSettings,
-  type SettingsError,
-  SettingsParseError,
   SETTINGS_FILENAME,
   type Settings,
   type SkillsMap,
@@ -44,8 +42,7 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { Confirm, Log, Multiselect } from "../tui/index.js";
-import { PromptCancelled, PromptError } from "../tui/index.js";
-import { WorkspaceInitializationError, WorkspaceNotInitializedError } from "./errors.js";
+import { PromptCancelled } from "../tui/index.js";
 import type { Operation, Plan } from "./plan.js";
 import { displayPlan } from "./display-plan.js";
 import { applyPlan, type ExecutionContext, type Handlers } from "./apply-plan.js";
@@ -82,12 +79,7 @@ export class Workspace extends Context.Tag("@axm.sh/cli/Workspace")<
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type WorkspaceContextError =
-  | WorkspaceNotInitializedError
-  | WorkspaceInitializationError
-  | Exclude<SettingsError, { _tag: "SettingsNotFoundError" }>
-  | LockfileError
-  | PromptCancelled;
+export type WorkspaceContextError = CliError | PromptCancelled;
 
 /**
  * Options for creating workspace context.
@@ -127,12 +119,12 @@ const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextO
     } else {
       // Detect installed agents
       const detectedAgents = yield* detectAgents(process.cwd()).pipe(
-        Effect.mapError(
-          (error) =>
-            new WorkspaceInitializationError({
-              message: `Failed to detect agents: ${error.message}`,
-              cause: error,
-            }),
+        Effect.mapError((error) =>
+          makeCliError({
+            code: "WORKSPACE_INITIALIZATION_FAILED",
+            what: `Failed to detect agents: ${error.message}`,
+            cause: error,
+          }),
         ),
       );
 
@@ -142,11 +134,10 @@ const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextO
       } else if (Option.getOrElse(options.nonInteractive, () => process.env["CI"] === "true")) {
         // Non-interactive mode but would need selection - fail with error
         return yield* Effect.fail(
-          new WorkspaceInitializationError({
-            message:
-              "Cannot initialize workspace in non-interactive mode. " +
-              "Use --yes to auto-select detected agents, or run interactively.",
-            cause: undefined,
+          makeCliError({
+            code: "WORKSPACE_INITIALIZATION_FAILED",
+            what: "Cannot initialize workspace in non-interactive mode",
+            howToFix: "Use --yes to auto-select detected agents, or run interactively",
           }),
         );
       } else {
@@ -167,18 +158,7 @@ const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextO
             initialValues: detectedIds.length > 0 ? Option.some(detectedIds) : Option.none(),
             required: Option.some(false),
           })
-          .pipe(
-            Effect.map((agents) => [...agents]),
-            Effect.mapError((error) => {
-              if (error._tag === "PromptCancelled") {
-                return error;
-              }
-              return new WorkspaceInitializationError({
-                message: `Failed to prompt for agent selection: ${error.message}`,
-                cause: error,
-              });
-            }),
-          );
+          .pipe(Effect.map((agents) => [...agents]));
       }
     }
 
@@ -187,26 +167,10 @@ const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextO
 
     // Create settings with selected agents (satisfies ensures type safety without cast)
     const settings = { agents: agentIds } satisfies Settings;
-    yield* writeSettings(localDir, settings).pipe(
-      Effect.mapError(
-        (error) =>
-          new WorkspaceInitializationError({
-            message: `Failed to write settings: ${error.message}`,
-            cause: error,
-          }),
-      ),
-    );
+    yield* writeSettings(localDir, settings);
 
     // Create empty lockfile
-    yield* writeLockfile(localDir, { lockfileVersion: 1, skills: {} }).pipe(
-      Effect.mapError(
-        (error) =>
-          new WorkspaceInitializationError({
-            message: `Failed to write lockfile: ${error.message}`,
-            cause: error,
-          }),
-      ),
-    );
+    yield* writeLockfile(localDir, { lockfileVersion: 1, skills: {} });
 
     return settings;
   });
@@ -228,22 +192,21 @@ const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
     const lockfilePath = path.join(globalDir, LOCKFILE_NAME);
 
     const settingsExists = yield* fs.exists(settingsPath).pipe(
-      Effect.mapError(
-        (error) =>
-          new SettingsParseError({
-            path: settingsPath,
-            message: `Failed to check if settings file exists: ${settingsPath}`,
-            cause: error,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "SETTINGS_PARSE_FAILED",
+          what: `Failed to check if settings file exists: ${settingsPath}`,
+          cause: error,
+        }),
       ),
     );
     const lockfileExists = yield* fs.exists(lockfilePath).pipe(
-      Effect.mapError(
-        (error) =>
-          new WorkspaceInitializationError({
-            message: `Failed to check if lockfile exists: ${lockfilePath}`,
-            cause: error,
-          }),
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "LOCKFILE_PARSE_FAILED",
+          what: `Failed to check if lockfile exists: ${lockfilePath}`,
+          cause: error,
+        }),
       ),
     );
 
@@ -272,10 +235,11 @@ const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
 const ensureProjectWorkspaceInitialized = (localDir: string, options: WorkspaceContextOptions) =>
   Effect.gen(function* () {
     const localSettingsResult = yield* readSettings(localDir).pipe(
-      Effect.map((s) => ({ found: true as const, settings: s })),
-      Effect.catchTag("SettingsNotFoundError", () =>
-        // Use createDefaultSettings() instead of unsafe cast
-        Effect.succeed({ found: false as const, settings: createDefaultSettings() }),
+      Effect.map(
+        Option.match({
+          onNone: () => ({ found: false as const, settings: createDefaultSettings() }),
+          onSome: (s) => ({ found: true as const, settings: s }),
+        }),
       ),
     );
 
@@ -340,7 +304,7 @@ const make = (options: WorkspaceContextOptions) =>
      */
     const readSettingsSafe = (dir: string) =>
       readSettings(dir).pipe(
-        Effect.catchTag("SettingsNotFoundError", () => Effect.succeed(createDefaultSettings())),
+        Effect.map(Option.getOrElse(() => createDefaultSettings())),
         Effect.provide(fsLayer),
       );
 
@@ -353,7 +317,7 @@ const make = (options: WorkspaceContextOptions) =>
      * Three-layer merge: project sources -> global sources -> built-in sources.
      * Name-based deduplication: earlier layers win.
      */
-    const getConfiguredSources = (): Effect.Effect<ReadonlyArray<SourceConfig>, SettingsError> =>
+    const getConfiguredSources = (): Effect.Effect<ReadonlyArray<SourceConfig>, CliError> =>
       Effect.gen(function* () {
         if (cachedSources !== null) return cachedSources;
 
@@ -530,13 +494,12 @@ const make = (options: WorkspaceContextOptions) =>
         withMutex(
           Effect.gen(function* () {
             const validId = yield* Schema.decodeUnknown(AgentIdSchema)(agentId).pipe(
-              Effect.mapError(
-                (error) =>
-                  new SettingsParseError({
-                    path: workspaceDir,
-                    message: `Invalid agent ID: ${agentId}`,
-                    cause: error,
-                  }),
+              Effect.mapError((error) =>
+                makeCliError({
+                  code: "SETTINGS_PARSE_FAILED",
+                  what: `Invalid agent ID: ${agentId}`,
+                  cause: error,
+                }),
               ),
             );
             const current = yield* readSettingsSafe(workspaceDir);
@@ -589,39 +552,37 @@ export interface WorkspaceContextService {
   readonly resolvePlan: <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
     plan: Plan<Op>,
     handlers: T,
-  ) => Effect.Effect<Plan<Op>, PromptCancelled | PromptError, Log | Confirm | ExecutionContext<T>>;
+  ) => Effect.Effect<Plan<Op>, PromptCancelled | CliError, Log | Confirm | ExecutionContext<T>>;
   /** Merged sources from project, global, and built-in defaults. Cached per workspace lifetime. */
-  readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceConfig>, SettingsError>;
+  readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceConfig>, CliError>;
   /** Lookup a source by name from the merged sources list. */
   readonly getConfiguredSourceByName: (
     name: string,
-  ) => Effect.Effect<Option.Option<SourceConfig>, SettingsError>;
+  ) => Effect.Effect<Option.Option<SourceConfig>, CliError>;
   /** Filter merged sources to registry sources, optionally filtered by scope. */
   readonly getConfiguredRegistrySources: (
     scope: Option.Option<string>,
-  ) => Effect.Effect<ReadonlyArray<Extract<SourceConfig, { type: "registry" }>>, SettingsError>;
+  ) => Effect.Effect<ReadonlyArray<Extract<SourceConfig, { type: "registry" }>>, CliError>;
   /** Resolve scope: project settings -> global settings -> DEFAULT_SCOPE. */
-  readonly getConfiguredScope: () => Effect.Effect<string, SettingsError>;
+  readonly getConfiguredScope: () => Effect.Effect<string, CliError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
-  readonly addConfiguredSource: (source: SourceConfig) => Effect.Effect<void, SettingsError>;
+  readonly addConfiguredSource: (source: SourceConfig) => Effect.Effect<void, CliError>;
   /** Read settings and return the skills map, defaulting to `{}`. */
-  readonly getInstalledSkills: () => Effect.Effect<SkillsMap, SettingsError>;
+  readonly getInstalledSkills: () => Effect.Effect<SkillsMap, CliError>;
   /** Read settings and return the configured agent IDs, defaulting to `[]`. */
-  readonly getConfiguredAgents: () => Effect.Effect<ReadonlyArray<string>, SettingsError>;
+  readonly getConfiguredAgents: () => Effect.Effect<ReadonlyArray<string>, CliError>;
   /** Read lockfile and return the skills lock map. */
-  readonly getLockedSkills: () => Effect.Effect<SkillsLockMap, LockfileError>;
+  readonly getLockedSkills: () => Effect.Effect<SkillsLockMap, CliError>;
   /** Read lockfile and return the entry for a specific skill, or Option.none(). */
-  readonly getLockedSkill: (
-    name: string,
-  ) => Effect.Effect<Option.Option<SkillLockEntry>, LockfileError>;
+  readonly getLockedSkill: (name: string) => Effect.Effect<Option.Option<SkillLockEntry>, CliError>;
   /** Add or update a skill in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
   readonly setSkill: (
     name: string,
     source: string,
     lockEntry: SkillLockEntry,
-  ) => Effect.Effect<void, SettingsError | LockfileError>;
+  ) => Effect.Effect<void, CliError>;
   /** Remove a skill from both settings and lockfile. No-op if absent. Serialized by semaphore. */
-  readonly removeSkill: (name: string) => Effect.Effect<void, SettingsError | LockfileError>;
-  /** Append an agent ID if not already present and write to disk. Fails with SettingsParseError if invalid. Serialized by semaphore. */
-  readonly addConfiguredAgent: (agentId: string) => Effect.Effect<void, SettingsError>;
+  readonly removeSkill: (name: string) => Effect.Effect<void, CliError>;
+  /** Append an agent ID if not already present and write to disk. Fails with CliError if invalid. Serialized by semaphore. */
+  readonly addConfiguredAgent: (agentId: string) => Effect.Effect<void, CliError>;
 }

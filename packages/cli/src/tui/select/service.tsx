@@ -2,19 +2,20 @@ import { render } from "ink";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { PromptCancelled, PromptError } from "../errors.js";
+import { PromptCancelled } from "../errors.js";
+import { type CliError, makeCliError } from "../../cli-error/index.js";
 import { SelectPrompt } from "./component.js";
 import type { SelectConfig } from "./types.js";
 
 export interface SelectService {
-  readonly prompt: <T>(config: SelectConfig<T>) => Effect.Effect<T, PromptError | PromptCancelled>;
+  readonly prompt: <T>(config: SelectConfig<T>) => Effect.Effect<T, CliError | PromptCancelled>;
 }
 
 export class Select extends Context.Tag("@axm.sh/cli/tui/Select")<Select, SelectService>() {}
 
 const makeLiveSelectService = (): SelectService => ({
   prompt: <T,>(config: SelectConfig<T>) =>
-    Effect.async<T, PromptError | PromptCancelled>((resume) => {
+    Effect.async<T, CliError | PromptCancelled>((resume) => {
       const instance = render(
         <SelectPrompt
           config={config}
@@ -24,8 +25,9 @@ const makeLiveSelectService = (): SelectService => ({
             if (item === undefined) {
               resume(
                 Effect.fail(
-                  new PromptError({
-                    message: `Invalid selection index: ${String(index)}`,
+                  makeCliError({
+                    code: "PROMPT_RENDER_FAILED",
+                    what: `Invalid selection index: ${String(index)}`,
                     cause: undefined,
                   }),
                 ),

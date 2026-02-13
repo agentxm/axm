@@ -8,6 +8,7 @@
  * @packageDocumentation
  */
 
+import { execSync } from "node:child_process";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Array from "effect/Array";
@@ -572,13 +573,11 @@ const extractZip = (archive: Uint8Array, targetDir: string) =>
     );
 
     // Extract using unzip command
-    yield* Effect.tryPromise({
-      try: async () => {
-        const { execSync } = await import("node:child_process");
+    yield* Effect.try({
+      try: () =>
         execSync(`unzip -o -q "${archivePath}" -d "${targetDir}"`, {
           stdio: "pipe",
-        });
-      },
+        }),
       catch: (e) =>
         makeCliError({ code: "SOURCE_FETCH_FAILED", what: `Failed to extract archive`, cause: e }),
     });

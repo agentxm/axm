@@ -113,7 +113,8 @@ export const createRegistryMetaProvider = (): SourceProvider<
       );
 
       if (registrySources.length === 0) {
-        return [] as ReadonlyArray<ExtensionRef>;
+        const empty: ReadonlyArray<ExtensionRef> = [];
+        return empty;
       }
 
       // Try each registry source in order. 404 (empty results) → fallthrough.

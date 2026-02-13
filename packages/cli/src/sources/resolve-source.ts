@@ -113,7 +113,8 @@ const routeUrlInput = (url: URL, input: string) =>
     ) =>
       configUrl.hostname !== url.hostname
         ? Effect.fail(noMatch)
-        : Effect.map(parse(url, configUrl.hostname), (si) => ({ ...si, ...config }) as Source);
+        : // Assertion needed: TS can't narrow SourceInput & SourceConfig intersection to Source union
+          Effect.map(parse(url, configUrl.hostname), (si) => ({ ...si, ...config }) as Source);
 
     const tryMatch = Match.type<SourceConfig>().pipe(
       Match.when({ type: "github" }, (c) => tryParseUrl(c.url, c, github.parseUrl)),
@@ -160,10 +161,11 @@ const routeOpaqueUrl = (url: URL, input: string) =>
 
     // Check if the scheme matches a config name
     const matchedConfig = sources.find((s) => s.name === prefix);
-    if (matchedConfig && GIT_HOSTING_TYPES.has(matchedConfig.type as SourceType)) {
+    if (matchedConfig && GIT_HOSTING_TYPES.has(matchedConfig.type)) {
       const remainder = input.slice(colonIndex + 1);
       const reparsed = `${matchedConfig.type}:${remainder}`;
       const parsedInput = yield* parseShorthandForSource(matchedConfig.type, reparsed);
+      // Assertion needed: TS can't narrow SourceInput & SourceConfig intersection to Source union
       return { ...parsedInput, ...matchedConfig } as Source;
     }
 
@@ -203,7 +205,8 @@ const routeScpInput = (
     ) =>
       scp.host !== scpHostname
         ? Effect.fail(noMatch)
-        : Effect.map(parse(scpInput, scp.host), (si) => ({ ...si, ...config }) as Source);
+        : // Assertion needed: TS can't narrow SourceInput & SourceConfig intersection to Source union
+          Effect.map(parse(scpInput, scp.host), (si) => ({ ...si, ...config }) as Source);
 
     const tryMatch = Match.type<SourceConfig>().pipe(
       Match.when({ type: "github" }, (c) => tryParseScp(c.url.hostname, c, github.parseScp)),
@@ -259,12 +262,13 @@ const routeShorthandInput = (prefix: string, shorthandInput: string, input: stri
           details: [input],
         });
       }
+      // Assertion needed: TS can't narrow SourceInput & SourceConfig intersection to Source union
       return { ...parsedInput, ...config } as Source;
     }
 
     // Config-name prefix → find config, parse with its source type parser
     const matchedConfig = sources.find((s) => s.name === prefix);
-    if (!matchedConfig || !GIT_HOSTING_TYPES.has(matchedConfig.type as SourceType)) {
+    if (!matchedConfig || !GIT_HOSTING_TYPES.has(matchedConfig.type)) {
       return yield* makeCliError({
         code: "SOURCE_PARSE_FAILED",
         what: `Unknown shorthand prefix: "${prefix}"`,
@@ -275,6 +279,7 @@ const routeShorthandInput = (prefix: string, shorthandInput: string, input: stri
     const remainder = shorthandInput.slice(prefix.length + 1);
     const reparsed = `${matchedConfig.type}:${remainder}`;
     const parsedInput = yield* parseShorthandForSource(matchedConfig.type, reparsed);
+    // Assertion needed: TS can't narrow SourceInput & SourceConfig intersection to Source union
     return { ...parsedInput, ...matchedConfig } as Source;
   });
 
@@ -302,12 +307,11 @@ const routeNameInput = (name: string, input: string) =>
         details: [input],
       });
     }
-    return (yield* parseLocalPath(getInstalledSkillPath(name, skills[name]!))) as Source;
+    return yield* parseLocalPath(getInstalledSkillPath(name, skills[name]!));
   });
 
 /** Route FilePathPattern: parse as local source. */
-const routeFilePathInput = (path: string) =>
-  Effect.map(parseLocalPath(path), (source) => source as Source);
+const routeFilePathInput = (path: string) => Effect.map(parseLocalPath(path), (source) => source);
 
 /** Route RegistryPatternInput: construct registry source from parsed scope and name. */
 const routeRegistryInput = (pattern: { readonly scope: string; readonly name: string }) =>
@@ -332,6 +336,7 @@ const routeSlashInput = (
       return Option.some(
         Effect.map(
           parseShorthandForSource(sourceType, `${sourceType}:${shorthandBody}`),
+          // Assertion needed: TS can't narrow SourceInput & SourceConfig intersection to Source union
           (si) => ({ ...si, ...config }) as Source,
         ),
       );

@@ -201,8 +201,9 @@ export const publishSkill: OperationHandler<
         Effect.mapError((e) =>
           makeCliError({
             code: "PUBLISH_SKILL_PUBLISH_FAILED",
-            what: e.what,
-            cause: e.cause,
+            what: "Failed to publish to registry",
+            details: [e.what],
+            cause: e,
           }),
         ),
       );

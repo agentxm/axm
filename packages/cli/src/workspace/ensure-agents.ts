@@ -117,13 +117,11 @@ export const ensureAgentsConfigured = (opts: EnsureAgentsOptions) =>
     }
 
     if (agents.length === 0) {
-      return yield* Effect.fail(
-        makeCliError({
-          code: "AGENTS_NOT_CONFIGURED",
-          what: "No agents configured",
-          howToFix: "Run 'axm init' first or use --agent to specify agents",
-        }),
-      );
+      return yield* makeCliError({
+        code: "AGENTS_NOT_CONFIGURED",
+        what: "No agents configured",
+        howToFix: "Run 'axm init' first or use --agent to specify agents",
+      });
     }
 
     return agents;

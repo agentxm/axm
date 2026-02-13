@@ -102,6 +102,7 @@ const installForAgent = (opts: {
             canonicalPath: opts.canonicalPath,
           }) satisfies InstallResult,
       ),
+      // Catch any CliError from symlink — fall back to copy mode
       Effect.catchAll(() =>
         // Fallback: copy the canonical directory to the agent path
         copySkillDirectory(opts.canonicalPath, agentSkillPath).pipe(

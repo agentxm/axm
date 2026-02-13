@@ -15,7 +15,7 @@ import {
   makeLogTestLayer,
   makeMultiselectTestLayer,
 } from "../../../tui/index.js";
-import type { SkillRef } from "../operations.js";
+import type { SkillRef } from "../../../sources/index.js";
 import { CliError } from "../../../cli-error/index.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 

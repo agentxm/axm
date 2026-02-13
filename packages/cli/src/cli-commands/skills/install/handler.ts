@@ -107,14 +107,12 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     );
     yield* parseHandle.stop(`Source: ${printSourceInput(source)} (${source.type})`);
 
-    // Step 1.5: Registry guard — ensure a registry source is configured
+    // Step 2: Registry guard — ensure a registry source is configured
     if (source.type === "registry") {
       yield* registryGuard;
     }
 
-    // Step 2: Get workspace context (provided by runtime)
-
-    // Step 5: Discover skills from source via SourceProviders
+    // Step 3: Discover skills from source via SourceProviders
     const discoverHandle = yield* spinnerSvc.start("Discovering skills...");
     const findOptions = {
       names: (source.type === "registry" ? [source.name] : []) satisfies ReadonlyArray<string>,

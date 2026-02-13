@@ -212,7 +212,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
             args: {
               source: {
                 type: "local",
-                path: ref.location.replace("file://", ""),
+                path: ref.location.replace(/^file:\/\//, ""),
               } satisfies CopySkillOperation["args"]["source"],
               targetName,
               location: ref.location,

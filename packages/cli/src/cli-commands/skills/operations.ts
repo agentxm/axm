@@ -28,8 +28,6 @@ export interface Skill {
   readonly metadata: Option<ReadonlyRecord<string, unknown>>;
 }
 
-export type { SkillRef } from "../../sources/provider.js";
-
 // -----------------------------------------------------------------------------
 // Operations
 // -----------------------------------------------------------------------------

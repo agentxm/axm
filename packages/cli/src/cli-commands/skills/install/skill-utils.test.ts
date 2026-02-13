@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
-import type { SkillRef } from "../operations.js";
+import type { SkillRef } from "../../../sources/index.js";
 import { getSkillDisplayName, sanitizeName } from "./skill-utils.js";
 
 // -----------------------------------------------------------------------------

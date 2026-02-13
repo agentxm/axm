@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { SkillRef } from "../operations.js";
+import type { SkillRef } from "../../../sources/index.js";
 import { Log, Multiselect } from "../../../tui/index.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import { expandGlobs } from "../../../skills/index.js";

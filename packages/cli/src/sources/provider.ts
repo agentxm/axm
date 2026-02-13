@@ -8,6 +8,7 @@
  * @packageDocumentation
  */
 
+import * as Array from "effect/Array";
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 
@@ -147,4 +148,21 @@ export interface SourceProvider<S extends SourceInput = SourceInput, R = never> 
 export type ProviderRegistry = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- R is existential per provider
   [K in SourceInput["type"]]: SourceProvider<Extract<SourceInput, { type: K }>, any>;
+};
+
+// -----------------------------------------------------------------------------
+// Shared Helpers
+// -----------------------------------------------------------------------------
+
+/** Filter extension refs by name options. No-op when `options.names` is empty. */
+export const filterRefsByOptions = (
+  refs: ReadonlyArray<ExtensionRef>,
+  options: FindOptions,
+): ReadonlyArray<ExtensionRef> => {
+  if (options.names.length === 0) return refs;
+  const nameSet = new Set(options.names);
+  return Array.filter(refs, (ref) => {
+    const name = ref.type === "skill" ? ref.skill.name : ref.name;
+    return nameSet.has(name);
+  });
 };

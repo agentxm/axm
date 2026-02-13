@@ -46,9 +46,10 @@ export const registryGuard = Effect.gen(function* () {
 
   // Normalize path (expand ~, resolve relative)
   const pathService = yield* Path.Path;
-  const normalizedPath = path.startsWith("~")
-    ? pathService.resolve(process.env["HOME"] ?? "~", path.slice(2))
-    : pathService.resolve(path);
+  const normalizedPath =
+    path.startsWith("~/") || path === "~"
+      ? pathService.resolve(process.env["HOME"] ?? "~", path.slice(path === "~" ? 1 : 2))
+      : pathService.resolve(path);
 
   // Persist to settings
   yield* workspace.addConfiguredSource({

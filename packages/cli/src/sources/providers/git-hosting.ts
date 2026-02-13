@@ -11,7 +11,6 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
@@ -20,7 +19,8 @@ import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-
 import { makeCliError } from "../../cli-error/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
 import { buildCloneUrl } from "../clone-url.js";
-import type { ExtensionRef, FindOptions, SkillRef, SourceProvider } from "../provider.js";
+import { filterRefsByOptions } from "../provider.js";
+import type { SkillRef, SourceProvider } from "../provider.js";
 import type { BitbucketSource, GitHubSource, GitLabSource } from "../types.js";
 
 // -----------------------------------------------------------------------------
@@ -110,33 +110,12 @@ export const createGitHostingProvider = <S extends GitHubSource | GitLabSource |
         { concurrency: "unbounded" },
       );
 
-      return filterByOptions(refs, options);
+      return filterRefsByOptions(refs, options);
     }),
 
   fetch: (_source, extension) =>
     Effect.succeed({ directory: extension.location.replace("file://", "") }),
 });
-
-// -----------------------------------------------------------------------------
-// Filtering
-// -----------------------------------------------------------------------------
-
-const filterByOptions = (
-  refs: ReadonlyArray<ExtensionRef>,
-  options: FindOptions,
-): ReadonlyArray<ExtensionRef> => {
-  let filtered = refs;
-
-  if (options.names.length > 0) {
-    const nameSet = new Set(options.names);
-    filtered = Array.filter(filtered, (ref) => {
-      const name = ref.type === "skill" ? ref.skill.name : ref.name;
-      return nameSet.has(name);
-    });
-  }
-
-  return filtered;
-};
 
 // -----------------------------------------------------------------------------
 // Concrete Providers

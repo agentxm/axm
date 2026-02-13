@@ -15,7 +15,8 @@ import * as Option from "effect/Option";
 
 import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
 import { makeCliError } from "../../cli-error/index.js";
-import type { ExtensionRef, FindOptions, SourceProvider } from "../provider.js";
+import { filterRefsByOptions } from "../provider.js";
+import type { SourceProvider } from "../provider.js";
 import type { LocalSourceInput } from "../types.js";
 
 /**
@@ -53,30 +54,9 @@ export const createLocalProvider = (): SourceProvider<
       // Override source to ensure it matches the local source passed in
       const mapped = Array.map(refs, (ref) => ({ ...ref, source }));
 
-      return filterByOptions(mapped, options);
+      return filterRefsByOptions(mapped, options);
     }),
 
   fetch: (_source, extension) =>
     Effect.succeed({ directory: extension.location.replace("file://", "") }),
 });
-
-// -----------------------------------------------------------------------------
-// Filtering
-// -----------------------------------------------------------------------------
-
-const filterByOptions = (
-  refs: ReadonlyArray<ExtensionRef>,
-  options: FindOptions,
-): ReadonlyArray<ExtensionRef> => {
-  let filtered = refs;
-
-  if (options.names.length > 0) {
-    const nameSet = new Set(options.names);
-    filtered = Array.filter(filtered, (ref) => {
-      const name = ref.type === "skill" ? ref.skill.name : ref.name;
-      return nameSet.has(name);
-    });
-  }
-
-  return filtered;
-};

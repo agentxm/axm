@@ -6,6 +6,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import matter from "gray-matter";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { SkillLockEntry } from "../../../lockfile/schema.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
@@ -124,7 +125,10 @@ describe("renameSkill", () => {
     // Create canonical skill dir
     const canonicalPath = path.join(base, ".agents", "skills", skillName);
     fs.mkdirSync(canonicalPath, { recursive: true });
-    fs.writeFileSync(path.join(canonicalPath, "SKILL.md"), `# ${skillName}`);
+    fs.writeFileSync(
+      path.join(canonicalPath, "SKILL.md"),
+      `---\nname: ${skillName}\ndescription: A test skill\n---\n\n# ${skillName}`,
+    );
 
     // Create agent symlinks
     for (const agentId of agents) {
@@ -176,6 +180,30 @@ describe("renameSkill", () => {
         const newSymlink = path.join(base, ".claude", "skills", "renamed-skill");
         expect(fs.existsSync(newSymlink)).toBe(true);
         expect(fs.lstatSync(newSymlink).isSymbolicLink()).toBe(true);
+      }),
+    );
+
+    it.effect("updates the name in SKILL.md frontmatter", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupWorkspace({ agents: ["claude-code"] });
+
+        yield* renameSkill(makeOp()).pipe(
+          Effect.provide(
+            withServices(axmDir, {
+              configuredAgents: ["claude-code"],
+              lockfileSkills: { "my-skill": makeLocalLockEntry(["claude-code"]) },
+              settingsSkills: { "my-skill": "local:/tmp/source" },
+            }),
+          ),
+        );
+
+        const skillMd = fs.readFileSync(
+          path.join(base, ".agents", "skills", "renamed-skill", "SKILL.md"),
+          "utf-8",
+        );
+        const parsed = matter(skillMd);
+        expect(parsed.data["name"]).toBe("renamed-skill");
+        expect(parsed.data["description"]).toBe("A test skill");
       }),
     );
 

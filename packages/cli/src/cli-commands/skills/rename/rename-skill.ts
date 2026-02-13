@@ -11,6 +11,7 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import matter from "gray-matter";
 import { getAgentById } from "../../../agents/registry.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
@@ -85,6 +86,11 @@ export const renameSkill: OperationHandler<
       ),
     );
 
+    // 2b. Update SKILL.md frontmatter name — best-effort
+    yield* updateSkillMdName(fs, path.join(newCanonical, "SKILL.md"), op.args.newName).pipe(
+      Effect.catchAll(() => Effect.void),
+    );
+
     // Content path for symlinks (non-registry sources: same as canonical)
     const contentPath = newCanonical;
 
@@ -149,4 +155,18 @@ export const renameSkill: OperationHandler<
       result: "success",
       message: `Renamed ${op.args.oldName} to ${op.args.newName}`,
     } satisfies OperationResult;
+  });
+
+// -----------------------------------------------------------------------------
+// Internal
+// -----------------------------------------------------------------------------
+
+/** Update the `name` field in a SKILL.md's YAML frontmatter. */
+const updateSkillMdName = (fs: FileSystem.FileSystem, skillMdPath: string, newName: string) =>
+  Effect.gen(function* () {
+    const content = yield* fs.readFileString(skillMdPath);
+    const parsed = matter(content);
+    if (typeof parsed.data["name"] !== "string") return;
+    parsed.data["name"] = newName;
+    yield* fs.writeFileString(skillMdPath, matter.stringify(parsed.content, parsed.data));
   });

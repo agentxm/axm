@@ -10,6 +10,8 @@ import matter from "gray-matter";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { SkillLockEntry } from "../../../lockfile/schema.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import type { SkillPathSource } from "../skill-paths.js";
+import { sanitizeName } from "../install/skill-utils.js";
 import type { RenameSkillOperation } from "../operations.js";
 import { renameSkill } from "./rename-skill.js";
 
@@ -63,6 +65,24 @@ const makeWorkspaceMock = (
     getLockedSkills: () => Effect.succeed(lockfileSkills),
     getLockedSkill: (name: string) =>
       Effect.succeed(Option.fromNullable(lockfileSkills[name] as SkillLockEntry | undefined)),
+    getSkillDir: (name: string, source?: SkillPathSource) => {
+      const base = path.dirname(axmDir);
+      const sanitized = sanitizeName(name);
+      // Use explicit source if provided, else look up lock entry
+      const srcType = source?.type ?? (lockfileSkills[name] as SkillLockEntry | undefined)?.type;
+      if (srcType === "registry") {
+        const scope =
+          source?.type === "registry"
+            ? source.scope
+            : "scope" in (lockfileSkills[name] ?? {})
+              ? (lockfileSkills[name] as { scope: string }).scope
+              : "@community";
+        const canonicalPath = path.join(base, ".axm", "extensions", scope, "skills", sanitized);
+        return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
+      }
+      const canonicalPath = path.join(base, ".agents", "skills", sanitized);
+      return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
+    },
     setSkill: () => Effect.void,
     removeSkill: () => Effect.void,
     updateSkillEntry: () => Effect.void,
@@ -88,6 +108,19 @@ const makeOp = (oldName = "my-skill", newName = "renamed-skill"): RenameSkillOpe
 const makeLocalLockEntry = (agents: string[]) => ({
   type: "local" as const,
   path: "/tmp/source",
+  agents,
+  installedAt: new Date(),
+  updatedAt: new Date(),
+});
+
+/** Creates a registry source lock entry. */
+const makeRegistryLockEntry = (agents: string[], scope = "@community") => ({
+  type: "registry" as const,
+  scope,
+  name: "my-skill",
+  resolvedVersion: "1.0.0",
+  checksum: "sha256:abc123",
+  sourceName: "local",
   agents,
   installedAt: new Date(),
   updatedAt: new Date(),
@@ -308,6 +341,136 @@ describe("renameSkill", () => {
         // State should NOT have been updated
         expect(renameSkillFn).not.toHaveBeenCalled();
         expect(updateLockEntryAgentsFn).not.toHaveBeenCalled();
+      }),
+    );
+  });
+
+  describe("registry source", () => {
+    /** Sets up a workspace with a registry-sourced skill canonical dir. */
+    const setupRegistryWorkspace = (
+      opts: {
+        skillName?: string;
+        scope?: string;
+        agents?: string[];
+      } = {},
+    ) => {
+      const skillName = opts.skillName ?? "my-skill";
+      const scope = opts.scope ?? "@community";
+      const agents = opts.agents ?? ["claude-code"];
+
+      const base = path.join(tmpDir, "project");
+      const axmDir = path.join(base, ".axm");
+      fs.mkdirSync(axmDir, { recursive: true });
+
+      // Create registry canonical skill dir with src/ subdirectory
+      const canonicalPath = path.join(base, ".axm", "extensions", scope, "skills", skillName);
+      const srcPath = path.join(canonicalPath, "src");
+      fs.mkdirSync(srcPath, { recursive: true });
+      fs.writeFileSync(
+        path.join(srcPath, "SKILL.md"),
+        `---\nname: ${skillName}\ndescription: A registry skill\n---\n\n# ${skillName}`,
+      );
+      fs.writeFileSync(
+        path.join(canonicalPath, "axm-skill.json"),
+        JSON.stringify({ name: skillName, version: "1.0.0" }),
+      );
+
+      // Create agent symlinks pointing to src/ (not canonical root)
+      for (const agentId of agents) {
+        const agentDirMap: Record<string, string> = {
+          "claude-code": ".claude/skills",
+          cursor: ".cursor/skills",
+        };
+        const agentSkillsDir = agentDirMap[agentId];
+        if (agentSkillsDir) {
+          const agentSkillPath = path.join(base, agentSkillsDir, skillName);
+          fs.mkdirSync(path.dirname(agentSkillPath), { recursive: true });
+          fs.symlinkSync(srcPath, agentSkillPath);
+        }
+      }
+
+      return { base, axmDir, canonicalPath, srcPath };
+    };
+
+    it.effect("renames registry-sourced skill using correct canonical paths", () =>
+      Effect.gen(function* () {
+        const { axmDir, base, canonicalPath } = setupRegistryWorkspace({
+          agents: ["claude-code"],
+        });
+
+        const result = yield* renameSkill(makeOp()).pipe(
+          Effect.provide(
+            withServices(axmDir, {
+              configuredAgents: ["claude-code"],
+              lockfileSkills: {
+                "my-skill": makeRegistryLockEntry(["claude-code"]),
+              },
+              settingsSkills: { "my-skill": "registry:@community/my-skill" },
+            }),
+          ),
+        );
+
+        expect(result.result).toBe("success");
+
+        // Old registry canonical dir should not exist
+        expect(fs.existsSync(canonicalPath)).toBe(false);
+
+        // New registry canonical dir should exist (under same scope)
+        const newCanonical = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "@community",
+          "skills",
+          "renamed-skill",
+        );
+        expect(fs.existsSync(newCanonical)).toBe(true);
+        expect(fs.existsSync(path.join(newCanonical, "src", "SKILL.md"))).toBe(true);
+
+        // Old agent symlink should be removed
+        expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
+
+        // New agent symlink should point to src/ subdirectory
+        const newSymlink = path.join(base, ".claude", "skills", "renamed-skill");
+        expect(fs.existsSync(newSymlink)).toBe(true);
+        expect(fs.lstatSync(newSymlink).isSymbolicLink()).toBe(true);
+        const target = fs.readlinkSync(newSymlink);
+        const resolved = path.resolve(path.dirname(newSymlink), target);
+        expect(resolved).toBe(path.join(newCanonical, "src"));
+      }),
+    );
+
+    it.effect("updates SKILL.md frontmatter in src/ for registry skills", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupRegistryWorkspace({ agents: ["claude-code"] });
+
+        yield* renameSkill(makeOp()).pipe(
+          Effect.provide(
+            withServices(axmDir, {
+              configuredAgents: ["claude-code"],
+              lockfileSkills: {
+                "my-skill": makeRegistryLockEntry(["claude-code"]),
+              },
+              settingsSkills: { "my-skill": "registry:@community/my-skill" },
+            }),
+          ),
+        );
+
+        const skillMd = fs.readFileSync(
+          path.join(
+            base,
+            ".axm",
+            "extensions",
+            "@community",
+            "skills",
+            "renamed-skill",
+            "src",
+            "SKILL.md",
+          ),
+          "utf-8",
+        );
+        const parsed = matter(skillMd);
+        expect(parsed.data["name"]).toBe("renamed-skill");
       }),
     );
   });

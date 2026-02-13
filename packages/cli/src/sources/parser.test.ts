@@ -29,7 +29,7 @@ describe("parseInputPattern", () => {
     it("classifies @scope/name as RegistryPatternInput", () => {
       expectSome("@myorg/some-name", {
         _tag: "RegistryPatternInput",
-        scope: "myorg",
+        scope: "@myorg",
         name: "some-name",
       });
     });

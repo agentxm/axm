@@ -19,7 +19,7 @@ import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import { copySkillDirectory } from "../copy-skill-directory.js";
-import { CANONICAL_SKILLS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.js";
+import { UNIVERSAL_SKILLS_DIR } from "../constants.js";
 import { removeIfExists } from "../fs-helpers.js";
 import { sanitizeName } from "../install/skill-utils.js";
 import type { EnableSkillOperation } from "../operations.js";
@@ -71,16 +71,8 @@ export const enableSkill: OperationHandler<
     }
     const lockEntry = lockEntryOption.value;
 
-    // 2. Determine canonical path based on source type
-    const isRegistry = lockEntry.type === "registry";
-    const registryScope =
-      isRegistry && "scope" in lockEntry ? (lockEntry as { scope: string }).scope : undefined;
-
-    const canonicalPath = isRegistry
-      ? path.join(base, REGISTRY_EXTENSIONS_DIR, registryScope!, "skills", sanitizedName)
-      : path.join(base, CANONICAL_SKILLS_DIR, sanitizedName);
-
-    const contentPath = isRegistry ? path.join(canonicalPath, "src") : canonicalPath;
+    // 2. Determine canonical path via centralized getSkillDir (name-only mode — uses lockfile)
+    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(op.args.skillName);
 
     // 3. Resolve source and copy to canonical location
     // For local sources, the lock entry path is the source repo root;
@@ -91,16 +83,16 @@ export const enableSkill: OperationHandler<
       // Pre-clean canonical location
       yield* removeIfExists(fs, canonicalPath);
 
-      yield* copySkillDirectory(sourcePath, contentPath).pipe(
+      yield* copySkillDirectory(sourcePath, skillSrcPath).pipe(
         Effect.mapError((e) =>
           makeCliError({
             code: "ENABLE_SKILL_COPY_FAILED",
-            what: `Failed to copy skill files to ${contentPath}`,
+            what: `Failed to copy skill files to ${skillSrcPath}`,
             cause: e,
           }),
         ),
       );
-    } else if (isRegistry) {
+    } else if (lockEntry.type === "registry") {
       // For registry sources, the canonical path should already exist from prior install
       // or needs re-resolution through SourceProviders (not available in this handler).
       // If files don't exist, fail with a helpful message.
@@ -119,11 +111,11 @@ export const enableSkill: OperationHandler<
       const sourcePath = "path" in lockEntry ? (lockEntry as { path?: string }).path : undefined;
       if (sourcePath) {
         yield* removeIfExists(fs, canonicalPath);
-        yield* copySkillDirectory(sourcePath, contentPath).pipe(
+        yield* copySkillDirectory(sourcePath, skillSrcPath).pipe(
           Effect.mapError((e) =>
             makeCliError({
               code: "ENABLE_SKILL_COPY_FAILED",
-              what: `Failed to copy skill files to ${contentPath}`,
+              what: `Failed to copy skill files to ${skillSrcPath}`,
               cause: e,
             }),
           ),
@@ -148,13 +140,13 @@ export const enableSkill: OperationHandler<
 
         // Self-reference detection
         const agentSkillsDir = path.resolve(base, agent.skills.dir);
-        const canonicalSkillsDir = path.resolve(base, CANONICAL_SKILLS_DIR);
+        const canonicalSkillsDir = path.resolve(base, UNIVERSAL_SKILLS_DIR);
         if (agentSkillsDir === canonicalSkillsDir) return Effect.void;
 
         const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
-        return createSymlink({ target: contentPath, link: agentSkillPath }).pipe(
+        return createSymlink({ target: skillSrcPath, link: agentSkillPath }).pipe(
           Effect.catchAll(() =>
-            copySkillDirectory(contentPath, agentSkillPath).pipe(
+            copySkillDirectory(skillSrcPath, agentSkillPath).pipe(
               Effect.catchAll(() => Effect.void),
             ),
           ),

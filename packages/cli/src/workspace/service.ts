@@ -25,6 +25,12 @@ import {
   type SkillLockEntry,
   type SkillsLockMap,
 } from "../lockfile/index.js";
+import {
+  computeSkillPaths,
+  type SkillDirPaths,
+  type SkillPathSource,
+} from "../cli-commands/skills/index.js";
+import { sanitizeName } from "../cli-commands/skills/install/skill-utils.js";
 import { AgentIdSchema } from "../extensions/common.js";
 import { type CliError, makeCliError } from "../cli-error/index.js";
 import {
@@ -454,6 +460,36 @@ const make = (options: WorkspaceContextOptions) =>
           Effect.map((lf) => Option.fromNullable(lf.skills[name])),
         ),
 
+      getSkillDir: (name: string, source?: SkillPathSource) =>
+        Effect.gen(function* () {
+          const base = path.dirname(workspaceDir);
+          const sanitized = sanitizeName(name);
+
+          if (source !== undefined) {
+            return computeSkillPaths(path.join, base, source, sanitized);
+          }
+
+          const lockEntry = yield* readLockfileSafe(workspaceDir).pipe(
+            Effect.map((lf) => Option.fromNullable(lf.skills[name])),
+          );
+
+          if (Option.isNone(lockEntry)) {
+            return yield* makeCliError({
+              code: "SKILL_NOT_LOCKED",
+              what: `Skill "${name}" not found in lockfile`,
+              howToFix: "Install the skill first with `axm skills install`",
+            });
+          }
+
+          const entry = lockEntry.value;
+          const entrySource: SkillPathSource =
+            entry.type === "registry"
+              ? { type: "registry", scope: entry.scope }
+              : { type: entry.type };
+
+          return computeSkillPaths(path.join, base, entrySource, sanitized);
+        }),
+
       setSkill: (name: string, source: string, lockEntry: SkillLockEntry) =>
         withMutex(
           Effect.gen(function* () {
@@ -684,6 +720,11 @@ export interface WorkspaceContextService {
   readonly getLockedSkills: () => Effect.Effect<SkillsLockMap, CliError>;
   /** Read lockfile and return the entry for a specific skill, or Option.none(). */
   readonly getLockedSkill: (name: string) => Effect.Effect<Option.Option<SkillLockEntry>, CliError>;
+  /** Compute skill directory paths. If source is omitted, looks up the lock entry to determine source type. */
+  readonly getSkillDir: (
+    name: string,
+    source?: SkillPathSource,
+  ) => Effect.Effect<SkillDirPaths, CliError>;
   /** Add or update a skill in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
   readonly setSkill: (
     name: string,

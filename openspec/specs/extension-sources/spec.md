@@ -22,10 +22,17 @@ The registry source string no longer carries location information — location i
 
 HTTPS and SSH URLs (e.g., `https://github.com/owner/repo`, `git@github.com:owner/repo.git`) are classified as URL or SCP patterns by `parseInputPattern` but are NOT resolved to a specific source type at classification time. Source type determination for URLs and SCPs happens in `resolveSource` via config-driven hostname matching.
 
+The `RegistrySourceInput.scope` field SHALL always be `@`-prefixed (e.g., `"@acme"`, not `"acme"`). The parser SHALL preserve the `@` prefix from the input pattern. No downstream normalization SHALL be required.
+
 #### Scenario: Registry source string
 
 - **WHEN** parsing source string `@acme/my-skill@^1.0.0`
 - **THEN** source type is `registry` with scope `@acme`, name `my-skill`, version `^1.0.0`
+
+#### Scenario: Registry source scope is @-prefixed
+
+- **WHEN** parsing source string `@community/my-skill`
+- **THEN** the `RegistrySourceInput` has `scope: "@community"` (not `"community"`)
 
 #### Scenario: Registry source has no location fields
 
@@ -109,8 +116,10 @@ Settings SHALL support a top-level `scope` field providing the default scope for
 | bitbucket  | `bitbucket:<owner>/<repo>[/<subPath>][@<ref>]`          | `bitbucket:acme/repo`             |
 | azurerepos | `azurerepos:<org>/<project>/<repo>[/<subPath>][@<ref>]` | `azurerepos:acme/proj/repo@main`  |
 | git        | URL href                                                | `https://example.com/repo.git`    |
-| registry   | `@<scope>/<name>`                                       | `@acme/my-skill`                  |
+| registry   | `<scope>/<name>`                                        | `@acme/my-skill`                  |
 | local      | path as-is                                              | `./my-skills/dev-skill`           |
+
+Since `RegistrySourceInput.scope` is now `@`-prefixed, the printer SHALL output the scope directly (e.g., `@acme/my-skill`) without adding a prefix.
 
 #### Scenario: Print GitHub source input
 
@@ -129,7 +138,7 @@ Settings SHALL support a top-level `scope` field providing the default scope for
 
 #### Scenario: Print registry source input
 
-- **WHEN** printing a registry source input with scope `acme` and name `my-skill`
+- **WHEN** printing a registry source input with scope `@acme` and name `my-skill`
 - **THEN** the result is `@acme/my-skill`
 
 #### Scenario: Print local source input

@@ -1222,6 +1222,101 @@ describe("WorkspaceContextService", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // getSkillDir
+  // ---------------------------------------------------------------------------
+
+  describe("getSkillDir", () => {
+    it.effect("name-only lookup with registry lock entry returns registry paths", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {
+          "my-skill": {
+            type: "registry",
+            scope: "@acme",
+            name: "my-skill",
+            resolvedVersion: "1.0.0",
+            checksum: "abc123",
+            sourceName: "default",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const paths = yield* ws.getSkillDir("my-skill");
+
+        expect(paths.canonicalPath).toContain(".axm/extensions/@acme/skills/my-skill");
+        expect(paths.skillSrcPath).toContain(
+          ".axm/extensions/@acme/skills/my-skill" + path.sep + "src",
+        );
+        expect(paths.skillSrcPath).toBe(paths.canonicalPath + path.sep + "src");
+      }),
+    );
+
+    it.effect("name-only lookup with non-registry lock entry returns universal paths", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {
+          "code-review": {
+            type: "github",
+            owner: "acme",
+            repo: "code-review",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const paths = yield* ws.getSkillDir("code-review");
+
+        expect(paths.canonicalPath).toContain(".agents/skills/code-review");
+        expect(paths.skillSrcPath).toBe(paths.canonicalPath);
+      }),
+    );
+
+    it.effect("explicit registry source returns correct paths without lockfile lookup", () =>
+      Effect.gen(function* () {
+        // Empty lockfile — explicit source should not need it
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const paths = yield* ws.getSkillDir("my-skill", {
+          type: "registry",
+          scope: "@corp",
+        });
+
+        expect(paths.canonicalPath).toContain(".axm/extensions/@corp/skills/my-skill");
+        expect(paths.skillSrcPath).toBe(paths.canonicalPath + path.sep + "src");
+      }),
+    );
+
+    it.effect("explicit non-registry source returns correct paths without lockfile lookup", () =>
+      Effect.gen(function* () {
+        // Empty lockfile — explicit source should not need it
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const paths = yield* ws.getSkillDir("code-review", { type: "github" });
+
+        expect(paths.canonicalPath).toContain(".agents/skills/code-review");
+        expect(paths.skillSrcPath).toBe(paths.canonicalPath);
+      }),
+    );
+
+    it.effect("name-only with missing lock entry fails with SKILL_NOT_LOCKED", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.getSkillDir("nonexistent").pipe(Effect.flip);
+
+        expect(result).toBeInstanceOf(CliError);
+        expect(result.code).toBe("SKILL_NOT_LOCKED");
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
   // Semaphore serialization
   // ---------------------------------------------------------------------------
 

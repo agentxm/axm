@@ -93,9 +93,7 @@ export const createRegistryMetaProvider = (): SourceProvider<
       const ws = yield* Workspace;
 
       // Determine scope from source (e.g. @scope/name install) or from options names
-      const sourceScope = _source.scope
-        ? Option.some(_source.scope.startsWith("@") ? _source.scope : `@${_source.scope}`)
-        : Option.none<string>();
+      const sourceScope = _source.scope ? Option.some(_source.scope) : Option.none<string>();
       const scope = Option.isSome(sourceScope)
         ? sourceScope
         : options.names.length > 0

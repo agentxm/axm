@@ -22,9 +22,10 @@ import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import { copySkillDirectory } from "../copy-skill-directory.js";
 import type { InstallSkillOperation } from "../operations.js";
-import { CANONICAL_SKILLS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.js";
+import { UNIVERSAL_SKILLS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 import { removeIfExists } from "../fs-helpers.js";
 import { sourceToLockEntry } from "../source-to-lock-entry.js";
+import type { SkillPathSource } from "../skill-paths.js";
 import type { InstallResult } from "./install-result.js";
 import { sanitizeName } from "./skill-utils.js";
 
@@ -58,7 +59,7 @@ const installForAgent = (opts: {
 
     // Self-reference detection: agent's skills.dir resolves to canonical location
     const agentSkillsDir = path.resolve(opts.base, agent.skills.dir);
-    const canonicalSkillsDir = path.resolve(opts.base, CANONICAL_SKILLS_DIR);
+    const canonicalSkillsDir = path.resolve(opts.base, UNIVERSAL_SKILLS_DIR);
 
     if (agentSkillsDir === canonicalSkillsDir) {
       // Universal agent — reads directly from canonical, no symlink needed
@@ -147,7 +148,7 @@ const preCleanAllLocations = (
 ) =>
   Effect.gen(function* () {
     // Remove from non-registry canonical location
-    yield* removeIfExists(fsService, pathService.join(base, CANONICAL_SKILLS_DIR, sanitizedName));
+    yield* removeIfExists(fsService, pathService.join(base, UNIVERSAL_SKILLS_DIR, sanitizedName));
 
     // Remove from any registry canonical location
     const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
@@ -197,17 +198,12 @@ export const installSkill: OperationHandler<
 
     const sanitizedName = sanitizeName(op.args.skill.name);
 
-    // Determine canonical path based on source type
-    const isRegistry = op.args.source.type === "registry";
-    // Normalize scope: parser gives "community" (no @), filesystem uses "@community"
-    const registryScope = isRegistry
-      ? op.args.source.scope.startsWith("@")
-        ? op.args.source.scope
-        : `@${op.args.source.scope}`
-      : undefined;
-    const canonicalPath = isRegistry
-      ? path.join(base, REGISTRY_EXTENSIONS_DIR, registryScope!, "skills", sanitizedName)
-      : path.join(base, CANONICAL_SKILLS_DIR, sanitizedName);
+    // Determine canonical + content paths from centralized getSkillDir
+    const source: SkillPathSource =
+      op.args.source.type === "registry"
+        ? { type: "registry", scope: op.args.source.scope }
+        : { type: op.args.source.type };
+    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(op.args.skill.name, source);
 
     // Validate canonical path safety
     if (!isPathSafe(base, canonicalPath)) {
@@ -217,23 +213,20 @@ export const installSkill: OperationHandler<
       });
     }
 
-    // For registry sources, content lives in src/ subdirectory; for others, content is at canonical root
-    const contentPath = isRegistry ? path.join(canonicalPath, "src") : canonicalPath;
-
     // Resolve source path — the skill files to copy from
     const sourcePath = op.args.location.replace(/^file:\/\//, "");
 
     // Skip pre-clean and copy when source is already the content location
     // (e.g., fork workflow where files are already in place)
-    const isSelfCopy = path.resolve(sourcePath) === path.resolve(contentPath);
+    const isSelfCopy = path.resolve(sourcePath) === path.resolve(skillSrcPath);
 
     if (!isSelfCopy) {
       // Pre-clean from ALL known locations (ensures clean transitions between source types)
       yield* preCleanAllLocations(fs, base, sanitizedName, path);
 
       // For registry sources, copy to canonicalPath (extracted zip has manifest + src/)
-      // For other sources, copy to contentPath (no subdirectory structure)
-      const copyTarget = isRegistry ? canonicalPath : contentPath;
+      // For other sources, copy to skillSrcPath (no subdirectory structure)
+      const copyTarget = source.type === "registry" ? canonicalPath : skillSrcPath;
       yield* copySkillDirectory(sourcePath, copyTarget).pipe(
         Effect.mapError((e) =>
           makeCliError({
@@ -246,13 +239,13 @@ export const installSkill: OperationHandler<
     }
 
     // Create symlinks for each agent (concurrent)
-    // Symlinks target contentPath so agents only see skill content (not manifest)
+    // Symlinks target skillSrcPath so agents only see skill content (not manifest)
     const agentResults = yield* Effect.forEach(
       op.args.agents,
       (agentId) =>
         installForAgent({
           agentId,
-          canonicalPath: contentPath,
+          canonicalPath: skillSrcPath,
           sanitizedName,
           base,
         }),
@@ -269,9 +262,9 @@ export const installSkill: OperationHandler<
           agents: op.args.agents,
           gitTreeSha: op.args.gitTreeSha,
           now: new Date(),
-          ...(isRegistry && {
+          ...(source.type === "registry" && {
             registry: {
-              scope: registryScope!,
+              scope: source.scope,
               name: sanitizedName,
               resolvedVersion: Option.getOrElse(op.args.version, () => "0.0.0"),
               checksum: "",

@@ -8,7 +8,7 @@ Defines the update plan builder that compares installed skill versions against r
 
 ### Requirement: Build update plan from operations and lockfile
 
-The update plan builder SHALL accept `ReadonlyArray<InstallSkillOperation>`, a `Lockfile`, a plan `name`, and a plan `description: Option<string>`, and return a `Plan<InstallSkillOperation>` with one `PlannedJobStep` per operation. Each step SHALL include `_tag: "PlannedJobStep"` and a full `expectedResult: OperationResult` with a human-readable message.
+The update plan builder SHALL accept `ReadonlyArray<InstallSkillOperation | UninstallSkillOperation>`, a `Lockfile`, a plan `name`, and a plan `description: Option<string>`, and return a `Plan<InstallSkillOperation | UninstallSkillOperation>` with one `PlannedJobStep` per operation. Each step SHALL include `_tag: "PlannedJobStep"` and a full `expectedResult: OperationResult` with a human-readable message.
 
 #### Scenario: Skill with version change (git hosting source)
 
@@ -66,14 +66,25 @@ The update plan builder SHALL accept `ReadonlyArray<InstallSkillOperation>`, a `
 - **WHEN** building a plan from an empty operations array
 - **THEN** the plan SHALL contain one job with an empty steps array
 
+#### Scenario: UninstallSkillOperation step for rename cleanup
+
+- **WHEN** an `UninstallSkillOperation` is included in the operations (from rename detection)
+- **THEN** the step SHALL have `expectedResult: { result: "success", message: "Removed <skill-name> (renamed)" }`
+- **AND** the step's `label` SHALL be the old skill name
+
 ### Requirement: Label derivation from skill name
 
 The update plan builder SHALL derive the `label` field for each step from the skill name in the operation.
 
-#### Scenario: Label is skill name
+#### Scenario: Label from InstallSkillOperation
 
 - **WHEN** building a step from an `InstallSkillOperation`
 - **THEN** the step's `label` SHALL be the skill's name (from `op.args.skill.name`)
+
+#### Scenario: Label from UninstallSkillOperation
+
+- **WHEN** building a step from an `UninstallSkillOperation`
+- **THEN** the step's `label` SHALL be the skill's name (from `op.args.skillName`)
 
 ### Requirement: Plan name and description
 

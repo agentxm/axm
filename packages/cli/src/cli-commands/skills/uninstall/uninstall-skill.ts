@@ -17,7 +17,7 @@ import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import type { UninstallSkillOperation } from "../operations.js";
-import { CANONICAL_SKILLS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.js";
+import { UNIVERSAL_SKILLS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 import { removeIfExists } from "../fs-helpers.js";
 import { sanitizeName } from "../install/skill-utils.js";
 
@@ -36,7 +36,7 @@ const removeFromAllLocations = (
 ) =>
   Effect.gen(function* () {
     // Remove from non-registry canonical location
-    yield* removeIfExists(fsService, pathService.join(base, CANONICAL_SKILLS_DIR, sanitizedName));
+    yield* removeIfExists(fsService, pathService.join(base, UNIVERSAL_SKILLS_DIR, sanitizedName));
 
     // Remove from any registry canonical location
     const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
@@ -73,7 +73,7 @@ const existsInAnyLocation = (
   Effect.gen(function* () {
     // Check non-registry canonical location
     const canonicalExists = yield* fsService
-      .exists(pathService.join(base, CANONICAL_SKILLS_DIR, sanitizedName))
+      .exists(pathService.join(base, UNIVERSAL_SKILLS_DIR, sanitizedName))
       .pipe(Effect.catchAll(() => Effect.succeed(false)));
     if (canonicalExists) return true;
 
@@ -164,7 +164,7 @@ export const uninstallSkill: OperationHandler<
 
         // Self-reference detection: agent's skills.dir resolves to canonical location
         const agentSkillsDir = path.resolve(base, agent.skills.dir);
-        const canonicalSkillsDir = path.resolve(base, CANONICAL_SKILLS_DIR);
+        const canonicalSkillsDir = path.resolve(base, UNIVERSAL_SKILLS_DIR);
         if (agentSkillsDir === canonicalSkillsDir) return Effect.void;
 
         const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);

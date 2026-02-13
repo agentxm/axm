@@ -93,6 +93,7 @@ describe("resolveAmbiguous", () => {
       getConfiguredAgents: vi.fn(() => Effect.succeed([])),
       getLockedSkills: vi.fn(() => Effect.succeed({})),
       getLockedSkill: vi.fn(() => Effect.succeed(Option.none())),
+      getSkillDir: vi.fn(() => Effect.succeed({ canonicalPath: "", skillSrcPath: "" })),
       setSkill: vi.fn(() => Effect.void),
       removeSkill: vi.fn(() => Effect.void),
       updateSkillEntry: vi.fn(() => Effect.void),

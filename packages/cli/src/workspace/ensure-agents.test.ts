@@ -61,6 +61,7 @@ describe("ensureAgentsConfigured", () => {
         }).pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<string>>([]))),
       getLockedSkills: () => Effect.succeed({}),
       getLockedSkill: () => Effect.succeed(Option.none()),
+      getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
       setSkill: () => Effect.void,
       removeSkill: () => Effect.void,
       updateSkillEntry: () => Effect.void,

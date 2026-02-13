@@ -16,7 +16,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import { CANONICAL_SKILLS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.js";
+import { UNIVERSAL_SKILLS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 import { removeIfExists } from "../fs-helpers.js";
 import { sanitizeName } from "../install/skill-utils.js";
 import type { DisableSkillOperation } from "../operations.js";
@@ -82,7 +82,7 @@ export const disableSkill: OperationHandler<
 
         // Self-reference detection
         const agentSkillsDir = path.resolve(base, agent.skills.dir);
-        const canonicalSkillsDir = path.resolve(base, CANONICAL_SKILLS_DIR);
+        const canonicalSkillsDir = path.resolve(base, UNIVERSAL_SKILLS_DIR);
         if (agentSkillsDir === canonicalSkillsDir) return Effect.void;
 
         const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
@@ -94,7 +94,7 @@ export const disableSkill: OperationHandler<
     );
 
     // 3. Remove canonical directories (from all known locations)
-    yield* removeIfExists(fs, path.join(base, CANONICAL_SKILLS_DIR, sanitizedName));
+    yield* removeIfExists(fs, path.join(base, UNIVERSAL_SKILLS_DIR, sanitizedName));
 
     // Also remove from registry locations if applicable
     const extensionsDir = path.join(base, REGISTRY_EXTENSIONS_DIR);

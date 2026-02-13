@@ -133,7 +133,7 @@ describe("resolveSource", () => {
         const result = yield* resolve("@scope/name");
         expect(result.type).toBe("registry");
         if (result.type === "registry") {
-          expect(result.scope).toBe("scope");
+          expect(result.scope).toBe("@scope");
           expect(result.name).toBe("name");
         }
         // No config fields (name, url) — registry source is self-describing
@@ -146,7 +146,7 @@ describe("resolveSource", () => {
         const result = yield* resolve("@acme/my-skill");
         expect(result.type).toBe("registry");
         if (result.type === "registry") {
-          expect(result.scope).toBe("acme");
+          expect(result.scope).toBe("@acme");
           expect(result.name).toBe("my-skill");
         }
       }),

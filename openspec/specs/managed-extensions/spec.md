@@ -70,17 +70,19 @@ Managed skill extensions SHALL have an `axm-skill.json` manifest based on `Commo
 
 ### Requirement: Install pipeline conditional path
 
-The `installSkill` operation executor SHALL determine the canonical path based on source type. For registry sources, a `contentPath` (`<canonical>/src/`) SHALL be used for agent symlinks and file copies.
+Skill operation handlers SHALL delegate canonical path computation to `Workspace.getSkillDir` instead of independently branching on source type. For registry sources, `skillSrcPath` (`<canonical>/src/`) SHALL be used for agent symlinks and file copies.
 
 #### Scenario: Registry source uses managed location
 
 - **WHEN** installing a skill with `source: "registry"`
-- **THEN** skill content files are written to `.axm/extensions/@<scope>/skills/<name>/src/`
+- **THEN** skill content files are written to the `skillSrcPath` returned by `getSkillDir`
+- **AND** `skillSrcPath` resolves to `.axm/extensions/@<scope>/skills/<name>/src/`
 
 #### Scenario: Other sources use existing location
 
 - **WHEN** installing a skill with `source: "github"` or `source: "local"`
-- **THEN** files are written to `.agents/skills/<sanitized-name>/`
+- **THEN** files are written to the `skillSrcPath` returned by `getSkillDir`
+- **AND** `skillSrcPath` resolves to `.agents/skills/<sanitized-name>/`
 
 #### Scenario: Pre-clean removes from all known locations
 

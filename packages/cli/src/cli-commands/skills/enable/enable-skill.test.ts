@@ -10,6 +10,7 @@ import { afterEach, beforeEach, vi } from "vitest";
 import type { SkillLockEntry } from "../../../lockfile/schema.js";
 import { makeLogTestLayer } from "../../../tui/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import { sanitizeName } from "../install/skill-utils.js";
 import type { EnableSkillOperation } from "../operations.js";
 import { enableSkill } from "./enable-skill.js";
 
@@ -79,6 +80,18 @@ const makeWorkspaceMock = (
     getLockedSkills: () => Effect.succeed(lockfileSkills),
     getLockedSkill: (name: string) =>
       Effect.succeed(Option.fromNullable(lockfileSkills[name] as SkillLockEntry | undefined)),
+    getSkillDir: (name: string) => {
+      const base = path.dirname(axmDir);
+      const sanitized = sanitizeName(name);
+      const lockEntry = lockfileSkills[name] as SkillLockEntry | undefined;
+      if (lockEntry?.type === "registry") {
+        const scope = "scope" in lockEntry ? (lockEntry as { scope: string }).scope : "@community";
+        const canonicalPath = path.join(base, ".axm", "extensions", scope, "skills", sanitized);
+        return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
+      }
+      const canonicalPath = path.join(base, ".agents", "skills", sanitized);
+      return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
+    },
     setSkill: () => Effect.void,
     removeSkill: () => Effect.void,
     updateSkillEntry: opts.updateSkillEntryFn ?? (() => Effect.void),

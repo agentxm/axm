@@ -11,8 +11,10 @@ import { afterEach, beforeEach, vi } from "vitest";
 import { makeLogTestLayer } from "../../../tui/index.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import type { SkillPathSource } from "../skill-paths.js";
 import type { InstallSkillOperation } from "../operations.js";
 import { installSkill } from "./install-skill.js";
+import { sanitizeName } from "./skill-utils.js";
 
 /** Creates a workspace mock that writes lockfile + settings to disk. */
 const makeWorkspaceMock = (
@@ -48,6 +50,23 @@ const makeWorkspaceMock = (
     getConfiguredAgents: () => Effect.succeed([]),
     getLockedSkills: () => Effect.succeed(readLf().skills ?? {}),
     getLockedSkill: (name: string) => Effect.succeed(Option.fromNullable(readLf().skills?.[name])),
+    getSkillDir: (name: string, source?: SkillPathSource) => {
+      const base = path.dirname(axmDir);
+      const sanitized = sanitizeName(name);
+      if (source?.type === "registry") {
+        const canonicalPath = path.join(
+          base,
+          ".axm",
+          "extensions",
+          source.scope,
+          "skills",
+          sanitized,
+        );
+        return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
+      }
+      const canonicalPath = path.join(base, ".agents", "skills", sanitized);
+      return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
+    },
     setSkill: setSkillFn
       ? (name: string, source: string, entry: unknown) => setSkillFn(name, source, entry)
       : (name: string, _source: string, entry: unknown) =>

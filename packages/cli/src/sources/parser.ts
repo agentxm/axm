@@ -68,7 +68,7 @@ export type InputPattern =
   | FilePathPattern
   | ShorthandInput;
 
-const REGISTRY_SOURCE_PATTERN = /^@([^/]+)\/(.+)$/;
+const REGISTRY_SOURCE_PATTERN = /^(@[^/]+)\/(.+)$/;
 
 /** SCP-style: `user@host:path` — no `://` scheme. */
 const SCP_PATTERN = /^([^@]+)@([^:]+):(.+)$/;

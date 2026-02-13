@@ -5,5 +5,5 @@
  */
 
 export const REGISTRY_EXTENSIONS_DIR = ".axm/extensions";
-export const CANONICAL_SKILLS_DIR = ".agents/skills";
+export const UNIVERSAL_SKILLS_DIR = ".agents/skills";
 export const MANIFEST_FILENAME = "axm-skill.json";

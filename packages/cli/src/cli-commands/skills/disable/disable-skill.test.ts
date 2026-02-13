@@ -47,6 +47,7 @@ const makeWorkspaceMock = (
     getLockedSkills: () => Effect.succeed(lockfileSkills),
     getLockedSkill: (name: string) =>
       Effect.succeed(Option.fromNullable(lockfileSkills[name] as SkillLockEntry | undefined)),
+    getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
     setSkill: () => Effect.void,
     removeSkill: () => Effect.void,
     updateSkillEntry: opts.updateSkillEntryFn ?? (() => Effect.void),

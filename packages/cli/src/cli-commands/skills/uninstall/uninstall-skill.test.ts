@@ -73,6 +73,7 @@ const makeWorkspaceMock = (
       overrides?.lockfileErrorOverride
         ? (overrides.lockfileErrorOverride() as Effect.Effect<never, CliError>)
         : Effect.succeed(Option.fromNullable(skills[name] as SkillLockEntry | undefined)),
+    getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
     setSkill: overrides?.setSkillErrorOverride
       ? () => overrides.setSkillErrorOverride!()
       : (name: string, _source: string, entry: unknown) =>

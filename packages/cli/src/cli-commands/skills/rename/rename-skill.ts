@@ -19,8 +19,9 @@ import { copySkillDirectory } from "../copy-skill-directory.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import { CANONICAL_SKILLS_DIR } from "../constants.js";
+import { UNIVERSAL_SKILLS_DIR } from "../constants.js";
 import type { RenameSkillOperation } from "../operations.js";
+import type { SkillPathSource } from "../skill-paths.js";
 import { sanitizeName } from "../install/skill-utils.js";
 
 // -----------------------------------------------------------------------------
@@ -48,9 +49,6 @@ export const renameSkill: OperationHandler<
     const axmDir = ws.path;
     const base = path.dirname(axmDir);
 
-    const oldSanitized = sanitizeName(op.args.oldName);
-    const newSanitized = sanitizeName(op.args.newName);
-
     // 1. Read workspace state
     const configuredAgents = yield* ws.getConfiguredAgents();
 
@@ -72,29 +70,36 @@ export const renameSkill: OperationHandler<
     const lockEntry = lockEntryOption.value;
     const lockAgents: readonly string[] = lockEntry.agents;
 
-    // 2. Rename canonical directory — files before state
-    const oldCanonical = path.join(base, CANONICAL_SKILLS_DIR, oldSanitized);
-    const newCanonical = path.join(base, CANONICAL_SKILLS_DIR, newSanitized);
+    // 2. Compute paths for old and new names via centralized getSkillDir
+    // Derive source from lock entry — new name doesn't exist in lockfile yet
+    const pathSource: SkillPathSource =
+      lockEntry.type === "registry"
+        ? { type: "registry", scope: lockEntry.scope }
+        : { type: lockEntry.type };
+    const oldPaths = yield* ws.getSkillDir(op.args.oldName, pathSource);
+    const newPaths = yield* ws.getSkillDir(op.args.newName, pathSource);
 
-    yield* fs.rename(oldCanonical, newCanonical).pipe(
+    // Rename canonical directory — files before state
+    yield* fs.rename(oldPaths.canonicalPath, newPaths.canonicalPath).pipe(
       Effect.mapError((e) =>
         makeCliError({
           code: "RENAME_SKILL_DIR_FAILED",
-          what: `Failed to rename skill directory from "${oldSanitized}" to "${newSanitized}"`,
+          what: `Failed to rename skill directory from "${op.args.oldName}" to "${op.args.newName}"`,
           cause: e,
         }),
       ),
     );
 
     // 2b. Update SKILL.md frontmatter name — best-effort
-    yield* updateSkillMdName(fs, path.join(newCanonical, "SKILL.md"), op.args.newName).pipe(
-      Effect.catchAll(() => Effect.void),
-    );
-
-    // Content path for symlinks (non-registry sources: same as canonical)
-    const contentPath = newCanonical;
+    yield* updateSkillMdName(
+      fs,
+      path.join(newPaths.skillSrcPath, "SKILL.md"),
+      op.args.newName,
+    ).pipe(Effect.catchAll(() => Effect.void));
 
     // 3. Remove old agent symlinks (concurrent)
+    const oldSanitized = sanitizeName(op.args.oldName);
+    const newSanitized = sanitizeName(op.args.newName);
     const allAgents = [...new Set([...lockAgents, ...configuredAgents])];
     yield* Effect.forEach(
       allAgents,
@@ -105,7 +110,7 @@ export const renameSkill: OperationHandler<
 
         // Self-reference detection
         const agentSkillsDir = path.resolve(base, agent.skills.dir);
-        const canonicalSkillsDir = path.resolve(base, CANONICAL_SKILLS_DIR);
+        const canonicalSkillsDir = path.resolve(base, UNIVERSAL_SKILLS_DIR);
         if (agentSkillsDir === canonicalSkillsDir) return Effect.void;
 
         const agentSkillPath = path.join(base, agent.skills.dir, oldSanitized);
@@ -126,13 +131,13 @@ export const renameSkill: OperationHandler<
 
         // Self-reference detection
         const agentSkillsDir = path.resolve(base, agent.skills.dir);
-        const canonicalSkillsDir = path.resolve(base, CANONICAL_SKILLS_DIR);
+        const canonicalSkillsDir = path.resolve(base, UNIVERSAL_SKILLS_DIR);
         if (agentSkillsDir === canonicalSkillsDir) return Effect.void;
 
         const agentSkillPath = path.join(base, agent.skills.dir, newSanitized);
-        return createSymlink({ target: contentPath, link: agentSkillPath }).pipe(
+        return createSymlink({ target: newPaths.skillSrcPath, link: agentSkillPath }).pipe(
           Effect.catchAll(() =>
-            copySkillDirectory(contentPath, agentSkillPath).pipe(
+            copySkillDirectory(newPaths.skillSrcPath, agentSkillPath).pipe(
               Effect.catchAll(() => Effect.void),
             ),
           ),

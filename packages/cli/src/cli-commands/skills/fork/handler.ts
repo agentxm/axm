@@ -36,6 +36,7 @@ import { copySkill } from "../copy-skill.js";
 import { installSkill } from "../install/install-skill.js";
 import { publishSkill } from "../publish-skill.js";
 import { expandGlobs } from "../../../skills/index.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
 import type { SkillRef } from "../../../sources/index.js";
 
@@ -200,7 +201,8 @@ export const handleFork = (args: ForkHandlerArgs) =>
           metadata: ref.skill.metadata,
         },
         location:
-          "file://" + path.join(base, ".axm/extensions", scope, "skills", ref.skill.name, "src"),
+          "file://" +
+          path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "skills", ref.skill.name, "src"),
         version: Option.some("0.1.0"),
         gitTreeSha: Option.none(),
       };

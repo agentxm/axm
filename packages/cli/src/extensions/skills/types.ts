@@ -8,10 +8,6 @@
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 
-// Re-export Source types from canonical location
-export type { GitHostingProviderSource, SourceInput, SourceType } from "../../sources/index.js";
-export { isGitHostingProviderSource } from "../../sources/index.js";
-
 // -----------------------------------------------------------------------------
 // Skill Types
 // -----------------------------------------------------------------------------
@@ -73,9 +69,3 @@ export interface Lockfile {
   /** Locked extensions keyed by type */
   readonly extensions: LockfileExtensions;
 }
-
-// -----------------------------------------------------------------------------
-// Re-exports from canonical schemas
-// -----------------------------------------------------------------------------
-
-export type { Settings } from "../../settings/index.js";

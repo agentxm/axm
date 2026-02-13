@@ -27,54 +27,22 @@ export type SkillSource = SourceInput;
 /**
  * Compute install path from source type and skill name.
  *
- * Registry skills are installed to scoped directories:
- * `.axm/extensions/@<scope>/skills/<name>`
+ * All skills are installed to: `.axm/extensions/external/skills/<name>`
  *
- * External skills (GitHub, Local) are installed to a shared external directory:
- * `.axm/extensions/external/skills/<name>`
- *
- * @param source - The skill source (Registry, GitHub, or Local)
+ * @param _source - The skill source (currently unused — all sources use the same path)
  * @param name - The skill name to use in the path
  * @returns The relative install path for the skill
  *
  * @example
  * ```typescript
- * import { Option } from "effect";
- *
- * // Registry source
- * const registrySource = {
- *   _tag: "Registry" as const,
- *   location: { _tag: "Remote" as const, url: "https://registry.example.com" },
- *   scope: "official",
- *   name: "commit",
- *   version: Option.some("1.0.0"),
- * };
- * computeInstallPath(registrySource, "commit");
- * // => ".axm/extensions/@official/skills/commit"
- *
- * // GitHub source
- * const githubSource = {
- *   _tag: "GitHub" as const,
- *   owner: "anthropics",
- *   repo: "skills",
- *   ref: Option.none(),
- *   path: Option.none(),
- * };
- * computeInstallPath(githubSource, "my-skill");
+ * computeInstallPath(source, "my-skill");
  * // => ".axm/extensions/external/skills/my-skill"
  * ```
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const computeInstallPath = (source: SkillSource, name: string): string => {
-  switch (source.type) {
-    case "registry":
-      // Registry sources don't have scope in the unified Source type
-      return `.axm/extensions/external/skills/${name}`;
-    default:
-      return `.axm/extensions/external/skills/${name}`;
-  }
-};
+export const computeInstallPath = (_source: SkillSource, name: string): string =>
+  `.axm/extensions/external/skills/${name}`;
 
 // =============================================================================
 // Version Comparison

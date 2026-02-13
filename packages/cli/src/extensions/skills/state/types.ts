@@ -532,13 +532,6 @@ export const AnyIssueSchema = Schema.Union(
 );
 
 // =============================================================================
-// Source re-export (unified source type from sources/types.ts)
-// =============================================================================
-
-// Re-export SourceInput type from canonical location
-export type { SourceInput } from "../../../sources/types.js";
-
-// =============================================================================
 // ActualSkillV2, LockedSkillV2, SkillStateV2, CurrentState (new reconciliation design)
 // =============================================================================
 

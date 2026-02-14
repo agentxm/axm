@@ -51,7 +51,10 @@ export const forkCommand: CommandModule<{}, ForkCommandArgs> = {
         describe: "Disable all interactive prompts",
       })
       .example("$0 skills fork my-skill", "Fork an installed skill to a managed extension")
-      .example('$0 skills fork "effect-*"', "Fork all installed skills matching the glob")
+      .example(
+        '$0 skills fork "effect-*"',
+        "Fork all local skills matching the glob (installed, configured unmanaged, and on-disk)",
+      )
       .example("$0 skills fork github:owner/repo", "Fork a skill from a GitHub repo")
       .example(
         '$0 skills fork ./local/path --skill "effect-*"',

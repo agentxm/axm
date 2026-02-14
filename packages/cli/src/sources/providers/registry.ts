@@ -80,8 +80,16 @@ export interface RegistrySourceProvider extends SourceProvider<
 // -----------------------------------------------------------------------------
 
 /** Pluralize extension type for directory segments. */
-const pluralizeType = (type: RegistryExtensionType): string =>
-  type === "skill" ? "skills" : "mcp-servers";
+const pluralizeType = (type: RegistryExtensionType): string => {
+  switch (type) {
+    case "skill":
+      return "skills";
+    case "pack":
+      return "packs";
+    case "mcp-server":
+      return "mcp-servers";
+  }
+};
 
 /** Build the path to an extension's directory within a registry. */
 const extensionDir = (
@@ -116,18 +124,15 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
 
       const findForName = (name: string) =>
         Effect.gen(function* () {
-          // Only search for skills for now (per design: "skill" type)
           const typeFilter: ReadonlyArray<RegistryExtensionType> =
             options.type === "*"
-              ? ["skill", "mcp-server"]
+              ? ["skill", "mcp-server", "pack"]
               : [options.type as RegistryExtensionType];
 
           const refs: SkillRef[] = [];
 
           // Sequential: each iteration reads from the filesystem and may early-return
           for (const extType of typeFilter) {
-            if (extType !== "skill") continue; // Only skills implemented in this change
-
             const extensionsDir = path.join(registryRoot, "extensions");
             const extensionsDirExists = yield* fs
               .exists(extensionsDir)

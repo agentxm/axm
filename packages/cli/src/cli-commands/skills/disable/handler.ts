@@ -2,6 +2,7 @@
  * Disable command handler - Effect-based orchestration for `axm skills disable`.
  *
  * Validates skill state then builds and resolves a single-step plan.
+ * Supports both direct skills (settings entry) and transitive skills (via packs).
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -37,17 +38,31 @@ export const handleDisable = (args: DisableHandlerArgs) =>
 
     yield* log.info("axm skills disable");
 
-    // Load configured skills
+    // Load configured skills (direct settings entries)
     const configuredSkills = yield* ws.getConfiguredSkills();
     const entry = configuredSkills[args.name];
 
-    // Validate: skill exists
+    // If not found in configured skills, check installed skills (includes transitive via packs)
     if (entry === undefined) {
-      return yield* makeCliError({
-        code: "SKILL_NOT_FOUND",
-        what: `Skill '${args.name}' not found`,
-        howToFix: "Run `axm skills list` to see available skills",
-      });
+      const installedSkills = yield* ws.getInstalledSkills();
+      const installedEntry = installedSkills[args.name];
+
+      if (installedEntry === undefined) {
+        return yield* makeCliError({
+          code: "SKILL_NOT_FOUND",
+          what: `Skill '${args.name}' not found`,
+          howToFix: "Run `axm skills list` to see available skills",
+        });
+      }
+
+      // Transitive skill — promote to direct entry with enabled: false
+      // Use the bare name (without scope) as the settings key
+      const bareName = args.name.includes("/") ? args.name.split("/").pop()! : args.name;
+      const source = Option.orElse(installedEntry.source, () => Option.some(args.name));
+      yield* ws.setSkillEntry(bareName, { source, enabled: false, managed: true });
+
+      yield* log.success("Done");
+      return;
     }
 
     // Validate: skill is managed

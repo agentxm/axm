@@ -65,6 +65,7 @@ describe("ensureAgentsConfigured", () => {
       setSkill: () => Effect.void,
       removeSkill: () => Effect.void,
       updateSkillEntry: () => Effect.void,
+      setSkillEntry: () => Effect.void,
       renameSkill: () => Effect.void,
       updateLockEntryAgents: () => Effect.void,
       addConfiguredAgent: (agentId: string) =>
@@ -77,6 +78,13 @@ describe("ensureAgentsConfigured", () => {
             fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings, null, 2));
           }
         }).pipe(Effect.catchAll(() => Effect.void)),
+      getConfiguredPacks: () => Effect.succeed({}),
+      getInstalledPacks: () => Effect.succeed({}),
+      getLockedPacks: () => Effect.succeed({}),
+      getLockedPack: () => Effect.succeed(Option.none()),
+      setPack: () => Effect.void,
+      removePack: () => Effect.void,
+      getPackDir: () => Effect.succeed({ canonicalPath: "" }),
     });
     const TestLayer = Layer.mergeAll(NodeContext.layer, logLayer, confirmLayer, WsLayer);
     return { TestLayer, mockLog };

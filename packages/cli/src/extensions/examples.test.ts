@@ -77,6 +77,6 @@ describe("example files", () => {
     const result = Schema.decodeUnknownSync(PackManifestSchema)(example);
     expect(result).toBeDefined();
     expect(result.name).toBe("@acme/fullstack-pack");
-    expect(result.skills).toContain("@acme/code-review");
+    expect(result.skills?.["@acme/code-review"]).toBe("^1.0.0");
   });
 });

@@ -4,7 +4,7 @@
   "description": "Complete fullstack development toolkit",
   "keywords": ["fullstack", "web", "development"],
   "license": "MIT",
-  "skills": ["@acme/code-review", "@acme/test-runner"],
-  "commands": ["@acme/deploy"],
-  "mcp-servers": ["@acme/database-mcp"]
+  "skills": { "@acme/code-review": "^1.0.0", "@acme/test-runner": "^1.0.0" },
+  "commands": { "@acme/deploy": "^1.0.0" },
+  "mcp-servers": { "@acme/database-mcp": "^1.0.0" }
 }

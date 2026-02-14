@@ -9,7 +9,13 @@
  */
 
 // Schema types and schemas
-export type { Lockfile, SkillLockEntry, SkillsLockMap } from "./schema.js";
+export type {
+  Lockfile,
+  PackLockEntry,
+  PacksLockMap,
+  SkillLockEntry,
+  SkillsLockMap,
+} from "./schema.js";
 export {
   AzureReposLockEntrySchema,
   BitbucketLockEntrySchema,
@@ -19,6 +25,8 @@ export {
   GitLockEntrySchema,
   LocalLockEntrySchema,
   LockfileSchema,
+  PackLockEntrySchema,
+  PacksLockMapSchema,
   RegistryLockEntrySchema,
   SkillLockEntrySchema,
   SkillsLockMapSchema,

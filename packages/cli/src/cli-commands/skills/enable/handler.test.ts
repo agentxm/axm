@@ -42,17 +42,22 @@ const initWorkspace = (
   skills: Record<string, unknown> = {},
   lockfileSkills: Record<string, unknown> = {},
   agents: string[] = ["claude-code"],
+  opts?: { packs?: Record<string, unknown>; lockfilePacks?: Record<string, unknown> },
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
   const settings: Record<string, unknown> = { agents };
   if (Object.keys(skills).length > 0) {
     settings["skills"] = skills;
   }
+  if (opts?.packs && Object.keys(opts.packs).length > 0) {
+    settings["packs"] = opts.packs;
+  }
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  fs.writeFileSync(
-    path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 1, skills: lockfileSkills }),
-  );
+  const lockfile: Record<string, unknown> = { lockfileVersion: 1, skills: lockfileSkills };
+  if (opts?.lockfilePacks) {
+    lockfile["packs"] = opts.lockfilePacks;
+  }
+  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
 };
 
 const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
@@ -172,6 +177,62 @@ describe("enable.handler", () => {
 
           expect(mockLog.logs.info.some((m) => m.includes("already enabled"))).toBe(true);
           expect(mockLog.logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Promoted transitive skill re-enable
+  // ---------------------------------------------------------------------------
+
+  describe("promoted skill re-enable", () => {
+    it.effect("re-enables promoted transitive skill by updating settings", () => {
+      const { provide, mockLog } = makeLayers();
+      // Skill was promoted to direct via disable: bare name key, no lock entry
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        {
+          "code-review": {
+            source: "registry:@acme/code-review@1.2.0",
+            enabled: false,
+          },
+        },
+        {},
+        ["claude-code"],
+        {
+          packs: { "starter-pack": "registry:@acme/starter-pack@1.0.0" },
+          lockfilePacks: {
+            "starter-pack": {
+              type: "registry",
+              scope: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              checksum: "abc123",
+              sourceName: "default",
+              installedAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              resolvedSkills: { "@acme/code-review": "1.2.0" },
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+          },
+        },
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleEnable(defaultArgs("code-review"));
+
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+
+          // Settings should show re-enabled (collapsed to string form)
+          const settingsContent = fs.readFileSync(
+            path.join(tempDir, ".axm", "settings.json"),
+            "utf-8",
+          );
+          const settings = JSON.parse(settingsContent);
+          expect(settings.skills?.["code-review"]).toBe("registry:@acme/code-review@1.2.0");
         }),
       );
     });

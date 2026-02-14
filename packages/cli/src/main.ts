@@ -4,6 +4,7 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
 import { initCommand } from "./cli-commands/init/command.js";
+import { packsCommand } from "./cli-commands/packs/command.js";
 import { skillsCommand } from "./cli-commands/skills/command.js";
 
 const version = "0.0.1";
@@ -21,8 +22,10 @@ export const program = Effect.promise(() =>
     })
     .command(initCommand)
     .command(skillsCommand)
+    .command(packsCommand)
     .example("$0 init", "Initialize axm in current project")
     .example("$0 skills install owner/repo", "Install skills from a GitHub repository")
+    .example("$0 packs install owner/repo", "Install an extension pack")
     .demandCommand(1)
     .fail((msg, _err, yargs) => {
       if (msg?.includes("Not enough non-option arguments")) {

@@ -2,6 +2,7 @@
  * Enable command handler - Effect-based orchestration for `axm skills enable`.
  *
  * Validates skill state then builds and resolves a single-step plan.
+ * Supports both direct skills (with lock entry) and promoted transitive skills.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -63,6 +64,15 @@ export const handleEnable = (args: EnableHandlerArgs) =>
     if (entry.enabled) {
       yield* log.info(`Skill '${args.name}' is already enabled`);
       yield* log.success("Nothing to do.");
+      return;
+    }
+
+    // Check if this is a promoted transitive skill (no lock entry)
+    const lockEntry = yield* ws.getLockedSkill(args.name);
+    if (Option.isNone(lockEntry)) {
+      // Promoted transitive skill — just update settings entry
+      yield* ws.updateSkillEntry(args.name, (e) => ({ ...e, enabled: true }));
+      yield* log.success("Done");
       return;
     }
 

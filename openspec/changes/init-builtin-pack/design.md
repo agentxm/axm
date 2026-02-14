@@ -6,7 +6,6 @@ Today:
 
 - Init creates settings.json + lockfile, detects agents, done.
 - Packs are always registry-sourced (`PackLockEntry.type` is `Literal("registry")`).
-- FQN schema (`/^@[\w-]+\/[\w-]+$/`) rejects dots in scopes, blocking `@axm.sh/*`.
 - Skills are materialized as symlinks (or copies) from canonical paths into each agent's skill directory.
 
 ## Goals / Non-Goals
@@ -14,31 +13,30 @@ Today:
 **Goals:**
 
 - Ship management skill definitions (SKILL.md files) bundled with the CLI npm package
-- Install `@axm.sh/cli` pack and its skills during `axm init` without registry connectivity
-- Record the builtin pack and skills in lockfile (not settings) with a `"builtin"` source type
-- Couple builtin skill lifecycle to CLI version — skills update when the CLI updates, not via registry
-- Allow dots in FQN scope segments (`@axm.sh/...`)
+- Install `@axm/cli` pack and its skills during `axm init` without registry connectivity
+- Record the builtin pack and skills in lockfile with a `"builtin"` source type
+- Handle builtin pack/skill updates through `axm update` — same flow as other sources
 
 **Non-Goals:**
 
 - Bundling non-skill extension types (commands, MCP servers) in the initial builtin pack
-- Managing builtin skills via registry — they are always tied to the installed CLI version
 - Making the builtin pack removable or configurable — it's always present
+- Special-casing workspace service or update flow to exclude builtin — it participates like any other source
 
 ## What Is NOT Changing
 
 - **Settings schema** — No changes. The builtin pack is never written to settings.
 - **Pack install flow** — No changes. Builtin pack is not installable via `axm packs install`.
-- **Lockfile read/write logic** — Same read/write paths; the new `"builtin"` type is just another variant in the existing union schemas.
+- **FQN validation** — No changes. `@axm/cli` already passes `/^@[\w-]+\/[\w-]+$/`.
+- **Lockfile read/write logic** — Same read/write paths; the new `"builtin"` source type is just another variant in the existing union schemas.
 
 ## What IS Changing
 
-- **FQN validation** — Dots allowed in scope segment.
-- **Lockfile schema** — New `"builtin"` variant in both `SkillLockEntrySchema` and `PackLockEntrySchema` unions.
+- **Lockfile schema** — New `"builtin"` source type variant in both `SkillLockEntrySchema` and `PackLockEntrySchema` unions.
 - **Bundled assets** — New files shipped in the CLI npm package.
+- **Builtin-pack module** — New module that owns the identity, assets, and resolution logic for the builtin pack.
 - **Init path** — After agent selection, materializes builtin skills and writes `"builtin"` lock entries.
-- **Workspace service** — `getConfiguredPacks()` includes the builtin pack even though it has no settings entry.
-- **Skills update flow** — Skips skills with `type: "builtin"` (they are managed by CLI lifecycle, not registry).
+- **Update flow** — Handles `"builtin"` source type in version comparison, resolving against CLI bundle.
 
 ## Decisions
 
@@ -50,7 +48,7 @@ Source SKILL.md files and the pack manifest live in the source tree under `packa
 
 ```
 packages/cli/src/builtin-pack/
-  axm-pack.json                        # Pack manifest for @axm.sh/cli
+  axm-pack.json                        # Pack manifest for @axm/cli
   skills/
     axm-manage-skills/SKILL.md         # Agent instructions for skill operations
     axm-manage-packs/SKILL.md          # Agent instructions for pack operations
@@ -60,27 +58,45 @@ packages/cli/src/builtin-pack/
 
 **Why source tree, not generated:** These are hand-authored agent instructions, not generated artifacts. Keeping them in source ensures they're version-controlled and reviewable.
 
-**Alternative considered:** Embedding as string constants in TypeScript. Rejected — harder to review, edit, and test as standalone files.
+### 2. Builtin-pack module exports identity and resolution
 
-### 2. New `"builtin"` lock entry type for both packs and skills
+The `builtin-pack/` module is the single source of truth for the builtin pack's identity and resolution. It exports constants and a function to resolve the bundled manifest.
 
-The builtin pack's lifecycle is coupled to the CLI version — there's no registry to fetch from, no checksum to verify, no source name to resolve. A distinct `"builtin"` type makes this explicit rather than overloading `"registry"` with placeholder values.
+**Exports:**
+
+```typescript
+// builtin-pack/index.ts
+export const BUILTIN_PACK_FQN = "@axm/cli"
+export const BUILTIN_PACK_SCOPE = "@axm"
+export const BUILTIN_PACK_NAME = "cli"
+
+// Reads bundled axm-pack.json, returns manifest + CLI version
+export const resolveBuiltinPack = () => Effect.gen(function* () { ... })
+```
+
+The module resolves the path to bundled assets relative to `import.meta.url`. Both init and update import from this module — the implicit dependency on `@axm/cli` is hardcoded here, not in workspace or settings.
+
+**Why a dedicated module:** The knowledge of "what is the builtin pack" lives with the data it describes. Workspace and update are consumers, not owners.
+
+### 3. `"builtin"` as a new source type in lockfile schema
+
+`"builtin"` is a source type, just like `"registry"`, `"github"`, or `"local"`. Lock entries with `type: "builtin"` record extensions sourced from the CLI bundle.
 
 **Pack lock entry (`BuiltinPackLockEntrySchema`):**
 
 ```yaml
-"@axm.sh/cli":
+"@axm/cli":
   type: builtin
-  scope: "@axm.sh"
+  scope: "@axm"
   name: cli
-  resolvedVersion: "0.0.16" # CLI version that materialized the pack
+  resolvedVersion: "0.0.16"
   installedAt: "2026-02-14T..."
   updatedAt: "2026-02-14T..."
   resolvedSkills:
-    "@axm.sh/axm-manage-skills": "0.0.16"
-    "@axm.sh/axm-manage-packs": "0.0.16"
-    "@axm.sh/axm-manage-mcp-servers": "0.0.16"
-    "@axm.sh/axm-manage-commands": "0.0.16"
+    "@axm/axm-manage-skills": "0.0.16"
+    "@axm/axm-manage-packs": "0.0.16"
+    "@axm/axm-manage-mcp-servers": "0.0.16"
+    "@axm/axm-manage-commands": "0.0.16"
   resolvedCommands: {}
   resolvedMcpServers: {}
 ```
@@ -97,57 +113,55 @@ axm-manage-skills:
   updatedAt: "2026-02-14T..."
 ```
 
-Minimal fields — just agents and timestamps. No source coordinates needed since the CLI binary is the source.
-
 **Schema changes:**
 
 - `PackLockEntrySchema` becomes a `Schema.Union` of `RegistryPackLockEntrySchema` and `BuiltinPackLockEntrySchema`
 - `SkillLockEntrySchema` union gains `BuiltinSkillLockEntrySchema` as an additional variant
 
-**Why a new type, not reusing `"registry"`:** The lifecycle is fundamentally different. Registry skills are fetched, checksummed, and updatable from a remote source. Builtin skills are bundled with the CLI binary and update when the CLI updates. Using `"registry"` with placeholder values (empty checksum, fake source name) would be misleading and require downstream code to special-case these "not really registry" entries. A clean type makes the distinction explicit and lets code handle each case naturally via the discriminant.
+**Why a new source type, not reusing `"registry"`:** The source is fundamentally different — no registry to query, no checksum to verify, no source name to resolve. A distinct type lets code handle each source naturally via the discriminant without placeholder values.
 
-### 3. Init materializes builtin pack after agent selection
+### 4. Init materializes builtin pack (first-time only)
 
-During `WorkspaceContext.make()` → `initializeProjectWorkspace()`, after writing settings with selected agents:
+During `initializeProjectWorkspace()`, after writing settings with selected agents:
 
-1. Resolve path to bundled assets relative to the CLI binary (using `import.meta.url` or `__dirname`)
-2. Read `axm-pack.json` to discover skill references
-3. Copy each skill directory to canonical location (`.axm/extensions/@axm.sh/skills/<name>/`)
-4. Create symlinks from each selected agent's skill directory to the canonical location
-5. Write `type: "builtin"` pack and skill entries to lockfile with `resolvedVersion` = CLI package version
+1. Call `resolveBuiltinPack()` to get the manifest and CLI version
+2. Copy each skill directory to canonical location (`.axm/extensions/@axm/skills/<name>/`)
+3. Create symlinks from each selected agent's skill directory to the canonical location
+4. Write `type: "builtin"` pack and skill entries to lockfile with `resolvedVersion` = CLI version
+
+If the builtin pack is already in the lockfile, init is a no-op for it. Version upgrades are handled by `axm update`, not init.
 
 This reuses the existing `copySkillDirectory` and `createSymlink` utilities.
 
-**Why at init, not lazily:** Skills must be present in agent directories immediately so agents can discover them. Lazy loading would require a runtime check on every agent invocation.
+**Why at init, not lazily:** Skills must be present in agent directories immediately so agents can discover them.
 
-### 4. Workspace service treats builtin pack as configured
+### 5. Update handles builtin source like any other
 
-`getConfiguredPacks()` returns the builtin pack (`@axm.sh/cli`) as a configured pack even though it has no settings entry. This ensures commands like `axm packs unpack` see the builtin pack.
+`axm update` checks the builtin pack alongside registry/git/local sources. No skip logic, no special-casing — builtin participates in the normal update flow.
 
-Implementation: the method merges the implicit builtin pack entry with any explicit settings entries.
+**Version comparison in `hasChanged()`:**
 
-### 5. FQN pattern updated to allow dots in scope
+The existing function branches by source type (git → tree hash, registry → version, local → always). Add a `"builtin"` branch:
 
-Change `FullyQualifiedNameSchema` from `/^@[\w-]+\/[\w-]+$/` to `/^@[\w.-]+\/[\w-]+$/`.
+```typescript
+if (entry.type === "builtin") {
+  // Compare locked version against current CLI version
+  return entry.resolvedVersion !== cliVersion;
+}
+```
 
-Dots are only allowed in the **scope** segment (before `/`), not the name segment. This matches npm scoping conventions (`@angular.io/core` is valid npm).
+**Discovery:** The update handler imports `resolveBuiltinPack()` to get the current manifest. It compares the manifest's skill list and CLI version against the locked pack entry. This handles:
 
-**Impact:** All code that validates FQNs via this schema automatically accepts `@axm.sh/cli`, `@axm.sh/axm-manage-skills`, etc. No changes needed beyond the regex.
+- **Version bumps** — CLI version > locked version → re-materialize all skills, update lock entries
+- **New skills added** — manifest has skills not in `resolvedSkills` → install them
+- **Skills removed** — `resolvedSkills` has skills not in manifest → uninstall them
 
-### 6. Skills update skips builtin skills
-
-`axm skills update` SHALL skip skills with `type: "builtin"` in the lockfile. Builtin skills are coupled to the CLI version — they update when the CLI is upgraded, not via registry fetch.
-
-This is a simple filter in the update handler: exclude lock entries where `type === "builtin"` from the update candidate list.
-
-### 7. Builtin skills refresh on CLI upgrade
-
-When `axm init` runs on an already-initialized workspace, if the locked builtin pack version differs from the current CLI version, the system re-materializes the bundled skills and updates the lock entries. This ensures builtin skills stay in sync with the CLI.
+This is analogous to how registry pack updates work when a pack's skill set changes across versions.
 
 ## Risks / Trade-offs
 
-**FQN dot change is breaking** → Low risk. No existing extensions use dots in scopes. The change is additive (accepts strictly more inputs).
-
-**Lockfile schema change (new `"builtin"` type)** → Forward-compatible. Older CLI versions that don't recognize `"builtin"` will fail to parse the lockfile, but this is acceptable given backward compatibility is a non-goal.
+**Lockfile schema change (new `"builtin"` source type)** → Forward-compatible. Older CLI versions that don't recognize `"builtin"` will fail to parse the lockfile, but this is acceptable given backward compatibility is a non-goal.
 
 **Bundle size increase** → Negligible. SKILL.md files are small text files (a few KB each).
+
+**No settings entry for builtin pack** → Commands like `axm packs list` that read from settings won't show the builtin pack unless they also consult the lockfile. Acceptable for now — the builtin pack is an implementation detail, not user-managed.

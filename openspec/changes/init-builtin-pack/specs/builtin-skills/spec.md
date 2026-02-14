@@ -2,7 +2,7 @@
 
 ### Requirement: Management skill for skills
 
-The builtin pack SHALL include a `@axm.sh/axm-manage-skills` skill with a SKILL.md that instructs the agent on managing skills via axm CLI.
+The builtin pack SHALL include a `@axm/axm-manage-skills` skill with a SKILL.md that instructs the agent on managing skills via axm CLI.
 
 #### Scenario: Skill content covers skill operations
 
@@ -16,7 +16,7 @@ The builtin pack SHALL include a `@axm.sh/axm-manage-skills` skill with a SKILL.
 
 ### Requirement: Management skill for packs
 
-The builtin pack SHALL include a `@axm.sh/axm-manage-packs` skill with a SKILL.md that instructs the agent on managing extension packs via axm CLI.
+The builtin pack SHALL include a `@axm/axm-manage-packs` skill with a SKILL.md that instructs the agent on managing extension packs via axm CLI.
 
 #### Scenario: Skill content covers pack operations
 
@@ -30,7 +30,7 @@ The builtin pack SHALL include a `@axm.sh/axm-manage-packs` skill with a SKILL.m
 
 ### Requirement: Management skill for MCP servers
 
-The builtin pack SHALL include a `@axm.sh/axm-manage-mcp-servers` skill with a SKILL.md that instructs the agent on managing MCP servers via axm CLI.
+The builtin pack SHALL include a `@axm/axm-manage-mcp-servers` skill with a SKILL.md that instructs the agent on managing MCP servers via axm CLI.
 
 #### Scenario: Skill content covers MCP server operations
 
@@ -44,7 +44,7 @@ The builtin pack SHALL include a `@axm.sh/axm-manage-mcp-servers` skill with a S
 
 ### Requirement: Management skill for commands
 
-The builtin pack SHALL include a `@axm.sh/axm-manage-commands` skill with a SKILL.md that instructs the agent on managing commands via axm CLI.
+The builtin pack SHALL include a `@axm/axm-manage-commands` skill with a SKILL.md that instructs the agent on managing commands via axm CLI.
 
 #### Scenario: Skill content covers command operations
 
@@ -58,9 +58,9 @@ The builtin pack SHALL include a `@axm.sh/axm-manage-commands` skill with a SKIL
 
 ### Requirement: Pack manifest references all management skills
 
-The bundled `axm-pack.json` for `@axm.sh/cli` SHALL reference all management skills.
+The bundled `axm-pack.json` for `@axm/cli` SHALL reference all management skills.
 
 #### Scenario: Manifest lists skills
 
 - **WHEN** reading the bundled `axm-pack.json`
-- **THEN** the `skills` field SHALL contain entries for `@axm.sh/axm-manage-skills`, `@axm.sh/axm-manage-packs`, `@axm.sh/axm-manage-mcp-servers`, and `@axm.sh/axm-manage-commands`
+- **THEN** the `skills` field SHALL contain entries for `@axm/axm-manage-skills`, `@axm/axm-manage-packs`, `@axm/axm-manage-mcp-servers`, and `@axm/axm-manage-commands`

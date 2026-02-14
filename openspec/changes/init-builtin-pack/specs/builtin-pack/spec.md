@@ -2,26 +2,21 @@
 
 ### Requirement: Builtin pack identity
 
-The system SHALL recognize `@axm.sh/cli` as the builtin extension pack. This pack is an implicit dependency of every workspace — never written to settings.json, but recorded in the lockfile with `type: "builtin"`. Its lifecycle is coupled to the CLI version.
+The system SHALL recognize `@axm/cli` as the builtin extension pack. This pack is an implicit dependency of every workspace — never written to settings.json, but recorded in the lockfile with `type: "builtin"`. Its lifecycle is coupled to the CLI version.
 
 #### Scenario: Builtin pack not in settings
 
 - **WHEN** the builtin pack is installed during init
-- **THEN** the system SHALL NOT write an entry for `@axm.sh/cli` to settings.json
+- **THEN** the system SHALL NOT write an entry for `@axm/cli` to settings.json
 
 #### Scenario: Builtin pack recorded in lockfile
 
 - **WHEN** the builtin pack is installed during init
-- **THEN** the system SHALL write a pack lock entry with `type: "builtin"`, `scope: "@axm.sh"`, `name: "cli"`, and `resolvedVersion` set to the current CLI package version
-
-#### Scenario: Builtin pack visible as configured
-
-- **WHEN** querying configured packs via `getConfiguredPacks()`
-- **THEN** the builtin pack `@axm.sh/cli` SHALL be included in the result even though it has no settings entry
+- **THEN** the system SHALL write a pack lock entry with `type: "builtin"`, `scope: "@axm"`, `name: "cli"`, and `resolvedVersion` set to the current CLI package version
 
 ### Requirement: Builtin pack lock entry schema
 
-The lockfile SHALL support a `"builtin"` type for pack lock entries, distinct from `"registry"`.
+The lockfile SHALL support a `"builtin"` source type for pack lock entries, distinct from `"registry"`.
 
 #### Scenario: Builtin pack lock entry fields
 
@@ -36,7 +31,7 @@ The lockfile SHALL support a `"builtin"` type for pack lock entries, distinct fr
 
 ### Requirement: Builtin skill lock entry schema
 
-The lockfile SHALL support a `"builtin"` type for skill lock entries, distinct from existing source types.
+The lockfile SHALL support a `"builtin"` source type for skill lock entries, distinct from existing source types.
 
 #### Scenario: Builtin skill lock entry fields
 
@@ -56,7 +51,7 @@ The CLI npm package SHALL include bundled SKILL.md files and an `axm-pack.json` 
 #### Scenario: Pack manifest bundled
 
 - **WHEN** the CLI package is distributed
-- **THEN** it SHALL include `builtin-pack/axm-pack.json` containing the pack manifest with `name: "@axm.sh/cli"` and references to bundled skills
+- **THEN** it SHALL include `builtin-pack/axm-pack.json` containing the pack manifest with `name: "@axm/cli"` and references to bundled skills
 
 #### Scenario: Skill files bundled
 
@@ -65,12 +60,12 @@ The CLI npm package SHALL include bundled SKILL.md files and an `axm-pack.json` 
 
 ### Requirement: Builtin pack materialization at init
 
-During workspace initialization, the system SHALL materialize the builtin pack's skills into the workspace without registry connectivity.
+During workspace initialization, the system SHALL materialize the builtin pack's skills into the workspace without registry connectivity. Init is first-time only — if the builtin pack is already in the lockfile, init is a no-op for it.
 
 #### Scenario: Skills copied to canonical location
 
 - **WHEN** `axm init` runs for a new workspace
-- **THEN** the system SHALL copy each bundled skill to `.axm/extensions/@axm.sh/skills/<name>/`
+- **THEN** the system SHALL copy each bundled skill to `.axm/extensions/@axm/skills/<name>/`
 
 #### Scenario: Skills symlinked to agent directories
 
@@ -87,25 +82,45 @@ During workspace initialization, the system SHALL materialize the builtin pack's
 - **WHEN** `axm init` runs without network access
 - **THEN** builtin pack materialization SHALL succeed using bundled assets only
 
-### Requirement: Builtin skills refresh on CLI upgrade
+#### Scenario: Already initialized workspace
 
-When running `axm init` on an already-initialized workspace, the system SHALL refresh builtin skills if the CLI version has changed.
+- **WHEN** `axm init` runs and the builtin pack is already in the lockfile
+- **THEN** the system SHALL NOT re-materialize builtin skills
 
-#### Scenario: CLI version changed since last init
+### Requirement: Update handles builtin source
 
-- **WHEN** `axm init` runs and the locked builtin pack `resolvedVersion` differs from the current CLI version
+`axm update` SHALL handle skills with `type: "builtin"` like any other source type — comparing the locked version against the current CLI version and re-materializing when the CLI has been upgraded.
+
+#### Scenario: CLI version newer than locked version
+
+- **WHEN** the user runs `axm update` and the locked builtin pack `resolvedVersion` is older than the current CLI version
 - **THEN** the system SHALL re-materialize bundled skills and update lock entries with the new version
 
 #### Scenario: CLI version unchanged
 
-- **WHEN** `axm init` runs and the locked builtin pack `resolvedVersion` matches the current CLI version
-- **THEN** the system SHALL NOT re-materialize builtin skills
+- **WHEN** the user runs `axm update` and the locked builtin pack `resolvedVersion` matches the current CLI version
+- **THEN** builtin skills SHALL be reported as up-to-date (no-op)
 
-### Requirement: Skills update skips builtin skills
+#### Scenario: New skill added in CLI upgrade
 
-`axm skills update` SHALL skip skills with `type: "builtin"` in the lockfile.
+- **WHEN** the user runs `axm update` and the bundled manifest contains a skill not present in the locked `resolvedSkills`
+- **THEN** the system SHALL install the new skill and add it to the lock entries
 
-#### Scenario: Builtin skills excluded from update
+#### Scenario: Skill removed in CLI upgrade
 
-- **WHEN** the user runs `axm skills update`
-- **THEN** skills with `type: "builtin"` SHALL NOT be included in the update candidate list
+- **WHEN** the user runs `axm update` and the locked `resolvedSkills` contains a skill not present in the bundled manifest
+- **THEN** the system SHALL uninstall the removed skill and remove it from the lock entries
+
+### Requirement: Builtin-pack module as single source of truth
+
+The `builtin-pack/` module SHALL export the identity constants and resolution function for the builtin pack. Both init and update consume this module.
+
+#### Scenario: Module exports identity
+
+- **WHEN** importing from the builtin-pack module
+- **THEN** it SHALL export `BUILTIN_PACK_FQN` (`"@axm/cli"`), `BUILTIN_PACK_SCOPE` (`"@axm"`), and `BUILTIN_PACK_NAME` (`"cli"`)
+
+#### Scenario: Module resolves bundled manifest
+
+- **WHEN** calling the resolve function from the builtin-pack module
+- **THEN** it SHALL return the parsed pack manifest and the current CLI version

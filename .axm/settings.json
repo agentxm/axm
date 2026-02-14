@@ -1,12 +1,13 @@
 {
-  "scope": "@my-cool-org",
   "sources": [
     {
       "name": "local",
       "type": "registry",
-      "url": "file:///Users/craig/my_cool_reg"
+      "url": "file:///Users/craig/sandbox_reg"
     }
   ],
   "agents": ["antigravity", "claude-code", "codex", "cursor"],
-  "skills": {}
+  "skills": {
+    "howdy": "@my-cool-org/howdy"
+  }
 }

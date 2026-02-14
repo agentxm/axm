@@ -18,7 +18,7 @@ import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "./constants.js
  */
 export type SkillPathSource =
   | { readonly type: "registry"; readonly scope: string }
-  | { readonly type: Exclude<SourceType, "registry"> };
+  | { readonly type: Exclude<SourceType, "registry"> | "builtin" };
 
 /**
  * Computed paths for an installed skill directory.

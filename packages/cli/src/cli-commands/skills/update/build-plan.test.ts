@@ -308,6 +308,38 @@ describe("buildUpdatePlan", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Builtin sources
+  // ---------------------------------------------------------------------------
+
+  it("marks builtin source as no-op (updated separately via pack flow)", () => {
+    const op = makeOp("commit");
+    const lf = lockfileWith({
+      commit: makeLockEntry({ type: "builtin" }),
+    });
+
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+
+    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
+      result: "no-op",
+      message: "already up to date",
+    });
+  });
+
+  it("marks builtin source as success when force is true", () => {
+    const op = makeOp("commit", { force: true });
+    const lf = lockfileWith({
+      commit: makeLockEntry({ type: "builtin" }),
+    });
+
+    const plan = buildUpdatePlan([op], lf, "Update", Option.none());
+
+    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
+      result: "success",
+      message: "Updated commit",
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Local sources
   // ---------------------------------------------------------------------------
 

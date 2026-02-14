@@ -71,7 +71,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && cp -r src/builtin-pack/skills dist/src/builtin-pack/ && cp src/builtin-pack/axm-pack.json dist/src/builtin-pack/",
     "prepublishOnly": "pnpm run build",
     "generate:schemas": "bun scripts/generate-schemas.ts",
     "test": "vitest run",

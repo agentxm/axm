@@ -77,6 +77,13 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
 
     const entry = lockedPack.value;
 
+    if (entry.type !== "registry") {
+      return yield* makeCliError({
+        code: "PACK_UNPACK_UNSUPPORTED",
+        what: `Cannot unpack "${op.args.name}" — only registry packs can be unpacked`,
+      });
+    }
+
     // Read current configured skills to preserve existing direct entries
     const currentSkills = yield* ws.getConfiguredSkills();
 

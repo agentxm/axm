@@ -98,5 +98,7 @@ export const lockEntryToSourceInput = (entry: SkillLockEntry): SourceInput => {
         name: entry.name,
         versionConstraint: Option.none(),
       };
+    case "builtin":
+      throw new Error("Cannot convert builtin lock entry to source input");
   }
 };

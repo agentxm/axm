@@ -13,12 +13,15 @@ export type {
   Lockfile,
   PackLockEntry,
   PacksLockMap,
+  RegistryPackLockEntry,
   SkillLockEntry,
   SkillsLockMap,
 } from "./schema.js";
 export {
   AzureReposLockEntrySchema,
   BitbucketLockEntrySchema,
+  BuiltinPackLockEntrySchema,
+  BuiltinSkillLockEntrySchema,
   DateFromString,
   GitHubLockEntrySchema,
   GitLabLockEntrySchema,
@@ -28,6 +31,7 @@ export {
   PackLockEntrySchema,
   PacksLockMapSchema,
   RegistryLockEntrySchema,
+  RegistryPackLockEntrySchema,
   SkillLockEntrySchema,
   SkillsLockMapSchema,
 } from "./schema.js";

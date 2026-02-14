@@ -146,6 +146,16 @@ export const RegistryLockEntrySchema = Schema.Struct({
   ...CommonFields,
 });
 
+/**
+ * Builtin source - skill bundled with axm.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const BuiltinSkillLockEntrySchema = Schema.Struct({
+  type: Schema.Literal("builtin"),
+  ...CommonFields,
+});
+
 // =============================================================================
 // Skill Lock Entry (union of all source types)
 // =============================================================================
@@ -155,7 +165,7 @@ export const RegistryLockEntrySchema = Schema.Struct({
  * Discriminated union by the `type` field.
  *
  * Fields common to all entries:
- * - type: Source type ("github", "gitlab", "bitbucket", "azurerepos", "git", "local", "registry")
+ * - type: Source type ("github", "gitlab", "bitbucket", "azurerepos", "git", "local", "registry", "builtin")
  * - agents: Agent IDs this skill is installed for (can be empty)
  * - installedAt: ISO 8601 timestamp of initial installation (Date in TS)
  * - updatedAt: ISO 8601 timestamp of last update (Date in TS)
@@ -173,6 +183,7 @@ export const SkillLockEntrySchema = Schema.Union(
   GitLockEntrySchema,
   LocalLockEntrySchema,
   RegistryLockEntrySchema,
+  BuiltinSkillLockEntrySchema,
 );
 
 /**
@@ -212,31 +223,17 @@ export type SkillsLockMap = typeof SkillsLockMapSchema.Type;
  * Resolved extension map: FQN keys to exact version strings.
  * Used for resolvedSkills, resolvedCommands, and resolvedMcpServers.
  */
-const ResolvedExtensionMapSchema = Schema.Record({
+export const ResolvedExtensionMapSchema = Schema.Record({
   key: Schema.String,
   value: Schema.String,
 });
 
 /**
- * Lock entry for a single installed pack.
- * Packs are always registry-sourced with resolved extension versions.
- *
- * Fields:
- * - type: Always "registry"
- * - scope: Pack scope (e.g., "@acme")
- * - name: Pack name without scope
- * - resolvedVersion: Exact resolved version
- * - checksum: Content hash
- * - sourceName: Registry source name
- * - installedAt: ISO 8601 timestamp of initial installation
- * - updatedAt: ISO 8601 timestamp of last update
- * - resolvedSkills: Map of skill FQN to exact resolved version
- * - resolvedCommands: Map of command FQN to exact resolved version
- * - resolvedMcpServers: Map of MCP server FQN to exact resolved version
+ * Registry pack lock entry - pack from a registry.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PackLockEntrySchema = Schema.Struct({
+export const RegistryPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("registry"),
   scope: Schema.String,
   name: Schema.String,
@@ -249,6 +246,42 @@ export const PackLockEntrySchema = Schema.Struct({
   resolvedCommands: ResolvedExtensionMapSchema,
   resolvedMcpServers: ResolvedExtensionMapSchema,
 });
+
+/**
+ * Inferred type for RegistryPackLockEntry schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type RegistryPackLockEntry = typeof RegistryPackLockEntrySchema.Type;
+
+/**
+ * Builtin pack lock entry - pack bundled with axm.
+ * No checksum or sourceName fields.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const BuiltinPackLockEntrySchema = Schema.Struct({
+  type: Schema.Literal("builtin"),
+  scope: Schema.String,
+  name: Schema.String,
+  resolvedVersion: Schema.String,
+  installedAt: DateFromString,
+  updatedAt: DateFromString,
+  resolvedSkills: ResolvedExtensionMapSchema,
+  resolvedCommands: ResolvedExtensionMapSchema,
+  resolvedMcpServers: ResolvedExtensionMapSchema,
+});
+
+/**
+ * Lock entry for a single installed pack.
+ * Discriminated union by the `type` field.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PackLockEntrySchema = Schema.Union(
+  RegistryPackLockEntrySchema,
+  BuiltinPackLockEntrySchema,
+);
 
 /**
  * Inferred type for PackLockEntry schema.

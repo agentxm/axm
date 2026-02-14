@@ -31,6 +31,8 @@ import { PackManifestSchema } from "../../../extensions/packs/manifest-schema.js
 import type { InstallPackOperation } from "../operations.js";
 import { buildInstallPlan } from "./build-plan.js";
 import { installPack } from "./install-pack.js";
+import { installSkill } from "../../skills/install/install-skill.js";
+import type { InstallSkillOperation } from "../../skills/operations.js";
 import { copySkillDirectory } from "../../skills/copy-skill-directory.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../skills/constants.js";
 
@@ -241,7 +243,91 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     // Resolve version from pack ref
     const resolvedVersion = Option.getOrElse(packRef.version, () => manifest.version);
 
-    // Step 7: Build install plan
+    // Step 7: Fetch skill dependencies from manifest
+    const skillFqns = Object.keys(resolvedSkills);
+    const skillOps = yield* Effect.forEach(
+      skillFqns,
+      (fqn) =>
+        Effect.gen(function* () {
+          const skillSource = yield* resolveSource(fqn).pipe(
+            Effect.mapError((error) =>
+              makeCliError({
+                code: "PACK_DEPENDENCY_RESOLVE_FAILED",
+                what: `Failed to resolve pack dependency: ${fqn}`,
+                cause: error,
+              }),
+            ),
+          );
+
+          if (skillSource.type !== "registry") {
+            return yield* makeCliError({
+              code: "PACK_DEPENDENCY_RESOLVE_FAILED",
+              what: `Skill dependency "${fqn}" must be a registry source`,
+              howToFix: "Pack skill dependencies must use @scope/name format.",
+            });
+          }
+
+          const skillFindOpts = {
+            names: [skillSource.name] satisfies ReadonlyArray<string>,
+            agents: [] satisfies ReadonlyArray<string>,
+            type: "skill" as const,
+          };
+          const skillRefs = yield* sources.resolveExtension(skillSource, skillFindOpts).pipe(
+            Effect.mapError((error) =>
+              makeCliError({
+                code: "PACK_DEPENDENCY_FETCH_FAILED",
+                what: `Failed to discover skill dependency: ${fqn}`,
+                cause: error,
+              }),
+            ),
+          );
+
+          if (skillRefs.length === 0) {
+            return yield* makeCliError({
+              code: "PACK_DEPENDENCY_NOT_FOUND",
+              what: `Skill dependency "${fqn}" not found in registry`,
+              howToFix: "Verify the skill is published to the registry.",
+            });
+          }
+
+          const skillRef = skillRefs[0]!;
+
+          const fetchedSkill = yield* sources.fetch(skillRef).pipe(
+            Effect.mapError((error) =>
+              makeCliError({
+                code: "PACK_DEPENDENCY_FETCH_FAILED",
+                what: `Failed to fetch skill dependency: ${fqn}`,
+                cause: error,
+              }),
+            ),
+          );
+
+          return { ref: skillRef, fetched: fetchedSkill };
+        }),
+      { concurrency: "unbounded" },
+    );
+
+    // Build InstallSkillOperations from fetched skill deps
+    const agents = yield* ws.getConfiguredAgents();
+    const skillInstallOps: ReadonlyArray<InstallSkillOperation> = skillOps
+      .filter((s) => s.ref.type === "skill")
+      .map(({ ref, fetched }) => {
+        const skillRef = ref as Extract<typeof ref, { type: "skill" }>;
+        return {
+          name: "install-skill" as const,
+          args: {
+            source: skillRef.source,
+            agents,
+            force: args.force,
+            skill: skillRef.skill,
+            location: fetched.directory,
+            version: skillRef.version,
+            gitTreeSha: skillRef.gitTreeSha,
+          },
+        } satisfies InstallSkillOperation;
+      });
+
+    // Step 8: Build install plan
     const op: InstallPackOperation = {
       name: "install-pack",
       args: {
@@ -262,13 +348,13 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     const lockfile = { lockfileVersion: 1, skills: lockedSkills, packs: lockedPacks };
 
     const plan = buildInstallPlan(
-      [op],
+      [op, ...skillInstallOps],
       lockfile,
       "Install pack",
       Option.some(`Install pack ${printSourceInput(source)}`),
     );
 
-    yield* ws.resolvePlan(plan, { "install-pack": installPack });
+    yield* ws.resolvePlan(plan, { "install-pack": installPack, "install-skill": installSkill });
 
     yield* log.success("Done");
   }).pipe(Effect.withSpan("InstallPack.handle"));

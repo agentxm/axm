@@ -22,9 +22,16 @@ import {
   makeSpinnerTestLayer,
 } from "../../../tui/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
-import { SourceProvidersLive } from "../../../sources/index.js";
+import {
+  SourceProvidersLive,
+  SourceProviders,
+  type SourceProvidersService,
+  type ExtensionRef,
+  type ExtensionFiles,
+  type SkillRef,
+} from "../../../sources/index.js";
 import { handleInstallPack, type InstallPackHandlerArgs } from "./handler.js";
-import { CliError } from "../../../cli-error/index.js";
+import { CliError, makeCliError } from "../../../cli-error/index.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -220,6 +227,286 @@ describe("packs install handler", () => {
           const error = yield* handleInstallPack(defaultArgs("@acme/test-pack")).pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
           expect((error as CliError).code).toBe("REGISTRY_NOT_CONFIGURED");
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Skill dependencies
+  // ---------------------------------------------------------------------------
+
+  describe("skill dependencies", () => {
+    /** Create a pack archive directory with manifest and skill SKILL.md files. */
+    const createPackArchive = (
+      dir: string,
+      manifest: {
+        name: string;
+        version: string;
+        description: string;
+        skills?: Record<string, string>;
+      },
+    ) => {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, "axm-pack.json"),
+        JSON.stringify({
+          name: manifest.name,
+          version: manifest.version,
+          description: manifest.description,
+          ...(manifest.skills ? { skills: manifest.skills } : {}),
+        }),
+      );
+    };
+
+    /** Create a skill archive directory with SKILL.md. */
+    const createSkillArchive = (dir: string, name: string, description: string) => {
+      const srcDir = path.join(dir, "src");
+      fs.mkdirSync(srcDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(srcDir, "SKILL.md"),
+        `---\nname: ${name}\ndescription: ${description}\n---\n# ${name}\n`,
+      );
+    };
+
+    const makeLayersWithMockSources = (
+      mockService: SourceProvidersService,
+      wsOverrides?: Partial<WorkspaceContextOptions>,
+    ) => {
+      const [logLayer, mockLog] = makeLogTestLayer();
+      const [spinnerLayer, mockSpinner] = makeSpinnerTestLayer();
+      const [confirmLayer] = makeConfirmTestLayer({ type: "return", value: true });
+      const [selectLayer] = makeSelectTestLayer({ type: "return", index: 0 });
+      const [multiselectLayer] = makeMultiselectTestLayer({ type: "return", indices: [] });
+      const BaseLayer = Layer.mergeAll(
+        NodeContext.layer,
+        logLayer,
+        spinnerLayer,
+        confirmLayer,
+        selectLayer,
+        multiselectLayer,
+      );
+      const wsOptions: WorkspaceContextOptions = {
+        global: false,
+        yes: true,
+        nonInteractive: Option.some(true),
+        preview: true,
+        agents: Option.none(),
+        ...wsOverrides,
+      };
+      const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
+      const SPLayer = Layer.succeed(SourceProviders, mockService);
+      const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+      const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
+        effect.pipe(Effect.provide(FullLayer));
+
+      return { provide, mockLog, mockSpinner };
+    };
+
+    it.effect("produces combined plan with pack + skill ops", () => {
+      const packArchiveDir = path.join(tempDir, "pack-archive");
+      const skillArchiveDir = path.join(tempDir, "skill-archive");
+      createPackArchive(packArchiveDir, {
+        name: "@acme/test-pack",
+        version: "1.0.0",
+        description: "A test pack",
+        skills: { "@acme/code-review": "^1.0.0" },
+      });
+      createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
+
+      const packRef: ExtensionRef = {
+        type: "skill",
+        skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
+        source: { type: "registry", scope: "@acme", name: "test-pack" },
+        location: `file://${packArchiveDir}`,
+        version: Option.some("1.0.0"),
+        gitTreeSha: Option.none(),
+      };
+
+      const skillRef: SkillRef = {
+        type: "skill",
+        skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
+        source: { type: "registry", scope: "@acme", name: "code-review" },
+        location: `file://${skillArchiveDir}`,
+        version: Option.some("1.0.0"),
+        gitTreeSha: Option.none(),
+      };
+
+      const mockService: SourceProvidersService = {
+        resolveExtension: (source, options) => {
+          if (options.type === "pack") {
+            return Effect.succeed([packRef]);
+          }
+          if (options.type === "skill") {
+            return Effect.succeed([skillRef]);
+          }
+          return Effect.succeed([]);
+        },
+        fetch: (ref) => {
+          if (ref.type === "skill" && ref.skill.name === "test-pack") {
+            return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
+          }
+          if (ref.type === "skill" && ref.skill.name === "code-review") {
+            return Effect.succeed({ directory: skillArchiveDir } satisfies ExtensionFiles);
+          }
+          return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
+        },
+      };
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", url: "file:///tmp/reg" }],
+      });
+
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
+
+      return provide(
+        Effect.gen(function* () {
+          // preview mode so we don't actually install, just build the plan
+          yield* handleInstallPack(defaultArgs("@acme/test-pack"));
+
+          // In preview mode, plan is displayed. Verify logs mention both pack and skill.
+          const allLogs = [
+            ...mockLog.logs.info,
+            ...mockLog.logs.message,
+            ...mockLog.logs.success,
+            ...mockLog.logs.warn,
+          ].join("\n");
+          // The plan should contain both the pack and the skill dependency
+          expect(allLogs).toContain("test-pack");
+          expect(allLogs).toContain("code-review");
+        }),
+      );
+    });
+
+    it.effect("marks already-installed skills as no-op in plan", () => {
+      const packArchiveDir = path.join(tempDir, "pack-archive");
+      const skillArchiveDir = path.join(tempDir, "skill-archive");
+      createPackArchive(packArchiveDir, {
+        name: "@acme/test-pack",
+        version: "1.0.0",
+        description: "A test pack",
+        skills: { "@acme/my-skill": "^1.0.0" },
+      });
+      createSkillArchive(skillArchiveDir, "my-skill", "My skill");
+
+      const packRef: ExtensionRef = {
+        type: "skill",
+        skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
+        source: { type: "registry", scope: "@acme", name: "test-pack" },
+        location: `file://${packArchiveDir}`,
+        version: Option.some("1.0.0"),
+        gitTreeSha: Option.none(),
+      };
+
+      const skillRef: SkillRef = {
+        type: "skill",
+        skill: { name: "my-skill", description: "My skill", metadata: Option.none() },
+        source: { type: "registry", scope: "@acme", name: "my-skill" },
+        location: `file://${skillArchiveDir}`,
+        version: Option.some("1.0.0"),
+        gitTreeSha: Option.none(),
+      };
+
+      const mockService: SourceProvidersService = {
+        resolveExtension: (source, options) => {
+          if (options.type === "pack") return Effect.succeed([packRef]);
+          if (options.type === "skill") return Effect.succeed([skillRef]);
+          return Effect.succeed([]);
+        },
+        fetch: (ref) => {
+          if (ref.type === "skill" && ref.skill.name === "test-pack") {
+            return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
+          }
+          if (ref.type === "skill" && ref.skill.name === "my-skill") {
+            return Effect.succeed({ directory: skillArchiveDir } satisfies ExtensionFiles);
+          }
+          return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
+        },
+      };
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", url: "file:///tmp/reg" }],
+        lockfileSkills: {
+          "my-skill": {
+            type: "registry",
+            scope: "@acme",
+            name: "my-skill",
+            resolvedVersion: "1.0.0",
+            checksum: "",
+            sourceName: "default",
+            agents: ["claude-code"],
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      });
+
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstallPack(defaultArgs("@acme/test-pack"));
+
+          const allLogs = [
+            ...mockLog.logs.info,
+            ...mockLog.logs.message,
+            ...mockLog.logs.success,
+            ...mockLog.logs.warn,
+          ].join("\n");
+          // Skill should appear as already installed / no-op
+          expect(allLogs).toContain("my-skill");
+          expect(allLogs).toContain("already installed");
+        }),
+      );
+    });
+
+    it.effect("fails with CliError when skill dependency fetch fails", () => {
+      const packArchiveDir = path.join(tempDir, "pack-archive");
+      createPackArchive(packArchiveDir, {
+        name: "@acme/test-pack",
+        version: "1.0.0",
+        description: "A test pack",
+        skills: { "@acme/missing-skill": "^1.0.0" },
+      });
+
+      const packRef: ExtensionRef = {
+        type: "skill",
+        skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
+        source: { type: "registry", scope: "@acme", name: "test-pack" },
+        location: `file://${packArchiveDir}`,
+        version: Option.some("1.0.0"),
+        gitTreeSha: Option.none(),
+      };
+
+      const mockService: SourceProvidersService = {
+        resolveExtension: (source, options) => {
+          if (options.type === "pack") return Effect.succeed([packRef]);
+          // Return empty for skill — triggers PACK_DEPENDENCY_NOT_FOUND
+          if (options.type === "skill") return Effect.succeed([]);
+          return Effect.succeed([]);
+        },
+        fetch: (ref) => {
+          if (ref.type === "skill" && ref.skill.name === "test-pack") {
+            return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
+          }
+          return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
+        },
+      };
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", url: "file:///tmp/reg" }],
+      });
+
+      const { provide } = makeLayersWithMockSources(mockService);
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* handleInstallPack(defaultArgs("@acme/test-pack")).pipe(Effect.flip);
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).code).toBe("PACK_DEPENDENCY_NOT_FOUND");
+          expect((error as CliError).what).toContain("missing-skill");
         }),
       );
     });

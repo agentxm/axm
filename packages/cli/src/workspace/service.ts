@@ -52,7 +52,7 @@ import {
   type SourceConfig,
   writeSettings,
 } from "../settings/index.js";
-import { parseInputPattern } from "../sources/index.js";
+import { lockEntryToSourceInput, parseInputPattern, printSourceInput } from "../sources/index.js";
 import * as Record from "effect/Record";
 import { getAxmDir } from "./paths.js";
 import * as Context from "effect/Context";
@@ -63,6 +63,20 @@ import { PromptCancelled } from "../tui/index.js";
 import type { Operation, Plan } from "./plan.js";
 import { displayPlan } from "./display-plan.js";
 import { applyPlan, type ExecutionContext, type Handlers } from "./apply-plan.js";
+
+/**
+ * Arguments for `setSkill` — bundles the skill name (map key) with the lock entry.
+ * The name may diverge from any registry extension name.
+ */
+export interface SetSkillArgs {
+  readonly name: string;
+  readonly lockEntry: SkillLockEntry;
+}
+
+/**
+ * Arguments for `setPack` — all `PackLockEntry` fields except `type` (always "registry").
+ */
+export type SetPackArgs = Omit<PackLockEntry, "type">;
 
 /**
  * Built-in source defaults that are always available unless overridden.
@@ -494,23 +508,22 @@ const make = (options: WorkspaceContextOptions) =>
           const directNormalized = Record.map(skills, (entry) => normalizeSkillEntry(entry));
           const directManaged = Record.filter(directNormalized, (entry) => entry.managed);
 
-          // Merge transitive skills from installed packs
+          // Merge transitive skills from installed packs (first pack wins per key)
           const lockfile = yield* readLockfileSafe(workspaceDir);
           const lockedPacks = lockfile.packs ?? {};
-          const transitiveSkills: Record<string, NormalizedSkillEntry> = {};
-          for (const packEntry of Object.values(lockedPacks)) {
-            for (const [fqn, version] of Object.entries(packEntry.resolvedSkills)) {
-              // Only add if not already present (direct entries take precedence)
-              if (!(fqn in directManaged) && !(fqn in transitiveSkills)) {
-                transitiveSkills[fqn] = {
-                  source: Option.some(`registry:${fqn}@${version}`),
-                  enabled: true,
-                  managed: true,
-                };
-              }
-            }
-          }
+          const makeTransitive = (fqn: string): NormalizedSkillEntry => ({
+            source: Option.some(fqn),
+            enabled: true,
+            managed: true,
+          });
+          const transitiveSkills = Array.flatMap(Object.values(lockedPacks), (packEntry) =>
+            Object.keys(packEntry.resolvedSkills),
+          ).reduce<Record.ReadonlyRecord<string, NormalizedSkillEntry>>(
+            (acc, fqn) => (fqn in acc ? acc : { ...acc, [fqn]: makeTransitive(fqn) }),
+            {},
+          );
 
+          // Direct managed entries take precedence over transitive
           return { ...transitiveSkills, ...directManaged };
         }),
 
@@ -555,10 +568,11 @@ const make = (options: WorkspaceContextOptions) =>
           return computeSkillPaths(path.join, base, entrySource, sanitizeName(dirName));
         }),
 
-      setSkill: (name: string, source: string, lockEntry: SkillLockEntry) =>
+      setSkill: ({ name, lockEntry }: SetSkillArgs) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings
+            const source = printSourceInput(lockEntryToSourceInput(lockEntry));
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSkills: SkillsMap = currentSettings.skills ?? {};
             const updatedSettings = {
@@ -729,8 +743,11 @@ const make = (options: WorkspaceContextOptions) =>
       getConfiguredPacks: () =>
         readSettingsSafe(workspaceDir).pipe(Effect.map((s) => s.packs ?? {})),
 
-      getInstalledPacks: () =>
-        readSettingsSafe(workspaceDir).pipe(Effect.map((s) => s.packs ?? {})),
+      // Packs are always 1:1 with settings — unlike skills, packs cannot be
+      // transitive dependencies of other extensions, so installed === configured.
+      getInstalledPacks() {
+        return this.getConfiguredPacks();
+      },
 
       getLockedPacks: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.packs ?? {})),
 
@@ -739,10 +756,17 @@ const make = (options: WorkspaceContextOptions) =>
           Effect.map((lf) => Option.fromNullable((lf.packs ?? {})[name])),
         ),
 
-      setPack: (name: string, source: string, lockEntry: PackLockEntry) =>
+      setPack: (args: SetPackArgs) =>
         withMutex(
           Effect.gen(function* () {
+            const { name } = args;
+            const lockEntry: PackLockEntry = { ...args, type: "registry" };
             // Update settings
+            const source = printSourceInput({
+              type: "registry",
+              scope: args.scope,
+              name,
+            });
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentPacks: PacksMap = currentSettings.packs ?? {};
             const updatedSettings = {
@@ -875,11 +899,7 @@ export interface WorkspaceContextService {
     source?: SkillPathSource,
   ) => Effect.Effect<SkillDirPaths, CliError>;
   /** Add or update a skill in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
-  readonly setSkill: (
-    name: string,
-    source: string,
-    lockEntry: SkillLockEntry,
-  ) => Effect.Effect<void, CliError>;
+  readonly setSkill: (args: SetSkillArgs) => Effect.Effect<void, CliError>;
   /** Remove a skill from both settings and lockfile. No-op if absent. Serialized by semaphore. */
   readonly removeSkill: (name: string) => Effect.Effect<void, CliError>;
   /** Update a skill entry by applying an updater function. Collapses back to settings form. Serialized by semaphore. */
@@ -916,11 +936,7 @@ export interface WorkspaceContextService {
   /** Read lockfile and return the entry for a specific pack, or Option.none(). */
   readonly getLockedPack: (name: string) => Effect.Effect<Option.Option<PackLockEntry>, CliError>;
   /** Add or update a pack in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
-  readonly setPack: (
-    name: string,
-    source: string,
-    lockEntry: PackLockEntry,
-  ) => Effect.Effect<void, CliError>;
+  readonly setPack: (args: SetPackArgs) => Effect.Effect<void, CliError>;
   /** Remove a pack from both settings and lockfile. No-op if absent. Serialized by semaphore. */
   readonly removePack: (name: string) => Effect.Effect<void, CliError>;
   /** Compute the pack directory path. Packs are always registry-sourced. */

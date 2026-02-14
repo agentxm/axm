@@ -21,8 +21,6 @@ export interface InstallPackOperationArgs {
   readonly packName: string;
   /** Pack scope (e.g., "@acme") */
   readonly scope: string;
-  /** Source string for settings (e.g., "registry:@acme/my-pack@^1.0.0") */
-  readonly source: string;
   /** Exact resolved version */
   readonly resolvedVersion: string;
   /** Content hash */

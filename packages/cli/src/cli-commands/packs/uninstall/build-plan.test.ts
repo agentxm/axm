@@ -194,7 +194,7 @@ describe("findOrphanedSkills", () => {
     const removed = makePackLockEntry("removed-pack", {
       resolvedSkills: { "@acme/skill-a": "1.0.0", "@acme/skill-b": "1.0.0" },
     });
-    const configuredSkills = { "@acme/skill-a": "registry:@acme/skill-a@^1.0.0" };
+    const configuredSkills = { "@acme/skill-a": "@acme/skill-a" };
 
     const orphaned = findOrphanedSkills(removed, {}, configuredSkills);
 
@@ -229,7 +229,7 @@ describe("findOrphanedSkills", () => {
     const otherPack = makePackLockEntry("other-pack", {
       resolvedSkills: { "@acme/skill-b": "1.0.0" },
     });
-    const configuredSkills = { "@acme/skill-a": "registry:@acme/skill-a@^1.0.0" };
+    const configuredSkills = { "@acme/skill-a": "@acme/skill-a" };
 
     const orphaned = findOrphanedSkills(removed, { "other-pack": otherPack }, configuredSkills);
 

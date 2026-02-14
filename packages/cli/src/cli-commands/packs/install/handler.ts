@@ -333,7 +333,6 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
       args: {
         packName: source.name,
         scope: source.scope,
-        source: `registry:${source.scope}/${source.name}@${resolvedVersion}`,
         resolvedVersion,
         checksum: "",
         sourceName: "default",

@@ -127,7 +127,7 @@ describe("packs unpack.handler", () => {
       const axmDir = path.join(tempDir, ".axm");
 
       initWorkspace(axmDir, {
-        packs: { "frontend-tools": "registry:@test/frontend-tools@1.0.0" },
+        packs: { "frontend-tools": "@test/frontend-tools" },
         lockPacks: {
           "frontend-tools": {
             type: "registry",
@@ -163,8 +163,8 @@ describe("packs unpack.handler", () => {
           expect(Object.keys(packs)).not.toContain("frontend-tools");
           expect(settingsContent.skills).toBeDefined();
           // Skills are stored by short name (after scope/)
-          expect(settingsContent.skills["code-review"]).toContain("@test/code-review@1.0.0");
-          expect(settingsContent.skills["test-writer"]).toContain("@test/test-writer@2.0.0");
+          expect(settingsContent.skills["code-review"]).toBe("@test/code-review");
+          expect(settingsContent.skills["test-writer"]).toBe("@test/test-writer");
 
           // Check lockfile: pack should be removed
           const lockContent = YAML.parse(
@@ -184,9 +184,9 @@ describe("packs unpack.handler", () => {
 
       initWorkspace(axmDir, {
         skills: {
-          "code-review": { source: "registry:@test/code-review@0.9.0", enabled: false },
+          "code-review": { source: "@test/code-review", enabled: false },
         },
-        packs: { "frontend-tools": "registry:@test/frontend-tools@1.0.0" },
+        packs: { "frontend-tools": "@test/frontend-tools" },
         lockSkills: {
           "code-review": {
             type: "registry",
@@ -230,12 +230,12 @@ describe("packs unpack.handler", () => {
 
           // Existing entry should be preserved (not overwritten) - uses short name
           expect(settingsContent.skills["code-review"]).toEqual({
-            source: "registry:@test/code-review@0.9.0",
+            source: "@test/code-review",
             enabled: false,
           });
 
           // New skill from pack should be added using short name
-          expect(settingsContent.skills["new-skill"]).toContain("@test/new-skill@1.0.0");
+          expect(settingsContent.skills["new-skill"]).toBe("@test/new-skill");
         }),
       );
     });

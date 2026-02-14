@@ -76,11 +76,14 @@ const makeWorkspaceMock = (
     getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
     setSkill: overrides?.setSkillErrorOverride
       ? () => overrides.setSkillErrorOverride!()
-      : (name: string, _source: string, entry: unknown) =>
+      : (args: { name: string; lockEntry: unknown }) =>
           Effect.sync(() => {
             skills = {
               ...skills,
-              [name]: { ...(entry as Record<string, unknown>), updatedAt: new Date() },
+              [args.name]: {
+                ...(args.lockEntry as Record<string, unknown>),
+                updatedAt: new Date(),
+              },
             };
             writeToDisk();
           }),

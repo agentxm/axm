@@ -204,7 +204,7 @@ describe("disable.handler", () => {
     it.effect("creates direct entry when disabling transitive skill", () => {
       const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {}, {}, ["claude-code"], {
-        packs: { "starter-pack": "registry:@acme/starter-pack@1.0.0" },
+        packs: { "starter-pack": "@acme/starter-pack" },
         lockfilePacks: {
           "starter-pack": makePackLockEntry({ "@acme/code-review": "1.2.0" }),
         },
@@ -223,7 +223,7 @@ describe("disable.handler", () => {
           );
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.["code-review"]).toEqual({
-            source: "registry:@acme/code-review@1.2.0",
+            source: "@acme/code-review",
             enabled: false,
           });
         }),
@@ -233,7 +233,7 @@ describe("disable.handler", () => {
     it.effect("fails when skill not in configured or installed", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {}, {}, ["claude-code"], {
-        packs: { "starter-pack": "registry:@acme/starter-pack@1.0.0" },
+        packs: { "starter-pack": "@acme/starter-pack" },
         lockfilePacks: {
           "starter-pack": makePackLockEntry({ "@acme/code-review": "1.2.0" }),
         },

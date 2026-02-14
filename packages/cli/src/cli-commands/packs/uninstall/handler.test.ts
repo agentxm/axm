@@ -158,7 +158,7 @@ describe("packs uninstall handler", () => {
     it.effect("uninstalls a pack and removes from lockfile", () => {
       const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        settingsPacks: { "my-pack": "registry:@acme/my-pack@1.0.0" },
+        settingsPacks: { "my-pack": "@acme/my-pack" },
         lockfilePacks: {
           "my-pack": makePackLockEntry("@acme", "my-pack"),
         },
@@ -201,7 +201,7 @@ describe("packs uninstall handler", () => {
     it.effect("removes orphaned skills on pack uninstall", () => {
       const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        settingsPacks: { "my-pack": "registry:@acme/my-pack@1.0.0" },
+        settingsPacks: { "my-pack": "@acme/my-pack" },
         lockfilePacks: {
           "my-pack": makePackLockEntry("@acme", "my-pack", {
             resolvedSkills: { "@acme/skill-a": "1.0.0" },
@@ -222,8 +222,8 @@ describe("packs uninstall handler", () => {
       const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsPacks: {
-          "pack-a": "registry:@acme/pack-a@1.0.0",
-          "pack-b": "registry:@acme/pack-b@1.0.0",
+          "pack-a": "@acme/pack-a",
+          "pack-b": "@acme/pack-b",
         },
         lockfilePacks: {
           "pack-a": makePackLockEntry("@acme", "pack-a", {
@@ -249,8 +249,8 @@ describe("packs uninstall handler", () => {
     it.effect("preserves skills that are direct settings entries", () => {
       const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        settingsSkills: { "promoted-skill": "registry:@acme/promoted-skill@1.0.0" },
-        settingsPacks: { "my-pack": "registry:@acme/my-pack@1.0.0" },
+        settingsSkills: { "promoted-skill": "@acme/promoted-skill" },
+        settingsPacks: { "my-pack": "@acme/my-pack" },
         lockfilePacks: {
           "my-pack": makePackLockEntry("@acme", "my-pack", {
             resolvedSkills: { "promoted-skill": "1.0.0" },
@@ -279,9 +279,9 @@ describe("packs uninstall handler", () => {
       const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         settingsPacks: {
-          "acme-tools": "registry:@acme/acme-tools@1.0.0",
-          "acme-utils": "registry:@acme/acme-utils@1.0.0",
-          "other-pack": "registry:@acme/other-pack@1.0.0",
+          "acme-tools": "@acme/acme-tools",
+          "acme-utils": "@acme/acme-utils",
+          "other-pack": "@acme/other-pack",
         },
         lockfilePacks: {
           "acme-tools": makePackLockEntry("@acme", "acme-tools"),

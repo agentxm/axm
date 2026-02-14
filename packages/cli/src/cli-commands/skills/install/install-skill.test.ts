@@ -68,13 +68,13 @@ const makeWorkspaceMock = (
       return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
     },
     setSkill: setSkillFn
-      ? (name: string, source: string, entry: unknown) => setSkillFn(name, source, entry)
-      : (name: string, _source: string, entry: unknown) =>
+      ? (args: { name: string; lockEntry: unknown }) => setSkillFn(args)
+      : (args: { name: string; lockEntry: unknown }) =>
           Effect.try({
             try: () => {
               const lf = readLf();
-              lf.skills[name] = {
-                ...(entry as Record<string, unknown>),
+              lf.skills[args.name] = {
+                ...(args.lockEntry as Record<string, unknown>),
                 updatedAt: new Date().toISOString(),
               };
               writeLf(lf);
@@ -244,7 +244,7 @@ describe("installSkill", () => {
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir } = setupBase();
-        const setSkillFn = vi.fn((_name: string, _source: string, _entry: unknown) => Effect.void);
+        const setSkillFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
 
         const result = yield* installSkill(
           makeOp({ agents: ["claude-code"], sourcePath: src }),
@@ -252,7 +252,10 @@ describe("installSkill", () => {
 
         expect(result.result).toBe("success");
         expect(setSkillFn).toHaveBeenCalledOnce();
-        expect(setSkillFn).toHaveBeenCalledWith("my-skill", expect.any(String), expect.any(Object));
+        expect(setSkillFn).toHaveBeenCalledWith({
+          name: "my-skill",
+          lockEntry: expect.any(Object),
+        });
       }),
     );
 

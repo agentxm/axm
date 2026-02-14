@@ -424,7 +424,7 @@ describe("renameSkill", () => {
               lockfileSkills: {
                 "my-skill": makeRegistryLockEntry(["claude-code"]),
               },
-              settingsSkills: { "my-skill": "registry:@community/my-skill" },
+              settingsSkills: { "my-skill": "@community/my-skill" },
             }),
           ),
         );
@@ -470,7 +470,7 @@ describe("renameSkill", () => {
               lockfileSkills: {
                 "my-skill": makeRegistryLockEntry(["claude-code"]),
               },
-              settingsSkills: { "my-skill": "registry:@community/my-skill" },
+              settingsSkills: { "my-skill": "@community/my-skill" },
             }),
           ),
         );

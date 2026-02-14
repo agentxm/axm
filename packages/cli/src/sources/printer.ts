@@ -5,6 +5,8 @@
  * @packageDocumentation
  */
 
+import * as Option from "effect/Option";
+import type { SkillLockEntry } from "../lockfile/schema.js";
 import { print as azurereposPrint } from "./azurerepos/index.js";
 import { print as bitbucketPrint } from "./bitbucket/index.js";
 import { print as githubPrint } from "./github/index.js";
@@ -33,5 +35,59 @@ export const printSourceInput = (source: SourceInput): string => {
       return source.url.href;
     case "registry":
       return `${source.scope}/${source.name}`;
+  }
+};
+
+/**
+ * Convert a skill lock entry back to a SourceInput.
+ * Inverse of sourceToLockEntry (lock entry optional fields → Option).
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const lockEntryToSourceInput = (entry: SkillLockEntry): SourceInput => {
+  switch (entry.type) {
+    case "github":
+      return {
+        type: "github",
+        owner: entry.owner,
+        repo: entry.repo,
+        ref: Option.fromNullable(entry.ref),
+        subPath: Option.fromNullable(entry.path),
+      };
+    case "gitlab":
+      return {
+        type: "gitlab",
+        owner: entry.owner,
+        repo: entry.repo,
+        ref: Option.fromNullable(entry.ref),
+        subPath: Option.fromNullable(entry.path),
+      };
+    case "bitbucket":
+      return {
+        type: "bitbucket",
+        owner: entry.owner,
+        repo: entry.repo,
+        ref: Option.fromNullable(entry.ref),
+        subPath: Option.fromNullable(entry.path),
+      };
+    case "azurerepos":
+      return {
+        type: "azurerepos",
+        organization: entry.organization,
+        project: entry.project,
+        repo: entry.repo,
+        ref: Option.fromNullable(entry.ref),
+        subPath: Option.fromNullable(entry.path),
+      };
+    case "git":
+      return {
+        type: "git",
+        url: new URL(entry.url),
+        ref: Option.fromNullable(entry.ref),
+      };
+    case "local":
+      return { type: "local", path: entry.path };
+    case "registry":
+      return { type: "registry", scope: entry.scope, name: entry.name };
   }
 };

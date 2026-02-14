@@ -124,8 +124,7 @@ export const handlePacksNew = (args: PacksNewHandlerArgs) =>
 
     // Register in settings
     const now = new Date();
-    yield* ws.setPack(args.name, fqn, {
-      type: "registry",
+    yield* ws.setPack({
       scope,
       name: args.name,
       resolvedVersion: "0.0.1",

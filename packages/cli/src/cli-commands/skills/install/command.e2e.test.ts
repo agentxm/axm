@@ -98,8 +98,8 @@ describe("axm skills install", () => {
         expect(lock.skills).toHaveProperty("my-skill");
         expect(lock.skills).toHaveProperty("another-skill");
 
-        // Verify canonical skills directory (.agents/skills/)
-        const skillsDir = path.join(temp.path, ".agents", "skills");
+        // Verify canonical skills directory (.axm/extensions/external/skills/)
+        const skillsDir = path.join(temp.path, ".axm", "extensions", "external", "skills");
         expect(fs.existsSync(skillsDir)).toBe(true);
         expect(fs.existsSync(path.join(skillsDir, "my-skill"))).toBe(true);
         expect(fs.existsSync(path.join(skillsDir, "another-skill"))).toBe(true);
@@ -229,18 +229,25 @@ describe("axm skills install", () => {
         // .axm/
         //   settings.json
         //   axm-lock.yaml
-        // .agents/
-        //   skills/
+        // .axm/
+        //   extensions/external/skills/
         //     my-skill/
         //       SKILL.md
         // .claude/
         //   skills/
-        //     my-skill -> ../../.agents/skills/my-skill (symlink)
+        //     my-skill -> symlink to canonical (symlink)
 
         const axmDir = path.join(temp.path, ".axm");
         const settingsPath = path.join(axmDir, "settings.json");
         const lockPath = path.join(axmDir, "axm-lock.yaml");
-        const canonicalSkillDir = path.join(temp.path, ".agents", "skills", "my-skill");
+        const canonicalSkillDir = path.join(
+          temp.path,
+          ".axm",
+          "extensions",
+          "external",
+          "skills",
+          "my-skill",
+        );
         const canonicalSkillMd = path.join(canonicalSkillDir, "SKILL.md");
 
         expect(fs.existsSync(settingsPath)).toBe(true);
@@ -354,7 +361,14 @@ describe("axm skills install", () => {
         for (const skillName of ["my-skill", "another-skill"]) {
           // claude-code skillsDir is ".claude/skills"
           const agentSkillDir = path.join(temp.path, ".claude", "skills", skillName);
-          const canonicalSkillDir = path.join(temp.path, ".agents", "skills", skillName);
+          const canonicalSkillDir = path.join(
+            temp.path,
+            ".axm",
+            "extensions",
+            "external",
+            "skills",
+            skillName,
+          );
 
           expect(fs.lstatSync(agentSkillDir).isSymbolicLink()).toBe(true);
 
@@ -571,7 +585,15 @@ describe("axm skills install", () => {
         );
 
         // Modify the installed skill to simulate local changes (creates hash mismatch)
-        const skillMdPath = path.join(temp.path, ".agents", "skills", "my-skill", "SKILL.md");
+        const skillMdPath = path.join(
+          temp.path,
+          ".axm",
+          "extensions",
+          "external",
+          "skills",
+          "my-skill",
+          "SKILL.md",
+        );
         const originalContent = fs.readFileSync(skillMdPath, "utf-8");
         fs.writeFileSync(skillMdPath, `${originalContent}\n# Modified locally`);
 

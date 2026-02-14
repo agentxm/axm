@@ -19,7 +19,6 @@ import { copySkillDirectory } from "../copy-skill-directory.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import { UNIVERSAL_SKILLS_DIR } from "../constants.js";
 import type { RenameSkillOperation } from "../operations.js";
 import type { SkillPathSource } from "../skill-paths.js";
 import { sanitizeName } from "../install/skill-utils.js";
@@ -113,11 +112,6 @@ export const renameSkill: OperationHandler<
         if (Option.isNone(maybeAgent)) return Effect.void;
         const agent = maybeAgent.value;
 
-        // Self-reference detection
-        const agentSkillsDir = path.resolve(base, agent.skills.dir);
-        const canonicalSkillsDir = path.resolve(base, UNIVERSAL_SKILLS_DIR);
-        if (agentSkillsDir === canonicalSkillsDir) return Effect.void;
-
         const agentSkillPath = path.join(base, agent.skills.dir, oldSanitized);
         return fs
           .remove(agentSkillPath, { recursive: true })
@@ -133,11 +127,6 @@ export const renameSkill: OperationHandler<
         const maybeAgent = getAgentById(agentId);
         if (Option.isNone(maybeAgent)) return Effect.void;
         const agent = maybeAgent.value;
-
-        // Self-reference detection
-        const agentSkillsDir = path.resolve(base, agent.skills.dir);
-        const canonicalSkillsDir = path.resolve(base, UNIVERSAL_SKILLS_DIR);
-        if (agentSkillsDir === canonicalSkillsDir) return Effect.void;
 
         const agentSkillPath = path.join(base, agent.skills.dir, newSanitized);
         return createSymlink({ target: newPaths.skillSrcPath, link: agentSkillPath }).pipe(

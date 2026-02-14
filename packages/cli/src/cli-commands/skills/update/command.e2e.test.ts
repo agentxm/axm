@@ -69,7 +69,14 @@ describe("axm skills update", () => {
         );
 
         // Verify skill files still exist
-        const skillDir = path.join(temp.path, ".agents", "skills", "my-skill");
+        const skillDir = path.join(
+          temp.path,
+          ".axm",
+          "extensions",
+          "external",
+          "skills",
+          "my-skill",
+        );
         expect(fs.existsSync(skillDir)).toBe(true);
         expect(fs.existsSync(path.join(skillDir, "SKILL.md"))).toBe(true);
       } finally {

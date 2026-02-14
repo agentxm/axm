@@ -195,7 +195,14 @@ describe("rename.handler", () => {
         { "my-skill": makeLockEntry() },
       );
       // Create canonical skill directory so rename-skill handler can rename it
-      const canonicalDir = path.join(tempDir, ".agents", "skills", "my-skill");
+      const canonicalDir = path.join(
+        tempDir,
+        ".axm",
+        "extensions",
+        "external",
+        "skills",
+        "my-skill",
+      );
       fs.mkdirSync(canonicalDir, { recursive: true });
       fs.writeFileSync(path.join(canonicalDir, "SKILL.md"), "# my-skill");
 

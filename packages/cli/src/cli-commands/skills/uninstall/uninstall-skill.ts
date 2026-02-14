@@ -17,7 +17,7 @@ import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import type { UninstallSkillOperation } from "../operations.js";
-import { UNIVERSAL_SKILLS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.js";
+import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 import { removeIfExists } from "../fs-helpers.js";
 import { sanitizeName } from "../install/skill-utils.js";
 
@@ -25,7 +25,7 @@ import { sanitizeName } from "../install/skill-utils.js";
  * Remove a skill from ALL known canonical locations.
  *
  * Ensures clean removal regardless of where the skill was installed:
- * 1. `.agents/skills/<name>/` (non-registry canonical)
+ * 1. `.axm/extensions/external/skills/<name>/` (non-registry canonical)
  * 2. `.axm/extensions/<scope>/skills/<name>/` (registry canonical, any scope)
  */
 const removeFromAllLocations = (
@@ -36,7 +36,10 @@ const removeFromAllLocations = (
 ) =>
   Effect.gen(function* () {
     // Remove from non-registry canonical location
-    yield* removeIfExists(fsService, pathService.join(base, UNIVERSAL_SKILLS_DIR, sanitizedName));
+    yield* removeIfExists(
+      fsService,
+      pathService.join(base, EXTERNAL_EXTENSIONS_DIR, "skills", sanitizedName),
+    );
 
     // Remove from any registry canonical location
     const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
@@ -73,7 +76,7 @@ const existsInAnyLocation = (
   Effect.gen(function* () {
     // Check non-registry canonical location
     const canonicalExists = yield* fsService
-      .exists(pathService.join(base, UNIVERSAL_SKILLS_DIR, sanitizedName))
+      .exists(pathService.join(base, EXTERNAL_EXTENSIONS_DIR, "skills", sanitizedName))
       .pipe(Effect.catchAll(() => Effect.succeed(false)));
     if (canonicalExists) return true;
 
@@ -112,7 +115,7 @@ const existsInAnyLocation = (
  * Reads workspace paths from the Workspace service, then orchestrates:
  * 1. Sanitize skill name for filesystem
  * 2. Read lockfile to determine installed agents
- * 3. Remove agent symlinks concurrently (skip missing, skip self-reference)
+ * 3. Remove agent symlinks concurrently (skip missing)
  * 4. Remove from all known canonical locations (full uninstall only)
  * 5. Remove or update lockfile entry
  */
@@ -161,11 +164,6 @@ export const uninstallSkill: OperationHandler<
         const maybeAgent = getAgentById(agentId);
         if (Option.isNone(maybeAgent)) return Effect.void;
         const agent = maybeAgent.value;
-
-        // Self-reference detection: agent's skills.dir resolves to canonical location
-        const agentSkillsDir = path.resolve(base, agent.skills.dir);
-        const canonicalSkillsDir = path.resolve(base, UNIVERSAL_SKILLS_DIR);
-        if (agentSkillsDir === canonicalSkillsDir) return Effect.void;
 
         const agentSkillPath = path.join(base, agent.skills.dir, sanitizedName);
         return fs

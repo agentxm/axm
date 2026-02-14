@@ -128,7 +128,7 @@ describe("fork.handler", () => {
       const registryRoot = path.join(tempDir, "registry");
 
       // Set up workspace with an installed local skill
-      const skillsDir = path.join(tempDir, ".agents", "skills", "commit");
+      const skillsDir = path.join(tempDir, ".axm", "extensions", "external", "skills", "commit");
       createSkillMd(skillsDir, "commit", "Auto-commit");
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
@@ -271,7 +271,7 @@ describe("fork.handler", () => {
       const { provide, mockLog } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
-      const skillsDir = path.join(tempDir, ".agents", "skills", "my-skill");
+      const skillsDir = path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill");
       createSkillMd(skillsDir, "my-skill", "My skill");
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
@@ -331,7 +331,7 @@ describe("fork.handler", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
-      const skillsDir = path.join(tempDir, ".agents", "skills", "my-skill");
+      const skillsDir = path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill");
       createSkillMd(skillsDir, "my-skill", "My skill");
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot, {

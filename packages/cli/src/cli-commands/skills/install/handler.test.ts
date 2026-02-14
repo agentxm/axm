@@ -280,7 +280,14 @@ describe("install.handler", () => {
           yield* handleInstall(defaultArgs(skillsDir));
 
           // Canonical directory should be created
-          const canonicalPath = path.join(tempDir, ".agents", "skills", "commit");
+          const canonicalPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "external",
+            "skills",
+            "commit",
+          );
           expect(fs.existsSync(canonicalPath)).toBe(true);
           expect(fs.existsSync(path.join(canonicalPath, "SKILL.md"))).toBe(true);
 

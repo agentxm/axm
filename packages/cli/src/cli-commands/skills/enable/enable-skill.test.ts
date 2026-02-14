@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
+import { makeCliError } from "../../../cli-error/index.js";
 import type { SkillLockEntry } from "../../../lockfile/schema.js";
 import { makeLogTestLayer } from "../../../tui/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
@@ -84,12 +85,20 @@ const makeWorkspaceMock = (
       const base = path.dirname(axmDir);
       const sanitized = sanitizeName(name);
       const lockEntry = lockfileSkills[name] as SkillLockEntry | undefined;
-      if (lockEntry?.type === "registry") {
+      if (lockEntry === undefined) {
+        return Effect.fail(
+          makeCliError({
+            code: "SKILL_NOT_LOCKED",
+            what: `Skill "${name}" not found in lockfile`,
+          }),
+        );
+      }
+      if (lockEntry.type === "registry") {
         const scope = "scope" in lockEntry ? (lockEntry as { scope: string }).scope : "@community";
         const canonicalPath = path.join(base, ".axm", "extensions", scope, "skills", sanitized);
         return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
       }
-      const canonicalPath = path.join(base, ".agents", "skills", sanitized);
+      const canonicalPath = path.join(base, ".axm", "extensions", "external", "skills", sanitized);
       return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
     },
     setSkill: () => Effect.void,
@@ -151,12 +160,11 @@ describe("enableSkill", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  /** Sets up a workspace with .axm dir and a source skill to copy from. */
+  /** Sets up a workspace with .axm dir and canonical skill files already present. */
   const setupWorkspace = (
     opts: {
       skillName?: string;
       agents?: string[];
-      sourcePath?: string;
     } = {},
   ) => {
     const skillName = opts.skillName ?? "my-skill";
@@ -165,28 +173,27 @@ describe("enableSkill", () => {
     const axmDir = path.join(base, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
 
-    // Lock entry path is the source repo root; skill files are at repo-root/skill-name
-    const repoRoot = opts.sourcePath ?? path.join(tmpDir, "source");
-    const sourcePath = path.join(repoRoot, skillName);
-    fs.mkdirSync(sourcePath, { recursive: true });
-    fs.writeFileSync(path.join(sourcePath, "SKILL.md"), `# ${skillName}`);
-    fs.writeFileSync(path.join(sourcePath, "prompt.md"), "prompt content");
+    // Create canonical skill files at the external extensions path
+    const canonicalDir = path.join(base, ".axm", "extensions", "external", "skills", skillName);
+    fs.mkdirSync(canonicalDir, { recursive: true });
+    fs.writeFileSync(path.join(canonicalDir, "SKILL.md"), `# ${skillName}`);
+    fs.writeFileSync(path.join(canonicalDir, "prompt.md"), "prompt content");
 
-    return { base, axmDir, sourcePath: repoRoot, skillName, agents };
+    return { base, axmDir, canonicalDir, skillName, agents };
   };
 
   describe("happy path", () => {
-    it.effect("copies skill files to canonical location and creates agent symlinks", () =>
+    it.effect("creates agent symlinks from existing canonical directory", () =>
       Effect.gen(function* () {
-        const { axmDir, base, sourcePath } = setupWorkspace();
+        const { axmDir, base, canonicalDir } = setupWorkspace();
 
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry([], sourcePath) },
+              lockfileSkills: { "my-skill": makeLocalLockEntry([]) },
               settingsSkills: {
-                "my-skill": { source: `local:${sourcePath}`, enabled: false, managed: true },
+                "my-skill": { source: "local:/tmp/source", enabled: false, managed: true },
               },
             }),
           ),
@@ -195,9 +202,8 @@ describe("enableSkill", () => {
         expect(result.result).toBe("success");
         expect(result.message).toContain("my-skill");
 
-        // Canonical location should have files
-        const canonical = path.join(base, ".agents", "skills", "my-skill");
-        expect(fs.existsSync(path.join(canonical, "SKILL.md"))).toBe(true);
+        // Canonical location should still have files
+        expect(fs.existsSync(path.join(canonicalDir, "SKILL.md"))).toBe(true);
 
         // Agent symlink should exist
         const agentSkillDir = path.join(base, ".claude", "skills", "my-skill");
@@ -208,15 +214,15 @@ describe("enableSkill", () => {
 
     it.effect("handles multiple agents concurrently", () =>
       Effect.gen(function* () {
-        const { axmDir, base, sourcePath } = setupWorkspace({ agents: ["claude-code", "cursor"] });
+        const { axmDir, base } = setupWorkspace({ agents: ["claude-code", "cursor"] });
 
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code", "cursor"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry([], sourcePath) },
+              lockfileSkills: { "my-skill": makeLocalLockEntry([]) },
               settingsSkills: {
-                "my-skill": { source: `local:${sourcePath}`, enabled: false, managed: true },
+                "my-skill": { source: "local:/tmp/source", enabled: false, managed: true },
               },
             }),
           ),
@@ -232,7 +238,7 @@ describe("enableSkill", () => {
 
     it.effect("calls updateLockEntryAgents with configured agents", () =>
       Effect.gen(function* () {
-        const { axmDir, sourcePath } = setupWorkspace();
+        const { axmDir } = setupWorkspace();
         const updateLockEntryAgentsFn = vi.fn(
           (_name: string, _agents: ReadonlyArray<string>) => Effect.void,
         );
@@ -241,9 +247,9 @@ describe("enableSkill", () => {
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry([], sourcePath) },
+              lockfileSkills: { "my-skill": makeLocalLockEntry([]) },
               settingsSkills: {
-                "my-skill": { source: `local:${sourcePath}`, enabled: false, managed: true },
+                "my-skill": { source: "local:/tmp/source", enabled: false, managed: true },
               },
               updateLockEntryAgentsFn,
             }),
@@ -257,16 +263,16 @@ describe("enableSkill", () => {
 
     it.effect("calls updateSkillEntry to set enabled: true", () =>
       Effect.gen(function* () {
-        const { axmDir, sourcePath } = setupWorkspace();
+        const { axmDir } = setupWorkspace();
         const updateSkillEntryFn = vi.fn((_name: string, _updater: unknown) => Effect.void);
 
         yield* enableSkill(makeOp()).pipe(
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry([], sourcePath) },
+              lockfileSkills: { "my-skill": makeLocalLockEntry([]) },
               settingsSkills: {
-                "my-skill": { source: `local:${sourcePath}`, enabled: false, managed: true },
+                "my-skill": { source: "local:/tmp/source", enabled: false, managed: true },
               },
               updateSkillEntryFn,
             }),
@@ -279,25 +285,26 @@ describe("enableSkill", () => {
     );
   });
 
-  describe("files-before-state ordering", () => {
-    it.effect("does not update state when file copy fails", () =>
+  describe("missing canonical directory", () => {
+    it.effect("fails when canonical directory does not exist", () =>
       Effect.gen(function* () {
-        const { axmDir } = setupWorkspace();
+        const base = path.join(tmpDir, "project");
+        const axmDir = path.join(base, ".axm");
+        fs.mkdirSync(axmDir, { recursive: true });
+        // Do NOT create canonical directory
+
         const updateSkillEntryFn = vi.fn(() => Effect.void);
         const updateLockEntryAgentsFn = vi.fn(
           (_name: string, _agents: ReadonlyArray<string>) => Effect.void,
         );
 
-        // Use a non-existent source path so copy fails
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: {
-                "my-skill": makeLocalLockEntry([], "/nonexistent/path"),
-              },
+              lockfileSkills: { "my-skill": makeLocalLockEntry([]) },
               settingsSkills: {
-                "my-skill": { source: "local:/nonexistent/path", enabled: false, managed: true },
+                "my-skill": { source: "local:/tmp/source", enabled: false, managed: true },
               },
               updateSkillEntryFn,
               updateLockEntryAgentsFn,
@@ -307,6 +314,7 @@ describe("enableSkill", () => {
         );
 
         expect(result.result).toBe("error");
+        expect(result.message).toContain("not found");
         // State should NOT have been updated
         expect(updateSkillEntryFn).not.toHaveBeenCalled();
         expect(updateLockEntryAgentsFn).not.toHaveBeenCalled();
@@ -317,17 +325,21 @@ describe("enableSkill", () => {
   describe("registry source", () => {
     it.effect("uses registry canonical path for registry lock entries", () =>
       Effect.gen(function* () {
-        const { axmDir } = setupWorkspace();
+        const base = path.join(tmpDir, "project");
+        const axmDir = path.join(base, ".axm");
 
-        // Create registry-style source directory
-        const registrySrc = path.join(tmpDir, "registry-src");
-        const registrySrcContent = path.join(registrySrc, "src");
-        fs.mkdirSync(registrySrcContent, { recursive: true });
-        fs.writeFileSync(
-          path.join(registrySrc, "axm-skill.json"),
-          JSON.stringify({ name: "my-skill" }),
+        // Create registry-style canonical directory with src subdirectory
+        const registryCanonical = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "@community",
+          "skills",
+          "my-skill",
         );
-        fs.writeFileSync(path.join(registrySrcContent, "SKILL.md"), "# my-skill");
+        const registrySrcDir = path.join(registryCanonical, "src");
+        fs.mkdirSync(registrySrcDir, { recursive: true });
+        fs.writeFileSync(path.join(registrySrcDir, "SKILL.md"), "# my-skill");
 
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
@@ -343,13 +355,13 @@ describe("enableSkill", () => {
               },
             }),
           ),
-          // Registry re-resolve is complex, just verify it processes without crash
-          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
-        // May fail on re-resolve since we don't have full SourceProviders,
-        // but the point is verifying the canonical path logic is correct
-        expect(result).toBeDefined();
+        expect(result.result).toBe("success");
+
+        // Agent symlink should point to registry src path
+        const agentSkillDir = path.join(base, ".claude", "skills", "my-skill");
+        expect(fs.existsSync(agentSkillDir)).toBe(true);
       }),
     );
   });

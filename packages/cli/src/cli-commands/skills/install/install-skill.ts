@@ -22,7 +22,7 @@ import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import { copySkillDirectory } from "../copy-skill-directory.js";
 import type { InstallSkillOperation } from "../operations.js";
-import { UNIVERSAL_SKILLS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.js";
+import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 import { removeIfExists } from "../fs-helpers.js";
 import { sourceToLockEntry } from "../source-to-lock-entry.js";
 import type { SkillPathSource } from "../skill-paths.js";
@@ -56,22 +56,6 @@ const installForAgent = (opts: {
     const agent = maybeAgent.value;
 
     const agentSkillPath = path.join(opts.base, agent.skills.dir, opts.sanitizedName);
-
-    // Self-reference detection: agent's skills.dir resolves to canonical location
-    const agentSkillsDir = path.resolve(opts.base, agent.skills.dir);
-    const canonicalSkillsDir = path.resolve(opts.base, UNIVERSAL_SKILLS_DIR);
-
-    if (agentSkillsDir === canonicalSkillsDir) {
-      // Universal agent — reads directly from canonical, no symlink needed
-      return {
-        success: true,
-        mode: "symlink",
-        symlinkFailed: false,
-        error: Option.none(),
-        path: agentSkillPath,
-        canonicalPath: opts.canonicalPath,
-      } satisfies InstallResult;
-    }
 
     // Validate agent path safety
     if (!isPathSafe(opts.base, agentSkillPath)) {
@@ -137,7 +121,7 @@ const installForAgent = (opts: {
  *
  * Ensures clean transitions when source type changes (e.g., fork workflow).
  * Removes from:
- * 1. `.agents/skills/<name>/` (non-registry canonical)
+ * 1. `.axm/extensions/external/skills/<name>/` (non-registry canonical)
  * 2. `.axm/extensions/@* /skills/<name>/` (registry canonical, any scope)
  */
 const preCleanAllLocations = (
@@ -148,7 +132,10 @@ const preCleanAllLocations = (
 ) =>
   Effect.gen(function* () {
     // Remove from non-registry canonical location
-    yield* removeIfExists(fsService, pathService.join(base, UNIVERSAL_SKILLS_DIR, sanitizedName));
+    yield* removeIfExists(
+      fsService,
+      pathService.join(base, EXTERNAL_EXTENSIONS_DIR, "skills", sanitizedName),
+    );
 
     // Remove from any registry canonical location
     const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);

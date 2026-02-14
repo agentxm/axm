@@ -22,11 +22,12 @@ const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
 /** A simple name with no `/`, `@`, or URL scheme. */
 type NameInput = { readonly _tag: "NameInput"; readonly name: string };
 
-/** A scoped registry source: `@scope/name`. */
+/** A scoped registry source: `@scope/name` or `@scope/name@constraint`. */
 type RegistryPatternInput = {
   readonly _tag: "RegistryPatternInput";
   readonly scope: string;
   readonly name: string;
+  readonly versionConstraint?: string;
 };
 
 /** A valid URL (validated via `Schema.URL`). */
@@ -116,13 +117,24 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
     return Option.some({ _tag: "UrlInput", url: urlOption.value });
   }
 
-  // 5. Registry source (@scope/name)
+  // 5. Registry source (@scope/name or @scope/name@constraint)
   const registryMatch = input.match(REGISTRY_SOURCE_PATTERN);
   if (registryMatch && registryMatch[1] && registryMatch[2]) {
+    const rawName = registryMatch[2];
+    // Split name@constraint — first @ in the name part separates name from version constraint
+    const atIndex = rawName.indexOf("@");
+    if (atIndex > 0) {
+      return Option.some({
+        _tag: "RegistryPatternInput",
+        scope: registryMatch[1],
+        name: rawName.slice(0, atIndex),
+        versionConstraint: rawName.slice(atIndex + 1),
+      });
+    }
     return Option.some({
       _tag: "RegistryPatternInput",
       scope: registryMatch[1],
-      name: registryMatch[2],
+      name: rawName,
     });
   }
 

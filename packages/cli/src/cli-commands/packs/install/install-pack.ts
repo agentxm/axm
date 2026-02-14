@@ -37,6 +37,7 @@ export const installPack: OperationHandler<InstallPackOperation, Workspace | Log
         resolvedSkills: { ...op.args.resolvedSkills },
         resolvedCommands: { ...op.args.resolvedCommands },
         resolvedMcpServers: { ...op.args.resolvedMcpServers },
+        versionConstraint: op.args.versionConstraint,
       })
       .pipe(Effect.catchAll((e) => log.warn(`Pack metadata update failed: ${String(e)}`)));
 

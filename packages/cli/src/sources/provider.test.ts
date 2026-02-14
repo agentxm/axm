@@ -171,7 +171,12 @@ describe("version Option semantics", () => {
 
   it("is Some for registry-sourced refs", () => {
     const ref = makeSkillRef({
-      source: { type: "registry", scope: "@acme", name: "code-review" },
+      source: {
+        type: "registry",
+        scope: "@acme",
+        name: "code-review",
+        versionConstraint: Option.none(),
+      },
       location: "file:///registry/extensions/@acme/skills/code-review",
       version: Option.some("1.2.3"),
     });
@@ -181,7 +186,12 @@ describe("version Option semantics", () => {
 
   it("is Some for registry-sourced McpServerRef", () => {
     const ref = makeMcpServerRef({
-      source: { type: "registry", scope: "@acme", name: "code-review" },
+      source: {
+        type: "registry",
+        scope: "@acme",
+        name: "code-review",
+        versionConstraint: Option.none(),
+      },
       location: "file:///registry/extensions/@acme/mcp-servers/my-server",
       version: Option.some("2.0.0"),
     });

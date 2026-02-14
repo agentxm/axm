@@ -71,12 +71,18 @@ import { applyPlan, type ExecutionContext, type Handlers } from "./apply-plan.js
 export interface SetSkillArgs {
   readonly name: string;
   readonly lockEntry: SkillLockEntry;
+  /** Version constraint from the original source (e.g. "^1.0.0"). Preserved in settings, not in lockfile. */
+  readonly versionConstraint: Option.Option<string>;
 }
 
 /**
- * Arguments for `setPack` — all `PackLockEntry` fields except `type` (always "registry").
+ * Arguments for `setPack` — all `PackLockEntry` fields except `type` (always "registry"),
+ * plus an optional version constraint for settings persistence.
  */
-export type SetPackArgs = Omit<PackLockEntry, "type">;
+export type SetPackArgs = Omit<PackLockEntry, "type"> & {
+  /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings, not in lockfile. */
+  readonly versionConstraint: Option.Option<string>;
+};
 
 /**
  * Built-in source defaults that are always available unless overridden.
@@ -568,11 +574,14 @@ const make = (options: WorkspaceContextOptions) =>
           return computeSkillPaths(path.join, base, entrySource, sanitizeName(dirName));
         }),
 
-      setSkill: ({ name, lockEntry }: SetSkillArgs) =>
+      setSkill: ({ name, lockEntry, versionConstraint }: SetSkillArgs) =>
         withMutex(
           Effect.gen(function* () {
-            // Update settings
-            const source = printSourceInput(lockEntryToSourceInput(lockEntry));
+            // Update settings — thread version constraint through so it survives the round-trip
+            const sourceInput = lockEntryToSourceInput(lockEntry);
+            const withConstraint =
+              sourceInput.type === "registry" ? { ...sourceInput, versionConstraint } : sourceInput;
+            const source = printSourceInput(withConstraint);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSkills: SkillsMap = currentSettings.skills ?? {};
             const updatedSettings = {
@@ -582,6 +591,25 @@ const make = (options: WorkspaceContextOptions) =>
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
             // Update lockfile
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const updatedLockfile = {
+              ...currentLockfile,
+              skills: {
+                ...currentLockfile.skills,
+                [name]: {
+                  ...lockEntry,
+                  updatedAt: new Date(),
+                },
+              },
+            };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      setSkillLock: ({ name, lockEntry }: SetSkillArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            // Update lockfile only (skip settings) — used for pack dependencies
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
             const updatedLockfile = {
               ...currentLockfile,
@@ -618,6 +646,20 @@ const make = (options: WorkspaceContextOptions) =>
               const updatedLockfile = { ...currentLockfile, skills: remainingLockSkills };
               yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
             }
+          }),
+        ),
+
+      removeSkillFromSettings: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentSkills: SkillsMap = currentSettings.skills ?? {};
+            if (!(name in currentSkills)) return; // no-op
+
+            const { [name]: _, ...remainingSkills } = currentSkills;
+            void _;
+            const updatedSettings = { ...currentSettings, skills: remainingSkills };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
           }),
         ),
 
@@ -759,13 +801,14 @@ const make = (options: WorkspaceContextOptions) =>
       setPack: (args: SetPackArgs) =>
         withMutex(
           Effect.gen(function* () {
-            const { name } = args;
-            const lockEntry: PackLockEntry = { ...args, type: "registry" };
-            // Update settings
+            const { name, versionConstraint, ...lockFields } = args;
+            const lockEntry: PackLockEntry = { ...lockFields, name, type: "registry" };
+            // Update settings — thread versionConstraint through so it's preserved
             const source = printSourceInput({
               type: "registry",
               scope: args.scope,
               name,
+              versionConstraint,
             });
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentPacks: PacksMap = currentSettings.packs ?? {};
@@ -900,8 +943,12 @@ export interface WorkspaceContextService {
   ) => Effect.Effect<SkillDirPaths, CliError>;
   /** Add or update a skill in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
   readonly setSkill: (args: SetSkillArgs) => Effect.Effect<void, CliError>;
+  /** Add or update a skill in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
+  readonly setSkillLock: (args: SetSkillArgs) => Effect.Effect<void, CliError>;
   /** Remove a skill from both settings and lockfile. No-op if absent. Serialized by semaphore. */
   readonly removeSkill: (name: string) => Effect.Effect<void, CliError>;
+  /** Remove a skill from settings only (keep lockfile entry). Used when a pack still references the skill. Serialized by semaphore. */
+  readonly removeSkillFromSettings: (name: string) => Effect.Effect<void, CliError>;
   /** Update a skill entry by applying an updater function. Collapses back to settings form. Serialized by semaphore. */
   readonly updateSkillEntry: (
     name: string,

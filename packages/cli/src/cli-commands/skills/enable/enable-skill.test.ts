@@ -102,7 +102,9 @@ const makeWorkspaceMock = (
       return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
     },
     setSkill: () => Effect.void,
+    setSkillLock: () => Effect.void,
     removeSkill: () => Effect.void,
+    removeSkillFromSettings: () => Effect.void,
     updateSkillEntry: opts.updateSkillEntryFn ?? (() => Effect.void),
     setSkillEntry: () => Effect.void,
     renameSkill: () => Effect.void,

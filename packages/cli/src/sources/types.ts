@@ -154,6 +154,7 @@ export type RegistrySourceInput = {
   readonly type: "registry";
   readonly scope: string;
   readonly name: string;
+  readonly versionConstraint: Option.Option<string>;
 };
 
 /**

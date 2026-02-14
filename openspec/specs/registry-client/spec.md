@@ -8,7 +8,7 @@ Provides version resolution, integrity verification, and archive extraction for 
 
 ### Requirement: Version resolution by semver range
 
-The registry client SHALL select a version from `index.json` by matching against a semver range.
+The registry client SHALL select a version from `index.json` by matching against a semver range using `semver.satisfies()` from the `semver` npm package.
 
 #### Scenario: Exact version match
 
@@ -29,6 +29,16 @@ The registry client SHALL select a version from `index.json` by matching against
 
 - **WHEN** resolving `@acme/tool@^2.0.0` and no versions satisfy the range
 - **THEN** resolution returns 404 (triggers fallthrough to next registry source)
+
+#### Scenario: Invalid version constraint rejected
+
+- **WHEN** resolving with a version constraint that `semver.validRange()` returns null for
+- **THEN** resolution SHALL fail with a CliError indicating the version constraint is invalid
+
+#### Scenario: Version constraint passed to selectVersion
+
+- **WHEN** the registry provider resolves an extension with a version constraint
+- **THEN** the constraint SHALL be passed to `selectVersion` which filters candidates using `semver.satisfies(version, constraint)` in addition to the existing agent compatibility filter
 
 ### Requirement: Agent compatibility filter
 

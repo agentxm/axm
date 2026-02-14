@@ -135,6 +135,7 @@ export const handlePacksNew = (args: PacksNewHandlerArgs) =>
       resolvedSkills: {},
       resolvedCommands: {},
       resolvedMcpServers: {},
+      versionConstraint: Option.none(),
     });
 
     yield* log.success(`Created pack ${fqn}`);

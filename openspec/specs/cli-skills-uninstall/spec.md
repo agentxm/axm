@@ -60,3 +60,27 @@ The `UninstallSkillArgs` type SHALL include an optional `agents` field (`Readonl
 - **WHEN** the `--agent` flag is provided with one or more agent IDs
 - **THEN** `UninstallSkillArgs.agents` SHALL contain those agent IDs
 - **AND** the operation handler SHALL only remove from the specified agents
+
+### Requirement: Ownership-aware skill removal
+
+When uninstalling a skill, the handler SHALL check whether any installed pack still references the skill's FQN in its `resolvedSkills`. If a pack still references it, the skill SHALL be removed from settings but kept in the lockfile and on disk.
+
+#### Scenario: Skill removed when no pack references it
+
+- **WHEN** user runs `axm skills uninstall review`
+- **AND** skill "review" (`@acme/code-review`) is not referenced by any pack's `resolvedSkills`
+- **THEN** the skill SHALL be removed from settings, lockfile, and disk
+
+#### Scenario: Skill kept on disk when pack still references it
+
+- **WHEN** user runs `axm skills uninstall review`
+- **AND** skill "review" (`@acme/code-review`) is referenced by pack "starter"'s `resolvedSkills`
+- **THEN** the skill SHALL be removed from `settings.json`
+- **AND** the skill SHALL remain in the lockfile and on disk (pack still needs it)
+
+#### Scenario: Skill kept on disk when multiple packs reference it
+
+- **WHEN** user runs `axm skills uninstall review`
+- **AND** `@acme/code-review` is referenced by both pack "starter" and pack "pro"
+- **THEN** the skill SHALL be removed from settings
+- **AND** the skill SHALL remain in the lockfile and on disk

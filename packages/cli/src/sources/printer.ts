@@ -33,8 +33,12 @@ export const printSourceInput = (source: SourceInput): string => {
       return localPrint(source);
     case "git":
       return source.url.href;
-    case "registry":
-      return `${source.scope}/${source.name}`;
+    case "registry": {
+      const base = `${source.scope}/${source.name}`;
+      return Option.isSome(source.versionConstraint)
+        ? `${base}@${source.versionConstraint.value}`
+        : base;
+    }
   }
 };
 
@@ -88,6 +92,11 @@ export const lockEntryToSourceInput = (entry: SkillLockEntry): SourceInput => {
     case "local":
       return { type: "local", path: entry.path };
     case "registry":
-      return { type: "registry", scope: entry.scope, name: entry.name };
+      return {
+        type: "registry",
+        scope: entry.scope,
+        name: entry.name,
+        versionConstraint: Option.none(),
+      };
   }
 };

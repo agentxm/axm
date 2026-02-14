@@ -319,7 +319,12 @@ describe("packs install handler", () => {
       const packRef: ExtensionRef = {
         type: "skill",
         skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
-        source: { type: "registry", scope: "@acme", name: "test-pack" },
+        source: {
+          type: "registry",
+          scope: "@acme",
+          name: "test-pack",
+          versionConstraint: Option.none(),
+        },
         location: `file://${packArchiveDir}`,
         version: Option.some("1.0.0"),
         gitTreeSha: Option.none(),
@@ -328,7 +333,12 @@ describe("packs install handler", () => {
       const skillRef: SkillRef = {
         type: "skill",
         skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
-        source: { type: "registry", scope: "@acme", name: "code-review" },
+        source: {
+          type: "registry",
+          scope: "@acme",
+          name: "code-review",
+          versionConstraint: Option.none(),
+        },
         location: `file://${skillArchiveDir}`,
         version: Option.some("1.0.0"),
         gitTreeSha: Option.none(),
@@ -394,7 +404,12 @@ describe("packs install handler", () => {
       const packRef: ExtensionRef = {
         type: "skill",
         skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
-        source: { type: "registry", scope: "@acme", name: "test-pack" },
+        source: {
+          type: "registry",
+          scope: "@acme",
+          name: "test-pack",
+          versionConstraint: Option.none(),
+        },
         location: `file://${packArchiveDir}`,
         version: Option.some("1.0.0"),
         gitTreeSha: Option.none(),
@@ -403,7 +418,12 @@ describe("packs install handler", () => {
       const skillRef: SkillRef = {
         type: "skill",
         skill: { name: "my-skill", description: "My skill", metadata: Option.none() },
-        source: { type: "registry", scope: "@acme", name: "my-skill" },
+        source: {
+          type: "registry",
+          scope: "@acme",
+          name: "my-skill",
+          versionConstraint: Option.none(),
+        },
         location: `file://${skillArchiveDir}`,
         version: Option.some("1.0.0"),
         gitTreeSha: Option.none(),
@@ -462,6 +482,319 @@ describe("packs install handler", () => {
       );
     });
 
+    it.effect("skill dependencies written to lockfile but NOT to settings", () => {
+      const packArchiveDir = path.join(tempDir, "pack-archive");
+      const skillArchiveDir = path.join(tempDir, "skill-archive");
+      createPackArchive(packArchiveDir, {
+        name: "@acme/test-pack",
+        version: "1.0.0",
+        description: "A test pack",
+        skills: { "@acme/code-review": "^1.0.0" },
+      });
+      createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
+
+      const packRef: ExtensionRef = {
+        type: "skill",
+        skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
+        source: {
+          type: "registry",
+          scope: "@acme",
+          name: "test-pack",
+          versionConstraint: Option.none(),
+        },
+        location: `file://${packArchiveDir}`,
+        version: Option.some("1.0.0"),
+        gitTreeSha: Option.none(),
+      };
+
+      const skillRef: SkillRef = {
+        type: "skill",
+        skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
+        source: {
+          type: "registry",
+          scope: "@acme",
+          name: "code-review",
+          versionConstraint: Option.none(),
+        },
+        location: `file://${skillArchiveDir}`,
+        version: Option.some("1.0.0"),
+        gitTreeSha: Option.none(),
+      };
+
+      const mockService: SourceProvidersService = {
+        resolveExtension: (_source, options) => {
+          if (options.type === "pack") return Effect.succeed([packRef]);
+          if (options.type === "skill") return Effect.succeed([skillRef]);
+          return Effect.succeed([]);
+        },
+        fetch: (ref) => {
+          if (ref.type === "skill" && ref.skill.name === "test-pack") {
+            return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
+          }
+          if (ref.type === "skill" && ref.skill.name === "code-review") {
+            return Effect.succeed({ directory: skillArchiveDir } satisfies ExtensionFiles);
+          }
+          return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
+        },
+      };
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", url: "file:///tmp/reg" }],
+      });
+
+      // Non-preview mode so the plan is actually applied
+      const { provide } = makeLayersWithMockSources(mockService, { preview: false });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstallPack(defaultArgs("@acme/test-pack"));
+
+          // Verify: skill dependency is in lockfile
+          const axmDir = path.join(tempDir, ".axm");
+          const lockfileContent = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8");
+          const lockfile = YAML.parse(lockfileContent) as {
+            skills?: Record<string, unknown>;
+            packs?: Record<string, unknown>;
+          };
+          expect(lockfile.skills).toBeDefined();
+          expect(lockfile.skills!["code-review"]).toBeDefined();
+
+          // Verify: skill dependency is NOT in settings
+          const settingsContent = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+          const settingsJson = JSON.parse(settingsContent) as {
+            skills?: Record<string, unknown>;
+            packs?: Record<string, unknown>;
+          };
+          expect(settingsJson.skills?.["code-review"]).toBeUndefined();
+
+          // Verify: pack IS in settings
+          expect(settingsJson.packs?.["test-pack"]).toBeDefined();
+        }),
+      );
+    });
+
+    it.effect("pack version constraint from source persisted in settings", () => {
+      const packArchiveDir = path.join(tempDir, "pack-archive");
+      createPackArchive(packArchiveDir, {
+        name: "@acme/test-pack",
+        version: "2.0.0",
+        description: "A test pack",
+      });
+
+      const packRef: ExtensionRef = {
+        type: "skill",
+        skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
+        source: {
+          type: "registry",
+          scope: "@acme",
+          name: "test-pack",
+          versionConstraint: Option.some("^2.0.0"),
+        },
+        location: `file://${packArchiveDir}`,
+        version: Option.some("2.0.0"),
+        gitTreeSha: Option.none(),
+      };
+
+      const mockService: SourceProvidersService = {
+        resolveExtension: (_source, options) => {
+          if (options.type === "pack") return Effect.succeed([packRef]);
+          return Effect.succeed([]);
+        },
+        fetch: (ref) => {
+          if (ref.type === "skill" && ref.skill.name === "test-pack") {
+            return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
+          }
+          return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
+        },
+      };
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", url: "file:///tmp/reg" }],
+      });
+
+      // Non-preview mode so the plan is actually applied
+      const { provide } = makeLayersWithMockSources(mockService, { preview: false });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstallPack(defaultArgs("@acme/test-pack@^2.0.0"));
+
+          // Verify: pack version constraint persisted in settings
+          const axmDir = path.join(tempDir, ".axm");
+          const settingsContent = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
+          const settingsJson = JSON.parse(settingsContent) as { packs?: Record<string, string> };
+          expect(settingsJson.packs?.["test-pack"]).toBe("@acme/test-pack@^2.0.0");
+        }),
+      );
+    });
+
+    it.effect("manifest constraint * resolves to latest (no constraint appended)", () => {
+      const packArchiveDir = path.join(tempDir, "pack-archive");
+      const skillArchiveDir = path.join(tempDir, "skill-archive");
+      createPackArchive(packArchiveDir, {
+        name: "@acme/test-pack",
+        version: "1.0.0",
+        description: "A test pack",
+        skills: { "@acme/code-review": "*" },
+      });
+      createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
+
+      const packRef: ExtensionRef = {
+        type: "skill",
+        skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
+        source: {
+          type: "registry",
+          scope: "@acme",
+          name: "test-pack",
+          versionConstraint: Option.none(),
+        },
+        location: `file://${packArchiveDir}`,
+        version: Option.some("1.0.0"),
+        gitTreeSha: Option.none(),
+      };
+
+      // Capture what resolveExtension receives for skill resolution
+      let capturedSkillSource: unknown;
+      const skillRef: SkillRef = {
+        type: "skill",
+        skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
+        source: {
+          type: "registry",
+          scope: "@acme",
+          name: "code-review",
+          versionConstraint: Option.none(),
+        },
+        location: `file://${skillArchiveDir}`,
+        version: Option.some("1.0.0"),
+        gitTreeSha: Option.none(),
+      };
+
+      const mockService: SourceProvidersService = {
+        resolveExtension: (source, options) => {
+          if (options.type === "pack") return Effect.succeed([packRef]);
+          if (options.type === "skill") {
+            capturedSkillSource = source;
+            return Effect.succeed([skillRef]);
+          }
+          return Effect.succeed([]);
+        },
+        fetch: (ref) => {
+          if (ref.type === "skill" && ref.skill.name === "test-pack") {
+            return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
+          }
+          if (ref.type === "skill" && ref.skill.name === "code-review") {
+            return Effect.succeed({ directory: skillArchiveDir } satisfies ExtensionFiles);
+          }
+          return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
+        },
+      };
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", url: "file:///tmp/reg" }],
+      });
+
+      const { provide } = makeLayersWithMockSources(mockService);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstallPack(defaultArgs("@acme/test-pack"));
+
+          // When manifest constraint is "*", no constraint appended → versionConstraint is None
+          expect(capturedSkillSource).toBeDefined();
+          const src = capturedSkillSource as {
+            type: string;
+            versionConstraint: Option.Option<string>;
+          };
+          expect(src.type).toBe("registry");
+          expect(Option.isNone(src.versionConstraint)).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("manifest version constraint appended to skill source resolution", () => {
+      const packArchiveDir = path.join(tempDir, "pack-archive");
+      const skillArchiveDir = path.join(tempDir, "skill-archive");
+      createPackArchive(packArchiveDir, {
+        name: "@acme/test-pack",
+        version: "1.0.0",
+        description: "A test pack",
+        skills: { "@acme/code-review": "^1.0.0" },
+      });
+      createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
+
+      const packRef: ExtensionRef = {
+        type: "skill",
+        skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
+        source: {
+          type: "registry",
+          scope: "@acme",
+          name: "test-pack",
+          versionConstraint: Option.none(),
+        },
+        location: `file://${packArchiveDir}`,
+        version: Option.some("1.0.0"),
+        gitTreeSha: Option.none(),
+      };
+
+      // Capture what resolveExtension receives for skill resolution
+      let capturedSkillSource: unknown;
+      const skillRef: SkillRef = {
+        type: "skill",
+        skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
+        source: {
+          type: "registry",
+          scope: "@acme",
+          name: "code-review",
+          versionConstraint: Option.some("^1.0.0"),
+        },
+        location: `file://${skillArchiveDir}`,
+        version: Option.some("1.0.0"),
+        gitTreeSha: Option.none(),
+      };
+
+      const mockService: SourceProvidersService = {
+        resolveExtension: (source, options) => {
+          if (options.type === "pack") return Effect.succeed([packRef]);
+          if (options.type === "skill") {
+            capturedSkillSource = source;
+            return Effect.succeed([skillRef]);
+          }
+          return Effect.succeed([]);
+        },
+        fetch: (ref) => {
+          if (ref.type === "skill" && ref.skill.name === "test-pack") {
+            return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
+          }
+          if (ref.type === "skill" && ref.skill.name === "code-review") {
+            return Effect.succeed({ directory: skillArchiveDir } satisfies ExtensionFiles);
+          }
+          return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
+        },
+      };
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", url: "file:///tmp/reg" }],
+      });
+
+      const { provide } = makeLayersWithMockSources(mockService);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstallPack(defaultArgs("@acme/test-pack"));
+
+          // When manifest constraint is "^1.0.0", it should be appended and parsed
+          expect(capturedSkillSource).toBeDefined();
+          const src = capturedSkillSource as {
+            type: string;
+            versionConstraint: Option.Option<string>;
+          };
+          expect(src.type).toBe("registry");
+          expect(Option.isSome(src.versionConstraint)).toBe(true);
+          expect(Option.getOrNull(src.versionConstraint)).toBe("^1.0.0");
+        }),
+      );
+    });
+
     it.effect("fails with CliError when skill dependency fetch fails", () => {
       const packArchiveDir = path.join(tempDir, "pack-archive");
       createPackArchive(packArchiveDir, {
@@ -474,7 +807,12 @@ describe("packs install handler", () => {
       const packRef: ExtensionRef = {
         type: "skill",
         skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
-        source: { type: "registry", scope: "@acme", name: "test-pack" },
+        source: {
+          type: "registry",
+          scope: "@acme",
+          name: "test-pack",
+          versionConstraint: Option.none(),
+        },
         location: `file://${packArchiveDir}`,
         version: Option.some("1.0.0"),
         gitTreeSha: Option.none(),

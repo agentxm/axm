@@ -26,6 +26,7 @@ const makeOp = (name: string): InstallPackOperation => ({
     resolvedSkills: { [`@acme/skill-a`]: "1.0.0" },
     resolvedCommands: {},
     resolvedMcpServers: {},
+    versionConstraint: Option.none(),
   },
 });
 

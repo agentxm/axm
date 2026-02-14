@@ -4,4 +4,4 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-export { expandGlob, expandGlobs } from "./glob.js";
+export { expandGlob, expandGlobs, isGlobPattern } from "./glob.js";

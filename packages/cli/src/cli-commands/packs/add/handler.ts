@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import { expandGlobs } from "../../../skills/index.js";
+import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
 import { computePackPaths } from "../pack-paths.js";
 
 // -----------------------------------------------------------------------------
@@ -121,7 +121,7 @@ export const handlePacksAdd = (args: PacksAddHandlerArgs) =>
     const registrySkillNames = registrySkills.map(([name]) => name);
 
     // Determine if this is a glob or exact match
-    const isGlob = args.extension.includes("*");
+    const isGlob = isGlobPattern(args.extension);
     const matchedNames = isGlob
       ? expandGlobs([args.extension], registrySkillNames)
       : registrySkillNames.includes(args.extension)

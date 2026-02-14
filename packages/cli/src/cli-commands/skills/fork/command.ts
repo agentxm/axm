@@ -25,7 +25,8 @@ export const forkCommand: CommandModule<{}, ForkCommandArgs> = {
     yargs
       .positional("source", {
         type: "string",
-        describe: "Installed skill name or source string (local path, github:owner/repo, etc.)",
+        describe:
+          "Installed skill name, glob pattern, or source string (local path, github:owner/repo, etc.)",
         demandOption: true,
       })
       .option("skill", {
@@ -50,6 +51,7 @@ export const forkCommand: CommandModule<{}, ForkCommandArgs> = {
         describe: "Disable all interactive prompts",
       })
       .example("$0 skills fork my-skill", "Fork an installed skill to a managed extension")
+      .example('$0 skills fork "effect-*"', "Fork all installed skills matching the glob")
       .example("$0 skills fork github:owner/repo", "Fork a skill from a GitHub repo")
       .example(
         '$0 skills fork ./local/path --skill "effect-*"',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expandGlob, expandGlobs } from "./glob.js";
+import { expandGlob, expandGlobs, isGlobPattern } from "./glob.js";
 
 // ---------------------------------------------------------------------------
 // expandGlob
@@ -85,5 +85,23 @@ describe("expandGlobs", () => {
     // Patterns match in reverse order, but result preserves `names` order
     const result = expandGlobs(["m-*", "a-*", "z-*"], names);
     expect(result).toEqual(["z-skill", "a-skill", "m-skill"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isGlobPattern
+// ---------------------------------------------------------------------------
+
+describe("isGlobPattern", () => {
+  it("returns true for patterns containing *", () => {
+    expect(isGlobPattern("effect-*")).toBe(true);
+    expect(isGlobPattern("*")).toBe(true);
+    expect(isGlobPattern("*-testing")).toBe(true);
+  });
+
+  it("returns false for non-glob inputs", () => {
+    expect(isGlobPattern("effect-basics")).toBe(false);
+    expect(isGlobPattern("my-skill")).toBe(false);
+    expect(isGlobPattern("")).toBe(false);
   });
 });

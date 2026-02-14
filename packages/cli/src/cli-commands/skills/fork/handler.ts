@@ -35,7 +35,7 @@ import type {
 import { copySkill } from "../copy-skill.js";
 import { installSkill } from "../install/install-skill.js";
 import { publishSkill } from "../publish-skill.js";
-import { expandGlobs } from "../../../skills/index.js";
+import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
 import type { SkillRef } from "../../../sources/index.js";
@@ -48,7 +48,7 @@ import type { SkillRef } from "../../../sources/index.js";
  * Arguments for the fork command.
  */
 export interface ForkHandlerArgs {
-  /** Source string (installed skill name, local path, github:owner/repo, etc.). */
+  /** Source string or glob pattern (installed skill name, local path, github:owner/repo, etc.). */
   readonly source: string;
   /** Fork only specified skill(s) by name or glob pattern. */
   readonly skills: readonly string[];
@@ -94,46 +94,107 @@ export const handleFork = (args: ForkHandlerArgs) =>
     // Step 3: Parse source and discover skills
     const handle = yield* spinnerSvc.start("Resolving skills...");
 
-    const source = yield* resolveSource(args.source).pipe(
-      Effect.mapError((error) =>
-        makeCliError({
-          code: "INVALID_SOURCE",
-          what: `Invalid source: ${error.message}`,
-          details: [`Provided: ${args.source}`],
-          howToFix: "Valid formats: installed skill name, local path, github:owner/repo",
-          cause: error,
-        }),
-      ),
-      Effect.tapError(() => handle.stop("Failed")),
-    );
+    const discoveredSkills = yield* (isGlobPattern(args.source)
+      ? Effect.gen(function* () {
+          const lockedSkills = yield* ws.getLockedSkills();
+          const allNames = Object.keys(lockedSkills);
+          const matchedNames = expandGlobs([args.source], allNames);
 
-    const allRefs = yield* sources
-      .resolveExtension(source, { names: [], agents: [], type: "skill" })
-      .pipe(
-        Effect.mapError((error) =>
-          makeCliError({
-            code: "DISCOVER_FAILED",
-            what: `Failed to discover skills: ${error.message}`,
-            details: [`Source: ${printSourceInput(source)}`],
-            howToFix: "Verify the source path contains directories with SKILL.md files.",
-            cause: error,
-          }),
-        ),
-        Effect.tapError(() => handle.stop("Failed")),
-      );
+          if (matchedNames.length === 0) {
+            yield* handle.stop("No matches");
+            return yield* Effect.fail(
+              makeCliError({
+                code: "NO_SKILLS_MATCHED",
+                what: "No skills matched the given patterns",
+                details: [`Patterns: ${args.source}`, `Available: ${allNames.join(", ")}`],
+                howToFix: "Check installed skill names with `axm skills list`.",
+              }),
+            );
+          }
 
-    const discoveredSkills = Array.filter(allRefs, (ref): ref is SkillRef => ref.type === "skill");
-    if (discoveredSkills.length === 0) {
-      yield* handle.stop("No skills found");
-      return yield* Effect.fail(
-        makeCliError({
-          code: "NO_SKILLS_FOUND",
-          what: "No skills found in source",
-          details: [`Source: ${printSourceInput(source)}`],
-          howToFix: "Verify the source path contains directories with SKILL.md files.",
-        }),
-      );
-    }
+          const refsBySource = yield* Effect.forEach(
+            matchedNames,
+            (name) =>
+              Effect.gen(function* () {
+                const source = yield* resolveSource(name).pipe(
+                  Effect.mapError((error) =>
+                    makeCliError({
+                      code: "INVALID_SOURCE",
+                      what: `Invalid source: ${error.message}`,
+                      details: [`Provided: ${name}`],
+                      howToFix: "Valid formats: installed skill name, local path, github:owner/repo",
+                      cause: error,
+                    }),
+                  ),
+                );
+                return yield* sources.resolveExtension(source, {
+                  names: [],
+                  agents: [],
+                  type: "skill",
+                });
+              }),
+            { concurrency: "unbounded" },
+          ).pipe(
+            Effect.mapError((error) =>
+              makeCliError({
+                code: "DISCOVER_FAILED",
+                what: `Failed to discover skills: ${error.message}`,
+                details: [`Source pattern: ${args.source}`],
+                howToFix: "Verify the matched source skills are installed and valid.",
+                cause: error,
+              }),
+            ),
+            Effect.tapError(() => handle.stop("Failed")),
+          );
+
+          return Array.filter(
+            Array.flatten(refsBySource),
+            (ref): ref is SkillRef => ref.type === "skill",
+          );
+        })
+      : Effect.gen(function* () {
+          const source = yield* resolveSource(args.source).pipe(
+            Effect.mapError((error) =>
+              makeCliError({
+                code: "INVALID_SOURCE",
+                what: `Invalid source: ${error.message}`,
+                details: [`Provided: ${args.source}`],
+                howToFix: "Valid formats: installed skill name, local path, github:owner/repo",
+                cause: error,
+              }),
+            ),
+            Effect.tapError(() => handle.stop("Failed")),
+          );
+
+          const allRefs = yield* sources
+            .resolveExtension(source, { names: [], agents: [], type: "skill" })
+            .pipe(
+              Effect.mapError((error) =>
+                makeCliError({
+                  code: "DISCOVER_FAILED",
+                  what: `Failed to discover skills: ${error.message}`,
+                  details: [`Source: ${printSourceInput(source)}`],
+                  howToFix: "Verify the source path contains directories with SKILL.md files.",
+                  cause: error,
+                }),
+              ),
+              Effect.tapError(() => handle.stop("Failed")),
+            );
+
+          const skills = Array.filter(allRefs, (ref): ref is SkillRef => ref.type === "skill");
+          if (skills.length === 0) {
+            yield* handle.stop("No skills found");
+            return yield* Effect.fail(
+              makeCliError({
+                code: "NO_SKILLS_FOUND",
+                what: "No skills found in source",
+                details: [`Source: ${printSourceInput(source)}`],
+                howToFix: "Verify the source path contains directories with SKILL.md files.",
+              }),
+            );
+          }
+          return skills;
+        }));
 
     // Step 4: Filter by --skill globs (if provided)
     const filtered: ReadonlyArray<SkillRef> =

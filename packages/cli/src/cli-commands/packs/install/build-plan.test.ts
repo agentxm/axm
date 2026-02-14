@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
 import type { Lockfile } from "../../../lockfile/schema.js";
+import type { InstallSkillOperation } from "../../skills/operations.js";
 import type { InstallPackOperation } from "../operations.js";
 import { buildInstallPlan } from "./build-plan.js";
 
@@ -34,6 +35,19 @@ const emptyLockfile: Lockfile = {
   skills: {},
 };
 
+const makeSkillOp = (name: string): InstallSkillOperation => ({
+  name: "install-skill",
+  args: {
+    source: { type: "local", path: `/tmp/skills/${name}` },
+    agents: [],
+    force: false,
+    skill: { name, description: `Skill ${name}`, metadata: Option.none() },
+    location: `file:///tmp/skills/${name}`,
+    version: Option.none(),
+    gitTreeSha: Option.none(),
+  },
+});
+
 const lockfileWithPacks = (...names: string[]): Lockfile => ({
   lockfileVersion: 1,
   skills: {},
@@ -52,6 +66,22 @@ const lockfileWithPacks = (...names: string[]): Lockfile => ({
         resolvedSkills: {},
         resolvedCommands: {},
         resolvedMcpServers: {},
+      },
+    ]),
+  ),
+});
+
+const lockfileWithSkills = (...names: string[]): Lockfile => ({
+  lockfileVersion: 1,
+  skills: Object.fromEntries(
+    names.map((name) => [
+      name,
+      {
+        type: "local" as const,
+        path: `/tmp/skills/${name}`,
+        agents: [],
+        installedAt: new Date(),
+        updatedAt: new Date(),
       },
     ]),
   ),
@@ -167,5 +197,82 @@ describe("buildInstallPlan", () => {
     );
 
     expect(plan.jobs[0]!.steps[0]!.expectedResult.result).toBe("success");
+  });
+
+  // ---------------------------------------------------------------------------
+  // Mixed operations (pack + skill)
+  // ---------------------------------------------------------------------------
+
+  it("produces correct steps for mixed pack and skill operations", () => {
+    const plan = buildInstallPlan(
+      [makeOp("my-pack"), makeSkillOp("my-skill")],
+      emptyLockfile,
+      "Install pack",
+      Option.none(),
+    );
+
+    const steps = plan.jobs[0]!.steps;
+    expect(steps).toHaveLength(2);
+    expect(steps[0]!.expectedResult).toEqual({
+      result: "success",
+      message: "Installed pack my-pack",
+    });
+    expect(steps[1]!.expectedResult).toEqual({
+      result: "success",
+      message: "Installed skill my-skill",
+    });
+  });
+
+  it("checks lockfile.skills for skill no-op detection", () => {
+    const plan = buildInstallPlan(
+      [makeSkillOp("my-skill")],
+      lockfileWithSkills("my-skill"),
+      "Install pack",
+      Option.none(),
+    );
+
+    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
+      result: "no-op",
+      message: "already installed",
+    });
+  });
+
+  it("marks already-installed skills as no-op", () => {
+    const plan = buildInstallPlan(
+      [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
+      lockfileWithSkills("skill-a"),
+      "Install pack",
+      Option.none(),
+    );
+
+    const steps = plan.jobs[0]!.steps;
+    expect(steps[0]!.expectedResult.result).toBe("no-op");
+    expect(steps[1]!.expectedResult.result).toBe("success");
+  });
+
+  it("places pack steps before skill steps in plan order", () => {
+    const plan = buildInstallPlan(
+      [makeOp("my-pack"), makeSkillOp("my-skill")],
+      emptyLockfile,
+      "Install pack",
+      Option.none(),
+    );
+
+    const steps = plan.jobs[0]!.steps;
+    expect(steps[0]!.operation.name).toBe("install-pack");
+    expect(steps[1]!.operation.name).toBe("install-skill");
+  });
+
+  it("uses skill name as label for skill steps", () => {
+    const plan = buildInstallPlan(
+      [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
+      emptyLockfile,
+      "Install pack",
+      Option.none(),
+    );
+
+    const steps = plan.jobs[0]!.steps;
+    expect(steps[0]!.label).toBe("skill-a");
+    expect(steps[1]!.label).toBe("skill-b");
   });
 });

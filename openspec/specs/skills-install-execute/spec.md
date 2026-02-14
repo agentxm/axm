@@ -1,6 +1,6 @@
 ### Requirement: Skill installation orchestrator
 
-The `executeAddSkill` function SHALL orchestrate the full per-skill installation pipeline: sanitize name, validate paths, copy files to canonical location, symlink from agent directories, and update the lockfile. Canonical path and skill source path SHALL be resolved via `Workspace.getSkillDir` with an explicit source argument. For registry sources, agent symlinks SHALL target `skillSrcPath`.
+The `executeAddSkill` function SHALL orchestrate the full per-skill installation pipeline: sanitize name, validate paths, copy files to canonical location, symlink from agent directories, and update the lockfile. Canonical path and skill source path SHALL be resolved via `Workspace.getSkillDir` with an explicit source argument. Agent symlinks SHALL target `skillSrcPath` for all source types.
 
 #### Scenario: Sanitize skill name for canonical path
 
@@ -18,7 +18,7 @@ The `executeAddSkill` function SHALL orchestrate the full per-skill installation
 
 - **WHEN** writing skill files for a non-registry source
 - **THEN** they SHALL be written to the `skillSrcPath` returned by `getSkillDir(name, source)`
-- **AND** `skillSrcPath` resolves to `<base>/.agents/skills/<sanitized-name>` (no `src/` subdirectory)
+- **AND** `skillSrcPath` resolves to `<base>/.axm/extensions/external/skills/<sanitized-name>` (no `src/` subdirectory)
 
 #### Scenario: Clean-slate copy to canonical
 
@@ -32,21 +32,11 @@ The `executeAddSkill` function SHALL orchestrate the full per-skill installation
 - **THEN** `isPathSafe` SHALL be called for each path against the workspace base
 - **AND** if any path is unsafe, the skill installation SHALL fail without writing any files
 
-#### Scenario: Symlink targets skillSrcPath for registry sources
+#### Scenario: Agent symlinks created for all agents
 
-- **WHEN** the operation targets agents whose `skills.dir` differs from the canonical location and the source is registry
-- **THEN** a symlink SHALL be created from `<base>/<agent.skills.dir>/<sanitized-name>` to `skillSrcPath`
-
-#### Scenario: Symlink targets canonical path for non-registry sources
-
-- **WHEN** the operation targets agents whose `skills.dir` differs from the canonical location and the source is non-registry
-- **THEN** a symlink SHALL be created from `<base>/<agent.skills.dir>/<sanitized-name>` to the canonical directory
-
-#### Scenario: Self-reference detected for universal agents
-
-- **WHEN** an agent's resolved `skills.dir` path equals the universal skills directory (`.agents/skills`)
-- **THEN** symlink creation SHALL be skipped for that agent
-- **AND** the result SHALL indicate success
+- **WHEN** the operation targets agents
+- **THEN** a symlink SHALL be created from `<base>/<agent.skills.dir>/<sanitized-name>` to `skillSrcPath` for every agent
+- **AND** agents whose `skills.dir` resolves to `.agents/skills` SHALL also receive symlinks (no self-reference skip)
 
 #### Scenario: Symlink failure falls back to copy
 
@@ -94,6 +84,12 @@ The install skill executor SHALL call `SettingsService.addSkill()` after success
 
 - **WHEN** the source location resolves to the `skillSrcPath` (`<canonical>/src/` for registry, `<canonical>` for others)
 - **THEN** pre-clean and copy SHALL be skipped (files already in place)
+
+#### Scenario: Pre-clean removes from all known locations
+
+- **WHEN** pre-cleaning before install
+- **THEN** the handler SHALL remove from `.axm/extensions/external/skills/<name>` (non-registry canonical)
+- **AND** remove from `.axm/extensions/@*/skills/<name>` (registry canonical, any scope)
 
 ### Requirement: InstallError cause field convention
 

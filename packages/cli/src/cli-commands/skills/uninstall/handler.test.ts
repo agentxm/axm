@@ -62,7 +62,7 @@ const initWorkspace = (
 
 /** Create a canonical skill directory with SKILL.md. */
 const createCanonicalSkill = (base: string, name: string) => {
-  const dir = path.join(base, ".agents", "skills", name);
+  const dir = path.join(base, ".axm", "extensions", "external", "skills", name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, "SKILL.md"), `# ${name}`);
   return dir;
@@ -70,7 +70,7 @@ const createCanonicalSkill = (base: string, name: string) => {
 
 /** Create an agent symlink pointing to canonical. */
 const createAgentSymlink = (base: string, agentDir: string, name: string) => {
-  const canonical = path.join(base, ".agents", "skills", name);
+  const canonical = path.join(base, ".axm", "extensions", "external", "skills", name);
   const agentSkillDir = path.join(base, agentDir, "skills");
   fs.mkdirSync(agentSkillDir, { recursive: true });
   fs.symlinkSync(canonical, path.join(agentSkillDir, name));
@@ -165,7 +165,11 @@ describe("uninstall.handler", () => {
           yield* handleUninstall(defaultArgs("my-skill"));
 
           // Canonical directory should be removed
-          expect(fs.existsSync(path.join(tempDir, ".agents", "skills", "my-skill"))).toBe(false);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
+            ),
+          ).toBe(false);
 
           // Agent symlink should be removed
           expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "my-skill"))).toBe(false);
@@ -203,15 +207,23 @@ describe("uninstall.handler", () => {
           yield* handleUninstall(defaultArgs("effect-*"));
 
           // effect-* skills should be removed
-          expect(fs.existsSync(path.join(tempDir, ".agents", "skills", "effect-basics"))).toBe(
-            false,
-          );
-          expect(fs.existsSync(path.join(tempDir, ".agents", "skills", "effect-stream"))).toBe(
-            false,
-          );
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-basics"),
+            ),
+          ).toBe(false);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-stream"),
+            ),
+          ).toBe(false);
 
           // testing-unit should remain
-          expect(fs.existsSync(path.join(tempDir, ".agents", "skills", "testing-unit"))).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "testing-unit"),
+            ),
+          ).toBe(true);
         }),
       );
     });
@@ -281,7 +293,11 @@ describe("uninstall.handler", () => {
           expect(fs.existsSync(path.join(tempDir, ".cursor", "skills", "my-skill"))).toBe(true);
 
           // Canonical should still exist
-          expect(fs.existsSync(path.join(tempDir, ".agents", "skills", "my-skill"))).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
+            ),
+          ).toBe(true);
 
           // Lockfile should have updated agents
           const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");

@@ -8,7 +8,7 @@
  */
 
 import type { SourceType } from "../../sources/index.js";
-import { UNIVERSAL_SKILLS_DIR, REGISTRY_EXTENSIONS_DIR } from "./constants.js";
+import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "./constants.js";
 
 /**
  * Minimal structural discriminant for determining skill path layout.
@@ -26,7 +26,7 @@ export type SkillPathSource =
  * - `canonicalPath`: root of the installed skill
  * - `skillSrcPath`: where actual skill source files live
  *
- * Non-registry: `canonicalPath === skillSrcPath` = `<base>/.agents/skills/<sanitized-name>`
+ * Non-registry: `canonicalPath === skillSrcPath` = `<base>/.axm/extensions/external/skills/<sanitized-name>`
  * Registry: `canonicalPath` = `<base>/.axm/extensions/<scope>/skills/<sanitized-name>`,
  *           `skillSrcPath` = `<canonicalPath>/src`
  */
@@ -59,6 +59,6 @@ export const computeSkillPaths = (
     );
     return { canonicalPath, skillSrcPath: join(canonicalPath, "src") };
   }
-  const canonicalPath = join(base, UNIVERSAL_SKILLS_DIR, sanitizedName);
+  const canonicalPath = join(base, EXTERNAL_EXTENSIONS_DIR, "skills", sanitizedName);
   return { canonicalPath, skillSrcPath: canonicalPath };
 };

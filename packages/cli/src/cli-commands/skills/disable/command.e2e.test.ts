@@ -11,7 +11,7 @@ import YAML from "yaml";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 
 describe("axm skills disable", () => {
-  it("disables a skill: removes files, preserves settings with enabled: false, retains lockfile", async () => {
+  it("disables a skill: removes symlinks, preserves canonical files and settings with enabled: false, retains lockfile", async () => {
     const temp = createTempDir();
     try {
       // Initialize workspace
@@ -35,7 +35,14 @@ describe("axm skills disable", () => {
       );
 
       // Verify skill is installed
-      const canonicalSkillDir = path.join(temp.path, ".agents", "skills", "my-skill");
+      const canonicalSkillDir = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "external",
+        "skills",
+        "my-skill",
+      );
       expect(fs.existsSync(canonicalSkillDir)).toBe(true);
       const agentSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
       expect(fs.existsSync(agentSkillDir)).toBe(true);
@@ -47,8 +54,8 @@ describe("axm skills disable", () => {
 
       expect(result.exitCode).toBe(0);
 
-      // Verify canonical skill files are removed
-      expect(fs.existsSync(canonicalSkillDir)).toBe(false);
+      // Verify canonical skill files are preserved (not removed)
+      expect(fs.existsSync(canonicalSkillDir)).toBe(true);
 
       // Verify agent symlink is removed
       expect(fs.existsSync(agentSkillDir)).toBe(false);

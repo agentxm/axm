@@ -190,8 +190,15 @@ describe("enable.handler", () => {
         { "my-skill": { source: "local", enabled: false } },
         { "my-skill": makeLockEntry() },
       );
-      // Create canonical skill directory so enable-skill handler can find it
-      const canonicalDir = path.join(tempDir, ".agents", "skills", "my-skill");
+      // Create canonical skill directory at the new external extensions path
+      const canonicalDir = path.join(
+        tempDir,
+        ".axm",
+        "extensions",
+        "external",
+        "skills",
+        "my-skill",
+      );
       fs.mkdirSync(canonicalDir, { recursive: true });
       fs.writeFileSync(path.join(canonicalDir, "SKILL.md"), "# my-skill");
 
@@ -200,6 +207,31 @@ describe("enable.handler", () => {
           yield* handleEnable(defaultArgs("my-skill"));
 
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+
+          // Verify agent symlink was created
+          const agentSkillPath = path.join(tempDir, ".claude", "skills", "my-skill");
+          expect(fs.existsSync(agentSkillPath)).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("reports error when canonical directory is missing", () => {
+      const { provide } = makeLayers();
+      // Create a disabled skill with no canonical directory on disk
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        { "my-skill": { source: "local", enabled: false } },
+        { "my-skill": makeLockEntry() },
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleEnable(defaultArgs("my-skill"));
+
+          // The error is caught by applyPlan and reported as a plan error result.
+          // Verify the agent symlink was NOT created (enable did not succeed).
+          const agentSkillPath = path.join(tempDir, ".claude", "skills", "my-skill");
+          expect(fs.existsSync(agentSkillPath)).toBe(false);
         }),
       );
     });

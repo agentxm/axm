@@ -26,7 +26,10 @@ import type { Source, SourceInput, SourceType } from "./types.js";
 import type { SourceConfig } from "../settings/schema.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import { Workspace } from "../workspace/index.js";
-import { REGISTRY_EXTENSIONS_DIR, UNIVERSAL_SKILLS_DIR } from "../cli-commands/skills/constants.js";
+import {
+  EXTERNAL_EXTENSIONS_DIR,
+  REGISTRY_EXTENSIONS_DIR,
+} from "../cli-commands/skills/constants.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -59,7 +62,7 @@ const getInstalledSkillPath = (name: string, entry: SkillLockEntry): string => {
   if (entry.type === "registry") {
     return `${REGISTRY_EXTENSIONS_DIR}/${entry.scope}/skills/${name}`;
   }
-  return `${UNIVERSAL_SKILLS_DIR}/${name}`;
+  return `${EXTERNAL_EXTENSIONS_DIR}/skills/${name}`;
 };
 
 /** Parse shorthand input using the provider for the given source type. */

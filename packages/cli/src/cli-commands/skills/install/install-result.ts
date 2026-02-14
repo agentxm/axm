@@ -27,6 +27,6 @@ export interface InstallResult {
   readonly error: Option.Option<string>;
   /** Agent-specific skill directory path. */
   readonly path: string;
-  /** Canonical skill location (.agents/skills/<name>). */
+  /** Canonical skill location (.axm/extensions/external/skills/<name> or .axm/extensions/<scope>/skills/<name>/src). */
   readonly canonicalPath: string;
 }

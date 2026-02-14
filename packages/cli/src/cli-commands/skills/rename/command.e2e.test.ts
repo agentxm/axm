@@ -35,7 +35,14 @@ describe("axm skills rename", () => {
       );
 
       // Verify original skill exists
-      const oldCanonical = path.join(temp.path, ".agents", "skills", "my-skill");
+      const oldCanonical = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "external",
+        "skills",
+        "my-skill",
+      );
       expect(fs.existsSync(oldCanonical)).toBe(true);
 
       // Rename the skill
@@ -49,7 +56,14 @@ describe("axm skills rename", () => {
       expect(fs.existsSync(oldCanonical)).toBe(false);
 
       // Verify new canonical directory exists
-      const newCanonical = path.join(temp.path, ".agents", "skills", "renamed-skill");
+      const newCanonical = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "external",
+        "skills",
+        "renamed-skill",
+      );
       expect(fs.existsSync(newCanonical)).toBe(true);
       expect(fs.existsSync(path.join(newCanonical, "SKILL.md"))).toBe(true);
 

@@ -233,8 +233,8 @@ describe("uninstallSkill", () => {
     const axmDir = path.join(base, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
 
-    // Create canonical skill dir
-    const canonicalPath = path.join(base, ".agents", "skills", skillName);
+    // Create canonical skill dir (unified: .axm/extensions/external/skills/<name>)
+    const canonicalPath = path.join(base, ".axm", "extensions", "external", "skills", skillName);
     if (createCanonical) {
       fs.mkdirSync(canonicalPath, { recursive: true });
       fs.writeFileSync(path.join(canonicalPath, "SKILL.md"), `# ${skillName}`);
@@ -408,7 +408,9 @@ describe("uninstallSkill", () => {
         expect(fs.existsSync(path.join(base, ".cursor", "skills", "my-skill"))).toBe(true);
 
         // Canonical dir should still exist
-        expect(fs.existsSync(path.join(base, ".agents", "skills", "my-skill"))).toBe(true);
+        expect(
+          fs.existsSync(path.join(base, ".axm", "extensions", "external", "skills", "my-skill")),
+        ).toBe(true);
 
         // Lockfile should still have entry but without claude-code
         const lockfile = readLockfileYaml(axmDir);
@@ -532,8 +534,12 @@ describe("uninstallSkill", () => {
         expect(result.result).toBe("success");
         expect(result.message).toBe("Uninstalled My Awesome Skill!!");
 
-        // The sanitized path (.agents/skills/my-awesome-skill) should be removed
-        expect(fs.existsSync(path.join(base, ".agents", "skills", "my-awesome-skill"))).toBe(false);
+        // The sanitized path should be removed from canonical location
+        expect(
+          fs.existsSync(
+            path.join(base, ".axm", "extensions", "external", "skills", "my-awesome-skill"),
+          ),
+        ).toBe(false);
       }),
     );
   });
@@ -640,9 +646,8 @@ describe("uninstallSkill", () => {
           },
         });
 
-        // amp uses .agents/skills — same as canonical location
-        // The canonical dir should still be removed in full uninstall,
-        // but the amp symlink removal step should be skipped (no separate dir)
+        // amp uses .agents/skills — separate from canonical (.axm/extensions/external/skills)
+        // Both agent symlinks and canonical dir should be removed in full uninstall
         const result = yield* uninstallSkill(makeOp()).pipe(
           Effect.provide(
             withServices(axmDir, {
@@ -732,15 +737,15 @@ describe("uninstallSkill", () => {
       }),
     );
 
-    it.effect("removes skill from both legacy and registry locations during uninstall", () =>
+    it.effect("removes skill from both external and registry locations during uninstall", () =>
       Effect.gen(function* () {
         // Setup: skill exists in BOTH locations (e.g., after a source type change)
         const { axmDir, base, registryPath, lockfileSkills } = setupRegistryWorkspace({
           agents: ["claude-code"],
         });
 
-        // Also create the legacy canonical location
-        const legacyPath = path.join(base, ".agents", "skills", "my-skill");
+        // Also create the non-registry canonical location
+        const legacyPath = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
         fs.mkdirSync(legacyPath, { recursive: true });
         fs.writeFileSync(path.join(legacyPath, "SKILL.md"), "# my-skill");
 

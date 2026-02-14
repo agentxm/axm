@@ -1253,25 +1253,27 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("name-only lookup with non-registry lock entry returns universal paths", () =>
-      Effect.gen(function* () {
-        writeLockfileTo(projectDir, {
-          "code-review": {
-            type: "github",
-            owner: "acme",
-            repo: "code-review",
-            agents: ["claude-code"],
-            installedAt: "2025-01-01T00:00:00.000Z",
-            updatedAt: "2025-01-01T00:00:00.000Z",
-          },
-        });
+    it.effect(
+      "name-only lookup with non-registry lock entry returns external extensions paths",
+      () =>
+        Effect.gen(function* () {
+          writeLockfileTo(projectDir, {
+            "code-review": {
+              type: "github",
+              owner: "acme",
+              repo: "code-review",
+              agents: ["claude-code"],
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+            },
+          });
 
-        const ws = yield* getService(defaultOptions);
-        const paths = yield* ws.getSkillDir("code-review");
+          const ws = yield* getService(defaultOptions);
+          const paths = yield* ws.getSkillDir("code-review");
 
-        expect(paths.canonicalPath).toContain(".agents/skills/code-review");
-        expect(paths.skillSrcPath).toBe(paths.canonicalPath);
-      }),
+          expect(paths.canonicalPath).toContain(".axm/extensions/external/skills/code-review");
+          expect(paths.skillSrcPath).toBe(paths.canonicalPath);
+        }),
     );
 
     it.effect("explicit registry source returns correct paths without lockfile lookup", () =>
@@ -1298,7 +1300,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const paths = yield* ws.getSkillDir("code-review", { type: "github" });
 
-        expect(paths.canonicalPath).toContain(".agents/skills/code-review");
+        expect(paths.canonicalPath).toContain(".axm/extensions/external/skills/code-review");
         expect(paths.skillSrcPath).toBe(paths.canonicalPath);
       }),
     );

@@ -189,10 +189,22 @@ describe("disable.handler", () => {
         { "my-skill": "local" },
         { "my-skill": makeLockEntry() },
       );
-      // Create canonical skill directory so disable-skill handler can remove it
-      const canonicalDir = path.join(tempDir, ".agents", "skills", "my-skill");
+      // Create canonical skill directory (preserved after disable)
+      const canonicalDir = path.join(
+        tempDir,
+        ".axm",
+        "extensions",
+        "external",
+        "skills",
+        "my-skill",
+      );
       fs.mkdirSync(canonicalDir, { recursive: true });
       fs.writeFileSync(path.join(canonicalDir, "SKILL.md"), "# my-skill");
+
+      // Create agent symlink directory (removed on disable)
+      const agentSkillDir = path.join(tempDir, ".claude", "skills", "my-skill");
+      fs.mkdirSync(agentSkillDir, { recursive: true });
+      fs.writeFileSync(path.join(agentSkillDir, "SKILL.md"), "# my-skill");
 
       return provide(
         Effect.gen(function* () {
@@ -207,6 +219,12 @@ describe("disable.handler", () => {
           );
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.["my-skill"]).toEqual({ source: "local", enabled: false });
+
+          // Canonical directory should be preserved
+          expect(fs.existsSync(canonicalDir)).toBe(true);
+
+          // Agent symlink directory should be removed
+          expect(fs.existsSync(agentSkillDir)).toBe(false);
         }),
       );
     });

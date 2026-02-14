@@ -47,8 +47,15 @@ describe("axm skills install from local registry (via fork)", () => {
       );
       expect(installResult.exitCode).toBe(0);
 
-      // Verify the skill is installed in .agents/skills/
-      const canonicalSkillDir = path.join(temp.path, ".agents", "skills", "my-skill");
+      // Verify the skill is installed in .axm/extensions/external/skills/
+      const canonicalSkillDir = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "external",
+        "skills",
+        "my-skill",
+      );
       expect(fs.existsSync(canonicalSkillDir)).toBe(true);
 
       // Fork the installed skill to registry

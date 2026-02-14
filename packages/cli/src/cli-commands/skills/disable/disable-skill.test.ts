@@ -151,7 +151,7 @@ describe("disableSkill", () => {
   };
 
   describe("happy path", () => {
-    it.effect("removes agent symlinks and canonical directory", () =>
+    it.effect("removes agent symlinks but preserves canonical directory", () =>
       Effect.gen(function* () {
         const { axmDir, base, canonicalPath } = setupWorkspace({ agents: ["claude-code"] });
 
@@ -167,15 +167,15 @@ describe("disableSkill", () => {
         expect(result.result).toBe("success");
         expect(result.message).toContain("my-skill");
 
-        // Canonical dir should be removed
-        expect(fs.existsSync(canonicalPath)).toBe(false);
+        // Canonical dir should be preserved for re-enablement
+        expect(fs.existsSync(canonicalPath)).toBe(true);
 
         // Agent symlink should be removed
         expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
       }),
     );
 
-    it.effect("removes symlinks for multiple agents", () =>
+    it.effect("removes symlinks for multiple agents but preserves canonical directory", () =>
       Effect.gen(function* () {
         const { axmDir, base, canonicalPath } = setupWorkspace({
           agents: ["claude-code", "cursor"],
@@ -194,7 +194,8 @@ describe("disableSkill", () => {
 
         expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
         expect(fs.existsSync(path.join(base, ".cursor", "skills", "my-skill"))).toBe(false);
-        expect(fs.existsSync(canonicalPath)).toBe(false);
+        // Canonical dir should be preserved
+        expect(fs.existsSync(canonicalPath)).toBe(true);
       }),
     );
 
@@ -269,7 +270,7 @@ describe("disableSkill", () => {
   });
 
   describe("registry source", () => {
-    it.effect("removes registry canonical directory", () =>
+    it.effect("preserves registry canonical directory but removes agent symlinks", () =>
       Effect.gen(function* () {
         const base = path.join(tmpDir, "project");
         const axmDir = path.join(base, ".axm");
@@ -302,7 +303,9 @@ describe("disableSkill", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(fs.existsSync(registryPath)).toBe(false);
+        // Registry canonical dir should be preserved
+        expect(fs.existsSync(registryPath)).toBe(true);
+        // Agent symlink should be removed
         expect(fs.existsSync(agentSkillPath)).toBe(false);
       }),
     );
@@ -340,7 +343,8 @@ describe("disableSkill", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(fs.existsSync(canonicalPath)).toBe(false);
+        // Canonical dir should be preserved
+        expect(fs.existsSync(canonicalPath)).toBe(true);
       }),
     );
   });

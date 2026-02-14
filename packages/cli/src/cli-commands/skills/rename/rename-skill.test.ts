@@ -84,7 +84,7 @@ const makeWorkspaceMock = (
         return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
       }
       const sanitized = sanitizeName(name);
-      const canonicalPath = path.join(base, ".agents", "skills", sanitized);
+      const canonicalPath = path.join(base, ".axm", "extensions", "external", "skills", sanitized);
       return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
     },
     setSkill: () => Effect.void,
@@ -159,8 +159,8 @@ describe("renameSkill", () => {
     const axmDir = path.join(base, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
 
-    // Create canonical skill dir
-    const canonicalPath = path.join(base, ".agents", "skills", skillName);
+    // Create canonical skill dir in external extensions
+    const canonicalPath = path.join(base, ".axm", "extensions", "external", "skills", skillName);
     fs.mkdirSync(canonicalPath, { recursive: true });
     fs.writeFileSync(
       path.join(canonicalPath, "SKILL.md"),
@@ -206,7 +206,14 @@ describe("renameSkill", () => {
         expect(fs.existsSync(canonicalPath)).toBe(false);
 
         // New canonical dir should exist
-        const newCanonical = path.join(base, ".agents", "skills", "renamed-skill");
+        const newCanonical = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "external",
+          "skills",
+          "renamed-skill",
+        );
         expect(fs.existsSync(newCanonical)).toBe(true);
         expect(fs.existsSync(path.join(newCanonical, "SKILL.md"))).toBe(true);
 
@@ -235,7 +242,7 @@ describe("renameSkill", () => {
         );
 
         const skillMd = fs.readFileSync(
-          path.join(base, ".agents", "skills", "renamed-skill", "SKILL.md"),
+          path.join(base, ".axm", "extensions", "external", "skills", "renamed-skill", "SKILL.md"),
           "utf-8",
         );
         const parsed = matter(skillMd);

@@ -64,7 +64,7 @@ const makeWorkspaceMock = (
         );
         return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
       }
-      const canonicalPath = path.join(base, ".agents", "skills", sanitized);
+      const canonicalPath = path.join(base, ".axm", "extensions", "external", "skills", sanitized);
       return Effect.succeed({ canonicalPath, skillSrcPath: canonicalPath });
     },
     setSkill: setSkillFn
@@ -171,7 +171,7 @@ describe("installSkill", () => {
         expect(result.message).toContain("my-skill");
 
         // Canonical location should have files
-        const canonical = path.join(base, ".agents", "skills", "my-skill");
+        const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
         expect(fs.existsSync(path.join(canonical, "SKILL.md"))).toBe(true);
         expect(fs.readFileSync(path.join(canonical, "prompt.md"), "utf-8")).toBe("prompt content");
 
@@ -220,7 +220,14 @@ describe("installSkill", () => {
         expect(result.result).toBe("success");
 
         // Should be sanitized to lowercase with hyphens
-        const canonical = path.join(base, ".agents", "skills", "my-awesome-skill");
+        const canonical = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "external",
+          "skills",
+          "my-awesome-skill",
+        );
         expect(fs.existsSync(canonical)).toBe(true);
       }),
     );
@@ -264,13 +271,13 @@ describe("installSkill", () => {
     );
   });
 
-  describe("self-reference detection for universal agents", () => {
-    it.effect("skips symlink for agents whose skills.dir is .agents/skills", () =>
+  describe("all agents receive symlinks", () => {
+    it.effect("creates symlink for agents whose skills.dir is .agents/skills", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
 
-        // amp uses .agents/skills — same as canonical location
+        // amp uses .agents/skills — with external canonical, it now gets a symlink
         const result = yield* installSkill(makeOp({ agents: ["amp"], sourcePath: src })).pipe(
           Effect.provide(withServices(axmDir)),
         );
@@ -278,21 +285,23 @@ describe("installSkill", () => {
         expect(result.result).toBe("success");
 
         // Canonical location should exist (from copy)
-        const canonical = path.join(base, ".agents", "skills", "my-skill");
+        const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
         expect(fs.existsSync(canonical)).toBe(true);
-
-        // Should be a real directory, not a symlink
         expect(fs.lstatSync(canonical).isDirectory()).toBe(true);
-        expect(fs.lstatSync(canonical).isSymbolicLink()).toBe(false);
+
+        // amp should have a symlink in .agents/skills
+        const ampSkill = path.join(base, ".agents", "skills", "my-skill");
+        expect(fs.existsSync(ampSkill)).toBe(true);
+        expect(fs.lstatSync(ampSkill).isSymbolicLink()).toBe(true);
       }),
     );
 
-    it.effect("skips symlink for universal agents but creates for non-universal", () =>
+    it.effect("creates symlinks for both universal and non-universal agents", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
 
-        // amp (universal: .agents/skills) + claude-code (non-universal: .claude/skills)
+        // amp (.agents/skills) + claude-code (.claude/skills) — both get symlinks
         const result = yield* installSkill(
           makeOp({ agents: ["amp", "claude-code"], sourcePath: src }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -300,8 +309,12 @@ describe("installSkill", () => {
         expect(result.result).toBe("success");
 
         // Canonical should be a directory (not a symlink)
-        const canonical = path.join(base, ".agents", "skills", "my-skill");
+        const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
         expect(fs.lstatSync(canonical).isDirectory()).toBe(true);
+
+        // amp should have a symlink
+        const ampSkill = path.join(base, ".agents", "skills", "my-skill");
+        expect(fs.lstatSync(ampSkill).isSymbolicLink()).toBe(true);
 
         // claude-code should have a symlink
         const claudeSkill = path.join(base, ".claude", "skills", "my-skill");
@@ -353,7 +366,7 @@ describe("installSkill", () => {
         const { axmDir, base } = setupBase();
 
         // Pre-create canonical with stale content
-        const canonical = path.join(base, ".agents", "skills", "my-skill");
+        const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
         fs.mkdirSync(canonical, { recursive: true });
         fs.writeFileSync(path.join(canonical, "stale.txt"), "old content");
 
@@ -397,21 +410,26 @@ describe("installSkill", () => {
         const src = setupSource();
         const { axmDir, base } = setupBase();
 
-        // Make the axm dir read-only so lockfile write fails
-        fs.chmodSync(axmDir, 0o444);
+        // Use a mock setSkill that fails to simulate lockfile write failure
+        const setSkillFn = vi.fn(() =>
+          Effect.fail(
+            makeCliError({
+              code: "LOCKFILE_WRITE_FAILED",
+              what: "write failed",
+              cause: new Error("write failed"),
+            }),
+          ),
+        );
 
         const result = yield* installSkill(
           makeOp({ agents: ["claude-code"], sourcePath: src }),
-        ).pipe(Effect.provide(withServices(axmDir)));
-
-        // Restore permissions for cleanup
-        fs.chmodSync(axmDir, 0o755);
+        ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
 
         // Installation should still succeed even if lockfile failed
         expect(result.result).toBe("success");
 
         // Canonical files should exist
-        const canonical = path.join(base, ".agents", "skills", "my-skill");
+        const canonical = path.join(base, ".axm", "extensions", "external", "skills", "my-skill");
         expect(fs.existsSync(path.join(canonical, "SKILL.md"))).toBe(true);
       }),
     );
@@ -483,9 +501,16 @@ describe("installSkill", () => {
         expect(fs.existsSync(registryCanonical)).toBe(true);
         expect(fs.existsSync(path.join(registryCanonical, "src", "SKILL.md"))).toBe(true);
 
-        // Should NOT be in the old canonical location
-        const oldCanonical = path.join(base, ".agents", "skills", "my-skill");
-        expect(fs.existsSync(oldCanonical)).toBe(false);
+        // Should NOT be in the external canonical location
+        const externalCanonical = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "external",
+          "skills",
+          "my-skill",
+        );
+        expect(fs.existsSync(externalCanonical)).toBe(false);
       }),
     );
 
@@ -552,33 +577,49 @@ describe("installSkill", () => {
   });
 
   describe("pre-clean from all locations", () => {
-    it.effect("removes from .agents/skills/ when installing as registry source", () =>
-      Effect.gen(function* () {
-        // Set up source in a path with @scope segment
-        const src = path.join(tmpDir, "registry", "extensions", "@community", "skills", "my-skill");
-        fs.mkdirSync(src, { recursive: true });
-        fs.writeFileSync(path.join(src, "SKILL.md"), "# my-skill");
-        fs.writeFileSync(path.join(src, "prompt.md"), "prompt content");
-        const { axmDir, base } = setupBase();
+    it.effect(
+      "removes from .axm/extensions/external/skills/ when installing as registry source",
+      () =>
+        Effect.gen(function* () {
+          // Set up source in a path with @scope segment
+          const src = path.join(
+            tmpDir,
+            "registry",
+            "extensions",
+            "@community",
+            "skills",
+            "my-skill",
+          );
+          fs.mkdirSync(src, { recursive: true });
+          fs.writeFileSync(path.join(src, "SKILL.md"), "# my-skill");
+          fs.writeFileSync(path.join(src, "prompt.md"), "prompt content");
+          const { axmDir, base } = setupBase();
 
-        // Pre-create in old canonical location
-        const oldCanonical = path.join(base, ".agents", "skills", "my-skill");
-        fs.mkdirSync(oldCanonical, { recursive: true });
-        fs.writeFileSync(path.join(oldCanonical, "old.txt"), "old content");
+          // Pre-create in external canonical location (will be cleaned when switching to registry)
+          const externalCanonical = path.join(
+            base,
+            ".axm",
+            "extensions",
+            "external",
+            "skills",
+            "my-skill",
+          );
+          fs.mkdirSync(externalCanonical, { recursive: true });
+          fs.writeFileSync(path.join(externalCanonical, "old.txt"), "old content");
 
-        const result = yield* installSkill(
-          makeOp({
-            agents: ["claude-code"],
-            source: { type: "registry", scope: "@community", name: "my-skill" },
-            location: `file://${src}`,
-          }),
-        ).pipe(Effect.provide(withServices(axmDir)));
+          const result = yield* installSkill(
+            makeOp({
+              agents: ["claude-code"],
+              source: { type: "registry", scope: "@community", name: "my-skill" },
+              location: `file://${src}`,
+            }),
+          ).pipe(Effect.provide(withServices(axmDir)));
 
-        expect(result.result).toBe("success");
+          expect(result.result).toBe("success");
 
-        // Old location should be cleaned
-        expect(fs.existsSync(path.join(oldCanonical, "old.txt"))).toBe(false);
-      }),
+          // External location should be cleaned
+          expect(fs.existsSync(path.join(externalCanonical, "old.txt"))).toBe(false);
+        }),
     );
 
     it.effect("removes from .axm/extensions/ when installing as local source", () =>
@@ -611,7 +652,14 @@ describe("installSkill", () => {
         expect(fs.existsSync(path.join(registryCanonical, "old.txt"))).toBe(false);
 
         // New location should have files
-        const newCanonical = path.join(base, ".agents", "skills", "my-skill");
+        const newCanonical = path.join(
+          base,
+          ".axm",
+          "extensions",
+          "external",
+          "skills",
+          "my-skill",
+        );
         expect(fs.existsSync(path.join(newCanonical, "SKILL.md"))).toBe(true);
       }),
     );

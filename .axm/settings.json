@@ -1,4 +1,5 @@
 {
+  "scope": "@axm",
   "agents": [
     "amp",
     "antigravity",

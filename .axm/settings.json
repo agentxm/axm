@@ -1,5 +1,12 @@
 {
   "scope": "@axm",
+  "sources": [
+    {
+      "name": "local",
+      "type": "registry",
+      "url": "file:///Users/craig/Code/agentxm/axm/sandbox_reg"
+    }
+  ],
   "agents": [
     "amp",
     "antigravity",

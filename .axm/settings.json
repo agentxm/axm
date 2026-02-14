@@ -1,13 +1,12 @@
 {
-  "sources": [
-    {
-      "name": "local",
-      "type": "registry",
-      "url": "file:///Users/craig/sandbox_reg"
-    }
-  ],
-  "agents": ["antigravity", "claude-code", "codex", "cursor"],
-  "skills": {
-    "howdy": "@my-cool-org/howdy"
-  }
+  "agents": [
+    "amp",
+    "antigravity",
+    "claude-code",
+    "codex",
+    "cursor",
+    "gemini-cli",
+    "github-copilot",
+    "opencode"
+  ]
 }

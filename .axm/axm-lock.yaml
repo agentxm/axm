@@ -1,69 +1,200 @@
 lockfileVersion: 1
 skills:
-  axm-manage-skills:
-    type: builtin
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-14T21:44:07.178Z
-    updatedAt: 2026-02-14T21:44:07.178Z
-  axm-manage-packs:
-    type: builtin
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-14T21:44:07.178Z
-    updatedAt: 2026-02-14T21:44:07.178Z
-  axm-manage-mcp-servers:
-    type: builtin
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-14T21:44:07.178Z
-    updatedAt: 2026-02-14T21:44:07.178Z
-  axm-manage-commands:
-    type: builtin
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-14T21:44:07.178Z
-    updatedAt: 2026-02-14T21:44:07.178Z
-packs:
-  "@axm/cli":
-    type: builtin
+  effect-schema:
+    type: registry
     scope: "@axm"
-    name: cli
-    resolvedVersion: 0.0.16
-    installedAt: 2026-02-14T21:44:07.178Z
-    updatedAt: 2026-02-14T21:44:07.178Z
-    resolvedSkills:
-      "@axm/axm-manage-skills": 0.0.16
-      "@axm/axm-manage-packs": 0.0.16
-      "@axm/axm-manage-mcp-servers": 0.0.16
-      "@axm/axm-manage-commands": 0.0.16
-    resolvedCommands: {}
-    resolvedMcpServers: {}
+    name: effect-schema
+    resolvedVersion: 0.1.0
+    checksum: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-14T23:27:22.357Z
+    updatedAt: 2026-02-14T23:27:22.361Z
+  effect-stream:
+    type: registry
+    scope: "@axm"
+    name: effect-stream
+    resolvedVersion: 0.1.0
+    checksum: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-14T23:27:22.358Z
+    updatedAt: 2026-02-14T23:27:22.371Z
+  effect-service:
+    type: registry
+    scope: "@axm"
+    name: effect-service
+    resolvedVersion: 0.1.0
+    checksum: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-14T23:27:22.358Z
+    updatedAt: 2026-02-14T23:27:22.374Z
+  effect-iteration:
+    type: registry
+    scope: "@axm"
+    name: effect-iteration
+    resolvedVersion: 0.1.0
+    checksum: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-14T23:27:22.358Z
+    updatedAt: 2026-02-14T23:27:22.376Z
+  effect-option:
+    type: registry
+    scope: "@axm"
+    name: effect-option
+    resolvedVersion: 0.1.0
+    checksum: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-14T23:27:22.358Z
+    updatedAt: 2026-02-14T23:27:22.379Z
+  effect-filesystem:
+    type: registry
+    scope: "@axm"
+    name: effect-filesystem
+    resolvedVersion: 0.1.0
+    checksum: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-14T23:27:22.358Z
+    updatedAt: 2026-02-14T23:27:22.383Z
+  effect-concurrency:
+    type: registry
+    scope: "@axm"
+    name: effect-concurrency
+    resolvedVersion: 0.1.0
+    checksum: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-14T23:27:22.358Z
+    updatedAt: 2026-02-14T23:27:22.386Z
+  effect-collections:
+    type: registry
+    scope: "@axm"
+    name: effect-collections
+    resolvedVersion: 0.1.0
+    checksum: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-14T23:27:22.358Z
+    updatedAt: 2026-02-14T23:27:22.390Z
+  effect-testing:
+    type: registry
+    scope: "@axm"
+    name: effect-testing
+    resolvedVersion: 0.1.0
+    checksum: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-14T23:27:22.358Z
+    updatedAt: 2026-02-14T23:27:22.395Z
+  effect-wrapping:
+    type: registry
+    scope: "@axm"
+    name: effect-wrapping
+    resolvedVersion: 0.1.0
+    checksum: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-14T23:27:22.358Z
+    updatedAt: 2026-02-14T23:27:22.398Z
+  effect-basics:
+    type: registry
+    scope: "@axm"
+    name: effect-basics
+    resolvedVersion: 0.1.0
+    checksum: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-14T23:27:22.358Z
+    updatedAt: 2026-02-14T23:27:22.402Z

@@ -1,0 +1,14 @@
+{
+  "name": "effect-filesystem",
+  "scope": "@axm",
+  "type": "skill",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "published": "2026-02-14T23:21:15.335Z",
+      "agents": [],
+      "checksum": "sha256:51341a070410a41f52899cb33563d70266b71bfba7c946dc9d17a1ebd32cd8ad",
+      "dependencies": {}
+    }
+  ]
+}

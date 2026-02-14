@@ -1,0 +1,14 @@
+{
+  "name": "effect-collections",
+  "scope": "@axm",
+  "type": "skill",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "published": "2026-02-14T23:21:15.306Z",
+      "agents": [],
+      "checksum": "sha256:39743475e93f1e3b02b3e3f134d9ab251b5223cafe0db55a5a41e38151247c34",
+      "dependencies": {}
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "effect-concurrency",
+  "scope": "@axm",
+  "type": "skill",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "published": "2026-02-14T23:21:15.321Z",
+      "agents": [],
+      "checksum": "sha256:091a70757f31b235a2cc8c50700d7d220daf38ba9e3923b50dc32a9f4da835e5",
+      "dependencies": {}
+    }
+  ]
+}

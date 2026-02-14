@@ -1,6 +1,6 @@
 ---
 name: effect-service
-description: Effect service architecture: interfaces, error types, layers, retries. Use when creating new services or defining error hierarchies.
+description: Effect service architecture interfaces, error types, layers, retries. Use when creating new services or defining error hierarchies.
 user-invocable: false
 ---
 

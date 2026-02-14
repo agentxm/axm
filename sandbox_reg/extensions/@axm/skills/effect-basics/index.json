@@ -1,0 +1,14 @@
+{
+  "name": "effect-basics",
+  "scope": "@axm",
+  "type": "skill",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "published": "2026-02-14T23:21:15.284Z",
+      "agents": [],
+      "checksum": "sha256:7cfbd53db804f216bfeadf0ec7918d9a1d817eb48d954ef7ececef0b4a7272e2",
+      "dependencies": {}
+    }
+  ]
+}

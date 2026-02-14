@@ -1,0 +1,14 @@
+{
+  "name": "effect-option",
+  "scope": "@axm",
+  "type": "skill",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "published": "2026-02-14T23:21:15.364Z",
+      "agents": [],
+      "checksum": "sha256:fec03942a9bb118ceb15e6c23fcb66fa6c1e8a870e2279a652691c796c36b0f8",
+      "dependencies": {}
+    }
+  ]
+}

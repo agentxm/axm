@@ -1,0 +1,14 @@
+{
+  "name": "effect-service",
+  "scope": "@axm",
+  "type": "skill",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "published": "2026-02-14T23:22:54.970Z",
+      "agents": [],
+      "checksum": "sha256:730d331637996ae31559bdf65ee7700c468751314983ed62572d13c41c1ca9b0",
+      "dependencies": {}
+    }
+  ]
+}

@@ -418,7 +418,9 @@ describe("fork.handler", () => {
         Effect.gen(function* () {
           yield* handleFork(defaultArgs("disk-only-*"));
           expect(
-            fs.existsSync(path.join(tempDir, ".axm", "extensions", "@test", "skills", "disk-only-skill")),
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "@test", "skills", "disk-only-skill"),
+            ),
           ).toBe(true);
         }),
       );
@@ -545,7 +547,9 @@ describe("fork.handler", () => {
             ),
           ).toBe(true);
           expect(
-            fs.existsSync(path.join(tempDir, ".axm", "extensions", "@test", "skills", "effect-stream")),
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "@test", "skills", "effect-stream"),
+            ),
           ).toBe(false);
           expect(
             fs.existsSync(

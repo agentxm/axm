@@ -74,6 +74,7 @@ export type { InputPattern } from "./parser.js";
 
 // Source resolver
 export { resolveSource } from "./resolve-source.js";
+export { resolveSourcePattern } from "./resolve-source-pattern.js";
 
 // Printer
 export { lockEntryToSourceInput, printSourceInput } from "./printer.js";

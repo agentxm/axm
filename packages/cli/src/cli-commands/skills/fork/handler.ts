@@ -26,6 +26,8 @@ import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace as Workspace } from "../../../workspace/index.js";
+import { getAgentById } from "../../../agents/index.js";
+import { discoverSkillsInDir } from "../install/discover-skills.js";
 import type {
   CopySkillOperation,
   InstallSkillOperation,
@@ -38,7 +40,7 @@ import { publishSkill } from "../publish-skill.js";
 import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
-import type { SkillRef } from "../../../sources/index.js";
+import type { SkillRef, Source } from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -57,6 +59,86 @@ export interface ForkHandlerArgs {
 }
 
 type ForkOp = CopySkillOperation | PublishSkillOperation | InstallSkillOperation;
+
+const sortNames = (names: ReadonlyArray<string>): ReadonlyArray<string> =>
+  [...names].sort((a, b) => a.localeCompare(b));
+
+const buildGlobCandidates = (
+  args: {
+    readonly base: string;
+    readonly joinPath: (left: string, right: string) => string;
+    readonly lockedSkills: Readonly<Record<string, unknown>>;
+    readonly configuredSkills: Readonly<Record<string, { readonly source: Option.Option<string> }>>;
+    readonly configuredAgents: ReadonlyArray<string>;
+  },
+) =>
+  Effect.gen(function* () {
+    const agentRoots = sortNames(
+      Array.dedupe(
+        Array.getSomes(
+          Array.map(args.configuredAgents, (agentId) =>
+            Option.map(getAgentById(agentId), (agent) => args.joinPath(args.base, agent.skills.dir)),
+          ),
+        ),
+      ),
+    );
+
+    const onDiskRefs = yield* Effect.forEach(
+      agentRoots,
+      (agentRoot) =>
+        discoverSkillsInDir(
+          agentRoot,
+          Option.none(),
+          { fullDepth: false, includeInternal: false },
+          { type: "local", path: agentRoot },
+        ).pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<SkillRef>>([]))),
+      { concurrency: "unbounded" },
+    ).pipe(Effect.map((results) => Array.flatten(results)));
+
+    const refsSortedByLocation = [...onDiskRefs].sort((a, b) => a.location.localeCompare(b.location));
+    const onDiskByName = new Map<string, string>();
+    for (const ref of refsSortedByLocation) {
+      if (!onDiskByName.has(ref.skill.name)) {
+        onDiskByName.set(ref.skill.name, ref.location.replace("file://", ""));
+      }
+    }
+
+    const names = sortNames(
+      Array.dedupe([
+        ...Object.keys(args.lockedSkills),
+        ...Object.keys(args.configuredSkills),
+        ...onDiskByName.keys(),
+      ]),
+    );
+
+    return { names, onDiskByName } as const;
+  });
+
+const resolveGlobMatchedSource = (
+  name: string,
+  configuredSkills: Readonly<Record<string, { readonly source: Option.Option<string> }>>,
+  onDiskByName: ReadonlyMap<string, string>,
+) =>
+  resolveSource(name).pipe(
+    Effect.catchTag("CliError", (error) => {
+      if (error.code !== "SOURCE_PARSE_FAILED") {
+        return Effect.fail(error);
+      }
+
+      const configuredEntry = configuredSkills[name];
+      if (configuredEntry !== undefined && Option.isSome(configuredEntry.source)) {
+        return resolveSource(configuredEntry.source.value);
+      }
+
+      const diskPath = onDiskByName.get(name);
+      if (diskPath !== undefined) {
+        const localSource: Source = { type: "local", path: diskPath };
+        return Effect.succeed(localSource);
+      }
+
+      return Effect.fail(error);
+    }),
+  );
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -97,8 +179,16 @@ export const handleFork = (args: ForkHandlerArgs) =>
     const discoveredSkills = yield* (isGlobPattern(args.source)
       ? Effect.gen(function* () {
           const lockedSkills = yield* ws.getLockedSkills();
-          const allNames = Object.keys(lockedSkills);
-          const matchedNames = expandGlobs([args.source], allNames);
+          const configuredSkills = yield* ws.getConfiguredSkills();
+          const configuredAgents = yield* ws.getConfiguredAgents();
+          const candidates = yield* buildGlobCandidates({
+            base,
+            joinPath: path.join,
+            lockedSkills,
+            configuredSkills,
+            configuredAgents,
+          });
+          const matchedNames = expandGlobs([args.source], candidates.names);
 
           if (matchedNames.length === 0) {
             yield* handle.stop("No matches");
@@ -106,17 +196,21 @@ export const handleFork = (args: ForkHandlerArgs) =>
               makeCliError({
                 code: "NO_SKILLS_MATCHED",
                 what: "No skills matched the given patterns",
-                details: [`Patterns: ${args.source}`, `Available: ${allNames.join(", ")}`],
+                details: [`Patterns: ${args.source}`, `Available: ${candidates.names.join(", ")}`],
                 howToFix: "Check installed skill names with `axm skills list`.",
               }),
             );
           }
 
           const refsBySource = yield* Effect.forEach(
-            matchedNames,
+            sortNames(matchedNames),
             (name) =>
               Effect.gen(function* () {
-                const source = yield* resolveSource(name).pipe(
+                const source = yield* resolveGlobMatchedSource(
+                  name,
+                  configuredSkills,
+                  candidates.onDiskByName,
+                ).pipe(
                   Effect.mapError((error) =>
                     makeCliError({
                       code: "INVALID_SOURCE",

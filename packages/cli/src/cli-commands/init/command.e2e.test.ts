@@ -133,7 +133,7 @@ describe("axm init", () => {
       const result = await runCli(["init", "--help"]);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("Initialize axm");
+      expect(result.stdout).toContain("Set up axm in the current project");
       expect(result.stdout).toContain("--global");
       expect(result.stdout).toContain("--yes");
     });

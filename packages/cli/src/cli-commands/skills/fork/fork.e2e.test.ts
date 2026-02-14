@@ -14,6 +14,14 @@ import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 
+const createSkillMd = (dir: string, name: string) => {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "SKILL.md"),
+    `---\nname: "${name}"\ndescription: "${name}"\n---\n\n# ${name}\n`,
+  );
+};
+
 describe("axm skills fork", () => {
   describe("fork from installed skill", () => {
     it("forks an installed skill to a managed extension and publishes to registry", async () => {
@@ -165,6 +173,87 @@ describe("axm skills fork", () => {
           );
           expect(fs.existsSync(registryIndexPath)).toBe(true);
         }
+      } finally {
+        temp.cleanup();
+        registryDir.cleanup();
+      }
+    });
+
+    it("forks unmanaged configured and unmanaged on-disk skills via glob source", async () => {
+      const temp = createTempDir();
+      const registryDir = createTempDir("axm-registry-");
+      try {
+        await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+
+        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        settings.sources = [{ name: "local", type: "registry", url: `file://${registryDir.path}` }];
+        settings.scope = "@test";
+        settings.skills = { "unmanaged-configured": { managed: false } };
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+        createSkillMd(path.join(temp.path, ".claude", "skills", "unmanaged-configured"), "unmanaged-configured");
+        createSkillMd(path.join(temp.path, ".claude", "skills", "disk-only-skill"), "disk-only-skill");
+
+        const configuredResult = await runCli(["skills", "fork", "unmanaged-*", "--yes"], {
+          cwd: temp.path,
+        });
+        expect(configuredResult.exitCode).toBe(0);
+
+        const diskOnlyResult = await runCli(["skills", "fork", "disk-only-*", "--yes"], {
+          cwd: temp.path,
+        });
+        expect(diskOnlyResult.exitCode).toBe(0);
+
+        expect(
+          fs.existsSync(path.join(temp.path, ".axm", "extensions", "@test", "skills", "unmanaged-configured")),
+        ).toBe(true);
+        expect(fs.existsSync(path.join(temp.path, ".axm", "extensions", "@test", "skills", "disk-only-skill"))).toBe(
+          true,
+        );
+      } finally {
+        temp.cleanup();
+        registryDir.cleanup();
+      }
+    });
+
+    it("shows expanded available candidates for glob no-match", async () => {
+      const temp = createTempDir();
+      const registryDir = createTempDir("axm-registry-");
+      try {
+        await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+
+        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        settings.sources = [{ name: "local", type: "registry", url: `file://${registryDir.path}` }];
+        settings.scope = "@test";
+        settings.skills = { "gamma-configured": { managed: false } };
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+        createSkillMd(path.join(temp.path, ".claude", "skills", "beta-disk"), "beta-disk");
+
+        const installResult = await runCli(
+          [
+            "skills",
+            "install",
+            SKILLS_REPO_FIXTURE,
+            "--skill",
+            "my-skill",
+            "--yes",
+            "--agent",
+            "claude-code",
+          ],
+          { cwd: temp.path },
+        );
+        expect(installResult.exitCode).toBe(0);
+
+        const result = await runCli(["skills", "fork", "zzz-*", "--yes"], { cwd: temp.path });
+        expect(result.exitCode).not.toBe(0);
+        const output = `${result.stdout}\n${result.stderr}`;
+        expect(output).toContain("Available:");
+        expect(output).toContain("beta-disk");
+        expect(output).toContain("gamma-configured");
+        expect(output).toContain("my-skill");
       } finally {
         temp.cleanup();
         registryDir.cleanup();

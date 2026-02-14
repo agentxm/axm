@@ -12,7 +12,7 @@ describe("axm skills", () => {
 
       // Per spec: exits with code 0 and shows help
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("Manage skills");
+      expect(result.stdout).toContain("Install, update, and manage skills");
     });
 
     it("shows available subcommands", async () => {
@@ -28,7 +28,7 @@ describe("axm skills", () => {
       const result = await runCli(["skills", "--help"]);
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain("Manage skills");
+      expect(result.stdout).toContain("Install, update, and manage skills");
     });
 
     it("shows install subcommand", async () => {

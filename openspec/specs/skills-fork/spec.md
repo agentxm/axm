@@ -23,7 +23,8 @@ Forks installed skills into managed extensions with scope resolution, uniqueness
 #### Scenario: Fork by glob pattern
 
 - **WHEN** `skills fork "effect-*"` is called
-- **THEN** installed skills matching the glob are identified and a plan with fork operations for each match is built
+- **THEN** local skills matching the glob are identified from the combined candidate set
+- **AND** a plan with fork operations for each match is built
 
 ### Requirement: Scope resolution
 
@@ -112,12 +113,27 @@ The `copy-skill` executor SHALL copy source files to `.axm/extensions/` and gene
 
 ### Requirement: Glob-based batch forking
 
-When the input is a glob pattern, the handler SHALL match against installed skill names and build a plan for all matches.
+When the input is a glob pattern, the handler SHALL match against a combined local candidate set and build a plan for all matches. The candidate set SHALL include:
 
-#### Scenario: Multiple matches
+- installed skill names from lockfile
+- configured skill names from settings (including unmanaged entries)
+- unmanaged skill names discovered on disk under configured agent skill directories
 
-- **WHEN** `skills fork "effect-*"` is called and skills `effect-basics`, `effect-testing`, `effect-errors` are installed
-- **THEN** the plan contains fork operations for all three skills
+#### Scenario: Multiple matches across sources
+
+- **WHEN** `skills fork "effect-*"` is called
+- **AND** lockfile contains `effect-basics`
+- **AND** settings contains unmanaged `effect-errors`
+- **AND** an unmanaged on-disk skill `effect-streams` exists in a configured agent skills directory
+- **THEN** the command SHALL match all three names
+- **AND** the plan contains fork operations for all matched skills
+
+#### Scenario: Dedupe across discovery sources
+
+- **WHEN** `skills fork "effect-*"` is called
+- **AND** `effect-basics` exists in both lockfile and settings candidate sources
+- **THEN** `effect-basics` SHALL appear only once in the matched skill set
+- **AND** the fork plan SHALL include a single fork sequence for `effect-basics`
 
 #### Scenario: Full plan displayed for confirmation
 
@@ -126,8 +142,9 @@ When the input is a glob pattern, the handler SHALL match against installed skil
 
 #### Scenario: No matches
 
-- **WHEN** `skills fork "nonexistent-*"` is called and no installed skills match
+- **WHEN** `skills fork "nonexistent-*"` is called and no local candidates match
 - **THEN** the command reports no matching skills and exits
+- **AND** the error output SHALL include available names from the combined local candidate set
 
 ### Requirement: Registry guard precondition
 

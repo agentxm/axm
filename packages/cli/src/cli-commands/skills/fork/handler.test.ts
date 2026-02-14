@@ -381,6 +381,128 @@ describe("fork.handler", () => {
       );
     });
 
+    it.effect("matches unmanaged configured skills from configured agent directories", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      const unmanagedDir = path.join(tempDir, ".claude", "skills", "unmanaged-configured");
+      createSkillMd(unmanagedDir, "unmanaged-configured", "Unmanaged configured");
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      const settingsPath = path.join(tempDir, ".axm", "settings.json");
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+      settings.skills = { "unmanaged-configured": { managed: false } };
+      fs.writeFileSync(settingsPath, JSON.stringify(settings));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleFork(defaultArgs("unmanaged-*"));
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "@test", "skills", "unmanaged-configured"),
+            ),
+          ).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("matches unmanaged on-disk skills from configured agent directories", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      const diskOnlyDir = path.join(tempDir, ".claude", "skills", "disk-only-skill");
+      createSkillMd(diskOnlyDir, "disk-only-skill", "Disk only skill");
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleFork(defaultArgs("disk-only-*"));
+          expect(
+            fs.existsSync(path.join(tempDir, ".axm", "extensions", "@test", "skills", "disk-only-skill")),
+          ).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("deduplicates glob candidates across lockfile settings and on-disk sources", () => {
+      const { provide, mockSpinner } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      const sharedName = "shared-skill";
+      const managedDir = path.join(tempDir, ".axm", "extensions", "external", "skills", sharedName);
+      createSkillMd(managedDir, sharedName, "Managed");
+      const agentDir = path.join(tempDir, ".claude", "skills", sharedName);
+      createSkillMd(agentDir, sharedName, "Agent");
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
+        [sharedName]: {
+          type: "local",
+          path: managedDir,
+          agents: ["claude-code"],
+          installedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      });
+
+      const settingsPath = path.join(tempDir, ".axm", "settings.json");
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+      settings.skills = { [sharedName]: { managed: false } };
+      fs.writeFileSync(settingsPath, JSON.stringify(settings));
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleFork(defaultArgs("shared-*"));
+          expect(mockSpinner.stops).toContain("Found 1 skill(s)");
+        }),
+      );
+    });
+
+    it.effect("shows expanded available candidates in NO_SKILLS_MATCHED details", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      const lockName = "alpha-locked";
+      const lockDir = path.join(tempDir, ".axm", "extensions", "external", "skills", lockName);
+      createSkillMd(lockDir, lockName, lockName);
+
+      const diskName = "beta-disk";
+      const diskDir = path.join(tempDir, ".claude", "skills", diskName);
+      createSkillMd(diskDir, diskName, diskName);
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
+        [lockName]: {
+          type: "local",
+          path: lockDir,
+          agents: ["claude-code"],
+          installedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      });
+
+      const settingsPath = path.join(tempDir, ".axm", "settings.json");
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+      settings.skills = {
+        "gamma-configured": { managed: false },
+      };
+      fs.writeFileSync(settingsPath, JSON.stringify(settings));
+
+      return provide(
+        Effect.gen(function* () {
+          const result = yield* handleFork(defaultArgs("zzz-*")).pipe(
+            Effect.catchTag("CliError", (e) =>
+              Effect.succeed({ code: e.code, details: e.details ?? [] }),
+            ),
+          );
+          if (result === undefined) {
+            throw new Error("Expected CliError for unmatched glob");
+          }
+          expect((result as { code: string }).code).toBe("NO_SKILLS_MATCHED");
+          expect((result as { details: ReadonlyArray<string> }).details).toContain(
+            "Available: alpha-locked, beta-disk, gamma-configured",
+          );
+        }),
+      );
+    });
+
     it.effect("applies --skill filter after positional glob expansion", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");

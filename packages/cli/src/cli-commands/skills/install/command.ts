@@ -19,7 +19,7 @@ interface InstallCommandArgs {
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
 export const installCommand: CommandModule<{}, InstallCommandArgs> = {
   command: "install <source>",
-  describe: "Install skills from a GitHub repo, local path, or URL",
+  describe: "Install skills from GitHub or local path",
   builder: (yargs) =>
     yargs
       .positional("source", {
@@ -47,7 +47,7 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
       .option("yes", {
         alias: "y",
         type: "boolean",
-        describe: "Skip all confirmation prompts",
+        describe: "Skip confirmation prompts",
         default: false,
       })
       .option("list", {
@@ -76,20 +76,19 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
         type: "boolean",
         describe: "Disable all interactive prompts",
       })
-      .example("$0 skills install owner/repo", "Clone GitHub repo and install skills interactively")
+      .group(["global", "agent", "skill"], "Filtering:")
+      .group(["yes", "list", "all", "force", "preview"], "Behavior:")
+      .example("$0 skills install owner/repo", "Install skills interactively")
       .example(
         "$0 skills install owner/repo@v1.0.0",
         "Install from a specific tag, branch, or commit",
       )
       .example("$0 skills install ./path/to/skills", "Install from a local directory")
       .example("$0 skills install owner/repo --list", "List available skills without installing")
-      .example(
-        "$0 skills install owner/repo --all --yes",
-        "Install all skills to all agents (CI mode)",
-      )
+      .example("$0 skills install owner/repo --all --yes", "Install all without prompts")
       .example(
         "$0 skills install owner/repo --skill pr-review --agent claude-code",
-        "Install specific skill to specific agent",
+        "Target specific skill and agent",
       ),
   handler: async (argv) => {
     await run(

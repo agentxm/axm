@@ -19,7 +19,7 @@ export interface UnpackCommandArgs {
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
 export const unpackCommand: CommandModule<{}, UnpackCommandArgs> = {
   command: "unpack <name>",
-  describe: "Eject pack contents into direct settings entries",
+  describe: "Eject pack into individual entries",
   builder: (yargs) =>
     yargs
       .positional("name", {
@@ -30,7 +30,7 @@ export const unpackCommand: CommandModule<{}, UnpackCommandArgs> = {
       .option("yes", {
         alias: "y",
         type: "boolean",
-        describe: "Skip all confirmation prompts",
+        describe: "Skip confirmation prompts",
         default: false,
       })
       .option("preview", {

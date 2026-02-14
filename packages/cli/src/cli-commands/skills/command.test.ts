@@ -8,12 +8,12 @@ describe("skills command", () => {
   it("shows help when invoked without sub-command", async () => {
     const helpOutput = await createParser().getHelp();
     expect(helpOutput).toContain("skills");
-    expect(helpOutput).toContain("Manage skills");
+    expect(helpOutput).toContain("manage skills");
   });
 
   it("shows skills command description", async () => {
     const helpOutput = await createParser().getHelp();
-    expect(helpOutput).toContain("Manage skills (extensions) for AI coding agents");
+    expect(helpOutput).toContain("Install, update, and manage skills");
   });
 });
 
@@ -25,7 +25,7 @@ describe("skills subcommand help", () => {
     // Get help for the skills command specifically
     await parser.parse(["skills", "--help"]);
     // yargs will have shown help, we verify by checking the command structure
-    expect(skillsCommand.describe).toBe("Manage skills (extensions) for AI coding agents");
+    expect(skillsCommand.describe).toBe("Install, update, and manage skills");
   });
 
   it("has add subcommand registered", () => {

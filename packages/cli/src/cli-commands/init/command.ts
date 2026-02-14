@@ -13,7 +13,7 @@ interface InitArgs {
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
 export const initCommand: CommandModule<{}, InitArgs> = {
   command: "init",
-  describe: "Initialize axm by detecting installed agents and creating .axm/settings.json",
+  describe: "Set up axm in the current project",
   builder: (yargs) =>
     yargs
       .option("global", {
@@ -30,12 +30,12 @@ export const initCommand: CommandModule<{}, InitArgs> = {
       .option("yes", {
         alias: "y",
         type: "boolean",
-        describe: "Use all detected agents without prompting",
+        describe: "Skip confirmation prompts",
         default: false,
       })
       .option("non-interactive", {
         type: "boolean",
-        describe: "Disable all prompts; fail if user input is required",
+        describe: "Disable all interactive prompts",
         default: false,
       })
       .example("$0 init", "Detect installed agents and create .axm/settings.json")

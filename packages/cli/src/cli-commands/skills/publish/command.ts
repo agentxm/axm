@@ -20,7 +20,7 @@ export interface PublishCommandArgs {
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
 export const publishCommand: CommandModule<{}, PublishCommandArgs> = {
   command: "publish <extension>",
-  describe: "Publish a managed extension to a registry",
+  describe: "Publish an extension to a registry",
   builder: (yargs) =>
     yargs
       .positional("extension", {
@@ -35,7 +35,7 @@ export const publishCommand: CommandModule<{}, PublishCommandArgs> = {
       .option("yes", {
         alias: "y",
         type: "boolean",
-        describe: "Skip all confirmation prompts",
+        describe: "Skip confirmation prompts",
         default: false,
       })
       .option("preview", {

@@ -35,7 +35,7 @@ export const packsAddCommand: CommandModule<{}, PacksAddCommandArgs> = {
       .option("yes", {
         alias: "y",
         type: "boolean",
-        describe: "Skip all confirmation prompts",
+        describe: "Skip confirmation prompts",
         default: false,
       })
       .option("non-interactive", {

@@ -11,7 +11,7 @@ import { updateCommand } from "./update/command.js";
 
 export const skillsCommand: CommandModule = {
   command: "skills",
-  describe: "Manage skills (extensions) for AI coding agents",
+  describe: "Install, update, and manage skills",
   builder: (yargs) =>
     yargs
       .command(installCommand)

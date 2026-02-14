@@ -35,13 +35,13 @@ describe("skills publish command", () => {
   const createParser = () => yargs().command(publishCommand).exitProcess(false);
 
   it("registers with correct description", () => {
-    expect(publishCommand.describe).toBe("Publish a managed extension to a registry");
+    expect(publishCommand.describe).toBe("Publish an extension to a registry");
   });
 
   it("shows command in help output", async () => {
     const helpOutput = await createParser().getHelp();
     expect(helpOutput).toContain("publish <extension>");
-    expect(helpOutput).toContain("Publish a managed extension");
+    expect(helpOutput).toContain("Publish an extension");
   });
 
   it("requires extension positional argument", () => {

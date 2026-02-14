@@ -20,7 +20,7 @@ export interface ForkCommandArgs {
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
 export const forkCommand: CommandModule<{}, ForkCommandArgs> = {
   command: "fork <source>",
-  describe: "Fork a skill into a managed extension and publish to a registry",
+  describe: "Fork a skill for customization",
   builder: (yargs) =>
     yargs
       .positional("source", {
@@ -37,7 +37,7 @@ export const forkCommand: CommandModule<{}, ForkCommandArgs> = {
       .option("yes", {
         alias: "y",
         type: "boolean",
-        describe: "Skip all confirmation prompts",
+        describe: "Skip confirmation prompts",
         default: false,
       })
       .option("preview", {

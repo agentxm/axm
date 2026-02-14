@@ -76,7 +76,7 @@ export type { InputPattern } from "./parser.js";
 export { resolveSource } from "./resolve-source.js";
 
 // Printer
-export { printSourceInput } from "./printer.js";
+export { lockEntryToSourceInput, printSourceInput } from "./printer.js";
 
 // Clone URL utilities
 export { buildCloneUrl, getOrigin } from "./clone-url.js";

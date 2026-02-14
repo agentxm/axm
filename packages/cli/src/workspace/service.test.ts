@@ -25,10 +25,15 @@ import {
 import YAML from "yaml";
 import { CliError } from "../cli-error/index.js";
 import type { NormalizedSkillEntry, SourceConfig } from "../settings/index.js";
-import type { PackLockEntry, SkillLockEntry } from "../lockfile/index.js";
+import type { SkillLockEntry } from "../lockfile/index.js";
 import type { OperationResult } from "./plan.js";
 import type { Operation, Plan, PlannedJobStep } from "./plan.js";
-import { Workspace, layer as workspaceLayer, type WorkspaceContextOptions } from "./service.js";
+import {
+  Workspace,
+  layer as workspaceLayer,
+  type SetPackArgs,
+  type WorkspaceContextOptions,
+} from "./service.js";
 
 describe("WorkspaceContextService", () => {
   let tempDir: string;
@@ -950,9 +955,9 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.setSkill("code-review", "github:acme/code-review", makeSampleLockEntry());
+        yield* ws.setSkill({ name: "code-review", lockEntry: makeSampleLockEntry() });
 
-        // Verify settings on disk
+        // Verify settings on disk — source derived from lock entry
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills).toBeDefined();
@@ -972,7 +977,7 @@ describe("WorkspaceContextService", () => {
 
         const before = new Date();
         const ws = yield* getService(defaultOptions);
-        yield* ws.setSkill("code-review", "github:acme/code-review", makeSampleLockEntry());
+        yield* ws.setSkill({ name: "code-review", lockEntry: makeSampleLockEntry() });
         const after = new Date();
 
         const lockfile = readLockfileFromDisk(projectDir);
@@ -1002,10 +1007,17 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const updatedEntry = makeSampleLockEntry(["claude-code", "cursor"]);
-        yield* ws.setSkill("code-review", "github:acme/code-review-v2", updatedEntry);
+        const updatedEntry: SkillLockEntry = {
+          type: "github",
+          owner: "acme",
+          repo: "code-review-v2",
+          agents: ["claude-code", "cursor"],
+          installedAt: new Date("2025-01-01T00:00:00.000Z"),
+          updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+        };
+        yield* ws.setSkill({ name: "code-review", lockEntry: updatedEntry });
 
-        // Verify settings updated
+        // Verify settings updated — source derived from lock entry
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.skills["code-review"]).toBe("github:acme/code-review-v2");
@@ -1344,7 +1356,7 @@ describe("WorkspaceContextService", () => {
 
         yield* Effect.all(
           [
-            ws.setSkill("code-review", "github:acme/code-review", makeSampleLockEntry()),
+            ws.setSkill({ name: "code-review", lockEntry: makeSampleLockEntry() }),
             ws.addConfiguredSource(newSource),
           ],
           { concurrency: "unbounded" },
@@ -1673,9 +1685,8 @@ describe("WorkspaceContextService", () => {
   // Pack methods
   // ---------------------------------------------------------------------------
 
-  /** Create a sample PackLockEntry for testing. */
-  const makeSamplePackLockEntry = (overrides?: Partial<PackLockEntry>): PackLockEntry => ({
-    type: "registry" as const,
+  /** Create sample SetPackArgs for testing. */
+  const makeSampleSetPackArgs = (overrides?: Partial<SetPackArgs>): SetPackArgs => ({
     scope: "@acme",
     name: "starter-pack",
     resolvedVersion: "1.0.0",
@@ -1694,14 +1705,14 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          packs: { "starter-pack": "registry:@acme/starter-pack@^1.0.0" },
+          packs: { "starter-pack": "@acme/starter-pack" },
         });
 
         const ws = yield* getService(defaultOptions);
         const packs = yield* ws.getConfiguredPacks();
 
         expect(packs).toEqual({
-          "starter-pack": "registry:@acme/starter-pack@^1.0.0",
+          "starter-pack": "@acme/starter-pack",
         });
       }),
     );
@@ -1723,14 +1734,14 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          packs: { "starter-pack": "registry:@acme/starter-pack@^1.0.0" },
+          packs: { "starter-pack": "@acme/starter-pack" },
         });
 
         const ws = yield* getService(defaultOptions);
         const packs = yield* ws.getInstalledPacks();
 
         expect(packs).toEqual({
-          "starter-pack": "registry:@acme/starter-pack@^1.0.0",
+          "starter-pack": "@acme/starter-pack",
         });
       }),
     );
@@ -1844,17 +1855,13 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.setPack(
-          "starter-pack",
-          "registry:@acme/starter-pack@^1.0.0",
-          makeSamplePackLockEntry(),
-        );
+        yield* ws.setPack(makeSampleSetPackArgs());
 
         // Verify settings on disk
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.packs).toBeDefined();
-        expect(settings.packs["starter-pack"]).toBe("registry:@acme/starter-pack@^1.0.0");
+        expect(settings.packs["starter-pack"]).toBe("@acme/starter-pack");
 
         // Verify lockfile on disk
         const lockfile = readLockfileFromDisk(projectDir);
@@ -1870,11 +1877,7 @@ describe("WorkspaceContextService", () => {
 
         const before = new Date();
         const ws = yield* getService(defaultOptions);
-        yield* ws.setPack(
-          "starter-pack",
-          "registry:@acme/starter-pack@^1.0.0",
-          makeSamplePackLockEntry(),
-        );
+        yield* ws.setPack(makeSampleSetPackArgs());
         const after = new Date();
 
         const lockfile = readLockfileFromDisk(projectDir);
@@ -1893,8 +1896,8 @@ describe("WorkspaceContextService", () => {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           packs: {
-            "starter-pack": "registry:@acme/starter-pack@^1.0.0",
-            "other-pack": "registry:@acme/other-pack@^2.0.0",
+            "starter-pack": "@acme/starter-pack",
+            "other-pack": "@acme/other-pack",
           },
         });
         writeLockfileTo(
@@ -1950,7 +1953,7 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          packs: { "other-pack": "registry:@acme/other-pack@^2.0.0" },
+          packs: { "other-pack": "@acme/other-pack" },
         });
         writeLockfileTo(projectDir, {});
 
@@ -1995,7 +1998,7 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          packs: { "starter-pack": "registry:@acme/starter-pack@^1.0.0" },
+          packs: { "starter-pack": "@acme/starter-pack" },
         });
         writeLockfileTo(
           projectDir,
@@ -2022,7 +2025,7 @@ describe("WorkspaceContextService", () => {
 
         expect(skills).toHaveProperty("@acme/code-review");
         expect(skills["@acme/code-review"]).toEqual({
-          source: Option.some("registry:@acme/code-review@1.2.0"),
+          source: Option.some("@acme/code-review"),
           enabled: true,
           managed: true,
         });
@@ -2035,7 +2038,7 @@ describe("WorkspaceContextService", () => {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           skills: { "code-review": "github:acme/code-review" },
-          packs: { "starter-pack": "registry:@acme/starter-pack@^1.0.0" },
+          packs: { "starter-pack": "@acme/starter-pack" },
         });
         writeLockfileTo(
           projectDir,
@@ -2074,8 +2077,8 @@ describe("WorkspaceContextService", () => {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           packs: {
-            "pack-a": "registry:@acme/pack-a@^1.0.0",
-            "pack-b": "registry:@acme/pack-b@^1.0.0",
+            "pack-a": "@acme/pack-a",
+            "pack-b": "@acme/pack-b",
           },
         });
         writeLockfileTo(
@@ -2117,7 +2120,7 @@ describe("WorkspaceContextService", () => {
         // First pack encountered wins
         expect(skills).toHaveProperty("@acme/shared-skill");
         const entry = skills["@acme/shared-skill"]!;
-        expect(Option.getOrThrow(entry.source)).toMatch(/^registry:@acme\/shared-skill@/);
+        expect(Option.getOrThrow(entry.source)).toBe("@acme/shared-skill");
       }),
     );
 
@@ -2126,7 +2129,7 @@ describe("WorkspaceContextService", () => {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           skills: { "my-skill": "github:acme/my-skill" },
-          packs: { "starter-pack": "registry:@acme/starter-pack@^1.0.0" },
+          packs: { "starter-pack": "@acme/starter-pack" },
         });
         writeLockfileTo(
           projectDir,

@@ -25,11 +25,8 @@ export const installPack: OperationHandler<InstallPackOperation, Workspace | Log
     const ws = yield* Workspace;
     const log = yield* Log;
 
-    const sourceString = `registry:${op.args.scope}/${op.args.packName}@${op.args.resolvedVersion}`;
-
     yield* ws
-      .setPack(op.args.packName, sourceString, {
-        type: "registry",
+      .setPack({
         scope: op.args.scope,
         name: op.args.packName,
         resolvedVersion: op.args.resolvedVersion,

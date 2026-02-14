@@ -89,17 +89,19 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
         Effect.gen(function* () {
           const { skillName: shortName } = parseScopedName(fqn);
           if (shortName in currentSkills) return; // preserve existing direct entry
-          const source = `registry:${fqn}@${version}`;
-          yield* ws.setSkill(shortName, source, {
-            type: "registry" as const,
-            scope: entry.scope,
+          yield* ws.setSkill({
             name: shortName,
-            resolvedVersion: version,
-            checksum: "",
-            sourceName: entry.sourceName,
-            agents: [],
-            installedAt: new Date(),
-            updatedAt: new Date(),
+            lockEntry: {
+              type: "registry" as const,
+              scope: entry.scope,
+              name: shortName,
+              resolvedVersion: version,
+              checksum: "",
+              sourceName: entry.sourceName,
+              agents: [],
+              installedAt: new Date(),
+              updatedAt: new Date(),
+            },
           });
         }),
       { concurrency: 1 },

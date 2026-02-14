@@ -20,7 +20,6 @@ const makeOp = (name: string): InstallPackOperation => ({
   args: {
     packName: name,
     scope: "@acme",
-    source: `registry:@acme/${name}@^1.0.0`,
     resolvedVersion: "1.0.0",
     checksum: "sha256:abc123",
     sourceName: "local",

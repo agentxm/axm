@@ -179,22 +179,10 @@ export const uninstallSkill: OperationHandler<
 
       if (remainingAgents.length > 0) {
         // Update lockfile entry with remaining agents via Workspace.setSkill
-        const installedSkills = yield* ws.getInstalledSkills().pipe(
-          Effect.mapError((e) =>
-            makeCliError({
-              code: "UNINSTALL_SKILL_SETTINGS_READ_FAILED",
-              what: `Failed to read settings: ${e.what}`,
-              cause: e,
-            }),
-          ),
-        );
-        const entry = installedSkills[op.args.skillName];
-        const currentSource =
-          (entry !== undefined ? Option.getOrUndefined(entry.source) : undefined) ?? lockEntry.type;
         yield* ws
-          .setSkill(op.args.skillName, currentSource, {
-            ...lockEntry,
-            agents: remainingAgents,
+          .setSkill({
+            name: op.args.skillName,
+            lockEntry: { ...lockEntry, agents: remainingAgents },
           })
           .pipe(
             Effect.mapError((e) =>

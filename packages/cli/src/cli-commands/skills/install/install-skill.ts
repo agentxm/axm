@@ -12,7 +12,6 @@ import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { getAgentById } from "../../../agents/registry.js";
-import { printSourceInput } from "../../../sources/index.js";
 import { Log } from "../../../tui/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
 import { isPathSafe } from "../../../utils/path-safety.js";
@@ -241,10 +240,9 @@ export const installSkill: OperationHandler<
 
     // Update settings + lockfile atomically (warn on errors)
     yield* ws
-      .setSkill(
-        op.args.skill.name,
-        printSourceInput(op.args.source),
-        sourceToLockEntry({
+      .setSkill({
+        name: op.args.skill.name,
+        lockEntry: sourceToLockEntry({
           source: op.args.source,
           agents: op.args.agents,
           gitTreeSha: op.args.gitTreeSha,
@@ -259,7 +257,7 @@ export const installSkill: OperationHandler<
             },
           }),
         }),
-      )
+      })
       .pipe(Effect.catchAll((e) => log.warn(`Skill update failed: ${String(e)}`)));
 
     // Determine overall result

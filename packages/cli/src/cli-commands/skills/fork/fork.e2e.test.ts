@@ -192,8 +192,14 @@ describe("axm skills fork", () => {
         settings.skills = { "unmanaged-configured": { managed: false } };
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
-        createSkillMd(path.join(temp.path, ".claude", "skills", "unmanaged-configured"), "unmanaged-configured");
-        createSkillMd(path.join(temp.path, ".claude", "skills", "disk-only-skill"), "disk-only-skill");
+        createSkillMd(
+          path.join(temp.path, ".claude", "skills", "unmanaged-configured"),
+          "unmanaged-configured",
+        );
+        createSkillMd(
+          path.join(temp.path, ".claude", "skills", "disk-only-skill"),
+          "disk-only-skill",
+        );
 
         const configuredResult = await runCli(["skills", "fork", "unmanaged-*", "--yes"], {
           cwd: temp.path,
@@ -206,11 +212,15 @@ describe("axm skills fork", () => {
         expect(diskOnlyResult.exitCode).toBe(0);
 
         expect(
-          fs.existsSync(path.join(temp.path, ".axm", "extensions", "@test", "skills", "unmanaged-configured")),
+          fs.existsSync(
+            path.join(temp.path, ".axm", "extensions", "@test", "skills", "unmanaged-configured"),
+          ),
         ).toBe(true);
-        expect(fs.existsSync(path.join(temp.path, ".axm", "extensions", "@test", "skills", "disk-only-skill"))).toBe(
-          true,
-        );
+        expect(
+          fs.existsSync(
+            path.join(temp.path, ".axm", "extensions", "@test", "skills", "disk-only-skill"),
+          ),
+        ).toBe(true);
       } finally {
         temp.cleanup();
         registryDir.cleanup();

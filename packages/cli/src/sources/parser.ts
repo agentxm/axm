@@ -59,6 +59,9 @@ type ShorthandInput = {
   readonly input: string;
 };
 
+/** A glob pattern containing `*` wildcards (e.g. `effect-*`). */
+type GlobInput = { readonly _tag: "GlobInput"; readonly pattern: string };
+
 /** Discriminated union of all input patterns recognized by the parser. */
 export type InputPattern =
   | NameInput
@@ -67,7 +70,8 @@ export type InputPattern =
   | GitScpAddress
   | SlashPattern
   | FilePathPattern
-  | ShorthandInput;
+  | ShorthandInput
+  | GlobInput;
 
 const REGISTRY_SOURCE_PATTERN = /^(@[^/]+)\/(.+)$/;
 
@@ -152,7 +156,12 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
     return Option.none();
   }
 
-  // 7. Simple name (alphanumeric with hyphens, no leading/trailing hyphen)
+  // 7. Glob pattern (contains `*` wildcard)
+  if (input.includes("*")) {
+    return Option.some({ _tag: "GlobInput", pattern: input });
+  }
+
+  // 8. Simple name (alphanumeric with hyphens, no leading/trailing hyphen)
   if (NAME_PATTERN.test(input)) {
     return Option.some({ _tag: "NameInput", name: input });
   }

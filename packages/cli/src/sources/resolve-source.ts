@@ -291,10 +291,12 @@ const routeShorthandInput = (prefix: string, shorthandInput: string, input: stri
 // Simple pattern routing
 // -----------------------------------------------------------------------------
 
-/** Route NameInput: look up installed skill in lockfile and resolve to local path. */
+/** Route NameInput: look up installed skill in lockfile, then configured skills. */
 const routeNameInput = (name: string, input: string) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
+
+    // Tier 1: lockfile entry
     const skills = yield* ws.getLockedSkills().pipe(
       Effect.mapError((e) =>
         makeCliError({
@@ -304,14 +306,30 @@ const routeNameInput = (name: string, input: string) =>
         }),
       ),
     );
-    if (!(name in skills)) {
-      return yield* makeCliError({
-        code: "SOURCE_PARSE_FAILED",
-        what: `Unknown skill "${name}". Check installed skills with \`axm skills list\`.`,
-        details: [input],
-      });
+    if (name in skills) {
+      return yield* parseLocalPath(getInstalledSkillPath(name, skills[name]!));
     }
-    return yield* parseLocalPath(getInstalledSkillPath(name, skills[name]!));
+
+    // Tier 2: configured skill with a source string
+    const configured = yield* ws.getConfiguredSkills().pipe(
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "SOURCE_PARSE_FAILED",
+          what: `Failed to read settings: ${e._tag}`,
+          details: [input],
+        }),
+      ),
+    );
+    const entry = configured[name];
+    if (entry !== undefined && Option.isSome(entry.source)) {
+      return yield* resolveSource(entry.source.value);
+    }
+
+    return yield* makeCliError({
+      code: "SOURCE_PARSE_FAILED",
+      what: `Unknown skill "${name}". Check installed skills with \`axm skills list\`.`,
+      details: [input],
+    });
   });
 
 /** Route FilePathPattern: parse as local source. */
@@ -426,5 +444,11 @@ export const resolveSource = (input: string): Effect.Effect<Source, CliError, Wo
         return yield* routeRegistryInput(pattern);
       case "SlashPattern":
         return yield* routeSlashInput(pattern, trimmed);
+      case "GlobInput":
+        return yield* makeCliError({
+          code: "SOURCE_PARSE_FAILED",
+          what: `Glob patterns are not supported by resolveSource — use resolveSourcePattern instead`,
+          details: [input],
+        });
     }
   });

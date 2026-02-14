@@ -138,6 +138,14 @@ describe("parseInputPattern", () => {
       expectNone("foo_bar");
     });
 
+    it("classifies wildcard pattern as GlobInput", () => {
+      expectSome("effect-*", { _tag: "GlobInput", pattern: "effect-*" });
+    });
+
+    it("classifies standalone wildcard as GlobInput", () => {
+      expectSome("*", { _tag: "GlobInput", pattern: "*" });
+    });
+
     it("classifies github:owner/repo as ShorthandInput", () => {
       expectSome("github:owner/repo", {
         _tag: "ShorthandInput",

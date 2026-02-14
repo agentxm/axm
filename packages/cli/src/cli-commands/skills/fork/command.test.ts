@@ -7,7 +7,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import yargs, { type Argv, type Options, type PositionalOptions } from "yargs";
-import { forkCommand } from "./command.js";
+import { forkCommand, type ForkCommandArgs } from "./command.js";
 
 type CapturedOptions = Record<string, Options>;
 type CapturedPositionals = Record<string, PositionalOptions>;
@@ -88,5 +88,20 @@ describe("skills fork command", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
     (forkCommand.builder as (yargs: Argv) => Argv)(mockYargs);
     expect(capturedOptions["skill"]?.describe).toContain("glob pattern");
+  });
+
+  it("passes glob positional source through as source arg", async () => {
+    let captured: ForkCommandArgs | undefined;
+    const parser = yargs()
+      .command({
+        ...forkCommand,
+        handler: (argv) => {
+          captured = argv as ForkCommandArgs;
+        },
+      })
+      .exitProcess(false);
+
+    await parser.parseAsync("fork effect-*");
+    expect(captured?.source).toBe("effect-*");
   });
 });

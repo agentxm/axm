@@ -49,3 +49,8 @@ export const expandGlobs = (
   }
   return names.filter((n) => matched.has(n));
 };
+
+/**
+ * Returns true when an input should be treated as a glob pattern.
+ */
+export const isGlobPattern = (input: string): boolean => input.includes("*");

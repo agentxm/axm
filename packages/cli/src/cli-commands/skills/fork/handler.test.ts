@@ -307,6 +307,160 @@ describe("fork.handler", () => {
     });
   });
 
+  describe("glob positional source", () => {
+    it.effect("expands glob against lockfile skills and forks all matches", () => {
+      const { provide, mockLog } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      for (const name of ["effect-basics", "effect-stream", "effect-testing", "commit"]) {
+        const skillsDir = path.join(tempDir, ".axm", "extensions", "external", "skills", name);
+        createSkillMd(skillsDir, name, name);
+      }
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
+        "effect-basics": {
+          type: "local",
+          path: path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-basics"),
+          agents: ["claude-code"],
+          installedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        "effect-stream": {
+          type: "local",
+          path: path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-stream"),
+          agents: ["claude-code"],
+          installedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        "effect-testing": {
+          type: "local",
+          path: path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-testing"),
+          agents: ["claude-code"],
+          installedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        commit: {
+          type: "local",
+          path: path.join(tempDir, ".axm", "extensions", "external", "skills", "commit"),
+          agents: ["claude-code"],
+          installedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleFork(defaultArgs("effect-*"));
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+
+          for (const name of ["effect-basics", "effect-stream", "effect-testing"]) {
+            expect(
+              fs.existsSync(path.join(tempDir, ".axm", "extensions", "@test", "skills", name)),
+            ).toBe(true);
+          }
+          expect(
+            fs.existsSync(path.join(tempDir, ".axm", "extensions", "@test", "skills", "commit")),
+          ).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("fails with NO_SKILLS_MATCHED when glob has no lockfile matches", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          const result = yield* handleFork(defaultArgs("nonexistent-*")).pipe(
+            Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, code: e.code })),
+          );
+          expect(result).toHaveProperty("error", true);
+          expect((result as { code: string }).code).toBe("NO_SKILLS_MATCHED");
+        }),
+      );
+    });
+
+    it.effect("applies --skill filter after positional glob expansion", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      for (const name of ["effect-basics", "effect-stream", "effect-testing"]) {
+        const skillsDir = path.join(tempDir, ".axm", "extensions", "external", "skills", name);
+        createSkillMd(skillsDir, name, name);
+      }
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
+        "effect-basics": {
+          type: "local",
+          path: path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-basics"),
+          agents: ["claude-code"],
+          installedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        "effect-stream": {
+          type: "local",
+          path: path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-stream"),
+          agents: ["claude-code"],
+          installedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        "effect-testing": {
+          type: "local",
+          path: path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-testing"),
+          agents: ["claude-code"],
+          installedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleFork(defaultArgs("effect-*", { skills: ["effect-basics"] }));
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "@test", "skills", "effect-basics"),
+            ),
+          ).toBe(true);
+          expect(
+            fs.existsSync(path.join(tempDir, ".axm", "extensions", "@test", "skills", "effect-stream")),
+          ).toBe(false);
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "@test", "skills", "effect-testing"),
+            ),
+          ).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("keeps non-glob source behavior unchanged", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      const skillsDir = path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill");
+      createSkillMd(skillsDir, "my-skill", "My skill");
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
+        "my-skill": {
+          type: "local",
+          path: skillsDir,
+          agents: ["claude-code"],
+          installedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleFork(defaultArgs("my-skill"));
+          expect(
+            fs.existsSync(path.join(tempDir, ".axm", "extensions", "@test", "skills", "my-skill")),
+          ).toBe(true);
+        }),
+      );
+    });
+  });
+
   describe("unknown skill name", () => {
     it.effect("fails with descriptive error for unknown skill name", () => {
       const { provide } = makeLayers();

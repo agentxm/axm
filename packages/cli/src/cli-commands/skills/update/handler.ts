@@ -3,10 +3,13 @@
  *
  * Re-resolves installed skills from their sources and updates those that have
  * changed. Uses buildUpdatePlan to diff current vs re-resolved state.
+ * Applies version constraint priority (user explicit > pack constraints).
  *
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as Path from "@effect/platform/Path";
 import {
   resolveSource,
   SourceProviders,
@@ -16,14 +19,23 @@ import {
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { makeCliError } from "../../../cli-error/index.js";
 import { expandGlobs } from "../../../skills/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
+import { PackManifestSchema } from "../../../extensions/packs/manifest-schema.js";
+import { parseVersionConstraint } from "../../../version-constraints/index.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 import type { InstallSkillOperation, UninstallSkillOperation } from "../operations.js";
 import { buildUpdatePlan } from "./build-plan.js";
 import { installSkill } from "../install/install-skill.js";
 import { uninstallSkill } from "../uninstall/uninstall-skill.js";
+import {
+  detectHoldbackWarnings,
+  type PackConstraint,
+  type SkillConstraints,
+} from "./constraint-resolution.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -61,12 +73,14 @@ export interface UpdateHandlerArgs {
  * 2. If no eligible skills, log info and return
  * 3. Filter by source argument if provided
  * 4. Filter by --skill glob patterns
- * 5. Re-resolve each source string and discover skills
- * 6. Handle re-resolution failures (warn individual, error if all fail)
- * 7. Detect renames (skill name not found in source)
- * 8. Build operations with force flag
- * 9. Build update plan
- * 10. Resolve plan via workspace
+ * 5. Collect version constraints (user + pack manifests)
+ * 6. Re-resolve each source string and discover skills
+ * 7. Handle re-resolution failures (warn individual, error if all fail)
+ * 8. Detect renames (skill name not found in source)
+ * 9. Emit holdback warnings
+ * 10. Build operations with force flag
+ * 11. Build update plan
+ * 12. Resolve plan via workspace
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -178,7 +192,10 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
       }
     }
 
-    // Step 4: Re-resolve each source and discover skills
+    // Step 4: Collect pack constraints from installed pack manifests
+    const packConstraintMap = yield* collectPackConstraints(ws.path);
+
+    // Step 5: Re-resolve each source and discover skills
     type ResolveResult =
       | { type: "match"; ref: SkillRef }
       | { type: "rename"; oldName: string; newRef: SkillRef };
@@ -253,7 +270,7 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
     );
     yield* resolveHandle.stop("Sources resolved");
 
-    // Step 5: Collect successful resolutions
+    // Step 6: Collect successful resolutions
     const resolved = Array.getSomes(results);
     if (resolved.length === 0) {
       return yield* Effect.fail(
@@ -265,7 +282,34 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
       );
     }
 
-    // Step 6: Build operations
+    // Step 7: Emit holdback warnings for registry skills held back by pack constraints
+    for (const item of resolved) {
+      if (item.type !== "match") continue;
+      if (item.ref.source.type !== "registry") continue;
+      if (Option.isNone(item.ref.version)) continue;
+
+      const skillFqn = `${item.ref.source.scope}/${item.ref.skill.name}`;
+      const packConstraints = packConstraintMap.get(skillFqn) ?? [];
+      if (packConstraints.length === 0) continue;
+
+      // Get user constraint from the settings source string
+      const settingsEntry = filteredEntries.find(([name]) => name === item.ref.skill.name);
+      const userConstraint =
+        settingsEntry !== undefined ? parseVersionConstraint(settingsEntry[1]) : Option.none();
+
+      const constraints: SkillConstraints = { userConstraint, packConstraints };
+      const warnings = detectHoldbackWarnings(
+        item.ref.version.value,
+        item.ref.version.value,
+        constraints,
+        skillFqn,
+      );
+      for (const warning of warnings) {
+        yield* log.warn(warning);
+      }
+    }
+
+    // Step 8: Build operations
     const agentIds = yield* ws.getConfiguredAgents();
     const ops: Array<InstallSkillOperation | UninstallSkillOperation> = [];
 
@@ -307,7 +351,7 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
       }
     }
 
-    // Step 7: Build plan
+    // Step 9: Build plan
     const lockfile = { lockfileVersion: 1, skills: lockedSkills };
     const plan = buildUpdatePlan(
       ops,
@@ -316,7 +360,7 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
       Option.some("Update installed skills"),
     );
 
-    // Step 8: Resolve plan
+    // Step 10: Resolve plan
     yield* ws.resolvePlan(plan, {
       "install-skill": installSkill,
       "uninstall-skill": uninstallSkill,
@@ -325,3 +369,77 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
     yield* log.success("Done");
   }).pipe(Effect.withSpan("Update.handle"));
 };
+
+// -----------------------------------------------------------------------------
+// Pack Constraint Collection
+// -----------------------------------------------------------------------------
+
+const PACK_MANIFEST_FILENAME = "axm-pack.json";
+
+/**
+ * Read installed pack manifests and collect per-skill constraints.
+ *
+ * Returns a map from skill FQN (e.g., "@acme/code-review") to an array of
+ * pack constraints. Silently skips packs whose manifest can't be read.
+ */
+const collectPackConstraints = (axmDir: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const base = path.dirname(axmDir);
+
+    // Read lockfile to find installed packs
+    const ws = yield* Workspace;
+    const lockedPacks = yield* ws.getLockedPacks();
+
+    const constraintMap = new Map<string, Array<PackConstraint>>();
+
+    // Read each pack's manifest from disk
+    yield* Effect.forEach(
+      Object.entries(lockedPacks),
+      ([packName, packEntry]) =>
+        Effect.gen(function* () {
+          const packDir = path.join(
+            base,
+            REGISTRY_EXTENSIONS_DIR,
+            packEntry.scope,
+            "packs",
+            packName,
+          );
+          const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
+
+          const exists = yield* fs
+            .exists(manifestPath)
+            .pipe(Effect.catchAll(() => Effect.succeed(false)));
+          if (!exists) return;
+
+          const content = yield* fs
+            .readFileString(manifestPath)
+            .pipe(Effect.catchAll(() => Effect.succeed("")));
+          if (content === "") return;
+
+          const json = yield* Effect.try({
+            try: () => JSON.parse(content) as unknown,
+            catch: () => undefined,
+          }).pipe(Effect.catchAll(() => Effect.succeed(undefined)));
+          if (json === undefined) return;
+
+          const manifest = yield* Schema.decodeUnknown(PackManifestSchema)(json).pipe(
+            Effect.catchAll(() => Effect.succeed(undefined)),
+          );
+          if (manifest === undefined) return;
+
+          // Collect skill constraints from manifest
+          const skills = manifest.skills ?? {};
+          for (const [fqn, constraint] of Object.entries(skills)) {
+            if (constraint === "*" || constraint === "") continue;
+            const existing = constraintMap.get(fqn) ?? [];
+            existing.push({ packName, constraint });
+            constraintMap.set(fqn, existing);
+          }
+        }),
+      { concurrency: "unbounded" },
+    );
+
+    return constraintMap;
+  });

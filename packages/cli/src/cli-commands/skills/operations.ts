@@ -43,6 +43,8 @@ export type InstallSkillOperationArgs = {
   readonly location: string;
   readonly version: Option<string>;
   readonly gitTreeSha: Option<string>;
+  /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
+  readonly skipSettings?: boolean;
 };
 
 /**

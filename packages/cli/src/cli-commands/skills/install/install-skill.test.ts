@@ -86,7 +86,27 @@ const makeWorkspaceMock = (
                 cause: error,
               }),
           }),
+    setSkillLock: setSkillFn
+      ? (args: { name: string; lockEntry: unknown }) => setSkillFn(args)
+      : (args: { name: string; lockEntry: unknown }) =>
+          Effect.try({
+            try: () => {
+              const lf = readLf();
+              lf.skills[args.name] = {
+                ...(args.lockEntry as Record<string, unknown>),
+                updatedAt: new Date().toISOString(),
+              };
+              writeLf(lf);
+            },
+            catch: (error) =>
+              makeCliError({
+                code: "LOCKFILE_WRITE_FAILED",
+                what: "Mock write failed",
+                cause: error,
+              }),
+          }),
     removeSkill: () => Effect.void,
+    removeSkillFromSettings: () => Effect.void,
     updateSkillEntry: () => Effect.void,
     setSkillEntry: () => Effect.void,
     renameSkill: () => Effect.void,
@@ -255,6 +275,7 @@ describe("installSkill", () => {
         expect(setSkillFn).toHaveBeenCalledWith({
           name: "my-skill",
           lockEntry: expect.any(Object),
+          versionConstraint: expect.anything(),
         });
       }),
     );
@@ -493,7 +514,12 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { type: "registry", scope: "@community", name: "my-skill" },
+            source: {
+              type: "registry",
+              scope: "@community",
+              name: "my-skill",
+              versionConstraint: Option.none(),
+            },
             location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -533,7 +559,12 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { type: "registry", scope: "@myorg", name: "my-skill" },
+            source: {
+              type: "registry",
+              scope: "@myorg",
+              name: "my-skill",
+              versionConstraint: Option.none(),
+            },
             location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -565,7 +596,12 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { type: "registry", scope: "@community", name: "my-skill" },
+            source: {
+              type: "registry",
+              scope: "@community",
+              name: "my-skill",
+              versionConstraint: Option.none(),
+            },
             location: `file://${src}`,
             version: Option.some("1.2.3"),
           }),
@@ -621,7 +657,12 @@ describe("installSkill", () => {
           const result = yield* installSkill(
             makeOp({
               agents: ["claude-code"],
-              source: { type: "registry", scope: "@community", name: "my-skill" },
+              source: {
+                type: "registry",
+                scope: "@community",
+                name: "my-skill",
+                versionConstraint: Option.none(),
+              },
               location: `file://${src}`,
             }),
           ).pipe(Effect.provide(withServices(axmDir)));
@@ -672,6 +713,129 @@ describe("installSkill", () => {
           "my-skill",
         );
         expect(fs.existsSync(path.join(newCanonical, "SKILL.md"))).toBe(true);
+      }),
+    );
+  });
+
+  describe("version constraint in settings", () => {
+    /** Sets up a source dir matching extracted archive structure. */
+    const setupRegistrySource2 = (scope: string, name = "my-skill") => {
+      const src = path.join(tmpDir, "registry2", "extensions", scope, "skills", name);
+      const srcDir = path.join(src, "src");
+      fs.mkdirSync(srcDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(src, "axm-skill.json"),
+        JSON.stringify({ name, version: "0.1.0" }),
+      );
+      fs.writeFileSync(path.join(srcDir, "SKILL.md"), `# ${name}`);
+      return src;
+    };
+
+    it.effect("passes no versionConstraint for registry source without constraint", () =>
+      Effect.gen(function* () {
+        const src = setupRegistrySource2("@acme");
+        const { axmDir } = setupBase();
+        const setSkillFn = vi.fn(
+          (_args: { name: string; lockEntry: unknown; versionConstraint: unknown }) => Effect.void,
+        );
+
+        const result = yield* installSkill(
+          makeOp({
+            agents: ["claude-code"],
+            source: {
+              type: "registry",
+              scope: "@acme",
+              name: "tool",
+              versionConstraint: Option.none(),
+            },
+            skillName: "tool",
+            location: `file://${src}`,
+          }),
+        ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
+
+        expect(result.result).toBe("success");
+        expect(setSkillFn).toHaveBeenCalledOnce();
+        const args = setSkillFn.mock.calls[0]![0];
+        expect(Option.isNone(args.versionConstraint as Option.Option<string>)).toBe(true);
+      }),
+    );
+
+    it.effect("passes caret versionConstraint for @acme/tool@^1.0.0", () =>
+      Effect.gen(function* () {
+        const src = setupRegistrySource2("@acme");
+        const { axmDir } = setupBase();
+        const setSkillFn = vi.fn(
+          (_args: { name: string; lockEntry: unknown; versionConstraint: unknown }) => Effect.void,
+        );
+
+        const result = yield* installSkill(
+          makeOp({
+            agents: ["claude-code"],
+            source: {
+              type: "registry",
+              scope: "@acme",
+              name: "tool",
+              versionConstraint: Option.some("^1.0.0"),
+            },
+            skillName: "tool",
+            location: `file://${src}`,
+            version: Option.some("1.2.3"),
+          }),
+        ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
+
+        expect(result.result).toBe("success");
+        expect(setSkillFn).toHaveBeenCalledOnce();
+        const args = setSkillFn.mock.calls[0]![0];
+        expect(Option.getOrNull(args.versionConstraint as Option.Option<string>)).toBe("^1.0.0");
+      }),
+    );
+
+    it.effect("passes exact versionConstraint for @acme/tool@1.2.3", () =>
+      Effect.gen(function* () {
+        const src = setupRegistrySource2("@acme");
+        const { axmDir } = setupBase();
+        const setSkillFn = vi.fn(
+          (_args: { name: string; lockEntry: unknown; versionConstraint: unknown }) => Effect.void,
+        );
+
+        const result = yield* installSkill(
+          makeOp({
+            agents: ["claude-code"],
+            source: {
+              type: "registry",
+              scope: "@acme",
+              name: "tool",
+              versionConstraint: Option.some("1.2.3"),
+            },
+            skillName: "tool",
+            location: `file://${src}`,
+            version: Option.some("1.2.3"),
+          }),
+        ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
+
+        expect(result.result).toBe("success");
+        expect(setSkillFn).toHaveBeenCalledOnce();
+        const args = setSkillFn.mock.calls[0]![0];
+        expect(Option.getOrNull(args.versionConstraint as Option.Option<string>)).toBe("1.2.3");
+      }),
+    );
+
+    it.effect("passes no versionConstraint for local source", () =>
+      Effect.gen(function* () {
+        const src = setupSource();
+        const { axmDir } = setupBase();
+        const setSkillFn = vi.fn(
+          (_args: { name: string; lockEntry: unknown; versionConstraint: unknown }) => Effect.void,
+        );
+
+        const result = yield* installSkill(
+          makeOp({ agents: ["claude-code"], sourcePath: src }),
+        ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
+
+        expect(result.result).toBe("success");
+        expect(setSkillFn).toHaveBeenCalledOnce();
+        const args = setSkillFn.mock.calls[0]![0];
+        expect(Option.isNone(args.versionConstraint as Option.Option<string>)).toBe(true);
       }),
     );
   });

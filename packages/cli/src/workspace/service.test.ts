@@ -955,7 +955,11 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        yield* ws.setSkill({ name: "code-review", lockEntry: makeSampleLockEntry() });
+        yield* ws.setSkill({
+          name: "code-review",
+          lockEntry: makeSampleLockEntry(),
+          versionConstraint: Option.none(),
+        });
 
         // Verify settings on disk — source derived from lock entry
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -977,7 +981,11 @@ describe("WorkspaceContextService", () => {
 
         const before = new Date();
         const ws = yield* getService(defaultOptions);
-        yield* ws.setSkill({ name: "code-review", lockEntry: makeSampleLockEntry() });
+        yield* ws.setSkill({
+          name: "code-review",
+          lockEntry: makeSampleLockEntry(),
+          versionConstraint: Option.none(),
+        });
         const after = new Date();
 
         const lockfile = readLockfileFromDisk(projectDir);
@@ -1015,7 +1023,11 @@ describe("WorkspaceContextService", () => {
           installedAt: new Date("2025-01-01T00:00:00.000Z"),
           updatedAt: new Date("2025-01-01T00:00:00.000Z"),
         };
-        yield* ws.setSkill({ name: "code-review", lockEntry: updatedEntry });
+        yield* ws.setSkill({
+          name: "code-review",
+          lockEntry: updatedEntry,
+          versionConstraint: Option.none(),
+        });
 
         // Verify settings updated — source derived from lock entry
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
@@ -1028,6 +1040,96 @@ describe("WorkspaceContextService", () => {
           "claude-code",
           "cursor",
         ]);
+      }),
+    );
+
+    it.effect("preserves version constraint in settings for registry skills", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const registryEntry: SkillLockEntry = {
+          type: "registry",
+          scope: "@acme",
+          name: "tool",
+          resolvedVersion: "1.2.3",
+          checksum: "sha256-abc",
+          sourceName: "default",
+          agents: ["claude-code"],
+          installedAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        yield* ws.setSkill({
+          name: "tool",
+          lockEntry: registryEntry,
+          versionConstraint: Option.some("^1.0.0"),
+        });
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.skills.tool).toBe("@acme/tool@^1.0.0");
+      }),
+    );
+
+    it.effect("omits version constraint in settings when none provided", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const registryEntry: SkillLockEntry = {
+          type: "registry",
+          scope: "@acme",
+          name: "tool",
+          resolvedVersion: "1.2.3",
+          checksum: "sha256-abc",
+          sourceName: "default",
+          agents: ["claude-code"],
+          installedAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        yield* ws.setSkill({
+          name: "tool",
+          lockEntry: registryEntry,
+          versionConstraint: Option.none(),
+        });
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.skills.tool).toBe("@acme/tool");
+      }),
+    );
+
+    it.effect("preserves exact pin version constraint", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const registryEntry: SkillLockEntry = {
+          type: "registry",
+          scope: "@acme",
+          name: "tool",
+          resolvedVersion: "1.2.3",
+          checksum: "sha256-abc",
+          sourceName: "default",
+          agents: ["claude-code"],
+          installedAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        yield* ws.setSkill({
+          name: "tool",
+          lockEntry: registryEntry,
+          versionConstraint: Option.some("1.2.3"),
+        });
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.skills.tool).toBe("@acme/tool@1.2.3");
       }),
     );
   });
@@ -1356,7 +1458,11 @@ describe("WorkspaceContextService", () => {
 
         yield* Effect.all(
           [
-            ws.setSkill({ name: "code-review", lockEntry: makeSampleLockEntry() }),
+            ws.setSkill({
+              name: "code-review",
+              lockEntry: makeSampleLockEntry(),
+              versionConstraint: Option.none(),
+            }),
             ws.addConfiguredSource(newSource),
           ],
           { concurrency: "unbounded" },
@@ -1697,6 +1803,7 @@ describe("WorkspaceContextService", () => {
     resolvedSkills: {},
     resolvedCommands: {},
     resolvedMcpServers: {},
+    versionConstraint: Option.none(),
     ...overrides,
   });
 

@@ -102,6 +102,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
               installedAt: new Date(),
               updatedAt: new Date(),
             },
+            versionConstraint: Option.none(),
           });
         }),
       { concurrency: 1 },

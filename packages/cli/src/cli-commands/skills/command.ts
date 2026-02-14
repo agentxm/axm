@@ -4,6 +4,7 @@ import { enableCommand } from "./enable/command.js";
 import { forkCommand } from "./fork/command.js";
 import { installCommand } from "./install/command.js";
 import { listCommand } from "./list/command.js";
+import { skillsNewCommand } from "./new/command.js";
 import { publishCommand } from "./publish/command.js";
 import { renameCommand } from "./rename/command.js";
 import { uninstallCommand } from "./uninstall/command.js";
@@ -17,6 +18,7 @@ export const skillsCommand: CommandModule = {
       .command(installCommand)
       .command(uninstallCommand)
       .command(listCommand)
+      .command(skillsNewCommand)
       .command(forkCommand)
       .command(publishCommand)
       .command(updateCommand)

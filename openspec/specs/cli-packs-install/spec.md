@@ -32,50 +32,62 @@ The source SHALL be a registry reference (`@scope/name`, `@scope/name@version`, 
 
 ### Requirement: Cascading extension install
 
-When a pack is installed, the system SHALL resolve and fetch each skill listed in the pack manifest's `skills` map from the registry, then build a combined install plan containing the pack operation followed by `install-skill` operations for each dependency.
+When a pack is installed, the system SHALL build a plan that includes install operations for all extensions referenced in the pack manifest that are not already installed.
 
-Skills already installed in the workspace SHALL be shown as no-op in the plan unless `--force` is specified.
+Pack skill dependencies SHALL be written to the skills lock map (for physical install tracking) and the pack's `resolvedSkills` (for ownership), but SHALL NOT be added to `settings.json`. Settings is reserved for user-intent entries only.
 
-Each dependency FQN SHALL be resolved through `resolveSource` to produce a registry source. The resolved skill archives SHALL be fetched concurrently before the plan is built, so that the full plan can be displayed and confirmed before any installation occurs.
+Extensions already installed in the workspace SHALL be skipped (no-op).
 
-Commands and mcp-servers listed in the pack manifest SHALL be stored as metadata in the pack lock entry but SHALL NOT be installed (no install handlers exist for these types yet).
-
-#### Scenario: All referenced skills installed
+#### Scenario: All referenced extensions installed
 
 - **WHEN** pack `@acme/frontend-pack` references skills `@acme/code-review@^1.0.0` and `@acme/linting@^2.0.0`
 - **AND** neither skill is currently installed
 - **THEN** the plan includes `install-pack` for the pack AND `install-skill` for both skills
-- **AND** the pack step appears before the skill steps in the plan
+- **AND** both skills are added to the lockfile skills section
+- **AND** neither skill is added to `settings.json`
 
-#### Scenario: Some skills already installed
+#### Scenario: Some extensions already installed
 
 - **WHEN** pack `@acme/frontend-pack` references skill `@acme/code-review@^1.0.0`
 - **AND** `@acme/code-review` version `1.2.0` is already installed
 - **THEN** the plan includes `install-pack` for the pack
 - **AND** `@acme/code-review` shows as no-op in the plan
 
-#### Scenario: Force overwrites existing skills
-
-- **WHEN** user runs `axm packs install @acme/frontend-pack --force`
-- **AND** `@acme/code-review` is already installed
-- **THEN** `@acme/code-review` is re-fetched and included as a success step in the plan
-
-#### Scenario: Skills installed to configured agents
+#### Scenario: Extensions installed to configured agents
 
 - **WHEN** a pack is installed
-- **THEN** all referenced skills are installed to all agents configured in the workspace
+- **THEN** all referenced extensions are installed to all agents configured in the workspace
+- **AND** no `--agent` flag is needed or accepted
 
-#### Scenario: Commands and mcp-servers stored as metadata only
+### Requirement: Pack manifest version constraints applied during install
 
-- **WHEN** pack `@acme/frontend-pack` references commands and mcp-servers
-- **THEN** the pack lock entry records them in `resolvedCommands` and `resolvedMcpServers`
-- **AND** no install operations are created for commands or mcp-servers
+When installing a pack's skill dependencies, the system SHALL use the version constraints from the pack manifest to resolve each dependency.
 
-#### Scenario: Dependency fetch failure
+#### Scenario: Pack manifest constraint used for resolution
 
-- **WHEN** pack `@acme/frontend-pack` references skill `@acme/missing-skill@^1.0.0`
-- **AND** the skill cannot be found in the registry
-- **THEN** the command fails with a `CliError` before any plan is executed
+- **WHEN** pack `@acme/frontend-pack` declares `skills: { "@acme/code-review": "^1.0.0" }`
+- **AND** available versions are 1.0.0, 1.2.0, 1.4.0, 2.0.0
+- **THEN** the skill SHALL be resolved to version 1.4.0 (newest satisfying `^1.0.0`)
+
+#### Scenario: Pack manifest wildcard resolves latest
+
+- **WHEN** pack `@acme/frontend-pack` declares `skills: { "@acme/code-review": "*" }`
+- **THEN** the skill SHALL be resolved to the newest available version
+
+### Requirement: Install pack with version constraint
+
+`axm packs install` SHALL persist the version constraint from the source string into settings.
+
+#### Scenario: Install pack with version constraint
+
+- **WHEN** user runs `axm packs install @acme/frontend-tools@^2.0.0`
+- **THEN** the settings entry SHALL be `"@acme/frontend-tools@^2.0.0"`
+- **AND** the lockfile SHALL record the exact resolved version
+
+#### Scenario: Install pack without version constraint
+
+- **WHEN** user runs `axm packs install @acme/frontend-tools`
+- **THEN** the settings entry SHALL be `"@acme/frontend-tools"` (no version, implies `*`)
 
 ### Requirement: Install plan display and confirmation
 

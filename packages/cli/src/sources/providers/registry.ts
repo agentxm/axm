@@ -206,7 +206,12 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
                     description: index.description ?? "",
                     metadata: Option.none(),
                   },
-                  source: { type: "registry", scope: scopeDir, name: nameDir },
+                  source: {
+                    type: "registry",
+                    scope: scopeDir,
+                    name: nameDir,
+                    versionConstraint: Option.none(),
+                  },
                   location: `file://${dir}`,
                   version: Option.some(ver.version),
                   gitTreeSha: Option.none(),

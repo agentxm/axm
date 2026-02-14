@@ -239,26 +239,30 @@ export const installSkill: OperationHandler<
     );
 
     // Update settings + lockfile atomically (warn on errors)
-    yield* ws
-      .setSkill({
-        name: op.args.skill.name,
-        lockEntry: sourceToLockEntry({
-          source: op.args.source,
-          agents: op.args.agents,
-          gitTreeSha: op.args.gitTreeSha,
-          now: new Date(),
-          ...(source.type === "registry" && {
-            registry: {
-              scope: source.scope,
-              name: sanitizedName,
-              resolvedVersion: Option.getOrElse(op.args.version, () => "0.0.0"),
-              checksum: "",
-              sourceName: "default",
-            },
-          }),
-        }),
-      })
-      .pipe(Effect.catchAll((e) => log.warn(`Skill update failed: ${String(e)}`)));
+    // Pack dependencies skip settings writes (lockfile only)
+    const lockEntry = sourceToLockEntry({
+      source: op.args.source,
+      agents: op.args.agents,
+      gitTreeSha: op.args.gitTreeSha,
+      now: new Date(),
+      ...(source.type === "registry" && {
+        registry: {
+          scope: source.scope,
+          name: sanitizedName,
+          resolvedVersion: Option.getOrElse(op.args.version, () => "0.0.0"),
+          checksum: "",
+          sourceName: "default",
+        },
+      }),
+    });
+    const skillArgs = {
+      name: op.args.skill.name,
+      lockEntry,
+      versionConstraint:
+        op.args.source.type === "registry" ? op.args.source.versionConstraint : Option.none(),
+    };
+    const writeEffect = op.args.skipSettings ? ws.setSkillLock(skillArgs) : ws.setSkill(skillArgs);
+    yield* writeEffect.pipe(Effect.catchAll((e) => log.warn(`Skill update failed: ${String(e)}`)));
 
     // Determine overall result
     const anyFailed = agentResults.some((r) => !r.success);

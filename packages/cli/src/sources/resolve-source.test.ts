@@ -137,7 +137,7 @@ describe("resolveSource", () => {
           expect(result.name).toBe("name");
         }
         // No config fields (name, url) — registry source is self-describing
-        expect(Object.keys(result)).toEqual(["type", "scope", "name"]);
+        expect(Object.keys(result)).toEqual(["type", "scope", "name", "versionConstraint"]);
       }),
     );
 

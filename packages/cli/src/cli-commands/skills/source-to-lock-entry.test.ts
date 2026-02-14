@@ -235,6 +235,7 @@ describe("sourceToLockEntry", () => {
       type: "registry",
       scope: "@community",
       name: "my-skill",
+      versionConstraint: Option.none(),
     };
 
     const result = sourceToLockEntry({

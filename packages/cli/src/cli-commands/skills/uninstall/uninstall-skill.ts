@@ -105,6 +105,30 @@ const existsInAnyLocation = (
     return results.some((exists) => exists);
   });
 
+/**
+ * Derive the FQN (`@scope/name`) for a skill lock entry, if it's a registry entry.
+ */
+const getSkillFqn = (
+  skillName: string,
+  lockEntry: { type: string; scope?: string; name?: string } | undefined,
+): string | undefined => {
+  if (lockEntry?.type === "registry" && lockEntry.scope && lockEntry.name) {
+    return `${lockEntry.scope}/${lockEntry.name}`;
+  }
+  // For non-registry entries, the skill name itself may be a FQN (e.g., "@scope/name")
+  return skillName.startsWith("@") ? skillName : undefined;
+};
+
+/**
+ * Check if a skill is referenced by any pack's `resolvedSkills`.
+ *
+ * Pure function — scans all pack lock entries for the given FQN.
+ */
+const isReferencedByPack = (
+  skillFqn: string,
+  lockedPacks: Readonly<Record<string, { resolvedSkills: Readonly<Record<string, string>> }>>,
+): boolean => Object.values(lockedPacks).some((pack) => skillFqn in pack.resolvedSkills);
+
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
@@ -183,6 +207,7 @@ export const uninstallSkill: OperationHandler<
           .setSkill({
             name: op.args.skillName,
             lockEntry: { ...lockEntry, agents: remainingAgents },
+            versionConstraint: Option.none(),
           })
           .pipe(
             Effect.mapError((e) =>
@@ -201,6 +226,21 @@ export const uninstallSkill: OperationHandler<
         } satisfies OperationResult;
       }
       // Fall through to full uninstall if no agents remain
+    }
+
+    // Check if a pack still references this skill
+    const lockedPacks = yield* ws.getLockedPacks().pipe(Effect.catchAll(() => Effect.succeed({})));
+    const fqn = getSkillFqn(op.args.skillName, lockEntry);
+    const packOwned = fqn !== undefined && isReferencedByPack(fqn, lockedPacks);
+
+    if (packOwned) {
+      // Pack still references this skill — remove from settings only, keep lockfile + disk
+      yield* ws.removeSkillFromSettings(op.args.skillName).pipe(Effect.catchAll(() => Effect.void));
+
+      return {
+        result: "success",
+        message: `Uninstalled ${op.args.skillName}`,
+      } satisfies OperationResult;
     }
 
     // Full uninstall: remove from all known canonical locations

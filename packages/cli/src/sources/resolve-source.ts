@@ -318,8 +318,17 @@ const routeNameInput = (name: string, input: string) =>
 const routeFilePathInput = (path: string) => Effect.map(parseLocalPath(path), (source) => source);
 
 /** Route RegistryPatternInput: construct registry source from parsed scope and name. */
-const routeRegistryInput = (pattern: { readonly scope: string; readonly name: string }) =>
-  Effect.succeed({ type: "registry" as const, scope: pattern.scope, name: pattern.name });
+const routeRegistryInput = (pattern: {
+  readonly scope: string;
+  readonly name: string;
+  readonly versionConstraint?: string;
+}) =>
+  Effect.succeed({
+    type: "registry" as const,
+    scope: pattern.scope,
+    name: pattern.name,
+    versionConstraint: Option.fromNullable(pattern.versionConstraint),
+  });
 
 /**
  * Route SlashPattern (owner/repo): iterate git-hosting configs that support

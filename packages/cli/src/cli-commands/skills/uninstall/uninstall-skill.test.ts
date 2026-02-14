@@ -25,9 +25,12 @@ const makeWorkspaceMock = (
   lockfileSkills: Record<string, any> = {},
   overrides?: {
     removeSkillFn?: ReturnType<typeof vi.fn>;
+    removeSkillFromSettingsFn?: ReturnType<typeof vi.fn>;
     lockfileErrorOverride?: () => Effect.Effect<never, CliError>;
     setSkillErrorOverride?: () => Effect.Effect<never, CliError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, CliError>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
+    lockedPacks?: Record<string, any>;
   },
 ): WorkspaceContextService => {
   // Use in-memory skills for reads, write to disk for mutations
@@ -87,6 +90,17 @@ const makeWorkspaceMock = (
             };
             writeToDisk();
           }),
+    setSkillLock: (args: { name: string; lockEntry: unknown }) =>
+      Effect.sync(() => {
+        skills = {
+          ...skills,
+          [args.name]: {
+            ...(args.lockEntry as Record<string, unknown>),
+            updatedAt: new Date(),
+          },
+        };
+        writeToDisk();
+      }),
     removeSkill: overrides?.removeSkillFn
       ? (name: string) => overrides.removeSkillFn!(name)
       : overrides?.removeSkillErrorOverride
@@ -103,9 +117,16 @@ const makeWorkspaceMock = (
     renameSkill: () => Effect.void,
     updateLockEntryAgents: () => Effect.void,
     addConfiguredAgent: () => Effect.void,
+    removeSkillFromSettings: overrides?.removeSkillFromSettingsFn
+      ? (name: string) => overrides.removeSkillFromSettingsFn!(name)
+      : (name: string) =>
+          Effect.sync(() => {
+            // Settings-only removal: keep skill in lockfile/disk
+            void name;
+          }),
     getConfiguredPacks: () => Effect.succeed({}),
     getInstalledPacks: () => Effect.succeed({}),
-    getLockedPacks: () => Effect.succeed({}),
+    getLockedPacks: () => Effect.succeed(overrides?.lockedPacks ?? {}),
     getLockedPack: () => Effect.succeed(Option.none()),
     setPack: () => Effect.void,
     removePack: () => Effect.void,
@@ -120,9 +141,12 @@ const withServices = (
   lockfileSkills: Record<string, any> = {},
   wsOverrides?: {
     removeSkillFn?: ReturnType<typeof vi.fn>;
+    removeSkillFromSettingsFn?: ReturnType<typeof vi.fn>;
     lockfileErrorOverride?: () => Effect.Effect<never, CliError>;
     setSkillErrorOverride?: () => Effect.Effect<never, CliError>;
     removeSkillErrorOverride?: () => Effect.Effect<never, CliError>;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper uses simplified mock data
+    lockedPacks?: Record<string, any>;
   },
 ) => {
   return Layer.mergeAll(
@@ -669,6 +693,205 @@ describe("uninstallSkill", () => {
 
         expect(result.result).toBe("success");
         expect(fs.existsSync(canonicalPath)).toBe(false);
+      }),
+    );
+  });
+
+  describe("ownership-aware uninstall — pack references", () => {
+    /** Creates a pack lock entry with resolvedSkills. */
+    const makePackLockEntry = (resolvedSkills: Record<string, string>) => ({
+      type: "registry" as const,
+      scope: "@acme",
+      name: "starter-pack",
+      resolvedVersion: "1.0.0",
+      checksum: "sha256:pack123",
+      sourceName: "local",
+      installedAt: new Date(),
+      updatedAt: new Date(),
+      resolvedSkills,
+      resolvedCommands: {},
+      resolvedMcpServers: {},
+    });
+
+    it.effect("full uninstall when skill is NOT referenced by any pack", () =>
+      Effect.gen(function* () {
+        const { axmDir, base, canonicalPath, lockfileSkills } = setupWorkspace({
+          agents: ["claude-code"],
+        });
+        const { removeSkillFn } = makeRemoveSkillSpy();
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(
+            withServices(axmDir, lockfileSkills, {
+              removeSkillFn,
+              lockedPacks: {
+                "starter-pack": makePackLockEntry({
+                  "@acme/other-skill": "1.0.0",
+                }),
+              },
+            }),
+          ),
+        );
+
+        expect(result.result).toBe("success");
+
+        // Canonical dir should be removed (full uninstall)
+        expect(fs.existsSync(canonicalPath)).toBe(false);
+
+        // Agent symlink should be removed
+        expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
+
+        // removeSkill should be called (full removal from settings + lockfile)
+        expect(removeSkillFn).toHaveBeenCalledWith("my-skill");
+      }),
+    );
+
+    it.effect("settings-only removal when skill IS referenced by a pack", () =>
+      Effect.gen(function* () {
+        const { axmDir, canonicalPath, lockfileSkills } = setupWorkspace({
+          agents: ["claude-code"],
+          skillName: "my-skill",
+          lockfileSkills: {
+            "my-skill": {
+              ...makeRegistryLockEntry(["claude-code"]),
+              scope: "@acme",
+              name: "my-skill",
+            },
+          },
+          lockfileSkillsYaml: {
+            "my-skill": {
+              ...makeRegistryLockEntryYaml(["claude-code"]),
+              scope: "@acme",
+              name: "my-skill",
+            },
+          },
+        });
+        const removeSkillFromSettingsFn = vi.fn((_name: string) => Effect.void);
+        const { removeSkillFn } = makeRemoveSkillSpy();
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(
+            withServices(axmDir, lockfileSkills, {
+              removeSkillFn,
+              removeSkillFromSettingsFn,
+              lockedPacks: {
+                "starter-pack": makePackLockEntry({
+                  "@acme/my-skill": "1.0.0",
+                }),
+              },
+            }),
+          ),
+        );
+
+        expect(result.result).toBe("success");
+
+        // removeSkillFromSettings should be called (settings-only removal)
+        expect(removeSkillFromSettingsFn).toHaveBeenCalledWith("my-skill");
+
+        // removeSkill should NOT be called (no full removal)
+        expect(removeSkillFn).not.toHaveBeenCalled();
+
+        // Canonical dir should still exist (kept for pack)
+        expect(fs.existsSync(canonicalPath)).toBe(true);
+      }),
+    );
+
+    it.effect("settings-only removal when skill is referenced by multiple packs", () =>
+      Effect.gen(function* () {
+        const { axmDir, canonicalPath, lockfileSkills } = setupWorkspace({
+          agents: ["claude-code"],
+          skillName: "my-skill",
+          lockfileSkills: {
+            "my-skill": {
+              ...makeRegistryLockEntry(["claude-code"]),
+              scope: "@acme",
+              name: "my-skill",
+            },
+          },
+          lockfileSkillsYaml: {
+            "my-skill": {
+              ...makeRegistryLockEntryYaml(["claude-code"]),
+              scope: "@acme",
+              name: "my-skill",
+            },
+          },
+        });
+        const removeSkillFromSettingsFn = vi.fn((_name: string) => Effect.void);
+        const { removeSkillFn } = makeRemoveSkillSpy();
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(
+            withServices(axmDir, lockfileSkills, {
+              removeSkillFn,
+              removeSkillFromSettingsFn,
+              lockedPacks: {
+                "starter-pack": makePackLockEntry({
+                  "@acme/my-skill": "1.0.0",
+                }),
+                "pro-pack": makePackLockEntry({
+                  "@acme/my-skill": "2.0.0",
+                }),
+              },
+            }),
+          ),
+        );
+
+        expect(result.result).toBe("success");
+
+        // removeSkillFromSettings should be called (settings-only removal)
+        expect(removeSkillFromSettingsFn).toHaveBeenCalledWith("my-skill");
+
+        // removeSkill should NOT be called (no full removal)
+        expect(removeSkillFn).not.toHaveBeenCalled();
+
+        // Canonical dir should still exist (kept for packs)
+        expect(fs.existsSync(canonicalPath)).toBe(true);
+      }),
+    );
+
+    it.effect("matches skill FQN using lockfile entry scope and name fields", () =>
+      Effect.gen(function* () {
+        // Skill name in lockfile may differ from FQN in pack resolvedSkills
+        // e.g., lockfile key "my-skill" with scope "@community" → FQN "@community/my-skill"
+        const { axmDir, canonicalPath, lockfileSkills } = setupWorkspace({
+          agents: ["claude-code"],
+          skillName: "my-skill",
+          lockfileSkills: {
+            "my-skill": {
+              ...makeRegistryLockEntry(["claude-code"]),
+              scope: "@community",
+              name: "my-skill",
+            },
+          },
+          lockfileSkillsYaml: {
+            "my-skill": {
+              ...makeRegistryLockEntryYaml(["claude-code"]),
+              scope: "@community",
+              name: "my-skill",
+            },
+          },
+        });
+        const removeSkillFromSettingsFn = vi.fn((_name: string) => Effect.void);
+        const { removeSkillFn } = makeRemoveSkillSpy();
+
+        const result = yield* uninstallSkill(makeOp()).pipe(
+          Effect.provide(
+            withServices(axmDir, lockfileSkills, {
+              removeSkillFn,
+              removeSkillFromSettingsFn,
+              lockedPacks: {
+                "starter-pack": makePackLockEntry({
+                  "@community/my-skill": "1.0.0",
+                }),
+              },
+            }),
+          ),
+        );
+
+        expect(result.result).toBe("success");
+        expect(removeSkillFromSettingsFn).toHaveBeenCalledWith("my-skill");
+        expect(removeSkillFn).not.toHaveBeenCalled();
+        expect(fs.existsSync(canonicalPath)).toBe(true);
       }),
     );
   });

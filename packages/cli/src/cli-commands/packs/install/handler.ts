@@ -244,12 +244,15 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     const resolvedVersion = Option.getOrElse(packRef.version, () => manifest.version);
 
     // Step 7: Fetch skill dependencies from manifest
-    const skillFqns = Object.keys(resolvedSkills);
+    const skillEntries = Object.entries(resolvedSkills);
     const skillOps = yield* Effect.forEach(
-      skillFqns,
-      (fqn) =>
+      skillEntries,
+      ([fqn, constraint]) =>
         Effect.gen(function* () {
-          const skillSource = yield* resolveSource(fqn).pipe(
+          // Append version constraint from manifest to the source string
+          // e.g., "@acme/code-review" + "^1.0.0" → "@acme/code-review@^1.0.0"
+          const sourceStr = constraint && constraint !== "*" ? `${fqn}@${constraint}` : fqn;
+          const skillSource = yield* resolveSource(sourceStr).pipe(
             Effect.mapError((error) =>
               makeCliError({
                 code: "PACK_DEPENDENCY_RESOLVE_FAILED",
@@ -308,6 +311,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     );
 
     // Build InstallSkillOperations from fetched skill deps
+    // Pack dependencies skip settings writes — they only appear in the lockfile
     const agents = yield* ws.getConfiguredAgents();
     const skillInstallOps: ReadonlyArray<InstallSkillOperation> = skillOps
       .filter((s) => s.ref.type === "skill")
@@ -323,6 +327,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
             location: fetched.directory,
             version: skillRef.version,
             gitTreeSha: skillRef.gitTreeSha,
+            skipSettings: true,
           },
         } satisfies InstallSkillOperation;
       });
@@ -339,6 +344,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
         resolvedSkills,
         resolvedCommands,
         resolvedMcpServers,
+        versionConstraint: source.versionConstraint,
       },
     };
 

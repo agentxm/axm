@@ -7,6 +7,7 @@
  * @packageDocumentation
  */
 
+import type { Option } from "effect/Option";
 import type { Operation } from "../../workspace/plan.js";
 
 // -----------------------------------------------------------------------------
@@ -33,6 +34,8 @@ export interface InstallPackOperationArgs {
   readonly resolvedCommands: Readonly<Record<string, string>>;
   /** Resolved MCP server FQNs to exact versions */
   readonly resolvedMcpServers: Readonly<Record<string, string>>;
+  /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings. */
+  readonly versionConstraint: Option<string>;
 }
 
 /**

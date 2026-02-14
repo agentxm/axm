@@ -109,7 +109,9 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceConfig>): WorkspaceConte
   getLockedSkill: () => Effect.succeed(Option.none()),
   getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
   setSkill: () => Effect.void,
+  setSkillLock: () => Effect.void,
   removeSkill: () => Effect.void,
+  removeSkillFromSettings: () => Effect.void,
   updateSkillEntry: () => Effect.void,
   setSkillEntry: () => Effect.void,
   renameSkill: () => Effect.void,
@@ -167,6 +169,7 @@ describe("registry meta-provider scope routing", () => {
             type: "registry",
             scope: "@test",
             name: "my-skill",
+            versionConstraint: Option.none(),
           },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
@@ -185,7 +188,7 @@ describe("registry meta-provider scope routing", () => {
       Effect.gen(function* () {
         const svc = yield* SourceProviders;
         const refs = yield* svc.resolveExtension(
-          { type: "registry", scope: "@test", name: "my-skill" },
+          { type: "registry", scope: "@test", name: "my-skill", versionConstraint: Option.none() },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
         expect(refs).toHaveLength(0);
@@ -273,6 +276,7 @@ describe("SourceProviders dispatch", () => {
             type: "registry",
             scope: "@test",
             name: "nonexistent",
+            versionConstraint: Option.none(),
           },
           { ...defaultFindOptions, names: ["nonexistent"] },
         );

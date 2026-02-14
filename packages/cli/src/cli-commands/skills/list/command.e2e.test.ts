@@ -8,8 +8,8 @@ import { describe, expect, it } from "vitest";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 
 describe("axm skills list", () => {
-  describe("no skills installed", () => {
-    it("displays empty message", async () => {
+  describe("builtin skills only", () => {
+    it("lists builtin skills after init", async () => {
       const temp = createTempDir();
       try {
         await runCli(["init", "--yes", "--agent", "claude-code"], {
@@ -21,7 +21,8 @@ describe("axm skills list", () => {
         });
 
         expect(result.exitCode).toBe(0);
-        expect(result.stdout).toContain("No skills installed");
+        expect(result.stdout).toContain("axm-manage-skills");
+        expect(result.stdout).toContain("builtin");
       } finally {
         temp.cleanup();
       }
@@ -121,7 +122,7 @@ describe("axm skills list", () => {
         });
 
         expect(result.exitCode).toBe(0);
-        expect(result.stdout).toContain("No skills installed");
+        expect(result.stdout).toContain("axm-manage-skills");
       } finally {
         temp.cleanup();
       }

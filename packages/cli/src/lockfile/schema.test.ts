@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import {
+  BuiltinPackLockEntrySchema,
+  BuiltinSkillLockEntrySchema,
   LockfileSchema,
   PackLockEntrySchema,
   PacksLockMapSchema,
@@ -522,6 +524,54 @@ describe("lockfile schema", () => {
     });
   });
 
+  describe("BuiltinSkillLockEntry", () => {
+    it("accepts valid builtin skill lock entry", () => {
+      const input = {
+        type: "builtin",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+
+      const result = Schema.decodeUnknownSync(BuiltinSkillLockEntrySchema)(input);
+
+      expect(result.type).toBe("builtin");
+      expect(result.agents).toEqual(["claude-code"]);
+      expect(result.installedAt).toBeInstanceOf(Date);
+      expect(result.updatedAt).toBeInstanceOf(Date);
+    });
+
+    it("strips registry-specific fields on decode", () => {
+      const input = {
+        type: "builtin",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        checksum: "sha256:abc123",
+        sourceName: "default",
+      };
+
+      const result = Schema.decodeUnknownSync(BuiltinSkillLockEntrySchema)(input);
+
+      expect(result.type).toBe("builtin");
+      expect("checksum" in result).toBe(false);
+      expect("sourceName" in result).toBe(false);
+    });
+
+    it("is accepted by SkillLockEntrySchema union", () => {
+      const input = {
+        type: "builtin",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+
+      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
+
+      expect(result.type).toBe("builtin");
+    });
+  });
+
   describe("SkillsLockMap", () => {
     it("accepts empty skills map", () => {
       const input = {};
@@ -578,8 +628,10 @@ describe("lockfile schema", () => {
       expect(result.scope).toBe("@acme");
       expect(result.name).toBe("frontend-pack");
       expect(result.resolvedVersion).toBe("1.0.0");
-      expect(result.checksum).toBe("sha256:abc123def456");
-      expect(result.sourceName).toBe("default");
+      if (result.type === "registry") {
+        expect(result.checksum).toBe("sha256:abc123def456");
+        expect(result.sourceName).toBe("default");
+      }
       expect(result.installedAt).toBeInstanceOf(Date);
       expect(result.updatedAt).toBeInstanceOf(Date);
       expect(result.resolvedSkills).toEqual({ "@acme/code-review": "1.2.0" });
@@ -696,6 +748,74 @@ describe("lockfile schema", () => {
     });
   });
 
+  describe("BuiltinPackLockEntry", () => {
+    it("accepts valid builtin pack lock entry", () => {
+      const input = {
+        type: "builtin",
+        scope: "@axm",
+        name: "cli",
+        resolvedVersion: "0.0.16",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: { "@axm/effect-solutions": "0.0.16" },
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+      };
+
+      const result = Schema.decodeUnknownSync(BuiltinPackLockEntrySchema)(input);
+
+      expect(result.type).toBe("builtin");
+      expect(result.scope).toBe("@axm");
+      expect(result.name).toBe("cli");
+      expect(result.resolvedVersion).toBe("0.0.16");
+      expect(result.installedAt).toBeInstanceOf(Date);
+      expect(result.updatedAt).toBeInstanceOf(Date);
+      expect(result.resolvedSkills).toEqual({ "@axm/effect-solutions": "0.0.16" });
+      expect(result.resolvedCommands).toEqual({});
+      expect(result.resolvedMcpServers).toEqual({});
+    });
+
+    it("strips checksum and sourceName on decode", () => {
+      const input = {
+        type: "builtin",
+        scope: "@axm",
+        name: "cli",
+        resolvedVersion: "0.0.16",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: {},
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+        checksum: "sha256:abc123",
+        sourceName: "default",
+      };
+
+      const result = Schema.decodeUnknownSync(BuiltinPackLockEntrySchema)(input);
+
+      expect(result.type).toBe("builtin");
+      expect("checksum" in result).toBe(false);
+      expect("sourceName" in result).toBe(false);
+    });
+
+    it("is accepted by PackLockEntrySchema union", () => {
+      const input = {
+        type: "builtin",
+        scope: "@axm",
+        name: "cli",
+        resolvedVersion: "0.0.16",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: {},
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+      };
+
+      const result = Schema.decodeUnknownSync(PackLockEntrySchema)(input);
+
+      expect(result.type).toBe("builtin");
+    });
+  });
+
   describe("PacksLockMap", () => {
     it("accepts empty packs map", () => {
       const result = Schema.decodeUnknownSync(PacksLockMapSchema)({});
@@ -766,6 +886,64 @@ describe("lockfile schema", () => {
       const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
       expect(result.packs).toBeUndefined();
+    });
+  });
+
+  describe("Lockfile round-trip with builtin entries", () => {
+    it("decodes and re-encodes lockfile with registry and builtin packs and skills", () => {
+      const input = {
+        lockfileVersion: 1,
+        skills: {
+          "registry-skill": {
+            type: "registry",
+            scope: "@acme",
+            name: "code-review",
+            resolvedVersion: "1.2.0",
+            checksum: "sha256:abc123",
+            sourceName: "default",
+            agents: ["claude-code"],
+            installedAt: "2025-01-15T10:30:00.000Z",
+            updatedAt: "2025-01-15T10:30:00.000Z",
+          },
+          "builtin-skill": {
+            type: "builtin",
+            agents: ["claude-code"],
+            installedAt: "2025-01-15T10:30:00.000Z",
+            updatedAt: "2025-01-15T10:30:00.000Z",
+          },
+        },
+        packs: {
+          "@acme/frontend-pack": {
+            type: "registry",
+            scope: "@acme",
+            name: "frontend-pack",
+            resolvedVersion: "1.0.0",
+            checksum: "sha256:abc123",
+            sourceName: "default",
+            installedAt: "2025-01-15T10:30:00.000Z",
+            updatedAt: "2025-01-15T10:30:00.000Z",
+            resolvedSkills: { "@acme/code-review": "1.2.0" },
+            resolvedCommands: {},
+            resolvedMcpServers: {},
+          },
+          "@axm/cli": {
+            type: "builtin",
+            scope: "@axm",
+            name: "cli",
+            resolvedVersion: "0.0.16",
+            installedAt: "2025-01-15T10:30:00.000Z",
+            updatedAt: "2025-01-15T10:30:00.000Z",
+            resolvedSkills: { "@axm/effect-solutions": "0.0.16" },
+            resolvedCommands: {},
+            resolvedMcpServers: {},
+          },
+        },
+      };
+
+      const decoded = Schema.decodeUnknownSync(LockfileSchema)(input);
+      const encoded = Schema.encodeSync(LockfileSchema)(decoded);
+
+      expect(encoded).toEqual(input);
     });
   });
 });

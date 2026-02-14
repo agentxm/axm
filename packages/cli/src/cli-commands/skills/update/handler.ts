@@ -399,6 +399,9 @@ const collectPackConstraints = (axmDir: string) =>
       Object.entries(lockedPacks),
       ([packName, packEntry]) =>
         Effect.gen(function* () {
+          // Skip builtin packs — they don't have on-disk manifests
+          if (packEntry.type === "builtin") return;
+
           const packDir = path.join(
             base,
             REGISTRY_EXTENSIONS_DIR,

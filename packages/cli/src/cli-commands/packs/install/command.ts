@@ -37,7 +37,7 @@ export const installPackCommand: CommandModule<{}, InstallPackCommandArgs> = {
       .option("yes", {
         alias: "y",
         type: "boolean",
-        describe: "Skip all confirmation prompts",
+        describe: "Skip confirmation prompts",
         default: false,
       })
       .option("force", {

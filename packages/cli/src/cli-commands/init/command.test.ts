@@ -16,15 +16,13 @@ describe("init command", () => {
   const createParser = () => yargs().command(initCommand).exitProcess(false);
 
   it("registers with correct description", () => {
-    expect(initCommand.describe).toBe(
-      "Initialize axm by detecting installed agents and creating .axm/settings.json",
-    );
+    expect(initCommand.describe).toBe("Set up axm in the current project");
   });
 
   it("shows command in help output", async () => {
     const helpOutput = await createParser().getHelp();
     expect(helpOutput).toContain("init");
-    expect(helpOutput).toContain("Initialize axm");
+    expect(helpOutput).toContain("Set up axm");
   });
 });
 
@@ -110,7 +108,7 @@ describe("init command options", () => {
       initCommand.builder(mockYargs as unknown as Argv);
       const yesOption = capturedOptions["yes"] as Options;
       expect(yesOption.describe).toBeDefined();
-      expect(yesOption.describe).toContain("detected agents");
+      expect(yesOption.describe).toContain("Skip confirmation prompts");
     }
   });
 
@@ -143,7 +141,7 @@ describe("init command options", () => {
       initCommand.builder(mockYargs as unknown as Argv);
       const nonInteractiveOption = capturedOptions["non-interactive"] as Options;
       expect(nonInteractiveOption.describe).toBeDefined();
-      expect(nonInteractiveOption.describe).toContain("prompts");
+      expect(nonInteractiveOption.describe).toContain("Disable all interactive prompts");
     }
   });
 });

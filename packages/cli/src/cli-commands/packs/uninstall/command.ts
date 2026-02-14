@@ -19,7 +19,7 @@ export interface UninstallPackCommandArgs {
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
 export const uninstallPackCommand: CommandModule<{}, UninstallPackCommandArgs> = {
   command: "uninstall <name>",
-  describe: "Uninstall a pack and remove orphaned extensions",
+  describe: "Uninstall a pack",
   builder: (yargs) =>
     yargs
       .positional("name", {
@@ -30,7 +30,7 @@ export const uninstallPackCommand: CommandModule<{}, UninstallPackCommandArgs> =
       .option("yes", {
         alias: "y",
         type: "boolean",
-        describe: "Skip confirmation prompt",
+        describe: "Skip confirmation prompts",
         default: false,
       })
       .option("preview", {

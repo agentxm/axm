@@ -36,7 +36,7 @@ export const enableCommand: CommandModule<{}, EnableCommandArgs> = {
       .option("yes", {
         alias: "y",
         type: "boolean",
-        describe: "Skip all confirmation prompts",
+        describe: "Skip confirmation prompts",
         default: false,
       })
       .option("preview", {

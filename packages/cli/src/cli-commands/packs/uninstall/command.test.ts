@@ -41,7 +41,7 @@ describe("packs uninstall command", () => {
   const createParser = () => yargs().command(uninstallPackCommand).exitProcess(false);
 
   it("registers with correct description", () => {
-    expect(uninstallPackCommand.describe).toBe("Uninstall a pack and remove orphaned extensions");
+    expect(uninstallPackCommand.describe).toBe("Uninstall a pack");
   });
 
   it("shows command in help output", async () => {

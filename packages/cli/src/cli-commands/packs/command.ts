@@ -9,7 +9,7 @@ import { unpackCommand } from "./unpack/command.js";
 
 export const packsCommand: CommandModule = {
   command: "packs",
-  describe: "Manage extension packs for AI coding agents",
+  describe: "Bundle and manage extension packs",
   builder: (yargs) =>
     yargs
       .command(packsNewCommand)
@@ -22,7 +22,7 @@ export const packsCommand: CommandModule = {
       .demandCommand(1)
       .example("$0 packs new my-pack", "Create a new extension pack")
       .example("$0 packs install owner/repo", "Install an extension pack")
-      .example("$0 packs add my-skill --pack my-pack", "Add a skill to a pack")
+      .example("$0 packs add my-pack @acme/code-review", "Add an extension to a pack")
       .fail((msg, _err, yargs) => {
         if (msg?.includes("Not enough non-option arguments")) {
           yargs.showHelp("log");

@@ -37,7 +37,7 @@ export const uninstallCommand: CommandModule<{}, UninstallCommandArgs> = {
       .option("yes", {
         alias: "y",
         type: "boolean",
-        describe: "Skip confirmation prompt",
+        describe: "Skip confirmation prompts",
         default: false,
       })
       .option("preview", {

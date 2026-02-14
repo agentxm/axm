@@ -35,13 +35,13 @@ describe("packs unpack command", () => {
   const createParser = () => yargs().command(unpackCommand).exitProcess(false);
 
   it("registers with correct description", () => {
-    expect(unpackCommand.describe).toBe("Eject pack contents into direct settings entries");
+    expect(unpackCommand.describe).toBe("Eject pack into individual entries");
   });
 
   it("shows command in help output", async () => {
     const helpOutput = await createParser().getHelp();
     expect(helpOutput).toContain("unpack <name>");
-    expect(helpOutput).toContain("Eject pack contents");
+    expect(helpOutput).toContain("Eject pack into individual entries");
   });
 
   it("requires name positional argument", () => {

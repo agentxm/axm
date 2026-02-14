@@ -39,6 +39,7 @@ const createCapturingMock = () => {
       return mock;
     }),
     example: vi.fn().mockReturnThis(),
+    group: vi.fn().mockReturnThis(),
   };
 
   // Cast once at the boundary - yargs types are too complex for mocks
@@ -49,7 +50,7 @@ describe("skills install command", () => {
   const createParser = () => yargs().command(installCommand).exitProcess(false);
 
   it("registers with correct description", () => {
-    expect(installCommand.describe).toBe("Install skills from a GitHub repo, local path, or URL");
+    expect(installCommand.describe).toBe("Install skills from GitHub or local path");
   });
 
   it("shows command in help output", async () => {
@@ -265,6 +266,7 @@ describe("skills install command examples", () => {
       positional: vi.fn().mockReturnThis(),
       option: vi.fn().mockReturnThis(),
       example: vi.fn().mockReturnThis(),
+      group: vi.fn().mockReturnThis(),
     };
 
     if (typeof installCommand.builder === "function") {

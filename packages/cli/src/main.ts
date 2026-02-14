@@ -25,13 +25,13 @@ const version = loadVersion();
 export const program = Effect.promise(() =>
   yargs(hideBin(process.argv))
     .scriptName("axm")
-    .usage("$0 <command> [options]\n\nManage skills (extensions) for AI coding agents.")
+    .usage(`$0 v${version}\n\nOpen extension manager for AI coding agents.\n\nUsage: $0 <command>`)
     .version(version)
     .help()
     .strict()
     .option("non-interactive", {
       type: "boolean",
-      describe: "Disable all prompts",
+      describe: "Disable all interactive prompts",
     })
     .command(initCommand)
     .command(skillsCommand)
@@ -43,7 +43,7 @@ export const program = Effect.promise(() =>
     .fail((msg, _err, yargs) => {
       if (msg?.includes("Not enough non-option arguments")) {
         yargs.showHelp();
-        process.exit(0);
+        process.exit(1);
       }
       console.error(msg ?? _err);
       process.exit(1);

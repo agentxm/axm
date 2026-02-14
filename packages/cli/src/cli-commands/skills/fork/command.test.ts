@@ -35,9 +35,7 @@ describe("skills fork command", () => {
   const createParser = () => yargs().command(forkCommand).exitProcess(false);
 
   it("registers with correct description", () => {
-    expect(forkCommand.describe).toBe(
-      "Fork a skill into a managed extension and publish to a registry",
-    );
+    expect(forkCommand.describe).toBe("Fork a skill for customization");
   });
 
   it("shows command in help output", async () => {

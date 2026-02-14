@@ -52,34 +52,29 @@
       }
     },
     "skills": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "description": "a string matching the pattern ^@[\\w-]+\\/[\\w-]+$",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
         "pattern": "^@[\\w-]+\\/[\\w-]+$"
       }
     },
     "commands": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "description": "a string matching the pattern ^@[\\w-]+\\/[\\w-]+$",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
         "pattern": "^@[\\w-]+\\/[\\w-]+$"
       }
     },
     "mcp-servers": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "description": "a string matching the pattern ^@[\\w-]+\\/[\\w-]+$",
-        "pattern": "^@[\\w-]+\\/[\\w-]+$"
-      }
-    },
-    "packs": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "description": "a string matching the pattern ^@[\\w-]+\\/[\\w-]+$",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
         "pattern": "^@[\\w-]+\\/[\\w-]+$"
       }
     }

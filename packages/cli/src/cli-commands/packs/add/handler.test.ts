@@ -1,0 +1,321 @@
+/**
+ * Unit tests for the packs add handler.
+ *
+ * Tests adding extensions to pack manifests including glob expansion,
+ * non-registry rejection, pack not found, and already-present cases.
+ */
+
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as NodeContext from "@effect/platform-node/NodeContext";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import YAML from "yaml";
+import { afterEach, beforeEach } from "vitest";
+import {
+  makeConfirmTestLayer,
+  makeLogTestLayer,
+  makeMultiselectTestLayer,
+  makeSelectTestLayer,
+} from "../../../tui/index.js";
+import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
+import { type CliError } from "../../../cli-error/index.js";
+import { handlePacksAdd, type PacksAddHandlerArgs } from "./handler.js";
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+const makeRegistryLockEntry = (scope: string, name: string, version: string) => ({
+  type: "registry",
+  scope,
+  name,
+  resolvedVersion: version,
+  checksum: "abc123",
+  sourceName: "local",
+  agents: ["claude-code"],
+  installedAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+});
+
+const makeLocalLockEntry = () => ({
+  type: "local",
+  path: "/some/path",
+  agents: ["claude-code"],
+  installedAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+});
+
+const initWorkspace = (
+  axmDir: string,
+  opts: {
+    scope?: string;
+    packs?: Record<string, unknown>;
+    skills?: Record<string, unknown>;
+    lockfileSkills?: Record<string, unknown>;
+  } = {},
+) => {
+  fs.mkdirSync(axmDir, { recursive: true });
+  const settings: Record<string, unknown> = {
+    agents: ["claude-code"],
+    ...(opts.scope && { scope: opts.scope }),
+    ...(opts.packs && { packs: opts.packs }),
+    ...(opts.skills && { skills: opts.skills }),
+  };
+  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
+  fs.writeFileSync(
+    path.join(axmDir, "axm-lock.yaml"),
+    YAML.stringify({ lockfileVersion: 1, skills: opts.lockfileSkills ?? {} }),
+  );
+};
+
+const createPackManifest = (
+  tempDir: string,
+  scope: string,
+  name: string,
+  manifest?: Record<string, unknown>,
+) => {
+  const packDir = path.join(tempDir, ".axm", "extensions", scope, "packs", name);
+  fs.mkdirSync(packDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(packDir, "axm-pack.json"),
+    JSON.stringify(
+      manifest ?? {
+        name: `${scope}/${name}`,
+        version: "0.0.1",
+        skills: {},
+        commands: {},
+        "mcp-servers": {},
+      },
+      null,
+      2,
+    ),
+  );
+  return packDir;
+};
+
+const defaultArgs = (
+  pack: string,
+  extension: string,
+  overrides: Partial<PacksAddHandlerArgs> = {},
+): PacksAddHandlerArgs => ({
+  pack,
+  extension,
+  yes: true,
+  ...overrides,
+});
+
+// -----------------------------------------------------------------------------
+// Tests
+// -----------------------------------------------------------------------------
+
+describe("packs-add.handler", () => {
+  let tempDir: string;
+  let originalCwd: string;
+
+  beforeEach(() => {
+    originalCwd = process.cwd();
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "packs-add-handler-test-"));
+    process.chdir(tempDir);
+  });
+
+  afterEach(() => {
+    process.chdir(originalCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
+    const [logLayer, mockLog] = makeLogTestLayer();
+    const [confirmLayer] = makeConfirmTestLayer();
+    const [selectLayer] = makeSelectTestLayer();
+    const [multiselectLayer] = makeMultiselectTestLayer();
+    const BaseLayer = Layer.mergeAll(
+      NodeContext.layer,
+      logLayer,
+      confirmLayer,
+      selectLayer,
+      multiselectLayer,
+    );
+    const wsOptions: WorkspaceContextOptions = {
+      global: false,
+      yes: true,
+      nonInteractive: Option.some(true),
+      preview: false,
+      agents: Option.none(),
+      ...wsOverrides,
+    };
+    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
+    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
+      effect.pipe(Effect.provide(FullLayer));
+
+    return { provide, mockLog };
+  };
+
+  describe("add specific extension by name", () => {
+    it.effect("adds a registry-sourced skill to the pack manifest", () => {
+      const { provide, mockLog } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        scope: "@acme",
+        packs: { "frontend-tools": "@acme/frontend-tools" },
+        skills: { "code-review": "@acme/code-review" },
+        lockfileSkills: {
+          "code-review": makeRegistryLockEntry("@acme", "code-review", "1.2.0"),
+        },
+      });
+      createPackManifest(tempDir, "@acme", "frontend-tools");
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePacksAdd(defaultArgs("frontend-tools", "code-review"));
+
+          const manifestPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@acme",
+            "packs",
+            "frontend-tools",
+            "axm-pack.json",
+          );
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+          expect(manifest.skills["@acme/code-review"]).toBe("^1.2.0");
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+        }),
+      );
+    });
+  });
+
+  describe("glob pattern expansion", () => {
+    it.effect("expands glob against managed registry-sourced extensions", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        scope: "@acme",
+        packs: { "my-pack": "@acme/my-pack" },
+        lockfileSkills: {
+          "effect-basics": makeRegistryLockEntry("@acme", "effect-basics", "1.0.0"),
+          "effect-streams": makeRegistryLockEntry("@acme", "effect-streams", "2.0.0"),
+          "other-skill": makeRegistryLockEntry("@acme", "other-skill", "3.0.0"),
+        },
+      });
+      createPackManifest(tempDir, "@acme", "my-pack");
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePacksAdd(defaultArgs("my-pack", "effect-*"));
+
+          const manifestPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@acme",
+            "packs",
+            "my-pack",
+            "axm-pack.json",
+          );
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+          expect(manifest.skills["@acme/effect-basics"]).toBe("^1.0.0");
+          expect(manifest.skills["@acme/effect-streams"]).toBe("^2.0.0");
+          expect(manifest.skills["@acme/other-skill"]).toBeUndefined();
+        }),
+      );
+    });
+
+    it.effect("fails when glob matches no extensions", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        scope: "@acme",
+        packs: { "my-pack": "@acme/my-pack" },
+        lockfileSkills: {
+          "some-skill": makeRegistryLockEntry("@acme", "some-skill", "1.0.0"),
+        },
+      });
+      createPackManifest(tempDir, "@acme", "my-pack");
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* handlePacksAdd(defaultArgs("my-pack", "nonexistent-*")).pipe(
+            Effect.flip,
+          );
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).what).toContain("No managed");
+        }),
+      );
+    });
+  });
+
+  describe("non-registry extension rejected", () => {
+    it.effect("fails when extension is not registry-sourced", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        scope: "@acme",
+        packs: { "my-pack": "@acme/my-pack" },
+        lockfileSkills: {
+          "local-skill": makeLocalLockEntry(),
+        },
+      });
+      createPackManifest(tempDir, "@acme", "my-pack");
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* handlePacksAdd(defaultArgs("my-pack", "local-skill")).pipe(
+            Effect.flip,
+          );
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).what).toContain("not a managed");
+        }),
+      );
+    });
+  });
+
+  describe("pack not found", () => {
+    it.effect("fails when pack does not exist in settings", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), { scope: "@acme" });
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* handlePacksAdd(defaultArgs("nonexistent-pack", "some-ext")).pipe(
+            Effect.flip,
+          );
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).what).toContain("not found");
+        }),
+      );
+    });
+  });
+
+  describe("extension already in pack", () => {
+    it.effect("reports no-op when extension is already in pack", () => {
+      const { provide, mockLog } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        scope: "@acme",
+        packs: { "my-pack": "@acme/my-pack" },
+        lockfileSkills: {
+          "code-review": makeRegistryLockEntry("@acme", "code-review", "1.2.0"),
+        },
+      });
+      createPackManifest(tempDir, "@acme", "my-pack", {
+        name: "@acme/my-pack",
+        version: "0.0.1",
+        skills: { "@acme/code-review": "^1.2.0" },
+        commands: {},
+        "mcp-servers": {},
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePacksAdd(defaultArgs("my-pack", "code-review"));
+
+          expect(mockLog.logs.info.some((m) => m.includes("already in pack"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
+        }),
+      );
+    });
+  });
+});

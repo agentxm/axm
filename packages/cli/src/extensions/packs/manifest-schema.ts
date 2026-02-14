@@ -5,22 +5,46 @@
  */
 
 import * as Schema from "effect/Schema";
-import { CommonManifestFields, FullyQualifiedNameSchema } from "../common.js";
+import { CommonManifestFields } from "../common.js";
+
+const FQN_PATTERN = /^@[\w-]+\/[\w-]+$/;
+
+/**
+ * Validation callback for FQN keys in pack manifest extension maps.
+ */
+const validateFqnKeys = (record: { readonly [x: string]: unknown }) => {
+  const invalidKeys = Object.keys(record).filter((key) => !FQN_PATTERN.test(key));
+  if (invalidKeys.length > 0) {
+    return `Invalid fully qualified name(s): ${invalidKeys.join(", ")}. Names must match @scope/name format.`;
+  }
+  return undefined;
+};
+
+/**
+ * Version specifier map: FQN keys to semver range values.
+ * Used for skills, commands, and mcp-servers in pack manifests.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+const VersionSpecifierMapSchema = Schema.Record({
+  key: Schema.String,
+  value: Schema.String,
+}).pipe(Schema.filter(validateFqnKeys));
 
 /**
  * Schema for pack manifest files (axm-pack.json).
  *
- * Packs bundle multiple extensions (skills, commands, MCP servers,
- * and other packs) for convenient distribution and installation.
+ * Packs bundle multiple extensions (skills, commands, MCP servers)
+ * for convenient distribution and installation. Each extension entry
+ * maps a fully qualified name to a semver version range.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const PackManifestSchema = Schema.Struct({
   ...CommonManifestFields,
-  skills: Schema.optional(Schema.Array(FullyQualifiedNameSchema)),
-  commands: Schema.optional(Schema.Array(FullyQualifiedNameSchema)),
-  "mcp-servers": Schema.optional(Schema.Array(FullyQualifiedNameSchema)),
-  packs: Schema.optional(Schema.Array(FullyQualifiedNameSchema)),
+  skills: Schema.optional(VersionSpecifierMapSchema),
+  commands: Schema.optional(VersionSpecifierMapSchema),
+  "mcp-servers": Schema.optional(VersionSpecifierMapSchema),
 });
 
 /**

@@ -90,9 +90,17 @@ const makeWorkspaceMock = (
     setSkill: () => Effect.void,
     removeSkill: () => Effect.void,
     updateSkillEntry: () => Effect.void,
+    setSkillEntry: () => Effect.void,
     renameSkill: opts.renameSkillFn ?? (() => Effect.void),
     updateLockEntryAgents: opts.updateLockEntryAgentsFn ?? (() => Effect.void),
     addConfiguredAgent: () => Effect.void,
+    getConfiguredPacks: () => Effect.succeed({}),
+    getInstalledPacks: () => Effect.succeed({}),
+    getLockedPacks: () => Effect.succeed({}),
+    getLockedPack: () => Effect.succeed(Option.none()),
+    setPack: () => Effect.void,
+    removePack: () => Effect.void,
+    getPackDir: () => Effect.succeed({ canonicalPath: "" }),
   };
 };
 

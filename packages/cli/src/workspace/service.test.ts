@@ -25,7 +25,7 @@ import {
 import YAML from "yaml";
 import { CliError } from "../cli-error/index.js";
 import type { NormalizedSkillEntry, SourceConfig } from "../settings/index.js";
-import type { SkillLockEntry } from "../lockfile/index.js";
+import type { PackLockEntry, SkillLockEntry } from "../lockfile/index.js";
 import type { OperationResult } from "./plan.js";
 import type { Operation, Plan, PlannedJobStep } from "./plan.js";
 import { Workspace, layer as workspaceLayer, type WorkspaceContextOptions } from "./service.js";
@@ -771,13 +771,18 @@ describe("WorkspaceContextService", () => {
   /**
    * Helper to write a lockfile YAML to the .axm directory.
    */
-  const writeLockfileTo = (dir: string, skills: Record<string, unknown>) => {
+  const writeLockfileTo = (
+    dir: string,
+    skills: Record<string, unknown>,
+    packs?: Record<string, unknown>,
+  ) => {
     const axmDir = path.join(dir, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
-    fs.writeFileSync(
-      path.join(axmDir, "axm-lock.yaml"),
-      YAML.stringify({ lockfileVersion: 1, skills }),
-    );
+    const lockfileData: Record<string, unknown> = { lockfileVersion: 1, skills };
+    if (packs !== undefined) {
+      lockfileData["packs"] = packs;
+    }
+    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfileData));
   };
 
   /** Read lockfile from disk for verification. */
@@ -785,6 +790,7 @@ describe("WorkspaceContextService", () => {
     YAML.parse(fs.readFileSync(path.join(dir, ".axm", "axm-lock.yaml"), "utf-8")) as {
       lockfileVersion: number;
       skills: Record<string, unknown>;
+      packs?: Record<string, unknown>;
     };
 
   /** Create a sample SkillLockEntry for testing. */
@@ -1659,6 +1665,495 @@ describe("WorkspaceContextService", () => {
 
         expect(result).toBeInstanceOf(CliError);
         expect(result.code).toBe("LOCK_ENTRY_NOT_FOUND");
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Pack methods
+  // ---------------------------------------------------------------------------
+
+  /** Create a sample PackLockEntry for testing. */
+  const makeSamplePackLockEntry = (overrides?: Partial<PackLockEntry>): PackLockEntry => ({
+    type: "registry" as const,
+    scope: "@acme",
+    name: "starter-pack",
+    resolvedVersion: "1.0.0",
+    checksum: "sha256-abc123",
+    sourceName: "default",
+    installedAt: new Date("2025-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+    resolvedSkills: {},
+    resolvedCommands: {},
+    resolvedMcpServers: {},
+    ...overrides,
+  });
+
+  describe("getConfiguredPacks", () => {
+    it.effect("returns packs map when packs are configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "starter-pack": "registry:@acme/starter-pack@^1.0.0" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const packs = yield* ws.getConfiguredPacks();
+
+        expect(packs).toEqual({
+          "starter-pack": "registry:@acme/starter-pack@^1.0.0",
+        });
+      }),
+    );
+
+    it.effect("returns empty record when no packs configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const packs = yield* ws.getConfiguredPacks();
+
+        expect(packs).toEqual({});
+      }),
+    );
+  });
+
+  describe("getInstalledPacks", () => {
+    it.effect("returns packs map when packs are configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "starter-pack": "registry:@acme/starter-pack@^1.0.0" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const packs = yield* ws.getInstalledPacks();
+
+        expect(packs).toEqual({
+          "starter-pack": "registry:@acme/starter-pack@^1.0.0",
+        });
+      }),
+    );
+
+    it.effect("returns empty record when no packs configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const packs = yield* ws.getInstalledPacks();
+
+        expect(packs).toEqual({});
+      }),
+    );
+  });
+
+  describe("getLockedPacks", () => {
+    it.effect("returns packs lock map when lock entries are present", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "starter-pack": {
+              type: "registry",
+              scope: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              checksum: "sha256-abc123",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: { "@acme/code-review": "1.2.0" },
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const packs = yield* ws.getLockedPacks();
+
+        expect(Object.keys(packs)).toEqual(["starter-pack"]);
+        expect(packs["starter-pack"]?.type).toBe("registry");
+        expect(packs["starter-pack"]?.resolvedSkills).toEqual({ "@acme/code-review": "1.2.0" });
+      }),
+    );
+
+    it.effect("returns empty record when no pack lock entries", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const packs = yield* ws.getLockedPacks();
+
+        expect(packs).toEqual({});
+      }),
+    );
+  });
+
+  describe("getLockedPack", () => {
+    it.effect("returns Option.some when pack exists in lockfile", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "starter-pack": {
+              type: "registry",
+              scope: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              checksum: "sha256-abc123",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const entry = yield* ws.getLockedPack("starter-pack");
+
+        expect(Option.isSome(entry)).toBe(true);
+        if (Option.isSome(entry)) {
+          expect(entry.value.type).toBe("registry");
+          expect(entry.value.resolvedVersion).toBe("1.0.0");
+        }
+      }),
+    );
+
+    it.effect("returns Option.none when pack not in lockfile", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const entry = yield* ws.getLockedPack("nonexistent");
+
+        expect(Option.isNone(entry)).toBe(true);
+      }),
+    );
+  });
+
+  describe("setPack", () => {
+    it.effect("installs new pack: adds to settings and lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setPack(
+          "starter-pack",
+          "registry:@acme/starter-pack@^1.0.0",
+          makeSamplePackLockEntry(),
+        );
+
+        // Verify settings on disk
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.packs).toBeDefined();
+        expect(settings.packs["starter-pack"]).toBe("registry:@acme/starter-pack@^1.0.0");
+
+        // Verify lockfile on disk
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.packs).toHaveProperty("starter-pack");
+        expect((lockfile.packs!["starter-pack"] as { type: string }).type).toBe("registry");
+      }),
+    );
+
+    it.effect("sets updatedAt to current time", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const before = new Date();
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setPack(
+          "starter-pack",
+          "registry:@acme/starter-pack@^1.0.0",
+          makeSamplePackLockEntry(),
+        );
+        const after = new Date();
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        const updatedAt = new Date(
+          (lockfile.packs!["starter-pack"] as { updatedAt: string }).updatedAt,
+        );
+        expect(updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
+        expect(updatedAt.getTime()).toBeLessThanOrEqual(after.getTime());
+      }),
+    );
+  });
+
+  describe("removePack", () => {
+    it.effect("removes existing pack from both settings and lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: {
+            "starter-pack": "registry:@acme/starter-pack@^1.0.0",
+            "other-pack": "registry:@acme/other-pack@^2.0.0",
+          },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "starter-pack": {
+              type: "registry",
+              scope: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              checksum: "sha256-abc123",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+            "other-pack": {
+              type: "registry",
+              scope: "@acme",
+              name: "other-pack",
+              resolvedVersion: "2.0.0",
+              checksum: "sha256-def456",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removePack("starter-pack");
+
+        // Verify settings: starter-pack removed, other-pack remains
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.packs).not.toHaveProperty("starter-pack");
+        expect(settings.packs).toHaveProperty("other-pack");
+
+        // Verify lockfile: starter-pack removed, other-pack remains
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.packs).not.toHaveProperty("starter-pack");
+        expect(lockfile.packs).toHaveProperty("other-pack");
+      }),
+    );
+
+    it.effect("no-op when pack does not exist", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "other-pack": "registry:@acme/other-pack@^2.0.0" },
+        });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removePack("nonexistent");
+
+        // Verify nothing changed
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.packs).toHaveProperty("other-pack");
+        expect(Object.keys(settings.packs as Record<string, string>)).toHaveLength(1);
+      }),
+    );
+  });
+
+  describe("getPackDir", () => {
+    it.effect("returns registry extensions path with scope", () =>
+      Effect.gen(function* () {
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.getPackDir("starter-pack", "@acme");
+
+        expect(result.canonicalPath).toContain(".axm/extensions/@acme/packs/starter-pack");
+      }),
+    );
+
+    it.effect("handles different scopes correctly", () =>
+      Effect.gen(function* () {
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.getPackDir("my-pack", "@community");
+
+        expect(result.canonicalPath).toContain(".axm/extensions/@community/packs/my-pack");
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // getInstalledSkills with transitive pack skills
+  // ---------------------------------------------------------------------------
+
+  describe("getInstalledSkills (transitive visibility)", () => {
+    it.effect("pack-provided skill visible in getInstalledSkills", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "starter-pack": "registry:@acme/starter-pack@^1.0.0" },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "starter-pack": {
+              type: "registry",
+              scope: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              checksum: "sha256-abc123",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: { "@acme/code-review": "1.2.0" },
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const skills = yield* ws.getInstalledSkills();
+
+        expect(skills).toHaveProperty("@acme/code-review");
+        expect(skills["@acme/code-review"]).toEqual({
+          source: Option.some("registry:@acme/code-review@1.2.0"),
+          enabled: true,
+          managed: true,
+        });
+      }),
+    );
+
+    it.effect("direct entry with same key overrides transitive", () =>
+      Effect.gen(function* () {
+        // Direct skill "code-review" and transitive skill "code-review" from pack
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "code-review": "github:acme/code-review" },
+          packs: { "starter-pack": "registry:@acme/starter-pack@^1.0.0" },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "starter-pack": {
+              type: "registry",
+              scope: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              checksum: "sha256-abc123",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: { "code-review": "1.2.0" },
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const skills = yield* ws.getInstalledSkills();
+
+        // Direct entry wins over transitive
+        expect(skills["code-review"]).toEqual({
+          source: Option.some("github:acme/code-review"),
+          enabled: true,
+          managed: true,
+        });
+      }),
+    );
+
+    it.effect("multiple packs providing same skill — first pack wins", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: {
+            "pack-a": "registry:@acme/pack-a@^1.0.0",
+            "pack-b": "registry:@acme/pack-b@^1.0.0",
+          },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "pack-a": {
+              type: "registry",
+              scope: "@acme",
+              name: "pack-a",
+              resolvedVersion: "1.0.0",
+              checksum: "sha256-aaa",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: { "@acme/shared-skill": "1.0.0" },
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+            "pack-b": {
+              type: "registry",
+              scope: "@acme",
+              name: "pack-b",
+              resolvedVersion: "1.0.0",
+              checksum: "sha256-bbb",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: { "@acme/shared-skill": "2.0.0" },
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const skills = yield* ws.getInstalledSkills();
+
+        // First pack encountered wins
+        expect(skills).toHaveProperty("@acme/shared-skill");
+        const entry = skills["@acme/shared-skill"]!;
+        expect(Option.getOrThrow(entry.source)).toMatch(/^registry:@acme\/shared-skill@/);
+      }),
+    );
+
+    it.effect("getConfiguredSkills unchanged — only returns direct settings entries", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "my-skill": "github:acme/my-skill" },
+          packs: { "starter-pack": "registry:@acme/starter-pack@^1.0.0" },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "starter-pack": {
+              type: "registry",
+              scope: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              checksum: "sha256-abc123",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: { "@acme/transitive-skill": "1.0.0" },
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const configured = yield* ws.getConfiguredSkills();
+
+        // Only direct settings entries, no transitive
+        expect(Object.keys(configured)).toEqual(["my-skill"]);
+        expect(configured).not.toHaveProperty("@acme/transitive-skill");
       }),
     );
   });

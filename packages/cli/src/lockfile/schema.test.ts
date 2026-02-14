@@ -1,6 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
-import { LockfileSchema, SkillLockEntrySchema, SkillsLockMapSchema } from "./schema.js";
+import {
+  LockfileSchema,
+  PackLockEntrySchema,
+  PacksLockMapSchema,
+  SkillLockEntrySchema,
+  SkillsLockMapSchema,
+} from "./schema.js";
 
 describe("lockfile schema", () => {
   describe("Lockfile", () => {
@@ -547,6 +553,219 @@ describe("lockfile schema", () => {
 
       expect(result["my-skill"]).toBeDefined();
       expect(result["another-skill"]).toBeDefined();
+    });
+  });
+
+  describe("PackLockEntry", () => {
+    it("accepts valid pack lock entry with all resolved maps", () => {
+      const input = {
+        type: "registry",
+        scope: "@acme",
+        name: "frontend-pack",
+        resolvedVersion: "1.0.0",
+        checksum: "sha256:abc123def456",
+        sourceName: "default",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: { "@acme/code-review": "1.2.0" },
+        resolvedCommands: { "@acme/formatter": "1.0.0" },
+        resolvedMcpServers: {},
+      };
+
+      const result = Schema.decodeUnknownSync(PackLockEntrySchema)(input);
+
+      expect(result.type).toBe("registry");
+      expect(result.scope).toBe("@acme");
+      expect(result.name).toBe("frontend-pack");
+      expect(result.resolvedVersion).toBe("1.0.0");
+      expect(result.checksum).toBe("sha256:abc123def456");
+      expect(result.sourceName).toBe("default");
+      expect(result.installedAt).toBeInstanceOf(Date);
+      expect(result.updatedAt).toBeInstanceOf(Date);
+      expect(result.resolvedSkills).toEqual({ "@acme/code-review": "1.2.0" });
+      expect(result.resolvedCommands).toEqual({ "@acme/formatter": "1.0.0" });
+      expect(result.resolvedMcpServers).toEqual({});
+    });
+
+    it("accepts pack lock entry with empty resolved maps", () => {
+      const input = {
+        type: "registry",
+        scope: "@acme",
+        name: "empty-pack",
+        resolvedVersion: "0.1.0",
+        checksum: "sha256:deadbeef",
+        sourceName: "local",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: {},
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+      };
+
+      const result = Schema.decodeUnknownSync(PackLockEntrySchema)(input);
+
+      expect(result.resolvedSkills).toEqual({});
+      expect(result.resolvedCommands).toEqual({});
+      expect(result.resolvedMcpServers).toEqual({});
+    });
+
+    it("rejects pack lock entry missing scope", () => {
+      const input = {
+        type: "registry",
+        name: "frontend-pack",
+        resolvedVersion: "1.0.0",
+        checksum: "sha256:abc123",
+        sourceName: "default",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: {},
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+      };
+
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
+    });
+
+    it("rejects pack lock entry missing resolvedSkills", () => {
+      const input = {
+        type: "registry",
+        scope: "@acme",
+        name: "frontend-pack",
+        resolvedVersion: "1.0.0",
+        checksum: "sha256:abc123",
+        sourceName: "default",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+      };
+
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
+    });
+
+    it("rejects pack lock entry missing resolvedCommands", () => {
+      const input = {
+        type: "registry",
+        scope: "@acme",
+        name: "frontend-pack",
+        resolvedVersion: "1.0.0",
+        checksum: "sha256:abc123",
+        sourceName: "default",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: {},
+        resolvedMcpServers: {},
+      };
+
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
+    });
+
+    it("rejects pack lock entry missing resolvedMcpServers", () => {
+      const input = {
+        type: "registry",
+        scope: "@acme",
+        name: "frontend-pack",
+        resolvedVersion: "1.0.0",
+        checksum: "sha256:abc123",
+        sourceName: "default",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: {},
+        resolvedCommands: {},
+      };
+
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
+    });
+
+    it("rejects pack lock entry with non-registry type", () => {
+      const input = {
+        type: "github",
+        scope: "@acme",
+        name: "frontend-pack",
+        resolvedVersion: "1.0.0",
+        checksum: "sha256:abc123",
+        sourceName: "default",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: {},
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+      };
+
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
+    });
+  });
+
+  describe("PacksLockMap", () => {
+    it("accepts empty packs map", () => {
+      const result = Schema.decodeUnknownSync(PacksLockMapSchema)({});
+
+      expect(result).toEqual({});
+    });
+
+    it("accepts map with valid pack entries", () => {
+      const input = {
+        "@acme/frontend-pack": {
+          type: "registry",
+          scope: "@acme",
+          name: "frontend-pack",
+          resolvedVersion: "1.0.0",
+          checksum: "sha256:abc123",
+          sourceName: "default",
+          installedAt: "2025-01-15T10:30:00Z",
+          updatedAt: "2025-01-15T10:30:00Z",
+          resolvedSkills: { "@acme/code-review": "1.2.0" },
+          resolvedCommands: {},
+          resolvedMcpServers: {},
+        },
+      };
+
+      const result = Schema.decodeUnknownSync(PacksLockMapSchema)(input);
+
+      expect(result["@acme/frontend-pack"]).toBeDefined();
+      expect(result["@acme/frontend-pack"]?.resolvedSkills).toEqual({
+        "@acme/code-review": "1.2.0",
+      });
+    });
+  });
+
+  describe("Lockfile with packs", () => {
+    it("accepts lockfile with packs section", () => {
+      const input = {
+        lockfileVersion: 1,
+        skills: {},
+        packs: {
+          "@acme/frontend-pack": {
+            type: "registry",
+            scope: "@acme",
+            name: "frontend-pack",
+            resolvedVersion: "1.0.0",
+            checksum: "sha256:abc123",
+            sourceName: "default",
+            installedAt: "2025-01-15T10:30:00Z",
+            updatedAt: "2025-01-15T10:30:00Z",
+            resolvedSkills: { "@acme/code-review": "1.2.0" },
+            resolvedCommands: { "@acme/formatter": "1.0.0" },
+            resolvedMcpServers: {},
+          },
+        },
+      };
+
+      const result = Schema.decodeUnknownSync(LockfileSchema)(input);
+
+      expect(result.packs).toBeDefined();
+      expect(result.packs?.["@acme/frontend-pack"]).toBeDefined();
+    });
+
+    it("accepts lockfile without packs section", () => {
+      const input = {
+        lockfileVersion: 1,
+        skills: {},
+      };
+
+      const result = Schema.decodeUnknownSync(LockfileSchema)(input);
+
+      expect(result.packs).toBeUndefined();
     });
   });
 });

@@ -96,9 +96,17 @@ const makeWorkspaceMock = (
               writeToDisk();
             }),
     updateSkillEntry: () => Effect.void,
+    setSkillEntry: () => Effect.void,
     renameSkill: () => Effect.void,
     updateLockEntryAgents: () => Effect.void,
     addConfiguredAgent: () => Effect.void,
+    getConfiguredPacks: () => Effect.succeed({}),
+    getInstalledPacks: () => Effect.succeed({}),
+    getLockedPacks: () => Effect.succeed({}),
+    getLockedPack: () => Effect.succeed(Option.none()),
+    setPack: () => Effect.void,
+    removePack: () => Effect.void,
+    getPackDir: () => Effect.succeed({ canonicalPath: "" }),
   };
 };
 

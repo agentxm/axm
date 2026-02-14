@@ -205,24 +205,100 @@ export const SkillsLockMapSchema = Schema.Record({
 export type SkillsLockMap = typeof SkillsLockMapSchema.Type;
 
 // =============================================================================
+// Pack Lock Entry
+// =============================================================================
+
+/**
+ * Resolved extension map: FQN keys to exact version strings.
+ * Used for resolvedSkills, resolvedCommands, and resolvedMcpServers.
+ */
+const ResolvedExtensionMapSchema = Schema.Record({
+  key: Schema.String,
+  value: Schema.String,
+});
+
+/**
+ * Lock entry for a single installed pack.
+ * Packs are always registry-sourced with resolved extension versions.
+ *
+ * Fields:
+ * - type: Always "registry"
+ * - scope: Pack scope (e.g., "@acme")
+ * - name: Pack name without scope
+ * - resolvedVersion: Exact resolved version
+ * - checksum: Content hash
+ * - sourceName: Registry source name
+ * - installedAt: ISO 8601 timestamp of initial installation
+ * - updatedAt: ISO 8601 timestamp of last update
+ * - resolvedSkills: Map of skill FQN to exact resolved version
+ * - resolvedCommands: Map of command FQN to exact resolved version
+ * - resolvedMcpServers: Map of MCP server FQN to exact resolved version
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PackLockEntrySchema = Schema.Struct({
+  type: Schema.Literal("registry"),
+  scope: Schema.String,
+  name: Schema.String,
+  resolvedVersion: Schema.String,
+  checksum: Schema.String,
+  sourceName: Schema.String,
+  installedAt: DateFromString,
+  updatedAt: DateFromString,
+  resolvedSkills: ResolvedExtensionMapSchema,
+  resolvedCommands: ResolvedExtensionMapSchema,
+  resolvedMcpServers: ResolvedExtensionMapSchema,
+});
+
+/**
+ * Inferred type for PackLockEntry schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type PackLockEntry = typeof PackLockEntrySchema.Type;
+
+// =============================================================================
+// Packs Lock Map
+// =============================================================================
+
+/**
+ * Map of pack names to their lock entries.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PacksLockMapSchema = Schema.Record({
+  key: Schema.String,
+  value: PackLockEntrySchema,
+});
+
+/**
+ * Inferred type for PacksLockMap schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type PacksLockMap = typeof PacksLockMapSchema.Type;
+
+// =============================================================================
 // Lockfile
 // =============================================================================
 
 /**
  * Schema for lockfile (axm-lock.yaml).
  *
- * The lockfile records the exact resolved state of all installed skills,
+ * The lockfile records the exact resolved state of all installed extensions,
  * enabling reproducible installations across environments.
  *
  * Structure:
  * - lockfileVersion: Schema version (currently 1)
  * - skills: Map of skill names to their lock entries
+ * - packs: Map of pack names to their lock entries (optional)
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const LockfileSchema = Schema.Struct({
   lockfileVersion: Schema.Number,
   skills: SkillsLockMapSchema,
+  packs: Schema.optional(PacksLockMapSchema),
 });
 
 /**

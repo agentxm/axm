@@ -8,6 +8,9 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import {
   ExtensionMapSchema,
+  PackEntryObjectSchema,
+  PackEntrySchema,
+  PacksMapSchema,
   SettingsSchema,
   SkillsMapSchema,
   SourceConfigSchema,
@@ -519,13 +522,22 @@ describe("Settings schema", () => {
       expect(result.commands).toEqual({ "batcomputer-sync": "^1.0.0" });
     });
 
-    it("accepts valid packs at root", () => {
+    it("accepts valid packs at root with string entry", () => {
       const input = {
-        packs: { "utility-belt": "^1.0.0" },
+        packs: { "utility-belt": "@wayne/utility-belt@^1.0.0" },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.packs).toEqual({ "utility-belt": "^1.0.0" });
+      expect(result.packs).toEqual({ "utility-belt": "@wayne/utility-belt@^1.0.0" });
+    });
+
+    it("accepts valid packs at root with object entry", () => {
+      const input = {
+        packs: { "utility-belt": { source: "@wayne/utility-belt@^1.0.0" } },
+      };
+      const result = Schema.decodeUnknownSync(SettingsSchema)(input);
+
+      expect(result.packs).toEqual({ "utility-belt": { source: "@wayne/utility-belt@^1.0.0" } });
     });
 
     it("accepts valid mcp-servers at root", () => {
@@ -541,14 +553,14 @@ describe("Settings schema", () => {
       const input = {
         skills: { "grappling-hook": "@wayne/grappling-hook@^1.0.0" },
         commands: { "batcomputer-sync": "^1.0.0" },
-        packs: { "utility-belt": "^1.0.0" },
+        packs: { "utility-belt": "@wayne/utility-belt@^1.0.0" },
         "mcp-servers": { batcomputer: "^2.0.0" },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.skills).toEqual({ "grappling-hook": "@wayne/grappling-hook@^1.0.0" });
       expect(result.commands).toEqual({ "batcomputer-sync": "^1.0.0" });
-      expect(result.packs).toEqual({ "utility-belt": "^1.0.0" });
+      expect(result.packs).toEqual({ "utility-belt": "@wayne/utility-belt@^1.0.0" });
       expect(result["mcp-servers"]).toEqual({ batcomputer: "^2.0.0" });
     });
 
@@ -637,6 +649,75 @@ describe("Settings schema", () => {
     });
   });
 
+  describe("PackEntrySchema", () => {
+    it("accepts a plain string", () => {
+      const result = Schema.decodeUnknownSync(PackEntrySchema)("@wayne/utility-belt@^1.0.0");
+
+      expect(result).toBe("@wayne/utility-belt@^1.0.0");
+    });
+
+    it("accepts a PackEntryObject with source", () => {
+      const result = Schema.decodeUnknownSync(PackEntryObjectSchema)({
+        source: "@wayne/utility-belt@^1.0.0",
+      });
+
+      expect(result).toEqual({ source: "@wayne/utility-belt@^1.0.0" });
+    });
+
+    it("rejects invalid object with managed field", () => {
+      expect(() => Schema.decodeUnknownSync(PackEntrySchema)({ managed: false })).toThrow();
+    });
+
+    it("rejects a number", () => {
+      expect(() => Schema.decodeUnknownSync(PackEntrySchema)(42)).toThrow();
+    });
+
+    it("rejects object without source", () => {
+      expect(() => Schema.decodeUnknownSync(PackEntrySchema)({ foo: "bar" })).toThrow();
+    });
+  });
+
+  describe("PacksMap schema (pack name validation)", () => {
+    it("accepts valid pack name with string entry", () => {
+      const input = { "utility-belt": "@wayne/utility-belt@^1.0.0" };
+      const result = Schema.decodeUnknownSync(PacksMapSchema)(input);
+
+      expect(result).toEqual({ "utility-belt": "@wayne/utility-belt@^1.0.0" });
+    });
+
+    it("accepts valid pack name with object entry", () => {
+      const input = { "utility-belt": { source: "@wayne/utility-belt@^1.0.0" } };
+      const result = Schema.decodeUnknownSync(PacksMapSchema)(input);
+
+      expect(result).toEqual({ "utility-belt": { source: "@wayne/utility-belt@^1.0.0" } });
+    });
+
+    it("accepts empty packs map", () => {
+      const result = Schema.decodeUnknownSync(PacksMapSchema)({});
+
+      expect(result).toEqual({});
+    });
+
+    it("rejects pack name starting with hyphen", () => {
+      const input = { "-invalid": "@wayne/pack@^1.0.0" };
+
+      expect(() => Schema.decodeUnknownSync(PacksMapSchema)(input)).toThrow();
+    });
+
+    it("rejects pack name with uppercase letters", () => {
+      const input = { MyPack: "@wayne/pack@^1.0.0" };
+
+      expect(() => Schema.decodeUnknownSync(PacksMapSchema)(input)).toThrow();
+    });
+
+    it("rejects pack name over 64 characters", () => {
+      const name = "a".repeat(65);
+      const input = { [name]: "@wayne/pack@^1.0.0" };
+
+      expect(() => Schema.decodeUnknownSync(PacksMapSchema)(input)).toThrow();
+    });
+  });
+
   describe("complete settings example", () => {
     it("accepts complete Wayne Enterprises settings with array source format", () => {
       const input = {
@@ -666,7 +747,7 @@ describe("Settings schema", () => {
           "batcomputer-sync": "^1.0.0",
         },
         packs: {
-          "utility-belt": "^1.0.0",
+          "utility-belt": "@wayne/utility-belt@^1.0.0",
         },
         "mcp-servers": {
           batcomputer: "^2.0.0",

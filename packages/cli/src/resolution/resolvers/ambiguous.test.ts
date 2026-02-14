@@ -97,9 +97,17 @@ describe("resolveAmbiguous", () => {
       setSkill: vi.fn(() => Effect.void),
       removeSkill: vi.fn(() => Effect.void),
       updateSkillEntry: vi.fn(() => Effect.void),
+      setSkillEntry: vi.fn(() => Effect.void),
       renameSkill: vi.fn(() => Effect.void),
       updateLockEntryAgents: vi.fn(() => Effect.void),
       addConfiguredAgent: vi.fn(() => Effect.void),
+      getConfiguredPacks: vi.fn(() => Effect.succeed({})),
+      getInstalledPacks: vi.fn(() => Effect.succeed({})),
+      getLockedPacks: vi.fn(() => Effect.succeed({})),
+      getLockedPack: vi.fn(() => Effect.succeed(Option.none())),
+      setPack: vi.fn(() => Effect.void),
+      removePack: vi.fn(() => Effect.void),
+      getPackDir: vi.fn(() => Effect.succeed({ canonicalPath: "" })),
     });
 
   const withDependencies = <A, E, R>(

@@ -9,9 +9,20 @@
  */
 
 // Schema types and schemas
-export type { ExtensionMap, Settings, SkillEntry, SkillsMap, SourceConfig } from "./schema.js";
+export type {
+  ExtensionMap,
+  PackEntry,
+  PacksMap,
+  Settings,
+  SkillEntry,
+  SkillsMap,
+  SourceConfig,
+} from "./schema.js";
 export {
   ExtensionMapSchema,
+  PackEntryObjectSchema,
+  PackEntrySchema,
+  PacksMapSchema,
   SETTINGS_KEY_ORDER,
   SettingsSchema,
   SkillEntryObjectSchema,

@@ -222,6 +222,57 @@ export const SkillsMapSchema = Schema.Record({
  */
 export type SkillsMap = typeof SkillsMapSchema.Type;
 
+// -----------------------------------------------------------------------------
+// Pack Entry Schemas
+// -----------------------------------------------------------------------------
+
+/**
+ * Managed pack with source.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PackEntryObjectSchema = Schema.Struct({
+  source: Schema.String,
+});
+
+/**
+ * Union of pack entry forms: plain string or managed object.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PackEntrySchema = Schema.Union(Schema.String, PackEntryObjectSchema);
+
+/**
+ * Inferred type for PackEntry schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type PackEntry = typeof PackEntrySchema.Type;
+
+/**
+ * Packs map - maps pack names to pack entries.
+ *
+ * Keys must be valid extension names per agentskills.io specification:
+ * - Max 64 characters
+ * - Lowercase letters, numbers, and hyphens only
+ * - Must not start or end with a hyphen
+ *
+ * Values are pack entries: plain source strings or managed objects.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PacksMapSchema = Schema.Record({
+  key: Schema.String,
+  value: PackEntrySchema,
+}).pipe(Schema.filter(validateSkillNameKeys));
+
+/**
+ * Inferred type for PacksMap schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type PacksMap = typeof PacksMapSchema.Type;
+
 /**
  * Canonical key order for settings properties.
  *
@@ -266,7 +317,7 @@ export const SettingsSchema = Schema.Struct({
   sources: Schema.optional(Schema.Array(SourceConfigSchema)),
   commands: Schema.optional(ExtensionMapSchema),
   "mcp-servers": Schema.optional(ExtensionMapSchema),
-  packs: Schema.optional(ExtensionMapSchema),
+  packs: Schema.optional(PacksMapSchema),
   skills: Schema.optional(SkillsMapSchema),
 });
 

@@ -42,17 +42,22 @@ const initWorkspace = (
   skills: Record<string, unknown> = {},
   lockfileSkills: Record<string, unknown> = {},
   agents: string[] = ["claude-code"],
+  opts?: { packs?: Record<string, unknown>; lockfilePacks?: Record<string, unknown> },
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
   const settings: Record<string, unknown> = { agents };
   if (Object.keys(skills).length > 0) {
     settings["skills"] = skills;
   }
+  if (opts?.packs && Object.keys(opts.packs).length > 0) {
+    settings["packs"] = opts.packs;
+  }
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  fs.writeFileSync(
-    path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 1, skills: lockfileSkills }),
-  );
+  const lockfile: Record<string, unknown> = { lockfileVersion: 1, skills: lockfileSkills };
+  if (opts?.lockfilePacks) {
+    lockfile["packs"] = opts.lockfilePacks;
+  }
+  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
 };
 
 const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
@@ -172,6 +177,73 @@ describe("disable.handler", () => {
 
           expect(mockLog.logs.info.some((m) => m.includes("already disabled"))).toBe(true);
           expect(mockLog.logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Transitive skill disable (direct entry promotion)
+  // ---------------------------------------------------------------------------
+
+  describe("transitive skill disable", () => {
+    const makePackLockEntry = (resolvedSkills: Record<string, string>) => ({
+      type: "registry",
+      scope: "@acme",
+      name: "starter-pack",
+      resolvedVersion: "1.0.0",
+      checksum: "abc123",
+      sourceName: "default",
+      installedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      resolvedSkills,
+      resolvedCommands: {},
+      resolvedMcpServers: {},
+    });
+
+    it.effect("creates direct entry when disabling transitive skill", () => {
+      const { provide, mockLog } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {}, {}, ["claude-code"], {
+        packs: { "starter-pack": "registry:@acme/starter-pack@1.0.0" },
+        lockfilePacks: {
+          "starter-pack": makePackLockEntry({ "@acme/code-review": "1.2.0" }),
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleDisable(defaultArgs("@acme/code-review"));
+
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+
+          // Settings should have a new direct entry with bare name key and enabled: false
+          const settingsContent = fs.readFileSync(
+            path.join(tempDir, ".axm", "settings.json"),
+            "utf-8",
+          );
+          const settings = JSON.parse(settingsContent);
+          expect(settings.skills?.["code-review"]).toEqual({
+            source: "registry:@acme/code-review@1.2.0",
+            enabled: false,
+          });
+        }),
+      );
+    });
+
+    it.effect("fails when skill not in configured or installed", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {}, {}, ["claude-code"], {
+        packs: { "starter-pack": "registry:@acme/starter-pack@1.0.0" },
+        lockfilePacks: {
+          "starter-pack": makePackLockEntry({ "@acme/code-review": "1.2.0" }),
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* handleDisable(defaultArgs("nonexistent")).pipe(Effect.flip);
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).what).toContain("not found");
         }),
       );
     });

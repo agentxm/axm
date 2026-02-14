@@ -306,6 +306,19 @@ describe("registry schema", () => {
       expect(result.type).toBe("mcp-server");
     });
 
+    it("accepts type pack", () => {
+      const input = {
+        name: "frontend-pack",
+        scope: "@acme",
+        type: "pack",
+        versions: [],
+      };
+
+      const result = Schema.decodeUnknownSync(ExtensionIndexSchema)(input);
+
+      expect(result.type).toBe("pack");
+    });
+
     it("accepts authors with only required name field", () => {
       const input = {
         name: "my-skill",

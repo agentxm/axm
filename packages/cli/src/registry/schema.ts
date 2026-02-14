@@ -48,13 +48,14 @@ export type VersionEntry = typeof VersionEntrySchema.Type;
 // =============================================================================
 
 /**
- * Extension type within the registry — currently "skill" or "mcp-server".
+ * Extension type within the registry — "skill", "mcp-server", or "pack".
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const RegistryExtensionTypeSchema = Schema.Union(
   Schema.Literal("skill"),
   Schema.Literal("mcp-server"),
+  Schema.Literal("pack"),
 );
 
 /**
@@ -70,7 +71,7 @@ export type RegistryExtensionType = typeof RegistryExtensionTypeSchema.Type;
  * Fields:
  * - name: Extension name without scope
  * - scope: Scope including `@` prefix (e.g., "@acme")
- * - type: Extension type ("skill" or "mcp-server")
+ * - type: Extension type ("skill", "mcp-server", or "pack")
  * - description: Optional human-readable description
  * - repository: Optional repository URL
  * - license: Optional SPDX license identifier

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createRequire } from "node:module";
 import * as Effect from "effect/Effect";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
@@ -7,7 +8,19 @@ import { initCommand } from "./cli-commands/init/command.js";
 import { packsCommand } from "./cli-commands/packs/command.js";
 import { skillsCommand } from "./cli-commands/skills/command.js";
 
-const version = "0.0.1";
+const loadVersion = (): string => {
+  const require = createRequire(import.meta.url);
+  for (const relPath of ["../package.json", "../../package.json"]) {
+    try {
+      return (require(relPath) as { version: string }).version;
+    } catch {
+      continue;
+    }
+  }
+  return "unknown";
+};
+
+const version = loadVersion();
 
 export const program = Effect.promise(() =>
   yargs(hideBin(process.argv))

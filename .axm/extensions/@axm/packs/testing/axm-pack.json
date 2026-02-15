@@ -1,0 +1,11 @@
+{
+  "name": "@axm/testing",
+  "version": "0.0.1",
+  "skills": {
+    "@axm/testing-basics": "^0.1.0",
+    "@axm/testing-handler": "^0.1.0",
+    "@axm/testing-unit": "^0.1.0"
+  },
+  "commands": {},
+  "mcp-servers": {}
+}

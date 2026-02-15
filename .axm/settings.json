@@ -4,7 +4,7 @@
     {
       "name": "local",
       "type": "registry",
-      "url": "file:///Users/craig/Code/agentxm/axm/sandbox_reg"
+      "url": "file:///Users/craig/sandbox_reg"
     }
   ],
   "agents": [
@@ -28,9 +28,14 @@
     "effect-stream": "@axm/effect-stream",
     "effect-testing": "@axm/effect-testing",
     "effect-wrapping": "@axm/effect-wrapping",
-    "effect-service": "@axm/effect-service"
+    "effect-service": "@axm/effect-service",
+    "effect-errors": "@axm/effect-errors",
+    "testing-basics": "@axm/testing-basics",
+    "testing-handler": "@axm/testing-handler",
+    "testing-unit": "@axm/testing-unit"
   },
   "packs": {
-    "effect": "@axm/effect"
+    "effect": "@axm/effect",
+    "testing": "@axm/testing"
   }
 }

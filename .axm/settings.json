@@ -4,7 +4,7 @@
     {
       "name": "local",
       "type": "registry",
-      "url": "file:///Users/craig/sandbox_reg"
+      "url": "file:///Users/craig/Code/agentxm/axm/sandbox_reg"
     }
   ],
   "agents": [
@@ -17,7 +17,19 @@
     "github-copilot",
     "opencode"
   ],
-  "skills": {},
+  "skills": {
+    "effect-basics": "@axm/effect-basics",
+    "effect-collections": "@axm/effect-collections",
+    "effect-concurrency": "@axm/effect-concurrency",
+    "effect-filesystem": "@axm/effect-filesystem",
+    "effect-iteration": "@axm/effect-iteration",
+    "effect-option": "@axm/effect-option",
+    "effect-schema": "@axm/effect-schema",
+    "effect-stream": "@axm/effect-stream",
+    "effect-testing": "@axm/effect-testing",
+    "effect-wrapping": "@axm/effect-wrapping",
+    "effect-service": "@axm/effect-service"
+  },
   "packs": {
     "effect": "@axm/effect"
   }

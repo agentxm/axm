@@ -22,7 +22,25 @@ axm init
 
 Skills are reusable extensions that give AI coding agents new capabilities — code review workflows, commit conventions, domain knowledge, and more. They follow the [agentskills.io](https://agentskills.io) spec.
 
-### Add skills to your project
+### Create a new skill
+
+```bash
+axm skills new my-skill
+```
+
+This creates a skill in your `.axm/skills/` directory, wired into every agent in your project.
+
+### Import existing skill
+
+If your project already has skills (or you want to customize an installed one), fork them into your workspace:
+
+```bash
+axm skills fork my-skill             # Fork a single skill
+axm skills fork "effect-*"           # Fork all skills matching a pattern
+axm skills fork ./path --skill "ci-*" # Fork matching skills from a source
+```
+
+### Install skills
 
 Install a skill and axm wires it into every agent in your project:
 
@@ -37,21 +55,42 @@ axm skills install owner/repo
 axm skills install ./path/to/skills
 ```
 
-### Share skills you've built
+### Publish a skill
 
-Already have skills in your project? Publish them to a registry so others can install them:
+Made changes to a skill? Publish it to a registry so others can install it:
 
 ```bash
-axm skills publish @acme/code-review
+axm skills publish my-skill
 ```
 
-### Manage installed skills
+### Enable and disable skills
+
+Turn skills off without uninstalling them, and re-enable when needed:
 
 ```bash
-axm skills update                # Pull latest versions
-axm skills fork my-skill         # Fork for customization
-axm skills list                  # See what's installed
 axm skills disable my-skill      # Turn off without uninstalling
+axm skills enable my-skill       # Re-enable a disabled skill
+```
+
+### Ignore skills
+
+> **Coming soon** — not yet implemented.
+
+If some skills in your project are managed outside axm (e.g., checked in manually or owned by another tool), you can tell axm to leave them alone:
+
+```bash
+axm skills ignore my-skill           # Ignore a single skill
+axm skills ignore "legacy-*"         # Ignore skills matching a pattern
+```
+
+Ignored skills won't be modified, updated, or removed by axm.
+
+### More skill commands
+
+```bash
+axm skills list                  # List installed skills
+axm skills update                # Pull latest versions
+axm skills update --skill "ci-*" # Update skills matching a pattern
 axm skills uninstall my-skill    # Remove completely
 ```
 
@@ -59,17 +98,28 @@ axm skills uninstall my-skill    # Remove completely
 
 Packs bundle multiple skills into a single installable unit — a curated set of extensions your team can share and keep in sync.
 
+### Create a pack
+
+```bash
+axm packs new my-pack
+```
+
+### Add skills to a pack
+
+```bash
+axm packs add my-pack @acme/code-review      # Add a single skill
+axm packs add my-pack "effect-*"             # Add skills matching a pattern
+```
+
 ### Install a pack
 
 ```bash
 axm packs install @acme/frontend-tools
 ```
 
-### Create and share your own
+### Publish a pack
 
 ```bash
-axm packs new my-pack
-axm packs add my-pack @acme/code-review
 axm packs publish my-pack
 ```
 

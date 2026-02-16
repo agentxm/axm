@@ -13,7 +13,8 @@
     "format:check": "prettier --check . --ignore-path .gitignore",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
-    "prepare": "husky && effect-language-service patch"
+    "prepare": "husky && effect-language-service patch",
+    "release:patch": "pnpm --filter @axm.sh/cli exec npm version patch --no-git-tag-version && pnpm build && pnpm --filter ./packages/cli publish --access public --no-git-checks"
   },
   "lint-staged": {
     "*.{js,ts,mjs,cjs}": "eslint --fix",

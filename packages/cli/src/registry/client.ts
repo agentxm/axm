@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { CliError } from "../cli-error/index.js";
-import type { ExtensionType } from "../extensions/common.js";
+import type { Author, ExtensionType } from "../extensions/common.js";
 import type { VersionEntry } from "./local-schema.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./client-remote.js";
@@ -105,7 +105,7 @@ export interface ExtensionExistsArgs {
  * Paginated result from a registry extension search.
  */
 export interface GetExtensionsResult {
-  readonly extensions: ReadonlyArray<RegistryExtensionEntry>;
+  readonly extensions: ReadonlyArray<RegistryExtension>;
   readonly pagination: {
     readonly total: number;
     readonly limit: number;
@@ -123,10 +123,14 @@ export interface GetExtensionsResult {
  *
  * Represents a single matched extension with its resolved version and checksum.
  */
-export interface RegistryExtensionEntry {
+export interface RegistryExtension {
   readonly scope: string;
   readonly type: ExtensionType;
   readonly name: string;
+  readonly description: Option.Option<string>;
+  readonly repository: Option.Option<string>;
+  readonly license: Option.Option<string>;
+  readonly authors: Option.Option<ReadonlyArray<Author>>;
   readonly version: string;
   readonly checksum: string;
 }

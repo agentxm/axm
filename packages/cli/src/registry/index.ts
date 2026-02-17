@@ -15,7 +15,7 @@ export { ExtensionIndexSchema, VersionEntrySchema } from "./local-schema.js";
 // Client types and factory
 export type {
   RegistryClient,
-  RegistryExtensionEntry,
+  RegistryExtension,
   GetExtensionsArgs,
   GetExtensionsResult,
   GetExtensionVersionArgs,

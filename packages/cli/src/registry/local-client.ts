@@ -18,13 +18,13 @@ import * as Schema from "effect/Schema";
 import { makeCliError, type CliError } from "../cli-error/index.js";
 import type {
   RegistryClient,
-  RegistryExtensionEntry,
+  RegistryExtension,
   GetExtensionVersionArgs,
   PublishExtensionArgs,
   ExtensionExistsArgs,
   GetExtensionsResult,
 } from "./client.js";
-import type { ExtensionType } from "../extensions/common.js";
+import { toAuthor, type ExtensionType } from "../extensions/common.js";
 import { ExtensionIndexSchema, type ExtensionIndex } from "./local-schema.js";
 import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
 
@@ -35,15 +35,14 @@ import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
 /**
  * Process a single name directory within a registry scope/type directory.
  * Reads the index.json, validates it, and selects a matching version.
- * Returns Some(RegistryExtensionEntry) if a matching version is found, None otherwise.
+ * Returns Some(RegistryExtension) if a matching version is found, None otherwise.
  */
 const processNameDir = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   typeDir: string,
   nameDir: string,
-  scopeDir: string,
-): Effect.Effect<Option.Option<RegistryExtensionEntry>, CliError> =>
+): Effect.Effect<Option.Option<RegistryExtension>, CliError> =>
   Effect.gen(function* () {
     const dir = path.join(typeDir, nameDir);
     const idxPath = path.join(dir, "index.json");
@@ -83,12 +82,18 @@ const processNameDir = (
 
     const ver = selectedVersion.value;
     return Option.some({
-      scope: scopeDir,
+      scope: index.scope,
       type: index.type,
-      name: nameDir,
+      name: index.name,
+      description: Option.fromNullable(index.description),
+      repository: Option.fromNullable(index.repository),
+      license: Option.fromNullable(index.license),
+      authors: Option.fromNullable(index.authors).pipe(
+        Option.map((authors) => authors.map((author) => toAuthor(author))),
+      ),
       version: ver.version,
       checksum: ver.checksum,
-    } satisfies RegistryExtensionEntry);
+    } satisfies RegistryExtension);
   });
 
 // -----------------------------------------------------------------------------
@@ -121,7 +126,7 @@ export const createLocalRegistryClient = (
           const extensionsDirExists = yield* fs
             .exists(extensionsDir)
             .pipe(Effect.orElseSucceed(() => false));
-          if (!extensionsDirExists) return [] as ReadonlyArray<RegistryExtensionEntry>;
+          if (!extensionsDirExists) return [] as ReadonlyArray<RegistryExtension>;
 
           const scopeDirs = yield* fs
             .readDirectory(extensionsDir)
@@ -139,7 +144,7 @@ export const createLocalRegistryClient = (
                     const typeDirExists = yield* fs
                       .exists(typeDir)
                       .pipe(Effect.orElseSucceed(() => false));
-                    if (!typeDirExists) return [] as ReadonlyArray<RegistryExtensionEntry>;
+                    if (!typeDirExists) return [] as ReadonlyArray<RegistryExtension>;
 
                     const nameDirs = yield* fs
                       .readDirectory(typeDir)
@@ -148,7 +153,7 @@ export const createLocalRegistryClient = (
 
                     return yield* Effect.forEach(
                       filtered,
-                      (nameDir) => processNameDir(fs, path, typeDir, nameDir, scopeDir),
+                      (nameDir) => processNameDir(fs, path, typeDir, nameDir),
                       { concurrency: "unbounded" },
                     ).pipe(Effect.map(Array.getSomes));
                   }),
@@ -160,7 +165,7 @@ export const createLocalRegistryClient = (
           return Array.flatten(nestedResults);
         });
 
-      const all: ReadonlyArray<RegistryExtensionEntry> =
+      const all: ReadonlyArray<RegistryExtension> =
         options.names.length > 0
           ? yield* Effect.forEach(options.names, (name) => findForName(name), {
               concurrency: "unbounded",

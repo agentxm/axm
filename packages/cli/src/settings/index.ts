@@ -10,12 +10,26 @@
 
 // Schema types and schemas
 export type {
+  AzureReposSourceHostConfig,
+  BitbucketSourceHostConfig,
   ExtensionMap,
+  GitHubSourceHostConfig,
+  GitLabSourceHostConfig,
   PackEntry,
   PacksMap,
+  RegistrySourceHostConfig,
   Settings,
   SkillEntry,
   SkillsMap,
+  SourceHostConfig,
+} from "./schema.js";
+// Deprecated aliases — re-export for backward compatibility
+export type {
+  AzureReposSourceConfig,
+  BitbucketSourceConfig,
+  GitHubSourceConfig,
+  GitLabSourceConfig,
+  RegistrySourceConfig,
   SourceConfig,
 } from "./schema.js";
 export {
@@ -29,6 +43,7 @@ export {
   SkillEntrySchema,
   SkillsMapSchema,
   SourceConfigSchema,
+  SourceHostConfigSchema,
   UnmanagedSkillEntrySchema,
 } from "./schema.js";
 

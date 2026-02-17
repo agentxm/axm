@@ -1,5 +1,5 @@
 /**
- * Tests for SourceProviders service and registry meta-provider.
+ * Tests for SourceHostProviders service and registry meta-provider.
  *
  * Tests scope routing, lazy config reads, 404 fallthrough,
  * and dispatch to correct provider by source type.
@@ -25,7 +25,7 @@ import type { WorkspaceContextService } from "../workspace/service.js";
 import { Workspace } from "../workspace/service.js";
 import type { ExtensionIndex, VersionEntry } from "../registry/index.js";
 import type { FindOptions } from "./provider.js";
-import { SourceProviders, SourceProvidersLive } from "./service.js";
+import { SourceHostProviders, SourceHostProvidersLive } from "./service.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -94,10 +94,10 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceConfig>): WorkspaceConte
         if (Option.isNone(scope)) return registrySources;
         const scopeValue = scope.value;
         const scopeMatched = registrySources.filter(
-          (s) => s.scopes !== undefined && s.scopes.includes(scopeValue),
+          (s) => Option.isSome(s.scopes) && s.scopes.value.includes(scopeValue),
         );
         if (scopeMatched.length > 0) return scopeMatched;
-        return registrySources.filter((s) => s.scopes === undefined);
+        return registrySources.filter((s) => Option.isNone(s.scopes));
       })(),
     ),
   getConfiguredScope: () => Effect.succeed("@test") as Effect.Effect<string, CliError>,
@@ -126,13 +126,17 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceConfig>): WorkspaceConte
   getPackDir: () => Effect.succeed({ canonicalPath: "" }),
 });
 
-/** Run an effect with SourceProviders service and NodeContext wired up. */
+/** Run an effect with SourceHostProviders service and NodeContext wired up. */
 const runWithService = <A, E>(
   sources: ReadonlyArray<SourceConfig>,
-  effect: Effect.Effect<A, E, SourceProviders | FileSystem.FileSystem | Path.Path | Scope.Scope>,
+  effect: Effect.Effect<
+    A,
+    E,
+    SourceHostProviders | FileSystem.FileSystem | Path.Path | Scope.Scope
+  >,
 ) => {
   const wsLayer = Layer.succeed(Workspace, makeTestWorkspace(sources));
-  const spLayer = SourceProvidersLive.pipe(
+  const spLayer = SourceHostProvidersLive.pipe(
     Layer.provide(wsLayer),
     Layer.provide(NodeContext.layer),
   );
@@ -153,7 +157,14 @@ describe("registry meta-provider scope routing", () => {
     const checksum = computeChecksum(archive);
 
     return runWithService(
-      [{ name: "local", type: "registry" as const, url: new URL(`file://${registryRoot}`) }],
+      [
+        {
+          name: "local",
+          type: "registry" as const,
+          url: new URL(`file://${registryRoot}`),
+          scopes: Option.none(),
+        },
+      ],
       Effect.gen(function* () {
         // Set up registry
         const fs = yield* FileSystem.FileSystem;
@@ -163,8 +174,8 @@ describe("registry meta-provider scope routing", () => {
           JSON.stringify(makeIndex({ versions: [makeVersionEntry({ checksum })] })),
         );
 
-        const svc = yield* SourceProviders;
-        const refs = yield* svc.resolveExtension(
+        const svc = yield* SourceHostProviders;
+        const refs = yield* svc.find(
           {
             type: "registry",
             scope: "@test",
@@ -186,8 +197,8 @@ describe("registry meta-provider scope routing", () => {
     runWithService(
       [],
       Effect.gen(function* () {
-        const svc = yield* SourceProviders;
-        const refs = yield* svc.resolveExtension(
+        const svc = yield* SourceHostProviders;
+        const refs = yield* svc.find(
           { type: "registry", scope: "@test", name: "my-skill", versionConstraint: Option.none() },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
@@ -197,18 +208,18 @@ describe("registry meta-provider scope routing", () => {
 });
 
 // -----------------------------------------------------------------------------
-// SourceProviders dispatch
+// SourceHostProviders dispatch
 // -----------------------------------------------------------------------------
 
-describe("SourceProviders dispatch", () => {
+describe("SourceHostProviders dispatch", () => {
   it("dispatches to local provider for local source", () =>
     runWithService(
       [],
       Effect.gen(function* () {
-        const svc = yield* SourceProviders;
+        const svc = yield* SourceHostProviders;
         // Querying a nonexistent local path returns an error (not found)
         const result = yield* svc
-          .resolveExtension({ type: "local", path: "/nonexistent/path" }, defaultFindOptions)
+          .find({ type: "local", path: "/nonexistent/path" }, defaultFindOptions)
           .pipe(Effect.either);
 
         // Local provider will fail because the dir doesn't exist
@@ -220,9 +231,9 @@ describe("SourceProviders dispatch", () => {
     runWithService(
       [],
       Effect.gen(function* () {
-        const svc = yield* SourceProviders;
+        const svc = yield* SourceHostProviders;
         const result = yield* svc
-          .resolveExtension(
+          .find(
             { type: "git", url: new URL("https://example.com/repo.git"), ref: Option.none() },
             defaultFindOptions,
           )
@@ -240,9 +251,9 @@ describe("SourceProviders dispatch", () => {
     runWithService(
       [],
       Effect.gen(function* () {
-        const svc = yield* SourceProviders;
+        const svc = yield* SourceHostProviders;
         const result = yield* svc
-          .resolveExtension(
+          .find(
             {
               type: "azurerepos",
               organization: "org",
@@ -268,10 +279,17 @@ describe("SourceProviders dispatch", () => {
     const registryRoot = makeRegistryDir();
 
     return runWithService(
-      [{ name: "local", type: "registry" as const, url: new URL(`file://${registryRoot}`) }],
+      [
+        {
+          name: "local",
+          type: "registry" as const,
+          url: new URL(`file://${registryRoot}`),
+          scopes: Option.none(),
+        },
+      ],
       Effect.gen(function* () {
-        const svc = yield* SourceProviders;
-        const refs = yield* svc.resolveExtension(
+        const svc = yield* SourceHostProviders;
+        const refs = yield* svc.find(
           {
             type: "registry",
             scope: "@test",

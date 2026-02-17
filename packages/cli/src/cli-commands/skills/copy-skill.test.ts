@@ -51,12 +51,18 @@ const withServices = (axmDir: string) => {
 };
 
 /** Creates a minimal CopySkillOperation for testing. */
-const makeOp = (overrides: Partial<CopySkillOperation["args"]> = {}): CopySkillOperation => ({
+const makeOp = (
+  overrides: { targetName?: string; location?: string } = {},
+): CopySkillOperation => ({
   name: "copy-skill",
   args: {
-    source: overrides.source ?? { type: "local", path: "/tmp/source" },
+    ref: {
+      type: "skill",
+      skill: { name: "my-skill", description: "test skill", metadata: Option.none() },
+      source: { type: "local", path: "/tmp/source" },
+      location: overrides.location ?? "file:///tmp/source",
+    },
     targetName: overrides.targetName ?? "@community/my-skill",
-    location: overrides.location ?? "file:///tmp/source",
   },
 });
 

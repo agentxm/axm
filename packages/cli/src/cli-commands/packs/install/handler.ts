@@ -15,12 +15,7 @@
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
-import {
-  resolveSource,
-  registryGuard,
-  printSourceInput,
-  SourceProviders,
-} from "../../../sources/index.js";
+import { resolveSource, registryGuard, SourceHostProviders } from "../../../sources/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -32,7 +27,7 @@ import type { InstallPackOperation } from "../operations.js";
 import { buildInstallPlan } from "./build-plan.js";
 import { installPack } from "./install-pack.js";
 import { installSkill } from "../../skills/install/install-skill.js";
-import type { InstallSkillOperation } from "../../skills/operations.js";
+import { skillRefToExtensionRef, type InstallSkillOperation } from "../../skills/operations.js";
 import { copySkillDirectory } from "../../skills/copy-skill-directory.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../skills/constants.js";
 
@@ -76,7 +71,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
 
   return Effect.gen(function* () {
     const ws = yield* Workspace;
-    const sources = yield* SourceProviders;
+    const sources = yield* SourceHostProviders;
     const log = yield* Log;
     const spinnerSvc = yield* Spinner;
     const path = yield* Path.Path;
@@ -110,7 +105,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
         }),
       );
     }
-    yield* parseHandle.stop(`Source: ${printSourceInput(source)} (registry)`);
+    yield* parseHandle.stop(`Source: ${sources.origin(source)} (registry)`);
 
     // Step 2: Check if already installed (unless --force)
     if (!args.force) {
@@ -132,12 +127,12 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
       agents: [] satisfies ReadonlyArray<string>,
       type: "pack" as const,
     };
-    const refs = yield* sources.resolveExtension(source, findOptions).pipe(
+    const refs = yield* sources.find(source, findOptions).pipe(
       Effect.mapError((error) =>
         makeCliError({
           code: "PACK_FETCH_FAILED",
           what: `Failed to fetch pack from registry: ${error.message}`,
-          details: [`Pack: ${printSourceInput(source)}`],
+          details: [`Pack: ${sources.origin(source)}`],
           howToFix: "Verify the pack name and registry configuration.",
           cause: error,
         }),
@@ -241,7 +236,15 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     const resolvedMcpServers: Record<string, string> = { ...(manifest["mcp-servers"] ?? {}) };
 
     // Resolve version from pack ref
-    const resolvedVersion = Option.getOrElse(packRef.version, () => manifest.version);
+    const resolvedVersion = (() => {
+      if ("version" in packRef) {
+        const v = packRef.version;
+        // Legacy ExtensionRef carries version as Option<string>; new refs carry it as string
+        if (Option.isOption(v)) return Option.getOrElse(v, () => manifest.version);
+        if (typeof v === "string") return v;
+      }
+      return manifest.version;
+    })();
 
     // Step 7: Fetch skill dependencies from manifest
     const skillEntries = Object.entries(resolvedSkills);
@@ -275,7 +278,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
             agents: [] satisfies ReadonlyArray<string>,
             type: "skill" as const,
           };
-          const skillRefs = yield* sources.resolveExtension(skillSource, skillFindOpts).pipe(
+          const skillRefs = yield* sources.find(skillSource, skillFindOpts).pipe(
             Effect.mapError((error) =>
               makeCliError({
                 code: "PACK_DEPENDENCY_FETCH_FAILED",
@@ -315,22 +318,17 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     const agents = yield* ws.getConfiguredAgents();
     const skillInstallOps: ReadonlyArray<InstallSkillOperation> = skillOps
       .filter((s) => s.ref.type === "skill")
-      .map(({ ref, fetched }) => {
-        const skillRef = ref as Extract<typeof ref, { type: "skill" }>;
-        return {
-          name: "install-skill" as const,
-          args: {
-            source: skillRef.source,
-            agents,
-            force: args.force,
-            skill: skillRef.skill,
-            location: fetched.directory,
-            version: skillRef.version,
-            gitTreeSha: skillRef.gitTreeSha,
-            skipSettings: true,
-          },
-        } satisfies InstallSkillOperation;
-      });
+      .map(({ ref, fetched }) => ({
+        name: "install-skill" as const,
+        args: {
+          // Assertion needed: legacy providers return SkillRef at runtime, bridge converts to SkillExtensionRef
+          ref: skillRefToExtensionRef(ref as import("../../../sources/provider.js").SkillRef),
+          agents,
+          force: args.force,
+          skipSettings: true,
+          fetchedLocation: fetched.directory,
+        },
+      }));
 
     // Step 8: Build install plan
     const op: InstallPackOperation = {
@@ -356,7 +354,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
       [op, ...skillInstallOps],
       lockfile,
       "Install pack",
-      Option.some(`Install pack ${printSourceInput(source)}`),
+      Option.some(`Install pack ${sources.origin(source)}`),
     );
 
     yield* ws.resolvePlan(plan, { "install-pack": installPack, "install-skill": installSkill });

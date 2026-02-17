@@ -4,6 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import {
@@ -13,7 +14,7 @@ import {
   PacksMapSchema,
   SettingsSchema,
   SkillsMapSchema,
-  SourceConfigSchema,
+  SourceHostConfigSchema,
 } from "./schema.js";
 
 describe("Settings schema", () => {
@@ -93,15 +94,22 @@ describe("Settings schema", () => {
     });
   });
 
-  describe("SourceConfigSchema", () => {
+  describe("SourceHostConfigSchema", () => {
     describe("github variant", () => {
       it("accepts valid github source config", () => {
         const input = { name: "github", type: "github", url: "https://github.com" };
-        const result = Schema.decodeUnknownSync(SourceConfigSchema)(input);
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
         expect(result.name).toBe("github");
         expect(result.type).toBe("github");
         expect(result.url).toEqual(new URL("https://github.com"));
+      });
+
+      it("decodes url as URL object", () => {
+        const input = { name: "github", type: "github", url: "https://github.com" };
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
+
+        expect(result.url).toBeInstanceOf(URL);
       });
 
       it("accepts github source with custom enterprise URL", () => {
@@ -110,7 +118,7 @@ describe("Settings schema", () => {
           type: "github",
           url: "https://github.acme.corp",
         };
-        const result = Schema.decodeUnknownSync(SourceConfigSchema)(input);
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
         expect(result.name).toBe("github.acme");
         expect(result.type).toBe("github");
@@ -121,18 +129,25 @@ describe("Settings schema", () => {
     describe("gitlab variant", () => {
       it("accepts valid gitlab source config", () => {
         const input = { name: "gitlab", type: "gitlab", url: "https://gitlab.com" };
-        const result = Schema.decodeUnknownSync(SourceConfigSchema)(input);
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
         expect(result.name).toBe("gitlab");
         expect(result.type).toBe("gitlab");
         expect(result.url).toEqual(new URL("https://gitlab.com"));
+      });
+
+      it("decodes url as URL object", () => {
+        const input = { name: "gitlab", type: "gitlab", url: "https://gitlab.com" };
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
+
+        expect(result.url).toBeInstanceOf(URL);
       });
     });
 
     describe("bitbucket variant", () => {
       it("accepts valid bitbucket source config", () => {
         const input = { name: "bitbucket", type: "bitbucket", url: "https://bitbucket.org" };
-        const result = Schema.decodeUnknownSync(SourceConfigSchema)(input);
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
         expect(result.name).toBe("bitbucket");
         expect(result.type).toBe("bitbucket");
@@ -143,7 +158,7 @@ describe("Settings schema", () => {
     describe("azurerepos variant", () => {
       it("accepts valid azurerepos source config", () => {
         const input = { name: "azurerepos", type: "azurerepos", url: "https://dev.azure.com" };
-        const result = Schema.decodeUnknownSync(SourceConfigSchema)(input);
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
         expect(result.name).toBe("azurerepos");
         expect(result.type).toBe("azurerepos");
@@ -158,27 +173,100 @@ describe("Settings schema", () => {
           type: "registry",
           url: "https://registry.agentskills.io",
         };
-        const result = Schema.decodeUnknownSync(SourceConfigSchema)(input);
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
         expect(result.name).toBe("main-registry");
         expect(result.type).toBe("registry");
         expect(result.url).toEqual(new URL("https://registry.agentskills.io"));
       });
 
-      it("accepts registry source with scopes", () => {
+      it("decodes url as URL object", () => {
+        const input = {
+          name: "main-registry",
+          type: "registry",
+          url: "https://registry.agentskills.io",
+        };
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
+
+        expect(result.url).toBeInstanceOf(URL);
+      });
+
+      it("decodes scopes array to Some(ReadonlyArray)", () => {
         const input = {
           name: "corp-registry",
           type: "registry",
           url: "https://registry.acme.corp",
           scopes: ["@acme", "@acme-internal"],
         };
-        const result = Schema.decodeUnknownSync(SourceConfigSchema)(input);
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
-        expect(result.name).toBe("corp-registry");
         expect(result.type).toBe("registry");
-        expect(result.url).toEqual(new URL("https://registry.acme.corp"));
         if (result.type === "registry") {
-          expect(result.scopes).toEqual(["@acme", "@acme-internal"]);
+          expect(Option.isSome(result.scopes)).toBe(true);
+          expect(Option.getOrThrow(result.scopes)).toEqual(["@acme", "@acme-internal"]);
+        }
+      });
+
+      it("decodes undefined scopes to None", () => {
+        const input = {
+          name: "public",
+          type: "registry",
+          url: "https://registry.example.com",
+        };
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
+
+        expect(result.type).toBe("registry");
+        if (result.type === "registry") {
+          expect(Option.isNone(result.scopes)).toBe(true);
+        }
+      });
+
+      it("decodes empty scopes array to Some([])", () => {
+        const input = {
+          name: "local",
+          type: "registry",
+          url: "file:///usr/local/axm/registry",
+          scopes: [],
+        };
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
+
+        expect(result.type).toBe("registry");
+        if (result.type === "registry") {
+          expect(Option.isSome(result.scopes)).toBe(true);
+          expect(Option.getOrThrow(result.scopes)).toEqual([]);
+        }
+      });
+
+      it("encodes Some(scopes) back to array", () => {
+        const input = {
+          name: "corp-registry",
+          type: "registry",
+          url: "https://registry.acme.corp",
+          scopes: ["@acme"],
+        };
+        const decoded = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
+        const encoded = Schema.encodeSync(SourceHostConfigSchema)(decoded);
+
+        expect(encoded).toEqual({
+          name: "corp-registry",
+          type: "registry",
+          url: "https://registry.acme.corp/",
+          scopes: ["@acme"],
+        });
+      });
+
+      it("encodes None scopes to undefined (omitted)", () => {
+        const input = {
+          name: "public",
+          type: "registry",
+          url: "https://registry.example.com",
+        };
+        const decoded = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
+        const encoded = Schema.encodeSync(SourceHostConfigSchema)(decoded);
+
+        expect(encoded.type).toBe("registry");
+        if (encoded.type === "registry") {
+          expect(encoded.scopes).toBeUndefined();
         }
       });
 
@@ -188,42 +276,25 @@ describe("Settings schema", () => {
           type: "registry",
           url: "file:///usr/local/axm/registry",
         };
-        const result = Schema.decodeUnknownSync(SourceConfigSchema)(input);
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
         expect(result.name).toBe("local");
         expect(result.type).toBe("registry");
         expect(result.url).toEqual(new URL("file:///usr/local/axm/registry"));
-      });
-
-      it("accepts registry source with empty scopes array", () => {
-        const input = {
-          name: "local",
-          type: "registry",
-          url: "file:///usr/local/axm/registry",
-          scopes: [],
-        };
-        const result = Schema.decodeUnknownSync(SourceConfigSchema)(input);
-
-        expect(result.name).toBe("local");
-        expect(result.type).toBe("registry");
-        expect(result.url).toEqual(new URL("file:///usr/local/axm/registry"));
-        if (result.type === "registry") {
-          expect(result.scopes).toEqual([]);
-        }
       });
     });
 
     describe("name validation", () => {
       it("accepts lowercase alphanumeric name", () => {
         const input = { name: "local", type: "github", url: "https://github.com" };
-        const result = Schema.decodeUnknownSync(SourceConfigSchema)(input);
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
         expect(result.name).toBe("local");
       });
 
       it("accepts name with dots", () => {
         const input = { name: "github.acme", type: "github", url: "https://github.acme.corp" };
-        const result = Schema.decodeUnknownSync(SourceConfigSchema)(input);
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
         expect(result.name).toBe("github.acme");
       });
@@ -234,14 +305,14 @@ describe("Settings schema", () => {
           type: "registry",
           url: "https://registry.corp.com",
         };
-        const result = Schema.decodeUnknownSync(SourceConfigSchema)(input);
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
         expect(result.name).toBe("corp-registry");
       });
 
       it("accepts single character name", () => {
         const input = { name: "a", type: "github", url: "https://github.com" };
-        const result = Schema.decodeUnknownSync(SourceConfigSchema)(input);
+        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
         expect(result.name).toBe("a");
       });
@@ -249,37 +320,37 @@ describe("Settings schema", () => {
       it("rejects name with uppercase letters", () => {
         const input = { name: "GitHub", type: "github", url: "https://github.com" };
 
-        expect(() => Schema.decodeUnknownSync(SourceConfigSchema)(input)).toThrow();
+        expect(() => Schema.decodeUnknownSync(SourceHostConfigSchema)(input)).toThrow();
       });
 
       it("rejects name with special characters", () => {
         const input = { name: "my@source", type: "github", url: "https://github.com" };
 
-        expect(() => Schema.decodeUnknownSync(SourceConfigSchema)(input)).toThrow();
+        expect(() => Schema.decodeUnknownSync(SourceHostConfigSchema)(input)).toThrow();
       });
 
       it("rejects name with underscores", () => {
         const input = { name: "my_source", type: "github", url: "https://github.com" };
 
-        expect(() => Schema.decodeUnknownSync(SourceConfigSchema)(input)).toThrow();
+        expect(() => Schema.decodeUnknownSync(SourceHostConfigSchema)(input)).toThrow();
       });
 
       it("rejects name starting with hyphen", () => {
         const input = { name: "-github", type: "github", url: "https://github.com" };
 
-        expect(() => Schema.decodeUnknownSync(SourceConfigSchema)(input)).toThrow();
+        expect(() => Schema.decodeUnknownSync(SourceHostConfigSchema)(input)).toThrow();
       });
 
       it("rejects name starting with dot", () => {
         const input = { name: ".github", type: "github", url: "https://github.com" };
 
-        expect(() => Schema.decodeUnknownSync(SourceConfigSchema)(input)).toThrow();
+        expect(() => Schema.decodeUnknownSync(SourceHostConfigSchema)(input)).toThrow();
       });
 
       it("rejects empty name", () => {
         const input = { name: "", type: "github", url: "https://github.com" };
 
-        expect(() => Schema.decodeUnknownSync(SourceConfigSchema)(input)).toThrow();
+        expect(() => Schema.decodeUnknownSync(SourceHostConfigSchema)(input)).toThrow();
       });
     });
 
@@ -287,7 +358,7 @@ describe("Settings schema", () => {
       it("rejects unknown source type", () => {
         const input = { name: "foo", type: "unknown", url: "https://example.com" };
 
-        expect(() => Schema.decodeUnknownSync(SourceConfigSchema)(input)).toThrow();
+        expect(() => Schema.decodeUnknownSync(SourceHostConfigSchema)(input)).toThrow();
       });
     });
   });
@@ -341,11 +412,10 @@ describe("Settings schema", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.sources).toHaveLength(1);
-      expect(result.sources?.[0]).toEqual({
-        name: "main-registry",
-        type: "registry",
-        url: new URL("https://registry.agentskills.io"),
-      });
+      const source = result.sources?.[0];
+      expect(source?.name).toBe("main-registry");
+      expect(source?.type).toBe("registry");
+      expect(source?.url).toEqual(new URL("https://registry.agentskills.io"));
     });
 
     it("accepts sources array with mixed source types", () => {

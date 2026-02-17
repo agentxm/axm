@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CliError } from "../cli-error/index.js";
-import type { SourceConfig } from "../settings/index.js";
+import type { SourceConfig, SourceHostConfig } from "../settings/index.js";
 import { makeTextInputTestLayer } from "../tui/index.js";
 import { Workspace, type WorkspaceContextService } from "../workspace/index.js";
 import { registryGuard } from "./registry-guard.js";
@@ -64,6 +64,7 @@ describe("registryGuard", () => {
         name: "existing",
         type: "registry",
         url: new URL("file:///path/to/registry"),
+        scopes: Option.none(),
       };
 
       const workspaceLayer = makeWorkspaceLayer({ registrySources: [existingRegistry] });
@@ -119,6 +120,7 @@ describe("registryGuard", () => {
         name: "local",
         type: "registry",
         url: new URL("file:///home/user/registry"),
+        scopes: Option.none(),
       });
     }),
   );
@@ -143,7 +145,7 @@ describe("registryGuard", () => {
 
       // Verify addSource was called with expanded path
       expect(addSourceMock).toHaveBeenCalledTimes(1);
-      const call = addSourceMock.mock.calls[0] as [SourceConfig] | undefined;
+      const call = addSourceMock.mock.calls[0] as [SourceHostConfig] | undefined;
       expect(call).toBeDefined();
       if (call) {
         const config = call[0];
@@ -185,6 +187,7 @@ describe("registryGuard", () => {
         name: "local",
         type: "registry",
         url: new URL("file:///new/registry"),
+        scopes: Option.none(),
       });
     }),
   );

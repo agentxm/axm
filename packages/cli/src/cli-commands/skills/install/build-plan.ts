@@ -29,22 +29,22 @@ export const buildPlan = (
     {
       concurrency: 1,
       steps: ops.map((op) => {
-        const installed = Object.hasOwn(lockfile.skills, op.args.skill.name);
+        const installed = Object.hasOwn(lockfile.skills, op.args.ref.skill.name);
         return installed && !op.args.force
           ? ({
               _tag: "PlannedJobStep",
               operation: op,
               expectedResult: { result: "no-op", message: "already installed" },
-              label: op.args.skill.name,
+              label: op.args.ref.skill.name,
             } satisfies PlannedJobStep<InstallSkillOperation>)
           : ({
               _tag: "PlannedJobStep",
               operation: op,
               expectedResult: {
                 result: "success",
-                message: `Installed ${op.args.skill.name}`,
+                message: `Installed ${op.args.ref.skill.name}`,
               },
-              label: op.args.skill.name,
+              label: op.args.ref.skill.name,
             } satisfies PlannedJobStep<InstallSkillOperation>);
       }),
     },

@@ -160,8 +160,21 @@ export const writeSettings = (axmDir: string, settings: Settings) =>
       ),
     );
 
+    // Encode through schema (converts Option -> nullable, URL -> string, etc.)
+    const encoded = yield* Schema.encode(SettingsSchema)(settings).pipe(
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "SETTINGS_WRITE_FAILED",
+          what: `Failed to encode settings: ${error.message}`,
+          cause: error,
+        }),
+      ),
+    );
+
     // Serialize to JSON with pretty printing and trailing newline
-    const content = JSON.stringify(orderSettingsKeys(settings), null, 2) + "\n";
+    // The encoded form has the same top-level keys as Settings, just different value types
+    const content =
+      JSON.stringify(orderSettingsKeys(encoded as unknown as Settings), null, 2) + "\n";
 
     // Write file
     yield* fs.writeFileString(settingsPath, content).pipe(

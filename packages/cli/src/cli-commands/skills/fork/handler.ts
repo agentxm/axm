@@ -5,7 +5,7 @@
  * 1. Registry guard (ensure registry configured)
  * 2. Parse source via resolveSource
  * 3. Scope resolution
- * 4. Discover skills via SourceProviders
+ * 4. Discover skills via SourceHostProviders
  * 5. Filter by --skill globs (if provided)
  * 6. Build plan: fork → publish → install (sequential)
  * 7. Execute via resolvePlan
@@ -14,7 +14,11 @@
  */
 
 import * as Path from "@effect/platform/Path";
-import { resolveSourcePattern, SourceProviders, registryGuard } from "../../../sources/index.js";
+import {
+  resolveSourcePattern,
+  SourceHostProviders,
+  registryGuard,
+} from "../../../sources/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -24,9 +28,9 @@ import { Workspace as Workspace } from "../../../workspace/index.js";
 import type {
   CopySkillOperation,
   InstallSkillOperation,
-  InstallSkillOperationArgs,
   PublishSkillOperation,
 } from "../operations.js";
+import { skillRefToExtensionRef } from "../operations.js";
 import { copySkill } from "../copy-skill.js";
 import { installSkill } from "../install/install-skill.js";
 import { publishSkill } from "../publish-skill.js";
@@ -66,7 +70,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
     const path = yield* Path.Path;
     const log = yield* Log;
     const spinnerSvc = yield* Spinner;
-    const sources = yield* SourceProviders;
+    const sources = yield* SourceHostProviders;
     const base = path.dirname(ws.path);
 
     yield* log.info("axm skills fork");
@@ -109,7 +113,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
 
     const allRefs = yield* Effect.forEach(
       resolvedSources,
-      (source) => sources.resolveExtension(source, { names: [], agents: [], type: "skill" }),
+      (source) => sources.find(source, { names: [], agents: [], type: "skill" }),
       { concurrency: "unbounded" },
     ).pipe(
       Effect.map(Array.flatten),
@@ -195,33 +199,38 @@ export const handleFork = (args: ForkHandlerArgs) =>
     // Step 7: Build plan — fork + publish + install per skill (3 sequential ops)
     const steps: ReadonlyArray<PlannedJobStep<ForkOp>> = Array.flatMap(filtered, (ref) => {
       const targetName = `${scope}/${ref.skill.name}`;
-      const installArgs: InstallSkillOperationArgs = {
-        source: { type: "registry", scope, name: ref.skill.name, versionConstraint: Option.none() },
-        agents: [...agentIds],
-        force: true,
+      const extensionRef = skillRefToExtensionRef(ref);
+      // After fork + publish, the skill lives in the registry extensions dir.
+      // Build a registry SkillExtensionRef for the install step.
+      const registryRef = {
+        type: "skill" as const,
         skill: {
           name: ref.skill.name,
           description: ref.skill.description,
           metadata: ref.skill.metadata,
         },
-        location:
-          "file://" +
-          path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "skills", ref.skill.name, "src"),
-        version: Option.some("0.1.0"),
-        gitTreeSha: Option.none(),
-      };
+        source: {
+          type: "registry" as const,
+          scope,
+          name: ref.skill.name,
+          versionConstraint: Option.none(),
+          url: new URL("file://localhost"),
+          scopes: Option.none(),
+        },
+        version: "0.1.0",
+        checksum: "",
+      } as import("../../../sources/types.js").RegistrySkillRef;
+      const fetchedLocation =
+        "file://" +
+        path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "skills", ref.skill.name, "src");
       return [
         {
           _tag: "PlannedJobStep" as const,
           operation: {
             name: "copy-skill",
             args: {
-              source: {
-                type: "local",
-                path: ref.location.replace(/^file:\/\//, ""),
-              } satisfies CopySkillOperation["args"]["source"],
+              ref: extensionRef,
               targetName,
-              location: ref.location,
             },
           } satisfies CopySkillOperation,
           expectedResult: {
@@ -246,7 +255,12 @@ export const handleFork = (args: ForkHandlerArgs) =>
           _tag: "PlannedJobStep" as const,
           operation: {
             name: "install-skill",
-            args: installArgs,
+            args: {
+              ref: registryRef,
+              agents: [...agentIds],
+              force: true,
+              fetchedLocation,
+            },
           } satisfies InstallSkillOperation,
           expectedResult: { result: "success", message: `Installed ${ref.skill.name}` },
           label: `Install ${ref.skill.name}`,

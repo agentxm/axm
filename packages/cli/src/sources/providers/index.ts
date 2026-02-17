@@ -6,17 +6,24 @@
  */
 
 export { createAzureReposProvider } from "./azurerepos.js";
-export { createGitProvider } from "./git.js";
+export { createBuiltinSourceHostProvider } from "./builtin.js";
+export { createGitProvider, createGitSourceHostProvider } from "./git.js";
 export {
+  createAzureReposSourceHostProvider,
   createBitbucketProvider,
+  createBitbucketSourceHostProvider,
   createGitHostingProvider,
+  createGitHostingSourceHostProvider,
   createGitHubProvider,
+  createGitHubSourceHostProvider,
   createGitLabProvider,
+  createGitLabSourceHostProvider,
 } from "./git-hosting.js";
-export { createLocalProvider } from "./local.js";
+export { createLocalProvider, createLocalSourceHostProvider } from "./local.js";
 export type { RegistrySourceProvider } from "./registry.js";
 export {
   createLocalRegistryProvider,
   createRegistryProvider,
+  createRegistrySourceHostProvider,
   createRemoteRegistryProvider,
 } from "./registry.js";

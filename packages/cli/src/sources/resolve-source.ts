@@ -22,8 +22,8 @@ import * as github from "./github/index.js";
 import * as gitlab from "./gitlab/index.js";
 import { parseLocalPath } from "./local/index.js";
 import { parseInputPattern } from "./parser.js";
-import type { Source, SourceInput, SourceType } from "./types.js";
-import type { SourceConfig } from "../settings/schema.js";
+import type { Source, SourceParams, SourceType } from "./types.js";
+import type { SourceHostConfig } from "../settings/schema.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import { Workspace } from "../workspace/index.js";
 import {
@@ -69,7 +69,7 @@ const getInstalledSkillPath = (name: string, entry: SkillLockEntry): string => {
 const parseShorthandForSource = (
   sourceType: string,
   input: string,
-): Effect.Effect<SourceInput, CliError> => {
+): Effect.Effect<SourceParams, CliError> => {
   switch (sourceType) {
     case "github":
       return github.parseShorthand(input);
@@ -87,6 +87,16 @@ const parseShorthandForSource = (
       );
   }
 };
+
+/**
+ * Merge a SourceHostConfig with SourceParams to produce a Source.
+ * Centralizes the single assertion needed because TS can't narrow
+ * SourceParams & SourceHostConfig intersection to a specific Source variant.
+ */
+const configToSource = (config: SourceHostConfig, params: SourceParams): Source =>
+  // Assertion needed: TS can't prove spread of two discriminated unions
+  // (both keyed on `type`) produces a valid Source union member
+  ({ ...params, ...config }) as Source;
 
 // -----------------------------------------------------------------------------
 // URL routing
@@ -112,15 +122,14 @@ const routeUrlInput = (url: URL, input: string) =>
 
     const tryParseUrl = (
       configUrl: URL,
-      config: SourceConfig,
-      parse: (url: URL, hostname: string) => Effect.Effect<SourceInput, CliError>,
+      config: SourceHostConfig,
+      parse: (url: URL, hostname: string) => Effect.Effect<SourceParams, CliError>,
     ) =>
       configUrl.hostname !== url.hostname
         ? Effect.fail(noMatch)
-        : // Assertion needed: TS can't narrow SourceInput & SourceConfig intersection to Source union
-          Effect.map(parse(url, configUrl.hostname), (si) => ({ ...si, ...config }) as Source);
+        : Effect.map(parse(url, configUrl.hostname), (params) => configToSource(config, params));
 
-    const tryMatch = Match.type<SourceConfig>().pipe(
+    const tryMatch = Match.type<SourceHostConfig>().pipe(
       Match.when({ type: "github" }, (c) => tryParseUrl(c.url, c, github.parseUrl)),
       Match.when({ type: "gitlab" }, (c) => tryParseUrl(c.url, c, gitlab.parseUrl)),
       Match.when({ type: "bitbucket" }, (c) => tryParseUrl(c.url, c, bitbucket.parseUrl)),
@@ -168,9 +177,8 @@ const routeOpaqueUrl = (url: URL, input: string) =>
     if (matchedConfig && GIT_HOSTING_TYPES.has(matchedConfig.type)) {
       const remainder = input.slice(colonIndex + 1);
       const reparsed = `${matchedConfig.type}:${remainder}`;
-      const parsedInput = yield* parseShorthandForSource(matchedConfig.type, reparsed);
-      // Assertion needed: TS can't narrow SourceInput & SourceConfig intersection to Source union
-      return { ...parsedInput, ...matchedConfig } as Source;
+      const params = yield* parseShorthandForSource(matchedConfig.type, reparsed);
+      return configToSource(matchedConfig, params);
     }
 
     // Not a config name — fail
@@ -204,15 +212,14 @@ const routeScpInput = (
 
     const tryParseScp = (
       scpHostname: string,
-      config: SourceConfig,
-      parse: (input: string, hostname: string) => Effect.Effect<SourceInput, CliError>,
+      config: SourceHostConfig,
+      parse: (input: string, hostname: string) => Effect.Effect<SourceParams, CliError>,
     ) =>
       scp.host !== scpHostname
         ? Effect.fail(noMatch)
-        : // Assertion needed: TS can't narrow SourceInput & SourceConfig intersection to Source union
-          Effect.map(parse(scpInput, scp.host), (si) => ({ ...si, ...config }) as Source);
+        : Effect.map(parse(scpInput, scp.host), (params) => configToSource(config, params));
 
-    const tryMatch = Match.type<SourceConfig>().pipe(
+    const tryMatch = Match.type<SourceHostConfig>().pipe(
       Match.when({ type: "github" }, (c) => tryParseScp(c.url.hostname, c, github.parseScp)),
       Match.when({ type: "gitlab" }, (c) => tryParseScp(c.url.hostname, c, gitlab.parseScp)),
       Match.when({ type: "bitbucket" }, (c) => tryParseScp(c.url.hostname, c, bitbucket.parseScp)),
@@ -257,7 +264,7 @@ const routeShorthandInput = (prefix: string, shorthandInput: string, input: stri
     // Known source-type prefix → dispatch directly, select first config of that type
     const isKnownType = prefix === "github" || prefix === "gitlab" || prefix === "bitbucket";
     if (isKnownType) {
-      const parsedInput = yield* parseShorthandForSource(prefix, shorthandInput);
+      const params = yield* parseShorthandForSource(prefix, shorthandInput);
       const config = sources.find((s) => s.type === prefix);
       if (!config) {
         return yield* makeCliError({
@@ -266,8 +273,7 @@ const routeShorthandInput = (prefix: string, shorthandInput: string, input: stri
           details: [input],
         });
       }
-      // Assertion needed: TS can't narrow SourceInput & SourceConfig intersection to Source union
-      return { ...parsedInput, ...config } as Source;
+      return configToSource(config, params);
     }
 
     // Config-name prefix → find config, parse with its source type parser
@@ -282,9 +288,8 @@ const routeShorthandInput = (prefix: string, shorthandInput: string, input: stri
 
     const remainder = shorthandInput.slice(prefix.length + 1);
     const reparsed = `${matchedConfig.type}:${remainder}`;
-    const parsedInput = yield* parseShorthandForSource(matchedConfig.type, reparsed);
-    // Assertion needed: TS can't narrow SourceInput & SourceConfig intersection to Source union
-    return { ...parsedInput, ...matchedConfig } as Source;
+    const params = yield* parseShorthandForSource(matchedConfig.type, reparsed);
+    return configToSource(matchedConfig, params);
   });
 
 // -----------------------------------------------------------------------------
@@ -335,17 +340,50 @@ const routeNameInput = (name: string, input: string) =>
 /** Route FilePathPattern: parse as local source. */
 const routeFilePathInput = (path: string) => Effect.map(parseLocalPath(path), (source) => source);
 
-/** Route RegistryPatternInput: construct registry source from parsed scope and name. */
-const routeRegistryInput = (pattern: {
-  readonly scope: string;
-  readonly name: string;
-  readonly versionConstraint?: string;
-}) =>
-  Effect.succeed({
-    type: "registry" as const,
-    scope: pattern.scope,
-    name: pattern.name,
-    versionConstraint: Option.fromNullable(pattern.versionConstraint),
+/** Route RegistryPatternInput: find matching registry config and intersect with params. */
+const routeRegistryInput = (
+  pattern: {
+    readonly scope: string;
+    readonly name: string;
+    readonly versionConstraint?: string;
+  },
+  input: string,
+) =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace;
+    const scope = Option.some(pattern.scope);
+
+    const registrySources = yield* ws.getConfiguredRegistrySources(scope).pipe(
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "SOURCE_PARSE_FAILED",
+          what: `Failed to get registry sources: ${e._tag}`,
+          details: [input],
+        }),
+      ),
+    );
+
+    const params = {
+      type: "registry" as const,
+      scope: pattern.scope,
+      name: pattern.name,
+      versionConstraint: Option.fromNullable(pattern.versionConstraint),
+    };
+
+    // If a registry config exists, intersect host config with params
+    if (registrySources.length > 0) {
+      const regConfig = registrySources[0]!;
+      return {
+        ...params,
+        url: regConfig.url,
+        scopes: regConfig.scopes,
+      };
+    }
+
+    // No registry config — return params only (self-describing, for backward compat)
+    // This maintains the existing behavior where registry sources without config
+    // still resolve but the meta-provider handles the config lookup at find() time
+    return params as Source;
   });
 
 /**
@@ -367,8 +405,7 @@ const routeSlashInput = (
       return Option.some(
         Effect.map(
           parseShorthandForSource(sourceType, `${sourceType}:${shorthandBody}`),
-          // Assertion needed: TS can't narrow SourceInput & SourceConfig intersection to Source union
-          (si) => ({ ...si, ...config }) as Source,
+          (params) => configToSource(config, params),
         ),
       );
     });
@@ -441,7 +478,7 @@ export const resolveSource = (input: string): Effect.Effect<Source, CliError, Wo
       case "FilePathPattern":
         return yield* routeFilePathInput(pattern.path);
       case "RegistryPatternInput":
-        return yield* routeRegistryInput(pattern);
+        return yield* routeRegistryInput(pattern, trimmed);
       case "SlashPattern":
         return yield* routeSlashInput(pattern, trimmed);
       case "GlobInput":

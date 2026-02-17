@@ -36,21 +36,94 @@ export type {
   Source,
 } from "./types.js";
 
+// Types — New domain model (source-host-domain-modeling)
+export type {
+  // SourceHost
+  AzureReposSourceHost,
+  BitbucketSourceHost,
+  BuiltinSourceHost,
+  ConfiguredSourceHost,
+  GitHostingSourceHost,
+  GitHubSourceHost,
+  GitLabSourceHost,
+  GitSourceHost,
+  LocalSourceHost,
+  RegistrySourceHost,
+  SelfDescribingSourceHost,
+  SourceHost,
+  // SourceParams
+  AzureReposSourceParams,
+  BitbucketSourceParams,
+  BuiltinSourceParams,
+  GitHubSourceParams,
+  GitHostingSourceParams,
+  GitLabSourceParams,
+  GitSourceParams,
+  LocalSourceParams,
+  RegistrySourceParams,
+  SourceParams,
+  // New Source (flat intersection)
+  BuiltinSource,
+  GitBasedSource,
+  GitHostingSource,
+  NewAzureReposSource,
+  NewBitbucketSource,
+  NewGitHubSource,
+  NewGitLabSource,
+  NewGitSource,
+  NewLocalSource,
+  NewRegistrySource,
+  NewSource,
+  // FindableExtensionType
+  FindableExtensionType,
+  // Ref details
+  BuiltinRefDetails,
+  GitHostedRefDetails,
+  LocalRefDetails,
+  RegistryRefDetails,
+  // Skill extension refs
+  AzureReposSkillRef,
+  BitbucketSkillRef,
+  BuiltinSkillRef,
+  GitHubSkillRef,
+  GitLabSkillRef,
+  GitSkillRef,
+  LocalSkillRef,
+  RegistrySkillRef,
+  SkillExtensionRef,
+  SkillRefBase,
+  // MCP server extension refs
+  BuiltinMcpServerRef,
+  GitHubMcpServerRef,
+  LocalMcpServerRef,
+  McpServerExtensionRef,
+  McpServerRefBase,
+  RegistryMcpServerRef,
+  // Pack extension refs
+  BuiltinPackRef,
+  PackExtensionRef,
+  RegistryPackRef,
+  // Union
+  SourceExtensionRef,
+} from "./types.js";
+
 // Type guards
 export { isGitHostingProviderSource } from "./utils.js";
 
-// Provider types
+// Provider types — legacy
 export type {
   ExtensionFiles,
   ExtensionRef,
   FindOptions,
   McpServerRef,
-  ProviderRegistry,
   SkillRef,
   SourceProvider,
 } from "./provider.js";
 
-// Provider implementations
+// Provider types — new
+export type { SourceHostProvider, PublishableSourceHostProvider } from "./provider.js";
+
+// Provider implementations — legacy
 export type { RegistrySourceProvider } from "./providers/index.js";
 export {
   createAzureReposProvider,
@@ -64,9 +137,26 @@ export {
   createRemoteRegistryProvider,
 } from "./providers/index.js";
 
-// SourceProviders service
-export type { SourceProvidersService } from "./service.js";
-export { SourceProviders, SourceProvidersLive, createRegistryMetaProvider } from "./service.js";
+// Provider implementations — new (SourceHostProvider)
+export {
+  createAzureReposSourceHostProvider,
+  createBitbucketSourceHostProvider,
+  createBuiltinSourceHostProvider,
+  createGitHostingSourceHostProvider,
+  createGitHubSourceHostProvider,
+  createGitLabSourceHostProvider,
+  createGitSourceHostProvider,
+  createLocalSourceHostProvider,
+  createRegistrySourceHostProvider,
+} from "./providers/index.js";
+
+// SourceHostProviders service (new)
+export type { SourceHostProvidersService } from "./service.js";
+export {
+  SourceHostProviders,
+  SourceHostProvidersLive,
+  createRegistryMetaProvider,
+} from "./service.js";
 
 // Input pattern classifier
 export { parseInputPattern } from "./parser.js";
@@ -77,10 +167,7 @@ export { resolveSource } from "./resolve-source.js";
 export { resolveSourcePattern } from "./resolve-source-pattern.js";
 
 // Printer
-export { lockEntryToSourceInput, printSourceInput } from "./printer.js";
-
-// Clone URL utilities
-export { buildCloneUrl, getOrigin } from "./clone-url.js";
+export { lockEntryToSourceInput, lockEntryToSourceParams, printSourceInput } from "./printer.js";
 
 // Git operations
 export {

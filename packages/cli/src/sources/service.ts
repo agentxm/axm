@@ -1,8 +1,8 @@
 /**
- * SourceProviders Effect service.
+ * SourceHostProviders Effect service.
  *
  * Provides a unified interface for discovering and fetching extensions
- * across all source types. Handlers consume this via `yield* SourceProviders`.
+ * across all source types, plus clone URL and origin building.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -20,48 +20,109 @@ import type { CliError } from "../cli-error/index.js";
 import { makeCliError } from "../cli-error/index.js";
 import { Workspace } from "../workspace/service.js";
 import type { ExtensionFiles, ExtensionRef, FindOptions, SourceProvider } from "./provider.js";
+import type { SourceExtensionRef, NewSource } from "./types.js";
 import {
   createAzureReposProvider,
   createBitbucketProvider,
+  createBuiltinSourceHostProvider,
   createGitHubProvider,
   createGitLabProvider,
   createGitProvider,
   createLocalProvider,
   createRegistryProvider,
 } from "./providers/index.js";
-import type { RegistrySourceInput, Source } from "./types.js";
+import type { RegistrySourceInput, Source, SourceInput, SourceType } from "./types.js";
+import { buildCloneUrlForSource } from "./providers/git-hosting.js";
 
 // -----------------------------------------------------------------------------
 // Service Interface
 // -----------------------------------------------------------------------------
 
 /**
- * Service interface for source providers.
+ * Service interface for source host providers.
  *
  * Dependencies (FileSystem, Path, Workspace) are resolved at layer creation —
  * callers only see the service, not its implementation details.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface SourceProvidersService {
-  /** Discover extensions matching the given source and search criteria. */
-  readonly resolveExtension: (
+export interface SourceHostProvidersService {
+  /** Find extensions matching the given source and search criteria. */
+  readonly find: (
     source: Source,
     options: FindOptions,
-  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, CliError, Scope.Scope>;
+  ) => Effect.Effect<ReadonlyArray<SourceExtensionRef | ExtensionRef>, CliError, Scope.Scope>;
   /** Fetch and materialize extension files for a discovered ref. */
-  readonly fetch: (ref: ExtensionRef) => Effect.Effect<ExtensionFiles, CliError, Scope.Scope>;
+  readonly fetch: (
+    ref: SourceExtensionRef | ExtensionRef,
+  ) => Effect.Effect<ExtensionFiles, CliError, Scope.Scope>;
+  /** Build a git clone URL for this source. Returns None for non-git sources. */
+  readonly cloneUrl: (source: Source | NewSource) => Option.Option<string>;
+  /** Canonical origin string for display/comparison. */
+  readonly origin: (source: Source | NewSource) => string;
 }
 
 /**
- * Effect service tag for source providers.
+ * Effect service tag for source host providers.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export class SourceProviders extends Context.Tag("@axm.sh/cli/SourceProviders")<
-  SourceProviders,
-  SourceProvidersService
+export class SourceHostProviders extends Context.Tag("@axm.sh/cli/SourceHostProviders")<
+  SourceHostProviders,
+  SourceHostProvidersService
 >() {}
+
+// -----------------------------------------------------------------------------
+// Clone URL Building
+// -----------------------------------------------------------------------------
+
+/**
+ * Build a git clone URL from a source.
+ * Returns Some for git-based hosting sources, None for others.
+ */
+const buildCloneUrlFromSource = (source: Source | NewSource): Option.Option<string> => {
+  switch (source.type) {
+    case "github":
+    case "gitlab":
+    case "bitbucket":
+    case "azurerepos":
+      return Option.some(buildCloneUrlForSource(source));
+    case "git":
+    case "registry":
+    case "local":
+    case "builtin":
+      return Option.none();
+  }
+};
+
+// -----------------------------------------------------------------------------
+// Origin Building
+// -----------------------------------------------------------------------------
+
+/**
+ * Get the canonical origin string for display/comparison.
+ * Handles all source types including builtin.
+ */
+const getOriginFromSource = (source: Source | NewSource): string => {
+  switch (source.type) {
+    case "github":
+      return `${source.url.origin}/${source.owner}/${source.repo}`;
+    case "gitlab":
+      return `${source.url.origin}/${source.owner}/${source.repo}`;
+    case "bitbucket":
+      return `${source.url.origin}/${source.owner}/${source.repo}`;
+    case "azurerepos":
+      return `${source.url.origin}/${source.organization}/${source.project}/_git/${source.repo}`;
+    case "local":
+      return source.path;
+    case "git":
+      return source.url.href;
+    case "registry":
+      return "url" in source ? source.url.origin : source.type;
+    case "builtin":
+      return "builtin";
+  }
+};
 
 // -----------------------------------------------------------------------------
 // Registry Meta-Provider
@@ -152,7 +213,7 @@ export const createRegistryMetaProvider = (): SourceProvider<
 // -----------------------------------------------------------------------------
 
 /**
- * Live layer for SourceProviders.
+ * Live layer for SourceHostProviders.
  *
  * Constructs the provider registry with all source type providers.
  * Captures FileSystem, Path, and Workspace at creation time so the
@@ -160,12 +221,12 @@ export const createRegistryMetaProvider = (): SourceProvider<
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SourceProvidersLive: Layer.Layer<
-  SourceProviders,
+export const SourceHostProvidersLive: Layer.Layer<
+  SourceHostProviders,
   never,
   FileSystem.FileSystem | Path.Path | Workspace
 > = Layer.effect(
-  SourceProviders,
+  SourceHostProviders,
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -186,8 +247,10 @@ export const SourceProvidersLive: Layer.Layer<
       Layer.succeed(Workspace, ws),
     );
 
+    const builtinProvider = createBuiltinSourceHostProvider();
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dispatch table: each key maps to correct provider
-    const providers: Record<Source["type"], SourceProvider<any, any>> = {
+    const providers: Record<SourceType, SourceProvider<any, any>> = {
       github: githubProvider,
       gitlab: gitlabProvider,
       bitbucket: bitbucketProvider,
@@ -195,21 +258,30 @@ export const SourceProvidersLive: Layer.Layer<
       git: gitProvider,
       local: localProvider,
       registry: registryMetaProvider,
+      // Assertion needed: SourceHostProvider has `match` method but dispatch table expects SourceProvider
+      builtin: builtinProvider as unknown as SourceProvider<SourceInput, never>,
     };
 
+    const findImpl = (source: Source, options: FindOptions) =>
+      providers[source.type].find(source, options).pipe(Effect.provide(depLayer)) as Effect.Effect<
+        ReadonlyArray<ExtensionRef>,
+        CliError,
+        Scope.Scope
+      >;
+
     return {
-      resolveExtension: (source, options) =>
-        providers[source.type]
-          .find(source, options)
-          .pipe(Effect.provide(depLayer)) as Effect.Effect<
-          ReadonlyArray<ExtensionRef>,
-          CliError,
-          Scope.Scope
-        >,
-      fetch: (ref) =>
-        providers[ref.source.type]
-          .fetch(ref.source, ref)
-          .pipe(Effect.provide(depLayer)) as Effect.Effect<ExtensionFiles, CliError, Scope.Scope>,
+      find: findImpl as SourceHostProvidersService["find"],
+      fetch: (ref) => {
+        const source = ref.source;
+        return (
+          providers[source.type]
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- legacy providers accept ExtensionRef; SourceExtensionRef is structurally compatible
+            .fetch(source, ref as any)
+            .pipe(Effect.provide(depLayer)) as Effect.Effect<ExtensionFiles, CliError, Scope.Scope>
+        );
+      },
+      cloneUrl: buildCloneUrlFromSource,
+      origin: getOriginFromSource,
     };
   }),
 );

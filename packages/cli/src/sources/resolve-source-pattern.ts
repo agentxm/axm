@@ -23,7 +23,7 @@ import {
 import { expandGlobs, isGlobPattern } from "../skills/index.js";
 import { Workspace } from "../workspace/index.js";
 import { resolveSource } from "./resolve-source.js";
-import type { Source } from "./types.js";
+import type { SourceLegacy } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -99,7 +99,7 @@ const resolveNameWithFallback = (
 
       const diskPath = onDiskByName.get(name);
       if (diskPath !== undefined) {
-        return Effect.succeed<Source>({ type: "local", path: diskPath });
+        return Effect.succeed<SourceLegacy>({ type: "local", path: diskPath });
       }
 
       return Effect.fail(error);
@@ -123,7 +123,11 @@ const resolveNameWithFallback = (
  */
 export const resolveSourcePattern = (
   input: string,
-): Effect.Effect<ReadonlyArray<Source>, CliError, Workspace | FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  ReadonlyArray<SourceLegacy>,
+  CliError,
+  Workspace | FileSystem.FileSystem | Path.Path
+> =>
   isGlobPattern(input)
     ? Effect.gen(function* () {
         const candidates = yield* buildCandidates;

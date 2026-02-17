@@ -13,10 +13,10 @@ export type {
   AzureReposSourceInputLegacy,
   BitbucketSourceInputLegacy,
   GitHubSourceInputLegacy,
-  GitHostingProviderSource,
+  GitHostingProviderSourceLegacy,
   GitLabSourceInputLegacy,
   GitRepositorySourceInputLegacy,
-  GitSource,
+  GitSourceLegacy,
   LocalSourceInputLegacy,
   RegistrySourceInputLegacy,
   SourceInputLegacy,
@@ -26,14 +26,14 @@ export { SourceTypeSchema } from "./types.js";
 
 // Types — Source (input + config)
 export type {
-  AzureReposSource,
-  BitbucketSource,
-  GitHubSource,
-  GitLabSource,
-  GitRepositorySource,
-  LocalSource,
-  RegistrySource,
-  Source,
+  AzureReposSourceLegacy,
+  BitbucketSourceLegacy,
+  GitHubSourceLegacy,
+  GitLabSourceLegacy,
+  GitRepositorySourceLegacy,
+  LocalSourceLegacy,
+  RegistrySourceLegacy,
+  SourceLegacy,
 } from "./types.js";
 
 // Types — New domain model (source-host-domain-modeling)

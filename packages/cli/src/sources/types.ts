@@ -108,8 +108,10 @@ export interface BitbucketSourceInputLegacy {
 
 /**
  * Union of all git hosting provider sources.
+ *
+ * @deprecated Use `GitHostingSourceParams` instead.
  */
-export type GitHostingProviderSource =
+export type GitHostingProviderSourceLegacy =
   | GitHubSourceInputLegacy
   | GitLabSourceInputLegacy
   | BitbucketSourceInputLegacy
@@ -117,8 +119,10 @@ export type GitHostingProviderSource =
 
 /**
  * Union of all git-based sources (hosting providers, Azure DevOps, and generic git).
+ *
+ * @deprecated Use `GitHostingSourceParams | GitSourceParams` instead.
  */
-export type GitSource = GitHostingProviderSource | GitRepositorySourceInputLegacy;
+export type GitSourceLegacy = GitHostingProviderSourceLegacy | GitRepositorySourceInputLegacy;
 
 /**
  * Azure Repos repository source (placeholder for future implementation).
@@ -213,28 +217,36 @@ export type SourceInputLegacy =
  * @experimental This API is unstable and may change without notice.
  */
 
-export type GitHubSource = GitHubSourceInputLegacy & GitHubSourceHostConfig;
-export type GitLabSource = GitLabSourceInputLegacy & GitLabSourceHostConfig;
-export type BitbucketSource = BitbucketSourceInputLegacy & BitbucketSourceHostConfig;
-export type AzureReposSource = AzureReposSourceInputLegacy & AzureReposSourceHostConfig;
-export type RegistrySource = RegistrySourceInputLegacy;
-export type GitRepositorySource = GitRepositorySourceInputLegacy;
-export type LocalSource = LocalSourceInputLegacy;
+/** @deprecated Use `NewGitHubSource` instead. */
+export type GitHubSourceLegacy = GitHubSourceInputLegacy & GitHubSourceHostConfig;
+/** @deprecated Use `NewGitLabSource` instead. */
+export type GitLabSourceLegacy = GitLabSourceInputLegacy & GitLabSourceHostConfig;
+/** @deprecated Use `NewBitbucketSource` instead. */
+export type BitbucketSourceLegacy = BitbucketSourceInputLegacy & BitbucketSourceHostConfig;
+/** @deprecated Use `NewAzureReposSource` instead. */
+export type AzureReposSourceLegacy = AzureReposSourceInputLegacy & AzureReposSourceHostConfig;
+/** @deprecated Use `NewRegistrySource` instead. */
+export type RegistrySourceLegacy = RegistrySourceInputLegacy;
+/** @deprecated Use `NewGitSource` instead. */
+export type GitRepositorySourceLegacy = GitRepositorySourceInputLegacy;
+/** @deprecated Use `NewLocalSource` instead. */
+export type LocalSourceLegacy = LocalSourceInputLegacy;
 
 /**
  * Union of all resolved source types.
  * Discriminated union based on the `type` field.
  *
+ * @deprecated Use `NewSource` instead.
  * @experimental This API is unstable and may change without notice.
  */
-export type Source =
-  | GitHubSource
-  | GitLabSource
-  | BitbucketSource
-  | AzureReposSource
-  | RegistrySource
-  | GitRepositorySource
-  | LocalSource;
+export type SourceLegacy =
+  | GitHubSourceLegacy
+  | GitLabSourceLegacy
+  | BitbucketSourceLegacy
+  | AzureReposSourceLegacy
+  | RegistrySourceLegacy
+  | GitRepositorySourceLegacy
+  | LocalSourceLegacy;
 
 // =============================================================================
 // New Domain Model (source-host-domain-modeling)

@@ -3,10 +3,7 @@ import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { createRegistryProvider } from "../../../sources/index.js";
 import { parseInputPattern, type InputPattern } from "../../../sources/parser.js";
-import {
-  routeShorthandInput,
-  resolveSlashInputSource,
-} from "../../../sources/resolve-source.js";
+import { routeShorthandInput, resolveSlashInputSource } from "../../../sources/resolve-source.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { RegistrySource } from "../../../sources/types.js";
 
@@ -22,6 +19,7 @@ const resolveRegistrySource = (
     const registrySources = yield* ws.getConfiguredRegistrySources(Option.some(scope)).pipe(
       Effect.mapError((e) =>
         makeCliError({
+          // TODO: update and make error more accurate/meaningful
           code: "SOURCE_PARSE_FAILED",
           what: `Failed to get registry sources: ${e._tag}`,
           details: [input],
@@ -31,6 +29,7 @@ const resolveRegistrySource = (
 
     if (registrySources.length === 0) {
       return yield* makeCliError({
+        // TODO: update and make error more accurate/meaningful
         code: "SOURCE_PARSE_FAILED",
         what: `No registry source configured for scope "${scope}"`,
         details: [input],
@@ -56,6 +55,7 @@ const resolveRegistrySource = (
     }
 
     return yield* makeCliError({
+      // TODO: update and make error more accurate/meaningful
       code: "SOURCE_PARSE_FAILED",
       what: `No registry source contains scope "${scope}"`,
       details: [input],
@@ -69,6 +69,7 @@ const resolveSkillRegistrySource = (
   Effect.gen(function* () {
     if (Option.isSome(pattern.type) && pattern.type.value !== "skills") {
       return yield* makeCliError({
+        // TODO: update and make error more accurate/meaningful
         code: "SOURCE_PARSE_FAILED",
         what: "Expected a skills registry source",
         details: [input],
@@ -86,6 +87,7 @@ export const resolveSkillInstallSource = (input: string) =>
     const patternOpt = parseInputPattern(trimmed);
     if (Option.isNone(patternOpt)) {
       return yield* makeCliError({
+        // TODO: update and make error more accurate/meaningful
         code: "SOURCE_PARSE_FAILED",
         what: "Unable to parse source",
         details: [input],
@@ -107,6 +109,7 @@ export const resolveSkillInstallSource = (input: string) =>
       case "file-path-pattern":
       case "glob-input":
         return yield* makeCliError({
+          // TODO: update and make error more accurate/meaningful
           code: "SOURCE_PARSE_FAILED",
           what: "Glob patterns are not supported by resolveSkillInstallSource - use resolveSourcePattern instead",
           details: [input],

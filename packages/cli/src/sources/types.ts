@@ -57,8 +57,10 @@ export type SourceType = typeof SourceTypeSchema.Type;
 
 /**
  * GitHub repository source.
+ *
+ * @deprecated Use `GitHubSourceParams` instead.
  */
-export interface GitHubSourceInput {
+export interface GitHubSourceInputLegacy {
   readonly type: "github";
   /** Repository owner (user or organization) */
   readonly owner: string;
@@ -72,8 +74,10 @@ export interface GitHubSourceInput {
 
 /**
  * GitLab repository source.
+ *
+ * @deprecated Use `GitLabSourceParams` instead.
  */
-export interface GitLabSourceInput {
+export interface GitLabSourceInputLegacy {
   readonly type: "gitlab";
   /** Repository owner (user or group) */
   readonly owner: string;
@@ -87,8 +91,10 @@ export interface GitLabSourceInput {
 
 /**
  * Bitbucket repository source.
+ *
+ * @deprecated Use `BitbucketSourceParams` instead.
  */
-export interface BitbucketSourceInput {
+export interface BitbucketSourceInputLegacy {
   readonly type: "bitbucket";
   /** Workspace (formerly team or user) */
   readonly owner: string;
@@ -104,22 +110,24 @@ export interface BitbucketSourceInput {
  * Union of all git hosting provider sources.
  */
 export type GitHostingProviderSource =
-  | GitHubSourceInput
-  | GitLabSourceInput
-  | BitbucketSourceInput
-  | AzureReposSourceInput;
+  | GitHubSourceInputLegacy
+  | GitLabSourceInputLegacy
+  | BitbucketSourceInputLegacy
+  | AzureReposSourceInputLegacy;
 
 /**
  * Union of all git-based sources (hosting providers, Azure DevOps, and generic git).
  */
-export type GitSource = GitHostingProviderSource | GitRepositorySourceInput;
+export type GitSource = GitHostingProviderSource | GitRepositorySourceInputLegacy;
 
 /**
  * Azure Repos repository source (placeholder for future implementation).
  *
  * URL format: https://dev.azure.com/{organization}/{project}/_git/{repo}
+ *
+ * @deprecated Use `AzureReposSourceParams` instead.
  */
-export interface AzureReposSourceInput {
+export interface AzureReposSourceInputLegacy {
   readonly type: "azurerepos";
   /** Azure DevOps organization */
   readonly organization: string;
@@ -141,8 +149,10 @@ export interface AzureReposSourceInput {
  * - Standard SSH: ssh://git@server/path/repo.git
  * - Git protocol: git://server/repo.git
  * - File URI: file:///path/to/repo.git
+ *
+ * @deprecated Use `GitSourceParams` instead.
  */
-export type GitRepositorySourceInput = {
+export type GitRepositorySourceInputLegacy = {
   readonly type: "git";
   /** Git ref (tag, branch, or SHA) */
   readonly ref: Option.Option<string>;
@@ -151,8 +161,10 @@ export type GitRepositorySourceInput = {
 
 /**
  * Package registry source input (placeholder for future implementation).
+ *
+ * @deprecated Use `RegistrySourceParams` instead.
  */
-export type RegistrySourceInput = {
+export type RegistrySourceInputLegacy = {
   readonly type: "registry";
   readonly scope: string;
   readonly name: string;
@@ -161,8 +173,10 @@ export type RegistrySourceInput = {
 
 /**
  * Local filesystem path source.
+ *
+ * @deprecated Use `LocalSourceParams` instead.
  */
-export interface LocalSourceInput {
+export interface LocalSourceInputLegacy {
   readonly type: "local";
   /** Absolute path for local sources (after ~ expansion) */
   readonly path: string;
@@ -172,16 +186,17 @@ export interface LocalSourceInput {
  * Union of all source input types.
  * Discriminated union based on the `type` field.
  *
+ * @deprecated Use `SourceParams` instead.
  * @experimental This API is unstable and may change without notice.
  */
-export type SourceInput =
-  | GitHubSourceInput
-  | GitLabSourceInput
-  | BitbucketSourceInput
-  | AzureReposSourceInput
-  | GitRepositorySourceInput
-  | RegistrySourceInput
-  | LocalSourceInput;
+export type SourceInputLegacy =
+  | GitHubSourceInputLegacy
+  | GitLabSourceInputLegacy
+  | BitbucketSourceInputLegacy
+  | AzureReposSourceInputLegacy
+  | GitRepositorySourceInputLegacy
+  | RegistrySourceInputLegacy
+  | LocalSourceInputLegacy;
 
 // -----------------------------------------------------------------------------
 // Source (Input + Config)
@@ -198,13 +213,13 @@ export type SourceInput =
  * @experimental This API is unstable and may change without notice.
  */
 
-export type GitHubSource = GitHubSourceInput & GitHubSourceHostConfig;
-export type GitLabSource = GitLabSourceInput & GitLabSourceHostConfig;
-export type BitbucketSource = BitbucketSourceInput & BitbucketSourceHostConfig;
-export type AzureReposSource = AzureReposSourceInput & AzureReposSourceHostConfig;
-export type RegistrySource = RegistrySourceInput;
-export type GitRepositorySource = GitRepositorySourceInput;
-export type LocalSource = LocalSourceInput;
+export type GitHubSource = GitHubSourceInputLegacy & GitHubSourceHostConfig;
+export type GitLabSource = GitLabSourceInputLegacy & GitLabSourceHostConfig;
+export type BitbucketSource = BitbucketSourceInputLegacy & BitbucketSourceHostConfig;
+export type AzureReposSource = AzureReposSourceInputLegacy & AzureReposSourceHostConfig;
+export type RegistrySource = RegistrySourceInputLegacy;
+export type GitRepositorySource = GitRepositorySourceInputLegacy;
+export type LocalSource = LocalSourceInputLegacy;
 
 /**
  * Union of all resolved source types.

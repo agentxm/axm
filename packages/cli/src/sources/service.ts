@@ -20,7 +20,7 @@ import type { CliError } from "../cli-error/index.js";
 import { makeCliError } from "../cli-error/index.js";
 import { Workspace } from "../workspace/service.js";
 import type { ExtensionFiles, FindOptions } from "./provider.js";
-import type { SourceExtensionRef, NewSource, RegistrySourceInput, Source } from "./types.js";
+import type { SourceExtensionRef, NewSource, RegistrySourceInputLegacy, Source } from "./types.js";
 import {
   createBuiltinSourceHostProvider,
   createGitHostingSourceHostProvider,
@@ -138,7 +138,7 @@ const getOriginFromSource = (source: Source | NewSource): string => {
 export const createRegistryMetaProvider = () => ({
   type: "registry" as const,
 
-  find: (source: RegistrySourceInput, options: FindOptions) =>
+  find: (source: RegistrySourceInputLegacy, options: FindOptions) =>
     Effect.gen(function* () {
       const ws = yield* Workspace;
 
@@ -185,7 +185,7 @@ export const createRegistryMetaProvider = () => ({
       return allRefs as ReadonlyArray<SourceExtensionRef>;
     }),
 
-  fetch: (source: RegistrySourceInput, ref: SourceExtensionRef) => {
+  fetch: (source: RegistrySourceInputLegacy, ref: SourceExtensionRef) => {
     // Build the registry provider from the source scope to determine the registry root
     // The ref's source has the scope info we need
     if (ref.source.type === "registry" && "url" in ref.source) {

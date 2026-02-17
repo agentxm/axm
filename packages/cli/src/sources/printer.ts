@@ -34,8 +34,7 @@ export const printSourceParams = (source: SourceParams): string => {
     case "git":
       return source.url.href;
     case "registry": {
-      const primaryType = source.extensionTypes[0] ?? "skills";
-      return `${source.scope}/${primaryType}`;
+      return source.scope;
     }
     case "builtin":
       return "builtin";
@@ -95,7 +94,6 @@ export const lockEntryToSourceParams = (entry: SkillLockEntry): SourceParams => 
       return {
         type: "registry",
         scope: entry.scope,
-        extensionTypes: ["skills"],
       };
     case "builtin":
       return { type: "builtin" };

@@ -243,7 +243,6 @@ describe("sourceToLockEntry", () => {
       source: {
         type: "registry",
         scope: "@acme",
-        extensionTypes: ["skills"],
         location: new URL("http://localhost:3000"),
       },
       version: "2.1.0",
@@ -276,7 +275,6 @@ describe("sourceToLockEntry", () => {
       source: {
         type: "registry",
         scope: "@community",
-        extensionTypes: ["skills"],
         location: new URL("http://localhost:3000"),
       },
       version: "1.0.0",

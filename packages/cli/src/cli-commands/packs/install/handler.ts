@@ -122,7 +122,6 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
         howToFix: "Use @scope/packs/name or @scope/name",
       });
     }
-    const packSource = { ...source, extensionTypes: ["packs"] as const };
 
     // Step 2: Check if already installed (unless --force)
     if (!args.force) {
@@ -144,7 +143,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
       agents: [] satisfies ReadonlyArray<string>,
       type: "pack" as const,
     };
-    const refs = yield* sources.find(packSource, findOptions).pipe(
+    const refs = yield* sources.find(source, findOptions).pipe(
       Effect.mapError((error) =>
         makeCliError({
           code: "PACK_FETCH_FAILED",
@@ -304,10 +303,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
             agents: [] satisfies ReadonlyArray<string>,
             type: "skill" as const,
           };
-          const skillRefs = yield* sources.find(
-            { ...skillSource, extensionTypes: ["skills"] as const },
-            skillFindOpts,
-          ).pipe(
+          const skillRefs = yield* sources.find(skillSource, skillFindOpts).pipe(
             Effect.mapError((error) =>
               makeCliError({
                 code: "PACK_DEPENDENCY_FETCH_FAILED",

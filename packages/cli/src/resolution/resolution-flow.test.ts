@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -30,17 +31,20 @@ const BUILT_IN_SOURCES: ReadonlyArray<SourceHostConfig> = [
 ];
 
 const makeWorkspaceLayer = (sources: ReadonlyArray<SourceHostConfig> = BUILT_IN_SOURCES) =>
-  Layer.succeed(Workspace, {
-    getConfiguredSources: () => Effect.succeed(sources),
-    getLockedSkills: () => Effect.succeed({}),
-    getConfiguredSkills: () => Effect.succeed({}),
-    getConfiguredRegistrySources: () =>
-      Effect.succeed(
-        sources.filter(
-          (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
+  Layer.merge(
+    Layer.succeed(Workspace, {
+      getConfiguredSources: () => Effect.succeed(sources),
+      getLockedSkills: () => Effect.succeed({}),
+      getConfiguredSkills: () => Effect.succeed({}),
+      getConfiguredRegistrySources: () =>
+        Effect.succeed(
+          sources.filter(
+            (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
+          ),
         ),
-      ),
-  } as unknown as Workspace["Type"]);
+    } as unknown as Workspace["Type"]),
+    NodeContext.layer,
+  );
 
 /** Create a mock SourceHostProviders that records find() calls. */
 const makeMockProviders = (

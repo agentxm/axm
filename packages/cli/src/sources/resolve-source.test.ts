@@ -30,17 +30,20 @@ const makeWorkspaceLayer = (
   skills: SkillsLockMap = {},
   registrySources?: ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>,
 ) =>
-  Layer.succeed(Workspace, {
-    getConfiguredSources: () => Effect.succeed(sources),
-    getLockedSkills: () => Effect.succeed(skills),
-    getConfiguredRegistrySources: () =>
-      Effect.succeed(
-        registrySources ??
-          sources.filter(
-            (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
-          ),
-      ),
-  } as unknown as Workspace["Type"]);
+  Layer.merge(
+    Layer.succeed(Workspace, {
+      getConfiguredSources: () => Effect.succeed(sources),
+      getLockedSkills: () => Effect.succeed(skills),
+      getConfiguredRegistrySources: () =>
+        Effect.succeed(
+          registrySources ??
+            sources.filter(
+              (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
+            ),
+        ),
+    } as unknown as Workspace["Type"]),
+    NodeContext.layer,
+  );
 
 /** Default built-in sources matching workspace defaults. */
 const BUILT_IN_SOURCES: ReadonlyArray<SourceHostConfig> = [
@@ -238,11 +241,6 @@ describe("resolveSource", () => {
           location: new URL(`file://${registryRoot}`),
         };
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
-        const testLayer = Layer.merge(
-          makeWorkspaceLayer(sources, {}, [registryConfig]),
-          NodeContext.layer,
-        );
-
         const result = yield* resolveSlashInputSource(
           {
             first: "acme",
@@ -251,7 +249,7 @@ describe("resolveSource", () => {
           },
           "acme/skills/my-skill",
         ).pipe(
-          Effect.provide(testLayer),
+          Effect.provide(makeWorkspaceLayer(sources, {}, [registryConfig])),
           Effect.ensuring(
             Effect.sync(() => rmSync(registryRoot, { recursive: true, force: true })),
           ),

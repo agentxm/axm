@@ -20,7 +20,7 @@ import type { CliError } from "../cli-error/index.js";
 import { makeCliError } from "../cli-error/index.js";
 import { Workspace } from "../workspace/service.js";
 import type { ExtensionFiles, FindOptions } from "./provider.js";
-import type { Source, RegistrySourceParams, SourceExtensionRef } from "./types.js";
+import type { RegistrySource, Source, SourceExtensionRef } from "./types.js";
 import {
   createBuiltinSourceHostProvider,
   createGitHostingSourceHostProvider,
@@ -135,12 +135,12 @@ const getOriginFromSource = (source: Source): string => {
 export const createRegistryMetaProvider = () => ({
   type: "registry" as const,
 
-  find: (source: RegistrySourceParams, options: FindOptions) =>
+  find: (source: RegistrySource, options: FindOptions) =>
     Effect.gen(function* () {
       const ws = yield* Workspace;
 
       // Determine scope from source (e.g. @scope/name install) or from options names
-      const sourceScope = source.scope ? Option.some(source.scope) : Option.none<string>();
+      const sourceScope = Option.some(source.scope);
       const scope = Option.isSome(sourceScope)
         ? sourceScope
         : options.names.length > 0
@@ -182,7 +182,7 @@ export const createRegistryMetaProvider = () => ({
       return allRefs as ReadonlyArray<SourceExtensionRef>;
     }),
 
-  fetch: (source: RegistrySourceParams, ref: SourceExtensionRef) => {
+  fetch: (source: RegistrySource, ref: SourceExtensionRef) => {
     // Build the registry provider from the source scope to determine the registry root
     // The ref's source has the scope info we need
     if (ref.source.type === "registry" && "location" in ref.source) {
@@ -192,7 +192,7 @@ export const createRegistryMetaProvider = () => ({
     // Fallback: use the source scope to find the registry
     return Effect.gen(function* () {
       const ws = yield* Workspace;
-      const scope = source.scope ? Option.some(source.scope) : Option.none<string>();
+      const scope = Option.some(source.scope);
       const registrySources = yield* ws.getConfiguredRegistrySources(scope).pipe(
         Effect.mapError((e) =>
           makeCliError({

@@ -24,7 +24,6 @@ import { parseLocalPath } from "./local/index.js";
 import { parseInputPattern } from "./parser.js";
 import type {
   RegistrySource,
-  RegistrySourceParams,
   Source,
   SourceParams,
   SourceType,
@@ -123,9 +122,7 @@ const configToSource = (
         ? Effect.succeed({ ...params, url: config.url })
         : mismatch();
     case "registry":
-      return params.type === "registry"
-        ? Effect.succeed({ ...params, location: config.location })
-        : mismatch();
+      return mismatch();
   }
 };
 
@@ -399,11 +396,6 @@ export const routeRegistryInput = (
       ),
     );
 
-    const params: RegistrySourceParams = {
-      type: "registry" as const,
-      scope: pattern.scope,
-    };
-
     if (registrySources.length === 0) {
       return yield* makeCliError({
         code: "SOURCE_PARSE_FAILED",
@@ -414,7 +406,8 @@ export const routeRegistryInput = (
 
     const regConfig = registrySources[0]!;
     return {
-      ...params,
+      type: "registry" as const,
+      scope: pattern.scope,
       location: regConfig.location,
     } satisfies RegistrySource;
   });

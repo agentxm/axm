@@ -162,6 +162,10 @@ export interface GitSourceParams {
 /** @experimental */
 export interface RegistrySourceParams {
   readonly type: "registry";
+}
+
+/** Registry source coordinates that are resolved from user input. @experimental */
+export interface RegistrySourceCoordinates {
   readonly scope: string;
 }
 
@@ -202,7 +206,7 @@ export type AzureReposSource = AzureReposSourceHost & AzureReposSourceParams;
 /** @experimental */
 export type GitSource = GitSourceHost & GitSourceParams;
 /** @experimental */
-export type RegistrySource = RegistrySourceHost & RegistrySourceParams;
+export type RegistrySource = RegistrySourceHost & RegistrySourceParams & RegistrySourceCoordinates;
 /** @experimental */
 export type LocalSource = LocalSourceHost & LocalSourceParams;
 /** @experimental */

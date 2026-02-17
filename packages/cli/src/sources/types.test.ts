@@ -189,10 +189,9 @@ describe("SourceParams", () => {
   it("narrows RegistrySourceParams via type", () => {
     const params: SourceParams = {
       type: "registry",
-      scope: "@acme",
     };
     if (params.type === "registry") {
-      expect(params.scope).toBe("@acme");
+      expect(params.type).toBe("registry");
     }
   });
 
@@ -630,16 +629,14 @@ describe("SourceParams structural equality via Data.struct", () => {
     expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(true);
   });
 
-  it("RegistrySourceParams compares scope", () => {
+  it("RegistrySourceParams has no additional fields", () => {
     const a: SourceParams = {
       type: "registry",
-      scope: "@acme",
     };
     const b: SourceParams = {
       type: "registry",
-      scope: "@other",
     };
-    expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(false);
+    expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(true);
   });
 
   it("LocalSourceParams compares path", () => {

@@ -54,6 +54,7 @@ const defaultFindOptions: FindOptions = {
   agents: [],
   type: "skill",
 };
+const registryParams = { type: "registry" } as never;
 
 const computeChecksum = (data: Uint8Array): string => {
   const hex = createHash("sha256").update(data).digest("hex");
@@ -84,13 +85,7 @@ describe("LocalRegistrySourceProvider.find", () => {
     runEffect(
       Effect.gen(function* () {
         const provider = createLocalRegistryProvider("/nonexistent/path");
-        const refs = yield* provider.find(
-          {
-            type: "registry",
-            scope: "@test",
-          },
-          defaultFindOptions,
-        );
+        const refs = yield* provider.find(registryParams, defaultFindOptions);
         expect(refs).toHaveLength(0);
       }),
     ));
@@ -109,13 +104,10 @@ describe("LocalRegistrySourceProvider.find", () => {
         );
 
         const provider = createLocalRegistryProvider(registryRoot);
-        const refs = yield* provider.find(
-          {
-            type: "registry",
-            scope: "@test",
-          },
-          { ...defaultFindOptions, names: ["my-skill"] },
-        );
+        const refs = yield* provider.find(registryParams, {
+          ...defaultFindOptions,
+          names: ["my-skill"],
+        });
 
         expect(refs).toHaveLength(1);
         expect(refs[0]!.type).toBe("skill");
@@ -146,22 +138,18 @@ describe("LocalRegistrySourceProvider.find", () => {
 
         const provider = createLocalRegistryProvider(registryRoot);
 
-        const found = yield* provider.find(
-          {
-            type: "registry",
-            scope: "@test",
-          },
-          { ...defaultFindOptions, names: ["my-skill"], agents: ["cursor"] },
-        );
+        const found = yield* provider.find(registryParams, {
+          ...defaultFindOptions,
+          names: ["my-skill"],
+          agents: ["cursor"],
+        });
         expect(found).toHaveLength(1);
 
-        const notFound = yield* provider.find(
-          {
-            type: "registry",
-            scope: "@test",
-          },
-          { ...defaultFindOptions, names: ["my-skill"], agents: ["claude-code"] },
-        );
+        const notFound = yield* provider.find(registryParams, {
+          ...defaultFindOptions,
+          names: ["my-skill"],
+          agents: ["claude-code"],
+        });
         expect(notFound).toHaveLength(0);
       }).pipe(
         Effect.ensuring(
@@ -185,13 +173,10 @@ describe("LocalRegistrySourceProvider.find", () => {
         );
 
         const provider = createLocalRegistryProvider(registryRoot);
-        const refs = yield* provider.find(
-          {
-            type: "registry",
-            scope: "@test",
-          },
-          { ...defaultFindOptions, names: ["nonexistent"] },
-        );
+        const refs = yield* provider.find(registryParams, {
+          ...defaultFindOptions,
+          names: ["nonexistent"],
+        });
         expect(refs).toHaveLength(0);
       }).pipe(
         Effect.ensuring(
@@ -215,13 +200,10 @@ describe("LocalRegistrySourceProvider.find", () => {
         );
 
         const provider = createLocalRegistryProvider(registryRoot);
-        const refs = yield* provider.find(
-          {
-            type: "registry",
-            scope: "@test",
-          },
-          { ...defaultFindOptions, names: ["my-skill"] },
-        );
+        const refs = yield* provider.find(registryParams, {
+          ...defaultFindOptions,
+          names: ["my-skill"],
+        });
         expect(refs).toHaveLength(0);
       }).pipe(
         Effect.ensuring(
@@ -255,10 +237,7 @@ describe("LocalRegistrySourceProvider.fetch", () => {
 
         const provider = createLocalRegistryProvider(registryRoot);
         const result = yield* provider.fetch(
-          {
-            type: "registry",
-            scope: "@test",
-          },
+          registryParams,
           {
             type: "skill",
             skill: { name: "my-skill", description: "", metadata: Option.none() },
@@ -301,10 +280,7 @@ describe("LocalRegistrySourceProvider.fetch", () => {
         const provider = createLocalRegistryProvider(registryRoot);
         const result = yield* provider
           .fetch(
-            {
-              type: "registry",
-              scope: "@test",
-            },
+            registryParams,
             {
               type: "skill",
               skill: { name: "my-skill", description: "", metadata: Option.none() },
@@ -465,13 +441,7 @@ describe("RemoteRegistrySourceProvider", () => {
       Effect.gen(function* () {
         const provider = createRemoteRegistryProvider();
         const result = yield* provider
-          .find(
-            {
-              type: "registry",
-              scope: "@test",
-            },
-            defaultFindOptions,
-          )
+          .find(registryParams, defaultFindOptions)
           .pipe(Effect.either);
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
@@ -486,10 +456,7 @@ describe("RemoteRegistrySourceProvider", () => {
         const provider = createRemoteRegistryProvider();
         const result = yield* provider
           .fetch(
-            {
-              type: "registry",
-              scope: "@test",
-            },
+            registryParams,
             {
               type: "skill",
               skill: { name: "x", description: "", metadata: Option.none() },
@@ -557,13 +524,7 @@ describe("createRegistryProvider", () => {
     return runEffect(
       Effect.gen(function* () {
         const result = yield* provider
-          .find(
-            {
-              type: "registry",
-              scope: "@test",
-            },
-            defaultFindOptions,
-          )
+          .find(registryParams, defaultFindOptions)
           .pipe(Effect.either);
         expect(result._tag).toBe("Left");
       }),

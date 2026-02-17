@@ -138,7 +138,7 @@ const withServices = (
 /** Creates a minimal AddSkillOperation for testing using the new ref-based args. */
 const makeOp = (
   overrides: {
-    source?: import("../../../sources/types.js").SourceParams;
+    source?: import("../../../sources/types.js").Source;
     agents?: ReadonlyArray<string>;
     force?: boolean;
     skillName?: string;
@@ -153,7 +153,7 @@ const makeOp = (
 ): InstallSkillOperation => {
   const source =
     overrides.source ??
-    ({ type: "local", path: "/tmp/source" } as import("../../../sources/types.js").SourceParams);
+    ({ type: "local", path: "/tmp/source" } as import("../../../sources/types.js").Source);
   const skill = overrides.skill ?? {
     name: overrides.skillName ?? "my-skill",
     description: "A test skill",
@@ -568,6 +568,7 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@community",
+              location: new URL("file:///tmp/reg"),
             },
             location: `file://${src}`,
           }),
@@ -611,6 +612,7 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@myorg",
+              location: new URL("file:///tmp/reg"),
             },
             location: `file://${src}`,
           }),
@@ -646,6 +648,7 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@community",
+              location: new URL("file:///tmp/reg"),
             },
             location: `file://${src}`,
             version: Option.some("1.2.3"),
@@ -706,6 +709,7 @@ describe("installSkill", () => {
               source: {
                 type: "registry",
                 scope: "@community",
+                location: new URL("file:///tmp/reg"),
               },
               location: `file://${src}`,
             }),
@@ -789,6 +793,7 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@acme",
+              location: new URL("file:///tmp/reg"),
             },
             skillName: "tool",
             location: `file://${src}`,
@@ -816,6 +821,7 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@acme",
+              location: new URL("file:///tmp/reg"),
             },
             skillName: "tool",
             location: `file://${src}`,
@@ -845,6 +851,7 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@acme",
+              location: new URL("file:///tmp/reg"),
             },
             skillName: "tool",
             location: `file://${src}`,

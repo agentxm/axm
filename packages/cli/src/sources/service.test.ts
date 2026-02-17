@@ -74,7 +74,7 @@ const computeChecksum = (data: Uint8Array): string => {
 
 /**
  * Create a minimal workspace service for testing.
- * Returns sources and registry sources as configured.
+ * Returns registry sources without scope filtering.
  */
 const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService => ({
   global: false,
@@ -85,20 +85,11 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceC
   getConfiguredSources: () => Effect.succeed(sources),
   getConfiguredSourceByName: (name: string) =>
     Effect.succeed(Option.fromNullable(sources.find((s) => s.name === name))),
-  getConfiguredRegistrySources: (scope: Option.Option<string>) =>
+  getConfiguredRegistrySources: (_scope: Option.Option<string>) =>
     Effect.succeed(
-      (() => {
-        const registrySources = sources.filter(
-          (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
-        );
-        if (Option.isNone(scope)) return registrySources;
-        const scopeValue = scope.value;
-        const scopeMatched = registrySources.filter(
-          (s) => Option.isSome(s.scopes) && s.scopes.value.includes(scopeValue),
-        );
-        if (scopeMatched.length > 0) return scopeMatched;
-        return registrySources.filter((s) => Option.isNone(s.scopes));
-      })(),
+      sources.filter(
+        (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
+      ),
     ),
   getConfiguredScope: () => Effect.succeed("@test") as Effect.Effect<string, CliError>,
   addConfiguredSource: () => Effect.void,
@@ -162,7 +153,6 @@ describe("registry meta-provider scope routing", () => {
           name: "local",
           type: "registry" as const,
           url: new URL(`file://${registryRoot}`),
-          scopes: Option.none(),
         },
       ],
       Effect.gen(function* () {
@@ -289,7 +279,6 @@ describe("SourceHostProviders dispatch", () => {
           name: "local",
           type: "registry" as const,
           url: new URL(`file://${registryRoot}`),
-          scopes: Option.none(),
         },
       ],
       Effect.gen(function* () {

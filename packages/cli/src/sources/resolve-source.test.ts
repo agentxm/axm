@@ -141,7 +141,6 @@ describe("resolveSource", () => {
           name: "default",
           type: "registry",
           url: new URL("https://registry.example.com"),
-          scopes: Option.none(),
         };
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
         const result = yield* resolveSource("@scope/name").pipe(
@@ -170,7 +169,6 @@ describe("resolveSource", () => {
           name: "default",
           type: "registry",
           url: new URL("https://registry.example.com"),
-          scopes: Option.none(),
         };
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
         const result = yield* resolveSource("@acme/my-skill").pipe(
@@ -184,13 +182,12 @@ describe("resolveSource", () => {
       }),
     );
 
-    it.effect("resolves registry with scoped config", () =>
+    it.effect("resolves registry source without config scopes", () =>
       Effect.gen(function* () {
         const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
           name: "acme-reg",
           type: "registry",
           url: new URL("https://acme-registry.example.com"),
-          scopes: Option.some(["@acme"]),
         };
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
         const result = yield* resolveSource("@acme/my-skill").pipe(
@@ -200,7 +197,7 @@ describe("resolveSource", () => {
         if (result.type === "registry") {
           expect(result.scope).toBe("@acme");
           expect(result.url).toEqual(new URL("https://acme-registry.example.com"));
-          expect(result.scopes).toEqual(Option.some(["@acme"]));
+          expect(result.scopes).toEqual(Option.none());
         }
       }),
     );

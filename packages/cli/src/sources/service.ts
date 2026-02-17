@@ -127,11 +127,8 @@ const getOriginFromSource = (source: Source): string => {
  * Reads `workspace.getConfiguredRegistrySources()` lazily on each call — always
  * reflects the current config (including sources added by the registry guard).
  *
- * Applies scope routing:
- * 1. Collect registry sources whose `scopes` includes the target scope
- * 2. If no scope-matched sources, collect catch-all sources (no `scopes` field)
- * 3. Scope-matched and catch-all are mutually exclusive
- * 4. 404 → fallthrough within the set; other errors → hard fail
+ * Reads all configured registry sources for lookups.
+ * 404 → fallthrough within the set; other errors → hard fail.
  *
  * @internal
  */

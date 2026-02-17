@@ -57,6 +57,5 @@ export const registryGuard = Effect.gen(function* () {
     name: "local",
     type: "registry",
     url: new URL(`file://${normalizedPath}`),
-    scopes: Option.none(),
   });
 });

@@ -543,7 +543,6 @@ describe("WorkspaceContextService", () => {
               name: "r1",
               type: "registry",
               url: new URL("https://r1.example.com"),
-              scopes: ["@corp"],
             },
             {
               name: "r2",
@@ -561,7 +560,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("scope filtering returns scope-matched sources only", () =>
+    it.effect("scope argument does not filter registry sources", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -570,7 +569,6 @@ describe("WorkspaceContextService", () => {
               name: "corp-reg",
               type: "registry",
               url: new URL("https://corp.example.com"),
-              scopes: ["@corp"],
             },
             {
               name: "public-reg",
@@ -583,71 +581,8 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const sources = yield* ws.getConfiguredRegistrySources(Option.some("@corp"));
 
-        // Only corp-reg matches @corp scope
-        expect(sources).toHaveLength(1);
-        expect(sources[0]!.name).toBe("corp-reg");
-      }),
-    );
-
-    it.effect("catch-all fallback when no scope match found", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          sources: [
-            {
-              name: "corp-reg",
-              type: "registry",
-              url: new URL("https://corp.example.com"),
-              scopes: ["@corp"],
-            },
-            {
-              name: "public-reg",
-              type: "registry",
-              url: new URL("https://public.example.com"),
-            },
-          ],
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getConfiguredRegistrySources(Option.some("@unknown"));
-
-        // No scope match for @unknown, falls back to catch-all (no scopes field)
-        expect(sources).toHaveLength(1);
-        expect(sources[0]!.name).toBe("public-reg");
-      }),
-    );
-
-    it.effect("mutual exclusivity: scope-matched exists so catch-all not returned", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          sources: [
-            {
-              name: "corp-reg",
-              type: "registry",
-              url: new URL("https://corp.example.com"),
-              scopes: ["@corp"],
-            },
-            {
-              name: "public-reg",
-              type: "registry",
-              url: new URL("https://public.example.com"),
-            },
-            {
-              name: "another-corp",
-              type: "registry",
-              url: new URL("https://another.example.com"),
-              scopes: ["@corp", "@internal"],
-            },
-          ],
-        });
-
-        const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getConfiguredRegistrySources(Option.some("@corp"));
-
-        // Two scope-matched sources, catch-all (public-reg) excluded
         expect(sources).toHaveLength(2);
-        expect(sources.map((s) => s.name)).toEqual(["corp-reg", "another-corp"]);
+        expect(sources.map((s) => s.name)).toEqual(["corp-reg", "public-reg"]);
       }),
     );
   });
@@ -723,7 +658,6 @@ describe("WorkspaceContextService", () => {
           name: "my-registry",
           type: "registry",
           url: new URL("https://registry.example.com"),
-          scopes: Option.none(),
         };
         yield* ws.addConfiguredSource(newSource);
 
@@ -749,7 +683,6 @@ describe("WorkspaceContextService", () => {
           name: "new-source",
           type: "registry",
           url: new URL("https://new.example.com"),
-          scopes: Option.none(),
         };
         yield* ws.addConfiguredSource(newSource);
 
@@ -1445,7 +1378,6 @@ describe("WorkspaceContextService", () => {
           name: "my-registry",
           type: "registry",
           url: new URL("https://registry.example.com"),
-          scopes: Option.none(),
         };
 
         yield* Effect.all(

@@ -64,7 +64,6 @@ describe("registryGuard", () => {
         name: "existing",
         type: "registry",
         url: new URL("file:///path/to/registry"),
-        scopes: Option.none(),
       };
 
       const workspaceLayer = makeWorkspaceLayer({ registrySources: [existingRegistry] });
@@ -120,7 +119,6 @@ describe("registryGuard", () => {
         name: "local",
         type: "registry",
         url: new URL("file:///home/user/registry"),
-        scopes: Option.none(),
       });
     }),
   );
@@ -187,7 +185,6 @@ describe("registryGuard", () => {
         name: "local",
         type: "registry",
         url: new URL("file:///new/registry"),
-        scopes: Option.none(),
       });
     }),
   );

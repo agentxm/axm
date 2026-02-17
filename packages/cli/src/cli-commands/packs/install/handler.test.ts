@@ -333,9 +333,8 @@ describe("packs install handler", () => {
       const packRef: PackExtensionRef = {
         type: "pack",
         pack: { name: "test-pack" },
-        source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@acme",
+        source: { type: "registry", location: new URL("file:///tmp/reg") },
+        scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -343,9 +342,8 @@ describe("packs install handler", () => {
       const skillRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
-        source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@acme",
+        source: { type: "registry", location: new URL("file:///tmp/reg") },
+        scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -411,9 +409,8 @@ describe("packs install handler", () => {
       const packRef: PackExtensionRef = {
         type: "pack",
         pack: { name: "test-pack" },
-        source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@acme",
+        source: { type: "registry", location: new URL("file:///tmp/reg") },
+        scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -421,9 +418,8 @@ describe("packs install handler", () => {
       const skillRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "my-skill", description: "My skill", metadata: Option.none() },
-        source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@acme",
+        source: { type: "registry", location: new URL("file:///tmp/reg") },
+        scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -496,9 +492,8 @@ describe("packs install handler", () => {
       const packRef: PackExtensionRef = {
         type: "pack",
         pack: { name: "test-pack" },
-        source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@acme",
+        source: { type: "registry", location: new URL("file:///tmp/reg") },
+        scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -506,9 +501,8 @@ describe("packs install handler", () => {
       const skillRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
-        source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@acme",
+        source: { type: "registry", location: new URL("file:///tmp/reg") },
+        scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -577,9 +571,8 @@ describe("packs install handler", () => {
       const packRef: PackExtensionRef = {
         type: "pack",
         pack: { name: "test-pack" },
-        source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@acme",
+        source: { type: "registry", location: new URL("file:///tmp/reg") },
+        scope: "@acme",
         version: "2.0.0",
         checksum: "",
       };
@@ -632,9 +625,8 @@ describe("packs install handler", () => {
       const packRef: PackExtensionRef = {
         type: "pack",
         pack: { name: "test-pack" },
-        source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@acme",
+        source: { type: "registry", location: new URL("file:///tmp/reg") },
+        scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -644,9 +636,8 @@ describe("packs install handler", () => {
       const skillRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
-        source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@acme",
+        source: { type: "registry", location: new URL("file:///tmp/reg") },
+        scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -704,9 +695,8 @@ describe("packs install handler", () => {
       const packRef: PackExtensionRef = {
         type: "pack",
         pack: { name: "test-pack" },
-        source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@acme",
+        source: { type: "registry", location: new URL("file:///tmp/reg") },
+        scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -716,9 +706,8 @@ describe("packs install handler", () => {
       const skillRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
-        source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@acme",
+        source: { type: "registry", location: new URL("file:///tmp/reg") },
+        scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -774,9 +763,8 @@ describe("packs install handler", () => {
       const packRef: PackExtensionRef = {
         type: "pack",
         pack: { name: "test-pack" },
-        source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@acme",
+        source: { type: "registry", location: new URL("file:///tmp/reg") },
+        scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };

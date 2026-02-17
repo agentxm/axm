@@ -34,8 +34,9 @@ describe("axm skills fork", () => {
         // Set up registry source and scope in settings
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.sources = [{ name: "local", type: "registry",
-            location: `file://${registryDir.path}` }];
+        settings.sources = [
+          { name: "local", type: "registry", location: `file://${registryDir.path}` },
+        ];
         settings.scope = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
@@ -132,8 +133,9 @@ describe("axm skills fork", () => {
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.sources = [{ name: "local", type: "registry",
-            location: `file://${registryDir.path}` }];
+        settings.sources = [
+          { name: "local", type: "registry", location: `file://${registryDir.path}` },
+        ];
         settings.scope = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
@@ -189,8 +191,9 @@ describe("axm skills fork", () => {
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.sources = [{ name: "local", type: "registry",
-            location: `file://${registryDir.path}` }];
+        settings.sources = [
+          { name: "local", type: "registry", location: `file://${registryDir.path}` },
+        ];
         settings.scope = "@test";
         settings.skills = { "unmanaged-configured": { managed: false } };
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -238,8 +241,9 @@ describe("axm skills fork", () => {
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.sources = [{ name: "local", type: "registry",
-            location: `file://${registryDir.path}` }];
+        settings.sources = [
+          { name: "local", type: "registry", location: `file://${registryDir.path}` },
+        ];
         settings.scope = "@test";
         settings.skills = { "gamma-configured": { managed: false } };
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -284,8 +288,9 @@ describe("axm skills fork", () => {
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.sources = [{ name: "local", type: "registry",
-            location: `file://${registryDir.path}` }];
+        settings.sources = [
+          { name: "local", type: "registry", location: `file://${registryDir.path}` },
+        ];
         settings.scope = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 

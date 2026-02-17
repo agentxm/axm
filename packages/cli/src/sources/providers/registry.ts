@@ -57,11 +57,9 @@ export interface RegistrySourceProvider {
     FileSystem.FileSystem | Path.Path
   >;
   /** Check whether a scope exists in this registry. */
-  readonly scopeExists: (scope: string) => Effect.Effect<
-    boolean,
-    CliError,
-    FileSystem.FileSystem | Path.Path
-  >;
+  readonly scopeExists: (
+    scope: string,
+  ) => Effect.Effect<boolean, CliError, FileSystem.FileSystem | Path.Path>;
   /** Fetch and materialize extension files for a discovered ref. */
   readonly fetch: (
     source: RegistrySourceParams,

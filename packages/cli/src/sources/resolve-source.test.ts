@@ -222,7 +222,13 @@ describe("resolveSource", () => {
     it.effect("resolves scope/type/name slash pattern to registry when extension exists", () =>
       Effect.gen(function* () {
         const registryRoot = mkdtempSync(nodePath.join(tmpdir(), "slash-reg-"));
-        const extensionDir = nodePath.join(registryRoot, "extensions", "@acme", "skills", "my-skill");
+        const extensionDir = nodePath.join(
+          registryRoot,
+          "extensions",
+          "@acme",
+          "skills",
+          "my-skill",
+        );
         mkdirSync(extensionDir, { recursive: true });
         writeFileSync(nodePath.join(extensionDir, "index.json"), "{}");
 
@@ -246,7 +252,9 @@ describe("resolveSource", () => {
           "acme/skills/my-skill",
         ).pipe(
           Effect.provide(testLayer),
-          Effect.ensuring(Effect.sync(() => rmSync(registryRoot, { recursive: true, force: true }))),
+          Effect.ensuring(
+            Effect.sync(() => rmSync(registryRoot, { recursive: true, force: true })),
+          ),
         );
 
         expect(result.type).toBe("registry");

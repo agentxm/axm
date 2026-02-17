@@ -16,7 +16,7 @@ import { SourceHostProviders } from "../sources/service.js";
 import type { SourceHostProvidersService } from "../sources/service.js";
 import type { FindOptions } from "../sources/provider.js";
 import type { SourceHostConfig } from "../settings/index.js";
-import type { SourceExtensionRef, NewGitHubSource } from "../sources/types.js";
+import type { SourceExtensionRef, GitHubSource } from "../sources/types.js";
 import { Workspace } from "../workspace/index.js";
 
 // -----------------------------------------------------------------------------
@@ -84,7 +84,7 @@ describe("resolution flow: resolveSource + SourceHostProviders.find()", () => {
         }
 
         // Step 2: SourceHostProviders.find() discovers extensions from Source
-        const ghSource = source as NewGitHubSource;
+        const ghSource = source as GitHubSource;
         const mockRef: SourceExtensionRef = {
           type: "skill",
           source: ghSource,

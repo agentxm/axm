@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
 import { makeCliError } from "../../cli-error/index.js";
 import type { SourceHostProvider } from "../provider.js";
-import type { NewLocalSource, SourceExtensionRef } from "../types.js";
+import type { LocalSource, SourceExtensionRef } from "../types.js";
 
 /**
  * Source host provider for local filesystem paths.
@@ -27,7 +27,7 @@ import type { NewLocalSource, SourceExtensionRef } from "../types.js";
  * @experimental This API is unstable and may change without notice.
  */
 export const createLocalSourceHostProvider = (): SourceHostProvider<
-  NewLocalSource,
+  LocalSource,
   FileSystem.FileSystem | Path.Path
 > => ({
   type: "local",

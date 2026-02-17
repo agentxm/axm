@@ -27,7 +27,7 @@ import { makeCliError } from "../../cli-error/index.js";
 import { computeChecksum } from "../../utils/checksum.js";
 import type { FindOptions, PublishableSourceHostProvider } from "../provider.js";
 import type {
-  NewRegistrySource,
+  RegistrySource,
   RegistrySourceHost,
   RegistrySourceParams,
   SourceExtensionRef,
@@ -737,7 +737,7 @@ export const createRegistryProvider = (location: string): RegistrySourceProvider
  */
 export const createRegistrySourceHostProvider = (
   host: RegistrySourceHost,
-): PublishableSourceHostProvider<NewRegistrySource, FileSystem.FileSystem | Path.Path> => {
+): PublishableSourceHostProvider<RegistrySource, FileSystem.FileSystem | Path.Path> => {
   const registryUrl = host.url;
   const isLocal = registryUrl.protocol === "file:" || !registryUrl.protocol.startsWith("http");
   const registryRoot = registryUrl.protocol === "file:" ? registryUrl.pathname : registryUrl.href;
@@ -761,7 +761,7 @@ export const createRegistrySourceHostProvider = (
         };
         const refs = yield* inner.find(innerSource, options);
 
-        // Re-stamp source to the NewRegistrySource (includes host config)
+        // Re-stamp source to the RegistrySource (includes host config)
         return refs.map((ref) => ({ ...ref, source }) as SourceExtensionRef);
       }),
 

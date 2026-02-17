@@ -1,7 +1,7 @@
 /**
  * Unit tests for resolve-source module.
  *
- * Tests resolving source strings into fully resolved NewSource values
+ * Tests resolving source strings into fully resolved Source values
  * by combining parsed input with matching source configs from Workspace.
  */
 

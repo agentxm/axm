@@ -19,7 +19,7 @@ import type {
   LocalRefDetails,
   LocalSkillRef,
   McpServerExtensionRef,
-  NewSource,
+  Source,
   PackExtensionRef,
   RegistryMcpServerRef,
   RegistryPackRef,
@@ -215,12 +215,12 @@ describe("SourceParams", () => {
 });
 
 // -----------------------------------------------------------------------------
-// NewSource (flat intersection)
+// Source (flat intersection)
 // -----------------------------------------------------------------------------
 
-describe("NewSource", () => {
+describe("Source", () => {
   it("GitHubSource has host and params fields via flat intersection", () => {
-    const source: NewSource = {
+    const source: Source = {
       type: "github",
       url: new URL("https://github.com"),
       owner: "octocat",
@@ -236,7 +236,7 @@ describe("NewSource", () => {
   });
 
   it("RegistrySource has host and params fields via flat intersection", () => {
-    const source: NewSource = {
+    const source: Source = {
       type: "registry",
       url: new URL("file:///registry"),
       scopes: Option.none(),
@@ -252,19 +252,19 @@ describe("NewSource", () => {
   });
 
   it("LocalSource has host and params fields", () => {
-    const source: NewSource = { type: "local", path: "/home/user/skill" };
+    const source: Source = { type: "local", path: "/home/user/skill" };
     if (source.type === "local") {
       expect(source.path).toBe("/home/user/skill");
     }
   });
 
   it("BuiltinSource is type-only", () => {
-    const source: NewSource = { type: "builtin" };
+    const source: Source = { type: "builtin" };
     expect(source.type).toBe("builtin");
   });
 
   it("switch (source.type) gives access to all fields", () => {
-    const source: NewSource = {
+    const source: Source = {
       type: "azurerepos",
       url: new URL("https://dev.azure.com"),
       organization: "myorg",

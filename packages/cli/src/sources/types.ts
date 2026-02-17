@@ -192,35 +192,35 @@ export type SourceParams =
   | BuiltinSourceParams;
 
 // -----------------------------------------------------------------------------
-// New Source — SourceHost & SourceParams
+// Source — SourceHost & SourceParams
 // -----------------------------------------------------------------------------
 
 /** @experimental */
-export type NewGitHubSource = GitHubSourceHost & GitHubSourceParams;
+export type GitHubSource = GitHubSourceHost & GitHubSourceParams;
 /** @experimental */
-export type NewGitLabSource = GitLabSourceHost & GitLabSourceParams;
+export type GitLabSource = GitLabSourceHost & GitLabSourceParams;
 /** @experimental */
-export type NewBitbucketSource = BitbucketSourceHost & BitbucketSourceParams;
+export type BitbucketSource = BitbucketSourceHost & BitbucketSourceParams;
 /** @experimental */
-export type NewAzureReposSource = AzureReposSourceHost & AzureReposSourceParams;
+export type AzureReposSource = AzureReposSourceHost & AzureReposSourceParams;
 /** @experimental */
-export type NewGitSource = GitSourceHost & GitSourceParams;
+export type GitSource = GitSourceHost & GitSourceParams;
 /** @experimental */
-export type NewRegistrySource = RegistrySourceHost & RegistrySourceParams;
+export type RegistrySource = RegistrySourceHost & RegistrySourceParams;
 /** @experimental */
-export type NewLocalSource = LocalSourceHost & LocalSourceParams;
+export type LocalSource = LocalSourceHost & LocalSourceParams;
 /** @experimental */
 export type BuiltinSource = BuiltinSourceHost & BuiltinSourceParams;
 
 /** @experimental */
-export type NewSource =
-  | NewGitHubSource
-  | NewGitLabSource
-  | NewBitbucketSource
-  | NewAzureReposSource
-  | NewGitSource
-  | NewRegistrySource
-  | NewLocalSource
+export type Source =
+  | GitHubSource
+  | GitLabSource
+  | BitbucketSource
+  | AzureReposSource
+  | GitSource
+  | RegistrySource
+  | LocalSource
   | BuiltinSource;
 
 // -----------------------------------------------------------------------------
@@ -243,13 +243,13 @@ export type GitHostingSourceParams =
 
 /** @experimental */
 export type GitHostingSource =
-  | NewGitHubSource
-  | NewGitLabSource
-  | NewBitbucketSource
-  | NewAzureReposSource;
+  | GitHubSource
+  | GitLabSource
+  | BitbucketSource
+  | AzureReposSource;
 
 /** All git-based sources (hosting providers + generic git). @experimental */
-export type GitBasedSource = GitHostingSource | NewGitSource;
+export type GitBasedSource = GitHostingSource | GitSource;
 
 /** Sources that require host configuration from settings. @experimental */
 export type ConfiguredSourceHost = GitHostingSourceHost | RegistrySourceHost;
@@ -310,28 +310,28 @@ export interface SkillRefBase {
 
 /** @experimental */
 export type GitHubSkillRef = SkillRefBase & {
-  readonly source: NewGitHubSource;
+  readonly source: GitHubSource;
 } & GitHostedRefDetails;
 /** @experimental */
 export type GitLabSkillRef = SkillRefBase & {
-  readonly source: NewGitLabSource;
+  readonly source: GitLabSource;
 } & GitHostedRefDetails;
 /** @experimental */
 export type BitbucketSkillRef = SkillRefBase & {
-  readonly source: NewBitbucketSource;
+  readonly source: BitbucketSource;
 } & GitHostedRefDetails;
 /** @experimental */
 export type AzureReposSkillRef = SkillRefBase & {
-  readonly source: NewAzureReposSource;
+  readonly source: AzureReposSource;
 } & GitHostedRefDetails;
 /** @experimental */
-export type GitSkillRef = SkillRefBase & { readonly source: NewGitSource } & GitHostedRefDetails;
+export type GitSkillRef = SkillRefBase & { readonly source: GitSource } & GitHostedRefDetails;
 /** @experimental */
 export type RegistrySkillRef = SkillRefBase & {
-  readonly source: NewRegistrySource;
+  readonly source: RegistrySource;
 } & RegistryRefDetails;
 /** @experimental */
-export type LocalSkillRef = SkillRefBase & { readonly source: NewLocalSource } & LocalRefDetails;
+export type LocalSkillRef = SkillRefBase & { readonly source: LocalSource } & LocalRefDetails;
 /** @experimental */
 export type BuiltinSkillRef = SkillRefBase & { readonly source: BuiltinSource } & BuiltinRefDetails;
 
@@ -360,15 +360,15 @@ export interface McpServerRefBase {
 
 /** @experimental */
 export type GitHubMcpServerRef = McpServerRefBase & {
-  readonly source: NewGitHubSource;
+  readonly source: GitHubSource;
 } & GitHostedRefDetails;
 /** @experimental */
 export type RegistryMcpServerRef = McpServerRefBase & {
-  readonly source: NewRegistrySource;
+  readonly source: RegistrySource;
 } & RegistryRefDetails;
 /** @experimental */
 export type LocalMcpServerRef = McpServerRefBase & {
-  readonly source: NewLocalSource;
+  readonly source: LocalSource;
 } & LocalRefDetails;
 /** @experimental */
 export type BuiltinMcpServerRef = McpServerRefBase & {
@@ -389,7 +389,7 @@ export type McpServerExtensionRef =
 /** @experimental */
 export type RegistryPackRef = {
   readonly type: "pack";
-  readonly source: NewRegistrySource;
+  readonly source: RegistrySource;
 } & RegistryRefDetails;
 
 /** @experimental */

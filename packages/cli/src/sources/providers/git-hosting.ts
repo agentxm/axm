@@ -24,10 +24,10 @@ import type {
   GitLabSourceHost,
   BitbucketSourceHost,
   AzureReposSourceHost,
-  NewGitHubSource,
-  NewGitLabSource,
-  NewBitbucketSource,
-  NewAzureReposSource,
+  GitHubSource,
+  GitLabSource,
+  BitbucketSource,
+  AzureReposSource,
   GitHostingSourceHost,
   SourceExtensionRef,
 } from "../types.js";
@@ -49,7 +49,7 @@ import type {
  */
 export const createGitHostingSourceHostProvider = <
   H extends GitHostingSourceHost,
-  S extends (NewGitHubSource | NewGitLabSource | NewBitbucketSource | NewAzureReposSource) & {
+  S extends (GitHubSource | GitLabSource | BitbucketSource | AzureReposSource) & {
     type: H["type"];
   },
 >(
@@ -151,7 +151,7 @@ export const createGitHostingSourceHostProvider = <
 
 /** Build a clone URL from a git hosting source (internal helper). */
 export const buildCloneUrlForSource = (
-  source: NewGitHubSource | NewGitLabSource | NewBitbucketSource | NewAzureReposSource,
+  source: GitHubSource | GitLabSource | BitbucketSource | AzureReposSource,
 ): string => {
   switch (source.type) {
     case "github":
@@ -174,25 +174,25 @@ export const buildCloneUrlForSource = (
  * @experimental This API is unstable and may change without notice.
  */
 export const createGitHubSourceHostProvider = (host: GitHubSourceHost) =>
-  createGitHostingSourceHostProvider<GitHubSourceHost, NewGitHubSource>(host);
+  createGitHostingSourceHostProvider<GitHubSourceHost, GitHubSource>(host);
 
 /**
  * Source host provider for GitLab repositories.
  * @experimental This API is unstable and may change without notice.
  */
 export const createGitLabSourceHostProvider = (host: GitLabSourceHost) =>
-  createGitHostingSourceHostProvider<GitLabSourceHost, NewGitLabSource>(host);
+  createGitHostingSourceHostProvider<GitLabSourceHost, GitLabSource>(host);
 
 /**
  * Source host provider for Bitbucket repositories.
  * @experimental This API is unstable and may change without notice.
  */
 export const createBitbucketSourceHostProvider = (host: BitbucketSourceHost) =>
-  createGitHostingSourceHostProvider<BitbucketSourceHost, NewBitbucketSource>(host);
+  createGitHostingSourceHostProvider<BitbucketSourceHost, BitbucketSource>(host);
 
 /**
  * Source host provider for Azure Repos repositories.
  * @experimental This API is unstable and may change without notice.
  */
 export const createAzureReposSourceHostProvider = (host: AzureReposSourceHost) =>
-  createGitHostingSourceHostProvider<AzureReposSourceHost, NewAzureReposSource>(host);
+  createGitHostingSourceHostProvider<AzureReposSourceHost, AzureReposSource>(host);

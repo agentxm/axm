@@ -30,7 +30,7 @@ export const installPack: OperationHandler<InstallPackOperation, Workspace | Log
         scope: op.args.scope,
         name: op.args.packName,
         resolvedVersion: op.args.resolvedVersion,
-        checksum: op.args.checksum,
+        integrity: op.args.integrity,
         sourceName: op.args.sourceName,
         installedAt: new Date(),
         updatedAt: new Date(),

@@ -74,12 +74,12 @@ Fields:
 - `type`: `RegistryExtensionType` (`"skill" | "mcp-server" | "pack"`)
 - `name`: extension name
 - `version`: resolved semver version string
-- `checksum`: archive checksum in `sha256:<hex>` format
+- `integrity`: archive integrity in SRI format (`sha512-<base64>`)
 
 #### Scenario: Entry contains all fields needed for SourceExtensionRef mapping
 
 - **WHEN** a host provider receives a `RegistryExtensionEntry`
-- **THEN** it has sufficient data to construct a `SourceExtensionRef` with `RegistryRefDetails` (scope, version, checksum)
+- **THEN** it has sufficient data to construct a `SourceExtensionRef` with `RegistryRefDetails` (scope, version, integrity)
 
 ### Requirement: Version resolution by semver range
 
@@ -134,24 +134,24 @@ The registry client SHALL filter versions by agent compatibility when an agents 
 - **WHEN** resolving with `agents: []`
 - **THEN** all versions are candidates regardless of their agents field
 
-### Requirement: SHA-256 integrity verification
+### Requirement: SHA-512 integrity verification
 
-The registry client SHALL verify archive integrity using SHA-256 checksums.
+The registry client SHALL verify archive integrity using SHA-512 in SRI format.
 
-#### Scenario: Checksum matches
+#### Scenario: Integrity matches
 
-- **WHEN** fetching an archive whose SHA-256 hash matches the `checksum` field in `index.json`
+- **WHEN** fetching an archive whose SHA-512 hash matches the `integrity` field in `index.json`
 - **THEN** extraction proceeds normally
 
-#### Scenario: Checksum mismatch
+#### Scenario: Integrity mismatch
 
-- **WHEN** fetching an archive whose SHA-256 hash does not match the `checksum` field
-- **THEN** the operation fails with `SourceError` indicating integrity verification failure
+- **WHEN** fetching an archive whose SHA-512 hash does not match the `integrity` field
+- **THEN** the operation fails with `CliError` indicating integrity verification failure
 
-#### Scenario: Checksum format
+#### Scenario: Integrity format
 
-- **WHEN** a checksum is stored or compared
-- **THEN** it uses the format `sha256:<hex>` (lowercase hex digits)
+- **WHEN** an integrity value is stored or compared
+- **THEN** it uses SRI format `sha512-<base64>` (standard base64 encoding)
 
 ### Requirement: LocalRegistryClient implementation
 
@@ -177,14 +177,14 @@ The system SHALL implement `LocalRegistryClient` that performs all `RegistryClie
 - **WHEN** `getExtensions` is called and the `index.json` file does not exist
 - **THEN** the client returns an empty result (triggers fallthrough)
 
-#### Scenario: publishExtension is idempotent for same version and checksum
+#### Scenario: publishExtension is idempotent for same version and integrity
 
-- **WHEN** `publishExtension` is called for a version that already exists with the same checksum
+- **WHEN** `publishExtension` is called for a version that already exists with the same integrity
 - **THEN** the operation succeeds without modification (no-op)
 
 #### Scenario: publishExtension fails on version conflict
 
-- **WHEN** `publishExtension` is called for a version that already exists with a different checksum
+- **WHEN** `publishExtension` is called for a version that already exists with a different integrity
 - **THEN** the operation fails with a `CliError`
 
 ### Requirement: RemoteRegistryClient stub

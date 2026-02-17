@@ -174,7 +174,7 @@ const makeOp = (
           source: source as never,
           scope: overrides.scope ?? "@community",
           version: Option.getOrElse(version, () => ""),
-          checksum: "",
+          integrity: "",
         } as SkillExtensionRef;
       case "local":
         return {
@@ -630,7 +630,7 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("writes registry lockfile fields (resolvedVersion, checksum, sourceName)", () =>
+    it.effect("writes registry lockfile fields (resolvedVersion, integrity, sourceName)", () =>
       Effect.gen(function* () {
         const src = setupRegistrySource("@community");
         const { axmDir } = setupBase();

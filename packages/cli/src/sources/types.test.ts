@@ -320,15 +320,15 @@ describe("ref detail interfaces", () => {
     expect(Option.getOrNull(details.gitTreeSha)).toBe("abc123");
   });
 
-  it("RegistryRefDetails has scope, version, and checksum", () => {
+  it("RegistryRefDetails has scope, version, and integrity", () => {
     const details: RegistryRefDetails = {
       scope: "@acme",
       version: "1.2.3",
-      checksum: "sha256:abc",
+      integrity: "sha512-abc==",
     };
     expect(details.scope).toBe("@acme");
     expect(details.version).toBe("1.2.3");
-    expect(details.checksum).toBe("sha256:abc");
+    expect(details.integrity).toBe("sha512-abc==");
   });
 
   it("LocalRefDetails has location", () => {
@@ -368,7 +368,7 @@ describe("SkillExtensionRef", () => {
     }
   });
 
-  it("RegistrySkillRef carries version and checksum", () => {
+  it("RegistrySkillRef carries version and integrity", () => {
     const ref: SkillExtensionRef = {
       type: "skill",
       skill: { name: "test", description: "desc", metadata: Option.none() },
@@ -378,11 +378,11 @@ describe("SkillExtensionRef", () => {
       },
       scope: "@acme",
       version: "1.0.0",
-      checksum: "sha256:abc",
+      integrity: "sha512-abc",
     };
     if (ref.source.type === "registry") {
       expect((ref as RegistrySkillRef).version).toBe("1.0.0");
-      expect((ref as RegistrySkillRef).checksum).toBe("sha256:abc");
+      expect((ref as RegistrySkillRef).integrity).toBe("sha512-abc");
     }
   });
 
@@ -430,7 +430,7 @@ describe("McpServerExtensionRef", () => {
     expect(ref.source.type).toBe("github");
   });
 
-  it("RegistryMcpServerRef carries version and checksum", () => {
+  it("RegistryMcpServerRef carries version and integrity", () => {
     const ref: McpServerExtensionRef = {
       type: "mcp-server",
       server: { name: "my-server" },
@@ -440,7 +440,7 @@ describe("McpServerExtensionRef", () => {
       },
       scope: "@acme",
       version: "2.0.0",
-      checksum: "sha256:def",
+      integrity: "sha512-def",
     };
     expect((ref as RegistryMcpServerRef).version).toBe("2.0.0");
   });
@@ -451,7 +451,7 @@ describe("McpServerExtensionRef", () => {
 // -----------------------------------------------------------------------------
 
 describe("PackExtensionRef", () => {
-  it("RegistryPackRef carries version and checksum", () => {
+  it("RegistryPackRef carries version and integrity", () => {
     const ref: PackExtensionRef = {
       type: "pack",
       pack: { name: "my-pack" },
@@ -461,7 +461,7 @@ describe("PackExtensionRef", () => {
       },
       scope: "@acme",
       version: "1.0.0",
-      checksum: "sha256:ghi",
+      integrity: "sha512-ghi",
     };
     expect(ref.source.type).toBe("registry");
     expect((ref as RegistryPackRef).version).toBe("1.0.0");

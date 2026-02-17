@@ -155,7 +155,7 @@ describe("lockfile schema", () => {
             scope: "@acme",
             name: "my-skill",
             resolvedVersion: "1.0.0",
-            checksum: "sha256:abc123def456",
+            integrity: "sha512-abc123def456",
             sourceName: "local",
             agents: ["claude-code"],
             installedAt: "2025-01-15T10:30:00Z",
@@ -173,7 +173,7 @@ describe("lockfile schema", () => {
         expect(skill.scope).toBe("@acme");
         expect(skill.name).toBe("my-skill");
         expect(skill.resolvedVersion).toBe("1.0.0");
-        expect(skill.checksum).toBe("sha256:abc123def456");
+        expect(skill.integrity).toBe("sha512-abc123def456");
         expect(skill.sourceName).toBe("local");
       }
     });
@@ -313,7 +313,7 @@ describe("lockfile schema", () => {
         scope: "@acme",
         name: "my-skill",
         resolvedVersion: "1.0.0",
-        checksum: "sha256:abc123def456",
+        integrity: "sha512-abc123def456",
         sourceName: "local",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
@@ -327,7 +327,7 @@ describe("lockfile schema", () => {
         expect(result.scope).toBe("@acme");
         expect(result.name).toBe("my-skill");
         expect(result.resolvedVersion).toBe("1.0.0");
-        expect(result.checksum).toBe("sha256:abc123def456");
+        expect(result.integrity).toBe("sha512-abc123def456");
         expect(result.sourceName).toBe("local");
       }
     });
@@ -453,7 +453,7 @@ describe("lockfile schema", () => {
         type: "registry",
         name: "my-skill",
         resolvedVersion: "1.0.0",
-        checksum: "sha256:abc123def456",
+        integrity: "sha512-abc123def456",
         sourceName: "local",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
@@ -468,7 +468,7 @@ describe("lockfile schema", () => {
         type: "registry",
         scope: "@acme",
         resolvedVersion: "1.0.0",
-        checksum: "sha256:abc123def456",
+        integrity: "sha512-abc123def456",
         sourceName: "local",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
@@ -483,7 +483,7 @@ describe("lockfile schema", () => {
         type: "registry",
         scope: "@acme",
         name: "my-skill",
-        checksum: "sha256:abc123def456",
+        integrity: "sha512-abc123def456",
         sourceName: "local",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
@@ -493,7 +493,7 @@ describe("lockfile schema", () => {
       expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
 
-    it("rejects registry lock entry missing checksum", () => {
+    it("rejects registry lock entry missing integrity", () => {
       const input = {
         type: "registry",
         scope: "@acme",
@@ -514,7 +514,7 @@ describe("lockfile schema", () => {
         scope: "@acme",
         name: "my-skill",
         resolvedVersion: "1.0.0",
-        checksum: "sha256:abc123def456",
+        integrity: "sha512-abc123def456",
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -547,14 +547,14 @@ describe("lockfile schema", () => {
         agents: ["claude-code"],
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
-        checksum: "sha256:abc123",
+        integrity: "sha512-abc123",
         sourceName: "default",
       };
 
       const result = Schema.decodeUnknownSync(BuiltinSkillLockEntrySchema)(input);
 
       expect(result.type).toBe("builtin");
-      expect("checksum" in result).toBe(false);
+      expect("integrity" in result).toBe(false);
       expect("sourceName" in result).toBe(false);
     });
 
@@ -613,7 +613,7 @@ describe("lockfile schema", () => {
         scope: "@acme",
         name: "frontend-pack",
         resolvedVersion: "1.0.0",
-        checksum: "sha256:abc123def456",
+        integrity: "sha512-abc123def456",
         sourceName: "default",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -629,7 +629,7 @@ describe("lockfile schema", () => {
       expect(result.name).toBe("frontend-pack");
       expect(result.resolvedVersion).toBe("1.0.0");
       if (result.type === "registry") {
-        expect(result.checksum).toBe("sha256:abc123def456");
+        expect(result.integrity).toBe("sha512-abc123def456");
         expect(result.sourceName).toBe("default");
       }
       expect(result.installedAt).toBeInstanceOf(Date);
@@ -645,7 +645,7 @@ describe("lockfile schema", () => {
         scope: "@acme",
         name: "empty-pack",
         resolvedVersion: "0.1.0",
-        checksum: "sha256:deadbeef",
+        integrity: "sha512-deadbeef",
         sourceName: "local",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -666,7 +666,7 @@ describe("lockfile schema", () => {
         type: "registry",
         name: "frontend-pack",
         resolvedVersion: "1.0.0",
-        checksum: "sha256:abc123",
+        integrity: "sha512-abc123",
         sourceName: "default",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -684,7 +684,7 @@ describe("lockfile schema", () => {
         scope: "@acme",
         name: "frontend-pack",
         resolvedVersion: "1.0.0",
-        checksum: "sha256:abc123",
+        integrity: "sha512-abc123",
         sourceName: "default",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -701,7 +701,7 @@ describe("lockfile schema", () => {
         scope: "@acme",
         name: "frontend-pack",
         resolvedVersion: "1.0.0",
-        checksum: "sha256:abc123",
+        integrity: "sha512-abc123",
         sourceName: "default",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -718,7 +718,7 @@ describe("lockfile schema", () => {
         scope: "@acme",
         name: "frontend-pack",
         resolvedVersion: "1.0.0",
-        checksum: "sha256:abc123",
+        integrity: "sha512-abc123",
         sourceName: "default",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -735,7 +735,7 @@ describe("lockfile schema", () => {
         scope: "@acme",
         name: "frontend-pack",
         resolvedVersion: "1.0.0",
-        checksum: "sha256:abc123",
+        integrity: "sha512-abc123",
         sourceName: "default",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
@@ -775,7 +775,7 @@ describe("lockfile schema", () => {
       expect(result.resolvedMcpServers).toEqual({});
     });
 
-    it("strips checksum and sourceName on decode", () => {
+    it("strips integrity and sourceName on decode", () => {
       const input = {
         type: "builtin",
         scope: "@axm",
@@ -786,14 +786,14 @@ describe("lockfile schema", () => {
         resolvedSkills: {},
         resolvedCommands: {},
         resolvedMcpServers: {},
-        checksum: "sha256:abc123",
+        integrity: "sha512-abc123",
         sourceName: "default",
       };
 
       const result = Schema.decodeUnknownSync(BuiltinPackLockEntrySchema)(input);
 
       expect(result.type).toBe("builtin");
-      expect("checksum" in result).toBe(false);
+      expect("integrity" in result).toBe(false);
       expect("sourceName" in result).toBe(false);
     });
 
@@ -830,7 +830,7 @@ describe("lockfile schema", () => {
           scope: "@acme",
           name: "frontend-pack",
           resolvedVersion: "1.0.0",
-          checksum: "sha256:abc123",
+          integrity: "sha512-abc123",
           sourceName: "default",
           installedAt: "2025-01-15T10:30:00Z",
           updatedAt: "2025-01-15T10:30:00Z",
@@ -860,7 +860,7 @@ describe("lockfile schema", () => {
             scope: "@acme",
             name: "frontend-pack",
             resolvedVersion: "1.0.0",
-            checksum: "sha256:abc123",
+            integrity: "sha512-abc123",
             sourceName: "default",
             installedAt: "2025-01-15T10:30:00Z",
             updatedAt: "2025-01-15T10:30:00Z",
@@ -899,7 +899,7 @@ describe("lockfile schema", () => {
             scope: "@acme",
             name: "code-review",
             resolvedVersion: "1.2.0",
-            checksum: "sha256:abc123",
+            integrity: "sha512-abc123",
             sourceName: "default",
             agents: ["claude-code"],
             installedAt: "2025-01-15T10:30:00.000Z",
@@ -918,7 +918,7 @@ describe("lockfile schema", () => {
             scope: "@acme",
             name: "frontend-pack",
             resolvedVersion: "1.0.0",
-            checksum: "sha256:abc123",
+            integrity: "sha512-abc123",
             sourceName: "default",
             installedAt: "2025-01-15T10:30:00.000Z",
             updatedAt: "2025-01-15T10:30:00.000Z",

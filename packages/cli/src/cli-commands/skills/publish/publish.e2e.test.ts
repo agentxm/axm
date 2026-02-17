@@ -87,7 +87,7 @@ describe("axm skills publish", () => {
 
         const versionEntry = index.versions[0];
         expect(versionEntry.version).toBe("1.0.0");
-        expect(versionEntry.checksum).toMatch(/^sha256:/);
+        expect(versionEntry.integrity).toMatch(/^sha512-[A-Za-z0-9+/]+=*$/);
         expect(versionEntry.published).toBeDefined();
 
         // Verify archive in registry

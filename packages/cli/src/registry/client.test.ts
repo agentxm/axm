@@ -16,7 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 
-import { computeChecksum } from "../utils/checksum.js";
+import { computeIntegrity } from "../utils/integrity.js";
 import type { ExtensionIndex, VersionEntry } from "./local-schema.js";
 import type { GetExtensionsArgs } from "./client.js";
 import { createRegistryClient } from "./client.js";
@@ -38,7 +38,7 @@ const makeLocalClient = (registryRoot: string) =>
 const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
   version: "1.0.0",
   published: "2025-01-01T00:00:00Z",
-  checksum: "sha256:0000",
+  integrity: "sha512-AAAA==",
   ...overrides,
 });
 
@@ -462,8 +462,8 @@ describe("LocalRegistryClient.publishExtension", () => {
 
     return Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const checksum = yield* computeChecksum(archive);
-      const entry = makeVersionEntry({ checksum });
+      const integrity = yield* computeIntegrity(archive);
+      const entry = makeVersionEntry({ integrity });
       const client = yield* makeLocalClient(registryRoot);
       yield* client.publishExtension({
         scope: "@test",
@@ -500,10 +500,10 @@ describe("LocalRegistryClient.publishExtension", () => {
 
     return Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const v1Checksum = yield* computeChecksum(v1Archive);
-      const v1Entry = makeVersionEntry({ version: "1.0.0", checksum: v1Checksum });
-      const v2Checksum = yield* computeChecksum(v2Archive);
-      const v2Entry = makeVersionEntry({ version: "2.0.0", checksum: v2Checksum });
+      const v1Integrity = yield* computeIntegrity(v1Archive);
+      const v1Entry = makeVersionEntry({ version: "1.0.0", integrity: v1Integrity });
+      const v2Integrity = yield* computeIntegrity(v2Archive);
+      const v2Entry = makeVersionEntry({ version: "2.0.0", integrity: v2Integrity });
 
       yield* fs.makeDirectory(skillDir, { recursive: true });
       yield* fs.writeFileString(
@@ -535,14 +535,14 @@ describe("LocalRegistryClient.publishExtension", () => {
     );
   });
 
-  it.effect("is idempotent when same version and checksum", () => {
+  it.effect("is idempotent when same version and integrity", () => {
     const registryRoot = makeRegistryDir();
     const archive = createTestZip("SKILL.md", "content");
 
     return Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const checksum = yield* computeChecksum(archive);
-      const entry = makeVersionEntry({ checksum });
+      const integrity = yield* computeIntegrity(archive);
+      const entry = makeVersionEntry({ integrity });
       const client = yield* makeLocalClient(registryRoot);
       const publishArgs = {
         scope: "@test" as const,
@@ -567,16 +567,16 @@ describe("LocalRegistryClient.publishExtension", () => {
     );
   });
 
-  it.effect("fails when same version but different checksum", () => {
+  it.effect("fails when same version but different integrity", () => {
     const registryRoot = makeRegistryDir();
     const archive1 = createTestZip("SKILL.md", "content1");
     const archive2 = createTestZip("SKILL.md", "content2");
 
     return Effect.gen(function* () {
-      const checksum1 = yield* computeChecksum(archive1);
-      const entry1 = makeVersionEntry({ checksum: checksum1 });
-      const checksum2 = yield* computeChecksum(archive2);
-      const entry2 = makeVersionEntry({ checksum: checksum2 });
+      const integrity1 = yield* computeIntegrity(archive1);
+      const entry1 = makeVersionEntry({ integrity: integrity1 });
+      const integrity2 = yield* computeIntegrity(archive2);
+      const entry2 = makeVersionEntry({ integrity: integrity2 });
 
       const client = yield* makeLocalClient(registryRoot);
       yield* client.publishExtension({

@@ -57,7 +57,7 @@ const commonFields = (input: SourceToLockEntryInput) => ({
 /**
  * Maps a SkillExtensionRef and operation metadata to a SkillLockEntry for lockfile persistence.
  *
- * Switches on `ref.source.type` — registry refs carry version/checksum on the ref details,
+ * Switches on `ref.source.type` — registry refs carry version/integrity on the ref details,
  * git refs carry gitTreeSha, local refs carry location. Only `sourceName` is injected
  * at the boundary (Decision 8).
  */
@@ -146,7 +146,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
         scope: r.scope,
         name: r.skill.name,
         resolvedVersion: r.version,
-        checksum: r.checksum,
+        integrity: r.integrity,
         sourceName: input.sourceName ?? "default",
         ...common,
       };

@@ -1,7 +1,7 @@
 /**
  * Registry utility functions extracted from sources/providers/registry.ts.
  *
- * Shared helpers for registry operations: version selection, checksum
+ * Shared helpers for registry operations: version selection, integrity
  * computation, zip extraction, type pluralization, and path building.
  *
  * @experimental This API is unstable and may change without notice.

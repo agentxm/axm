@@ -132,7 +132,7 @@ export const LocalLockEntrySchema = Schema.Struct({
 
 /**
  * Registry source - skill from a registry.
- * Required: scope, name, resolvedVersion, checksum, sourceName
+ * Required: scope, name, resolvedVersion, integrity, sourceName
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -141,7 +141,7 @@ export const RegistryLockEntrySchema = Schema.Struct({
   scope: Schema.String,
   name: Schema.String,
   resolvedVersion: Schema.String,
-  checksum: Schema.String,
+  integrity: Schema.String,
   sourceName: Schema.String,
   ...CommonFields,
 });
@@ -238,7 +238,7 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   scope: Schema.String,
   name: Schema.String,
   resolvedVersion: Schema.String,
-  checksum: Schema.String,
+  integrity: Schema.String,
   sourceName: Schema.String,
   installedAt: DateFromString,
   updatedAt: DateFromString,
@@ -256,7 +256,7 @@ export type RegistryPackLockEntry = typeof RegistryPackLockEntrySchema.Type;
 
 /**
  * Builtin pack lock entry - pack bundled with axm.
- * No checksum or sourceName fields.
+ * No integrity or sourceName fields.
  *
  * @experimental This API is unstable and may change without notice.
  */

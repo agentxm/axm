@@ -237,13 +237,13 @@ describe("sourceToLockEntry", () => {
   // Registry
   // ---------------------------------------------------------------------------
 
-  it("maps Registry ref with version/checksum from ref details", () => {
+  it("maps Registry ref with version/integrity from ref details", () => {
     const ref: RegistrySkillRef = {
       ...skillBase,
       source: { type: "registry", location: new URL("http://localhost:3000") },
       scope: "@acme",
       version: "2.1.0",
-      checksum: "sha256:abcdef1234567890",
+      integrity: "sha512-AAAA==",
     };
 
     const result = sourceToLockEntry({
@@ -258,7 +258,7 @@ describe("sourceToLockEntry", () => {
       scope: "@acme",
       name: "test-skill",
       resolvedVersion: "2.1.0",
-      checksum: "sha256:abcdef1234567890",
+      integrity: "sha512-AAAA==",
       sourceName: "local",
       agents,
       installedAt: now,
@@ -272,7 +272,7 @@ describe("sourceToLockEntry", () => {
       source: { type: "registry", location: new URL("http://localhost:3000") },
       scope: "@community",
       version: "1.0.0",
-      checksum: "sha256:abc",
+      integrity: "sha512-AAAA==",
     };
 
     const result = sourceToLockEntry({ ref, agents, now });

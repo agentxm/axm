@@ -68,7 +68,7 @@ const createSkillIndex = (registryRoot: string, scope: string, name: string) => 
           version: "1.0.0",
           published: "2025-01-01T00:00:00Z",
           agents: [],
-          checksum: "sha256:deadbeef",
+          integrity: "sha512-AAAA==",
         },
       ],
     }),

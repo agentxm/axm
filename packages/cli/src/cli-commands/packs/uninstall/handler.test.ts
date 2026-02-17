@@ -76,7 +76,7 @@ const makePackLockEntry = (
   scope,
   name,
   resolvedVersion: "1.0.0",
-  checksum: "abc",
+  integrity: "sha512-AAAA==",
   sourceName: "default",
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),

@@ -22,7 +22,7 @@ import { AuthorSchema, ExtensionTypeSchema } from "../extensions/common.js";
  * - published: ISO 8601 timestamp of publication
  * - dependencies: Optional map of `@scope/name` to semver range
  * - engines: Optional map of engine constraints (e.g., `{"axm": ">=0.2.0"}`)
- * - checksum: Content hash in `sha256:<hex>` format
+ * - integrity: SRI integrity string in `sha512-<base64>` format
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -31,7 +31,7 @@ export const VersionEntrySchema = Schema.Struct({
   published: Schema.String,
   dependencies: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
   engines: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
-  checksum: Schema.String,
+  integrity: Schema.String,
 });
 
 /**

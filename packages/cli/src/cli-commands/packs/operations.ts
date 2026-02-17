@@ -24,8 +24,8 @@ export interface InstallPackOperationArgs {
   readonly scope: string;
   /** Exact resolved version */
   readonly resolvedVersion: string;
-  /** Content hash */
-  readonly checksum: string;
+  /** SRI integrity string */
+  readonly integrity: string;
   /** Registry source name */
   readonly sourceName: string;
   /** Resolved skill FQNs to exact versions */

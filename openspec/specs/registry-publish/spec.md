@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Publishes managed extensions to registries with validation, archiving, checksum computation, and idempotency.
+Publishes managed extensions to registries with validation, archiving, integrity computation, and idempotency.
 
 ## Requirements
 
@@ -53,14 +53,14 @@ The system SHALL create a zip archive of the extension's `src/` subdirectory wit
 - **WHEN** an extension with `axm-skill.json` at the root and `src/SKILL.md`, `src/helpers/` is archived
 - **THEN** the zip contains `SKILL.md` and `helpers/` at the root (no enclosing directory, no `axm-skill.json`)
 
-### Requirement: Checksum computation
+### Requirement: Integrity computation
 
-The system SHALL compute a SHA-256 checksum of the archive bytes.
+The system SHALL compute a SHA-512 integrity value of the archive bytes in SRI format.
 
-#### Scenario: Checksum format
+#### Scenario: Integrity format
 
-- **WHEN** a checksum is computed for an archive
-- **THEN** it is formatted as `sha256:<lowercase-hex-digits>`
+- **WHEN** an integrity value is computed for an archive
+- **THEN** it is formatted as `sha512-<base64>` (SRI format)
 
 ### Requirement: Registry write
 
@@ -85,14 +85,14 @@ The system SHALL write the archive and update the index in the target registry.
 
 The system SHALL handle republishing the same version gracefully.
 
-#### Scenario: Same version and checksum
+#### Scenario: Same version and integrity
 
-- **WHEN** publishing version `1.0.0` and `1.0.0.zip` already exists with the same checksum
+- **WHEN** publishing version `1.0.0` and `1.0.0.zip` already exists with the same integrity
 - **THEN** the operation is a no-op (no error)
 
-#### Scenario: Same version, different checksum
+#### Scenario: Same version, different integrity
 
-- **WHEN** publishing version `1.0.0` and `1.0.0.zip` already exists with a different checksum
+- **WHEN** publishing version `1.0.0` and `1.0.0.zip` already exists with a different integrity
 - **THEN** the operation fails with an error (no overwrites without `--force`)
 
 ### Requirement: Registry guard precondition

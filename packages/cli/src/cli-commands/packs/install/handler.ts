@@ -387,7 +387,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
         packName,
         scope: registryScope,
         resolvedVersion,
-        checksum: "",
+        integrity: "",
         sourceName: "default",
         resolvedSkills,
         resolvedCommands,

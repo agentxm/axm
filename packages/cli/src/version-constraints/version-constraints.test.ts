@@ -16,7 +16,7 @@ import {
 const makeVersionEntry = (version: string): VersionEntry => ({
   version,
   published: "2025-01-01T00:00:00Z",
-  checksum: "sha256:0000",
+  integrity: "sha512-AAAA==",
 });
 
 // -----------------------------------------------------------------------------

@@ -41,9 +41,9 @@ import {
 const runEffect = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
   Effect.runPromise(effect.pipe(Effect.provide(NodeContext.layer)));
 
-const sha256 = (data: Uint8Array): string => {
-  const hex = createHash("sha256").update(data).digest("hex");
-  return `sha256:${hex}`;
+const sha512 = (data: Uint8Array): string => {
+  const b64 = createHash("sha512").update(data).digest("base64");
+  return `sha512-${b64}`;
 };
 
 const testSource: RegistrySource = {
@@ -59,7 +59,7 @@ const defaultFindOptions: FindOptions = {
 const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
   version: "1.0.0",
   published: "2025-01-01T00:00:00Z",
-  checksum: "sha256:0000",
+  integrity: "sha512-0000",
   ...overrides,
 });
 
@@ -143,7 +143,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         license: Option.some("MIT"),
         authors: Option.some([{ name: "Test Author", email: Option.none(), url: Option.none() }]),
         version: "1.0.0",
-        checksum: "sha256:abc",
+        integrity: "sha512-abc",
       },
     ];
 
@@ -192,7 +192,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         );
         expect(skillRef.scope).toBe("@test");
         expect(skillRef.version).toBe("1.0.0");
-        expect(skillRef.checksum).toBe("sha256:abc");
+        expect(skillRef.integrity).toBe("sha512-abc");
       }),
     );
   });
@@ -208,7 +208,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         license: Option.none(),
         authors: Option.none(),
         version: "2.0.0",
-        checksum: "sha256:def",
+        integrity: "sha512-def",
       },
     ];
 
@@ -248,7 +248,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         license: Option.none(),
         authors: Option.none(),
         version: "3.0.0",
-        checksum: "sha256:ghi",
+        integrity: "sha512-ghi",
       },
     ];
 
@@ -315,9 +315,9 @@ describe("LocalRegistrySourceHostProvider.find", () => {
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.fetch", () => {
-  it("delegates to client.getExtensionVersion and verifies checksum", () => {
+  it("delegates to client.getExtensionVersion and verifies integrity", () => {
     const archiveBytes = new Uint8Array([80, 75, 3, 4, 0, 0, 0, 0]);
-    const checksum = sha256(archiveBytes);
+    const integrity = sha512(archiveBytes);
 
     let capturedArgs: Parameters<RegistryClient["getExtensionVersion"]>[0] | undefined;
 
@@ -336,7 +336,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       source: testSource,
       scope: "@test",
       version: "1.0.0",
-      checksum,
+      integrity,
     };
 
     return runEffect(
@@ -351,18 +351,18 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         expect(capturedArgs?.version).toEqual(Option.some("1.0.0"));
 
         // extractZip may fail on fake bytes, that's fine — the point is
-        // that the checksum passed and client was called correctly
+        // that the integrity passed and client was called correctly
         // If it succeeded, that means extraction worked; if it failed,
-        // it should be a SOURCE_FETCH_FAILED from extractZip, not checksum
+        // it should be a SOURCE_FETCH_FAILED from extractZip, not integrity
         if (result._tag === "Left") {
           expect(result.left.code).toBe("SOURCE_FETCH_FAILED");
-          expect(result.left.what).not.toContain("Checksum mismatch");
+          expect(result.left.what).not.toContain("Integrity mismatch");
         }
       }),
     );
   });
 
-  it("fails on checksum mismatch", () => {
+  it("fails on integrity mismatch", () => {
     const archiveBytes = new Uint8Array([80, 75, 3, 4]);
 
     const client = createMockClient({
@@ -377,7 +377,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       source: testSource,
       scope: "@test",
       version: "1.0.0",
-      checksum: "sha256:wrong_checksum_value",
+      integrity: "sha512-wrongIntegrityValue==",
     };
 
     return runEffect(
@@ -386,7 +386,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
           expect(result.left.code).toBe("SOURCE_FETCH_FAILED");
-          expect(result.left.what).toContain("Checksum mismatch");
+          expect(result.left.what).toContain("Integrity mismatch");
         }
       }),
     );
@@ -394,7 +394,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
 
   it("extracts scope/type/name/version from mcp-server ref", () => {
     const archiveBytes = new Uint8Array([80, 75, 3, 4]);
-    const checksum = sha256(archiveBytes);
+    const integrity = sha512(archiveBytes);
 
     let capturedType: string | undefined;
     let capturedName: string | undefined;
@@ -415,7 +415,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       source: testSource,
       scope: "@test",
       version: "2.0.0",
-      checksum,
+      integrity,
     };
 
     return runEffect(
@@ -522,7 +522,7 @@ describe("RemoteRegistrySourceHostProvider", () => {
       source: testSource,
       scope: "@test",
       version: "1.0.0",
-      checksum: "sha256:abc",
+      integrity: "sha512-abc",
     };
 
     return runEffect(

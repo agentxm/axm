@@ -9,7 +9,7 @@
 - **WHEN** user runs `axm packs publish @acme/frontend-tools`
 - **THEN** the pack directory is validated (must contain `axm-pack.json`)
 - **AND** all files in the pack directory are zipped into an archive (manifest + any accompanying files)
-- **AND** a SHA-256 checksum is computed
+- **AND** a SHA-512 integrity value is computed in SRI format
 - **AND** the archive is written to `<registry>/extensions/@acme/packs/frontend-tools/<version>.zip`
 - **AND** `index.json` is created or updated with the version entry
 
@@ -26,14 +26,14 @@
 
 #### Scenario: Idempotent publish
 
-- **WHEN** the same version with the same checksum is published again
+- **WHEN** the same version with the same integrity is published again
 - **THEN** the operation is a no-op
 
 #### Scenario: Version conflict
 
-- **WHEN** the same version with a different checksum is published
+- **WHEN** the same version with a different integrity is published
 - **AND** `--force` is not provided
-- **THEN** the command fails with a `CliError` indicating the version already exists with a different checksum
+- **THEN** the command fails with a `CliError` indicating the version already exists with a different integrity
 
 ### Requirement: Archive includes all pack files
 

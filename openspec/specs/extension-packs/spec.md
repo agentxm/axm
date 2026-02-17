@@ -103,7 +103,7 @@ The lockfile SHALL have a separate top-level `packs` section. Pack lock entries 
 - `scope`: string (with `@` prefix)
 - `name`: string (without scope)
 - `resolvedVersion`: string (exact semver)
-- `checksum`: string (`sha256:<hex>`)
+- `integrity`: string (SRI format `sha512-<base64>`)
 - `sourceName`: string (registry source name)
 - `installedAt`: ISO 8601 date string
 - `updatedAt`: ISO 8601 date string

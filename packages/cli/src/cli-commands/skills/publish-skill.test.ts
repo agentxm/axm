@@ -156,8 +156,8 @@ describe("publishSkill", () => {
     );
   });
 
-  describe("checksum computation", () => {
-    it.effect("writes checksum in sha256:<hex> format to index", () =>
+  describe("integrity computation", () => {
+    it.effect("writes integrity in sha512-<base64> SRI format to index", () =>
       Effect.gen(function* () {
         const { axmDir, registryRoot } = setup();
 
@@ -174,7 +174,7 @@ describe("publishSkill", () => {
           "index.json",
         );
         const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
-        expect(index.versions[0].checksum).toMatch(/^sha256:[a-f0-9]{64}$/);
+        expect(index.versions[0].integrity).toMatch(/^sha512-[A-Za-z0-9+/]+=*$/);
       }),
     );
   });
@@ -240,7 +240,7 @@ describe("publishSkill", () => {
   });
 
   describe("idempotency", () => {
-    it.effect("is a no-op when same version + same checksum published twice", () =>
+    it.effect("is a no-op when same version + same integrity published twice", () =>
       Effect.gen(function* () {
         const { axmDir, registryRoot } = setup();
 
@@ -270,7 +270,7 @@ describe("publishSkill", () => {
       }),
     );
 
-    it.effect("fails when same version has a different checksum", () =>
+    it.effect("fails when same version has a different integrity", () =>
       Effect.gen(function* () {
         const { axmDir, registryRoot, extensionDir } = setup();
 
@@ -279,7 +279,7 @@ describe("publishSkill", () => {
           Effect.provide(withServices(axmDir, registryRoot)),
         );
 
-        // Change content (different checksum) but keep same version
+        // Change content (different integrity) but keep same version
         fs.writeFileSync(path.join(extensionDir, "src", "prompt.md"), "changed content");
 
         // Publish again — same version, different content → should fail
@@ -290,7 +290,7 @@ describe("publishSkill", () => {
         expect(error.what).toBe("Failed to publish to registry");
         expect(error.details).toEqual(
           expect.arrayContaining([
-            expect.stringContaining("already exists with different checksum"),
+            expect.stringContaining("already exists with different integrity"),
           ]),
         );
       }),

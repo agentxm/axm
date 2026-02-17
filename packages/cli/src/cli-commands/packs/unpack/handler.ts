@@ -103,7 +103,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
               scope: entry.scope,
               name: shortName,
               resolvedVersion: version,
-              checksum: "",
+              integrity: "",
               sourceName: entry.sourceName,
               agents: [],
               installedAt: new Date(),

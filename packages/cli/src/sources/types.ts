@@ -266,8 +266,8 @@ export interface RegistryRefDetails {
   readonly scope: string;
   /** Resolved semver version */
   readonly version: string;
-  /** Archive checksum for integrity verification */
-  readonly checksum: string;
+  /** SRI integrity string in `sha512-<base64>` format */
+  readonly integrity: string;
 }
 
 /** Ref details for local filesystem sources. @experimental */

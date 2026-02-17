@@ -102,7 +102,7 @@ describe("axm skills fork", () => {
         expect(index.scope).toBe("@test");
         expect(index.versions.length).toBeGreaterThan(0);
         expect(index.versions[0].version).toBe("0.1.0");
-        expect(index.versions[0].checksum).toMatch(/^sha256:/);
+        expect(index.versions[0].integrity).toMatch(/^sha512-[A-Za-z0-9+/]+=*$/);
 
         // Verify archive
         const archivePath = path.join(registryExtDir, "0.1.0.zip");

@@ -195,7 +195,7 @@ describe("common schemas", () => {
   });
 
   describe("ExtensionType", () => {
-    it.each(["skill", "command", "pack", "mcp-server"] as const)(
+    it.each(["skill", "pack", "mcp-server"] as const)(
       "accepts valid extension type: %s",
       (type) => {
         const result = Schema.decodeUnknownEither(ExtensionTypeSchema)(type);

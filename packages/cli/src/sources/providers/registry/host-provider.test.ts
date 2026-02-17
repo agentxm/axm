@@ -71,8 +71,6 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient => ({
   getExtensions: () => Effect.succeed([]),
   scopeExists: () => Effect.succeed(false),
-  fetchIndex: () =>
-    Effect.fail(makeCliError({ code: "REGISTRY_FETCH_FAILED", what: "not implemented" })),
   getExtension: () =>
     Effect.fail(makeCliError({ code: "REGISTRY_FETCH_FAILED", what: "not implemented" })),
   publishExtension: () => Effect.void,
@@ -89,13 +87,6 @@ const createFailingClient = (): RegistryClient => ({
       }),
     ),
   scopeExists: () =>
-    Effect.fail(
-      makeCliError({
-        code: "REGISTRY_REMOTE_NOT_SUPPORTED",
-        what: "remote registry not yet supported",
-      }),
-    ),
-  fetchIndex: () =>
     Effect.fail(
       makeCliError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",

@@ -13,7 +13,6 @@ import type {
   BuiltinPackRef,
   BuiltinRefDetails,
   ConfiguredSourceHost,
-  FindableExtensionType,
   GitHostedRefDetails,
   GitHostingSourceHost,
   LocalRefDetails,
@@ -304,17 +303,6 @@ describe("convenience unions", () => {
       { type: "builtin" },
     ];
     expect(hosts).toHaveLength(3);
-  });
-});
-
-// -----------------------------------------------------------------------------
-// FindableExtensionType
-// -----------------------------------------------------------------------------
-
-describe("FindableExtensionType", () => {
-  it("includes skill, pack, mcp-server", () => {
-    const types: FindableExtensionType[] = ["skill", "pack", "mcp-server"];
-    expect(types).toHaveLength(3);
   });
 });
 

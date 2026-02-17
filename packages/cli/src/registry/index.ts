@@ -9,16 +9,18 @@
  */
 
 // Schema types and schemas
-export type { ExtensionIndex, RegistryExtensionType, VersionEntry } from "./schema.js";
-export { ExtensionIndexSchema, RegistryExtensionTypeSchema, VersionEntrySchema } from "./schema.js";
+export type { ExtensionIndex, VersionEntry } from "./local-schema.js";
+export { ExtensionIndexSchema, VersionEntrySchema } from "./local-schema.js";
 
-// Client types and implementation
+// Client types and factory
 export type { RegistryClient, RegistryExtensionEntry, RegistrySearchOptions } from "./client.js";
-export {
-  createLocalRegistryClient,
-  createRegistryClient,
-  createRemoteRegistryClient,
-} from "./client.js";
+export { createRegistryClient } from "./client.js";
+
+// Local client
+export { createLocalRegistryClient } from "./local-client.js";
+
+// Remote client
+export { createRemoteRegistryClient } from "./client-remote.js";
 
 // Utilities
 export type { VersionSelectOptions } from "./utils.js";

@@ -24,7 +24,7 @@ import * as gitlab from "./gitlab/index.js";
 import { parseLocalPath } from "./local/index.js";
 import { parseInputPattern } from "./parser.js";
 import { createRegistryClient } from "../registry/index.js";
-import type { RegistryExtensionType } from "../registry/index.js";
+import type { ExtensionType } from "../extensions/common.js";
 import type { RegistrySource, Source, SourceParams, SourceType } from "./types.js";
 import type { SourceHostConfig } from "../settings/schema.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
@@ -421,9 +421,7 @@ export const routeRegistryInput = (
  * Route SlashPattern (owner/repo): iterate git-hosting configs that support
  * shorthand, try each provider in config order. First success wins.
  */
-const registryExtensionTypeFromSegment = (
-  segment: string,
-): Option.Option<RegistryExtensionType> => {
+const registryExtensionTypeFromSegment = (segment: string): Option.Option<ExtensionType> => {
   switch (segment) {
     case "skills":
       return Option.some("skill");

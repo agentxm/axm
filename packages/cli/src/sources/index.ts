@@ -50,8 +50,6 @@ export type {
   LocalSource,
   RegistrySource,
   Source,
-  // FindableExtensionType
-  FindableExtensionType,
   // Ref details
   BuiltinRefDetails,
   GitHostedRefDetails,

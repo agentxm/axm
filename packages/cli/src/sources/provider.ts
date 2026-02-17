@@ -11,8 +11,9 @@
 import type * as Effect from "effect/Effect";
 
 import type { CliError } from "../cli-error/index.js";
-import type { RegistryExtensionType, VersionEntry } from "../registry/index.js";
-import type { FindableExtensionType, Source, SourceExtensionRef } from "./types.js";
+import type { ExtensionType } from "../extensions/common.js";
+import type { VersionEntry } from "../registry/index.js";
+import type { Source, SourceExtensionRef } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Search Criteria
@@ -30,7 +31,7 @@ import type { FindableExtensionType, Source, SourceExtensionRef } from "./types.
 export interface FindOptions {
   readonly names: ReadonlyArray<string>;
   readonly agents: ReadonlyArray<string>;
-  readonly type: FindableExtensionType | "*";
+  readonly type: ExtensionType | "*";
 }
 
 // -----------------------------------------------------------------------------
@@ -96,7 +97,7 @@ export interface PublishableSourceHostProvider<
 > extends SourceHostProvider<S, R> {
   readonly publishExtension: (
     scope: string,
-    type: RegistryExtensionType,
+    type: ExtensionType,
     name: string,
     version: string,
     archive: Uint8Array,

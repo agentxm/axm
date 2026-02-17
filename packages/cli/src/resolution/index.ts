@@ -8,4 +8,4 @@
  * @packageDocumentation
  */
 
-export type { ExtensionType } from "../extensions/common.js";
+export {};

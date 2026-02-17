@@ -15,7 +15,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { makeCliError } from "../cli-error/index.js";
-import type { RegistryExtensionType, VersionEntry } from "./schema.js";
+import type { ExtensionType } from "../extensions/common.js";
+import type { VersionEntry } from "./local-schema.js";
 
 // -----------------------------------------------------------------------------
 // Version Selection
@@ -56,7 +57,7 @@ export const selectVersion = (
 // -----------------------------------------------------------------------------
 
 /** Pluralize extension type for directory segments. */
-export const pluralizeType = (type: RegistryExtensionType): string => {
+export const pluralizeType = (type: ExtensionType): string => {
   switch (type) {
     case "skill":
       return "skills";
@@ -75,7 +76,7 @@ export const pluralizeType = (type: RegistryExtensionType): string => {
 export const extensionDir = (
   registryRoot: string,
   scope: string,
-  type: RegistryExtensionType,
+  type: ExtensionType,
   name: string,
   join: (...parts: readonly string[]) => string,
 ): string => join(registryRoot, "extensions", scope, pluralizeType(type), name);

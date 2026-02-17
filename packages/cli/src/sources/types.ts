@@ -249,13 +249,6 @@ export type ConfiguredSourceHost = GitHostingSourceHost | RegistrySourceHost;
 export type SelfDescribingSourceHost = GitSourceHost | LocalSourceHost | BuiltinSourceHost;
 
 // -----------------------------------------------------------------------------
-// FindableExtensionType
-// -----------------------------------------------------------------------------
-
-/** Findable extension types — excludes "command" until CommandExtensionRef is implemented. @experimental */
-export type FindableExtensionType = "skill" | "pack" | "mcp-server";
-
-// -----------------------------------------------------------------------------
 // Ref Detail Interfaces
 // -----------------------------------------------------------------------------
 

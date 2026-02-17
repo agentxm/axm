@@ -45,7 +45,16 @@ const resolveSkillRegistrySource = (
         what: `No registry source configured for scope "${pattern.scope}"`,
         details: [input],
       });
+    } else if (registrySources.length === 1) {
+      const regConfig = registrySources[0]!;
+      return {
+        type: "registry" as const,
+        location: regConfig.location,
+      } satisfies RegistrySource;
     }
+    /*
+    TODO: loop through registry sources, checking if scope exists at registry. Return first that getConfiguredRegistrySources
+    */
 
     const regConfig = registrySources[0]!;
     return {

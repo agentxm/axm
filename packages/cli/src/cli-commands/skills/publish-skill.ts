@@ -131,7 +131,6 @@ export const publishSkill: OperationHandler<
     const versionEntry: VersionEntry = {
       version: manifest.version,
       published: new Date().toISOString(),
-      agents: manifest.agents ? [...manifest.agents] : [],
       checksum,
       ...(manifest.dependencies ? { dependencies: { ...manifest.dependencies } } : {}),
     };

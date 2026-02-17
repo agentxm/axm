@@ -8,7 +8,6 @@ describe("registry schema", () => {
       const input = {
         version: "1.2.3",
         published: "2025-06-01T12:00:00Z",
-        agents: ["claude-code", "cursor"],
         dependencies: { "@acme/utils": "^1.0.0", "@acme/core": "~2.1.0" },
         engines: { axm: ">=0.2.0" },
         checksum: "sha256:abc123def456",
@@ -18,7 +17,6 @@ describe("registry schema", () => {
 
       expect(result.version).toBe("1.2.3");
       expect(result.published).toBe("2025-06-01T12:00:00Z");
-      expect(result.agents).toEqual(["claude-code", "cursor"]);
       expect(result.dependencies).toEqual({
         "@acme/utils": "^1.0.0",
         "@acme/core": "~2.1.0",
@@ -31,7 +29,6 @@ describe("registry schema", () => {
       const input = {
         version: "0.1.0",
         published: "2025-01-01T00:00:00Z",
-        agents: ["claude-code"],
         checksum: "sha256:deadbeef",
       };
 
@@ -39,7 +36,6 @@ describe("registry schema", () => {
 
       expect(result.version).toBe("0.1.0");
       expect(result.published).toBe("2025-01-01T00:00:00Z");
-      expect(result.agents).toEqual(["claude-code"]);
       expect(result.dependencies).toBeUndefined();
       expect(result.engines).toBeUndefined();
       expect(result.checksum).toBe("sha256:deadbeef");
@@ -48,7 +44,6 @@ describe("registry schema", () => {
     it("rejects missing version", () => {
       const input = {
         published: "2025-01-01T00:00:00Z",
-        agents: ["claude-code"],
         checksum: "sha256:deadbeef",
       };
 
@@ -58,17 +53,6 @@ describe("registry schema", () => {
     it("rejects missing published", () => {
       const input = {
         version: "1.0.0",
-        agents: ["claude-code"],
-        checksum: "sha256:deadbeef",
-      };
-
-      expect(() => Schema.decodeUnknownSync(VersionEntrySchema)(input)).toThrow();
-    });
-
-    it("rejects missing agents", () => {
-      const input = {
-        version: "1.0.0",
-        published: "2025-01-01T00:00:00Z",
         checksum: "sha256:deadbeef",
       };
 
@@ -79,43 +63,15 @@ describe("registry schema", () => {
       const input = {
         version: "1.0.0",
         published: "2025-01-01T00:00:00Z",
-        agents: ["claude-code"],
       };
 
       expect(() => Schema.decodeUnknownSync(VersionEntrySchema)(input)).toThrow();
-    });
-
-    it("accepts forward-compatible unknown agent strings", () => {
-      const input = {
-        version: "1.0.0",
-        published: "2025-01-01T00:00:00Z",
-        agents: ["future-agent-2030", "another-new-agent", "claude-code"],
-        checksum: "sha256:abc123",
-      };
-
-      const result = Schema.decodeUnknownSync(VersionEntrySchema)(input);
-
-      expect(result.agents).toEqual(["future-agent-2030", "another-new-agent", "claude-code"]);
-    });
-
-    it("accepts empty agents array", () => {
-      const input = {
-        version: "1.0.0",
-        published: "2025-01-01T00:00:00Z",
-        agents: [],
-        checksum: "sha256:abc123",
-      };
-
-      const result = Schema.decodeUnknownSync(VersionEntrySchema)(input);
-
-      expect(result.agents).toEqual([]);
     });
 
     it("accepts empty dependencies and engines", () => {
       const input = {
         version: "1.0.0",
         published: "2025-01-01T00:00:00Z",
-        agents: ["claude-code"],
         dependencies: {},
         engines: {},
         checksum: "sha256:abc123",
@@ -138,7 +94,6 @@ describe("registry schema", () => {
           {
             version: "1.0.0",
             published: "2025-06-01T12:00:00Z",
-            agents: ["claude-code"],
             checksum: "sha256:abc123",
           },
         ],
@@ -172,7 +127,6 @@ describe("registry schema", () => {
           {
             version: "2.0.0",
             published: "2025-08-01T12:00:00Z",
-            agents: ["claude-code", "cursor"],
             dependencies: { "@acme/utils": "^1.0.0" },
             engines: { axm: ">=0.3.0" },
             checksum: "sha256:newest",
@@ -180,14 +134,12 @@ describe("registry schema", () => {
           {
             version: "1.1.0",
             published: "2025-07-01T12:00:00Z",
-            agents: ["claude-code"],
             dependencies: { "@acme/utils": "^1.0.0" },
             checksum: "sha256:middle",
           },
           {
             version: "1.0.0",
             published: "2025-06-01T12:00:00Z",
-            agents: ["claude-code"],
             checksum: "sha256:oldest",
           },
         ],
@@ -216,7 +168,6 @@ describe("registry schema", () => {
           {
             version: "1.0.0",
             published: "2025-01-01T00:00:00Z",
-            agents: ["claude-code"],
             checksum: "sha256:abc",
           },
         ],
@@ -233,7 +184,6 @@ describe("registry schema", () => {
           {
             version: "1.0.0",
             published: "2025-01-01T00:00:00Z",
-            agents: ["claude-code"],
             checksum: "sha256:abc",
           },
         ],
@@ -250,7 +200,6 @@ describe("registry schema", () => {
           {
             version: "1.0.0",
             published: "2025-01-01T00:00:00Z",
-            agents: ["claude-code"],
             checksum: "sha256:abc",
           },
         ],

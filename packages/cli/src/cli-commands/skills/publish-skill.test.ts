@@ -199,7 +199,6 @@ describe("publishSkill", () => {
         const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
         expect(index.versions).toHaveLength(1);
         expect(index.versions[0].version).toBe("0.1.0");
-        expect(index.versions[0].agents).toEqual(["claude-code"]);
       }),
     );
 

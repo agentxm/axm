@@ -34,7 +34,6 @@ import { SourceHostProviders, SourceHostProvidersLive } from "./service.js";
 const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
   version: "1.0.0",
   published: "2025-01-01T00:00:00Z",
-  agents: ["claude-code"],
   checksum: "sha256:0000",
   ...overrides,
 });

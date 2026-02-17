@@ -1,7 +1,7 @@
 /**
  * Tests for LocalRegistryClient.
  *
- * Tests all 6 client methods: getExtensions, scopeExists, fetchIndex,
+ * Tests all 5 client methods: getExtensions, scopeExists,
  * getExtension, publishExtension, extensionExists.
  */
 
@@ -15,13 +15,11 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
 import { computeChecksum } from "../utils/checksum.js";
-import type { ExtensionIndex, VersionEntry } from "./schema.js";
-import type { RegistrySearchOptions } from "./client.js";
-import {
-  createLocalRegistryClient,
-  createRegistryClient,
-  createRemoteRegistryClient,
-} from "./client.js";
+import type { ExtensionIndex, VersionEntry } from "./local-schema.js";
+import type { GetExtensionsArgs } from "./client.js";
+import { createRegistryClient } from "./client.js";
+import { createLocalRegistryClient } from "./local-client.js";
+import { createRemoteRegistryClient } from "./client-remote.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -43,7 +41,7 @@ const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
   ...overrides,
 });
 
-const defaultSearchOptions: RegistrySearchOptions = {
+const defaultSearchOptions: GetExtensionsArgs = {
   names: [],
   agents: [],
   type: "skill",
@@ -298,52 +296,6 @@ describe("LocalRegistryClient.scopeExists", () => {
 });
 
 // -----------------------------------------------------------------------------
-// LocalRegistryClient.fetchIndex
-// -----------------------------------------------------------------------------
-
-describe("LocalRegistryClient.fetchIndex", () => {
-  it.effect("reads and validates index.json", () => {
-    const registryRoot = makeRegistryDir();
-    const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
-
-    return Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      yield* fs.makeDirectory(skillDir, { recursive: true });
-      yield* fs.writeFileString(nodePath.join(skillDir, "index.json"), JSON.stringify(makeIndex()));
-
-      const client = createLocalRegistryClient(registryRoot);
-      const index = yield* client.fetchIndex("@test", "skill", "my-skill");
-      expect(index.name).toBe("my-skill");
-      expect(index.scope).toBe("@test");
-      expect(index.versions).toHaveLength(1);
-    }).pipe(
-      Effect.ensuring(
-        Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
-      ),
-      Effect.provide(NodeContext.layer),
-    );
-  });
-
-  it.effect("fails when index does not exist", () => {
-    const registryRoot = makeRegistryDir();
-
-    return Effect.gen(function* () {
-      const client = createLocalRegistryClient(registryRoot);
-      const result = yield* client.fetchIndex("@test", "skill", "missing").pipe(Effect.either);
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_FETCH_FAILED");
-      }
-    }).pipe(
-      Effect.ensuring(
-        Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
-      ),
-      Effect.provide(NodeContext.layer),
-    );
-  });
-});
-
-// -----------------------------------------------------------------------------
 // LocalRegistryClient.getExtension
 // -----------------------------------------------------------------------------
 
@@ -578,16 +530,6 @@ describe("RemoteRegistryClient", () => {
   it.effect("scopeExists fails with remote not supported", () =>
     Effect.gen(function* () {
       const result = yield* client.scopeExists("@test").pipe(Effect.either);
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
-      }
-    }).pipe(Effect.provide(NodeContext.layer)),
-  );
-
-  it.effect("fetchIndex fails with remote not supported", () =>
-    Effect.gen(function* () {
-      const result = yield* client.fetchIndex("@test", "skill", "my-skill").pipe(Effect.either);
       expect(result._tag).toBe("Left");
       if (result._tag === "Left") {
         expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");

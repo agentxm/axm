@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { makeCliError, type CliError } from "../cli-error/index.js";
-import type { RegistryClient, RegistryExtensionEntry, RegistrySearchOptions } from "./client.js";
+import type { RegistryClient, RegistryExtensionEntry, GetExtensionsArgs } from "./client.js";
 import type { ExtensionType } from "../extensions/common.js";
 import { ExtensionIndexSchema, type ExtensionIndex } from "./local-schema.js";
 import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
@@ -36,7 +36,7 @@ const processNameDir = (
   typeDir: string,
   nameDir: string,
   scopeDir: string,
-  options: RegistrySearchOptions,
+  options: GetExtensionsArgs,
 ): Effect.Effect<Option.Option<RegistryExtensionEntry>, CliError> =>
   Effect.gen(function* () {
     const dir = path.join(typeDir, nameDir);

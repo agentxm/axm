@@ -8,7 +8,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 
-import type { VersionEntry } from "./schema.js";
+import type { VersionEntry } from "./local-schema.js";
 import { computeChecksum } from "../utils/checksum.js";
 import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
 

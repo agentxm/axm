@@ -192,40 +192,47 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
           const requestedTypes: ReadonlyArray<RegistryExtensionType> =
             options.type === "*" ? ["skill", "mcp-server", "pack"] : [options.type];
 
-          const refs: RegistryExtensionEntry[] = [];
+          const extensionsDir = path.join(registryRoot, "extensions");
+          const extensionsDirExists = yield* fs
+            .exists(extensionsDir)
+            .pipe(Effect.orElseSucceed(() => false));
+          if (!extensionsDirExists) return [] as ReadonlyArray<RegistryExtensionEntry>;
 
-          for (const extType of requestedTypes) {
-            const extensionsDir = path.join(registryRoot, "extensions");
-            const extensionsDirExists = yield* fs
-              .exists(extensionsDir)
-              .pipe(Effect.orElseSucceed(() => false));
-            if (!extensionsDirExists) return refs;
+          const scopeDirs = yield* fs
+            .readDirectory(extensionsDir)
+            .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
+          const scopes = scopeDirs.filter((d) => d.startsWith("@"));
 
-            const scopeDirs = yield* fs
-              .readDirectory(extensionsDir)
-              .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
+          const nestedResults = yield* Effect.forEach(
+            requestedTypes,
+            (extType) =>
+              Effect.forEach(
+                scopes,
+                (scopeDir) =>
+                  Effect.gen(function* () {
+                    const typeDir = path.join(extensionsDir, scopeDir, pluralizeType(extType));
+                    const typeDirExists = yield* fs
+                      .exists(typeDir)
+                      .pipe(Effect.orElseSucceed(() => false));
+                    if (!typeDirExists) return [] as ReadonlyArray<RegistryExtensionEntry>;
 
-            for (const scopeDir of scopeDirs) {
-              if (!scopeDir.startsWith("@")) continue;
-              const typeDir = path.join(extensionsDir, scopeDir, pluralizeType(extType));
-              const typeDirExists = yield* fs
-                .exists(typeDir)
-                .pipe(Effect.orElseSucceed(() => false));
-              if (!typeDirExists) continue;
+                    const nameDirs = yield* fs
+                      .readDirectory(typeDir)
+                      .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
+                    const filtered = name !== "" ? nameDirs.filter((d) => d === name) : nameDirs;
 
-              const nameDirs = yield* fs
-                .readDirectory(typeDir)
-                .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
+                    return yield* Effect.forEach(
+                      filtered,
+                      (nameDir) => processNameDir(fs, path, typeDir, nameDir, scopeDir, options),
+                      { concurrency: "unbounded" },
+                    ).pipe(Effect.map(Array.getSomes));
+                  }),
+                { concurrency: "unbounded" },
+              ).pipe(Effect.map(Array.flatten)),
+            { concurrency: "unbounded" },
+          );
 
-              for (const nameDir of nameDirs) {
-                if (name !== "" && nameDir !== name) continue;
-                const ref = yield* processNameDir(fs, path, typeDir, nameDir, scopeDir, options);
-                if (Option.isSome(ref)) refs.push(ref.value);
-              }
-            }
-          }
-
-          return refs;
+          return Array.flatten(nestedResults);
         });
 
       if (options.names.length > 0) {
@@ -332,7 +339,7 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
       yield* fs.makeDirectory(dir, { recursive: true }).pipe(
         Effect.mapError((e) =>
           makeCliError({
-            code: "REGISTRY_FETCH_FAILED",
+            code: "REGISTRY_PUBLISH_FAILED",
             what: `Failed to create directory: ${dir}`,
             cause: e,
           }),
@@ -350,7 +357,7 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
         const content = yield* fs.readFileString(indexPath).pipe(
           Effect.mapError((e) =>
             makeCliError({
-              code: "REGISTRY_FETCH_FAILED",
+              code: "REGISTRY_PUBLISH_FAILED",
               what: `Failed to read index: ${indexPath}`,
               cause: e,
             }),
@@ -360,14 +367,18 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
           try: () => JSON.parse(content) as unknown,
           catch: (e) =>
             makeCliError({
-              code: "REGISTRY_FETCH_FAILED",
+              code: "REGISTRY_PUBLISH_FAILED",
               what: `Invalid JSON in index`,
               cause: e,
             }),
         });
         const existingIndex = yield* Schema.decodeUnknown(ExtensionIndexSchema)(json).pipe(
           Effect.mapError((e) =>
-            makeCliError({ code: "REGISTRY_FETCH_FAILED", what: `Invalid index schema`, cause: e }),
+            makeCliError({
+              code: "REGISTRY_PUBLISH_FAILED",
+              what: `Invalid index schema`,
+              cause: e,
+            }),
           ),
         );
 
@@ -379,7 +390,7 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
           }
           return yield* Effect.fail(
             makeCliError({
-              code: "REGISTRY_FETCH_FAILED",
+              code: "REGISTRY_PUBLISH_FAILED",
               what: `Version ${version} already exists with different checksum`,
               details: [`Expected ${existingVersion.checksum}, got ${metadata.checksum}`],
             }),
@@ -394,7 +405,7 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
         yield* fs.writeFileString(indexPath, JSON.stringify(updatedIndex, null, 2) + "\n").pipe(
           Effect.mapError((e) =>
             makeCliError({
-              code: "REGISTRY_FETCH_FAILED",
+              code: "REGISTRY_PUBLISH_FAILED",
               what: `Failed to write index: ${indexPath}`,
               cause: e,
             }),
@@ -411,7 +422,7 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
         yield* fs.writeFileString(indexPath, JSON.stringify(newIndex, null, 2) + "\n").pipe(
           Effect.mapError((e) =>
             makeCliError({
-              code: "REGISTRY_FETCH_FAILED",
+              code: "REGISTRY_PUBLISH_FAILED",
               what: `Failed to write index: ${indexPath}`,
               cause: e,
             }),
@@ -423,7 +434,7 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
       yield* fs.writeFile(archivePath, archive).pipe(
         Effect.mapError((e) =>
           makeCliError({
-            code: "REGISTRY_FETCH_FAILED",
+            code: "REGISTRY_PUBLISH_FAILED",
             what: `Failed to write archive: ${archivePath}`,
             cause: e,
           }),

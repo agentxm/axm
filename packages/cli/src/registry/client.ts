@@ -27,13 +27,13 @@ import { createRemoteRegistryClient } from "./client-remote.js";
  * Options for searching extensions in a registry.
  *
  * - `names`: extension names to match (empty = all)
- * - `type`: extension type filter or `"*"` for all
+ * - `types`: extension types to include (empty = all)
  * - `limit`: max results to return (default: all)
  * - `offset`: number of results to skip (default: 0)
  */
 export interface GetExtensionsArgs {
   readonly names: ReadonlyArray<string>;
-  readonly type: ExtensionType | "*";
+  readonly types: ReadonlyArray<ExtensionType>;
   readonly limit: Option.Option<number>;
   readonly offset: number;
 }
@@ -105,7 +105,7 @@ export interface ExtensionExistsArgs {
  * Paginated result from a registry extension search.
  */
 export interface GetExtensionsResult {
-  readonly extensions: ReadonlyArray<RegistryExtension>;
+  readonly extensions: ReadonlyArray<RegistryExtensionVersionManifest>;
   readonly pagination: {
     readonly total: number;
     readonly limit: number;
@@ -123,7 +123,7 @@ export interface GetExtensionsResult {
  *
  * Represents a single matched extension with its resolved version and integrity.
  */
-export interface RegistryExtension {
+export interface RegistryExtensionVersionManifest {
   readonly scope: string;
   readonly type: ExtensionType;
   readonly name: string;

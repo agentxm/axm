@@ -18,7 +18,7 @@ import * as Schema from "effect/Schema";
 import { makeCliError, type CliError } from "../cli-error/index.js";
 import type {
   RegistryClient,
-  RegistryExtension,
+  RegistryExtensionVersionManifest,
   GetExtensionVersionArgs,
   PublishExtensionArgs,
   ExtensionExistsArgs,
@@ -35,14 +35,14 @@ import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
 /**
  * Process a single name directory within a registry scope/type directory.
  * Reads the index.json, validates it, and selects a matching version.
- * Returns Some(RegistryExtension) if a matching version is found, None otherwise.
+ * Returns Some(RegistryExtensionVersionManifest) if a matching version is found, None otherwise.
  */
 const processNameDir = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   typeDir: string,
   nameDir: string,
-): Effect.Effect<Option.Option<RegistryExtension>, CliError> =>
+): Effect.Effect<Option.Option<RegistryExtensionVersionManifest>, CliError> =>
   Effect.gen(function* () {
     const dir = path.join(typeDir, nameDir);
     const idxPath = path.join(dir, "index.json");
@@ -93,7 +93,7 @@ const processNameDir = (
       ),
       version: ver.version,
       integrity: ver.integrity,
-    } satisfies RegistryExtension);
+    } satisfies RegistryExtensionVersionManifest);
   });
 
 // -----------------------------------------------------------------------------
@@ -120,13 +120,13 @@ export const createLocalRegistryClient = (
       const findForName = (name: string) =>
         Effect.gen(function* () {
           const requestedTypes: ReadonlyArray<ExtensionType> =
-            options.type === "*" ? ["skill", "mcp-server", "pack"] : [options.type];
+            options.types.length === 0 ? ["skill", "mcp-server", "pack"] : options.types;
 
           const extensionsDir = path.join(registryRoot, "extensions");
           const extensionsDirExists = yield* fs
             .exists(extensionsDir)
             .pipe(Effect.orElseSucceed(() => false));
-          if (!extensionsDirExists) return [] as ReadonlyArray<RegistryExtension>;
+          if (!extensionsDirExists) return [] as ReadonlyArray<RegistryExtensionVersionManifest>;
 
           const scopeDirs = yield* fs
             .readDirectory(extensionsDir)
@@ -144,7 +144,8 @@ export const createLocalRegistryClient = (
                     const typeDirExists = yield* fs
                       .exists(typeDir)
                       .pipe(Effect.orElseSucceed(() => false));
-                    if (!typeDirExists) return [] as ReadonlyArray<RegistryExtension>;
+                    if (!typeDirExists)
+                      return [] as ReadonlyArray<RegistryExtensionVersionManifest>;
 
                     const nameDirs = yield* fs
                       .readDirectory(typeDir)
@@ -165,7 +166,7 @@ export const createLocalRegistryClient = (
           return Array.flatten(nestedResults);
         });
 
-      const all: ReadonlyArray<RegistryExtension> =
+      const all: ReadonlyArray<RegistryExtensionVersionManifest> =
         options.names.length > 0
           ? yield* Effect.forEach(options.names, (name) => findForName(name), {
               concurrency: "unbounded",

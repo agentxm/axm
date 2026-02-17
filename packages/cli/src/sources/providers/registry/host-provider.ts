@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import type {
   RegistryClient,
-  RegistryExtension,
+  RegistryExtensionVersionManifest,
   GetExtensionsArgs,
 } from "../../../registry/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
@@ -34,7 +34,7 @@ import type { VersionEntry } from "../../../registry/index.js";
 /** Map FindOptions to GetExtensionsArgs (no pagination — fetch all). */
 const toSearchOptions = (options: FindOptions): GetExtensionsArgs => ({
   names: options.names,
-  type: options.type === "*" ? "*" : (options.type as ExtensionType),
+  types: options.type === "*" ? [] : [options.type as ExtensionType],
   limit: Option.none(),
   offset: 0,
 });
@@ -45,9 +45,9 @@ const authorToMetadata = (author: Author): Record<string, string> => ({
   ...(Option.isSome(author.url) && { url: author.url.value }),
 });
 
-/** Map RegistryExtension to SourceExtensionRef, stamped with the source. */
+/** Map RegistryExtensionVersionManifest to SourceExtensionRef, stamped with the source. */
 const toSourceExtensionRef = (
-  entry: RegistryExtension,
+  entry: RegistryExtensionVersionManifest,
   source: RegistrySource,
 ): SourceExtensionRef => {
   const repository = Option.getOrUndefined(entry.repository);

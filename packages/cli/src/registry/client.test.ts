@@ -52,7 +52,7 @@ const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
 
 const defaultSearchOptions: GetExtensionsArgs = {
   names: [],
-  type: "skill",
+  types: ["skill"],
   limit: Option.none(),
   offset: 0,
 };
@@ -218,7 +218,7 @@ describe("LocalRegistryClient.getExtensions", () => {
       const client = yield* makeLocalClient(registryRoot);
       const result = yield* client.getExtensions({
         ...defaultSearchOptions,
-        type: "mcp-server",
+        types: ["mcp-server"],
         names: ["my-server"],
       });
       expect(result.extensions).toHaveLength(1);

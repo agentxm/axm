@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { makeCliError } from "../../../cli-error/index.js";
 import type {
   RegistryClient,
-  RegistryExtension,
+  RegistryExtensionVersionManifest,
   GetExtensionsArgs,
   GetExtensionsResult,
   VersionEntry,
@@ -67,7 +67,9 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 // For fetch tests we use the mock client which returns controlled bytes
 
 /** Wrap entries into a GetExtensionsResult with default pagination. */
-const toResult = (extensions: ReadonlyArray<RegistryExtension>): GetExtensionsResult => ({
+const toResult = (
+  extensions: ReadonlyArray<RegistryExtensionVersionManifest>,
+): GetExtensionsResult => ({
   extensions,
   pagination: {
     total: extensions.length,
@@ -133,7 +135,7 @@ const createFailingClient = (): RegistryClient => ({
 describe("LocalRegistrySourceHostProvider.find", () => {
   it("maps FindOptions to GetExtensionsArgs and returns SourceExtensionRefs", () => {
     let capturedOptions: GetExtensionsArgs | undefined;
-    const entries: ReadonlyArray<RegistryExtension> = [
+    const entries: ReadonlyArray<RegistryExtensionVersionManifest> = [
       {
         scope: "@test",
         type: "skill",
@@ -167,7 +169,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         // Verify search options were mapped correctly
         expect(capturedOptions).toEqual({
           names: ["my-skill"],
-          type: "skill",
+          types: ["skill"],
           limit: Option.none(),
           offset: 0,
         });
@@ -198,7 +200,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
   });
 
   it("maps mcp-server entries to McpServerExtensionRef", () => {
-    const entries: ReadonlyArray<RegistryExtension> = [
+    const entries: ReadonlyArray<RegistryExtensionVersionManifest> = [
       {
         scope: "@test",
         type: "mcp-server",
@@ -238,7 +240,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
   });
 
   it("maps pack entries to PackExtensionRef", () => {
-    const entries: ReadonlyArray<RegistryExtension> = [
+    const entries: ReadonlyArray<RegistryExtensionVersionManifest> = [
       {
         scope: "@test",
         type: "pack",
@@ -304,7 +306,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     return runEffect(
       Effect.gen(function* () {
         yield* provider.find(testSource, { ...defaultFindOptions, type: "*" });
-        expect(capturedOptions?.type).toBe("*");
+        expect(capturedOptions?.types).toEqual([]);
       }),
     );
   });

@@ -700,10 +700,10 @@ const make = (options: WorkspaceContextOptions) =>
             // Update settings — thread version constraint through so it survives the round-trip
             const sourceInput = lockEntryToSourceParams(lockEntry);
             const source =
-              sourceInput.type === "registry"
+              lockEntry.type === "registry"
                 ? Option.isSome(versionConstraint)
-                  ? `${sourceInput.scope}/${name}@${versionConstraint.value}`
-                  : `${sourceInput.scope}/${name}`
+                  ? `${lockEntry.scope}/${name}@${versionConstraint.value}`
+                  : `${lockEntry.scope}/${name}`
                 : printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSkills: SkillsMap = currentSettings.skills ?? {};

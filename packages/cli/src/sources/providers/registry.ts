@@ -285,8 +285,6 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
 
             for (const scopeDir of scopeDirs) {
               if (!scopeDir.startsWith("@")) continue;
-              // Scope filtering: when source specifies a scope, skip non-matching dirs
-              if (_source.scope && scopeDir !== _source.scope) continue;
               const typeDir = path.join(extensionsDir, scopeDir, pluralizeType(extType));
               const typeDirExists = yield* fs
                 .exists(typeDir)
@@ -354,13 +352,30 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
           : extension.type === "mcp-server"
             ? extension.server.name
             : extension.pack.name;
-      const dir = extensionDir(
-        registryRoot,
-        _source.scope,
-        extType,
-        extName,
-        path.join,
-      );
+      const extensionsDir = path.join(registryRoot, "extensions");
+      const scopeDirs = yield* fs
+        .readDirectory(extensionsDir)
+        .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
+
+      let dir: string | null = null;
+      for (const scopeDir of scopeDirs) {
+        if (!scopeDir.startsWith("@")) continue;
+        const candidateDir = extensionDir(registryRoot, scopeDir, extType, extName, path.join);
+        const candidateArchive = path.join(candidateDir, `${version}.zip`);
+        const exists = yield* fs.exists(candidateArchive).pipe(Effect.orElseSucceed(() => false));
+        if (exists) {
+          dir = candidateDir;
+          break;
+        }
+      }
+      if (dir === null) {
+        return yield* Effect.fail(
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: `Archive not found for ${extType}:${extName}@${version}`,
+          }),
+        );
+      }
       const archivePath = path.join(dir, `${version}.zip`);
 
       const archiveExists = yield* fs.exists(archivePath).pipe(Effect.orElseSucceed(() => false));
@@ -800,7 +815,6 @@ export const createRegistrySourceHostProvider = (
       Effect.gen(function* () {
         const innerSource: RegistrySourceParams = {
           type: "registry",
-          scope: source.scope,
         };
         const refs = yield* inner.find(innerSource, options);
 
@@ -811,7 +825,6 @@ export const createRegistrySourceHostProvider = (
     fetch: (source, ref) => {
       const innerSource: RegistrySourceParams = {
         type: "registry",
-        scope: source.scope,
       };
       return inner.fetch(innerSource, ref);
     },

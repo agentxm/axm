@@ -34,7 +34,7 @@ export const printSourceParams = (source: SourceParams): string => {
     case "git":
       return source.url.href;
     case "registry": {
-      return source.scope;
+      return "registry";
     }
     case "builtin":
       return "builtin";
@@ -93,7 +93,6 @@ export const lockEntryToSourceParams = (entry: SkillLockEntry): SourceParams => 
     case "registry":
       return {
         type: "registry",
-        scope: entry.scope,
       };
     case "builtin":
       return { type: "builtin" };

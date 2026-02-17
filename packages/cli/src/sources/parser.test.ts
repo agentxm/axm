@@ -21,12 +21,12 @@ describe("parseInputPattern", () => {
     };
 
     it("classifies simple name as NameInput", () => {
-      expectSome("some-name", { _tag: "NameInput", name: "some-name" });
+      expectSome("some-name", { pattern: "name-input", name: "some-name" });
     });
 
     it("classifies @scope/name as RegistryPatternInput", () => {
       expectSome("@myorg/some-name", {
-        _tag: "RegistryPatternInput",
+        pattern: "registry-pattern-input",
         scope: "@myorg",
         name: "some-name",
         versionConstraint: Option.none(),
@@ -35,28 +35,28 @@ describe("parseInputPattern", () => {
 
     it("classifies https URL as UrlInput", () => {
       expectSome("https://github.com/owner/repo", {
-        _tag: "UrlInput",
+        pattern: "url-input",
         url: new URL("https://github.com/owner/repo"),
       });
     });
 
     it("classifies file:// URL as FilePathPattern", () => {
       expectSome("file:///absolute/path/to/skill", {
-        _tag: "FilePathPattern",
+        pattern: "file-path-pattern",
         path: "/absolute/path/to/skill",
       });
     });
 
     it("classifies file:// URL with nested path as FilePathPattern", () => {
       expectSome("file:///Users/dev/skills/my-skill", {
-        _tag: "FilePathPattern",
+        pattern: "file-path-pattern",
         path: "/Users/dev/skills/my-skill",
       });
     });
 
     it("classifies git@ SCP-style address with .git suffix as GitScpAddress", () => {
       expectSome("git@github.com:owner/repo.git", {
-        _tag: "GitScpAddress",
+        pattern: "git-scp-address",
         user: "git",
         host: "github.com",
         path: "owner/repo.git",
@@ -65,7 +65,7 @@ describe("parseInputPattern", () => {
 
     it("classifies git@ SCP-style address without .git suffix as GitScpAddress", () => {
       expectSome("git@github.com:owner/repo", {
-        _tag: "GitScpAddress",
+        pattern: "git-scp-address",
         user: "git",
         host: "github.com",
         path: "owner/repo",
@@ -74,7 +74,7 @@ describe("parseInputPattern", () => {
 
     it("classifies owner/repo as SlashPattern", () => {
       expectSome("owner/repo", {
-        _tag: "SlashPattern",
+        pattern: "slash-pattern",
         owner: "owner",
         repo: "repo",
         subPath: Option.none(),
@@ -94,7 +94,7 @@ describe("parseInputPattern", () => {
     });
 
     it("classifies leading slash as FilePathPattern (not SlashPattern)", () => {
-      expectSome("/owner/repo", { _tag: "FilePathPattern", path: "/owner/repo" });
+      expectSome("/owner/repo", { pattern: "file-path-pattern", path: "/owner/repo" });
     });
 
     it("returns None for slash pattern with trailing slash", () => {
@@ -110,19 +110,19 @@ describe("parseInputPattern", () => {
     });
 
     it("classifies ./local/path as FilePathPattern", () => {
-      expectSome("./local/path", { _tag: "FilePathPattern", path: "./local/path" });
+      expectSome("./local/path", { pattern: "file-path-pattern", path: "./local/path" });
     });
 
     it("classifies /absolute/path as FilePathPattern", () => {
-      expectSome("/absolute/path", { _tag: "FilePathPattern", path: "/absolute/path" });
+      expectSome("/absolute/path", { pattern: "file-path-pattern", path: "/absolute/path" });
     });
 
     it("classifies ~/home/path as FilePathPattern", () => {
-      expectSome("~/home/path", { _tag: "FilePathPattern", path: "~/home/path" });
+      expectSome("~/home/path", { pattern: "file-path-pattern", path: "~/home/path" });
     });
 
     it("classifies single character name as NameInput", () => {
-      expectSome("a", { _tag: "NameInput", name: "a" });
+      expectSome("a", { pattern: "name-input", name: "a" });
     });
 
     it("returns None for name with leading hyphen", () => {
@@ -138,16 +138,16 @@ describe("parseInputPattern", () => {
     });
 
     it("classifies wildcard pattern as GlobInput", () => {
-      expectSome("effect-*", { _tag: "GlobInput", pattern: "effect-*" });
+      expectSome("effect-*", { pattern: "glob-input", value: "effect-*" });
     });
 
     it("classifies standalone wildcard as GlobInput", () => {
-      expectSome("*", { _tag: "GlobInput", pattern: "*" });
+      expectSome("*", { pattern: "glob-input", value: "*" });
     });
 
     it("classifies github:owner/repo as ShorthandInput", () => {
       expectSome("github:owner/repo", {
-        _tag: "ShorthandInput",
+        pattern: "shorthand-input",
         prefix: "github",
         input: "github:owner/repo",
       });
@@ -155,7 +155,7 @@ describe("parseInputPattern", () => {
 
     it("classifies gitlab:owner/repo@ref as ShorthandInput", () => {
       expectSome("gitlab:owner/repo@ref", {
-        _tag: "ShorthandInput",
+        pattern: "shorthand-input",
         prefix: "gitlab",
         input: "gitlab:owner/repo@ref",
       });
@@ -163,7 +163,7 @@ describe("parseInputPattern", () => {
 
     it("classifies bitbucket:owner/repo/path@ref as ShorthandInput", () => {
       expectSome("bitbucket:owner/repo/path@ref", {
-        _tag: "ShorthandInput",
+        pattern: "shorthand-input",
         prefix: "bitbucket",
         input: "bitbucket:owner/repo/path@ref",
       });
@@ -173,7 +173,7 @@ describe("parseInputPattern", () => {
       const result = parseInputPattern("local:./path");
       expect(Option.isSome(result)).toBe(true);
       // local: is parsed as a URL scheme, no longer a shorthand prefix
-      expect(Option.getOrThrow(result)._tag).toBe("UrlInput");
+      expect(Option.getOrThrow(result).pattern).toBe("url-input");
     });
 
     it("returns None for empty string", () => {

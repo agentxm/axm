@@ -25,22 +25,22 @@ export const resolveSkillInstallSource = (input: string) =>
     }
 
     const pattern = patternOpt.value;
-    switch (pattern._tag) {
-      case "UrlInput":
-        return yield* routeUrlInput(pattern.url, trimmed);
-      case "GitScpAddress":
-        return yield* routeScpInput(pattern, trimmed);
-      case "ShorthandInput":
-        return yield* routeShorthandInput(pattern.prefix, pattern.input, trimmed);
-      case "NameInput":
-        return yield* routeNameInput(pattern.name, trimmed);
-      case "FilePathPattern":
-        return yield* routeFilePathInput(pattern.path);
-      case "RegistryPatternInput":
+    switch (pattern.pattern) {
+      case "registry-pattern-input":
         return yield* routeRegistryInput(pattern, trimmed);
-      case "SlashPattern":
+      case "name-input":
+        return yield* routeNameInput(pattern.name, trimmed);
+      case "url-input":
+        return yield* routeUrlInput(pattern.url, trimmed);
+      case "git-scp-address":
+        return yield* routeScpInput(pattern, trimmed);
+      case "shorthand-input":
+        return yield* routeShorthandInput(pattern.prefix, pattern.input, trimmed);
+      case "file-path-pattern":
+        return yield* routeFilePathInput(pattern.path);
+      case "slash-pattern":
         return yield* routeSlashInput(pattern, trimmed);
-      case "GlobInput":
+      case "glob-input":
         return yield* makeCliError({
           code: "SOURCE_PARSE_FAILED",
           what: "Glob patterns are not supported by resolveSkillInstallSource - use resolveSourcePattern instead",

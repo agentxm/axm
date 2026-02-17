@@ -22,11 +22,12 @@ const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
 /** A simple name with no `/`, `@`, or URL scheme. */
 type NameInput = { readonly pattern: "name-input"; readonly name: string };
 
-/** A scoped registry source: `@scope/name` or `@scope/name@constraint`. */
+/** A scoped registry source: `@scope/(skills|mcp-servers)/name` (or legacy `@scope/name`). */
 type RegistryPatternInput = {
   readonly pattern: "registry-pattern-input";
+  readonly type: Option.Option<"skills" | "mcp-servers">;
   readonly scope: string;
-  readonly name: string;
+  readonly name: Option.Option<string>;
   readonly versionConstraint: Option.Option<string>;
 };
 
@@ -73,7 +74,7 @@ export type InputPattern =
   | ShorthandInput
   | GlobInput;
 
-const REGISTRY_SOURCE_PATTERN = /^(@[^/]+)\/(.+)$/;
+const REGISTRY_SCOPE_PATTERN = /^@[^/]+$/;
 
 /** SCP-style: `user@host:path` — no `://` scheme. */
 const SCP_PATTERN = /^([^@]+)@([^:]+):(.+)$/;
@@ -90,6 +91,23 @@ const NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
  * Pure function — no effects, no trimming. Returns `None` for empty/whitespace-only input.
  */
 export const parseInputPattern = (input: string): Option.Option<InputPattern> => {
+  const parseNameAndConstraint = (
+    raw: string,
+  ): Option.Option<{
+    readonly name: Option.Option<string>;
+    readonly versionConstraint: Option.Option<string>;
+  }> => {
+    const atIndex = raw.indexOf("@");
+    if (atIndex === 0) return Option.none();
+    if (atIndex > 0) {
+      return Option.some({
+        name: Option.some(raw.slice(0, atIndex)),
+        versionConstraint: Option.some(raw.slice(atIndex + 1)),
+      });
+    }
+    return Option.some({ name: Option.some(raw), versionConstraint: Option.none() });
+  };
+
   // 1. SCP-style git address (user@host:path) — must check before URL
   const scpMatch = input.match(SCP_PATTERN);
   if (scpMatch && scpMatch[1] && scpMatch[2] && scpMatch[3]) {
@@ -121,26 +139,67 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
     return Option.some({ pattern: "url-input", url: urlOption.value });
   }
 
-  // 5. Registry source (@scope/name or @scope/name@constraint)
-  const registryMatch = input.match(REGISTRY_SOURCE_PATTERN);
-  if (registryMatch && registryMatch[1] && registryMatch[2]) {
-    const rawName = registryMatch[2];
-    // Split name@constraint — first @ in the name part separates name from version constraint
-    const atIndex = rawName.indexOf("@");
-    if (atIndex > 0) {
-      return Option.some({
-        pattern: "registry-pattern-input",
-        scope: registryMatch[1],
-        name: rawName.slice(0, atIndex),
-        versionConstraint: Option.some(rawName.slice(atIndex + 1)),
-      });
+  // 5. Registry source:
+  //    - @scope
+  //    - @scope/{type}
+  //    - @scope/{type}/{name}@constraint
+  //    - legacy: @scope/{name}@constraint (defaults type to skills)
+  if (input.startsWith("@")) {
+    const segments = input.split("/");
+    if (segments.length >= 1 && REGISTRY_SCOPE_PATTERN.test(segments[0] ?? "")) {
+      const scope = segments[0]!;
+
+      if (segments.length === 1) {
+        return Option.some({
+          pattern: "registry-pattern-input",
+          type: Option.none(),
+          scope,
+          name: Option.none(),
+          versionConstraint: Option.none(),
+        });
+      }
+
+      if (segments.length === 2) {
+        const second = segments[1]!;
+        if (second === "skills" || second === "mcp-servers") {
+          return Option.some({
+            pattern: "registry-pattern-input",
+            type: Option.some(second),
+            scope,
+            name: Option.none(),
+            versionConstraint: Option.none(),
+          });
+        }
+
+        const parsedLegacyName = parseNameAndConstraint(second);
+        if (Option.isSome(parsedLegacyName)) {
+          return Option.some({
+            pattern: "registry-pattern-input",
+            type: Option.some("skills"),
+            scope,
+            name: parsedLegacyName.value.name,
+            versionConstraint: parsedLegacyName.value.versionConstraint,
+          });
+        }
+      }
+
+      if (segments.length === 3) {
+        const second = segments[1]!;
+        const third = segments[2]!;
+        if (second === "skills" || second === "mcp-servers") {
+          const parsedName = parseNameAndConstraint(third);
+          if (Option.isSome(parsedName)) {
+            return Option.some({
+              pattern: "registry-pattern-input",
+              type: Option.some(second),
+              scope,
+              name: parsedName.value.name,
+              versionConstraint: parsedName.value.versionConstraint,
+            });
+          }
+        }
+      }
     }
-    return Option.some({
-      pattern: "registry-pattern-input",
-      scope: registryMatch[1],
-      name: rawName,
-      versionConstraint: Option.none(),
-    });
   }
 
   // 6. Slash pattern (exactly two valid-name segments: `owner/repo`)

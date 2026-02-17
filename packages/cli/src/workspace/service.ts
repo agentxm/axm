@@ -502,7 +502,9 @@ const make = (options: WorkspaceContextOptions) =>
             if (parts.length >= 2 && parts[0] === "registry") {
               const parsed = parseInputPattern(parts.slice(1).join(":"));
               if (Option.isSome(parsed) && parsed.value.pattern === "registry-pattern-input") {
-                return parsed.value.name;
+                if (Option.isSome(parsed.value.name)) {
+                  return parsed.value.name.value;
+                }
               }
             }
           }

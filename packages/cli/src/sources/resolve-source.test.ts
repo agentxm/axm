@@ -135,7 +135,7 @@ describe("resolveSource", () => {
   });
 
   describe("registry resolution", () => {
-    it.effect("resolves @scope/name with registry host config", () =>
+    it.effect("resolves @scope/skills/name with registry host config", () =>
       Effect.gen(function* () {
         const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
           name: "default",
@@ -143,7 +143,7 @@ describe("resolveSource", () => {
             location: new URL("https://registry.example.com"),
         };
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
-        const result = yield* resolveSource("@scope/name").pipe(
+        const result = yield* resolveSource("@scope/skills/name").pipe(
           Effect.provide(makeWorkspaceLayer(sources, {}, [registryConfig])),
         );
         expect(result.type).toBe("registry");
@@ -155,15 +155,31 @@ describe("resolveSource", () => {
       }),
     );
 
-    it.effect("fails @scope/name without registry config", () =>
+    it.effect("fails @scope/skills/name without registry config", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(resolve("@scope/name"));
+        const error = yield* Effect.flip(resolve("@scope/skills/name"));
         expect(error).toBeInstanceOf(CliError);
         expect(error.what).toContain("No registry source configured");
       }),
     );
 
-    it.effect("resolves @acme/my-skill to registry source", () =>
+    it.effect("fails @scope with missing registry name", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(resolve("@scope"));
+        expect(error).toBeInstanceOf(CliError);
+        expect(error.what).toContain("missing name");
+      }),
+    );
+
+    it.effect("fails @scope/skills with missing registry name", () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(resolve("@scope/skills"));
+        expect(error).toBeInstanceOf(CliError);
+        expect(error.what).toContain("missing name");
+      }),
+    );
+
+    it.effect("resolves @acme/skills/my-skill to registry source", () =>
       Effect.gen(function* () {
         const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
           name: "default",
@@ -171,7 +187,7 @@ describe("resolveSource", () => {
             location: new URL("https://registry.example.com"),
         };
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
-        const result = yield* resolveSource("@acme/my-skill").pipe(
+        const result = yield* resolveSource("@acme/skills/my-skill").pipe(
           Effect.provide(makeWorkspaceLayer(sources, {}, [registryConfig])),
         );
         expect(result.type).toBe("registry");
@@ -190,7 +206,7 @@ describe("resolveSource", () => {
             location: new URL("https://acme-registry.example.com"),
         };
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
-        const result = yield* resolveSource("@acme/my-skill").pipe(
+        const result = yield* resolveSource("@acme/skills/my-skill").pipe(
           Effect.provide(makeWorkspaceLayer(sources, {}, [registryConfig])),
         );
         expect(result.type).toBe("registry");

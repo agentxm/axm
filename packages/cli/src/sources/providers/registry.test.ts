@@ -2,7 +2,7 @@
  * Tests for registry source providers.
  *
  * Tests LocalRegistrySourceProvider (find, fetch, fetchIndex, fetchArchive,
- * publishVersion, checkNameExists), RemoteRegistrySourceProvider stub,
+ * publishVersion, extensionExists), RemoteRegistrySourceProvider stub,
  * and createRegistryProvider factory.
  */
 
@@ -536,11 +536,11 @@ describe("RemoteRegistrySourceProvider", () => {
       }),
     ));
 
-  it("fails checkNameExists with descriptive error", () =>
+  it("fails extensionExists with descriptive error", () =>
     runEffect(
       Effect.gen(function* () {
         const provider = createRemoteRegistryProvider();
-        const result = yield* provider.checkNameExists("@test", "skill", "x").pipe(Effect.either);
+        const result = yield* provider.extensionExists("@test", "skill", "x").pipe(Effect.either);
         expect(result._tag).toBe("Left");
       }),
     ));

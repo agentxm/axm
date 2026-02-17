@@ -6,12 +6,16 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import * as nodePath from "node:path";
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { CliError } from "../cli-error/index.js";
-import { resolveSource } from "./resolve-source.js";
+import { resolveSource, resolveSlashInputSource } from "./resolve-source.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { SkillsLockMap } from "../lockfile/index.js";
 import { Workspace } from "../workspace/index.js";
@@ -209,6 +213,45 @@ describe("resolveSource", () => {
         expect(result.type).toBe("registry");
         if (result.type === "registry") {
           expect(result.location).toEqual(new URL("https://acme-registry.example.com"));
+        }
+      }),
+    );
+  });
+
+  describe("slash source resolution", () => {
+    it.effect("resolves scope/type/name slash pattern to registry when extension exists", () =>
+      Effect.gen(function* () {
+        const registryRoot = mkdtempSync(nodePath.join(tmpdir(), "slash-reg-"));
+        const extensionDir = nodePath.join(registryRoot, "extensions", "@acme", "skills", "my-skill");
+        mkdirSync(extensionDir, { recursive: true });
+        writeFileSync(nodePath.join(extensionDir, "index.json"), "{}");
+
+        const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
+          name: "default",
+          type: "registry",
+          location: new URL(`file://${registryRoot}`),
+        };
+        const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
+        const testLayer = Layer.merge(
+          makeWorkspaceLayer(sources, {}, [registryConfig]),
+          NodeContext.layer,
+        );
+
+        const result = yield* resolveSlashInputSource(
+          {
+            first: "acme",
+            second: "skills",
+            third: Option.some("my-skill"),
+          },
+          "acme/skills/my-skill",
+        ).pipe(
+          Effect.provide(testLayer),
+          Effect.ensuring(Effect.sync(() => rmSync(registryRoot, { recursive: true, force: true }))),
+        );
+
+        expect(result.type).toBe("registry");
+        if (result.type === "registry") {
+          expect(result.location.href).toBe(new URL(`file://${registryRoot}`).href);
         }
       }),
     );

@@ -8,7 +8,7 @@ import {
   routeNameInput,
   routeScpInput,
   routeShorthandInput,
-  routeSlashInput,
+  resolveSlashInputSource,
   routeUrlInput,
 } from "../../../sources/resolve-source.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -109,7 +109,7 @@ export const resolveSkillInstallSource = (input: string) =>
       case "shorthand-input":
         return yield* routeShorthandInput(pattern.prefix, pattern.input, trimmed);
       case "slash-pattern":
-        return yield* routeSlashInput(pattern, trimmed);
+        return yield* resolveSlashInputSource(pattern, trimmed);
       case "file-path-pattern":
         return yield* routeFilePathInput(pattern.path);
       case "glob-input":

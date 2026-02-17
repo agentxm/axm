@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import type {
   RegistryClient,
-  RegistryExtensionVersionManifest,
+  RegistryExtensionManifest,
   GetExtensionsByScopeArgs,
 } from "../../../registry/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
@@ -46,18 +46,20 @@ const authorToMetadata = (author: Author): Record<string, string> => ({
   ...(Option.isSome(author.url) && { url: author.url.value }),
 });
 
-/** Map RegistryExtensionVersionManifest to SourceExtensionRef, stamped with the source. */
+/** Map RegistryExtensionManifest to SourceExtensionRef, stamped with the source. */
 const toSourceExtensionRef = (
-  entry: RegistryExtensionVersionManifest,
+  entry: RegistryExtensionManifest,
   source: RegistrySource,
 ): SourceExtensionRef => {
   const repository = Option.getOrUndefined(entry.repository);
   const license = Option.getOrUndefined(entry.license);
-  const authors = Option.getOrUndefined(entry.authors)?.map((author) => authorToMetadata(author));
+  const authors = entry.authors.map((author) => authorToMetadata(author));
+  const dependencies = entry.dependencies;
   const skillMetadata = {
     ...(repository !== undefined && { repository }),
     ...(license !== undefined && { license }),
-    ...(authors !== undefined && { authors }),
+    ...(authors.length > 0 && { authors }),
+    ...(Object.keys(dependencies).length > 0 && { dependencies }),
   };
 
   const details = {

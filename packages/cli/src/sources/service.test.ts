@@ -152,7 +152,7 @@ describe("registry meta-provider scope routing", () => {
         {
           name: "local",
           type: "registry" as const,
-          url: new URL(`file://${registryRoot}`),
+          location: new URL(`file://${registryRoot}`),
         },
       ],
       Effect.gen(function* () {
@@ -278,7 +278,7 @@ describe("SourceHostProviders dispatch", () => {
         {
           name: "local",
           type: "registry" as const,
-          url: new URL(`file://${registryRoot}`),
+          location: new URL(`file://${registryRoot}`),
         },
       ],
       Effect.gen(function* () {

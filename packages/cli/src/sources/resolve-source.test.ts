@@ -140,7 +140,7 @@ describe("resolveSource", () => {
         const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
           name: "default",
           type: "registry",
-          url: new URL("https://registry.example.com"),
+            location: new URL("https://registry.example.com"),
         };
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
         const result = yield* resolveSource("@scope/name").pipe(
@@ -168,7 +168,7 @@ describe("resolveSource", () => {
         const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
           name: "default",
           type: "registry",
-          url: new URL("https://registry.example.com"),
+            location: new URL("https://registry.example.com"),
         };
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
         const result = yield* resolveSource("@acme/my-skill").pipe(
@@ -187,7 +187,7 @@ describe("resolveSource", () => {
         const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
           name: "acme-reg",
           type: "registry",
-          url: new URL("https://acme-registry.example.com"),
+            location: new URL("https://acme-registry.example.com"),
         };
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
         const result = yield* resolveSource("@acme/my-skill").pipe(

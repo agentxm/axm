@@ -166,7 +166,7 @@ export const createRegistryMetaProvider = () => ({
       const allRefs: Array<SourceExtensionRef> = [];
 
       for (const regSource of registrySources) {
-        const provider = createRegistryProvider(regSource.url.href);
+        const provider = createRegistryProvider(regSource.location.href);
         const result = yield* provider.find(source, options).pipe(Effect.either);
 
         if (result._tag === "Left") {
@@ -210,7 +210,7 @@ export const createRegistryMetaProvider = () => ({
           }),
         );
       }
-      const provider = createRegistryProvider(registrySources[0]!.url.href);
+      const provider = createRegistryProvider(registrySources[0]!.location.href);
       return yield* provider.fetch(source, ref);
     });
   },

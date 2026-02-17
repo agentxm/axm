@@ -124,7 +124,7 @@ const configToSource = (
         : mismatch();
     case "registry":
       return params.type === "registry"
-        ? Effect.succeed({ ...params, url: config.url, scopes: Option.none() })
+        ? Effect.succeed({ ...params, url: config.location, scopes: Option.none() })
         : mismatch();
   }
 };
@@ -416,7 +416,7 @@ export const routeRegistryInput = (
     const regConfig = registrySources[0]!;
     return {
       ...params,
-      url: regConfig.url,
+      url: regConfig.location,
       scopes: Option.none(),
     } satisfies RegistrySource;
   });

@@ -38,7 +38,8 @@ const initWorkspace = (axmDir: string, registryRoot: string) => {
     JSON.stringify({
       scope: "@test",
       agents: ["claude-code"],
-      sources: [{ name: "local", type: "registry", url: new URL(`file://${registryRoot}`) }],
+      sources: [{ name: "local", type: "registry",
+            location: new URL(`file://${registryRoot}`) }],
     }),
   );
   fs.writeFileSync(

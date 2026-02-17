@@ -126,7 +126,7 @@ export const publishPack: OperationHandler<
       });
     }
 
-    const provider = createRegistryProvider(registrySource.value.url.href);
+    const provider = createRegistryProvider(registrySource.value.location.href);
 
     // Build version entry metadata
     const versionEntry: VersionEntry = {

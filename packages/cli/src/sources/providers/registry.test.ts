@@ -278,19 +278,16 @@ describe("LocalRegistrySourceProvider.fetch", () => {
         yield* fs.writeFile(nodePath.join(skillDir, "1.0.0.zip"), archive);
 
         const provider = createLocalRegistryProvider(registryRoot);
-        const result = yield* provider.fetch(
-          registryParams,
-          {
-            type: "skill",
-            skill: { name: "my-skill", description: "", metadata: Option.none() },
-            source: {
-              type: "registry",
-              scope: "@test",
-            },
-            version: "1.0.0",
-            checksum: "",
-          } as never,
-        );
+        const result = yield* provider.fetch(registryParams, {
+          type: "skill",
+          skill: { name: "my-skill", description: "", metadata: Option.none() },
+          source: {
+            type: "registry",
+            scope: "@test",
+          },
+          version: "1.0.0",
+          checksum: "",
+        } as never);
 
         const extractedFile = yield* fs.readFileString(nodePath.join(result.directory, "SKILL.md"));
         expect(extractedFile).toContain("My Skill");
@@ -321,19 +318,16 @@ describe("LocalRegistrySourceProvider.fetch", () => {
 
         const provider = createLocalRegistryProvider(registryRoot);
         const result = yield* provider
-          .fetch(
-            registryParams,
-            {
-              type: "skill",
-              skill: { name: "my-skill", description: "", metadata: Option.none() },
-              source: {
-                type: "registry",
-                scope: "@test",
-              },
-              version: "1.0.0",
-              checksum: "",
-            } as never,
-          )
+          .fetch(registryParams, {
+            type: "skill",
+            skill: { name: "my-skill", description: "", metadata: Option.none() },
+            source: {
+              type: "registry",
+              scope: "@test",
+            },
+            version: "1.0.0",
+            checksum: "",
+          } as never)
           .pipe(Effect.either);
 
         expect(result._tag).toBe("Left");
@@ -497,20 +491,17 @@ describe("RemoteRegistrySourceProvider", () => {
       Effect.gen(function* () {
         const provider = createRemoteRegistryProvider();
         const result = yield* provider
-          .fetch(
-            registryParams,
-            {
-              type: "skill",
-              skill: { name: "x", description: "", metadata: Option.none() },
-              source: {
-                type: "registry",
-                location: new URL("https://registry.example.com"),
-              },
-              scope: "@test",
-              version: "1.0.0",
-              checksum: "",
-            } as never,
-          )
+          .fetch(registryParams, {
+            type: "skill",
+            skill: { name: "x", description: "", metadata: Option.none() },
+            source: {
+              type: "registry",
+              location: new URL("https://registry.example.com"),
+            },
+            scope: "@test",
+            version: "1.0.0",
+            checksum: "",
+          } as never)
           .pipe(Effect.either);
         expect(result._tag).toBe("Left");
       }),

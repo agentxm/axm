@@ -412,12 +412,14 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          sources: [{ name: "my-registry", type: "registry",
-            location: "https://registry.example.com" }],
+          sources: [
+            { name: "my-registry", type: "registry", location: "https://registry.example.com" },
+          ],
         });
         writeSettingsTo(homeDir, {
-          sources: [{ name: "corp-registry", type: "registry",
-            location: "https://corp.example.com" }],
+          sources: [
+            { name: "corp-registry", type: "registry", location: "https://corp.example.com" },
+          ],
         });
 
         const ws = yield* getService(defaultOptions);
@@ -491,8 +493,9 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          sources: [{ name: "custom", type: "registry",
-            location: new URL("https://r.example.com") }],
+          sources: [
+            { name: "custom", type: "registry", location: new URL("https://r.example.com") },
+          ],
         });
 
         const ws = yield* getService(defaultOptions);
@@ -545,12 +548,12 @@ describe("WorkspaceContextService", () => {
             {
               name: "r1",
               type: "registry",
-            location: new URL("https://r1.example.com"),
+              location: new URL("https://r1.example.com"),
             },
             {
               name: "r2",
               type: "registry",
-            location: new URL("https://r2.example.com"),
+              location: new URL("https://r2.example.com"),
             },
           ],
         });
@@ -571,12 +574,12 @@ describe("WorkspaceContextService", () => {
             {
               name: "corp-reg",
               type: "registry",
-            location: new URL("https://corp.example.com"),
+              location: new URL("https://corp.example.com"),
             },
             {
               name: "public-reg",
               type: "registry",
-            location: new URL("https://public.example.com"),
+              location: new URL("https://public.example.com"),
             },
           ],
         });
@@ -660,7 +663,7 @@ describe("WorkspaceContextService", () => {
         const newSource: SourceHostConfig = {
           name: "my-registry",
           type: "registry",
-            location: new URL("https://registry.example.com"),
+          location: new URL("https://registry.example.com"),
         };
         yield* ws.addConfiguredSource(newSource);
 
@@ -685,7 +688,7 @@ describe("WorkspaceContextService", () => {
         const newSource: SourceHostConfig = {
           name: "new-source",
           type: "registry",
-            location: new URL("https://new.example.com"),
+          location: new URL("https://new.example.com"),
         };
         yield* ws.addConfiguredSource(newSource);
 
@@ -1380,7 +1383,7 @@ describe("WorkspaceContextService", () => {
         const newSource: SourceHostConfig = {
           name: "my-registry",
           type: "registry",
-            location: new URL("https://registry.example.com"),
+          location: new URL("https://registry.example.com"),
         };
 
         yield* Effect.all(

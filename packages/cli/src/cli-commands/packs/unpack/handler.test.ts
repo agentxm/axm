@@ -45,8 +45,7 @@ const initWorkspace = (
     JSON.stringify({
       scope: "@test",
       agents: ["claude-code"],
-      sources: [{ name: "local", type: "registry",
-            location: "file:///tmp/test-registry" }],
+      sources: [{ name: "local", type: "registry", location: "file:///tmp/test-registry" }],
       ...(options.skills ? { skills: options.skills } : {}),
       ...(options.packs ? { packs: options.packs } : {}),
     }),

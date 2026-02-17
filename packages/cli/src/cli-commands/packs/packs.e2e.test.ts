@@ -46,8 +46,7 @@ function setupWorkspaceWithRegistry() {
  */
 function configureRegistrySource(settingsPath: string, registryUrl: string, scope = "@test") {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.sources = [{ name: "local", type: "registry",
-            location: registryUrl }];
+  settings.sources = [{ name: "local", type: "registry", location: registryUrl }];
   settings.scope = scope;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }

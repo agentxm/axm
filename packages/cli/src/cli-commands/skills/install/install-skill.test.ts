@@ -567,9 +567,8 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@community",
+            source: { type: "registry", location: new URL("file:///tmp/reg") },
+            scope: "@community",
             location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -609,9 +608,8 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@myorg",
+            source: { type: "registry", location: new URL("file:///tmp/reg") },
+            scope: "@myorg",
             location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -643,9 +641,8 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@community",
+            source: { type: "registry", location: new URL("file:///tmp/reg") },
+            scope: "@community",
             location: `file://${src}`,
             version: Option.some("1.2.3"),
             versionConstraint: Option.some("^1.0.0"),
@@ -702,9 +699,8 @@ describe("installSkill", () => {
           const result = yield* installSkill(
             makeOp({
               agents: ["claude-code"],
-              source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@community",
+              source: { type: "registry", location: new URL("file:///tmp/reg") },
+              scope: "@community",
               location: `file://${src}`,
             }),
           ).pipe(Effect.provide(withServices(axmDir)));
@@ -784,9 +780,8 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@acme",
+            source: { type: "registry", location: new URL("file:///tmp/reg") },
+            scope: "@acme",
             skillName: "tool",
             location: `file://${src}`,
           }),
@@ -810,9 +805,8 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@acme",
+            source: { type: "registry", location: new URL("file:///tmp/reg") },
+            scope: "@acme",
             skillName: "tool",
             location: `file://${src}`,
             version: Option.some("1.2.3"),
@@ -838,9 +832,8 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: { type: "registry", location: new URL("file:///tmp/reg"),
-      },
-      scope: "@acme",
+            source: { type: "registry", location: new URL("file:///tmp/reg") },
+            scope: "@acme",
             skillName: "tool",
             location: `file://${src}`,
             version: Option.some("1.2.3"),

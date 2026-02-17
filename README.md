@@ -40,27 +40,20 @@ axm skills fork "effect-*"           # Fork all skills matching a pattern
 axm skills fork ./path --skill "ci-*" # Fork matching skills from a source
 ```
 
+### Publish a skill
+
+Publish a skill to the registry to easily install on other projects and share with your team:
+
+```bash
+axm skills publish my-skill
+```
+
 ### Install skills
 
 Install a skill and axm wires it into every agent in your project:
 
 ```bash
-axm skills install @acme/code-review
-```
-
-Skills can also be installed from GitHub, GitLab, Bitbucket, Azure Repos, local paths, and git URLs:
-
-```bash
-axm skills install owner/repo
-axm skills install ./path/to/skills
-```
-
-### Publish a skill
-
-Made changes to a skill? Publish it to a registry so others can install it:
-
-```bash
-axm skills publish my-skill
+axm skills install @acme/skills/code-review
 ```
 
 ### Enable and disable skills

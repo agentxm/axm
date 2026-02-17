@@ -108,11 +108,13 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     yield* parseHandle.stop(`Source: ${sources.origin(source)} (registry)`);
     const parsedPattern = parseInputPattern(args.source.trim());
     const packName =
-      Option.isSome(parsedPattern) && parsedPattern.value.pattern.pattern === "registry-pattern-input"
+      Option.isSome(parsedPattern) &&
+      parsedPattern.value.pattern.pattern === "registry-pattern-input"
         ? Option.getOrNull(parsedPattern.value.pattern.name)
         : null;
     const packVersionConstraint =
-      Option.isSome(parsedPattern) && parsedPattern.value.pattern.pattern === "registry-pattern-input"
+      Option.isSome(parsedPattern) &&
+      parsedPattern.value.pattern.pattern === "registry-pattern-input"
         ? parsedPattern.value.pattern.versionConstraint
         : Option.none<string>();
     if (packName === null) {
@@ -297,7 +299,8 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
           }
           const parsedSkill = parseInputPattern(sourceStr);
           const skillName =
-            Option.isSome(parsedSkill) && parsedSkill.value.pattern.pattern === "registry-pattern-input"
+            Option.isSome(parsedSkill) &&
+            parsedSkill.value.pattern.pattern === "registry-pattern-input"
               ? Option.getOrNull(parsedSkill.value.pattern.name)
               : null;
           if (skillName === null) {
@@ -346,7 +349,8 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
             ref: skillRef,
             fetched: fetchedSkill,
             versionConstraint:
-              Option.isSome(parsedSkill) && parsedSkill.value.pattern.pattern === "registry-pattern-input"
+              Option.isSome(parsedSkill) &&
+              parsedSkill.value.pattern.pattern === "registry-pattern-input"
                 ? parsedSkill.value.pattern.versionConstraint
                 : Option.none<string>(),
           };

@@ -242,7 +242,7 @@ describe("Settings schema", () => {
         const input = {
           name: "corp-registry",
           type: "registry",
-            location: "https://registry.corp.com",
+          location: "https://registry.corp.com",
         };
         const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
@@ -342,11 +342,11 @@ describe("Settings schema", () => {
       const input = {
         sources: [
           {
-              name: "main-registry",
-              type: "registry",
-              location: "https://registry.agentskills.io",
-            },
-          ],
+            name: "main-registry",
+            type: "registry",
+            location: "https://registry.agentskills.io",
+          },
+        ],
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 

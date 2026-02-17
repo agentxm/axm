@@ -240,8 +240,7 @@ describe("sourceToLockEntry", () => {
   it("maps Registry ref with version/checksum from ref details", () => {
     const ref: RegistrySkillRef = {
       ...skillBase,
-      source: { type: "registry", location: new URL("http://localhost:3000"),
-      },
+      source: { type: "registry", location: new URL("http://localhost:3000") },
       scope: "@acme",
       version: "2.1.0",
       checksum: "sha256:abcdef1234567890",
@@ -270,8 +269,7 @@ describe("sourceToLockEntry", () => {
   it("uses 'default' for sourceName when not provided", () => {
     const ref: RegistrySkillRef = {
       ...skillBase,
-      source: { type: "registry", location: new URL("http://localhost:3000"),
-      },
+      source: { type: "registry", location: new URL("http://localhost:3000") },
       scope: "@community",
       version: "1.0.0",
       checksum: "sha256:abc",

@@ -232,7 +232,9 @@ export const installSkill: OperationHandler<
       name: ref.skill.name,
       lockEntry,
       versionConstraint:
-        ref.source.type === "registry" ? (op.args.versionConstraint ?? Option.none()) : Option.none(),
+        ref.source.type === "registry"
+          ? (op.args.versionConstraint ?? Option.none())
+          : Option.none(),
     };
     const writeEffect = op.args.skipSettings ? ws.setSkillLock(skillArgs) : ws.setSkill(skillArgs);
     yield* writeEffect.pipe(Effect.catchAll((e) => log.warn(`Skill update failed: ${String(e)}`)));

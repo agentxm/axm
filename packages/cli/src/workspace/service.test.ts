@@ -24,7 +24,7 @@ import {
 } from "../tui/index.js";
 import YAML from "yaml";
 import { CliError } from "../cli-error/index.js";
-import type { NormalizedSkillEntry, SourceConfig } from "../settings/index.js";
+import type { NormalizedSkillEntry, SourceHostConfig } from "../settings/index.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import type { OperationResult } from "./plan.js";
 import type { Operation, Plan, PlannedJobStep } from "./plan.js";
@@ -428,12 +428,12 @@ describe("WorkspaceContextService", () => {
 
     it.effect("project source overrides global source with same name", () =>
       Effect.gen(function* () {
-        const projectSource: SourceConfig = {
+        const projectSource: SourceHostConfig = {
           name: "github",
           type: "github",
           url: new URL("https://github.mycompany.com"),
         };
-        const globalSource: SourceConfig = {
+        const globalSource: SourceHostConfig = {
           name: "github",
           type: "github",
           url: new URL("https://github.example.com"),
@@ -453,7 +453,7 @@ describe("WorkspaceContextService", () => {
         const githubSource = sources.find((s) => s.name === "github");
         expect(githubSource).toBeDefined();
         // Project wins over global
-        expect((githubSource as SourceConfig & { url: URL }).url).toEqual(
+        expect((githubSource as SourceHostConfig & { url: URL }).url).toEqual(
           new URL("https://github.mycompany.com"),
         );
         // Built-in github is also overridden (only one "github" entry)
@@ -463,7 +463,7 @@ describe("WorkspaceContextService", () => {
 
     it.effect("global source overrides built-in source with same name", () =>
       Effect.gen(function* () {
-        const globalSource: SourceConfig = {
+        const globalSource: SourceHostConfig = {
           name: "gitlab",
           type: "gitlab",
           url: new URL("https://gitlab.corp.example.com"),
@@ -478,7 +478,7 @@ describe("WorkspaceContextService", () => {
 
         const gitlabSource = sources.find((s) => s.name === "gitlab");
         expect(gitlabSource).toBeDefined();
-        expect((gitlabSource as SourceConfig & { url: URL }).url).toEqual(
+        expect((gitlabSource as SourceHostConfig & { url: URL }).url).toEqual(
           new URL("https://gitlab.corp.example.com"),
         );
         expect(sources.filter((s) => s.name === "gitlab")).toHaveLength(1);
@@ -719,7 +719,7 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
 
-        const newSource: SourceConfig = {
+        const newSource: SourceHostConfig = {
           name: "my-registry",
           type: "registry",
           url: new URL("https://registry.example.com"),
@@ -745,7 +745,7 @@ describe("WorkspaceContextService", () => {
         expect(before.find((s) => s.name === "new-source")).toBeUndefined();
 
         // Add a new source
-        const newSource: SourceConfig = {
+        const newSource: SourceHostConfig = {
           name: "new-source",
           type: "registry",
           url: new URL("https://new.example.com"),
@@ -1441,7 +1441,7 @@ describe("WorkspaceContextService", () => {
 
         const ws = yield* getService(defaultOptions);
 
-        const newSource: SourceConfig = {
+        const newSource: SourceHostConfig = {
           name: "my-registry",
           type: "registry",
           url: new URL("https://registry.example.com"),

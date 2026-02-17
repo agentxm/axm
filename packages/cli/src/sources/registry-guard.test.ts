@@ -4,13 +4,13 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { CliError } from "../cli-error/index.js";
-import type { SourceConfig, SourceHostConfig } from "../settings/index.js";
+import type { SourceHostConfig } from "../settings/index.js";
 import { makeTextInputTestLayer } from "../tui/index.js";
 import { Workspace, type WorkspaceContextService } from "../workspace/index.js";
 import { registryGuard } from "./registry-guard.js";
 
 describe("registryGuard", () => {
-  type RegistrySource = Extract<SourceConfig, { type: "registry" }>;
+  type RegistrySource = Extract<SourceHostConfig, { type: "registry" }>;
 
   const makeWorkspaceLayer = (opts: {
     registrySources?: ReadonlyArray<RegistrySource>;
@@ -60,7 +60,7 @@ describe("registryGuard", () => {
 
   it.effect("passes when registry sources already configured", () =>
     Effect.gen(function* () {
-      const existingRegistry: SourceConfig = {
+      const existingRegistry: SourceHostConfig = {
         name: "existing",
         type: "registry",
         url: new URL("file:///path/to/registry"),

@@ -20,7 +20,7 @@ import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "vitest";
 
 import type { CliError } from "../cli-error/index.js";
-import type { SourceConfig } from "../settings/index.js";
+import type { SourceHostConfig } from "../settings/index.js";
 import type { WorkspaceContextService } from "../workspace/service.js";
 import { Workspace } from "../workspace/service.js";
 import type { ExtensionIndex, VersionEntry } from "../registry/index.js";
@@ -76,7 +76,7 @@ const computeChecksum = (data: Uint8Array): string => {
  * Create a minimal workspace service for testing.
  * Returns sources and registry sources as configured.
  */
-const makeTestWorkspace = (sources: ReadonlyArray<SourceConfig>): WorkspaceContextService => ({
+const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService => ({
   global: false,
   path: "/tmp/test-workspace",
   nonInteractive: true,
@@ -89,7 +89,7 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceConfig>): WorkspaceConte
     Effect.succeed(
       (() => {
         const registrySources = sources.filter(
-          (s): s is Extract<SourceConfig, { type: "registry" }> => s.type === "registry",
+          (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
         );
         if (Option.isNone(scope)) return registrySources;
         const scopeValue = scope.value;
@@ -128,7 +128,7 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceConfig>): WorkspaceConte
 
 /** Run an effect with SourceHostProviders service and NodeContext wired up. */
 const runWithService = <A, E>(
-  sources: ReadonlyArray<SourceConfig>,
+  sources: ReadonlyArray<SourceHostConfig>,
   effect: Effect.Effect<
     A,
     E,

@@ -22,7 +22,7 @@ import * as github from "./github/index.js";
 import * as gitlab from "./gitlab/index.js";
 import { parseLocalPath } from "./local/index.js";
 import { parseInputPattern } from "./parser.js";
-import type { Source, SourceParams, SourceType } from "./types.js";
+import type { RegistrySourceInput, Source, SourceParams, SourceType } from "./types.js";
 import type { SourceHostConfig } from "../settings/schema.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import { Workspace } from "../workspace/index.js";
@@ -90,13 +90,35 @@ const parseShorthandForSource = (
 
 /**
  * Merge a SourceHostConfig with SourceParams to produce a Source.
- * Centralizes the single assertion needed because TS can't narrow
- * SourceParams & SourceHostConfig intersection to a specific Source variant.
+ * Uses exhaustive type checks on both discriminators and fails on mismatch.
  */
-const configToSource = (config: SourceHostConfig, params: SourceParams): Source =>
-  // Assertion needed: TS can't prove spread of two discriminated unions
-  // (both keyed on `type`) produces a valid Source union member
-  ({ ...params, ...config }) as Source;
+const configToSource = (
+  config: SourceHostConfig,
+  params: SourceParams,
+  input: string,
+): Effect.Effect<Source, CliError> => {
+  const mismatch = () =>
+    Effect.fail(
+      makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: `Source params type "${params.type}" does not match config type "${config.type}"`,
+        details: [input],
+      }),
+    );
+
+  switch (config.type) {
+    case "github":
+      return params.type === "github" ? Effect.succeed({ ...params, ...config }) : mismatch();
+    case "gitlab":
+      return params.type === "gitlab" ? Effect.succeed({ ...params, ...config }) : mismatch();
+    case "bitbucket":
+      return params.type === "bitbucket" ? Effect.succeed({ ...params, ...config }) : mismatch();
+    case "azurerepos":
+      return params.type === "azurerepos" ? Effect.succeed({ ...params, ...config }) : mismatch();
+    case "registry":
+      return params.type === "registry" ? Effect.succeed({ ...params, ...config }) : mismatch();
+  }
+};
 
 // -----------------------------------------------------------------------------
 // URL routing
@@ -127,7 +149,9 @@ const routeUrlInput = (url: URL, input: string) =>
     ) =>
       configUrl.hostname !== url.hostname
         ? Effect.fail(noMatch)
-        : Effect.map(parse(url, configUrl.hostname), (params) => configToSource(config, params));
+        : Effect.flatMap(parse(url, configUrl.hostname), (params) =>
+            configToSource(config, params, input),
+          );
 
     const tryMatch = Match.type<SourceHostConfig>().pipe(
       Match.when({ type: "github" }, (c) => tryParseUrl(c.url, c, github.parseUrl)),
@@ -178,7 +202,7 @@ const routeOpaqueUrl = (url: URL, input: string) =>
       const remainder = input.slice(colonIndex + 1);
       const reparsed = `${matchedConfig.type}:${remainder}`;
       const params = yield* parseShorthandForSource(matchedConfig.type, reparsed);
-      return configToSource(matchedConfig, params);
+      return yield* configToSource(matchedConfig, params, input);
     }
 
     // Not a config name — fail
@@ -217,7 +241,9 @@ const routeScpInput = (
     ) =>
       scp.host !== scpHostname
         ? Effect.fail(noMatch)
-        : Effect.map(parse(scpInput, scp.host), (params) => configToSource(config, params));
+        : Effect.flatMap(parse(scpInput, scp.host), (params) =>
+            configToSource(config, params, input),
+          );
 
     const tryMatch = Match.type<SourceHostConfig>().pipe(
       Match.when({ type: "github" }, (c) => tryParseScp(c.url.hostname, c, github.parseScp)),
@@ -273,7 +299,7 @@ const routeShorthandInput = (prefix: string, shorthandInput: string, input: stri
           details: [input],
         });
       }
-      return configToSource(config, params);
+      return yield* configToSource(config, params, input);
     }
 
     // Config-name prefix → find config, parse with its source type parser
@@ -289,7 +315,7 @@ const routeShorthandInput = (prefix: string, shorthandInput: string, input: stri
     const remainder = shorthandInput.slice(prefix.length + 1);
     const reparsed = `${matchedConfig.type}:${remainder}`;
     const params = yield* parseShorthandForSource(matchedConfig.type, reparsed);
-    return configToSource(matchedConfig, params);
+    return yield* configToSource(matchedConfig, params, input);
   });
 
 // -----------------------------------------------------------------------------
@@ -363,7 +389,7 @@ const routeRegistryInput = (
       ),
     );
 
-    const params = {
+    const params: RegistrySourceInput = {
       type: "registry" as const,
       scope: pattern.scope,
       name: pattern.name,
@@ -383,7 +409,7 @@ const routeRegistryInput = (
     // No registry config — return params only (self-describing, for backward compat)
     // This maintains the existing behavior where registry sources without config
     // still resolve but the meta-provider handles the config lookup at find() time
-    return params as Source;
+    return params;
   });
 
 /**
@@ -403,9 +429,9 @@ const routeSlashInput = (
       const sourceType = shorthandTypes.find((t) => t === config.type);
       if (!sourceType) return Option.none();
       return Option.some(
-        Effect.map(
+        Effect.flatMap(
           parseShorthandForSource(sourceType, `${sourceType}:${shorthandBody}`),
-          (params) => configToSource(config, params),
+          (params) => configToSource(config, params, input),
         ),
       );
     });

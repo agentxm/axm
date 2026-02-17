@@ -466,7 +466,7 @@ export const resolveSlashInputSource = (
         for (const regSource of registrySources) {
           const client = createRegistryClient(regSource.location.href);
           const exists = yield* client
-            .extensionExists(scope, extensionType.value, extensionName)
+            .extensionExists({ scope, type: extensionType.value, name: extensionName })
             .pipe(
               Effect.provide(NodeContext.layer),
               Effect.scoped,

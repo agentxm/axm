@@ -138,7 +138,14 @@ export const publishPack: OperationHandler<
 
     // Publish to registry (idempotent)
     yield* client
-      .publishExtension(scope, "pack", shortName, manifest.version, archive, versionEntry)
+      .publishExtension({
+        scope,
+        type: "pack",
+        name: shortName,
+        version: manifest.version,
+        archive,
+        metadata: versionEntry,
+      })
       .pipe(
         Effect.mapError((e) =>
           makeCliError({

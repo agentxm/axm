@@ -138,7 +138,14 @@ export const publishSkill: OperationHandler<
 
     // Publish to registry (idempotent)
     yield* client
-      .publishExtension(scope, "skill", skillName, manifest.version, archive, versionEntry)
+      .publishExtension({
+        scope,
+        type: "skill",
+        name: skillName,
+        version: manifest.version,
+        archive,
+        metadata: versionEntry,
+      })
       .pipe(
         Effect.mapError((e) =>
           makeCliError({

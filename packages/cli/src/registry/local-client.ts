@@ -16,7 +16,13 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { makeCliError, type CliError } from "../cli-error/index.js";
-import type { RegistryClient, RegistryExtensionEntry } from "./client.js";
+import type {
+  RegistryClient,
+  RegistryExtensionEntry,
+  GetExtensionVersionArgs,
+  PublishExtensionArgs,
+  ExtensionExistsArgs,
+} from "./client.js";
 import type { ExtensionType } from "../extensions/common.js";
 import { ExtensionIndexSchema, type ExtensionIndex } from "./local-schema.js";
 import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
@@ -171,11 +177,58 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
       return yield* fs.exists(scopeDir).pipe(Effect.orElseSucceed(() => false));
     }),
 
-  getExtension: (scope, type, name, version) =>
+  getExtensionVersion: (args: GetExtensionVersionArgs) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const p = yield* Path.Path;
-      const dir = extensionDir(registryRoot, scope, type, name, p.join);
+      const dir = extensionDir(registryRoot, args.scope, args.type, args.name, p.join);
+
+      const version = yield* Option.match(args.version, {
+        onNone: () =>
+          Effect.gen(function* () {
+            const idxPath = p.join(dir, "index.json");
+            const content = yield* fs.readFileString(idxPath).pipe(
+              Effect.mapError((e) =>
+                makeCliError({
+                  code: "REGISTRY_FETCH_FAILED",
+                  what: `Failed to read index: ${idxPath}`,
+                  cause: e,
+                }),
+              ),
+            );
+            const json = yield* Effect.try({
+              try: () => JSON.parse(content) as unknown,
+              catch: (e) =>
+                makeCliError({
+                  code: "REGISTRY_FETCH_FAILED",
+                  what: `Invalid JSON in index: ${idxPath}`,
+                  cause: e,
+                }),
+            });
+            const index = yield* Schema.decodeUnknown(ExtensionIndexSchema)(json).pipe(
+              Effect.mapError((e) =>
+                makeCliError({
+                  code: "REGISTRY_FETCH_FAILED",
+                  what: `Invalid index schema: ${idxPath}`,
+                  cause: e,
+                }),
+              ),
+            );
+
+            const selected = selectVersion(index.versions);
+            if (Option.isNone(selected)) {
+              return yield* Effect.fail(
+                makeCliError({
+                  code: "REGISTRY_FETCH_FAILED",
+                  what: `No versions found for ${args.scope}/${args.type}/${args.name}`,
+                }),
+              );
+            }
+            return selected.value.version;
+          }),
+        onSome: (v) => Effect.succeed(v),
+      });
+
       const archivePath = p.join(dir, `${version}.zip`);
 
       const exists = yield* fs.exists(archivePath).pipe(Effect.orElseSucceed(() => false));
@@ -199,11 +252,11 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
       );
     }),
 
-  publishExtension: (scope, type, name, version, archive, metadata) =>
+  publishExtension: (args: PublishExtensionArgs) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const p = yield* Path.Path;
-      const dir = extensionDir(registryRoot, scope, type, name, p.join);
+      const dir = extensionDir(registryRoot, args.scope, args.type, args.name, p.join);
 
       // Ensure directory exists
       yield* fs.makeDirectory(dir, { recursive: true }).pipe(
@@ -217,7 +270,7 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
       );
 
       const indexPath = p.join(dir, "index.json");
-      const archivePath = p.join(dir, `${version}.zip`);
+      const archivePath = p.join(dir, `${args.version}.zip`);
 
       // Check for existing index
       const indexExists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
@@ -253,16 +306,16 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
         );
 
         // Check idempotency: same version + same checksum = no-op
-        const existingVersion = existingIndex.versions.find((v) => v.version === version);
+        const existingVersion = existingIndex.versions.find((v) => v.version === args.version);
         if (existingVersion) {
-          if (existingVersion.checksum === metadata.checksum) {
+          if (existingVersion.checksum === args.metadata.checksum) {
             return; // Idempotent: same version, same checksum -> no-op
           }
           return yield* Effect.fail(
             makeCliError({
               code: "REGISTRY_PUBLISH_FAILED",
-              what: `Version ${version} already exists with different checksum`,
-              details: [`Expected ${existingVersion.checksum}, got ${metadata.checksum}`],
+              what: `Version ${args.version} already exists with different checksum`,
+              details: [`Expected ${existingVersion.checksum}, got ${args.metadata.checksum}`],
             }),
           );
         }
@@ -270,7 +323,7 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
         // Prepend new version entry
         const updatedIndex: ExtensionIndex = {
           ...existingIndex,
-          versions: [metadata, ...existingIndex.versions],
+          versions: [args.metadata, ...existingIndex.versions],
         };
         yield* fs.writeFileString(indexPath, JSON.stringify(updatedIndex, null, 2) + "\n").pipe(
           Effect.mapError((e) =>
@@ -284,10 +337,10 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
       } else {
         // Create new index
         const newIndex: ExtensionIndex = {
-          name,
-          scope,
-          type,
-          versions: [metadata],
+          name: args.name,
+          scope: args.scope,
+          type: args.type,
+          versions: [args.metadata],
         };
         yield* fs.writeFileString(indexPath, JSON.stringify(newIndex, null, 2) + "\n").pipe(
           Effect.mapError((e) =>
@@ -301,7 +354,7 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
       }
 
       // Write archive
-      yield* fs.writeFile(archivePath, archive).pipe(
+      yield* fs.writeFile(archivePath, args.archive).pipe(
         Effect.mapError((e) =>
           makeCliError({
             code: "REGISTRY_PUBLISH_FAILED",
@@ -312,11 +365,11 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
       );
     }),
 
-  extensionExists: (scope, type, name) =>
+  extensionExists: (args: ExtensionExistsArgs) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const p = yield* Path.Path;
-      const dir = extensionDir(registryRoot, scope, type, name, p.join);
+      const dir = extensionDir(registryRoot, args.scope, args.type, args.name, p.join);
       const indexPath = p.join(dir, "index.json");
       return yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
     }),

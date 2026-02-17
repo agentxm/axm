@@ -34,7 +34,7 @@ const remoteNotSupported = () =>
 export const createRemoteRegistryClient = (): RegistryClient => ({
   getExtensions: () => remoteNotSupported(),
   scopeExists: () => remoteNotSupported(),
-  getExtension: () => remoteNotSupported(),
+  getExtensionVersion: () => remoteNotSupported(),
   publishExtension: () => remoteNotSupported(),
   extensionExists: () => remoteNotSupported(),
 });

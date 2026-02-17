@@ -83,7 +83,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       const client = yield* makeLocalClient("/nonexistent/path");
       const result = yield* client.getExtensionsByScope(defaultSearchOptions);
       expect(result.extensions).toHaveLength(0);
-      expect(result.pagination).toEqual({ total: 0, limit: 0, offset: 0, hasMore: false });
+      expect(result.total).toBe(0);
     }).pipe(Effect.provide(NodeContext.layer)),
   );
 
@@ -107,7 +107,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       expect(result.extensions[0]!.name).toBe("my-skill");
       expect(result.extensions[0]!.version).toBe("1.0.0");
       expect(result.extensions[0]!.scope).toBe("@test");
-      expect(result.pagination).toEqual({ total: 1, limit: 1, offset: 0, hasMore: false });
+      expect(result.total).toBe(1);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -189,7 +189,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
       const client = yield* makeLocalClient(registryRoot);
       const result = yield* client.getExtensionsByScope(defaultSearchOptions);
       expect(result.extensions).toHaveLength(2);
-      expect(result.pagination.total).toBe(2);
+      expect(result.total).toBe(2);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -297,7 +297,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
         offset: 0,
       });
       expect(page1.extensions).toHaveLength(2);
-      expect(page1.pagination).toEqual({ total: 3, limit: 2, offset: 0, hasMore: true });
+      expect(page1.total).toBe(3);
 
       // limit=2, offset=2 → last 1
       const page2 = yield* client.getExtensionsByScope({
@@ -306,7 +306,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
         offset: 2,
       });
       expect(page2.extensions).toHaveLength(1);
-      expect(page2.pagination).toEqual({ total: 3, limit: 2, offset: 2, hasMore: false });
+      expect(page2.total).toBe(3);
 
       // no limit, offset=1 → skip 1
       const page3 = yield* client.getExtensionsByScope({
@@ -315,7 +315,7 @@ describe("LocalRegistryClient.getExtensionsByScope", () => {
         offset: 1,
       });
       expect(page3.extensions).toHaveLength(2);
-      expect(page3.pagination).toEqual({ total: 3, limit: 3, offset: 1, hasMore: false });
+      expect(page3.total).toBe(3);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),

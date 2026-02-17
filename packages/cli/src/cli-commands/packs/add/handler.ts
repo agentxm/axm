@@ -16,7 +16,7 @@ import { Workspace } from "../../../workspace/index.js";
 import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
 import { computePackPaths } from "../pack-paths.js";
 import { PACK_MANIFEST_FILENAME, type RawPackManifest } from "../constants.js";
-import { hasScopePrefix, parseScopedName } from "../../skills/naming.js";
+import { hasScopePrefix, parseScopedNameOrThrow } from "../../skills/naming.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -69,7 +69,7 @@ export const handlePacksAdd = (args: PacksAddHandlerArgs) =>
     // Resolve pack scope from the entry (format: "@scope/name" or { source: "@scope/name" })
     const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
     const packScope = hasScopePrefix(packSource)
-      ? parseScopedName(packSource).scope
+      ? parseScopedNameOrThrow(packSource).scope
       : yield* ws.getConfiguredScope();
     const base = path.dirname(ws.path);
 

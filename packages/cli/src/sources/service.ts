@@ -193,9 +193,7 @@ const toSourceExtensionRef = (ref: LegacyRef): SourceExtensionRef => {
   }
 };
 
-const toLegacyRef = (
-  ref: Exclude<SourceExtensionRef, { readonly type: "pack" }>,
-): LegacyRef =>
+const toLegacyRef = (ref: Exclude<SourceExtensionRef, { readonly type: "pack" }>): LegacyRef =>
   ref.type === "skill"
     ? {
         type: "skill",
@@ -358,12 +356,10 @@ export const SourceHostProvidersLive: Layer.Layer<
     };
 
     const findImpl = (source: Source, options: FindOptions) =>
-      providers[source.type]
-        .find(source, options)
-        .pipe(
-          Effect.provide(depLayer),
-          Effect.map((refs) => refs.map((ref) => toSourceExtensionRef(ref))),
-        ) as Effect.Effect<ReadonlyArray<SourceExtensionRef>, CliError, Scope.Scope>;
+      providers[source.type].find(source, options).pipe(
+        Effect.provide(depLayer),
+        Effect.map((refs) => refs.map((ref) => toSourceExtensionRef(ref))),
+      ) as Effect.Effect<ReadonlyArray<SourceExtensionRef>, CliError, Scope.Scope>;
 
     return {
       find: findImpl as SourceHostProvidersService["find"],
@@ -377,11 +373,9 @@ export const SourceHostProvidersLive: Layer.Layer<
             }),
           );
         }
-        return (
-          providers[source.type]
-            .fetch(source, toLegacyRef(ref))
-            .pipe(Effect.provide(depLayer)) as Effect.Effect<ExtensionFiles, CliError, Scope.Scope>
-        );
+        return providers[source.type]
+          .fetch(source, toLegacyRef(ref))
+          .pipe(Effect.provide(depLayer)) as Effect.Effect<ExtensionFiles, CliError, Scope.Scope>;
       },
       cloneUrl: buildCloneUrlFromSource,
       origin: getOriginFromSource,

@@ -5,9 +5,9 @@
  */
 
 /**
- * Parse `@scope/name` into its parts.
+ * Parse `@scope/name` into its parts. Throws on invalid input.
  */
-export const parseScopedName = (
+export const parseScopedNameOrThrow = (
   input: string,
 ): { readonly scope: string; readonly name: string } => {
   const slashIdx = input.indexOf("/");

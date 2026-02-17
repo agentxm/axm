@@ -17,52 +17,9 @@ import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import type { UninstallSkillOperation } from "../operations.js";
-import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../constants.js";
-import { removeIfExists } from "../fs-helpers.js";
+import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
+import { removeFromAllCanonicalLocations } from "../fs-helpers.js";
 import { sanitizeName } from "../install/skill-utils.js";
-
-/**
- * Remove a skill from ALL known canonical locations.
- *
- * Ensures clean removal regardless of where the skill was installed:
- * 1. `.axm/extensions/external/skills/<name>/` (non-registry canonical)
- * 2. `.axm/extensions/<scope>/skills/<name>/` (registry canonical, any scope)
- */
-const removeFromAllLocations = (
-  fsService: FileSystem.FileSystem,
-  base: string,
-  sanitizedName: string,
-  pathService: Path.Path,
-) =>
-  Effect.gen(function* () {
-    // Remove from non-registry canonical location
-    yield* removeIfExists(
-      fsService,
-      pathService.join(base, EXTERNAL_EXTENSIONS_DIR, "skills", sanitizedName),
-    );
-
-    // Remove from any registry canonical location
-    const extensionsDir = pathService.join(base, REGISTRY_EXTENSIONS_DIR);
-    const extensionsDirExists = yield* fsService
-      .exists(extensionsDir)
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
-
-    if (extensionsDirExists) {
-      const scopeDirs = yield* fsService
-        .readDirectory(extensionsDir)
-        .pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<string>>([])));
-
-      yield* Effect.forEach(
-        scopeDirs,
-        (scopeDir) => {
-          if (!scopeDir.startsWith("@")) return Effect.void;
-          const skillPath = pathService.join(extensionsDir, scopeDir, "skills", sanitizedName);
-          return removeIfExists(fsService, skillPath);
-        },
-        { concurrency: "unbounded" },
-      );
-    }
-  });
 
 /**
  * Check if a skill exists in any known canonical location.
@@ -245,7 +202,7 @@ export const uninstallSkill: OperationHandler<
 
     // Full uninstall: remove from all known canonical locations
     if (installedOnDisk) {
-      yield* removeFromAllLocations(fs, base, sanitizedName, path);
+      yield* removeFromAllCanonicalLocations(fs, base, sanitizedName, path);
     }
 
     // Remove from both settings and lockfile (swallow errors on full uninstall)

@@ -10,7 +10,11 @@
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
-import { resolveSource, SourceHostProviders, type SkillExtensionRef } from "../../../sources/index.js";
+import {
+  resolveSource,
+  SourceHostProviders,
+  type SkillExtensionRef,
+} from "../../../sources/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -21,7 +25,7 @@ import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { PackManifestSchema } from "../../../extensions/packs/manifest-schema.js";
 import { parseVersionConstraint } from "../../../version-constraints/index.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 import { PACK_MANIFEST_FILENAME } from "../../packs/constants.js";
 import type { InstallSkillOperation, UninstallSkillOperation } from "../operations.js";
 import { buildUpdatePlan } from "./build-plan.js";
@@ -209,7 +213,10 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
             agents: args.agents,
             type: "skill",
           });
-          const allSkillRefs = Array.filter(allRefs, (r): r is SkillExtensionRef => r.type === "skill");
+          const allSkillRefs = Array.filter(
+            allRefs,
+            (r): r is SkillExtensionRef => r.type === "skill",
+          );
 
           if (allSkillRefs.length === 1) {
             // Single-skill source: treat as rename
@@ -285,39 +292,39 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
 
     // Step 8: Build operations
     const agentIds = yield* ws.getConfiguredAgents();
-    const ops: Array<InstallSkillOperation | UninstallSkillOperation> = [];
-
-    for (const item of resolved) {
-      if (item.type === "match") {
-        ops.push({
-          name: "install-skill",
-          args: {
-            ref: item.ref,
-            agents: agentIds,
-            force: args.force,
-            fetchedLocation: item.fetchedLocation,
-          },
-        } satisfies InstallSkillOperation);
-      } else {
-        // Rename: install new name + uninstall old name
-        ops.push({
-          name: "install-skill",
-          args: {
-            ref: item.newRef,
-            agents: agentIds,
-            force: args.force,
-            fetchedLocation: item.fetchedLocation,
-          },
-        } satisfies InstallSkillOperation);
-        ops.push({
-          name: "uninstall-skill",
-          args: {
-            skillName: item.oldName,
-            agents: [],
-          },
-        } satisfies UninstallSkillOperation);
-      }
-    }
+    const ops = Array.flatMap(resolved, (item) =>
+      item.type === "match"
+        ? [
+            {
+              name: "install-skill",
+              args: {
+                ref: item.ref,
+                agents: agentIds,
+                force: args.force,
+                fetchedLocation: item.fetchedLocation,
+              },
+            } satisfies InstallSkillOperation,
+          ]
+        : [
+            // Rename: install new name + uninstall old name
+            {
+              name: "install-skill",
+              args: {
+                ref: item.newRef,
+                agents: agentIds,
+                force: args.force,
+                fetchedLocation: item.fetchedLocation,
+              },
+            } satisfies InstallSkillOperation,
+            {
+              name: "uninstall-skill",
+              args: {
+                skillName: item.oldName,
+                agents: [],
+              },
+            } satisfies UninstallSkillOperation,
+          ],
+    );
 
     // Step 9: Build plan
     const lockfile = { lockfileVersion: 1, skills: lockedSkills };

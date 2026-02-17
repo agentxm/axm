@@ -58,7 +58,7 @@ const STATIC_PRIORITY_DIRECTORIES: readonly string[] = [
   "skills/.curated",
   "skills/.experimental",
   "skills/.system",
-] as const;
+];
 
 /**
  * Derive the full Phase 2 priority directory list.

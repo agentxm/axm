@@ -25,8 +25,8 @@ import { makeCliError } from "../../../cli-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../skills/constants.js";
-import { parseScopedName } from "../../skills/naming.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
+import { parseScopedNameOrThrow } from "../../skills/naming.js";
 import type { PublishPackOperation } from "../operations.js";
 import { PACK_MANIFEST_FILENAME } from "../constants.js";
 
@@ -56,7 +56,7 @@ export const publishPack: OperationHandler<
     const ws = yield* Workspace;
     const base = path.dirname(ws.path);
 
-    const { scope, name: shortName } = parseScopedName(op.args.name);
+    const { scope, name: shortName } = parseScopedNameOrThrow(op.args.name);
 
     // Locate the managed pack directory
     const packDir = path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "packs", shortName);

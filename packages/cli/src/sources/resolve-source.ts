@@ -416,13 +416,18 @@ export const routeRegistryInput = (
  * shorthand, try each provider in config order. First success wins.
  */
 export const routeSlashInput = (
-  pattern: { readonly owner: string; readonly repo: string },
+  pattern: {
+    readonly first: string;
+    readonly second: string;
+    readonly third: Option.Option<string>;
+  },
   input: string,
 ) =>
   Effect.gen(function* () {
     const sources = yield* getConfiguredSources(input);
     const shorthandTypes = ["github", "gitlab", "bitbucket"] as const;
-    const shorthandBody = `${pattern.owner}/${pattern.repo}`;
+    const shorthandBody = `${pattern.first}/${pattern.second}`;
+    void pattern.third;
 
     const attempts = Array.filterMap(sources, (config) => {
       const sourceType = shorthandTypes.find((t) => t === config.type);
@@ -438,7 +443,7 @@ export const routeSlashInput = (
     if (Array.isEmptyReadonlyArray(attempts)) {
       return yield* makeCliError({
         code: "SOURCE_PARSE_FAILED",
-        what: `Ambiguous pattern '${pattern.owner}/${pattern.repo}' — no git hosting sources configured`,
+        what: `Ambiguous pattern '${pattern.first}/${pattern.second}' — no git hosting sources configured`,
         details: [input],
       });
     }
@@ -447,7 +452,7 @@ export const routeSlashInput = (
       Effect.mapError(() =>
         makeCliError({
           code: "SOURCE_PARSE_FAILED",
-          what: `Ambiguous pattern '${pattern.owner}/${pattern.repo}' — use github:${pattern.owner}/${pattern.repo}, gitlab:${pattern.owner}/${pattern.repo}, or bitbucket:${pattern.owner}/${pattern.repo}`,
+          what: `Ambiguous pattern '${pattern.first}/${pattern.second}' — use github:${pattern.first}/${pattern.second}, gitlab:${pattern.first}/${pattern.second}, or bitbucket:${pattern.first}/${pattern.second}`,
           details: [input],
         }),
       ),

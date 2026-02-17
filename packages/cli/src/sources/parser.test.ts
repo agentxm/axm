@@ -116,9 +116,9 @@ describe("parseInputPattern", () => {
     it("classifies owner/repo as SlashPattern", () => {
       expectSome("owner/repo", {
         pattern: "slash-pattern",
-        owner: "owner",
-        repo: "repo",
-        subPath: Option.none(),
+        first: "owner",
+        second: "repo",
+        third: Option.none(),
       });
     });
 

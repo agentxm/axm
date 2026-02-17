@@ -172,7 +172,6 @@ describe("registry meta-provider scope routing", () => {
             name: "my-skill",
             versionConstraint: Option.none(),
             url: new URL(`file://${registryRoot}`),
-            scopes: Option.none(),
           },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
@@ -197,7 +196,6 @@ describe("registry meta-provider scope routing", () => {
             name: "my-skill",
             versionConstraint: Option.none(),
             url: new URL("file:///tmp/registry"),
-            scopes: Option.none(),
           },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
@@ -290,7 +288,6 @@ describe("SourceHostProviders dispatch", () => {
             name: "nonexistent",
             versionConstraint: Option.none(),
             url: new URL(`file://${registryRoot}`),
-            scopes: Option.none(),
           },
           { ...defaultFindOptions, names: ["nonexistent"] },
         );

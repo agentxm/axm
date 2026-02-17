@@ -90,11 +90,9 @@ describe("SourceHost", () => {
     const host: SourceHost = {
       type: "registry",
       url: new URL("file:///registry"),
-      scopes: Option.some(["@acme"]),
     };
     if (host.type === "registry") {
       expect(host.url.protocol).toBe("file:");
-      expect(Option.getOrNull(host.scopes)).toEqual(["@acme"]);
     }
   });
 
@@ -239,14 +237,12 @@ describe("Source", () => {
     const source: Source = {
       type: "registry",
       url: new URL("file:///registry"),
-      scopes: Option.none(),
       scope: "@acme",
       name: "code-review",
       versionConstraint: Option.none(),
     };
     if (source.type === "registry") {
       expect(source.url.protocol).toBe("file:");
-      expect(Option.isNone(source.scopes)).toBe(true);
       expect(source.scope).toBe("@acme");
     }
   });
@@ -304,7 +300,7 @@ describe("convenience unions", () => {
   it("ConfiguredSourceHost includes git hosting + registry", () => {
     const hosts: ConfiguredSourceHost[] = [
       { type: "github", url: new URL("https://github.com") },
-      { type: "registry", url: new URL("file:///r"), scopes: Option.none() },
+      { type: "registry", url: new URL("file:///r") },
     ];
     expect(hosts).toHaveLength(2);
   });
@@ -397,7 +393,6 @@ describe("SkillExtensionRef", () => {
       source: {
         type: "registry",
         url: new URL("file:///reg"),
-        scopes: Option.none(),
         scope: "@acme",
         name: "test",
         versionConstraint: Option.none(),
@@ -462,7 +457,6 @@ describe("McpServerExtensionRef", () => {
       source: {
         type: "registry",
         url: new URL("file:///reg"),
-        scopes: Option.none(),
         scope: "@acme",
         name: "test",
         versionConstraint: Option.none(),
@@ -485,7 +479,6 @@ describe("PackExtensionRef", () => {
       source: {
         type: "registry",
         url: new URL("file:///reg"),
-        scopes: Option.none(),
         scope: "@acme",
         name: "my-pack",
         versionConstraint: Option.none(),

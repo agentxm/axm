@@ -218,7 +218,6 @@ export const handleFork = (args: ForkHandlerArgs) =>
           versionConstraint: Option.none(),
           // Placeholder — registry URL unused; install reads from fetchedLocation
           url: new URL("file://localhost"),
-          scopes: Option.none(),
         },
         version: "0.1.0",
         checksum: "",

@@ -116,7 +116,6 @@ const makeOp = (
           name,
           versionConstraint: Option.none(),
           url: new URL("http://localhost:3000"),
-          scopes: Option.none(),
         },
         version: overrides?.version ?? "0.0.0",
         checksum: "abc",

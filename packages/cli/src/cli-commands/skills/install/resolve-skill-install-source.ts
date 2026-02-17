@@ -1,16 +1,68 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
-import { parseInputPattern } from "../../../sources/parser.js";
+import { parseInputPattern, type InputPattern } from "../../../sources/parser.js";
 import {
   routeFilePathInput,
   routeNameInput,
-  routeRegistryInput,
   routeScpInput,
   routeShorthandInput,
   routeSlashInput,
   routeUrlInput,
 } from "../../../sources/resolve-source.js";
+import { Workspace } from "../../../workspace/index.js";
+
+const resolveSkillRegistrySource = (
+  pattern: Extract<InputPattern, { readonly pattern: "registry-pattern-input" }>,
+  input: string,
+) =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace;
+
+    if (Option.isSome(pattern.type) && pattern.type.value !== "skills") {
+      return yield* makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: "Expected a skills registry source",
+        details: [input],
+      });
+    }
+
+    if (Option.isNone(pattern.name)) {
+      return yield* makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: "Registry source is missing name",
+        details: [input],
+      });
+    }
+
+    const scope = Option.some(pattern.scope);
+    const registrySources = yield* ws.getConfiguredRegistrySources(scope).pipe(
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "SOURCE_PARSE_FAILED",
+          what: `Failed to get registry sources: ${e._tag}`,
+          details: [input],
+        }),
+      ),
+    );
+
+    if (registrySources.length === 0) {
+      return yield* makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: `No registry source configured for scope "${pattern.scope}"`,
+        details: [input],
+      });
+    }
+
+    const regConfig = registrySources[0]!;
+    return {
+      type: "registry" as const,
+      scope: pattern.scope,
+      name: pattern.name.value,
+      versionConstraint: pattern.versionConstraint,
+      url: regConfig.location,
+    };
+  });
 
 export const resolveSkillInstallSource = (input: string) =>
   Effect.gen(function* () {
@@ -27,7 +79,7 @@ export const resolveSkillInstallSource = (input: string) =>
     const pattern = patternOpt.value;
     switch (pattern.pattern) {
       case "registry-pattern-input":
-        return yield* routeRegistryInput(pattern, trimmed);
+        return yield* resolveSkillRegistrySource(pattern, trimmed);
       case "name-input":
         return yield* routeNameInput(pattern.name, trimmed);
       case "url-input":

@@ -82,14 +82,12 @@ export interface GitSourceHost {
 }
 
 /**
- * Registry source host with URL and optional scopes.
+ * Registry source host with URL.
  * @experimental
  */
 export interface RegistrySourceHost {
   readonly type: "registry";
   readonly url: URL;
-  /** Scopes this registry handles; None = catch-all */
-  readonly scopes: Option.Option<ReadonlyArray<string>>;
 }
 
 /** Self-describing — the filesystem path lives in SourceParams. @experimental */

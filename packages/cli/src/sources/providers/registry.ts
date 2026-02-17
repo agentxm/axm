@@ -729,7 +729,7 @@ export const createRegistryProvider = (location: string): RegistrySourceProvider
 /**
  * Creates a `PublishableSourceHostProvider` for a registry source.
  *
- * Constructed with a `RegistrySourceHost` that provides the registry URL and scopes.
+ * Constructed with a `RegistrySourceHost` that provides the registry URL.
  * The `match` method checks if a URL's hostname matches the configured registry.
  * The `find` implementation reads the registry index and populates checksum from index.
  *

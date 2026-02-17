@@ -68,10 +68,7 @@ const AzureReposSourceHostConfigSchema = Schema.Struct({
 });
 
 /**
- * Registry source host configuration with optional scopes.
- *
- * On-disk format unchanged: `scopes` is an optional JSON array.
- * Decoded to `Option<ReadonlyArray<string>>` via `OptionFromNullishOr`.
+ * Registry source host configuration.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -79,7 +76,6 @@ const RegistrySourceHostConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   type: Schema.Literal("registry"),
   url: Schema.URL,
-  scopes: Schema.OptionFromNullishOr(Schema.Array(Schema.String), undefined),
 });
 
 /**

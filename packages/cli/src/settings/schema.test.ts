@@ -4,7 +4,6 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import {
@@ -191,86 +190,23 @@ describe("Settings schema", () => {
         expect(result.url).toBeInstanceOf(URL);
       });
 
-      it("decodes scopes array to Some(ReadonlyArray)", () => {
-        const input = {
-          name: "corp-registry",
-          type: "registry",
-          url: "https://registry.acme.corp",
-          scopes: ["@acme", "@acme-internal"],
-        };
-        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
-
-        expect(result.type).toBe("registry");
-        if (result.type === "registry") {
-          expect(Option.isSome(result.scopes)).toBe(true);
-          expect(Option.getOrThrow(result.scopes)).toEqual(["@acme", "@acme-internal"]);
-        }
-      });
-
-      it("decodes undefined scopes to None", () => {
+      it("encodes registry source without scopes", () => {
         const input = {
           name: "public",
           type: "registry",
           url: "https://registry.example.com",
-        };
-        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
-
-        expect(result.type).toBe("registry");
-        if (result.type === "registry") {
-          expect(Option.isNone(result.scopes)).toBe(true);
-        }
-      });
-
-      it("decodes empty scopes array to Some([])", () => {
-        const input = {
-          name: "local",
-          type: "registry",
-          url: "file:///usr/local/axm/registry",
-          scopes: [],
-        };
-        const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
-
-        expect(result.type).toBe("registry");
-        if (result.type === "registry") {
-          expect(Option.isSome(result.scopes)).toBe(true);
-          expect(Option.getOrThrow(result.scopes)).toEqual([]);
-        }
-      });
-
-      it("encodes Some(scopes) back to array", () => {
-        const input = {
-          name: "corp-registry",
-          type: "registry",
-          url: "https://registry.acme.corp",
-          scopes: ["@acme"],
         };
         const decoded = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
         const encoded = Schema.encodeSync(SourceHostConfigSchema)(decoded);
 
         expect(encoded).toEqual({
-          name: "corp-registry",
+          name: "public",
           type: "registry",
-          url: "https://registry.acme.corp/",
-          scopes: ["@acme"],
+          url: "https://registry.example.com/",
         });
       });
 
-      it("encodes None scopes to undefined (omitted)", () => {
-        const input = {
-          name: "public",
-          type: "registry",
-          url: "https://registry.example.com",
-        };
-        const decoded = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
-        const encoded = Schema.encodeSync(SourceHostConfigSchema)(decoded);
-
-        expect(encoded.type).toBe("registry");
-        if (encoded.type === "registry") {
-          expect(encoded.scopes).toBeUndefined();
-        }
-      });
-
-      it("accepts registry source without scopes", () => {
+      it("accepts registry source", () => {
         const input = {
           name: "local",
           type: "registry",
@@ -426,7 +362,6 @@ describe("Settings schema", () => {
             name: "corp-registry",
             type: "registry",
             url: "https://registry.acme.corp",
-            scopes: ["@acme"],
           },
         ],
       };
@@ -804,7 +739,6 @@ describe("Settings schema", () => {
             name: "corp-registry",
             type: "registry",
             url: "https://registry.wayne.com",
-            scopes: ["@wayne"],
           },
         ],
         agents: ["claude-code", "cursor", "windsurf"],

@@ -588,16 +588,11 @@ const make = (options: WorkspaceContextOptions) =>
       getConfiguredRegistrySources: (scope: Option.Option<string>) =>
         getConfiguredSources().pipe(
           Effect.map((sources) => {
+            void scope;
             const registrySources = sources.filter(
               (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
             );
-            if (Option.isNone(scope)) return registrySources;
-            const scopeValue = scope.value;
-            const scopeMatched = registrySources.filter(
-              (s) => Option.isSome(s.scopes) && s.scopes.value.includes(scopeValue),
-            );
-            if (scopeMatched.length > 0) return scopeMatched;
-            return registrySources.filter((s) => Option.isNone(s.scopes));
+            return registrySources;
           }),
         ),
 

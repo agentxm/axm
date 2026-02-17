@@ -40,7 +40,7 @@ import type {
 /**
  * Extended capabilities for registry source providers.
  *
- * Adds registry-specific operations (fetchIndex, fetchArchive, publishVersion,
+ * Adds registry-specific operations (fetchIndex, getExtension, publishExtension,
  * extensionExists) on top of the base provider interface.
  *
  * @experimental This API is unstable and may change without notice.
@@ -72,14 +72,14 @@ export interface RegistrySourceProvider {
     name: string,
   ) => Effect.Effect<ExtensionIndex, CliError, FileSystem.FileSystem | Path.Path>;
   /** Read the archive bytes for a specific version. */
-  readonly fetchArchive: (
+  readonly getExtension: (
     scope: string,
     type: RegistryExtensionType,
     name: string,
     version: string,
   ) => Effect.Effect<Uint8Array, CliError, FileSystem.FileSystem | Path.Path>;
   /** Publish a version to the registry. */
-  readonly publishVersion: (
+  readonly publishExtension: (
     scope: string,
     type: RegistryExtensionType,
     name: string,
@@ -519,7 +519,7 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       );
     }),
 
-  fetchArchive: (scope, type, name, version) =>
+  getExtension: (scope, type, name, version) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const p = yield* Path.Path;
@@ -547,7 +547,7 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       );
     }),
 
-  publishVersion: (scope, type, name, version, archive, metadata) =>
+  publishExtension: (scope, type, name, version, archive, metadata) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const p = yield* Path.Path;
@@ -755,7 +755,7 @@ export const createRemoteRegistryProvider = (): RegistrySourceProvider => ({
       }),
     ),
 
-  fetchArchive: () =>
+  getExtension: () =>
     Effect.fail(
       makeCliError({
         code: "REGISTRY_FETCH_FAILED",
@@ -763,7 +763,7 @@ export const createRemoteRegistryProvider = (): RegistrySourceProvider => ({
       }),
     ),
 
-  publishVersion: () =>
+  publishExtension: () =>
     Effect.fail(
       makeCliError({
         code: "REGISTRY_FETCH_FAILED",
@@ -851,7 +851,7 @@ export const createRegistrySourceHostProvider = (
       return inner.fetch(innerSource, ref);
     },
 
-    publishVersion: (scope, type, name, version, archive, metadata) =>
-      inner.publishVersion(scope, type, name, version, archive, metadata),
+    publishExtension: (scope, type, name, version, archive, metadata) =>
+      inner.publishExtension(scope, type, name, version, archive, metadata),
   };
 };

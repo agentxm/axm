@@ -138,7 +138,7 @@ export const publishPack: OperationHandler<
 
     // Publish to registry (idempotent)
     yield* provider
-      .publishVersion(scope, "pack", shortName, manifest.version, archive, versionEntry)
+      .publishExtension(scope, "pack", shortName, manifest.version, archive, versionEntry)
       .pipe(
         Effect.mapError((e) =>
           makeCliError({

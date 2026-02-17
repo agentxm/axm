@@ -28,7 +28,7 @@ const makeRegistryProvider = (): PublishableSourceHostProvider<RegistrySource> =
   match: (_url: URL) => Effect.succeed(false),
   find: (_source, _options) => Effect.succeed([]),
   fetch: (_source, _ref) => Effect.succeed({ directory: "/tmp/extract" }),
-  publishVersion: (
+  publishExtension: (
     _scope: string,
     _type: RegistryExtensionType,
     _name: string,
@@ -118,16 +118,16 @@ describe("SourceHostProvider", () => {
 // -----------------------------------------------------------------------------
 
 describe("PublishableSourceHostProvider", () => {
-  it("extends SourceHostProvider with publishVersion", () => {
+  it("extends SourceHostProvider with publishExtension", () => {
     const provider = makeRegistryProvider();
     expect(provider.type).toBe("registry");
     expect(typeof provider.match).toBe("function");
     expect(typeof provider.find).toBe("function");
     expect(typeof provider.fetch).toBe("function");
-    expect(typeof provider.publishVersion).toBe("function");
+    expect(typeof provider.publishExtension).toBe("function");
   });
 
-  it("publishVersion returns Effect<void>", async () => {
+  it("publishExtension returns Effect<void>", async () => {
     const provider = makeRegistryProvider();
     const metadata: VersionEntry = {
       version: "1.0.0",
@@ -136,7 +136,7 @@ describe("PublishableSourceHostProvider", () => {
       checksum: "sha256:0000",
     };
     const result = await Effect.runPromise(
-      provider.publishVersion("@test", "skill", "my-skill", "1.0.0", new Uint8Array(), metadata),
+      provider.publishExtension("@test", "skill", "my-skill", "1.0.0", new Uint8Array(), metadata),
     );
     expect(result).toBeUndefined();
   });

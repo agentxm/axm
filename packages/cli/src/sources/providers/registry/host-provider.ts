@@ -129,7 +129,12 @@ export const createLocalRegistrySourceHostProvider = (
       const type = refRegistryType(ref);
       const name = refName(ref);
 
-      const archiveBytes = yield* client.getExtension(scope, type, name, version);
+      const archiveBytes = yield* client.getExtensionVersion({
+        scope,
+        type,
+        name,
+        version: Option.some(version),
+      });
 
       const actualChecksum = yield* computeChecksum(archiveBytes);
       if (actualChecksum !== expectedChecksum) {
@@ -163,7 +168,7 @@ export const createLocalRegistrySourceHostProvider = (
     version: string,
     archive: Uint8Array,
     metadata: VersionEntry,
-  ) => client.publishExtension(scope, type, name, version, archive, metadata),
+  ) => client.publishExtension({ scope, type, name, version, archive, metadata }),
 });
 
 // -----------------------------------------------------------------------------
@@ -207,7 +212,12 @@ export const createRemoteRegistrySourceHostProvider = (
       const type = refRegistryType(ref);
       const name = refName(ref);
 
-      const archiveBytes = yield* client.getExtension(scope, type, name, version);
+      const archiveBytes = yield* client.getExtensionVersion({
+        scope,
+        type,
+        name,
+        version: Option.some(version),
+      });
 
       const actualChecksum = yield* computeChecksum(archiveBytes);
       if (actualChecksum !== expectedChecksum) {
@@ -241,7 +251,7 @@ export const createRemoteRegistrySourceHostProvider = (
     version: string,
     archive: Uint8Array,
     metadata: VersionEntry,
-  ) => client.publishExtension(scope, type, name, version, archive, metadata),
+  ) => client.publishExtension({ scope, type, name, version, archive, metadata }),
 });
 
 // -----------------------------------------------------------------------------

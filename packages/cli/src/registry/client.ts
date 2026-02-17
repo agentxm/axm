@@ -11,6 +11,7 @@
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 
 import type { CliError } from "../cli-error/index.js";
 import type { ExtensionType } from "../extensions/common.js";
@@ -31,6 +32,65 @@ import { createRemoteRegistryClient } from "./client-remote.js";
 export interface GetExtensionsArgs {
   readonly names: ReadonlyArray<string>;
   readonly type: ExtensionType | "*";
+}
+
+// -----------------------------------------------------------------------------
+// Get Extension Version Args
+// -----------------------------------------------------------------------------
+
+/**
+ * Options for fetching a specific extension version from a registry.
+ *
+ * - `scope`: registry scope (e.g. `"@acme"`)
+ * - `type`: extension type
+ * - `name`: extension name
+ * - `version`: specific version to fetch, or `None` for latest
+ */
+export interface GetExtensionVersionArgs {
+  readonly scope: string;
+  readonly type: ExtensionType;
+  readonly name: string;
+  readonly version: Option.Option<string>;
+}
+
+// -----------------------------------------------------------------------------
+// Publish Extension Args
+// -----------------------------------------------------------------------------
+
+/**
+ * Options for publishing an extension version to a registry.
+ *
+ * - `scope`: registry scope (e.g. `"@acme"`)
+ * - `type`: extension type
+ * - `name`: extension name
+ * - `version`: version string to publish
+ * - `archive`: zip archive bytes
+ * - `metadata`: version entry metadata
+ */
+export interface PublishExtensionArgs {
+  readonly scope: string;
+  readonly type: ExtensionType;
+  readonly name: string;
+  readonly version: string;
+  readonly archive: Uint8Array;
+  readonly metadata: VersionEntry;
+}
+
+// -----------------------------------------------------------------------------
+// Extension Exists Args
+// -----------------------------------------------------------------------------
+
+/**
+ * Options for checking whether an extension exists in a registry.
+ *
+ * - `scope`: registry scope (e.g. `"@acme"`)
+ * - `type`: extension type
+ * - `name`: extension name
+ */
+export interface ExtensionExistsArgs {
+  readonly scope: string;
+  readonly type: ExtensionType;
+  readonly name: string;
 }
 
 // -----------------------------------------------------------------------------
@@ -73,24 +133,14 @@ export interface RegistryClient {
   readonly scopeExists: (
     scope: string,
   ) => Effect.Effect<boolean, CliError, FileSystem.FileSystem | Path.Path>;
-  readonly getExtension: (
-    scope: string,
-    type: ExtensionType,
-    name: string,
-    version: string,
+  readonly getExtensionVersion: (
+    args: GetExtensionVersionArgs,
   ) => Effect.Effect<Uint8Array, CliError, FileSystem.FileSystem | Path.Path>;
   readonly publishExtension: (
-    scope: string,
-    type: ExtensionType,
-    name: string,
-    version: string,
-    archive: Uint8Array,
-    metadata: VersionEntry,
+    args: PublishExtensionArgs,
   ) => Effect.Effect<void, CliError, FileSystem.FileSystem | Path.Path>;
   readonly extensionExists: (
-    scope: string,
-    type: ExtensionType,
-    name: string,
+    args: ExtensionExistsArgs,
   ) => Effect.Effect<boolean, CliError, FileSystem.FileSystem | Path.Path>;
 }
 

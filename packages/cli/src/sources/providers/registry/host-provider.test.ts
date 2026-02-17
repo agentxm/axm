@@ -70,7 +70,7 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient => ({
   getExtensions: () => Effect.succeed([]),
   scopeExists: () => Effect.succeed(false),
-  getExtension: () =>
+  getExtensionVersion: () =>
     Effect.fail(makeCliError({ code: "REGISTRY_FETCH_FAILED", what: "not implemented" })),
   publishExtension: () => Effect.void,
   extensionExists: () => Effect.succeed(false),
@@ -92,7 +92,7 @@ const createFailingClient = (): RegistryClient => ({
         what: "remote registry not yet supported",
       }),
     ),
-  getExtension: () =>
+  getExtensionVersion: () =>
     Effect.fail(
       makeCliError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
@@ -282,21 +282,15 @@ describe("LocalRegistrySourceHostProvider.find", () => {
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.fetch", () => {
-  it("delegates to client.getExtension and verifies checksum", () => {
+  it("delegates to client.getExtensionVersion and verifies checksum", () => {
     const archiveBytes = new Uint8Array([80, 75, 3, 4, 0, 0, 0, 0]);
     const checksum = sha256(archiveBytes);
 
-    let capturedScope: string | undefined;
-    let capturedType: string | undefined;
-    let capturedName: string | undefined;
-    let capturedVersion: string | undefined;
+    let capturedArgs: Parameters<RegistryClient["getExtensionVersion"]>[0] | undefined;
 
     const client = createMockClient({
-      getExtension: (scope, type, name, version) => {
-        capturedScope = scope;
-        capturedType = type;
-        capturedName = name;
-        capturedVersion = version;
+      getExtensionVersion: (args) => {
+        capturedArgs = args;
         return Effect.succeed(archiveBytes);
       },
     });
@@ -318,10 +312,10 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         // client delegation happened. Use Effect.either to catch the extraction error.
         const result = yield* provider.fetch(testSource, ref).pipe(Effect.either);
 
-        expect(capturedScope).toBe("@test");
-        expect(capturedType).toBe("skill");
-        expect(capturedName).toBe("my-skill");
-        expect(capturedVersion).toBe("1.0.0");
+        expect(capturedArgs?.scope).toBe("@test");
+        expect(capturedArgs?.type).toBe("skill");
+        expect(capturedArgs?.name).toBe("my-skill");
+        expect(capturedArgs?.version).toEqual(Option.some("1.0.0"));
 
         // extractZip may fail on fake bytes, that's fine — the point is
         // that the checksum passed and client was called correctly
@@ -339,7 +333,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     const archiveBytes = new Uint8Array([80, 75, 3, 4]);
 
     const client = createMockClient({
-      getExtension: () => Effect.succeed(archiveBytes),
+      getExtensionVersion: () => Effect.succeed(archiveBytes),
     });
 
     const provider = createLocalRegistrySourceHostProvider(client);
@@ -373,9 +367,9 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     let capturedName: string | undefined;
 
     const client = createMockClient({
-      getExtension: (_scope, type, name, _version) => {
-        capturedType = type;
-        capturedName = name;
+      getExtensionVersion: (args) => {
+        capturedType = args.type;
+        capturedName = args.name;
         return Effect.succeed(archiveBytes);
       },
     });
@@ -407,21 +401,11 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
 
 describe("LocalRegistrySourceHostProvider.publishExtension", () => {
   it("delegates to client.publishExtension", () => {
-    let capturedScope: string | undefined;
-    let capturedType: string | undefined;
-    let capturedName: string | undefined;
-    let capturedVersion: string | undefined;
-    let capturedArchive: Uint8Array | undefined;
-    let capturedMetadata: VersionEntry | undefined;
+    let capturedArgs: Parameters<RegistryClient["publishExtension"]>[0] | undefined;
 
     const client = createMockClient({
-      publishExtension: (scope, type, name, version, archive, metadata) => {
-        capturedScope = scope;
-        capturedType = type;
-        capturedName = name;
-        capturedVersion = version;
-        capturedArchive = archive;
-        capturedMetadata = metadata;
+      publishExtension: (args) => {
+        capturedArgs = args;
         return Effect.void;
       },
     });
@@ -434,12 +418,12 @@ describe("LocalRegistrySourceHostProvider.publishExtension", () => {
       Effect.gen(function* () {
         yield* provider.publishExtension("@test", "skill", "my-skill", "1.0.0", archive, metadata);
 
-        expect(capturedScope).toBe("@test");
-        expect(capturedType).toBe("skill");
-        expect(capturedName).toBe("my-skill");
-        expect(capturedVersion).toBe("1.0.0");
-        expect(capturedArchive).toBe(archive);
-        expect(capturedMetadata).toBe(metadata);
+        expect(capturedArgs?.scope).toBe("@test");
+        expect(capturedArgs?.type).toBe("skill");
+        expect(capturedArgs?.name).toBe("my-skill");
+        expect(capturedArgs?.version).toBe("1.0.0");
+        expect(capturedArgs?.archive).toBe(archive);
+        expect(capturedArgs?.metadata).toBe(metadata);
       }),
     );
   });

@@ -165,7 +165,7 @@ export const createRegistryMetaProvider = () => ({
 
       for (const regSource of registrySources) {
         const provider = createRegistryProvider(regSource.location.href);
-        const result = yield* provider.find(regSource, options).pipe(Effect.either);
+        const result = yield* provider.getExtensions(regSource, options).pipe(Effect.either);
 
         if (result._tag === "Left") {
           // Non-404 errors → hard fail

@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
+import { createRegistryProvider } from "../../../sources/index.js";
 import { parseInputPattern, type InputPattern } from "../../../sources/parser.js";
 import {
   routeFilePathInput,
@@ -52,15 +53,23 @@ const resolveSkillRegistrySource = (
         location: regConfig.location,
       } satisfies RegistrySource;
     }
-    /*
-    TODO: loop through registry sources, checking if scope exists at registry. Return first that getConfiguredRegistrySources
-    */
 
-    const regConfig = registrySources[0]!;
-    return {
-      type: "registry" as const,
-      location: regConfig.location,
-    } satisfies RegistrySource;
+    for (const regConfig of registrySources) {
+      const provider = createRegistryProvider(regConfig.location.href);
+      const hasRequestedScope = yield* provider.scopeExists(pattern.scope);
+      if (hasRequestedScope) {
+        return {
+          type: "registry" as const,
+          location: regConfig.location,
+        } satisfies RegistrySource;
+      }
+    }
+
+    return yield* makeCliError({
+      code: "SOURCE_PARSE_FAILED",
+      what: `No registry source contains scope "${pattern.scope}"`,
+      details: [input],
+    });
   });
 
 export const resolveSkillInstallSource = (input: string) =>

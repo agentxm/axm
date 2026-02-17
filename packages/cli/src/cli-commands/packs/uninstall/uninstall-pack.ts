@@ -18,7 +18,7 @@ import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import type { UninstallPackOperation } from "../operations.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../skills/constants.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 import { removeIfExists } from "../../skills/fs-helpers.js";
 import { sanitizeName } from "../../skills/install/skill-utils.js";
 import { findOrphanedSkills } from "./build-plan.js";

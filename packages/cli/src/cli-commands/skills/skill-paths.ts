@@ -8,7 +8,7 @@
  */
 
 import type { SourceType } from "../../sources/index.js";
-import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "./constants.js";
+import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../../extensions/constants.js";
 
 /**
  * Minimal structural discriminant for determining skill path layout.

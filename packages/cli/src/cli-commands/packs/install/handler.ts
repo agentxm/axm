@@ -29,7 +29,7 @@ import { installPack } from "./install-pack.js";
 import { installSkill } from "../../skills/install/install-skill.js";
 import type { InstallSkillOperation } from "../../skills/operations.js";
 import { copySkillDirectory } from "../../skills/copy-skill-directory.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../skills/constants.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 import { PACK_MANIFEST_FILENAME } from "../constants.js";
 
 // -----------------------------------------------------------------------------
@@ -309,8 +309,8 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     // Build InstallSkillOperations from fetched skill deps
     // Pack dependencies skip settings writes — they only appear in the lockfile
     const agents = yield* ws.getConfiguredAgents();
-    const skillInstallOps: ReadonlyArray<InstallSkillOperation> = skillOps
-      .flatMap(({ ref, fetched }) =>
+    const skillInstallOps: ReadonlyArray<InstallSkillOperation> = skillOps.flatMap(
+      ({ ref, fetched }) =>
         ref.type !== "skill"
           ? []
           : [
@@ -325,7 +325,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
                 },
               },
             ],
-      );
+    );
 
     // Step 8: Build install plan
     const op: InstallPackOperation = {

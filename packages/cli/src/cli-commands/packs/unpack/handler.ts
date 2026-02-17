@@ -17,7 +17,7 @@ import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { PlannedJobStep, OperationResult, Operation } from "../../../workspace/plan.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
-import { parseScopedName } from "../../skills/naming.js";
+import { parseScopedNameOrThrow } from "../../skills/naming.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -94,7 +94,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
       Object.entries(entry.resolvedSkills),
       ([fqn, version]) =>
         Effect.gen(function* () {
-          const { name: shortName } = parseScopedName(fqn);
+          const { name: shortName } = parseScopedNameOrThrow(fqn);
           if (shortName in currentSkills) return; // preserve existing direct entry
           yield* ws.setSkill({
             name: shortName,

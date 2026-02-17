@@ -26,10 +26,7 @@ import type { RegistrySourceInput, Source, SourceParams, SourceType } from "./ty
 import type { SourceHostConfig } from "../settings/schema.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import { Workspace } from "../workspace/index.js";
-import {
-  EXTERNAL_EXTENSIONS_DIR,
-  REGISTRY_EXTENSIONS_DIR,
-} from "../cli-commands/skills/constants.js";
+import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/constants.js";
 
 // -----------------------------------------------------------------------------
 // Constants

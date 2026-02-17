@@ -24,7 +24,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
-import { Workspace as Workspace } from "../../../workspace/index.js";
+import { Workspace } from "../../../workspace/index.js";
 import type {
   CopySkillOperation,
   InstallSkillOperation,
@@ -34,7 +34,7 @@ import { copySkill } from "../copy-skill.js";
 import { installSkill } from "../install/install-skill.js";
 import { publishSkill } from "../publish-skill.js";
 import { expandGlobs } from "../../../skills/index.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
 import type { SkillExtensionRef } from "../../../sources/index.js";
 
@@ -216,6 +216,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
           scope,
           name: ref.skill.name,
           versionConstraint: Option.none(),
+          // Placeholder — registry URL unused; install reads from fetchedLocation
           url: new URL("file://localhost"),
           scopes: Option.none(),
         },

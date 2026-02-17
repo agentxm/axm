@@ -8,6 +8,7 @@
  */
 
 import type { SkillExtensionRef } from "../../../sources/index.js";
+import { stripFileProtocol } from "../fs-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Display Name
@@ -22,7 +23,7 @@ import type { SkillExtensionRef } from "../../../sources/index.js";
  * Extract the last path segment from a location string.
  */
 const basenamePure = (location: string): string => {
-  const stripped = location.replace(/^file:\/\//, "");
+  const stripped = stripFileProtocol(location);
   return stripped.split("/").pop() ?? stripped;
 };
 

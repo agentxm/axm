@@ -45,9 +45,9 @@ type GitScpAddress = {
 /** An `owner/repo` style pattern containing `/` (not a URL or file path). */
 type SlashPattern = {
   readonly pattern: "slash-pattern";
-  readonly owner: string;
-  readonly repo: string;
-  readonly subPath: Option.Option<string>;
+  readonly first: string;
+  readonly second: string;
+  readonly third: Option.Option<string>;
 };
 
 /** A local filesystem path matching `LOCAL_PATH_PATTERN`. */
@@ -208,9 +208,9 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
     if (segments.length === 2 && segments.every((s) => NAME_PATTERN.test(s))) {
       return Option.some({
         pattern: "slash-pattern",
-        owner: segments[0]!,
-        repo: segments[1]!,
-        subPath: Option.none(),
+        first: segments[0]!,
+        second: segments[1]!,
+        third: Option.none(),
       });
     }
     return Option.none();

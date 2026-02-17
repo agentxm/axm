@@ -150,7 +150,6 @@ describe("resolveSource", () => {
         if (result.type === "registry") {
           expect(result.scope).toBe("@scope");
           expect(result.url).toEqual(new URL("https://registry.example.com"));
-          expect(result.scopes).toEqual(Option.none());
         }
       }),
     );
@@ -198,7 +197,7 @@ describe("resolveSource", () => {
       }),
     );
 
-    it.effect("resolves registry source without config scopes", () =>
+    it.effect("resolves registry source", () =>
       Effect.gen(function* () {
         const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
           name: "acme-reg",
@@ -213,7 +212,6 @@ describe("resolveSource", () => {
         if (result.type === "registry") {
           expect(result.scope).toBe("@acme");
           expect(result.url).toEqual(new URL("https://acme-registry.example.com"));
-          expect(result.scopes).toEqual(Option.none());
         }
       }),
     );

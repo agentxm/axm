@@ -41,7 +41,7 @@ import type {
  * Extended capabilities for registry source providers.
  *
  * Adds registry-specific operations (fetchIndex, fetchArchive, publishVersion,
- * checkNameExists) on top of the base provider interface.
+ * extensionExists) on top of the base provider interface.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -90,7 +90,7 @@ export interface RegistrySourceProvider {
     metadata: VersionEntry,
   ) => Effect.Effect<void, CliError, FileSystem.FileSystem | Path.Path>;
   /** Check if an extension name exists in the registry. */
-  readonly checkNameExists: (
+  readonly extensionExists: (
     scope: string,
     type: RegistryExtensionType,
     name: string,
@@ -658,7 +658,7 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       );
     }),
 
-  checkNameExists: (scope, type, name) =>
+  extensionExists: (scope, type, name) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const p = yield* Path.Path;
@@ -773,7 +773,7 @@ export const createRemoteRegistryProvider = (): RegistrySourceProvider => ({
       }),
     ),
 
-  checkNameExists: () =>
+  extensionExists: () =>
     Effect.fail(
       makeCliError({
         code: "REGISTRY_FETCH_FAILED",

@@ -10,6 +10,7 @@
  * @packageDocumentation
  */
 
+import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Match from "effect/Match";
@@ -22,12 +23,9 @@ import * as github from "./github/index.js";
 import * as gitlab from "./gitlab/index.js";
 import { parseLocalPath } from "./local/index.js";
 import { parseInputPattern } from "./parser.js";
-import type {
-  RegistrySource,
-  Source,
-  SourceParams,
-  SourceType,
-} from "./types.js";
+import { createRegistryProvider } from "./providers/index.js";
+import type { RegistryExtensionType } from "../registry/index.js";
+import type { RegistrySource, Source, SourceParams, SourceType } from "./types.js";
 import type { SourceHostConfig } from "../settings/schema.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import { Workspace } from "../workspace/index.js";
@@ -415,7 +413,22 @@ export const routeRegistryInput = (
  * Route SlashPattern (owner/repo): iterate git-hosting configs that support
  * shorthand, try each provider in config order. First success wins.
  */
-export const routeSlashInput = (
+const registryExtensionTypeFromSegment = (
+  segment: string,
+): Option.Option<RegistryExtensionType> => {
+  switch (segment) {
+    case "skills":
+      return Option.some("skill");
+    case "mcp-servers":
+      return Option.some("mcp-server");
+    case "packs":
+      return Option.some("pack");
+    default:
+      return Option.none();
+  }
+};
+
+export const resolveSlashInputSource = (
   pattern: {
     readonly first: string;
     readonly second: string;
@@ -427,7 +440,37 @@ export const routeSlashInput = (
     const sources = yield* getConfiguredSources(input);
     const shorthandTypes = ["github", "gitlab", "bitbucket"] as const;
     const shorthandBody = `${pattern.first}/${pattern.second}`;
-    void pattern.third;
+
+    if (Option.isSome(pattern.third)) {
+      const extensionType = registryExtensionTypeFromSegment(pattern.second);
+      if (Option.isSome(extensionType)) {
+        const ws = yield* Workspace;
+        const scope = pattern.first.startsWith("@") ? pattern.first : `@${pattern.first}`;
+        const extensionName = pattern.third.value;
+        const registrySources = yield* ws.getConfiguredRegistrySources(Option.some(scope)).pipe(
+          Effect.mapError((e) =>
+            makeCliError({
+              code: "SOURCE_PARSE_FAILED",
+              what: `Failed to get registry sources: ${e._tag}`,
+              details: [input],
+            }),
+          ),
+        );
+
+        for (const regSource of registrySources) {
+          const provider = createRegistryProvider(regSource.location.href);
+          const exists = yield* provider
+            .extensionExists(scope, extensionType.value, extensionName)
+            .pipe(Effect.provide(NodeContext.layer), Effect.scoped, Effect.orElseSucceed(() => false));
+          if (exists) {
+            return {
+              type: "registry" as const,
+              location: regSource.location,
+            } satisfies RegistrySource;
+          }
+        }
+      }
+    }
 
     const attempts = Array.filterMap(sources, (config) => {
       const sourceType = shorthandTypes.find((t) => t === config.type);
@@ -510,7 +553,7 @@ export const resolveSource = (input: string): Effect.Effect<Source, CliError, Wo
       case "registry-pattern-input":
         return yield* routeRegistryInput(pattern, trimmed);
       case "slash-pattern":
-        return yield* routeSlashInput(pattern, trimmed);
+        return yield* resolveSlashInputSource(pattern, trimmed);
       case "glob-input":
         return yield* makeCliError({
           code: "SOURCE_PARSE_FAILED",

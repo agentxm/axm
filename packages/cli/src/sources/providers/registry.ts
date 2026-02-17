@@ -107,32 +107,6 @@ const pluralizeType = (type: RegistryExtensionType): string => {
   }
 };
 
-const fromPluralType = (
-  type: "skills" | "mcp-servers" | "packs",
-): RegistryExtensionType => {
-  switch (type) {
-    case "skills":
-      return "skill";
-    case "mcp-servers":
-      return "mcp-server";
-    case "packs":
-      return "pack";
-  }
-};
-
-const toPluralType = (
-  type: RegistryExtensionType,
-): "skills" | "mcp-servers" | "packs" => {
-  switch (type) {
-    case "skill":
-      return "skills";
-    case "mcp-server":
-      return "mcp-servers";
-    case "pack":
-      return "packs";
-  }
-};
-
 /** Build the path to an extension's directory within a registry. */
 const extensionDir = (
   registryRoot: string,
@@ -226,7 +200,6 @@ const processNameDir = (
       type: "registry" as const,
       location: registryLocation,
       scope: scopeDir,
-      extensionTypes: [toPluralType(index.type)] as const,
     };
 
     if (index.type === "skill") {
@@ -295,13 +268,11 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
             options.type === "*"
               ? ["skill", "mcp-server", "pack"]
               : [options.type as RegistryExtensionType];
-          const sourceTypes = Array.map(_source.extensionTypes, fromPluralType);
-          const typeFilter = requestedTypes.filter((type) => sourceTypes.includes(type));
 
           const refs: SourceExtensionRef[] = [];
 
           // Sequential: each iteration reads from the filesystem and may early-return
-          for (const extType of typeFilter) {
+          for (const extType of requestedTypes) {
             const extensionsDir = path.join(registryRoot, "extensions");
             const extensionsDirExists = yield* fs
               .exists(extensionsDir)
@@ -830,7 +801,6 @@ export const createRegistrySourceHostProvider = (
         const innerSource: RegistrySourceParams = {
           type: "registry",
           scope: source.scope,
-          extensionTypes: source.extensionTypes,
         };
         const refs = yield* inner.find(innerSource, options);
 
@@ -842,7 +812,6 @@ export const createRegistrySourceHostProvider = (
       const innerSource: RegistrySourceParams = {
         type: "registry",
         scope: source.scope,
-        extensionTypes: source.extensionTypes,
       };
       return inner.fetch(innerSource, ref);
     },

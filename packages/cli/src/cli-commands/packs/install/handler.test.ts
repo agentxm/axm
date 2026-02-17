@@ -335,7 +335,6 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          extensionTypes: ["skills"],
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -348,7 +347,6 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          extensionTypes: ["skills"],
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -419,7 +417,6 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          extensionTypes: ["skills"],
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -432,7 +429,6 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          extensionTypes: ["skills"],
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -510,7 +506,6 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          extensionTypes: ["skills"],
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -523,7 +518,6 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          extensionTypes: ["skills"],
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -597,7 +591,6 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          extensionTypes: ["skills"],
           location: new URL("file:///tmp/reg"),
         },
         version: "2.0.0",
@@ -655,7 +648,6 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          extensionTypes: ["skills"],
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -670,7 +662,6 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          extensionTypes: ["skills"],
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -733,7 +724,6 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          extensionTypes: ["skills"],
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -748,7 +738,6 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          extensionTypes: ["skills"],
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -809,7 +798,6 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          extensionTypes: ["skills"],
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",

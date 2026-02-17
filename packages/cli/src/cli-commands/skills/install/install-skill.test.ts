@@ -568,7 +568,6 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@community",
-              extensionTypes: ["skills"],
             },
             location: `file://${src}`,
           }),
@@ -612,7 +611,6 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@myorg",
-              extensionTypes: ["skills"],
             },
             location: `file://${src}`,
           }),
@@ -648,7 +646,6 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@community",
-              extensionTypes: ["skills"],
             },
             location: `file://${src}`,
             version: Option.some("1.2.3"),
@@ -709,7 +706,6 @@ describe("installSkill", () => {
               source: {
                 type: "registry",
                 scope: "@community",
-                extensionTypes: ["skills"],
               },
               location: `file://${src}`,
             }),
@@ -793,7 +789,6 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@acme",
-              extensionTypes: ["skills"],
             },
             skillName: "tool",
             location: `file://${src}`,
@@ -821,7 +816,6 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@acme",
-              extensionTypes: ["skills"],
             },
             skillName: "tool",
             location: `file://${src}`,
@@ -851,7 +845,6 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@acme",
-              extensionTypes: ["skills"],
             },
             skillName: "tool",
             location: `file://${src}`,

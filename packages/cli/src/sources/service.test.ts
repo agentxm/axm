@@ -169,7 +169,6 @@ describe("registry meta-provider scope routing", () => {
           {
             type: "registry",
             scope: "@test",
-            extensionTypes: ["skills"],
             location: new URL(`file://${registryRoot}`),
           },
           { ...defaultFindOptions, names: ["my-skill"] },
@@ -192,7 +191,6 @@ describe("registry meta-provider scope routing", () => {
           {
             type: "registry",
             scope: "@test",
-            extensionTypes: ["skills"],
             location: new URL("file:///tmp/registry"),
           },
           { ...defaultFindOptions, names: ["my-skill"] },
@@ -283,7 +281,6 @@ describe("SourceHostProviders dispatch", () => {
           {
             type: "registry",
             scope: "@test",
-            extensionTypes: ["skills"],
             location: new URL(`file://${registryRoot}`),
           },
           { ...defaultFindOptions, names: ["nonexistent"] },

@@ -113,7 +113,6 @@ const makeOp = (
         source: {
           type: "registry",
           scope: "@axm",
-          extensionTypes: ["skills"],
           location: new URL("http://localhost:3000"),
         },
         version: overrides?.version ?? "0.0.0",

@@ -190,11 +190,9 @@ describe("SourceParams", () => {
     const params: SourceParams = {
       type: "registry",
       scope: "@acme",
-      extensionTypes: ["skills"],
     };
     if (params.type === "registry") {
       expect(params.scope).toBe("@acme");
-      expect(params.extensionTypes).toEqual(["skills"]);
     }
   });
 
@@ -237,7 +235,6 @@ describe("Source", () => {
       type: "registry",
       location: new URL("file:///registry"),
       scope: "@acme",
-      extensionTypes: ["skills"],
     };
     if (source.type === "registry") {
       expect(source.location.protocol).toBe("file:");
@@ -392,7 +389,6 @@ describe("SkillExtensionRef", () => {
         type: "registry",
         location: new URL("file:///reg"),
         scope: "@acme",
-        extensionTypes: ["skills"],
       },
       version: "1.0.0",
       checksum: "sha256:abc",
@@ -455,7 +451,6 @@ describe("McpServerExtensionRef", () => {
         type: "registry",
         location: new URL("file:///reg"),
         scope: "@acme",
-        extensionTypes: ["skills"],
       },
       version: "2.0.0",
       checksum: "sha256:def",
@@ -477,7 +472,6 @@ describe("PackExtensionRef", () => {
         type: "registry",
         location: new URL("file:///reg"),
         scope: "@acme",
-        extensionTypes: ["skills"],
       },
       version: "1.0.0",
       checksum: "sha256:ghi",
@@ -636,16 +630,14 @@ describe("SourceParams structural equality via Data.struct", () => {
     expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(true);
   });
 
-  it("RegistrySourceParams compares scope and name", () => {
+  it("RegistrySourceParams compares scope", () => {
     const a: SourceParams = {
       type: "registry",
       scope: "@acme",
-      extensionTypes: ["skills"],
     };
     const b: SourceParams = {
       type: "registry",
-      scope: "@acme",
-      extensionTypes: ["skills"],
+      scope: "@other",
     };
     expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(false);
   });

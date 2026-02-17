@@ -402,9 +402,6 @@ export const routeRegistryInput = (
     const params: RegistrySourceParams = {
       type: "registry" as const,
       scope: pattern.scope,
-      extensionTypes: Option.isSome(pattern.type)
-        ? [pattern.type.value]
-        : ["skills", "mcp-servers", "packs"],
     };
 
     if (registrySources.length === 0) {

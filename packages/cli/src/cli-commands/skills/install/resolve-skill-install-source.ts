@@ -51,7 +51,6 @@ const resolveSkillRegistrySource = (
     return {
       type: "registry" as const,
       scope: pattern.scope,
-      extensionTypes: ["skills"],
       location: regConfig.location,
     } satisfies RegistrySource;
   });

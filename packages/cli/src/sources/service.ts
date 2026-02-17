@@ -164,7 +164,7 @@ export const createRegistryMetaProvider = () => ({
       const allRefs: Array<SourceExtensionRef> = [];
 
       for (const regSource of registrySources) {
-        const provider = createRegistrySourceHostProviderFromHost(regSource);
+        const provider = yield* createRegistrySourceHostProviderFromHost(regSource);
         const result = yield* provider.find(regSource, options).pipe(Effect.either);
 
         if (result._tag === "Left") {
@@ -180,10 +180,10 @@ export const createRegistryMetaProvider = () => ({
       return allRefs as ReadonlyArray<SourceExtensionRef>;
     }),
 
-  fetch: (source: RegistrySource, ref: SourceExtensionRef) => {
-    const provider = createRegistrySourceHostProviderFromHost(source);
-    return provider.fetch(source, ref);
-  },
+  fetch: (source: RegistrySource, ref: SourceExtensionRef) =>
+    Effect.flatMap(createRegistrySourceHostProviderFromHost(source), (provider) =>
+      provider.fetch(source, ref),
+    ),
 });
 
 // -----------------------------------------------------------------------------

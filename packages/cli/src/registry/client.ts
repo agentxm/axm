@@ -125,23 +125,13 @@ export interface RegistryExtensionEntry {
 export interface RegistryClient {
   readonly getExtensions: (
     options: GetExtensionsArgs,
-  ) => Effect.Effect<
-    ReadonlyArray<RegistryExtensionEntry>,
-    CliError,
-    FileSystem.FileSystem | Path.Path
-  >;
-  readonly scopeExists: (
-    scope: string,
-  ) => Effect.Effect<boolean, CliError, FileSystem.FileSystem | Path.Path>;
+  ) => Effect.Effect<ReadonlyArray<RegistryExtensionEntry>, CliError>;
+  readonly scopeExists: (scope: string) => Effect.Effect<boolean, CliError>;
   readonly getExtensionVersion: (
     args: GetExtensionVersionArgs,
-  ) => Effect.Effect<Uint8Array, CliError, FileSystem.FileSystem | Path.Path>;
-  readonly publishExtension: (
-    args: PublishExtensionArgs,
-  ) => Effect.Effect<void, CliError, FileSystem.FileSystem | Path.Path>;
-  readonly extensionExists: (
-    args: ExtensionExistsArgs,
-  ) => Effect.Effect<boolean, CliError, FileSystem.FileSystem | Path.Path>;
+  ) => Effect.Effect<Uint8Array, CliError>;
+  readonly publishExtension: (args: PublishExtensionArgs) => Effect.Effect<void, CliError>;
+  readonly extensionExists: (args: ExtensionExistsArgs) => Effect.Effect<boolean, CliError>;
 }
 
 // -----------------------------------------------------------------------------
@@ -158,11 +148,14 @@ export interface RegistryClient {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createRegistryClient = (location: string): RegistryClient => {
-  if (location.startsWith("https://")) {
-    return createRemoteRegistryClient();
-  }
+export const createRegistryClient = (location: string) =>
+  Effect.gen(function* () {
+    if (location.startsWith("https://")) {
+      return createRemoteRegistryClient();
+    }
 
-  const localPath = location.startsWith("file://") ? location.slice(7) : location;
-  return createLocalRegistryClient(localPath);
-};
+    const localPath = location.startsWith("file://") ? location.slice(7) : location;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    return createLocalRegistryClient(localPath, fs, path);
+  });

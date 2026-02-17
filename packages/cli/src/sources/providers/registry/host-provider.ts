@@ -266,16 +266,15 @@ export const createRemoteRegistrySourceHostProvider = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createRegistrySourceHostProviderFromHost = (
-  host: RegistrySourceHost,
-): PublishableSourceHostProvider<RegistrySource, FileSystem.FileSystem | Path.Path> => {
-  const location = host.location;
-  const locationStr = location.protocol === "file:" ? location.pathname : location.href;
-  const client = createRegistryClient(locationStr);
+export const createRegistrySourceHostProviderFromHost = (host: RegistrySourceHost) =>
+  Effect.gen(function* () {
+    const location = host.location;
+    const locationStr = location.protocol === "file:" ? location.pathname : location.href;
+    const client = yield* createRegistryClient(locationStr);
 
-  if (location.protocol === "file:" || !location.protocol.startsWith("http")) {
-    return createLocalRegistrySourceHostProvider(client);
-  }
+    if (location.protocol === "file:" || !location.protocol.startsWith("http")) {
+      return createLocalRegistrySourceHostProvider(client);
+    }
 
-  return createRemoteRegistrySourceHostProvider(client);
-};
+    return createRemoteRegistrySourceHostProvider(client);
+  });

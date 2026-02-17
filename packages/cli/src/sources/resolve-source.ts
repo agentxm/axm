@@ -10,7 +10,8 @@
  * @packageDocumentation
  */
 
-import * as NodeContext from "@effect/platform-node/NodeContext";
+import type * as FileSystem from "@effect/platform/FileSystem";
+import type * as Path from "@effect/platform/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Match from "effect/Match";
@@ -335,7 +336,10 @@ export const resolveShorthandInputSource = (parseResult: InputParseResult<Shorth
 // -----------------------------------------------------------------------------
 
 /** Route NameInput: look up installed skill in lockfile, then configured skills. */
-export const routeNameInput = (name: string, input: string) =>
+export const routeNameInput = (
+  name: string,
+  input: string,
+): Effect.Effect<Source, CliError, FileSystem.FileSystem | Path.Path | Workspace> =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
 
@@ -464,14 +468,10 @@ export const resolveSlashInputSource = (
         );
 
         for (const regSource of registrySources) {
-          const client = createRegistryClient(regSource.location.href);
+          const client = yield* createRegistryClient(regSource.location.href);
           const exists = yield* client
             .extensionExists({ scope, type: extensionType.value, name: extensionName })
-            .pipe(
-              Effect.provide(NodeContext.layer),
-              Effect.scoped,
-              Effect.orElseSucceed(() => false),
-            );
+            .pipe(Effect.orElseSucceed(() => false));
           if (exists) {
             return {
               type: "registry" as const,
@@ -532,7 +532,9 @@ export const resolveSlashInputSource = (
  * @param input - The source string to resolve
  * @returns Effect containing a resolved `Source` or `CliError`
  */
-export const resolveSource = (input: string): Effect.Effect<Source, CliError, Workspace> =>
+export const resolveSource = (
+  input: string,
+): Effect.Effect<Source, CliError, FileSystem.FileSystem | Path.Path | Workspace> =>
   Effect.gen(function* () {
     const trimmed = input.trim();
     if (!trimmed) {

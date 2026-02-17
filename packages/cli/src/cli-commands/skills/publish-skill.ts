@@ -125,7 +125,7 @@ export const publishSkill: OperationHandler<
       });
     }
 
-    const client = createRegistryClient(registrySource.value.location.href);
+    const client = yield* createRegistryClient(registrySource.value.location.href);
 
     // Build version entry metadata
     const versionEntry: VersionEntry = {

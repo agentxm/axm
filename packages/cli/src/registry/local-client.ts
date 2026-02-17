@@ -8,8 +8,8 @@
  * @packageDocumentation
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
+import type * as FileSystem from "@effect/platform/FileSystem";
+import type * as Path from "@effect/platform/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -104,12 +104,13 @@ const processNameDir = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createLocalRegistryClient = (registryRoot: string): RegistryClient => ({
+export const createLocalRegistryClient = (
+  registryRoot: string,
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+): RegistryClient => ({
   getExtensions: (options) =>
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-
       const findForName = (name: string) =>
         Effect.gen(function* () {
           const requestedTypes: ReadonlyArray<ExtensionType> =
@@ -171,22 +172,18 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
 
   scopeExists: (scope) =>
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const p = yield* Path.Path;
-      const scopeDir = p.join(registryRoot, "extensions", scope);
+      const scopeDir = path.join(registryRoot, "extensions", scope);
       return yield* fs.exists(scopeDir).pipe(Effect.orElseSucceed(() => false));
     }),
 
   getExtensionVersion: (args: GetExtensionVersionArgs) =>
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const p = yield* Path.Path;
-      const dir = extensionDir(registryRoot, args.scope, args.type, args.name, p.join);
+      const dir = extensionDir(registryRoot, args.scope, args.type, args.name, path.join);
 
       const version = yield* Option.match(args.version, {
         onNone: () =>
           Effect.gen(function* () {
-            const idxPath = p.join(dir, "index.json");
+            const idxPath = path.join(dir, "index.json");
             const content = yield* fs.readFileString(idxPath).pipe(
               Effect.mapError((e) =>
                 makeCliError({
@@ -229,7 +226,7 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
         onSome: (v) => Effect.succeed(v),
       });
 
-      const archivePath = p.join(dir, `${version}.zip`);
+      const archivePath = path.join(dir, `${version}.zip`);
 
       const exists = yield* fs.exists(archivePath).pipe(Effect.orElseSucceed(() => false));
       if (!exists) {
@@ -254,9 +251,7 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
 
   publishExtension: (args: PublishExtensionArgs) =>
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const p = yield* Path.Path;
-      const dir = extensionDir(registryRoot, args.scope, args.type, args.name, p.join);
+      const dir = extensionDir(registryRoot, args.scope, args.type, args.name, path.join);
 
       // Ensure directory exists
       yield* fs.makeDirectory(dir, { recursive: true }).pipe(
@@ -269,8 +264,8 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
         ),
       );
 
-      const indexPath = p.join(dir, "index.json");
-      const archivePath = p.join(dir, `${args.version}.zip`);
+      const indexPath = path.join(dir, "index.json");
+      const archivePath = path.join(dir, `${args.version}.zip`);
 
       // Check for existing index
       const indexExists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
@@ -367,10 +362,8 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
 
   extensionExists: (args: ExtensionExistsArgs) =>
     Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const p = yield* Path.Path;
-      const dir = extensionDir(registryRoot, args.scope, args.type, args.name, p.join);
-      const indexPath = p.join(dir, "index.json");
+      const dir = extensionDir(registryRoot, args.scope, args.type, args.name, path.join);
+      const indexPath = path.join(dir, "index.json");
       return yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
     }),
 });

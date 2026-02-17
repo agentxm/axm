@@ -21,7 +21,7 @@ import type {
 } from "../../../registry/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
 import { computeChecksum } from "../../../utils/checksum.js";
-import type { RegistryExtensionType } from "../../../registry/index.js";
+import type { ExtensionType } from "../../../extensions/common.js";
 import type { ExtensionFiles, FindOptions, PublishableSourceHostProvider } from "../../provider.js";
 import type { RegistrySource, RegistrySourceHost, SourceExtensionRef } from "../../types.js";
 import type { VersionEntry } from "../../../registry/index.js";
@@ -34,7 +34,7 @@ import type { VersionEntry } from "../../../registry/index.js";
 const toSearchOptions = (options: FindOptions): RegistrySearchOptions => ({
   names: options.names,
   agents: options.agents,
-  type: options.type === "*" ? "*" : (options.type as RegistryExtensionType),
+  type: options.type === "*" ? "*" : (options.type as ExtensionType),
 });
 
 /** Map RegistryExtensionEntry to SourceExtensionRef, stamped with the source. */
@@ -89,8 +89,8 @@ const refName = (ref: SourceExtensionRef): string => {
   }
 };
 
-/** Map SourceExtensionRef type to RegistryExtensionType. */
-const refRegistryType = (ref: SourceExtensionRef): RegistryExtensionType => ref.type;
+/** Map SourceExtensionRef type to ExtensionType. */
+const refRegistryType = (ref: SourceExtensionRef): ExtensionType => ref.type;
 
 // -----------------------------------------------------------------------------
 // LocalRegistrySourceHostProvider
@@ -159,7 +159,7 @@ export const createLocalRegistrySourceHostProvider = (
 
   publishExtension: (
     scope: string,
-    type: RegistryExtensionType,
+    type: ExtensionType,
     name: string,
     version: string,
     archive: Uint8Array,
@@ -237,7 +237,7 @@ export const createRemoteRegistrySourceHostProvider = (
 
   publishExtension: (
     scope: string,
-    type: RegistryExtensionType,
+    type: ExtensionType,
     name: string,
     version: string,
     archive: Uint8Array,

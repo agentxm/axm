@@ -64,7 +64,6 @@ export const CommonManifestFields = {
  */
 export const ExtensionTypeSchema = Schema.Union(
   Schema.Literal("skill"),
-  Schema.Literal("command"),
   Schema.Literal("pack"),
   Schema.Literal("mcp-server"),
 );

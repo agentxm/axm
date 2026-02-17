@@ -10,7 +10,8 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import type { BuiltinSource, GitHubSource, RegistrySource, SourceExtensionRef } from "./types.js";
 import type { SourceHostProvider, PublishableSourceHostProvider, FindOptions } from "./provider.js";
-import type { RegistryExtensionType, VersionEntry } from "../registry/index.js";
+import type { ExtensionType } from "../extensions/common.js";
+import type { VersionEntry } from "../registry/index.js";
 
 // -----------------------------------------------------------------------------
 // Mock Providers
@@ -30,7 +31,7 @@ const makeRegistryProvider = (): PublishableSourceHostProvider<RegistrySource> =
   fetch: (_source, _ref) => Effect.succeed({ directory: "/tmp/extract" }),
   publishExtension: (
     _scope: string,
-    _type: RegistryExtensionType,
+    _type: ExtensionType,
     _name: string,
     _version: string,
     _archive: Uint8Array,
@@ -154,7 +155,7 @@ describe("PublishableSourceHostProvider", () => {
 // -----------------------------------------------------------------------------
 
 describe("FindOptions", () => {
-  it("type field accepts FindableExtensionType", () => {
+  it("type field accepts ExtensionType", () => {
     const options: FindOptions = { names: [], agents: [], type: "skill" };
     expect(options.type).toBe("skill");
 

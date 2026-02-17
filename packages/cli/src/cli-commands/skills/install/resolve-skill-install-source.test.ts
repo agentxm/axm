@@ -9,6 +9,7 @@ import * as Option from "effect/Option";
 import { afterEach } from "vitest";
 import type { CliError } from "../../../cli-error/index.js";
 import type { SourceHostConfig } from "../../../settings/index.js";
+import { parseInputPattern, type InputParseResult } from "../../../sources/parser.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import { resolveSkillInstallSource } from "./resolve-skill-install-source.js";
 
@@ -77,6 +78,14 @@ const createSkillIndex = (registryRoot: string, scope: string, name: string) => 
 const provideTestLayers = (sources: ReadonlyArray<SourceHostConfig>) =>
   Layer.mergeAll(NodeContext.layer, Workspace.layer(makeWorkspace(sources)));
 
+const parseInputOrThrow = (input: string): InputParseResult => {
+  const parsed = parseInputPattern(input);
+  if (Option.isNone(parsed)) {
+    throw new Error(`Expected parseable input: ${input}`);
+  }
+  return parsed.value;
+};
+
 describe("resolveSkillInstallSource", () => {
   const tmpDirs: string[] = [];
 
@@ -100,7 +109,7 @@ describe("resolveSkillInstallSource", () => {
     ];
 
     return Effect.gen(function* () {
-      const resolved = yield* resolveSkillInstallSource("@acme/my-skill").pipe(
+      const resolved = yield* resolveSkillInstallSource(parseInputOrThrow("@acme/my-skill")).pipe(
         Effect.provide(provideTestLayers(sources)),
       );
       expect(resolved.type).toBe("registry");
@@ -124,7 +133,7 @@ describe("resolveSkillInstallSource", () => {
     ];
 
     return Effect.gen(function* () {
-      const resolved = yield* resolveSkillInstallSource("@acme").pipe(
+      const resolved = yield* resolveSkillInstallSource(parseInputOrThrow("@acme")).pipe(
         Effect.provide(provideTestLayers(sources)),
       );
       expect(resolved.type).toBe("registry");
@@ -146,7 +155,7 @@ describe("resolveSkillInstallSource", () => {
     ];
 
     return Effect.gen(function* () {
-      const error = yield* resolveSkillInstallSource("@acme/my-skill").pipe(
+      const error = yield* resolveSkillInstallSource(parseInputOrThrow("@acme/my-skill")).pipe(
         Effect.flip,
         Effect.provide(provideTestLayers(sources)),
       );

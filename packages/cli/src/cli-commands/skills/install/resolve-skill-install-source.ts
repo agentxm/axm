@@ -2,8 +2,11 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { createRegistryProvider } from "../../../sources/index.js";
-import { parseInputPattern, type InputPattern } from "../../../sources/parser.js";
-import { routeShorthandInput, resolveSlashInputSource } from "../../../sources/resolve-source.js";
+import type { InputParseResult, InputPattern } from "../../../sources/parser.js";
+import {
+  resolveShorthandInputSource,
+  resolveSlashInputSource,
+} from "../../../sources/resolve-source.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { RegistrySource } from "../../../sources/types.js";
 
@@ -64,7 +67,6 @@ const resolveRegistrySource = (
 
 const resolveSkillRegistrySource = (
   pattern: Extract<InputPattern, { readonly pattern: "registry-pattern-input" }>,
-  input: string,
 ) =>
   Effect.gen(function* () {
     if (Option.isSome(pattern.type) && pattern.type.value !== "skills") {
@@ -72,36 +74,28 @@ const resolveSkillRegistrySource = (
         // TODO: update and make error more accurate/meaningful
         code: "SOURCE_PARSE_FAILED",
         what: "Expected a skills registry source",
-        details: [input],
+        details: [pattern.scope],
       });
     }
 
-    return yield* resolveRegistrySource(pattern.scope, input, {
+    return yield* resolveRegistrySource(pattern.scope, pattern.scope, {
       findMatchingScope: true,
     });
   });
 
-export const resolveSkillInstallSource = (input: string) =>
+export const resolveSkillInstallSource = (parseResult: InputParseResult) =>
   Effect.gen(function* () {
-    const trimmed = input.trim();
-    const patternOpt = parseInputPattern(trimmed);
-    if (Option.isNone(patternOpt)) {
-      return yield* makeCliError({
-        // TODO: update and make error more accurate/meaningful
-        code: "SOURCE_PARSE_FAILED",
-        what: "Unable to parse source",
-        details: [input],
-      });
-    }
-
-    const pattern = patternOpt.value;
+    const pattern = parseResult.pattern;
     switch (pattern.pattern) {
       case "registry-pattern-input":
-        return yield* resolveSkillRegistrySource(pattern, trimmed);
+        return yield* resolveSkillRegistrySource(pattern);
       case "shorthand-input":
-        return yield* routeShorthandInput(pattern.prefix, pattern.input, trimmed);
+        return yield* resolveShorthandInputSource({
+          pattern,
+          originalInput: parseResult.originalInput,
+        });
       case "slash-pattern":
-        return yield* resolveSlashInputSource(pattern, trimmed);
+        return yield* resolveSlashInputSource(pattern, parseResult.originalInput);
       //Unsupported:
       case "name-input":
       case "url-input":
@@ -112,7 +106,7 @@ export const resolveSkillInstallSource = (input: string) =>
           // TODO: update and make error more accurate/meaningful
           code: "SOURCE_PARSE_FAILED",
           what: "Glob patterns are not supported by resolveSkillInstallSource - use resolveSourcePattern instead",
-          details: [input],
+          details: [parseResult.originalInput],
         });
     }
   });

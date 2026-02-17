@@ -94,8 +94,18 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
     // Step 1: Parse source
     const parseHandle = yield* spinnerSvc.start("Parsing source...");
-    const parsedSource = parseInputPattern(args.source.trim());
-    const source = yield* resolveSkillInstallSource(args.source).pipe(
+    const parsedSourceOption = parseInputPattern(args.source.trim());
+    if (Option.isNone(parsedSourceOption)) {
+      return yield* makeCliError({
+        code: "INVALID_SOURCE",
+        what: "Invalid source: Unable to parse source",
+        details: [`Provided: ${args.source || "(empty)"}`],
+        howToFix:
+          "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
+      });
+    }
+    const parsedSource = parsedSourceOption.value;
+    const source = yield* resolveSkillInstallSource(parsedSource).pipe(
       Effect.mapError((error) =>
         makeCliError({
           code: "INVALID_SOURCE",
@@ -116,23 +126,25 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
     // Step 3: Discover skills from source via SourceHostProviders
     const discoverHandle = yield* spinnerSvc.start("Discovering skills...");
+    // For registry sources, determine target names in priority order:
+    // 1) explicit positional names (`args.skills`)
+    // 2) parsed single name from registry-pattern input (e.g. @scope/skills/name)
+    // 3) none (discover all)
     const registryNames: ReadonlyArray<string> =
       source.type !== "registry"
         ? []
         : args.skills.length > 0
           ? args.skills
-          : (() => {
-              if (
-                Option.isSome(parsedSource) &&
-                parsedSource.value.pattern === "registry-pattern-input"
-              ) {
-                return Option.isSome(parsedSource.value.name) ? [parsedSource.value.name.value] : [];
-              }
-              return [];
-            })();
+          : parsedSource.pattern.pattern === "registry-pattern-input"
+            ? Option.isSome(parsedSource.pattern.name)
+              ? [parsedSource.pattern.name.value]
+              : []
+            : [];
+    // Carry the version constraint only when input matched registry-pattern syntax.
+    // Non-registry sources and non-matching inputs get no constraint.
     const registryConstraint =
-      Option.isSome(parsedSource) && parsedSource.value.pattern === "registry-pattern-input"
-        ? parsedSource.value.versionConstraint
+      parsedSource.pattern.pattern === "registry-pattern-input"
+        ? parsedSource.pattern.versionConstraint
         : Option.none<string>();
     const findOptions = {
       names: registryNames,

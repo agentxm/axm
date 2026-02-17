@@ -13,7 +13,8 @@ describe("parseInputPattern", () => {
     const expectSome = (input: string, expected: InputPattern) => {
       const result = parseInputPattern(input);
       expect(Option.isSome(result)).toBe(true);
-      expect(Option.getOrThrow(result)).toEqual(expected);
+      expect(Option.getOrThrow(result).pattern).toEqual(expected);
+      expect(Option.getOrThrow(result).originalInput).toBe(input);
     };
 
     const expectNone = (input: string) => {
@@ -190,7 +191,7 @@ describe("parseInputPattern", () => {
       expectSome("github:owner/repo", {
         pattern: "shorthand-input",
         prefix: "github",
-        input: "github:owner/repo",
+        remainingInput: "owner/repo",
       });
     });
 
@@ -198,7 +199,7 @@ describe("parseInputPattern", () => {
       expectSome("gitlab:owner/repo@ref", {
         pattern: "shorthand-input",
         prefix: "gitlab",
-        input: "gitlab:owner/repo@ref",
+        remainingInput: "owner/repo@ref",
       });
     });
 
@@ -206,7 +207,7 @@ describe("parseInputPattern", () => {
       expectSome("bitbucket:owner/repo/path@ref", {
         pattern: "shorthand-input",
         prefix: "bitbucket",
-        input: "bitbucket:owner/repo/path@ref",
+        remainingInput: "owner/repo/path@ref",
       });
     });
 
@@ -214,7 +215,7 @@ describe("parseInputPattern", () => {
       const result = parseInputPattern("local:./path");
       expect(Option.isSome(result)).toBe(true);
       // local: is parsed as a URL scheme, no longer a shorthand prefix
-      expect(Option.getOrThrow(result).pattern).toBe("url-input");
+      expect(Option.getOrThrow(result).pattern.pattern).toBe("url-input");
     });
 
     it("returns None for empty string", () => {

@@ -130,7 +130,7 @@ export { resolveSource } from "./resolve-source.js";
 export { resolveSourcePattern } from "./resolve-source-pattern.js";
 
 // Printer
-export { lockEntryToSourceParams, printSourceInput } from "./printer.js";
+export { lockEntryToSourceParams, printSourceParams } from "./printer.js";
 
 // GitHub API
 export { fetchGitHubTreeHash } from "./github/index.js";

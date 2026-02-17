@@ -111,7 +111,7 @@ const resolveNameWithFallback = (
 // -----------------------------------------------------------------------------
 
 /**
- * Resolve a source input pattern into one or more Sources.
+ * Resolve a source pattern into one or more `NewSource` values.
  *
  * - Single input (name, path, URL, etc.) → delegates to `resolveSource`, returns single-element array
  * - Glob pattern (e.g. `effect-*`) → expands against locked, configured, and on-disk skills

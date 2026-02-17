@@ -15,11 +15,11 @@ import { print as localPrint } from "./local/index.js";
 import type { SourceParams } from "./types.js";
 
 /**
- * Print a source input as its canonical shorthand string.
+ * Print source params as their canonical shorthand string.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const printSourceInput = (source: SourceParams): string => {
+export const printSourceParams = (source: SourceParams): string => {
   switch (source.type) {
     case "github":
       return githubPrint(source);

@@ -501,22 +501,22 @@ export const resolveSource = (input: string): Effect.Effect<Source, CliError, Wo
     }
 
     const pattern = patternOpt.value;
-    switch (pattern._tag) {
-      case "UrlInput":
+    switch (pattern.pattern) {
+      case "url-input":
         return yield* routeUrlInput(pattern.url, trimmed);
-      case "GitScpAddress":
+      case "git-scp-address":
         return yield* routeScpInput(pattern, trimmed);
-      case "ShorthandInput":
+      case "shorthand-input":
         return yield* routeShorthandInput(pattern.prefix, pattern.input, trimmed);
-      case "NameInput":
+      case "name-input":
         return yield* routeNameInput(pattern.name, trimmed);
-      case "FilePathPattern":
+      case "file-path-pattern":
         return yield* routeFilePathInput(pattern.path);
-      case "RegistryPatternInput":
+      case "registry-pattern-input":
         return yield* routeRegistryInput(pattern, trimmed);
-      case "SlashPattern":
+      case "slash-pattern":
         return yield* routeSlashInput(pattern, trimmed);
-      case "GlobInput":
+      case "glob-input":
         return yield* makeCliError({
           code: "SOURCE_PARSE_FAILED",
           what: `Glob patterns are not supported by resolveSource — use resolveSourcePattern instead`,

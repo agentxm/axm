@@ -94,7 +94,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
       Object.entries(entry.resolvedSkills),
       ([fqn, version]) =>
         Effect.gen(function* () {
-          const { skillName: shortName } = parseScopedName(fqn);
+          const { name: shortName } = parseScopedName(fqn);
           if (shortName in currentSkills) return; // preserve existing direct entry
           yield* ws.setSkill({
             name: shortName,

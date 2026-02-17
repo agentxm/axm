@@ -8,12 +8,15 @@
  * Parse `@scope/name` into its parts.
  */
 export const parseScopedName = (
-  name: string,
-): { readonly scope: string; readonly skillName: string } => {
-  const slashIdx = name.indexOf("/");
+  input: string,
+): { readonly scope: string; readonly name: string } => {
+  const slashIdx = input.indexOf("/");
+  if (slashIdx < 1) {
+    throw new Error(`Expected scoped name (@scope/name), got: ${input}`);
+  }
   return {
-    scope: name.slice(0, slashIdx),
-    skillName: name.slice(slashIdx + 1),
+    scope: input.slice(0, slashIdx),
+    name: input.slice(slashIdx + 1),
   };
 };
 

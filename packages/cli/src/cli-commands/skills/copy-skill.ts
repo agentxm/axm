@@ -48,7 +48,7 @@ export const copySkill: OperationHandler<
     const ws = yield* Workspace;
     const base = path.dirname(ws.path);
 
-    const { scope, skillName: name } = parseScopedName(op.args.targetName);
+    const { scope, name } = parseScopedName(op.args.targetName);
 
     // Target path in the managed extensions store
     const targetDir = path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "skills", name);
@@ -56,7 +56,10 @@ export const copySkill: OperationHandler<
     // Source path from the ref location (registry/builtin refs don't carry location)
     const { ref } = op.args;
     if (!("location" in ref)) {
-      throw new Error(`copy-skill does not support ${ref.source.type} sources`);
+      return yield* makeCliError({
+        code: "COPY_SKILL_UNSUPPORTED_SOURCE",
+        what: `copy-skill does not support ${ref.source.type} sources`,
+      });
     }
     const sourcePath = ref.location.replace(/^file:\/\//, "");
 

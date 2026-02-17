@@ -15,12 +15,8 @@ import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { expandGlobs } from "../../../skills/index.js";
 import { computePackPaths } from "../pack-paths.js";
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-const PACK_MANIFEST_FILENAME = "axm-pack.json";
+import { PACK_MANIFEST_FILENAME, type RawPackManifest } from "../constants.js";
+import { hasScopePrefix, parseScopedName } from "../../skills/naming.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -33,18 +29,6 @@ export interface PacksRemoveHandlerArgs {
   readonly extension: string;
   /** Skip confirmations. */
   readonly yes: boolean;
-}
-
-/**
- * Raw pack manifest JSON shape (no schema validation on read to allow editing).
- */
-interface RawPackManifest {
-  name: string;
-  version: string;
-  skills?: Record<string, string>;
-  commands?: Record<string, string>;
-  "mcp-servers"?: Record<string, string>;
-  [key: string]: unknown;
 }
 
 // -----------------------------------------------------------------------------
@@ -74,8 +58,9 @@ export const handlePacksRemove = (args: PacksRemoveHandlerArgs) =>
 
     // Resolve pack scope
     const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
-    const scopeMatch = packSource.match(/^(@[\w-]+)\//);
-    const packScope = scopeMatch ? scopeMatch[1]! : yield* ws.getConfiguredScope();
+    const packScope = hasScopePrefix(packSource)
+      ? parseScopedName(packSource).scope
+      : yield* ws.getConfiguredScope();
     const base = path.dirname(ws.path);
 
     // Step 2: Read pack manifest

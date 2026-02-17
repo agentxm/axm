@@ -23,12 +23,7 @@ import type { PlannedJobStep } from "../../../workspace/plan.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../skills/constants.js";
 import { hasScopePrefix, parseScopedName } from "../../skills/naming.js";
 import { publishPack, type PublishPackOperation } from "./publish-pack.js";
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-const PACK_MANIFEST_FILENAME = "axm-pack.json";
+import { PACK_MANIFEST_FILENAME } from "../constants.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -83,7 +78,7 @@ export const handlePublishPack = (args: PublishPackHandlerArgs) =>
         );
 
     // Parse scope and pack name from the full name
-    const { scope, skillName: shortName } = parseScopedName(packName);
+    const { scope, name: shortName } = parseScopedName(packName);
 
     // Step 3: Validate managed pack exists
     const handle = yield* spinnerSvc.start("Validating pack...");

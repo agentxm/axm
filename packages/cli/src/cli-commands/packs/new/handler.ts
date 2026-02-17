@@ -15,12 +15,7 @@ import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { PackManifest } from "../../../extensions/packs/manifest-schema.js";
 import { computePackPaths } from "../pack-paths.js";
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-const PACK_MANIFEST_FILENAME = "axm-pack.json";
+import { PACK_MANIFEST_FILENAME } from "../constants.js";
 
 // -----------------------------------------------------------------------------
 // Types

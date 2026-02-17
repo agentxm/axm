@@ -19,7 +19,7 @@ import { makeCliError, type CliError } from "../cli-error/index.js";
 import type {
   RegistryClient,
   RegistryExtensionVersionManifest,
-  GetExtensionVersionArgs,
+  GetExtensionPackageArgs,
   PublishExtensionArgs,
   ExtensionExistsArgs,
   GetExtensionsResponse,
@@ -131,7 +131,10 @@ export const createLocalRegistryClient = (
           const scopeDirs = yield* fs
             .readDirectory(extensionsDir)
             .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
-          const scopes = scopeDirs.filter((d) => d.startsWith("@"));
+          const scopes = Option.match(options.scope, {
+            onNone: () => scopeDirs.filter((d) => d.startsWith("@")),
+            onSome: (scope) => [scope],
+          });
 
           const nestedResults = yield* Effect.forEach(
             requestedTypes,
@@ -200,7 +203,7 @@ export const createLocalRegistryClient = (
       return { exists };
     }),
 
-  getExtensionVersion: (args: GetExtensionVersionArgs) =>
+  getExtensionPackage: (args: GetExtensionPackageArgs) =>
     Effect.gen(function* () {
       const dir = extensionDir(registryRoot, args.scope, args.type, args.name, path.join);
 

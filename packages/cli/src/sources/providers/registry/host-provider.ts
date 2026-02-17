@@ -33,6 +33,7 @@ import type { VersionEntry } from "../../../registry/index.js";
 
 /** Map FindOptions to GetExtensionsArgs (no pagination — fetch all). */
 const toSearchOptions = (options: FindOptions): GetExtensionsArgs => ({
+  scope: Option.none(),
   names: options.names,
   types: options.type === "*" ? [] : [options.type as ExtensionType],
   limit: Option.none(),
@@ -148,7 +149,7 @@ export const createLocalRegistrySourceHostProvider = (
       const type = refRegistryType(ref);
       const name = refName(ref);
 
-      const { archive: archiveBytes } = yield* client.getExtensionVersion({
+      const { archive: archiveBytes } = yield* client.getExtensionPackage({
         scope,
         type,
         name,
@@ -231,7 +232,7 @@ export const createRemoteRegistrySourceHostProvider = (
       const type = refRegistryType(ref);
       const name = refName(ref);
 
-      const { archive: archiveBytes } = yield* client.getExtensionVersion({
+      const { archive: archiveBytes } = yield* client.getExtensionPackage({
         scope,
         type,
         name,

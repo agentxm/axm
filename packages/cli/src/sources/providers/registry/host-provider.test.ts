@@ -83,7 +83,7 @@ const toResult = (
 const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient => ({
   getExtensions: () => Effect.succeed(toResult([])),
   scopeExists: () => Effect.succeed({ exists: false }),
-  getExtensionVersion: () =>
+  getExtensionPackage: () =>
     Effect.fail(makeCliError({ code: "REGISTRY_FETCH_FAILED", what: "not implemented" })),
   publishExtension: () => Effect.succeed({ published: true } as const),
   extensionExists: () => Effect.succeed({ exists: false }),
@@ -105,7 +105,7 @@ const createFailingClient = (): RegistryClient => ({
         what: "remote registry not yet supported",
       }),
     ),
-  getExtensionVersion: () =>
+  getExtensionPackage: () =>
     Effect.fail(
       makeCliError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
@@ -168,6 +168,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
 
         // Verify search options were mapped correctly
         expect(capturedOptions).toEqual({
+          scope: Option.none(),
           names: ["my-skill"],
           types: ["skill"],
           limit: Option.none(),
@@ -317,14 +318,14 @@ describe("LocalRegistrySourceHostProvider.find", () => {
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.fetch", () => {
-  it("delegates to client.getExtensionVersion and verifies integrity", () => {
+  it("delegates to client.getExtensionPackage and verifies integrity", () => {
     const archiveBytes = new Uint8Array([80, 75, 3, 4, 0, 0, 0, 0]);
     const integrity = sha512(archiveBytes);
 
-    let capturedArgs: Parameters<RegistryClient["getExtensionVersion"]>[0] | undefined;
+    let capturedArgs: Parameters<RegistryClient["getExtensionPackage"]>[0] | undefined;
 
     const client = createMockClient({
-      getExtensionVersion: (args) => {
+      getExtensionPackage: (args) => {
         capturedArgs = args;
         return Effect.succeed({ archive: archiveBytes });
       },
@@ -368,7 +369,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     const archiveBytes = new Uint8Array([80, 75, 3, 4]);
 
     const client = createMockClient({
-      getExtensionVersion: () => Effect.succeed({ archive: archiveBytes }),
+      getExtensionPackage: () => Effect.succeed({ archive: archiveBytes }),
     });
 
     const provider = createLocalRegistrySourceHostProvider(client);
@@ -402,7 +403,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     let capturedName: string | undefined;
 
     const client = createMockClient({
-      getExtensionVersion: (args) => {
+      getExtensionPackage: (args) => {
         capturedType = args.type;
         capturedName = args.name;
         return Effect.succeed({ archive: archiveBytes });

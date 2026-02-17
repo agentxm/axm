@@ -12,7 +12,7 @@ import type * as Effect from "effect/Effect";
 
 import type { CliError } from "../cli-error/index.js";
 import type { RegistryExtensionType, VersionEntry } from "../registry/index.js";
-import type { FindableExtensionType, NewSource, SourceExtensionRef } from "./types.js";
+import type { FindableExtensionType, Source, SourceExtensionRef } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Search Criteria
@@ -65,7 +65,7 @@ export interface ExtensionFiles {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface SourceHostProvider<S extends NewSource = NewSource, R = never> {
+export interface SourceHostProvider<S extends Source = Source, R = never> {
   /** Source type discriminator matching `S["type"]`. */
   readonly type: S["type"];
   /** Check if a URL belongs to this provider. */
@@ -91,7 +91,7 @@ export interface SourceHostProvider<S extends NewSource = NewSource, R = never> 
  * @experimental This API is unstable and may change without notice.
  */
 export interface PublishableSourceHostProvider<
-  S extends NewSource = NewSource,
+  S extends Source = Source,
   R = never,
 > extends SourceHostProvider<S, R> {
   readonly publishVersion: (

@@ -20,7 +20,7 @@ import type { CliError } from "../cli-error/index.js";
 import { makeCliError } from "../cli-error/index.js";
 import { Workspace } from "../workspace/service.js";
 import type { ExtensionFiles, FindOptions } from "./provider.js";
-import type { NewSource, RegistrySourceParams, SourceExtensionRef } from "./types.js";
+import type { Source, RegistrySourceParams, SourceExtensionRef } from "./types.js";
 import {
   createBuiltinSourceHostProvider,
   createGitHostingSourceHostProvider,
@@ -45,15 +45,15 @@ import { buildCloneUrlForSource } from "./providers/git-hosting.js";
 export interface SourceHostProvidersService {
   /** Find extensions matching the given source and search criteria. */
   readonly find: (
-    source: NewSource,
+    source: Source,
     options: FindOptions,
   ) => Effect.Effect<ReadonlyArray<SourceExtensionRef>, CliError, Scope.Scope>;
   /** Fetch and materialize extension files for a discovered ref. */
   readonly fetch: (ref: SourceExtensionRef) => Effect.Effect<ExtensionFiles, CliError, Scope.Scope>;
   /** Build a git clone URL for this source. Returns None for non-git sources. */
-  readonly cloneUrl: (source: NewSource) => Option.Option<string>;
+  readonly cloneUrl: (source: Source) => Option.Option<string>;
   /** Canonical origin string for display/comparison. */
-  readonly origin: (source: NewSource) => string;
+  readonly origin: (source: Source) => string;
 }
 
 /**
@@ -74,7 +74,7 @@ export class SourceHostProviders extends Context.Tag("@axm.sh/cli/SourceHostProv
  * Build a git clone URL from a source.
  * Returns Some for git-based hosting sources, None for others.
  */
-const buildCloneUrlFromSource = (source: NewSource): Option.Option<string> => {
+const buildCloneUrlFromSource = (source: Source): Option.Option<string> => {
   switch (source.type) {
     case "github":
     case "gitlab":
@@ -97,7 +97,7 @@ const buildCloneUrlFromSource = (source: NewSource): Option.Option<string> => {
  * Get the canonical origin string for display/comparison.
  * Handles all source types including builtin.
  */
-const getOriginFromSource = (source: NewSource): string => {
+const getOriginFromSource = (source: Source): string => {
   switch (source.type) {
     case "github":
     case "gitlab":
@@ -255,7 +255,7 @@ export const SourceHostProvidersLive: Layer.Layer<
       Layer.succeed(Workspace, ws),
     );
 
-    const findImpl = (source: NewSource, options: FindOptions) => {
+    const findImpl = (source: Source, options: FindOptions) => {
       switch (source.type) {
         case "github":
         case "gitlab":

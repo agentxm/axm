@@ -14,7 +14,7 @@ export type {
 } from "./types.js";
 export { SourceTypeSchema } from "./types.js";
 
-// Types — New domain model (source-host-domain-modeling)
+// Types — Source domain model (source-host-domain-modeling)
 export type {
   // SourceHost
   AzureReposSourceHost,
@@ -40,18 +40,18 @@ export type {
   LocalSourceParams,
   RegistrySourceParams,
   SourceParams,
-  // New Source (flat intersection)
+  // Source (flat intersection)
   BuiltinSource,
   GitBasedSource,
   GitHostingSource,
-  NewAzureReposSource,
-  NewBitbucketSource,
-  NewGitHubSource,
-  NewGitLabSource,
-  NewGitSource,
-  NewLocalSource,
-  NewRegistrySource,
-  NewSource,
+  AzureReposSource,
+  BitbucketSource,
+  GitHubSource,
+  GitLabSource,
+  GitSource,
+  LocalSource,
+  RegistrySource,
+  Source,
   // FindableExtensionType
   FindableExtensionType,
   // Ref details

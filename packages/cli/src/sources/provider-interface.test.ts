@@ -10,8 +10,8 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import type {
   BuiltinSource,
-  NewGitHubSource,
-  NewRegistrySource,
+  GitHubSource,
+  RegistrySource,
   SourceExtensionRef,
 } from "./types.js";
 import type { SourceHostProvider, PublishableSourceHostProvider, FindOptions } from "./provider.js";
@@ -21,14 +21,14 @@ import type { RegistryExtensionType, VersionEntry } from "../registry/index.js";
 // Mock Providers
 // -----------------------------------------------------------------------------
 
-const makeGitHubProvider = (): SourceHostProvider<NewGitHubSource> => ({
+const makeGitHubProvider = (): SourceHostProvider<GitHubSource> => ({
   type: "github",
   match: (url: URL) => Effect.succeed(url.hostname === "github.com"),
   find: (_source, _options) => Effect.succeed([]),
   fetch: (_source, _ref) => Effect.succeed({ directory: "/tmp/clone" }),
 });
 
-const makeRegistryProvider = (): PublishableSourceHostProvider<NewRegistrySource> => ({
+const makeRegistryProvider = (): PublishableSourceHostProvider<RegistrySource> => ({
   type: "registry",
   match: (_url: URL) => Effect.succeed(false),
   find: (_source, _options) => Effect.succeed([]),
@@ -78,7 +78,7 @@ describe("SourceHostProvider", () => {
 
   it("has find method that returns Effect<ReadonlyArray<SourceExtensionRef>>", async () => {
     const provider = makeGitHubProvider();
-    const source: NewGitHubSource = {
+    const source: GitHubSource = {
       type: "github",
       url: new URL("https://github.com"),
       owner: "test",
@@ -93,7 +93,7 @@ describe("SourceHostProvider", () => {
 
   it("has fetch method that returns Effect<ExtensionFiles>", async () => {
     const provider = makeGitHubProvider();
-    const source: NewGitHubSource = {
+    const source: GitHubSource = {
       type: "github",
       url: new URL("https://github.com"),
       owner: "test",
@@ -147,9 +147,9 @@ describe("PublishableSourceHostProvider", () => {
   });
 
   it("is assignable to SourceHostProvider (base interface)", () => {
-    const provider: PublishableSourceHostProvider<NewRegistrySource> = makeRegistryProvider();
+    const provider: PublishableSourceHostProvider<RegistrySource> = makeRegistryProvider();
     // A PublishableSourceHostProvider can be treated as a SourceHostProvider
-    const base: SourceHostProvider<NewRegistrySource> = provider;
+    const base: SourceHostProvider<RegistrySource> = provider;
     expect(base.type).toBe("registry");
   });
 });

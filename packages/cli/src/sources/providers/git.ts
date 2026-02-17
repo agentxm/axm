@@ -11,7 +11,7 @@ import * as Effect from "effect/Effect";
 
 import { makeCliError } from "../../cli-error/index.js";
 import type { SourceHostProvider } from "../provider.js";
-import type { NewGitSource } from "../types.js";
+import type { GitSource } from "../types.js";
 
 /**
  * Source host provider for generic git URLs.
@@ -21,7 +21,7 @@ import type { NewGitSource } from "../types.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createGitSourceHostProvider = (): SourceHostProvider<NewGitSource> => ({
+export const createGitSourceHostProvider = (): SourceHostProvider<GitSource> => ({
   type: "git",
 
   match: (url: URL) =>

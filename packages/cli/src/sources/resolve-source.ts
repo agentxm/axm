@@ -23,9 +23,9 @@ import * as gitlab from "./gitlab/index.js";
 import { parseLocalPath } from "./local/index.js";
 import { parseInputPattern } from "./parser.js";
 import type {
-  NewRegistrySource,
+  RegistrySource,
   RegistrySourceParams,
-  NewSource,
+  Source,
   SourceParams,
   SourceType,
 } from "./types.js";
@@ -99,7 +99,7 @@ const configToSource = (
   config: SourceHostConfig,
   params: SourceParams,
   input: string,
-): Effect.Effect<NewSource, CliError> => {
+): Effect.Effect<Source, CliError> => {
   const mismatch = () =>
     Effect.fail(
       makeCliError({
@@ -422,7 +422,7 @@ const routeRegistryInput = (
       ...params,
       url: regConfig.url,
       scopes: regConfig.scopes,
-    } satisfies NewRegistrySource;
+    } satisfies RegistrySource;
   });
 
 /**
@@ -473,7 +473,7 @@ const routeSlashInput = (
 // -----------------------------------------------------------------------------
 
 /**
- * Resolve a source string into a fully resolved `NewSource`.
+ * Resolve a source string into a fully resolved `Source`.
  *
  * Classifies the input via `parseInputPattern`, then routes each pattern
  * type to the appropriate resolution logic. For URL and SCP patterns,
@@ -482,9 +482,9 @@ const routeSlashInput = (
  *
  * @experimental This API is unstable and may change without notice.
  * @param input - The source string to resolve
- * @returns Effect containing a resolved `NewSource` or `CliError`
+ * @returns Effect containing a resolved `Source` or `CliError`
  */
-export const resolveSource = (input: string): Effect.Effect<NewSource, CliError, Workspace> =>
+export const resolveSource = (input: string): Effect.Effect<Source, CliError, Workspace> =>
   Effect.gen(function* () {
     const trimmed = input.trim();
     if (!trimmed) {

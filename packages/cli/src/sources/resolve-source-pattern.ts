@@ -23,7 +23,7 @@ import {
 import { expandGlobs, isGlobPattern } from "../skills/index.js";
 import { Workspace } from "../workspace/index.js";
 import { resolveSource } from "./resolve-source.js";
-import type { NewSource } from "./types.js";
+import type { Source } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -99,7 +99,7 @@ const resolveNameWithFallback = (
 
       const diskPath = onDiskByName.get(name);
       if (diskPath !== undefined) {
-        return Effect.succeed<NewSource>({ type: "local", path: diskPath });
+        return Effect.succeed<Source>({ type: "local", path: diskPath });
       }
 
       return Effect.fail(error);
@@ -111,7 +111,7 @@ const resolveNameWithFallback = (
 // -----------------------------------------------------------------------------
 
 /**
- * Resolve a source pattern into one or more `NewSource` values.
+ * Resolve a source pattern into one or more `Source` values.
  *
  * - Single input (name, path, URL, etc.) → delegates to `resolveSource`, returns single-element array
  * - Glob pattern (e.g. `effect-*`) → expands against locked, configured, and on-disk skills
@@ -124,7 +124,7 @@ const resolveNameWithFallback = (
 export const resolveSourcePattern = (
   input: string,
 ): Effect.Effect<
-  ReadonlyArray<NewSource>,
+  ReadonlyArray<Source>,
   CliError,
   Workspace | FileSystem.FileSystem | Path.Path
 > =>

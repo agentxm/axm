@@ -233,11 +233,9 @@ describe("Source", () => {
     const source: Source = {
       type: "registry",
       location: new URL("file:///registry"),
-      scope: "@acme",
     };
     if (source.type === "registry") {
       expect(source.location.protocol).toBe("file:");
-      expect(source.scope).toBe("@acme");
     }
   });
 
@@ -334,11 +332,13 @@ describe("ref detail interfaces", () => {
     expect(Option.getOrNull(details.gitTreeSha)).toBe("abc123");
   });
 
-  it("RegistryRefDetails has version and checksum", () => {
+  it("RegistryRefDetails has scope, version, and checksum", () => {
     const details: RegistryRefDetails = {
+      scope: "@acme",
       version: "1.2.3",
       checksum: "sha256:abc",
     };
+    expect(details.scope).toBe("@acme");
     expect(details.version).toBe("1.2.3");
     expect(details.checksum).toBe("sha256:abc");
   });
@@ -387,8 +387,8 @@ describe("SkillExtensionRef", () => {
       source: {
         type: "registry",
         location: new URL("file:///reg"),
-        scope: "@acme",
       },
+      scope: "@acme",
       version: "1.0.0",
       checksum: "sha256:abc",
     };
@@ -449,8 +449,8 @@ describe("McpServerExtensionRef", () => {
       source: {
         type: "registry",
         location: new URL("file:///reg"),
-        scope: "@acme",
       },
+      scope: "@acme",
       version: "2.0.0",
       checksum: "sha256:def",
     };
@@ -470,8 +470,8 @@ describe("PackExtensionRef", () => {
       source: {
         type: "registry",
         location: new URL("file:///reg"),
-        scope: "@acme",
       },
+      scope: "@acme",
       version: "1.0.0",
       checksum: "sha256:ghi",
     };

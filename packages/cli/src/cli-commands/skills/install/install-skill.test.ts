@@ -143,6 +143,7 @@ const makeOp = (
     force?: boolean;
     skillName?: string;
     sourcePath?: string;
+    scope?: string;
     location?: string;
     version?: Option.Option<string>;
     versionConstraint?: Option.Option<string>;
@@ -171,6 +172,7 @@ const makeOp = (
         return {
           ...base,
           source: source as never,
+          scope: overrides.scope ?? "@community",
           version: Option.getOrElse(version, () => ""),
           checksum: "",
         } as SkillExtensionRef;
@@ -565,11 +567,9 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: {
-              type: "registry",
-              scope: "@community",
-              location: new URL("file:///tmp/reg"),
-            },
+            source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@community",
             location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -609,11 +609,9 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: {
-              type: "registry",
-              scope: "@myorg",
-              location: new URL("file:///tmp/reg"),
-            },
+            source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@myorg",
             location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -645,11 +643,9 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: {
-              type: "registry",
-              scope: "@community",
-              location: new URL("file:///tmp/reg"),
-            },
+            source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@community",
             location: `file://${src}`,
             version: Option.some("1.2.3"),
             versionConstraint: Option.some("^1.0.0"),
@@ -706,11 +702,9 @@ describe("installSkill", () => {
           const result = yield* installSkill(
             makeOp({
               agents: ["claude-code"],
-              source: {
-                type: "registry",
-                scope: "@community",
-                location: new URL("file:///tmp/reg"),
-              },
+              source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@community",
               location: `file://${src}`,
             }),
           ).pipe(Effect.provide(withServices(axmDir)));
@@ -790,11 +784,9 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: {
-              type: "registry",
-              scope: "@acme",
-              location: new URL("file:///tmp/reg"),
-            },
+            source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@acme",
             skillName: "tool",
             location: `file://${src}`,
           }),
@@ -818,11 +810,9 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: {
-              type: "registry",
-              scope: "@acme",
-              location: new URL("file:///tmp/reg"),
-            },
+            source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@acme",
             skillName: "tool",
             location: `file://${src}`,
             version: Option.some("1.2.3"),
@@ -848,11 +838,9 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             agents: ["claude-code"],
-            source: {
-              type: "registry",
-              scope: "@acme",
-              location: new URL("file:///tmp/reg"),
-            },
+            source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@acme",
             skillName: "tool",
             location: `file://${src}`,
             version: Option.some("1.2.3"),

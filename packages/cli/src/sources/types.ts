@@ -164,11 +164,6 @@ export interface RegistrySourceParams {
   readonly type: "registry";
 }
 
-/** Registry source coordinates that are resolved from user input. @experimental */
-export interface RegistrySourceCoordinates {
-  readonly scope: string;
-}
-
 /** @experimental */
 export interface LocalSourceParams {
   readonly type: "local";
@@ -206,7 +201,7 @@ export type AzureReposSource = AzureReposSourceHost & AzureReposSourceParams;
 /** @experimental */
 export type GitSource = GitSourceHost & GitSourceParams;
 /** @experimental */
-export type RegistrySource = RegistrySourceHost & RegistrySourceParams & RegistrySourceCoordinates;
+export type RegistrySource = RegistrySourceHost & RegistrySourceParams;
 /** @experimental */
 export type LocalSource = LocalSourceHost & LocalSourceParams;
 /** @experimental */
@@ -274,6 +269,8 @@ export interface GitHostedRefDetails {
 
 /** Ref details for registry sources. @experimental */
 export interface RegistryRefDetails {
+  /** Registry scope that owns the published extension */
+  readonly scope: string;
   /** Resolved semver version */
   readonly version: string;
   /** Archive checksum for integrity verification */

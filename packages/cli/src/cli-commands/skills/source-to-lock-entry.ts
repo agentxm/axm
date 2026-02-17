@@ -143,7 +143,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
       const r = ref as RegistrySkillRef;
       return {
         type: "registry",
-        scope: r.source.scope,
+        scope: r.scope,
         name: r.skill.name,
         resolvedVersion: r.version,
         checksum: r.checksum,

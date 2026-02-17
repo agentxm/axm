@@ -213,10 +213,10 @@ export const handleFork = (args: ForkHandlerArgs) =>
         },
         source: {
           type: "registry" as const,
-          scope,
           // Placeholder — registry URL unused; install reads from fetchedLocation
           location: new URL("file://localhost"),
         },
+        scope,
         version: "0.1.0",
         checksum: "",
       } as import("../../../sources/types.js").RegistrySkillRef;

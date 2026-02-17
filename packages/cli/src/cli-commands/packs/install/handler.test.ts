@@ -27,6 +27,7 @@ import {
   SourceHostProviders,
   type SourceHostProvidersService,
   type ExtensionFiles,
+  type PackExtensionRef,
   type SkillExtensionRef,
 } from "../../../sources/index.js";
 import { handleInstallPack, type InstallPackHandlerArgs } from "./handler.js";
@@ -329,14 +330,12 @@ describe("packs install handler", () => {
       });
       createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
 
-      const packRef: SkillExtensionRef = {
-        type: "skill",
-        skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
-        source: {
-          type: "registry",
-          scope: "@acme",
-          location: new URL("file:///tmp/reg"),
-        },
+      const packRef: PackExtensionRef = {
+        type: "pack",
+        pack: { name: "test-pack" },
+        source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -344,11 +343,9 @@ describe("packs install handler", () => {
       const skillRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
-        source: {
-          type: "registry",
-          scope: "@acme",
-          location: new URL("file:///tmp/reg"),
-        },
+        source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -365,7 +362,7 @@ describe("packs install handler", () => {
           return Effect.succeed([]);
         },
         fetch: (ref) => {
-          if (ref.type === "skill" && ref.skill.name === "test-pack") {
+          if (ref.type === "pack" && ref.pack.name === "test-pack") {
             return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
           }
           if (ref.type === "skill" && ref.skill.name === "code-review") {
@@ -411,14 +408,12 @@ describe("packs install handler", () => {
       });
       createSkillArchive(skillArchiveDir, "my-skill", "My skill");
 
-      const packRef: SkillExtensionRef = {
-        type: "skill",
-        skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
-        source: {
-          type: "registry",
-          scope: "@acme",
-          location: new URL("file:///tmp/reg"),
-        },
+      const packRef: PackExtensionRef = {
+        type: "pack",
+        pack: { name: "test-pack" },
+        source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -426,11 +421,9 @@ describe("packs install handler", () => {
       const skillRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "my-skill", description: "My skill", metadata: Option.none() },
-        source: {
-          type: "registry",
-          scope: "@acme",
-          location: new URL("file:///tmp/reg"),
-        },
+        source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -443,7 +436,7 @@ describe("packs install handler", () => {
           return Effect.succeed([]);
         },
         fetch: (ref) => {
-          if (ref.type === "skill" && ref.skill.name === "test-pack") {
+          if (ref.type === "pack" && ref.pack.name === "test-pack") {
             return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
           }
           if (ref.type === "skill" && ref.skill.name === "my-skill") {
@@ -500,14 +493,12 @@ describe("packs install handler", () => {
       });
       createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
 
-      const packRef: SkillExtensionRef = {
-        type: "skill",
-        skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
-        source: {
-          type: "registry",
-          scope: "@acme",
-          location: new URL("file:///tmp/reg"),
-        },
+      const packRef: PackExtensionRef = {
+        type: "pack",
+        pack: { name: "test-pack" },
+        source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -515,11 +506,9 @@ describe("packs install handler", () => {
       const skillRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
-        source: {
-          type: "registry",
-          scope: "@acme",
-          location: new URL("file:///tmp/reg"),
-        },
+        source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -532,7 +521,7 @@ describe("packs install handler", () => {
           return Effect.succeed([]);
         },
         fetch: (ref) => {
-          if (ref.type === "skill" && ref.skill.name === "test-pack") {
+          if (ref.type === "pack" && ref.pack.name === "test-pack") {
             return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
           }
           if (ref.type === "skill" && ref.skill.name === "code-review") {
@@ -585,14 +574,12 @@ describe("packs install handler", () => {
         description: "A test pack",
       });
 
-      const packRef: SkillExtensionRef = {
-        type: "skill",
-        skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
-        source: {
-          type: "registry",
-          scope: "@acme",
-          location: new URL("file:///tmp/reg"),
-        },
+      const packRef: PackExtensionRef = {
+        type: "pack",
+        pack: { name: "test-pack" },
+        source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@acme",
         version: "2.0.0",
         checksum: "",
       };
@@ -604,7 +591,7 @@ describe("packs install handler", () => {
           return Effect.succeed([]);
         },
         fetch: (ref) => {
-          if (ref.type === "skill" && ref.skill.name === "test-pack") {
+          if (ref.type === "pack" && ref.pack.name === "test-pack") {
             return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
           }
           return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
@@ -642,14 +629,12 @@ describe("packs install handler", () => {
       });
       createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
 
-      const packRef: SkillExtensionRef = {
-        type: "skill",
-        skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
-        source: {
-          type: "registry",
-          scope: "@acme",
-          location: new URL("file:///tmp/reg"),
-        },
+      const packRef: PackExtensionRef = {
+        type: "pack",
+        pack: { name: "test-pack" },
+        source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -659,11 +644,9 @@ describe("packs install handler", () => {
       const skillRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
-        source: {
-          type: "registry",
-          scope: "@acme",
-          location: new URL("file:///tmp/reg"),
-        },
+        source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -679,7 +662,7 @@ describe("packs install handler", () => {
           return Effect.succeed([]);
         },
         fetch: (ref) => {
-          if (ref.type === "skill" && ref.skill.name === "test-pack") {
+          if (ref.type === "pack" && ref.pack.name === "test-pack") {
             return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
           }
           if (ref.type === "skill" && ref.skill.name === "code-review") {
@@ -718,14 +701,12 @@ describe("packs install handler", () => {
       });
       createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
 
-      const packRef: SkillExtensionRef = {
-        type: "skill",
-        skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
-        source: {
-          type: "registry",
-          scope: "@acme",
-          location: new URL("file:///tmp/reg"),
-        },
+      const packRef: PackExtensionRef = {
+        type: "pack",
+        pack: { name: "test-pack" },
+        source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -735,11 +716,9 @@ describe("packs install handler", () => {
       const skillRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
-        source: {
-          type: "registry",
-          scope: "@acme",
-          location: new URL("file:///tmp/reg"),
-        },
+        source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -755,7 +734,7 @@ describe("packs install handler", () => {
           return Effect.succeed([]);
         },
         fetch: (ref) => {
-          if (ref.type === "skill" && ref.skill.name === "test-pack") {
+          if (ref.type === "pack" && ref.pack.name === "test-pack") {
             return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
           }
           if (ref.type === "skill" && ref.skill.name === "code-review") {
@@ -792,14 +771,12 @@ describe("packs install handler", () => {
         skills: { "@acme/missing-skill": "^1.0.0" },
       });
 
-      const packRef: SkillExtensionRef = {
-        type: "skill",
-        skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
-        source: {
-          type: "registry",
-          scope: "@acme",
-          location: new URL("file:///tmp/reg"),
-        },
+      const packRef: PackExtensionRef = {
+        type: "pack",
+        pack: { name: "test-pack" },
+        source: { type: "registry", location: new URL("file:///tmp/reg"),
+      },
+      scope: "@acme",
         version: "1.0.0",
         checksum: "",
       };
@@ -813,7 +790,7 @@ describe("packs install handler", () => {
           return Effect.succeed([]);
         },
         fetch: (ref) => {
-          if (ref.type === "skill" && ref.skill.name === "test-pack") {
+          if (ref.type === "pack" && ref.pack.name === "test-pack") {
             return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
           }
           return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));

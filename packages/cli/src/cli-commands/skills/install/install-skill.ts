@@ -159,10 +159,18 @@ export const installSkill: OperationHandler<
     const sanitizedName = sanitizeName(ref.skill.name);
 
     // Determine canonical + content paths from centralized getSkillDir
-    const pathSource: SkillPathSource =
-      ref.source.type === "registry"
-        ? { type: "registry", scope: ref.source.scope }
-        : { type: ref.source.type };
+    let pathSource: SkillPathSource;
+    if (ref.source.type === "registry") {
+      if (!("scope" in ref)) {
+        return yield* makeCliError({
+          code: "INSTALL_SKILL_INVALID_REF",
+          what: "Registry skill ref is missing scope",
+        });
+      }
+      pathSource = { type: "registry", scope: ref.scope };
+    } else {
+      pathSource = { type: ref.source.type };
+    }
     const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, pathSource);
 
     // Validate canonical path safety

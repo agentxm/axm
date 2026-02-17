@@ -184,7 +184,9 @@ export const buildCloneUrlForSource = (
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createLegacyGitHostingProvider = <S extends GitHubSource | GitLabSource | BitbucketSource>(
+export const createLegacyGitHostingProvider = <
+  S extends GitHubSource | GitLabSource | BitbucketSource,
+>(
   sourceType: S["type"],
 ): LegacySourceProvider<S, FileSystem.FileSystem | Path.Path | Scope.Scope> => {
   // Determine host URL from existing source config types (backward compat)
@@ -294,7 +296,8 @@ export const createGitLabProvider = () => createLegacyGitHostingProvider<GitLabS
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createBitbucketProvider = () => createLegacyGitHostingProvider<BitbucketSource>("bitbucket");
+export const createBitbucketProvider = () =>
+  createLegacyGitHostingProvider<BitbucketSource>("bitbucket");
 
 // -----------------------------------------------------------------------------
 // Concrete Providers (new — SourceHostProvider)

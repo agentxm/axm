@@ -20,6 +20,7 @@ import {
 import type { VersionEntry } from "../../registry/index.js";
 import { createRegistryProvider } from "../../sources/providers/registry.js";
 import { computeChecksum } from "../../utils/checksum.js";
+import { buildZipArchive } from "../../utils/build-zip-archive.js";
 import { makeCliError } from "../../cli-error/index.js";
 import type { OperationHandler } from "../../workspace/apply-plan.js";
 import type { OperationResult } from "../../workspace/plan.js";
@@ -27,43 +28,6 @@ import { Workspace } from "../../workspace/service.js";
 import type { PublishSkillOperation } from "./operations.js";
 import { REGISTRY_EXTENSIONS_DIR, MANIFEST_FILENAME } from "./constants.js";
 import { parseScopedName } from "./naming.js";
-
-/**
- * Build a zip archive of a directory.
- * Files are stored at the root of the zip (no enclosing directory).
- */
-const buildZipArchive = (dir: string) =>
-  Effect.tryPromise({
-    try: async () => {
-      const { execFileSync } = await import("node:child_process");
-      const { readFile, mkdtemp, rm } = await import("node:fs/promises");
-      const { tmpdir } = await import("node:os");
-      const p = await import("node:path");
-
-      const tmpDir = await mkdtemp(p.join(tmpdir(), "axm-publish-"));
-      const archivePath = p.join(tmpDir, "archive.zip");
-
-      // Create deterministic zip (strip extra attributes, normalize timestamps)
-      // -X strips extra file attributes, -D disables directory entries
-      // find + touch normalizes file timestamps for reproducible archives
-      execFileSync("find", [dir, "-exec", "touch", "-t", "202001010000.00", "{}", "+"]);
-      execFileSync("zip", ["-r", "-q", "-X", "-D", archivePath, "."], {
-        cwd: dir,
-        stdio: "pipe",
-      });
-
-      const bytes = await readFile(archivePath);
-      await rm(tmpDir, { recursive: true, force: true });
-
-      return new Uint8Array(bytes);
-    },
-    catch: (e) =>
-      makeCliError({
-        code: "PUBLISH_SKILL_ARCHIVE_FAILED",
-        what: "Failed to build zip archive",
-        cause: e,
-      }),
-  });
 
 // -----------------------------------------------------------------------------
 // Public API
@@ -88,7 +52,7 @@ export const publishSkill: OperationHandler<
     const ws = yield* Workspace;
     const base = path.dirname(ws.path);
 
-    const { scope, skillName } = parseScopedName(op.args.name);
+    const { scope, name: skillName } = parseScopedName(op.args.name);
 
     // Locate the managed extension directory
     const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "skills", skillName);
@@ -137,7 +101,7 @@ export const publishSkill: OperationHandler<
     );
 
     // Build zip archive from extension directory (includes manifest + src/)
-    const archive = yield* buildZipArchive(extensionDir);
+    const archive = yield* buildZipArchive(extensionDir, "PUBLISH_SKILL_ARCHIVE_FAILED");
 
     // Compute checksum
     const checksum = yield* computeChecksum(archive);

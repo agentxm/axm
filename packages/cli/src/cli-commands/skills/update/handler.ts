@@ -22,6 +22,7 @@ import { Workspace } from "../../../workspace/index.js";
 import { PackManifestSchema } from "../../../extensions/packs/manifest-schema.js";
 import { parseVersionConstraint } from "../../../version-constraints/index.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
+import { PACK_MANIFEST_FILENAME } from "../../packs/constants.js";
 import type { InstallSkillOperation, UninstallSkillOperation } from "../operations.js";
 import { toSkillExtensionRef } from "../operations.js";
 import { buildUpdatePlan } from "./build-plan.js";
@@ -339,8 +340,6 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
 // -----------------------------------------------------------------------------
 // Pack Constraint Collection
 // -----------------------------------------------------------------------------
-
-const PACK_MANIFEST_FILENAME = "axm-pack.json";
 
 /**
  * Read installed pack manifests and collect per-skill constraints.

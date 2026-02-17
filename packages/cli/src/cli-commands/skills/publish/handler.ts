@@ -78,7 +78,7 @@ export const handlePublish = (args: PublishHandlerArgs) =>
         );
 
     // Parse scope and skill name from the extension name
-    const { scope, skillName } = parseScopedName(extensionName);
+    const { scope, name: skillName } = parseScopedName(extensionName);
 
     // Step 3: Validate managed extension exists
     const handle = yield* spinnerSvc.start("Validating extension...");

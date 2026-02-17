@@ -38,16 +38,17 @@ import type { SkillExtensionRef } from "../../../sources/types.js";
  * Git-hosted and local refs carry `location` directly. Registry and builtin refs
  * do not — for those, `fetchedLocation` on the operation args must be used.
  */
-const getRefLocation = (ref: SkillExtensionRef, fetchedLocation: string | undefined): string => {
-  if ("location" in ref) {
-    return ref.location;
-  }
-  // Registry and builtin refs don't carry a location — require fetchedLocation
-  if (!fetchedLocation) {
-    throw new Error(`fetchedLocation required for ${ref.source.type} source (no location on ref)`);
-  }
-  return fetchedLocation;
-};
+const getRefLocation = (ref: SkillExtensionRef, fetchedLocation: string | undefined) =>
+  "location" in ref
+    ? Effect.succeed(ref.location)
+    : fetchedLocation !== undefined
+      ? Effect.succeed(fetchedLocation)
+      : Effect.fail(
+          makeCliError({
+            code: "INSTALL_SKILL_MISSING_LOCATION",
+            what: `fetchedLocation required for ${ref.source.type} source (no location on ref)`,
+          }),
+        );
 
 const installForAgent = (opts: {
   readonly agentId: string;
@@ -218,7 +219,7 @@ export const installSkill: OperationHandler<
     }
 
     // Resolve source path — the skill files to copy from
-    const locationUrl = getRefLocation(ref, op.args.fetchedLocation);
+    const locationUrl = yield* getRefLocation(ref, op.args.fetchedLocation);
     const sourcePath = locationUrl.replace(/^file:\/\//, "");
 
     // Skip pre-clean and copy when source is already the content location

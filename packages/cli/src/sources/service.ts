@@ -19,7 +19,12 @@ import type * as Scope from "effect/Scope";
 import type { CliError } from "../cli-error/index.js";
 import { makeCliError } from "../cli-error/index.js";
 import { Workspace } from "../workspace/service.js";
-import type { ExtensionFiles, ExtensionRef, FindOptions, LegacySourceProvider } from "./provider.js";
+import type {
+  ExtensionFiles,
+  ExtensionRef,
+  FindOptions,
+  LegacySourceProvider,
+} from "./provider.js";
 import type { SourceExtensionRef, NewSource } from "./types.js";
 import {
   createLegacyAzureReposProvider,

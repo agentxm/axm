@@ -1,3 +1,4 @@
+export { buildZipArchive } from "./build-zip-archive.js";
 export { computeChecksum } from "./checksum.js";
 export { isPathSafe } from "./path-safety.js";
 export { resolveParentSymlinks } from "./resolve-parent-symlinks.js";

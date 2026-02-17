@@ -30,6 +30,7 @@ import { installSkill } from "../../skills/install/install-skill.js";
 import { toSkillExtensionRef, type InstallSkillOperation } from "../../skills/operations.js";
 import { copySkillDirectory } from "../../skills/copy-skill-directory.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../skills/constants.js";
+import { PACK_MANIFEST_FILENAME } from "../constants.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -50,12 +51,6 @@ export interface InstallPackHandlerArgs {
   /** Disable all prompts */
   readonly nonInteractive: Option.Option<boolean>;
 }
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-const PACK_MANIFEST_FILENAME = "axm-pack.json";
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -326,7 +321,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
           agents,
           force: args.force,
           skipSettings: true,
-          fetchedLocation: fetched.directory,
+          fetchedLocation: `file://${fetched.directory}`,
         },
       }));
 

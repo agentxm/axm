@@ -32,7 +32,7 @@ const remoteNotSupported = () =>
  * @experimental This API is unstable and may change without notice.
  */
 export const createRemoteRegistryClient = (): RegistryClient => ({
-  getExtensions: () => remoteNotSupported(),
+  getExtensionsByScope: () => remoteNotSupported(),
   scopeExists: () => remoteNotSupported(),
   getExtensionPackage: () => remoteNotSupported(),
   publishExtension: () => remoteNotSupported(),

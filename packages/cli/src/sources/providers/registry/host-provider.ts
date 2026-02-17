@@ -17,7 +17,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import type {
   RegistryClient,
   RegistryExtensionVersionManifest,
-  GetExtensionsArgs,
+  GetExtensionsByScopeArgs,
 } from "../../../registry/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
@@ -31,9 +31,9 @@ import type { VersionEntry } from "../../../registry/index.js";
 // Type Mapping Helpers
 // -----------------------------------------------------------------------------
 
-/** Map FindOptions to GetExtensionsArgs (no pagination — fetch all). */
-const toSearchOptions = (options: FindOptions): GetExtensionsArgs => ({
-  scope: Option.none(),
+/** Map FindOptions + scope to GetExtensionsByScopeArgs (no pagination — fetch all). */
+const toSearchOptions = (scope: string, options: FindOptions): GetExtensionsByScopeArgs => ({
+  scope,
   names: options.names,
   types: options.type === "*" ? [] : [options.type as ExtensionType],
   limit: Option.none(),
@@ -129,9 +129,29 @@ export const createLocalRegistrySourceHostProvider = (
 
   find: (source, options) =>
     Effect.gen(function* () {
-      const searchOptions = toSearchOptions(options);
-      const result = yield* client.getExtensions(searchOptions);
-      return result.extensions.map((entry) => toSourceExtensionRef(entry, source));
+      const fsService = yield* FileSystem.FileSystem;
+      const pathService = yield* Path.Path;
+      const extensionsDir = pathService.join(source.location.pathname, "extensions");
+      const dirExists = yield* fsService
+        .exists(extensionsDir)
+        .pipe(Effect.orElseSucceed(() => false));
+      if (!dirExists) return [] as ReadonlyArray<SourceExtensionRef>;
+
+      const entries = yield* fsService
+        .readDirectory(extensionsDir)
+        .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
+      const scopes = entries.filter((d) => d.startsWith("@"));
+
+      const results = yield* Effect.forEach(
+        scopes,
+        (scope) =>
+          Effect.gen(function* () {
+            const result = yield* client.getExtensionsByScope(toSearchOptions(scope, options));
+            return result.extensions.map((entry) => toSourceExtensionRef(entry, source));
+          }),
+        { concurrency: "unbounded" },
+      );
+      return results.flat();
     }),
 
   fetch: (_source, ref) =>
@@ -212,8 +232,8 @@ export const createRemoteRegistrySourceHostProvider = (
 
   find: (source, options) =>
     Effect.gen(function* () {
-      const searchOptions = toSearchOptions(options);
-      const result = yield* client.getExtensions(searchOptions);
+      const searchOptions = toSearchOptions("*", options);
+      const result = yield* client.getExtensionsByScope(searchOptions);
       return result.extensions.map((entry) => toSourceExtensionRef(entry, source));
     }),
 

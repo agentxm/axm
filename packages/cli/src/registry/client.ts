@@ -24,15 +24,16 @@ import { createRemoteRegistryClient } from "./client-remote.js";
 // -----------------------------------------------------------------------------
 
 /**
- * Options for searching extensions in a registry.
+ * Options for searching extensions within a specific registry scope.
  *
+ * - `scope`: registry scope to search (e.g. `"@acme"`)
  * - `names`: extension names to match (empty = all)
  * - `types`: extension types to include (empty = all)
  * - `limit`: max results to return (default: all)
  * - `offset`: number of results to skip (default: 0)
  */
-export interface GetExtensionsArgs {
-  readonly scope: Option.Option<string>;
+export interface GetExtensionsByScopeArgs {
+  readonly scope: string;
   readonly names: ReadonlyArray<string>;
   readonly types: ReadonlyArray<ExtensionType>;
   readonly limit: Option.Option<number>;
@@ -193,8 +194,8 @@ export interface RegistryExtensionVersionManifest {
  * @experimental This API is unstable and may change without notice.
  */
 export interface RegistryClient {
-  readonly getExtensions: (
-    options: GetExtensionsArgs,
+  readonly getExtensionsByScope: (
+    options: GetExtensionsByScopeArgs,
   ) => Effect.Effect<GetExtensionsResponse, CliError>;
   readonly scopeExists: (scope: string) => Effect.Effect<ScopeExistsResponse, CliError>;
   readonly getExtensionPackage: (

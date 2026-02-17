@@ -75,7 +75,7 @@ const AzureReposSourceHostConfigSchema = Schema.Struct({
 const RegistrySourceHostConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   type: Schema.Literal("registry"),
-  url: Schema.URL,
+  location: Schema.URL,
 });
 
 /**

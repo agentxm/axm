@@ -35,7 +35,7 @@ export const registryGuard = Effect.gen(function* () {
     return yield* makeCliError({
       code: "REGISTRY_NOT_CONFIGURED",
       what: `No registry source configured`,
-      howToFix: `Add a registry source to .axm/settings.json:\n\n{\n  "sources": [\n    { "name": "local", "type": "registry", "url": "/path/to/registry" }\n  ]\n}`,
+      howToFix: `Add a registry source to .axm/settings.json:\n\n{\n  "sources": [\n    { "name": "local", "type": "registry", "location": "/path/to/registry" }\n  ]\n}`,
     });
   }
 
@@ -56,6 +56,6 @@ export const registryGuard = Effect.gen(function* () {
   yield* workspace.addConfiguredSource({
     name: "local",
     type: "registry",
-    url: new URL(`file://${normalizedPath}`),
+    location: new URL(`file://${normalizedPath}`),
   });
 });

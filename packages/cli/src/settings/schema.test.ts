@@ -16,6 +16,9 @@ import {
   SourceHostConfigSchema,
 } from "./schema.js";
 
+const getSourceLocation = (source: typeof SourceHostConfigSchema.Type): URL =>
+  source.type === "registry" ? source.location : source.url;
+
 describe("Settings schema", () => {
   describe("valid settings", () => {
     it("accepts empty settings", () => {
@@ -101,14 +104,14 @@ describe("Settings schema", () => {
 
         expect(result.name).toBe("github");
         expect(result.type).toBe("github");
-        expect(result.url).toEqual(new URL("https://github.com"));
+        expect(getSourceLocation(result)).toEqual(new URL("https://github.com"));
       });
 
       it("decodes url as URL object", () => {
         const input = { name: "github", type: "github", url: "https://github.com" };
         const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
-        expect(result.url).toBeInstanceOf(URL);
+        expect(getSourceLocation(result)).toBeInstanceOf(URL);
       });
 
       it("accepts github source with custom enterprise URL", () => {
@@ -121,7 +124,7 @@ describe("Settings schema", () => {
 
         expect(result.name).toBe("github.acme");
         expect(result.type).toBe("github");
-        expect(result.url).toEqual(new URL("https://github.acme.corp"));
+        expect(getSourceLocation(result)).toEqual(new URL("https://github.acme.corp"));
       });
     });
 
@@ -132,14 +135,14 @@ describe("Settings schema", () => {
 
         expect(result.name).toBe("gitlab");
         expect(result.type).toBe("gitlab");
-        expect(result.url).toEqual(new URL("https://gitlab.com"));
+        expect(getSourceLocation(result)).toEqual(new URL("https://gitlab.com"));
       });
 
       it("decodes url as URL object", () => {
         const input = { name: "gitlab", type: "gitlab", url: "https://gitlab.com" };
         const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
-        expect(result.url).toBeInstanceOf(URL);
+        expect(getSourceLocation(result)).toBeInstanceOf(URL);
       });
     });
 
@@ -150,7 +153,7 @@ describe("Settings schema", () => {
 
         expect(result.name).toBe("bitbucket");
         expect(result.type).toBe("bitbucket");
-        expect(result.url).toEqual(new URL("https://bitbucket.org"));
+        expect(getSourceLocation(result)).toEqual(new URL("https://bitbucket.org"));
       });
     });
 
@@ -161,40 +164,40 @@ describe("Settings schema", () => {
 
         expect(result.name).toBe("azurerepos");
         expect(result.type).toBe("azurerepos");
-        expect(result.url).toEqual(new URL("https://dev.azure.com"));
+        expect(getSourceLocation(result)).toEqual(new URL("https://dev.azure.com"));
       });
     });
 
     describe("registry variant", () => {
-      it("accepts registry source with url", () => {
+      it("accepts registry source with location", () => {
         const input = {
           name: "main-registry",
           type: "registry",
-          url: "https://registry.agentskills.io",
+          location: "https://registry.agentskills.io",
         };
         const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
         expect(result.name).toBe("main-registry");
         expect(result.type).toBe("registry");
-        expect(result.url).toEqual(new URL("https://registry.agentskills.io"));
+        expect(getSourceLocation(result)).toEqual(new URL("https://registry.agentskills.io"));
       });
 
-      it("decodes url as URL object", () => {
+      it("decodes location as URL object", () => {
         const input = {
           name: "main-registry",
           type: "registry",
-          url: "https://registry.agentskills.io",
+          location: "https://registry.agentskills.io",
         };
         const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
-        expect(result.url).toBeInstanceOf(URL);
+        expect(getSourceLocation(result)).toBeInstanceOf(URL);
       });
 
       it("encodes registry source without scopes", () => {
         const input = {
           name: "public",
           type: "registry",
-          url: "https://registry.example.com",
+          location: "https://registry.example.com",
         };
         const decoded = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
         const encoded = Schema.encodeSync(SourceHostConfigSchema)(decoded);
@@ -202,7 +205,7 @@ describe("Settings schema", () => {
         expect(encoded).toEqual({
           name: "public",
           type: "registry",
-          url: "https://registry.example.com/",
+          location: "https://registry.example.com/",
         });
       });
 
@@ -210,13 +213,13 @@ describe("Settings schema", () => {
         const input = {
           name: "local",
           type: "registry",
-          url: "file:///usr/local/axm/registry",
+          location: "file:///usr/local/axm/registry",
         };
         const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
         expect(result.name).toBe("local");
         expect(result.type).toBe("registry");
-        expect(result.url).toEqual(new URL("file:///usr/local/axm/registry"));
+        expect(getSourceLocation(result)).toEqual(new URL("file:///usr/local/axm/registry"));
       });
     });
 
@@ -239,7 +242,7 @@ describe("Settings schema", () => {
         const input = {
           name: "corp-registry",
           type: "registry",
-          url: "https://registry.corp.com",
+            location: "https://registry.corp.com",
         };
         const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
@@ -339,11 +342,11 @@ describe("Settings schema", () => {
       const input = {
         sources: [
           {
-            name: "main-registry",
-            type: "registry",
-            url: "https://registry.agentskills.io",
-          },
-        ],
+              name: "main-registry",
+              type: "registry",
+              location: "https://registry.agentskills.io",
+            },
+          ],
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
@@ -351,7 +354,9 @@ describe("Settings schema", () => {
       const source = result.sources?.[0];
       expect(source?.name).toBe("main-registry");
       expect(source?.type).toBe("registry");
-      expect(source?.url).toEqual(new URL("https://registry.agentskills.io"));
+      if (source) {
+        expect(getSourceLocation(source)).toEqual(new URL("https://registry.agentskills.io"));
+      }
     });
 
     it("accepts sources array with mixed source types", () => {
@@ -361,7 +366,7 @@ describe("Settings schema", () => {
           {
             name: "corp-registry",
             type: "registry",
-            url: "https://registry.acme.corp",
+            location: "https://registry.acme.corp",
           },
         ],
       };
@@ -733,12 +738,12 @@ describe("Settings schema", () => {
           {
             name: "local-registry",
             type: "registry",
-            url: "file:///tmp/.axm/registry",
+            location: "file:///tmp/.axm/registry",
           },
           {
             name: "corp-registry",
             type: "registry",
-            url: "https://registry.wayne.com",
+            location: "https://registry.wayne.com",
           },
         ],
         agents: ["claude-code", "cursor", "windsurf"],

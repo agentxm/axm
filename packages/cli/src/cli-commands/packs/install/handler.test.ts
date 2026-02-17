@@ -191,7 +191,7 @@ describe("packs install handler", () => {
           {
             name: "default",
             type: "registry",
-            url: "https://registry.example.com",
+            location: "https://registry.example.com",
           },
         ],
         lockfilePacks: {
@@ -382,7 +382,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", url: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
       });
 
       const { provide, mockLog } = makeLayersWithMockSources(mockService);
@@ -466,7 +466,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", url: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
         lockfileSkills: {
           "my-skill": {
             type: "registry",
@@ -561,7 +561,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", url: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
       });
 
       // Non-preview mode so the plan is actually applied
@@ -633,7 +633,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", url: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
       });
 
       // Non-preview mode so the plan is actually applied
@@ -717,7 +717,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", url: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
       });
 
       const { provide } = makeLayersWithMockSources(mockService);
@@ -803,7 +803,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", url: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
       });
 
       const { provide } = makeLayersWithMockSources(mockService);
@@ -866,7 +866,7 @@ describe("packs install handler", () => {
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", url: "file:///tmp/reg" }],
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
       });
 
       const { provide } = makeLayersWithMockSources(mockService);

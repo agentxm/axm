@@ -17,8 +17,6 @@ import * as Option from "effect/Option";
 import { makeCliError } from "../cli-error/index.js";
 import type { RegistryExtensionType, VersionEntry } from "./schema.js";
 
-export { computeChecksum } from "../utils/checksum.js";
-
 // -----------------------------------------------------------------------------
 // Version Selection
 // -----------------------------------------------------------------------------

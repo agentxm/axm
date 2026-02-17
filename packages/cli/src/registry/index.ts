@@ -22,10 +22,4 @@ export {
 
 // Utilities
 export type { VersionSelectOptions } from "./utils.js";
-export {
-  computeChecksum,
-  extensionDir,
-  extractZip,
-  pluralizeType,
-  selectVersion,
-} from "./utils.js";
+export { extensionDir, extractZip, pluralizeType, selectVersion } from "./utils.js";

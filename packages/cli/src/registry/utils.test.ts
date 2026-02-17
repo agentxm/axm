@@ -9,7 +9,8 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 
 import type { VersionEntry } from "./schema.js";
-import { computeChecksum, extensionDir, pluralizeType, selectVersion } from "./utils.js";
+import { computeChecksum } from "../utils/checksum.js";
+import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
 
 // -----------------------------------------------------------------------------
 // Helpers

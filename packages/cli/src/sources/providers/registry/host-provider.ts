@@ -19,7 +19,8 @@ import type {
   RegistryExtensionEntry,
   RegistrySearchOptions,
 } from "../../../registry/index.js";
-import { computeChecksum, createRegistryClient, extractZip } from "../../../registry/index.js";
+import { createRegistryClient, extractZip } from "../../../registry/index.js";
+import { computeChecksum } from "../../../utils/checksum.js";
 import type { RegistryExtensionType } from "../../../registry/index.js";
 import type { ExtensionFiles, FindOptions, PublishableSourceHostProvider } from "../../provider.js";
 import type { RegistrySource, RegistrySourceHost, SourceExtensionRef } from "../../types.js";

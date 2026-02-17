@@ -39,6 +39,8 @@ export type InstallSkillOperationArgs = {
   readonly ref: SkillExtensionRef;
   readonly agents: ReadonlyArray<string>;
   readonly force: boolean;
+  /** Version constraint from the original input when available. */
+  readonly versionConstraint?: Option.Option<string>;
   /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
   readonly skipSettings?: boolean;
   /** Pre-fetched file location (required for registry sources where ref has no location). */

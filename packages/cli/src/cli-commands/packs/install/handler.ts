@@ -111,6 +111,10 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
       Option.isSome(parsedPattern) && parsedPattern.value.pattern === "registry-pattern-input"
         ? Option.getOrNull(parsedPattern.value.name)
         : null;
+    const packVersionConstraint =
+      Option.isSome(parsedPattern) && parsedPattern.value.pattern === "registry-pattern-input"
+        ? parsedPattern.value.versionConstraint
+        : Option.none<string>();
     if (packName === null) {
       return yield* makeCliError({
         code: "PACK_SOURCE_MISSING_NAME",
@@ -333,7 +337,14 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
             ),
           );
 
-          return { ref: skillRef, fetched: fetchedSkill };
+          return {
+            ref: skillRef,
+            fetched: fetchedSkill,
+            versionConstraint:
+              Option.isSome(parsedSkill) && parsedSkill.value.pattern === "registry-pattern-input"
+                ? parsedSkill.value.versionConstraint
+                : Option.none<string>(),
+          };
         }),
       { concurrency: "unbounded" },
     );
@@ -342,7 +353,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     // Pack dependencies skip settings writes — they only appear in the lockfile
     const agents = yield* ws.getConfiguredAgents();
     const skillInstallOps: ReadonlyArray<InstallSkillOperation> = skillOps.flatMap(
-      ({ ref, fetched }) =>
+      ({ ref, fetched, versionConstraint }) =>
         ref.type !== "skill"
           ? []
           : [
@@ -352,6 +363,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
                   ref,
                   agents,
                   force: args.force,
+                  versionConstraint,
                   skipSettings: true,
                   fetchedLocation: `file://${fetched.directory}`,
                 },
@@ -371,7 +383,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
         resolvedSkills,
         resolvedCommands,
         resolvedMcpServers,
-        versionConstraint: source.versionConstraint,
+        versionConstraint: packVersionConstraint,
       },
     };
 

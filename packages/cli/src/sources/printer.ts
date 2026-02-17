@@ -35,10 +35,7 @@ export const printSourceParams = (source: SourceParams): string => {
       return source.url.href;
     case "registry": {
       const primaryType = source.extensionTypes[0] ?? "skills";
-      const base = `${source.scope}/${primaryType}`;
-      return Option.isSome(source.versionConstraint)
-        ? `${base}@${source.versionConstraint.value}`
-        : base;
+      return `${source.scope}/${primaryType}`;
     }
     case "builtin":
       return "builtin";
@@ -99,7 +96,6 @@ export const lockEntryToSourceParams = (entry: SkillLockEntry): SourceParams => 
         type: "registry",
         scope: entry.scope,
         extensionTypes: ["skills"],
-        versionConstraint: Option.none(),
       };
     case "builtin":
       return { type: "builtin" };

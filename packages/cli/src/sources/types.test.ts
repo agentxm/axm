@@ -191,7 +191,6 @@ describe("SourceParams", () => {
       type: "registry",
       scope: "@acme",
       extensionTypes: ["skills"],
-      versionConstraint: Option.some("^1.0.0"),
     };
     if (params.type === "registry") {
       expect(params.scope).toBe("@acme");
@@ -239,7 +238,6 @@ describe("Source", () => {
       location: new URL("file:///registry"),
       scope: "@acme",
       extensionTypes: ["skills"],
-      versionConstraint: Option.none(),
     };
     if (source.type === "registry") {
       expect(source.location.protocol).toBe("file:");
@@ -395,7 +393,6 @@ describe("SkillExtensionRef", () => {
         location: new URL("file:///reg"),
         scope: "@acme",
         extensionTypes: ["skills"],
-        versionConstraint: Option.none(),
       },
       version: "1.0.0",
       checksum: "sha256:abc",
@@ -459,7 +456,6 @@ describe("McpServerExtensionRef", () => {
         location: new URL("file:///reg"),
         scope: "@acme",
         extensionTypes: ["skills"],
-        versionConstraint: Option.none(),
       },
       version: "2.0.0",
       checksum: "sha256:def",
@@ -482,7 +478,6 @@ describe("PackExtensionRef", () => {
         location: new URL("file:///reg"),
         scope: "@acme",
         extensionTypes: ["skills"],
-        versionConstraint: Option.none(),
       },
       version: "1.0.0",
       checksum: "sha256:ghi",
@@ -646,13 +641,11 @@ describe("SourceParams structural equality via Data.struct", () => {
       type: "registry",
       scope: "@acme",
       extensionTypes: ["skills"],
-      versionConstraint: Option.none(),
     };
     const b: SourceParams = {
       type: "registry",
       scope: "@acme",
       extensionTypes: ["skills"],
-      versionConstraint: Option.none(),
     };
     expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(false);
   });

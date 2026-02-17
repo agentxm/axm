@@ -89,7 +89,6 @@ describe("LocalRegistrySourceProvider.find", () => {
             type: "registry",
             scope: "@test",
             extensionTypes: ["skills"],
-            versionConstraint: Option.none(),
           },
           defaultFindOptions,
         );
@@ -116,7 +115,6 @@ describe("LocalRegistrySourceProvider.find", () => {
             type: "registry",
             scope: "@test",
             extensionTypes: ["skills"],
-            versionConstraint: Option.none(),
           },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
@@ -155,7 +153,6 @@ describe("LocalRegistrySourceProvider.find", () => {
             type: "registry",
             scope: "@test",
             extensionTypes: ["skills"],
-            versionConstraint: Option.none(),
           },
           { ...defaultFindOptions, names: ["my-skill"], agents: ["cursor"] },
         );
@@ -166,7 +163,6 @@ describe("LocalRegistrySourceProvider.find", () => {
             type: "registry",
             scope: "@test",
             extensionTypes: ["skills"],
-            versionConstraint: Option.none(),
           },
           { ...defaultFindOptions, names: ["my-skill"], agents: ["claude-code"] },
         );
@@ -198,7 +194,6 @@ describe("LocalRegistrySourceProvider.find", () => {
             type: "registry",
             scope: "@test",
             extensionTypes: ["skills"],
-            versionConstraint: Option.none(),
           },
           { ...defaultFindOptions, names: ["nonexistent"] },
         );
@@ -230,7 +225,6 @@ describe("LocalRegistrySourceProvider.find", () => {
             type: "registry",
             scope: "@test",
             extensionTypes: ["skills"],
-            versionConstraint: Option.none(),
           },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
@@ -271,7 +265,6 @@ describe("LocalRegistrySourceProvider.fetch", () => {
             type: "registry",
             scope: "@test",
             extensionTypes: ["skills"],
-            versionConstraint: Option.none(),
           },
           {
             type: "skill",
@@ -280,7 +273,6 @@ describe("LocalRegistrySourceProvider.fetch", () => {
               type: "registry",
               scope: "@test",
               extensionTypes: ["skills"],
-              versionConstraint: Option.none(),
             },
             version: "1.0.0",
             checksum: "",
@@ -321,7 +313,6 @@ describe("LocalRegistrySourceProvider.fetch", () => {
               type: "registry",
               scope: "@test",
               extensionTypes: ["skills"],
-              versionConstraint: Option.none(),
             },
             {
               type: "skill",
@@ -330,7 +321,6 @@ describe("LocalRegistrySourceProvider.fetch", () => {
                 type: "registry",
                 scope: "@test",
                 extensionTypes: ["skills"],
-                versionConstraint: Option.none(),
               },
               version: "1.0.0",
               checksum: "",
@@ -490,7 +480,6 @@ describe("RemoteRegistrySourceProvider", () => {
               type: "registry",
               scope: "@test",
               extensionTypes: ["skills"],
-              versionConstraint: Option.none(),
             },
             defaultFindOptions,
           )
@@ -512,7 +501,6 @@ describe("RemoteRegistrySourceProvider", () => {
               type: "registry",
               scope: "@test",
               extensionTypes: ["skills"],
-              versionConstraint: Option.none(),
             },
             {
               type: "skill",
@@ -521,7 +509,6 @@ describe("RemoteRegistrySourceProvider", () => {
                 type: "registry",
                 scope: "@test",
                 extensionTypes: ["skills"],
-                versionConstraint: Option.none(),
               },
               version: "1.0.0",
               checksum: "",
@@ -588,7 +575,6 @@ describe("createRegistryProvider", () => {
               type: "registry",
               scope: "@test",
               extensionTypes: ["skills"],
-              versionConstraint: Option.none(),
             },
             defaultFindOptions,
           )

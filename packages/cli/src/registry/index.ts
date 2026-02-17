@@ -23,5 +23,4 @@ export { createLocalRegistryClient } from "./local-client.js";
 export { createRemoteRegistryClient } from "./client-remote.js";
 
 // Utilities
-export type { VersionSelectOptions } from "./utils.js";
 export { extensionDir, extractZip, pluralizeType, selectVersion } from "./utils.js";

@@ -52,7 +52,6 @@ const testSource: RegistrySource = {
 
 const defaultFindOptions: FindOptions = {
   names: [],
-  agents: [],
   type: "skill",
 };
 
@@ -146,7 +145,6 @@ describe("LocalRegistrySourceHostProvider.find", () => {
       Effect.gen(function* () {
         const findOptions: FindOptions = {
           names: ["my-skill"],
-          agents: ["claude-code"],
           type: "skill",
         };
         const refs = yield* provider.find(testSource, findOptions);
@@ -154,7 +152,6 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         // Verify search options were mapped correctly
         expect(capturedOptions).toEqual({
           names: ["my-skill"],
-          agents: ["claude-code"],
           type: "skill",
         });
 

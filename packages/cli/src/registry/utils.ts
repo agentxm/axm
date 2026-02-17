@@ -23,33 +23,15 @@ import type { VersionEntry } from "./local-schema.js";
 // -----------------------------------------------------------------------------
 
 /**
- * Options for version selection — agent compatibility filter.
- */
-export interface VersionSelectOptions {
-  readonly agents: ReadonlyArray<string>;
-}
-
-/**
  * Select the best matching version from a list of versions.
  *
- * Iterates versions (newest first), checking agent compatibility.
- * Returns the first matching version.
+ * Returns the first version (newest first).
  */
 export const selectVersion = (
   versions: ReadonlyArray<VersionEntry>,
-  options: VersionSelectOptions,
 ): Option.Option<VersionEntry> => {
-  for (const version of versions) {
-    // Agent filter: if both options.agents and version.agents are non-empty,
-    // require at least one intersection. Empty version.agents = universal (all agents).
-    if (options.agents.length > 0 && version.agents.length > 0) {
-      const agentSet = new Set(version.agents);
-      const hasMatch = options.agents.some((a) => agentSet.has(a));
-      if (!hasMatch) continue;
-    }
-    return Option.some(version);
-  }
-  return Option.none();
+  if (versions.length === 0) return Option.none();
+  return Option.some(versions[0]!);
 };
 
 // -----------------------------------------------------------------------------

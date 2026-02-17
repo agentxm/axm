@@ -43,7 +43,6 @@ const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
 
 const defaultSearchOptions: GetExtensionsArgs = {
   names: [],
-  agents: [],
   type: "skill",
 };
 
@@ -95,41 +94,6 @@ describe("LocalRegistryClient.getExtensions", () => {
       expect(entries[0]!.name).toBe("my-skill");
       expect(entries[0]!.version).toBe("1.0.0");
       expect(entries[0]!.scope).toBe("@test");
-    }).pipe(
-      Effect.ensuring(
-        Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
-      ),
-      Effect.provide(NodeContext.layer),
-    );
-  });
-
-  it.effect("filters by agent compatibility", () => {
-    const registryRoot = makeRegistryDir();
-    const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
-
-    return Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      yield* fs.makeDirectory(skillDir, { recursive: true });
-      yield* fs.writeFileString(
-        nodePath.join(skillDir, "index.json"),
-        JSON.stringify(makeIndex({ versions: [makeVersionEntry({ agents: ["cursor"] })] })),
-      );
-
-      const client = createLocalRegistryClient(registryRoot);
-
-      const found = yield* client.getExtensions({
-        ...defaultSearchOptions,
-        names: ["my-skill"],
-        agents: ["cursor"],
-      });
-      expect(found).toHaveLength(1);
-
-      const notFound = yield* client.getExtensions({
-        ...defaultSearchOptions,
-        names: ["my-skill"],
-        agents: ["claude-code"],
-      });
-      expect(notFound).toHaveLength(0);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),

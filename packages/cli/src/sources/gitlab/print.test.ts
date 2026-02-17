@@ -2,16 +2,16 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { GitLabSourceInputLegacy } from "../types.js";
+import type { GitLabSourceParams } from "../types.js";
 import { print } from "./print.js";
 import { parseShorthand } from "./shorthand.js";
 
 const makeSource = (
-  overrides: Partial<Pick<GitLabSourceInputLegacy, "owner" | "repo">> & {
+  overrides: Partial<Pick<GitLabSourceParams, "owner" | "repo">> & {
     ref?: string;
     subPath?: string;
   } = {},
-): GitLabSourceInputLegacy => ({
+): GitLabSourceParams => ({
   type: "gitlab",
   owner: overrides.owner ?? "acme",
   repo: overrides.repo ?? "widgets",

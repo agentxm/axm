@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { makeCliError } from "../../cli-error/index.js";
-import type { AzureReposSourceInputLegacy } from "../types.js";
+import type { AzureReposSourceParams } from "../types.js";
 
 const CANONICAL_SSH_HOSTNAME = "ssh.dev.azure.com";
 
@@ -27,5 +27,5 @@ export const parseScp = (input: string, hostname: string = CANONICAL_SSH_HOSTNAM
     repo: match[4],
     ref: Option.none(),
     subPath: Option.none(),
-  } satisfies AzureReposSourceInputLegacy);
+  } satisfies AzureReposSourceParams);
 };

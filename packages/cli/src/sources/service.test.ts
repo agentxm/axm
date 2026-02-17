@@ -181,6 +181,8 @@ describe("registry meta-provider scope routing", () => {
             scope: "@test",
             name: "my-skill",
             versionConstraint: Option.none(),
+            url: new URL(`file://${registryRoot}`),
+            scopes: Option.none(),
           },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
@@ -199,7 +201,14 @@ describe("registry meta-provider scope routing", () => {
       Effect.gen(function* () {
         const svc = yield* SourceHostProviders;
         const refs = yield* svc.find(
-          { type: "registry", scope: "@test", name: "my-skill", versionConstraint: Option.none() },
+          {
+            type: "registry",
+            scope: "@test",
+            name: "my-skill",
+            versionConstraint: Option.none(),
+            url: new URL("file:///tmp/registry"),
+            scopes: Option.none(),
+          },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
         expect(refs).toHaveLength(0);
@@ -261,7 +270,6 @@ describe("SourceHostProviders dispatch", () => {
               repo: "repo",
               ref: Option.none(),
               subPath: Option.none(),
-              name: "test",
               url: new URL("https://dev.azure.com/org/proj/_git/repo"),
             },
             defaultFindOptions,
@@ -292,6 +300,8 @@ describe("SourceHostProviders dispatch", () => {
             scope: "@test",
             name: "nonexistent",
             versionConstraint: Option.none(),
+            url: new URL(`file://${registryRoot}`),
+            scopes: Option.none(),
           },
           { ...defaultFindOptions, names: ["nonexistent"] },
         );

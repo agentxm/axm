@@ -1,3 +1,3 @@
-import type { LocalSourceInputLegacy } from "../types.js";
+import type { LocalSourceParams } from "../types.js";
 
-export const print = (source: LocalSourceInputLegacy) => source.path;
+export const print = (source: LocalSourceParams) => source.path;

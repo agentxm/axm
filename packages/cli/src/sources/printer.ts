@@ -12,14 +12,14 @@ import { print as bitbucketPrint } from "./bitbucket/index.js";
 import { print as githubPrint } from "./github/index.js";
 import { print as gitlabPrint } from "./gitlab/index.js";
 import { print as localPrint } from "./local/index.js";
-import type { SourceInputLegacy, SourceParams } from "./types.js";
+import type { SourceParams } from "./types.js";
 
 /**
  * Print a source input as its canonical shorthand string.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const printSourceInput = (source: SourceInputLegacy | SourceParams): string => {
+export const printSourceInput = (source: SourceParams): string => {
   switch (source.type) {
     case "github":
       return githubPrint(source);

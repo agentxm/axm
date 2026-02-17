@@ -62,7 +62,6 @@ describe("resolveSource", () => {
         if (result.type === "github") {
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
-          expect(result.name).toBe("github");
           expect(result.url).toEqual(new URL("https://github.com"));
           expect(result.ref).toEqual(Option.none());
           expect(result.subPath).toEqual(Option.none());
@@ -79,7 +78,6 @@ describe("resolveSource", () => {
           expect(result.repo).toBe("repo");
           expect(result.subPath).toEqual(Option.some("skills/my-skill"));
           expect(result.ref).toEqual(Option.some("v1.0.0"));
-          expect(result.name).toBe("github");
           expect(result.url).toEqual(new URL("https://github.com"));
         }
       }),
@@ -94,7 +92,6 @@ describe("resolveSource", () => {
         if (result.type === "gitlab") {
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
-          expect(result.name).toBe("gitlab");
           expect(result.url).toEqual(new URL("https://gitlab.com"));
         }
       }),
@@ -109,7 +106,6 @@ describe("resolveSource", () => {
         if (result.type === "bitbucket") {
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
-          expect(result.name).toBe("bitbucket");
           expect(result.url).toEqual(new URL("https://bitbucket.org"));
         }
       }),
@@ -154,33 +150,36 @@ describe("resolveSource", () => {
         expect(result.type).toBe("registry");
         if (result.type === "registry") {
           expect(result.scope).toBe("@scope");
-          expect(result.name).toBe("name");
-          // Host config fields present at runtime (url, scopes from matched RegistrySourceHostConfig)
-          const r = result as Record<string, unknown>;
-          expect(r["url"]).toEqual(new URL("https://registry.example.com"));
-          expect(r["scopes"]).toEqual(Option.none());
+          expect(result.url).toEqual(new URL("https://registry.example.com"));
+          expect(result.scopes).toEqual(Option.none());
         }
       }),
     );
 
-    it.effect("resolves @scope/name without registry config (backward compat)", () =>
+    it.effect("fails @scope/name without registry config", () =>
       Effect.gen(function* () {
-        const result = yield* resolve("@scope/name");
-        expect(result.type).toBe("registry");
-        if (result.type === "registry") {
-          expect(result.scope).toBe("@scope");
-          expect(result.name).toBe("name");
-        }
+        const error = yield* Effect.flip(resolve("@scope/name"));
+        expect(error).toBeInstanceOf(CliError);
+        expect(error.what).toContain("No registry source configured");
       }),
     );
 
     it.effect("resolves @acme/my-skill to registry source", () =>
       Effect.gen(function* () {
-        const result = yield* resolve("@acme/my-skill");
+        const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
+          name: "default",
+          type: "registry",
+          url: new URL("https://registry.example.com"),
+          scopes: Option.none(),
+        };
+        const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
+        const result = yield* resolveSource("@acme/my-skill").pipe(
+          Effect.provide(makeWorkspaceLayer(sources, {}, [registryConfig])),
+        );
         expect(result.type).toBe("registry");
         if (result.type === "registry") {
           expect(result.scope).toBe("@acme");
-          expect(result.name).toBe("my-skill");
+          expect(result.url).toEqual(new URL("https://registry.example.com"));
         }
       }),
     );
@@ -200,11 +199,8 @@ describe("resolveSource", () => {
         expect(result.type).toBe("registry");
         if (result.type === "registry") {
           expect(result.scope).toBe("@acme");
-          expect(result.name).toBe("my-skill");
-          // Host config fields present at runtime (url, scopes from matched RegistrySourceHostConfig)
-          const r = result as Record<string, unknown>;
-          expect(r["url"]).toEqual(new URL("https://acme-registry.example.com"));
-          expect(r["scopes"]).toEqual(Option.some(["@acme"]));
+          expect(result.url).toEqual(new URL("https://acme-registry.example.com"));
+          expect(result.scopes).toEqual(Option.some(["@acme"]));
         }
       }),
     );
@@ -232,7 +228,6 @@ describe("resolveSource", () => {
         );
         expect(result.type).toBe("github");
         if (result.type === "github") {
-          expect(result.name).toBe("my-github");
           expect(result.url).toEqual(new URL("https://github.example.com"));
         }
       }),
@@ -272,7 +267,6 @@ describe("resolveSource", () => {
         );
         expect(result.type).toBe("github");
         if (result.type === "github") {
-          expect(result.name).toBe("ghe");
           expect(result.url).toEqual(new URL("https://github.example.com"));
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
@@ -287,7 +281,6 @@ describe("resolveSource", () => {
         );
         expect(result.type).toBe("github");
         if (result.type === "github") {
-          expect(result.name).toBe("github");
           expect(result.url).toEqual(new URL("https://github.com"));
         }
       }),
@@ -300,7 +293,6 @@ describe("resolveSource", () => {
         );
         expect(result.type).toBe("github");
         if (result.type === "github") {
-          expect(result.name).toBe("github");
           expect(result.url).toEqual(new URL("https://github.com"));
         }
       }),
@@ -314,7 +306,6 @@ describe("resolveSource", () => {
         expect(result.type).toBe("github");
         if (result.type === "github") {
           // Shorthand takes first config of that type
-          expect(result.name).toBe("github");
           expect(result.url).toEqual(new URL("https://github.com"));
         }
       }),
@@ -348,7 +339,6 @@ describe("resolveSource", () => {
         // GitHub parser fails (GitLab URL structure), GitLab parser succeeds
         expect(result.type).toBe("gitlab");
         if (result.type === "gitlab") {
-          expect(result.name).toBe("gl-corp");
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
           expect(result.ref).toEqual(Option.some("main"));
@@ -367,7 +357,6 @@ describe("resolveSource", () => {
         );
         expect(result.type).toBe("github");
         if (result.type === "github") {
-          expect(result.name).toBe("ghe");
           expect(result.url).toEqual(new URL("https://ghe.corp.com"));
           expect(result.owner).toBe("team");
           expect(result.repo).toBe("repo");
@@ -398,9 +387,6 @@ describe("resolveSource", () => {
           Effect.provide(makeWorkspaceLayer(sources)),
         );
         expect(result.type).toBe("github");
-        if (result.type === "github") {
-          expect(result.name).toBe("my-github");
-        }
       }),
     );
   });
@@ -421,7 +407,6 @@ describe("resolveSource", () => {
         );
         expect(result.type).toBe("github");
         if (result.type === "github") {
-          expect(result.name).toBe("ghe");
           expect(result.url).toEqual(new URL("https://github.example.com"));
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
@@ -440,7 +425,6 @@ describe("resolveSource", () => {
         );
         expect(result.type).toBe("github");
         if (result.type === "github") {
-          expect(result.name).toBe("ghe");
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
           expect(result.subPath).toEqual(Option.some("skills/my-skill"));
@@ -460,7 +444,6 @@ describe("resolveSource", () => {
         );
         expect(result.type).toBe("github");
         if (result.type === "github") {
-          expect(result.name).toBe("github");
           expect(result.url).toEqual(new URL("https://github.com"));
         }
       }),
@@ -484,7 +467,6 @@ describe("resolveSource", () => {
         );
         expect(result.type).toBe("gitlab");
         if (result.type === "gitlab") {
-          expect(result.name).toBe("gl-corp");
           expect(result.url).toEqual(new URL("https://gitlab.corp.com"));
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
@@ -503,7 +485,6 @@ describe("resolveSource", () => {
         );
         expect(result.type).toBe("bitbucket");
         if (result.type === "bitbucket") {
-          expect(result.name).toBe("bb-corp");
           expect(result.url).toEqual(new URL("https://bitbucket.corp.com"));
           expect(result.owner).toBe("owner");
           expect(result.repo).toBe("repo");
@@ -522,7 +503,6 @@ describe("resolveSource", () => {
         );
         expect(result.type).toBe("github");
         if (result.type === "github") {
-          expect(result.name).toBe("ghe1");
           expect(result.url).toEqual(new URL("https://github.acme.com"));
         }
       }),
@@ -547,7 +527,6 @@ describe("resolveSource", () => {
           expect(result.organization).toBe("myorg");
           expect(result.project).toBe("myproject");
           expect(result.repo).toBe("myrepo");
-          expect(result.name).toBe("azure");
           expect(result.url).toEqual(new URL("https://dev.azure.com"));
         }
       }),

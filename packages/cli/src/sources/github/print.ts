@@ -1,8 +1,8 @@
 import * as Option from "effect/Option";
 
-import type { GitHubSourceInputLegacy } from "../types.js";
+import type { GitHubSourceParams } from "../types.js";
 
-export const print = (source: GitHubSourceInputLegacy) => {
+export const print = (source: GitHubSourceParams) => {
   let s = `github:${source.owner}/${source.repo}`;
   if (Option.isSome(source.subPath)) s += `/${source.subPath.value}`;
   if (Option.isSome(source.ref)) s += `@${source.ref.value}`;

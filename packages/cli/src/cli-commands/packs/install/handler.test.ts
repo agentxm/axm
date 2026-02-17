@@ -187,6 +187,13 @@ describe("packs install handler", () => {
     it.effect("skips when pack already installed and no --force", () => {
       const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [
+          {
+            name: "default",
+            type: "registry",
+            url: "https://registry.example.com",
+          },
+        ],
         lockfilePacks: {
           "my-pack": {
             type: "registry",
@@ -229,10 +236,10 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          // Fails at registry guard since no registry is configured in non-interactive mode
+          // Fails during source parsing since no registry source is configured.
           const error = yield* handleInstallPack(defaultArgs("@acme/test-pack")).pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
-          expect((error as CliError).code).toBe("REGISTRY_NOT_CONFIGURED");
+          expect((error as CliError).code).toBe("INVALID_SOURCE");
         }),
       );
     });

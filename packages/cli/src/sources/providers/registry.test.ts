@@ -1,8 +1,8 @@
 /**
  * Tests for registry source providers.
  *
- * Tests LocalRegistrySourceProvider (find, fetch, fetchIndex, fetchArchive,
- * publishVersion, extensionExists), RemoteRegistrySourceProvider stub,
+ * Tests LocalRegistrySourceProvider (find, fetch, fetchIndex, getExtension,
+ * publishExtension, extensionExists), RemoteRegistrySourceProvider stub,
  * and createRegistryProvider factory.
  */
 
@@ -341,10 +341,10 @@ describe("LocalRegistrySourceProvider.fetch", () => {
 });
 
 // -----------------------------------------------------------------------------
-// LocalRegistrySourceProvider.publishVersion
+// LocalRegistrySourceProvider.publishExtension
 // -----------------------------------------------------------------------------
 
-describe("LocalRegistrySourceProvider.publishVersion", () => {
+describe("LocalRegistrySourceProvider.publishExtension", () => {
   it("creates new index and writes archive", () => {
     const registryRoot = makeRegistryDir();
     const archive = createTestZip("SKILL.md", "content");
@@ -355,7 +355,7 @@ describe("LocalRegistrySourceProvider.publishVersion", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const provider = createLocalRegistryProvider(registryRoot);
-        yield* provider.publishVersion("@test", "skill", "my-skill", "1.0.0", archive, entry);
+        yield* provider.publishExtension("@test", "skill", "my-skill", "1.0.0", archive, entry);
 
         const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
         const indexContent = yield* fs.readFileString(nodePath.join(skillDir, "index.json"));
@@ -398,7 +398,7 @@ describe("LocalRegistrySourceProvider.publishVersion", () => {
         yield* fs.writeFile(nodePath.join(skillDir, "1.0.0.zip"), v1Archive);
 
         const provider = createLocalRegistryProvider(registryRoot);
-        yield* provider.publishVersion("@test", "skill", "my-skill", "2.0.0", v2Archive, v2Entry);
+        yield* provider.publishExtension("@test", "skill", "my-skill", "2.0.0", v2Archive, v2Entry);
 
         const indexContent = yield* fs.readFileString(nodePath.join(skillDir, "index.json"));
         const index = JSON.parse(indexContent) as ExtensionIndex;
@@ -423,8 +423,8 @@ describe("LocalRegistrySourceProvider.publishVersion", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const provider = createLocalRegistryProvider(registryRoot);
-        yield* provider.publishVersion("@test", "skill", "my-skill", "1.0.0", archive, entry);
-        yield* provider.publishVersion("@test", "skill", "my-skill", "1.0.0", archive, entry);
+        yield* provider.publishExtension("@test", "skill", "my-skill", "1.0.0", archive, entry);
+        yield* provider.publishExtension("@test", "skill", "my-skill", "1.0.0", archive, entry);
 
         const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
         const indexContent = yield* fs.readFileString(nodePath.join(skillDir, "index.json"));
@@ -451,10 +451,10 @@ describe("LocalRegistrySourceProvider.publishVersion", () => {
     return runEffect(
       Effect.gen(function* () {
         const provider = createLocalRegistryProvider(registryRoot);
-        yield* provider.publishVersion("@test", "skill", "my-skill", "1.0.0", archive1, entry1);
+        yield* provider.publishExtension("@test", "skill", "my-skill", "1.0.0", archive1, entry1);
 
         const result = yield* provider
-          .publishVersion("@test", "skill", "my-skill", "1.0.0", archive2, entry2)
+          .publishExtension("@test", "skill", "my-skill", "1.0.0", archive2, entry2)
           .pipe(Effect.either);
 
         expect(result._tag).toBe("Left");
@@ -516,12 +516,12 @@ describe("RemoteRegistrySourceProvider", () => {
       }),
     ));
 
-  it("fails publishVersion with descriptive error", () =>
+  it("fails publishExtension with descriptive error", () =>
     runEffect(
       Effect.gen(function* () {
         const provider = createRemoteRegistryProvider();
         const result = yield* provider
-          .publishVersion("@test", "skill", "x", "1.0.0", new Uint8Array(), makeVersionEntry())
+          .publishExtension("@test", "skill", "x", "1.0.0", new Uint8Array(), makeVersionEntry())
           .pipe(Effect.either);
         expect(result._tag).toBe("Left");
       }),

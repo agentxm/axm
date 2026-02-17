@@ -86,7 +86,7 @@ export interface SourceHostProvider<S extends Source = Source, R = never> {
  * Extended provider for registry sources — adds publish operations.
  *
  * Callers construct the archive, determine version, and compute metadata
- * before calling publishVersion — the provider handles storage only.
+ * before calling publishExtension — the provider handles storage only.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -94,7 +94,7 @@ export interface PublishableSourceHostProvider<
   S extends Source = Source,
   R = never,
 > extends SourceHostProvider<S, R> {
-  readonly publishVersion: (
+  readonly publishExtension: (
     scope: string,
     type: RegistryExtensionType,
     name: string,

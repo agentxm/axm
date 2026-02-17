@@ -148,9 +148,8 @@ export type RenameSkillOperation = Operation<
  * but the operation args now require SkillExtensionRef. At runtime, SkillRef.source
  * is a full Source (host + params) even though the type says SourceInput.
  *
- * @deprecated Remove in Phase 8 when callers use SourceHostProviders.find() directly.
  */
-export const skillRefToExtensionRef = (ref: SkillRef): SkillExtensionRef => {
+export const toSkillExtensionRef = (ref: SkillRef): SkillExtensionRef => {
   const { source } = ref;
   const skillBase = { type: "skill" as const, skill: ref.skill };
 

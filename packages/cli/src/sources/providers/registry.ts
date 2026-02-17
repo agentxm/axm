@@ -30,7 +30,7 @@ import type {
   FindOptions,
   PublishableSourceHostProvider,
   SkillRef,
-  SourceProvider,
+  LegacySourceProvider,
 } from "../provider.js";
 import type {
   NewRegistrySource,
@@ -47,11 +47,11 @@ import type {
  * Extended capabilities for registry source providers.
  *
  * Adds registry-specific operations (fetchIndex, fetchArchive, publishVersion,
- * checkNameExists) on top of the base `SourceProvider` interface.
+ * checkNameExists) on top of the base `LegacySourceProvider` interface.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface RegistrySourceProvider extends SourceProvider<
+export interface RegistrySourceProvider extends LegacySourceProvider<
   RegistrySourceInput,
   FileSystem.FileSystem | Path.Path
 > {

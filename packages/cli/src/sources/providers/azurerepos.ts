@@ -10,16 +10,15 @@
 import * as Effect from "effect/Effect";
 
 import { makeCliError } from "../../cli-error/index.js";
-import type { SourceProvider } from "../provider.js";
+import type { LegacySourceProvider } from "../provider.js";
 import type { AzureReposSourceInput } from "../types.js";
 
 /**
  * Source provider for Azure Repos (stub).
  *
- * @deprecated Use createAzureReposSourceHostProvider from git-hosting.ts
  * @experimental This API is unstable and may change without notice.
  */
-export const createAzureReposProvider = (): SourceProvider<AzureReposSourceInput> => ({
+export const createLegacyAzureReposProvider = (): LegacySourceProvider<AzureReposSourceInput> => ({
   type: "azurerepos",
 
   find: () =>

@@ -117,7 +117,7 @@ export type {
   FindOptions,
   McpServerRef,
   SkillRef,
-  SourceProvider,
+  LegacySourceProvider,
 } from "./provider.js";
 
 // Provider types — new
@@ -126,12 +126,12 @@ export type { SourceHostProvider, PublishableSourceHostProvider } from "./provid
 // Provider implementations — legacy
 export type { RegistrySourceProvider } from "./providers/index.js";
 export {
-  createAzureReposProvider,
+  createLegacyAzureReposProvider,
   createBitbucketProvider,
   createGitHubProvider,
   createGitLabProvider,
-  createGitProvider,
-  createLocalProvider,
+  createLegacyGitProvider,
+  createLegacyLocalProvider,
   createLocalRegistryProvider,
   createRegistryProvider,
   createRemoteRegistryProvider,
@@ -167,7 +167,7 @@ export { resolveSource } from "./resolve-source.js";
 export { resolveSourcePattern } from "./resolve-source-pattern.js";
 
 // Printer
-export { lockEntryToSourceInput, lockEntryToSourceParams, printSourceInput } from "./printer.js";
+export { lockEntryToSourceParams, printSourceInput } from "./printer.js";
 
 // Git operations
 export {

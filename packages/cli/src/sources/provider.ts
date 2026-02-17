@@ -159,14 +159,13 @@ export interface PublishableSourceHostProvider<
 }
 
 // -----------------------------------------------------------------------------
-// Legacy Provider Interface (deprecated alias)
+// Legacy Provider Interface
 // -----------------------------------------------------------------------------
 
 /**
- * @deprecated Use SourceHostProvider
  * @experimental This API is unstable and may change without notice.
  */
-export interface SourceProvider<S extends SourceInput = SourceInput, R = never> {
+export interface LegacySourceProvider<S extends SourceInput = SourceInput, R = never> {
   /** Source type discriminator matching `S["type"]`. */
   readonly type: S["type"];
   /** Discover extensions at the given source matching the search criteria. */

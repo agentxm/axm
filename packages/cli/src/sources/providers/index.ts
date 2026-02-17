@@ -5,21 +5,21 @@
  * @packageDocumentation
  */
 
-export { createAzureReposProvider } from "./azurerepos.js";
+export { createLegacyAzureReposProvider } from "./azurerepos.js";
 export { createBuiltinSourceHostProvider } from "./builtin.js";
-export { createGitProvider, createGitSourceHostProvider } from "./git.js";
+export { createLegacyGitProvider, createGitSourceHostProvider } from "./git.js";
 export {
   createAzureReposSourceHostProvider,
   createBitbucketProvider,
   createBitbucketSourceHostProvider,
-  createGitHostingProvider,
+  createLegacyGitHostingProvider,
   createGitHostingSourceHostProvider,
   createGitHubProvider,
   createGitHubSourceHostProvider,
   createGitLabProvider,
   createGitLabSourceHostProvider,
 } from "./git-hosting.js";
-export { createLocalProvider, createLocalSourceHostProvider } from "./local.js";
+export { createLegacyLocalProvider, createLocalSourceHostProvider } from "./local.js";
 export type { RegistrySourceProvider } from "./registry.js";
 export {
   createLocalRegistryProvider,

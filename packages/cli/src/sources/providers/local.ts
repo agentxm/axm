@@ -1,7 +1,7 @@
 /**
  * Source provider for local filesystem paths.
  *
- * Wraps the existing `discoverSkillsInDir` logic into the `SourceProvider` interface.
+ * Wraps the existing `discoverSkillsInDir` logic into the `LegacySourceProvider` interface.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -17,7 +17,7 @@ import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-
 import { makeCliError } from "../../cli-error/index.js";
 import { filterRefsByOptions } from "../provider.js";
 import type { SourceHostProvider } from "../provider.js";
-import type { SourceProvider } from "../provider.js";
+import type { LegacySourceProvider } from "../provider.js";
 import type { LocalSourceInput, NewLocalSource, SourceExtensionRef } from "../types.js";
 
 /**
@@ -89,10 +89,9 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
 /**
  * Source provider for local filesystem paths.
  *
- * @deprecated Use createLocalSourceHostProvider
  * @experimental This API is unstable and may change without notice.
  */
-export const createLocalProvider = (): SourceProvider<
+export const createLegacyLocalProvider = (): LegacySourceProvider<
   LocalSourceInput,
   FileSystem.FileSystem | Path.Path
 > => ({

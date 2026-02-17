@@ -123,11 +123,7 @@ const resolveNameWithFallback = (
  */
 export const resolveSourcePattern = (
   input: string,
-): Effect.Effect<
-  ReadonlyArray<Source>,
-  CliError,
-  Workspace | FileSystem.FileSystem | Path.Path
-> =>
+): Effect.Effect<ReadonlyArray<Source>, CliError, Workspace | FileSystem.FileSystem | Path.Path> =>
   isGlobPattern(input)
     ? Effect.gen(function* () {
         const candidates = yield* buildCandidates;

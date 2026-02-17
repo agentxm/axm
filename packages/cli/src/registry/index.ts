@@ -17,7 +17,7 @@ export type {
   RegistryClient,
   RegistryExtensionVersionManifest,
   GetExtensionsByScopeArgs,
-  GetExtensionsResponse,
+  GetExtensionsByScopeResponse,
   GetExtensionPackageArgs,
   GetExtensionPackageResponse,
   PublishExtensionArgs,

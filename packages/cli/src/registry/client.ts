@@ -100,20 +100,15 @@ export interface ExtensionExistsArgs {
 }
 
 // -----------------------------------------------------------------------------
-// Get Extensions Response
+// Get Extensions By Scope Response
 // -----------------------------------------------------------------------------
 
 /**
- * Paginated result from a registry extension search.
+ * Result from a registry extension search.
  */
-export interface GetExtensionsResponse {
+export interface GetExtensionsByScopeResponse {
   readonly extensions: ReadonlyArray<RegistryExtensionVersionManifest>;
-  readonly pagination: {
-    readonly total: number;
-    readonly limit: number;
-    readonly offset: number;
-    readonly hasMore: boolean;
-  };
+  readonly total: number;
 }
 
 // -----------------------------------------------------------------------------
@@ -196,7 +191,7 @@ export interface RegistryExtensionVersionManifest {
 export interface RegistryClient {
   readonly getExtensionsByScope: (
     options: GetExtensionsByScopeArgs,
-  ) => Effect.Effect<GetExtensionsResponse, CliError>;
+  ) => Effect.Effect<GetExtensionsByScopeResponse, CliError>;
   readonly scopeExists: (scope: string) => Effect.Effect<ScopeExistsResponse, CliError>;
   readonly getExtensionPackage: (
     args: GetExtensionPackageArgs,

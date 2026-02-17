@@ -21,7 +21,7 @@ import type {
   RegistryClient,
   RegistryExtensionVersionManifest,
   GetExtensionsByScopeArgs,
-  GetExtensionsResponse,
+  GetExtensionsByScopeResponse,
   VersionEntry,
 } from "../../../registry/index.js";
 import type {
@@ -83,17 +83,12 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 // Minimal zip: just enough bytes to not crash extractZip in a mock context
 // For fetch tests we use the mock client which returns controlled bytes
 
-/** Wrap entries into a GetExtensionsResponse with default pagination. */
+/** Wrap entries into a GetExtensionsByScopeResponse. */
 const toResult = (
   extensions: ReadonlyArray<RegistryExtensionVersionManifest>,
-): GetExtensionsResponse => ({
+): GetExtensionsByScopeResponse => ({
   extensions,
-  pagination: {
-    total: extensions.length,
-    limit: extensions.length,
-    offset: 0,
-    hasMore: false,
-  },
+  total: extensions.length,
 });
 
 /** Create a mock RegistryClient with controllable return values. */

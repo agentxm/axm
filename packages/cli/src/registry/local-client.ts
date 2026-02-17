@@ -22,7 +22,7 @@ import type {
   GetExtensionPackageArgs,
   PublishExtensionArgs,
   ExtensionExistsArgs,
-  GetExtensionsResponse,
+  GetExtensionsByScopeResponse,
 } from "./client.js";
 import { toAuthor, type ExtensionType } from "../extensions/common.js";
 import { ExtensionIndexSchema, type ExtensionIndex } from "./local-schema.js";
@@ -170,17 +170,11 @@ export const createLocalRegistryClient = (
         onNone: () => sliced,
         onSome: (l) => sliced.slice(0, l),
       });
-      const limit = Option.getOrElse(options.limit, () => total);
 
       return {
         extensions,
-        pagination: {
-          total,
-          limit,
-          offset,
-          hasMore: offset + extensions.length < total,
-        },
-      } satisfies GetExtensionsResponse;
+        total,
+      } satisfies GetExtensionsByScopeResponse;
     }),
 
   scopeExists: (scope) =>

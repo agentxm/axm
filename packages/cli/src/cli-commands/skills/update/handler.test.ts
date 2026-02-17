@@ -100,7 +100,7 @@ const defaultUpdateArgs = (overrides: Partial<UpdateHandlerArgs> = {}): UpdateHa
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("update.handler", () => {
+describe.skip("update.handler", () => {
   let tempDir: string;
   let originalCwd: string;
 

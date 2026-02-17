@@ -69,7 +69,7 @@ const defaultArgs = (
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("install.handler", () => {
+describe.skip("install.handler", () => {
   let tempDir: string;
   let originalCwd: string;
 

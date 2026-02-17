@@ -4,12 +4,8 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { createRegistryProvider } from "../../../sources/index.js";
 import { parseInputPattern, type InputPattern } from "../../../sources/parser.js";
 import {
-  routeFilePathInput,
-  routeNameInput,
-  routeScpInput,
   routeShorthandInput,
   resolveSlashInputSource,
-  routeUrlInput,
 } from "../../../sources/resolve-source.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { RegistrySource } from "../../../sources/types.js";
@@ -100,18 +96,15 @@ export const resolveSkillInstallSource = (input: string) =>
     switch (pattern.pattern) {
       case "registry-pattern-input":
         return yield* resolveSkillRegistrySource(pattern, trimmed);
-      case "name-input":
-        return yield* routeNameInput(pattern.name, trimmed);
-      case "url-input":
-        return yield* routeUrlInput(pattern.url, trimmed);
-      case "git-scp-address":
-        return yield* routeScpInput(pattern, trimmed);
       case "shorthand-input":
         return yield* routeShorthandInput(pattern.prefix, pattern.input, trimmed);
       case "slash-pattern":
         return yield* resolveSlashInputSource(pattern, trimmed);
+      //Unsupported:
+      case "name-input":
+      case "url-input":
+      case "git-scp-address":
       case "file-path-pattern":
-        return yield* routeFilePathInput(pattern.path);
       case "glob-input":
         return yield* makeCliError({
           code: "SOURCE_PARSE_FAILED",

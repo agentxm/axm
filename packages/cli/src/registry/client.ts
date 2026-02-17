@@ -32,6 +32,7 @@ import { createRemoteRegistryClient } from "./client-remote.js";
  * - `offset`: number of results to skip (default: 0)
  */
 export interface GetExtensionsArgs {
+  readonly scope: Option.Option<string>;
   readonly names: ReadonlyArray<string>;
   readonly types: ReadonlyArray<ExtensionType>;
   readonly limit: Option.Option<number>;
@@ -39,7 +40,7 @@ export interface GetExtensionsArgs {
 }
 
 // -----------------------------------------------------------------------------
-// Get Extension Version Args
+// Get Extension Package Args
 // -----------------------------------------------------------------------------
 
 /**
@@ -50,7 +51,7 @@ export interface GetExtensionsArgs {
  * - `name`: extension name
  * - `version`: specific version to fetch, or `None` for latest
  */
-export interface GetExtensionVersionArgs {
+export interface GetExtensionPackageArgs {
   readonly scope: string;
   readonly type: ExtensionType;
   readonly name: string;
@@ -115,13 +116,13 @@ export interface GetExtensionsResponse {
 }
 
 // -----------------------------------------------------------------------------
-// Get Extension Version Response
+// Get Extension Package Response
 // -----------------------------------------------------------------------------
 
 /**
  * Response from fetching a specific extension version archive.
  */
-export interface GetExtensionVersionResponse {
+export interface GetExtensionPackageResponse {
   readonly archive: Uint8Array;
 }
 
@@ -196,9 +197,9 @@ export interface RegistryClient {
     options: GetExtensionsArgs,
   ) => Effect.Effect<GetExtensionsResponse, CliError>;
   readonly scopeExists: (scope: string) => Effect.Effect<ScopeExistsResponse, CliError>;
-  readonly getExtensionVersion: (
-    args: GetExtensionVersionArgs,
-  ) => Effect.Effect<GetExtensionVersionResponse, CliError>;
+  readonly getExtensionPackage: (
+    args: GetExtensionPackageArgs,
+  ) => Effect.Effect<GetExtensionPackageResponse, CliError>;
   readonly publishExtension: (
     args: PublishExtensionArgs,
   ) => Effect.Effect<PublishExtensionResponse, CliError>;

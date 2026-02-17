@@ -227,7 +227,6 @@ const processNameDir = (
       location: registryLocation,
       scope: scopeDir,
       extensionTypes: [toPluralType(index.type)] as const,
-      versionConstraint: Option.none(),
     };
 
     if (index.type === "skill") {
@@ -832,7 +831,6 @@ export const createRegistrySourceHostProvider = (
           type: "registry",
           scope: source.scope,
           extensionTypes: source.extensionTypes,
-          versionConstraint: source.versionConstraint,
         };
         const refs = yield* inner.find(innerSource, options);
 
@@ -845,7 +843,6 @@ export const createRegistrySourceHostProvider = (
         type: "registry",
         scope: source.scope,
         extensionTypes: source.extensionTypes,
-        versionConstraint: source.versionConstraint,
       };
       return inner.fetch(innerSource, ref);
     },

@@ -114,7 +114,6 @@ const makeOp = (
           type: "registry",
           scope: "@axm",
           extensionTypes: ["skills"],
-          versionConstraint: Option.none(),
           location: new URL("http://localhost:3000"),
         },
         version: overrides?.version ?? "0.0.0",

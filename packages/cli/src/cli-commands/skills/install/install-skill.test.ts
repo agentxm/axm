@@ -145,6 +145,7 @@ const makeOp = (
     sourcePath?: string;
     location?: string;
     version?: Option.Option<string>;
+    versionConstraint?: Option.Option<string>;
     gitTreeSha?: Option.Option<string>;
     skipSettings?: boolean;
     skill?: { name: string; description: string; metadata: Option.Option<Record<string, unknown>> };
@@ -198,6 +199,9 @@ const makeOp = (
       ref,
       agents: overrides.agents ?? ["claude-code"],
       force: overrides.force ?? false,
+      ...(overrides.versionConstraint !== undefined && {
+        versionConstraint: overrides.versionConstraint,
+      }),
       ...(overrides.skipSettings !== undefined && { skipSettings: overrides.skipSettings }),
       ...(fetchedLocation !== undefined && { fetchedLocation }),
     },
@@ -565,7 +569,6 @@ describe("installSkill", () => {
               type: "registry",
               scope: "@community",
               extensionTypes: ["skills"],
-              versionConstraint: Option.none(),
             },
             location: `file://${src}`,
           }),
@@ -610,7 +613,6 @@ describe("installSkill", () => {
               type: "registry",
               scope: "@myorg",
               extensionTypes: ["skills"],
-              versionConstraint: Option.none(),
             },
             location: `file://${src}`,
           }),
@@ -647,10 +649,10 @@ describe("installSkill", () => {
               type: "registry",
               scope: "@community",
               extensionTypes: ["skills"],
-              versionConstraint: Option.none(),
             },
             location: `file://${src}`,
             version: Option.some("1.2.3"),
+            versionConstraint: Option.some("^1.0.0"),
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
@@ -708,7 +710,6 @@ describe("installSkill", () => {
                 type: "registry",
                 scope: "@community",
                 extensionTypes: ["skills"],
-                versionConstraint: Option.none(),
               },
               location: `file://${src}`,
             }),
@@ -793,7 +794,6 @@ describe("installSkill", () => {
               type: "registry",
               scope: "@acme",
               extensionTypes: ["skills"],
-              versionConstraint: Option.none(),
             },
             skillName: "tool",
             location: `file://${src}`,
@@ -822,11 +822,11 @@ describe("installSkill", () => {
               type: "registry",
               scope: "@acme",
               extensionTypes: ["skills"],
-              versionConstraint: Option.some("^1.0.0"),
             },
             skillName: "tool",
             location: `file://${src}`,
             version: Option.some("1.2.3"),
+            versionConstraint: Option.some("^1.0.0"),
           }),
         ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
 
@@ -852,11 +852,11 @@ describe("installSkill", () => {
               type: "registry",
               scope: "@acme",
               extensionTypes: ["skills"],
-              versionConstraint: Option.some("1.2.3"),
             },
             skillName: "tool",
             location: `file://${src}`,
             version: Option.some("1.2.3"),
+            versionConstraint: Option.some("1.2.3"),
           }),
         ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
 

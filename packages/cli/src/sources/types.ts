@@ -164,7 +164,6 @@ export interface RegistrySourceParams {
   readonly type: "registry";
   readonly scope: string;
   readonly extensionTypes: ReadonlyArray<"skills" | "mcp-servers" | "packs">;
-  readonly versionConstraint: Option.Option<string>;
 }
 
 /** @experimental */

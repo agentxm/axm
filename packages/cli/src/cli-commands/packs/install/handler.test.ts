@@ -336,7 +336,6 @@ describe("packs install handler", () => {
           type: "registry",
           scope: "@acme",
           extensionTypes: ["skills"],
-          versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -350,7 +349,6 @@ describe("packs install handler", () => {
           type: "registry",
           scope: "@acme",
           extensionTypes: ["skills"],
-          versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -422,7 +420,6 @@ describe("packs install handler", () => {
           type: "registry",
           scope: "@acme",
           extensionTypes: ["skills"],
-          versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -436,7 +433,6 @@ describe("packs install handler", () => {
           type: "registry",
           scope: "@acme",
           extensionTypes: ["skills"],
-          versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -515,7 +511,6 @@ describe("packs install handler", () => {
           type: "registry",
           scope: "@acme",
           extensionTypes: ["skills"],
-          versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -529,7 +524,6 @@ describe("packs install handler", () => {
           type: "registry",
           scope: "@acme",
           extensionTypes: ["skills"],
-          versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -604,7 +598,6 @@ describe("packs install handler", () => {
           type: "registry",
           scope: "@acme",
           extensionTypes: ["skills"],
-          versionConstraint: Option.some("^2.0.0"),
           location: new URL("file:///tmp/reg"),
         },
         version: "2.0.0",
@@ -663,7 +656,6 @@ describe("packs install handler", () => {
           type: "registry",
           scope: "@acme",
           extensionTypes: ["skills"],
-          versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -679,7 +671,6 @@ describe("packs install handler", () => {
           type: "registry",
           scope: "@acme",
           extensionTypes: ["skills"],
-          versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -717,14 +708,10 @@ describe("packs install handler", () => {
         Effect.gen(function* () {
           yield* handleInstallPack(defaultArgs("@acme/test-pack"));
 
-          // When manifest constraint is "*", no constraint appended → versionConstraint is None
+          // Constraint no longer lives on RegistrySourceParams.
           expect(capturedSkillSource).toBeDefined();
-          const src = capturedSkillSource as {
-            type: string;
-            versionConstraint: Option.Option<string>;
-          };
+          const src = capturedSkillSource as { type: string };
           expect(src.type).toBe("registry");
-          expect(Option.isNone(src.versionConstraint)).toBe(true);
         }),
       );
     });
@@ -747,7 +734,6 @@ describe("packs install handler", () => {
           type: "registry",
           scope: "@acme",
           extensionTypes: ["skills"],
-          versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -763,7 +749,6 @@ describe("packs install handler", () => {
           type: "registry",
           scope: "@acme",
           extensionTypes: ["skills"],
-          versionConstraint: Option.some("^1.0.0"),
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",
@@ -801,15 +786,10 @@ describe("packs install handler", () => {
         Effect.gen(function* () {
           yield* handleInstallPack(defaultArgs("@acme/test-pack"));
 
-          // When manifest constraint is "^1.0.0", it should be appended and parsed
+          // Constraint no longer lives on RegistrySourceParams.
           expect(capturedSkillSource).toBeDefined();
-          const src = capturedSkillSource as {
-            type: string;
-            versionConstraint: Option.Option<string>;
-          };
+          const src = capturedSkillSource as { type: string };
           expect(src.type).toBe("registry");
-          expect(Option.isSome(src.versionConstraint)).toBe(true);
-          expect(Option.getOrNull(src.versionConstraint)).toBe("^1.0.0");
         }),
       );
     });
@@ -830,7 +810,6 @@ describe("packs install handler", () => {
           type: "registry",
           scope: "@acme",
           extensionTypes: ["skills"],
-          versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
         version: "1.0.0",

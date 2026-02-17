@@ -381,7 +381,6 @@ export const routeRegistryInput = (
     readonly type: Option.Option<"skills" | "mcp-servers" | "packs">;
     readonly scope: string;
     readonly name: Option.Option<string>;
-    readonly versionConstraint: Option.Option<string>;
   },
   input: string,
 ) =>
@@ -406,7 +405,6 @@ export const routeRegistryInput = (
       extensionTypes: Option.isSome(pattern.type)
         ? [pattern.type.value]
         : ["skills", "mcp-servers", "packs"],
-      versionConstraint: pattern.versionConstraint,
     };
 
     if (registrySources.length === 0) {

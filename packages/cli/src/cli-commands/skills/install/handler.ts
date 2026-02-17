@@ -94,6 +94,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
     // Step 1: Parse source
     const parseHandle = yield* spinnerSvc.start("Parsing source...");
+    const parsedSource = parseInputPattern(args.source.trim());
     const source = yield* resolveSkillInstallSource(args.source).pipe(
       Effect.mapError((error) =>
         makeCliError({
@@ -121,12 +122,18 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         : args.skills.length > 0
           ? args.skills
           : (() => {
-              const parsed = parseInputPattern(args.source.trim());
-              if (Option.isSome(parsed) && parsed.value.pattern === "registry-pattern-input") {
-                return Option.isSome(parsed.value.name) ? [parsed.value.name.value] : [];
+              if (
+                Option.isSome(parsedSource) &&
+                parsedSource.value.pattern === "registry-pattern-input"
+              ) {
+                return Option.isSome(parsedSource.value.name) ? [parsedSource.value.name.value] : [];
               }
               return [];
             })();
+    const registryConstraint =
+      Option.isSome(parsedSource) && parsedSource.value.pattern === "registry-pattern-input"
+        ? parsedSource.value.versionConstraint
+        : Option.none<string>();
     const findOptions = {
       names: registryNames,
       agents: args.agents,
@@ -212,6 +219,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
             ref: s,
             agents: agentIds,
             force: args.force,
+            versionConstraint: s.source.type === "registry" ? registryConstraint : Option.none(),
             fetchedLocation,
           },
         }) satisfies InstallSkillOperation,

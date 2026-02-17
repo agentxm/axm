@@ -19,16 +19,16 @@ import type * as Scope from "effect/Scope";
 import type { CliError } from "../cli-error/index.js";
 import { makeCliError } from "../cli-error/index.js";
 import { Workspace } from "../workspace/service.js";
-import type { ExtensionFiles, ExtensionRef, FindOptions, SourceProvider } from "./provider.js";
+import type { ExtensionFiles, ExtensionRef, FindOptions, LegacySourceProvider } from "./provider.js";
 import type { SourceExtensionRef, NewSource } from "./types.js";
 import {
-  createAzureReposProvider,
+  createLegacyAzureReposProvider,
   createBitbucketProvider,
   createBuiltinSourceHostProvider,
   createGitHubProvider,
   createGitLabProvider,
-  createGitProvider,
-  createLocalProvider,
+  createLegacyGitProvider,
+  createLegacyLocalProvider,
   createRegistryProvider,
 } from "./providers/index.js";
 import type { RegistrySourceInput, Source, SourceInput, SourceType } from "./types.js";
@@ -130,7 +130,7 @@ const getOriginFromSource = (source: Source | NewSource): string => {
 
 /**
  * Creates a registry meta-provider that wraps N configured registries
- * into a single `SourceProvider<RegistrySourceInput>`.
+ * into a single `LegacySourceProvider<RegistrySourceInput>`.
  *
  * Reads `workspace.getConfiguredRegistrySources()` lazily on each call — always
  * reflects the current config (including sources added by the registry guard).
@@ -143,7 +143,7 @@ const getOriginFromSource = (source: Source | NewSource): string => {
  *
  * @internal
  */
-export const createRegistryMetaProvider = (): SourceProvider<
+export const createRegistryMetaProvider = (): LegacySourceProvider<
   RegistrySourceInput,
   FileSystem.FileSystem | Path.Path | Workspace
 > => ({
@@ -235,9 +235,9 @@ export const SourceHostProvidersLive: Layer.Layer<
     const githubProvider = createGitHubProvider();
     const gitlabProvider = createGitLabProvider();
     const bitbucketProvider = createBitbucketProvider();
-    const azurereposProvider = createAzureReposProvider();
-    const gitProvider = createGitProvider();
-    const localProvider = createLocalProvider();
+    const azurereposProvider = createLegacyAzureReposProvider();
+    const gitProvider = createLegacyGitProvider();
+    const localProvider = createLegacyLocalProvider();
     const registryMetaProvider = createRegistryMetaProvider();
 
     // Captured layer for providing to provider operations
@@ -250,7 +250,7 @@ export const SourceHostProvidersLive: Layer.Layer<
     const builtinProvider = createBuiltinSourceHostProvider();
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dispatch table: each key maps to correct provider
-    const providers: Record<SourceType, SourceProvider<any, any>> = {
+    const providers: Record<SourceType, LegacySourceProvider<any, any>> = {
       github: githubProvider,
       gitlab: gitlabProvider,
       bitbucket: bitbucketProvider,
@@ -258,8 +258,8 @@ export const SourceHostProvidersLive: Layer.Layer<
       git: gitProvider,
       local: localProvider,
       registry: registryMetaProvider,
-      // Assertion needed: SourceHostProvider has `match` method but dispatch table expects SourceProvider
-      builtin: builtinProvider as unknown as SourceProvider<SourceInput, never>,
+      // Assertion needed: SourceHostProvider has `match` method but dispatch table expects LegacySourceProvider
+      builtin: builtinProvider as unknown as LegacySourceProvider<SourceInput, never>,
     };
 
     const findImpl = (source: Source, options: FindOptions) =>

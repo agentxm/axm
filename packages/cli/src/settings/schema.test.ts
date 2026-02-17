@@ -8,7 +8,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import {
-  ExtensionMapSchema,
+  NonSkillExtensionsMapSchema,
   PackEntryObjectSchema,
   PackEntrySchema,
   PacksMapSchema,
@@ -644,31 +644,31 @@ describe("Settings schema", () => {
     });
   });
 
-  describe("ExtensionMap schema (agentskills.io spec - legacy)", () => {
+  describe("NonSkillExtensionsMap schema (agentskills.io spec - legacy)", () => {
     it("accepts valid skill name", () => {
       const input = { commit: "^1.0.0" };
-      const result = Schema.decodeUnknownSync(ExtensionMapSchema)(input);
+      const result = Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input);
 
       expect(result).toEqual({ commit: "^1.0.0" });
     });
 
     it("accepts skill name with hyphens", () => {
       const input = { "my-extension": "^1.0.0" };
-      const result = Schema.decodeUnknownSync(ExtensionMapSchema)(input);
+      const result = Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input);
 
       expect(result).toEqual({ "my-extension": "^1.0.0" });
     });
 
     it("accepts skill name with numbers", () => {
       const input = { skill123: "^1.0.0" };
-      const result = Schema.decodeUnknownSync(ExtensionMapSchema)(input);
+      const result = Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input);
 
       expect(result).toEqual({ skill123: "^1.0.0" });
     });
 
     it("accepts single character skill name", () => {
       const input = { a: "^1.0.0" };
-      const result = Schema.decodeUnknownSync(ExtensionMapSchema)(input);
+      const result = Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input);
 
       expect(result).toEqual({ a: "^1.0.0" });
     });
@@ -676,7 +676,7 @@ describe("Settings schema", () => {
     it("accepts 64 character skill name (max length)", () => {
       const name = "a".repeat(64);
       const input = { [name]: "^1.0.0" };
-      const result = Schema.decodeUnknownSync(ExtensionMapSchema)(input);
+      const result = Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input);
 
       expect(result).toEqual({ [name]: "^1.0.0" });
     });
@@ -685,37 +685,37 @@ describe("Settings schema", () => {
       const name = "a".repeat(65);
       const input = { [name]: "^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input)).toThrow();
     });
 
     it("rejects skill name starting with hyphen", () => {
       const input = { "-invalid": "^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input)).toThrow();
     });
 
     it("rejects skill name ending with hyphen", () => {
       const input = { "invalid-": "^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input)).toThrow();
     });
 
     it("rejects skill name with uppercase letters", () => {
       const input = { MySkill: "^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input)).toThrow();
     });
 
     it("rejects skill name with underscores", () => {
       const input = { my_skill: "^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input)).toThrow();
     });
 
     it("rejects skill name with special characters", () => {
       const input = { "my@skill": "^1.0.0" };
 
-      expect(() => Schema.decodeUnknownSync(ExtensionMapSchema)(input)).toThrow();
+      expect(() => Schema.decodeUnknownSync(NonSkillExtensionsMapSchema)(input)).toThrow();
     });
   });
 

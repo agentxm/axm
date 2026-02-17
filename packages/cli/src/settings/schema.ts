@@ -126,7 +126,7 @@ const SKILL_NAME_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$|^[a-z0-9]$/;
 
 /**
  * Shared validation callback for skill name keys per agentskills.io spec.
- * Used by both ExtensionMapSchema and SkillsMapSchema via Schema.filter.
+ * Used by both NonSkillExtensionsMapSchema and SkillsMapSchema via Schema.filter.
  */
 const validateSkillNameKeys = (record: { readonly [x: string]: unknown }) => {
   const invalidKeys = Object.keys(record).filter(
@@ -148,20 +148,19 @@ const validateSkillNameKeys = (record: { readonly [x: string]: unknown }) => {
  *
  * Values are semver range strings (e.g., "^1.0.0", "~2.1.0", ">=1.0.0") or "*".
  *
- * @deprecated Use SkillsMapSchema for skills. This is kept for other extension types.
  * @experimental This API is unstable and may change without notice.
  */
-export const ExtensionMapSchema = Schema.Record({
+export const NonSkillExtensionsMapSchema = Schema.Record({
   key: Schema.String,
   value: Schema.String,
 }).pipe(Schema.filter(validateSkillNameKeys));
 
 /**
- * Inferred type for ExtensionMap schema.
+ * Inferred type for NonSkillExtensionsMap schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type ExtensionMap = typeof ExtensionMapSchema.Type;
+export type NonSkillExtensionsMap = typeof NonSkillExtensionsMapSchema.Type;
 
 /**
  * Managed skill with source and optional config flags.
@@ -317,8 +316,8 @@ export const SettingsSchema = Schema.Struct({
   scope: Schema.optional(ScopeSchema),
   agents: Schema.optional(Schema.Array(AgentIdSchema)),
   sources: Schema.optional(Schema.Array(SourceHostConfigSchema)),
-  commands: Schema.optional(ExtensionMapSchema),
-  "mcp-servers": Schema.optional(ExtensionMapSchema),
+  commands: Schema.optional(NonSkillExtensionsMapSchema),
+  "mcp-servers": Schema.optional(NonSkillExtensionsMapSchema),
   packs: Schema.optional(PacksMapSchema),
   skills: Schema.optional(SkillsMapSchema),
 });

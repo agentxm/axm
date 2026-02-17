@@ -14,15 +14,15 @@ import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import { createLocalProvider, createLocalSourceHostProvider } from "./local.js";
+import { createLegacyLocalProvider, createLocalSourceHostProvider } from "./local.js";
 
 const runEffect = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
   Effect.runPromise(effect.pipe(Effect.provide(NodeContext.layer)));
 
 // Legacy provider
-describe("createLocalProvider", () => {
+describe("createLegacyLocalProvider", () => {
   it("has type 'local'", () => {
-    const provider = createLocalProvider();
+    const provider = createLegacyLocalProvider();
     expect(provider.type).toBe("local");
   });
 
@@ -37,7 +37,7 @@ describe("createLocalProvider", () => {
 
     return runEffect(
       Effect.gen(function* () {
-        const provider = createLocalProvider();
+        const provider = createLegacyLocalProvider();
         const refs = yield* provider.find(
           { type: "local", path: dir },
           { names: [], agents: [], type: "skill" },
@@ -54,7 +54,7 @@ describe("createLocalProvider", () => {
   it("returns empty for nonexistent path", () =>
     runEffect(
       Effect.gen(function* () {
-        const provider = createLocalProvider();
+        const provider = createLegacyLocalProvider();
         const result = yield* provider
           .find(
             { type: "local", path: "/nonexistent/path/that/does/not/exist" },
@@ -83,7 +83,7 @@ describe("createLocalProvider", () => {
 
     return runEffect(
       Effect.gen(function* () {
-        const provider = createLocalProvider();
+        const provider = createLegacyLocalProvider();
         const refs = yield* provider.find(
           { type: "local", path: dir },
           { names: ["skill-a"], agents: [], type: "skill" },
@@ -104,7 +104,7 @@ describe("createLocalProvider", () => {
 
     return runEffect(
       Effect.gen(function* () {
-        const provider = createLocalProvider();
+        const provider = createLegacyLocalProvider();
         const result = yield* provider.fetch(
           { type: "local", path: dir },
           {

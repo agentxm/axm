@@ -13,7 +13,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import type { SkillPathSource } from "../skill-paths.js";
 import type { InstallSkillOperation } from "../operations.js";
-import { skillRefToExtensionRef } from "../operations.js";
+import { toSkillExtensionRef } from "../operations.js";
 import { installSkill } from "./install-skill.js";
 import { sanitizeName } from "./skill-utils.js";
 
@@ -171,7 +171,7 @@ const makeOp = (
     version,
     gitTreeSha,
   };
-  const ref = skillRefToExtensionRef(legacyRef);
+  const ref = toSkillExtensionRef(legacyRef);
 
   // For registry sources, the fetchedLocation is the location
   const fetchedLocation = source.type === "registry" ? location : undefined;

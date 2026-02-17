@@ -27,7 +27,7 @@ import type { InstallPackOperation } from "../operations.js";
 import { buildInstallPlan } from "./build-plan.js";
 import { installPack } from "./install-pack.js";
 import { installSkill } from "../../skills/install/install-skill.js";
-import { skillRefToExtensionRef, type InstallSkillOperation } from "../../skills/operations.js";
+import { toSkillExtensionRef, type InstallSkillOperation } from "../../skills/operations.js";
 import { copySkillDirectory } from "../../skills/copy-skill-directory.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../skills/constants.js";
 
@@ -322,7 +322,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
         name: "install-skill" as const,
         args: {
           // Assertion needed: legacy providers return SkillRef at runtime, bridge converts to SkillExtensionRef
-          ref: skillRefToExtensionRef(ref as import("../../../sources/provider.js").SkillRef),
+          ref: toSkillExtensionRef(ref as import("../../../sources/provider.js").SkillRef),
           agents,
           force: args.force,
           skipSettings: true,

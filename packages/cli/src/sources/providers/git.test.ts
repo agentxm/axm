@@ -5,17 +5,17 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import { createGitProvider, createGitSourceHostProvider } from "./git.js";
+import { createLegacyGitProvider, createGitSourceHostProvider } from "./git.js";
 
 // Legacy provider
-describe("createGitProvider", () => {
+describe("createLegacyGitProvider", () => {
   it("has type 'git'", () => {
-    const provider = createGitProvider();
+    const provider = createLegacyGitProvider();
     expect(provider.type).toBe("git");
   });
 
   it("find fails with not-yet-supported error", () => {
-    const provider = createGitProvider();
+    const provider = createLegacyGitProvider();
     const result = Effect.runSync(
       provider
         .find(
@@ -31,7 +31,7 @@ describe("createGitProvider", () => {
   });
 
   it("fetch fails with not-yet-supported error", () => {
-    const provider = createGitProvider();
+    const provider = createLegacyGitProvider();
     const result = Effect.runSync(
       provider
         .fetch(

@@ -30,7 +30,7 @@ import type {
   InstallSkillOperation,
   PublishSkillOperation,
 } from "../operations.js";
-import { skillRefToExtensionRef } from "../operations.js";
+import { toSkillExtensionRef } from "../operations.js";
 import { copySkill } from "../copy-skill.js";
 import { installSkill } from "../install/install-skill.js";
 import { publishSkill } from "../publish-skill.js";
@@ -199,7 +199,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
     // Step 7: Build plan — fork + publish + install per skill (3 sequential ops)
     const steps: ReadonlyArray<PlannedJobStep<ForkOp>> = Array.flatMap(filtered, (ref) => {
       const targetName = `${scope}/${ref.skill.name}`;
-      const extensionRef = skillRefToExtensionRef(ref);
+      const extensionRef = toSkillExtensionRef(ref);
       // After fork + publish, the skill lives in the registry extensions dir.
       // Build a registry SkillExtensionRef for the install step.
       const registryRef = {

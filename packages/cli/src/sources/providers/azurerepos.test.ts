@@ -5,16 +5,16 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import { createAzureReposProvider } from "./azurerepos.js";
+import { createLegacyAzureReposProvider } from "./azurerepos.js";
 
-describe("createAzureReposProvider", () => {
+describe("createLegacyAzureReposProvider", () => {
   it("has type 'azurerepos'", () => {
-    const provider = createAzureReposProvider();
+    const provider = createLegacyAzureReposProvider();
     expect(provider.type).toBe("azurerepos");
   });
 
   it("find fails with not-yet-supported error", () => {
-    const provider = createAzureReposProvider();
+    const provider = createLegacyAzureReposProvider();
     const result = Effect.runSync(
       provider
         .find(
@@ -37,7 +37,7 @@ describe("createAzureReposProvider", () => {
   });
 
   it("fetch fails with not-yet-supported error", () => {
-    const provider = createAzureReposProvider();
+    const provider = createLegacyAzureReposProvider();
     const result = Effect.runSync(
       provider
         .fetch(

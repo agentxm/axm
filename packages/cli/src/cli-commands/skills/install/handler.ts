@@ -26,7 +26,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace as Workspace } from "../../../workspace/index.js";
 import type { InstallSkillOperation } from "../operations.js";
-import { skillRefToExtensionRef } from "../operations.js";
+import { toSkillExtensionRef } from "../operations.js";
 import { buildPlan } from "./build-plan.js";
 import { installSkill } from "./install-skill.js";
 
@@ -194,7 +194,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         ({
           name: "install-skill",
           args: {
-            ref: skillRefToExtensionRef(s),
+            ref: toSkillExtensionRef(s),
             agents: agentIds,
             force: args.force,
             fetchedLocation,

@@ -23,7 +23,7 @@ import { PackManifestSchema } from "../../../extensions/packs/manifest-schema.js
 import { parseVersionConstraint } from "../../../version-constraints/index.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 import type { InstallSkillOperation, UninstallSkillOperation } from "../operations.js";
-import { skillRefToExtensionRef } from "../operations.js";
+import { toSkillExtensionRef } from "../operations.js";
 import { buildUpdatePlan } from "./build-plan.js";
 import { installSkill } from "../install/install-skill.js";
 import { uninstallSkill } from "../uninstall/uninstall-skill.js";
@@ -290,7 +290,7 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
         ops.push({
           name: "install-skill",
           args: {
-            ref: skillRefToExtensionRef(item.ref),
+            ref: toSkillExtensionRef(item.ref),
             agents: agentIds,
             force: args.force,
             fetchedLocation: item.fetchedLocation,
@@ -301,7 +301,7 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
         ops.push({
           name: "install-skill",
           args: {
-            ref: skillRefToExtensionRef(item.newRef),
+            ref: toSkillExtensionRef(item.newRef),
             agents: agentIds,
             force: args.force,
             fetchedLocation: item.fetchedLocation,

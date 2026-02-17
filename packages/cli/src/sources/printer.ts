@@ -104,9 +104,3 @@ export const lockEntryToSourceParams = (entry: SkillLockEntry): SourceParams => 
       return { type: "builtin" };
   }
 };
-
-/**
- * @deprecated Use lockEntryToSourceParams
- * @experimental This API is unstable and may change without notice.
- */
-export const lockEntryToSourceInput = lockEntryToSourceParams;

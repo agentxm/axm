@@ -19,7 +19,7 @@ import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-
 import { makeCliError } from "../../cli-error/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
 import { filterRefsByOptions } from "../provider.js";
-import type { SkillRef, SourceProvider } from "../provider.js";
+import type { SkillRef, LegacySourceProvider } from "../provider.js";
 import type { SourceHostProvider } from "../provider.js";
 import type {
   BitbucketSource,
@@ -176,18 +176,17 @@ export const buildCloneUrlForSource = (
 };
 
 // -----------------------------------------------------------------------------
-// Legacy Factory (SourceProvider — backward compat)
+// Legacy Factory (LegacySourceProvider — backward compat)
 // -----------------------------------------------------------------------------
 
 /**
- * Creates a legacy `SourceProvider` for a git hosting platform.
+ * Creates a legacy `LegacySourceProvider` for a git hosting platform.
  *
- * @deprecated Use createGitHostingSourceHostProvider
  * @experimental This API is unstable and may change without notice.
  */
-export const createGitHostingProvider = <S extends GitHubSource | GitLabSource | BitbucketSource>(
+export const createLegacyGitHostingProvider = <S extends GitHubSource | GitLabSource | BitbucketSource>(
   sourceType: S["type"],
-): SourceProvider<S, FileSystem.FileSystem | Path.Path | Scope.Scope> => {
+): LegacySourceProvider<S, FileSystem.FileSystem | Path.Path | Scope.Scope> => {
   // Determine host URL from existing source config types (backward compat)
   // The legacy providers are still used in the service layer during migration
   return {
@@ -281,21 +280,21 @@ export const createGitHostingProvider = <S extends GitHubSource | GitLabSource |
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createGitHubProvider = () => createGitHostingProvider<GitHubSource>("github");
+export const createGitHubProvider = () => createLegacyGitHostingProvider<GitHubSource>("github");
 
 /**
  * Source provider for GitLab repositories.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createGitLabProvider = () => createGitHostingProvider<GitLabSource>("gitlab");
+export const createGitLabProvider = () => createLegacyGitHostingProvider<GitLabSource>("gitlab");
 
 /**
  * Source provider for Bitbucket repositories.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const createBitbucketProvider = () => createGitHostingProvider<BitbucketSource>("bitbucket");
+export const createBitbucketProvider = () => createLegacyGitHostingProvider<BitbucketSource>("bitbucket");
 
 // -----------------------------------------------------------------------------
 // Concrete Providers (new — SourceHostProvider)

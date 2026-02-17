@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { makeCliError, type CliError } from "../../cli-error/index.js";
-import type { GitLabSourceInput } from "../types.js";
+import type { GitLabSourceInputLegacy } from "../types.js";
 
 const headRequest = (url: string, input: string) =>
   Effect.tryPromise({
@@ -19,7 +19,7 @@ export const resolveRepo = (args: {
   readonly owner: string;
   readonly repo: string;
   readonly subPath: Option.Option<string>;
-}): Effect.Effect<Option.Option<GitLabSourceInput>, CliError> =>
+}): Effect.Effect<Option.Option<GitLabSourceInputLegacy>, CliError> =>
   Effect.gen(function* () {
     const repoUrl = `https://gitlab.com/${args.owner}/${args.repo}`;
     const repoResponse = yield* headRequest(repoUrl, `${args.owner}/${args.repo}`);
@@ -40,5 +40,5 @@ export const resolveRepo = (args: {
       repo: args.repo,
       ref: Option.none(),
       subPath: args.subPath,
-    } satisfies GitLabSourceInput);
+    } satisfies GitLabSourceInputLegacy);
   });

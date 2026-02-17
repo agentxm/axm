@@ -22,7 +22,7 @@ import * as github from "./github/index.js";
 import * as gitlab from "./gitlab/index.js";
 import { parseLocalPath } from "./local/index.js";
 import { parseInputPattern } from "./parser.js";
-import type { RegistrySourceInput, Source, SourceParams, SourceType } from "./types.js";
+import type { RegistrySourceInputLegacy, Source, SourceParams, SourceType } from "./types.js";
 import type { SourceHostConfig } from "../settings/schema.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import { Workspace } from "../workspace/index.js";
@@ -386,7 +386,7 @@ const routeRegistryInput = (
       ),
     );
 
-    const params: RegistrySourceInput = {
+    const params: RegistrySourceInputLegacy = {
       type: "registry" as const,
       scope: pattern.scope,
       name: pattern.name,

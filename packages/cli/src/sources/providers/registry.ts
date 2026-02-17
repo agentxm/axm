@@ -29,7 +29,7 @@ import type { FindOptions, PublishableSourceHostProvider } from "../provider.js"
 import type {
   NewRegistrySource,
   RegistrySourceHost,
-  RegistrySourceInput,
+  RegistrySourceInputLegacy,
   SourceExtensionRef,
 } from "../types.js";
 
@@ -49,7 +49,7 @@ export interface RegistrySourceProvider {
   readonly type: "registry";
   /** Discover extensions matching the given source and options. */
   readonly find: (
-    source: RegistrySourceInput,
+    source: RegistrySourceInputLegacy,
     options: FindOptions,
   ) => Effect.Effect<
     ReadonlyArray<SourceExtensionRef>,
@@ -58,7 +58,7 @@ export interface RegistrySourceProvider {
   >;
   /** Fetch and materialize extension files for a discovered ref. */
   readonly fetch: (
-    source: RegistrySourceInput,
+    source: RegistrySourceInputLegacy,
     extension: SourceExtensionRef,
   ) => Effect.Effect<{ readonly directory: string }, CliError, FileSystem.FileSystem | Path.Path>;
   /** Read the extension index from the registry. */
@@ -753,7 +753,7 @@ export const createRegistrySourceHostProvider = (
 
     find: (source, options) =>
       Effect.gen(function* () {
-        const innerSource: RegistrySourceInput = {
+        const innerSource: RegistrySourceInputLegacy = {
           type: "registry",
           scope: source.scope,
           name: source.name,
@@ -766,7 +766,7 @@ export const createRegistrySourceHostProvider = (
       }),
 
     fetch: (source, ref) => {
-      const innerSource: RegistrySourceInput = {
+      const innerSource: RegistrySourceInputLegacy = {
         type: "registry",
         scope: source.scope,
         name: source.name,

@@ -5,13 +5,13 @@
  * @packageDocumentation
  */
 
-import type { GitHostingProviderSource, SourceInput } from "./types.js";
+import type { GitHostingProviderSource, SourceInputLegacy } from "./types.js";
 
 /**
  * Type guard for git hosting provider sources (GitHub, GitLab, Bitbucket).
  */
 export const isGitHostingProviderSource = (
-  source: SourceInput,
+  source: SourceInputLegacy,
 ): source is GitHostingProviderSource =>
   source.type === "github" ||
   source.type === "gitlab" ||

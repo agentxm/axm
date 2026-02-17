@@ -113,7 +113,6 @@ export { isGitHostingProviderSource } from "./utils.js";
 // Provider types — legacy
 export type {
   ExtensionFiles,
-  ExtensionRef,
   FindOptions,
   McpServerRef,
   SkillRef,

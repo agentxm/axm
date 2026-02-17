@@ -16,7 +16,7 @@ import {
   resolveSource,
   SourceHostProviders,
   registryGuard,
-  type SkillRef,
+  type SkillExtensionRef,
 } from "../../../sources/index.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 import * as Array from "effect/Array";
@@ -26,7 +26,6 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace as Workspace } from "../../../workspace/index.js";
 import type { InstallSkillOperation } from "../operations.js";
-import { toSkillExtensionRef } from "../operations.js";
 import { buildPlan } from "./build-plan.js";
 import { installSkill } from "./install-skill.js";
 
@@ -133,7 +132,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       Effect.tapError(() => discoverHandle.stop("Failed")),
     );
     // Filter to skill refs only
-    const discoveredSkills = Array.filter(allRefs, (ref): ref is SkillRef => ref.type === "skill");
+    const discoveredSkills = Array.filter(allRefs, (ref): ref is SkillExtensionRef => ref.type === "skill");
     if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
       yield* discoverHandle.stop("No skills found");
       return yield* Effect.fail(
@@ -194,7 +193,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         ({
           name: "install-skill",
           args: {
-            ref: toSkillExtensionRef(s),
+            ref: s,
             agents: agentIds,
             force: args.force,
             fetchedLocation,

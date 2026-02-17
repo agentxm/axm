@@ -41,15 +41,6 @@ export interface FindOptions {
 // -----------------------------------------------------------------------------
 
 /**
- * Discriminated union of discovered extension references.
- *
- * Returned by `find`, consumed by `fetch`.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type ExtensionRef = SkillRef | McpServerRef;
-
-/**
  * A discovered skill reference.
  *
  * @experimental This API is unstable and may change without notice.
@@ -172,11 +163,11 @@ export interface LegacySourceProvider<S extends SourceInput = SourceInput, R = n
   readonly find: (
     source: S,
     options: FindOptions,
-  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, CliError, R>;
+  ) => Effect.Effect<ReadonlyArray<SkillRef | McpServerRef>, CliError, R>;
   /** Fetch and materialize extension files for a discovered ref. */
   readonly fetch: (
     source: S,
-    extension: ExtensionRef,
+    extension: SkillRef | McpServerRef,
   ) => Effect.Effect<ExtensionFiles, CliError, R>;
 }
 
@@ -186,9 +177,9 @@ export interface LegacySourceProvider<S extends SourceInput = SourceInput, R = n
 
 /** Filter extension refs by name options. No-op when `options.names` is empty. */
 export const filterRefsByOptions = (
-  refs: ReadonlyArray<ExtensionRef>,
+  refs: ReadonlyArray<SkillRef | McpServerRef>,
   options: FindOptions,
-): ReadonlyArray<ExtensionRef> => {
+): ReadonlyArray<SkillRef | McpServerRef> => {
   if (options.names.length === 0) return refs;
   const nameSet = new Set(options.names);
   return Array.filter(refs, (ref) => {

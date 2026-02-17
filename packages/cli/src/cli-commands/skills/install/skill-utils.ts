@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { SkillRef } from "../../../sources/index.js";
+import type { SkillExtensionRef } from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Display Name
@@ -26,8 +26,8 @@ const basenamePure = (location: string): string => {
   return stripped.split("/").pop() ?? stripped;
 };
 
-export const getSkillDisplayName = (ref: SkillRef): string =>
-  ref.skill.name || basenamePure(ref.location);
+export const getSkillDisplayName = (ref: SkillExtensionRef): string =>
+  ref.skill.name || ("location" in ref ? basenamePure(ref.location) : ref.skill.name);
 
 // -----------------------------------------------------------------------------
 // Sanitization

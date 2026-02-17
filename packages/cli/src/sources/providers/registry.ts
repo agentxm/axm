@@ -26,10 +26,10 @@ import {
 import { makeCliError } from "../../cli-error/index.js";
 import { computeChecksum } from "../../utils/checksum.js";
 import type {
-  ExtensionRef,
   FindOptions,
   PublishableSourceHostProvider,
   SkillRef,
+  McpServerRef,
   LegacySourceProvider,
 } from "../provider.js";
 import type {
@@ -238,11 +238,11 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
         const results = yield* Effect.forEach(options.names, (name) => findForName(name), {
           concurrency: "unbounded",
         });
-        return Array.flatten(results) as ReadonlyArray<ExtensionRef>;
+        return Array.flatten(results) as ReadonlyArray<SkillRef | McpServerRef>;
       }
 
       // Empty names = find all
-      return (yield* findForName("")) as ReadonlyArray<ExtensionRef>;
+      return (yield* findForName("")) as ReadonlyArray<SkillRef | McpServerRef>;
     }),
 
   fetch: (_source, extension) =>

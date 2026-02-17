@@ -10,7 +10,7 @@
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
-import { resolveSource, SourceHostProviders, type SkillRef } from "../../../sources/index.js";
+import { resolveSource, SourceHostProviders, type SkillExtensionRef } from "../../../sources/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -24,7 +24,6 @@ import { parseVersionConstraint } from "../../../version-constraints/index.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 import { PACK_MANIFEST_FILENAME } from "../../packs/constants.js";
 import type { InstallSkillOperation, UninstallSkillOperation } from "../operations.js";
-import { toSkillExtensionRef } from "../operations.js";
 import { buildUpdatePlan } from "./build-plan.js";
 import { installSkill } from "../install/install-skill.js";
 import { uninstallSkill } from "../uninstall/uninstall-skill.js";
@@ -169,8 +168,8 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
 
     // Step 5: Re-resolve each source and discover skills
     type ResolveResult =
-      | { type: "match"; ref: SkillRef; fetchedLocation?: string }
-      | { type: "rename"; oldName: string; newRef: SkillRef; fetchedLocation?: string };
+      | { type: "match"; ref: SkillExtensionRef; fetchedLocation?: string }
+      | { type: "rename"; oldName: string; newRef: SkillExtensionRef; fetchedLocation?: string };
 
     const resolveHandle = yield* spinnerSvc.start("Resolving sources...");
     const results = yield* Effect.forEach(
@@ -185,7 +184,10 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
             agents: args.agents,
             type: "skill",
           });
-          const namedSkillRefs = Array.filter(namedRefs, (r): r is SkillRef => r.type === "skill");
+          const namedSkillRefs = Array.filter(
+            namedRefs,
+            (r): r is SkillExtensionRef => r.type === "skill",
+          );
           const skillRef = namedSkillRefs.find((r) => r.skill.name === name);
 
           if (skillRef) {
@@ -207,7 +209,7 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
             agents: args.agents,
             type: "skill",
           });
-          const allSkillRefs = Array.filter(allRefs, (r): r is SkillRef => r.type === "skill");
+          const allSkillRefs = Array.filter(allRefs, (r): r is SkillExtensionRef => r.type === "skill");
 
           if (allSkillRefs.length === 1) {
             // Single-skill source: treat as rename
@@ -259,8 +261,7 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
     for (const item of resolved) {
       if (item.type !== "match") continue;
       if (item.ref.source.type !== "registry") continue;
-      if (Option.isNone(item.ref.version)) continue;
-
+      if (!("version" in item.ref)) continue;
       const skillFqn = `${item.ref.source.scope}/${item.ref.skill.name}`;
       const packConstraints = packConstraintMap.get(skillFqn) ?? [];
       if (packConstraints.length === 0) continue;
@@ -272,8 +273,8 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
 
       const constraints: SkillConstraints = { userConstraint, packConstraints };
       const warnings = detectHoldbackWarnings(
-        item.ref.version.value,
-        item.ref.version.value,
+        item.ref.version,
+        item.ref.version,
         constraints,
         skillFqn,
       );
@@ -291,7 +292,7 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
         ops.push({
           name: "install-skill",
           args: {
-            ref: toSkillExtensionRef(item.ref),
+            ref: item.ref,
             agents: agentIds,
             force: args.force,
             fetchedLocation: item.fetchedLocation,
@@ -302,7 +303,7 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
         ops.push({
           name: "install-skill",
           args: {
-            ref: toSkillExtensionRef(item.newRef),
+            ref: item.newRef,
             agents: agentIds,
             force: args.force,
             fetchedLocation: item.fetchedLocation,

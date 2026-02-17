@@ -1,12 +1,12 @@
 /**
  * Tests for source provider types.
  *
- * Verifies field contracts and Option semantics for ExtensionRef variants.
+ * Verifies field contracts and Option semantics for legacy ref variants.
  */
 
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import type { ExtensionRef, McpServerRef, SkillRef } from "./provider.js";
+import type { McpServerRef, SkillRef } from "./provider.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -122,19 +122,19 @@ describe("McpServerRef", () => {
 });
 
 // -----------------------------------------------------------------------------
-// ExtensionRef discriminated union
+// Legacy ref discriminated union
 // -----------------------------------------------------------------------------
 
-describe("ExtensionRef discriminated union", () => {
+describe("legacy ref discriminated union", () => {
   it("narrows to SkillRef via type field", () => {
-    const ref: ExtensionRef = makeSkillRef();
+    const ref: SkillRef | McpServerRef = makeSkillRef();
     if (ref.type === "skill") {
       expect(ref.skill.name).toBe("my-skill");
     }
   });
 
   it("narrows to McpServerRef via type field", () => {
-    const ref: ExtensionRef = makeMcpServerRef();
+    const ref: SkillRef | McpServerRef = makeMcpServerRef();
     if (ref.type === "mcp-server") {
       expect(ref.name).toBe("my-server");
     }

@@ -7,7 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { SkillRef } from "../../../sources/index.js";
+import type { SkillExtensionRef } from "../../../sources/index.js";
 import { Log, Multiselect } from "../../../tui/index.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import { expandGlobs } from "../../../skills/index.js";
@@ -39,7 +39,7 @@ interface SelectSkillsArgs {
  * 4. Multiple skills -> `confirmSkillsToInstall` (multiselect prompt)
  */
 export const determineSkillsToInstall = (
-  skills: Array.NonEmptyReadonlyArray<SkillRef>,
+  skills: Array.NonEmptyReadonlyArray<SkillExtensionRef>,
   args: SelectSkillsArgs,
 ) =>
   Effect.gen(function* () {
@@ -85,7 +85,7 @@ export const determineSkillsToInstall = (
  * Shows a multiselect prompt with no skills pre-selected.
  * PromptCancelled bubbles up to the runtime; other errors become CliError.
  */
-export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<SkillRef>) =>
+export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<SkillExtensionRef>) =>
   Effect.gen(function* () {
     const multiselect = yield* Multiselect;
 

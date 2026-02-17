@@ -21,9 +21,10 @@ import { makeCliError } from "../cli-error/index.js";
 import { Workspace } from "../workspace/service.js";
 import type {
   ExtensionFiles,
-  ExtensionRef,
   FindOptions,
   LegacySourceProvider,
+  McpServerRef,
+  SkillRef,
 } from "./provider.js";
 import type { SourceExtensionRef, NewSource } from "./types.js";
 import {
@@ -56,11 +57,9 @@ export interface SourceHostProvidersService {
   readonly find: (
     source: Source,
     options: FindOptions,
-  ) => Effect.Effect<ReadonlyArray<SourceExtensionRef | ExtensionRef>, CliError, Scope.Scope>;
+  ) => Effect.Effect<ReadonlyArray<SourceExtensionRef>, CliError, Scope.Scope>;
   /** Fetch and materialize extension files for a discovered ref. */
-  readonly fetch: (
-    ref: SourceExtensionRef | ExtensionRef,
-  ) => Effect.Effect<ExtensionFiles, CliError, Scope.Scope>;
+  readonly fetch: (ref: SourceExtensionRef) => Effect.Effect<ExtensionFiles, CliError, Scope.Scope>;
   /** Build a git clone URL for this source. Returns None for non-git sources. */
   readonly cloneUrl: (source: Source | NewSource) => Option.Option<string>;
   /** Canonical origin string for display/comparison. */
@@ -129,6 +128,97 @@ const getOriginFromSource = (source: Source | NewSource): string => {
   }
 };
 
+type LegacyRef = SkillRef | McpServerRef;
+
+const toSourceExtensionRef = (ref: LegacyRef): SourceExtensionRef => {
+  switch (ref.type) {
+    case "skill": {
+      const skillBase = {
+        type: "skill" as const,
+        skill: ref.skill,
+        source: ref.source as never,
+      };
+      switch (ref.source.type) {
+        case "registry":
+          return {
+            ...skillBase,
+            version: Option.getOrElse(ref.version, () => ""),
+            checksum: "",
+            // Preserve legacy location for fetch adapter.
+            location: ref.location,
+          } as SourceExtensionRef;
+        case "local":
+          return { ...skillBase, location: ref.location } as SourceExtensionRef;
+        case "github":
+        case "gitlab":
+        case "bitbucket":
+        case "azurerepos":
+        case "git":
+          return {
+            ...skillBase,
+            location: ref.location,
+            gitTreeSha: ref.gitTreeSha,
+          } as SourceExtensionRef;
+        default:
+          return { ...skillBase, location: ref.location } as SourceExtensionRef;
+      }
+    }
+    case "mcp-server": {
+      const serverBase = {
+        type: "mcp-server" as const,
+        server: { name: ref.name },
+        source: ref.source as never,
+      };
+      switch (ref.source.type) {
+        case "registry":
+          return {
+            ...serverBase,
+            version: Option.getOrElse(ref.version, () => ""),
+            checksum: "",
+            // Preserve legacy location for fetch adapter.
+            location: ref.location,
+          } as SourceExtensionRef;
+        case "local":
+          return { ...serverBase, location: ref.location } as SourceExtensionRef;
+        case "github":
+          return {
+            ...serverBase,
+            location: ref.location,
+            gitTreeSha: Option.none(),
+          } as SourceExtensionRef;
+        default:
+          return { ...serverBase, location: ref.location } as SourceExtensionRef;
+      }
+    }
+  }
+};
+
+const toLegacyRef = (
+  ref: Exclude<SourceExtensionRef, { readonly type: "pack" }>,
+): LegacyRef =>
+  ref.type === "skill"
+    ? {
+        type: "skill",
+        skill: ref.skill,
+        source: ref.source as never,
+        location: "location" in ref ? ref.location : "",
+        version:
+          ref.source.type === "registry"
+            ? Option.some("version" in ref ? ref.version : "")
+            : Option.none(),
+        gitTreeSha: "gitTreeSha" in ref ? ref.gitTreeSha : Option.none(),
+      }
+    : {
+        type: "mcp-server",
+        name: ref.server.name,
+        source: ref.source as never,
+        location: "location" in ref ? ref.location : "",
+        version:
+          ref.source.type === "registry"
+            ? Option.some("version" in ref ? ref.version : "")
+            : Option.none(),
+      };
+
 // -----------------------------------------------------------------------------
 // Registry Meta-Provider
 // -----------------------------------------------------------------------------
@@ -177,13 +267,13 @@ export const createRegistryMetaProvider = (): LegacySourceProvider<
       );
 
       if (registrySources.length === 0) {
-        const empty: ReadonlyArray<ExtensionRef> = [];
+        const empty: ReadonlyArray<LegacyRef> = [];
         return empty;
       }
 
       // Try each registry source in order. 404 (empty results) → fallthrough.
       // Sequential: early-exits on first non-404 error (can't use Effect.forEach)
-      const allRefs: ExtensionRef[] = [];
+      const allRefs: Array<LegacyRef> = [];
 
       for (const regSource of registrySources) {
         const provider = createRegistryProvider(regSource.url.href);
@@ -199,7 +289,7 @@ export const createRegistryMetaProvider = (): LegacySourceProvider<
         }
       }
 
-      return allRefs as ReadonlyArray<ExtensionRef>;
+      return allRefs as ReadonlyArray<LegacyRef>;
     }),
 
   fetch: (_source, extension) =>
@@ -268,20 +358,28 @@ export const SourceHostProvidersLive: Layer.Layer<
     };
 
     const findImpl = (source: Source, options: FindOptions) =>
-      providers[source.type].find(source, options).pipe(Effect.provide(depLayer)) as Effect.Effect<
-        ReadonlyArray<ExtensionRef>,
-        CliError,
-        Scope.Scope
-      >;
+      providers[source.type]
+        .find(source, options)
+        .pipe(
+          Effect.provide(depLayer),
+          Effect.map((refs) => refs.map((ref) => toSourceExtensionRef(ref))),
+        ) as Effect.Effect<ReadonlyArray<SourceExtensionRef>, CliError, Scope.Scope>;
 
     return {
       find: findImpl as SourceHostProvidersService["find"],
       fetch: (ref) => {
         const source = ref.source;
+        if (ref.type === "pack") {
+          return Effect.fail(
+            makeCliError({
+              code: "SOURCE_FETCH_FAILED",
+              what: "Pack refs are not fetchable by SourceHostProviders",
+            }),
+          );
+        }
         return (
           providers[source.type]
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any -- legacy providers accept ExtensionRef; SourceExtensionRef is structurally compatible
-            .fetch(source, ref as any)
+            .fetch(source, toLegacyRef(ref))
             .pipe(Effect.provide(depLayer)) as Effect.Effect<ExtensionFiles, CliError, Scope.Scope>
         );
       },

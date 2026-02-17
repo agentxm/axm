@@ -28,7 +28,7 @@ import { Workspace } from "../../workspace/service.js";
 import type { PublishSkillOperation } from "./operations.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/constants.js";
 import { MANIFEST_FILENAME } from "./constants.js";
-import { parseScopedNameOrThrow } from "./naming.js";
+import { parseScopedName } from "./naming.js";
 
 // -----------------------------------------------------------------------------
 // Public API
@@ -53,7 +53,7 @@ export const publishSkill: OperationHandler<
     const ws = yield* Workspace;
     const base = path.dirname(ws.path);
 
-    const { scope, name: skillName } = parseScopedNameOrThrow(op.args.name);
+    const { scope, name: skillName } = yield* parseScopedName(op.args.name);
 
     // Locate the managed extension directory
     const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "skills", skillName);

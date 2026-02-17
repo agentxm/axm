@@ -24,7 +24,7 @@ import { publishSkill } from "../publish-skill.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 import { MANIFEST_FILENAME } from "../constants.js";
-import { hasScopePrefix, parseScopedNameOrThrow } from "../naming.js";
+import { hasScopePrefix, parseScopedName } from "../naming.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -79,7 +79,7 @@ export const handlePublish = (args: PublishHandlerArgs) =>
         );
 
     // Parse scope and skill name from the extension name
-    const { scope, name: skillName } = parseScopedNameOrThrow(extensionName);
+    const { scope, name: skillName } = yield* parseScopedName(extensionName);
 
     // Step 3: Validate managed extension exists
     const handle = yield* spinnerSvc.start("Validating extension...");

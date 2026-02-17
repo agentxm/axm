@@ -16,7 +16,7 @@ import { describe, expect, it } from "vitest";
 import { makeCliError } from "../../../cli-error/index.js";
 import type {
   RegistryClient,
-  RegistryExtensionEntry,
+  RegistryExtension,
   GetExtensionsArgs,
   GetExtensionsResult,
   VersionEntry,
@@ -59,7 +59,6 @@ const defaultFindOptions: FindOptions = {
 const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
   version: "1.0.0",
   published: "2025-01-01T00:00:00Z",
-  agents: ["claude-code"],
   checksum: "sha256:0000",
   ...overrides,
 });
@@ -68,7 +67,7 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 // For fetch tests we use the mock client which returns controlled bytes
 
 /** Wrap entries into a GetExtensionsResult with default pagination. */
-const toResult = (extensions: ReadonlyArray<RegistryExtensionEntry>): GetExtensionsResult => ({
+const toResult = (extensions: ReadonlyArray<RegistryExtension>): GetExtensionsResult => ({
   extensions,
   pagination: {
     total: extensions.length,
@@ -134,11 +133,15 @@ const createFailingClient = (): RegistryClient => ({
 describe("LocalRegistrySourceHostProvider.find", () => {
   it("maps FindOptions to GetExtensionsArgs and returns SourceExtensionRefs", () => {
     let capturedOptions: GetExtensionsArgs | undefined;
-    const entries: ReadonlyArray<RegistryExtensionEntry> = [
+    const entries: ReadonlyArray<RegistryExtension> = [
       {
         scope: "@test",
         type: "skill",
         name: "my-skill",
+        description: Option.some("My skill description"),
+        repository: Option.some("https://github.com/test/my-skill"),
+        license: Option.some("MIT"),
+        authors: Option.some([{ name: "Test Author", email: Option.none(), url: Option.none() }]),
         version: "1.0.0",
         checksum: "sha256:abc",
       },
@@ -179,6 +182,14 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         // Assertion needed: TS can't narrow SkillExtensionRef union to RegistrySkillRef
         const skillRef = ref as RegistrySkillRef;
         expect(skillRef.skill.name).toBe("my-skill");
+        expect(skillRef.skill.description).toBe("My skill description");
+        expect(skillRef.skill.metadata).toEqual(
+          Option.some({
+            repository: "https://github.com/test/my-skill",
+            license: "MIT",
+            authors: [{ name: "Test Author" }],
+          }),
+        );
         expect(skillRef.scope).toBe("@test");
         expect(skillRef.version).toBe("1.0.0");
         expect(skillRef.checksum).toBe("sha256:abc");
@@ -187,11 +198,15 @@ describe("LocalRegistrySourceHostProvider.find", () => {
   });
 
   it("maps mcp-server entries to McpServerExtensionRef", () => {
-    const entries: ReadonlyArray<RegistryExtensionEntry> = [
+    const entries: ReadonlyArray<RegistryExtension> = [
       {
         scope: "@test",
         type: "mcp-server",
         name: "my-server",
+        description: Option.none(),
+        repository: Option.none(),
+        license: Option.none(),
+        authors: Option.none(),
         version: "2.0.0",
         checksum: "sha256:def",
       },
@@ -223,11 +238,15 @@ describe("LocalRegistrySourceHostProvider.find", () => {
   });
 
   it("maps pack entries to PackExtensionRef", () => {
-    const entries: ReadonlyArray<RegistryExtensionEntry> = [
+    const entries: ReadonlyArray<RegistryExtension> = [
       {
         scope: "@test",
         type: "pack",
         name: "my-pack",
+        description: Option.none(),
+        repository: Option.none(),
+        license: Option.none(),
+        authors: Option.none(),
         version: "3.0.0",
         checksum: "sha256:ghi",
       },

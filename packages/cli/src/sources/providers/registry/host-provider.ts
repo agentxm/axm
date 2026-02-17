@@ -16,12 +16,13 @@ import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import type {
   RegistryClient,
-  RegistryExtensionEntry,
+  RegistryExtension,
   GetExtensionsArgs,
 } from "../../../registry/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
 import { computeChecksum } from "../../../utils/checksum.js";
 import type { ExtensionType } from "../../../extensions/common.js";
+import type { Author } from "../../../extensions/common.js";
 import type { ExtensionFiles, FindOptions, PublishableSourceHostProvider } from "../../provider.js";
 import type { RegistrySource, RegistrySourceHost, SourceExtensionRef } from "../../types.js";
 import type { VersionEntry } from "../../../registry/index.js";
@@ -38,11 +39,26 @@ const toSearchOptions = (options: FindOptions): GetExtensionsArgs => ({
   offset: 0,
 });
 
-/** Map RegistryExtensionEntry to SourceExtensionRef, stamped with the source. */
+const authorToMetadata = (author: Author): Record<string, string> => ({
+  name: author.name,
+  ...(Option.isSome(author.email) && { email: author.email.value }),
+  ...(Option.isSome(author.url) && { url: author.url.value }),
+});
+
+/** Map RegistryExtension to SourceExtensionRef, stamped with the source. */
 const toSourceExtensionRef = (
-  entry: RegistryExtensionEntry,
+  entry: RegistryExtension,
   source: RegistrySource,
 ): SourceExtensionRef => {
+  const repository = Option.getOrUndefined(entry.repository);
+  const license = Option.getOrUndefined(entry.license);
+  const authors = Option.getOrUndefined(entry.authors)?.map((author) => authorToMetadata(author));
+  const skillMetadata = {
+    ...(repository !== undefined && { repository }),
+    ...(license !== undefined && { license }),
+    ...(authors !== undefined && { authors }),
+  };
+
   const details = {
     scope: entry.scope,
     version: entry.version,
@@ -55,8 +71,9 @@ const toSourceExtensionRef = (
         type: "skill",
         skill: {
           name: entry.name,
-          description: "",
-          metadata: Option.none(),
+          description: Option.getOrElse(entry.description, () => ""),
+          metadata:
+            Object.keys(skillMetadata).length > 0 ? Option.some(skillMetadata) : Option.none(),
         },
         source,
         ...details,

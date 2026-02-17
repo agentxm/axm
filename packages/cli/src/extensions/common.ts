@@ -5,6 +5,7 @@
  */
 
 import * as Schema from "effect/Schema";
+import * as Option from "effect/Option";
 
 /**
  * Author information for a manifest.
@@ -18,11 +19,22 @@ export const AuthorSchema = Schema.Struct({
 });
 
 /**
- * Inferred type for Author schema.
+ * Author information in runtime/domain models.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type Author = typeof AuthorSchema.Type;
+export interface Author {
+  readonly name: string;
+  readonly email: Option.Option<string>;
+  readonly url: Option.Option<string>;
+}
+
+/** Convert schema-decoded author shape into runtime/domain Author. */
+export const toAuthor = (author: typeof AuthorSchema.Type): Author => ({
+  name: author.name,
+  email: Option.fromNullable(author.email),
+  url: Option.fromNullable(author.url),
+});
 
 /**
  * Fully qualified name pattern: `@<scope>/<name>` where scope and name

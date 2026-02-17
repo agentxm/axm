@@ -19,25 +19,15 @@ import type * as Scope from "effect/Scope";
 import type { CliError } from "../cli-error/index.js";
 import { makeCliError } from "../cli-error/index.js";
 import { Workspace } from "../workspace/service.js";
-import type {
-  ExtensionFiles,
-  FindOptions,
-  LegacySourceProvider,
-  McpServerRef,
-  SkillRef,
-} from "./provider.js";
-import type { SourceExtensionRef, NewSource } from "./types.js";
+import type { ExtensionFiles, FindOptions } from "./provider.js";
+import type { SourceExtensionRef, NewSource, RegistrySourceInput, Source } from "./types.js";
 import {
-  createLegacyAzureReposProvider,
-  createBitbucketProvider,
   createBuiltinSourceHostProvider,
-  createGitHubProvider,
-  createGitLabProvider,
-  createLegacyGitProvider,
-  createLegacyLocalProvider,
+  createGitHostingSourceHostProvider,
+  createGitSourceHostProvider,
+  createLocalSourceHostProvider,
   createRegistryProvider,
 } from "./providers/index.js";
-import type { RegistrySourceInput, Source, SourceInput, SourceType } from "./types.js";
 import { buildCloneUrlForSource } from "./providers/git-hosting.js";
 
 // -----------------------------------------------------------------------------
@@ -126,109 +116,13 @@ const getOriginFromSource = (source: Source | NewSource): string => {
   }
 };
 
-type LegacyRef = SkillRef | McpServerRef;
-
-// Bridge function: converts legacy provider refs to the new SourceExtensionRef type.
-// Assertion needed: `as never` casts bridge two discriminated union hierarchies (legacy SourceInput
-// vs new source types). TS can't prove the correlation across the two type systems.
-// `as SourceExtensionRef` casts are needed because the spread object literal doesn't match any
-// single variant of the discriminated union — TS sees the union of all possible shapes.
-const toSourceExtensionRef = (ref: LegacyRef): SourceExtensionRef => {
-  switch (ref.type) {
-    case "skill": {
-      const skillBase = {
-        type: "skill" as const,
-        skill: ref.skill,
-        source: ref.source as never,
-      };
-      switch (ref.source.type) {
-        case "registry":
-          return {
-            ...skillBase,
-            version: Option.getOrElse(ref.version, () => ""),
-            checksum: "",
-            location: ref.location,
-          } as SourceExtensionRef;
-        case "local":
-          return { ...skillBase, location: ref.location } as SourceExtensionRef;
-        case "github":
-        case "gitlab":
-        case "bitbucket":
-        case "azurerepos":
-        case "git":
-          return {
-            ...skillBase,
-            location: ref.location,
-            gitTreeSha: ref.gitTreeSha,
-          } as SourceExtensionRef;
-        default:
-          return { ...skillBase, location: ref.location } as SourceExtensionRef;
-      }
-    }
-    case "mcp-server": {
-      const serverBase = {
-        type: "mcp-server" as const,
-        server: { name: ref.name },
-        source: ref.source as never,
-      };
-      switch (ref.source.type) {
-        case "registry":
-          return {
-            ...serverBase,
-            version: Option.getOrElse(ref.version, () => ""),
-            checksum: "",
-            location: ref.location,
-          } as SourceExtensionRef;
-        case "local":
-          return { ...serverBase, location: ref.location } as SourceExtensionRef;
-        case "github":
-          return {
-            ...serverBase,
-            location: ref.location,
-            gitTreeSha: Option.none(),
-          } as SourceExtensionRef;
-        default:
-          return { ...serverBase, location: ref.location } as SourceExtensionRef;
-      }
-    }
-  }
-};
-
-// Bridge function: converts new SourceExtensionRef back to legacy provider refs for fetching.
-// Assertion needed: same cross-hierarchy cast as toSourceExtensionRef (see comment above).
-// `"location" in ref` / `"version" in ref` guards are needed because not all ref variants
-// carry these fields — TS can't narrow the union after the type === "skill" check.
-const toLegacyRef = (ref: Exclude<SourceExtensionRef, { readonly type: "pack" }>): LegacyRef =>
-  ref.type === "skill"
-    ? {
-        type: "skill",
-        skill: ref.skill,
-        source: ref.source as never,
-        location: "location" in ref ? ref.location : "",
-        version:
-          ref.source.type === "registry"
-            ? Option.some("version" in ref ? ref.version : "")
-            : Option.none(),
-        gitTreeSha: "gitTreeSha" in ref ? ref.gitTreeSha : Option.none(),
-      }
-    : {
-        type: "mcp-server",
-        name: ref.server.name,
-        source: ref.source as never,
-        location: "location" in ref ? ref.location : "",
-        version:
-          ref.source.type === "registry"
-            ? Option.some("version" in ref ? ref.version : "")
-            : Option.none(),
-      };
-
 // -----------------------------------------------------------------------------
 // Registry Meta-Provider
 // -----------------------------------------------------------------------------
 
 /**
  * Creates a registry meta-provider that wraps N configured registries
- * into a single `LegacySourceProvider<RegistrySourceInput>`.
+ * into a single find/fetch interface returning `SourceExtensionRef`.
  *
  * Reads `workspace.getConfiguredRegistrySources()` lazily on each call — always
  * reflects the current config (including sources added by the registry guard).
@@ -241,18 +135,15 @@ const toLegacyRef = (ref: Exclude<SourceExtensionRef, { readonly type: "pack" }>
  *
  * @internal
  */
-export const createRegistryMetaProvider = (): LegacySourceProvider<
-  RegistrySourceInput,
-  FileSystem.FileSystem | Path.Path | Workspace
-> => ({
-  type: "registry",
+export const createRegistryMetaProvider = () => ({
+  type: "registry" as const,
 
-  find: (_source, options) =>
+  find: (source: RegistrySourceInput, options: FindOptions) =>
     Effect.gen(function* () {
       const ws = yield* Workspace;
 
       // Determine scope from source (e.g. @scope/name install) or from options names
-      const sourceScope = _source.scope ? Option.some(_source.scope) : Option.none<string>();
+      const sourceScope = source.scope ? Option.some(source.scope) : Option.none<string>();
       const scope = Option.isSome(sourceScope)
         ? sourceScope
         : options.names.length > 0
@@ -270,17 +161,16 @@ export const createRegistryMetaProvider = (): LegacySourceProvider<
       );
 
       if (registrySources.length === 0) {
-        const empty: ReadonlyArray<LegacyRef> = [];
-        return empty;
+        return [] as ReadonlyArray<SourceExtensionRef>;
       }
 
       // Try each registry source in order. 404 (empty results) → fallthrough.
       // Sequential: early-exits on first non-404 error (can't use Effect.forEach)
-      const allRefs: Array<LegacyRef> = [];
+      const allRefs: Array<SourceExtensionRef> = [];
 
       for (const regSource of registrySources) {
         const provider = createRegistryProvider(regSource.url.href);
-        const result = yield* provider.find(_source, options).pipe(Effect.either);
+        const result = yield* provider.find(source, options).pipe(Effect.either);
 
         if (result._tag === "Left") {
           // Non-404 errors → hard fail
@@ -292,18 +182,41 @@ export const createRegistryMetaProvider = (): LegacySourceProvider<
         }
       }
 
-      return allRefs as ReadonlyArray<LegacyRef>;
+      return allRefs as ReadonlyArray<SourceExtensionRef>;
     }),
 
-  fetch: (_source, extension) =>
-    Effect.gen(function* () {
-      // The extension ref carries its location — determine the provider from that
-      const location = extension.location.replace("file://", "");
-      const provider = createRegistryProvider(
-        location.startsWith("http") ? extension.location : location,
+  fetch: (source: RegistrySourceInput, ref: SourceExtensionRef) => {
+    // Build the registry provider from the source scope to determine the registry root
+    // The ref's source has the scope info we need
+    if (ref.source.type === "registry" && "url" in ref.source) {
+      const provider = createRegistryProvider(ref.source.url.href);
+      return provider.fetch(source, ref);
+    }
+    // Fallback: use the source scope to find the registry
+    return Effect.gen(function* () {
+      const ws = yield* Workspace;
+      const scope = source.scope ? Option.some(source.scope) : Option.none<string>();
+      const registrySources = yield* ws.getConfiguredRegistrySources(scope).pipe(
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: `Failed to get registry sources: ${e._tag}`,
+            cause: e,
+          }),
+        ),
       );
-      return yield* provider.fetch(_source, extension);
-    }),
+      if (registrySources.length === 0) {
+        return yield* Effect.fail(
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: "No registry sources configured",
+          }),
+        );
+      }
+      const provider = createRegistryProvider(registrySources[0]!.url.href);
+      return yield* provider.fetch(source, ref);
+    });
+  },
 });
 
 // -----------------------------------------------------------------------------
@@ -330,12 +243,9 @@ export const SourceHostProvidersLive: Layer.Layer<
     const path = yield* Path.Path;
     const ws = yield* Workspace;
 
-    const githubProvider = createGitHubProvider();
-    const gitlabProvider = createGitLabProvider();
-    const bitbucketProvider = createBitbucketProvider();
-    const azurereposProvider = createLegacyAzureReposProvider();
-    const gitProvider = createLegacyGitProvider();
-    const localProvider = createLegacyLocalProvider();
+    const localProvider = createLocalSourceHostProvider();
+    const gitProvider = createGitSourceHostProvider();
+    const builtinProvider = createBuiltinSourceHostProvider();
     const registryMetaProvider = createRegistryMetaProvider();
 
     // Captured layer for providing to provider operations
@@ -345,31 +255,28 @@ export const SourceHostProvidersLive: Layer.Layer<
       Layer.succeed(Workspace, ws),
     );
 
-    const builtinProvider = createBuiltinSourceHostProvider();
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dispatch table: each key maps to correct provider
-    const providers: Record<SourceType, LegacySourceProvider<any, any>> = {
-      github: githubProvider,
-      gitlab: gitlabProvider,
-      bitbucket: bitbucketProvider,
-      azurerepos: azurereposProvider,
-      git: gitProvider,
-      local: localProvider,
-      registry: registryMetaProvider,
-      // Assertion needed: SourceHostProvider has `match` method but dispatch table expects LegacySourceProvider
-      builtin: builtinProvider as unknown as LegacySourceProvider<SourceInput, never>,
+    const findImpl = (source: Source, options: FindOptions) => {
+      switch (source.type) {
+        case "github":
+        case "gitlab":
+        case "bitbucket":
+        case "azurerepos": {
+          // Assertion needed: Source carries host config (url) at runtime but TS types diverge
+          const provider = createGitHostingSourceHostProvider(source as never);
+          return provider.find(source as never, options).pipe(Effect.provide(depLayer));
+        }
+        case "local":
+          return localProvider.find(source as never, options).pipe(Effect.provide(depLayer));
+        case "git":
+          return gitProvider.find(source as never, options).pipe(Effect.provide(depLayer));
+        case "registry":
+          return registryMetaProvider.find(source, options).pipe(Effect.provide(depLayer));
+      }
     };
-
-    const findImpl = (source: Source, options: FindOptions) =>
-      providers[source.type].find(source, options).pipe(
-        Effect.provide(depLayer),
-        Effect.map((refs) => refs.map((ref) => toSourceExtensionRef(ref))),
-      ) as Effect.Effect<ReadonlyArray<SourceExtensionRef>, CliError, Scope.Scope>;
 
     return {
       find: findImpl as SourceHostProvidersService["find"],
       fetch: (ref) => {
-        const source = ref.source;
         if (ref.type === "pack") {
           return Effect.fail(
             makeCliError({
@@ -378,9 +285,30 @@ export const SourceHostProvidersLive: Layer.Layer<
             }),
           );
         }
-        return providers[source.type]
-          .fetch(source, toLegacyRef(ref))
-          .pipe(Effect.provide(depLayer)) as Effect.Effect<ExtensionFiles, CliError, Scope.Scope>;
+        const source = ref.source;
+        switch (source.type) {
+          case "github":
+          case "gitlab":
+          case "bitbucket":
+          case "azurerepos": {
+            const provider = createGitHostingSourceHostProvider(source as never);
+            return provider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
+          }
+          case "local":
+            return localProvider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
+          case "git":
+            return gitProvider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
+          case "registry":
+            return registryMetaProvider
+              .fetch(source as never, ref)
+              .pipe(Effect.provide(depLayer)) as Effect.Effect<
+              ExtensionFiles,
+              CliError,
+              Scope.Scope
+            >;
+          case "builtin":
+            return builtinProvider.fetch(source as never, ref).pipe(Effect.provide(depLayer));
+        }
       },
       cloneUrl: buildCloneUrlFromSource,
       origin: getOriginFromSource,

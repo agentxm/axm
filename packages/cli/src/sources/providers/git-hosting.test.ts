@@ -10,9 +10,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { describe, expect, it } from "vitest";
 import {
-  createBitbucketProvider,
-  createGitHubProvider,
-  createGitLabProvider,
   createGitHubSourceHostProvider,
   createGitLabSourceHostProvider,
   createBitbucketSourceHostProvider,
@@ -29,29 +26,6 @@ const runMatch = (effect: Effect.Effect<boolean, unknown, unknown>) =>
     >,
   );
 
-// Legacy providers
-describe("createGitHubProvider", () => {
-  it("has type 'github'", () => {
-    const provider = createGitHubProvider();
-    expect(provider.type).toBe("github");
-  });
-});
-
-describe("createGitLabProvider", () => {
-  it("has type 'gitlab'", () => {
-    const provider = createGitLabProvider();
-    expect(provider.type).toBe("gitlab");
-  });
-});
-
-describe("createBitbucketProvider", () => {
-  it("has type 'bitbucket'", () => {
-    const provider = createBitbucketProvider();
-    expect(provider.type).toBe("bitbucket");
-  });
-});
-
-// New SourceHostProvider providers
 describe("createGitHubSourceHostProvider", () => {
   const host = { type: "github" as const, url: new URL("https://github.com") };
   const provider = createGitHubSourceHostProvider(host);

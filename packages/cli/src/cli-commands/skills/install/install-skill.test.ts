@@ -13,7 +13,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import type { SkillPathSource } from "../skill-paths.js";
 import type { InstallSkillOperation } from "../operations.js";
-import { toSkillExtensionRef } from "../operations.js";
+import type { SkillExtensionRef } from "../../../sources/types.js";
 import { installSkill } from "./install-skill.js";
 import { sanitizeName } from "./skill-utils.js";
 
@@ -162,16 +162,32 @@ const makeOp = (
   const version = overrides.version ?? Option.none();
   const gitTreeSha = overrides.gitTreeSha ?? Option.none();
 
-  // Build a legacy SkillRef and convert to SkillExtensionRef
-  const legacyRef: import("../../../sources/provider.js").SkillRef = {
-    type: "skill",
-    skill,
-    source,
-    location,
-    version,
-    gitTreeSha,
-  };
-  const ref = toSkillExtensionRef(legacyRef);
+  // Construct SkillExtensionRef directly based on source type
+  const ref: SkillExtensionRef = (() => {
+    const base = { type: "skill" as const, skill };
+    switch (source.type) {
+      case "registry":
+        return {
+          ...base,
+          source: source as never,
+          version: Option.getOrElse(version, () => ""),
+          checksum: "",
+        } as SkillExtensionRef;
+      case "local":
+        return {
+          ...base,
+          source: source as never,
+          location,
+        } as SkillExtensionRef;
+      default:
+        return {
+          ...base,
+          source: source as never,
+          location,
+          gitTreeSha,
+        } as SkillExtensionRef;
+    }
+  })();
 
   // For registry sources, the fetchedLocation is the location
   const fetchedLocation = source.type === "registry" ? location : undefined;

@@ -110,7 +110,7 @@ const getOriginFromSource = (source: Source): string => {
     case "git":
       return source.url.href;
     case "registry":
-      return source.url.origin;
+      return source.location.origin;
     case "builtin":
       return "builtin";
   }
@@ -185,8 +185,8 @@ export const createRegistryMetaProvider = () => ({
   fetch: (source: RegistrySourceParams, ref: SourceExtensionRef) => {
     // Build the registry provider from the source scope to determine the registry root
     // The ref's source has the scope info we need
-    if (ref.source.type === "registry" && "url" in ref.source) {
-      const provider = createRegistryProvider(ref.source.url.href);
+    if (ref.source.type === "registry" && "location" in ref.source) {
+      const provider = createRegistryProvider(ref.source.location.href);
       return provider.fetch(source, ref);
     }
     // Fallback: use the source scope to find the registry

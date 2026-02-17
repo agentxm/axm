@@ -115,7 +115,7 @@ const makeOp = (
           scope: "@axm",
           name,
           versionConstraint: Option.none(),
-          url: new URL("http://localhost:3000"),
+          location: new URL("http://localhost:3000"),
         },
         version: overrides?.version ?? "0.0.0",
         checksum: "abc",

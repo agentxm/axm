@@ -87,7 +87,7 @@ export interface GitSourceHost {
  */
 export interface RegistrySourceHost {
   readonly type: "registry";
-  readonly url: URL;
+  readonly location: URL;
 }
 
 /** Self-describing — the filesystem path lives in SourceParams. @experimental */

@@ -18,6 +18,7 @@ import type {
   RegistryClient,
   RegistryExtensionEntry,
   GetExtensionsArgs,
+  GetExtensionsResult,
   VersionEntry,
 } from "../../../registry/index.js";
 import type {
@@ -66,9 +67,20 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 // Minimal zip: just enough bytes to not crash extractZip in a mock context
 // For fetch tests we use the mock client which returns controlled bytes
 
+/** Wrap entries into a GetExtensionsResult with default pagination. */
+const toResult = (extensions: ReadonlyArray<RegistryExtensionEntry>): GetExtensionsResult => ({
+  extensions,
+  pagination: {
+    total: extensions.length,
+    limit: extensions.length,
+    offset: 0,
+    hasMore: false,
+  },
+});
+
 /** Create a mock RegistryClient with controllable return values. */
 const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient => ({
-  getExtensions: () => Effect.succeed([]),
+  getExtensions: () => Effect.succeed(toResult([])),
   scopeExists: () => Effect.succeed(false),
   getExtensionVersion: () =>
     Effect.fail(makeCliError({ code: "REGISTRY_FETCH_FAILED", what: "not implemented" })),
@@ -135,7 +147,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     const client = createMockClient({
       getExtensions: (options) => {
         capturedOptions = options;
-        return Effect.succeed(entries);
+        return Effect.succeed(toResult(entries));
       },
     });
 
@@ -153,6 +165,8 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(capturedOptions).toEqual({
           names: ["my-skill"],
           type: "skill",
+          limit: Option.none(),
+          offset: 0,
         });
 
         // Verify SourceExtensionRef mapping
@@ -184,7 +198,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     ];
 
     const client = createMockClient({
-      getExtensions: () => Effect.succeed(entries),
+      getExtensions: () => Effect.succeed(toResult(entries)),
     });
 
     const provider = createLocalRegistrySourceHostProvider(client);
@@ -220,7 +234,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     ];
 
     const client = createMockClient({
-      getExtensions: () => Effect.succeed(entries),
+      getExtensions: () => Effect.succeed(toResult(entries)),
     });
 
     const provider = createLocalRegistrySourceHostProvider(client);
@@ -243,7 +257,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
 
   it("returns empty array when client returns empty", () => {
     const client = createMockClient({
-      getExtensions: () => Effect.succeed([]),
+      getExtensions: () => Effect.succeed(toResult([])),
     });
 
     const provider = createLocalRegistrySourceHostProvider(client);
@@ -262,7 +276,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     const client = createMockClient({
       getExtensions: (options) => {
         capturedOptions = options;
-        return Effect.succeed([]);
+        return Effect.succeed(toResult([]));
       },
     });
 

@@ -54,6 +54,8 @@ const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
 const defaultSearchOptions: GetExtensionsArgs = {
   names: [],
   type: "skill",
+  limit: Option.none(),
+  offset: 0,
 };
 
 /** Create a minimal zip archive with a single file. */
@@ -79,8 +81,9 @@ describe("LocalRegistryClient.getExtensions", () => {
   it.effect("returns empty when registry directory does not exist", () =>
     Effect.gen(function* () {
       const client = yield* makeLocalClient("/nonexistent/path");
-      const entries = yield* client.getExtensions(defaultSearchOptions);
-      expect(entries).toHaveLength(0);
+      const result = yield* client.getExtensions(defaultSearchOptions);
+      expect(result.extensions).toHaveLength(0);
+      expect(result.pagination).toEqual({ total: 0, limit: 0, offset: 0, hasMore: false });
     }).pipe(Effect.provide(NodeContext.layer)),
   );
 
@@ -94,16 +97,17 @@ describe("LocalRegistryClient.getExtensions", () => {
       yield* fs.writeFileString(nodePath.join(skillDir, "index.json"), JSON.stringify(makeIndex()));
 
       const client = yield* makeLocalClient(registryRoot);
-      const entries = yield* client.getExtensions({
+      const result = yield* client.getExtensions({
         ...defaultSearchOptions,
         names: ["my-skill"],
       });
 
-      expect(entries).toHaveLength(1);
-      expect(entries[0]!.type).toBe("skill");
-      expect(entries[0]!.name).toBe("my-skill");
-      expect(entries[0]!.version).toBe("1.0.0");
-      expect(entries[0]!.scope).toBe("@test");
+      expect(result.extensions).toHaveLength(1);
+      expect(result.extensions[0]!.type).toBe("skill");
+      expect(result.extensions[0]!.name).toBe("my-skill");
+      expect(result.extensions[0]!.version).toBe("1.0.0");
+      expect(result.extensions[0]!.scope).toBe("@test");
+      expect(result.pagination).toEqual({ total: 1, limit: 1, offset: 0, hasMore: false });
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -125,11 +129,11 @@ describe("LocalRegistryClient.getExtensions", () => {
       );
 
       const client = yield* makeLocalClient(registryRoot);
-      const entries = yield* client.getExtensions({
+      const result = yield* client.getExtensions({
         ...defaultSearchOptions,
         names: ["nonexistent"],
       });
-      expect(entries).toHaveLength(0);
+      expect(result.extensions).toHaveLength(0);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -151,11 +155,11 @@ describe("LocalRegistryClient.getExtensions", () => {
       );
 
       const client = yield* makeLocalClient(registryRoot);
-      const entries = yield* client.getExtensions({
+      const result = yield* client.getExtensions({
         ...defaultSearchOptions,
         names: ["my-skill"],
       });
-      expect(entries).toHaveLength(0);
+      expect(result.extensions).toHaveLength(0);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -183,8 +187,9 @@ describe("LocalRegistryClient.getExtensions", () => {
       );
 
       const client = yield* makeLocalClient(registryRoot);
-      const entries = yield* client.getExtensions(defaultSearchOptions);
-      expect(entries).toHaveLength(2);
+      const result = yield* client.getExtensions(defaultSearchOptions);
+      expect(result.extensions).toHaveLength(2);
+      expect(result.pagination.total).toBe(2);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -212,14 +217,70 @@ describe("LocalRegistryClient.getExtensions", () => {
       );
 
       const client = yield* makeLocalClient(registryRoot);
-      const entries = yield* client.getExtensions({
+      const result = yield* client.getExtensions({
         ...defaultSearchOptions,
         type: "mcp-server",
         names: ["my-server"],
       });
-      expect(entries).toHaveLength(1);
-      expect(entries[0]!.type).toBe("mcp-server");
-      expect(entries[0]!.name).toBe("my-server");
+      expect(result.extensions).toHaveLength(1);
+      expect(result.extensions[0]!.type).toBe("mcp-server");
+      expect(result.extensions[0]!.name).toBe("my-server");
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+      ),
+      Effect.provide(NodeContext.layer),
+    );
+  });
+
+  it.effect("paginates with limit and offset", () => {
+    const registryRoot = makeRegistryDir();
+    const skill1Dir = nodePath.join(registryRoot, "extensions", "@test", "skills", "skill-a");
+    const skill2Dir = nodePath.join(registryRoot, "extensions", "@test", "skills", "skill-b");
+    const skill3Dir = nodePath.join(registryRoot, "extensions", "@test", "skills", "skill-c");
+
+    return Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      for (const [dir, name] of [
+        [skill1Dir, "skill-a"],
+        [skill2Dir, "skill-b"],
+        [skill3Dir, "skill-c"],
+      ] as const) {
+        yield* fs.makeDirectory(dir, { recursive: true });
+        yield* fs.writeFileString(
+          nodePath.join(dir, "index.json"),
+          JSON.stringify(makeIndex({ name })),
+        );
+      }
+
+      const client = yield* makeLocalClient(registryRoot);
+
+      // limit=2, offset=0 → first 2
+      const page1 = yield* client.getExtensions({
+        ...defaultSearchOptions,
+        limit: Option.some(2),
+        offset: 0,
+      });
+      expect(page1.extensions).toHaveLength(2);
+      expect(page1.pagination).toEqual({ total: 3, limit: 2, offset: 0, hasMore: true });
+
+      // limit=2, offset=2 → last 1
+      const page2 = yield* client.getExtensions({
+        ...defaultSearchOptions,
+        limit: Option.some(2),
+        offset: 2,
+      });
+      expect(page2.extensions).toHaveLength(1);
+      expect(page2.pagination).toEqual({ total: 3, limit: 2, offset: 2, hasMore: false });
+
+      // no limit, offset=1 → skip 1
+      const page3 = yield* client.getExtensions({
+        ...defaultSearchOptions,
+        limit: Option.none(),
+        offset: 1,
+      });
+      expect(page3.extensions).toHaveLength(2);
+      expect(page3.pagination).toEqual({ total: 3, limit: 3, offset: 1, hasMore: false });
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -693,12 +754,12 @@ describe("createRegistryClient", () => {
       yield* fs.writeFileString(nodePath.join(skillDir, "index.json"), JSON.stringify(makeIndex()));
 
       const client = yield* createRegistryClient(registryRoot);
-      const entries = yield* client.getExtensions({
+      const result = yield* client.getExtensions({
         ...defaultSearchOptions,
         names: ["my-skill"],
       });
-      expect(entries).toHaveLength(1);
-      expect(entries[0]!.name).toBe("my-skill");
+      expect(result.extensions).toHaveLength(1);
+      expect(result.extensions[0]!.name).toBe("my-skill");
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -717,12 +778,12 @@ describe("createRegistryClient", () => {
       yield* fs.writeFileString(nodePath.join(skillDir, "index.json"), JSON.stringify(makeIndex()));
 
       const client = yield* createRegistryClient(`file://${registryRoot}`);
-      const entries = yield* client.getExtensions({
+      const result = yield* client.getExtensions({
         ...defaultSearchOptions,
         names: ["my-skill"],
       });
-      expect(entries).toHaveLength(1);
-      expect(entries[0]!.name).toBe("my-skill");
+      expect(result.extensions).toHaveLength(1);
+      expect(result.extensions[0]!.name).toBe("my-skill");
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),

@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { makeCliError } from "../../cli-error/index.js";
-import type { BitbucketSourceInputLegacy } from "../types.js";
+import type { BitbucketSourceParams } from "../types.js";
 import { CANONICAL_HOSTNAME } from "./url.js";
 
 /** Matches: git@{hostname}:owner/repo.git */
@@ -25,5 +25,5 @@ export const parseScp = (input: string, hostname: string = CANONICAL_HOSTNAME) =
     repo: match[3],
     ref: Option.none(),
     subPath: Option.none(),
-  } satisfies BitbucketSourceInputLegacy);
+  } satisfies BitbucketSourceParams);
 };

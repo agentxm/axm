@@ -23,7 +23,7 @@ import {
 import { expandGlobs, isGlobPattern } from "../skills/index.js";
 import { Workspace } from "../workspace/index.js";
 import { resolveSource } from "./resolve-source.js";
-import type { SourceLegacy } from "./types.js";
+import type { NewSource } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -99,7 +99,7 @@ const resolveNameWithFallback = (
 
       const diskPath = onDiskByName.get(name);
       if (diskPath !== undefined) {
-        return Effect.succeed<SourceLegacy>({ type: "local", path: diskPath });
+        return Effect.succeed<NewSource>({ type: "local", path: diskPath });
       }
 
       return Effect.fail(error);
@@ -124,7 +124,7 @@ const resolveNameWithFallback = (
 export const resolveSourcePattern = (
   input: string,
 ): Effect.Effect<
-  ReadonlyArray<SourceLegacy>,
+  ReadonlyArray<NewSource>,
   CliError,
   Workspace | FileSystem.FileSystem | Path.Path
 > =>

@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { makeCliError } from "../../cli-error/index.js";
-import type { AzureReposSourceInputLegacy } from "../types.js";
+import type { AzureReposSourceParams } from "../types.js";
 
 export const CANONICAL_HOSTNAME = "dev.azure.com";
 
@@ -36,5 +36,5 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
     repo: match[3],
     ref: Option.none(),
     subPath: Option.none(),
-  } satisfies AzureReposSourceInputLegacy);
+  } satisfies AzureReposSourceParams);
 };

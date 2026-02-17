@@ -23,8 +23,9 @@ import * as gitlab from "./gitlab/index.js";
 import { parseLocalPath } from "./local/index.js";
 import { parseInputPattern } from "./parser.js";
 import type {
-  RegistrySourceInputLegacy,
-  SourceLegacy,
+  NewRegistrySource,
+  RegistrySourceParams,
+  NewSource,
   SourceParams,
   SourceType,
 } from "./types.js";
@@ -98,7 +99,7 @@ const configToSource = (
   config: SourceHostConfig,
   params: SourceParams,
   input: string,
-): Effect.Effect<SourceLegacy, CliError> => {
+): Effect.Effect<NewSource, CliError> => {
   const mismatch = () =>
     Effect.fail(
       makeCliError({
@@ -110,15 +111,25 @@ const configToSource = (
 
   switch (config.type) {
     case "github":
-      return params.type === "github" ? Effect.succeed({ ...params, ...config }) : mismatch();
+      return params.type === "github"
+        ? Effect.succeed({ ...params, url: config.url })
+        : mismatch();
     case "gitlab":
-      return params.type === "gitlab" ? Effect.succeed({ ...params, ...config }) : mismatch();
+      return params.type === "gitlab"
+        ? Effect.succeed({ ...params, url: config.url })
+        : mismatch();
     case "bitbucket":
-      return params.type === "bitbucket" ? Effect.succeed({ ...params, ...config }) : mismatch();
+      return params.type === "bitbucket"
+        ? Effect.succeed({ ...params, url: config.url })
+        : mismatch();
     case "azurerepos":
-      return params.type === "azurerepos" ? Effect.succeed({ ...params, ...config }) : mismatch();
+      return params.type === "azurerepos"
+        ? Effect.succeed({ ...params, url: config.url })
+        : mismatch();
     case "registry":
-      return params.type === "registry" ? Effect.succeed({ ...params, ...config }) : mismatch();
+      return params.type === "registry"
+        ? Effect.succeed({ ...params, url: config.url, scopes: config.scopes })
+        : mismatch();
   }
 };
 
@@ -391,27 +402,27 @@ const routeRegistryInput = (
       ),
     );
 
-    const params: RegistrySourceInputLegacy = {
+    const params: RegistrySourceParams = {
       type: "registry" as const,
       scope: pattern.scope,
       name: pattern.name,
       versionConstraint: pattern.versionConstraint,
     };
 
-    // If a registry config exists, intersect host config with params
-    if (registrySources.length > 0) {
-      const regConfig = registrySources[0]!;
-      return {
-        ...params,
-        url: regConfig.url,
-        scopes: regConfig.scopes,
-      };
+    if (registrySources.length === 0) {
+      return yield* makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: `No registry source configured for scope "${pattern.scope}"`,
+        details: [input],
+      });
     }
 
-    // No registry config — return params only (self-describing, for backward compat)
-    // This maintains the existing behavior where registry sources without config
-    // still resolve but the meta-provider handles the config lookup at find() time
-    return params;
+    const regConfig = registrySources[0]!;
+    return {
+      ...params,
+      url: regConfig.url,
+      scopes: regConfig.scopes,
+    } satisfies NewRegistrySource;
   });
 
 /**
@@ -473,7 +484,7 @@ const routeSlashInput = (
  * @param input - The source string to resolve
  * @returns Effect containing a resolved Source or CliError
  */
-export const resolveSource = (input: string): Effect.Effect<SourceLegacy, CliError, Workspace> =>
+export const resolveSource = (input: string): Effect.Effect<NewSource, CliError, Workspace> =>
   Effect.gen(function* () {
     const trimmed = input.trim();
     if (!trimmed) {

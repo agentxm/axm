@@ -20,12 +20,7 @@ import type { CliError } from "../cli-error/index.js";
 import { makeCliError } from "../cli-error/index.js";
 import { Workspace } from "../workspace/service.js";
 import type { ExtensionFiles, FindOptions } from "./provider.js";
-import type {
-  NewSource,
-  RegistrySourceInputLegacy,
-  SourceExtensionRef,
-  SourceLegacy,
-} from "./types.js";
+import type { NewSource, RegistrySourceParams, SourceExtensionRef } from "./types.js";
 import {
   createBuiltinSourceHostProvider,
   createGitHostingSourceHostProvider,
@@ -50,15 +45,15 @@ import { buildCloneUrlForSource } from "./providers/git-hosting.js";
 export interface SourceHostProvidersService {
   /** Find extensions matching the given source and search criteria. */
   readonly find: (
-    source: SourceLegacy,
+    source: NewSource,
     options: FindOptions,
   ) => Effect.Effect<ReadonlyArray<SourceExtensionRef>, CliError, Scope.Scope>;
   /** Fetch and materialize extension files for a discovered ref. */
   readonly fetch: (ref: SourceExtensionRef) => Effect.Effect<ExtensionFiles, CliError, Scope.Scope>;
   /** Build a git clone URL for this source. Returns None for non-git sources. */
-  readonly cloneUrl: (source: SourceLegacy | NewSource) => Option.Option<string>;
+  readonly cloneUrl: (source: NewSource) => Option.Option<string>;
   /** Canonical origin string for display/comparison. */
-  readonly origin: (source: SourceLegacy | NewSource) => string;
+  readonly origin: (source: NewSource) => string;
 }
 
 /**
@@ -79,7 +74,7 @@ export class SourceHostProviders extends Context.Tag("@axm.sh/cli/SourceHostProv
  * Build a git clone URL from a source.
  * Returns Some for git-based hosting sources, None for others.
  */
-const buildCloneUrlFromSource = (source: SourceLegacy | NewSource): Option.Option<string> => {
+const buildCloneUrlFromSource = (source: NewSource): Option.Option<string> => {
   switch (source.type) {
     case "github":
     case "gitlab":
@@ -102,7 +97,7 @@ const buildCloneUrlFromSource = (source: SourceLegacy | NewSource): Option.Optio
  * Get the canonical origin string for display/comparison.
  * Handles all source types including builtin.
  */
-const getOriginFromSource = (source: SourceLegacy | NewSource): string => {
+const getOriginFromSource = (source: NewSource): string => {
   switch (source.type) {
     case "github":
     case "gitlab":
@@ -115,7 +110,7 @@ const getOriginFromSource = (source: SourceLegacy | NewSource): string => {
     case "git":
       return source.url.href;
     case "registry":
-      return "url" in source ? source.url.origin : source.type;
+      return source.url.origin;
     case "builtin":
       return "builtin";
   }
@@ -143,7 +138,7 @@ const getOriginFromSource = (source: SourceLegacy | NewSource): string => {
 export const createRegistryMetaProvider = () => ({
   type: "registry" as const,
 
-  find: (source: RegistrySourceInputLegacy, options: FindOptions) =>
+  find: (source: RegistrySourceParams, options: FindOptions) =>
     Effect.gen(function* () {
       const ws = yield* Workspace;
 
@@ -190,7 +185,7 @@ export const createRegistryMetaProvider = () => ({
       return allRefs as ReadonlyArray<SourceExtensionRef>;
     }),
 
-  fetch: (source: RegistrySourceInputLegacy, ref: SourceExtensionRef) => {
+  fetch: (source: RegistrySourceParams, ref: SourceExtensionRef) => {
     // Build the registry provider from the source scope to determine the registry root
     // The ref's source has the scope info we need
     if (ref.source.type === "registry" && "url" in ref.source) {
@@ -260,7 +255,7 @@ export const SourceHostProvidersLive: Layer.Layer<
       Layer.succeed(Workspace, ws),
     );
 
-    const findImpl = (source: SourceLegacy, options: FindOptions) => {
+    const findImpl = (source: NewSource, options: FindOptions) => {
       switch (source.type) {
         case "github":
         case "gitlab":

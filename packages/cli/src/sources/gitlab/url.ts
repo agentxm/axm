@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { makeCliError } from "../../cli-error/index.js";
-import type { GitLabSourceInputLegacy } from "../types.js";
+import type { GitLabSourceParams } from "../types.js";
 
 export const CANONICAL_HOSTNAME = "gitlab.com";
 
@@ -35,5 +35,5 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
     repo: match[2],
     ref: Option.fromNullable(match[3]),
     subPath: Option.fromNullable(match[4]),
-  } satisfies GitLabSourceInputLegacy);
+  } satisfies GitLabSourceParams);
 };

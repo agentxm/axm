@@ -138,7 +138,7 @@ const withServices = (
 /** Creates a minimal AddSkillOperation for testing using the new ref-based args. */
 const makeOp = (
   overrides: {
-    source?: import("../../../sources/types.js").SourceInputLegacy;
+    source?: import("../../../sources/types.js").SourceParams;
     agents?: ReadonlyArray<string>;
     force?: boolean;
     skillName?: string;
@@ -152,7 +152,7 @@ const makeOp = (
 ): InstallSkillOperation => {
   const source =
     overrides.source ??
-    ({ type: "local", path: "/tmp/source" } as import("../../../sources/types.js").SourceInputLegacy);
+    ({ type: "local", path: "/tmp/source" } as import("../../../sources/types.js").SourceParams);
   const skill = overrides.skill ?? {
     name: overrides.skillName ?? "my-skill",
     description: "A test skill",

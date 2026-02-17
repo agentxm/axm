@@ -2,39 +2,17 @@
  * Source parsing and identification module.
  *
  * Provides functionality to parse various source formats (GitHub shorthand, URLs, etc.)
- * into normalized SourceInputLegacy structures.
+ * into normalized SourceParams structures.
  *
  * @experimental All exports from this module are unstable and may change without notice.
  * @packageDocumentation
  */
 
-// Types — Source inputs (parsed coordinates)
+// Types — Core
 export type {
-  AzureReposSourceInputLegacy,
-  BitbucketSourceInputLegacy,
-  GitHubSourceInputLegacy,
-  GitHostingProviderSourceLegacy,
-  GitLabSourceInputLegacy,
-  GitRepositorySourceInputLegacy,
-  GitSourceLegacy,
-  LocalSourceInputLegacy,
-  RegistrySourceInputLegacy,
-  SourceInputLegacy,
   SourceType,
 } from "./types.js";
 export { SourceTypeSchema } from "./types.js";
-
-// Types — Source (input + config)
-export type {
-  AzureReposSourceLegacy,
-  BitbucketSourceLegacy,
-  GitHubSourceLegacy,
-  GitLabSourceLegacy,
-  GitRepositorySourceLegacy,
-  LocalSourceLegacy,
-  RegistrySourceLegacy,
-  SourceLegacy,
-} from "./types.js";
 
 // Types — New domain model (source-host-domain-modeling)
 export type {

@@ -13,7 +13,7 @@ import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../../extensio
 /**
  * Minimal structural discriminant for determining skill path layout.
  *
- * Both `SkillLockEntry` (when type is "registry") and `RegistrySourceInputLegacy`
+ * Both `SkillLockEntry` (when type is "registry") and `RegistrySourceParams`
  * structurally satisfy the first branch. All non-registry variants satisfy the second.
  */
 export type SkillPathSource =

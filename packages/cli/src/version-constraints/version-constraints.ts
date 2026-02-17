@@ -37,8 +37,7 @@ export const satisfiesConstraint = (version: string, constraint: string): boolea
   semver.satisfies(version, constraint);
 
 /**
- * Select the first version (newest-first) that satisfies both the constraint
- * and an optional agent filter.
+ * Select the first version (newest-first) that satisfies the constraint.
  *
  * - `Option.none()` constraint or `"*"` matches any version.
  * - Invalid constraints match nothing.
@@ -46,7 +45,6 @@ export const satisfiesConstraint = (version: string, constraint: string): boolea
 export const resolveVersionWithConstraint = (
   versions: ReadonlyArray<VersionEntry>,
   constraint: Option.Option<string>,
-  agentFilter?: (v: VersionEntry) => boolean,
 ): Option.Option<VersionEntry> => {
   const constraintStr = Option.getOrElse(constraint, () => "*");
 
@@ -60,9 +58,6 @@ export const resolveVersionWithConstraint = (
 
   for (const version of versions) {
     if (!isWildcard && !semver.satisfies(version.version, constraintStr)) {
-      continue;
-    }
-    if (agentFilter && !agentFilter(version)) {
       continue;
     }
     return Option.some(version);

@@ -158,7 +158,6 @@ describe("axm skills install from local registry (via fork)", () => {
       const versionEntry = index.versions[0];
       expect(versionEntry.version).toBe("0.1.0");
       expect(versionEntry.checksum).toMatch(/^sha256:/);
-      expect(versionEntry.agents).toBeDefined();
 
       // Verify archive exists
       const archivePath = path.join(

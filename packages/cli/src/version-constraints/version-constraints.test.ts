@@ -13,10 +13,9 @@ import {
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeVersionEntry = (version: string, agents: readonly string[] = []): VersionEntry => ({
+const makeVersionEntry = (version: string): VersionEntry => ({
   version,
   published: "2025-01-01T00:00:00Z",
-  agents: [...agents],
   checksum: "sha256:0000",
 });
 
@@ -141,38 +140,6 @@ describe("resolveVersionWithConstraint", () => {
     const result = resolveVersionWithConstraint(versions, Option.some("*"));
     expect(Option.isSome(result)).toBe(true);
     expect(Option.getOrThrow(result).version).toBe("2.0.0");
-  });
-
-  it("applies agent filter alongside constraint", () => {
-    const versionsWithAgents: ReadonlyArray<VersionEntry> = [
-      makeVersionEntry("1.3.0", ["windsurf"]),
-      makeVersionEntry("1.2.0", ["claude-code"]),
-      makeVersionEntry("1.0.0", ["claude-code"]),
-    ];
-
-    const agentFilter = (v: VersionEntry): boolean => v.agents.includes("claude-code");
-    const result = resolveVersionWithConstraint(
-      versionsWithAgents,
-      Option.some("^1.0.0"),
-      agentFilter,
-    );
-    expect(Option.isSome(result)).toBe(true);
-    expect(Option.getOrThrow(result).version).toBe("1.2.0");
-  });
-
-  it("returns Option.none() when agent filter rejects all matches", () => {
-    const versionsWithAgents: ReadonlyArray<VersionEntry> = [
-      makeVersionEntry("1.3.0", ["windsurf"]),
-      makeVersionEntry("1.2.0", ["windsurf"]),
-    ];
-
-    const agentFilter = (v: VersionEntry): boolean => v.agents.includes("claude-code");
-    const result = resolveVersionWithConstraint(
-      versionsWithAgents,
-      Option.some("^1.0.0"),
-      agentFilter,
-    );
-    expect(Option.isNone(result)).toBe(true);
   });
 
   it("returns Option.none() for empty versions array", () => {

@@ -132,7 +132,6 @@ export const publishPack: OperationHandler<
     const versionEntry: VersionEntry = {
       version: manifest.version,
       published: new Date().toISOString(),
-      agents: [],
       checksum,
     };
 

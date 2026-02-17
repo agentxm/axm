@@ -20,7 +20,6 @@ import { AuthorSchema, ExtensionTypeSchema } from "../extensions/common.js";
  * Fields:
  * - version: Semver version string (e.g., "1.2.3")
  * - published: ISO 8601 timestamp of publication
- * - agents: Agent identifiers this version supports (plain strings for forward compatibility)
  * - dependencies: Optional map of `@scope/name` to semver range
  * - engines: Optional map of engine constraints (e.g., `{"axm": ">=0.2.0"}`)
  * - checksum: Content hash in `sha256:<hex>` format
@@ -30,7 +29,6 @@ import { AuthorSchema, ExtensionTypeSchema } from "../extensions/common.js";
 export const VersionEntrySchema = Schema.Struct({
   version: Schema.String,
   published: Schema.String,
-  agents: Schema.Array(Schema.String),
   dependencies: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
   engines: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
   checksum: Schema.String,

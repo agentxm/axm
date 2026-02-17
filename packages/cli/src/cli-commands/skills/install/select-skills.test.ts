@@ -15,7 +15,7 @@ import {
   makeLogTestLayer,
   makeMultiselectTestLayer,
 } from "../../../tui/index.js";
-import type { SkillRef } from "../../../sources/index.js";
+import type { SkillExtensionRef } from "../../../sources/index.js";
 import { CliError } from "../../../cli-error/index.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 
@@ -23,13 +23,11 @@ import { determineSkillsToInstall } from "./select-skills.js";
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeSkill = (name: string): SkillRef => ({
+const makeSkill = (name: string): SkillExtensionRef => ({
   type: "skill",
   skill: { name, description: "", metadata: Option.none() },
   source: { type: "local", path: `/fake/${name}` },
   location: `file:///fake/${name}`,
-  version: Option.none(),
-  gitTreeSha: Option.none(),
 });
 
 const [logLayer] = makeLogTestLayer();
@@ -40,8 +38,8 @@ const provide = <A, E>(effect: Effect.Effect<A, E, Log | Multiselect>) =>
   effect.pipe(Effect.provide(TestLayer));
 
 /** Helper to create a NonEmptyReadonlyArray of skills. */
-const skills = (...names: [string, ...string[]]): Array.NonEmptyReadonlyArray<SkillRef> =>
-  names.map((n) => makeSkill(n)) as unknown as Array.NonEmptyReadonlyArray<SkillRef>;
+const skills = (...names: [string, ...string[]]): Array.NonEmptyReadonlyArray<SkillExtensionRef> =>
+  names.map((n) => makeSkill(n)) as unknown as Array.NonEmptyReadonlyArray<SkillExtensionRef>;
 
 // -----------------------------------------------------------------------------
 // Tests

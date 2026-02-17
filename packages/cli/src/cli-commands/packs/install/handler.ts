@@ -27,7 +27,7 @@ import type { InstallPackOperation } from "../operations.js";
 import { buildInstallPlan } from "./build-plan.js";
 import { installPack } from "./install-pack.js";
 import { installSkill } from "../../skills/install/install-skill.js";
-import { toSkillExtensionRef, type InstallSkillOperation } from "../../skills/operations.js";
+import type { InstallSkillOperation } from "../../skills/operations.js";
 import { copySkillDirectory } from "../../skills/copy-skill-directory.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../skills/constants.js";
 import { PACK_MANIFEST_FILENAME } from "../constants.js";
@@ -234,8 +234,6 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     const resolvedVersion = (() => {
       if ("version" in packRef) {
         const v = packRef.version;
-        // Legacy ExtensionRef carries version as Option<string>; new refs carry it as string
-        if (Option.isOption(v)) return Option.getOrElse(v, () => manifest.version);
         if (typeof v === "string") return v;
       }
       return manifest.version;
@@ -312,18 +310,22 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     // Pack dependencies skip settings writes — they only appear in the lockfile
     const agents = yield* ws.getConfiguredAgents();
     const skillInstallOps: ReadonlyArray<InstallSkillOperation> = skillOps
-      .filter((s) => s.ref.type === "skill")
-      .map(({ ref, fetched }) => ({
-        name: "install-skill" as const,
-        args: {
-          // Assertion needed: legacy providers return SkillRef at runtime, bridge converts to SkillExtensionRef
-          ref: toSkillExtensionRef(ref as import("../../../sources/provider.js").SkillRef),
-          agents,
-          force: args.force,
-          skipSettings: true,
-          fetchedLocation: `file://${fetched.directory}`,
-        },
-      }));
+      .flatMap(({ ref, fetched }) =>
+        ref.type !== "skill"
+          ? []
+          : [
+              {
+                name: "install-skill" as const,
+                args: {
+                  ref,
+                  agents,
+                  force: args.force,
+                  skipSettings: true,
+                  fetchedLocation: `file://${fetched.directory}`,
+                },
+              },
+            ],
+      );
 
     // Step 8: Build install plan
     const op: InstallPackOperation = {

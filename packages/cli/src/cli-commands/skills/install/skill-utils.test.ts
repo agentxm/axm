@@ -6,20 +6,21 @@
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
-import type { SkillRef } from "../../../sources/index.js";
+import type { SkillExtensionRef } from "../../../sources/index.js";
 import { getSkillDisplayName, sanitizeName } from "./skill-utils.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeSkill = (name: string, path: string = `/fake/${name || "unnamed"}`): SkillRef => ({
+const makeSkill = (
+  name: string,
+  path: string = `/fake/${name || "unnamed"}`,
+): SkillExtensionRef => ({
   type: "skill",
   skill: { name, description: "", metadata: Option.none() },
   source: { type: "local", path },
   location: `file://${path}`,
-  version: Option.none(),
-  gitTreeSha: Option.none(),
 });
 
 // -----------------------------------------------------------------------------

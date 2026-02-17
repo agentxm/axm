@@ -26,9 +26,8 @@ import {
   SourceHostProvidersLive,
   SourceHostProviders,
   type SourceHostProvidersService,
-  type ExtensionRef,
   type ExtensionFiles,
-  type SkillRef,
+  type SkillExtensionRef,
 } from "../../../sources/index.js";
 import { handleInstallPack, type InstallPackHandlerArgs } from "./handler.js";
 import { CliError, makeCliError } from "../../../cli-error/index.js";
@@ -323,7 +322,7 @@ describe("packs install handler", () => {
       });
       createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
 
-      const packRef: ExtensionRef = {
+      const packRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
         source: {
@@ -331,13 +330,14 @@ describe("packs install handler", () => {
           scope: "@acme",
           name: "test-pack",
           versionConstraint: Option.none(),
+          url: new URL("file:///tmp/reg"),
+          scopes: Option.none(),
         },
-        location: `file://${packArchiveDir}`,
-        version: Option.some("1.0.0"),
-        gitTreeSha: Option.none(),
+        version: "1.0.0",
+        checksum: "",
       };
 
-      const skillRef: SkillRef = {
+      const skillRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
         source: {
@@ -345,10 +345,11 @@ describe("packs install handler", () => {
           scope: "@acme",
           name: "code-review",
           versionConstraint: Option.none(),
+          url: new URL("file:///tmp/reg"),
+          scopes: Option.none(),
         },
-        location: `file://${skillArchiveDir}`,
-        version: Option.some("1.0.0"),
-        gitTreeSha: Option.none(),
+        version: "1.0.0",
+        checksum: "",
       };
 
       const mockService: SourceHostProvidersService = {
@@ -409,7 +410,7 @@ describe("packs install handler", () => {
       });
       createSkillArchive(skillArchiveDir, "my-skill", "My skill");
 
-      const packRef: ExtensionRef = {
+      const packRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
         source: {
@@ -417,13 +418,14 @@ describe("packs install handler", () => {
           scope: "@acme",
           name: "test-pack",
           versionConstraint: Option.none(),
+          url: new URL("file:///tmp/reg"),
+          scopes: Option.none(),
         },
-        location: `file://${packArchiveDir}`,
-        version: Option.some("1.0.0"),
-        gitTreeSha: Option.none(),
+        version: "1.0.0",
+        checksum: "",
       };
 
-      const skillRef: SkillRef = {
+      const skillRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "my-skill", description: "My skill", metadata: Option.none() },
         source: {
@@ -431,10 +433,11 @@ describe("packs install handler", () => {
           scope: "@acme",
           name: "my-skill",
           versionConstraint: Option.none(),
+          url: new URL("file:///tmp/reg"),
+          scopes: Option.none(),
         },
-        location: `file://${skillArchiveDir}`,
-        version: Option.some("1.0.0"),
-        gitTreeSha: Option.none(),
+        version: "1.0.0",
+        checksum: "",
       };
 
       const mockService: SourceHostProvidersService = {
@@ -502,7 +505,7 @@ describe("packs install handler", () => {
       });
       createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
 
-      const packRef: ExtensionRef = {
+      const packRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
         source: {
@@ -510,13 +513,14 @@ describe("packs install handler", () => {
           scope: "@acme",
           name: "test-pack",
           versionConstraint: Option.none(),
+          url: new URL("file:///tmp/reg"),
+          scopes: Option.none(),
         },
-        location: `file://${packArchiveDir}`,
-        version: Option.some("1.0.0"),
-        gitTreeSha: Option.none(),
+        version: "1.0.0",
+        checksum: "",
       };
 
-      const skillRef: SkillRef = {
+      const skillRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
         source: {
@@ -524,10 +528,11 @@ describe("packs install handler", () => {
           scope: "@acme",
           name: "code-review",
           versionConstraint: Option.none(),
+          url: new URL("file:///tmp/reg"),
+          scopes: Option.none(),
         },
-        location: `file://${skillArchiveDir}`,
-        version: Option.some("1.0.0"),
-        gitTreeSha: Option.none(),
+        version: "1.0.0",
+        checksum: "",
       };
 
       const mockService: SourceHostProvidersService = {
@@ -591,7 +596,7 @@ describe("packs install handler", () => {
         description: "A test pack",
       });
 
-      const packRef: ExtensionRef = {
+      const packRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
         source: {
@@ -599,10 +604,11 @@ describe("packs install handler", () => {
           scope: "@acme",
           name: "test-pack",
           versionConstraint: Option.some("^2.0.0"),
+          url: new URL("file:///tmp/reg"),
+          scopes: Option.none(),
         },
-        location: `file://${packArchiveDir}`,
-        version: Option.some("2.0.0"),
-        gitTreeSha: Option.none(),
+        version: "2.0.0",
+        checksum: "",
       };
 
       const mockService: SourceHostProvidersService = {
@@ -650,7 +656,7 @@ describe("packs install handler", () => {
       });
       createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
 
-      const packRef: ExtensionRef = {
+      const packRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
         source: {
@@ -658,15 +664,16 @@ describe("packs install handler", () => {
           scope: "@acme",
           name: "test-pack",
           versionConstraint: Option.none(),
+          url: new URL("file:///tmp/reg"),
+          scopes: Option.none(),
         },
-        location: `file://${packArchiveDir}`,
-        version: Option.some("1.0.0"),
-        gitTreeSha: Option.none(),
+        version: "1.0.0",
+        checksum: "",
       };
 
       // Capture what find receives for skill resolution
       let capturedSkillSource: unknown;
-      const skillRef: SkillRef = {
+      const skillRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
         source: {
@@ -674,10 +681,11 @@ describe("packs install handler", () => {
           scope: "@acme",
           name: "code-review",
           versionConstraint: Option.none(),
+          url: new URL("file:///tmp/reg"),
+          scopes: Option.none(),
         },
-        location: `file://${skillArchiveDir}`,
-        version: Option.some("1.0.0"),
-        gitTreeSha: Option.none(),
+        version: "1.0.0",
+        checksum: "",
       };
 
       const mockService: SourceHostProvidersService = {
@@ -734,7 +742,7 @@ describe("packs install handler", () => {
       });
       createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
 
-      const packRef: ExtensionRef = {
+      const packRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
         source: {
@@ -742,15 +750,16 @@ describe("packs install handler", () => {
           scope: "@acme",
           name: "test-pack",
           versionConstraint: Option.none(),
+          url: new URL("file:///tmp/reg"),
+          scopes: Option.none(),
         },
-        location: `file://${packArchiveDir}`,
-        version: Option.some("1.0.0"),
-        gitTreeSha: Option.none(),
+        version: "1.0.0",
+        checksum: "",
       };
 
       // Capture what find receives for skill resolution
       let capturedSkillSource: unknown;
-      const skillRef: SkillRef = {
+      const skillRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "code-review", description: "Code review skill", metadata: Option.none() },
         source: {
@@ -758,10 +767,11 @@ describe("packs install handler", () => {
           scope: "@acme",
           name: "code-review",
           versionConstraint: Option.some("^1.0.0"),
+          url: new URL("file:///tmp/reg"),
+          scopes: Option.none(),
         },
-        location: `file://${skillArchiveDir}`,
-        version: Option.some("1.0.0"),
-        gitTreeSha: Option.none(),
+        version: "1.0.0",
+        checksum: "",
       };
 
       const mockService: SourceHostProvidersService = {
@@ -817,7 +827,7 @@ describe("packs install handler", () => {
         skills: { "@acme/missing-skill": "^1.0.0" },
       });
 
-      const packRef: ExtensionRef = {
+      const packRef: SkillExtensionRef = {
         type: "skill",
         skill: { name: "test-pack", description: "A test pack", metadata: Option.none() },
         source: {
@@ -825,10 +835,11 @@ describe("packs install handler", () => {
           scope: "@acme",
           name: "test-pack",
           versionConstraint: Option.none(),
+          url: new URL("file:///tmp/reg"),
+          scopes: Option.none(),
         },
-        location: `file://${packArchiveDir}`,
-        version: Option.some("1.0.0"),
-        gitTreeSha: Option.none(),
+        version: "1.0.0",
+        checksum: "",
       };
 
       const mockService: SourceHostProvidersService = {

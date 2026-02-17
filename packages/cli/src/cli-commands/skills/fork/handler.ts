@@ -30,14 +30,13 @@ import type {
   InstallSkillOperation,
   PublishSkillOperation,
 } from "../operations.js";
-import { toSkillExtensionRef } from "../operations.js";
 import { copySkill } from "../copy-skill.js";
 import { installSkill } from "../install/install-skill.js";
 import { publishSkill } from "../publish-skill.js";
 import { expandGlobs } from "../../../skills/index.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
-import type { SkillRef } from "../../../sources/index.js";
+import type { SkillExtensionRef } from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -129,7 +128,10 @@ export const handleFork = (args: ForkHandlerArgs) =>
       Effect.tapError(() => handle.stop("Failed")),
     );
 
-    const discoveredSkills = Array.filter(allRefs, (ref): ref is SkillRef => ref.type === "skill");
+    const discoveredSkills = Array.filter(
+      allRefs,
+      (ref): ref is SkillExtensionRef => ref.type === "skill",
+    );
 
     if (discoveredSkills.length === 0) {
       yield* handle.stop("No skills found");
@@ -144,7 +146,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
     }
 
     // Step 4: Filter by --skill globs (if provided)
-    const filtered: ReadonlyArray<SkillRef> =
+    const filtered: ReadonlyArray<SkillExtensionRef> =
       args.skills.length > 0
         ? (() => {
             const allNames = Array.map(discoveredSkills, (r) => r.skill.name);
@@ -199,7 +201,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
     // Step 7: Build plan — fork + publish + install per skill (3 sequential ops)
     const steps: ReadonlyArray<PlannedJobStep<ForkOp>> = Array.flatMap(filtered, (ref) => {
       const targetName = `${scope}/${ref.skill.name}`;
-      const extensionRef = toSkillExtensionRef(ref);
+      const extensionRef = ref;
       // After fork + publish, the skill lives in the registry extensions dir.
       // Build a registry SkillExtensionRef for the install step.
       const registryRef = {

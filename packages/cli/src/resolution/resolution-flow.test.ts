@@ -3,7 +3,7 @@
  * resolveSource(input) -> Source, then SourceHostProviders.find(source, options) -> SourceExtensionRef[]
  *
  * Phase 6: Resolution module cleanup — the resolution module no longer produces
- * ExtensionRef. Extension discovery is exclusively through SourceHostProviders.find().
+ * SourceExtensionRef. Extension discovery is exclusively through SourceHostProviders.find().
  */
 
 import { describe, expect, it } from "@effect/vitest";

@@ -14,23 +14,16 @@ import {
 import { Workspace } from "../../../workspace/index.js";
 import type { RegistrySource } from "../../../sources/types.js";
 
-const resolveSkillRegistrySource = (
-  pattern: Extract<InputPattern, { readonly pattern: "registry-pattern-input" }>,
+const resolveRegistrySource = (
+  scope: string,
   input: string,
+  options: {
+    readonly findMatchingScope: boolean;
+  },
 ) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-
-    if (Option.isSome(pattern.type) && pattern.type.value !== "skills") {
-      return yield* makeCliError({
-        code: "SOURCE_PARSE_FAILED",
-        what: "Expected a skills registry source",
-        details: [input],
-      });
-    }
-
-    const scope = Option.some(pattern.scope);
-    const registrySources = yield* ws.getConfiguredRegistrySources(scope).pipe(
+    const registrySources = yield* ws.getConfiguredRegistrySources(Option.some(scope)).pipe(
       Effect.mapError((e) =>
         makeCliError({
           code: "SOURCE_PARSE_FAILED",
@@ -43,10 +36,11 @@ const resolveSkillRegistrySource = (
     if (registrySources.length === 0) {
       return yield* makeCliError({
         code: "SOURCE_PARSE_FAILED",
-        what: `No registry source configured for scope "${pattern.scope}"`,
+        what: `No registry source configured for scope "${scope}"`,
         details: [input],
       });
-    } else if (registrySources.length === 1) {
+    }
+    if (registrySources.length === 1 || !options.findMatchingScope) {
       const regConfig = registrySources[0]!;
       return {
         type: "registry" as const,
@@ -56,7 +50,7 @@ const resolveSkillRegistrySource = (
 
     for (const regConfig of registrySources) {
       const provider = createRegistryProvider(regConfig.location.href);
-      const hasRequestedScope = yield* provider.scopeExists(pattern.scope);
+      const hasRequestedScope = yield* provider.scopeExists(scope);
       if (hasRequestedScope) {
         return {
           type: "registry" as const,
@@ -67,8 +61,26 @@ const resolveSkillRegistrySource = (
 
     return yield* makeCliError({
       code: "SOURCE_PARSE_FAILED",
-      what: `No registry source contains scope "${pattern.scope}"`,
+      what: `No registry source contains scope "${scope}"`,
       details: [input],
+    });
+  });
+
+const resolveSkillRegistrySource = (
+  pattern: Extract<InputPattern, { readonly pattern: "registry-pattern-input" }>,
+  input: string,
+) =>
+  Effect.gen(function* () {
+    if (Option.isSome(pattern.type) && pattern.type.value !== "skills") {
+      return yield* makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: "Expected a skills registry source",
+        details: [input],
+      });
+    }
+
+    return yield* resolveRegistrySource(pattern.scope, input, {
+      findMatchingScope: true,
     });
   });
 
@@ -96,10 +108,10 @@ export const resolveSkillInstallSource = (input: string) =>
         return yield* routeScpInput(pattern, trimmed);
       case "shorthand-input":
         return yield* routeShorthandInput(pattern.prefix, pattern.input, trimmed);
-      case "file-path-pattern":
-        return yield* routeFilePathInput(pattern.path);
       case "slash-pattern":
         return yield* routeSlashInput(pattern, trimmed);
+      case "file-path-pattern":
+        return yield* routeFilePathInput(pattern.path);
       case "glob-input":
         return yield* makeCliError({
           code: "SOURCE_PARSE_FAILED",

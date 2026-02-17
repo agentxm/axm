@@ -114,48 +114,6 @@ export type BitbucketSourceHostConfig = typeof BitbucketSourceHostConfigSchema.T
 export type AzureReposSourceHostConfig = typeof AzureReposSourceHostConfigSchema.Type;
 /** @experimental */
 export type RegistrySourceHostConfig = typeof RegistrySourceHostConfigSchema.Type;
-
-/**
- * @deprecated Use SourceHostConfigSchema
- * @experimental
- */
-export const SourceConfigSchema = SourceHostConfigSchema;
-
-/**
- * @deprecated Use SourceHostConfig
- * @experimental
- */
-export type SourceConfig = SourceHostConfig;
-
-/**
- * @deprecated Use GitHubSourceHostConfig
- * @experimental
- */
-export type GitHubSourceConfig = GitHubSourceHostConfig;
-
-/**
- * @deprecated Use GitLabSourceHostConfig
- * @experimental
- */
-export type GitLabSourceConfig = GitLabSourceHostConfig;
-
-/**
- * @deprecated Use BitbucketSourceHostConfig
- * @experimental
- */
-export type BitbucketSourceConfig = BitbucketSourceHostConfig;
-
-/**
- * @deprecated Use AzureReposSourceHostConfig
- * @experimental
- */
-export type AzureReposSourceConfig = AzureReposSourceHostConfig;
-
-/**
- * @deprecated Use RegistrySourceHostConfig
- * @experimental
- */
-export type RegistrySourceConfig = RegistrySourceHostConfig;
 /**
  * Pattern for skill names per agentskills.io specification:
  * - Max 64 characters

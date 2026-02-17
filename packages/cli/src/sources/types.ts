@@ -10,10 +10,10 @@ import type * as Record from "effect/Record";
 import * as Schema from "effect/Schema";
 
 import type {
-  AzureReposSourceConfig,
-  BitbucketSourceConfig,
-  GitHubSourceConfig,
-  GitLabSourceConfig,
+  AzureReposSourceHostConfig,
+  BitbucketSourceHostConfig,
+  GitHubSourceHostConfig,
+  GitLabSourceHostConfig,
 } from "../settings/schema.js";
 
 // -----------------------------------------------------------------------------
@@ -198,10 +198,10 @@ export type SourceInput =
  * @experimental This API is unstable and may change without notice.
  */
 
-export type GitHubSource = GitHubSourceInput & GitHubSourceConfig;
-export type GitLabSource = GitLabSourceInput & GitLabSourceConfig;
-export type BitbucketSource = BitbucketSourceInput & BitbucketSourceConfig;
-export type AzureReposSource = AzureReposSourceInput & AzureReposSourceConfig;
+export type GitHubSource = GitHubSourceInput & GitHubSourceHostConfig;
+export type GitLabSource = GitLabSourceInput & GitLabSourceHostConfig;
+export type BitbucketSource = BitbucketSourceInput & BitbucketSourceHostConfig;
+export type AzureReposSource = AzureReposSourceInput & AzureReposSourceHostConfig;
 export type RegistrySource = RegistrySourceInput;
 export type GitRepositorySource = GitRepositorySourceInput;
 export type LocalSource = LocalSourceInput;

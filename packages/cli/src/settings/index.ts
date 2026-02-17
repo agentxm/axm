@@ -23,15 +23,6 @@ export type {
   SkillsMap,
   SourceHostConfig,
 } from "./schema.js";
-// Deprecated aliases — re-export for backward compatibility
-export type {
-  AzureReposSourceConfig,
-  BitbucketSourceConfig,
-  GitHubSourceConfig,
-  GitLabSourceConfig,
-  RegistrySourceConfig,
-  SourceConfig,
-} from "./schema.js";
 export {
   ExtensionMapSchema,
   PackEntryObjectSchema,
@@ -42,7 +33,6 @@ export {
   SkillEntryObjectSchema,
   SkillEntrySchema,
   SkillsMapSchema,
-  SourceConfigSchema,
   SourceHostConfigSchema,
   UnmanagedSkillEntrySchema,
 } from "./schema.js";

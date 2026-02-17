@@ -90,7 +90,7 @@ const MAX_DEPTH = 5;
 const isInternalSkill = (skill: Skill): boolean =>
   Option.match(skill.metadata, {
     onNone: () => false,
-    onSome: (m) => m["internal"] === true,
+    onSome: (m: Record<string, unknown>) => m["internal"] === true,
   });
 
 const shouldIncludeSkill = (skill: Skill, options: DiscoveryOptions): boolean => {

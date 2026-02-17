@@ -10,12 +10,7 @@
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
-import {
-  resolveSource,
-  SourceProviders,
-  printSourceInput,
-  type SkillRef,
-} from "../../../sources/index.js";
+import { resolveSource, SourceHostProviders, type SkillRef } from "../../../sources/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -28,6 +23,7 @@ import { PackManifestSchema } from "../../../extensions/packs/manifest-schema.js
 import { parseVersionConstraint } from "../../../version-constraints/index.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 import type { InstallSkillOperation, UninstallSkillOperation } from "../operations.js";
+import { skillRefToExtensionRef } from "../operations.js";
 import { buildUpdatePlan } from "./build-plan.js";
 import { installSkill } from "../install/install-skill.js";
 import { uninstallSkill } from "../uninstall/uninstall-skill.js";
@@ -89,7 +85,7 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
 
   return Effect.gen(function* () {
     const ws = yield* Workspace;
-    const sources = yield* SourceProviders;
+    const sources = yield* SourceHostProviders;
     const log = yield* Log;
     const spinnerSvc = yield* Spinner;
 
@@ -134,42 +130,17 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
                 }),
               ),
             );
+            // Compare sources by identity using canonical origin string
+            const sourceArgOrigin = sources.origin(sourceArg);
             return yield* Effect.forEach(
               skillEntries,
               ([name, sourceStr]) =>
                 resolveSource(sourceStr).pipe(
-                  Effect.map((resolved) => {
-                    // Compare by type + identity fields (ignoring ref/version)
-                    if (resolved.type !== sourceArg.type) return Option.none<[string, string]>();
-                    switch (resolved.type) {
-                      case "github":
-                      case "gitlab":
-                      case "bitbucket":
-                        if (
-                          sourceArg.type === resolved.type &&
-                          "owner" in sourceArg &&
-                          "repo" in sourceArg
-                        ) {
-                          return resolved.owner === sourceArg.owner &&
-                            resolved.repo === sourceArg.repo
-                            ? Option.some([name, sourceStr] as [string, string])
-                            : Option.none<[string, string]>();
-                        }
-                        return Option.none<[string, string]>();
-                      case "local":
-                        return sourceArg.type === "local" && resolved.path === sourceArg.path
-                          ? Option.some([name, sourceStr] as [string, string])
-                          : Option.none<[string, string]>();
-                      case "registry":
-                        return sourceArg.type === "registry" &&
-                          resolved.scope === sourceArg.scope &&
-                          resolved.name === sourceArg.name
-                          ? Option.some([name, sourceStr] as [string, string])
-                          : Option.none<[string, string]>();
-                      default:
-                        return Option.some([name, sourceStr] as [string, string]);
-                    }
-                  }),
+                  Effect.map((resolved) =>
+                    sources.origin(resolved) === sourceArgOrigin
+                      ? Option.some([name, sourceStr] as [string, string])
+                      : Option.none<[string, string]>(),
+                  ),
                   Effect.catchAll(() => Effect.succeed(Option.none<[string, string]>())),
                 ),
               { concurrency: "unbounded" },
@@ -197,8 +168,8 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
 
     // Step 5: Re-resolve each source and discover skills
     type ResolveResult =
-      | { type: "match"; ref: SkillRef }
-      | { type: "rename"; oldName: string; newRef: SkillRef };
+      | { type: "match"; ref: SkillRef; fetchedLocation?: string }
+      | { type: "rename"; oldName: string; newRef: SkillRef; fetchedLocation?: string };
 
     const resolveHandle = yield* spinnerSvc.start("Resolving sources...");
     const results = yield* Effect.forEach(
@@ -208,7 +179,7 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
           const source = yield* resolveSource(sourceStr);
 
           // First try with name filter (fast path)
-          const namedRefs = yield* sources.resolveExtension(source, {
+          const namedRefs = yield* sources.find(source, {
             names: [name],
             agents: args.agents,
             type: "skill",
@@ -222,14 +193,15 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
               const files = yield* sources.fetch(skillRef);
               return Option.some<ResolveResult>({
                 type: "match",
-                ref: { ...skillRef, location: `file://${files.directory}` },
+                ref: skillRef,
+                fetchedLocation: `file://${files.directory}`,
               });
             }
             return Option.some<ResolveResult>({ type: "match", ref: skillRef });
           }
 
           // Skill not found by name — re-resolve without name filter for rename detection
-          const allRefs = yield* sources.resolveExtension(source, {
+          const allRefs = yield* sources.find(source, {
             names: [],
             agents: args.agents,
             type: "skill",
@@ -239,15 +211,15 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
           if (allSkillRefs.length === 1) {
             // Single-skill source: treat as rename
             const newRef = allSkillRefs[0]!;
-            const resolvedNewRef =
-              newRef.source.type === "registry"
-                ? { ...newRef, location: `file://${(yield* sources.fetch(newRef)).directory}` }
-                : newRef;
-            return Option.some<ResolveResult>({
-              type: "rename",
-              oldName: name,
-              newRef: resolvedNewRef,
-            });
+            const base: ResolveResult = { type: "rename", oldName: name, newRef };
+            if (newRef.source.type === "registry") {
+              const fetched = yield* sources.fetch(newRef);
+              return Option.some<ResolveResult>({
+                ...base,
+                fetchedLocation: `file://${fetched.directory}`,
+              });
+            }
+            return Option.some<ResolveResult>(base);
           } else if (allSkillRefs.length > 1) {
             // Multi-skill source: ambiguous rename
             const availableNames = allSkillRefs.map((r) => r.skill.name).join(", ");
@@ -256,7 +228,7 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
             );
             return Option.none<ResolveResult>();
           } else {
-            yield* log.warn(`Skill "${name}" not found in source ${printSourceInput(source)}`);
+            yield* log.warn(`Skill "${name}" not found in source ${sources.origin(source)}`);
             return Option.none<ResolveResult>();
           }
         }).pipe(
@@ -318,13 +290,10 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
         ops.push({
           name: "install-skill",
           args: {
+            ref: skillRefToExtensionRef(item.ref),
             agents: agentIds,
             force: args.force,
-            source: item.ref.source,
-            skill: item.ref.skill,
-            location: item.ref.location,
-            version: item.ref.version,
-            gitTreeSha: item.ref.gitTreeSha,
+            fetchedLocation: item.fetchedLocation,
           },
         } satisfies InstallSkillOperation);
       } else {
@@ -332,13 +301,10 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
         ops.push({
           name: "install-skill",
           args: {
+            ref: skillRefToExtensionRef(item.newRef),
             agents: agentIds,
             force: args.force,
-            source: item.newRef.source,
-            skill: item.newRef.skill,
-            location: item.newRef.location,
-            version: item.newRef.version,
-            gitTreeSha: item.newRef.gitTreeSha,
+            fetchedLocation: item.fetchedLocation,
           },
         } satisfies InstallSkillOperation);
         ops.push({

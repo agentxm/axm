@@ -36,9 +36,13 @@ const GIT_SOURCE_TYPES = new Set(["github", "gitlab", "bitbucket", "azurerepos",
  * Returns `true` when the skill has changed and should be updated.
  */
 const hasChanged = (op: InstallSkillOperation, entry: SkillLockEntry): boolean => {
+  const { ref } = op.args;
+
   if (GIT_SOURCE_TYPES.has(entry.type)) {
     const lockHash = Option.fromNullable(entry.gitTreeHash);
-    const opHash = op.args.gitTreeSha;
+    // Git-hosted refs carry gitTreeSha; narrow to access it
+    const opHash =
+      "gitTreeSha" in ref ? (ref.gitTreeSha as Option.Option<string>) : Option.none<string>();
 
     // If either hash is missing, treat as needing update
     if (Option.isNone(lockHash) || Option.isNone(opHash)) return true;
@@ -48,10 +52,10 @@ const hasChanged = (op: InstallSkillOperation, entry: SkillLockEntry): boolean =
 
   if (entry.type === "registry") {
     const lockVersion = entry.resolvedVersion;
-    return Option.match(op.args.version, {
-      onNone: () => true,
-      onSome: (opVersion) => opVersion !== lockVersion,
-    });
+    // Registry refs carry version as a string
+    const opVersion = "version" in ref ? (ref.version as string) : undefined;
+    if (opVersion === undefined) return true;
+    return opVersion !== lockVersion;
   }
 
   if (entry.type === "builtin") {
@@ -71,16 +75,16 @@ const buildInstallStep = (
   op: InstallSkillOperation,
   lockfile: Lockfile,
 ): PlannedJobStep<UpdateOperation> => {
-  const entry = lockfile.skills[op.args.skill.name];
+  const entry = lockfile.skills[op.args.ref.skill.name];
   const needsUpdate = !entry || op.args.force || hasChanged(op, entry);
 
   return {
     _tag: "PlannedJobStep",
     operation: op,
     expectedResult: needsUpdate
-      ? { result: "success", message: `Updated ${op.args.skill.name}` }
+      ? { result: "success", message: `Updated ${op.args.ref.skill.name}` }
       : { result: "no-op", message: "already up to date" },
-    label: op.args.skill.name,
+    label: op.args.ref.skill.name,
   };
 };
 

@@ -26,7 +26,7 @@ import {
   type Multiselect,
   type PromptCancelled,
 } from "../tui/index.js";
-import { type SourceProviders, SourceProvidersLive } from "../sources/index.js";
+import { type SourceHostProviders, SourceHostProvidersLive } from "../sources/index.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -80,7 +80,7 @@ export function run<A>(
   program: Effect.Effect<
     A,
     CliError | PromptCancelled,
-    AppLayer | Workspace | SourceProviders | Scope.Scope
+    AppLayer | Workspace | SourceHostProviders | Scope.Scope
   >,
   options: { readonly workspace: WorkspaceContextOptions },
 ): Promise<A>;
@@ -88,14 +88,14 @@ export function run<A>(
   program: Effect.Effect<
     A,
     CliError | PromptCancelled,
-    AppLayer | Workspace | SourceProviders | Scope.Scope
+    AppLayer | Workspace | SourceHostProviders | Scope.Scope
   >,
   options?: { readonly workspace: WorkspaceContextOptions },
 ): Promise<A> {
   const provided = options?.workspace
     ? (() => {
         const wsLayer = workspaceLayer(options.workspace);
-        const sourceProvidersLayer = Layer.provide(SourceProvidersLive, wsLayer);
+        const sourceProvidersLayer = Layer.provide(SourceHostProvidersLive, wsLayer);
         return program.pipe(
           Effect.provide(Layer.mergeAll(wsLayer, sourceProvidersLayer)),
           Effect.scoped,

@@ -12,7 +12,7 @@ import * as Option from "effect/Option";
 
 import { CliError } from "../cli-error/index.js";
 import { resolveSource } from "./resolve-source.js";
-import type { SourceConfig } from "../settings/index.js";
+import type { SourceHostConfig } from "../settings/index.js";
 import type { SkillsLockMap } from "../lockfile/index.js";
 import { Workspace } from "../workspace/index.js";
 
@@ -21,14 +21,25 @@ import { Workspace } from "../workspace/index.js";
 // -----------------------------------------------------------------------------
 
 /** Create a mock Workspace layer with given sources and optional locked skills. */
-const makeWorkspaceLayer = (sources: ReadonlyArray<SourceConfig>, skills: SkillsLockMap = {}) =>
+const makeWorkspaceLayer = (
+  sources: ReadonlyArray<SourceHostConfig>,
+  skills: SkillsLockMap = {},
+  registrySources?: ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>,
+) =>
   Layer.succeed(Workspace, {
     getConfiguredSources: () => Effect.succeed(sources),
     getLockedSkills: () => Effect.succeed(skills),
+    getConfiguredRegistrySources: () =>
+      Effect.succeed(
+        registrySources ??
+          sources.filter(
+            (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
+          ),
+      ),
   } as unknown as Workspace["Type"]);
 
 /** Default built-in sources matching workspace defaults. */
-const BUILT_IN_SOURCES: ReadonlyArray<SourceConfig> = [
+const BUILT_IN_SOURCES: ReadonlyArray<SourceHostConfig> = [
   { name: "github", type: "github", url: new URL("https://github.com") },
   { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
   { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
@@ -128,7 +139,31 @@ describe("resolveSource", () => {
   });
 
   describe("registry resolution", () => {
-    it.effect("resolves @scope/name to registry source with no config fields", () =>
+    it.effect("resolves @scope/name with registry host config", () =>
+      Effect.gen(function* () {
+        const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
+          name: "default",
+          type: "registry",
+          url: new URL("https://registry.example.com"),
+          scopes: Option.none(),
+        };
+        const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
+        const result = yield* resolveSource("@scope/name").pipe(
+          Effect.provide(makeWorkspaceLayer(sources, {}, [registryConfig])),
+        );
+        expect(result.type).toBe("registry");
+        if (result.type === "registry") {
+          expect(result.scope).toBe("@scope");
+          expect(result.name).toBe("name");
+          // Host config fields present at runtime (url, scopes from matched RegistrySourceHostConfig)
+          const r = result as Record<string, unknown>;
+          expect(r["url"]).toEqual(new URL("https://registry.example.com"));
+          expect(r["scopes"]).toEqual(Option.none());
+        }
+      }),
+    );
+
+    it.effect("resolves @scope/name without registry config (backward compat)", () =>
       Effect.gen(function* () {
         const result = yield* resolve("@scope/name");
         expect(result.type).toBe("registry");
@@ -136,8 +171,6 @@ describe("resolveSource", () => {
           expect(result.scope).toBe("@scope");
           expect(result.name).toBe("name");
         }
-        // No config fields (name, url) — registry source is self-describing
-        expect(Object.keys(result)).toEqual(["type", "scope", "name", "versionConstraint"]);
       }),
     );
 
@@ -148,6 +181,30 @@ describe("resolveSource", () => {
         if (result.type === "registry") {
           expect(result.scope).toBe("@acme");
           expect(result.name).toBe("my-skill");
+        }
+      }),
+    );
+
+    it.effect("resolves registry with scoped config", () =>
+      Effect.gen(function* () {
+        const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
+          name: "acme-reg",
+          type: "registry",
+          url: new URL("https://acme-registry.example.com"),
+          scopes: Option.some(["@acme"]),
+        };
+        const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
+        const result = yield* resolveSource("@acme/my-skill").pipe(
+          Effect.provide(makeWorkspaceLayer(sources, {}, [registryConfig])),
+        );
+        expect(result.type).toBe("registry");
+        if (result.type === "registry") {
+          expect(result.scope).toBe("@acme");
+          expect(result.name).toBe("my-skill");
+          // Host config fields present at runtime (url, scopes from matched RegistrySourceHostConfig)
+          const r = result as Record<string, unknown>;
+          expect(r["url"]).toEqual(new URL("https://acme-registry.example.com"));
+          expect(r["scopes"]).toEqual(Option.some(["@acme"]));
         }
       }),
     );
@@ -167,7 +224,7 @@ describe("resolveSource", () => {
   describe("single config fallback", () => {
     it.effect("uses single config when only one exists for source type", () =>
       Effect.gen(function* () {
-        const sources: ReadonlyArray<SourceConfig> = [
+        const sources: ReadonlyArray<SourceHostConfig> = [
           { name: "my-github", type: "github", url: new URL("https://github.example.com") },
         ];
         const result = yield* resolveSource("github:owner/repo").pipe(
@@ -186,7 +243,7 @@ describe("resolveSource", () => {
     it.effect("fails when no config exists for source type", () =>
       Effect.gen(function* () {
         // Only gitlab config, trying github
-        const sources: ReadonlyArray<SourceConfig> = [
+        const sources: ReadonlyArray<SourceHostConfig> = [
           { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
         ];
         const error = yield* Effect.flip(
@@ -203,7 +260,7 @@ describe("resolveSource", () => {
   // ---------------------------------------------------------------------------
 
   describe("multi-config URL hostname matching", () => {
-    const multiGitHubSources: ReadonlyArray<SourceConfig> = [
+    const multiGitHubSources: ReadonlyArray<SourceHostConfig> = [
       { name: "github", type: "github", url: new URL("https://github.com") },
       { name: "ghe", type: "github", url: new URL("https://github.example.com") },
     ];
@@ -265,7 +322,7 @@ describe("resolveSource", () => {
 
     it.effect("fails when URL hostname matches no config", () =>
       Effect.gen(function* () {
-        const sources: ReadonlyArray<SourceConfig> = [
+        const sources: ReadonlyArray<SourceHostConfig> = [
           { name: "ghe1", type: "github", url: new URL("https://github.acme.com") },
           { name: "ghe2", type: "github", url: new URL("https://github.corp.com") },
         ];
@@ -281,7 +338,7 @@ describe("resolveSource", () => {
     it.effect("hostname match but parse failure continues to next source", () =>
       Effect.gen(function* () {
         // GitLab URL structure (/-/tree/) with two configs sharing same hostname
-        const sources: ReadonlyArray<SourceConfig> = [
+        const sources: ReadonlyArray<SourceHostConfig> = [
           { name: "gh-corp", type: "github", url: new URL("https://git.corp.com") },
           { name: "gl-corp", type: "gitlab", url: new URL("https://git.corp.com") },
         ];
@@ -301,7 +358,7 @@ describe("resolveSource", () => {
 
     it.effect("custom hostname SCP matches user config", () =>
       Effect.gen(function* () {
-        const sources: ReadonlyArray<SourceConfig> = [
+        const sources: ReadonlyArray<SourceHostConfig> = [
           { name: "github", type: "github", url: new URL("https://github.com") },
           { name: "ghe", type: "github", url: new URL("https://ghe.corp.com") },
         ];
@@ -331,7 +388,7 @@ describe("resolveSource", () => {
 
     it.effect("user config takes precedence over built-in for URLs", () =>
       Effect.gen(function* () {
-        const sources: ReadonlyArray<SourceConfig> = [
+        const sources: ReadonlyArray<SourceHostConfig> = [
           // Project config first (takes precedence)
           { name: "my-github", type: "github", url: new URL("https://github.com") },
           // Built-in default second
@@ -355,7 +412,7 @@ describe("resolveSource", () => {
   describe("config-name shorthand (two-phase parse)", () => {
     it.effect("resolves ghe:owner/repo when ghe is a config name for github", () =>
       Effect.gen(function* () {
-        const sources: ReadonlyArray<SourceConfig> = [
+        const sources: ReadonlyArray<SourceHostConfig> = [
           { name: "github", type: "github", url: new URL("https://github.com") },
           { name: "ghe", type: "github", url: new URL("https://github.example.com") },
         ];
@@ -374,7 +431,7 @@ describe("resolveSource", () => {
 
     it.effect("resolves config-name shorthand with ref and path", () =>
       Effect.gen(function* () {
-        const sources: ReadonlyArray<SourceConfig> = [
+        const sources: ReadonlyArray<SourceHostConfig> = [
           { name: "github", type: "github", url: new URL("https://github.com") },
           { name: "ghe", type: "github", url: new URL("https://github.example.com") },
         ];
@@ -394,7 +451,7 @@ describe("resolveSource", () => {
 
     it.effect("standard shorthand still works alongside config names", () =>
       Effect.gen(function* () {
-        const sources: ReadonlyArray<SourceConfig> = [
+        const sources: ReadonlyArray<SourceHostConfig> = [
           { name: "github", type: "github", url: new URL("https://github.com") },
           { name: "ghe", type: "github", url: new URL("https://github.example.com") },
         ];
@@ -418,7 +475,7 @@ describe("resolveSource", () => {
 
     it.effect("config-name for gitlab works", () =>
       Effect.gen(function* () {
-        const sources: ReadonlyArray<SourceConfig> = [
+        const sources: ReadonlyArray<SourceHostConfig> = [
           { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
           { name: "gl-corp", type: "gitlab", url: new URL("https://gitlab.corp.com") },
         ];
@@ -437,7 +494,7 @@ describe("resolveSource", () => {
 
     it.effect("config-name for bitbucket works", () =>
       Effect.gen(function* () {
-        const sources: ReadonlyArray<SourceConfig> = [
+        const sources: ReadonlyArray<SourceHostConfig> = [
           { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
           { name: "bb-corp", type: "bitbucket", url: new URL("https://bitbucket.corp.com") },
         ];
@@ -456,7 +513,7 @@ describe("resolveSource", () => {
 
     it.effect("source-type prefix selects first config when multiple exist", () =>
       Effect.gen(function* () {
-        const sources: ReadonlyArray<SourceConfig> = [
+        const sources: ReadonlyArray<SourceHostConfig> = [
           { name: "ghe1", type: "github", url: new URL("https://github.acme.com") },
           { name: "ghe2", type: "github", url: new URL("https://github.corp.com") },
         ];
@@ -479,7 +536,7 @@ describe("resolveSource", () => {
   describe("Azure Repos", () => {
     it.effect("resolves Azure Repos URL with config", () =>
       Effect.gen(function* () {
-        const sources: ReadonlyArray<SourceConfig> = [
+        const sources: ReadonlyArray<SourceHostConfig> = [
           { name: "azure", type: "azurerepos", url: new URL("https://dev.azure.com") },
         ];
         const result = yield* resolveSource(

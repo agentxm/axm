@@ -410,23 +410,12 @@ describe("WorkspaceContextService", () => {
 
     it.effect("merge ordering: project first, then global, then built-in", () =>
       Effect.gen(function* () {
-        const projectSource: SourceConfig = {
-          name: "my-registry",
-          type: "registry",
-          url: new URL("https://registry.example.com"),
-        };
-        const globalSource: SourceConfig = {
-          name: "corp-registry",
-          type: "registry",
-          url: new URL("https://corp.example.com"),
-        };
-
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          sources: [projectSource],
+          sources: [{ name: "my-registry", type: "registry", url: "https://registry.example.com" }],
         });
         writeSettingsTo(homeDir, {
-          sources: [globalSource],
+          sources: [{ name: "corp-registry", type: "registry", url: "https://corp.example.com" }],
         });
 
         const ws = yield* getService(defaultOptions);
@@ -734,6 +723,7 @@ describe("WorkspaceContextService", () => {
           name: "my-registry",
           type: "registry",
           url: new URL("https://registry.example.com"),
+          scopes: Option.none(),
         };
         yield* ws.addConfiguredSource(newSource);
 
@@ -759,6 +749,7 @@ describe("WorkspaceContextService", () => {
           name: "new-source",
           type: "registry",
           url: new URL("https://new.example.com"),
+          scopes: Option.none(),
         };
         yield* ws.addConfiguredSource(newSource);
 
@@ -1454,6 +1445,7 @@ describe("WorkspaceContextService", () => {
           name: "my-registry",
           type: "registry",
           url: new URL("https://registry.example.com"),
+          scopes: Option.none(),
         };
 
         yield* Effect.all(

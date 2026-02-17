@@ -25,8 +25,19 @@ import {
 } from "../../registry/index.js";
 import { makeCliError } from "../../cli-error/index.js";
 import { computeChecksum } from "../../utils/checksum.js";
-import type { ExtensionRef, FindOptions, SkillRef, SourceProvider } from "../provider.js";
-import type { RegistrySourceInput } from "../types.js";
+import type {
+  ExtensionRef,
+  FindOptions,
+  PublishableSourceHostProvider,
+  SkillRef,
+  SourceProvider,
+} from "../provider.js";
+import type {
+  NewRegistrySource,
+  RegistrySourceHost,
+  RegistrySourceInput,
+  SourceExtensionRef,
+} from "../types.js";
 
 // -----------------------------------------------------------------------------
 // Registry Source Provider Interface
@@ -679,4 +690,107 @@ export const createRegistryProvider = (location: string): RegistrySourceProvider
   // Strip file:// scheme if present
   const localPath = location.startsWith("file://") ? location.slice(7) : location;
   return createLocalRegistryProvider(localPath);
+};
+
+// -----------------------------------------------------------------------------
+// New SourceHostProvider-based Registry Provider
+// -----------------------------------------------------------------------------
+
+/**
+ * Creates a `PublishableSourceHostProvider` for a registry source.
+ *
+ * Constructed with a `RegistrySourceHost` that provides the registry URL and scopes.
+ * The `match` method checks if a URL's hostname matches the configured registry.
+ * The `find` implementation reads the registry index and populates checksum from index.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const createRegistrySourceHostProvider = (
+  host: RegistrySourceHost,
+): PublishableSourceHostProvider<NewRegistrySource, FileSystem.FileSystem | Path.Path> => {
+  const registryUrl = host.url;
+  const isLocal = registryUrl.protocol === "file:" || !registryUrl.protocol.startsWith("http");
+  const registryRoot = registryUrl.protocol === "file:" ? registryUrl.pathname : registryUrl.href;
+  // For local registries, delegate to the existing local provider
+  const inner = isLocal
+    ? createLocalRegistryProvider(registryRoot)
+    : createRemoteRegistryProvider();
+
+  return {
+    type: "registry",
+
+    match: (url: URL) => Effect.succeed(url.hostname === registryUrl.hostname),
+
+    find: (source, options) =>
+      Effect.gen(function* () {
+        // Delegate to inner provider, converting source to legacy format
+        const legacySource: RegistrySourceInput = {
+          type: "registry",
+          scope: source.scope,
+          name: source.name,
+          versionConstraint: source.versionConstraint,
+        };
+        const legacyRefs = yield* inner.find(legacySource, options);
+
+        // Convert legacy SkillRefs to SourceExtensionRefs with checksum from index
+        const skillRefs = legacyRefs.filter((ref) => ref.type === "skill");
+        const newRefs = yield* Effect.forEach(
+          skillRefs,
+          (ref) =>
+            Effect.gen(function* () {
+              const version = Option.getOrElse(ref.version, () => "");
+              let checksum = "";
+              if (version !== "") {
+                // Use source.scope (from NewRegistrySource) — not ref.source which is legacy SourceInput
+                const indexResult = yield* inner
+                  .fetchIndex(source.scope, "skill", ref.skill.name)
+                  .pipe(Effect.either);
+                if (indexResult._tag === "Right") {
+                  const versionEntry = indexResult.right.versions.find(
+                    (v) => v.version === version,
+                  );
+                  if (versionEntry) checksum = versionEntry.checksum;
+                }
+              }
+              return {
+                type: "skill" as const,
+                skill: ref.skill,
+                source,
+                version,
+                checksum,
+              } as SourceExtensionRef;
+            }),
+          { concurrency: "unbounded" },
+        );
+        return newRefs;
+      }),
+
+    fetch: (source, _ref) =>
+      Effect.gen(function* () {
+        const p = yield* Path.Path;
+        const legacySource: RegistrySourceInput = {
+          type: "registry",
+          scope: source.scope,
+          name: source.name,
+          versionConstraint: source.versionConstraint,
+        };
+        // Build a legacy ref for fetching
+        const legacyRef: SkillRef = {
+          type: "skill",
+          skill: { name: source.name, description: "", metadata: Option.none() },
+          source: legacySource,
+          location:
+            "version" in _ref
+              ? `file://${extensionDir(registryRoot, source.scope, "skill", source.name, p.join)}`
+              : "",
+          version:
+            "version" in _ref ? Option.some((_ref as { version: string }).version) : Option.none(),
+          gitTreeSha: Option.none(),
+        };
+        return yield* inner.fetch(legacySource, legacyRef);
+      }),
+
+    publishVersion: (scope, type, name, version, archive, metadata) =>
+      inner.publishVersion(scope, type, name, version, archive, metadata),
+  };
 };

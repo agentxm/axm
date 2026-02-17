@@ -22,7 +22,7 @@ import {
   makeSpinnerTestLayer,
 } from "../../../tui/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
-import { SourceProvidersLive } from "../../../sources/index.js";
+import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handleInstall, type InstallHandlerArgs } from "./handler.js";
 import { CliError } from "../../../cli-error/index.js";
 
@@ -120,7 +120,7 @@ describe("install.handler", () => {
       ...wsOverrides,
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
-    const SPLayer = Layer.provide(SourceProvidersLive, Layer.merge(BaseLayer, WsLayer));
+    const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper: layer provides all required services

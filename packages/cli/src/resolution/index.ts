@@ -1,14 +1,12 @@
 /**
  * Extension resolution module.
  *
- * Resolves input strings to extension references with metadata.
- * This module is reusable across all extension types and commands.
+ * Resolution produces Source values via resolveSource(). Extension discovery
+ * is exclusively through SourceHostProviders.find().
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
-// Re-export resolver
-export { defaultResolutionOptions, resolveExtension } from "./resolver.js";
 // Re-export types
-export type { ExtensionMetadata, ExtensionRef, ExtensionType, ResolutionOptions } from "./types.js";
+export type { ExtensionType } from "./types.js";

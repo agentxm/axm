@@ -7,9 +7,10 @@
  * @packageDocumentation
  */
 
-import type { Option } from "effect/Option";
+import * as Option from "effect/Option";
 import type { ReadonlyRecord } from "effect/Record";
-import type { SourceInput } from "../../sources/types.js";
+import type { SkillRef } from "../../sources/provider.js";
+import type { SkillExtensionRef } from "../../sources/types.js";
 import type { Operation } from "../../workspace/plan.js";
 
 // -----------------------------------------------------------------------------
@@ -25,7 +26,7 @@ export interface Skill {
   /** Description of the skill */
   readonly description: string;
   /** Optional metadata from SKILL.md frontmatter */
-  readonly metadata: Option<ReadonlyRecord<string, unknown>>;
+  readonly metadata: Option.Option<ReadonlyRecord<string, unknown>>;
 }
 
 // -----------------------------------------------------------------------------
@@ -36,15 +37,13 @@ export interface Skill {
  * Args for the install-skill operation.
  */
 export type InstallSkillOperationArgs = {
-  readonly source: SourceInput;
+  readonly ref: SkillExtensionRef;
   readonly agents: ReadonlyArray<string>;
   readonly force: boolean;
-  readonly skill: Skill;
-  readonly location: string;
-  readonly version: Option<string>;
-  readonly gitTreeSha: Option<string>;
   /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
   readonly skipSettings?: boolean;
+  /** Pre-fetched file location (required for registry sources where ref has no location). */
+  readonly fetchedLocation?: string | undefined;
 };
 
 /**
@@ -77,12 +76,10 @@ export type UninstallSkillOperation = Operation<"uninstall-skill", UninstallSkil
  * and generates an `axm-skill.json` manifest.
  */
 export type CopySkillOperationArgs = {
-  /** Where to copy from (the source skill's files). */
-  readonly source: SourceInput;
+  /** The skill extension ref carrying source and location. */
+  readonly ref: SkillExtensionRef;
   /** Target identity in `@scope/name` format. */
   readonly targetName: string;
-  /** Location of the source skill files (file:// URL). */
-  readonly location: string;
 };
 
 /**
@@ -139,3 +136,71 @@ export type RenameSkillOperation = Operation<
   "rename-skill",
   { readonly oldName: string; readonly newName: string }
 >;
+
+// -----------------------------------------------------------------------------
+// Bridge: Legacy SkillRef → SkillExtensionRef
+// -----------------------------------------------------------------------------
+
+/**
+ * Convert a legacy SkillRef to a SkillExtensionRef.
+ *
+ * Bridge for Phase 7 — the callers still get SkillRef from resolveExtension(),
+ * but the operation args now require SkillExtensionRef. At runtime, SkillRef.source
+ * is a full Source (host + params) even though the type says SourceInput.
+ *
+ * @deprecated Remove in Phase 8 when callers use SourceHostProviders.find() directly.
+ */
+export const skillRefToExtensionRef = (ref: SkillRef): SkillExtensionRef => {
+  const { source } = ref;
+  const skillBase = { type: "skill" as const, skill: ref.skill };
+
+  switch (source.type) {
+    case "github":
+      return {
+        ...skillBase,
+        // Assertion needed: at runtime, source carries full Source (with host config url)
+        source: source as SkillExtensionRef & { source: { type: "github" } } extends {
+          source: infer S;
+        }
+          ? S
+          : never,
+        location: ref.location,
+        gitTreeSha: ref.gitTreeSha,
+      } as SkillExtensionRef;
+
+    case "gitlab":
+    case "bitbucket":
+    case "azurerepos":
+    case "git":
+      return {
+        ...skillBase,
+        source: source as never,
+        location: ref.location,
+        gitTreeSha: ref.gitTreeSha,
+      } as SkillExtensionRef;
+
+    case "registry":
+      return {
+        ...skillBase,
+        source: source as never,
+        version: Option.getOrElse(ref.version, () => ""),
+        checksum: "",
+      } as SkillExtensionRef;
+
+    case "local":
+      return {
+        ...skillBase,
+        source: source as never,
+        location: ref.location,
+      } as SkillExtensionRef;
+
+    default:
+      // Fallback for any unexpected source type
+      return {
+        ...skillBase,
+        source: source as never,
+        location: ref.location,
+        gitTreeSha: ref.gitTreeSha,
+      } as SkillExtensionRef;
+  }
+};

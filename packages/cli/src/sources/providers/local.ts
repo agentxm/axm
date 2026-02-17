@@ -16,12 +16,80 @@ import * as Option from "effect/Option";
 import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
 import { makeCliError } from "../../cli-error/index.js";
 import { filterRefsByOptions } from "../provider.js";
+import type { SourceHostProvider } from "../provider.js";
 import type { SourceProvider } from "../provider.js";
-import type { LocalSourceInput } from "../types.js";
+import type { LocalSourceInput, NewLocalSource, SourceExtensionRef } from "../types.js";
+
+/**
+ * Source host provider for local filesystem paths.
+ *
+ * Self-describing — no host config needed.
+ * `match` returns true for file:// URLs and absolute/relative paths.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const createLocalSourceHostProvider = (): SourceHostProvider<
+  NewLocalSource,
+  FileSystem.FileSystem | Path.Path
+> => ({
+  type: "local",
+
+  match: (url: URL) => Effect.succeed(url.protocol === "file:"),
+
+  find: (source, options) =>
+    Effect.gen(function* () {
+      const refs = yield* discoverSkillsInDir(
+        source.path,
+        Option.none(),
+        {
+          fullDepth: false,
+          includeInternal: false,
+        },
+        source,
+      ).pipe(
+        Effect.mapError((error) =>
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: `Failed to discover skills`,
+            details: [error.message],
+            cause: error,
+          }),
+        ),
+      );
+
+      // Map to SourceExtensionRef with LocalRefDetails
+      const mapped: ReadonlyArray<SourceExtensionRef> = Array.map(refs, (ref) => ({
+        type: "skill" as const,
+        skill: ref.skill,
+        source,
+        location: ref.location,
+      }));
+
+      if (options.names.length === 0) return mapped;
+      const nameSet = new Set(options.names);
+      return mapped.filter((r) => r.type === "skill" && nameSet.has(r.skill.name));
+    }),
+
+  fetch: (_source, ref) => {
+    if (!("location" in ref)) {
+      return Effect.fail(
+        makeCliError({
+          code: "SOURCE_FETCH_FAILED",
+          what: "Expected ref with location for local source, but none was provided",
+        }),
+      );
+    }
+    // Assertion needed: "in" check does not narrow discriminated union
+    return Effect.succeed({
+      directory: (ref as { location: string }).location.replace("file://", ""),
+    });
+  },
+});
 
 /**
  * Source provider for local filesystem paths.
  *
+ * @deprecated Use createLocalSourceHostProvider
  * @experimental This API is unstable and may change without notice.
  */
 export const createLocalProvider = (): SourceProvider<

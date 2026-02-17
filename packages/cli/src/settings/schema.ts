@@ -10,7 +10,7 @@ import * as Schema from "effect/Schema";
 import { AgentIdSchema } from "../extensions/common.js";
 
 // -----------------------------------------------------------------------------
-// Source Config (array-based, discriminated on `type` field)
+// Source Host Config (array-based, discriminated on `type` field)
 // -----------------------------------------------------------------------------
 
 /**
@@ -24,94 +24,138 @@ const SOURCE_NAME_PATTERN = /^[a-z0-9][a-z0-9.-]*$/;
 const SourceNameSchema = Schema.String.pipe(Schema.pattern(SOURCE_NAME_PATTERN));
 
 /**
- * GitHub source configuration.
+ * GitHub source host configuration.
  *
  * @experimental This API is unstable and may change without notice.
  */
-const GitHubSourceConfigSchema = Schema.Struct({
+const GitHubSourceHostConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   type: Schema.Literal("github"),
   url: Schema.URL,
 });
 
 /**
- * GitLab source configuration.
+ * GitLab source host configuration.
  *
  * @experimental This API is unstable and may change without notice.
  */
-const GitLabSourceConfigSchema = Schema.Struct({
+const GitLabSourceHostConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   type: Schema.Literal("gitlab"),
   url: Schema.URL,
 });
 
 /**
- * Bitbucket source configuration.
+ * Bitbucket source host configuration.
  *
  * @experimental This API is unstable and may change without notice.
  */
-const BitbucketSourceConfigSchema = Schema.Struct({
+const BitbucketSourceHostConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   type: Schema.Literal("bitbucket"),
   url: Schema.URL,
 });
 
 /**
- * Azure Repos source configuration.
+ * Azure Repos source host configuration.
  *
  * @experimental This API is unstable and may change without notice.
  */
-const AzureReposSourceConfigSchema = Schema.Struct({
+const AzureReposSourceHostConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   type: Schema.Literal("azurerepos"),
   url: Schema.URL,
 });
 
 /**
- * Registry source configuration with optional scopes.
+ * Registry source host configuration with optional scopes.
+ *
+ * On-disk format unchanged: `scopes` is an optional JSON array.
+ * Decoded to `Option<ReadonlyArray<string>>` via `OptionFromNullishOr`.
  *
  * @experimental This API is unstable and may change without notice.
  */
-const RegistrySourceConfigSchema = Schema.Struct({
+const RegistrySourceHostConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   type: Schema.Literal("registry"),
   url: Schema.URL,
-  scopes: Schema.optional(Schema.Array(Schema.String)),
+  scopes: Schema.OptionFromNullishOr(Schema.Array(Schema.String), undefined),
 });
 
 /**
- * Discriminated union of source configurations on the `type` field.
+ * Discriminated union of source host configurations on the `type` field.
  *
  * Variants: github, gitlab, bitbucket, azurerepos, registry.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SourceConfigSchema = Schema.Union(
-  GitHubSourceConfigSchema,
-  GitLabSourceConfigSchema,
-  BitbucketSourceConfigSchema,
-  AzureReposSourceConfigSchema,
-  RegistrySourceConfigSchema,
+export const SourceHostConfigSchema = Schema.Union(
+  GitHubSourceHostConfigSchema,
+  GitLabSourceHostConfigSchema,
+  BitbucketSourceHostConfigSchema,
+  AzureReposSourceHostConfigSchema,
+  RegistrySourceHostConfigSchema,
 );
 
 /**
- * Inferred type for SourceConfig schema.
+ * Inferred type for SourceHostConfig schema.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type SourceConfig = typeof SourceConfigSchema.Type;
+export type SourceHostConfig = typeof SourceHostConfigSchema.Type;
 
 /** @experimental */
-export type GitHubSourceConfig = typeof GitHubSourceConfigSchema.Type;
+export type GitHubSourceHostConfig = typeof GitHubSourceHostConfigSchema.Type;
 /** @experimental */
-export type GitLabSourceConfig = typeof GitLabSourceConfigSchema.Type;
+export type GitLabSourceHostConfig = typeof GitLabSourceHostConfigSchema.Type;
 /** @experimental */
-export type BitbucketSourceConfig = typeof BitbucketSourceConfigSchema.Type;
+export type BitbucketSourceHostConfig = typeof BitbucketSourceHostConfigSchema.Type;
 /** @experimental */
-export type AzureReposSourceConfig = typeof AzureReposSourceConfigSchema.Type;
+export type AzureReposSourceHostConfig = typeof AzureReposSourceHostConfigSchema.Type;
 /** @experimental */
+export type RegistrySourceHostConfig = typeof RegistrySourceHostConfigSchema.Type;
 
-export type RegistrySourceConfig = typeof RegistrySourceConfigSchema.Type;
+/**
+ * @deprecated Use SourceHostConfigSchema
+ * @experimental
+ */
+export const SourceConfigSchema = SourceHostConfigSchema;
+
+/**
+ * @deprecated Use SourceHostConfig
+ * @experimental
+ */
+export type SourceConfig = SourceHostConfig;
+
+/**
+ * @deprecated Use GitHubSourceHostConfig
+ * @experimental
+ */
+export type GitHubSourceConfig = GitHubSourceHostConfig;
+
+/**
+ * @deprecated Use GitLabSourceHostConfig
+ * @experimental
+ */
+export type GitLabSourceConfig = GitLabSourceHostConfig;
+
+/**
+ * @deprecated Use BitbucketSourceHostConfig
+ * @experimental
+ */
+export type BitbucketSourceConfig = BitbucketSourceHostConfig;
+
+/**
+ * @deprecated Use AzureReposSourceHostConfig
+ * @experimental
+ */
+export type AzureReposSourceConfig = AzureReposSourceHostConfig;
+
+/**
+ * @deprecated Use RegistrySourceHostConfig
+ * @experimental
+ */
+export type RegistrySourceConfig = RegistrySourceHostConfig;
 /**
  * Pattern for skill names per agentskills.io specification:
  * - Max 64 characters
@@ -314,7 +358,7 @@ const ScopeSchema = Schema.transform(Schema.String, Schema.String, {
 export const SettingsSchema = Schema.Struct({
   scope: Schema.optional(ScopeSchema),
   agents: Schema.optional(Schema.Array(AgentIdSchema)),
-  sources: Schema.optional(Schema.Array(SourceConfigSchema)),
+  sources: Schema.optional(Schema.Array(SourceHostConfigSchema)),
   commands: Schema.optional(ExtensionMapSchema),
   "mcp-servers": Schema.optional(ExtensionMapSchema),
   packs: Schema.optional(PacksMapSchema),

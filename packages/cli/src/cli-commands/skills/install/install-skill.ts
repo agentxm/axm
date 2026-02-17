@@ -27,10 +27,27 @@ import { sourceToLockEntry } from "../source-to-lock-entry.js";
 import type { SkillPathSource } from "../skill-paths.js";
 import type { InstallResult } from "./install-result.js";
 import { sanitizeName } from "./skill-utils.js";
+import type { SkillExtensionRef } from "../../../sources/types.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
+
+/**
+ * Extract the file:// location from a SkillExtensionRef.
+ * Git-hosted and local refs carry `location` directly. Registry and builtin refs
+ * do not — for those, `fetchedLocation` on the operation args must be used.
+ */
+const getRefLocation = (ref: SkillExtensionRef, fetchedLocation: string | undefined): string => {
+  if ("location" in ref) {
+    return ref.location;
+  }
+  // Registry and builtin refs don't carry a location — require fetchedLocation
+  if (!fetchedLocation) {
+    throw new Error(`fetchedLocation required for ${ref.source.type} source (no location on ref)`);
+  }
+  return fetchedLocation;
+};
 
 const installForAgent = (opts: {
   readonly agentId: string;
@@ -181,26 +198,28 @@ export const installSkill: OperationHandler<
     const log = yield* Log;
     const axmDir = ws.path;
     const base = path.dirname(axmDir);
+    const { ref } = op.args;
 
-    const sanitizedName = sanitizeName(op.args.skill.name);
+    const sanitizedName = sanitizeName(ref.skill.name);
 
     // Determine canonical + content paths from centralized getSkillDir
-    const source: SkillPathSource =
-      op.args.source.type === "registry"
-        ? { type: "registry", scope: op.args.source.scope }
-        : { type: op.args.source.type };
-    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(op.args.skill.name, source);
+    const pathSource: SkillPathSource =
+      ref.source.type === "registry"
+        ? { type: "registry", scope: ref.source.scope }
+        : { type: ref.source.type };
+    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, pathSource);
 
     // Validate canonical path safety
     if (!isPathSafe(base, canonicalPath)) {
       return yield* makeCliError({
         code: "INSTALL_SKILL_PATH_TRAVERSAL",
-        what: `Path traversal detected in skill name "${op.args.skill.name}"`,
+        what: `Path traversal detected in skill name "${ref.skill.name}"`,
       });
     }
 
     // Resolve source path — the skill files to copy from
-    const sourcePath = op.args.location.replace(/^file:\/\//, "");
+    const locationUrl = getRefLocation(ref, op.args.fetchedLocation);
+    const sourcePath = locationUrl.replace(/^file:\/\//, "");
 
     // Skip pre-clean and copy when source is already the content location
     // (e.g., fork workflow where files are already in place)
@@ -212,7 +231,7 @@ export const installSkill: OperationHandler<
 
       // For registry sources, copy to canonicalPath (extracted zip has manifest + src/)
       // For other sources, copy to skillSrcPath (no subdirectory structure)
-      const copyTarget = source.type === "registry" ? canonicalPath : skillSrcPath;
+      const copyTarget = pathSource.type === "registry" ? canonicalPath : skillSrcPath;
       yield* copySkillDirectory(sourcePath, copyTarget).pipe(
         Effect.mapError((e) =>
           makeCliError({
@@ -241,25 +260,15 @@ export const installSkill: OperationHandler<
     // Update settings + lockfile atomically (warn on errors)
     // Pack dependencies skip settings writes (lockfile only)
     const lockEntry = sourceToLockEntry({
-      source: op.args.source,
+      ref,
       agents: op.args.agents,
-      gitTreeSha: op.args.gitTreeSha,
       now: new Date(),
-      ...(source.type === "registry" && {
-        registry: {
-          scope: source.scope,
-          name: sanitizedName,
-          resolvedVersion: Option.getOrElse(op.args.version, () => "0.0.0"),
-          checksum: "",
-          sourceName: "default",
-        },
-      }),
     });
     const skillArgs = {
-      name: op.args.skill.name,
+      name: ref.skill.name,
       lockEntry,
       versionConstraint:
-        op.args.source.type === "registry" ? op.args.source.versionConstraint : Option.none(),
+        ref.source.type === "registry" ? ref.source.versionConstraint : Option.none(),
     };
     const writeEffect = op.args.skipSettings ? ws.setSkillLock(skillArgs) : ws.setSkill(skillArgs);
     yield* writeEffect.pipe(Effect.catchAll((e) => log.warn(`Skill update failed: ${String(e)}`)));
@@ -273,12 +282,12 @@ export const installSkill: OperationHandler<
         .map((r) => Option.getOrElse(r.error, () => "unknown error"));
       return {
         result: "error",
-        message: `Failed to install ${op.args.skill.name} for some agents: ${failedAgents.join(", ")}`,
+        message: `Failed to install ${ref.skill.name} for some agents: ${failedAgents.join(", ")}`,
       } satisfies OperationResult;
     }
 
     return {
       result: "success",
-      message: `Installed ${op.args.skill.name}`,
+      message: `Installed ${ref.skill.name}`,
     } satisfies OperationResult;
   });

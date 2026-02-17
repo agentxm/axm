@@ -1,5 +1,5 @@
 /**
- * Source printer for canonical shorthand strings.
+ * Source printer for canonical shorthand strings and lock entry conversion.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -12,14 +12,14 @@ import { print as bitbucketPrint } from "./bitbucket/index.js";
 import { print as githubPrint } from "./github/index.js";
 import { print as gitlabPrint } from "./gitlab/index.js";
 import { print as localPrint } from "./local/index.js";
-import type { SourceInput } from "./types.js";
+import type { SourceInput, SourceParams } from "./types.js";
 
 /**
  * Print a source input as its canonical shorthand string.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const printSourceInput = (source: SourceInput): string => {
+export const printSourceInput = (source: SourceInput | SourceParams): string => {
   switch (source.type) {
     case "github":
       return githubPrint(source);
@@ -39,16 +39,18 @@ export const printSourceInput = (source: SourceInput): string => {
         ? `${base}@${source.versionConstraint.value}`
         : base;
     }
+    case "builtin":
+      return "builtin";
   }
 };
 
 /**
- * Convert a skill lock entry back to a SourceInput.
- * Inverse of sourceToLockEntry (lock entry optional fields → Option).
+ * Convert a skill lock entry back to a SourceParams.
+ * Inverse of sourceToLockEntry (lock entry optional fields -> Option).
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const lockEntryToSourceInput = (entry: SkillLockEntry): SourceInput => {
+export const lockEntryToSourceParams = (entry: SkillLockEntry): SourceParams => {
   switch (entry.type) {
     case "github":
       return {
@@ -99,6 +101,12 @@ export const lockEntryToSourceInput = (entry: SkillLockEntry): SourceInput => {
         versionConstraint: Option.none(),
       };
     case "builtin":
-      throw new Error("Cannot convert builtin lock entry to source input");
+      return { type: "builtin" };
   }
 };
+
+/**
+ * @deprecated Use lockEntryToSourceParams
+ * @experimental This API is unstable and may change without notice.
+ */
+export const lockEntryToSourceInput = lockEntryToSourceParams;

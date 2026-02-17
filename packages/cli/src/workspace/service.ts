@@ -58,10 +58,10 @@ import {
   SETTINGS_FILENAME,
   type Settings,
   type SkillsMap,
-  type SourceConfig,
+  type SourceHostConfig,
   writeSettings,
 } from "../settings/index.js";
-import { lockEntryToSourceInput, parseInputPattern, printSourceInput } from "../sources/index.js";
+import { lockEntryToSourceParams, parseInputPattern, printSourceInput } from "../sources/index.js";
 import * as Record from "effect/Record";
 import { getAxmDir } from "./paths.js";
 import * as Context from "effect/Context";
@@ -98,7 +98,7 @@ export type SetPackArgs = Omit<RegistryPackLockEntry, "type"> & {
  *
  * @internal
  */
-const BUILT_IN_SOURCES: ReadonlyArray<SourceConfig> = [
+const BUILT_IN_SOURCES: ReadonlyArray<SourceHostConfig> = [
   { name: "github", type: "github", url: new URL("https://github.com") },
   { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
   { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
@@ -455,7 +455,7 @@ const make = (options: WorkspaceContextOptions) =>
     );
 
     // Mutable cache for merged sources (invalidated by addConfiguredSource)
-    let cachedSources: ReadonlyArray<SourceConfig> | null = null;
+    let cachedSources: ReadonlyArray<SourceHostConfig> | null = null;
 
     const withMutex = semaphore.withPermits(1);
 
@@ -516,21 +516,21 @@ const make = (options: WorkspaceContextOptions) =>
      * Three-layer merge: project sources -> global sources -> built-in sources.
      * Name-based deduplication: earlier layers win.
      */
-    const getConfiguredSources = (): Effect.Effect<ReadonlyArray<SourceConfig>, CliError> =>
+    const getConfiguredSources = (): Effect.Effect<ReadonlyArray<SourceHostConfig>, CliError> =>
       Effect.gen(function* () {
         if (cachedSources !== null) return cachedSources;
 
         const projectSettings = yield* readSettingsSafe(localDir);
         const globalSettings = yield* readSettingsSafe(globalDir);
 
-        const projectSources: ReadonlyArray<SourceConfig> = projectSettings.sources ?? [];
-        const globalSources: ReadonlyArray<SourceConfig> = globalSettings.sources ?? [];
+        const projectSources: ReadonlyArray<SourceHostConfig> = projectSettings.sources ?? [];
+        const globalSources: ReadonlyArray<SourceHostConfig> = globalSettings.sources ?? [];
 
         const projectNames = new Set(projectSources.map((s) => s.name));
         const filteredGlobal = globalSources.filter((s) => !projectNames.has(s.name));
         const projectGlobalNames = new Set([...projectNames, ...filteredGlobal.map((s) => s.name)]);
 
-        const merged: ReadonlyArray<SourceConfig> = [
+        const merged: ReadonlyArray<SourceHostConfig> = [
           ...projectSources,
           ...filteredGlobal,
           ...BUILT_IN_SOURCES.filter((s) => !projectGlobalNames.has(s.name)),
@@ -589,15 +589,15 @@ const make = (options: WorkspaceContextOptions) =>
         getConfiguredSources().pipe(
           Effect.map((sources) => {
             const registrySources = sources.filter(
-              (s): s is Extract<SourceConfig, { type: "registry" }> => s.type === "registry",
+              (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
             );
             if (Option.isNone(scope)) return registrySources;
             const scopeValue = scope.value;
             const scopeMatched = registrySources.filter(
-              (s) => s.scopes !== undefined && s.scopes.includes(scopeValue),
+              (s) => Option.isSome(s.scopes) && s.scopes.value.includes(scopeValue),
             );
             if (scopeMatched.length > 0) return scopeMatched;
-            return registrySources.filter((s) => s.scopes === undefined);
+            return registrySources.filter((s) => Option.isNone(s.scopes));
           }),
         ),
 
@@ -611,11 +611,11 @@ const make = (options: WorkspaceContextOptions) =>
           return DEFAULT_SCOPE;
         }),
 
-      addConfiguredSource: (source: SourceConfig) =>
+      addConfiguredSource: (source: SourceHostConfig) =>
         withMutex(
           Effect.gen(function* () {
             const current = yield* readSettingsSafe(workspaceDir);
-            const currentSources: ReadonlyArray<SourceConfig> = current.sources ?? [];
+            const currentSources: ReadonlyArray<SourceHostConfig> = current.sources ?? [];
             const updatedSettings = { ...current, sources: [...currentSources, source] };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
             cachedSources = null; // invalidate cache
@@ -701,7 +701,7 @@ const make = (options: WorkspaceContextOptions) =>
         withMutex(
           Effect.gen(function* () {
             // Update settings — thread version constraint through so it survives the round-trip
-            const sourceInput = lockEntryToSourceInput(lockEntry);
+            const sourceInput = lockEntryToSourceParams(lockEntry);
             const withConstraint =
               sourceInput.type === "registry" ? { ...sourceInput, versionConstraint } : sourceInput;
             const source = printSourceInput(withConstraint);
@@ -1030,19 +1030,19 @@ export interface WorkspaceContextService {
     handlers: T,
   ) => Effect.Effect<Plan<Op>, PromptCancelled | CliError, Log | Confirm | ExecutionContext<T>>;
   /** Merged sources from project, global, and built-in defaults. Cached per workspace lifetime. */
-  readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceConfig>, CliError>;
+  readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, CliError>;
   /** Lookup a source by name from the merged sources list. */
   readonly getConfiguredSourceByName: (
     name: string,
-  ) => Effect.Effect<Option.Option<SourceConfig>, CliError>;
+  ) => Effect.Effect<Option.Option<SourceHostConfig>, CliError>;
   /** Filter merged sources to registry sources, optionally filtered by scope. */
   readonly getConfiguredRegistrySources: (
     scope: Option.Option<string>,
-  ) => Effect.Effect<ReadonlyArray<Extract<SourceConfig, { type: "registry" }>>, CliError>;
+  ) => Effect.Effect<ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>, CliError>;
   /** Resolve scope: project settings -> global settings -> DEFAULT_SCOPE. */
   readonly getConfiguredScope: () => Effect.Effect<string, CliError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
-  readonly addConfiguredSource: (source: SourceConfig) => Effect.Effect<void, CliError>;
+  readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, CliError>;
   /** Read settings and return all skill entries normalized (managed + unmanaged). */
   readonly getConfiguredSkills: () => Effect.Effect<
     Record.ReadonlyRecord<string, NormalizedSkillEntry>,

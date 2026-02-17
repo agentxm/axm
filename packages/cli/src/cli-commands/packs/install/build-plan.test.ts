@@ -38,13 +38,14 @@ const emptyLockfile: Lockfile = {
 const makeSkillOp = (name: string): InstallSkillOperation => ({
   name: "install-skill",
   args: {
-    source: { type: "local", path: `/tmp/skills/${name}` },
+    ref: {
+      type: "skill",
+      skill: { name, description: `Skill ${name}`, metadata: Option.none() },
+      source: { type: "local", path: `/tmp/skills/${name}` },
+      location: `file:///tmp/skills/${name}`,
+    },
     agents: [],
     force: false,
-    skill: { name, description: `Skill ${name}`, metadata: Option.none() },
-    location: `file:///tmp/skills/${name}`,
-    version: Option.none(),
-    gitTreeSha: Option.none(),
   },
 });
 

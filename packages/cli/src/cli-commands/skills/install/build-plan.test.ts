@@ -17,13 +17,14 @@ import { buildPlan } from "./build-plan.js";
 const makeOp = (name: string): InstallSkillOperation => ({
   name: "install-skill",
   args: {
-    source: { type: "local", path: "/fake" },
+    ref: {
+      type: "skill",
+      skill: { name, description: `${name} skill`, metadata: Option.none() },
+      source: { type: "local", path: "/fake" },
+      location: `file:///fake/${name}`,
+    },
     agents: [],
     force: false,
-    skill: { name, description: `${name} skill`, metadata: Option.none() },
-    location: `file:///fake/${name}`,
-    version: Option.none(),
-    gitTreeSha: Option.none(),
   },
 });
 

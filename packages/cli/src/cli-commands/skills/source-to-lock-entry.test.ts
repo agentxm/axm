@@ -2,39 +2,46 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../../lockfile/schema.js";
 import type {
-  AzureReposSourceInput,
-  BitbucketSourceInput,
-  GitHubSourceInput,
-  GitLabSourceInput,
-  GitRepositorySourceInput,
-  LocalSourceInput,
-  RegistrySourceInput,
+  BuiltinSkillRef,
+  GitHubSkillRef,
+  GitLabSkillRef,
+  BitbucketSkillRef,
+  AzureReposSkillRef,
+  GitSkillRef,
+  LocalSkillRef,
+  RegistrySkillRef,
 } from "../../sources/types.js";
 import { sourceToLockEntry } from "./source-to-lock-entry.js";
 
 const agents = ["claude", "cursor"];
 const now = new Date("2025-01-15T00:00:00.000Z");
 
+const skillBase = {
+  type: "skill" as const,
+  skill: { name: "test-skill", description: "A test skill", metadata: Option.none() },
+};
+
 describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
   // GitHub
   // ---------------------------------------------------------------------------
 
-  it("maps GitHub source with all optional fields", () => {
-    const source: GitHubSourceInput = {
-      type: "github",
-      owner: "acme",
-      repo: "skills",
-      ref: Option.some("v1.0"),
-      subPath: Option.some("prompts/code-review"),
+  it("maps GitHub ref with all optional fields", () => {
+    const ref: GitHubSkillRef = {
+      ...skillBase,
+      source: {
+        type: "github",
+        url: new URL("https://github.com"),
+        owner: "acme",
+        repo: "skills",
+        ref: Option.some("v1.0"),
+        subPath: Option.some("prompts/code-review"),
+      },
+      location: "file:///tmp/clone",
+      gitTreeSha: Option.some("abc123"),
     };
 
-    const result = sourceToLockEntry({
-      source,
-      agents,
-      gitTreeSha: Option.some("abc123"),
-      now,
-    });
+    const result = sourceToLockEntry({ ref, agents, now });
 
     expect(result).toEqual({
       type: "github",
@@ -49,21 +56,22 @@ describe("sourceToLockEntry", () => {
     } satisfies SkillLockEntry);
   });
 
-  it("maps GitHub source with none optional fields", () => {
-    const source: GitHubSourceInput = {
-      type: "github",
-      owner: "acme",
-      repo: "skills",
-      ref: Option.none(),
-      subPath: Option.none(),
+  it("maps GitHub ref with none optional fields", () => {
+    const ref: GitHubSkillRef = {
+      ...skillBase,
+      source: {
+        type: "github",
+        url: new URL("https://github.com"),
+        owner: "acme",
+        repo: "skills",
+        ref: Option.none(),
+        subPath: Option.none(),
+      },
+      location: "file:///tmp/clone",
+      gitTreeSha: Option.none(),
     };
 
-    const result = sourceToLockEntry({
-      source,
-      agents,
-      gitTreeSha: Option.none(),
-      now,
-    });
+    const result = sourceToLockEntry({ ref, agents, now });
 
     expect(result).toEqual({
       type: "github",
@@ -79,21 +87,22 @@ describe("sourceToLockEntry", () => {
   // GitLab
   // ---------------------------------------------------------------------------
 
-  it("maps GitLab source", () => {
-    const source: GitLabSourceInput = {
-      type: "gitlab",
-      owner: "team",
-      repo: "prompts",
-      ref: Option.some("main"),
-      subPath: Option.none(),
+  it("maps GitLab ref", () => {
+    const ref: GitLabSkillRef = {
+      ...skillBase,
+      source: {
+        type: "gitlab",
+        url: new URL("https://gitlab.com"),
+        owner: "team",
+        repo: "prompts",
+        ref: Option.some("main"),
+        subPath: Option.none(),
+      },
+      location: "file:///tmp/clone",
+      gitTreeSha: Option.none(),
     };
 
-    const result = sourceToLockEntry({
-      source,
-      agents,
-      gitTreeSha: Option.none(),
-      now,
-    });
+    const result = sourceToLockEntry({ ref, agents, now });
 
     expect(result).toEqual({
       type: "gitlab",
@@ -110,21 +119,22 @@ describe("sourceToLockEntry", () => {
   // Bitbucket
   // ---------------------------------------------------------------------------
 
-  it("maps Bitbucket source", () => {
-    const source: BitbucketSourceInput = {
-      type: "bitbucket",
-      owner: "workspace",
-      repo: "skills-repo",
-      ref: Option.none(),
-      subPath: Option.some("skills/lint"),
+  it("maps Bitbucket ref", () => {
+    const ref: BitbucketSkillRef = {
+      ...skillBase,
+      source: {
+        type: "bitbucket",
+        url: new URL("https://bitbucket.org"),
+        owner: "workspace",
+        repo: "skills-repo",
+        ref: Option.none(),
+        subPath: Option.some("skills/lint"),
+      },
+      location: "file:///tmp/clone",
+      gitTreeSha: Option.none(),
     };
 
-    const result = sourceToLockEntry({
-      source,
-      agents,
-      gitTreeSha: Option.none(),
-      now,
-    });
+    const result = sourceToLockEntry({ ref, agents, now });
 
     expect(result).toEqual({
       type: "bitbucket",
@@ -141,22 +151,23 @@ describe("sourceToLockEntry", () => {
   // Azure Repos
   // ---------------------------------------------------------------------------
 
-  it("maps Azure Repos source", () => {
-    const source: AzureReposSourceInput = {
-      type: "azurerepos",
-      organization: "myorg",
-      project: "myproject",
-      repo: "skills",
-      ref: Option.some("develop"),
-      subPath: Option.some("src/skill"),
+  it("maps Azure Repos ref", () => {
+    const ref: AzureReposSkillRef = {
+      ...skillBase,
+      source: {
+        type: "azurerepos",
+        url: new URL("https://dev.azure.com"),
+        organization: "myorg",
+        project: "myproject",
+        repo: "skills",
+        ref: Option.some("develop"),
+        subPath: Option.some("src/skill"),
+      },
+      location: "file:///tmp/clone",
+      gitTreeSha: Option.some("def456"),
     };
 
-    const result = sourceToLockEntry({
-      source,
-      agents,
-      gitTreeSha: Option.some("def456"),
-      now,
-    });
+    const result = sourceToLockEntry({ ref, agents, now });
 
     expect(result).toEqual({
       type: "azurerepos",
@@ -176,19 +187,19 @@ describe("sourceToLockEntry", () => {
   // Git (URL variant)
   // ---------------------------------------------------------------------------
 
-  it("maps Git URL source", () => {
-    const source: GitRepositorySourceInput = {
-      type: "git",
-      url: new URL("https://example.com/repo.git"),
-      ref: Option.some("main"),
+  it("maps Git URL ref", () => {
+    const ref: GitSkillRef = {
+      ...skillBase,
+      source: {
+        type: "git",
+        url: new URL("https://example.com/repo.git"),
+        ref: Option.some("main"),
+      },
+      location: "file:///tmp/clone",
+      gitTreeSha: Option.none(),
     };
 
-    const result = sourceToLockEntry({
-      source,
-      agents,
-      gitTreeSha: Option.none(),
-      now,
-    });
+    const result = sourceToLockEntry({ ref, agents, now });
 
     expect(result).toEqual({
       type: "git",
@@ -204,18 +215,14 @@ describe("sourceToLockEntry", () => {
   // Local
   // ---------------------------------------------------------------------------
 
-  it("maps Local source", () => {
-    const source: LocalSourceInput = {
-      type: "local",
-      path: "/home/user/skills/my-skill",
+  it("maps Local ref", () => {
+    const ref: LocalSkillRef = {
+      ...skillBase,
+      source: { type: "local", path: "/home/user/skills/my-skill" },
+      location: "file:///home/user/skills/my-skill",
     };
 
-    const result = sourceToLockEntry({
-      source,
-      agents,
-      gitTreeSha: Option.none(),
-      now,
-    });
+    const result = sourceToLockEntry({ ref, agents, now });
 
     expect(result).toEqual({
       type: "local",
@@ -230,26 +237,26 @@ describe("sourceToLockEntry", () => {
   // Registry
   // ---------------------------------------------------------------------------
 
-  it("maps Registry source", () => {
-    const source: RegistrySourceInput = {
-      type: "registry",
-      scope: "@community",
-      name: "my-skill",
-      versionConstraint: Option.none(),
+  it("maps Registry ref with version/checksum from ref details", () => {
+    const ref: RegistrySkillRef = {
+      ...skillBase,
+      source: {
+        type: "registry",
+        scope: "@acme",
+        name: "code-review",
+        versionConstraint: Option.none(),
+        url: new URL("http://localhost:3000"),
+        scopes: Option.none(),
+      },
+      version: "2.1.0",
+      checksum: "sha256:abcdef1234567890",
     };
 
     const result = sourceToLockEntry({
-      source,
+      ref,
       agents,
-      gitTreeSha: Option.none(),
       now,
-      registry: {
-        scope: "@acme",
-        name: "code-review",
-        resolvedVersion: "2.1.0",
-        checksum: "sha256:abcdef1234567890",
-        sourceName: "local",
-      },
+      sourceName: "local",
     });
 
     expect(result).toEqual({
@@ -265,25 +272,68 @@ describe("sourceToLockEntry", () => {
     } satisfies SkillLockEntry);
   });
 
+  it("uses 'default' for sourceName when not provided", () => {
+    const ref: RegistrySkillRef = {
+      ...skillBase,
+      source: {
+        type: "registry",
+        scope: "@community",
+        name: "my-skill",
+        versionConstraint: Option.none(),
+        url: new URL("http://localhost:3000"),
+        scopes: Option.none(),
+      },
+      version: "1.0.0",
+      checksum: "sha256:abc",
+    };
+
+    const result = sourceToLockEntry({ ref, agents, now });
+
+    expect(result.type).toBe("registry");
+    if (result.type !== "registry") throw new Error("Expected registry");
+    expect(result.sourceName).toBe("default");
+  });
+
+  // ---------------------------------------------------------------------------
+  // Builtin
+  // ---------------------------------------------------------------------------
+
+  it("maps Builtin ref", () => {
+    const ref: BuiltinSkillRef = {
+      ...skillBase,
+      source: { type: "builtin" },
+    };
+
+    const result = sourceToLockEntry({ ref, agents, now });
+
+    expect(result).toEqual({
+      type: "builtin",
+      agents,
+      installedAt: now,
+      updatedAt: now,
+    } satisfies SkillLockEntry);
+  });
+
   // ---------------------------------------------------------------------------
   // Option→undefined conversion
   // ---------------------------------------------------------------------------
 
   it("converts Option.some to plain value", () => {
-    const source: GitHubSourceInput = {
-      type: "github",
-      owner: "a",
-      repo: "b",
-      ref: Option.some("v1"),
-      subPath: Option.some("dir"),
+    const ref: GitHubSkillRef = {
+      ...skillBase,
+      source: {
+        type: "github",
+        url: new URL("https://github.com"),
+        owner: "a",
+        repo: "b",
+        ref: Option.some("v1"),
+        subPath: Option.some("dir"),
+      },
+      location: "file:///tmp/clone",
+      gitTreeSha: Option.some("sha"),
     };
 
-    const result = sourceToLockEntry({
-      source,
-      agents: [],
-      gitTreeSha: Option.some("sha"),
-      now,
-    });
+    const result = sourceToLockEntry({ ref, agents: [], now });
 
     expect(result.type).toBe("github");
     if (result.type !== "github") throw new Error("Expected github");
@@ -293,20 +343,21 @@ describe("sourceToLockEntry", () => {
   });
 
   it("converts Option.none to undefined (omitted)", () => {
-    const source: GitHubSourceInput = {
-      type: "github",
-      owner: "a",
-      repo: "b",
-      ref: Option.none(),
-      subPath: Option.none(),
+    const ref: GitHubSkillRef = {
+      ...skillBase,
+      source: {
+        type: "github",
+        url: new URL("https://github.com"),
+        owner: "a",
+        repo: "b",
+        ref: Option.none(),
+        subPath: Option.none(),
+      },
+      location: "file:///tmp/clone",
+      gitTreeSha: Option.none(),
     };
 
-    const result = sourceToLockEntry({
-      source,
-      agents: [],
-      gitTreeSha: Option.none(),
-      now,
-    });
+    const result = sourceToLockEntry({ ref, agents: [], now });
 
     expect(result).not.toHaveProperty("ref");
     expect(result).not.toHaveProperty("path");

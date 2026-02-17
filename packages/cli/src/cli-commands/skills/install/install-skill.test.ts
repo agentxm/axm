@@ -13,6 +13,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import type { SkillPathSource } from "../skill-paths.js";
 import type { InstallSkillOperation } from "../operations.js";
+import { skillRefToExtensionRef } from "../operations.js";
 import { installSkill } from "./install-skill.js";
 import { sanitizeName } from "./skill-utils.js";
 
@@ -134,28 +135,58 @@ const withServices = (
   return Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs), logLayer);
 };
 
-/** Creates a minimal AddSkillOperation for testing. */
+/** Creates a minimal AddSkillOperation for testing using the new ref-based args. */
 const makeOp = (
-  overrides: Partial<InstallSkillOperation["args"]> & {
+  overrides: {
+    source?: import("../../../sources/types.js").SourceInput;
+    agents?: ReadonlyArray<string>;
+    force?: boolean;
     skillName?: string;
     sourcePath?: string;
+    location?: string;
+    version?: Option.Option<string>;
+    gitTreeSha?: Option.Option<string>;
+    skipSettings?: boolean;
+    skill?: { name: string; description: string; metadata: Option.Option<Record<string, unknown>> };
   } = {},
-): InstallSkillOperation => ({
-  name: "install-skill",
-  args: {
-    source: overrides.source ?? { type: "local", path: "/tmp/source" },
-    agents: overrides.agents ?? ["claude-code"],
-    force: overrides.force ?? false,
-    skill: overrides.skill ?? {
-      name: overrides.skillName ?? "my-skill",
-      description: "A test skill",
-      metadata: Option.none(),
+): InstallSkillOperation => {
+  const source =
+    overrides.source ??
+    ({ type: "local", path: "/tmp/source" } as import("../../../sources/types.js").SourceInput);
+  const skill = overrides.skill ?? {
+    name: overrides.skillName ?? "my-skill",
+    description: "A test skill",
+    metadata: Option.none(),
+  };
+  const location = overrides.location ?? `file://${overrides.sourcePath ?? ""}`;
+  const version = overrides.version ?? Option.none();
+  const gitTreeSha = overrides.gitTreeSha ?? Option.none();
+
+  // Build a legacy SkillRef and convert to SkillExtensionRef
+  const legacyRef: import("../../../sources/provider.js").SkillRef = {
+    type: "skill",
+    skill,
+    source,
+    location,
+    version,
+    gitTreeSha,
+  };
+  const ref = skillRefToExtensionRef(legacyRef);
+
+  // For registry sources, the fetchedLocation is the location
+  const fetchedLocation = source.type === "registry" ? location : undefined;
+
+  return {
+    name: "install-skill",
+    args: {
+      ref,
+      agents: overrides.agents ?? ["claude-code"],
+      force: overrides.force ?? false,
+      ...(overrides.skipSettings !== undefined && { skipSettings: overrides.skipSettings }),
+      ...(fetchedLocation !== undefined && { fetchedLocation }),
     },
-    location: overrides.location ?? `file://${overrides.sourcePath ?? ""}`,
-    version: overrides.version ?? Option.none(),
-    gitTreeSha: overrides.gitTreeSha ?? Option.none(),
-  },
-});
+  };
+};
 
 describe("installSkill", () => {
   let tmpDir: string;

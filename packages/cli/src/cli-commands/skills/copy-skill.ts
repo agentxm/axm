@@ -34,7 +34,7 @@ const DEFAULT_VERSION = "0.1.0";
  * Copy-skill operation handler.
  *
  * 1. Parse target name (`@scope/name`)
- * 2. Resolve source path from location
+ * 2. Resolve source path from ref location
  * 3. Copy files to `.axm/extensions/@<scope>/skills/<name>/`
  * 4. Generate `axm-skill.json` manifest with defaults
  */
@@ -53,8 +53,12 @@ export const copySkill: OperationHandler<
     // Target path in the managed extensions store
     const targetDir = path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "skills", name);
 
-    // Source path from the location URL
-    const sourcePath = op.args.location.replace(/^file:\/\//, "");
+    // Source path from the ref location (registry/builtin refs don't carry location)
+    const { ref } = op.args;
+    if (!("location" in ref)) {
+      throw new Error(`copy-skill does not support ${ref.source.type} sources`);
+    }
+    const sourcePath = ref.location.replace(/^file:\/\//, "");
 
     // Copy source files to src/ subdirectory (manifest stays at extension root)
     yield* copySkillDirectory(sourcePath, path.join(targetDir, "src")).pipe(

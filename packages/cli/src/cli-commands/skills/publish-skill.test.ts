@@ -17,6 +17,7 @@ const withServices = (axmDir: string, registryRoot: string) => {
     name: "local",
     type: "registry" as const,
     url: new URL(`file://${registryRoot}`),
+    scopes: Option.none<ReadonlyArray<string>>(),
   };
 
   const mockWs: WorkspaceContextService = {

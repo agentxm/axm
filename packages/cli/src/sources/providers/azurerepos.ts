@@ -16,6 +16,7 @@ import type { AzureReposSourceInput } from "../types.js";
 /**
  * Source provider for Azure Repos (stub).
  *
+ * @deprecated Use createAzureReposSourceHostProvider from git-hosting.ts
  * @experimental This API is unstable and may change without notice.
  */
 export const createAzureReposProvider = (): SourceProvider<AzureReposSourceInput> => ({

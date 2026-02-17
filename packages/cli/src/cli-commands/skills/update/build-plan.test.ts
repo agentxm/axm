@@ -9,35 +9,138 @@ import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
 import type { Lockfile, SkillLockEntry } from "../../../lockfile/schema.js";
 import type { InstallSkillOperation, UninstallSkillOperation } from "../operations.js";
+import type { SkillExtensionRef } from "../../../sources/types.js";
 import { buildUpdatePlan } from "./build-plan.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
+const skillBase = (name: string) => ({
+  type: "skill" as const,
+  skill: { name, description: `${name} skill`, metadata: Option.none() },
+});
+
 const makeOp = (
   name: string,
   overrides?: Partial<{
     sourceType: "github" | "gitlab" | "bitbucket" | "azurerepos" | "git" | "registry" | "local";
     force: boolean;
-    version: Option.Option<string>;
+    version: string;
     gitTreeSha: Option.Option<string>;
   }>,
-): InstallSkillOperation => ({
-  name: "install-skill",
-  args: {
-    source: {
-      type: overrides?.sourceType ?? "local",
-      path: "/fake",
-    } as InstallSkillOperation["args"]["source"],
-    agents: [],
-    force: overrides?.force ?? false,
-    skill: { name, description: `${name} skill`, metadata: Option.none() },
-    location: `file:///fake/${name}`,
-    version: overrides?.version ?? Option.none(),
-    gitTreeSha: overrides?.gitTreeSha ?? Option.none(),
-  },
-});
+): InstallSkillOperation => {
+  const sourceType = overrides?.sourceType ?? "local";
+  let ref: SkillExtensionRef;
+
+  switch (sourceType) {
+    case "github":
+      ref = {
+        ...skillBase(name),
+        source: {
+          type: "github",
+          url: new URL("https://github.com"),
+          owner: "o",
+          repo: "r",
+          ref: Option.none(),
+          subPath: Option.none(),
+        },
+        location: `file:///fake/${name}`,
+        gitTreeSha: overrides?.gitTreeSha ?? Option.none(),
+      };
+      break;
+    case "gitlab":
+      ref = {
+        ...skillBase(name),
+        source: {
+          type: "gitlab",
+          url: new URL("https://gitlab.com"),
+          owner: "o",
+          repo: "r",
+          ref: Option.none(),
+          subPath: Option.none(),
+        },
+        location: `file:///fake/${name}`,
+        gitTreeSha: overrides?.gitTreeSha ?? Option.none(),
+      };
+      break;
+    case "bitbucket":
+      ref = {
+        ...skillBase(name),
+        source: {
+          type: "bitbucket",
+          url: new URL("https://bitbucket.org"),
+          owner: "o",
+          repo: "r",
+          ref: Option.none(),
+          subPath: Option.none(),
+        },
+        location: `file:///fake/${name}`,
+        gitTreeSha: overrides?.gitTreeSha ?? Option.none(),
+      };
+      break;
+    case "azurerepos":
+      ref = {
+        ...skillBase(name),
+        source: {
+          type: "azurerepos",
+          url: new URL("https://dev.azure.com"),
+          organization: "org",
+          project: "proj",
+          repo: "r",
+          ref: Option.none(),
+          subPath: Option.none(),
+        },
+        location: `file:///fake/${name}`,
+        gitTreeSha: overrides?.gitTreeSha ?? Option.none(),
+      };
+      break;
+    case "git":
+      ref = {
+        ...skillBase(name),
+        source: {
+          type: "git",
+          url: new URL("https://example.com/repo.git"),
+          ref: Option.none(),
+        },
+        location: `file:///fake/${name}`,
+        gitTreeSha: overrides?.gitTreeSha ?? Option.none(),
+      };
+      break;
+    case "registry":
+      ref = {
+        ...skillBase(name),
+        source: {
+          type: "registry",
+          scope: "@axm",
+          name,
+          versionConstraint: Option.none(),
+          url: new URL("http://localhost:3000"),
+          scopes: Option.none(),
+        },
+        version: overrides?.version ?? "0.0.0",
+        checksum: "abc",
+      };
+      break;
+    case "local":
+    default:
+      ref = {
+        ...skillBase(name),
+        source: { type: "local", path: "/fake" },
+        location: `file:///fake/${name}`,
+      };
+      break;
+  }
+
+  return {
+    name: "install-skill",
+    args: {
+      ref,
+      agents: [],
+      force: overrides?.force ?? false,
+    },
+  };
+};
 
 const emptyLockfile: Lockfile = {
   lockfileVersion: 1,
@@ -262,7 +365,7 @@ describe("buildUpdatePlan", () => {
   it("marks registry source as success when resolvedVersion changed", () => {
     const op = makeOp("commit", {
       sourceType: "registry",
-      version: Option.some("2.0.0"),
+      version: "2.0.0",
     });
     const lf = lockfileWith({
       commit: makeLockEntry({
@@ -286,7 +389,7 @@ describe("buildUpdatePlan", () => {
   it("marks registry source as no-op when resolvedVersion unchanged", () => {
     const op = makeOp("commit", {
       sourceType: "registry",
-      version: Option.some("1.0.0"),
+      version: "1.0.0",
     });
     const lf = lockfileWith({
       commit: makeLockEntry({
@@ -388,7 +491,7 @@ describe("buildUpdatePlan", () => {
     const op = makeOp("commit", {
       sourceType: "registry",
       force: true,
-      version: Option.some("1.0.0"),
+      version: "1.0.0",
     });
     const lf = lockfileWith({
       commit: makeLockEntry({

@@ -23,9 +23,9 @@ import {
 } from "../../../tui/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import {
-  SourceProvidersLive,
-  SourceProviders,
-  type SourceProvidersService,
+  SourceHostProvidersLive,
+  SourceHostProviders,
+  type SourceHostProvidersService,
   type ExtensionRef,
   type ExtensionFiles,
   type SkillRef,
@@ -36,6 +36,13 @@ import { CliError, makeCliError } from "../../../cli-error/index.js";
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
+
+/** Stub methods for the new SourceHostProvidersService interface fields. */
+const serviceStubs = {
+  find: (() => Effect.succeed([])) as SourceHostProvidersService["find"],
+  cloneUrl: () => Option.none() as Option.Option<string>,
+  origin: () => "unknown",
+};
 
 /** Create an initialized workspace with settings + lockfile. */
 const initWorkspace = (
@@ -129,7 +136,7 @@ describe("packs install handler", () => {
       ...wsOverrides,
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
-    const SPLayer = Layer.provide(SourceProvidersLive, Layer.merge(BaseLayer, WsLayer));
+    const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
@@ -270,7 +277,7 @@ describe("packs install handler", () => {
     };
 
     const makeLayersWithMockSources = (
-      mockService: SourceProvidersService,
+      mockService: SourceHostProvidersService,
       wsOverrides?: Partial<WorkspaceContextOptions>,
     ) => {
       const [logLayer, mockLog] = makeLogTestLayer();
@@ -295,7 +302,7 @@ describe("packs install handler", () => {
         ...wsOverrides,
       };
       const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
-      const SPLayer = Layer.succeed(SourceProviders, mockService);
+      const SPLayer = Layer.succeed(SourceHostProviders, mockService);
       const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
@@ -344,8 +351,9 @@ describe("packs install handler", () => {
         gitTreeSha: Option.none(),
       };
 
-      const mockService: SourceProvidersService = {
-        resolveExtension: (source, options) => {
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (source, options) => {
           if (options.type === "pack") {
             return Effect.succeed([packRef]);
           }
@@ -429,8 +437,9 @@ describe("packs install handler", () => {
         gitTreeSha: Option.none(),
       };
 
-      const mockService: SourceProvidersService = {
-        resolveExtension: (source, options) => {
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
           if (options.type === "skill") return Effect.succeed([skillRef]);
           return Effect.succeed([]);
@@ -521,8 +530,9 @@ describe("packs install handler", () => {
         gitTreeSha: Option.none(),
       };
 
-      const mockService: SourceProvidersService = {
-        resolveExtension: (_source, options) => {
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (_source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
           if (options.type === "skill") return Effect.succeed([skillRef]);
           return Effect.succeed([]);
@@ -595,8 +605,9 @@ describe("packs install handler", () => {
         gitTreeSha: Option.none(),
       };
 
-      const mockService: SourceProvidersService = {
-        resolveExtension: (_source, options) => {
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (_source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
           return Effect.succeed([]);
         },
@@ -653,7 +664,7 @@ describe("packs install handler", () => {
         gitTreeSha: Option.none(),
       };
 
-      // Capture what resolveExtension receives for skill resolution
+      // Capture what find receives for skill resolution
       let capturedSkillSource: unknown;
       const skillRef: SkillRef = {
         type: "skill",
@@ -669,8 +680,9 @@ describe("packs install handler", () => {
         gitTreeSha: Option.none(),
       };
 
-      const mockService: SourceProvidersService = {
-        resolveExtension: (source, options) => {
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
           if (options.type === "skill") {
             capturedSkillSource = source;
@@ -736,7 +748,7 @@ describe("packs install handler", () => {
         gitTreeSha: Option.none(),
       };
 
-      // Capture what resolveExtension receives for skill resolution
+      // Capture what find receives for skill resolution
       let capturedSkillSource: unknown;
       const skillRef: SkillRef = {
         type: "skill",
@@ -752,8 +764,9 @@ describe("packs install handler", () => {
         gitTreeSha: Option.none(),
       };
 
-      const mockService: SourceProvidersService = {
-        resolveExtension: (source, options) => {
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
           if (options.type === "skill") {
             capturedSkillSource = source;
@@ -818,8 +831,9 @@ describe("packs install handler", () => {
         gitTreeSha: Option.none(),
       };
 
-      const mockService: SourceProvidersService = {
-        resolveExtension: (source, options) => {
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
           // Return empty for skill — triggers PACK_DEPENDENCY_NOT_FOUND
           if (options.type === "skill") return Effect.succeed([]);

@@ -57,22 +57,22 @@ export const buildInstallPlan = <T extends PackInstallOp>(
               };
         }
         // install-skill
-        const installed = Object.hasOwn(lockfile.skills, op.args.skill.name);
+        const installed = Object.hasOwn(lockfile.skills, op.args.ref.skill.name);
         return installed
           ? {
               _tag: "PlannedJobStep",
               operation: op,
               expectedResult: { result: "no-op", message: "already installed" },
-              label: op.args.skill.name,
+              label: op.args.ref.skill.name,
             }
           : {
               _tag: "PlannedJobStep",
               operation: op,
               expectedResult: {
                 result: "success",
-                message: `Installed skill ${op.args.skill.name}`,
+                message: `Installed skill ${op.args.ref.skill.name}`,
               },
-              label: op.args.skill.name,
+              label: op.args.ref.skill.name,
             };
       }),
     },

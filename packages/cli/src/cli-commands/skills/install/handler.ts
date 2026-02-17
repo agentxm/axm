@@ -14,9 +14,9 @@
 
 import {
   resolveSource,
-  printSourceInput,
-  SourceProviders,
+  SourceHostProviders,
   registryGuard,
+  type SkillRef,
 } from "../../../sources/index.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 import * as Array from "effect/Array";
@@ -26,6 +26,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace as Workspace } from "../../../workspace/index.js";
 import type { InstallSkillOperation } from "../operations.js";
+import { skillRefToExtensionRef } from "../operations.js";
 import { buildPlan } from "./build-plan.js";
 import { installSkill } from "./install-skill.js";
 
@@ -83,7 +84,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
   return Effect.gen(function* () {
     const ws = yield* Workspace;
-    const sources = yield* SourceProviders;
+    const sources = yield* SourceHostProviders;
     // Get TUI services
     const log = yield* Log;
     const spinnerSvc = yield* Spinner;
@@ -105,26 +106,26 @@ export const handleInstall = (args: InstallHandlerArgs) => {
         }),
       ),
     );
-    yield* parseHandle.stop(`Source: ${printSourceInput(source)} (${source.type})`);
+    yield* parseHandle.stop(`Source: ${sources.origin(source)} (${source.type})`);
 
     // Step 2: Registry guard — ensure a registry source is configured
     if (source.type === "registry") {
       yield* registryGuard;
     }
 
-    // Step 3: Discover skills from source via SourceProviders
+    // Step 3: Discover skills from source via SourceHostProviders
     const discoverHandle = yield* spinnerSvc.start("Discovering skills...");
     const findOptions = {
       names: (source.type === "registry" ? [source.name] : []) satisfies ReadonlyArray<string>,
       agents: args.agents,
       type: "skill" as const,
     };
-    const allRefs = yield* sources.resolveExtension(source, findOptions).pipe(
+    const allRefs = yield* sources.find(source, findOptions).pipe(
       Effect.mapError((error) =>
         makeCliError({
           code: "DISCOVER_FAILED",
           what: `Failed to discover skills: ${error.message}`,
-          details: [`Source: ${printSourceInput(source)}`],
+          details: [`Source: ${sources.origin(source)}`],
           howToFix: "Verify the source path contains directories with SKILL.md files.",
           cause: error,
         }),
@@ -132,14 +133,14 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       Effect.tapError(() => discoverHandle.stop("Failed")),
     );
     // Filter to skill refs only
-    const discoveredSkills = Array.filter(allRefs, (ref) => ref.type === "skill");
+    const discoveredSkills = Array.filter(allRefs, (ref): ref is SkillRef => ref.type === "skill");
     if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
       yield* discoverHandle.stop("No skills found");
       return yield* Effect.fail(
         makeCliError({
           code: "NO_SKILLS_FOUND",
           what: "No skills found in source",
-          details: [`Source: ${printSourceInput(source)}`],
+          details: [`Source: ${sources.origin(source)}`],
           howToFix: "Verify the source path contains directories with SKILL.md files.",
         }),
       );
@@ -174,10 +175,14 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     const resolvedSkills = yield* Effect.forEach(
       selectedSkills,
       (s) => {
-        if (s.source.type !== "registry") return Effect.succeed(s);
-        return sources
-          .fetch(s)
-          .pipe(Effect.map((files) => ({ ...s, location: `file://${files.directory}` })));
+        if (s.source.type !== "registry")
+          return Effect.succeed({ ref: s, fetchedLocation: undefined as string | undefined });
+        return sources.fetch(s).pipe(
+          Effect.map((files) => ({
+            ref: s,
+            fetchedLocation: `file://${files.directory}` as string | undefined,
+          })),
+        );
       },
       { concurrency: "unbounded" },
     );
@@ -185,17 +190,14 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     const agentIds = yield* ws.getConfiguredAgents();
 
     const ops = resolvedSkills.map(
-      (s) =>
+      ({ ref: s, fetchedLocation }) =>
         ({
           name: "install-skill",
           args: {
+            ref: skillRefToExtensionRef(s),
             agents: agentIds,
             force: args.force,
-            source: s.source,
-            skill: s.skill,
-            location: s.location,
-            version: s.version,
-            gitTreeSha: s.gitTreeSha,
+            fetchedLocation,
           },
         }) satisfies InstallSkillOperation,
     );
@@ -207,7 +209,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       ops,
       lockfile,
       "Install skill(s)",
-      Option.some(`Install skills from ${printSourceInput(source)}`),
+      Option.some(`Install skills from ${sources.origin(source)}`),
     );
 
     yield* ws.resolvePlan(plan, { "install-skill": installSkill });

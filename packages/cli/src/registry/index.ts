@@ -17,10 +17,14 @@ export type {
   RegistryClient,
   RegistryExtensionVersionManifest,
   GetExtensionsArgs,
-  GetExtensionsResult,
+  GetExtensionsResponse,
   GetExtensionVersionArgs,
+  GetExtensionVersionResponse,
   PublishExtensionArgs,
+  PublishExtensionResponse,
+  ScopeExistsResponse,
   ExtensionExistsArgs,
+  ExtensionExistsResponse,
 } from "./client.js";
 export { createRegistryClient } from "./client.js";
 

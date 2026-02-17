@@ -85,7 +85,12 @@ describe("LocalRegistrySourceProvider.find", () => {
       Effect.gen(function* () {
         const provider = createLocalRegistryProvider("/nonexistent/path");
         const refs = yield* provider.find(
-          { type: "registry", scope: "@test", name: "my-skill", versionConstraint: Option.none() },
+          {
+            type: "registry",
+            scope: "@test",
+            extensionTypes: ["skills"],
+            versionConstraint: Option.none(),
+          },
           defaultFindOptions,
         );
         expect(refs).toHaveLength(0);
@@ -107,7 +112,12 @@ describe("LocalRegistrySourceProvider.find", () => {
 
         const provider = createLocalRegistryProvider(registryRoot);
         const refs = yield* provider.find(
-          { type: "registry", scope: "@test", name: "my-skill", versionConstraint: Option.none() },
+          {
+            type: "registry",
+            scope: "@test",
+            extensionTypes: ["skills"],
+            versionConstraint: Option.none(),
+          },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
 
@@ -141,13 +151,23 @@ describe("LocalRegistrySourceProvider.find", () => {
         const provider = createLocalRegistryProvider(registryRoot);
 
         const found = yield* provider.find(
-          { type: "registry", scope: "@test", name: "my-skill", versionConstraint: Option.none() },
+          {
+            type: "registry",
+            scope: "@test",
+            extensionTypes: ["skills"],
+            versionConstraint: Option.none(),
+          },
           { ...defaultFindOptions, names: ["my-skill"], agents: ["cursor"] },
         );
         expect(found).toHaveLength(1);
 
         const notFound = yield* provider.find(
-          { type: "registry", scope: "@test", name: "my-skill", versionConstraint: Option.none() },
+          {
+            type: "registry",
+            scope: "@test",
+            extensionTypes: ["skills"],
+            versionConstraint: Option.none(),
+          },
           { ...defaultFindOptions, names: ["my-skill"], agents: ["claude-code"] },
         );
         expect(notFound).toHaveLength(0);
@@ -174,7 +194,12 @@ describe("LocalRegistrySourceProvider.find", () => {
 
         const provider = createLocalRegistryProvider(registryRoot);
         const refs = yield* provider.find(
-          { type: "registry", scope: "@test", name: "my-skill", versionConstraint: Option.none() },
+          {
+            type: "registry",
+            scope: "@test",
+            extensionTypes: ["skills"],
+            versionConstraint: Option.none(),
+          },
           { ...defaultFindOptions, names: ["nonexistent"] },
         );
         expect(refs).toHaveLength(0);
@@ -201,7 +226,12 @@ describe("LocalRegistrySourceProvider.find", () => {
 
         const provider = createLocalRegistryProvider(registryRoot);
         const refs = yield* provider.find(
-          { type: "registry", scope: "@test", name: "my-skill", versionConstraint: Option.none() },
+          {
+            type: "registry",
+            scope: "@test",
+            extensionTypes: ["skills"],
+            versionConstraint: Option.none(),
+          },
           { ...defaultFindOptions, names: ["my-skill"] },
         );
         expect(refs).toHaveLength(0);
@@ -237,14 +267,19 @@ describe("LocalRegistrySourceProvider.fetch", () => {
 
         const provider = createLocalRegistryProvider(registryRoot);
         const result = yield* provider.fetch(
-          { type: "registry", scope: "@test", name: "my-skill", versionConstraint: Option.none() },
+          {
+            type: "registry",
+            scope: "@test",
+            extensionTypes: ["skills"],
+            versionConstraint: Option.none(),
+          },
           {
             type: "skill",
             skill: { name: "my-skill", description: "", metadata: Option.none() },
             source: {
               type: "registry",
               scope: "@test",
-              name: "my-skill",
+              extensionTypes: ["skills"],
               versionConstraint: Option.none(),
             },
             version: "1.0.0",
@@ -285,7 +320,7 @@ describe("LocalRegistrySourceProvider.fetch", () => {
             {
               type: "registry",
               scope: "@test",
-              name: "my-skill",
+              extensionTypes: ["skills"],
               versionConstraint: Option.none(),
             },
             {
@@ -294,7 +329,7 @@ describe("LocalRegistrySourceProvider.fetch", () => {
               source: {
                 type: "registry",
                 scope: "@test",
-                name: "my-skill",
+                extensionTypes: ["skills"],
                 versionConstraint: Option.none(),
               },
               version: "1.0.0",
@@ -454,7 +489,7 @@ describe("RemoteRegistrySourceProvider", () => {
             {
               type: "registry",
               scope: "@test",
-              name: "my-skill",
+              extensionTypes: ["skills"],
               versionConstraint: Option.none(),
             },
             defaultFindOptions,
@@ -476,7 +511,7 @@ describe("RemoteRegistrySourceProvider", () => {
             {
               type: "registry",
               scope: "@test",
-              name: "my-skill",
+              extensionTypes: ["skills"],
               versionConstraint: Option.none(),
             },
             {
@@ -485,7 +520,7 @@ describe("RemoteRegistrySourceProvider", () => {
               source: {
                 type: "registry",
                 scope: "@test",
-                name: "my-skill",
+                extensionTypes: ["skills"],
                 versionConstraint: Option.none(),
               },
               version: "1.0.0",
@@ -552,7 +587,7 @@ describe("createRegistryProvider", () => {
             {
               type: "registry",
               scope: "@test",
-              name: "my-skill",
+              extensionTypes: ["skills"],
               versionConstraint: Option.none(),
             },
             defaultFindOptions,

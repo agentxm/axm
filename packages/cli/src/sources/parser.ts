@@ -25,7 +25,7 @@ type NameInput = { readonly pattern: "name-input"; readonly name: string };
 /** A scoped registry source: `@scope/(skills|mcp-servers)/name` (or legacy `@scope/name`). */
 type RegistryPatternInput = {
   readonly pattern: "registry-pattern-input";
-  readonly type: Option.Option<"skills" | "mcp-servers">;
+  readonly type: Option.Option<"skills" | "mcp-servers" | "packs">;
   readonly scope: string;
   readonly name: Option.Option<string>;
   readonly versionConstraint: Option.Option<string>;
@@ -161,7 +161,7 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
 
       if (segments.length === 2) {
         const second = segments[1]!;
-        if (second === "skills" || second === "mcp-servers") {
+        if (second === "skills" || second === "mcp-servers" || second === "packs") {
           return Option.some({
             pattern: "registry-pattern-input",
             type: Option.some(second),
@@ -186,7 +186,7 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
       if (segments.length === 3) {
         const second = segments[1]!;
         const third = segments[2]!;
-        if (second === "skills" || second === "mcp-servers") {
+        if (second === "skills" || second === "mcp-servers" || second === "packs") {
           const parsedName = parseNameAndConstraint(third);
           if (Option.isSome(parsedName)) {
             return Option.some({

@@ -163,7 +163,7 @@ export interface GitSourceParams {
 export interface RegistrySourceParams {
   readonly type: "registry";
   readonly scope: string;
-  readonly name: string;
+  readonly extensionTypes: ReadonlyArray<"skills" | "mcp-servers" | "packs">;
   readonly versionConstraint: Option.Option<string>;
 }
 
@@ -383,6 +383,7 @@ export type McpServerExtensionRef =
 /** @experimental */
 export type RegistryPackRef = {
   readonly type: "pack";
+  readonly pack: { readonly name: string };
   readonly source: RegistrySource;
 } & RegistryRefDetails;
 

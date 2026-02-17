@@ -144,7 +144,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
       return {
         type: "registry",
         scope: r.source.scope,
-        name: r.source.name,
+        name: r.skill.name,
         resolvedVersion: r.version,
         checksum: r.checksum,
         sourceName: input.sourceName ?? "default",

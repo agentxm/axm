@@ -378,7 +378,7 @@ export const routeFilePathInput = (path: string) => parseLocalPath(path);
 /** Route RegistryPatternInput: find matching registry config and intersect with params. */
 export const routeRegistryInput = (
   pattern: {
-    readonly type: Option.Option<"skills" | "mcp-servers">;
+    readonly type: Option.Option<"skills" | "mcp-servers" | "packs">;
     readonly scope: string;
     readonly name: Option.Option<string>;
     readonly versionConstraint: Option.Option<string>;
@@ -387,14 +387,7 @@ export const routeRegistryInput = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    void pattern.type;
-    if (Option.isNone(pattern.name)) {
-      return yield* makeCliError({
-        code: "SOURCE_PARSE_FAILED",
-        what: "Registry source is missing name",
-        details: [input],
-      });
-    }
+    void pattern.name;
     const scope = Option.some(pattern.scope);
 
     const registrySources = yield* ws.getConfiguredRegistrySources(scope).pipe(
@@ -410,7 +403,9 @@ export const routeRegistryInput = (
     const params: RegistrySourceParams = {
       type: "registry" as const,
       scope: pattern.scope,
-      name: pattern.name.value,
+      extensionTypes: Option.isSome(pattern.type)
+        ? [pattern.type.value]
+        : ["skills", "mcp-servers", "packs"],
       versionConstraint: pattern.versionConstraint,
     };
 

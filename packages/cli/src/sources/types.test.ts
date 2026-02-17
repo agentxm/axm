@@ -190,12 +190,12 @@ describe("SourceParams", () => {
     const params: SourceParams = {
       type: "registry",
       scope: "@acme",
-      name: "code-review",
+      extensionTypes: ["skills"],
       versionConstraint: Option.some("^1.0.0"),
     };
     if (params.type === "registry") {
       expect(params.scope).toBe("@acme");
-      expect(params.name).toBe("code-review");
+      expect(params.extensionTypes).toEqual(["skills"]);
     }
   });
 
@@ -238,7 +238,7 @@ describe("Source", () => {
       type: "registry",
       location: new URL("file:///registry"),
       scope: "@acme",
-      name: "code-review",
+      extensionTypes: ["skills"],
       versionConstraint: Option.none(),
     };
     if (source.type === "registry") {
@@ -394,7 +394,7 @@ describe("SkillExtensionRef", () => {
         type: "registry",
         location: new URL("file:///reg"),
         scope: "@acme",
-        name: "test",
+        extensionTypes: ["skills"],
         versionConstraint: Option.none(),
       },
       version: "1.0.0",
@@ -458,7 +458,7 @@ describe("McpServerExtensionRef", () => {
         type: "registry",
         location: new URL("file:///reg"),
         scope: "@acme",
-        name: "test",
+        extensionTypes: ["skills"],
         versionConstraint: Option.none(),
       },
       version: "2.0.0",
@@ -476,11 +476,12 @@ describe("PackExtensionRef", () => {
   it("RegistryPackRef carries version and checksum", () => {
     const ref: PackExtensionRef = {
       type: "pack",
+      pack: { name: "my-pack" },
       source: {
         type: "registry",
         location: new URL("file:///reg"),
         scope: "@acme",
-        name: "my-pack",
+        extensionTypes: ["skills"],
         versionConstraint: Option.none(),
       },
       version: "1.0.0",
@@ -644,13 +645,13 @@ describe("SourceParams structural equality via Data.struct", () => {
     const a: SourceParams = {
       type: "registry",
       scope: "@acme",
-      name: "code-review",
+      extensionTypes: ["skills"],
       versionConstraint: Option.none(),
     };
     const b: SourceParams = {
       type: "registry",
       scope: "@acme",
-      name: "other-skill",
+      extensionTypes: ["skills"],
       versionConstraint: Option.none(),
     };
     expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(false);

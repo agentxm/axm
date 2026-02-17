@@ -564,7 +564,7 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@community",
-              name: "my-skill",
+              extensionTypes: ["skills"],
               versionConstraint: Option.none(),
             },
             location: `file://${src}`,
@@ -609,7 +609,7 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@myorg",
-              name: "my-skill",
+              extensionTypes: ["skills"],
               versionConstraint: Option.none(),
             },
             location: `file://${src}`,
@@ -646,7 +646,7 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@community",
-              name: "my-skill",
+              extensionTypes: ["skills"],
               versionConstraint: Option.none(),
             },
             location: `file://${src}`,
@@ -707,7 +707,7 @@ describe("installSkill", () => {
               source: {
                 type: "registry",
                 scope: "@community",
-                name: "my-skill",
+                extensionTypes: ["skills"],
                 versionConstraint: Option.none(),
               },
               location: `file://${src}`,
@@ -792,7 +792,7 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@acme",
-              name: "tool",
+              extensionTypes: ["skills"],
               versionConstraint: Option.none(),
             },
             skillName: "tool",
@@ -821,7 +821,7 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@acme",
-              name: "tool",
+              extensionTypes: ["skills"],
               versionConstraint: Option.some("^1.0.0"),
             },
             skillName: "tool",
@@ -851,7 +851,7 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               scope: "@acme",
-              name: "tool",
+              extensionTypes: ["skills"],
               versionConstraint: Option.some("1.2.3"),
             },
             skillName: "tool",

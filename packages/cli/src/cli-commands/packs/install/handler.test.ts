@@ -335,7 +335,7 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          name: "test-pack",
+          extensionTypes: ["skills"],
           versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
@@ -349,7 +349,7 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          name: "code-review",
+          extensionTypes: ["skills"],
           versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
@@ -421,7 +421,7 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          name: "test-pack",
+          extensionTypes: ["skills"],
           versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
@@ -435,7 +435,7 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          name: "my-skill",
+          extensionTypes: ["skills"],
           versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
@@ -514,7 +514,7 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          name: "test-pack",
+          extensionTypes: ["skills"],
           versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
@@ -528,7 +528,7 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          name: "code-review",
+          extensionTypes: ["skills"],
           versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
@@ -603,7 +603,7 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          name: "test-pack",
+          extensionTypes: ["skills"],
           versionConstraint: Option.some("^2.0.0"),
           location: new URL("file:///tmp/reg"),
         },
@@ -662,7 +662,7 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          name: "test-pack",
+          extensionTypes: ["skills"],
           versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
@@ -678,7 +678,7 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          name: "code-review",
+          extensionTypes: ["skills"],
           versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
@@ -746,7 +746,7 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          name: "test-pack",
+          extensionTypes: ["skills"],
           versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },
@@ -762,7 +762,7 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          name: "code-review",
+          extensionTypes: ["skills"],
           versionConstraint: Option.some("^1.0.0"),
           location: new URL("file:///tmp/reg"),
         },
@@ -829,7 +829,7 @@ describe("packs install handler", () => {
         source: {
           type: "registry",
           scope: "@acme",
-          name: "test-pack",
+          extensionTypes: ["skills"],
           versionConstraint: Option.none(),
           location: new URL("file:///tmp/reg"),
         },

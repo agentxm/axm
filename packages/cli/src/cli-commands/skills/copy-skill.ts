@@ -20,7 +20,7 @@ import type { CopySkillOperation } from "./operations.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/constants.js";
 import { MANIFEST_FILENAME } from "./constants.js";
 import { stripFileProtocol } from "./fs-helpers.js";
-import { parseScopedNameOrThrow } from "./naming.js";
+import { parseScopedName } from "./naming.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -50,7 +50,7 @@ export const copySkill: OperationHandler<
     const ws = yield* Workspace;
     const base = path.dirname(ws.path);
 
-    const { scope, name } = parseScopedNameOrThrow(op.args.targetName);
+    const { scope, name } = yield* parseScopedName(op.args.targetName);
 
     // Target path in the managed extensions store
     const targetDir = path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "skills", name);

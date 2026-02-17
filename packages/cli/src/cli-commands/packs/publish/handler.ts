@@ -21,7 +21,7 @@ import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
-import { hasScopePrefix, parseScopedNameOrThrow } from "../../skills/naming.js";
+import { hasScopePrefix, parseScopedName } from "../../skills/naming.js";
 import { publishPack, type PublishPackOperation } from "./publish-pack.js";
 import { PACK_MANIFEST_FILENAME } from "../constants.js";
 
@@ -78,7 +78,7 @@ export const handlePublishPack = (args: PublishPackHandlerArgs) =>
         );
 
     // Parse scope and pack name from the full name
-    const { scope, name: shortName } = parseScopedNameOrThrow(packName);
+    const { scope, name: shortName } = yield* parseScopedName(packName);
 
     // Step 3: Validate managed pack exists
     const handle = yield* spinnerSvc.start("Validating pack...");

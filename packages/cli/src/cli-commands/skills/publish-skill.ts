@@ -18,7 +18,7 @@ import {
   type SkillManifest,
 } from "../../extensions/skills/manifest-schema.js";
 import type { VersionEntry } from "../../registry/index.js";
-import { createRegistryProvider } from "../../sources/providers/registry.js";
+import { createRegistryClient } from "../../registry/index.js";
 import { computeChecksum } from "../../utils/checksum.js";
 import { buildZipArchive } from "../../utils/build-zip-archive.js";
 import { makeCliError } from "../../cli-error/index.js";
@@ -125,7 +125,7 @@ export const publishSkill: OperationHandler<
       });
     }
 
-    const provider = createRegistryProvider(registrySource.value.location.href);
+    const client = createRegistryClient(registrySource.value.location.href);
 
     // Build version entry metadata
     const versionEntry: VersionEntry = {
@@ -137,7 +137,7 @@ export const publishSkill: OperationHandler<
     };
 
     // Publish to registry (idempotent)
-    yield* provider
+    yield* client
       .publishExtension(scope, "skill", skillName, manifest.version, archive, versionEntry)
       .pipe(
         Effect.mapError((e) =>

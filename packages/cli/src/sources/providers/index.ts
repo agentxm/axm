@@ -15,10 +15,8 @@ export {
   createGitLabSourceHostProvider,
 } from "./git-hosting.js";
 export { createLocalSourceHostProvider } from "./local.js";
-export type { RegistrySourceProvider } from "./registry.js";
 export {
-  createLocalRegistryProvider,
-  createRegistryProvider,
-  createRegistrySourceHostProvider,
-  createRemoteRegistryProvider,
-} from "./registry.js";
+  createLocalRegistrySourceHostProvider,
+  createRegistrySourceHostProviderFromHost,
+  createRemoteRegistrySourceHostProvider,
+} from "./registry/index.js";

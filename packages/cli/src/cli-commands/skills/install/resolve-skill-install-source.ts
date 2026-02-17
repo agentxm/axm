@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
-import { createRegistryProvider } from "../../../sources/index.js";
+import { createRegistryClient } from "../../../registry/index.js";
 import type { InputParseResult, InputPattern } from "../../../sources/parser.js";
 import {
   resolveShorthandInputSource,
@@ -47,8 +47,8 @@ const resolveRegistrySource = (
     }
 
     for (const regConfig of registrySources) {
-      const provider = createRegistryProvider(regConfig.location.href);
-      const hasRequestedScope = yield* provider.scopeExists(scope);
+      const client = createRegistryClient(regConfig.location.href);
+      const hasRequestedScope = yield* client.scopeExists(scope);
       if (hasRequestedScope) {
         return {
           type: "registry" as const,

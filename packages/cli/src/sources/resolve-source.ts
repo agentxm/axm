@@ -23,7 +23,7 @@ import * as github from "./github/index.js";
 import * as gitlab from "./gitlab/index.js";
 import { parseLocalPath } from "./local/index.js";
 import { parseInputPattern } from "./parser.js";
-import { createRegistryProvider } from "./providers/index.js";
+import { createRegistryClient } from "../registry/index.js";
 import type { RegistryExtensionType } from "../registry/index.js";
 import type { RegistrySource, Source, SourceParams, SourceType } from "./types.js";
 import type { SourceHostConfig } from "../settings/schema.js";
@@ -466,8 +466,8 @@ export const resolveSlashInputSource = (
         );
 
         for (const regSource of registrySources) {
-          const provider = createRegistryProvider(regSource.location.href);
-          const exists = yield* provider
+          const client = createRegistryClient(regSource.location.href);
+          const exists = yield* client
             .extensionExists(scope, extensionType.value, extensionName)
             .pipe(
               Effect.provide(NodeContext.layer),

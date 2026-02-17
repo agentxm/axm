@@ -27,7 +27,7 @@ type RegistryPatternInput = {
   readonly _tag: "RegistryPatternInput";
   readonly scope: string;
   readonly name: string;
-  readonly versionConstraint?: string;
+  readonly versionConstraint: Option.Option<string>;
 };
 
 /** A valid URL (validated via `Schema.URL`). */
@@ -132,13 +132,14 @@ export const parseInputPattern = (input: string): Option.Option<InputPattern> =>
         _tag: "RegistryPatternInput",
         scope: registryMatch[1],
         name: rawName.slice(0, atIndex),
-        versionConstraint: rawName.slice(atIndex + 1),
+        versionConstraint: Option.some(rawName.slice(atIndex + 1)),
       });
     }
     return Option.some({
       _tag: "RegistryPatternInput",
       scope: registryMatch[1],
       name: rawName,
+      versionConstraint: Option.none(),
     });
   }
 

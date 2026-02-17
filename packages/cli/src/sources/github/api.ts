@@ -101,6 +101,8 @@ export const fetchGitHubTreeHash = (
 
     // Parse JSON response
     const data = yield* Effect.tryPromise({
+      // Assertion needed: GitHub Trees API response shape is stable and well-known;
+      // full Schema validation would require defining schemas for the entire Trees API
       try: () => response.json() as Promise<GitHubTreeResponse>,
       catch: (error) =>
         makeCliError({

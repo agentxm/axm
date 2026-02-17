@@ -112,6 +112,104 @@ const extensionDir = (
 ): string => join(registryRoot, "extensions", scope, pluralizeType(type), name);
 
 // -----------------------------------------------------------------------------
+// Version Selection
+// -----------------------------------------------------------------------------
+
+/**
+ * Select the best matching version from a list of versions.
+ *
+ * Iterates versions (newest first), checking agent compatibility.
+ * Returns the first matching version.
+ */
+const selectVersion = (
+  versions: ReadonlyArray<VersionEntry>,
+  options: FindOptions,
+): Option.Option<VersionEntry> => {
+  for (const version of versions) {
+    // Agent filter: if both options.agents and version.agents are non-empty,
+    // require at least one intersection. Empty version.agents = universal (all agents).
+    if (options.agents.length > 0 && version.agents.length > 0) {
+      const agentSet = new Set(version.agents);
+      const hasMatch = options.agents.some((a) => agentSet.has(a));
+      if (!hasMatch) continue;
+    }
+    return Option.some(version);
+  }
+  return Option.none();
+};
+
+/**
+ * Process a single name directory within a registry scope/type directory.
+ * Reads the index.json, validates it, and selects a matching version.
+ * Returns Some(SkillRef) if a matching version is found, None otherwise.
+ */
+const processNameDir = (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  typeDir: string,
+  nameDir: string,
+  scopeDir: string,
+  options: FindOptions,
+): Effect.Effect<Option.Option<SkillRef>, CliError> =>
+  Effect.gen(function* () {
+    const dir = path.join(typeDir, nameDir);
+    const idxPath = path.join(dir, "index.json");
+    const idxExists = yield* fs.exists(idxPath).pipe(Effect.orElseSucceed(() => false));
+    if (!idxExists) return Option.none();
+
+    const content = yield* fs.readFileString(idxPath).pipe(
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "SOURCE_FETCH_FAILED",
+          what: `Failed to read index: ${idxPath}`,
+          cause: e,
+        }),
+      ),
+    );
+    const json = yield* Effect.try({
+      try: () => JSON.parse(content) as unknown,
+      catch: (e) =>
+        makeCliError({
+          code: "SOURCE_FETCH_FAILED",
+          what: `Invalid JSON in index: ${idxPath}`,
+          cause: e,
+        }),
+    });
+    const index = yield* Schema.decodeUnknown(ExtensionIndexSchema)(json).pipe(
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "SOURCE_FETCH_FAILED",
+          what: `Invalid index schema: ${idxPath}`,
+          cause: e,
+        }),
+      ),
+    );
+
+    const selectedVersion = selectVersion(index.versions, options);
+    if (Option.isNone(selectedVersion)) return Option.none();
+
+    const ver = selectedVersion.value;
+
+    return Option.some({
+      type: "skill",
+      skill: {
+        name: nameDir,
+        description: index.description ?? "",
+        metadata: Option.none(),
+      },
+      source: {
+        type: "registry",
+        scope: scopeDir,
+        name: nameDir,
+        versionConstraint: Option.none(),
+      },
+      location: `file://${dir}`,
+      version: Option.some(ver.version),
+      gitTreeSha: Option.none(),
+    } satisfies SkillRef);
+  });
+
+// -----------------------------------------------------------------------------
 // Local Registry Source Provider
 // -----------------------------------------------------------------------------
 
@@ -170,63 +268,8 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
 
               for (const nameDir of nameDirs) {
                 if (name !== "" && nameDir !== name) continue;
-
-                const dir = path.join(typeDir, nameDir);
-                const idxPath = path.join(dir, "index.json");
-                const idxExists = yield* fs.exists(idxPath).pipe(Effect.orElseSucceed(() => false));
-                if (!idxExists) continue;
-
-                const content = yield* fs.readFileString(idxPath).pipe(
-                  Effect.mapError((e) =>
-                    makeCliError({
-                      code: "SOURCE_FETCH_FAILED",
-                      what: `Failed to read index: ${idxPath}`,
-                      cause: e,
-                    }),
-                  ),
-                );
-                const json = yield* Effect.try({
-                  try: () => JSON.parse(content) as unknown,
-                  catch: (e) =>
-                    makeCliError({
-                      code: "SOURCE_FETCH_FAILED",
-                      what: `Invalid JSON in index: ${idxPath}`,
-                      cause: e,
-                    }),
-                });
-                const index = yield* Schema.decodeUnknown(ExtensionIndexSchema)(json).pipe(
-                  Effect.mapError((e) =>
-                    makeCliError({
-                      code: "SOURCE_FETCH_FAILED",
-                      what: `Invalid index schema: ${idxPath}`,
-                      cause: e,
-                    }),
-                  ),
-                );
-
-                // Version selection: find first version matching agent filter
-                const selectedVersion = selectVersion(index.versions, options);
-                if (Option.isNone(selectedVersion)) continue;
-
-                const ver = selectedVersion.value;
-
-                refs.push({
-                  type: "skill",
-                  skill: {
-                    name: nameDir,
-                    description: index.description ?? "",
-                    metadata: Option.none(),
-                  },
-                  source: {
-                    type: "registry",
-                    scope: scopeDir,
-                    name: nameDir,
-                    versionConstraint: Option.none(),
-                  },
-                  location: `file://${dir}`,
-                  version: Option.some(ver.version),
-                  gitTreeSha: Option.none(),
-                });
+                const ref = yield* processNameDir(fs, path, typeDir, nameDir, scopeDir, options);
+                if (Option.isSome(ref)) refs.push(ref.value);
               }
             }
           }
@@ -538,33 +581,6 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
 });
 
 // -----------------------------------------------------------------------------
-// Version Selection
-// -----------------------------------------------------------------------------
-
-/**
- * Select the best matching version from a list of versions.
- *
- * Iterates versions (newest first), checking agent compatibility.
- * Returns the first matching version.
- */
-const selectVersion = (
-  versions: ReadonlyArray<VersionEntry>,
-  options: FindOptions,
-): Option.Option<VersionEntry> => {
-  for (const version of versions) {
-    // Agent filter: if both options.agents and version.agents are non-empty,
-    // require at least one intersection. Empty version.agents = universal (all agents).
-    if (options.agents.length > 0 && version.agents.length > 0) {
-      const agentSet = new Set(version.agents);
-      const hasMatch = options.agents.some((a) => agentSet.has(a));
-      if (!hasMatch) continue;
-    }
-    return Option.some(version);
-  }
-  return Option.none();
-};
-
-// -----------------------------------------------------------------------------
 // Zip Extraction
 // -----------------------------------------------------------------------------
 
@@ -573,6 +589,8 @@ const selectVersion = (
  * Uses the `unzip` CLI command for simplicity.
  *
  * TODO: Replace `unzip` CLI with a JS zip library for Windows portability.
+ * Note: archivePath and targetDir are internally generated (not user-controlled),
+ * so shell injection risk is mitigated.
  */
 const extractZip = (archive: Uint8Array, targetDir: string) =>
   Effect.gen(function* () {

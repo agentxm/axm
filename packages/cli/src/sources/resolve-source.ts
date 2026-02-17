@@ -361,14 +361,14 @@ const routeNameInput = (name: string, input: string) =>
   });
 
 /** Route FilePathPattern: parse as local source. */
-const routeFilePathInput = (path: string) => Effect.map(parseLocalPath(path), (source) => source);
+const routeFilePathInput = (path: string) => parseLocalPath(path);
 
 /** Route RegistryPatternInput: find matching registry config and intersect with params. */
 const routeRegistryInput = (
   pattern: {
     readonly scope: string;
     readonly name: string;
-    readonly versionConstraint?: string;
+    readonly versionConstraint: Option.Option<string>;
   },
   input: string,
 ) =>
@@ -390,7 +390,7 @@ const routeRegistryInput = (
       type: "registry" as const,
       scope: pattern.scope,
       name: pattern.name,
-      versionConstraint: Option.fromNullable(pattern.versionConstraint),
+      versionConstraint: pattern.versionConstraint,
     };
 
     // If a registry config exists, intersect host config with params

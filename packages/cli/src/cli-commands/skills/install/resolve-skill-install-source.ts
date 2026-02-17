@@ -15,14 +15,6 @@ import {
 export const resolveSkillInstallSource = (input: string) =>
   Effect.gen(function* () {
     const trimmed = input.trim();
-    if (!trimmed) {
-      return yield* makeCliError({
-        code: "SOURCE_PARSE_FAILED",
-        what: "Source string cannot be empty",
-        details: [input],
-      });
-    }
-
     const patternOpt = parseInputPattern(trimmed);
     if (Option.isNone(patternOpt)) {
       return yield* makeCliError({

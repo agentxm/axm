@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
-import { ExtensionIndexSchema, VersionEntrySchema } from "./schema.js";
+import { ExtensionIndexSchema, VersionEntrySchema } from "./local-schema.js";
 
 describe("registry schema", () => {
   describe("VersionEntrySchema", () => {

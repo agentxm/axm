@@ -17,7 +17,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import type {
   RegistryClient,
   RegistryExtensionEntry,
-  RegistrySearchOptions,
+  GetExtensionsArgs,
 } from "../../../registry/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
 import { computeChecksum } from "../../../utils/checksum.js";
@@ -30,8 +30,8 @@ import type { VersionEntry } from "../../../registry/index.js";
 // Type Mapping Helpers
 // -----------------------------------------------------------------------------
 
-/** Map FindOptions to RegistrySearchOptions. */
-const toSearchOptions = (options: FindOptions): RegistrySearchOptions => ({
+/** Map FindOptions to GetExtensionsArgs. */
+const toSearchOptions = (options: FindOptions): GetExtensionsArgs => ({
   names: options.names,
   agents: options.agents,
   type: options.type === "*" ? "*" : (options.type as ExtensionType),

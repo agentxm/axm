@@ -13,7 +13,7 @@ export type { ExtensionIndex, VersionEntry } from "./local-schema.js";
 export { ExtensionIndexSchema, VersionEntrySchema } from "./local-schema.js";
 
 // Client types and factory
-export type { RegistryClient, RegistryExtensionEntry, RegistrySearchOptions } from "./client.js";
+export type { RegistryClient, RegistryExtensionEntry, GetExtensionsArgs } from "./client.js";
 export { createRegistryClient } from "./client.js";
 
 // Local client

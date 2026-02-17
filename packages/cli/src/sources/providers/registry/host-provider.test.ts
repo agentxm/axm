@@ -17,7 +17,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import type {
   RegistryClient,
   RegistryExtensionEntry,
-  RegistrySearchOptions,
+  GetExtensionsArgs,
   VersionEntry,
 } from "../../../registry/index.js";
 import type {
@@ -121,8 +121,8 @@ const createFailingClient = (): RegistryClient => ({
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.find", () => {
-  it("maps FindOptions to RegistrySearchOptions and returns SourceExtensionRefs", () => {
-    let capturedOptions: RegistrySearchOptions | undefined;
+  it("maps FindOptions to GetExtensionsArgs and returns SourceExtensionRefs", () => {
+    let capturedOptions: GetExtensionsArgs | undefined;
     const entries: ReadonlyArray<RegistryExtensionEntry> = [
       {
         scope: "@test",
@@ -260,7 +260,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
   });
 
   it("maps wildcard type to client", () => {
-    let capturedOptions: RegistrySearchOptions | undefined;
+    let capturedOptions: GetExtensionsArgs | undefined;
 
     const client = createMockClient({
       getExtensions: (options) => {

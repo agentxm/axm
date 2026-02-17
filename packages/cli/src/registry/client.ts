@@ -29,7 +29,7 @@ import { createRemoteRegistryClient } from "./client-remote.js";
  * - `agents`: agent compatibility filter (empty = all)
  * - `type`: extension type filter or `"*"` for all
  */
-export interface RegistrySearchOptions {
+export interface GetExtensionsArgs {
   readonly names: ReadonlyArray<string>;
   readonly agents: ReadonlyArray<string>;
   readonly type: ExtensionType | "*";
@@ -66,7 +66,7 @@ export interface RegistryExtensionEntry {
  */
 export interface RegistryClient {
   readonly getExtensions: (
-    options: RegistrySearchOptions,
+    options: GetExtensionsArgs,
   ) => Effect.Effect<
     ReadonlyArray<RegistryExtensionEntry>,
     CliError,

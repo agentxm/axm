@@ -1,7 +1,7 @@
 /**
  * Tests for LocalRegistryClient.
  *
- * Tests all 5 client methods: getExtensions, scopeExists,
+ * Tests all 5 client methods: getExtensionsByScope, scopeExists,
  * getExtensionPackage, publishExtension, extensionExists.
  */
 
@@ -18,7 +18,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { computeIntegrity } from "../utils/integrity.js";
 import type { ExtensionIndex, VersionEntry } from "./local-schema.js";
-import type { GetExtensionsArgs } from "./client.js";
+import type { GetExtensionsByScopeArgs } from "./client.js";
 import { createRegistryClient } from "./client.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./client-remote.js";
@@ -50,8 +50,8 @@ const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
   ...overrides,
 });
 
-const defaultSearchOptions: GetExtensionsArgs = {
-  scope: Option.none(),
+const defaultSearchOptions: GetExtensionsByScopeArgs = {
+  scope: "@test",
   names: [],
   types: ["skill"],
   limit: Option.none(),
@@ -74,14 +74,14 @@ const createTestZip = (fileName: string, content: string): Uint8Array => {
 const makeRegistryDir = (): string => mkdtempSync(nodePath.join(tmpdir(), "test-registry-"));
 
 // -----------------------------------------------------------------------------
-// LocalRegistryClient.getExtensions
+// LocalRegistryClient.getExtensionsByScope
 // -----------------------------------------------------------------------------
 
-describe("LocalRegistryClient.getExtensions", () => {
+describe("LocalRegistryClient.getExtensionsByScope", () => {
   it.effect("returns empty when registry directory does not exist", () =>
     Effect.gen(function* () {
       const client = yield* makeLocalClient("/nonexistent/path");
-      const result = yield* client.getExtensions(defaultSearchOptions);
+      const result = yield* client.getExtensionsByScope(defaultSearchOptions);
       expect(result.extensions).toHaveLength(0);
       expect(result.pagination).toEqual({ total: 0, limit: 0, offset: 0, hasMore: false });
     }).pipe(Effect.provide(NodeContext.layer)),
@@ -97,7 +97,7 @@ describe("LocalRegistryClient.getExtensions", () => {
       yield* fs.writeFileString(nodePath.join(skillDir, "index.json"), JSON.stringify(makeIndex()));
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.getExtensions({
+      const result = yield* client.getExtensionsByScope({
         ...defaultSearchOptions,
         names: ["my-skill"],
       });
@@ -129,7 +129,7 @@ describe("LocalRegistryClient.getExtensions", () => {
       );
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.getExtensions({
+      const result = yield* client.getExtensionsByScope({
         ...defaultSearchOptions,
         names: ["nonexistent"],
       });
@@ -155,7 +155,7 @@ describe("LocalRegistryClient.getExtensions", () => {
       );
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.getExtensions({
+      const result = yield* client.getExtensionsByScope({
         ...defaultSearchOptions,
         names: ["my-skill"],
       });
@@ -187,7 +187,7 @@ describe("LocalRegistryClient.getExtensions", () => {
       );
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.getExtensions(defaultSearchOptions);
+      const result = yield* client.getExtensionsByScope(defaultSearchOptions);
       expect(result.extensions).toHaveLength(2);
       expect(result.pagination.total).toBe(2);
     }).pipe(
@@ -217,9 +217,9 @@ describe("LocalRegistryClient.getExtensions", () => {
       );
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.getExtensions({
+      const result = yield* client.getExtensionsByScope({
         ...defaultSearchOptions,
-        scope: Option.some("@test"),
+        scope: "@test",
         names: ["skill-a"],
       });
 
@@ -252,7 +252,7 @@ describe("LocalRegistryClient.getExtensions", () => {
       );
 
       const client = yield* makeLocalClient(registryRoot);
-      const result = yield* client.getExtensions({
+      const result = yield* client.getExtensionsByScope({
         ...defaultSearchOptions,
         types: ["mcp-server"],
         names: ["my-server"],
@@ -291,7 +291,7 @@ describe("LocalRegistryClient.getExtensions", () => {
       const client = yield* makeLocalClient(registryRoot);
 
       // limit=2, offset=0 → first 2
-      const page1 = yield* client.getExtensions({
+      const page1 = yield* client.getExtensionsByScope({
         ...defaultSearchOptions,
         limit: Option.some(2),
         offset: 0,
@@ -300,7 +300,7 @@ describe("LocalRegistryClient.getExtensions", () => {
       expect(page1.pagination).toEqual({ total: 3, limit: 2, offset: 0, hasMore: true });
 
       // limit=2, offset=2 → last 1
-      const page2 = yield* client.getExtensions({
+      const page2 = yield* client.getExtensionsByScope({
         ...defaultSearchOptions,
         limit: Option.some(2),
         offset: 2,
@@ -309,7 +309,7 @@ describe("LocalRegistryClient.getExtensions", () => {
       expect(page2.pagination).toEqual({ total: 3, limit: 2, offset: 2, hasMore: false });
 
       // no limit, offset=1 → skip 1
-      const page3 = yield* client.getExtensions({
+      const page3 = yield* client.getExtensionsByScope({
         ...defaultSearchOptions,
         limit: Option.none(),
         offset: 1,
@@ -706,7 +706,7 @@ describe("RemoteRegistryClient", () => {
 
   it.effect("getExtensions fails with remote not supported", () =>
     Effect.gen(function* () {
-      const result = yield* client.getExtensions(defaultSearchOptions).pipe(Effect.either);
+      const result = yield* client.getExtensionsByScope(defaultSearchOptions).pipe(Effect.either);
       expect(result._tag).toBe("Left");
       if (result._tag === "Left") {
         expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
@@ -789,7 +789,7 @@ describe("createRegistryClient", () => {
       yield* fs.writeFileString(nodePath.join(skillDir, "index.json"), JSON.stringify(makeIndex()));
 
       const client = yield* createRegistryClient(registryRoot);
-      const result = yield* client.getExtensions({
+      const result = yield* client.getExtensionsByScope({
         ...defaultSearchOptions,
         names: ["my-skill"],
       });
@@ -813,7 +813,7 @@ describe("createRegistryClient", () => {
       yield* fs.writeFileString(nodePath.join(skillDir, "index.json"), JSON.stringify(makeIndex()));
 
       const client = yield* createRegistryClient(`file://${registryRoot}`);
-      const result = yield* client.getExtensions({
+      const result = yield* client.getExtensionsByScope({
         ...defaultSearchOptions,
         names: ["my-skill"],
       });
@@ -830,7 +830,7 @@ describe("createRegistryClient", () => {
   it.effect("creates a remote client for an https:// URL", () =>
     Effect.gen(function* () {
       const client = yield* createRegistryClient("https://registry.example.com");
-      const result = yield* client.getExtensions(defaultSearchOptions).pipe(Effect.either);
+      const result = yield* client.getExtensionsByScope(defaultSearchOptions).pipe(Effect.either);
       expect(result._tag).toBe("Left");
       if (result._tag === "Left") {
         expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");

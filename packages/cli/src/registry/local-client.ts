@@ -115,7 +115,7 @@ export const createLocalRegistryClient = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
 ): RegistryClient => ({
-  getExtensions: (options) =>
+  getExtensionsByScope: (options) =>
     Effect.gen(function* () {
       const findForName = (name: string) =>
         Effect.gen(function* () {
@@ -123,46 +123,33 @@ export const createLocalRegistryClient = (
             options.types.length === 0 ? ["skill", "mcp-server", "pack"] : options.types;
 
           const extensionsDir = path.join(registryRoot, "extensions");
-          const extensionsDirExists = yield* fs
-            .exists(extensionsDir)
-            .pipe(Effect.orElseSucceed(() => false));
-          if (!extensionsDirExists) return [] as ReadonlyArray<RegistryExtensionVersionManifest>;
-
-          const scopeDirs = yield* fs
-            .readDirectory(extensionsDir)
-            .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
-          const scopes = Option.match(options.scope, {
-            onNone: () => scopeDirs.filter((d) => d.startsWith("@")),
-            onSome: (scope) => [scope],
-          });
 
           const nestedResults = yield* Effect.forEach(
             requestedTypes,
             (extType) =>
-              Effect.forEach(
-                scopes,
-                (scopeDir) =>
-                  Effect.gen(function* () {
-                    const typeDir = path.join(extensionsDir, scopeDir, pluralizeType(extType));
-                    const typeDirExists = yield* fs
-                      .exists(typeDir)
-                      .pipe(Effect.orElseSucceed(() => false));
-                    if (!typeDirExists)
-                      return [] as ReadonlyArray<RegistryExtensionVersionManifest>;
+              Effect.gen(function* () {
+                const typeDir = path.join(
+                  extensionsDir,
+                  options.scope,
+                  pluralizeType(extType),
+                );
+                const typeDirExists = yield* fs
+                  .exists(typeDir)
+                  .pipe(Effect.orElseSucceed(() => false));
+                if (!typeDirExists)
+                  return [] as ReadonlyArray<RegistryExtensionVersionManifest>;
 
-                    const nameDirs = yield* fs
-                      .readDirectory(typeDir)
-                      .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
-                    const filtered = name !== "" ? nameDirs.filter((d) => d === name) : nameDirs;
+                const nameDirs = yield* fs
+                  .readDirectory(typeDir)
+                  .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
+                const filtered = name !== "" ? nameDirs.filter((d) => d === name) : nameDirs;
 
-                    return yield* Effect.forEach(
-                      filtered,
-                      (nameDir) => processNameDir(fs, path, typeDir, nameDir),
-                      { concurrency: "unbounded" },
-                    ).pipe(Effect.map(Array.getSomes));
-                  }),
-                { concurrency: "unbounded" },
-              ).pipe(Effect.map(Array.flatten)),
+                return yield* Effect.forEach(
+                  filtered,
+                  (nameDir) => processNameDir(fs, path, typeDir, nameDir),
+                  { concurrency: "unbounded" },
+                ).pipe(Effect.map(Array.getSomes));
+              }),
             { concurrency: "unbounded" },
           );
 

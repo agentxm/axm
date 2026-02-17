@@ -6,6 +6,9 @@
  */
 
 import { createHash } from "node:crypto";
+import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import * as nodePath from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as NodeContext from "@effect/platform-node/NodeContext";
@@ -17,7 +20,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import type {
   RegistryClient,
   RegistryExtensionVersionManifest,
-  GetExtensionsArgs,
+  GetExtensionsByScopeArgs,
   GetExtensionsResponse,
   VersionEntry,
 } from "../../../registry/index.js";
@@ -44,6 +47,20 @@ const runEffect = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Pat
 const sha512 = (data: Uint8Array): string => {
   const b64 = createHash("sha512").update(data).digest("base64");
   return `sha512-${b64}`;
+};
+
+/** Create a temp registry with scope directories and return source + cleanup. */
+const makeTestRegistry = (
+  scopes: ReadonlyArray<string> = ["@test"],
+): { source: RegistrySource; cleanup: () => void } => {
+  const dir = mkdtempSync(nodePath.join(tmpdir(), "hp-test-"));
+  for (const scope of scopes) {
+    mkdirSync(nodePath.join(dir, "extensions", scope), { recursive: true });
+  }
+  return {
+    source: { type: "registry", location: new URL(`file://${dir}`) },
+    cleanup: () => rmSync(dir, { recursive: true, force: true }),
+  };
 };
 
 const testSource: RegistrySource = {
@@ -81,7 +98,7 @@ const toResult = (
 
 /** Create a mock RegistryClient with controllable return values. */
 const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient => ({
-  getExtensions: () => Effect.succeed(toResult([])),
+  getExtensionsByScope: () => Effect.succeed(toResult([])),
   scopeExists: () => Effect.succeed({ exists: false }),
   getExtensionPackage: () =>
     Effect.fail(makeCliError({ code: "REGISTRY_FETCH_FAILED", what: "not implemented" })),
@@ -91,7 +108,7 @@ const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient =
 });
 
 const createFailingClient = (): RegistryClient => ({
-  getExtensions: () =>
+  getExtensionsByScope: () =>
     Effect.fail(
       makeCliError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
@@ -133,8 +150,9 @@ const createFailingClient = (): RegistryClient => ({
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.find", () => {
-  it("maps FindOptions to GetExtensionsArgs and returns SourceExtensionRefs", () => {
-    let capturedOptions: GetExtensionsArgs | undefined;
+  it("maps FindOptions to GetExtensionsByScopeArgs and returns SourceExtensionRefs", () => {
+    const registry = makeTestRegistry();
+    let capturedOptions: GetExtensionsByScopeArgs | undefined;
     const entries: ReadonlyArray<RegistryExtensionVersionManifest> = [
       {
         scope: "@test",
@@ -150,7 +168,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     ];
 
     const client = createMockClient({
-      getExtensions: (options) => {
+      getExtensionsByScope: (options) => {
         capturedOptions = options;
         return Effect.succeed(toResult(entries));
       },
@@ -164,11 +182,11 @@ describe("LocalRegistrySourceHostProvider.find", () => {
           names: ["my-skill"],
           type: "skill",
         };
-        const refs = yield* provider.find(testSource, findOptions);
+        const refs = yield* provider.find(registry.source, findOptions);
 
         // Verify search options were mapped correctly
         expect(capturedOptions).toEqual({
-          scope: Option.none(),
+          scope: "@test",
           names: ["my-skill"],
           types: ["skill"],
           limit: Option.none(),
@@ -179,9 +197,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(refs).toHaveLength(1);
         const ref = refs[0]!;
         expect(ref.type).toBe("skill");
-        expect(ref.source).toBe(testSource);
-        expect(ref.type).toBe("skill");
-        expect(ref.source).toBe(testSource);
+        expect(ref.source).toBe(registry.source);
         // Assertion needed: TS can't narrow SkillExtensionRef union to RegistrySkillRef
         const skillRef = ref as RegistrySkillRef;
         expect(skillRef.skill.name).toBe("my-skill");
@@ -196,11 +212,12 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(skillRef.scope).toBe("@test");
         expect(skillRef.version).toBe("1.0.0");
         expect(skillRef.integrity).toBe("sha512-abc");
-      }),
+      }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
   });
 
   it("maps mcp-server entries to McpServerExtensionRef", () => {
+    const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionVersionManifest> = [
       {
         scope: "@test",
@@ -216,14 +233,14 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     ];
 
     const client = createMockClient({
-      getExtensions: () => Effect.succeed(toResult(entries)),
+      getExtensionsByScope: () => Effect.succeed(toResult(entries)),
     });
 
     const provider = createLocalRegistrySourceHostProvider(client);
 
     return runEffect(
       Effect.gen(function* () {
-        const refs = yield* provider.find(testSource, {
+        const refs = yield* provider.find(registry.source, {
           ...defaultFindOptions,
           type: "mcp-server",
         });
@@ -236,11 +253,12 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(serverRef.server.name).toBe("my-server");
         expect(serverRef.scope).toBe("@test");
         expect(serverRef.version).toBe("2.0.0");
-      }),
+      }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
   });
 
   it("maps pack entries to PackExtensionRef", () => {
+    const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionVersionManifest> = [
       {
         scope: "@test",
@@ -256,14 +274,17 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     ];
 
     const client = createMockClient({
-      getExtensions: () => Effect.succeed(toResult(entries)),
+      getExtensionsByScope: () => Effect.succeed(toResult(entries)),
     });
 
     const provider = createLocalRegistrySourceHostProvider(client);
 
     return runEffect(
       Effect.gen(function* () {
-        const refs = yield* provider.find(testSource, { ...defaultFindOptions, type: "pack" });
+        const refs = yield* provider.find(registry.source, {
+          ...defaultFindOptions,
+          type: "pack",
+        });
 
         expect(refs).toHaveLength(1);
         const ref = refs[0]!;
@@ -273,30 +294,32 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(packRef.pack.name).toBe("my-pack");
         expect(packRef.scope).toBe("@test");
         expect(packRef.version).toBe("3.0.0");
-      }),
+      }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
   });
 
   it("returns empty array when client returns empty", () => {
+    const registry = makeTestRegistry();
     const client = createMockClient({
-      getExtensions: () => Effect.succeed(toResult([])),
+      getExtensionsByScope: () => Effect.succeed(toResult([])),
     });
 
     const provider = createLocalRegistrySourceHostProvider(client);
 
     return runEffect(
       Effect.gen(function* () {
-        const refs = yield* provider.find(testSource, defaultFindOptions);
+        const refs = yield* provider.find(registry.source, defaultFindOptions);
         expect(refs).toHaveLength(0);
-      }),
+      }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
   });
 
   it("maps wildcard type to client", () => {
-    let capturedOptions: GetExtensionsArgs | undefined;
+    const registry = makeTestRegistry();
+    let capturedOptions: GetExtensionsByScopeArgs | undefined;
 
     const client = createMockClient({
-      getExtensions: (options) => {
+      getExtensionsByScope: (options) => {
         capturedOptions = options;
         return Effect.succeed(toResult([]));
       },
@@ -306,9 +329,9 @@ describe("LocalRegistrySourceHostProvider.find", () => {
 
     return runEffect(
       Effect.gen(function* () {
-        yield* provider.find(testSource, { ...defaultFindOptions, type: "*" });
+        yield* provider.find(registry.source, { ...defaultFindOptions, type: "*" });
         expect(capturedOptions?.types).toEqual([]);
-      }),
+      }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
   });
 });

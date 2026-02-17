@@ -45,7 +45,7 @@ export const SourceTypeSchema = Schema.Literal(
 export type SourceType = typeof SourceTypeSchema.Type;
 
 // =============================================================================
-// New Domain Model (source-host-domain-modeling)
+// Source Domain Model (source-host-domain-modeling)
 // =============================================================================
 
 // -----------------------------------------------------------------------------
@@ -242,11 +242,7 @@ export type GitHostingSourceParams =
   | AzureReposSourceParams;
 
 /** @experimental */
-export type GitHostingSource =
-  | GitHubSource
-  | GitLabSource
-  | BitbucketSource
-  | AzureReposSource;
+export type GitHostingSource = GitHubSource | GitLabSource | BitbucketSource | AzureReposSource;
 
 /** All git-based sources (hosting providers + generic git). @experimental */
 export type GitBasedSource = GitHostingSource | GitSource;

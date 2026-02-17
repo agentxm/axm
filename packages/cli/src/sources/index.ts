@@ -9,9 +9,7 @@
  */
 
 // Types — Core
-export type {
-  SourceType,
-} from "./types.js";
+export type { SourceType } from "./types.js";
 export { SourceTypeSchema } from "./types.js";
 
 // Types — Source domain model (source-host-domain-modeling)
@@ -113,7 +111,7 @@ export {
   createRemoteRegistryProvider,
 } from "./providers/index.js";
 
-// SourceHostProviders service (new)
+// SourceHostProviders service
 export type { SourceHostProvidersService } from "./service.js";
 export {
   SourceHostProviders,

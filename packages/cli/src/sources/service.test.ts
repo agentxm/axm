@@ -168,7 +168,6 @@ describe("registry meta-provider scope routing", () => {
         const refs = yield* svc.find(
           {
             type: "registry",
-            scope: "@test",
             location: new URL(`file://${registryRoot}`),
           },
           { ...defaultFindOptions, names: ["my-skill"] },
@@ -190,7 +189,6 @@ describe("registry meta-provider scope routing", () => {
         const refs = yield* svc.find(
           {
             type: "registry",
-            scope: "@test",
             location: new URL("file:///tmp/registry"),
           },
           { ...defaultFindOptions, names: ["my-skill"] },
@@ -280,7 +278,6 @@ describe("SourceHostProviders dispatch", () => {
         const refs = yield* svc.find(
           {
             type: "registry",
-            scope: "@test",
             location: new URL(`file://${registryRoot}`),
           },
           { ...defaultFindOptions, names: ["nonexistent"] },

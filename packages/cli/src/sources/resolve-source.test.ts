@@ -140,7 +140,7 @@ describe("resolveSource", () => {
         const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
           name: "default",
           type: "registry",
-            location: new URL("https://registry.example.com"),
+          location: new URL("https://registry.example.com"),
         };
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
         const result = yield* resolveSource("@scope/skills/name").pipe(
@@ -148,7 +148,6 @@ describe("resolveSource", () => {
         );
         expect(result.type).toBe("registry");
         if (result.type === "registry") {
-          expect(result.scope).toBe("@scope");
           expect(result.location).toEqual(new URL("https://registry.example.com"));
         }
       }),
@@ -183,7 +182,7 @@ describe("resolveSource", () => {
         const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
           name: "default",
           type: "registry",
-            location: new URL("https://registry.example.com"),
+          location: new URL("https://registry.example.com"),
         };
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
         const result = yield* resolveSource("@acme/skills/my-skill").pipe(
@@ -191,7 +190,6 @@ describe("resolveSource", () => {
         );
         expect(result.type).toBe("registry");
         if (result.type === "registry") {
-          expect(result.scope).toBe("@acme");
           expect(result.location).toEqual(new URL("https://registry.example.com"));
         }
       }),
@@ -202,7 +200,7 @@ describe("resolveSource", () => {
         const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
           name: "acme-reg",
           type: "registry",
-            location: new URL("https://acme-registry.example.com"),
+          location: new URL("https://acme-registry.example.com"),
         };
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
         const result = yield* resolveSource("@acme/skills/my-skill").pipe(
@@ -210,7 +208,6 @@ describe("resolveSource", () => {
         );
         expect(result.type).toBe("registry");
         if (result.type === "registry") {
-          expect(result.scope).toBe("@acme");
           expect(result.location).toEqual(new URL("https://acme-registry.example.com"));
         }
       }),

@@ -199,7 +199,6 @@ const processNameDir = (
     const source = {
       type: "registry" as const,
       location: registryLocation,
-      scope: scopeDir,
     };
 
     if (index.type === "skill") {
@@ -211,6 +210,7 @@ const processNameDir = (
           metadata: Option.none(),
         },
         source,
+        scope: scopeDir,
         version: ver.version,
         checksum: ver.checksum,
       } satisfies SourceExtensionRef);
@@ -221,6 +221,7 @@ const processNameDir = (
         type: "mcp-server" as const,
         server: { name: nameDir },
         source,
+        scope: scopeDir,
         version: ver.version,
         checksum: ver.checksum,
       } satisfies SourceExtensionRef);
@@ -230,6 +231,7 @@ const processNameDir = (
       type: "pack" as const,
       pack: { name: nameDir },
       source,
+      scope: scopeDir,
       version: ver.version,
       checksum: ver.checksum,
     } satisfies SourceExtensionRef);

@@ -267,21 +267,23 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
     // Step 7: Emit holdback warnings for registry skills held back by pack constraints
     for (const item of resolved) {
       if (item.type !== "match") continue;
+      if (item.ref.type !== "skill") continue;
       if (item.ref.source.type !== "registry") continue;
-      if (!("version" in item.ref)) continue;
-      const skillFqn = `${item.ref.source.scope}/${item.ref.skill.name}`;
+      if (!("scope" in item.ref) || !("version" in item.ref)) continue;
+      const registryRef = item.ref;
+      const skillFqn = `${registryRef.scope}/${registryRef.skill.name}`;
       const packConstraints = packConstraintMap.get(skillFqn) ?? [];
       if (packConstraints.length === 0) continue;
 
       // Get user constraint from the settings source string
-      const settingsEntry = filteredEntries.find(([name]) => name === item.ref.skill.name);
+      const settingsEntry = filteredEntries.find(([name]) => name === registryRef.skill.name);
       const userConstraint =
         settingsEntry !== undefined ? parseVersionConstraint(settingsEntry[1]) : Option.none();
 
       const constraints: SkillConstraints = { userConstraint, packConstraints };
       const warnings = detectHoldbackWarnings(
-        item.ref.version,
-        item.ref.version,
+        registryRef.version,
+        registryRef.version,
         constraints,
         skillFqn,
       );

@@ -50,7 +50,6 @@ const resolveSkillRegistrySource = (
     const regConfig = registrySources[0]!;
     return {
       type: "registry" as const,
-      scope: pattern.scope,
       location: regConfig.location,
     } satisfies RegistrySource;
   });

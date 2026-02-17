@@ -110,11 +110,9 @@ const makeOp = (
     case "registry":
       ref = {
         ...skillBase(name),
-        source: {
-          type: "registry",
-          scope: "@axm",
-          location: new URL("http://localhost:3000"),
-        },
+        source: { type: "registry", location: new URL("http://localhost:3000"),
+      },
+      scope: "@axm",
         version: overrides?.version ?? "0.0.0",
         checksum: "abc",
       };

@@ -169,6 +169,15 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
 
     // Fetch the pack archive
     const packRef = refs[0]!;
+    if (packRef.type !== "pack" || !("scope" in packRef)) {
+      return yield* Effect.fail(
+        makeCliError({
+          code: "PACK_FETCH_FAILED",
+          what: "Registry did not return a valid pack reference",
+        }),
+      );
+    }
+    const registryScope = packRef.scope;
     const fetched = yield* sources.fetch(packRef).pipe(
       Effect.mapError((error) =>
         makeCliError({
@@ -184,7 +193,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     // Step 5: Extract to managed location
     const extractHandle = yield* spinnerSvc.start("Extracting pack...");
     const base = path.dirname(ws.path);
-    const packDir = path.join(base, REGISTRY_EXTENSIONS_DIR, source.scope, "packs", packName);
+    const packDir = path.join(base, REGISTRY_EXTENSIONS_DIR, registryScope, "packs", packName);
 
     yield* copySkillDirectory(fetched.directory, packDir).pipe(
       Effect.mapError((e) =>
@@ -372,7 +381,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
       name: "install-pack",
       args: {
         packName,
-        scope: source.scope,
+        scope: registryScope,
         resolvedVersion,
         checksum: "",
         sourceName: "default",

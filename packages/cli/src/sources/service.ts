@@ -135,15 +135,13 @@ const getOriginFromSource = (source: Source): string => {
 export const createRegistryMetaProvider = () => ({
   type: "registry" as const,
 
-  find: (source: RegistrySource, options: FindOptions) =>
+  find: (_source: RegistrySource, options: FindOptions) =>
     Effect.gen(function* () {
       const ws = yield* Workspace;
 
-      // Determine scope from source (e.g. @scope/name install) or from options names
-      const sourceScope = Option.some(source.scope);
-      const scope = Option.isSome(sourceScope)
-        ? sourceScope
-        : options.names.length > 0
+      // Determine scope from options names (e.g. @scope/name install)
+      const scope =
+        options.names.length > 0
           ? Option.fromNullable(options.names.find((n) => n.startsWith("@"))?.split("/")[0] ?? null)
           : Option.none<string>();
 
@@ -167,7 +165,7 @@ export const createRegistryMetaProvider = () => ({
 
       for (const regSource of registrySources) {
         const provider = createRegistryProvider(regSource.location.href);
-        const result = yield* provider.find(source, options).pipe(Effect.either);
+        const result = yield* provider.find(regSource, options).pipe(Effect.either);
 
         if (result._tag === "Left") {
           // Non-404 errors → hard fail
@@ -183,36 +181,8 @@ export const createRegistryMetaProvider = () => ({
     }),
 
   fetch: (source: RegistrySource, ref: SourceExtensionRef) => {
-    // Build the registry provider from the source scope to determine the registry root
-    // The ref's source has the scope info we need
-    if (ref.source.type === "registry" && "location" in ref.source) {
-      const provider = createRegistryProvider(ref.source.location.href);
-      return provider.fetch(source, ref);
-    }
-    // Fallback: use the source scope to find the registry
-    return Effect.gen(function* () {
-      const ws = yield* Workspace;
-      const scope = Option.some(source.scope);
-      const registrySources = yield* ws.getConfiguredRegistrySources(scope).pipe(
-        Effect.mapError((e) =>
-          makeCliError({
-            code: "SOURCE_FETCH_FAILED",
-            what: `Failed to get registry sources: ${e._tag}`,
-            cause: e,
-          }),
-        ),
-      );
-      if (registrySources.length === 0) {
-        return yield* Effect.fail(
-          makeCliError({
-            code: "SOURCE_FETCH_FAILED",
-            what: "No registry sources configured",
-          }),
-        );
-      }
-      const provider = createRegistryProvider(registrySources[0]!.location.href);
-      return yield* provider.fetch(source, ref);
-    });
+    const provider = createRegistryProvider(source.location.href);
+    return provider.fetch(source, ref);
   },
 });
 

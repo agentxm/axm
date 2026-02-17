@@ -49,7 +49,6 @@ const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
 
 const defaultFindOptions: FindOptions = {
   names: [],
-  agents: [],
   type: "skill",
 };
 

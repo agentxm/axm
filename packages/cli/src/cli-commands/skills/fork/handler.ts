@@ -112,7 +112,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
 
     const allRefs = yield* Effect.forEach(
       resolvedSources,
-      (source) => sources.find(source, { names: [], agents: [], type: "skill" }),
+      (source) => sources.find(source, { names: [], type: "skill" }),
       { concurrency: "unbounded" },
     ).pipe(
       Effect.map(Array.flatten),

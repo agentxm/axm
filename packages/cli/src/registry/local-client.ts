@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { makeCliError, type CliError } from "../cli-error/index.js";
-import type { RegistryClient, RegistryExtensionEntry, GetExtensionsArgs } from "./client.js";
+import type { RegistryClient, RegistryExtensionEntry } from "./client.js";
 import type { ExtensionType } from "../extensions/common.js";
 import { ExtensionIndexSchema, type ExtensionIndex } from "./local-schema.js";
 import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
@@ -36,7 +36,6 @@ const processNameDir = (
   typeDir: string,
   nameDir: string,
   scopeDir: string,
-  options: GetExtensionsArgs,
 ): Effect.Effect<Option.Option<RegistryExtensionEntry>, CliError> =>
   Effect.gen(function* () {
     const dir = path.join(typeDir, nameDir);
@@ -72,7 +71,7 @@ const processNameDir = (
       ),
     );
 
-    const selectedVersion = selectVersion(index.versions, { agents: options.agents });
+    const selectedVersion = selectVersion(index.versions);
     if (Option.isNone(selectedVersion)) return Option.none();
 
     const ver = selectedVersion.value;
@@ -141,7 +140,7 @@ export const createLocalRegistryClient = (registryRoot: string): RegistryClient 
 
                     return yield* Effect.forEach(
                       filtered,
-                      (nameDir) => processNameDir(fs, path, typeDir, nameDir, scopeDir, options),
+                      (nameDir) => processNameDir(fs, path, typeDir, nameDir, scopeDir),
                       { concurrency: "unbounded" },
                     ).pipe(Effect.map(Array.getSomes));
                   }),

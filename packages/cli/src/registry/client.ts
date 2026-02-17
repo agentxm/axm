@@ -26,12 +26,10 @@ import { createRemoteRegistryClient } from "./client-remote.js";
  * Options for searching extensions in a registry.
  *
  * - `names`: extension names to match (empty = all)
- * - `agents`: agent compatibility filter (empty = all)
  * - `type`: extension type filter or `"*"` for all
  */
 export interface GetExtensionsArgs {
   readonly names: ReadonlyArray<string>;
-  readonly agents: ReadonlyArray<string>;
   readonly type: ExtensionType | "*";
 }
 

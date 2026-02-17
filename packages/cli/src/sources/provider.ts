@@ -23,14 +23,12 @@ import type { Source, SourceExtensionRef } from "./types.js";
  * Search criteria passed to `find` -- independent of source identity.
  *
  * - `names`: extension names to match (empty = all)
- * - `agents`: agent compatibility filter (empty = all)
  * - `type`: findable extension type filter or `"*"` for all
  *
  * @experimental This API is unstable and may change without notice.
  */
 export interface FindOptions {
   readonly names: ReadonlyArray<string>;
-  readonly agents: ReadonlyArray<string>;
   readonly type: ExtensionType | "*";
 }
 

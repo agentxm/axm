@@ -29,49 +29,19 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 // -----------------------------------------------------------------------------
 
 describe("selectVersion", () => {
-  it("returns first version when no agent filter", () => {
+  it("returns first version", () => {
     const versions = [
       makeVersionEntry({ version: "2.0.0" }),
       makeVersionEntry({ version: "1.0.0" }),
     ];
-    const result = selectVersion(versions, { agents: [] });
+    const result = selectVersion(versions);
     expect(Option.isSome(result)).toBe(true);
     expect(Option.getOrThrow(result).version).toBe("2.0.0");
   });
 
   it("returns None for empty versions", () => {
-    const result = selectVersion([], { agents: [] });
+    const result = selectVersion([]);
     expect(Option.isNone(result)).toBe(true);
-  });
-
-  it("matches agent compatibility", () => {
-    const versions = [
-      makeVersionEntry({ version: "2.0.0", agents: ["cursor"] }),
-      makeVersionEntry({ version: "1.0.0", agents: ["claude-code"] }),
-    ];
-    const result = selectVersion(versions, { agents: ["claude-code"] });
-    expect(Option.isSome(result)).toBe(true);
-    expect(Option.getOrThrow(result).version).toBe("1.0.0");
-  });
-
-  it("returns None when no agent matches", () => {
-    const versions = [makeVersionEntry({ version: "1.0.0", agents: ["cursor"] })];
-    const result = selectVersion(versions, { agents: ["claude-code"] });
-    expect(Option.isNone(result)).toBe(true);
-  });
-
-  it("returns version with empty agents (universal) when agent filter is set", () => {
-    const versions = [makeVersionEntry({ version: "1.0.0", agents: [] })];
-    const result = selectVersion(versions, { agents: ["claude-code"] });
-    expect(Option.isSome(result)).toBe(true);
-    expect(Option.getOrThrow(result).version).toBe("1.0.0");
-  });
-
-  it("returns first version when version.agents is non-empty but options.agents is empty", () => {
-    const versions = [makeVersionEntry({ version: "1.0.0", agents: ["cursor"] })];
-    const result = selectVersion(versions, { agents: [] });
-    expect(Option.isSome(result)).toBe(true);
-    expect(Option.getOrThrow(result).version).toBe("1.0.0");
   });
 });
 

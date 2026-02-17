@@ -82,7 +82,7 @@ describe("SourceHostProvider", () => {
       ref: Option.none(),
       subPath: Option.none(),
     };
-    const options: FindOptions = { names: [], agents: [], type: "skill" };
+    const options: FindOptions = { names: [], type: "skill" };
     const result = await Effect.runPromise(provider.find(source, options));
     expect(Array.isArray(result)).toBe(true);
   });
@@ -156,18 +156,18 @@ describe("PublishableSourceHostProvider", () => {
 
 describe("FindOptions", () => {
   it("type field accepts ExtensionType", () => {
-    const options: FindOptions = { names: [], agents: [], type: "skill" };
+    const options: FindOptions = { names: [], type: "skill" };
     expect(options.type).toBe("skill");
 
-    const packOptions: FindOptions = { names: [], agents: [], type: "pack" };
+    const packOptions: FindOptions = { names: [], type: "pack" };
     expect(packOptions.type).toBe("pack");
 
-    const mcpOptions: FindOptions = { names: [], agents: [], type: "mcp-server" };
+    const mcpOptions: FindOptions = { names: [], type: "mcp-server" };
     expect(mcpOptions.type).toBe("mcp-server");
   });
 
   it("type field accepts '*' wildcard", () => {
-    const options: FindOptions = { names: [], agents: [], type: "*" };
+    const options: FindOptions = { names: [], type: "*" };
     expect(options.type).toBe("*");
   });
 });

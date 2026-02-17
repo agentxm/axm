@@ -33,7 +33,6 @@ import type { VersionEntry } from "../../../registry/index.js";
 /** Map FindOptions to GetExtensionsArgs. */
 const toSearchOptions = (options: FindOptions): GetExtensionsArgs => ({
   names: options.names,
-  agents: options.agents,
   type: options.type === "*" ? "*" : (options.type as ExtensionType),
 });
 

@@ -149,7 +149,7 @@ describe("resolveSource", () => {
         expect(result.type).toBe("registry");
         if (result.type === "registry") {
           expect(result.scope).toBe("@scope");
-          expect(result.url).toEqual(new URL("https://registry.example.com"));
+          expect(result.location).toEqual(new URL("https://registry.example.com"));
         }
       }),
     );
@@ -192,7 +192,7 @@ describe("resolveSource", () => {
         expect(result.type).toBe("registry");
         if (result.type === "registry") {
           expect(result.scope).toBe("@acme");
-          expect(result.url).toEqual(new URL("https://registry.example.com"));
+          expect(result.location).toEqual(new URL("https://registry.example.com"));
         }
       }),
     );
@@ -211,7 +211,7 @@ describe("resolveSource", () => {
         expect(result.type).toBe("registry");
         if (result.type === "registry") {
           expect(result.scope).toBe("@acme");
-          expect(result.url).toEqual(new URL("https://acme-registry.example.com"));
+          expect(result.location).toEqual(new URL("https://acme-registry.example.com"));
         }
       }),
     );

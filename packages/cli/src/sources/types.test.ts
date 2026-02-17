@@ -89,10 +89,10 @@ describe("SourceHost", () => {
   it("narrows RegistrySourceHost via type", () => {
     const host: SourceHost = {
       type: "registry",
-      url: new URL("file:///registry"),
+      location: new URL("file:///registry"),
     };
     if (host.type === "registry") {
-      expect(host.url.protocol).toBe("file:");
+      expect(host.location.protocol).toBe("file:");
     }
   });
 
@@ -236,13 +236,13 @@ describe("Source", () => {
   it("RegistrySource has host and params fields via flat intersection", () => {
     const source: Source = {
       type: "registry",
-      url: new URL("file:///registry"),
+      location: new URL("file:///registry"),
       scope: "@acme",
       name: "code-review",
       versionConstraint: Option.none(),
     };
     if (source.type === "registry") {
-      expect(source.url.protocol).toBe("file:");
+      expect(source.location.protocol).toBe("file:");
       expect(source.scope).toBe("@acme");
     }
   });
@@ -300,7 +300,7 @@ describe("convenience unions", () => {
   it("ConfiguredSourceHost includes git hosting + registry", () => {
     const hosts: ConfiguredSourceHost[] = [
       { type: "github", url: new URL("https://github.com") },
-      { type: "registry", url: new URL("file:///r") },
+      { type: "registry", location: new URL("file:///r") },
     ];
     expect(hosts).toHaveLength(2);
   });
@@ -392,7 +392,7 @@ describe("SkillExtensionRef", () => {
       skill: { name: "test", description: "desc", metadata: Option.none() },
       source: {
         type: "registry",
-        url: new URL("file:///reg"),
+        location: new URL("file:///reg"),
         scope: "@acme",
         name: "test",
         versionConstraint: Option.none(),
@@ -456,7 +456,7 @@ describe("McpServerExtensionRef", () => {
       server: { name: "my-server" },
       source: {
         type: "registry",
-        url: new URL("file:///reg"),
+        location: new URL("file:///reg"),
         scope: "@acme",
         name: "test",
         versionConstraint: Option.none(),
@@ -478,7 +478,7 @@ describe("PackExtensionRef", () => {
       type: "pack",
       source: {
         type: "registry",
-        url: new URL("file:///reg"),
+        location: new URL("file:///reg"),
         scope: "@acme",
         name: "my-pack",
         versionConstraint: Option.none(),

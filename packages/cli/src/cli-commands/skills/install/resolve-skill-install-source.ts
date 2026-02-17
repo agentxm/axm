@@ -60,7 +60,7 @@ const resolveSkillRegistrySource = (
       scope: pattern.scope,
       name: pattern.name.value,
       versionConstraint: pattern.versionConstraint,
-      url: regConfig.location,
+      location: regConfig.location,
     };
   });
 

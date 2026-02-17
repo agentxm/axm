@@ -729,7 +729,7 @@ export const createRegistryProvider = (location: string): RegistrySourceProvider
 /**
  * Creates a `PublishableSourceHostProvider` for a registry source.
  *
- * Constructed with a `RegistrySourceHost` that provides the registry URL.
+ * Constructed with a `RegistrySourceHost` that provides the registry location.
  * The `match` method checks if a URL's hostname matches the configured registry.
  * The `find` implementation reads the registry index and populates checksum from index.
  *
@@ -738,7 +738,7 @@ export const createRegistryProvider = (location: string): RegistrySourceProvider
 export const createRegistrySourceHostProvider = (
   host: RegistrySourceHost,
 ): PublishableSourceHostProvider<RegistrySource, FileSystem.FileSystem | Path.Path> => {
-  const registryUrl = host.url;
+  const registryUrl = host.location;
   const isLocal = registryUrl.protocol === "file:" || !registryUrl.protocol.startsWith("http");
   const registryRoot = registryUrl.protocol === "file:" ? registryUrl.pathname : registryUrl.href;
   // For local registries, delegate to the existing local provider

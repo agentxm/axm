@@ -217,7 +217,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
           name: ref.skill.name,
           versionConstraint: Option.none(),
           // Placeholder — registry URL unused; install reads from fetchedLocation
-          url: new URL("file://localhost"),
+          location: new URL("file://localhost"),
         },
         version: "0.1.0",
         checksum: "",

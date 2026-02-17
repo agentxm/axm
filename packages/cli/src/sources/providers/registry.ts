@@ -48,11 +48,17 @@ import type {
 export interface RegistrySourceProvider {
   readonly type: "registry";
   /** Discover extensions matching the given source and options. */
-  readonly find: (
+  readonly getExtensions: (
     source: RegistrySourceParams,
     options: FindOptions,
   ) => Effect.Effect<
     ReadonlyArray<SourceExtensionRef>,
+    CliError,
+    FileSystem.FileSystem | Path.Path
+  >;
+  /** Check whether a scope exists in this registry. */
+  readonly scopeExists: (scope: string) => Effect.Effect<
+    boolean,
     CliError,
     FileSystem.FileSystem | Path.Path
   >;
@@ -254,7 +260,7 @@ const processNameDir = (
 export const createLocalRegistryProvider = (registryRoot: string): RegistrySourceProvider => ({
   type: "registry",
 
-  find: (_source, options) =>
+  getExtensions: (_source, options) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -325,6 +331,14 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
 
       // Empty names = find all
       return yield* findForName("");
+    }),
+
+  scopeExists: (scope) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const p = yield* Path.Path;
+      const scopeDir = p.join(registryRoot, "extensions", scope);
+      return yield* fs.exists(scopeDir).pipe(Effect.orElseSucceed(() => false));
     }),
 
   fetch: (_source, extension) =>
@@ -711,7 +725,15 @@ const extractZip = (archive: Uint8Array, targetDir: string) =>
 export const createRemoteRegistryProvider = (): RegistrySourceProvider => ({
   type: "registry",
 
-  find: () =>
+  getExtensions: () =>
+    Effect.fail(
+      makeCliError({
+        code: "SOURCE_FETCH_FAILED",
+        what: "Remote registry sources are not yet supported",
+      }),
+    ),
+
+  scopeExists: () =>
     Effect.fail(
       makeCliError({
         code: "SOURCE_FETCH_FAILED",
@@ -818,7 +840,7 @@ export const createRegistrySourceHostProvider = (
         const innerSource: RegistrySourceParams = {
           type: "registry",
         };
-        const refs = yield* inner.find(innerSource, options);
+        const refs = yield* inner.getExtensions(innerSource, options);
 
         // Re-stamp source to the RegistrySource (includes host config)
         return refs.map((ref) => ({ ...ref, source }) as SourceExtensionRef);

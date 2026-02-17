@@ -77,15 +77,15 @@ const createTestZip = (fileName: string, content: string): Uint8Array => {
 const makeRegistryDir = (): string => mkdtempSync(nodePath.join(tmpdir(), "test-registry-"));
 
 // -----------------------------------------------------------------------------
-// LocalRegistrySourceProvider.find
+// LocalRegistrySourceProvider.getExtensions
 // -----------------------------------------------------------------------------
 
-describe("LocalRegistrySourceProvider.find", () => {
+describe("LocalRegistrySourceProvider.getExtensions", () => {
   it("returns empty when registry directory does not exist", () =>
     runEffect(
       Effect.gen(function* () {
         const provider = createLocalRegistryProvider("/nonexistent/path");
-        const refs = yield* provider.find(registryParams, defaultFindOptions);
+        const refs = yield* provider.getExtensions(registryParams, defaultFindOptions);
         expect(refs).toHaveLength(0);
       }),
     ));
@@ -104,7 +104,7 @@ describe("LocalRegistrySourceProvider.find", () => {
         );
 
         const provider = createLocalRegistryProvider(registryRoot);
-        const refs = yield* provider.find(registryParams, {
+        const refs = yield* provider.getExtensions(registryParams, {
           ...defaultFindOptions,
           names: ["my-skill"],
         });
@@ -138,14 +138,14 @@ describe("LocalRegistrySourceProvider.find", () => {
 
         const provider = createLocalRegistryProvider(registryRoot);
 
-        const found = yield* provider.find(registryParams, {
+        const found = yield* provider.getExtensions(registryParams, {
           ...defaultFindOptions,
           names: ["my-skill"],
           agents: ["cursor"],
         });
         expect(found).toHaveLength(1);
 
-        const notFound = yield* provider.find(registryParams, {
+        const notFound = yield* provider.getExtensions(registryParams, {
           ...defaultFindOptions,
           names: ["my-skill"],
           agents: ["claude-code"],
@@ -173,7 +173,7 @@ describe("LocalRegistrySourceProvider.find", () => {
         );
 
         const provider = createLocalRegistryProvider(registryRoot);
-        const refs = yield* provider.find(registryParams, {
+        const refs = yield* provider.getExtensions(registryParams, {
           ...defaultFindOptions,
           names: ["nonexistent"],
         });
@@ -200,11 +200,53 @@ describe("LocalRegistrySourceProvider.find", () => {
         );
 
         const provider = createLocalRegistryProvider(registryRoot);
-        const refs = yield* provider.find(registryParams, {
+        const refs = yield* provider.getExtensions(registryParams, {
           ...defaultFindOptions,
           names: ["my-skill"],
         });
         expect(refs).toHaveLength(0);
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+        ),
+      ),
+    );
+  });
+});
+
+// -----------------------------------------------------------------------------
+// LocalRegistrySourceProvider.scopeExists
+// -----------------------------------------------------------------------------
+
+describe("LocalRegistrySourceProvider.scopeExists", () => {
+  it("returns true when scope/type directory exists", () => {
+    const registryRoot = makeRegistryDir();
+    const skillTypeDir = nodePath.join(registryRoot, "extensions", "@test", "skills");
+
+    return runEffect(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.makeDirectory(skillTypeDir, { recursive: true });
+
+        const provider = createLocalRegistryProvider(registryRoot);
+        const exists = yield* provider.scopeExists("@test");
+        expect(exists).toBe(true);
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+        ),
+      ),
+    );
+  });
+
+  it("returns false when scope/type directory does not exist", () => {
+    const registryRoot = makeRegistryDir();
+
+    return runEffect(
+      Effect.gen(function* () {
+        const provider = createLocalRegistryProvider(registryRoot);
+        const exists = yield* provider.scopeExists("@missing");
+        expect(exists).toBe(false);
       }).pipe(
         Effect.ensuring(
           Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -441,7 +483,7 @@ describe("RemoteRegistrySourceProvider", () => {
       Effect.gen(function* () {
         const provider = createRemoteRegistryProvider();
         const result = yield* provider
-          .find(registryParams, defaultFindOptions)
+          .getExtensions(registryParams, defaultFindOptions)
           .pipe(Effect.either);
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
@@ -462,8 +504,9 @@ describe("RemoteRegistrySourceProvider", () => {
               skill: { name: "x", description: "", metadata: Option.none() },
               source: {
                 type: "registry",
-                scope: "@test",
+                location: new URL("https://registry.example.com"),
               },
+              scope: "@test",
               version: "1.0.0",
               checksum: "",
             } as never,
@@ -501,6 +544,15 @@ describe("RemoteRegistrySourceProvider", () => {
         expect(result._tag).toBe("Left");
       }),
     ));
+
+  it("fails scopeExists with descriptive error", () =>
+    runEffect(
+      Effect.gen(function* () {
+        const provider = createRemoteRegistryProvider();
+        const result = yield* provider.scopeExists("@test").pipe(Effect.either);
+        expect(result._tag).toBe("Left");
+      }),
+    ));
 });
 
 // -----------------------------------------------------------------------------
@@ -524,7 +576,7 @@ describe("createRegistryProvider", () => {
     return runEffect(
       Effect.gen(function* () {
         const result = yield* provider
-          .find(registryParams, defaultFindOptions)
+          .getExtensions(registryParams, defaultFindOptions)
           .pipe(Effect.either);
         expect(result._tag).toBe("Left");
       }),

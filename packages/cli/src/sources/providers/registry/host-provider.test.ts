@@ -19,7 +19,7 @@ import { describe, expect, it } from "vitest";
 import { makeCliError } from "../../../cli-error/index.js";
 import type {
   RegistryClient,
-  RegistryExtensionVersionManifest,
+  RegistryExtensionManifest,
   GetExtensionsByScopeArgs,
   GetExtensionsByScopeResponse,
   VersionEntry,
@@ -85,7 +85,7 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 
 /** Wrap entries into a GetExtensionsByScopeResponse. */
 const toResult = (
-  extensions: ReadonlyArray<RegistryExtensionVersionManifest>,
+  extensions: ReadonlyArray<RegistryExtensionManifest>,
 ): GetExtensionsByScopeResponse => ({
   extensions,
   total: extensions.length,
@@ -148,7 +148,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
   it("maps FindOptions to GetExtensionsByScopeArgs and returns SourceExtensionRefs", () => {
     const registry = makeTestRegistry();
     let capturedOptions: GetExtensionsByScopeArgs | undefined;
-    const entries: ReadonlyArray<RegistryExtensionVersionManifest> = [
+    const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
         scope: "@test",
         type: "skill",
@@ -156,7 +156,8 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         description: Option.some("My skill description"),
         repository: Option.some("https://github.com/test/my-skill"),
         license: Option.some("MIT"),
-        authors: Option.some([{ name: "Test Author", email: Option.none(), url: Option.none() }]),
+        authors: [{ name: "Test Author", email: Option.none(), url: Option.none() }],
+        dependencies: { "@test/base-skill": "^1.2.3" },
         version: "1.0.0",
         integrity: "sha512-abc",
       },
@@ -202,6 +203,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
             repository: "https://github.com/test/my-skill",
             license: "MIT",
             authors: [{ name: "Test Author" }],
+            dependencies: { "@test/base-skill": "^1.2.3" },
           }),
         );
         expect(skillRef.scope).toBe("@test");
@@ -213,7 +215,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
 
   it("maps mcp-server entries to McpServerExtensionRef", () => {
     const registry = makeTestRegistry();
-    const entries: ReadonlyArray<RegistryExtensionVersionManifest> = [
+    const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
         scope: "@test",
         type: "mcp-server",
@@ -221,7 +223,8 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         description: Option.none(),
         repository: Option.none(),
         license: Option.none(),
-        authors: Option.none(),
+        authors: [],
+        dependencies: {},
         version: "2.0.0",
         integrity: "sha512-def",
       },
@@ -254,7 +257,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
 
   it("maps pack entries to PackExtensionRef", () => {
     const registry = makeTestRegistry();
-    const entries: ReadonlyArray<RegistryExtensionVersionManifest> = [
+    const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
         scope: "@test",
         type: "pack",
@@ -262,7 +265,8 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         description: Option.none(),
         repository: Option.none(),
         license: Option.none(),
-        authors: Option.none(),
+        authors: [],
+        dependencies: {},
         version: "3.0.0",
         integrity: "sha512-ghi",
       },

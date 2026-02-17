@@ -107,7 +107,7 @@ export interface ExtensionExistsArgs {
  * Result from a registry extension search.
  */
 export interface GetExtensionsByScopeResponse {
-  readonly extensions: ReadonlyArray<RegistryExtensionVersionManifest>;
+  readonly extensions: ReadonlyArray<RegistryExtensionManifest>;
   readonly total: number;
 }
 
@@ -164,14 +164,15 @@ export interface ExtensionExistsResponse {
  *
  * Represents a single matched extension with its resolved version and integrity.
  */
-export interface RegistryExtensionVersionManifest {
+export interface RegistryExtensionManifest {
   readonly scope: string;
   readonly type: ExtensionType;
   readonly name: string;
   readonly description: Option.Option<string>;
   readonly repository: Option.Option<string>;
   readonly license: Option.Option<string>;
-  readonly authors: Option.Option<ReadonlyArray<Author>>;
+  readonly authors: ReadonlyArray<Author>;
+  readonly dependencies: Readonly<Record<string, string>>;
   readonly version: string;
   readonly integrity: string;
 }

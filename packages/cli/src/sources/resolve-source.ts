@@ -30,6 +30,7 @@ import type { SourceHostConfig } from "../settings/schema.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import { Workspace } from "../workspace/index.js";
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../extensions/constants.js";
+import type { InputParseResult, ShorthandInput } from "./parser.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -67,10 +68,10 @@ const getInstalledSkillPath = (name: string, entry: SkillLockEntry): string => {
 
 /** Parse shorthand input using the provider for the given source type. */
 const parseShorthandForSource = (
-  sourceType: string,
-  input: string,
+  shorthand: ShorthandInput,
 ): Effect.Effect<SourceParams, CliError> => {
-  switch (sourceType) {
+  const input = `${shorthand.prefix}:${shorthand.remainingInput}`;
+  switch (shorthand.prefix) {
     case "github":
       return github.parseShorthand(input);
     case "gitlab":
@@ -81,7 +82,7 @@ const parseShorthandForSource = (
       return Effect.fail(
         makeCliError({
           code: "SOURCE_PARSE_FAILED",
-          what: `Source type "${sourceType}" does not support shorthand syntax`,
+          what: `Source type "${shorthand.prefix}" does not support shorthand syntax`,
           details: [input],
         }),
       );
@@ -204,8 +205,11 @@ const routeOpaqueUrl = (url: URL, input: string) =>
     const matchedConfig = sources.find((s) => s.name === prefix);
     if (matchedConfig && GIT_HOSTING_TYPES.has(matchedConfig.type)) {
       const remainder = input.slice(colonIndex + 1);
-      const reparsed = `${matchedConfig.type}:${remainder}`;
-      const params = yield* parseShorthandForSource(matchedConfig.type, reparsed);
+      const params = yield* parseShorthandForSource({
+        pattern: "shorthand-input",
+        prefix: matchedConfig.type,
+        remainingInput: remainder,
+      });
       return yield* configToSource(matchedConfig, params, input);
     }
 
@@ -287,14 +291,16 @@ export const routeScpInput = (
  * parser. Config-name prefixes look up the config and parse using its source
  * type's shorthand parser.
  */
-export const routeShorthandInput = (prefix: string, shorthandInput: string, input: string) =>
+export const resolveShorthandInputSource = (parseResult: InputParseResult<ShorthandInput>) =>
   Effect.gen(function* () {
+    const prefix = parseResult.pattern.prefix;
+    const input = parseResult.originalInput;
     const sources = yield* getConfiguredSources(input);
 
     // Known source-type prefix → dispatch directly, select first config of that type
     const isKnownType = prefix === "github" || prefix === "gitlab" || prefix === "bitbucket";
     if (isKnownType) {
-      const params = yield* parseShorthandForSource(prefix, shorthandInput);
+      const params = yield* parseShorthandForSource(parseResult.pattern);
       const config = sources.find((s) => s.type === prefix);
       if (!config) {
         return yield* makeCliError({
@@ -316,9 +322,11 @@ export const routeShorthandInput = (prefix: string, shorthandInput: string, inpu
       });
     }
 
-    const remainder = shorthandInput.slice(prefix.length + 1);
-    const reparsed = `${matchedConfig.type}:${remainder}`;
-    const params = yield* parseShorthandForSource(matchedConfig.type, reparsed);
+    const params = yield* parseShorthandForSource({
+      pattern: "shorthand-input",
+      prefix: matchedConfig.type,
+      remainingInput: parseResult.pattern.remainingInput,
+    });
     return yield* configToSource(matchedConfig, params, input);
   });
 
@@ -461,7 +469,11 @@ export const resolveSlashInputSource = (
           const provider = createRegistryProvider(regSource.location.href);
           const exists = yield* provider
             .extensionExists(scope, extensionType.value, extensionName)
-            .pipe(Effect.provide(NodeContext.layer), Effect.scoped, Effect.orElseSucceed(() => false));
+            .pipe(
+              Effect.provide(NodeContext.layer),
+              Effect.scoped,
+              Effect.orElseSucceed(() => false),
+            );
           if (exists) {
             return {
               type: "registry" as const,
@@ -477,7 +489,11 @@ export const resolveSlashInputSource = (
       if (!sourceType) return Option.none();
       return Option.some(
         Effect.flatMap(
-          parseShorthandForSource(sourceType, `${sourceType}:${shorthandBody}`),
+          parseShorthandForSource({
+            pattern: "shorthand-input",
+            prefix: sourceType,
+            remainingInput: shorthandBody,
+          }),
           (params) => configToSource(config, params, input),
         ),
       );
@@ -529,8 +545,8 @@ export const resolveSource = (input: string): Effect.Effect<Source, CliError, Wo
       });
     }
 
-    const patternOpt = parseInputPattern(trimmed);
-    if (Option.isNone(patternOpt)) {
+    const parseResultOpt = parseInputPattern(trimmed);
+    if (Option.isNone(parseResultOpt)) {
       return yield* makeCliError({
         code: "SOURCE_PARSE_FAILED",
         what: "Unable to parse source",
@@ -538,22 +554,26 @@ export const resolveSource = (input: string): Effect.Effect<Source, CliError, Wo
       });
     }
 
-    const pattern = patternOpt.value;
+    const parsed = parseResultOpt.value;
+    const pattern = parsed.pattern;
     switch (pattern.pattern) {
       case "url-input":
-        return yield* routeUrlInput(pattern.url, trimmed);
+        return yield* routeUrlInput(pattern.url, parsed.originalInput);
       case "git-scp-address":
-        return yield* routeScpInput(pattern, trimmed);
+        return yield* routeScpInput(pattern, parsed.originalInput);
       case "shorthand-input":
-        return yield* routeShorthandInput(pattern.prefix, pattern.input, trimmed);
+        return yield* resolveShorthandInputSource({
+          pattern,
+          originalInput: parsed.originalInput,
+        });
       case "name-input":
-        return yield* routeNameInput(pattern.name, trimmed);
+        return yield* routeNameInput(pattern.name, parsed.originalInput);
       case "file-path-pattern":
         return yield* routeFilePathInput(pattern.path);
       case "registry-pattern-input":
-        return yield* routeRegistryInput(pattern, trimmed);
+        return yield* routeRegistryInput(pattern, parsed.originalInput);
       case "slash-pattern":
-        return yield* resolveSlashInputSource(pattern, trimmed);
+        return yield* resolveSlashInputSource(pattern, parsed.originalInput);
       case "glob-input":
         return yield* makeCliError({
           code: "SOURCE_PARSE_FAILED",

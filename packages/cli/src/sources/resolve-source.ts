@@ -22,7 +22,12 @@ import * as github from "./github/index.js";
 import * as gitlab from "./gitlab/index.js";
 import { parseLocalPath } from "./local/index.js";
 import { parseInputPattern } from "./parser.js";
-import type { RegistrySourceInputLegacy, Source, SourceParams, SourceType } from "./types.js";
+import type {
+  RegistrySourceInputLegacy,
+  SourceLegacy,
+  SourceParams,
+  SourceType,
+} from "./types.js";
 import type { SourceHostConfig } from "../settings/schema.js";
 import type { SkillLockEntry } from "../lockfile/index.js";
 import { Workspace } from "../workspace/index.js";
@@ -93,7 +98,7 @@ const configToSource = (
   config: SourceHostConfig,
   params: SourceParams,
   input: string,
-): Effect.Effect<Source, CliError> => {
+): Effect.Effect<SourceLegacy, CliError> => {
   const mismatch = () =>
     Effect.fail(
       makeCliError({
@@ -468,7 +473,7 @@ const routeSlashInput = (
  * @param input - The source string to resolve
  * @returns Effect containing a resolved Source or CliError
  */
-export const resolveSource = (input: string): Effect.Effect<Source, CliError, Workspace> =>
+export const resolveSource = (input: string): Effect.Effect<SourceLegacy, CliError, Workspace> =>
   Effect.gen(function* () {
     const trimmed = input.trim();
     if (!trimmed) {

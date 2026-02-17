@@ -13,4 +13,7 @@ import type { GitHostingProviderSource, SourceInput } from "./types.js";
 export const isGitHostingProviderSource = (
   source: SourceInput,
 ): source is GitHostingProviderSource =>
-  source.type === "github" || source.type === "gitlab" || source.type === "bitbucket";
+  source.type === "github" ||
+  source.type === "gitlab" ||
+  source.type === "bitbucket" ||
+  source.type === "azurerepos";

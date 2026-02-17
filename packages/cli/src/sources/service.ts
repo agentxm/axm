@@ -110,9 +110,7 @@ const buildCloneUrlFromSource = (source: Source | NewSource): Option.Option<stri
 const getOriginFromSource = (source: Source | NewSource): string => {
   switch (source.type) {
     case "github":
-      return `${source.url.origin}/${source.owner}/${source.repo}`;
     case "gitlab":
-      return `${source.url.origin}/${source.owner}/${source.repo}`;
     case "bitbucket":
       return `${source.url.origin}/${source.owner}/${source.repo}`;
     case "azurerepos":
@@ -130,6 +128,11 @@ const getOriginFromSource = (source: Source | NewSource): string => {
 
 type LegacyRef = SkillRef | McpServerRef;
 
+// Bridge function: converts legacy provider refs to the new SourceExtensionRef type.
+// Assertion needed: `as never` casts bridge two discriminated union hierarchies (legacy SourceInput
+// vs new source types). TS can't prove the correlation across the two type systems.
+// `as SourceExtensionRef` casts are needed because the spread object literal doesn't match any
+// single variant of the discriminated union — TS sees the union of all possible shapes.
 const toSourceExtensionRef = (ref: LegacyRef): SourceExtensionRef => {
   switch (ref.type) {
     case "skill": {
@@ -144,7 +147,6 @@ const toSourceExtensionRef = (ref: LegacyRef): SourceExtensionRef => {
             ...skillBase,
             version: Option.getOrElse(ref.version, () => ""),
             checksum: "",
-            // Preserve legacy location for fetch adapter.
             location: ref.location,
           } as SourceExtensionRef;
         case "local":
@@ -175,7 +177,6 @@ const toSourceExtensionRef = (ref: LegacyRef): SourceExtensionRef => {
             ...serverBase,
             version: Option.getOrElse(ref.version, () => ""),
             checksum: "",
-            // Preserve legacy location for fetch adapter.
             location: ref.location,
           } as SourceExtensionRef;
         case "local":
@@ -193,6 +194,10 @@ const toSourceExtensionRef = (ref: LegacyRef): SourceExtensionRef => {
   }
 };
 
+// Bridge function: converts new SourceExtensionRef back to legacy provider refs for fetching.
+// Assertion needed: same cross-hierarchy cast as toSourceExtensionRef (see comment above).
+// `"location" in ref` / `"version" in ref` guards are needed because not all ref variants
+// carry these fields — TS can't narrow the union after the type === "skill" check.
 const toLegacyRef = (ref: Exclude<SourceExtensionRef, { readonly type: "pack" }>): LegacyRef =>
   ref.type === "skill"
     ? {

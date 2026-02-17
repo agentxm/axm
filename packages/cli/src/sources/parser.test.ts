@@ -29,6 +29,7 @@ describe("parseInputPattern", () => {
         _tag: "RegistryPatternInput",
         scope: "@myorg",
         name: "some-name",
+        versionConstraint: Option.none(),
       });
     });
 

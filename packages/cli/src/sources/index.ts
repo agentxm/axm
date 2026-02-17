@@ -168,16 +168,6 @@ export { resolveSourcePattern } from "./resolve-source-pattern.js";
 // Printer
 export { lockEntryToSourceParams, printSourceInput } from "./printer.js";
 
-// Git operations
-export {
-  cloneRepo,
-  getCurrentCommit,
-  getTreeSha,
-  isGitRepository,
-  resolveRef,
-  shallowClone,
-} from "../git/index.js";
-
 // GitHub API
 export { fetchGitHubTreeHash } from "./github/index.js";
 

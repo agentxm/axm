@@ -5,6 +5,7 @@
  * @packageDocumentation
  */
 
+import { homedir } from "node:os";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -48,7 +49,7 @@ export const registryGuard = Effect.gen(function* () {
   const pathService = yield* Path.Path;
   const normalizedPath =
     path.startsWith("~/") || path === "~"
-      ? pathService.resolve(process.env["HOME"] ?? "~", path.slice(path === "~" ? 1 : 2))
+      ? pathService.resolve(homedir(), path.slice(path === "~" ? 1 : 2))
       : pathService.resolve(path);
 
   // Persist to settings

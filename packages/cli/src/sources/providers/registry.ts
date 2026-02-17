@@ -25,13 +25,7 @@ import {
 } from "../../registry/index.js";
 import { makeCliError } from "../../cli-error/index.js";
 import { computeChecksum } from "../../utils/checksum.js";
-import type {
-  FindOptions,
-  PublishableSourceHostProvider,
-  SkillRef,
-  McpServerRef,
-  LegacySourceProvider,
-} from "../provider.js";
+import type { FindOptions, PublishableSourceHostProvider } from "../provider.js";
 import type {
   NewRegistrySource,
   RegistrySourceHost,
@@ -47,15 +41,26 @@ import type {
  * Extended capabilities for registry source providers.
  *
  * Adds registry-specific operations (fetchIndex, fetchArchive, publishVersion,
- * checkNameExists) on top of the base `LegacySourceProvider` interface.
+ * checkNameExists) on top of the base provider interface.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export interface RegistrySourceProvider extends LegacySourceProvider<
-  RegistrySourceInput,
-  FileSystem.FileSystem | Path.Path
-> {
+export interface RegistrySourceProvider {
   readonly type: "registry";
+  /** Discover extensions matching the given source and options. */
+  readonly find: (
+    source: RegistrySourceInput,
+    options: FindOptions,
+  ) => Effect.Effect<
+    ReadonlyArray<SourceExtensionRef>,
+    CliError,
+    FileSystem.FileSystem | Path.Path
+  >;
+  /** Fetch and materialize extension files for a discovered ref. */
+  readonly fetch: (
+    source: RegistrySourceInput,
+    extension: SourceExtensionRef,
+  ) => Effect.Effect<{ readonly directory: string }, CliError, FileSystem.FileSystem | Path.Path>;
   /** Read the extension index from the registry. */
   readonly fetchIndex: (
     scope: string,
@@ -141,7 +146,7 @@ const selectVersion = (
 /**
  * Process a single name directory within a registry scope/type directory.
  * Reads the index.json, validates it, and selects a matching version.
- * Returns Some(SkillRef) if a matching version is found, None otherwise.
+ * Returns Some(SourceExtensionRef) if a matching version is found, None otherwise.
  */
 const processNameDir = (
   fs: FileSystem.FileSystem,
@@ -150,7 +155,7 @@ const processNameDir = (
   nameDir: string,
   scopeDir: string,
   options: FindOptions,
-): Effect.Effect<Option.Option<SkillRef>, CliError> =>
+): Effect.Effect<Option.Option<SourceExtensionRef>, CliError> =>
   Effect.gen(function* () {
     const dir = path.join(typeDir, nameDir);
     const idxPath = path.join(dir, "index.json");
@@ -190,23 +195,23 @@ const processNameDir = (
 
     const ver = selectedVersion.value;
 
+    // Assertion needed: TS can't prove the shape matches a specific SourceExtensionRef variant
     return Option.some({
-      type: "skill",
+      type: "skill" as const,
       skill: {
         name: nameDir,
         description: index.description ?? "",
         metadata: Option.none(),
       },
       source: {
-        type: "registry",
+        type: "registry" as const,
         scope: scopeDir,
         name: nameDir,
         versionConstraint: Option.none(),
       },
-      location: `file://${dir}`,
-      version: Option.some(ver.version),
-      gitTreeSha: Option.none(),
-    } satisfies SkillRef);
+      version: ver.version,
+      checksum: ver.checksum,
+    } as SourceExtensionRef);
   });
 
 // -----------------------------------------------------------------------------
@@ -238,7 +243,7 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
               ? ["skill", "mcp-server", "pack"]
               : [options.type as RegistryExtensionType];
 
-          const refs: SkillRef[] = [];
+          const refs: SourceExtensionRef[] = [];
 
           // Sequential: each iteration reads from the filesystem and may early-return
           for (const extType of typeFilter) {
@@ -281,11 +286,11 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
         const results = yield* Effect.forEach(options.names, (name) => findForName(name), {
           concurrency: "unbounded",
         });
-        return Array.flatten(results) as ReadonlyArray<SkillRef | McpServerRef>;
+        return Array.flatten(results);
       }
 
       // Empty names = find all
-      return (yield* findForName("")) as ReadonlyArray<SkillRef | McpServerRef>;
+      return yield* findForName("");
     }),
 
   fetch: (_source, extension) =>
@@ -293,7 +298,7 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
 
-      if (extension.type !== "skill" || Option.isNone(extension.version)) {
+      if (extension.type !== "skill" || !("version" in extension)) {
         return yield* Effect.fail(
           makeCliError({
             code: "SOURCE_FETCH_FAILED",
@@ -302,8 +307,15 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
         );
       }
 
-      const dir = extension.location.replace("file://", "");
-      const version = extension.version.value;
+      // Assertion needed: TS can't narrow "version" field after the "in" check
+      const version = (extension as { version: string }).version;
+      const dir = extensionDir(
+        registryRoot,
+        _source.scope,
+        "skill",
+        extension.skill.name,
+        path.join,
+      );
       const archivePath = path.join(dir, `${version}.zip`);
 
       const archiveExists = yield* fs.exists(archivePath).pipe(Effect.orElseSucceed(() => false));
@@ -741,72 +753,27 @@ export const createRegistrySourceHostProvider = (
 
     find: (source, options) =>
       Effect.gen(function* () {
-        // Delegate to inner provider, converting source to legacy format
-        const legacySource: RegistrySourceInput = {
+        const innerSource: RegistrySourceInput = {
           type: "registry",
           scope: source.scope,
           name: source.name,
           versionConstraint: source.versionConstraint,
         };
-        const legacyRefs = yield* inner.find(legacySource, options);
+        const refs = yield* inner.find(innerSource, options);
 
-        // Convert legacy SkillRefs to SourceExtensionRefs with checksum from index
-        const skillRefs = legacyRefs.filter((ref) => ref.type === "skill");
-        const newRefs = yield* Effect.forEach(
-          skillRefs,
-          (ref) =>
-            Effect.gen(function* () {
-              const version = Option.getOrElse(ref.version, () => "");
-              let checksum = "";
-              if (version !== "") {
-                // Use source.scope (from NewRegistrySource) — not ref.source which is legacy SourceInput
-                const indexResult = yield* inner
-                  .fetchIndex(source.scope, "skill", ref.skill.name)
-                  .pipe(Effect.either);
-                if (indexResult._tag === "Right") {
-                  const versionEntry = indexResult.right.versions.find(
-                    (v) => v.version === version,
-                  );
-                  if (versionEntry) checksum = versionEntry.checksum;
-                }
-              }
-              return {
-                type: "skill" as const,
-                skill: ref.skill,
-                source,
-                version,
-                checksum,
-              } as SourceExtensionRef;
-            }),
-          { concurrency: "unbounded" },
-        );
-        return newRefs;
+        // Re-stamp source to the NewRegistrySource (includes host config)
+        return refs.map((ref) => ({ ...ref, source }) as SourceExtensionRef);
       }),
 
-    fetch: (source, _ref) =>
-      Effect.gen(function* () {
-        const p = yield* Path.Path;
-        const legacySource: RegistrySourceInput = {
-          type: "registry",
-          scope: source.scope,
-          name: source.name,
-          versionConstraint: source.versionConstraint,
-        };
-        // Build a legacy ref for fetching
-        const legacyRef: SkillRef = {
-          type: "skill",
-          skill: { name: source.name, description: "", metadata: Option.none() },
-          source: legacySource,
-          location:
-            "version" in _ref
-              ? `file://${extensionDir(registryRoot, source.scope, "skill", source.name, p.join)}`
-              : "",
-          version:
-            "version" in _ref ? Option.some((_ref as { version: string }).version) : Option.none(),
-          gitTreeSha: Option.none(),
-        };
-        return yield* inner.fetch(legacySource, legacyRef);
-      }),
+    fetch: (source, ref) => {
+      const innerSource: RegistrySourceInput = {
+        type: "registry",
+        scope: source.scope,
+        name: source.name,
+        versionConstraint: source.versionConstraint,
+      };
+      return inner.fetch(innerSource, ref);
+    },
 
     publishVersion: (scope, type, name, version, archive, metadata) =>
       inner.publishVersion(scope, type, name, version, archive, metadata),

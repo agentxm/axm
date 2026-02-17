@@ -16,11 +16,13 @@ import * as Option from "effect/Option";
 
 import { getAgentById } from "../agents/index.js";
 import { makeCliError, type CliError } from "../cli-error/index.js";
-import { discoverSkillsInDir } from "../cli-commands/skills/install/discover-skills.js";
+import {
+  discoverSkillsInDir,
+  type DiscoveredSkill,
+} from "../cli-commands/skills/install/discover-skills.js";
 import { expandGlobs, isGlobPattern } from "../skills/index.js";
 import { Workspace } from "../workspace/index.js";
 import { resolveSource } from "./resolve-source.js";
-import type { SkillRef } from "./provider.js";
 import type { Source } from "./types.js";
 
 // -----------------------------------------------------------------------------
@@ -52,12 +54,10 @@ const buildCandidates = Effect.gen(function* () {
   const onDiskRefs = yield* Effect.forEach(
     agentRoots,
     (agentRoot) =>
-      discoverSkillsInDir(
-        agentRoot,
-        Option.none(),
-        { fullDepth: false, includeInternal: false },
-        { type: "local", path: agentRoot },
-      ).pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<SkillRef>>([]))),
+      discoverSkillsInDir(agentRoot, Option.none(), {
+        fullDepth: false,
+        includeInternal: false,
+      }).pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<DiscoveredSkill>>([]))),
     { concurrency: "unbounded" },
   ).pipe(Effect.map(Array.flatten));
 

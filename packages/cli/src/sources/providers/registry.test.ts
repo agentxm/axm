@@ -115,7 +115,7 @@ describe("LocalRegistrySourceProvider.find", () => {
         expect(refs[0]!.type).toBe("skill");
         if (refs[0]!.type === "skill") {
           expect(refs[0]!.skill.name).toBe("my-skill");
-          expect(Option.getOrNull(refs[0]!.version)).toBe("1.0.0");
+          expect("version" in refs[0]! && refs[0]!.version).toBe("1.0.0");
         }
       }).pipe(
         Effect.ensuring(
@@ -247,10 +247,9 @@ describe("LocalRegistrySourceProvider.fetch", () => {
               name: "my-skill",
               versionConstraint: Option.none(),
             },
-            location: `file://${skillDir}`,
-            version: Option.some("1.0.0"),
-            gitTreeSha: Option.none(),
-          },
+            version: "1.0.0",
+            checksum: "",
+          } as never,
         );
 
         const extractedFile = yield* fs.readFileString(nodePath.join(result.directory, "SKILL.md"));
@@ -298,10 +297,9 @@ describe("LocalRegistrySourceProvider.fetch", () => {
                 name: "my-skill",
                 versionConstraint: Option.none(),
               },
-              location: `file://${skillDir}`,
-              version: Option.some("1.0.0"),
-              gitTreeSha: Option.none(),
-            },
+              version: "1.0.0",
+              checksum: "",
+            } as never,
           )
           .pipe(Effect.either);
 
@@ -490,10 +488,9 @@ describe("RemoteRegistrySourceProvider", () => {
                 name: "my-skill",
                 versionConstraint: Option.none(),
               },
-              location: "https://example.com",
-              version: Option.some("1.0.0"),
-              gitTreeSha: Option.none(),
-            },
+              version: "1.0.0",
+              checksum: "",
+            } as never,
           )
           .pipe(Effect.either);
         expect(result._tag).toBe("Left");

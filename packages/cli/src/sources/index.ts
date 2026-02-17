@@ -110,33 +110,16 @@ export type {
 // Type guards
 export { isGitHostingProviderSource } from "./utils.js";
 
-// Provider types — legacy
+// Provider types
 export type {
   ExtensionFiles,
   FindOptions,
-  McpServerRef,
-  SkillRef,
-  LegacySourceProvider,
+  SourceHostProvider,
+  PublishableSourceHostProvider,
 } from "./provider.js";
 
-// Provider types — new
-export type { SourceHostProvider, PublishableSourceHostProvider } from "./provider.js";
-
-// Provider implementations — legacy
+// Provider implementations
 export type { RegistrySourceProvider } from "./providers/index.js";
-export {
-  createLegacyAzureReposProvider,
-  createBitbucketProvider,
-  createGitHubProvider,
-  createGitLabProvider,
-  createLegacyGitProvider,
-  createLegacyLocalProvider,
-  createLocalRegistryProvider,
-  createRegistryProvider,
-  createRemoteRegistryProvider,
-} from "./providers/index.js";
-
-// Provider implementations — new (SourceHostProvider)
 export {
   createAzureReposSourceHostProvider,
   createBitbucketSourceHostProvider,
@@ -146,7 +129,10 @@ export {
   createGitLabSourceHostProvider,
   createGitSourceHostProvider,
   createLocalSourceHostProvider,
+  createLocalRegistryProvider,
+  createRegistryProvider,
   createRegistrySourceHostProvider,
+  createRemoteRegistryProvider,
 } from "./providers/index.js";
 
 // SourceHostProviders service (new)

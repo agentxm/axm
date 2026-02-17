@@ -8,14 +8,11 @@
  * @packageDocumentation
  */
 
-import * as Array from "effect/Array";
 import type * as Effect from "effect/Effect";
-import type * as Option from "effect/Option";
 
 import type { CliError } from "../cli-error/index.js";
-import type { Skill } from "../extensions/skills/types.js";
 import type { RegistryExtensionType, VersionEntry } from "../registry/index.js";
-import type { FindableExtensionType, NewSource, SourceExtensionRef, SourceInput } from "./types.js";
+import type { FindableExtensionType, NewSource, SourceExtensionRef } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Search Criteria
@@ -34,48 +31,6 @@ export interface FindOptions {
   readonly names: ReadonlyArray<string>;
   readonly agents: ReadonlyArray<string>;
   readonly type: FindableExtensionType | "*";
-}
-
-// -----------------------------------------------------------------------------
-// Discovery Results (legacy — kept for backward compatibility)
-// -----------------------------------------------------------------------------
-
-/**
- * A discovered skill reference.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface SkillRef {
-  /** Discriminator for the extension type. */
-  readonly type: "skill";
-  /** Parsed skill metadata from SKILL.md. */
-  readonly skill: Skill;
-  /** The source that was searched. */
-  readonly source: SourceInput;
-  /** URL where extension files are materialized (`file://` or `https://`). */
-  readonly location: string;
-  /** Resolved version for registry sources; `None` for git/local. */
-  readonly version: Option.Option<string>;
-  /** Git tree SHA for integrity verification. */
-  readonly gitTreeSha: Option.Option<string>;
-}
-
-/**
- * A discovered MCP server reference (forward compatibility).
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface McpServerRef {
-  /** Discriminator for the extension type. */
-  readonly type: "mcp-server";
-  /** Name of the MCP server. */
-  readonly name: string;
-  /** The source that was searched. */
-  readonly source: SourceInput;
-  /** URL where extension files are materialized (`file://` or `https://`). */
-  readonly location: string;
-  /** Resolved version for registry sources; `None` for git/local. */
-  readonly version: Option.Option<string>;
 }
 
 // -----------------------------------------------------------------------------
@@ -148,42 +103,3 @@ export interface PublishableSourceHostProvider<
     metadata: VersionEntry,
   ) => Effect.Effect<void, CliError, R>;
 }
-
-// -----------------------------------------------------------------------------
-// Legacy Provider Interface
-// -----------------------------------------------------------------------------
-
-/**
- * @experimental This API is unstable and may change without notice.
- */
-export interface LegacySourceProvider<S extends SourceInput = SourceInput, R = never> {
-  /** Source type discriminator matching `S["type"]`. */
-  readonly type: S["type"];
-  /** Discover extensions at the given source matching the search criteria. */
-  readonly find: (
-    source: S,
-    options: FindOptions,
-  ) => Effect.Effect<ReadonlyArray<SkillRef | McpServerRef>, CliError, R>;
-  /** Fetch and materialize extension files for a discovered ref. */
-  readonly fetch: (
-    source: S,
-    extension: SkillRef | McpServerRef,
-  ) => Effect.Effect<ExtensionFiles, CliError, R>;
-}
-
-// -----------------------------------------------------------------------------
-// Shared Helpers
-// -----------------------------------------------------------------------------
-
-/** Filter extension refs by name options. No-op when `options.names` is empty. */
-export const filterRefsByOptions = (
-  refs: ReadonlyArray<SkillRef | McpServerRef>,
-  options: FindOptions,
-): ReadonlyArray<SkillRef | McpServerRef> => {
-  if (options.names.length === 0) return refs;
-  const nameSet = new Set(options.names);
-  return Array.filter(refs, (ref) => {
-    const name = ref.type === "skill" ? ref.skill.name : ref.name;
-    return nameSet.has(name);
-  });
-};

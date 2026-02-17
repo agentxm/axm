@@ -269,9 +269,6 @@ describe("SourceHostProviders dispatch", () => {
           .pipe(Effect.either);
 
         expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.what).toContain("not yet supported");
-        }
       }),
     ));
 

@@ -8,5 +8,4 @@
  * @packageDocumentation
  */
 
-// Re-export types
-export type { ExtensionType } from "./types.js";
+export type { ExtensionType } from "../extensions/common.js";

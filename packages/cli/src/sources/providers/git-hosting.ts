@@ -18,14 +18,9 @@ import type * as Scope from "effect/Scope";
 import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
 import { makeCliError } from "../../cli-error/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
-import { filterRefsByOptions } from "../provider.js";
-import type { SkillRef, LegacySourceProvider } from "../provider.js";
 import type { SourceHostProvider } from "../provider.js";
 import type {
-  BitbucketSource,
-  GitHubSource,
   GitHubSourceHost,
-  GitLabSource,
   GitLabSourceHost,
   BitbucketSourceHost,
   AzureReposSourceHost,
@@ -99,15 +94,10 @@ export const createGitHostingSourceHostProvider = <
 
       yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(ref));
 
-      const oldRefs = yield* discoverSkillsInDir(
-        tempDir,
-        subPath,
-        {
-          fullDepth: false,
-          includeInternal: false,
-        },
-        source,
-      ).pipe(
+      const oldRefs = yield* discoverSkillsInDir(tempDir, subPath, {
+        fullDepth: false,
+        includeInternal: false,
+      }).pipe(
         Effect.mapError((error) =>
           makeCliError({
             code: "SOURCE_FETCH_FAILED",
@@ -121,17 +111,17 @@ export const createGitHostingSourceHostProvider = <
       // Enrich with tree SHAs and wrap as SourceExtensionRef
       const refs = yield* Effect.forEach(
         oldRefs,
-        (oldRef) =>
+        (d) =>
           Effect.gen(function* () {
-            const skillPath = oldRef.location.replace("file://", "");
+            const skillPath = d.location.replace("file://", "");
             const relativeDir = path.relative(tempDir, skillPath);
             const gitTreeSha = yield* getTreeSha(tempDir, relativeDir);
             // Assertion needed: TS can't prove S narrows source to a specific SourceExtensionRef variant
             return {
               type: "skill" as const,
-              skill: oldRef.skill,
+              skill: d.skill,
               source,
-              location: oldRef.location,
+              location: d.location,
               gitTreeSha: Option.some(gitTreeSha),
             } as SourceExtensionRef;
           }),
@@ -176,131 +166,7 @@ export const buildCloneUrlForSource = (
 };
 
 // -----------------------------------------------------------------------------
-// Legacy Factory (LegacySourceProvider — backward compat)
-// -----------------------------------------------------------------------------
-
-/**
- * Creates a legacy `LegacySourceProvider` for a git hosting platform.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const createLegacyGitHostingProvider = <
-  S extends GitHubSource | GitLabSource | BitbucketSource,
->(
-  sourceType: S["type"],
-): LegacySourceProvider<S, FileSystem.FileSystem | Path.Path | Scope.Scope> => {
-  // Determine host URL from existing source config types (backward compat)
-  // The legacy providers are still used in the service layer during migration
-  return {
-    type: sourceType,
-
-    find: (source, options) =>
-      Effect.gen(function* () {
-        const path = yield* Path.Path;
-        const cloneUrl = buildCloneUrlForSource(
-          source as unknown as
-            | NewGitHubSource
-            | NewGitLabSource
-            | NewBitbucketSource
-            | NewAzureReposSource,
-        );
-
-        const tempDir = yield* Effect.acquireRelease(
-          Effect.gen(function* () {
-            const fs = yield* FileSystem.FileSystem;
-            const dir = path.join(tmpdir(), `axm-${randomUUID()}`);
-            yield* fs.makeDirectory(dir, { recursive: true }).pipe(
-              Effect.mapError((error) =>
-                makeCliError({
-                  code: "SOURCE_FETCH_FAILED",
-                  what: "Failed to create temp directory",
-                  details: [error.message],
-                  cause: error,
-                }),
-              ),
-            );
-            return dir;
-          }),
-          (dir) =>
-            Effect.gen(function* () {
-              const fs = yield* FileSystem.FileSystem;
-              yield* fs.remove(dir, { recursive: true });
-            }).pipe(Effect.ignoreLogged),
-        );
-
-        yield* shallowClone(cloneUrl, tempDir, Option.getOrUndefined(source.ref));
-
-        const oldRefs = yield* discoverSkillsInDir(
-          tempDir,
-          source.subPath,
-          {
-            fullDepth: false,
-            includeInternal: false,
-          },
-          source,
-        ).pipe(
-          Effect.mapError((error) =>
-            makeCliError({
-              code: "SOURCE_FETCH_FAILED",
-              what: "Failed to discover skills",
-              details: [error.message],
-              cause: error,
-            }),
-          ),
-        );
-
-        const refs = yield* Effect.forEach(
-          oldRefs,
-          (ref) =>
-            Effect.gen(function* () {
-              const skillPath = ref.location.replace("file://", "");
-              const relativeDir = path.relative(tempDir, skillPath);
-              const gitTreeSha = yield* getTreeSha(tempDir, relativeDir);
-              return {
-                ...ref,
-                source,
-                gitTreeSha: Option.some(gitTreeSha),
-              } satisfies SkillRef;
-            }),
-          { concurrency: "unbounded" },
-        );
-
-        return filterRefsByOptions(refs, options);
-      }),
-
-    fetch: (_source, extension) =>
-      Effect.succeed({ directory: extension.location.replace("file://", "") }),
-  };
-};
-
-// -----------------------------------------------------------------------------
-// Concrete Providers (legacy)
-// -----------------------------------------------------------------------------
-
-/**
- * Source provider for GitHub repositories.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const createGitHubProvider = () => createLegacyGitHostingProvider<GitHubSource>("github");
-
-/**
- * Source provider for GitLab repositories.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const createGitLabProvider = () => createLegacyGitHostingProvider<GitLabSource>("gitlab");
-
-/**
- * Source provider for Bitbucket repositories.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const createBitbucketProvider = () =>
-  createLegacyGitHostingProvider<BitbucketSource>("bitbucket");
-
-// -----------------------------------------------------------------------------
-// Concrete Providers (new — SourceHostProvider)
+// Concrete Providers (SourceHostProvider)
 // -----------------------------------------------------------------------------
 
 /**

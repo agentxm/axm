@@ -17,10 +17,6 @@ import {
   getPriorityDirectories,
 } from "./discover-skills.js";
 import { getAllAgents } from "../../../agents/index.js";
-import type { SourceInput } from "../../../sources/types.js";
-
-/** Default source for tests. */
-const testSource: SourceInput = { type: "local", path: "/test" };
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -80,15 +76,10 @@ describe("discoverSkillsInDir", () => {
         Effect.gen(function* () {
           createSkillMd(tempDir, "root-skill", "A root skill");
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            {
-              ...defaultOptions,
-              fullDepth: false,
-            },
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            fullDepth: false,
+          });
 
           expect(skills).toHaveLength(1);
           expect(skills[0]!.skill.name).toBe("root-skill");
@@ -103,15 +94,10 @@ describe("discoverSkillsInDir", () => {
           createSkillMd(tempDir, "root-skill", "A root skill");
           createSkillMd(path.join(tempDir, "skills", "child-skill"), "child-skill", "A child");
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            {
-              ...defaultOptions,
-              fullDepth: true,
-            },
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            fullDepth: true,
+          });
 
           expect(skills.length).toBeGreaterThanOrEqual(2);
           const names = skills.map((s) => s.skill.name);
@@ -127,12 +113,7 @@ describe("discoverSkillsInDir", () => {
           // No SKILL.md at root, but one in a priority directory
           createSkillMd(path.join(tempDir, "skills", "my-skill"), "my-skill", "Found in phase 2");
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
           expect(skills[0]!.skill.name).toBe("my-skill");
@@ -151,12 +132,7 @@ describe("discoverSkillsInDir", () => {
         Effect.gen(function* () {
           createSkillMd(path.join(tempDir, "skills", "my-skill"), "my-skill", "In skills dir");
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
           expect(skills[0]!.skill.name).toBe("my-skill");
@@ -173,12 +149,7 @@ describe("discoverSkillsInDir", () => {
             "In claude skills",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
           expect(skills[0]!.skill.name).toBe("claude-skill");
@@ -195,12 +166,7 @@ describe("discoverSkillsInDir", () => {
             "A curated skill",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
           expect(skills[0]!.skill.name).toBe("curated-skill");
@@ -214,12 +180,7 @@ describe("discoverSkillsInDir", () => {
           // Only create one priority dir with a skill; others don't exist
           createSkillMd(path.join(tempDir, "skills", "only-skill"), "only-skill", "The only skill");
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
           expect(skills[0]!.skill.name).toBe("only-skill");
@@ -237,12 +198,7 @@ describe("discoverSkillsInDir", () => {
             "A top-level skill",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
           expect(skills[0]!.skill.name).toBe("top-level-skill");
@@ -260,12 +216,7 @@ describe("discoverSkillsInDir", () => {
             "From .claude/skills/",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(2);
           const names = skills.map((s) => s.skill.name);
@@ -301,12 +252,7 @@ describe("discoverSkillsInDir", () => {
             "From marketplace manifest",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           const names = skills.map((s) => s.skill.name);
           expect(names).toContain("my-tool");
@@ -334,12 +280,7 @@ describe("discoverSkillsInDir", () => {
             "From plugin manifest",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           const names = skills.map((s) => s.skill.name);
           expect(names).toContain("my-extension");
@@ -353,12 +294,7 @@ describe("discoverSkillsInDir", () => {
           // No .claude-plugin directory; skill in a priority dir
           createSkillMd(path.join(tempDir, "skills", "normal-skill"), "normal-skill", "Normal");
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
           expect(skills[0]!.skill.name).toBe("normal-skill");
@@ -382,12 +318,7 @@ describe("discoverSkillsInDir", () => {
             "Found recursively",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
           expect(skills[0]!.skill.name).toBe("deep-skill");
@@ -409,15 +340,10 @@ describe("discoverSkillsInDir", () => {
             "Found recursively",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            {
-              ...defaultOptions,
-              fullDepth: true,
-            },
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            fullDepth: true,
+          });
 
           const names = skills.map((s) => s.skill.name);
           expect(names).toContain("priority-skill");
@@ -433,15 +359,10 @@ describe("discoverSkillsInDir", () => {
           const deepPath = path.join(tempDir, "a", "b", "c", "d", "e", "f", "too-deep-skill");
           createSkillMd(deepPath, "too-deep-skill", "Should not be found");
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            {
-              ...defaultOptions,
-              fullDepth: true,
-            },
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            fullDepth: true,
+          });
 
           const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("too-deep-skill");
@@ -456,15 +377,10 @@ describe("discoverSkillsInDir", () => {
           const deepPath = path.join(tempDir, "a", "b", "c", "d", "e", "depth5-skill");
           createSkillMd(deepPath, "depth5-skill", "At depth 5");
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            {
-              ...defaultOptions,
-              fullDepth: true,
-            },
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            fullDepth: true,
+          });
 
           const names = skills.map((s) => s.skill.name);
           expect(names).toContain("depth5-skill");
@@ -481,15 +397,10 @@ describe("discoverSkillsInDir", () => {
             "Should be skipped",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            {
-              ...defaultOptions,
-              fullDepth: true,
-            },
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            fullDepth: true,
+          });
 
           const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("hidden-skill");
@@ -506,15 +417,10 @@ describe("discoverSkillsInDir", () => {
             "Should be skipped",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            {
-              ...defaultOptions,
-              fullDepth: true,
-            },
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            fullDepth: true,
+          });
 
           const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("git-skill");
@@ -531,15 +437,10 @@ describe("discoverSkillsInDir", () => {
             "Should be skipped",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            {
-              ...defaultOptions,
-              fullDepth: true,
-            },
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            fullDepth: true,
+          });
 
           const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("dist-skill");
@@ -556,15 +457,10 @@ describe("discoverSkillsInDir", () => {
             "Should be skipped",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            {
-              ...defaultOptions,
-              fullDepth: true,
-            },
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            fullDepth: true,
+          });
 
           const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("build-skill");
@@ -581,15 +477,10 @@ describe("discoverSkillsInDir", () => {
             "Should be skipped",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            {
-              ...defaultOptions,
-              fullDepth: true,
-            },
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            fullDepth: true,
+          });
 
           const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("py-skill");
@@ -606,12 +497,7 @@ describe("discoverSkillsInDir", () => {
             "Deep nested skill",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
           expect(skills[0]!.skill.name).toBe("my-skill");
@@ -636,12 +522,7 @@ describe("discoverSkillsInDir", () => {
             "From .claude/skills/ dir",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           // Only one instance should be returned
           const matchingSkills = skills.filter((s) => s.skill.name === "my-skill");
@@ -661,15 +542,10 @@ describe("discoverSkillsInDir", () => {
             "Recursive version",
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            {
-              ...defaultOptions,
-              fullDepth: true,
-            },
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            fullDepth: true,
+          });
 
           const found = skills.filter((s) => s.skill.name === "dup-skill");
           expect(found).toHaveLength(1);
@@ -698,15 +574,10 @@ describe("discoverSkillsInDir", () => {
           );
           createSkillMd(path.join(tempDir, "skills", "public-skill"), "public-skill", "Public");
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            {
-              ...defaultOptions,
-              includeInternal: false,
-            },
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            includeInternal: false,
+          });
 
           const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("internal-skill");
@@ -727,15 +598,10 @@ describe("discoverSkillsInDir", () => {
             },
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            {
-              ...defaultOptions,
-              includeInternal: true,
-            },
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            includeInternal: true,
+          });
 
           const names = skills.map((s) => s.skill.name);
           expect(names).toContain("internal-skill");
@@ -758,15 +624,10 @@ describe("discoverSkillsInDir", () => {
           const originalEnv = process.env["INSTALL_INTERNAL_SKILLS"];
           process.env["INSTALL_INTERNAL_SKILLS"] = "1";
           try {
-            const skills = yield* discoverSkillsInDir(
-              tempDir,
-              Option.none(),
-              {
-                ...defaultOptions,
-                includeInternal: false,
-              },
-              testSource,
-            );
+            const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+              ...defaultOptions,
+              includeInternal: false,
+            });
 
             const names = skills.map((s) => s.skill.name);
             expect(names).toContain("internal-skill");
@@ -796,15 +657,10 @@ describe("discoverSkillsInDir", () => {
           const originalEnv = process.env["INSTALL_INTERNAL_SKILLS"];
           process.env["INSTALL_INTERNAL_SKILLS"] = "true";
           try {
-            const skills = yield* discoverSkillsInDir(
-              tempDir,
-              Option.none(),
-              {
-                ...defaultOptions,
-                includeInternal: false,
-              },
-              testSource,
-            );
+            const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+              ...defaultOptions,
+              includeInternal: false,
+            });
 
             const names = skills.map((s) => s.skill.name);
             expect(names).toContain("internal-skill");
@@ -824,15 +680,10 @@ describe("discoverSkillsInDir", () => {
         Effect.gen(function* () {
           createSkillMd(path.join(tempDir, "skills", "normal-skill"), "normal-skill", "Normal");
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            {
-              ...defaultOptions,
-              includeInternal: false,
-            },
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            includeInternal: false,
+          });
 
           const names = skills.map((s) => s.skill.name);
           expect(names).toContain("normal-skill");
@@ -859,7 +710,6 @@ describe("discoverSkillsInDir", () => {
             tempDir,
             Option.some("packages/skills"),
             defaultOptions,
-            testSource,
           );
 
           expect(skills).toHaveLength(1);
@@ -930,12 +780,7 @@ describe("discoverSkillsInDir", () => {
         Effect.gen(function* () {
           createSkillMd(path.join(tempDir, "skills", "exact-skill"), "exact-skill", "Exact match");
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(1);
           expect(skills[0]!.skill.name).toBe("exact-skill");
@@ -953,12 +798,7 @@ describe("discoverSkillsInDir", () => {
             '---\nname: "lower-skill"\ndescription: "Lowercase"\n---\n',
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("lower-skill");
@@ -976,12 +816,7 @@ describe("discoverSkillsInDir", () => {
             '---\nname: "mixed-skill"\ndescription: "Mixed case"\n---\n',
           );
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           const names = skills.map((s) => s.skill.name);
           expect(names).not.toContain("mixed-skill");
@@ -999,12 +834,7 @@ describe("discoverSkillsInDir", () => {
       withFileSystem(
         Effect.gen(function* () {
           // Empty directory — no SKILL.md anywhere
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(0);
         }),
@@ -1019,12 +849,7 @@ describe("discoverSkillsInDir", () => {
           fs.mkdirSync(skillDir, { recursive: true });
           fs.writeFileSync(path.join(skillDir, "SKILL.md"), "# No frontmatter\n\nJust markdown.");
 
-          const skills = yield* discoverSkillsInDir(
-            tempDir,
-            Option.none(),
-            defaultOptions,
-            testSource,
-          );
+          const skills = yield* discoverSkillsInDir(tempDir, Option.none(), defaultOptions);
 
           expect(skills).toHaveLength(0);
         }),

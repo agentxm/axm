@@ -22,6 +22,7 @@ import type {
   GetExtensionVersionArgs,
   PublishExtensionArgs,
   ExtensionExistsArgs,
+  GetExtensionsResult,
 } from "./client.js";
 import type { ExtensionType } from "../extensions/common.js";
 import { ExtensionIndexSchema, type ExtensionIndex } from "./local-schema.js";
@@ -159,15 +160,31 @@ export const createLocalRegistryClient = (
           return Array.flatten(nestedResults);
         });
 
-      if (options.names.length > 0) {
-        const results = yield* Effect.forEach(options.names, (name) => findForName(name), {
-          concurrency: "unbounded",
-        });
-        return Array.flatten(results);
-      }
+      const all: ReadonlyArray<RegistryExtensionEntry> =
+        options.names.length > 0
+          ? yield* Effect.forEach(options.names, (name) => findForName(name), {
+              concurrency: "unbounded",
+            }).pipe(Effect.map(Array.flatten))
+          : yield* findForName("");
 
-      // Empty names = find all
-      return yield* findForName("");
+      const total = all.length;
+      const offset = options.offset;
+      const sliced = all.slice(offset);
+      const extensions = Option.match(options.limit, {
+        onNone: () => sliced,
+        onSome: (l) => sliced.slice(0, l),
+      });
+      const limit = Option.getOrElse(options.limit, () => total);
+
+      return {
+        extensions,
+        pagination: {
+          total,
+          limit,
+          offset,
+          hasMore: offset + extensions.length < total,
+        },
+      } satisfies GetExtensionsResult;
     }),
 
   scopeExists: (scope) =>

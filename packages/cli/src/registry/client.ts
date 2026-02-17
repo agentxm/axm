@@ -28,10 +28,14 @@ import { createRemoteRegistryClient } from "./client-remote.js";
  *
  * - `names`: extension names to match (empty = all)
  * - `type`: extension type filter or `"*"` for all
+ * - `limit`: max results to return (default: all)
+ * - `offset`: number of results to skip (default: 0)
  */
 export interface GetExtensionsArgs {
   readonly names: ReadonlyArray<string>;
   readonly type: ExtensionType | "*";
+  readonly limit: Option.Option<number>;
+  readonly offset: number;
 }
 
 // -----------------------------------------------------------------------------
@@ -94,6 +98,23 @@ export interface ExtensionExistsArgs {
 }
 
 // -----------------------------------------------------------------------------
+// Get Extensions Result
+// -----------------------------------------------------------------------------
+
+/**
+ * Paginated result from a registry extension search.
+ */
+export interface GetExtensionsResult {
+  readonly extensions: ReadonlyArray<RegistryExtensionEntry>;
+  readonly pagination: {
+    readonly total: number;
+    readonly limit: number;
+    readonly offset: number;
+    readonly hasMore: boolean;
+  };
+}
+
+// -----------------------------------------------------------------------------
 // Extension Entry
 // -----------------------------------------------------------------------------
 
@@ -125,7 +146,7 @@ export interface RegistryExtensionEntry {
 export interface RegistryClient {
   readonly getExtensions: (
     options: GetExtensionsArgs,
-  ) => Effect.Effect<ReadonlyArray<RegistryExtensionEntry>, CliError>;
+  ) => Effect.Effect<GetExtensionsResult, CliError>;
   readonly scopeExists: (scope: string) => Effect.Effect<boolean, CliError>;
   readonly getExtensionVersion: (
     args: GetExtensionVersionArgs,

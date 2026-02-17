@@ -30,10 +30,12 @@ import type { VersionEntry } from "../../../registry/index.js";
 // Type Mapping Helpers
 // -----------------------------------------------------------------------------
 
-/** Map FindOptions to GetExtensionsArgs. */
+/** Map FindOptions to GetExtensionsArgs (no pagination — fetch all). */
 const toSearchOptions = (options: FindOptions): GetExtensionsArgs => ({
   names: options.names,
   type: options.type === "*" ? "*" : (options.type as ExtensionType),
+  limit: Option.none(),
+  offset: 0,
 });
 
 /** Map RegistryExtensionEntry to SourceExtensionRef, stamped with the source. */
@@ -110,8 +112,8 @@ export const createLocalRegistrySourceHostProvider = (
   find: (source, options) =>
     Effect.gen(function* () {
       const searchOptions = toSearchOptions(options);
-      const entries = yield* client.getExtensions(searchOptions);
-      return entries.map((entry) => toSourceExtensionRef(entry, source));
+      const result = yield* client.getExtensions(searchOptions);
+      return result.extensions.map((entry) => toSourceExtensionRef(entry, source));
     }),
 
   fetch: (_source, ref) =>
@@ -193,8 +195,8 @@ export const createRemoteRegistrySourceHostProvider = (
   find: (source, options) =>
     Effect.gen(function* () {
       const searchOptions = toSearchOptions(options);
-      const entries = yield* client.getExtensions(searchOptions);
-      return entries.map((entry) => toSourceExtensionRef(entry, source));
+      const result = yield* client.getExtensions(searchOptions);
+      return result.extensions.map((entry) => toSourceExtensionRef(entry, source));
     }),
 
   fetch: (_source, ref) =>

@@ -61,7 +61,7 @@ import {
   type SourceHostConfig,
   writeSettings,
 } from "../settings/index.js";
-import { lockEntryToSourceParams, parseInputPattern, printSourceInput } from "../sources/index.js";
+import { lockEntryToSourceParams, parseInputPattern, printSourceParams } from "../sources/index.js";
 import * as Record from "effect/Record";
 import { getAxmDir } from "./paths.js";
 import * as Context from "effect/Context";
@@ -704,7 +704,7 @@ const make = (options: WorkspaceContextOptions) =>
             const sourceInput = lockEntryToSourceParams(lockEntry);
             const withConstraint =
               sourceInput.type === "registry" ? { ...sourceInput, versionConstraint } : sourceInput;
-            const source = printSourceInput(withConstraint);
+            const source = printSourceParams(withConstraint);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSkills: SkillsMap = currentSettings.skills ?? {};
             const updatedSettings = {
@@ -927,7 +927,7 @@ const make = (options: WorkspaceContextOptions) =>
             const { name, versionConstraint, ...lockFields } = args;
             const lockEntry: RegistryPackLockEntry = { ...lockFields, name, type: "registry" };
             // Update settings — thread versionConstraint through so it's preserved
-            const source = printSourceInput({
+            const source = printSourceParams({
               type: "registry",
               scope: args.scope,
               name,

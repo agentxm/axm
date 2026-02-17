@@ -473,7 +473,7 @@ const routeSlashInput = (
 // -----------------------------------------------------------------------------
 
 /**
- * Resolve a source input string into a fully resolved Source.
+ * Resolve a source string into a fully resolved `NewSource`.
  *
  * Classifies the input via `parseInputPattern`, then routes each pattern
  * type to the appropriate resolution logic. For URL and SCP patterns,
@@ -482,7 +482,7 @@ const routeSlashInput = (
  *
  * @experimental This API is unstable and may change without notice.
  * @param input - The source string to resolve
- * @returns Effect containing a resolved Source or CliError
+ * @returns Effect containing a resolved `NewSource` or `CliError`
  */
 export const resolveSource = (input: string): Effect.Effect<NewSource, CliError, Workspace> =>
   Effect.gen(function* () {

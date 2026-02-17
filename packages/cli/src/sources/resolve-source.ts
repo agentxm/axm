@@ -111,13 +111,9 @@ const configToSource = (
 
   switch (config.type) {
     case "github":
-      return params.type === "github"
-        ? Effect.succeed({ ...params, url: config.url })
-        : mismatch();
+      return params.type === "github" ? Effect.succeed({ ...params, url: config.url }) : mismatch();
     case "gitlab":
-      return params.type === "gitlab"
-        ? Effect.succeed({ ...params, url: config.url })
-        : mismatch();
+      return params.type === "gitlab" ? Effect.succeed({ ...params, url: config.url }) : mismatch();
     case "bitbucket":
       return params.type === "bitbucket"
         ? Effect.succeed({ ...params, url: config.url })

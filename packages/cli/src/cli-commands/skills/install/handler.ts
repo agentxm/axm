@@ -13,11 +13,11 @@
  */
 
 import {
-  resolveSource,
   SourceHostProviders,
   registryGuard,
   type SkillExtensionRef,
 } from "../../../sources/index.js";
+import { resolveSkillInstallSource } from "./resolve-skill-install-source.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
@@ -93,7 +93,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
     // Step 1: Parse source
     const parseHandle = yield* spinnerSvc.start("Parsing source...");
-    const source = yield* resolveSource(args.source).pipe(
+    const source = yield* resolveSkillInstallSource(args.source).pipe(
       Effect.mapError((error) =>
         makeCliError({
           code: "INVALID_SOURCE",

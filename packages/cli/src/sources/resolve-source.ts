@@ -137,7 +137,7 @@ const configToSource = (
  * Route a URL input by iterating configured sources and matching by
  * hostname + provider parse. First successful match wins.
  */
-const routeUrlInput = (url: URL, input: string) =>
+export const routeUrlInput = (url: URL, input: string) =>
   Effect.gen(function* () {
     // Opaque URLs (empty hostname, e.g. "ghe:owner/repo") may be config-name shorthands
     if (!url.hostname) {
@@ -230,7 +230,7 @@ const routeOpaqueUrl = (url: URL, input: string) =>
  * Route an SCP address by iterating configured sources and matching by
  * hostname + provider parse. First successful match wins.
  */
-const routeScpInput = (
+export const routeScpInput = (
   scp: { readonly user: string; readonly host: string; readonly path: string },
   input: string,
 ) =>
@@ -292,7 +292,7 @@ const routeScpInput = (
  * parser. Config-name prefixes look up the config and parse using its source
  * type's shorthand parser.
  */
-const routeShorthandInput = (prefix: string, shorthandInput: string, input: string) =>
+export const routeShorthandInput = (prefix: string, shorthandInput: string, input: string) =>
   Effect.gen(function* () {
     const sources = yield* getConfiguredSources(input);
 
@@ -332,7 +332,7 @@ const routeShorthandInput = (prefix: string, shorthandInput: string, input: stri
 // -----------------------------------------------------------------------------
 
 /** Route NameInput: look up installed skill in lockfile, then configured skills. */
-const routeNameInput = (name: string, input: string) =>
+export const routeNameInput = (name: string, input: string) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
 
@@ -373,10 +373,10 @@ const routeNameInput = (name: string, input: string) =>
   });
 
 /** Route FilePathPattern: parse as local source. */
-const routeFilePathInput = (path: string) => parseLocalPath(path);
+export const routeFilePathInput = (path: string) => parseLocalPath(path);
 
 /** Route RegistryPatternInput: find matching registry config and intersect with params. */
-const routeRegistryInput = (
+export const routeRegistryInput = (
   pattern: {
     readonly scope: string;
     readonly name: string;
@@ -425,7 +425,7 @@ const routeRegistryInput = (
  * Route SlashPattern (owner/repo): iterate git-hosting configs that support
  * shorthand, try each provider in config order. First success wins.
  */
-const routeSlashInput = (
+export const routeSlashInput = (
   pattern: { readonly owner: string; readonly repo: string },
   input: string,
 ) =>

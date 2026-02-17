@@ -162,19 +162,19 @@ describe("resolveSource", () => {
       }),
     );
 
-    it.effect("fails @scope with missing registry name", () =>
+    it.effect("fails @scope without registry config", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(resolve("@scope"));
         expect(error).toBeInstanceOf(CliError);
-        expect(error.what).toContain("missing name");
+        expect(error.what).toContain("No registry source configured");
       }),
     );
 
-    it.effect("fails @scope/skills with missing registry name", () =>
+    it.effect("fails @scope/skills without registry config", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(resolve("@scope/skills"));
         expect(error).toBeInstanceOf(CliError);
-        expect(error.what).toContain("missing name");
+        expect(error.what).toContain("No registry source configured");
       }),
     );
 

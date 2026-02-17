@@ -15,7 +15,12 @@
 
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
-import { resolveSource, registryGuard, SourceHostProviders } from "../../../sources/index.js";
+import {
+  parseInputPattern,
+  resolveSource,
+  registryGuard,
+  SourceHostProviders,
+} from "../../../sources/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -101,12 +106,25 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
       );
     }
     yield* parseHandle.stop(`Source: ${sources.origin(source)} (registry)`);
+    const parsedPattern = parseInputPattern(args.source.trim());
+    const packName =
+      Option.isSome(parsedPattern) && parsedPattern.value.pattern === "registry-pattern-input"
+        ? Option.getOrNull(parsedPattern.value.name)
+        : null;
+    if (packName === null) {
+      return yield* makeCliError({
+        code: "PACK_SOURCE_MISSING_NAME",
+        what: "Pack source must include a pack name",
+        howToFix: "Use @scope/packs/name or @scope/name",
+      });
+    }
+    const packSource = { ...source, extensionTypes: ["packs"] as const };
 
     // Step 2: Check if already installed (unless --force)
     if (!args.force) {
-      const lockedPack = yield* ws.getLockedPack(source.name);
+      const lockedPack = yield* ws.getLockedPack(packName);
       if (Option.isSome(lockedPack)) {
-        yield* log.warn(`Pack "${source.name}" is already installed. Use --force to overwrite.`);
+        yield* log.warn(`Pack "${packName}" is already installed. Use --force to overwrite.`);
         yield* log.success("Nothing to install.");
         return;
       }
@@ -118,11 +136,11 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     // Step 4: Discover and fetch pack from registry
     const discoverHandle = yield* spinnerSvc.start("Fetching pack from registry...");
     const findOptions = {
-      names: [source.name] satisfies ReadonlyArray<string>,
+      names: [packName] satisfies ReadonlyArray<string>,
       agents: [] satisfies ReadonlyArray<string>,
       type: "pack" as const,
     };
-    const refs = yield* sources.find(source, findOptions).pipe(
+    const refs = yield* sources.find(packSource, findOptions).pipe(
       Effect.mapError((error) =>
         makeCliError({
           code: "PACK_FETCH_FAILED",
@@ -140,7 +158,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
       return yield* Effect.fail(
         makeCliError({
           code: "PACK_NOT_FOUND",
-          what: `Pack "${source.name}" not found in registry`,
+          what: `Pack "${packName}" not found in registry`,
           howToFix: "Verify the pack name and check available packs.",
         }),
       );
@@ -163,7 +181,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     // Step 5: Extract to managed location
     const extractHandle = yield* spinnerSvc.start("Extracting pack...");
     const base = path.dirname(ws.path);
-    const packDir = path.join(base, REGISTRY_EXTENSIONS_DIR, source.scope, "packs", source.name);
+    const packDir = path.join(base, REGISTRY_EXTENSIONS_DIR, source.scope, "packs", packName);
 
     yield* copySkillDirectory(fetched.directory, packDir).pipe(
       Effect.mapError((e) =>
@@ -265,13 +283,27 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
               howToFix: "Pack skill dependencies must use @scope/name format.",
             });
           }
+          const parsedSkill = parseInputPattern(sourceStr);
+          const skillName =
+            Option.isSome(parsedSkill) && parsedSkill.value.pattern === "registry-pattern-input"
+              ? Option.getOrNull(parsedSkill.value.name)
+              : null;
+          if (skillName === null) {
+            return yield* makeCliError({
+              code: "PACK_DEPENDENCY_RESOLVE_FAILED",
+              what: `Skill dependency "${fqn}" is missing a name`,
+            });
+          }
 
           const skillFindOpts = {
-            names: [skillSource.name] satisfies ReadonlyArray<string>,
+            names: [skillName] satisfies ReadonlyArray<string>,
             agents: [] satisfies ReadonlyArray<string>,
             type: "skill" as const,
           };
-          const skillRefs = yield* sources.find(skillSource, skillFindOpts).pipe(
+          const skillRefs = yield* sources.find(
+            { ...skillSource, extensionTypes: ["skills"] as const },
+            skillFindOpts,
+          ).pipe(
             Effect.mapError((error) =>
               makeCliError({
                 code: "PACK_DEPENDENCY_FETCH_FAILED",
@@ -331,7 +363,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     const op: InstallPackOperation = {
       name: "install-pack",
       args: {
-        packName: source.name,
+        packName,
         scope: source.scope,
         resolvedVersion,
         checksum: "",

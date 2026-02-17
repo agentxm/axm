@@ -14,6 +14,7 @@
 
 import {
   SourceHostProviders,
+  parseInputPattern,
   registryGuard,
   type SkillExtensionRef,
 } from "../../../sources/index.js";
@@ -114,8 +115,20 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
     // Step 3: Discover skills from source via SourceHostProviders
     const discoverHandle = yield* spinnerSvc.start("Discovering skills...");
+    const registryNames: ReadonlyArray<string> =
+      source.type !== "registry"
+        ? []
+        : args.skills.length > 0
+          ? args.skills
+          : (() => {
+              const parsed = parseInputPattern(args.source.trim());
+              if (Option.isSome(parsed) && parsed.value.pattern === "registry-pattern-input") {
+                return Option.isSome(parsed.value.name) ? [parsed.value.name.value] : [];
+              }
+              return [];
+            })();
     const findOptions = {
-      names: (source.type === "registry" ? [source.name] : []) satisfies ReadonlyArray<string>,
+      names: registryNames,
       agents: args.agents,
       type: "skill" as const,
     };

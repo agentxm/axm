@@ -113,7 +113,7 @@ const makeOp = (
         source: {
           type: "registry",
           scope: "@axm",
-          name,
+          extensionTypes: ["skills"],
           versionConstraint: Option.none(),
           location: new URL("http://localhost:3000"),
         },

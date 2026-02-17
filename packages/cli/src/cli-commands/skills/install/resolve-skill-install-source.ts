@@ -11,6 +11,7 @@ import {
   routeUrlInput,
 } from "../../../sources/resolve-source.js";
 import { Workspace } from "../../../workspace/index.js";
+import type { RegistrySource } from "../../../sources/types.js";
 
 const resolveSkillRegistrySource = (
   pattern: Extract<InputPattern, { readonly pattern: "registry-pattern-input" }>,
@@ -23,14 +24,6 @@ const resolveSkillRegistrySource = (
       return yield* makeCliError({
         code: "SOURCE_PARSE_FAILED",
         what: "Expected a skills registry source",
-        details: [input],
-      });
-    }
-
-    if (Option.isNone(pattern.name)) {
-      return yield* makeCliError({
-        code: "SOURCE_PARSE_FAILED",
-        what: "Registry source is missing name",
         details: [input],
       });
     }
@@ -58,10 +51,10 @@ const resolveSkillRegistrySource = (
     return {
       type: "registry" as const,
       scope: pattern.scope,
-      name: pattern.name.value,
+      extensionTypes: ["skills"],
       versionConstraint: pattern.versionConstraint,
       location: regConfig.location,
-    };
+    } satisfies RegistrySource;
   });
 
 export const resolveSkillInstallSource = (input: string) =>

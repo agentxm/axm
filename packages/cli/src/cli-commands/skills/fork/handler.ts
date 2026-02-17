@@ -214,7 +214,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
         source: {
           type: "registry" as const,
           scope,
-          name: ref.skill.name,
+          extensionTypes: ["skills"],
           versionConstraint: Option.none(),
           // Placeholder — registry URL unused; install reads from fetchedLocation
           location: new URL("file://localhost"),

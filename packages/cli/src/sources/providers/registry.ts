@@ -107,6 +107,32 @@ const pluralizeType = (type: RegistryExtensionType): string => {
   }
 };
 
+const fromPluralType = (
+  type: "skills" | "mcp-servers" | "packs",
+): RegistryExtensionType => {
+  switch (type) {
+    case "skills":
+      return "skill";
+    case "mcp-servers":
+      return "mcp-server";
+    case "packs":
+      return "pack";
+  }
+};
+
+const toPluralType = (
+  type: RegistryExtensionType,
+): "skills" | "mcp-servers" | "packs" => {
+  switch (type) {
+    case "skill":
+      return "skills";
+    case "mcp-server":
+      return "mcp-servers";
+    case "pack":
+      return "packs";
+  }
+};
+
 /** Build the path to an extension's directory within a registry. */
 const extensionDir = (
   registryRoot: string,
@@ -151,6 +177,7 @@ const selectVersion = (
 const processNameDir = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
+  registryLocation: URL,
   typeDir: string,
   nameDir: string,
   scopeDir: string,
@@ -195,23 +222,45 @@ const processNameDir = (
 
     const ver = selectedVersion.value;
 
-    // Assertion needed: TS can't prove the shape matches a specific SourceExtensionRef variant
+    const source = {
+      type: "registry" as const,
+      location: registryLocation,
+      scope: scopeDir,
+      extensionTypes: [toPluralType(index.type)] as const,
+      versionConstraint: Option.none(),
+    };
+
+    if (index.type === "skill") {
+      return Option.some({
+        type: "skill" as const,
+        skill: {
+          name: nameDir,
+          description: index.description ?? "",
+          metadata: Option.none(),
+        },
+        source,
+        version: ver.version,
+        checksum: ver.checksum,
+      } satisfies SourceExtensionRef);
+    }
+
+    if (index.type === "mcp-server") {
+      return Option.some({
+        type: "mcp-server" as const,
+        server: { name: nameDir },
+        source,
+        version: ver.version,
+        checksum: ver.checksum,
+      } satisfies SourceExtensionRef);
+    }
+
     return Option.some({
-      type: "skill" as const,
-      skill: {
-        name: nameDir,
-        description: index.description ?? "",
-        metadata: Option.none(),
-      },
-      source: {
-        type: "registry" as const,
-        scope: scopeDir,
-        name: nameDir,
-        versionConstraint: Option.none(),
-      },
+      type: "pack" as const,
+      pack: { name: nameDir },
+      source,
       version: ver.version,
       checksum: ver.checksum,
-    } as SourceExtensionRef);
+    } satisfies SourceExtensionRef);
   });
 
 // -----------------------------------------------------------------------------
@@ -235,13 +284,20 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
+      const registryLocation = new URL(
+        registryRoot.startsWith("file://")
+          ? registryRoot
+          : `file://${registryRoot.startsWith("/") ? "" : "/"}${registryRoot}`,
+      );
 
       const findForName = (name: string) =>
         Effect.gen(function* () {
-          const typeFilter: ReadonlyArray<RegistryExtensionType> =
+          const requestedTypes: ReadonlyArray<RegistryExtensionType> =
             options.type === "*"
               ? ["skill", "mcp-server", "pack"]
               : [options.type as RegistryExtensionType];
+          const sourceTypes = Array.map(_source.extensionTypes, fromPluralType);
+          const typeFilter = requestedTypes.filter((type) => sourceTypes.includes(type));
 
           const refs: SourceExtensionRef[] = [];
 
@@ -273,7 +329,15 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
 
               for (const nameDir of nameDirs) {
                 if (name !== "" && nameDir !== name) continue;
-                const ref = yield* processNameDir(fs, path, typeDir, nameDir, scopeDir, options);
+                const ref = yield* processNameDir(
+                  fs,
+                  path,
+                  registryLocation,
+                  typeDir,
+                  nameDir,
+                  scopeDir,
+                  options,
+                );
                 if (Option.isSome(ref)) refs.push(ref.value);
               }
             }
@@ -298,22 +362,33 @@ export const createLocalRegistryProvider = (registryRoot: string): RegistrySourc
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
 
-      if (extension.type !== "skill" || !("version" in extension)) {
+      if (!("version" in extension)) {
         return yield* Effect.fail(
           makeCliError({
             code: "SOURCE_FETCH_FAILED",
-            what: "Cannot fetch non-skill or versionless extension from registry",
+            what: "Cannot fetch versionless extension from registry",
           }),
         );
       }
 
-      // Assertion needed: TS can't narrow "version" field after the "in" check
-      const version = (extension as { version: string }).version;
+      const version = extension.version;
+      const extType: RegistryExtensionType =
+        extension.type === "skill"
+          ? "skill"
+          : extension.type === "mcp-server"
+            ? "mcp-server"
+            : "pack";
+      const extName =
+        extension.type === "skill"
+          ? extension.skill.name
+          : extension.type === "mcp-server"
+            ? extension.server.name
+            : extension.pack.name;
       const dir = extensionDir(
         registryRoot,
         _source.scope,
-        "skill",
-        extension.skill.name,
+        extType,
+        extName,
         path.join,
       );
       const archivePath = path.join(dir, `${version}.zip`);
@@ -756,7 +831,7 @@ export const createRegistrySourceHostProvider = (
         const innerSource: RegistrySourceParams = {
           type: "registry",
           scope: source.scope,
-          name: source.name,
+          extensionTypes: source.extensionTypes,
           versionConstraint: source.versionConstraint,
         };
         const refs = yield* inner.find(innerSource, options);
@@ -769,7 +844,7 @@ export const createRegistrySourceHostProvider = (
       const innerSource: RegistrySourceParams = {
         type: "registry",
         scope: source.scope,
-        name: source.name,
+        extensionTypes: source.extensionTypes,
         versionConstraint: source.versionConstraint,
       };
       return inner.fetch(innerSource, ref);

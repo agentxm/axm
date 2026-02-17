@@ -34,7 +34,8 @@ export const printSourceParams = (source: SourceParams): string => {
     case "git":
       return source.url.href;
     case "registry": {
-      const base = `${source.scope}/${source.name}`;
+      const primaryType = source.extensionTypes[0] ?? "skills";
+      const base = `${source.scope}/${primaryType}`;
       return Option.isSome(source.versionConstraint)
         ? `${base}@${source.versionConstraint.value}`
         : base;
@@ -97,7 +98,7 @@ export const lockEntryToSourceParams = (entry: SkillLockEntry): SourceParams => 
       return {
         type: "registry",
         scope: entry.scope,
-        name: entry.name,
+        extensionTypes: ["skills"],
         versionConstraint: Option.none(),
       };
     case "builtin":

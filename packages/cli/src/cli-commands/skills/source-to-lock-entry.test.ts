@@ -243,7 +243,7 @@ describe("sourceToLockEntry", () => {
       source: {
         type: "registry",
         scope: "@acme",
-        name: "code-review",
+        extensionTypes: ["skills"],
         versionConstraint: Option.none(),
         location: new URL("http://localhost:3000"),
       },
@@ -261,7 +261,7 @@ describe("sourceToLockEntry", () => {
     expect(result).toEqual({
       type: "registry",
       scope: "@acme",
-      name: "code-review",
+      name: "test-skill",
       resolvedVersion: "2.1.0",
       checksum: "sha256:abcdef1234567890",
       sourceName: "local",
@@ -277,7 +277,7 @@ describe("sourceToLockEntry", () => {
       source: {
         type: "registry",
         scope: "@community",
-        name: "my-skill",
+        extensionTypes: ["skills"],
         versionConstraint: Option.none(),
         location: new URL("http://localhost:3000"),
       },

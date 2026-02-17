@@ -699,9 +699,12 @@ const make = (options: WorkspaceContextOptions) =>
           Effect.gen(function* () {
             // Update settings — thread version constraint through so it survives the round-trip
             const sourceInput = lockEntryToSourceParams(lockEntry);
-            const withConstraint =
-              sourceInput.type === "registry" ? { ...sourceInput, versionConstraint } : sourceInput;
-            const source = printSourceParams(withConstraint);
+            const source =
+              sourceInput.type === "registry"
+                ? Option.isSome(versionConstraint)
+                  ? `${sourceInput.scope}/${name}@${versionConstraint.value}`
+                  : `${sourceInput.scope}/${name}`
+                : printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSkills: SkillsMap = currentSettings.skills ?? {};
             const updatedSettings = {
@@ -924,12 +927,9 @@ const make = (options: WorkspaceContextOptions) =>
             const { name, versionConstraint, ...lockFields } = args;
             const lockEntry: RegistryPackLockEntry = { ...lockFields, name, type: "registry" };
             // Update settings — thread versionConstraint through so it's preserved
-            const source = printSourceParams({
-              type: "registry",
-              scope: args.scope,
-              name,
-              versionConstraint,
-            });
+            const source = Option.isSome(versionConstraint)
+              ? `${args.scope}/${name}@${versionConstraint.value}`
+              : `${args.scope}/${name}`;
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentPacks: PacksMap = currentSettings.packs ?? {};
             const updatedSettings = {

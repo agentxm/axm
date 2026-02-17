@@ -18,26 +18,26 @@ Bare paths starting with `./`, `../`, `/`, `~/`, or Windows drive letters (e.g.,
 
 The `~` prefix represents the user's home directory and is expanded at resolution time.
 
-The registry source string no longer carries location information — location is resolved from `SourceConfig` (named source configuration). The parser returns `{ source: "registry" }` without `url` or `path` fields.
+The registry source string no longer carries location information — `url` and `scopes` are resolved from the `RegistrySourceHost` (via `SourceHostConfig` in settings) instead of being absent from the resolved `Source`.
 
 HTTPS and SSH URLs (e.g., `https://github.com/owner/repo`, `git@github.com:owner/repo.git`) are classified as URL or SCP patterns by `parseInputPattern` but are NOT resolved to a specific source type at classification time. Source type determination for URLs and SCPs happens in `resolveSource` via config-driven hostname matching.
 
-The `RegistrySourceInput.scope` field SHALL always be `@`-prefixed (e.g., `"@acme"`, not `"acme"`). The parser SHALL preserve the `@` prefix from the input pattern. No downstream normalization SHALL be required.
+The `RegistrySourceParams.scope` field SHALL always be `@`-prefixed (e.g., `"@acme"`, not `"acme"`). The parser SHALL preserve the `@` prefix from the input pattern. No downstream normalization SHALL be required.
 
 #### Scenario: Registry source string
 
 - **WHEN** parsing source string `@acme/my-skill@^1.0.0`
-- **THEN** source type is `registry` with scope `@acme`, name `my-skill`, version `^1.0.0`
+- **THEN** source type is `registry` with scope `@acme`, name `my-skill`, versionConstraint `^1.0.0`
 
 #### Scenario: Registry source scope is @-prefixed
 
 - **WHEN** parsing source string `@community/my-skill`
-- **THEN** the `RegistrySourceInput` has `scope: "@community"` (not `"community"`)
+- **THEN** the `RegistrySourceParams` has `scope: "@community"` (not `"community"`)
 
-#### Scenario: Registry source has no location fields
+#### Scenario: Registry source resolves host from config
 
-- **WHEN** parsing source string `@acme/my-skill`
-- **THEN** the result is `{ source: "registry" }` (no `url` or `path` — location comes from SourceConfig)
+- **WHEN** a `RegistrySource` is fully resolved
+- **THEN** it has `url` and `scopes` from the matched `RegistrySourceHost` config, plus `scope`, `name`, and `versionConstraint` from parsed params
 
 #### Scenario: GitHub source string with path and ref
 
@@ -84,17 +84,45 @@ The `RegistrySourceInput.scope` field SHALL always be `@`-prefixed (e.g., `"@acm
 
 ### Requirement: Source configuration schema
 
-Settings SHALL use a `sources` array of named entries replacing the current per-provider-key object. Each entry is a `SourceConfig` discriminated by `source` field.
+Settings SHALL use a `sources` array of named entries. Each entry is a `SourceHostConfig` — the settings `name` wrapping a `ConfiguredSourceHost`. The on-disk format is unchanged. `SourceConfig` is renamed to `SourceHostConfig`.
+
+`SourceHostConfig` is defined in `settings/schema.ts` and wraps `ConfiguredSourceHost` (from `sources/types.ts`) with a user-assigned `name` label.
+
+Supported config types: `github`, `gitlab`, `bitbucket`, `azurerepos`, `registry`. Self-describing types (`git`, `local`, `builtin`) do not appear in settings.
 
 #### Scenario: Array replaces object
 
-- **WHEN** settings has `"sources": [{ "name": "local", "source": "registry", "location": "~/registry" }]`
-- **THEN** the sources are parsed as a `SourceConfig` array
+- **WHEN** settings has `"sources": [{ "name": "local", "type": "registry", "url": "file:///path/to/registry" }]`
+- **THEN** the sources are parsed as a `SourceHostConfig` array
 
 #### Scenario: Git and local sources not in config
 
 - **WHEN** the sources array is configured
-- **THEN** `git` and `local` source types do not appear (URLs/paths come from the source string)
+- **THEN** `git`, `local`, and `builtin` source types do not appear (coordinates come from the source string)
+
+#### Scenario: Config name stays in settings layer
+
+- **WHEN** a `SourceHostConfig` is created
+- **THEN** `name` is a settings concern — it does NOT appear on the domain `SourceHost` type
+
+### Requirement: Registry SourceHost schema with scopes
+
+The `RegistrySourceHostConfig` schema SHALL encode/decode registry scopes using `Schema.optionFromNullishOr`. The on-disk format is unchanged — `scopes` remains an optional JSON array. The schema handles `undefined | string[] ↔ Option<ReadonlyArray<string>>` conversion.
+
+#### Scenario: Registry config with scopes
+
+- **WHEN** settings JSON has `{ "name": "corp", "type": "registry", "url": "https://registry.corp.com", "scopes": ["@corp"] }`
+- **THEN** the decoded `RegistrySourceHost` has `scopes: Some(["@corp"])`
+
+#### Scenario: Registry config without scopes
+
+- **WHEN** settings JSON has `{ "name": "public", "type": "registry", "url": "https://registry.example.com" }`
+- **THEN** the decoded `RegistrySourceHost` has `scopes: None`
+
+#### Scenario: URL fields decoded as URL objects
+
+- **WHEN** a `SourceHostConfig` is decoded from settings JSON
+- **THEN** the `url` field is a `URL` object (decoded from string via `Schema.URL` or `Schema.transform`)
 
 ### Requirement: Scope field in settings
 
@@ -107,9 +135,9 @@ Settings SHALL support a top-level `scope` field providing the default scope for
 
 ### Requirement: Print source input canonical string
 
-`printSourceInput` SHALL accept a `SourceInput` and return a human-readable canonical string for all 7 source types.
+`printSourceInput` SHALL be replaced by `SourceHostProvidersService.origin()`. The service method SHALL accept a `Source` and return a human-readable canonical string for all 8 source types.
 
-| Source     | Print format                                            | Example                           |
+| Source     | Origin format                                           | Example                           |
 | ---------- | ------------------------------------------------------- | --------------------------------- |
 | github     | `github:<owner>/<repo>[/<subPath>][@<ref>]`             | `github:acme/skills/batcave@main` |
 | gitlab     | `gitlab:<owner>/<repo>[/<subPath>][@<ref>]`             | `gitlab:acme/skills@v2`           |
@@ -118,33 +146,22 @@ Settings SHALL support a top-level `scope` field providing the default scope for
 | git        | URL href                                                | `https://example.com/repo.git`    |
 | registry   | `<scope>/<name>`                                        | `@acme/my-skill`                  |
 | local      | path as-is                                              | `./my-skills/dev-skill`           |
+| builtin    | `builtin`                                               | `builtin`                         |
 
-Since `RegistrySourceInput.scope` is now `@`-prefixed, the printer SHALL output the scope directly (e.g., `@acme/my-skill`) without adding a prefix.
+#### Scenario: Origin for GitHub source
 
-#### Scenario: Print GitHub source input
-
-- **WHEN** printing a GitHub source input with owner `acme`, repo `skills`, subPath `batcave`, ref `main`
+- **WHEN** `origin` is called with a `GitHubSource` with owner `acme`, repo `skills`, subPath `batcave`, ref `main`
 - **THEN** the result is `github:acme/skills/batcave@main`
 
-#### Scenario: Print GitHub source input without optional fields
+#### Scenario: Origin for registry source
 
-- **WHEN** printing a GitHub source input with owner `acme`, repo `skills`, no subPath, no ref
-- **THEN** the result is `github:acme/skills`
-
-#### Scenario: Print git source input
-
-- **WHEN** printing a git source input with url `https://example.com/repo.git`
-- **THEN** the result is `https://example.com/repo.git`
-
-#### Scenario: Print registry source input
-
-- **WHEN** printing a registry source input with scope `@acme` and name `my-skill`
+- **WHEN** `origin` is called with a `RegistrySource` with scope `@acme` and name `my-skill`
 - **THEN** the result is `@acme/my-skill`
 
-#### Scenario: Print local source input
+#### Scenario: Origin for builtin source
 
-- **WHEN** printing a local source input with path `./my-skills/dev-skill`
-- **THEN** the result is `./my-skills/dev-skill`
+- **WHEN** `origin` is called with a `BuiltinSource`
+- **THEN** the result is `builtin`
 
 ### Requirement: No Source re-export from resolution module
 

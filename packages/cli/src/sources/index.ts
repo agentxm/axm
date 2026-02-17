@@ -95,7 +95,6 @@ export type {
 } from "./provider.js";
 
 // Provider implementations
-export type { RegistrySourceProvider } from "./providers/index.js";
 export {
   createAzureReposSourceHostProvider,
   createBitbucketSourceHostProvider,
@@ -105,10 +104,9 @@ export {
   createGitLabSourceHostProvider,
   createGitSourceHostProvider,
   createLocalSourceHostProvider,
-  createLocalRegistryProvider,
-  createRegistryProvider,
-  createRegistrySourceHostProvider,
-  createRemoteRegistryProvider,
+  createLocalRegistrySourceHostProvider,
+  createRegistrySourceHostProviderFromHost,
+  createRemoteRegistrySourceHostProvider,
 } from "./providers/index.js";
 
 // SourceHostProviders service

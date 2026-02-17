@@ -26,8 +26,8 @@ import {
   createGitHostingSourceHostProvider,
   createGitSourceHostProvider,
   createLocalSourceHostProvider,
-  createRegistryProvider,
 } from "./providers/index.js";
+import { createRegistrySourceHostProviderFromHost } from "./providers/registry/index.js";
 import { buildCloneUrlForSource } from "./providers/git-hosting.js";
 
 // -----------------------------------------------------------------------------
@@ -164,8 +164,8 @@ export const createRegistryMetaProvider = () => ({
       const allRefs: Array<SourceExtensionRef> = [];
 
       for (const regSource of registrySources) {
-        const provider = createRegistryProvider(regSource.location.href);
-        const result = yield* provider.getExtensions(regSource, options).pipe(Effect.either);
+        const provider = createRegistrySourceHostProviderFromHost(regSource);
+        const result = yield* provider.find(regSource, options).pipe(Effect.either);
 
         if (result._tag === "Left") {
           // Non-404 errors → hard fail
@@ -181,7 +181,7 @@ export const createRegistryMetaProvider = () => ({
     }),
 
   fetch: (source: RegistrySource, ref: SourceExtensionRef) => {
-    const provider = createRegistryProvider(source.location.href);
+    const provider = createRegistrySourceHostProviderFromHost(source);
     return provider.fetch(source, ref);
   },
 });

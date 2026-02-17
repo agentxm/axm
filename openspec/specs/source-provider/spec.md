@@ -2,49 +2,85 @@
 
 ## Purpose
 
-Defines the SourceProvider interface and SourceProviders service for unified extension discovery and fetching across all source types.
+Defines the SourceHostProvider interface and SourceHostProviders service for unified extension discovery and fetching across all source types.
 
 ## Requirements
 
-### Requirement: SourceInput type replaces Source
+### Requirement: SourceHostProvider interface
 
-The `Source` type SHALL be renamed to `SourceInput` to clarify it is pre-resolution input. `parseSource` SHALL be renamed to `parseSourceInput`. The 7-variant discriminated union is retained; the registry variant is simplified to carry no location fields.
-
-#### Scenario: Registry variant carries no location
-
-- **WHEN** `parseSourceInput("@acme/code-review")` is called
-- **THEN** the result has `source: "registry"` with no `url` or `path` fields (location comes from SourceConfig)
-
-#### Scenario: Other variants unchanged
-
-- **WHEN** `parseSourceInput("github:owner/repo")` is called
-- **THEN** the result has `source: "github"` with the same shape as the current `GitHubSource`
-
-### Requirement: SourceProvider interface
-
-The system SHALL provide a `SourceProvider` interface with `find` and `fetch` operations that all source types implement:
+The `SourceHostProvider` interface SHALL have `match`, `find`, and `fetch` operations. The `source` parameter to `find` SHALL be the specific `Source` variant (the flat intersection of `SourceHost & SourceParams`). The error type SHALL be `CliError`.
 
 ```
-find(source, options) → Effect<ReadonlyArray<ExtensionRef>, SourceError, R>
-fetch(source, extension) → Effect<ExtensionFiles, SourceError, R>
+match(url: URL) → Effect<boolean, CliError, R>
+find(source: S, options: FindOptions) → Effect<ReadonlyArray<SourceExtensionRef>, CliError, R>
+fetch(source: S, ref: SourceExtensionRef) → Effect<ExtensionFiles, CliError, R>
 ```
 
-The `source` parameter to `find` SHALL be the specific `Source` variant (e.g., `GitHubSource`), not `SourceInput`. Providers MAY use config fields from the `Source` type (e.g., `source.url` for constructing clone URLs).
+The `SourceHostProvider` SHALL be parameterized on `S extends Source` to constrain the source variant the provider handles.
 
 #### Scenario: Provider has type discriminator
 
-- **WHEN** a `SourceProvider` is created for GitHub
+- **WHEN** a `SourceHostProvider` is created for GitHub
 - **THEN** its `type` field is `"github"`
 
-#### Scenario: Find receives Source with config fields
+#### Scenario: Find receives Source with host and params fields
 
-- **WHEN** `GitHubSourceProvider.find(source, options)` is called
-- **THEN** `source` includes `url` and `name` from the matched config
+- **WHEN** `GitHubSourceHostProvider.find(source, options)` is called
+- **THEN** `source` includes both host fields (`url`) and params fields (`owner`, `repo`) from the flat intersection
 
 #### Scenario: Fetch returns extension files
 
 - **WHEN** `provider.fetch(source, ref)` is called with a valid ref
 - **THEN** it returns `ExtensionFiles` with a `directory` path to materialized files
+
+#### Scenario: Match checks URL ownership
+
+- **WHEN** `provider.match(url)` is called with a URL
+- **THEN** it returns `true` if the URL belongs to this provider, `false` otherwise
+
+### Requirement: Provider URL matching via match method
+
+Each `SourceHostProvider` SHALL implement a `match(url: URL)` method that returns `Effect<boolean, CliError, R>`. The method answers "does this URL belong to me?" — nothing more. URL-to-params parsing is handled separately by existing provider parsers.
+
+The `match` method MAY require I/O (e.g., fetching `.well-known` for future source refinement).
+
+#### Scenario: GitHub provider matches configured hostname
+
+- **WHEN** `match` is called with a URL whose hostname matches the provider's configured `SourceHost.url`
+- **THEN** it returns `true`
+
+#### Scenario: GitHub provider rejects non-matching hostname
+
+- **WHEN** `match` is called with a URL whose hostname does NOT match
+- **THEN** it returns `false`
+
+#### Scenario: Local provider matches file URLs and paths
+
+- **WHEN** `match` is called with a `file://` URL
+- **THEN** it returns `true`
+
+#### Scenario: Git provider matches git-scheme URLs
+
+- **WHEN** `match` is called with a `git://` or `ssh://` URL
+- **THEN** it returns `true`
+
+### Requirement: PublishableSourceHostProvider extends base provider
+
+`PublishableSourceHostProvider` SHALL extend `SourceHostProvider` with a `publishVersion` method for registry-specific operations. Only registry providers implement this interface.
+
+```
+publishVersion(scope, type, name, version, archive, metadata) → Effect<void, CliError, R>
+```
+
+#### Scenario: Registry provider supports publish
+
+- **WHEN** the registry provider is constructed
+- **THEN** it implements `PublishableSourceHostProvider` with `publishVersion`
+
+#### Scenario: Non-registry providers do not support publish
+
+- **WHEN** the GitHub provider is constructed
+- **THEN** it implements `SourceHostProvider` only (no `publishVersion`)
 
 ### Requirement: FindOptions separates search criteria from source identity
 
@@ -52,7 +88,7 @@ The `source` parameter to `find` SHALL be the specific `Source` variant (e.g., `
 
 - `names`: extension names to match (empty = all)
 - `agents`: agent compatibility filter (empty = all)
-- `type`: `"skill" | "mcp-server" | "*"`
+- `type`: `FindableExtensionType | "*"` (replacing the previous `"skill" | "mcp-server" | "*"`)
 
 #### Scenario: Empty names returns all
 
@@ -66,21 +102,22 @@ The `source` parameter to `find` SHALL be the specific `Source` variant (e.g., `
 
 ### Requirement: ExtensionRef carries source and version metadata
 
-`ExtensionRef` SHALL be a discriminated union (`SkillRef | McpServerRef`) carrying `source`, `location`, and `version`:
+`SourceExtensionRef` SHALL be a two-dimensional discriminated union (extension type x source type). Each ref variant carries a full `Source` object (not a `SourceType` string) and source-specific ref details.
 
-- `source`: the `SourceInput` that was searched
-- `location`: URL where extension files are materialized (`file://` for local/git/registry, `https://` for future remote)
-- `version`: `Some` for registry sources (resolved semver), `None` for git/local
+- Git-hosted refs carry `location` (file:// URL) and `gitTreeSha: Option<string>`
+- Registry refs carry `version: string` and `checksum: string`
+- Local refs carry `location` (file:// URL)
+- Builtin refs carry no additional fields
 
-#### Scenario: Git-sourced ref has no version
+#### Scenario: Git-sourced ref has location and tree SHA
 
 - **WHEN** `find` returns a ref from a GitHub source
-- **THEN** `version` is `None` and `location` is a `file://` URL to the temp clone directory
+- **THEN** it is a `GitHubSkillRef` with `location` (file:// URL to temp clone directory) and `gitTreeSha`
 
-#### Scenario: Registry-sourced ref has resolved version
+#### Scenario: Registry-sourced ref has version and checksum
 
 - **WHEN** `find` returns a ref from a registry source
-- **THEN** `version` is `Some("1.2.3")` with the resolved semver version
+- **THEN** it is a `RegistrySkillRef` with `version` (resolved semver) and `checksum` (from registry index)
 
 #### Scenario: Location is always populated after find
 
@@ -103,45 +140,57 @@ The `source` parameter to `find` SHALL be the specific `Source` variant (e.g., `
 
 ### Requirement: SourceError for provider failures
 
-All provider operations SHALL fail with `SourceError` (tagged error with `message` and `cause`). Existing `DiscoveryError` and `CloneUrlError` are subsumed by `SourceError`.
+All provider operations SHALL fail with `CliError`. The `CliError` SHALL include an appropriate error code, descriptive message, and original cause.
 
 #### Scenario: Find failure
 
 - **WHEN** a provider's `find` operation fails (e.g., network error, missing repo)
-- **THEN** it fails with `SourceError` containing a descriptive message and the original cause
+- **THEN** it fails with `CliError` containing a descriptive `what` and the original `cause`
 
 #### Scenario: Fetch failure
 
 - **WHEN** a provider's `fetch` operation fails (e.g., checksum mismatch)
-- **THEN** it fails with `SourceError`
+- **THEN** it fails with `CliError`
 
-### Requirement: SourceProviders Effect service
+### Requirement: SourceHostProviders Effect service
 
-The system SHALL expose a `SourceProviders` service backed by one provider per source type. Handlers consume it via `yield* SourceProviders`. The service SHALL expose `resolveExtension` (renamed from `resolve`) and `fetch` methods.
+The `SourceHostProviders` service SHALL expose `find`, `fetch`, `cloneUrl`, and `origin` methods.
 
-`resolveExtension` SHALL accept a `Source` (not `SourceInput`). The `Source` type carries both parsed coordinates and provider config, giving providers access to config fields like base URLs.
+`find` SHALL accept a `Source` and `FindOptions`, dispatching to the correct provider by `source.type`. `fetch` SHALL accept a `SourceExtensionRef` and extract the source from `ref.source` for dispatch.
 
-The dispatch table SHALL use `source.source` to select the correct provider, which continues to work because `Source` extends `SourceInput`.
+`cloneUrl` SHALL accept a `Source` and return `Option<string>` — the git clone URL for git-based sources, `None` for others. This replaces the standalone `buildCloneUrl` function.
 
-#### Scenario: resolveExtension dispatches to correct provider
+`origin` SHALL accept a `Source` and return a canonical origin string for display/comparison. This replaces the standalone `getOrigin` function and `printSourceInput`.
 
-- **WHEN** `sources.resolveExtension(source, options)` is called with `source.source === "github"`
-- **THEN** the `GitHubSourceProvider.find` implementation is invoked
+#### Scenario: find dispatches to correct provider
 
-#### Scenario: resolveExtension passes Source to provider
+- **WHEN** `sourceHostProviders.find(source, options)` is called with `source.type === "github"`
+- **THEN** the GitHub provider's `find` implementation is invoked
 
-- **WHEN** `sources.resolveExtension(source, options)` is called with a `GitHubSource`
-- **THEN** the GitHub provider receives the full `Source` including config fields (`url`, `name`)
+#### Scenario: fetch dispatches by ref source type
 
-#### Scenario: Fetch dispatches by ref source
+- **WHEN** `sourceHostProviders.fetch(ref)` is called where `ref.source.type === "registry"`
+- **THEN** the registry provider's `fetch` implementation is invoked
 
-- **WHEN** `sources.fetch(ref)` is called where `ref.source.source === "registry"`
-- **THEN** the `RegistrySourceProvider.fetch` implementation is invoked
+#### Scenario: cloneUrl returns URL for git-based sources
+
+- **WHEN** `sourceHostProviders.cloneUrl(source)` is called with a `GitHubSource`
+- **THEN** it returns `Some("https://github.com/owner/repo.git")`
+
+#### Scenario: cloneUrl returns None for non-git sources
+
+- **WHEN** `sourceHostProviders.cloneUrl(source)` is called with a `RegistrySource`
+- **THEN** it returns `None`
+
+#### Scenario: origin returns canonical display string
+
+- **WHEN** `sourceHostProviders.origin(source)` is called with a `GitHubSource`
+- **THEN** it returns a canonical string like `"github.com/owner/repo"`
 
 #### Scenario: Service constructed once at edge
 
 - **WHEN** the CLI runtime is composed
-- **THEN** `SourceProviders` is provided via a layer depending on `FileSystem`, `Path`, and `Workspace`
+- **THEN** `SourceHostProviders` is provided via a layer depending on `FileSystem`, `Path`, and `Workspace`
 
 ### Requirement: Registry meta-provider wraps multiple registries
 
@@ -155,18 +204,108 @@ The provider registry SHALL contain a single `registry` entry backed by a meta-p
 #### Scenario: Meta-provider applies scope routing
 
 - **WHEN** `find` is called for `@corp/tool`
-- **THEN** the meta-provider iterates scope-matched registries first, then catch-all, per Decision 6
+- **THEN** the meta-provider iterates scope-matched registries first, then catch-all
+
+### Requirement: Registry provider populates checksum during discovery
+
+The registry provider's `find()` SHALL return `SourceExtensionRef` with `checksum` populated from the registry index metadata. Checksum is an intrinsic property of a registry ref known at discovery time.
+
+#### Scenario: Registry find includes checksum
+
+- **WHEN** the registry provider's `find()` discovers an extension
+- **THEN** the returned `RegistrySkillRef` has a non-empty `checksum` field from the registry index
 
 ### Requirement: Existing source types migrated to provider model
 
-All existing source types (github, gitlab, bitbucket, azurerepos, git, local) SHALL be implemented as `SourceProvider` instances.
+All existing source types SHALL be implemented as `SourceHostProvider` instances. Providers SHALL be constructed with their `SourceHost` configuration (for configured sources) or with no constructor args (for self-describing sources).
+
+#### Scenario: GitHub provider constructed with host config
+
+- **WHEN** `createGitHostingProvider(host)` is called with a `GitHubSourceHost`
+- **THEN** the provider's `type` is `"github"` and it uses `host.url` for clone URL construction
+
+#### Scenario: Local provider needs no host config
+
+- **WHEN** the local provider is created
+- **THEN** it requires no constructor arguments (self-describing source)
 
 #### Scenario: GitHub provider implements find and fetch
 
-- **WHEN** `GitHubSourceProvider.find` is called
-- **THEN** it performs shallow clone, scans for SKILL.md, and returns `ExtensionRef[]`
+- **WHEN** `GitHubSourceHostProvider.find` is called
+- **THEN** it performs shallow clone, scans for SKILL.md, and returns `SourceExtensionRef[]`
 
 #### Scenario: Local provider scans filesystem directly
 
-- **WHEN** `LocalSourceProvider.find` is called
-- **THEN** it scans the local directory using existing `discoverSkillsInDir` logic
+- **WHEN** `LocalSourceHostProvider.find` is called
+- **THEN** it scans the local directory and returns `SourceExtensionRef[]`
+
+#### Scenario: Builtin provider does in-memory lookup
+
+- **WHEN** `BuiltinSourceHostProvider.find` is called
+- **THEN** it returns bundled extensions from in-memory data
+
+#### Scenario: Builtin provider never matches URLs
+
+- **WHEN** `BuiltinSourceHostProvider.match(url)` is called with any URL
+- **THEN** it returns `false`
+
+### Requirement: Operation args take SourceExtensionRef directly
+
+`InstallSkillOperationArgs` SHALL take a `SkillExtensionRef` instead of flat fields extracted from the ref. `CopySkillOperationArgs` SHALL similarly take a `SkillExtensionRef`. Lock-entry conversion switches on `ref.source.type` and pulls all fields from the ref.
+
+#### Scenario: Install args simplified to ref plus operational params
+
+- **WHEN** constructing `InstallSkillOperationArgs`
+- **THEN** the args contain `ref: SkillExtensionRef`, `agents`, `force`, and optional `skipSettings`
+
+#### Scenario: Copy args simplified to ref plus target name
+
+- **WHEN** constructing `CopySkillOperationArgs`
+- **THEN** the args contain `ref: SkillExtensionRef` and `targetName`
+
+#### Scenario: Lock entry conversion uses ref source type
+
+- **WHEN** `sourceToLockEntry` converts a `SkillExtensionRef` to a lock entry
+- **THEN** it switches on `ref.source.type` to extract source-specific fields (version, checksum, gitTreeSha, location)
+
+### Requirement: LocalRegistrySourceHostProvider
+
+The system SHALL implement `LocalRegistrySourceHostProvider` as a `PublishableSourceHostProvider` that delegates to a `LocalRegistryClient`. It maps between source-domain types and registry-domain types at the boundary.
+
+#### Scenario: find maps FindOptions to RegistrySearchOptions
+
+- **WHEN** `find(source, options)` is called with `FindOptions`
+- **THEN** the provider maps `FindOptions` to `RegistrySearchOptions`, calls `client.getExtensions(searchOptions)`, and maps each `RegistryExtensionEntry` to a `SourceExtensionRef` stamped with the `source` and `RegistryRefDetails`
+
+#### Scenario: fetch extracts scope from ref and delegates to client
+
+- **WHEN** `fetch(source, ref)` is called with a registry-sourced ref
+- **THEN** the provider extracts `scope`, `type`, `name`, `version` from the ref's `RegistryRefDetails`, calls `client.getExtension(scope, type, name, version)` to get archive bytes, verifies the SHA-256 checksum, and extracts the zip archive to a temporary directory
+
+#### Scenario: publishExtension delegates to client
+
+- **WHEN** `publishExtension(scope, type, name, version, archive, metadata)` is called
+- **THEN** the provider delegates directly to `client.publishExtension(...)` with the same arguments
+
+### Requirement: RemoteRegistrySourceHostProvider stub
+
+The system SHALL implement `RemoteRegistrySourceHostProvider` as a `PublishableSourceHostProvider` that delegates to a `RemoteRegistryClient`. All operations fail with not-implemented errors (propagated from the client).
+
+#### Scenario: Any operation on remote host provider
+
+- **WHEN** `find`, `fetch`, or `publishExtension` is called on `RemoteRegistrySourceHostProvider`
+- **THEN** it fails with `CliError` containing "remote registry not yet supported" (from the underlying `RemoteRegistryClient`)
+
+### Requirement: Registry host provider factory
+
+A factory function `createRegistrySourceHostProvider` SHALL create the appropriate host provider based on the `RegistrySourceHost` configuration. It creates the matching `RegistryClient` internally and wraps it in the corresponding host provider.
+
+#### Scenario: Local registry creates LocalRegistrySourceHostProvider
+
+- **WHEN** `createRegistrySourceHostProvider(host)` is called with a `file://` or local path location
+- **THEN** a `LocalRegistrySourceHostProvider` backed by a `LocalRegistryClient` is created
+
+#### Scenario: Remote registry creates RemoteRegistrySourceHostProvider
+
+- **WHEN** `createRegistrySourceHostProvider(host)` is called with an `https://` location
+- **THEN** a `RemoteRegistrySourceHostProvider` backed by a `RemoteRegistryClient` is created

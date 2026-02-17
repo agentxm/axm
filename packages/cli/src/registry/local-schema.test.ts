@@ -9,7 +9,6 @@ describe("registry schema", () => {
         version: "1.2.3",
         published: "2025-06-01T12:00:00Z",
         dependencies: { "@acme/utils": "^1.0.0", "@acme/core": "~2.1.0" },
-        engines: { axm: ">=0.2.0" },
         integrity: "sha512-abc123def456",
       };
 
@@ -21,7 +20,6 @@ describe("registry schema", () => {
         "@acme/utils": "^1.0.0",
         "@acme/core": "~2.1.0",
       });
-      expect(result.engines).toEqual({ axm: ">=0.2.0" });
       expect(result.integrity).toBe("sha512-abc123def456");
     });
 
@@ -37,7 +35,6 @@ describe("registry schema", () => {
       expect(result.version).toBe("0.1.0");
       expect(result.published).toBe("2025-01-01T00:00:00Z");
       expect(result.dependencies).toBeUndefined();
-      expect(result.engines).toBeUndefined();
       expect(result.integrity).toBe("sha512-deadbeef");
     });
 
@@ -68,19 +65,17 @@ describe("registry schema", () => {
       expect(() => Schema.decodeUnknownSync(VersionEntrySchema)(input)).toThrow();
     });
 
-    it("accepts empty dependencies and engines", () => {
+    it("accepts empty dependencies", () => {
       const input = {
         version: "1.0.0",
         published: "2025-01-01T00:00:00Z",
         dependencies: {},
-        engines: {},
         integrity: "sha512-abc123",
       };
 
       const result = Schema.decodeUnknownSync(VersionEntrySchema)(input);
 
       expect(result.dependencies).toEqual({});
-      expect(result.engines).toEqual({});
     });
   });
 
@@ -128,7 +123,6 @@ describe("registry schema", () => {
             version: "2.0.0",
             published: "2025-08-01T12:00:00Z",
             dependencies: { "@acme/utils": "^1.0.0" },
-            engines: { axm: ">=0.3.0" },
             integrity: "sha512-newest",
           },
           {

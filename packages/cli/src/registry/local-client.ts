@@ -22,7 +22,7 @@ import type {
   GetExtensionVersionArgs,
   PublishExtensionArgs,
   ExtensionExistsArgs,
-  GetExtensionsResult,
+  GetExtensionsResponse,
 } from "./client.js";
 import { toAuthor, type ExtensionType } from "../extensions/common.js";
 import { ExtensionIndexSchema, type ExtensionIndex } from "./local-schema.js";
@@ -190,13 +190,14 @@ export const createLocalRegistryClient = (
           offset,
           hasMore: offset + extensions.length < total,
         },
-      } satisfies GetExtensionsResult;
+      } satisfies GetExtensionsResponse;
     }),
 
   scopeExists: (scope) =>
     Effect.gen(function* () {
       const scopeDir = path.join(registryRoot, "extensions", scope);
-      return yield* fs.exists(scopeDir).pipe(Effect.orElseSucceed(() => false));
+      const exists = yield* fs.exists(scopeDir).pipe(Effect.orElseSucceed(() => false));
+      return { exists };
     }),
 
   getExtensionVersion: (args: GetExtensionVersionArgs) =>
@@ -261,7 +262,7 @@ export const createLocalRegistryClient = (
         );
       }
 
-      return yield* fs.readFile(archivePath).pipe(
+      const archive = yield* fs.readFile(archivePath).pipe(
         Effect.mapError((e) =>
           makeCliError({
             code: "REGISTRY_FETCH_FAILED",
@@ -270,6 +271,7 @@ export const createLocalRegistryClient = (
           }),
         ),
       );
+      return { archive };
     }),
 
   publishExtension: (args: PublishExtensionArgs) =>
@@ -327,7 +329,7 @@ export const createLocalRegistryClient = (
         const existingVersion = existingIndex.versions.find((v) => v.version === args.version);
         if (existingVersion) {
           if (existingVersion.integrity === args.metadata.integrity) {
-            return; // Idempotent: same version, same integrity -> no-op
+            return { published: true } as const; // Idempotent: same version, same integrity -> no-op
           }
           return yield* Effect.fail(
             makeCliError({
@@ -381,12 +383,15 @@ export const createLocalRegistryClient = (
           }),
         ),
       );
+
+      return { published: true } as const;
     }),
 
   extensionExists: (args: ExtensionExistsArgs) =>
     Effect.gen(function* () {
       const dir = extensionDir(registryRoot, args.scope, args.type, args.name, path.join);
       const indexPath = path.join(dir, "index.json");
-      return yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
+      const exists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
+      return { exists };
     }),
 });

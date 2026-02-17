@@ -148,7 +148,7 @@ export const createLocalRegistrySourceHostProvider = (
       const type = refRegistryType(ref);
       const name = refName(ref);
 
-      const archiveBytes = yield* client.getExtensionVersion({
+      const { archive: archiveBytes } = yield* client.getExtensionVersion({
         scope,
         type,
         name,
@@ -231,7 +231,7 @@ export const createRemoteRegistrySourceHostProvider = (
       const type = refRegistryType(ref);
       const name = refName(ref);
 
-      const archiveBytes = yield* client.getExtensionVersion({
+      const { archive: archiveBytes } = yield* client.getExtensionVersion({
         scope,
         type,
         name,

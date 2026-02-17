@@ -98,13 +98,13 @@ export interface ExtensionExistsArgs {
 }
 
 // -----------------------------------------------------------------------------
-// Get Extensions Result
+// Get Extensions Response
 // -----------------------------------------------------------------------------
 
 /**
  * Paginated result from a registry extension search.
  */
-export interface GetExtensionsResult {
+export interface GetExtensionsResponse {
   readonly extensions: ReadonlyArray<RegistryExtensionVersionManifest>;
   readonly pagination: {
     readonly total: number;
@@ -112,6 +112,50 @@ export interface GetExtensionsResult {
     readonly offset: number;
     readonly hasMore: boolean;
   };
+}
+
+// -----------------------------------------------------------------------------
+// Get Extension Version Response
+// -----------------------------------------------------------------------------
+
+/**
+ * Response from fetching a specific extension version archive.
+ */
+export interface GetExtensionVersionResponse {
+  readonly archive: Uint8Array;
+}
+
+// -----------------------------------------------------------------------------
+// Publish Extension Response
+// -----------------------------------------------------------------------------
+
+/**
+ * Response from publishing an extension version.
+ */
+export interface PublishExtensionResponse {
+  readonly published: true;
+}
+
+// -----------------------------------------------------------------------------
+// Scope Exists Response
+// -----------------------------------------------------------------------------
+
+/**
+ * Response from checking whether a scope exists in a registry.
+ */
+export interface ScopeExistsResponse {
+  readonly exists: boolean;
+}
+
+// -----------------------------------------------------------------------------
+// Extension Exists Response
+// -----------------------------------------------------------------------------
+
+/**
+ * Response from checking whether an extension exists in a registry.
+ */
+export interface ExtensionExistsResponse {
+  readonly exists: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -150,13 +194,17 @@ export interface RegistryExtensionVersionManifest {
 export interface RegistryClient {
   readonly getExtensions: (
     options: GetExtensionsArgs,
-  ) => Effect.Effect<GetExtensionsResult, CliError>;
-  readonly scopeExists: (scope: string) => Effect.Effect<boolean, CliError>;
+  ) => Effect.Effect<GetExtensionsResponse, CliError>;
+  readonly scopeExists: (scope: string) => Effect.Effect<ScopeExistsResponse, CliError>;
   readonly getExtensionVersion: (
     args: GetExtensionVersionArgs,
-  ) => Effect.Effect<Uint8Array, CliError>;
-  readonly publishExtension: (args: PublishExtensionArgs) => Effect.Effect<void, CliError>;
-  readonly extensionExists: (args: ExtensionExistsArgs) => Effect.Effect<boolean, CliError>;
+  ) => Effect.Effect<GetExtensionVersionResponse, CliError>;
+  readonly publishExtension: (
+    args: PublishExtensionArgs,
+  ) => Effect.Effect<PublishExtensionResponse, CliError>;
+  readonly extensionExists: (
+    args: ExtensionExistsArgs,
+  ) => Effect.Effect<ExtensionExistsResponse, CliError>;
 }
 
 // -----------------------------------------------------------------------------

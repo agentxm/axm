@@ -48,7 +48,7 @@ const resolveRegistrySource = (
 
     for (const regConfig of registrySources) {
       const client = yield* createRegistryClient(regConfig.location.href);
-      const hasRequestedScope = yield* client.scopeExists(scope);
+      const { exists: hasRequestedScope } = yield* client.scopeExists(scope);
       if (hasRequestedScope) {
         return {
           type: "registry" as const,

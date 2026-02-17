@@ -18,7 +18,7 @@ import type {
   RegistryClient,
   RegistryExtensionVersionManifest,
   GetExtensionsArgs,
-  GetExtensionsResult,
+  GetExtensionsResponse,
   VersionEntry,
 } from "../../../registry/index.js";
 import type {
@@ -66,10 +66,10 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 // Minimal zip: just enough bytes to not crash extractZip in a mock context
 // For fetch tests we use the mock client which returns controlled bytes
 
-/** Wrap entries into a GetExtensionsResult with default pagination. */
+/** Wrap entries into a GetExtensionsResponse with default pagination. */
 const toResult = (
   extensions: ReadonlyArray<RegistryExtensionVersionManifest>,
-): GetExtensionsResult => ({
+): GetExtensionsResponse => ({
   extensions,
   pagination: {
     total: extensions.length,
@@ -82,11 +82,11 @@ const toResult = (
 /** Create a mock RegistryClient with controllable return values. */
 const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient => ({
   getExtensions: () => Effect.succeed(toResult([])),
-  scopeExists: () => Effect.succeed(false),
+  scopeExists: () => Effect.succeed({ exists: false }),
   getExtensionVersion: () =>
     Effect.fail(makeCliError({ code: "REGISTRY_FETCH_FAILED", what: "not implemented" })),
-  publishExtension: () => Effect.void,
-  extensionExists: () => Effect.succeed(false),
+  publishExtension: () => Effect.succeed({ published: true } as const),
+  extensionExists: () => Effect.succeed({ exists: false }),
   ...overrides,
 });
 
@@ -326,7 +326,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     const client = createMockClient({
       getExtensionVersion: (args) => {
         capturedArgs = args;
-        return Effect.succeed(archiveBytes);
+        return Effect.succeed({ archive: archiveBytes });
       },
     });
 
@@ -368,7 +368,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     const archiveBytes = new Uint8Array([80, 75, 3, 4]);
 
     const client = createMockClient({
-      getExtensionVersion: () => Effect.succeed(archiveBytes),
+      getExtensionVersion: () => Effect.succeed({ archive: archiveBytes }),
     });
 
     const provider = createLocalRegistrySourceHostProvider(client);
@@ -405,7 +405,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       getExtensionVersion: (args) => {
         capturedType = args.type;
         capturedName = args.name;
-        return Effect.succeed(archiveBytes);
+        return Effect.succeed({ archive: archiveBytes });
       },
     });
 
@@ -441,7 +441,7 @@ describe("LocalRegistrySourceHostProvider.publishExtension", () => {
     const client = createMockClient({
       publishExtension: (args) => {
         capturedArgs = args;
-        return Effect.void;
+        return Effect.succeed({ published: true } as const);
       },
     });
 

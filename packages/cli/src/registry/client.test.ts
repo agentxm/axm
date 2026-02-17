@@ -303,8 +303,8 @@ describe("LocalRegistryClient.scopeExists", () => {
       yield* fs.makeDirectory(scopeDir, { recursive: true });
 
       const client = yield* makeLocalClient(registryRoot);
-      const exists = yield* client.scopeExists("@test");
-      expect(exists).toBe(true);
+      const result = yield* client.scopeExists("@test");
+      expect(result.exists).toBe(true);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -318,8 +318,8 @@ describe("LocalRegistryClient.scopeExists", () => {
 
     return Effect.gen(function* () {
       const client = yield* makeLocalClient(registryRoot);
-      const exists = yield* client.scopeExists("@missing");
-      expect(exists).toBe(false);
+      const result = yield* client.scopeExists("@missing");
+      expect(result.exists).toBe(false);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -345,7 +345,7 @@ describe("LocalRegistryClient.getExtensionVersion", () => {
       yield* fs.writeFile(nodePath.join(skillDir, "1.0.0.zip"), archive);
 
       const client = yield* makeLocalClient(registryRoot);
-      const bytes = yield* client.getExtensionVersion({
+      const { archive: bytes } = yield* client.getExtensionVersion({
         scope: "@test",
         type: "skill",
         name: "my-skill",
@@ -376,7 +376,7 @@ describe("LocalRegistryClient.getExtensionVersion", () => {
       yield* fs.writeFile(nodePath.join(skillDir, "2.0.0.zip"), archive);
 
       const client = yield* makeLocalClient(registryRoot);
-      const bytes = yield* client.getExtensionVersion({
+      const { archive: bytes } = yield* client.getExtensionVersion({
         scope: "@test",
         type: "skill",
         name: "my-skill",
@@ -627,12 +627,12 @@ describe("LocalRegistryClient.extensionExists", () => {
       yield* fs.writeFileString(nodePath.join(skillDir, "index.json"), JSON.stringify(makeIndex()));
 
       const client = yield* makeLocalClient(registryRoot);
-      const exists = yield* client.extensionExists({
+      const result = yield* client.extensionExists({
         scope: "@test",
         type: "skill",
         name: "my-skill",
       });
-      expect(exists).toBe(true);
+      expect(result.exists).toBe(true);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -646,12 +646,12 @@ describe("LocalRegistryClient.extensionExists", () => {
 
     return Effect.gen(function* () {
       const client = yield* makeLocalClient(registryRoot);
-      const exists = yield* client.extensionExists({
+      const result = yield* client.extensionExists({
         scope: "@test",
         type: "skill",
         name: "nonexistent",
       });
-      expect(exists).toBe(false);
+      expect(result.exists).toBe(false);
     }).pipe(
       Effect.ensuring(
         Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),

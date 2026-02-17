@@ -21,7 +21,6 @@ import { AuthorSchema, ExtensionTypeSchema } from "../extensions/common.js";
  * - version: Semver version string (e.g., "1.2.3")
  * - published: ISO 8601 timestamp of publication
  * - dependencies: Optional map of `@scope/name` to semver range
- * - engines: Optional map of engine constraints (e.g., `{"axm": ">=0.2.0"}`)
  * - integrity: SRI integrity string in `sha512-<base64>` format
  *
  * @experimental This API is unstable and may change without notice.
@@ -30,7 +29,6 @@ export const VersionEntrySchema = Schema.Struct({
   version: Schema.String,
   published: Schema.String,
   dependencies: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
-  engines: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
   integrity: Schema.String,
 });
 

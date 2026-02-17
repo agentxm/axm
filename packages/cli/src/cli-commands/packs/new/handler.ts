@@ -123,7 +123,7 @@ export const handlePacksNew = (args: PacksNewHandlerArgs) =>
       scope,
       name: args.name,
       resolvedVersion: "0.0.1",
-      checksum: "",
+      integrity: "",
       sourceName: "",
       installedAt: now,
       updatedAt: now,

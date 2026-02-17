@@ -201,7 +201,7 @@ describe("packs install handler", () => {
             scope: "@acme",
             name: "my-pack",
             resolvedVersion: "1.0.0",
-            checksum: "abc",
+            integrity: "abc",
             sourceName: "default",
             installedAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -336,7 +336,7 @@ describe("packs install handler", () => {
         source: { type: "registry", location: new URL("file:///tmp/reg") },
         scope: "@acme",
         version: "1.0.0",
-        checksum: "",
+        integrity: "",
       };
 
       const skillRef: SkillExtensionRef = {
@@ -345,7 +345,7 @@ describe("packs install handler", () => {
         source: { type: "registry", location: new URL("file:///tmp/reg") },
         scope: "@acme",
         version: "1.0.0",
-        checksum: "",
+        integrity: "",
       };
 
       const mockService: SourceHostProvidersService = {
@@ -412,7 +412,7 @@ describe("packs install handler", () => {
         source: { type: "registry", location: new URL("file:///tmp/reg") },
         scope: "@acme",
         version: "1.0.0",
-        checksum: "",
+        integrity: "",
       };
 
       const skillRef: SkillExtensionRef = {
@@ -421,7 +421,7 @@ describe("packs install handler", () => {
         source: { type: "registry", location: new URL("file:///tmp/reg") },
         scope: "@acme",
         version: "1.0.0",
-        checksum: "",
+        integrity: "",
       };
 
       const mockService: SourceHostProvidersService = {
@@ -450,7 +450,7 @@ describe("packs install handler", () => {
             scope: "@acme",
             name: "my-skill",
             resolvedVersion: "1.0.0",
-            checksum: "",
+            integrity: "",
             sourceName: "default",
             agents: ["claude-code"],
             installedAt: new Date().toISOString(),
@@ -495,7 +495,7 @@ describe("packs install handler", () => {
         source: { type: "registry", location: new URL("file:///tmp/reg") },
         scope: "@acme",
         version: "1.0.0",
-        checksum: "",
+        integrity: "",
       };
 
       const skillRef: SkillExtensionRef = {
@@ -504,7 +504,7 @@ describe("packs install handler", () => {
         source: { type: "registry", location: new URL("file:///tmp/reg") },
         scope: "@acme",
         version: "1.0.0",
-        checksum: "",
+        integrity: "",
       };
 
       const mockService: SourceHostProvidersService = {
@@ -574,7 +574,7 @@ describe("packs install handler", () => {
         source: { type: "registry", location: new URL("file:///tmp/reg") },
         scope: "@acme",
         version: "2.0.0",
-        checksum: "",
+        integrity: "",
       };
 
       const mockService: SourceHostProvidersService = {
@@ -628,7 +628,7 @@ describe("packs install handler", () => {
         source: { type: "registry", location: new URL("file:///tmp/reg") },
         scope: "@acme",
         version: "1.0.0",
-        checksum: "",
+        integrity: "",
       };
 
       // Capture what find receives for skill resolution
@@ -639,7 +639,7 @@ describe("packs install handler", () => {
         source: { type: "registry", location: new URL("file:///tmp/reg") },
         scope: "@acme",
         version: "1.0.0",
-        checksum: "",
+        integrity: "",
       };
 
       const mockService: SourceHostProvidersService = {
@@ -698,7 +698,7 @@ describe("packs install handler", () => {
         source: { type: "registry", location: new URL("file:///tmp/reg") },
         scope: "@acme",
         version: "1.0.0",
-        checksum: "",
+        integrity: "",
       };
 
       // Capture what find receives for skill resolution
@@ -709,7 +709,7 @@ describe("packs install handler", () => {
         source: { type: "registry", location: new URL("file:///tmp/reg") },
         scope: "@acme",
         version: "1.0.0",
-        checksum: "",
+        integrity: "",
       };
 
       const mockService: SourceHostProvidersService = {
@@ -766,7 +766,7 @@ describe("packs install handler", () => {
         source: { type: "registry", location: new URL("file:///tmp/reg") },
         scope: "@acme",
         version: "1.0.0",
-        checksum: "",
+        integrity: "",
       };
 
       const mockService: SourceHostProvidersService = {

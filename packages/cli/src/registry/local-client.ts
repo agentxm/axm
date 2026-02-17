@@ -92,7 +92,7 @@ const processNameDir = (
         Option.map((authors) => authors.map((author) => toAuthor(author))),
       ),
       version: ver.version,
-      checksum: ver.checksum,
+      integrity: ver.integrity,
     } satisfies RegistryExtension);
   });
 
@@ -322,17 +322,17 @@ export const createLocalRegistryClient = (
           ),
         );
 
-        // Check idempotency: same version + same checksum = no-op
+        // Check idempotency: same version + same integrity = no-op
         const existingVersion = existingIndex.versions.find((v) => v.version === args.version);
         if (existingVersion) {
-          if (existingVersion.checksum === args.metadata.checksum) {
-            return; // Idempotent: same version, same checksum -> no-op
+          if (existingVersion.integrity === args.metadata.integrity) {
+            return; // Idempotent: same version, same integrity -> no-op
           }
           return yield* Effect.fail(
             makeCliError({
               code: "REGISTRY_PUBLISH_FAILED",
-              what: `Version ${args.version} already exists with different checksum`,
-              details: [`Expected ${existingVersion.checksum}, got ${args.metadata.checksum}`],
+              what: `Version ${args.version} already exists with different integrity`,
+              details: [`Expected ${existingVersion.integrity}, got ${args.metadata.integrity}`],
             }),
           );
         }

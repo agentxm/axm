@@ -270,7 +270,7 @@ describe("axm packs publish", () => {
 
       const versionEntry = index.versions[0];
       expect(versionEntry.version).toBe("0.0.1");
-      expect(versionEntry.checksum).toMatch(/^sha256:/);
+      expect(versionEntry.integrity).toMatch(/^sha512-[A-Za-z0-9+/]+=*$/);
 
       // Verify archive exists and is a valid zip
       const archivePath = path.join(

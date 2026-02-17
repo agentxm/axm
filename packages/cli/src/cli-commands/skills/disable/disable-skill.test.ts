@@ -94,7 +94,7 @@ const makeRegistryLockEntry = (agents: string[]) => ({
   scope: "@community",
   name: "my-skill",
   resolvedVersion: "1.0.0",
-  checksum: "sha256:abc123",
+  integrity: "sha512-AAAA==",
   sourceName: "local",
   agents,
   installedAt: new Date(),

@@ -168,7 +168,7 @@ The system SHALL define ref detail interfaces for each source category.
 | Detail Type           | Fields                                           | Used By                                    |
 | --------------------- | ------------------------------------------------ | ------------------------------------------ |
 | `GitHostedRefDetails` | `location: string`, `gitTreeSha: Option<string>` | GitHub, GitLab, Bitbucket, AzureRepos, Git |
-| `RegistryRefDetails`  | `version: string`, `checksum: string`            | Registry                                   |
+| `RegistryRefDetails`  | `version: string`, `integrity: string`           | Registry                                   |
 | `LocalRefDetails`     | `location: string`                               | Local                                      |
 | `BuiltinRefDetails`   | _(no additional fields)_                         | Builtin                                    |
 
@@ -177,10 +177,10 @@ The system SHALL define ref detail interfaces for each source category.
 - **WHEN** a GitHub provider discovers an extension
 - **THEN** the ref includes `location` (file:// URL to clone dir) and `gitTreeSha`
 
-#### Scenario: Registry ref carries version and checksum
+#### Scenario: Registry ref carries version and integrity
 
 - **WHEN** a registry provider discovers an extension
-- **THEN** the ref includes `version` (resolved semver) and `checksum` (archive integrity)
+- **THEN** the ref includes `version` (resolved semver) and `integrity` (SRI format archive hash)
 
 ### Requirement: SourceExtensionRef is a two-dimensional discriminated union
 
@@ -198,7 +198,7 @@ Each sub-union combines a base (e.g., `SkillRefBase`) with a `Source` variant an
 #### Scenario: Skill ref from registry carries registry details
 
 - **WHEN** a registry provider discovers a skill
-- **THEN** the ref is a `RegistrySkillRef` with `type: "skill"`, `source: RegistrySource`, `version`, `checksum`, and `skill` metadata
+- **THEN** the ref is a `RegistrySkillRef` with `type: "skill"`, `source: RegistrySource`, `version`, `integrity`, and `skill` metadata
 
 #### Scenario: Pack ref is registry or builtin only
 

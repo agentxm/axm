@@ -34,7 +34,7 @@ import { SourceHostProviders, SourceHostProvidersLive } from "./service.js";
 const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
   version: "1.0.0",
   published: "2025-01-01T00:00:00Z",
-  checksum: "sha256:0000",
+  integrity: "sha512-AAAA==",
   ...overrides,
 });
 
@@ -65,9 +65,9 @@ const createTestZip = (fileName: string, content: string): Uint8Array => {
   }
 };
 
-const computeChecksum = (data: Uint8Array): string => {
-  const hex = createHash("sha256").update(data).digest("hex");
-  return `sha256:${hex}`;
+const computeIntegrity = (data: Uint8Array): string => {
+  const b64 = createHash("sha512").update(data).digest("base64");
+  return `sha512-${b64}`;
 };
 
 /**
@@ -143,7 +143,7 @@ describe("registry meta-provider scope routing", () => {
     const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
 
     const archive = createTestZip("SKILL.md", "content");
-    const checksum = computeChecksum(archive);
+    const integrity = computeIntegrity(archive);
 
     return runWithService(
       [
@@ -159,7 +159,7 @@ describe("registry meta-provider scope routing", () => {
         yield* fs.makeDirectory(skillDir, { recursive: true });
         yield* fs.writeFileString(
           nodePath.join(skillDir, "index.json"),
-          JSON.stringify(makeIndex({ versions: [makeVersionEntry({ checksum })] })),
+          JSON.stringify(makeIndex({ versions: [makeVersionEntry({ integrity })] })),
         );
 
         const svc = yield* SourceHostProviders;

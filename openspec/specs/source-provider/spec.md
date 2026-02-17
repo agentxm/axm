@@ -105,7 +105,7 @@ publishVersion(scope, type, name, version, archive, metadata) → Effect<void, C
 `SourceExtensionRef` SHALL be a two-dimensional discriminated union (extension type x source type). Each ref variant carries a full `Source` object (not a `SourceType` string) and source-specific ref details.
 
 - Git-hosted refs carry `location` (file:// URL) and `gitTreeSha: Option<string>`
-- Registry refs carry `version: string` and `checksum: string`
+- Registry refs carry `version: string` and `integrity: string`
 - Local refs carry `location` (file:// URL)
 - Builtin refs carry no additional fields
 
@@ -114,10 +114,10 @@ publishVersion(scope, type, name, version, archive, metadata) → Effect<void, C
 - **WHEN** `find` returns a ref from a GitHub source
 - **THEN** it is a `GitHubSkillRef` with `location` (file:// URL to temp clone directory) and `gitTreeSha`
 
-#### Scenario: Registry-sourced ref has version and checksum
+#### Scenario: Registry-sourced ref has version and integrity
 
 - **WHEN** `find` returns a ref from a registry source
-- **THEN** it is a `RegistrySkillRef` with `version` (resolved semver) and `checksum` (from registry index)
+- **THEN** it is a `RegistrySkillRef` with `version` (resolved semver) and `integrity` (from registry index)
 
 #### Scenario: Location is always populated after find
 
@@ -136,7 +136,7 @@ publishVersion(scope, type, name, version, archive, metadata) → Effect<void, C
 #### Scenario: Registry source fetch extracts and verifies
 
 - **WHEN** `fetch` is called for a registry-sourced ref
-- **THEN** the archive is read, SHA-256 checksum verified, and `directory` points to the extraction path
+- **THEN** the archive is read, SHA-512 integrity verified, and `directory` points to the extraction path
 
 ### Requirement: SourceError for provider failures
 
@@ -149,7 +149,7 @@ All provider operations SHALL fail with `CliError`. The `CliError` SHALL include
 
 #### Scenario: Fetch failure
 
-- **WHEN** a provider's `fetch` operation fails (e.g., checksum mismatch)
+- **WHEN** a provider's `fetch` operation fails (e.g., integrity mismatch)
 - **THEN** it fails with `CliError`
 
 ### Requirement: SourceHostProviders Effect service
@@ -206,14 +206,14 @@ The provider registry SHALL contain a single `registry` entry backed by a meta-p
 - **WHEN** `find` is called for `@corp/tool`
 - **THEN** the meta-provider iterates scope-matched registries first, then catch-all
 
-### Requirement: Registry provider populates checksum during discovery
+### Requirement: Registry provider populates integrity during discovery
 
-The registry provider's `find()` SHALL return `SourceExtensionRef` with `checksum` populated from the registry index metadata. Checksum is an intrinsic property of a registry ref known at discovery time.
+The registry provider's `find()` SHALL return `SourceExtensionRef` with `integrity` populated from the registry index metadata. Integrity is an intrinsic property of a registry ref known at discovery time.
 
-#### Scenario: Registry find includes checksum
+#### Scenario: Registry find includes integrity
 
 - **WHEN** the registry provider's `find()` discovers an extension
-- **THEN** the returned `RegistrySkillRef` has a non-empty `checksum` field from the registry index
+- **THEN** the returned `RegistrySkillRef` has a non-empty `integrity` field from the registry index
 
 ### Requirement: Existing source types migrated to provider model
 
@@ -266,7 +266,7 @@ All existing source types SHALL be implemented as `SourceHostProvider` instances
 #### Scenario: Lock entry conversion uses ref source type
 
 - **WHEN** `sourceToLockEntry` converts a `SkillExtensionRef` to a lock entry
-- **THEN** it switches on `ref.source.type` to extract source-specific fields (version, checksum, gitTreeSha, location)
+- **THEN** it switches on `ref.source.type` to extract source-specific fields (version, integrity, gitTreeSha, location)
 
 ### Requirement: LocalRegistrySourceHostProvider
 
@@ -280,7 +280,7 @@ The system SHALL implement `LocalRegistrySourceHostProvider` as a `PublishableSo
 #### Scenario: fetch extracts scope from ref and delegates to client
 
 - **WHEN** `fetch(source, ref)` is called with a registry-sourced ref
-- **THEN** the provider extracts `scope`, `type`, `name`, `version` from the ref's `RegistryRefDetails`, calls `client.getExtension(scope, type, name, version)` to get archive bytes, verifies the SHA-256 checksum, and extracts the zip archive to a temporary directory
+- **THEN** the provider extracts `scope`, `type`, `name`, `version` from the ref's `RegistryRefDetails`, calls `client.getExtension(scope, type, name, version)` to get archive bytes, verifies the SHA-512 integrity, and extracts the zip archive to a temporary directory
 
 #### Scenario: publishExtension delegates to client
 

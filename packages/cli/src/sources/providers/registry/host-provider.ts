@@ -20,7 +20,7 @@ import type {
   GetExtensionsArgs,
 } from "../../../registry/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
-import { computeChecksum } from "../../../utils/checksum.js";
+import { computeIntegrity } from "../../../utils/integrity.js";
 import type { ExtensionType } from "../../../extensions/common.js";
 import type { Author } from "../../../extensions/common.js";
 import type { ExtensionFiles, FindOptions, PublishableSourceHostProvider } from "../../provider.js";
@@ -62,7 +62,7 @@ const toSourceExtensionRef = (
   const details = {
     scope: entry.scope,
     version: entry.version,
-    checksum: entry.checksum,
+    integrity: entry.integrity,
   };
 
   switch (entry.type) {
@@ -135,16 +135,16 @@ export const createLocalRegistrySourceHostProvider = (
 
   fetch: (_source, ref) =>
     Effect.gen(function* () {
-      if (!("scope" in ref) || !("version" in ref) || !("checksum" in ref)) {
+      if (!("scope" in ref) || !("version" in ref) || !("integrity" in ref)) {
         return yield* makeCliError({
           code: "SOURCE_FETCH_FAILED",
-          what: "Ref missing registry details (scope, version, checksum)",
+          what: "Ref missing registry details (scope, version, integrity)",
         });
       }
 
       const scope = ref.scope as string;
       const version = ref.version as string;
-      const expectedChecksum = ref.checksum as string;
+      const expectedIntegrity = ref.integrity as string;
       const type = refRegistryType(ref);
       const name = refName(ref);
 
@@ -155,12 +155,12 @@ export const createLocalRegistrySourceHostProvider = (
         version: Option.some(version),
       });
 
-      const actualChecksum = yield* computeChecksum(archiveBytes);
-      if (actualChecksum !== expectedChecksum) {
+      const actualIntegrity = yield* computeIntegrity(archiveBytes);
+      if (actualIntegrity !== expectedIntegrity) {
         return yield* makeCliError({
           code: "SOURCE_FETCH_FAILED",
-          what: `Checksum mismatch for ${type}:${name}@${version}`,
-          details: [`Expected ${expectedChecksum}, got ${actualChecksum}`],
+          what: `Integrity mismatch for ${type}:${name}@${version}`,
+          details: [`Expected ${expectedIntegrity}, got ${actualIntegrity}`],
         });
       }
 
@@ -218,16 +218,16 @@ export const createRemoteRegistrySourceHostProvider = (
 
   fetch: (_source, ref) =>
     Effect.gen(function* () {
-      if (!("scope" in ref) || !("version" in ref) || !("checksum" in ref)) {
+      if (!("scope" in ref) || !("version" in ref) || !("integrity" in ref)) {
         return yield* makeCliError({
           code: "SOURCE_FETCH_FAILED",
-          what: "Ref missing registry details (scope, version, checksum)",
+          what: "Ref missing registry details (scope, version, integrity)",
         });
       }
 
       const scope = ref.scope as string;
       const version = ref.version as string;
-      const expectedChecksum = ref.checksum as string;
+      const expectedIntegrity = ref.integrity as string;
       const type = refRegistryType(ref);
       const name = refName(ref);
 
@@ -238,12 +238,12 @@ export const createRemoteRegistrySourceHostProvider = (
         version: Option.some(version),
       });
 
-      const actualChecksum = yield* computeChecksum(archiveBytes);
-      if (actualChecksum !== expectedChecksum) {
+      const actualIntegrity = yield* computeIntegrity(archiveBytes);
+      if (actualIntegrity !== expectedIntegrity) {
         return yield* makeCliError({
           code: "SOURCE_FETCH_FAILED",
-          what: `Checksum mismatch for ${type}:${name}@${version}`,
-          details: [`Expected ${expectedChecksum}, got ${actualChecksum}`],
+          what: `Integrity mismatch for ${type}:${name}@${version}`,
+          details: [`Expected ${expectedIntegrity}, got ${actualIntegrity}`],
         });
       }
 

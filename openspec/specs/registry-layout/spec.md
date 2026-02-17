@@ -66,6 +66,15 @@ Each extension SHALL have an `index.json` conforming to the `ExtensionIndex` sch
 - `authors`: optional array of `{name, email?, url?}`
 - `versions`: array of `VersionEntry` (newest first)
 
+Each `VersionEntry` SHALL contain:
+
+- `version`: semver version string
+- `published`: ISO 8601 timestamp
+- `agents`: array of agent identifier strings
+- `dependencies`: optional map of `@scope/name` to semver range
+- `engines`: optional map of engine constraints
+- `integrity`: archive integrity in SRI format (`sha512-<base64>`)
+
 #### Scenario: Valid index with multiple versions
 
 - **WHEN** `index.json` contains `name: "code-review"`, `scope: "@acme"`, `type: "skill"`, and two version entries
@@ -80,3 +89,13 @@ Each extension SHALL have an `index.json` conforming to the `ExtensionIndex` sch
 
 - **WHEN** `index.json` is missing the `name` field
 - **THEN** schema validation fails with a parse error
+
+#### Scenario: Version entry integrity format
+
+- **WHEN** a `VersionEntry` is validated
+- **THEN** the `integrity` field SHALL be a string in SRI format (`sha512-<base64>`)
+
+#### Scenario: Missing integrity field
+
+- **WHEN** a `VersionEntry` is missing the `integrity` field
+- **THEN** schema validation fails

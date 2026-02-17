@@ -28,7 +28,7 @@ The lockfile SHALL support a `"builtin"` source type for pack lock entries, dist
 
 - **WHEN** a builtin pack is recorded in the lockfile
 - **THEN** the entry SHALL have fields: `type` ("builtin"), `scope`, `name`, `resolvedVersion`, `installedAt`, `updatedAt`, `resolvedSkills`, `resolvedCommands`, `resolvedMcpServers`
-- **AND** SHALL NOT have `checksum` or `sourceName` fields
+- **AND** SHALL NOT have `integrity` or `sourceName` fields
 
 #### Scenario: Lockfile parses builtin pack entries
 
@@ -43,7 +43,7 @@ The lockfile SHALL support a `"builtin"` source type for skill lock entries, dis
 
 - **WHEN** a skill from the builtin pack is recorded in the lockfile
 - **THEN** the entry SHALL have fields: `type` ("builtin"), `agents`, `installedAt`, `updatedAt`
-- **AND** SHALL NOT have source-specific fields like `scope`, `owner`, `repo`, `path`, `url`, `checksum`, or `sourceName`
+- **AND** SHALL NOT have source-specific fields like `scope`, `owner`, `repo`, `path`, `url`, `integrity`, or `sourceName`
 
 #### Scenario: Lockfile parses builtin skill entries
 

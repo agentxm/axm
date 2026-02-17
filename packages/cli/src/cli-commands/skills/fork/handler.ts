@@ -218,7 +218,7 @@ export const handleFork = (args: ForkHandlerArgs) =>
         },
         scope,
         version: "0.1.0",
-        checksum: "",
+        integrity: "",
       } as import("../../../sources/types.js").RegistrySkillRef;
       const fetchedLocation =
         "file://" +

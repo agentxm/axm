@@ -5,7 +5,7 @@
  * direct registry installs, this test verifies the registry install flow via
  * the fork command, which forks an installed skill to a managed extension,
  * publishes it to a local registry, and updates the lockfile with registry
- * fields (resolvedVersion, checksum, sourceName).
+ * fields (resolvedVersion, integrity, sourceName).
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -157,7 +157,7 @@ describe("axm skills install from local registry (via fork)", () => {
 
       const versionEntry = index.versions[0];
       expect(versionEntry.version).toBe("0.1.0");
-      expect(versionEntry.checksum).toMatch(/^sha256:/);
+      expect(versionEntry.integrity).toMatch(/^sha512-[A-Za-z0-9+/]+=*$/);
 
       // Verify archive exists
       const archivePath = path.join(

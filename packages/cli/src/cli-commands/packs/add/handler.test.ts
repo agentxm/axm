@@ -34,7 +34,7 @@ const makeRegistryLockEntry = (scope: string, name: string, version: string) => 
   scope,
   name,
   resolvedVersion: version,
-  checksum: "abc123",
+  integrity: "sha512-AAAA==",
   sourceName: "local",
   agents: ["claude-code"],
   installedAt: new Date().toISOString(),

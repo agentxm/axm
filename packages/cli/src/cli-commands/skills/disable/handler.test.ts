@@ -192,7 +192,7 @@ describe("disable.handler", () => {
       scope: "@acme",
       name: "starter-pack",
       resolvedVersion: "1.0.0",
-      checksum: "abc123",
+      integrity: "sha512-AAAA==",
       sourceName: "default",
       installedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),

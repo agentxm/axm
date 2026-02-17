@@ -9,7 +9,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 
 import type { VersionEntry } from "./local-schema.js";
-import { computeChecksum } from "../utils/checksum.js";
+import { computeIntegrity } from "../utils/integrity.js";
 import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
 
 // -----------------------------------------------------------------------------
@@ -19,7 +19,7 @@ import { extensionDir, pluralizeType, selectVersion } from "./utils.js";
 const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
   version: "1.0.0",
   published: "2025-01-01T00:00:00Z",
-  checksum: "sha256:0000",
+  integrity: "sha512-AAAA==",
   ...overrides,
 });
 
@@ -45,34 +45,34 @@ describe("selectVersion", () => {
 });
 
 // -----------------------------------------------------------------------------
-// computeChecksum
+// computeIntegrity
 // -----------------------------------------------------------------------------
 
-describe("computeChecksum", () => {
-  it("computes sha256 checksum with prefix", async () => {
+describe("computeIntegrity", () => {
+  it("computes sha512 integrity in SRI format", async () => {
     const data = new TextEncoder().encode("hello world");
     const result = await Effect.runPromise(
-      computeChecksum(data).pipe(Effect.provide(NodeContext.layer)),
+      computeIntegrity(data).pipe(Effect.provide(NodeContext.layer)),
     );
-    const expected = `sha256:${createHash("sha256").update(data).digest("hex")}`;
+    const expected = `sha512-${createHash("sha512").update(data).digest("base64")}`;
     expect(result).toBe(expected);
   });
 
-  it("returns different checksum for different data", async () => {
+  it("returns different integrity for different data", async () => {
     const data1 = new TextEncoder().encode("hello");
     const data2 = new TextEncoder().encode("world");
     const [result1, result2] = await Effect.runPromise(
-      Effect.all([computeChecksum(data1), computeChecksum(data2)]).pipe(
+      Effect.all([computeIntegrity(data1), computeIntegrity(data2)]).pipe(
         Effect.provide(NodeContext.layer),
       ),
     );
     expect(result1).not.toBe(result2);
   });
 
-  it("returns consistent checksum for same data", async () => {
+  it("returns consistent integrity for same data", async () => {
     const data = new TextEncoder().encode("test");
     const [result1, result2] = await Effect.runPromise(
-      Effect.all([computeChecksum(data), computeChecksum(data)]).pipe(
+      Effect.all([computeIntegrity(data), computeIntegrity(data)]).pipe(
         Effect.provide(NodeContext.layer),
       ),
     );

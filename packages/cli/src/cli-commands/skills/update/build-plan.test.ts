@@ -113,7 +113,7 @@ const makeOp = (
         source: { type: "registry", location: new URL("http://localhost:3000") },
         scope: "@axm",
         version: overrides?.version ?? "0.0.0",
-        checksum: "abc",
+        integrity: "sha512-AAAA==",
       };
       break;
     case "local":
@@ -367,7 +367,7 @@ describe("buildUpdatePlan", () => {
         scope: "@axm",
         name: "commit",
         resolvedVersion: "1.0.0",
-        checksum: "abc",
+        integrity: "sha512-AAAA==",
         sourceName: "default",
       }),
     });
@@ -391,7 +391,7 @@ describe("buildUpdatePlan", () => {
         scope: "@axm",
         name: "commit",
         resolvedVersion: "1.0.0",
-        checksum: "abc",
+        integrity: "sha512-AAAA==",
         sourceName: "default",
       }),
     });
@@ -493,7 +493,7 @@ describe("buildUpdatePlan", () => {
         scope: "@axm",
         name: "commit",
         resolvedVersion: "1.0.0",
-        checksum: "abc",
+        integrity: "sha512-AAAA==",
         sourceName: "default",
       }),
     });

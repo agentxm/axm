@@ -94,7 +94,7 @@ export type CopySkillOperation = Operation<"copy-skill", CopySkillOperationArgs>
  * Args for the publish-skill operation.
  *
  * Reads the manifest from `.axm/extensions/`, builds a zip archive,
- * computes the SHA-256 checksum, and publishes to the target registry.
+ * computes the SRI integrity hash, and publishes to the target registry.
  */
 export type PublishSkillOperationArgs = {
   /** Extension identity in `@scope/name` format. */

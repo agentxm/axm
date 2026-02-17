@@ -1,8 +1,8 @@
 /**
  * Publish pack executor -- reads a managed pack's manifest, builds a zip
- * archive, computes the SHA-256 checksum, and publishes to a target registry.
+ * archive, computes the SRI integrity hash, and publishes to a target registry.
  *
- * Pipeline: validate manifest -> build archive -> compute checksum ->
+ * Pipeline: validate manifest -> build archive -> compute integrity ->
  * resolve registry provider -> publish version (idempotent).
  *
  * @experimental This API is unstable and may change without notice.
@@ -19,7 +19,7 @@ import {
 } from "../../../extensions/packs/manifest-schema.js";
 import type { VersionEntry } from "../../../registry/index.js";
 import { createRegistryClient } from "../../../registry/index.js";
-import { computeChecksum } from "../../../utils/checksum.js";
+import { computeIntegrity } from "../../../utils/integrity.js";
 import { buildZipArchive } from "../../../utils/build-zip-archive.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
@@ -42,9 +42,9 @@ export type { PublishPackOperation } from "../operations.js";
  *
  * 1. Read and validate `axm-pack.json` manifest
  * 2. Build zip archive of pack directory
- * 3. Compute SHA-256 checksum
+ * 3. Compute SRI integrity hash
  * 4. Resolve target registry provider by source name
- * 5. Publish version (idempotent: same checksum = no-op, different checksum = error)
+ * 5. Publish version (idempotent: same integrity = no-op, different integrity = error)
  */
 export const publishPack: OperationHandler<
   PublishPackOperation,
@@ -105,8 +105,8 @@ export const publishPack: OperationHandler<
     // Build zip archive from pack directory
     const archive = yield* buildZipArchive(packDir, "PUBLISH_PACK_ARCHIVE_FAILED");
 
-    // Compute checksum
-    const checksum = yield* computeChecksum(archive);
+    // Compute integrity
+    const integrity = yield* computeIntegrity(archive);
 
     // Resolve target registry source
     const registrySource = yield* ws.getConfiguredSourceByName(op.args.registryName).pipe(
@@ -132,7 +132,7 @@ export const publishPack: OperationHandler<
     const versionEntry: VersionEntry = {
       version: manifest.version,
       published: new Date().toISOString(),
-      checksum,
+      integrity,
     };
 
     // Publish to registry (idempotent)

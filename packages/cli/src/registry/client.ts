@@ -121,7 +121,7 @@ export interface GetExtensionsResult {
 /**
  * A discovered extension entry from a registry search.
  *
- * Represents a single matched extension with its resolved version and checksum.
+ * Represents a single matched extension with its resolved version and integrity.
  */
 export interface RegistryExtension {
   readonly scope: string;
@@ -132,7 +132,7 @@ export interface RegistryExtension {
   readonly license: Option.Option<string>;
   readonly authors: Option.Option<ReadonlyArray<Author>>;
   readonly version: string;
-  readonly checksum: string;
+  readonly integrity: string;
 }
 
 // -----------------------------------------------------------------------------

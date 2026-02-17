@@ -5,7 +5,7 @@ skills:
     scope: "@axm"
     name: testing-basics
     resolvedVersion: 0.1.0
-    checksum: ""
+    integrity: ""
     sourceName: default
     agents:
       - amp
@@ -23,7 +23,7 @@ skills:
     scope: "@axm"
     name: testing-handler
     resolvedVersion: 0.1.0
-    checksum: ""
+    integrity: ""
     sourceName: default
     agents:
       - amp
@@ -41,7 +41,7 @@ skills:
     scope: "@axm"
     name: testing-unit
     resolvedVersion: 0.1.0
-    checksum: ""
+    integrity: ""
     sourceName: default
     agents:
       - amp
@@ -60,7 +60,7 @@ packs:
     scope: "@axm"
     name: testing
     resolvedVersion: 0.0.1
-    checksum: ""
+    integrity: ""
     sourceName: ""
     installedAt: 2026-02-15T00:07:35.556Z
     updatedAt: 2026-02-15T00:07:35.565Z

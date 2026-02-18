@@ -37,12 +37,19 @@ export const toAuthor = (author: typeof AuthorSchema.Type): Author => ({
 });
 
 /**
- * Fully qualified name pattern: `@<scope>/<name>` where scope and name
+ * Fully qualified name regex: `@<scope>/<name>` where scope and name
  * contain only alphanumeric characters, hyphens, and underscores.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const FullyQualifiedNameSchema = Schema.String.pipe(Schema.pattern(/^@[\w-]+\/[\w-]+$/));
+export const FQN_PATTERN = /^@[\w-]+\/[\w-]+$/;
+
+/**
+ * Fully qualified name schema using {@link FQN_PATTERN}.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const FullyQualifiedNameSchema = Schema.String.pipe(Schema.pattern(FQN_PATTERN));
 
 /**
  * Inferred type for FullyQualifiedName schema.

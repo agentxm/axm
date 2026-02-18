@@ -5,20 +5,7 @@
  */
 
 import * as Schema from "effect/Schema";
-import { CommonManifestFields } from "../common.js";
-
-const FQN_PATTERN = /^@[\w-]+\/[\w-]+$/;
-
-/**
- * Validation callback for FQN keys in pack manifest extension maps.
- */
-const validateFqnKeys = (record: { readonly [x: string]: unknown }) => {
-  const invalidKeys = Object.keys(record).filter((key) => !FQN_PATTERN.test(key));
-  if (invalidKeys.length > 0) {
-    return `Invalid fully qualified name(s): ${invalidKeys.join(", ")}. Names must match @scope/name format.`;
-  }
-  return undefined;
-};
+import { CommonManifestFields, FQN_PATTERN } from "../common.js";
 
 /**
  * Version specifier map: FQN keys to semver range values.
@@ -29,7 +16,15 @@ const validateFqnKeys = (record: { readonly [x: string]: unknown }) => {
 const VersionSpecifierMapSchema = Schema.Record({
   key: Schema.String,
   value: Schema.String,
-}).pipe(Schema.filter(validateFqnKeys));
+}).pipe(
+  Schema.filter((record) => {
+    const invalidKeys = Object.keys(record).filter((key) => !FQN_PATTERN.test(key));
+    if (invalidKeys.length > 0) {
+      return `Invalid fully qualified name(s): ${invalidKeys.join(", ")}. Names must match @scope/name format.`;
+    }
+    return undefined;
+  }),
+);
 
 /**
  * Schema for pack manifest files (axm-pack.json).

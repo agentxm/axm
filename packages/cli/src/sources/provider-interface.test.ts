@@ -93,7 +93,7 @@ describe("SourceHostProvider", () => {
       ref: Option.none(),
       subPath: Option.none(),
     };
-    const options: FindOptions = { names: [], type: "skill" };
+    const options: FindOptions = { skillNames: [], type: "skill" };
     const result = await Effect.runPromise(provider.find(source, options));
     expect(Array.isArray(result)).toBe(true);
   });
@@ -165,24 +165,24 @@ describe("registry provider shape", () => {
 
 describe("FindOptions", () => {
   it("type field accepts ExtensionType", () => {
-    const options: FindOptions = { names: [], type: "skill" };
+    const options: FindOptions = { skillNames: [], type: "skill" };
     expect(options.type).toBe("skill");
 
-    const packOptions: FindOptions = { names: [], type: "pack" };
+    const packOptions: FindOptions = { skillNames: [], type: "pack" };
     expect(packOptions.type).toBe("pack");
 
-    const mcpOptions: FindOptions = { names: [], type: "mcp-server" };
+    const mcpOptions: FindOptions = { skillNames: [], type: "mcp-server" };
     expect(mcpOptions.type).toBe("mcp-server");
   });
 
   it("type field accepts '*' wildcard", () => {
-    const options: FindOptions = { names: [], type: "*" };
+    const options: FindOptions = { skillNames: [], type: "*" };
     expect(options.type).toBe("*");
   });
 
   it("accepts optional versionConstraint", () => {
     const options: FindOptions = {
-      names: ["my-skill"],
+      skillNames: ["my-skill"],
       type: "skill",
       versionConstraint: Option.some("^1.2.3"),
     };

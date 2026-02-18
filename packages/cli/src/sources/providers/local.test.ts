@@ -63,7 +63,7 @@ describe("createLocalSourceHostProvider", () => {
       Effect.gen(function* () {
         const refs = yield* provider.find(
           { type: "local", path: dir },
-          { names: [], type: "skill" },
+          { skillNames: [], type: "skill" },
         );
         expect(refs.length).toBeGreaterThanOrEqual(1);
         const skill = refs.find((r) => r.type === "skill" && r.skill.name === "my-skill");
@@ -98,7 +98,7 @@ describe("createLocalSourceHostProvider", () => {
       Effect.gen(function* () {
         const refs = yield* provider.find(
           { type: "local", path: dir },
-          { names: ["skill-a"], type: "skill" },
+          { skillNames: ["skill-a"], type: "skill" },
         );
         expect(refs).toHaveLength(1);
         if (refs[0]!.type === "skill") {

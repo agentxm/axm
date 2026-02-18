@@ -36,7 +36,7 @@ describe("createBuiltinSourceHostProvider", () => {
   it("find fails with not-yet-implemented error", () => {
     const provider = createBuiltinSourceHostProvider();
     const result = Effect.runSync(
-      provider.find({ type: "builtin" }, { names: [], type: "skill" }).pipe(Effect.either),
+      provider.find({ type: "builtin" }, { skillNames: [], type: "skill" }).pipe(Effect.either),
     );
     expect(result._tag).toBe("Left");
     if (result._tag === "Left") {

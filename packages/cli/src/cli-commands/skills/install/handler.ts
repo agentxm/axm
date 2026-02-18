@@ -152,44 +152,38 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
     // Step 3: Discover skills from source via SourceHostProviders
     const discoverHandle = yield* spinnerSvc.start("Discovering skills...");
-    // For registry sources, determine target names in priority order:
-    // 1) explicit positional names (`args.skills`)
+    // Determine requested skill filters in priority order:
+    // 1) explicit positional names (`args.skills`) for all source types
     // 2) parsed single name from registry-pattern input (e.g. @scope/skills/name)
     // 3) none (discover all)
-    const registryNames: ReadonlyArray<string> =
-      source.type !== "registry"
-        ? []
-        : args.skills.length > 0
-          ? args.skills
-          : parsedSource.pattern.pattern === "registry-pattern-input"
-            ? Option.isSome(parsedSource.pattern.name)
-              ? [parsedSource.pattern.name.value]
-              : []
-            : [];
-    const allRefs = yield*
+    const requestedSkills: ReadonlyArray<string> =
+      args.skills.length > 0
+        ? args.skills
+        : parsedSource.pattern.pattern === "registry-pattern-input"
+          ? Option.isSome(parsedSource.pattern.name)
+            ? [parsedSource.pattern.name.value]
+            : []
+          : [];
+    const discoveredSkills = yield*
       sources
         .find(source, {
-          names: registryNames,
+          skillNames: requestedSkills,
           type: "skill" as const,
           versionConstraint,
         })
         .pipe(
-      Effect.mapError((error) =>
-        makeCliError({
-          code: "DISCOVER_FAILED",
-          what: `Failed to discover skills: ${error.message}`,
-          details: [`Source: ${sources.origin(source)}`],
-          howToFix: "Verify the source path contains directories with SKILL.md files.",
-          cause: error,
-        }),
-      ),
-      Effect.tapError(() => discoverHandle.stop("Failed")),
-    );
-    // Filter to skill refs only
-    const discoveredSkills = Array.filter(
-      allRefs,
-      (ref): ref is SkillExtensionRef => ref.type === "skill",
-    );
+          Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
+          Effect.mapError((error) =>
+            makeCliError({
+              code: "DISCOVER_FAILED",
+              what: `Failed to discover skills: ${error.message}`,
+              details: [`Source: ${sources.origin(source)}`],
+              howToFix: "Verify the source path contains directories with SKILL.md files.",
+              cause: error,
+            }),
+          ),
+          Effect.tapError(() => discoverHandle.stop("Failed")),
+        );
     if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
       yield* discoverHandle.stop("No skills found");
       return yield* Effect.fail(

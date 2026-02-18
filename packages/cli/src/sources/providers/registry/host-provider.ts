@@ -46,7 +46,7 @@ type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<Regis
 /** Map FindOptions + scope to GetExtensionsByScopeArgs (no pagination — fetch all). */
 const toSearchOptions = (scope: string, options: FindOptions): GetExtensionsByScopeArgs => ({
   scope,
-  names: options.names,
+  names: options.skillNames,
   types: options.type === "*" ? [] : [options.type as ExtensionType],
   limit: Option.none(),
   offset: 0,

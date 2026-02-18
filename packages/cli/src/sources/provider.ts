@@ -22,14 +22,14 @@ import type { ExtensionRef, Source } from "./types.js";
 /**
  * Search criteria passed to `find` -- independent of source identity.
  *
- * - `names`: extension names to match (empty = all)
+ * - `skillNames`: extension names to match (empty = all)
  * - `type`: findable extension type filter or `"*"` for all
  * - `versionConstraint`: optional version constraint for registry-backed lookups
  *
  * @experimental This API is unstable and may change without notice.
  */
 export interface FindOptions {
-  readonly names: ReadonlyArray<string>;
+  readonly skillNames: ReadonlyArray<string>;
   readonly type: ExtensionType | "*";
   readonly versionConstraint?: Option.Option<string>;
 }

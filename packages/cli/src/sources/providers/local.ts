@@ -63,8 +63,8 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
         location: d.location,
       }));
 
-      if (options.names.length === 0) return mapped;
-      const nameSet = new Set(options.names);
+      if (options.skillNames.length === 0) return mapped;
+      const nameSet = new Set(options.skillNames);
       return mapped.filter((r) => r.type === "skill" && nameSet.has(r.skill.name));
     }),
 

@@ -141,8 +141,8 @@ export const createRegistryMetaProvider = () => ({
 
       // Determine scope from options names (e.g. @scope/name install)
       const scope =
-        options.names.length > 0
-          ? Option.fromNullable(options.names.find((n) => n.startsWith("@"))?.split("/")[0] ?? null)
+        options.skillNames.length > 0
+          ? Option.fromNullable(options.skillNames.find((n) => n.startsWith("@"))?.split("/")[0] ?? null)
           : Option.none<string>();
 
       const registrySources = yield* ws.getConfiguredRegistrySources(scope).pipe(

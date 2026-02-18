@@ -149,7 +149,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     // Step 4: Discover and fetch pack from registry
     const discoverHandle = yield* spinnerSvc.start("Fetching pack from registry...");
     const findOptions = {
-      names: [packName] satisfies ReadonlyArray<string>,
+      skillNames: [packName] satisfies ReadonlyArray<string>,
       agents: [] satisfies ReadonlyArray<string>,
       type: "pack" as const,
     };
@@ -313,7 +313,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
           }
 
           const skillFindOpts = {
-            names: [skillName] satisfies ReadonlyArray<string>,
+            skillNames: [skillName] satisfies ReadonlyArray<string>,
             agents: [] satisfies ReadonlyArray<string>,
             type: "skill" as const,
           };

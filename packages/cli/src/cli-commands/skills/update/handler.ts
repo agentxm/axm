@@ -184,7 +184,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
           // First try with name filter (fast path)
           const namedRefs = yield* sources.find(source, {
-            names: [name],
+            skillNames: [name],
             type: "skill",
           });
           const namedSkillRefs = Array.filter(
@@ -199,7 +199,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
           // Skill not found by name — re-resolve without name filter for rename detection
           const allRefs = yield* sources.find(source, {
-            names: [],
+            skillNames: [],
             type: "skill",
           });
           const allSkillRefs = Array.filter(

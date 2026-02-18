@@ -24,7 +24,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
-import { Log, Spinner } from "../../../tui/index.js";
+import { Log, Spinner, type LogService } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { InstallSkillOperation } from "../operations.js";
 import { buildPlan } from "./build-plan.js";
@@ -57,6 +57,29 @@ export interface InstallHandlerArgs {
   /** Disable all prompts */
   readonly nonInteractive: Option.Option<boolean>;
 }
+
+const listSkills = ({
+  discoveredSkills,
+  log,
+}: {
+  readonly discoveredSkills: ReadonlyArray<SkillExtensionRef>;
+  readonly log: LogService;
+}) =>
+  Effect.gen(function* () {
+    yield* log.info("Available skills:");
+    yield* Effect.forEach(
+      discoveredSkills,
+      (ref) => {
+        const desc = Option.match(ref.skill.description, {
+          onNone: () => "",
+          onSome: (d) => ` - ${d}`,
+        });
+        return log.message(`  ${ref.skill.name}${desc}`);
+      },
+      { discard: true },
+    );
+    yield* log.success(`${discoveredSkills.length} skill(s) available`);
+  });
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -181,15 +204,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
 
     // Step 6: List mode -> display and exit
     if (args.list) {
-      yield* log.info("Available skills:");
-      for (const ref of discoveredSkills) {
-        const desc = Option.match(ref.skill.description, {
-          onNone: () => "",
-          onSome: (d) => ` - ${d}`,
-        });
-        yield* log.message(`  ${ref.skill.name}${desc}`);
-      }
-      yield* log.success(`${discoveredSkills.length} skill(s) available`);
+      yield* listSkills({ discoveredSkills, log });
       return;
     }
 

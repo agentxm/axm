@@ -50,7 +50,12 @@ describe("createBuiltinSourceHostProvider", () => {
       provider
         .fetch({ type: "builtin" }, {
           type: "skill",
-          skill: { name: "x", description: "", metadata: { _tag: "None" } as never },
+          refType: "builtin",
+          skill: {
+            name: "x",
+            description: { _tag: "None" } as never,
+            metadata: { _tag: "None" } as never,
+          },
           source: { type: "builtin" },
         } as never)
         .pipe(Effect.either),

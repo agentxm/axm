@@ -671,7 +671,8 @@ const make = (options: WorkspaceContextOptions) =>
           const base = path.dirname(workspaceDir);
 
           if (source !== undefined) {
-            const dirName = source.type === "registry" ? yield* resolveRegistryDirName(name) : name;
+            const dirName =
+              source.refType === "registry" ? yield* resolveRegistryDirName(name) : name;
             return computeSkillPaths(path.join, base, source, sanitizeName(dirName));
           }
 
@@ -690,8 +691,12 @@ const make = (options: WorkspaceContextOptions) =>
           const entry = lockEntry.value;
           const entrySource: SkillPathSource =
             entry.type === "registry"
-              ? { type: "registry", scope: entry.scope }
-              : { type: entry.type };
+              ? { refType: "registry", scope: entry.scope }
+              : entry.type === "local"
+                ? { refType: "local" }
+                : entry.type === "builtin"
+                  ? { refType: "builtin" }
+                  : { refType: "git-hosted" };
 
           const dirName = entry.type === "registry" ? entry.name : name;
           return computeSkillPaths(path.join, base, entrySource, sanitizeName(dirName));

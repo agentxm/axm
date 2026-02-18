@@ -58,7 +58,8 @@ const makeOp = (
   args: {
     ref: {
       type: "skill",
-      skill: { name: "my-skill", description: "test skill", metadata: Option.none() },
+      refType: "local",
+      skill: { name: "my-skill", description: Option.some("test skill"), metadata: Option.none() },
       source: { type: "local", path: "/tmp/source" },
       location: overrides.location ?? "file:///tmp/source",
     },

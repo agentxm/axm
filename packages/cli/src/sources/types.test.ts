@@ -13,20 +13,19 @@ import type {
   BuiltinPackRef,
   BuiltinRefDetails,
   ConfiguredSourceHost,
+  ExtensionRef,
   GitHostedRefDetails,
   GitHostingSourceHost,
   LocalRefDetails,
-  LocalSkillRef,
   McpServerExtensionRef,
   Source,
   PackExtensionRef,
+  RefType,
   RegistryMcpServerRef,
   RegistryPackRef,
   RegistryRefDetails,
-  RegistrySkillRef,
   SelfDescribingSourceHost,
   SkillExtensionRef,
-  SourceExtensionRef,
   SourceHost,
   SourceParams,
   SourceType,
@@ -49,6 +48,17 @@ describe("SourceType", () => {
       "builtin",
     ];
     expect(types).toHaveLength(8);
+  });
+});
+
+// -----------------------------------------------------------------------------
+// RefType
+// -----------------------------------------------------------------------------
+
+describe("RefType", () => {
+  it("includes all 4 members", () => {
+    const types: RefType[] = ["git-hosted", "registry", "local", "builtin"];
+    expect(types).toHaveLength(4);
   });
 });
 
@@ -320,13 +330,15 @@ describe("ref detail interfaces", () => {
     expect(Option.getOrNull(details.gitTreeSha)).toBe("abc123");
   });
 
-  it("RegistryRefDetails has scope, version, and integrity", () => {
+  it("RegistryRefDetails has scope, name, version, and integrity", () => {
     const details: RegistryRefDetails = {
       scope: "@acme",
+      name: "my-skill",
       version: "1.2.3",
       integrity: "sha512-abc==",
     };
     expect(details.scope).toBe("@acme");
+    expect(details.name).toBe("my-skill");
     expect(details.version).toBe("1.2.3");
     expect(details.integrity).toBe("sha512-abc==");
   });
@@ -347,10 +359,11 @@ describe("ref detail interfaces", () => {
 // -----------------------------------------------------------------------------
 
 describe("SkillExtensionRef", () => {
-  it("GitHubSkillRef narrows correctly", () => {
+  it("GitHostedSkillRef narrows via refType", () => {
     const ref: SkillExtensionRef = {
       type: "skill",
-      skill: { name: "test", description: "desc", metadata: Option.none() },
+      refType: "git-hosted",
+      skill: { name: "test", description: Option.some("desc"), metadata: Option.none() },
       source: {
         type: "github",
         url: new URL("https://github.com"),
@@ -362,48 +375,76 @@ describe("SkillExtensionRef", () => {
       location: "file:///tmp/clone",
       gitTreeSha: Option.some("sha1"),
     };
-    expect(ref.source.type).toBe("github");
-    if (ref.source.type === "github") {
-      expect(ref.source.owner).toBe("o");
+    if (ref.refType === "git-hosted") {
+      expect(ref.location).toBe("file:///tmp/clone");
+      expect(Option.getOrNull(ref.gitTreeSha)).toBe("sha1");
+      if (ref.source.type === "github") {
+        expect(ref.source.owner).toBe("o");
+      }
     }
   });
 
-  it("RegistrySkillRef carries version and integrity", () => {
+  it("RegistrySkillRef carries version and integrity via refType narrowing", () => {
     const ref: SkillExtensionRef = {
       type: "skill",
-      skill: { name: "test", description: "desc", metadata: Option.none() },
+      refType: "registry",
+      skill: { name: "test", description: Option.none(), metadata: Option.none() },
       source: {
         type: "registry",
         location: new URL("file:///reg"),
       },
       scope: "@acme",
+      name: "test-pkg",
       version: "1.0.0",
       integrity: "sha512-abc",
     };
-    if (ref.source.type === "registry") {
-      expect((ref as RegistrySkillRef).version).toBe("1.0.0");
-      expect((ref as RegistrySkillRef).integrity).toBe("sha512-abc");
+    if (ref.refType === "registry") {
+      expect(ref.version).toBe("1.0.0");
+      expect(ref.integrity).toBe("sha512-abc");
+      expect(ref.name).toBe("test-pkg");
+      expect(ref.scope).toBe("@acme");
     }
   });
 
-  it("LocalSkillRef carries location", () => {
+  it("LocalSkillRef carries location via refType narrowing", () => {
     const ref: SkillExtensionRef = {
       type: "skill",
-      skill: { name: "test", description: "desc", metadata: Option.none() },
+      refType: "local",
+      skill: { name: "test", description: Option.some("desc"), metadata: Option.none() },
       source: { type: "local", path: "/home/user/skill" },
       location: "file:///home/user/skill",
     };
-    expect(ref.source.type).toBe("local");
-    expect((ref as LocalSkillRef).location).toBe("file:///home/user/skill");
+    if (ref.refType === "local") {
+      expect(ref.location).toBe("file:///home/user/skill");
+    }
   });
 
   it("BuiltinSkillRef has no extra details", () => {
     const ref: SkillExtensionRef = {
       type: "skill",
-      skill: { name: "builtin-skill", description: "desc", metadata: Option.none() },
+      refType: "builtin",
+      skill: { name: "builtin-skill", description: Option.none(), metadata: Option.none() },
       source: { type: "builtin" },
     };
+    expect(ref.refType).toBe("builtin");
     expect(ref.source.type).toBe("builtin");
+  });
+
+  it("skill.description is Option<string>", () => {
+    const withDesc: SkillExtensionRef = {
+      type: "skill",
+      refType: "builtin",
+      skill: { name: "s", description: Option.some("hello"), metadata: Option.none() },
+      source: { type: "builtin" },
+    };
+    const withoutDesc: SkillExtensionRef = {
+      type: "skill",
+      refType: "builtin",
+      skill: { name: "s", description: Option.none(), metadata: Option.none() },
+      source: { type: "builtin" },
+    };
+    expect(Option.getOrNull(withDesc.skill.description)).toBe("hello");
+    expect(Option.getOrNull(withoutDesc.skill.description)).toBeNull();
   });
 });
 
@@ -412,9 +453,10 @@ describe("SkillExtensionRef", () => {
 // -----------------------------------------------------------------------------
 
 describe("McpServerExtensionRef", () => {
-  it("GitHubMcpServerRef narrows correctly", () => {
+  it("GitHostedMcpServerRef narrows via refType", () => {
     const ref: McpServerExtensionRef = {
       type: "mcp-server",
+      refType: "git-hosted",
       server: { name: "my-server" },
       source: {
         type: "github",
@@ -427,22 +469,29 @@ describe("McpServerExtensionRef", () => {
       location: "file:///tmp/clone",
       gitTreeSha: Option.none(),
     };
-    expect(ref.source.type).toBe("github");
+    if (ref.refType === "git-hosted") {
+      expect(ref.location).toBe("file:///tmp/clone");
+    }
   });
 
-  it("RegistryMcpServerRef carries version and integrity", () => {
+  it("RegistryMcpServerRef carries version and integrity via refType narrowing", () => {
     const ref: McpServerExtensionRef = {
       type: "mcp-server",
+      refType: "registry",
       server: { name: "my-server" },
       source: {
         type: "registry",
         location: new URL("file:///reg"),
       },
       scope: "@acme",
+      name: "server-pkg",
       version: "2.0.0",
       integrity: "sha512-def",
     };
-    expect((ref as RegistryMcpServerRef).version).toBe("2.0.0");
+    if (ref.refType === "registry") {
+      expect((ref as RegistryMcpServerRef).version).toBe("2.0.0");
+      expect(ref.name).toBe("server-pkg");
+    }
   });
 });
 
@@ -451,26 +500,31 @@ describe("McpServerExtensionRef", () => {
 // -----------------------------------------------------------------------------
 
 describe("PackExtensionRef", () => {
-  it("RegistryPackRef carries version and integrity", () => {
+  it("RegistryPackRef carries version and integrity via refType narrowing", () => {
     const ref: PackExtensionRef = {
       type: "pack",
+      refType: "registry",
       pack: { name: "my-pack" },
       source: {
         type: "registry",
         location: new URL("file:///reg"),
       },
       scope: "@acme",
+      name: "pack-pkg",
       version: "1.0.0",
       integrity: "sha512-ghi",
     };
-    expect(ref.source.type).toBe("registry");
-    expect((ref as RegistryPackRef).version).toBe("1.0.0");
+    if (ref.refType === "registry") {
+      expect((ref as RegistryPackRef).version).toBe("1.0.0");
+      expect(ref.name).toBe("pack-pkg");
+    }
   });
 
-  it("BuiltinPackRef has pack info", () => {
+  it("BuiltinPackRef has pack name only", () => {
     const ref: PackExtensionRef = {
       type: "pack",
-      pack: { scope: "@builtin", name: "default", version: "0.1.0" },
+      refType: "builtin",
+      pack: { name: "default" },
       source: { type: "builtin" },
     };
     expect(ref.source.type).toBe("builtin");
@@ -479,14 +533,15 @@ describe("PackExtensionRef", () => {
 });
 
 // -----------------------------------------------------------------------------
-// SourceExtensionRef union
+// ExtensionRef union
 // -----------------------------------------------------------------------------
 
-describe("SourceExtensionRef", () => {
+describe("ExtensionRef", () => {
   it("narrows to SkillExtensionRef via type", () => {
-    const ref: SourceExtensionRef = {
+    const ref: ExtensionRef = {
       type: "skill",
-      skill: { name: "test", description: "desc", metadata: Option.none() },
+      refType: "local",
+      skill: { name: "test", description: Option.some("desc"), metadata: Option.none() },
       source: { type: "local", path: "/test" },
       location: "file:///test",
     };
@@ -496,8 +551,9 @@ describe("SourceExtensionRef", () => {
   });
 
   it("narrows to McpServerExtensionRef via type", () => {
-    const ref: SourceExtensionRef = {
+    const ref: ExtensionRef = {
       type: "mcp-server",
+      refType: "builtin",
       server: { name: "srv" },
       source: { type: "builtin" },
     };
@@ -507,13 +563,31 @@ describe("SourceExtensionRef", () => {
   });
 
   it("narrows to PackExtensionRef via type", () => {
-    const ref: SourceExtensionRef = {
+    const ref: ExtensionRef = {
       type: "pack",
-      pack: { scope: "@b", name: "p", version: "1.0.0" },
+      refType: "builtin",
+      pack: { name: "p" },
       source: { type: "builtin" },
     };
     if (ref.type === "pack") {
       expect((ref as BuiltinPackRef).pack.name).toBe("p");
+    }
+  });
+
+  it("narrows on refType to access ref details", () => {
+    const ref: ExtensionRef = {
+      type: "skill",
+      refType: "registry",
+      skill: { name: "s", description: Option.none(), metadata: Option.none() },
+      source: { type: "registry", location: new URL("file:///reg") },
+      scope: "@acme",
+      name: "pkg",
+      version: "1.0.0",
+      integrity: "sha512-abc",
+    };
+    if (ref.refType === "registry") {
+      expect(ref.scope).toBe("@acme");
+      expect(ref.version).toBe("1.0.0");
     }
   });
 });

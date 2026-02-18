@@ -12,7 +12,7 @@ import type * as Effect from "effect/Effect";
 
 import type { CliError } from "../cli-error/index.js";
 import type { ExtensionType } from "../extensions/common.js";
-import type { Source, SourceExtensionRef } from "./types.js";
+import type { ExtensionRef, Source } from "./types.js";
 
 // -----------------------------------------------------------------------------
 // Search Criteria
@@ -72,10 +72,7 @@ export interface SourceHostProvider<S extends Source = Source, R = never> {
   readonly find: (
     source: S,
     options: FindOptions,
-  ) => Effect.Effect<ReadonlyArray<SourceExtensionRef>, CliError, R>;
+  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, CliError, R>;
   /** Fetch and materialize extension files for a discovered ref. */
-  readonly fetch: (
-    source: S,
-    ref: SourceExtensionRef,
-  ) => Effect.Effect<ExtensionFiles, CliError, R>;
+  readonly fetch: (source: S, ref: ExtensionRef) => Effect.Effect<ExtensionFiles, CliError, R>;
 }

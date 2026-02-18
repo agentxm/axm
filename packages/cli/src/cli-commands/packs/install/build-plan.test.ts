@@ -40,7 +40,8 @@ const makeSkillOp = (name: string): InstallSkillOperation => ({
   args: {
     ref: {
       type: "skill",
-      skill: { name, description: `Skill ${name}`, metadata: Option.none() },
+      refType: "local",
+      skill: { name, description: Option.some(`Skill ${name}`), metadata: Option.none() },
       source: { type: "local", path: `/tmp/skills/${name}` },
       location: `file:///tmp/skills/${name}`,
     },

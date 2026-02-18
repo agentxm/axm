@@ -28,7 +28,10 @@ const basenamePure = (location: string): string => {
 };
 
 export const getSkillDisplayName = (ref: SkillExtensionRef): string =>
-  ref.skill.name || ("location" in ref ? basenamePure(ref.location) : ref.skill.name);
+  ref.skill.name ||
+  (ref.refType === "git-hosted" || ref.refType === "local"
+    ? basenamePure(ref.location)
+    : ref.skill.name);
 
 // -----------------------------------------------------------------------------
 // Sanitization

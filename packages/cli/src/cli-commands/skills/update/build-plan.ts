@@ -20,12 +20,6 @@ import type { InstallSkillOperation, UninstallSkillOperation } from "../operatio
 type UpdateOperation = InstallSkillOperation | UninstallSkillOperation;
 
 // -----------------------------------------------------------------------------
-// Git hosting source types that use gitTreeHash comparison
-// -----------------------------------------------------------------------------
-
-const GIT_SOURCE_TYPES = new Set(["github", "gitlab", "bitbucket", "azurerepos", "git"]);
-
-// -----------------------------------------------------------------------------
 // Version comparison
 // -----------------------------------------------------------------------------
 
@@ -38,11 +32,9 @@ const GIT_SOURCE_TYPES = new Set(["github", "gitlab", "bitbucket", "azurerepos",
 const hasChanged = (op: InstallSkillOperation, entry: SkillLockEntry): boolean => {
   const { ref } = op.args;
 
-  if (GIT_SOURCE_TYPES.has(entry.type)) {
+  if (ref.refType === "git-hosted") {
     const lockHash = Option.fromNullable(entry.gitTreeHash);
-    // Git-hosted refs carry gitTreeSha; narrow to access it
-    const opHash =
-      "gitTreeSha" in ref ? (ref.gitTreeSha as Option.Option<string>) : Option.none<string>();
+    const opHash = ref.gitTreeSha;
 
     // If either hash is missing, treat as needing update
     if (Option.isNone(lockHash) || Option.isNone(opHash)) return true;
@@ -50,15 +42,14 @@ const hasChanged = (op: InstallSkillOperation, entry: SkillLockEntry): boolean =
     return lockHash.value !== opHash.value;
   }
 
-  if (entry.type === "registry") {
+  if (ref.refType === "registry") {
+    if (entry.type !== "registry") return true;
     const lockVersion = entry.resolvedVersion;
-    // Registry refs carry version as a string
-    const opVersion = "version" in ref ? (ref.version as string) : undefined;
-    if (opVersion === undefined) return true;
+    const opVersion = ref.version;
     return opVersion !== lockVersion;
   }
 
-  if (entry.type === "builtin") {
+  if (ref.refType === "builtin") {
     // Builtin skills are updated via CLI version comparison, not here
     return false;
   }

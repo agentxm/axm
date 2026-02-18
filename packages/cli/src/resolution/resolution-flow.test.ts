@@ -1,9 +1,9 @@
 /**
  * Tests verifying the new resolution flow:
- * resolveSource(input) -> Source, then SourceHostProviders.find(source, options) -> SourceExtensionRef[]
+ * resolveSource(input) -> Source, then SourceHostProviders.find(source, options) -> ExtensionRef[]
  *
  * Phase 6: Resolution module cleanup — the resolution module no longer produces
- * SourceExtensionRef. Extension discovery is exclusively through SourceHostProviders.find().
+ * ExtensionRef. Extension discovery is exclusively through SourceHostProviders.find().
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -17,7 +17,7 @@ import { SourceHostProviders } from "../sources/service.js";
 import type { SourceHostProvidersService } from "../sources/service.js";
 import type { FindOptions } from "../sources/provider.js";
 import type { SourceHostConfig } from "../settings/index.js";
-import type { SourceExtensionRef, GitHubSource } from "../sources/types.js";
+import type { ExtensionRef, GitHubSource } from "../sources/types.js";
 import { Workspace } from "../workspace/index.js";
 
 // -----------------------------------------------------------------------------
@@ -48,7 +48,7 @@ const makeWorkspaceLayer = (sources: ReadonlyArray<SourceHostConfig> = BUILT_IN_
 
 /** Create a mock SourceHostProviders that records find() calls. */
 const makeMockProviders = (
-  findResult: ReadonlyArray<SourceExtensionRef> = [],
+  findResult: ReadonlyArray<ExtensionRef> = [],
 ): {
   service: SourceHostProvidersService;
   findCalls: Array<{ source: unknown; options: FindOptions }>;
@@ -89,12 +89,13 @@ describe("resolution flow: resolveSource + SourceHostProviders.find()", () => {
 
         // Step 2: SourceHostProviders.find() discovers extensions from Source
         const ghSource = source as GitHubSource;
-        const mockRef: SourceExtensionRef = {
+        const mockRef: ExtensionRef = {
           type: "skill",
+          refType: "git-hosted",
           source: ghSource,
           skill: {
             name: "test-skill",
-            description: "A test skill",
+            description: Option.some("A test skill"),
             metadata: Option.none(),
           },
           location: "file:///tmp/cloned",

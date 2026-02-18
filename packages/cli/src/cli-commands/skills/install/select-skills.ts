@@ -96,7 +96,7 @@ export const confirmSkillsToInstall = (skills: Array.NonEmptyReadonlyArray<Skill
         toOption: (s) => ({
           value: s.skill.name,
           label: s.skill.name,
-          hint: Option.some(s.skill.description),
+          hint: s.skill.description,
         }),
         initialValues: Option.none(),
         required: Option.some(true),

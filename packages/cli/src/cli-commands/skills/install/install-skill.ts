@@ -38,7 +38,7 @@ import type { SkillExtensionRef } from "../../../sources/types.js";
  * do not — for those, `fetchedLocation` on the operation args must be used.
  */
 const getRefLocation = (ref: SkillExtensionRef, fetchedLocation: string | undefined) =>
-  "location" in ref
+  ref.refType === "git-hosted" || ref.refType === "local"
     ? Effect.succeed(ref.location)
     : fetchedLocation !== undefined
       ? Effect.succeed(fetchedLocation)
@@ -159,18 +159,10 @@ export const installSkill: OperationHandler<
     const sanitizedName = sanitizeName(ref.skill.name);
 
     // Determine canonical + content paths from centralized getSkillDir
-    let pathSource: SkillPathSource;
-    if (ref.source.type === "registry") {
-      if (!("scope" in ref)) {
-        return yield* makeCliError({
-          code: "INSTALL_SKILL_INVALID_REF",
-          what: "Registry skill ref is missing scope",
-        });
-      }
-      pathSource = { type: "registry", scope: ref.scope };
-    } else {
-      pathSource = { type: ref.source.type };
-    }
+    const pathSource: SkillPathSource =
+      ref.refType === "registry"
+        ? { refType: "registry", scope: ref.scope }
+        : { refType: ref.refType };
     const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, pathSource);
 
     // Validate canonical path safety
@@ -195,7 +187,7 @@ export const installSkill: OperationHandler<
 
       // For registry sources, copy to canonicalPath (extracted zip has manifest + src/)
       // For other sources, copy to skillSrcPath (no subdirectory structure)
-      const copyTarget = pathSource.type === "registry" ? canonicalPath : skillSrcPath;
+      const copyTarget = pathSource.refType === "registry" ? canonicalPath : skillSrcPath;
       yield* copySkillDirectory(sourcePath, copyTarget).pipe(
         Effect.mapError((e) =>
           makeCliError({
@@ -232,9 +224,7 @@ export const installSkill: OperationHandler<
       name: ref.skill.name,
       lockEntry,
       versionConstraint:
-        ref.source.type === "registry"
-          ? (op.args.versionConstraint ?? Option.none())
-          : Option.none(),
+        ref.refType === "registry" ? (op.args.versionConstraint ?? Option.none()) : Option.none(),
     };
     const writeEffect = op.args.skipSettings ? ws.setSkillLock(skillArgs) : ws.setSkill(skillArgs);
     yield* writeEffect.pipe(Effect.catchAll((e) => log.warn(`Skill update failed: ${String(e)}`)));

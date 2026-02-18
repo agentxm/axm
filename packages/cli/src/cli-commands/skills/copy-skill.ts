@@ -57,7 +57,7 @@ export const copySkill: OperationHandler<
 
     // Source path from the ref location (registry/builtin refs don't carry location)
     const { ref } = op.args;
-    if (!("location" in ref)) {
+    if (ref.refType !== "git-hosted" && ref.refType !== "local") {
       return yield* makeCliError({
         code: "COPY_SKILL_UNSUPPORTED_SOURCE",
         what: `copy-skill does not support ${ref.source.type} sources`,

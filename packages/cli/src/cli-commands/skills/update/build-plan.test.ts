@@ -18,13 +18,21 @@ import { buildUpdatePlan } from "./build-plan.js";
 
 const skillBase = (name: string) => ({
   type: "skill" as const,
-  skill: { name, description: `${name} skill`, metadata: Option.none() },
+  skill: { name, description: Option.some(`${name} skill`), metadata: Option.none() },
 });
 
 const makeOp = (
   name: string,
   overrides?: Partial<{
-    sourceType: "github" | "gitlab" | "bitbucket" | "azurerepos" | "git" | "registry" | "local";
+    sourceType:
+      | "github"
+      | "gitlab"
+      | "bitbucket"
+      | "azurerepos"
+      | "git"
+      | "registry"
+      | "local"
+      | "builtin";
     force: boolean;
     version: string;
     gitTreeSha: Option.Option<string>;
@@ -37,6 +45,7 @@ const makeOp = (
     case "github":
       ref = {
         ...skillBase(name),
+        refType: "git-hosted",
         source: {
           type: "github",
           url: new URL("https://github.com"),
@@ -52,6 +61,7 @@ const makeOp = (
     case "gitlab":
       ref = {
         ...skillBase(name),
+        refType: "git-hosted",
         source: {
           type: "gitlab",
           url: new URL("https://gitlab.com"),
@@ -67,6 +77,7 @@ const makeOp = (
     case "bitbucket":
       ref = {
         ...skillBase(name),
+        refType: "git-hosted",
         source: {
           type: "bitbucket",
           url: new URL("https://bitbucket.org"),
@@ -82,6 +93,7 @@ const makeOp = (
     case "azurerepos":
       ref = {
         ...skillBase(name),
+        refType: "git-hosted",
         source: {
           type: "azurerepos",
           url: new URL("https://dev.azure.com"),
@@ -98,6 +110,7 @@ const makeOp = (
     case "git":
       ref = {
         ...skillBase(name),
+        refType: "git-hosted",
         source: {
           type: "git",
           url: new URL("https://example.com/repo.git"),
@@ -110,16 +123,26 @@ const makeOp = (
     case "registry":
       ref = {
         ...skillBase(name),
+        refType: "registry",
         source: { type: "registry", location: new URL("http://localhost:3000") },
         scope: "@axm",
+        name,
         version: overrides?.version ?? "0.0.0",
         integrity: "sha512-AAAA==",
+      };
+      break;
+    case "builtin":
+      ref = {
+        ...skillBase(name),
+        refType: "builtin",
+        source: { type: "builtin" },
       };
       break;
     case "local":
     default:
       ref = {
         ...skillBase(name),
+        refType: "local",
         source: { type: "local", path: "/fake" },
         location: `file:///fake/${name}`,
       };
@@ -409,7 +432,7 @@ describe("buildUpdatePlan", () => {
   // ---------------------------------------------------------------------------
 
   it("marks builtin source as no-op (updated separately via pack flow)", () => {
-    const op = makeOp("commit");
+    const op = makeOp("commit", { sourceType: "builtin" });
     const lf = lockfileWith({
       commit: makeLockEntry({ type: "builtin" }),
     });
@@ -423,7 +446,7 @@ describe("buildUpdatePlan", () => {
   });
 
   it("marks builtin source as success when force is true", () => {
-    const op = makeOp("commit", { force: true });
+    const op = makeOp("commit", { sourceType: "builtin", force: true });
     const lf = lockfileWith({
       commit: makeLockEntry({ type: "builtin" }),
     });

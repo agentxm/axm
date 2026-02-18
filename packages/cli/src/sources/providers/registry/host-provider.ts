@@ -25,7 +25,7 @@ import { computeIntegrity } from "../../../utils/integrity.js";
 import type { ExtensionType } from "../../../extensions/common.js";
 import type { Author } from "../../../extensions/common.js";
 import type { ExtensionFiles, FindOptions, SourceHostProvider } from "../../provider.js";
-import type { RegistrySource, RegistrySourceHost, SourceExtensionRef } from "../../types.js";
+import type { RegistrySource, RegistrySourceHost, ExtensionRef } from "../../types.js";
 import type { VersionEntry } from "../../../registry/index.js";
 
 type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<RegistrySource, R> & {
@@ -58,11 +58,8 @@ const authorToMetadata = (author: Author): Record<string, string> => ({
   ...(Option.isSome(author.url) && { url: author.url.value }),
 });
 
-/** Map RegistryExtensionManifest to SourceExtensionRef, stamped with the source. */
-const toSourceExtensionRef = (
-  entry: RegistryExtensionManifest,
-  source: RegistrySource,
-): SourceExtensionRef => {
+/** Map RegistryExtensionManifest to ExtensionRef, stamped with the source. */
+const toExtensionRef = (entry: RegistryExtensionManifest, source: RegistrySource): ExtensionRef => {
   const repository = Option.getOrUndefined(entry.repository);
   const license = Option.getOrUndefined(entry.license);
   const authors = entry.authors.map((author) => authorToMetadata(author));
@@ -76,6 +73,7 @@ const toSourceExtensionRef = (
 
   const details = {
     scope: entry.scope,
+    name: entry.name,
     version: entry.version,
     integrity: entry.integrity,
   };
@@ -84,9 +82,10 @@ const toSourceExtensionRef = (
     case "skill":
       return {
         type: "skill",
+        refType: "registry" as const,
         skill: {
           name: entry.name,
-          description: Option.getOrElse(entry.description, () => ""),
+          description: entry.description,
           metadata:
             Object.keys(skillMetadata).length > 0 ? Option.some(skillMetadata) : Option.none(),
         },
@@ -96,6 +95,7 @@ const toSourceExtensionRef = (
     case "mcp-server":
       return {
         type: "mcp-server",
+        refType: "registry" as const,
         server: { name: entry.name },
         source,
         ...details,
@@ -103,6 +103,7 @@ const toSourceExtensionRef = (
     case "pack":
       return {
         type: "pack",
+        refType: "registry" as const,
         pack: { name: entry.name },
         source,
         ...details,
@@ -110,8 +111,8 @@ const toSourceExtensionRef = (
   }
 };
 
-/** Extract extension name from a SourceExtensionRef. */
-const refName = (ref: SourceExtensionRef): string => {
+/** Extract extension name from an ExtensionRef. */
+const refName = (ref: ExtensionRef): string => {
   switch (ref.type) {
     case "skill":
       return ref.skill.name;
@@ -122,8 +123,8 @@ const refName = (ref: SourceExtensionRef): string => {
   }
 };
 
-/** Map SourceExtensionRef type to ExtensionType. */
-const refRegistryType = (ref: SourceExtensionRef): ExtensionType => ref.type;
+/** Map ExtensionRef type to ExtensionType. */
+const refRegistryType = (ref: ExtensionRef): ExtensionType => ref.type;
 
 // -----------------------------------------------------------------------------
 // LocalRegistrySourceHostProvider
@@ -149,7 +150,7 @@ export const createLocalRegistrySourceHostProvider = (
       const dirExists = yield* fsService
         .exists(extensionsDir)
         .pipe(Effect.orElseSucceed(() => false));
-      if (!dirExists) return [] as ReadonlyArray<SourceExtensionRef>;
+      if (!dirExists) return [] as ReadonlyArray<ExtensionRef>;
 
       const entries = yield* fsService
         .readDirectory(extensionsDir)
@@ -161,7 +162,7 @@ export const createLocalRegistrySourceHostProvider = (
         (scope) =>
           Effect.gen(function* () {
             const result = yield* client.getExtensionsByScope(toSearchOptions(scope, options));
-            return result.extensions.map((entry) => toSourceExtensionRef(entry, source));
+            return result.extensions.map((entry) => toExtensionRef(entry, source));
           }),
         { concurrency: "unbounded" },
       );
@@ -170,16 +171,14 @@ export const createLocalRegistrySourceHostProvider = (
 
   fetch: (_source, ref) =>
     Effect.gen(function* () {
-      if (!("scope" in ref) || !("version" in ref) || !("integrity" in ref)) {
+      if (ref.refType !== "registry") {
         return yield* makeCliError({
           code: "SOURCE_FETCH_FAILED",
           what: "Ref missing registry details (scope, version, integrity)",
         });
       }
 
-      const scope = ref.scope as string;
-      const version = ref.version as string;
-      const expectedIntegrity = ref.integrity as string;
+      const { scope, version, integrity: expectedIntegrity } = ref;
       const type = refRegistryType(ref);
       const name = refName(ref);
 
@@ -248,21 +247,19 @@ export const createRemoteRegistrySourceHostProvider = (
     Effect.gen(function* () {
       const searchOptions = toSearchOptions("*", options);
       const result = yield* client.getExtensionsByScope(searchOptions);
-      return result.extensions.map((entry) => toSourceExtensionRef(entry, source));
+      return result.extensions.map((entry) => toExtensionRef(entry, source));
     }),
 
   fetch: (_source, ref) =>
     Effect.gen(function* () {
-      if (!("scope" in ref) || !("version" in ref) || !("integrity" in ref)) {
+      if (ref.refType !== "registry") {
         return yield* makeCliError({
           code: "SOURCE_FETCH_FAILED",
           what: "Ref missing registry details (scope, version, integrity)",
         });
       }
 
-      const scope = ref.scope as string;
-      const version = ref.version as string;
-      const expectedIntegrity = ref.integrity as string;
+      const { scope, version, integrity: expectedIntegrity } = ref;
       const type = refRegistryType(ref);
       const name = refName(ref);
 

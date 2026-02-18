@@ -116,7 +116,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   const { canonicalPath, skillSrcPath } = computeSkillPaths(
     path.join,
     base,
-    { type: "registry", scope },
+    { refType: "registry", scope },
     args.name,
   );
 

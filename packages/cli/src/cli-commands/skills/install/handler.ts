@@ -185,7 +185,10 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     if (args.list) {
       yield* log.info("Available skills:");
       for (const ref of discoveredSkills) {
-        const desc = ref.skill.description ? ` - ${ref.skill.description}` : "";
+        const desc = Option.match(ref.skill.description, {
+          onNone: () => "",
+          onSome: (d) => ` - ${d}`,
+        });
         yield* log.message(`  ${ref.skill.name}${desc}`);
       }
       yield* log.success(`${discoveredSkills.length} skill(s) available`);
@@ -209,11 +212,14 @@ export const handleInstall = (args: InstallHandlerArgs) => {
     const resolvedSkills = yield* Effect.forEach(
       selectedSkills,
       (s) => {
-        if (s.source.type !== "registry")
-          return Effect.succeed({ ref: s, fetchedLocation: undefined as string | undefined });
+        if (s.refType !== "registry")
+          return Effect.succeed({
+            ref: s as SkillExtensionRef,
+            fetchedLocation: undefined as string | undefined,
+          });
         return sources.fetch(s).pipe(
           Effect.map((files) => ({
-            ref: s,
+            ref: s as SkillExtensionRef,
             fetchedLocation: `file://${files.directory}` as string | undefined,
           })),
         );
@@ -231,7 +237,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
             ref: s,
             agents: agentIds,
             force: args.force,
-            versionConstraint: s.source.type === "registry" ? registryConstraint : Option.none(),
+            versionConstraint: s.refType === "registry" ? registryConstraint : Option.none(),
             fetchedLocation,
           },
         }) satisfies InstallSkillOperation,

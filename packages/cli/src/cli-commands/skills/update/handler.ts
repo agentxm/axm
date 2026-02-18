@@ -172,8 +172,8 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
     // Step 5: Re-resolve each source and discover skills
     type ResolveResult =
-      | { type: "match"; ref: SkillExtensionRef; fetchedLocation?: string }
-      | { type: "rename"; oldName: string; newRef: SkillExtensionRef; fetchedLocation?: string };
+      | { type: "match"; ref: SkillExtensionRef }
+      | { type: "rename"; oldName: string; newRef: SkillExtensionRef };
 
     const resolveHandle = yield* spinnerSvc.start("Resolving sources...");
     const results = yield* Effect.forEach(
@@ -194,15 +194,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           const skillRef = namedSkillRefs.find((r) => r.skill.name === name);
 
           if (skillRef) {
-            // For registry sources, fetch to temp
-            if (skillRef.refType === "registry") {
-              const files = yield* sources.fetch(skillRef);
-              return Option.some<ResolveResult>({
-                type: "match",
-                ref: skillRef,
-                fetchedLocation: `file://${files.directory}`,
-              });
-            }
             return Option.some<ResolveResult>({ type: "match", ref: skillRef });
           }
 
@@ -219,15 +210,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
           if (allSkillRefs.length === 1) {
             // Single-skill source: treat as rename
             const newRef = allSkillRefs[0]!;
-            const base: ResolveResult = { type: "rename", oldName: name, newRef };
-            if (newRef.refType === "registry") {
-              const fetched = yield* sources.fetch(newRef);
-              return Option.some<ResolveResult>({
-                ...base,
-                fetchedLocation: `file://${fetched.directory}`,
-              });
-            }
-            return Option.some<ResolveResult>(base);
+            return Option.some<ResolveResult>({ type: "rename", oldName: name, newRef });
           } else if (allSkillRefs.length > 1) {
             // Multi-skill source: ambiguous rename
             const availableNames = allSkillRefs.map((r) => r.skill.name).join(", ");
@@ -298,7 +281,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               args: {
                 ref: item.ref,
                 force: args.force,
-                fetchedLocation: item.fetchedLocation,
               },
             } satisfies InstallSkillOperation,
           ]
@@ -309,7 +291,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               args: {
                 ref: item.newRef,
                 force: args.force,
-                fetchedLocation: item.fetchedLocation,
               },
             } satisfies InstallSkillOperation,
             {

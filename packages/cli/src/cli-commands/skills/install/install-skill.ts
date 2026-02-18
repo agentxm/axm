@@ -11,6 +11,7 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { SourceHostProviders } from "../../../sources/index.js";
 import { getAgentById } from "../../../agents/registry.js";
 import { Log } from "../../../tui/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
@@ -34,20 +35,26 @@ import type { SkillExtensionRef } from "../../../sources/types.js";
 
 /**
  * Extract the file:// location from a SkillExtensionRef.
- * Git-hosted and local refs carry `location` directly. Registry and builtin refs
- * do not — for those, `fetchedLocation` on the operation args must be used.
+ * Git-hosted and local refs carry `location` directly.
+ * For refs without inline location, fetch files via SourceHostProviders.
  */
-const getRefLocation = (ref: SkillExtensionRef, fetchedLocation: string | undefined) =>
+const getRefLocation = (ref: SkillExtensionRef) =>
   ref.refType === "git-hosted" || ref.refType === "local"
     ? Effect.succeed(ref.location)
-    : fetchedLocation !== undefined
-      ? Effect.succeed(fetchedLocation)
-      : Effect.fail(
-          makeCliError({
-            code: "INSTALL_SKILL_MISSING_LOCATION",
-            what: `fetchedLocation required for ${ref.source.type} source (no location on ref)`,
-          }),
+    : Effect.gen(function* () {
+        const sources = yield* SourceHostProviders;
+        const files = yield* sources.fetch(ref).pipe(
+          Effect.mapError((error) =>
+            makeCliError({
+              code: "INSTALL_SKILL_SOURCE_FETCH_FAILED",
+              what: `Failed to fetch files for ${ref.skill.name}`,
+              cause: error,
+            }),
+          ),
+          Effect.scoped,
         );
+        return `file://${files.directory}`;
+      });
 
 const installForAgent = (opts: {
   readonly agentId: string;
@@ -145,7 +152,7 @@ const installForAgent = (opts: {
  */
 export const installSkill: OperationHandler<
   InstallSkillOperation,
-  FileSystem.FileSystem | Path.Path | Workspace | Log
+  FileSystem.FileSystem | Path.Path | Workspace | Log | SourceHostProviders
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -176,21 +183,22 @@ export const installSkill: OperationHandler<
       });
     }
 
-    // Resolve source path — the skill files to copy from
-    const locationUrl = yield* getRefLocation(ref, op.args.fetchedLocation);
+    // Resolve source path — the skill files to copy from.
+    // Synthetic registry refs (fork/publish pipeline) may intentionally omit integrity;
+    // in that case, use the already-materialized canonical path instead of refetching.
+    const canonicalExists = yield* fs.exists(canonicalPath).pipe(Effect.orElseSucceed(() => false));
+    const useExistingCanonical = ref.refType === "registry" && ref.integrity === "" && canonicalExists;
+    const locationUrl = useExistingCanonical ? `file://${canonicalPath}` : yield* getRefLocation(ref);
     const sourcePath = stripFileProtocol(locationUrl);
+    const copyTarget = pathSource.refType === "registry" ? canonicalPath : skillSrcPath;
 
-    // Skip pre-clean and copy when source is already the content location
-    // (e.g., fork workflow where files are already in place)
-    const isSelfCopy = path.resolve(sourcePath) === path.resolve(skillSrcPath);
+    // Skip pre-clean and copy when source already equals the install target.
+    const isSelfCopy = path.resolve(sourcePath) === path.resolve(copyTarget);
 
     if (!isSelfCopy) {
       // Pre-clean from ALL known locations (ensures clean transitions between source types)
       yield* removeFromAllCanonicalLocations(fs, base, sanitizedName, path);
 
-      // For registry sources, copy to canonicalPath (extracted zip has manifest + src/)
-      // For other sources, copy to skillSrcPath (no subdirectory structure)
-      const copyTarget = pathSource.refType === "registry" ? canonicalPath : skillSrcPath;
       yield* copySkillDirectory(sourcePath, copyTarget).pipe(
         Effect.mapError((e) =>
           makeCliError({

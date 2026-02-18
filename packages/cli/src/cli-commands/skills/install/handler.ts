@@ -206,27 +206,8 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       return;
     }
 
-    // For registry sources, fetch and extract the archive to a temp dir
-    const resolvedSkills = yield* Effect.forEach(
-      selectedSkills,
-      (s) => {
-        if (s.refType !== "registry")
-          return Effect.succeed({
-            ref: s as SkillExtensionRef,
-            fetchedLocation: undefined as string | undefined,
-          });
-        return sources.fetch(s).pipe(
-          Effect.map((files) => ({
-            ref: s as SkillExtensionRef,
-            fetchedLocation: `file://${files.directory}` as string | undefined,
-          })),
-        );
-      },
-      { concurrency: "unbounded" },
-    );
-
-    const ops = resolvedSkills.map(
-      ({ ref: s, fetchedLocation }) =>
+    const ops = selectedSkills.map(
+      (s) =>
         ({
           name: "install-skill",
           args: {
@@ -234,7 +215,6 @@ export const handleInstall = (args: InstallHandlerArgs) => {
             force: args.force,
             versionConstraint:
               s.refType === "registry" ? (findOptions.versionConstraint ?? Option.none()) : Option.none(),
-            fetchedLocation,
           },
         }) satisfies InstallSkillOperation,
     );

@@ -44,8 +44,6 @@ export type InstallSkillOperationArgs = {
   readonly versionConstraint?: Option.Option<string>;
   /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
   readonly skipSettings?: boolean;
-  /** Pre-fetched file location (required for registry sources where ref has no location). */
-  readonly fetchedLocation?: string | undefined;
 };
 
 /**

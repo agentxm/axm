@@ -337,19 +337,8 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
 
           const skillRef = skillRefs[0]!;
 
-          const fetchedSkill = yield* sources.fetch(skillRef).pipe(
-            Effect.mapError((error) =>
-              makeCliError({
-                code: "PACK_DEPENDENCY_FETCH_FAILED",
-                what: `Failed to fetch skill dependency: ${fqn}`,
-                cause: error,
-              }),
-            ),
-          );
-
           return {
             ref: skillRef,
-            fetched: fetchedSkill,
             versionConstraint:
               Option.isSome(parsedSkill) &&
               parsedSkill.value.pattern.pattern === "registry-pattern-input"
@@ -360,10 +349,10 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
       { concurrency: "unbounded" },
     );
 
-    // Build InstallSkillOperations from fetched skill deps
+    // Build InstallSkillOperations from resolved skill deps
     // Pack dependencies skip settings writes — they only appear in the lockfile
     const skillInstallOps: ReadonlyArray<InstallSkillOperation> = skillOps.flatMap(
-      ({ ref, fetched, versionConstraint }) =>
+      ({ ref, versionConstraint }) =>
         ref.type !== "skill"
           ? []
           : [
@@ -374,7 +363,6 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
                   force: args.force,
                   versionConstraint,
                   skipSettings: true,
-                  fetchedLocation: `file://${fetched.directory}`,
                 },
               },
             ],

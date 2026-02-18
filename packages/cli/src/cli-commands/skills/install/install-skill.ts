@@ -112,6 +112,9 @@ const installFromLocal = (ref: LocalSkillRef, sanitizedName: string) =>
     return { skillSrcPath, versionConstraint: Option.none() } satisfies MaterializedSkill;
   });
 
+// TODO: Effect.scoped closes finalizers before the caller uses the returned directory.
+// When the builtin provider is implemented (currently a stub that always fails),
+// the copy to canonical must happen *inside* the scope so the temp dir isn't cleaned up early.
 const fetchSource = (ref: BuiltinSkillRef) =>
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
@@ -159,7 +162,15 @@ const installFromRegistry = (
     yield* validatePathSafety(ws.baseDir, canonicalPath);
 
     // Synthetic refs (fork/publish) may have empty integrity — use existing canonical
-    const canonicalExists = yield* fs.exists(canonicalPath).pipe(Effect.orElseSucceed(() => false));
+    const canonicalExists = yield* fs.exists(canonicalPath).pipe(
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "INSTALL_SKILL_PATH_CHECK_FAILED",
+          what: `Failed to check if canonical path exists: ${canonicalPath}`,
+          cause: e,
+        }),
+      ),
+    );
     const useExisting = ref.integrity === "" && canonicalExists;
 
     if (!useExisting) {
@@ -187,15 +198,19 @@ const installFromRegistry = (
       const tmpDir = yield* fs.makeTempDirectory().pipe(
         Effect.mapError((e) =>
           makeCliError({
-            code: "INSTALL_SKILL_COPY_FAILED",
-            what: `Failed to create temporary directory`,
+            code: "INSTALL_SKILL_TEMP_DIR_FAILED",
+            what: `Failed to create temporary directory for registry install`,
             cause: e,
           }),
         ),
       );
-      yield* extractZip(archive, tmpDir);
-      yield* preCleanAndCopy(sanitizedName, tmpDir, canonicalPath);
-      yield* fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore);
+      yield* Effect.ensuring(
+        Effect.gen(function* () {
+          yield* extractZip(archive, tmpDir);
+          yield* preCleanAndCopy(sanitizedName, tmpDir, canonicalPath);
+        }),
+        fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore),
+      );
     }
 
     return { skillSrcPath, versionConstraint } satisfies MaterializedSkill;

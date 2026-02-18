@@ -46,138 +46,138 @@ const toVersionRange = (version: string): string => `^${version}`;
 // -----------------------------------------------------------------------------
 
 export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: PacksAddHandlerArgs) {
-    const ws = yield* Workspace;
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const log = yield* Log;
+  const ws = yield* Workspace;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const log = yield* Log;
 
-    yield* log.info("axm packs add");
+  yield* log.info("axm packs add");
 
-    // Step 1: Find the pack
-    const configuredPacks = yield* ws.getConfiguredPacks();
-    const packEntry = configuredPacks[args.pack];
+  // Step 1: Find the pack
+  const configuredPacks = yield* ws.getConfiguredPacks();
+  const packEntry = configuredPacks[args.pack];
 
-    if (packEntry === undefined) {
-      return yield* makeCliError({
-        code: "PACK_NOT_FOUND",
-        what: `Pack '${args.pack}' not found`,
-        howToFix: "Run `axm packs new <name>` to create a pack first",
-      });
-    }
-
-    // Resolve pack scope from the entry (format: "@scope/name" or { source: "@scope/name" })
-    const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
-    const packScope = hasScopePrefix(packSource)
-      ? parseScopedNameOrThrow(packSource).scope
-      : yield* ws.getConfiguredScope();
-    const base = path.dirname(ws.path);
-
-    // Step 2: Read pack manifest as raw JSON (no schema validation for editing)
-    const packDir = computePackPaths(path.join, base, packScope, args.pack);
-    const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
-
-    const manifestContent = yield* fs.readFileString(manifestPath).pipe(
-      Effect.mapError((e) =>
-        makeCliError({
-          code: "PACK_NOT_FOUND",
-          what: `Pack manifest not found at ${manifestPath}`,
-          howToFix: "Ensure the pack exists on disk",
-          cause: e,
-        }),
-      ),
-    );
-
-    const manifest = yield* Effect.try({
-      try: () => JSON.parse(manifestContent) as RawPackManifest,
-      catch: (e) =>
-        makeCliError({
-          code: "PACK_MANIFEST_PARSE_FAILED",
-          what: `Failed to parse pack manifest: ${manifestPath}`,
-          cause: e,
-        }),
+  if (packEntry === undefined) {
+    return yield* makeCliError({
+      code: "PACK_NOT_FOUND",
+      what: `Pack '${args.pack}' not found`,
+      howToFix: "Run `axm packs new <name>` to create a pack first",
     });
+  }
 
-    // Step 3: Resolve extensions - get all managed, registry-sourced skills from lockfile
-    const lockedSkills = yield* ws.getLockedSkills();
-    const registrySkills = Object.entries(lockedSkills).filter(
-      ([, entry]) => entry.type === "registry",
-    );
-    const registrySkillNames = registrySkills.map(([name]) => name);
+  // Resolve pack scope from the entry (format: "@scope/name" or { source: "@scope/name" })
+  const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
+  const packScope = hasScopePrefix(packSource)
+    ? parseScopedNameOrThrow(packSource).scope
+    : yield* ws.getConfiguredScope();
+  const base = path.dirname(ws.path);
 
-    // Determine if this is a glob or exact match
-    const isGlob = isGlobPattern(args.extension);
-    const matchedNames = isGlob
-      ? expandGlobs([args.extension], registrySkillNames)
-      : registrySkillNames.includes(args.extension)
-        ? [args.extension]
-        : [];
+  // Step 2: Read pack manifest as raw JSON (no schema validation for editing)
+  const packDir = computePackPaths(path.join, base, packScope, args.pack);
+  const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
-    if (matchedNames.length === 0) {
-      if (isGlob) {
-        return yield* makeCliError({
-          code: "NO_EXTENSIONS_MATCHED",
-          what: `No managed, registry-sourced extensions match '${args.extension}'`,
-          howToFix: "Check installed extensions with `axm skills list`",
-        });
-      }
+  const manifestContent = yield* fs.readFileString(manifestPath).pipe(
+    Effect.mapError((e) =>
+      makeCliError({
+        code: "PACK_NOT_FOUND",
+        what: `Pack manifest not found at ${manifestPath}`,
+        howToFix: "Ensure the pack exists on disk",
+        cause: e,
+      }),
+    ),
+  );
 
-      // Check if extension exists but is not registry-sourced
-      if (args.extension in lockedSkills) {
-        return yield* makeCliError({
-          code: "EXTENSION_NOT_REGISTRY",
-          what: `Extension '${args.extension}' is not a managed, registry-sourced extension`,
-          howToFix: "Only managed, registry-sourced extensions can be added to packs",
-        });
-      }
+  const manifest = yield* Effect.try({
+    try: () => JSON.parse(manifestContent) as RawPackManifest,
+    catch: (e) =>
+      makeCliError({
+        code: "PACK_MANIFEST_PARSE_FAILED",
+        what: `Failed to parse pack manifest: ${manifestPath}`,
+        cause: e,
+      }),
+  });
 
+  // Step 3: Resolve extensions - get all managed, registry-sourced skills from lockfile
+  const lockedSkills = yield* ws.getLockedSkills();
+  const registrySkills = Object.entries(lockedSkills).filter(
+    ([, entry]) => entry.type === "registry",
+  );
+  const registrySkillNames = registrySkills.map(([name]) => name);
+
+  // Determine if this is a glob or exact match
+  const isGlob = isGlobPattern(args.extension);
+  const matchedNames = isGlob
+    ? expandGlobs([args.extension], registrySkillNames)
+    : registrySkillNames.includes(args.extension)
+      ? [args.extension]
+      : [];
+
+  if (matchedNames.length === 0) {
+    if (isGlob) {
       return yield* makeCliError({
-        code: "EXTENSION_NOT_FOUND",
-        what: `Extension '${args.extension}' not found in workspace`,
-        howToFix: "Install the extension first with `axm skills install`",
+        code: "NO_EXTENSIONS_MATCHED",
+        what: `No managed, registry-sourced extensions match '${args.extension}'`,
+        howToFix: "Check installed extensions with `axm skills list`",
       });
     }
 
-    // Step 4: Add extensions to manifest
-    let updated = false;
-    const currentSkills = { ...(manifest.skills ?? {}) };
-
-    for (const name of matchedNames) {
-      const lockEntry = lockedSkills[name]!;
-
-      // All matched extensions are registry-sourced (filtered above)
-      if (lockEntry.type !== "registry") continue;
-
-      const fqn = `${lockEntry.scope}/${lockEntry.name}`;
-      const version = toVersionRange(lockEntry.resolvedVersion);
-
-      // Check if already in pack (by FQN)
-      if (fqn in currentSkills) {
-        yield* log.info(`Extension '${fqn}' already in pack`);
-        continue;
-      }
-
-      currentSkills[fqn] = version;
-      updated = true;
-      yield* log.info(`Adding ${fqn}@${version}`);
+    // Check if extension exists but is not registry-sourced
+    if (args.extension in lockedSkills) {
+      return yield* makeCliError({
+        code: "EXTENSION_NOT_REGISTRY",
+        what: `Extension '${args.extension}' is not a managed, registry-sourced extension`,
+        howToFix: "Only managed, registry-sourced extensions can be added to packs",
+      });
     }
 
-    if (!updated) {
-      yield* log.success("Nothing to do.");
-      return;
+    return yield* makeCliError({
+      code: "EXTENSION_NOT_FOUND",
+      what: `Extension '${args.extension}' not found in workspace`,
+      howToFix: "Install the extension first with `axm skills install`",
+    });
+  }
+
+  // Step 4: Add extensions to manifest
+  let updated = false;
+  const currentSkills = { ...(manifest.skills ?? {}) };
+
+  for (const name of matchedNames) {
+    const lockEntry = lockedSkills[name]!;
+
+    // All matched extensions are registry-sourced (filtered above)
+    if (lockEntry.type !== "registry") continue;
+
+    const fqn = `${lockEntry.scope}/${lockEntry.name}`;
+    const version = toVersionRange(lockEntry.resolvedVersion);
+
+    // Check if already in pack (by FQN)
+    if (fqn in currentSkills) {
+      yield* log.info(`Extension '${fqn}' already in pack`);
+      continue;
     }
 
-    manifest.skills = currentSkills;
+    currentSkills[fqn] = version;
+    updated = true;
+    yield* log.info(`Adding ${fqn}@${version}`);
+  }
 
-    // Step 5: Write updated manifest
-    yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
-      Effect.mapError((e) =>
-        makeCliError({
-          code: "PACK_WRITE_FAILED",
-          what: `Failed to write pack manifest: ${manifestPath}`,
-          cause: e,
-        }),
-      ),
-    );
+  if (!updated) {
+    yield* log.success("Nothing to do.");
+    return;
+  }
 
-    yield* log.success("Done");
-  });
+  manifest.skills = currentSkills;
+
+  // Step 5: Write updated manifest
+  yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
+    Effect.mapError((e) =>
+      makeCliError({
+        code: "PACK_WRITE_FAILED",
+        what: `Failed to write pack manifest: ${manifestPath}`,
+        cause: e,
+      }),
+    ),
+  );
+
+  yield* log.success("Done");
+});

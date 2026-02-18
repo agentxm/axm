@@ -37,25 +37,25 @@ export interface ListHandlerArgs {
  * @experimental This API is unstable and may change without notice.
  */
 export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
-    const log = yield* Log;
-    const ws = yield* Workspace;
-    const skills = yield* ws.getLockedSkills();
+  const log = yield* Log;
+  const ws = yield* Workspace;
+  const skills = yield* ws.getLockedSkills();
 
-    // Filter by agents if specified
-    const entries = Object.entries(skills);
-    const filtered =
-      args.agents.length > 0
-        ? entries.filter(([, entry]) => args.agents.some((agent) => entry.agents.includes(agent)))
-        : entries;
+  // Filter by agents if specified
+  const entries = Object.entries(skills);
+  const filtered =
+    args.agents.length > 0
+      ? entries.filter(([, entry]) => args.agents.some((agent) => entry.agents.includes(agent)))
+      : entries;
 
-    if (filtered.length === 0) {
-      yield* log.info("No skills installed");
-      return;
-    }
+  if (filtered.length === 0) {
+    yield* log.info("No skills installed");
+    return;
+  }
 
-    // Display each skill
-    for (const [name, entry] of filtered) {
-      const agents = entry.agents.length > 0 ? entry.agents.join(", ") : "none";
-      yield* log.message(`${name}  (${entry.type})  [${agents}]`);
-    }
-  });
+  // Display each skill
+  for (const [name, entry] of filtered) {
+    const agents = entry.agents.length > 0 ? entry.agents.join(", ") : "none";
+    yield* log.message(`${name}  (${entry.type})  [${agents}]`);
+  }
+});

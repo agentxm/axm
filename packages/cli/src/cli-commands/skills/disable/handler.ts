@@ -32,80 +32,80 @@ export interface DisableHandlerArgs {
 // -----------------------------------------------------------------------------
 
 export const handleDisable = Effect.fn("Disable.handle")(function* (args: DisableHandlerArgs) {
-    const ws = yield* Workspace;
-    const log = yield* Log;
+  const ws = yield* Workspace;
+  const log = yield* Log;
 
-    yield* log.info("axm skills disable");
+  yield* log.info("axm skills disable");
 
-    // Load configured skills (direct settings entries)
-    const configuredSkills = yield* ws.getConfiguredSkills();
-    const entry = configuredSkills[args.name];
+  // Load configured skills (direct settings entries)
+  const configuredSkills = yield* ws.getConfiguredSkills();
+  const entry = configuredSkills[args.name];
 
-    // If not found in configured skills, check installed skills (includes transitive via packs)
-    if (entry === undefined) {
-      const installedSkills = yield* ws.getInstalledSkills();
-      const installedEntry = installedSkills[args.name];
+  // If not found in configured skills, check installed skills (includes transitive via packs)
+  if (entry === undefined) {
+    const installedSkills = yield* ws.getInstalledSkills();
+    const installedEntry = installedSkills[args.name];
 
-      if (installedEntry === undefined) {
-        return yield* makeCliError({
-          code: "SKILL_NOT_FOUND",
-          what: `Skill '${args.name}' not found`,
-          howToFix: "Run `axm skills list` to see available skills",
-        });
-      }
-
-      // Transitive skill — promote to direct entry with enabled: false
-      // Use the bare name (without scope) as the settings key
-      const bareName = args.name.includes("/") ? args.name.split("/").pop()! : args.name;
-      const source = Option.orElse(installedEntry.source, () => Option.some(args.name));
-      yield* ws.setSkillEntry(bareName, { source, enabled: false, managed: true });
-
-      yield* log.success("Done");
-      return;
-    }
-
-    // Validate: skill is managed
-    if (!entry.managed) {
+    if (installedEntry === undefined) {
       return yield* makeCliError({
-        code: "SKILL_NOT_MANAGED",
-        what: `Cannot disable unmanaged skill '${args.name}'`,
-        howToFix: "Only managed skills (installed via axm) can be enabled/disabled",
+        code: "SKILL_NOT_FOUND",
+        what: `Skill '${args.name}' not found`,
+        howToFix: "Run `axm skills list` to see available skills",
       });
     }
 
-    // Validate: skill is currently enabled
-    if (!entry.enabled) {
-      yield* log.info(`Skill '${args.name}' is already disabled`);
-      yield* log.success("Nothing to do.");
-      return;
-    }
-
-    // Build operation
-    const op = {
-      name: "disable-skill",
-      args: { skillName: args.name },
-    } satisfies DisableSkillOperation;
-
-    // Build single-step plan
-    const plan: Plan<DisableSkillOperation> = {
-      name: "Disable skill",
-      description: Option.some(`Disable ${args.name}`),
-      jobs: [
-        {
-          concurrency: 1,
-          steps: [
-            {
-              _tag: "PlannedJobStep",
-              operation: op,
-              expectedResult: { result: "success", message: `Disabled ${args.name}` },
-              label: args.name,
-            },
-          ],
-        },
-      ],
-    };
-
-    yield* ws.resolvePlan(plan, { "disable-skill": disableSkill });
+    // Transitive skill — promote to direct entry with enabled: false
+    // Use the bare name (without scope) as the settings key
+    const bareName = args.name.includes("/") ? args.name.split("/").pop()! : args.name;
+    const source = Option.orElse(installedEntry.source, () => Option.some(args.name));
+    yield* ws.setSkillEntry(bareName, { source, enabled: false, managed: true });
 
     yield* log.success("Done");
-  });
+    return;
+  }
+
+  // Validate: skill is managed
+  if (!entry.managed) {
+    return yield* makeCliError({
+      code: "SKILL_NOT_MANAGED",
+      what: `Cannot disable unmanaged skill '${args.name}'`,
+      howToFix: "Only managed skills (installed via axm) can be enabled/disabled",
+    });
+  }
+
+  // Validate: skill is currently enabled
+  if (!entry.enabled) {
+    yield* log.info(`Skill '${args.name}' is already disabled`);
+    yield* log.success("Nothing to do.");
+    return;
+  }
+
+  // Build operation
+  const op = {
+    name: "disable-skill",
+    args: { skillName: args.name },
+  } satisfies DisableSkillOperation;
+
+  // Build single-step plan
+  const plan: Plan<DisableSkillOperation> = {
+    name: "Disable skill",
+    description: Option.some(`Disable ${args.name}`),
+    jobs: [
+      {
+        concurrency: 1,
+        steps: [
+          {
+            _tag: "PlannedJobStep",
+            operation: op,
+            expectedResult: { result: "success", message: `Disabled ${args.name}` },
+            label: args.name,
+          },
+        ],
+      },
+    ],
+  };
+
+  yield* ws.resolvePlan(plan, { "disable-skill": disableSkill });
+
+  yield* log.success("Done");
+});

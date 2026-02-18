@@ -51,123 +51,123 @@ export interface PublishPackHandlerArgs {
 export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
   args: PublishPackHandlerArgs,
 ) {
-    const ws = yield* Workspace;
-    const path = yield* Path.Path;
-    const fs = yield* FileSystem.FileSystem;
-    const log = yield* Log;
-    const spinnerSvc = yield* Spinner;
-    const base = path.dirname(ws.path);
+  const ws = yield* Workspace;
+  const path = yield* Path.Path;
+  const fs = yield* FileSystem.FileSystem;
+  const log = yield* Log;
+  const spinnerSvc = yield* Spinner;
+  const base = path.dirname(ws.path);
 
-    yield* log.info("axm packs publish");
+  yield* log.info("axm packs publish");
 
-    // Step 1: Registry guard
-    yield* registryGuard;
+  // Step 1: Registry guard
+  yield* registryGuard;
 
-    // Step 2: Resolve pack name
-    const packName = yield* hasScopePrefix(args.pack)
-      ? Effect.succeed(args.pack)
-      : ws.getConfiguredScope().pipe(
-          Effect.map((scope) => `${scope}/${args.pack}`),
-          Effect.mapError((e) =>
-            makeCliError({
-              code: "SCOPE_RESOLUTION_FAILED",
-              what: `Failed to resolve scope: ${e._tag}`,
-              howToFix: "Configure a scope in your settings with `axm init`.",
-              cause: e,
-            }),
-          ),
-        );
-
-    // Parse scope and pack name from the full name
-    const { scope, name: shortName } = yield* parseScopedName(packName);
-
-    // Step 3: Validate managed pack exists
-    const handle = yield* spinnerSvc.start("Validating pack...");
-    const packDir = path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "packs", shortName);
-    const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
-
-    if (!packDirExists) {
-      yield* handle.stop("Failed");
-      return yield* Effect.fail(
-        makeCliError({
-          code: "EXTENSION_NOT_FOUND",
-          what: `Managed pack not found: ${packName}`,
-          details: [`Expected at: ${packDir}`],
-          howToFix:
-            "Only managed packs (in .axm/extensions/) can be published. Use `axm packs new` first.",
-        }),
+  // Step 2: Resolve pack name
+  const packName = yield* hasScopePrefix(args.pack)
+    ? Effect.succeed(args.pack)
+    : ws.getConfiguredScope().pipe(
+        Effect.map((scope) => `${scope}/${args.pack}`),
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "SCOPE_RESOLUTION_FAILED",
+            what: `Failed to resolve scope: ${e._tag}`,
+            howToFix: "Configure a scope in your settings with `axm init`.",
+            cause: e,
+          }),
+        ),
       );
-    }
 
-    // Validate manifest exists
-    const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
-    const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.orElseSucceed(() => false));
+  // Parse scope and pack name from the full name
+  const { scope, name: shortName } = yield* parseScopedName(packName);
 
-    if (!manifestExists) {
-      yield* handle.stop("Failed");
-      return yield* Effect.fail(
-        makeCliError({
-          code: "MISSING_MANIFEST",
-          what: `Missing manifest: ${PACK_MANIFEST_FILENAME}`,
-          details: [`Expected at: ${manifestPath}`],
-          howToFix: "Ensure the pack has a valid axm-pack.json manifest.",
-        }),
-      );
-    }
+  // Step 3: Validate managed pack exists
+  const handle = yield* spinnerSvc.start("Validating pack...");
+  const packDir = path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "packs", shortName);
+  const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
 
-    yield* handle.stop(`Validated ${packName}`);
-
-    // Step 4: Determine target registry
-    const registrySources = yield* ws.getConfiguredRegistrySources(Option.none()).pipe(
-      Effect.mapError((e) =>
-        makeCliError({
-          code: "REGISTRY_SOURCES_FAILED",
-          what: `Failed to get registry sources: ${e._tag}`,
-          cause: e,
-        }),
-      ),
+  if (!packDirExists) {
+    yield* handle.stop("Failed");
+    return yield* Effect.fail(
+      makeCliError({
+        code: "EXTENSION_NOT_FOUND",
+        what: `Managed pack not found: ${packName}`,
+        details: [`Expected at: ${packDir}`],
+        howToFix:
+          "Only managed packs (in .axm/extensions/) can be published. Use `axm packs new` first.",
+      }),
     );
+  }
 
-    if (registrySources.length === 0) {
-      return yield* Effect.fail(
-        makeCliError({
-          code: "NO_REGISTRY_CONFIGURED",
-          what: "No registry sources configured",
-          howToFix: "Run the registry guard first.",
-        }),
-      );
-    }
+  // Validate manifest exists
+  const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
+  const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.orElseSucceed(() => false));
 
-    const registryName = Option.match(args.registry, {
-      onNone: () => registrySources[0]!.name,
-      onSome: (name) => name,
-    });
+  if (!manifestExists) {
+    yield* handle.stop("Failed");
+    return yield* Effect.fail(
+      makeCliError({
+        code: "MISSING_MANIFEST",
+        what: `Missing manifest: ${PACK_MANIFEST_FILENAME}`,
+        details: [`Expected at: ${manifestPath}`],
+        howToFix: "Ensure the pack has a valid axm-pack.json manifest.",
+      }),
+    );
+  }
 
-    // Step 5: Build plan with a single PublishPackOperation
-    const steps: PlannedJobStep<PublishPackOperation>[] = [
-      {
-        _tag: "PlannedJobStep",
-        operation: {
-          name: "publish-pack",
-          args: {
-            name: packName,
-            registryName,
-          },
-        } satisfies PublishPackOperation,
-        expectedResult: { result: "success", message: `Published ${packName}` },
-        label: `Publish ${packName}`,
-      },
-    ];
+  yield* handle.stop(`Validated ${packName}`);
 
-    const plan = {
-      name: "Publish pack",
-      description: Option.some(`Publish ${packName} to registry "${registryName}"`),
-      jobs: [{ steps, concurrency: 1 as const }],
-    };
+  // Step 4: Determine target registry
+  const registrySources = yield* ws.getConfiguredRegistrySources(Option.none()).pipe(
+    Effect.mapError((e) =>
+      makeCliError({
+        code: "REGISTRY_SOURCES_FAILED",
+        what: `Failed to get registry sources: ${e._tag}`,
+        cause: e,
+      }),
+    ),
+  );
 
-    yield* ws.resolvePlan(plan, {
-      "publish-pack": publishPack,
-    });
+  if (registrySources.length === 0) {
+    return yield* Effect.fail(
+      makeCliError({
+        code: "NO_REGISTRY_CONFIGURED",
+        what: "No registry sources configured",
+        howToFix: "Run the registry guard first.",
+      }),
+    );
+  }
 
-    yield* log.success("Done");
+  const registryName = Option.match(args.registry, {
+    onNone: () => registrySources[0]!.name,
+    onSome: (name) => name,
   });
+
+  // Step 5: Build plan with a single PublishPackOperation
+  const steps: PlannedJobStep<PublishPackOperation>[] = [
+    {
+      _tag: "PlannedJobStep",
+      operation: {
+        name: "publish-pack",
+        args: {
+          name: packName,
+          registryName,
+        },
+      } satisfies PublishPackOperation,
+      expectedResult: { result: "success", message: `Published ${packName}` },
+      label: `Publish ${packName}`,
+    },
+  ];
+
+  const plan = {
+    name: "Publish pack",
+    description: Option.some(`Publish ${packName} to registry "${registryName}"`),
+    jobs: [{ steps, concurrency: 1 as const }],
+  };
+
+  yield* ws.resolvePlan(plan, {
+    "publish-pack": publishPack,
+  });
+
+  yield* log.success("Done");
+});

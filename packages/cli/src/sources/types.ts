@@ -5,6 +5,7 @@
  * @packageDocumentation
  */
 
+import type { ExtensionType } from "../extensions/common.js";
 import type * as Option from "effect/Option";
 import type * as Record from "effect/Record";
 import * as Schema from "effect/Schema";
@@ -43,6 +44,29 @@ export const SourceTypeSchema = Schema.Literal(
  * @experimental This API is unstable and may change without notice.
  */
 export type SourceType = typeof SourceTypeSchema.Type;
+
+// -----------------------------------------------------------------------------
+// Ref Type Schema
+// -----------------------------------------------------------------------------
+
+/**
+ * Ref type discriminator for extension ref hosting categories.
+ *
+ * - `"git-hosted"` - Git-based sources (GitHub, GitLab, Bitbucket, AzureRepos, Git)
+ * - `"registry"` - Package registry source
+ * - `"local"` - Local filesystem path source
+ * - `"builtin"` - Bundled extension source
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const RefTypeSchema = Schema.Literal("git-hosted", "registry", "local", "builtin");
+
+/**
+ * Inferred type for RefTypeSchema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type RefType = typeof RefTypeSchema.Type;
 
 // =============================================================================
 // Source Domain Model (source-host-domain-modeling)
@@ -264,6 +288,12 @@ export interface GitHostedRefDetails {
 export interface RegistryRefDetails {
   /** Registry scope that owns the published extension */
   readonly scope: string;
+  /**
+   * Registry package name — the identifier used for registry operations (fetch, version resolution).
+   * This may differ from the extension-specific display name (e.g., skill.name, pack.name,
+   * server.name) which is the user-facing name parsed from the extension's manifest.
+   */
+  readonly name: string;
   /** Resolved semver version */
   readonly version: string;
   /** SRI integrity string in `sha512-<base64>` format */
@@ -280,118 +310,117 @@ export interface LocalRefDetails {
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- intentionally empty: builtin extensions are resolved from bundled data
 export interface BuiltinRefDetails {}
 
+// =============================================================================
+// Extension Ref Type Hierarchy
+// =============================================================================
+
 // -----------------------------------------------------------------------------
-// Skill Extension Refs
+// Layer 1: ExtensionRefBase — universal base for all extension refs
 // -----------------------------------------------------------------------------
 
 /** @experimental */
-export interface SkillRefBase {
-  readonly type: "skill";
-  readonly skill: {
-    readonly name: string;
-    readonly description: string;
-    readonly metadata: Option.Option<Record.ReadonlyRecord<string, unknown>>;
-  };
+export interface ExtensionRefBase<
+  TExtensionType extends ExtensionType,
+  TRefType extends RefType,
+  TSource extends Source,
+> {
+  readonly type: TExtensionType;
+  readonly refType: TRefType;
+  readonly source: TSource;
 }
 
+// -----------------------------------------------------------------------------
+// Layer 2: Per-extension-type bases (add extension-specific metadata)
+// -----------------------------------------------------------------------------
+
 /** @experimental */
-export type GitHubSkillRef = SkillRefBase & {
-  readonly source: GitHubSource;
-} & GitHostedRefDetails;
+export type SkillExtensionRefBase<
+  TRefType extends RefType,
+  TSource extends Source,
+> = ExtensionRefBase<"skill", TRefType, TSource> & {
+  readonly skill: {
+    readonly name: string;
+    readonly description: Option.Option<string>;
+    readonly metadata: Option.Option<Record.ReadonlyRecord<string, unknown>>;
+  };
+};
+
 /** @experimental */
-export type GitLabSkillRef = SkillRefBase & {
-  readonly source: GitLabSource;
-} & GitHostedRefDetails;
+export type McpServerExtensionRefBase<
+  TRefType extends RefType,
+  TSource extends Source,
+> = ExtensionRefBase<"mcp-server", TRefType, TSource> & {
+  readonly server: { readonly name: string };
+};
+
 /** @experimental */
-export type BitbucketSkillRef = SkillRefBase & {
-  readonly source: BitbucketSource;
-} & GitHostedRefDetails;
+export type PackExtensionRefBase<
+  TRefType extends RefType,
+  TSource extends Source,
+> = ExtensionRefBase<"pack", TRefType, TSource> & {
+  readonly pack: { readonly name: string };
+};
+
+// -----------------------------------------------------------------------------
+// Layer 3: Concrete Skill Extension Refs
+// -----------------------------------------------------------------------------
+
 /** @experimental */
-export type AzureReposSkillRef = SkillRefBase & {
-  readonly source: AzureReposSource;
-} & GitHostedRefDetails;
+export type GitHostedSkillRef = SkillExtensionRefBase<"git-hosted", GitBasedSource> &
+  GitHostedRefDetails;
 /** @experimental */
-export type GitSkillRef = SkillRefBase & { readonly source: GitSource } & GitHostedRefDetails;
+export type RegistrySkillRef = SkillExtensionRefBase<"registry", RegistrySource> &
+  RegistryRefDetails;
 /** @experimental */
-export type RegistrySkillRef = SkillRefBase & {
-  readonly source: RegistrySource;
-} & RegistryRefDetails;
+export type LocalSkillRef = SkillExtensionRefBase<"local", LocalSource> & LocalRefDetails;
 /** @experimental */
-export type LocalSkillRef = SkillRefBase & { readonly source: LocalSource } & LocalRefDetails;
-/** @experimental */
-export type BuiltinSkillRef = SkillRefBase & { readonly source: BuiltinSource } & BuiltinRefDetails;
+export type BuiltinSkillRef = SkillExtensionRefBase<"builtin", BuiltinSource> & BuiltinRefDetails;
 
 /** @experimental */
 export type SkillExtensionRef =
-  | GitHubSkillRef
-  | GitLabSkillRef
-  | BitbucketSkillRef
-  | AzureReposSkillRef
-  | GitSkillRef
+  | GitHostedSkillRef
   | RegistrySkillRef
   | LocalSkillRef
   | BuiltinSkillRef;
 
 // -----------------------------------------------------------------------------
-// MCP Server Extension Refs
+// Layer 3: Concrete MCP Server Extension Refs
 // -----------------------------------------------------------------------------
 
 /** @experimental */
-export interface McpServerRefBase {
-  readonly type: "mcp-server";
-  readonly server: {
-    readonly name: string;
-  };
-}
-
+export type GitHostedMcpServerRef = McpServerExtensionRefBase<"git-hosted", GitBasedSource> &
+  GitHostedRefDetails;
 /** @experimental */
-export type GitHubMcpServerRef = McpServerRefBase & {
-  readonly source: GitHubSource;
-} & GitHostedRefDetails;
+export type RegistryMcpServerRef = McpServerExtensionRefBase<"registry", RegistrySource> &
+  RegistryRefDetails;
 /** @experimental */
-export type RegistryMcpServerRef = McpServerRefBase & {
-  readonly source: RegistrySource;
-} & RegistryRefDetails;
+export type LocalMcpServerRef = McpServerExtensionRefBase<"local", LocalSource> & LocalRefDetails;
 /** @experimental */
-export type LocalMcpServerRef = McpServerRefBase & {
-  readonly source: LocalSource;
-} & LocalRefDetails;
-/** @experimental */
-export type BuiltinMcpServerRef = McpServerRefBase & {
-  readonly source: BuiltinSource;
-} & BuiltinRefDetails;
+export type BuiltinMcpServerRef = McpServerExtensionRefBase<"builtin", BuiltinSource> &
+  BuiltinRefDetails;
 
 /** @experimental */
 export type McpServerExtensionRef =
-  | GitHubMcpServerRef
+  | GitHostedMcpServerRef
   | RegistryMcpServerRef
   | LocalMcpServerRef
   | BuiltinMcpServerRef;
 
 // -----------------------------------------------------------------------------
-// Pack Extension Refs
+// Layer 3: Concrete Pack Extension Refs
 // -----------------------------------------------------------------------------
 
 /** @experimental */
-export type RegistryPackRef = {
-  readonly type: "pack";
-  readonly pack: { readonly name: string };
-  readonly source: RegistrySource;
-} & RegistryRefDetails;
-
+export type RegistryPackRef = PackExtensionRefBase<"registry", RegistrySource> & RegistryRefDetails;
 /** @experimental */
-export type BuiltinPackRef = {
-  readonly type: "pack";
-  readonly pack: { readonly scope: string; readonly name: string; readonly version: string };
-  readonly source: BuiltinSource;
-} & BuiltinRefDetails;
+export type BuiltinPackRef = PackExtensionRefBase<"builtin", BuiltinSource> & BuiltinRefDetails;
 
 /** @experimental */
 export type PackExtensionRef = RegistryPackRef | BuiltinPackRef;
 
 // -----------------------------------------------------------------------------
-// SourceExtensionRef Union
+// ExtensionRef Union
 // -----------------------------------------------------------------------------
 
 /** @experimental */
-export type SourceExtensionRef = SkillExtensionRef | McpServerExtensionRef | PackExtensionRef;
+export type ExtensionRef = SkillExtensionRef | McpServerExtensionRef | PackExtensionRef;

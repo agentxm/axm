@@ -9,8 +9,8 @@
  */
 
 // Types — Core
-export type { SourceType } from "./types.js";
-export { SourceTypeSchema } from "./types.js";
+export type { RefType, SourceType } from "./types.js";
+export { RefTypeSchema, SourceTypeSchema } from "./types.js";
 
 // Types — Source domain model (source-host-domain-modeling)
 export type {
@@ -55,30 +55,29 @@ export type {
   GitHostedRefDetails,
   LocalRefDetails,
   RegistryRefDetails,
+  // Extension ref base types
+  ExtensionRefBase,
+  SkillExtensionRefBase,
+  McpServerExtensionRefBase,
+  PackExtensionRefBase,
   // Skill extension refs
-  AzureReposSkillRef,
-  BitbucketSkillRef,
+  GitHostedSkillRef,
   BuiltinSkillRef,
-  GitHubSkillRef,
-  GitLabSkillRef,
-  GitSkillRef,
   LocalSkillRef,
   RegistrySkillRef,
   SkillExtensionRef,
-  SkillRefBase,
   // MCP server extension refs
+  GitHostedMcpServerRef,
   BuiltinMcpServerRef,
-  GitHubMcpServerRef,
   LocalMcpServerRef,
   McpServerExtensionRef,
-  McpServerRefBase,
   RegistryMcpServerRef,
   // Pack extension refs
   BuiltinPackRef,
   PackExtensionRef,
   RegistryPackRef,
   // Union
-  SourceExtensionRef,
+  ExtensionRef,
 } from "./types.js";
 
 // Type guards

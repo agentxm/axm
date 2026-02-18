@@ -6,8 +6,8 @@ const base = "/workspace";
 
 describe("computeSkillPaths", () => {
   describe("non-registry sources", () => {
-    it("github source produces external extensions path", () => {
-      const source: SkillPathSource = { type: "github" };
+    it("git-hosted source produces external extensions path", () => {
+      const source: SkillPathSource = { refType: "git-hosted" };
       const result = computeSkillPaths(join, base, source, "code-review");
 
       expect(result.canonicalPath).toBe("/workspace/.axm/extensions/external/skills/code-review");
@@ -15,49 +15,25 @@ describe("computeSkillPaths", () => {
     });
 
     it("local source produces external extensions path", () => {
-      const source: SkillPathSource = { type: "local" };
+      const source: SkillPathSource = { refType: "local" };
       const result = computeSkillPaths(join, base, source, "my-skill");
 
       expect(result.canonicalPath).toBe("/workspace/.axm/extensions/external/skills/my-skill");
       expect(result.skillSrcPath).toBe(result.canonicalPath);
     });
 
-    it("git source produces external extensions path", () => {
-      const source: SkillPathSource = { type: "git" };
+    it("builtin source produces external extensions path", () => {
+      const source: SkillPathSource = { refType: "builtin" };
       const result = computeSkillPaths(join, base, source, "test-gen");
 
       expect(result.canonicalPath).toBe("/workspace/.axm/extensions/external/skills/test-gen");
       expect(result.skillSrcPath).toBe(result.canonicalPath);
     });
 
-    it("gitlab source produces external extensions path", () => {
-      const source: SkillPathSource = { type: "gitlab" };
-      const result = computeSkillPaths(join, base, source, "linter");
-
-      expect(result.canonicalPath).toBe("/workspace/.axm/extensions/external/skills/linter");
-      expect(result.skillSrcPath).toBe(result.canonicalPath);
-    });
-
-    it("bitbucket source produces external extensions path", () => {
-      const source: SkillPathSource = { type: "bitbucket" };
-      const result = computeSkillPaths(join, base, source, "formatter");
-
-      expect(result.canonicalPath).toBe("/workspace/.axm/extensions/external/skills/formatter");
-      expect(result.skillSrcPath).toBe(result.canonicalPath);
-    });
-
-    it("azurerepos source produces external extensions path", () => {
-      const source: SkillPathSource = { type: "azurerepos" };
-      const result = computeSkillPaths(join, base, source, "deploy");
-
-      expect(result.canonicalPath).toBe("/workspace/.axm/extensions/external/skills/deploy");
-      expect(result.skillSrcPath).toBe(result.canonicalPath);
-    });
-
     it("canonicalPath equals skillSrcPath for all non-registry sources", () => {
-      const types = ["github", "local", "git", "gitlab", "bitbucket", "azurerepos"] as const;
-      for (const type of types) {
-        const source: SkillPathSource = { type };
+      const refTypes = ["git-hosted", "local", "builtin"] as const;
+      for (const refType of refTypes) {
+        const source: SkillPathSource = { refType };
         const result = computeSkillPaths(join, base, source, "skill");
         expect(result.canonicalPath).toBe(result.skillSrcPath);
       }
@@ -66,7 +42,7 @@ describe("computeSkillPaths", () => {
 
   describe("registry source", () => {
     it("produces registry extensions path with scope", () => {
-      const source: SkillPathSource = { type: "registry", scope: "@acme" };
+      const source: SkillPathSource = { refType: "registry", scope: "@acme" };
       const result = computeSkillPaths(join, base, source, "code-review");
 
       expect(result.canonicalPath).toBe("/workspace/.axm/extensions/@acme/skills/code-review");
@@ -74,14 +50,14 @@ describe("computeSkillPaths", () => {
     });
 
     it("canonicalPath and skillSrcPath differ by /src suffix", () => {
-      const source: SkillPathSource = { type: "registry", scope: "@corp" };
+      const source: SkillPathSource = { refType: "registry", scope: "@corp" };
       const result = computeSkillPaths(join, base, source, "linter");
 
       expect(result.skillSrcPath).toBe(result.canonicalPath + "/src");
     });
 
     it("handles different scopes correctly", () => {
-      const source: SkillPathSource = { type: "registry", scope: "@community" };
+      const source: SkillPathSource = { refType: "registry", scope: "@community" };
       const result = computeSkillPaths(join, base, source, "test-gen");
 
       expect(result.canonicalPath).toBe("/workspace/.axm/extensions/@community/skills/test-gen");

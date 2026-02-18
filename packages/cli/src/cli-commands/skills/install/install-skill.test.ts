@@ -54,7 +54,7 @@ const makeWorkspaceMock = (
     getSkillDir: (name: string, source?: SkillPathSource) => {
       const base = path.dirname(axmDir);
       const sanitized = sanitizeName(name);
-      if (source?.type === "registry") {
+      if (source?.refType === "registry") {
         const canonicalPath = path.join(
           base,
           ".axm",
@@ -149,7 +149,11 @@ const makeOp = (
     versionConstraint?: Option.Option<string>;
     gitTreeSha?: Option.Option<string>;
     skipSettings?: boolean;
-    skill?: { name: string; description: string; metadata: Option.Option<Record<string, unknown>> };
+    skill?: {
+      name: string;
+      description: Option.Option<string>;
+      metadata: Option.Option<Record<string, unknown>>;
+    };
   } = {},
 ): InstallSkillOperation => {
   const source =
@@ -157,7 +161,7 @@ const makeOp = (
     ({ type: "local", path: "/tmp/source" } as import("../../../sources/types.js").Source);
   const skill = overrides.skill ?? {
     name: overrides.skillName ?? "my-skill",
-    description: "A test skill",
+    description: Option.some("A test skill"),
     metadata: Option.none(),
   };
   const location = overrides.location ?? `file://${overrides.sourcePath ?? ""}`;
@@ -171,20 +175,30 @@ const makeOp = (
       case "registry":
         return {
           ...base,
+          refType: "registry" as const,
           source: source as never,
           scope: overrides.scope ?? "@community",
+          name: skill.name,
           version: Option.getOrElse(version, () => ""),
           integrity: "",
         } as SkillExtensionRef;
       case "local":
         return {
           ...base,
+          refType: "local" as const,
           source: source as never,
           location,
+        } as SkillExtensionRef;
+      case "builtin":
+        return {
+          ...base,
+          refType: "builtin" as const,
+          source: source as never,
         } as SkillExtensionRef;
       default:
         return {
           ...base,
+          refType: "git-hosted" as const,
           source: source as never,
           location,
           gitTreeSha,
@@ -193,7 +207,7 @@ const makeOp = (
   })();
 
   // For registry sources, the fetchedLocation is the location
-  const fetchedLocation = source.type === "registry" ? location : undefined;
+  const fetchedLocation = ref.refType === "registry" ? location : undefined;
 
   return {
     name: "install-skill",

@@ -1333,7 +1333,7 @@ describe("WorkspaceContextService", () => {
 
         const ws = yield* getService(defaultOptions);
         const paths = yield* ws.getSkillDir("my-skill", {
-          type: "registry",
+          refType: "registry",
           scope: "@corp",
         });
 
@@ -1348,7 +1348,7 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {});
 
         const ws = yield* getService(defaultOptions);
-        const paths = yield* ws.getSkillDir("code-review", { type: "github" });
+        const paths = yield* ws.getSkillDir("code-review", { refType: "git-hosted" });
 
         expect(paths.canonicalPath).toContain(".axm/extensions/external/skills/code-review");
         expect(paths.skillSrcPath).toBe(paths.canonicalPath);

@@ -20,7 +20,7 @@ import type { CliError } from "../cli-error/index.js";
 import { makeCliError } from "../cli-error/index.js";
 import { Workspace } from "../workspace/service.js";
 import type { ExtensionFiles, FindOptions } from "./provider.js";
-import type { RegistrySource, Source, SourceExtensionRef } from "./types.js";
+import type { ExtensionRef, RegistrySource, Source } from "./types.js";
 import {
   createBuiltinSourceHostProvider,
   createGitHostingSourceHostProvider,
@@ -47,9 +47,9 @@ export interface SourceHostProvidersService {
   readonly find: (
     source: Source,
     options: FindOptions,
-  ) => Effect.Effect<ReadonlyArray<SourceExtensionRef>, CliError, Scope.Scope>;
+  ) => Effect.Effect<ReadonlyArray<ExtensionRef>, CliError, Scope.Scope>;
   /** Fetch and materialize extension files for a discovered ref. */
-  readonly fetch: (ref: SourceExtensionRef) => Effect.Effect<ExtensionFiles, CliError, Scope.Scope>;
+  readonly fetch: (ref: ExtensionRef) => Effect.Effect<ExtensionFiles, CliError, Scope.Scope>;
   /** Build a git clone URL for this source. Returns None for non-git sources. */
   readonly cloneUrl: (source: Source) => Option.Option<string>;
   /** Canonical origin string for display/comparison. */
@@ -122,7 +122,7 @@ const getOriginFromSource = (source: Source): string => {
 
 /**
  * Creates a registry meta-provider that wraps N configured registries
- * into a single find/fetch interface returning `SourceExtensionRef`.
+ * into a single find/fetch interface returning `ExtensionRef`.
  *
  * Reads `workspace.getConfiguredRegistrySources()` lazily on each call — always
  * reflects the current config (including sources added by the registry guard).
@@ -156,12 +156,12 @@ export const createRegistryMetaProvider = () => ({
       );
 
       if (registrySources.length === 0) {
-        return [] as ReadonlyArray<SourceExtensionRef>;
+        return [] as ReadonlyArray<ExtensionRef>;
       }
 
       // Try each registry source in order. 404 (empty results) → fallthrough.
       // Sequential: early-exits on first non-404 error (can't use Effect.forEach)
-      const allRefs: Array<SourceExtensionRef> = [];
+      const allRefs: Array<ExtensionRef> = [];
 
       for (const regSource of registrySources) {
         const provider = yield* createRegistrySourceHostProviderFromHost(regSource);
@@ -177,10 +177,10 @@ export const createRegistryMetaProvider = () => ({
         }
       }
 
-      return allRefs as ReadonlyArray<SourceExtensionRef>;
+      return allRefs as ReadonlyArray<ExtensionRef>;
     }),
 
-  fetch: (source: RegistrySource, ref: SourceExtensionRef) =>
+  fetch: (source: RegistrySource, ref: ExtensionRef) =>
     Effect.flatMap(createRegistrySourceHostProviderFromHost(source), (provider) =>
       provider.fetch(source, ref),
     ),

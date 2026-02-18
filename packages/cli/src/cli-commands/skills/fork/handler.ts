@@ -203,8 +203,9 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     const extensionRef = ref;
     // After fork + publish, the skill lives in the registry extensions dir.
     // Build a registry SkillExtensionRef for the install step.
-    const registryRef = {
+    const registryRef: import("../../../sources/types.js").RegistrySkillRef = {
       type: "skill" as const,
+      refType: "registry" as const,
       skill: {
         name: ref.skill.name,
         description: ref.skill.description,
@@ -216,9 +217,10 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
         location: new URL("file://localhost"),
       },
       scope,
+      name: ref.skill.name,
       version: "0.1.0",
       integrity: "",
-    } as import("../../../sources/types.js").RegistrySkillRef;
+    };
     const fetchedLocation =
       "file://" + path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "skills", ref.skill.name, "src");
     return [

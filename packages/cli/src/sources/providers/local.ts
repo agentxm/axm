@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-skills.js";
 import { makeCliError } from "../../cli-error/index.js";
 import type { SourceHostProvider } from "../provider.js";
-import type { LocalSource, SourceExtensionRef } from "../types.js";
+import type { LocalSource, ExtensionRef } from "../types.js";
 
 /**
  * Source host provider for local filesystem paths.
@@ -50,10 +50,15 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
         ),
       );
 
-      // Map to SourceExtensionRef with LocalRefDetails
-      const mapped: ReadonlyArray<SourceExtensionRef> = Array.map(discovered, (d) => ({
+      // Map to ExtensionRef with LocalRefDetails
+      const mapped: ReadonlyArray<ExtensionRef> = Array.map(discovered, (d) => ({
         type: "skill" as const,
-        skill: d.skill,
+        refType: "local" as const,
+        skill: {
+          name: d.skill.name,
+          description: d.skill.description ? Option.some(d.skill.description) : Option.none(),
+          metadata: d.skill.metadata,
+        },
         source,
         location: d.location,
       }));
@@ -64,7 +69,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
     }),
 
   fetch: (_source, ref) => {
-    if (!("location" in ref)) {
+    if (ref.refType !== "local") {
       return Effect.fail(
         makeCliError({
           code: "SOURCE_FETCH_FAILED",
@@ -72,9 +77,8 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
         }),
       );
     }
-    // Assertion needed: "in" check does not narrow discriminated union
     return Effect.succeed({
-      directory: (ref as { location: string }).location.replace("file://", ""),
+      directory: ref.location.replace("file://", ""),
     });
   },
 });

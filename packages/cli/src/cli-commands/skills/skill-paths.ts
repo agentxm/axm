@@ -7,18 +7,18 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { SourceType } from "../../sources/index.js";
+import type { RefType } from "../../sources/index.js";
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../../extensions/constants.js";
 
 /**
  * Minimal structural discriminant for determining skill path layout.
  *
- * Both `SkillLockEntry` (when type is "registry") and `RegistrySourceParams`
- * structurally satisfy the first branch. All non-registry variants satisfy the second.
+ * Registry refs carry a scope for the canonical path; all other ref types
+ * use the shared external extensions directory.
  */
 export type SkillPathSource =
-  | { readonly type: "registry"; readonly scope: string }
-  | { readonly type: Exclude<SourceType, "registry"> | "builtin" };
+  | { readonly refType: "registry"; readonly scope: string }
+  | { readonly refType: Exclude<RefType, "registry"> };
 
 /**
  * Computed paths for an installed skill directory.
@@ -49,7 +49,7 @@ export const computeSkillPaths = (
   source: SkillPathSource,
   sanitizedName: string,
 ): SkillDirPaths => {
-  if (source.type === "registry") {
+  if (source.refType === "registry") {
     const canonicalPath = join(
       base,
       REGISTRY_EXTENSIONS_DIR,

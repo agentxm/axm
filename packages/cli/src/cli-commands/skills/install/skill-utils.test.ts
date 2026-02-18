@@ -18,7 +18,8 @@ const makeSkill = (
   path: string = `/fake/${name || "unnamed"}`,
 ): SkillExtensionRef => ({
   type: "skill",
-  skill: { name, description: "", metadata: Option.none() },
+  refType: "local",
+  skill: { name, description: Option.none(), metadata: Option.none() },
   source: { type: "local", path },
   location: `file://${path}`,
 });

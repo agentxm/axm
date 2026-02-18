@@ -8,7 +8,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
-import type { BuiltinSource, GitHubSource, RegistrySource, SourceExtensionRef } from "./types.js";
+import type { BuiltinSource, GitHubSource, RegistrySource, ExtensionRef } from "./types.js";
 import type { SourceHostProvider, FindOptions } from "./provider.js";
 import type { ExtensionType } from "../extensions/common.js";
 import type { VersionEntry } from "../registry/index.js";
@@ -83,7 +83,7 @@ describe("SourceHostProvider", () => {
     expect(result).toBe(false);
   });
 
-  it("has find method that returns Effect<ReadonlyArray<SourceExtensionRef>>", async () => {
+  it("has find method that returns Effect<ReadonlyArray<ExtensionRef>>", async () => {
     const provider = makeGitHubProvider();
     const source: GitHubSource = {
       type: "github",
@@ -108,7 +108,7 @@ describe("SourceHostProvider", () => {
       ref: Option.none(),
       subPath: Option.none(),
     };
-    const ref = {} as SourceExtensionRef;
+    const ref = {} as ExtensionRef;
     const result = await Effect.runPromise(provider.fetch(source, ref));
     expect(result.directory).toBe("/tmp/clone");
   });

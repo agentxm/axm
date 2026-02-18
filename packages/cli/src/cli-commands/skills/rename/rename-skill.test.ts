@@ -68,10 +68,18 @@ const makeWorkspaceMock = (
     getSkillDir: (name: string, source?: SkillPathSource) => {
       const base = path.dirname(axmDir);
       // Use explicit source if provided, else look up lock entry
-      const srcType = source?.type ?? (lockfileSkills[name] as SkillLockEntry | undefined)?.type;
-      if (srcType === "registry") {
+      const srcRefType =
+        source?.refType ??
+        ((lockfileSkills[name] as SkillLockEntry | undefined)?.type === "registry"
+          ? "registry"
+          : (lockfileSkills[name] as SkillLockEntry | undefined)?.type === "local"
+            ? "local"
+            : (lockfileSkills[name] as SkillLockEntry | undefined)?.type === "builtin"
+              ? "builtin"
+              : "git-hosted");
+      if (srcRefType === "registry") {
         const scope =
-          source?.type === "registry"
+          source?.refType === "registry"
             ? source.scope
             : "scope" in (lockfileSkills[name] ?? {})
               ? (lockfileSkills[name] as { scope: string }).scope

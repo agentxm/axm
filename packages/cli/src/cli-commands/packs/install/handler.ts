@@ -171,7 +171,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
 
     // Fetch the pack archive
     const packRef = refs[0]!;
-    if (packRef.type !== "pack" || !("scope" in packRef)) {
+    if (packRef.type !== "pack" || packRef.refType !== "registry") {
       return yield* Effect.fail(
         makeCliError({
           code: "PACK_FETCH_FAILED",
@@ -262,14 +262,8 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     const resolvedCommands: Record<string, string> = { ...(manifest.commands ?? {}) };
     const resolvedMcpServers: Record<string, string> = { ...(manifest["mcp-servers"] ?? {}) };
 
-    // Resolve version from pack ref
-    const resolvedVersion = (() => {
-      if ("version" in packRef) {
-        const v = packRef.version;
-        if (typeof v === "string") return v;
-      }
-      return manifest.version;
-    })();
+    // Resolve version from pack ref (already narrowed to RegistryPackRef above)
+    const resolvedVersion = packRef.version;
 
     // Step 7: Fetch skill dependencies from manifest
     const skillEntries = Object.entries(resolvedSkills);

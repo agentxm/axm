@@ -29,7 +29,7 @@ import type {
   BitbucketSource,
   AzureReposSource,
   GitHostingSourceHost,
-  SourceExtensionRef,
+  ExtensionRef,
 } from "../types.js";
 
 // -----------------------------------------------------------------------------
@@ -108,7 +108,7 @@ export const createGitHostingSourceHostProvider = <
         ),
       );
 
-      // Enrich with tree SHAs and wrap as SourceExtensionRef
+      // Enrich with tree SHAs and wrap as ExtensionRef
       const refs = yield* Effect.forEach(
         oldRefs,
         (d) =>
@@ -116,14 +116,19 @@ export const createGitHostingSourceHostProvider = <
             const skillPath = d.location.replace("file://", "");
             const relativeDir = path.relative(tempDir, skillPath);
             const gitTreeSha = yield* getTreeSha(tempDir, relativeDir);
-            // Assertion needed: TS can't prove S narrows source to a specific SourceExtensionRef variant
+            // Assertion needed: TS can't prove S narrows source to a specific ExtensionRef variant
             return {
               type: "skill" as const,
-              skill: d.skill,
+              refType: "git-hosted" as const,
+              skill: {
+                name: d.skill.name,
+                description: d.skill.description ? Option.some(d.skill.description) : Option.none(),
+                metadata: d.skill.metadata,
+              },
               source,
               location: d.location,
               gitTreeSha: Option.some(gitTreeSha),
-            } as SourceExtensionRef;
+            } as ExtensionRef;
           }),
         { concurrency: "unbounded" },
       );
@@ -134,7 +139,7 @@ export const createGitHostingSourceHostProvider = <
     }),
 
   fetch: (_source, _ref) => {
-    if (!("location" in _ref)) {
+    if (_ref.refType !== "git-hosted") {
       return Effect.fail(
         makeCliError({
           code: "SOURCE_FETCH_FAILED",
@@ -142,9 +147,8 @@ export const createGitHostingSourceHostProvider = <
         }),
       );
     }
-    // Assertion needed: "in" check does not narrow discriminated union
     return Effect.succeed({
-      directory: (_ref as { location: string }).location.replace("file://", ""),
+      directory: _ref.location.replace("file://", ""),
     });
   },
 });

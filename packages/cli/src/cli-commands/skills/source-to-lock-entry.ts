@@ -10,16 +10,7 @@
 
 import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../../lockfile/schema.js";
-import type {
-  AzureReposSkillRef,
-  BitbucketSkillRef,
-  GitHubSkillRef,
-  GitLabSkillRef,
-  GitSkillRef,
-  LocalSkillRef,
-  RegistrySkillRef,
-  SkillExtensionRef,
-} from "../../sources/types.js";
+import type { SkillExtensionRef } from "../../sources/types.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -57,100 +48,90 @@ const commonFields = (input: SourceToLockEntryInput) => ({
 /**
  * Maps a SkillExtensionRef and operation metadata to a SkillLockEntry for lockfile persistence.
  *
- * Switches on `ref.source.type` — registry refs carry version/integrity on the ref details,
- * git refs carry gitTreeSha, local refs carry location. Only `sourceName` is injected
- * at the boundary (Decision 8).
+ * Outer switch on `ref.refType` for ref-detail access; inner switch on `ref.source.type`
+ * within `git-hosted` for per-source lock entry granularity.
  */
 export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry => {
   const common = commonFields(input);
   const { ref } = input;
 
-  switch (ref.source.type) {
-    case "github": {
-      const r = ref as GitHubSkillRef;
-      return {
-        type: "github",
-        owner: r.source.owner,
-        repo: r.source.repo,
-        ...optionalField("ref", r.source.ref),
-        ...optionalField("path", r.source.subPath),
-        ...optionalField("gitTreeHash", r.gitTreeSha),
-        ...common,
-      };
+  switch (ref.refType) {
+    case "git-hosted": {
+      switch (ref.source.type) {
+        case "github":
+          return {
+            type: "github",
+            owner: ref.source.owner,
+            repo: ref.source.repo,
+            ...optionalField("ref", ref.source.ref),
+            ...optionalField("path", ref.source.subPath),
+            ...optionalField("gitTreeHash", ref.gitTreeSha),
+            ...common,
+          };
+
+        case "gitlab":
+          return {
+            type: "gitlab",
+            owner: ref.source.owner,
+            repo: ref.source.repo,
+            ...optionalField("ref", ref.source.ref),
+            ...optionalField("path", ref.source.subPath),
+            ...optionalField("gitTreeHash", ref.gitTreeSha),
+            ...common,
+          };
+
+        case "bitbucket":
+          return {
+            type: "bitbucket",
+            owner: ref.source.owner,
+            repo: ref.source.repo,
+            ...optionalField("ref", ref.source.ref),
+            ...optionalField("path", ref.source.subPath),
+            ...optionalField("gitTreeHash", ref.gitTreeSha),
+            ...common,
+          };
+
+        case "azurerepos":
+          return {
+            type: "azurerepos",
+            organization: ref.source.organization,
+            project: ref.source.project,
+            repo: ref.source.repo,
+            ...optionalField("ref", ref.source.ref),
+            ...optionalField("path", ref.source.subPath),
+            ...optionalField("gitTreeHash", ref.gitTreeSha),
+            ...common,
+          };
+
+        case "git":
+          return {
+            type: "git",
+            url: ref.source.url.href,
+            ...optionalField("ref", ref.source.ref),
+            ...optionalField("gitTreeHash", ref.gitTreeSha),
+            ...common,
+          };
+      }
+      break;
     }
 
-    case "gitlab": {
-      const r = ref as GitLabSkillRef;
-      return {
-        type: "gitlab",
-        owner: r.source.owner,
-        repo: r.source.repo,
-        ...optionalField("ref", r.source.ref),
-        ...optionalField("path", r.source.subPath),
-        ...optionalField("gitTreeHash", r.gitTreeSha),
-        ...common,
-      };
-    }
-
-    case "bitbucket": {
-      const r = ref as BitbucketSkillRef;
-      return {
-        type: "bitbucket",
-        owner: r.source.owner,
-        repo: r.source.repo,
-        ...optionalField("ref", r.source.ref),
-        ...optionalField("path", r.source.subPath),
-        ...optionalField("gitTreeHash", r.gitTreeSha),
-        ...common,
-      };
-    }
-
-    case "azurerepos": {
-      const r = ref as AzureReposSkillRef;
-      return {
-        type: "azurerepos",
-        organization: r.source.organization,
-        project: r.source.project,
-        repo: r.source.repo,
-        ...optionalField("ref", r.source.ref),
-        ...optionalField("path", r.source.subPath),
-        ...optionalField("gitTreeHash", r.gitTreeSha),
-        ...common,
-      };
-    }
-
-    case "git": {
-      const r = ref as GitSkillRef;
-      return {
-        type: "git",
-        url: r.source.url.href,
-        ...optionalField("ref", r.source.ref),
-        ...optionalField("gitTreeHash", r.gitTreeSha),
-        ...common,
-      };
-    }
-
-    case "local": {
-      const r = ref as LocalSkillRef;
+    case "local":
       return {
         type: "local",
-        path: r.source.path,
+        path: ref.source.path,
         ...common,
       };
-    }
 
-    case "registry": {
-      const r = ref as RegistrySkillRef;
+    case "registry":
       return {
         type: "registry",
-        scope: r.scope,
-        name: r.skill.name,
-        resolvedVersion: r.version,
-        integrity: r.integrity,
+        scope: ref.scope,
+        name: ref.skill.name,
+        resolvedVersion: ref.version,
+        integrity: ref.integrity,
         sourceName: input.sourceName ?? "default",
         ...common,
       };
-    }
 
     case "builtin":
       return {

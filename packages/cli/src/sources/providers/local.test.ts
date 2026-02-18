@@ -68,7 +68,7 @@ describe("createLocalSourceHostProvider", () => {
         expect(refs.length).toBeGreaterThanOrEqual(1);
         const skill = refs.find((r) => r.type === "skill" && r.skill.name === "my-skill");
         expect(skill).toBeDefined();
-        // Verify it returns SourceExtensionRef with LocalRefDetails
+        // Verify it returns ExtensionRef with LocalRefDetails
         if (skill && skill.type === "skill") {
           expect(skill.source.type).toBe("local");
           expect("location" in skill).toBe(true);
@@ -118,7 +118,8 @@ describe("createLocalSourceHostProvider", () => {
       Effect.gen(function* () {
         const result = yield* provider.fetch({ type: "local", path: dir }, {
           type: "skill",
-          skill: { name: "x", description: "", metadata: Option.none() },
+          refType: "local",
+          skill: { name: "x", description: Option.none(), metadata: Option.none() },
           source: { type: "local", path: dir },
           location: `file://${dir}`,
         } as never);

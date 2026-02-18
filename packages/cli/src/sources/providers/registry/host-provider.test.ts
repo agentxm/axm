@@ -29,7 +29,7 @@ import type {
   RegistryPackRef,
   RegistrySkillRef,
   RegistrySource,
-  SourceExtensionRef,
+  ExtensionRef,
 } from "../../types.js";
 import type { FindOptions } from "../../provider.js";
 import {
@@ -145,7 +145,7 @@ const createFailingClient = (): RegistryClient => ({
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.find", () => {
-  it("maps FindOptions to GetExtensionsByScopeArgs and returns SourceExtensionRefs", () => {
+  it("maps FindOptions to GetExtensionsByScopeArgs and returns ExtensionRefs", () => {
     const registry = makeTestRegistry();
     let capturedOptions: GetExtensionsByScopeArgs | undefined;
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
@@ -189,15 +189,16 @@ describe("LocalRegistrySourceHostProvider.find", () => {
           offset: 0,
         });
 
-        // Verify SourceExtensionRef mapping
+        // Verify ExtensionRef mapping
         expect(refs).toHaveLength(1);
         const ref = refs[0]!;
         expect(ref.type).toBe("skill");
+        expect(ref.refType).toBe("registry");
         expect(ref.source).toBe(registry.source);
         // Assertion needed: TS can't narrow SkillExtensionRef union to RegistrySkillRef
         const skillRef = ref as RegistrySkillRef;
         expect(skillRef.skill.name).toBe("my-skill");
-        expect(skillRef.skill.description).toBe("My skill description");
+        expect(skillRef.skill.description).toEqual(Option.some("My skill description"));
         expect(skillRef.skill.metadata).toEqual(
           Option.some({
             repository: "https://github.com/test/my-skill",
@@ -207,6 +208,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
           }),
         );
         expect(skillRef.scope).toBe("@test");
+        expect(skillRef.name).toBe("my-skill");
         expect(skillRef.version).toBe("1.0.0");
         expect(skillRef.integrity).toBe("sha512-abc");
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
@@ -246,10 +248,12 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(refs).toHaveLength(1);
         const ref = refs[0]!;
         expect(ref.type).toBe("mcp-server");
+        expect(ref.refType).toBe("registry");
         // Assertion needed: TS can't narrow to RegistryMcpServerRef
         const serverRef = ref as RegistryMcpServerRef;
         expect(serverRef.server.name).toBe("my-server");
         expect(serverRef.scope).toBe("@test");
+        expect(serverRef.name).toBe("my-server");
         expect(serverRef.version).toBe("2.0.0");
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
@@ -288,10 +292,12 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(refs).toHaveLength(1);
         const ref = refs[0]!;
         expect(ref.type).toBe("pack");
+        expect(ref.refType).toBe("registry");
         // Assertion needed: TS can't narrow to RegistryPackRef
         const packRef = ref as RegistryPackRef;
         expect(packRef.pack.name).toBe("my-pack");
         expect(packRef.scope).toBe("@test");
+        expect(packRef.name).toBe("my-pack");
         expect(packRef.version).toBe("3.0.0");
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
@@ -355,11 +361,13 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
 
     const provider = createLocalRegistrySourceHostProvider(client);
 
-    const ref: SourceExtensionRef = {
+    const ref: ExtensionRef = {
       type: "skill",
-      skill: { name: "my-skill", description: "test", metadata: Option.none() },
+      refType: "registry",
+      skill: { name: "my-skill", description: Option.some("test"), metadata: Option.none() },
       source: testSource,
       scope: "@test",
+      name: "my-skill",
       version: "1.0.0",
       integrity,
     };
@@ -396,11 +404,13 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
 
     const provider = createLocalRegistrySourceHostProvider(client);
 
-    const ref: SourceExtensionRef = {
+    const ref: ExtensionRef = {
       type: "skill",
-      skill: { name: "my-skill", description: "test", metadata: Option.none() },
+      refType: "registry",
+      skill: { name: "my-skill", description: Option.some("test"), metadata: Option.none() },
       source: testSource,
       scope: "@test",
+      name: "my-skill",
       version: "1.0.0",
       integrity: "sha512-wrongIntegrityValue==",
     };
@@ -434,11 +444,13 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
 
     const provider = createLocalRegistrySourceHostProvider(client);
 
-    const ref: SourceExtensionRef = {
+    const ref: ExtensionRef = {
       type: "mcp-server",
+      refType: "registry",
       server: { name: "my-server" },
       source: testSource,
       scope: "@test",
+      name: "my-server",
       version: "2.0.0",
       integrity,
     };
@@ -541,11 +553,13 @@ describe("RemoteRegistrySourceHostProvider", () => {
     const client = createFailingClient();
     const provider = createRemoteRegistrySourceHostProvider(client);
 
-    const ref: SourceExtensionRef = {
+    const ref: ExtensionRef = {
       type: "skill",
-      skill: { name: "my-skill", description: "test", metadata: Option.none() },
+      refType: "registry",
+      skill: { name: "my-skill", description: Option.some("test"), metadata: Option.none() },
       source: testSource,
       scope: "@test",
+      name: "my-skill",
       version: "1.0.0",
       integrity: "sha512-abc",
     };

@@ -195,7 +195,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
           if (skillRef) {
             // For registry sources, fetch to temp
-            if (skillRef.source.type === "registry") {
+            if (skillRef.refType === "registry") {
               const files = yield* sources.fetch(skillRef);
               return Option.some<ResolveResult>({
                 type: "match",
@@ -220,7 +220,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
             // Single-skill source: treat as rename
             const newRef = allSkillRefs[0]!;
             const base: ResolveResult = { type: "rename", oldName: name, newRef };
-            if (newRef.source.type === "registry") {
+            if (newRef.refType === "registry") {
               const fetched = yield* sources.fetch(newRef);
               return Option.some<ResolveResult>({
                 ...base,
@@ -266,8 +266,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     for (const item of resolved) {
       if (item.type !== "match") continue;
       if (item.ref.type !== "skill") continue;
-      if (item.ref.source.type !== "registry") continue;
-      if (!("scope" in item.ref) || !("version" in item.ref)) continue;
+      if (item.ref.refType !== "registry") continue;
       const registryRef = item.ref;
       const skillFqn = `${registryRef.scope}/${registryRef.skill.name}`;
       const packConstraints = packConstraintMap.get(skillFqn) ?? [];

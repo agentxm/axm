@@ -3,11 +3,7 @@ import * as Option from "effect/Option";
 import type { SkillLockEntry } from "../../lockfile/schema.js";
 import type {
   BuiltinSkillRef,
-  GitHubSkillRef,
-  GitLabSkillRef,
-  BitbucketSkillRef,
-  AzureReposSkillRef,
-  GitSkillRef,
+  GitHostedSkillRef,
   LocalSkillRef,
   RegistrySkillRef,
 } from "../../sources/types.js";
@@ -18,7 +14,8 @@ const now = new Date("2025-01-15T00:00:00.000Z");
 
 const skillBase = {
   type: "skill" as const,
-  skill: { name: "test-skill", description: "A test skill", metadata: Option.none() },
+  refType: "git-hosted" as const,
+  skill: { name: "test-skill", description: Option.some("A test skill"), metadata: Option.none() },
 };
 
 describe("sourceToLockEntry", () => {
@@ -27,7 +24,7 @@ describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
 
   it("maps GitHub ref with all optional fields", () => {
-    const ref: GitHubSkillRef = {
+    const ref: GitHostedSkillRef = {
       ...skillBase,
       source: {
         type: "github",
@@ -57,7 +54,7 @@ describe("sourceToLockEntry", () => {
   });
 
   it("maps GitHub ref with none optional fields", () => {
-    const ref: GitHubSkillRef = {
+    const ref: GitHostedSkillRef = {
       ...skillBase,
       source: {
         type: "github",
@@ -88,7 +85,7 @@ describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
 
   it("maps GitLab ref", () => {
-    const ref: GitLabSkillRef = {
+    const ref: GitHostedSkillRef = {
       ...skillBase,
       source: {
         type: "gitlab",
@@ -120,7 +117,7 @@ describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
 
   it("maps Bitbucket ref", () => {
-    const ref: BitbucketSkillRef = {
+    const ref: GitHostedSkillRef = {
       ...skillBase,
       source: {
         type: "bitbucket",
@@ -152,7 +149,7 @@ describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
 
   it("maps Azure Repos ref", () => {
-    const ref: AzureReposSkillRef = {
+    const ref: GitHostedSkillRef = {
       ...skillBase,
       source: {
         type: "azurerepos",
@@ -188,7 +185,7 @@ describe("sourceToLockEntry", () => {
   // ---------------------------------------------------------------------------
 
   it("maps Git URL ref", () => {
-    const ref: GitSkillRef = {
+    const ref: GitHostedSkillRef = {
       ...skillBase,
       source: {
         type: "git",
@@ -217,7 +214,13 @@ describe("sourceToLockEntry", () => {
 
   it("maps Local ref", () => {
     const ref: LocalSkillRef = {
-      ...skillBase,
+      type: "skill",
+      refType: "local",
+      skill: {
+        name: "test-skill",
+        description: Option.some("A test skill"),
+        metadata: Option.none(),
+      },
       source: { type: "local", path: "/home/user/skills/my-skill" },
       location: "file:///home/user/skills/my-skill",
     };
@@ -239,9 +242,16 @@ describe("sourceToLockEntry", () => {
 
   it("maps Registry ref with version/integrity from ref details", () => {
     const ref: RegistrySkillRef = {
-      ...skillBase,
+      type: "skill",
+      refType: "registry",
+      skill: {
+        name: "test-skill",
+        description: Option.some("A test skill"),
+        metadata: Option.none(),
+      },
       source: { type: "registry", location: new URL("http://localhost:3000") },
       scope: "@acme",
+      name: "test-skill",
       version: "2.1.0",
       integrity: "sha512-AAAA==",
     };
@@ -268,9 +278,16 @@ describe("sourceToLockEntry", () => {
 
   it("uses 'default' for sourceName when not provided", () => {
     const ref: RegistrySkillRef = {
-      ...skillBase,
+      type: "skill",
+      refType: "registry",
+      skill: {
+        name: "test-skill",
+        description: Option.some("A test skill"),
+        metadata: Option.none(),
+      },
       source: { type: "registry", location: new URL("http://localhost:3000") },
       scope: "@community",
+      name: "test-skill",
       version: "1.0.0",
       integrity: "sha512-AAAA==",
     };
@@ -288,7 +305,13 @@ describe("sourceToLockEntry", () => {
 
   it("maps Builtin ref", () => {
     const ref: BuiltinSkillRef = {
-      ...skillBase,
+      type: "skill",
+      refType: "builtin",
+      skill: {
+        name: "test-skill",
+        description: Option.some("A test skill"),
+        metadata: Option.none(),
+      },
       source: { type: "builtin" },
     };
 
@@ -303,11 +326,11 @@ describe("sourceToLockEntry", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Option→undefined conversion
+  // Option->undefined conversion
   // ---------------------------------------------------------------------------
 
   it("converts Option.some to plain value", () => {
-    const ref: GitHubSkillRef = {
+    const ref: GitHostedSkillRef = {
       ...skillBase,
       source: {
         type: "github",
@@ -331,7 +354,7 @@ describe("sourceToLockEntry", () => {
   });
 
   it("converts Option.none to undefined (omitted)", () => {
-    const ref: GitHubSkillRef = {
+    const ref: GitHostedSkillRef = {
       ...skillBase,
       source: {
         type: "github",

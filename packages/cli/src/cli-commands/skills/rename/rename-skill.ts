@@ -73,8 +73,12 @@ export const renameSkill: OperationHandler<
     // Derive source from lock entry — new name doesn't exist in lockfile yet
     const pathSource: SkillPathSource =
       lockEntry.type === "registry"
-        ? { type: "registry", scope: lockEntry.scope }
-        : { type: lockEntry.type };
+        ? { refType: "registry", scope: lockEntry.scope }
+        : lockEntry.type === "local"
+          ? { refType: "local" }
+          : lockEntry.type === "builtin"
+            ? { refType: "builtin" }
+            : { refType: "git-hosted" };
     const oldPaths = yield* ws.getSkillDir(op.args.oldName, pathSource);
 
     // Registry directories are tied to the immutable registry name — no rename needed

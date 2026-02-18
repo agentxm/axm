@@ -25,7 +25,8 @@ import { determineSkillsToInstall } from "./select-skills.js";
 
 const makeSkill = (name: string): SkillExtensionRef => ({
   type: "skill",
-  skill: { name, description: "", metadata: Option.none() },
+  refType: "local",
+  skill: { name, description: Option.none(), metadata: Option.none() },
   source: { type: "local", path: `/fake/${name}` },
   location: `file:///fake/${name}`,
 });

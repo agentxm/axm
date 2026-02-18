@@ -43,7 +43,7 @@ export const enableSkill: OperationHandler<
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* Workspace;
-    const base = path.dirname(ws.path);
+    const base = ws.baseDir;
 
     const sanitizedName = sanitizeName(op.args.skillName);
 

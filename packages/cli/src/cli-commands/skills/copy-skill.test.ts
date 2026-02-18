@@ -16,6 +16,7 @@ const withServices = (axmDir: string) => {
   const mockWs: WorkspaceContextService = {
     global: false,
     path: axmDir,
+    baseDir: path.dirname(axmDir),
     nonInteractive: true,
     preview: false,
     resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),

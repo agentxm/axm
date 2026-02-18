@@ -23,6 +23,7 @@ describe("registryGuard", () => {
     const mockWorkspace: WorkspaceContextService = {
       global: false,
       path: "/test",
+      baseDir: "/",
       nonInteractive: opts.nonInteractive ?? false,
       preview: false,
       resolvePlan: vi.fn(),

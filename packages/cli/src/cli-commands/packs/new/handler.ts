@@ -61,7 +61,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
       );
 
   const fqn = `${scope}/${args.name}`;
-  const base = path.dirname(ws.path);
+  const base = ws.baseDir;
 
   // Compute pack directory path
   const packDir = computePackPaths(path.join, base, scope, args.name);

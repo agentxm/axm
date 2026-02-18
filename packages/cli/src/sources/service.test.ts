@@ -77,6 +77,7 @@ const computeIntegrity = (data: Uint8Array): string => {
 const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService => ({
   global: false,
   path: "/tmp/test-workspace",
+  baseDir: "/tmp",
   nonInteractive: true,
   preview: false,
   resolvePlan: () => Effect.die("not implemented in test"),

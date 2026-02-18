@@ -70,7 +70,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
   const packScope = hasScopePrefix(packSource)
     ? parseScopedNameOrThrow(packSource).scope
     : yield* ws.getConfiguredScope();
-  const base = path.dirname(ws.path);
+  const base = ws.baseDir;
 
   // Step 2: Read pack manifest as raw JSON (no schema validation for editing)
   const packDir = computePackPaths(path.join, base, packScope, args.pack);

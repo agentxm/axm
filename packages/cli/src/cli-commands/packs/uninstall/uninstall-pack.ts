@@ -40,7 +40,7 @@ export const uninstallPack: OperationHandler<
     const path = yield* Path.Path;
     const ws = yield* Workspace;
     const log = yield* Log;
-    const base = path.dirname(ws.path);
+    const base = ws.baseDir;
 
     // Read pack lock entry
     const lockedPackOpt = yield* ws.getLockedPack(op.args.packName).pipe(

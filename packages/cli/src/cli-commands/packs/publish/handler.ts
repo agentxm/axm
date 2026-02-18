@@ -56,7 +56,7 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
   const fs = yield* FileSystem.FileSystem;
   const log = yield* Log;
   const spinnerSvc = yield* Spinner;
-  const base = path.dirname(ws.path);
+  const base = ws.baseDir;
 
   yield* log.info("axm packs publish");
 

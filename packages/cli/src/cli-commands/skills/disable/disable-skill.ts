@@ -40,8 +40,7 @@ export const disableSkill: OperationHandler<
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* Workspace;
-    const axmDir = ws.path;
-    const base = path.dirname(axmDir);
+    const base = ws.baseDir;
 
     const sanitizedName = sanitizeName(op.args.skillName);
 

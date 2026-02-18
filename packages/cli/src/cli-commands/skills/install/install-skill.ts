@@ -1,8 +1,8 @@
 /**
  * Install skill executor — orchestrates the full per-skill installation pipeline.
  *
- * Pipeline: sanitize name → validate paths → remove old canonical → copy files →
- * symlink from agent dirs (concurrent) → update lockfile.
+ * Dispatches to a per-refType install function via `switch(ref.refType)`, then
+ * runs shared post-install steps (agent symlinks, lockfile/settings writes).
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -15,8 +15,10 @@ import { SourceHostProviders } from "../../../sources/index.js";
 import { getAgentById } from "../../../agents/registry.js";
 import { Log } from "../../../tui/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
+import { computeIntegrity } from "../../../utils/integrity.js";
 import { isPathSafe } from "../../../utils/path-safety.js";
 import { makeCliError } from "../../../cli-error/index.js";
+import { createRegistryClient, extractZip } from "../../../registry/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -24,46 +26,193 @@ import { copySkillDirectory } from "../copy-skill-directory.js";
 import type { InstallSkillOperation } from "../operations.js";
 import { removeFromAllCanonicalLocations, stripFileProtocol } from "../fs-helpers.js";
 import { sourceToLockEntry } from "../source-to-lock-entry.js";
-import type { SkillPathSource } from "../skill-paths.js";
 import type { InstallResult } from "./install-result.js";
 import { sanitizeName } from "./skill-utils.js";
-import type { SkillExtensionRef } from "../../../sources/types.js";
+import type {
+  BuiltinSkillRef,
+  GitHostedSkillRef,
+  LocalSkillRef,
+  RegistrySkillRef,
+} from "../../../sources/types.js";
 
 // -----------------------------------------------------------------------------
-// Helpers
+// Types
 // -----------------------------------------------------------------------------
 
-/**
- * Extract the file:// location from a SkillExtensionRef.
- * Git-hosted and local refs carry `location` directly.
- * For refs without inline location, fetch files via SourceHostProviders.
- */
-const getRefLocation = (ref: SkillExtensionRef) =>
-  ref.refType === "git-hosted" || ref.refType === "local"
-    ? Effect.succeed(ref.location)
-    : Effect.gen(function* () {
-        const sources = yield* SourceHostProviders;
-        const files = yield* sources.fetch(ref).pipe(
-          Effect.mapError((error) =>
-            makeCliError({
-              code: "INSTALL_SKILL_SOURCE_FETCH_FAILED",
-              what: `Failed to fetch files for ${ref.skill.name}`,
-              cause: error,
-            }),
-          ),
-          Effect.scoped,
-        );
-        return `file://${files.directory}`;
+type MaterializedSkill = {
+  readonly skillSrcPath: string;
+  readonly versionConstraint: Option.Option<string>;
+};
+
+// -----------------------------------------------------------------------------
+// Shared helpers
+// -----------------------------------------------------------------------------
+
+const validatePathSafety = (baseDir: string, targetPath: string) =>
+  isPathSafe(baseDir, targetPath)
+    ? Effect.void
+    : makeCliError({
+        code: "INSTALL_SKILL_PATH_TRAVERSAL",
+        what: `Path traversal detected: ${targetPath}`,
       });
+
+const preCleanAndCopy = (sanitizedName: string, sourcePath: string, copyTarget: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const ws = yield* Workspace;
+
+    yield* removeFromAllCanonicalLocations(fs, ws.baseDir, sanitizedName, path);
+    yield* copySkillDirectory(sourcePath, copyTarget).pipe(
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "INSTALL_SKILL_COPY_FAILED",
+          what: `Failed to copy skill files to ${copyTarget}`,
+          cause: e,
+        }),
+      ),
+    );
+  });
+
+// -----------------------------------------------------------------------------
+// Per-refType install functions
+// -----------------------------------------------------------------------------
+
+const installFromGitHosted = (ref: GitHostedSkillRef, sanitizedName: string) =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace;
+
+    const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
+      refType: ref.refType,
+    });
+    yield* validatePathSafety(ws.baseDir, skillSrcPath);
+
+    const sourcePath = stripFileProtocol(ref.location);
+    yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
+
+    return { skillSrcPath, versionConstraint: Option.none() } satisfies MaterializedSkill;
+  });
+
+const installFromLocal = (ref: LocalSkillRef, sanitizedName: string) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const ws = yield* Workspace;
+
+    const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
+      refType: ref.refType,
+    });
+    yield* validatePathSafety(ws.baseDir, skillSrcPath);
+
+    const sourcePath = stripFileProtocol(ref.location);
+    const isSelfCopy = path.resolve(sourcePath) === path.resolve(skillSrcPath);
+    if (!isSelfCopy) {
+      yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
+    }
+
+    return { skillSrcPath, versionConstraint: Option.none() } satisfies MaterializedSkill;
+  });
+
+const fetchSource = (ref: BuiltinSkillRef) =>
+  Effect.gen(function* () {
+    const sources = yield* SourceHostProviders;
+    const files = yield* sources.fetch(ref).pipe(
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "INSTALL_SKILL_SOURCE_FETCH_FAILED",
+          what: `Failed to fetch files for ${ref.skill.name}`,
+          cause: error,
+        }),
+      ),
+      Effect.scoped,
+    );
+    return files.directory;
+  });
+
+const installFromBuiltin = (ref: BuiltinSkillRef, sanitizedName: string) =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace;
+
+    const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
+      refType: ref.refType,
+    });
+    yield* validatePathSafety(ws.baseDir, skillSrcPath);
+
+    const sourcePath = yield* fetchSource(ref);
+    yield* preCleanAndCopy(sanitizedName, sourcePath, skillSrcPath);
+
+    return { skillSrcPath, versionConstraint: Option.none() } satisfies MaterializedSkill;
+  });
+
+const installFromRegistry = (
+  ref: RegistrySkillRef,
+  sanitizedName: string,
+  versionConstraint: Option.Option<string>,
+) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const ws = yield* Workspace;
+
+    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, {
+      refType: "registry",
+      scope: ref.scope,
+    });
+    yield* validatePathSafety(ws.baseDir, canonicalPath);
+
+    // Synthetic refs (fork/publish) may have empty integrity — use existing canonical
+    const canonicalExists = yield* fs.exists(canonicalPath).pipe(Effect.orElseSucceed(() => false));
+    const useExisting = ref.integrity === "" && canonicalExists;
+
+    if (!useExisting) {
+      const locationStr =
+        ref.source.location.protocol === "file:"
+          ? ref.source.location.pathname
+          : ref.source.location.href;
+      const client = yield* createRegistryClient(locationStr);
+      const { archive } = yield* client.getExtensionPackage({
+        scope: ref.scope,
+        type: "skill",
+        name: ref.name,
+        version: Option.some(ref.version),
+      });
+
+      const actualIntegrity = yield* computeIntegrity(archive);
+      if (actualIntegrity !== ref.integrity) {
+        return yield* makeCliError({
+          code: "INSTALL_SKILL_INTEGRITY_MISMATCH",
+          what: `Integrity mismatch for ${ref.name}@${ref.version}`,
+          details: [`Expected ${ref.integrity}, got ${actualIntegrity}`],
+        });
+      }
+
+      const tmpDir = yield* fs.makeTempDirectory().pipe(
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "INSTALL_SKILL_COPY_FAILED",
+            what: `Failed to create temporary directory`,
+            cause: e,
+          }),
+        ),
+      );
+      yield* extractZip(archive, tmpDir);
+      yield* preCleanAndCopy(sanitizedName, tmpDir, canonicalPath);
+      yield* fs.remove(tmpDir, { recursive: true }).pipe(Effect.ignore);
+    }
+
+    return { skillSrcPath, versionConstraint } satisfies MaterializedSkill;
+  });
+
+// -----------------------------------------------------------------------------
+// Agent symlink helper
+// -----------------------------------------------------------------------------
 
 const installForAgent = (opts: {
   readonly agentId: string;
-  readonly canonicalPath: string;
+  readonly canonicalSkillSrcPath: string;
   readonly sanitizedName: string;
-  readonly base: string;
-}): Effect.Effect<InstallResult, never, FileSystem.FileSystem | Path.Path> =>
+}) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
+    const ws = yield* Workspace;
 
     const maybeAgent = getAgentById(opts.agentId);
     if (Option.isNone(maybeAgent)) {
@@ -73,27 +222,30 @@ const installForAgent = (opts: {
         symlinkFailed: false,
         error: Option.some(`Unknown agent: ${opts.agentId}`),
         path: "",
-        canonicalPath: opts.canonicalPath,
+        canonicalPath: opts.canonicalSkillSrcPath,
       } satisfies InstallResult;
     }
     const agent = maybeAgent.value;
 
-    const agentSkillPath = path.join(opts.base, agent.skills.dir, opts.sanitizedName);
+    const agentSkillPath = path.join(ws.baseDir, agent.skills.dir, opts.sanitizedName);
 
     // Validate agent path safety
-    if (!isPathSafe(opts.base, agentSkillPath)) {
+    if (!isPathSafe(ws.baseDir, agentSkillPath)) {
       return {
         success: false,
         mode: "symlink",
         symlinkFailed: false,
         error: Option.some(`Path traversal detected for agent ${opts.agentId}`),
         path: agentSkillPath,
-        canonicalPath: opts.canonicalPath,
+        canonicalPath: opts.canonicalSkillSrcPath,
       } satisfies InstallResult;
     }
 
     // Try symlink, fall back to copy
-    return yield* createSymlink({ target: opts.canonicalPath, link: agentSkillPath }).pipe(
+    return yield* createSymlink({
+      target: opts.canonicalSkillSrcPath,
+      link: agentSkillPath,
+    }).pipe(
       Effect.map(
         () =>
           ({
@@ -102,13 +254,11 @@ const installForAgent = (opts: {
             symlinkFailed: false,
             error: Option.none(),
             path: agentSkillPath,
-            canonicalPath: opts.canonicalPath,
+            canonicalPath: opts.canonicalSkillSrcPath,
           }) satisfies InstallResult,
       ),
-      // Catch any CliError from symlink — fall back to copy mode
       Effect.catchAll(() =>
-        // Fallback: copy the canonical directory to the agent path
-        copySkillDirectory(opts.canonicalPath, agentSkillPath).pipe(
+        copySkillDirectory(opts.canonicalSkillSrcPath, agentSkillPath).pipe(
           Effect.map(
             () =>
               ({
@@ -117,7 +267,7 @@ const installForAgent = (opts: {
                 symlinkFailed: true,
                 error: Option.none(),
                 path: agentSkillPath,
-                canonicalPath: opts.canonicalPath,
+                canonicalPath: opts.canonicalSkillSrcPath,
               }) satisfies InstallResult,
           ),
           Effect.catchAll((copyErr) =>
@@ -127,7 +277,7 @@ const installForAgent = (opts: {
               symlinkFailed: true,
               error: Option.some(`Copy fallback failed: ${copyErr.message}`),
               path: agentSkillPath,
-              canonicalPath: opts.canonicalPath,
+              canonicalPath: opts.canonicalSkillSrcPath,
             } satisfies InstallResult),
           ),
         ),
@@ -142,105 +292,60 @@ const installForAgent = (opts: {
 /**
  * Install-skill operation handler.
  *
- * Reads workspace paths from the Workspace service, then orchestrates:
- * 1. Sanitize skill name for filesystem
- * 2. Validate all paths stay within the workspace base
- * 3. Pre-clean from all known canonical locations
- * 4. Copy skill files to canonical location
- * 5. Create symlinks from each agent's skills dir (concurrent)
- * 6. Update lockfile entry (failures logged as warnings)
+ * Dispatches to a per-refType install function producing a MaterializedSkill,
+ * then runs shared post-install steps:
+ * 1. Create symlinks from each agent's skills dir (concurrent)
+ * 2. Update lockfile/settings entry (failures logged as warnings)
+ * 3. Compute and return overall result
  */
 export const installSkill: OperationHandler<
   InstallSkillOperation,
   FileSystem.FileSystem | Path.Path | Workspace | Log | SourceHostProviders
 > = (op) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const ws = yield* Workspace;
     const log = yield* Log;
-    const axmDir = ws.path;
-    const base = path.dirname(axmDir);
     const { ref } = op.args;
     const agents = yield* ws.getConfiguredAgents();
-
     const sanitizedName = sanitizeName(ref.skill.name);
 
-    // Determine canonical + content paths from centralized getSkillDir
-    const pathSource: SkillPathSource =
-      ref.refType === "registry"
-        ? { refType: "registry", scope: ref.scope }
-        : { refType: ref.refType };
-    const { canonicalPath, skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, pathSource);
+    // ── Per-refType: resolve source, copy to canonical ──────────────
+    const materialized = yield* (() => {
+      switch (ref.refType) {
+        case "git-hosted":
+          return installFromGitHosted(ref, sanitizedName);
+        case "registry":
+          return installFromRegistry(ref, sanitizedName, op.args.versionConstraint);
+        case "local":
+          return installFromLocal(ref, sanitizedName);
+        case "builtin":
+          return installFromBuiltin(ref, sanitizedName);
+      }
+    })();
 
-    // Validate canonical path safety
-    if (!isPathSafe(base, canonicalPath)) {
-      return yield* makeCliError({
-        code: "INSTALL_SKILL_PATH_TRAVERSAL",
-        what: `Path traversal detected in skill name "${ref.skill.name}"`,
-      });
-    }
-
-    // Resolve source path — the skill files to copy from.
-    // Synthetic registry refs (fork/publish pipeline) may intentionally omit integrity;
-    // in that case, use the already-materialized canonical path instead of refetching.
-    const canonicalExists = yield* fs.exists(canonicalPath).pipe(Effect.orElseSucceed(() => false));
-    const useExistingCanonical =
-      ref.refType === "registry" && ref.integrity === "" && canonicalExists;
-    const locationUrl = useExistingCanonical
-      ? `file://${canonicalPath}`
-      : yield* getRefLocation(ref);
-    const sourcePath = stripFileProtocol(locationUrl);
-    const copyTarget = pathSource.refType === "registry" ? canonicalPath : skillSrcPath;
-
-    // Skip pre-clean and copy when source already equals the install target.
-    const isSelfCopy = path.resolve(sourcePath) === path.resolve(copyTarget);
-
-    if (!isSelfCopy) {
-      // Pre-clean from ALL known locations (ensures clean transitions between source types)
-      yield* removeFromAllCanonicalLocations(fs, base, sanitizedName, path);
-
-      yield* copySkillDirectory(sourcePath, copyTarget).pipe(
-        Effect.mapError((e) =>
-          makeCliError({
-            code: "INSTALL_SKILL_COPY_FAILED",
-            what: `Failed to copy skill files to ${copyTarget}`,
-            cause: e,
-          }),
-        ),
-      );
-    }
-
-    // Create symlinks for each agent (concurrent)
-    // Symlinks target skillSrcPath so agents only see skill content (not manifest)
+    // ── Shared: symlink to agents ───────────────────────────────────
     const agentResults = yield* Effect.forEach(
       agents,
       (agentId) =>
         installForAgent({
           agentId,
-          canonicalPath: skillSrcPath,
+          canonicalSkillSrcPath: materialized.skillSrcPath,
           sanitizedName,
-          base,
         }),
       { concurrency: "unbounded" },
     );
 
-    // Update settings + lockfile atomically (warn on errors)
-    // Pack dependencies skip settings writes (lockfile only)
-    const lockEntry = sourceToLockEntry({
-      ref,
-      agents,
-      now: new Date(),
-    });
+    // ── Shared: update lockfile + settings ──────────────────────────
+    const lockEntry = sourceToLockEntry({ ref, agents, now: new Date() });
     const skillArgs = {
       name: ref.skill.name,
       lockEntry,
-      versionConstraint: ref.refType === "registry" ? op.args.versionConstraint : Option.none(),
+      versionConstraint: materialized.versionConstraint,
     };
     const writeEffect = op.args.skipSettings ? ws.setSkillLock(skillArgs) : ws.setSkill(skillArgs);
     yield* writeEffect.pipe(Effect.catchAll((e) => log.warn(`Skill update failed: ${String(e)}`)));
 
-    // Determine overall result
+    // ── Shared: compute result ──────────────────────────────────────
     const anyFailed = agentResults.some((r) => !r.success);
 
     if (anyFailed) {

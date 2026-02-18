@@ -36,7 +36,7 @@ const sortNames = (names: ReadonlyArray<string>): ReadonlyArray<string> =>
 const buildCandidates = Effect.gen(function* () {
   const ws = yield* Workspace;
   const path = yield* Path.Path;
-  const base = path.dirname(ws.path);
+  const base = ws.baseDir;
   const lockedSkills = yield* ws.getLockedSkills();
   const configuredSkills = yield* ws.getConfiguredSkills();
   const configuredAgents = yield* ws.getConfiguredAgents();

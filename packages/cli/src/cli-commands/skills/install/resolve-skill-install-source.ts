@@ -6,6 +6,7 @@ import type { InputParseResult, InputPattern } from "../../../sources/parser.js"
 import {
   resolveShorthandInputSource,
   resolveSlashInputSource,
+  routeUrlInput,
 } from "../../../sources/resolve-source.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { RegistrySource } from "../../../sources/types.js";
@@ -126,6 +127,8 @@ const resolveSkillRegistrySource = (
     });
   });
 
+export const resolveSkillUrl = (url: URL, input: string) => routeUrlInput(url, input);
+
 export const resolveSkillInstallSource = (parseResult: InputParseResult) =>
   Effect.gen(function* () {
     const pattern = parseResult.pattern;
@@ -141,8 +144,9 @@ export const resolveSkillInstallSource = (parseResult: InputParseResult) =>
         return yield* resolveSlashInputSource(pattern, parseResult.originalInput);
       case "name-input":
         return yield* resolveSkillRegistrySourceByName(pattern.name, parseResult.originalInput);
-      // Unsupported:
       case "url-input":
+        return yield* resolveSkillUrl(pattern.url, parseResult.originalInput);
+      // Unsupported:
       case "git-scp-address":
       case "file-path-pattern":
       case "glob-input":

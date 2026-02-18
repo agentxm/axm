@@ -54,7 +54,7 @@ export const publishPack: OperationHandler<
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* Workspace;
-    const base = path.dirname(ws.path);
+    const base = ws.baseDir;
 
     const { scope, name: shortName } = yield* parseScopedName(op.args.name);
 

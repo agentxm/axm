@@ -44,6 +44,7 @@ const makeWorkspaceMock = (
   return {
     global: false,
     path: axmDir,
+    baseDir: path.dirname(axmDir),
     nonInteractive: true,
     preview: false,
     resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
@@ -591,30 +592,33 @@ describe("installSkill", () => {
   });
 
   describe("registry source canonical path", () => {
-    /** Sets up a source dir matching extracted archive structure: axm-skill.json + src/. */
-    const setupRegistrySource = (scope: string, name = "my-skill") => {
-      const src = path.join(tmpDir, "registry", "extensions", scope, "skills", name);
-      const srcDir = path.join(src, "src");
+    /**
+     * Pre-populates the canonical directory at the expected location.
+     * Registry tests use empty integrity (synthetic refs from fork/publish pipeline),
+     * so the handler reuses existing canonical files instead of fetching.
+     */
+    const setupRegistryCanonical = (base: string, scope: string, name = "my-skill") => {
+      const canonicalPath = path.join(base, ".axm", "extensions", scope, "skills", name);
+      const srcDir = path.join(canonicalPath, "src");
       fs.mkdirSync(srcDir, { recursive: true });
       fs.writeFileSync(
-        path.join(src, "axm-skill.json"),
+        path.join(canonicalPath, "axm-skill.json"),
         JSON.stringify({ name, version: "0.1.0" }),
       );
       fs.writeFileSync(path.join(srcDir, "SKILL.md"), `# ${name}`);
       fs.writeFileSync(path.join(srcDir, "prompt.md"), "prompt content");
-      return src;
+      return canonicalPath;
     };
 
     it.effect("uses .axm/extensions/@scope/skills/<name>/src/ for registry sources", () =>
       Effect.gen(function* () {
-        const src = setupRegistrySource("@community");
         const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
 
         const result = yield* installSkill(
           makeOp({
             source: { type: "registry", location: new URL("file:///tmp/reg") },
             scope: "@community",
-            location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
@@ -647,14 +651,13 @@ describe("installSkill", () => {
 
     it.effect("uses scope from source, not location path", () =>
       Effect.gen(function* () {
-        const src = setupRegistrySource("@myorg");
         const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@myorg");
 
         const result = yield* installSkill(
           makeOp({
             source: { type: "registry", location: new URL("file:///tmp/reg") },
             scope: "@myorg",
-            location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
@@ -676,8 +679,8 @@ describe("installSkill", () => {
 
     it.effect("writes registry lockfile fields (resolvedVersion, integrity, sourceName)", () =>
       Effect.gen(function* () {
-        const src = setupRegistrySource("@community");
-        const { axmDir } = setupBase();
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
 
         // Create an empty lockfile
         fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
@@ -686,7 +689,6 @@ describe("installSkill", () => {
           makeOp({
             source: { type: "registry", location: new URL("file:///tmp/reg") },
             scope: "@community",
-            location: `file://${src}`,
             version: Option.some("1.2.3"),
             versionConstraint: Option.some("^1.0.0"),
           }),
@@ -710,47 +712,35 @@ describe("installSkill", () => {
 
   describe("pre-clean from all locations", () => {
     it.effect(
-      "removes from .axm/extensions/external/skills/ when installing as registry source",
+      "synthetic registry ref with existing canonical preserves files without fetching",
       () =>
         Effect.gen(function* () {
-          // Set up source in a path with @scope segment
-          const src = path.join(
-            tmpDir,
-            "registry",
+          const { axmDir, base } = setupBase();
+
+          // Pre-create registry canonical (simulates fork/publish pipeline)
+          const registryCanonical = path.join(
+            base,
+            ".axm",
             "extensions",
             "@community",
             "skills",
             "my-skill",
           );
-          fs.mkdirSync(src, { recursive: true });
-          fs.writeFileSync(path.join(src, "SKILL.md"), "# my-skill");
-          fs.writeFileSync(path.join(src, "prompt.md"), "prompt content");
-          const { axmDir, base } = setupBase();
-
-          // Pre-create in external canonical location (will be cleaned when switching to registry)
-          const externalCanonical = path.join(
-            base,
-            ".axm",
-            "extensions",
-            "external",
-            "skills",
-            "my-skill",
-          );
-          fs.mkdirSync(externalCanonical, { recursive: true });
-          fs.writeFileSync(path.join(externalCanonical, "old.txt"), "old content");
+          const srcDir = path.join(registryCanonical, "src");
+          fs.mkdirSync(srcDir, { recursive: true });
+          fs.writeFileSync(path.join(srcDir, "SKILL.md"), "# my-skill");
 
           const result = yield* installSkill(
             makeOp({
               source: { type: "registry", location: new URL("file:///tmp/reg") },
               scope: "@community",
-              location: `file://${src}`,
             }),
           ).pipe(Effect.provide(withServices(axmDir)));
 
           expect(result.result).toBe("success");
 
-          // External location should be cleaned
-          expect(fs.existsSync(path.join(externalCanonical, "old.txt"))).toBe(false);
+          // Canonical files should still exist (useExisting path)
+          expect(fs.existsSync(path.join(srcDir, "SKILL.md"))).toBe(true);
         }),
     );
 
@@ -797,23 +787,27 @@ describe("installSkill", () => {
   });
 
   describe("version constraint in settings", () => {
-    /** Sets up a source dir matching extracted archive structure. */
-    const setupRegistrySource2 = (scope: string, name = "my-skill") => {
-      const src = path.join(tmpDir, "registry2", "extensions", scope, "skills", name);
-      const srcDir = path.join(src, "src");
+    /**
+     * Pre-populates the canonical directory at the expected location.
+     * Registry tests use empty integrity (synthetic refs), so the handler
+     * reuses existing canonical files.
+     */
+    const setupRegistryCanonical2 = (base: string, scope: string, name = "tool") => {
+      const canonicalPath = path.join(base, ".axm", "extensions", scope, "skills", name);
+      const srcDir = path.join(canonicalPath, "src");
       fs.mkdirSync(srcDir, { recursive: true });
       fs.writeFileSync(
-        path.join(src, "axm-skill.json"),
+        path.join(canonicalPath, "axm-skill.json"),
         JSON.stringify({ name, version: "0.1.0" }),
       );
       fs.writeFileSync(path.join(srcDir, "SKILL.md"), `# ${name}`);
-      return src;
+      return canonicalPath;
     };
 
     it.effect("passes no versionConstraint for registry source without constraint", () =>
       Effect.gen(function* () {
-        const src = setupRegistrySource2("@acme");
-        const { axmDir } = setupBase();
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical2(base, "@acme");
         const setSkillFn = vi.fn(
           (_args: { name: string; lockEntry: unknown; versionConstraint: unknown }) => Effect.void,
         );
@@ -823,7 +817,6 @@ describe("installSkill", () => {
             source: { type: "registry", location: new URL("file:///tmp/reg") },
             scope: "@acme",
             skillName: "tool",
-            location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
 
@@ -836,8 +829,8 @@ describe("installSkill", () => {
 
     it.effect("passes caret versionConstraint for @acme/tool@^1.0.0", () =>
       Effect.gen(function* () {
-        const src = setupRegistrySource2("@acme");
-        const { axmDir } = setupBase();
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical2(base, "@acme");
         const setSkillFn = vi.fn(
           (_args: { name: string; lockEntry: unknown; versionConstraint: unknown }) => Effect.void,
         );
@@ -847,7 +840,6 @@ describe("installSkill", () => {
             source: { type: "registry", location: new URL("file:///tmp/reg") },
             scope: "@acme",
             skillName: "tool",
-            location: `file://${src}`,
             version: Option.some("1.2.3"),
             versionConstraint: Option.some("^1.0.0"),
           }),
@@ -862,8 +854,8 @@ describe("installSkill", () => {
 
     it.effect("passes exact versionConstraint for @acme/tool@1.2.3", () =>
       Effect.gen(function* () {
-        const src = setupRegistrySource2("@acme");
-        const { axmDir } = setupBase();
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical2(base, "@acme");
         const setSkillFn = vi.fn(
           (_args: { name: string; lockEntry: unknown; versionConstraint: unknown }) => Effect.void,
         );
@@ -873,7 +865,6 @@ describe("installSkill", () => {
             source: { type: "registry", location: new URL("file:///tmp/reg") },
             scope: "@acme",
             skillName: "tool",
-            location: `file://${src}`,
             version: Option.some("1.2.3"),
             versionConstraint: Option.some("1.2.3"),
           }),

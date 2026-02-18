@@ -62,7 +62,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const packScope = hasScopePrefix(packSource)
     ? parseScopedNameOrThrow(packSource).scope
     : yield* ws.getConfiguredScope();
-  const base = path.dirname(ws.path);
+  const base = ws.baseDir;
 
   // Step 2: Read pack manifest
   const packDir = computePackPaths(path.join, base, packScope, args.pack);

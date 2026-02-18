@@ -55,7 +55,7 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
   const fs = yield* FileSystem.FileSystem;
   const log = yield* Log;
   const spinnerSvc = yield* Spinner;
-  const base = path.dirname(ws.path);
+  const base = ws.baseDir;
 
   yield* log.info("axm skills publish");
 

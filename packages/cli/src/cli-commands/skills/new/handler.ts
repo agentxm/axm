@@ -100,7 +100,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   }
 
   const fqn = `${scope}/${args.name}`;
-  const base = path.dirname(ws.path);
+  const base = ws.baseDir;
 
   // 3. Check existence
   const configuredSkills = yield* ws.getConfiguredSkills();

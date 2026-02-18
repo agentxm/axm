@@ -94,6 +94,22 @@ describe("WorkspaceContextService", () => {
   const getService = (options: WorkspaceContextOptions) =>
     Workspace.pipe(Effect.provide(Layer.merge(BaseLayer, makeWsLayer(options))));
 
+  describe("baseDir", () => {
+    it.effect("returns the parent of path", () =>
+      Effect.gen(function* () {
+        const ws = yield* getService({
+          global: false,
+          yes: true,
+          nonInteractive: Option.some(false),
+          preview: false,
+          agents: Option.none(),
+        });
+
+        expect(ws.baseDir).toBe(path.dirname(ws.path));
+      }),
+    );
+  });
+
   describe("nonInteractive resolution", () => {
     it.effect("explicit Option.some(true) resolves to true", () =>
       Effect.gen(function* () {

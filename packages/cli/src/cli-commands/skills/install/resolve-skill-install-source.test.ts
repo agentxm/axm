@@ -16,6 +16,7 @@ import { resolveSkillInstallSource } from "./resolve-skill-install-source.js";
 const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService => ({
   global: false,
   path: "/tmp/test-workspace",
+  baseDir: "/tmp",
   nonInteractive: true,
   preview: false,
   resolvePlan: () => Effect.die("not implemented in test"),

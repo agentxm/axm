@@ -492,14 +492,27 @@ describe("packs install handler", () => {
 
     it.effect("skill dependencies written to lockfile but NOT to settings", () => {
       const packArchiveDir = path.join(tempDir, "pack-archive");
-      const skillArchiveDir = path.join(tempDir, "skill-archive");
       createPackArchive(packArchiveDir, {
         name: "@acme/test-pack",
         version: "1.0.0",
         description: "A test pack",
         skills: { "@acme/code-review": "^1.0.0" },
       });
-      createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+      });
+
+      // Pre-populate canonical directory (empty integrity → useExisting path)
+      const canonicalDir = path.join(
+        tempDir,
+        ".axm",
+        "extensions",
+        "@acme",
+        "skills",
+        "code-review",
+      );
+      createSkillArchive(canonicalDir, "code-review", "Code review skill");
 
       const packRef: PackExtensionRef = {
         type: "pack",
@@ -538,16 +551,9 @@ describe("packs install handler", () => {
           if (ref.type === "pack" && ref.pack.name === "test-pack") {
             return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
           }
-          if (ref.type === "skill" && ref.skill.name === "code-review") {
-            return Effect.succeed({ directory: skillArchiveDir } satisfies ExtensionFiles);
-          }
           return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
         },
       };
-
-      initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
-      });
 
       // Non-preview mode so the plan is actually applied
       const { provide } = makeLayersWithMockSources(mockService, { preview: false });

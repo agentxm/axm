@@ -168,7 +168,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     }
 
     // Step 4: Collect pack constraints from installed pack manifests
-    const packConstraintMap = yield* collectPackConstraints(ws.path);
+    const packConstraintMap = yield* collectPackConstraints();
 
     // Step 5: Re-resolve each source and discover skills
     type ResolveResult =
@@ -334,14 +334,14 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
  * Returns a map from skill FQN (e.g., "@acme/code-review") to an array of
  * pack constraints. Silently skips packs whose manifest can't be read.
  */
-const collectPackConstraints = (axmDir: string) =>
+const collectPackConstraints = () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const base = path.dirname(axmDir);
+    const ws = yield* Workspace;
+    const base = ws.baseDir;
 
     // Read lockfile to find installed packs
-    const ws = yield* Workspace;
     const lockedPacks = yield* ws.getLockedPacks();
 
     const constraintMap = new Map<string, Array<PackConstraint>>();

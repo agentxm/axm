@@ -43,6 +43,7 @@ describe("ensureAgentsConfigured", () => {
     const WsLayer = Workspace.layer({
       global: false,
       path: axmDir,
+      baseDir: path.dirname(axmDir),
       nonInteractive: true,
       preview: false,
       resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),

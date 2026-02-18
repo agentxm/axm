@@ -449,6 +449,8 @@ const make = (options: WorkspaceContextOptions) =>
     const path = yield* Path.Path;
     const semaphore = yield* Effect.makeSemaphore(1);
 
+    const baseDir = path.dirname(workspaceDir);
+
     const fsLayer = Layer.merge(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
@@ -548,6 +550,7 @@ const make = (options: WorkspaceContextOptions) =>
     return {
       global: options.global,
       path: workspaceDir,
+      baseDir,
       nonInteractive: resolvedNonInteractive,
       preview: options.preview,
       resolvePlan: <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
@@ -668,12 +671,10 @@ const make = (options: WorkspaceContextOptions) =>
 
       getSkillDir: (name: string, source?: SkillPathSource) =>
         Effect.gen(function* () {
-          const base = path.dirname(workspaceDir);
-
           if (source !== undefined) {
             const dirName =
               source.refType === "registry" ? yield* resolveRegistryDirName(name) : name;
-            return computeSkillPaths(path.join, base, source, sanitizeName(dirName));
+            return computeSkillPaths(path.join, baseDir, source, sanitizeName(dirName));
           }
 
           const lockEntry = yield* readLockfileSafe(workspaceDir).pipe(
@@ -699,7 +700,7 @@ const make = (options: WorkspaceContextOptions) =>
                   : { refType: "git-hosted" };
 
           const dirName = entry.type === "registry" ? entry.name : name;
-          return computeSkillPaths(path.join, base, entrySource, sanitizeName(dirName));
+          return computeSkillPaths(path.join, baseDir, entrySource, sanitizeName(dirName));
         }),
 
       setSkill: ({ name, lockEntry, versionConstraint }: SetSkillArgs) =>
@@ -989,7 +990,7 @@ const make = (options: WorkspaceContextOptions) =>
         ),
 
       getPackDir: (name: string, scope: string) =>
-        Effect.succeed(computePackPaths(path.join, path.dirname(workspaceDir), scope, name)),
+        Effect.succeed(computePackPaths(path.join, baseDir, scope, name)),
     };
   });
 
@@ -1025,6 +1026,8 @@ export interface WorkspaceContextService {
   readonly global: boolean;
   /** Path to the .axm directory */
   readonly path: string;
+  /** Project root directory (parent of .axm) */
+  readonly baseDir: string;
   /** Resolved nonInteractive flag (explicit value or CI detection fallback) */
   readonly nonInteractive: boolean;
   /** Whether to show plan without applying (preview mode) */

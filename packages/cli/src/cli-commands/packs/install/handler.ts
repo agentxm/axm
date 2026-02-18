@@ -202,7 +202,7 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
 
     // Step 5: Extract to managed location
     const extractHandle = yield* spinnerSvc.start("Extracting pack...");
-    const base = path.dirname(ws.path);
+    const base = ws.baseDir;
     const packDir = path.join(base, REGISTRY_EXTENSIONS_DIR, registryScope, "packs", packName);
 
     yield* copySkillDirectory(fetched.directory, packDir).pipe(

@@ -12,8 +12,8 @@ The `SourceHostProvider` interface SHALL have `match`, `find`, and `fetch` opera
 
 ```
 match(url: URL) → Effect<boolean, CliError, R>
-find(source: S, options: FindOptions) → Effect<ReadonlyArray<SourceExtensionRef>, CliError, R>
-fetch(source: S, ref: SourceExtensionRef) → Effect<ExtensionFiles, CliError, R>
+find(source: S, options: FindOptions) → Effect<ReadonlyArray<ExtensionRef>, CliError, R>
+fetch(source: S, ref: ExtensionRef) → Effect<ExtensionFiles, CliError, R>
 ```
 
 The `SourceHostProvider` SHALL be parameterized on `S extends Source` to constrain the source variant the provider handles.
@@ -102,26 +102,26 @@ publishVersion(scope, type, name, version, archive, metadata) → Effect<void, C
 
 ### Requirement: ExtensionRef carries source and version metadata
 
-`SourceExtensionRef` SHALL be a two-dimensional discriminated union (extension type x source type). Each ref variant carries a full `Source` object (not a `SourceType` string) and source-specific ref details.
+`ExtensionRef` SHALL be a two-dimensional discriminated union with top-level discriminators `type` (extension kind) and `refType` (hosting category). Each ref variant carries a full `Source` object and ref-type-specific details.
 
 - Git-hosted refs carry `location` (file:// URL) and `gitTreeSha: Option<string>`
-- Registry refs carry `version: string` and `integrity: string`
+- Registry refs carry `scope: string`, `name: string`, `version: string`, and `integrity: string`
 - Local refs carry `location` (file:// URL)
 - Builtin refs carry no additional fields
 
 #### Scenario: Git-sourced ref has location and tree SHA
 
 - **WHEN** `find` returns a ref from a GitHub source
-- **THEN** it is a `GitHubSkillRef` with `location` (file:// URL to temp clone directory) and `gitTreeSha`
+- **THEN** it has `refType: "git-hosted"` with `location` (file:// URL to temp clone directory) and `gitTreeSha`
 
-#### Scenario: Registry-sourced ref has version and integrity
+#### Scenario: Registry-sourced ref has scope, name, and version
 
 - **WHEN** `find` returns a ref from a registry source
-- **THEN** it is a `RegistrySkillRef` with `version` (resolved semver) and `integrity` (from registry index)
+- **THEN** it has `refType: "registry"` with `scope`, `name`, `version`, and `integrity`
 
 #### Scenario: Location is always populated after find
 
-- **WHEN** `find` returns any ref
+- **WHEN** `find` returns any git-hosted or local ref
 - **THEN** `location` is populated (providers materialize files before returning refs)
 
 ### Requirement: ExtensionFiles result
@@ -156,7 +156,9 @@ All provider operations SHALL fail with `CliError`. The `CliError` SHALL include
 
 The `SourceHostProviders` service SHALL expose `find`, `fetch`, `cloneUrl`, and `origin` methods.
 
-`find` SHALL accept a `Source` and `FindOptions`, dispatching to the correct provider by `source.type`. `fetch` SHALL accept a `SourceExtensionRef` and extract the source from `ref.source` for dispatch.
+`find` SHALL accept a `Source` and `FindOptions`, dispatching to the correct provider by `source.type`. `find` SHALL return `ReadonlyArray<ExtensionRef>` (renamed from `ExtensionRef`).
+
+`fetch` SHALL accept an `ExtensionRef` and extract the source from `ref.source` for dispatch.
 
 `cloneUrl` SHALL accept a `Source` and return `Option<string>` — the git clone URL for git-based sources, `None` for others. This replaces the standalone `buildCloneUrl` function.
 
@@ -166,6 +168,11 @@ The `SourceHostProviders` service SHALL expose `find`, `fetch`, `cloneUrl`, and 
 
 - **WHEN** `sourceHostProviders.find(source, options)` is called with `source.type === "github"`
 - **THEN** the GitHub provider's `find` implementation is invoked
+
+#### Scenario: find returns ExtensionRef with refType
+
+- **WHEN** `sourceHostProviders.find(source, options)` is called with a GitHub source
+- **THEN** the returned refs have `refType: "git-hosted"`
 
 #### Scenario: fetch dispatches by ref source type
 
@@ -208,7 +215,7 @@ The provider registry SHALL contain a single `registry` entry backed by a meta-p
 
 ### Requirement: Registry provider populates integrity during discovery
 
-The registry provider's `find()` SHALL return `SourceExtensionRef` with `integrity` populated from the registry index metadata. Integrity is an intrinsic property of a registry ref known at discovery time.
+The registry provider's `find()` SHALL return `ExtensionRef` with `integrity` populated from the registry index metadata. Integrity is an intrinsic property of a registry ref known at discovery time.
 
 #### Scenario: Registry find includes integrity
 
@@ -232,12 +239,12 @@ All existing source types SHALL be implemented as `SourceHostProvider` instances
 #### Scenario: GitHub provider implements find and fetch
 
 - **WHEN** `GitHubSourceHostProvider.find` is called
-- **THEN** it performs shallow clone, scans for SKILL.md, and returns `SourceExtensionRef[]`
+- **THEN** it performs shallow clone, scans for SKILL.md, and returns `ExtensionRef[]`
 
 #### Scenario: Local provider scans filesystem directly
 
 - **WHEN** `LocalSourceHostProvider.find` is called
-- **THEN** it scans the local directory and returns `SourceExtensionRef[]`
+- **THEN** it scans the local directory and returns `ExtensionRef[]`
 
 #### Scenario: Builtin provider does in-memory lookup
 
@@ -249,9 +256,9 @@ All existing source types SHALL be implemented as `SourceHostProvider` instances
 - **WHEN** `BuiltinSourceHostProvider.match(url)` is called with any URL
 - **THEN** it returns `false`
 
-### Requirement: Operation args take SourceExtensionRef directly
+### Requirement: Operation args take ExtensionRef directly
 
-`InstallSkillOperationArgs` SHALL take a `SkillExtensionRef` instead of flat fields extracted from the ref. `CopySkillOperationArgs` SHALL similarly take a `SkillExtensionRef`. Lock-entry conversion switches on `ref.source.type` and pulls all fields from the ref.
+`InstallSkillOperationArgs` SHALL take a `SkillExtensionRef` instead of flat fields extracted from the ref. `CopySkillOperationArgs` SHALL similarly take a `SkillExtensionRef`. Lock-entry conversion switches on `ref.refType` for ref detail access and `ref.source.type` for source-specific fields.
 
 #### Scenario: Install args simplified to ref plus operational params
 
@@ -263,10 +270,10 @@ All existing source types SHALL be implemented as `SourceHostProvider` instances
 - **WHEN** constructing `CopySkillOperationArgs`
 - **THEN** the args contain `ref: SkillExtensionRef` and `targetName`
 
-#### Scenario: Lock entry conversion uses ref source type
+#### Scenario: Lock entry conversion uses refType then source type
 
 - **WHEN** `sourceToLockEntry` converts a `SkillExtensionRef` to a lock entry
-- **THEN** it switches on `ref.source.type` to extract source-specific fields (version, integrity, gitTreeSha, location)
+- **THEN** it switches on `ref.refType` to access ref detail fields, then on `ref.source.type` within `"git-hosted"` for source-specific fields
 
 ### Requirement: LocalRegistrySourceHostProvider
 
@@ -275,7 +282,7 @@ The system SHALL implement `LocalRegistrySourceHostProvider` as a `PublishableSo
 #### Scenario: find maps FindOptions to RegistrySearchOptions
 
 - **WHEN** `find(source, options)` is called with `FindOptions`
-- **THEN** the provider maps `FindOptions` to `RegistrySearchOptions`, calls `client.getExtensions(searchOptions)`, and maps each `RegistryExtensionEntry` to a `SourceExtensionRef` stamped with the `source` and `RegistryRefDetails`
+- **THEN** the provider maps `FindOptions` to `RegistrySearchOptions`, calls `client.getExtensions(searchOptions)`, and maps each `RegistryExtensionEntry` to a `ExtensionRef` stamped with the `source` and `RegistryRefDetails`
 
 #### Scenario: fetch extracts scope from ref and delegates to client
 

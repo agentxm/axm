@@ -76,8 +76,7 @@ export const createGitHostingSourceHostProvider = <
             }),
           ),
         ),
-        (dir) =>
-          fs.remove(dir, { recursive: true }).pipe(Effect.ignoreLogged),
+        (dir) => fs.remove(dir, { recursive: true }).pipe(Effect.ignoreLogged),
       );
 
       const ref = source.ref;

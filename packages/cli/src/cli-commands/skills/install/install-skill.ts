@@ -185,8 +185,11 @@ export const installSkill: OperationHandler<
     // Synthetic registry refs (fork/publish pipeline) may intentionally omit integrity;
     // in that case, use the already-materialized canonical path instead of refetching.
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(Effect.orElseSucceed(() => false));
-    const useExistingCanonical = ref.refType === "registry" && ref.integrity === "" && canonicalExists;
-    const locationUrl = useExistingCanonical ? `file://${canonicalPath}` : yield* getRefLocation(ref);
+    const useExistingCanonical =
+      ref.refType === "registry" && ref.integrity === "" && canonicalExists;
+    const locationUrl = useExistingCanonical
+      ? `file://${canonicalPath}`
+      : yield* getRefLocation(ref);
     const sourcePath = stripFileProtocol(locationUrl);
     const copyTarget = pathSource.refType === "registry" ? canonicalPath : skillSrcPath;
 

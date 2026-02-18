@@ -224,7 +224,11 @@ describe("registry meta-provider scope routing", () => {
         yield* fs.writeFileString(
           nodePath.join(scopedSkillDir, "index.json"),
           JSON.stringify(
-            makeIndex({ scope: "@acme", name: "my-skill", versions: [makeVersionEntry({ integrity })] }),
+            makeIndex({
+              scope: "@acme",
+              name: "my-skill",
+              versions: [makeVersionEntry({ integrity })],
+            }),
           ),
         );
         yield* fs.writeFileString(

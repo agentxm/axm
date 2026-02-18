@@ -145,11 +145,11 @@ export const createRegistryMetaProvider = () => ({
           ? options.scope
           : source.scope !== undefined
             ? source.scope
-          : options.skillNames.length > 0
-            ? Option.fromNullable(
-                options.skillNames.find((n) => n.startsWith("@"))?.split("/")[0] ?? null,
-              )
-            : Option.none<string>();
+            : options.skillNames.length > 0
+              ? Option.fromNullable(
+                  options.skillNames.find((n) => n.startsWith("@"))?.split("/")[0] ?? null,
+                )
+              : Option.none<string>();
 
       const registrySources = yield* ws.getConfiguredRegistrySources(scope).pipe(
         Effect.mapError((e) =>

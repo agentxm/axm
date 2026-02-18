@@ -289,4 +289,18 @@ describe("SourceHostProviders dispatch", () => {
       ),
     );
   });
+
+  it("dispatches to builtin stub for builtin source", () =>
+    runWithService(
+      [],
+      Effect.gen(function* () {
+        const svc = yield* SourceHostProviders;
+        const result = yield* svc.find({ type: "builtin" }, defaultFindOptions).pipe(Effect.either);
+
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left.what).toContain("Builtin source provider find not yet implemented");
+        }
+      }),
+    ));
 });

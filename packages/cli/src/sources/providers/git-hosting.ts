@@ -7,8 +7,6 @@
  * @packageDocumentation
  */
 
-import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
@@ -62,31 +60,24 @@ export const createGitHostingSourceHostProvider = <
   find: (source, options) =>
     Effect.gen(function* () {
       const path = yield* Path.Path;
+      const fs = yield* FileSystem.FileSystem;
 
       const cloneUrl = buildCloneUrlForSource(source);
 
       // Acquire scoped temp directory (cleaned up when scope closes)
       const tempDir = yield* Effect.acquireRelease(
-        Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem;
-          const dir = path.join(tmpdir(), `axm-${randomUUID()}`);
-          yield* fs.makeDirectory(dir, { recursive: true }).pipe(
-            Effect.mapError((error) =>
-              makeCliError({
-                code: "SOURCE_FETCH_FAILED",
-                what: "Failed to create temp directory",
-                details: [error.message],
-                cause: error,
-              }),
-            ),
-          );
-          return dir;
-        }),
+        fs.makeTempDirectory().pipe(
+          Effect.mapError((error) =>
+            makeCliError({
+              code: "SOURCE_FETCH_FAILED",
+              what: "Failed to create temp directory",
+              details: [error.message],
+              cause: error,
+            }),
+          ),
+        ),
         (dir) =>
-          Effect.gen(function* () {
-            const fs = yield* FileSystem.FileSystem;
-            yield* fs.remove(dir, { recursive: true });
-          }).pipe(Effect.ignoreLogged),
+          fs.remove(dir, { recursive: true }).pipe(Effect.ignoreLogged),
       );
 
       const ref = source.ref;
@@ -122,7 +113,7 @@ export const createGitHostingSourceHostProvider = <
               refType: "git-hosted" as const,
               skill: {
                 name: d.skill.name,
-                description: d.skill.description ? Option.some(d.skill.description) : Option.none(),
+                description: Option.some(d.skill.description),
                 metadata: d.skill.metadata,
               },
               source,

@@ -56,7 +56,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
         refType: "local" as const,
         skill: {
           name: d.skill.name,
-          description: d.skill.description ? Option.some(d.skill.description) : Option.none(),
+          description: Option.some(d.skill.description),
           metadata: d.skill.metadata,
         },
         source,

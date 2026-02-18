@@ -238,6 +238,8 @@ export const SourceHostProvidersLive: Layer.Layer<
           return gitProvider.find(source as never, options).pipe(Effect.provide(depLayer));
         case "registry":
           return registryMetaProvider.find(source, options).pipe(Effect.provide(depLayer));
+        case "builtin":
+          return builtinProvider.find(source as never, options).pipe(Effect.provide(depLayer));
       }
     };
 

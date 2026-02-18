@@ -164,26 +164,29 @@ export const handleInstall = (args: InstallHandlerArgs) => {
             ? [parsedSource.pattern.name.value]
             : []
           : [];
-    const discoveredSkills = yield*
-      sources
-        .find(source, {
-          skillNames: requestedSkills,
-          type: "skill" as const,
-          versionConstraint,
-        })
-        .pipe(
-          Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
-          Effect.mapError((error) =>
-            makeCliError({
-              code: "DISCOVER_FAILED",
-              what: `Failed to discover skills: ${error.message}`,
-              details: [`Source: ${sources.origin(source)}`],
-              howToFix: "Verify the source path contains directories with SKILL.md files.",
-              cause: error,
-            }),
-          ),
-          Effect.tapError(() => discoverHandle.stop("Failed")),
-        );
+
+    /*
+    TODO: what about registry sources? If user provided a scope, should we filter by that?
+    */
+    const discoveredSkills = yield* sources
+      .find(source, {
+        skillNames: requestedSkills,
+        type: "skill" as const,
+        versionConstraint,
+      })
+      .pipe(
+        Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
+        Effect.mapError((error) =>
+          makeCliError({
+            code: "DISCOVER_FAILED",
+            what: `Failed to discover skills: ${error.message}`,
+            details: [`Source: ${sources.origin(source)}`],
+            howToFix: "Verify the source path contains directories with SKILL.md files.",
+            cause: error,
+          }),
+        ),
+        Effect.tapError(() => discoverHandle.stop("Failed")),
+      );
     if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
       yield* discoverHandle.stop("No skills found");
       return yield* Effect.fail(

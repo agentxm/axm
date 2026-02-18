@@ -168,7 +168,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       parsedSource.pattern.pattern === "registry-pattern-input"
         ? Option.some(parsedSource.pattern.scope)
         : source.type === "registry"
-          ? source.scope ?? Option.none<string>()
+          ? (source.scope ?? Option.none<string>())
           : Option.none<string>();
 
     const discoveredSkills = yield* sources

@@ -13,10 +13,7 @@ import {
   type Source,
   type SourceHostProvidersService,
 } from "../../../sources/index.js";
-import {
-  Workspace,
-  type WorkspaceContextService,
-} from "../../../workspace/index.js";
+import { Workspace, type WorkspaceContextService } from "../../../workspace/index.js";
 import { buildSkillInstallPlan } from "./build-plan.js";
 
 const makeLocalSkillRef = (name: string) =>

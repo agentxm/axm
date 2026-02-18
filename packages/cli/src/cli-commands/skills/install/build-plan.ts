@@ -10,7 +10,11 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
-import { SourceHostProviders, type SkillExtensionRef, type Source } from "../../../sources/index.js";
+import {
+  SourceHostProviders,
+  type SkillExtensionRef,
+  type Source,
+} from "../../../sources/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { InstallSkillOperation } from "../operations.js";
 

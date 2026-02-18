@@ -156,7 +156,11 @@ const withServices = (
       }),
     cloneUrl: () => Option.none(),
     origin: (source) =>
-      source.type === "registry" ? source.location.href : source.type === "local" ? source.path : source.type,
+      source.type === "registry"
+        ? source.location.href
+        : source.type === "local"
+          ? source.path
+          : source.type,
   };
   return Layer.mergeAll(
     NodeContext.layer,
@@ -285,9 +289,7 @@ describe("installSkill", () => {
         const src = setupSource();
         const { axmDir, base } = setupBase();
 
-        const result = yield* installSkill(
-          makeOp({ sourcePath: src }),
-        ).pipe(
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
           Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code", "cursor"] })),
         );
 
@@ -316,9 +318,7 @@ describe("installSkill", () => {
         const src = setupSource();
         const { axmDir, base } = setupBase();
 
-        const result = yield* installSkill(
-          makeOp({ sourcePath: src }),
-        ).pipe(
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
           Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code", "cursor"] })),
         );
 
@@ -363,9 +363,9 @@ describe("installSkill", () => {
         const { axmDir } = setupBase();
         const setSkillFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
 
-        const result = yield* installSkill(
-          makeOp({ sourcePath: src }),
-        ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
+          Effect.provide(withServices(axmDir, { setSkillFn })),
+        );
 
         expect(result.result).toBe("success");
         expect(setSkillFn).toHaveBeenCalledOnce();
@@ -391,9 +391,9 @@ describe("installSkill", () => {
           ),
         );
 
-        const result = yield* installSkill(
-          makeOp({ sourcePath: src }),
-        ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
+          Effect.provide(withServices(axmDir, { setSkillFn })),
+        );
 
         expect(result.result).toBe("success");
       }),
@@ -431,9 +431,7 @@ describe("installSkill", () => {
         const { axmDir, base } = setupBase();
 
         // amp (.agents/skills) + claude-code (.claude/skills) — both get symlinks
-        const result = yield* installSkill(
-          makeOp({ sourcePath: src }),
-        ).pipe(
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
           Effect.provide(withServices(axmDir, { configuredAgents: ["amp", "claude-code"] })),
         );
 
@@ -500,9 +498,9 @@ describe("installSkill", () => {
         fs.mkdirSync(canonical, { recursive: true });
         fs.writeFileSync(path.join(canonical, "stale.txt"), "old content");
 
-        const result = yield* installSkill(
-          makeOp({ sourcePath: src }),
-        ).pipe(Effect.provide(withServices(axmDir)));
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
+          Effect.provide(withServices(axmDir)),
+        );
 
         expect(result.result).toBe("success");
 
@@ -523,9 +521,9 @@ describe("installSkill", () => {
         // Create an empty lockfile
         fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
 
-        const result = yield* installSkill(
-          makeOp({ sourcePath: src }),
-        ).pipe(Effect.provide(withServices(axmDir)));
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
+          Effect.provide(withServices(axmDir)),
+        );
 
         expect(result.result).toBe("success");
 
@@ -551,9 +549,9 @@ describe("installSkill", () => {
           ),
         );
 
-        const result = yield* installSkill(
-          makeOp({ sourcePath: src }),
-        ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
+          Effect.provide(withServices(axmDir, { setSkillFn })),
+        );
 
         // Installation should still succeed even if lockfile failed
         expect(result.result).toBe("success");
@@ -896,9 +894,9 @@ describe("installSkill", () => {
           (_args: { name: string; lockEntry: unknown; versionConstraint: unknown }) => Effect.void,
         );
 
-        const result = yield* installSkill(
-          makeOp({ sourcePath: src }),
-        ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
+          Effect.provide(withServices(axmDir, { setSkillFn })),
+        );
 
         expect(result.result).toBe("success");
         expect(setSkillFn).toHaveBeenCalledOnce();

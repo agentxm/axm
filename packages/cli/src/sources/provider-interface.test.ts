@@ -1,5 +1,5 @@
 /**
- * Tests for SourceHostProvider and PublishableSourceHostProvider interface shape.
+ * Tests for SourceHostProvider interface shape.
  *
  * Validates that the new interfaces have the correct fields and that
  * implementations satisfy the type constraints.
@@ -9,9 +9,20 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import type { BuiltinSource, GitHubSource, RegistrySource, SourceExtensionRef } from "./types.js";
-import type { SourceHostProvider, PublishableSourceHostProvider, FindOptions } from "./provider.js";
+import type { SourceHostProvider, FindOptions } from "./provider.js";
 import type { ExtensionType } from "../extensions/common.js";
 import type { VersionEntry } from "../registry/index.js";
+
+type RegistryProviderWithPublish = SourceHostProvider<RegistrySource> & {
+  readonly publishExtension: (
+    scope: string,
+    type: ExtensionType,
+    name: string,
+    version: string,
+    archive: Uint8Array,
+    metadata: VersionEntry,
+  ) => Effect.Effect<void>;
+};
 
 // -----------------------------------------------------------------------------
 // Mock Providers
@@ -24,7 +35,7 @@ const makeGitHubProvider = (): SourceHostProvider<GitHubSource> => ({
   fetch: (_source, _ref) => Effect.succeed({ directory: "/tmp/clone" }),
 });
 
-const makeRegistryProvider = (): PublishableSourceHostProvider<RegistrySource> => ({
+const makeRegistryProvider = (): RegistryProviderWithPublish => ({
   type: "registry",
   match: (_url: URL) => Effect.succeed(false),
   find: (_source, _options) => Effect.succeed([]),
@@ -115,11 +126,11 @@ describe("SourceHostProvider", () => {
 });
 
 // -----------------------------------------------------------------------------
-// PublishableSourceHostProvider
+// Registry provider with publishExtension
 // -----------------------------------------------------------------------------
 
-describe("PublishableSourceHostProvider", () => {
-  it("extends SourceHostProvider with publishExtension", () => {
+describe("registry provider shape", () => {
+  it("supports SourceHostProvider plus publishExtension", () => {
     const provider = makeRegistryProvider();
     expect(provider.type).toBe("registry");
     expect(typeof provider.match).toBe("function");
@@ -141,9 +152,8 @@ describe("PublishableSourceHostProvider", () => {
     expect(result).toBeUndefined();
   });
 
-  it("is assignable to SourceHostProvider (base interface)", () => {
-    const provider: PublishableSourceHostProvider<RegistrySource> = makeRegistryProvider();
-    // A PublishableSourceHostProvider can be treated as a SourceHostProvider
+  it("is assignable to SourceHostProvider", () => {
+    const provider: RegistryProviderWithPublish = makeRegistryProvider();
     const base: SourceHostProvider<RegistrySource> = provider;
     expect(base.type).toBe("registry");
   });

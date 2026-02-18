@@ -13,6 +13,7 @@ import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import type { CliError } from "../../../cli-error/index.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import type {
   RegistryClient,
@@ -23,9 +24,20 @@ import { createRegistryClient, extractZip } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
 import type { ExtensionType } from "../../../extensions/common.js";
 import type { Author } from "../../../extensions/common.js";
-import type { ExtensionFiles, FindOptions, PublishableSourceHostProvider } from "../../provider.js";
+import type { ExtensionFiles, FindOptions, SourceHostProvider } from "../../provider.js";
 import type { RegistrySource, RegistrySourceHost, SourceExtensionRef } from "../../types.js";
 import type { VersionEntry } from "../../../registry/index.js";
+
+type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<RegistrySource, R> & {
+  readonly publishExtension: (
+    scope: string,
+    type: ExtensionType,
+    name: string,
+    version: string,
+    archive: Uint8Array,
+    metadata: VersionEntry,
+  ) => Effect.Effect<void, CliError, R>;
+};
 
 // -----------------------------------------------------------------------------
 // Type Mapping Helpers
@@ -124,7 +136,7 @@ const refRegistryType = (ref: SourceExtensionRef): ExtensionType => ref.type;
  */
 export const createLocalRegistrySourceHostProvider = (
   client: RegistryClient,
-): PublishableSourceHostProvider<RegistrySource, FileSystem.FileSystem | Path.Path> => ({
+): RegistrySourceHostProviderWithPublish<FileSystem.FileSystem | Path.Path> => ({
   type: "registry",
 
   match: (url: URL) => Effect.succeed(url.protocol === "file:"),
@@ -227,7 +239,7 @@ export const createLocalRegistrySourceHostProvider = (
  */
 export const createRemoteRegistrySourceHostProvider = (
   client: RegistryClient,
-): PublishableSourceHostProvider<RegistrySource, FileSystem.FileSystem | Path.Path> => ({
+): RegistrySourceHostProviderWithPublish<FileSystem.FileSystem | Path.Path> => ({
   type: "registry",
 
   match: (url: URL) => Effect.succeed(url.protocol === "https:"),

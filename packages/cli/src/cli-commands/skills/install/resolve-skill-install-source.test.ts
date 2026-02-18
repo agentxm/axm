@@ -144,6 +144,30 @@ describe("resolveSkillInstallSource", () => {
     });
   });
 
+  it.effect("resolves bare skill name using configured default scope", () => {
+    const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
+    const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
+    tmpDirs.push(registryA, registryB);
+
+    createSkillIndex(registryB, "@test", "some-name");
+
+    const sources: ReadonlyArray<SourceHostConfig> = [
+      { name: "first", type: "registry", location: new URL(`file://${registryA}`) },
+      { name: "second", type: "registry", location: new URL(`file://${registryB}`) },
+    ];
+
+    return Effect.gen(function* () {
+      const resolved = yield* resolveSkillInstallSource(parseInputOrThrow("some-name")).pipe(
+        Effect.provide(provideTestLayers(sources)),
+      );
+      expect(resolved.type).toBe("registry");
+      expect("location" in resolved).toBe(true);
+      if ("location" in resolved) {
+        expect(resolved.location.href).toBe(new URL(`file://${registryB}`).href);
+      }
+    });
+  });
+
   it.effect("fails when no configured registry contains the requested scope", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));

@@ -194,6 +194,70 @@ describe("registry meta-provider scope routing", () => {
         expect(refs).toHaveLength(0);
       }),
     ));
+
+  it("filters registry discovery to the requested scope", () => {
+    const registryRoot = makeRegistryDir();
+    const scopedSkillDir = nodePath.join(registryRoot, "extensions", "@acme", "skills", "my-skill");
+    const otherScopeSkillDir = nodePath.join(
+      registryRoot,
+      "extensions",
+      "@other",
+      "skills",
+      "my-skill",
+    );
+
+    const archive = createTestZip("SKILL.md", "content");
+    const integrity = computeIntegrity(archive);
+
+    return runWithService(
+      [
+        {
+          name: "local",
+          type: "registry" as const,
+          location: new URL(`file://${registryRoot}`),
+        },
+      ],
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        yield* fs.makeDirectory(scopedSkillDir, { recursive: true });
+        yield* fs.makeDirectory(otherScopeSkillDir, { recursive: true });
+        yield* fs.writeFileString(
+          nodePath.join(scopedSkillDir, "index.json"),
+          JSON.stringify(
+            makeIndex({ scope: "@acme", name: "my-skill", versions: [makeVersionEntry({ integrity })] }),
+          ),
+        );
+        yield* fs.writeFileString(
+          nodePath.join(otherScopeSkillDir, "index.json"),
+          JSON.stringify(
+            makeIndex({
+              scope: "@other",
+              name: "my-skill",
+              versions: [makeVersionEntry({ integrity, version: "2.0.0" })],
+            }),
+          ),
+        );
+
+        const svc = yield* SourceHostProviders;
+        const refs = yield* svc.find(
+          {
+            type: "registry",
+            location: new URL(`file://${registryRoot}`),
+          },
+          { ...defaultFindOptions, scope: Option.some("@acme") },
+        );
+        expect(refs).toHaveLength(1);
+        const ref = refs[0];
+        if (ref?.refType === "registry") {
+          expect(ref.scope).toBe("@acme");
+        }
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+        ),
+      ),
+    );
+  });
 });
 
 // -----------------------------------------------------------------------------

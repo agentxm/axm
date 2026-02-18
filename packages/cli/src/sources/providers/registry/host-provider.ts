@@ -200,7 +200,10 @@ export const createLocalRegistrySourceHostProvider = (
       const entries = yield* fsService
         .readDirectory(extensionsDir)
         .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
-      const scopes = entries.filter((d) => d.startsWith("@"));
+      const scopes =
+        options.scope !== undefined && Option.isSome(options.scope)
+          ? [options.scope.value]
+          : entries.filter((d) => d.startsWith("@"));
 
       const results = yield* Effect.forEach(
         scopes,
@@ -247,7 +250,9 @@ export const createRemoteRegistrySourceHostProvider = (
 
   find: (source, options) =>
     Effect.gen(function* () {
-      const searchOptions = toSearchOptions("*", options);
+      const scope =
+        options.scope !== undefined && Option.isSome(options.scope) ? options.scope.value : "*";
+      const searchOptions = toSearchOptions(scope, options);
       const result = yield* client.getExtensionsByScope(searchOptions);
       return result.extensions.map((entry) => toExtensionRef(entry, source));
     }),

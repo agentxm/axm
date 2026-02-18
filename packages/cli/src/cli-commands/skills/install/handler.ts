@@ -26,8 +26,7 @@ import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner, type LogService } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import type { InstallSkillOperation } from "../operations.js";
-import { buildPlan } from "./build-plan.js";
+import { buildSkillInstallPlan } from "./build-plan.js";
 import { installSkill } from "./install-skill.js";
 
 // -----------------------------------------------------------------------------
@@ -221,28 +220,12 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       return;
     }
 
-    const ops = selectedSkills.map(
-      (s) =>
-        ({
-          name: "install-skill",
-          args: {
-            ref: s,
-            force: args.force,
-            versionConstraint:
-              s.refType === "registry" ? (findOptions.versionConstraint ?? Option.none()) : Option.none(),
-          },
-        }) satisfies InstallSkillOperation,
-    );
-
-    // Build plan
-    const lockedSkills = yield* ws.getLockedSkills();
-    const lockfile = { lockfileVersion: 1, skills: lockedSkills };
-    const plan = buildPlan(
-      ops,
-      lockfile,
-      "Install skill(s)",
-      Option.some(`Install skills from ${sources.origin(source)}`),
-    );
+    const plan = yield* buildSkillInstallPlan({
+      selectedSkills,
+      source,
+      force: args.force,
+      versionConstraint: findOptions.versionConstraint ?? Option.none(),
+    });
 
     yield* ws.resolvePlan(plan, { "install-skill": installSkill });
 

@@ -284,6 +284,24 @@ describe("installSkill", () => {
     return { base, axmDir };
   };
 
+  /**
+   * Pre-populates the canonical directory at the expected location.
+   * Registry tests use empty integrity (synthetic refs from fork/publish pipeline),
+   * so the handler reuses existing canonical files instead of fetching.
+   */
+  const setupRegistryCanonical = (base: string, scope: string, name = "my-skill") => {
+    const canonicalPath = path.join(base, ".axm", "extensions", scope, "skills", name);
+    const srcDir = path.join(canonicalPath, "src");
+    fs.mkdirSync(srcDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(canonicalPath, "axm-skill.json"),
+      JSON.stringify({ name, version: "0.1.0" }),
+    );
+    fs.writeFileSync(path.join(srcDir, "SKILL.md"), `# ${name}`);
+    fs.writeFileSync(path.join(srcDir, "prompt.md"), "prompt content");
+    return canonicalPath;
+  };
+
   describe("happy path — sanitize→copy→symlink→lockfile pipeline", () => {
     it.effect("copies skill files to canonical location and creates symlink for agent", () =>
       Effect.gen(function* () {
@@ -592,24 +610,6 @@ describe("installSkill", () => {
   });
 
   describe("registry source canonical path", () => {
-    /**
-     * Pre-populates the canonical directory at the expected location.
-     * Registry tests use empty integrity (synthetic refs from fork/publish pipeline),
-     * so the handler reuses existing canonical files instead of fetching.
-     */
-    const setupRegistryCanonical = (base: string, scope: string, name = "my-skill") => {
-      const canonicalPath = path.join(base, ".axm", "extensions", scope, "skills", name);
-      const srcDir = path.join(canonicalPath, "src");
-      fs.mkdirSync(srcDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(canonicalPath, "axm-skill.json"),
-        JSON.stringify({ name, version: "0.1.0" }),
-      );
-      fs.writeFileSync(path.join(srcDir, "SKILL.md"), `# ${name}`);
-      fs.writeFileSync(path.join(srcDir, "prompt.md"), "prompt content");
-      return canonicalPath;
-    };
-
     it.effect("uses .axm/extensions/@scope/skills/<name>/src/ for registry sources", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
@@ -787,27 +787,10 @@ describe("installSkill", () => {
   });
 
   describe("version constraint in settings", () => {
-    /**
-     * Pre-populates the canonical directory at the expected location.
-     * Registry tests use empty integrity (synthetic refs), so the handler
-     * reuses existing canonical files.
-     */
-    const setupRegistryCanonical2 = (base: string, scope: string, name = "tool") => {
-      const canonicalPath = path.join(base, ".axm", "extensions", scope, "skills", name);
-      const srcDir = path.join(canonicalPath, "src");
-      fs.mkdirSync(srcDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(canonicalPath, "axm-skill.json"),
-        JSON.stringify({ name, version: "0.1.0" }),
-      );
-      fs.writeFileSync(path.join(srcDir, "SKILL.md"), `# ${name}`);
-      return canonicalPath;
-    };
-
     it.effect("passes no versionConstraint for registry source without constraint", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
-        setupRegistryCanonical2(base, "@acme");
+        setupRegistryCanonical(base, "@acme", "tool");
         const setSkillFn = vi.fn(
           (_args: { name: string; lockEntry: unknown; versionConstraint: unknown }) => Effect.void,
         );
@@ -830,7 +813,7 @@ describe("installSkill", () => {
     it.effect("passes caret versionConstraint for @acme/tool@^1.0.0", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
-        setupRegistryCanonical2(base, "@acme");
+        setupRegistryCanonical(base, "@acme", "tool");
         const setSkillFn = vi.fn(
           (_args: { name: string; lockEntry: unknown; versionConstraint: unknown }) => Effect.void,
         );
@@ -855,7 +838,7 @@ describe("installSkill", () => {
     it.effect("passes exact versionConstraint for @acme/tool@1.2.3", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
-        setupRegistryCanonical2(base, "@acme");
+        setupRegistryCanonical(base, "@acme", "tool");
         const setSkillFn = vi.fn(
           (_args: { name: string; lockEntry: unknown; versionConstraint: unknown }) => Effect.void,
         );

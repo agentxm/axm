@@ -1,11 +1,11 @@
 ### Requirement: Skill installation orchestrator
 
-The `executeAddSkill` function SHALL orchestrate the full per-skill installation pipeline: sanitize name, validate paths, copy files to canonical location, symlink from agent directories, and update the lockfile. Canonical path and skill source path SHALL be resolved via `Workspace.getSkillDir` with an explicit source argument. Agent symlinks SHALL target `skillSrcPath` for all source types.
+The `installSkill` operation handler SHALL orchestrate the full per-skill installation pipeline by dispatching to a per-refType install function via `switch(ref.refType)`. Each case (`git-hosted`, `registry`, `local`, `builtin`) SHALL produce a `MaterializedSkill` containing the `skillSrcPath` and `versionConstraint`. Shared post-install steps (agent symlinks, lockfile/settings writes, result computation) SHALL run after materialization.
 
 #### Scenario: Sanitize skill name for canonical path
 
-- **WHEN** executing an `AddSkillOperation`
-- **THEN** the canonical directory name SHALL be derived from `sanitizeName(op.skill.name)` (performed internally by `getSkillDir`)
+- **WHEN** executing an install skill operation
+- **THEN** the canonical directory name SHALL be derived from `sanitizeName(ref.skill.name)` (performed internally by `getSkillDir`)
 
 #### Scenario: Registry source canonical location
 
@@ -29,8 +29,8 @@ The `executeAddSkill` function SHALL orchestrate the full per-skill installation
 #### Scenario: Path safety validated before any writes
 
 - **WHEN** computing canonical and agent-specific paths
-- **THEN** `isPathSafe` SHALL be called for each path against the workspace base
-- **AND** if any path is unsafe, the skill installation SHALL fail without writing any files
+- **THEN** `validatePathSafety` SHALL be called for the canonical path against the workspace base directory
+- **AND** if the path is unsafe, the skill installation SHALL fail without writing any files
 
 #### Scenario: Agent symlinks created for all agents
 
@@ -52,38 +52,34 @@ The `executeAddSkill` function SHALL orchestrate the full per-skill installation
 #### Scenario: Lockfile updated after installation
 
 - **WHEN** skill files and symlinks are successfully created
-- **THEN** `LockfileService.updateEntry()` SHALL be called with the skill name and a lock entry from `sourceToLockEntry`
+- **THEN** `ws.setSkillLock` or `ws.setSkill` SHALL be called with the skill name, lock entry from `sourceToLockEntry`, and the materialized `versionConstraint`
 
 #### Scenario: Lockfile write failure does not fail installation
 
-- **WHEN** `LockfileService.updateEntry()` fails
-- **THEN** the failure SHALL be silently swallowed
+- **WHEN** the lockfile/settings write fails
+- **THEN** the failure SHALL be logged as a warning
 - **AND** the installation SHALL still be considered successful
 
 #### Scenario: Settings updated after successful installation
 
-The install skill executor SHALL call `SettingsService.addSkill()` after successful file installation and lockfile update, keeping settings in sync with the lockfile.
+The install skill executor SHALL call `ws.setSkill` after successful file installation, keeping settings in sync with the lockfile. When `skipSettings` is true, only `ws.setSkillLock` SHALL be called.
 
 #### Scenario: Skill added to settings on success
 
 - **WHEN** skill files are copied, symlinks created, and lockfile updated successfully
-- **THEN** the executor calls `SettingsService.addSkill()` with the skill name and source string
+- **AND** `skipSettings` is false
+- **THEN** the executor calls `ws.setSkill` with the skill name, lock entry, and version constraint
 
 #### Scenario: Settings write failure does not fail installation
 
-- **WHEN** `SettingsService.addSkill()` fails
-- **THEN** the failure SHALL be silently swallowed (consistent with lockfile write failure handling)
+- **WHEN** `ws.setSkill` fails
+- **THEN** the failure SHALL be logged as a warning
 - **AND** the installation SHALL still be considered successful
 
 #### Scenario: Returns per-agent results
 
 - **WHEN** installation completes
-- **THEN** the function SHALL return an `InstallResult` for each target agent
-
-#### Scenario: Self-copy detection for fork workflow
-
-- **WHEN** the source location resolves to the `skillSrcPath` (`<canonical>/src/` for registry, `<canonical>` for others)
-- **THEN** pre-clean and copy SHALL be skipped (files already in place)
+- **THEN** the function SHALL return an `OperationResult` indicating success or listing failed agents
 
 #### Scenario: Pre-clean removes from all known locations
 
@@ -91,30 +87,50 @@ The install skill executor SHALL call `SettingsService.addSkill()` after success
 - **THEN** the handler SHALL remove from `.axm/extensions/external/skills/<name>` (non-registry canonical)
 - **AND** remove from `.axm/extensions/@*/skills/<name>` (registry canonical, any scope)
 
-### Requirement: InstallError cause field convention
+#### Scenario: Per-refType dispatch is exhaustive
 
-`InstallError` SHALL define its `cause` field as `unknown` (accepting any value including `undefined`). This matches the standard `Data.TaggedError` convention used throughout the codebase.
+- **WHEN** dispatching on `ref.refType`
+- **THEN** all four cases (`git-hosted`, `registry`, `local`, `builtin`) SHALL be handled
+- **AND** the switch SHALL be exhaustive (no default fallthrough)
 
-#### Scenario: Error with cause
+### Requirement: Self-copy detection for local refs
 
-- **WHEN** creating an `InstallError` from a caught error
-- **THEN** the cause SHALL be passed directly (e.g., `new InstallError({ message: "...", cause: error, retryable: false })`)
+When installing a local ref, the handler SHALL detect when the source path resolves to the same location as the install target (`skillSrcPath`). This occurs during the fork workflow when the local ref already points to the installed location.
 
-#### Scenario: Error without cause
+#### Scenario: Local ref source equals install target
 
-- **WHEN** creating an `InstallError` with no underlying cause
-- **THEN** the cause SHALL be `undefined` (e.g., `new InstallError({ message: "...", cause: undefined, retryable: false })`)
+- **WHEN** the local ref's source path resolves to the same absolute path as `skillSrcPath`
+- **THEN** pre-clean and copy SHALL be skipped (files already in place)
 
-### Requirement: DiscoveryError cause field convention
+### Requirement: Registry empty-integrity detection
 
-`DiscoveryError` SHALL define its `cause` field as `unknown` and its `path` field as `unknown` (not `Option`), consistent with `InstallError`.
+When installing a registry ref with empty integrity (synthetic refs from the fork/publish pipeline), the handler SHALL reuse the existing canonical directory instead of fetching from the registry.
 
-#### Scenario: DiscoveryError with cause and path
+#### Scenario: Synthetic registry ref with existing canonical
 
-- **WHEN** creating a `DiscoveryError` from a filesystem error
-- **THEN** cause and path SHALL be passed directly without `Option` wrapping
+- **WHEN** installing a registry ref with empty integrity
+- **AND** the canonical path already exists on disk
+- **THEN** the handler SHALL skip fetching and use the existing canonical files
 
-#### Scenario: DiscoveryError without cause
+#### Scenario: Synthetic registry ref without existing canonical
 
-- **WHEN** creating a `DiscoveryError` with no underlying cause
-- **THEN** cause SHALL be `undefined`
+- **WHEN** installing a registry ref with empty integrity
+- **AND** the canonical path does not exist on disk
+- **THEN** the handler SHALL fetch from the registry as normal
+
+### Requirement: Registry integrity verification
+
+When installing a registry skill, the handler SHALL verify the integrity of the fetched archive against the expected integrity value from the ref.
+
+#### Scenario: Integrity matches
+
+- **WHEN** installing a registry skill
+- **AND** the computed integrity of the fetched archive matches `ref.integrity`
+- **THEN** installation SHALL proceed normally
+
+#### Scenario: Integrity mismatch
+
+- **WHEN** installing a registry skill
+- **AND** the computed integrity of the fetched archive does not match `ref.integrity`
+- **THEN** the handler SHALL fail with an `INSTALL_SKILL_INTEGRITY_MISMATCH` error
+- **AND** the error SHALL include the expected and actual integrity values

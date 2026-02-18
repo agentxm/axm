@@ -84,10 +84,10 @@ export interface UpdateHandlerArgs {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const handleUpdate = (args: UpdateHandlerArgs) => {
+export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHandlerArgs) {
   const scopeLabel = args.global ? "global" : "project";
 
-  return Effect.gen(function* () {
+  return yield* Effect.gen(function* () {
     const ws = yield* Workspace;
     const sources = yield* SourceHostProviders;
     const log = yield* Log;
@@ -342,8 +342,8 @@ export const handleUpdate = (args: UpdateHandlerArgs) => {
     });
 
     yield* log.success("Done");
-  }).pipe(Effect.withSpan("Update.handle"));
-};
+  });
+});
 
 // -----------------------------------------------------------------------------
 // Pack Constraint Collection
@@ -397,11 +397,11 @@ const collectPackConstraints = (axmDir: string) =>
           const json = yield* Effect.try({
             try: () => JSON.parse(content) as unknown,
             catch: () => undefined,
-          }).pipe(Effect.catchAll(() => Effect.succeed(undefined)));
+          }).pipe(Effect.catchAll(() => Effect.void));
           if (json === undefined) return;
 
           const manifest = yield* Schema.decodeUnknown(PackManifestSchema)(json).pipe(
-            Effect.catchAll(() => Effect.succeed(undefined)),
+            Effect.catchAll(() => Effect.void),
           );
           if (manifest === undefined) return;
 

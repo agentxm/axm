@@ -34,8 +34,7 @@ export interface PacksNewHandlerArgs {
 // Main Handler
 // -----------------------------------------------------------------------------
 
-export const handlePacksNew = (args: PacksNewHandlerArgs) =>
-  Effect.gen(function* () {
+export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: PacksNewHandlerArgs) {
     const ws = yield* Workspace;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -134,4 +133,4 @@ export const handlePacksNew = (args: PacksNewHandlerArgs) =>
     });
 
     yield* log.success(`Created pack ${fqn}`);
-  }).pipe(Effect.withSpan("PacksNew.handle"));
+  });

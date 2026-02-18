@@ -36,8 +36,7 @@ export interface ListHandlerArgs {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const handleList = (args: ListHandlerArgs) =>
-  Effect.gen(function* () {
+export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
     const log = yield* Log;
     const ws = yield* Workspace;
     const skills = yield* ws.getLockedSkills();
@@ -59,4 +58,4 @@ export const handleList = (args: ListHandlerArgs) =>
       const agents = entry.agents.length > 0 ? entry.agents.join(", ") : "none";
       yield* log.message(`${name}  (${entry.type})  [${agents}]`);
     }
-  }).pipe(Effect.withSpan("List.handle"));
+  });

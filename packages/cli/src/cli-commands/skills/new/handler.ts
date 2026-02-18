@@ -55,8 +55,7 @@ Describe what this skill does and when to use it.
 // Main Handler
 // -----------------------------------------------------------------------------
 
-export const handleSkillsNew = (args: SkillsNewHandlerArgs) =>
-  Effect.gen(function* () {
+export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (args: SkillsNewHandlerArgs) {
     const ws = yield* Workspace;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -189,4 +188,4 @@ export const handleSkillsNew = (args: SkillsNewHandlerArgs) =>
     );
 
     yield* log.success(`Created skill ${fqn}`);
-  }).pipe(Effect.withSpan("SkillsNew.handle"));
+  });

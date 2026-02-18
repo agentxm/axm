@@ -63,8 +63,7 @@ type ForkOp = CopySkillOperation | PublishSkillOperation | InstallSkillOperation
 /**
  * Handles the `axm skills fork` command.
  */
-export const handleFork = (args: ForkHandlerArgs) =>
-  Effect.gen(function* () {
+export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs) {
     const ws = yield* Workspace;
     const path = yield* Path.Path;
     const log = yield* Log;
@@ -281,4 +280,4 @@ export const handleFork = (args: ForkHandlerArgs) =>
     });
 
     yield* log.success("Done");
-  }).pipe(Effect.withSpan("Fork.handle"));
+  });

@@ -54,22 +54,6 @@ skills:
       - opencode
     installedAt: 2026-02-15T00:07:25.644Z
     updatedAt: 2026-02-15T00:07:25.647Z
-  vercel-composition-patterns:
-    type: github
-    owner: vercel-labs
-    repo: agent-skills
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-18T19:38:55.687Z
-    updatedAt: 2026-02-18T19:38:55.695Z
-    gitTreeHash: bf90d0a4b83ea054653350f9c67f6de235d3a368
 packs:
   testing:
     type: registry

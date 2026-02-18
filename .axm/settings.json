@@ -32,8 +32,7 @@
     "effect-errors": "@axm/effect-errors",
     "testing-basics": "@axm/testing-basics",
     "testing-handler": "@axm/testing-handler",
-    "testing-unit": "@axm/testing-unit",
-    "vercel-composition-patterns": "github:vercel-labs/agent-skills"
+    "testing-unit": "@axm/testing-unit"
   },
   "packs": {
     "effect": "@axm/effect",

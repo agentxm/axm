@@ -39,44 +39,44 @@ export interface ResolvedBuiltinPack {
  * Reads axm-pack.json relative to this module's location.
  */
 export const resolveBuiltinPack = Effect.fn("BuiltinPack.resolve")(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
 
-    // Resolve paths relative to this module
-    const moduleDir = path.dirname(new URL(import.meta.url).pathname);
-    const manifestPath = path.join(moduleDir, "axm-pack.json");
-    const skillsDir = path.join(moduleDir, "skills");
+  // Resolve paths relative to this module
+  const moduleDir = path.dirname(new URL(import.meta.url).pathname);
+  const manifestPath = path.join(moduleDir, "axm-pack.json");
+  const skillsDir = path.join(moduleDir, "skills");
 
-    // Read and parse manifest
-    const content = yield* fs.readFileString(manifestPath).pipe(
-      Effect.mapError((e) =>
-        makeCliError({
-          code: "BUILTIN_PACK_READ_FAILED",
-          what: "Failed to read builtin pack manifest",
-          cause: e,
-        }),
-      ),
-    );
+  // Read and parse manifest
+  const content = yield* fs.readFileString(manifestPath).pipe(
+    Effect.mapError((e) =>
+      makeCliError({
+        code: "BUILTIN_PACK_READ_FAILED",
+        what: "Failed to read builtin pack manifest",
+        cause: e,
+      }),
+    ),
+  );
 
-    const json = yield* Effect.try({
-      try: () => JSON.parse(content) as unknown,
-      catch: (e) =>
-        makeCliError({
-          code: "BUILTIN_PACK_PARSE_FAILED",
-          what: "Failed to parse builtin pack manifest",
-          cause: e,
-        }),
-    });
-
-    const manifest = yield* Schema.decodeUnknown(PackManifestSchema)(json).pipe(
-      Effect.mapError((e) =>
-        makeCliError({
-          code: "BUILTIN_PACK_PARSE_FAILED",
-          what: "Failed to validate builtin pack manifest",
-          cause: e,
-        }),
-      ),
-    );
-
-    return { manifest, version: manifest.version, skillsDir } satisfies ResolvedBuiltinPack;
+  const json = yield* Effect.try({
+    try: () => JSON.parse(content) as unknown,
+    catch: (e) =>
+      makeCliError({
+        code: "BUILTIN_PACK_PARSE_FAILED",
+        what: "Failed to parse builtin pack manifest",
+        cause: e,
+      }),
   });
+
+  const manifest = yield* Schema.decodeUnknown(PackManifestSchema)(json).pipe(
+    Effect.mapError((e) =>
+      makeCliError({
+        code: "BUILTIN_PACK_PARSE_FAILED",
+        what: "Failed to validate builtin pack manifest",
+        cause: e,
+      }),
+    ),
+  );
+
+  return { manifest, version: manifest.version, skillsDir } satisfies ResolvedBuiltinPack;
+});

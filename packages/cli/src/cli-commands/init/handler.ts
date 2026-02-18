@@ -27,29 +27,29 @@ import { Workspace } from "../../workspace/index.js";
  * @experimental This API is unstable and may change without notice.
  */
 export const handleInit = Effect.fn("Init.handle")(function* () {
-    const log = yield* Log;
-    const context = yield* Workspace;
-    const scopeLabel = context.global ? "user" : "project";
+  const log = yield* Log;
+  const context = yield* Workspace;
+  const scopeLabel = context.global ? "user" : "project";
 
-    // Show intro
-    yield* log.info(`axm init (${scopeLabel})`);
+  // Show intro
+  yield* log.info(`axm init (${scopeLabel})`);
 
-    // Display result
-    const agentIds = yield* context.getConfiguredAgents();
-    const agentNames = agentIds
-      .map((id) =>
-        Option.getOrElse(
-          Option.map(getAgentById(id), (a) => a.name),
-          () => id,
-        ),
-      )
-      .join(", ");
+  // Display result
+  const agentIds = yield* context.getConfiguredAgents();
+  const agentNames = agentIds
+    .map((id) =>
+      Option.getOrElse(
+        Option.map(getAgentById(id), (a) => a.name),
+        () => id,
+      ),
+    )
+    .join(", ");
 
-    if (agentIds.length > 0) {
-      yield* log.info(`Agents: ${agentNames}`);
-    }
-    yield* log.info(`Settings: ${context.path}/settings.json`);
-    yield* log.success(
-      agentIds.length > 0 ? `Initialized with agents: ${agentNames}` : "Workspace initialized",
-    );
-  }, Effect.asVoid);
+  if (agentIds.length > 0) {
+    yield* log.info(`Agents: ${agentNames}`);
+  }
+  yield* log.info(`Settings: ${context.path}/settings.json`);
+  yield* log.success(
+    agentIds.length > 0 ? `Initialized with agents: ${agentNames}` : "Workspace initialized",
+  );
+}, Effect.asVoid);

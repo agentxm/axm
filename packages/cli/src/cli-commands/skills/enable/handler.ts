@@ -32,75 +32,75 @@ export interface EnableHandlerArgs {
 // -----------------------------------------------------------------------------
 
 export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHandlerArgs) {
-    const ws = yield* Workspace;
-    const log = yield* Log;
+  const ws = yield* Workspace;
+  const log = yield* Log;
 
-    yield* log.info("axm skills enable");
+  yield* log.info("axm skills enable");
 
-    // Load configured skills
-    const configuredSkills = yield* ws.getConfiguredSkills();
-    const entry = configuredSkills[args.name];
+  // Load configured skills
+  const configuredSkills = yield* ws.getConfiguredSkills();
+  const entry = configuredSkills[args.name];
 
-    // Validate: skill exists
-    if (entry === undefined) {
-      return yield* makeCliError({
-        code: "SKILL_NOT_FOUND",
-        what: `Skill '${args.name}' not found`,
-        howToFix: "Run `axm skills list` to see available skills",
-      });
-    }
+  // Validate: skill exists
+  if (entry === undefined) {
+    return yield* makeCliError({
+      code: "SKILL_NOT_FOUND",
+      what: `Skill '${args.name}' not found`,
+      howToFix: "Run `axm skills list` to see available skills",
+    });
+  }
 
-    // Validate: skill is managed
-    if (!entry.managed) {
-      return yield* makeCliError({
-        code: "SKILL_NOT_MANAGED",
-        what: `Cannot enable unmanaged skill '${args.name}'`,
-        howToFix: "Only managed skills (installed via axm) can be enabled/disabled",
-      });
-    }
+  // Validate: skill is managed
+  if (!entry.managed) {
+    return yield* makeCliError({
+      code: "SKILL_NOT_MANAGED",
+      what: `Cannot enable unmanaged skill '${args.name}'`,
+      howToFix: "Only managed skills (installed via axm) can be enabled/disabled",
+    });
+  }
 
-    // Validate: skill is currently disabled
-    if (entry.enabled) {
-      yield* log.info(`Skill '${args.name}' is already enabled`);
-      yield* log.success("Nothing to do.");
-      return;
-    }
+  // Validate: skill is currently disabled
+  if (entry.enabled) {
+    yield* log.info(`Skill '${args.name}' is already enabled`);
+    yield* log.success("Nothing to do.");
+    return;
+  }
 
-    // Check if this is a promoted transitive skill (no lock entry)
-    const lockEntry = yield* ws.getLockedSkill(args.name);
-    if (Option.isNone(lockEntry)) {
-      // Promoted transitive skill — just update settings entry
-      yield* ws.updateSkillEntry(args.name, (e) => ({ ...e, enabled: true }));
-      yield* log.success("Done");
-      return;
-    }
-
-    // Build operation
-    const op = {
-      name: "enable-skill",
-      args: { skillName: args.name },
-    } satisfies EnableSkillOperation;
-
-    // Build single-step plan
-    const plan: Plan<EnableSkillOperation> = {
-      name: "Enable skill",
-      description: Option.some(`Enable ${args.name}`),
-      jobs: [
-        {
-          concurrency: 1,
-          steps: [
-            {
-              _tag: "PlannedJobStep",
-              operation: op,
-              expectedResult: { result: "success", message: `Enabled ${args.name}` },
-              label: args.name,
-            },
-          ],
-        },
-      ],
-    };
-
-    yield* ws.resolvePlan(plan, { "enable-skill": enableSkill });
-
+  // Check if this is a promoted transitive skill (no lock entry)
+  const lockEntry = yield* ws.getLockedSkill(args.name);
+  if (Option.isNone(lockEntry)) {
+    // Promoted transitive skill — just update settings entry
+    yield* ws.updateSkillEntry(args.name, (e) => ({ ...e, enabled: true }));
     yield* log.success("Done");
-  });
+    return;
+  }
+
+  // Build operation
+  const op = {
+    name: "enable-skill",
+    args: { skillName: args.name },
+  } satisfies EnableSkillOperation;
+
+  // Build single-step plan
+  const plan: Plan<EnableSkillOperation> = {
+    name: "Enable skill",
+    description: Option.some(`Enable ${args.name}`),
+    jobs: [
+      {
+        concurrency: 1,
+        steps: [
+          {
+            _tag: "PlannedJobStep",
+            operation: op,
+            expectedResult: { result: "success", message: `Enabled ${args.name}` },
+            label: args.name,
+          },
+        ],
+      },
+    ],
+  };
+
+  yield* ws.resolvePlan(plan, { "enable-skill": enableSkill });
+
+  yield* log.success("Done");
+});

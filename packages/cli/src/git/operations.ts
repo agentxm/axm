@@ -85,20 +85,20 @@ export const cloneRepo = Effect.fn("Git.cloneRepo")(function* (
   destination: string,
   ref?: string,
 ) {
-    // Clone the repository
-    yield* Effect.tryPromise({
-      try: () => createGit().clone(url, destination),
-      catch: mapGitError("clone", `Failed to clone ${url}`),
-    });
-
-    // If ref provided, checkout that ref
-    if (ref) {
-      yield* Effect.tryPromise({
-        try: () => createGit(destination).checkout(ref),
-        catch: mapGitError("checkout", `Failed to checkout ref '${ref}'`),
-      });
-    }
+  // Clone the repository
+  yield* Effect.tryPromise({
+    try: () => createGit().clone(url, destination),
+    catch: mapGitError("clone", `Failed to clone ${url}`),
   });
+
+  // If ref provided, checkout that ref
+  if (ref) {
+    yield* Effect.tryPromise({
+      try: () => createGit(destination).checkout(ref),
+      catch: mapGitError("checkout", `Failed to checkout ref '${ref}'`),
+    });
+  }
+});
 
 /**
  * Shallow clone a git repository (depth 1, single branch).

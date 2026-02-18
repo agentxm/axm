@@ -46,43 +46,43 @@ export interface UninstallPackHandlerArgs {
 export const handleUninstallPack = Effect.fn("UninstallPack.handle")(function* (
   args: UninstallPackHandlerArgs,
 ) {
-    const ws = yield* Workspace;
-    const log = yield* Log;
+  const ws = yield* Workspace;
+  const log = yield* Log;
 
-    yield* log.info("axm packs uninstall");
+  yield* log.info("axm packs uninstall");
 
-    // Step 1: Load lockfile
-    const lockedPacks = yield* ws.getLockedPacks();
-    const lockedSkills = yield* ws.getLockedSkills();
-    const lockfile = { lockfileVersion: 1, skills: lockedSkills, packs: lockedPacks };
+  // Step 1: Load lockfile
+  const lockedPacks = yield* ws.getLockedPacks();
+  const lockedSkills = yield* ws.getLockedSkills();
+  const lockfile = { lockfileVersion: 1, skills: lockedSkills, packs: lockedPacks };
 
-    // Step 2: Expand glob pattern
-    const packNames = expandGlob(args.name, Object.keys(lockedPacks));
+  // Step 2: Expand glob pattern
+  const packNames = expandGlob(args.name, Object.keys(lockedPacks));
 
-    // Handle glob matching zero packs
-    if (args.name.includes("*") && packNames.length === 0) {
-      yield* log.warn(`No packs matched pattern "${args.name}"`);
-      yield* log.success("Nothing to uninstall.");
-      return;
-    }
+  // Handle glob matching zero packs
+  if (args.name.includes("*") && packNames.length === 0) {
+    yield* log.warn(`No packs matched pattern "${args.name}"`);
+    yield* log.success("Nothing to uninstall.");
+    return;
+  }
 
-    // For literal names not in lockfile, still build an operation (plan marks as no-op)
-    const names = packNames.length > 0 ? packNames : [args.name];
+  // For literal names not in lockfile, still build an operation (plan marks as no-op)
+  const names = packNames.length > 0 ? packNames : [args.name];
 
-    // Step 3: Build operations
-    const ops = names.map(
-      (name) =>
-        ({
-          name: "uninstall-pack",
-          args: { packName: name },
-        }) satisfies UninstallPackOperation,
-    );
+  // Step 3: Build operations
+  const ops = names.map(
+    (name) =>
+      ({
+        name: "uninstall-pack",
+        args: { packName: name },
+      }) satisfies UninstallPackOperation,
+  );
 
-    // Step 4: Build plan
-    const plan = buildUninstallPlan(ops, lockfile, "Uninstall pack(s)", Option.none());
+  // Step 4: Build plan
+  const plan = buildUninstallPlan(ops, lockfile, "Uninstall pack(s)", Option.none());
 
-    // Step 5: Resolve plan via workspace
-    yield* ws.resolvePlan(plan, { "uninstall-pack": uninstallPack });
+  // Step 5: Resolve plan via workspace
+  yield* ws.resolvePlan(plan, { "uninstall-pack": uninstallPack });
 
-    yield* log.success("Done");
-  });
+  yield* log.success("Done");
+});

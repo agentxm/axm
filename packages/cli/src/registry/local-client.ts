@@ -130,16 +130,11 @@ export const createLocalRegistryClient = (
             requestedTypes,
             (extType) =>
               Effect.gen(function* () {
-                const typeDir = path.join(
-                  extensionsDir,
-                  args.scope,
-                  pluralizeType(extType),
-                );
+                const typeDir = path.join(extensionsDir, args.scope, pluralizeType(extType));
                 const typeDirExists = yield* fs
                   .exists(typeDir)
                   .pipe(Effect.orElseSucceed(() => false));
-                if (!typeDirExists)
-                  return [] as ReadonlyArray<RegistryExtensionManifest>;
+                if (!typeDirExists) return [] as ReadonlyArray<RegistryExtensionManifest>;
 
                 const nameDirs = yield* fs
                   .readDirectory(typeDir)

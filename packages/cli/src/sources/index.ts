@@ -85,11 +85,7 @@ export type {
 export { isGitHostingProviderSource } from "./utils.js";
 
 // Provider types
-export type {
-  ExtensionFiles,
-  FindOptions,
-  SourceHostProvider,
-} from "./provider.js";
+export type { ExtensionFiles, FindOptions, SourceHostProvider } from "./provider.js";
 
 // Provider implementations
 export {

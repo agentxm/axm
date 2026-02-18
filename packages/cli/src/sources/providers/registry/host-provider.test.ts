@@ -164,8 +164,8 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     ];
 
     const client = createMockClient({
-      getExtensionsByScope: (options) => {
-        capturedOptions = options;
+      getExtensionsByScope: (args) => {
+        capturedOptions = args;
         return Effect.succeed(toResult(entries));
       },
     });
@@ -318,8 +318,8 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     let capturedOptions: GetExtensionsByScopeArgs | undefined;
 
     const client = createMockClient({
-      getExtensionsByScope: (options) => {
-        capturedOptions = options;
+      getExtensionsByScope: (args) => {
+        capturedOptions = args;
         return Effect.succeed(toResult([]));
       },
     });

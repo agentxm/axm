@@ -117,12 +117,12 @@ export const createLocalRegistryClient = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
 ): RegistryClient => ({
-  getExtensionsByScope: (options) =>
+  getExtensionsByScope: (args) =>
     Effect.gen(function* () {
       const findForName = (name: string) =>
         Effect.gen(function* () {
           const requestedTypes: ReadonlyArray<ExtensionType> =
-            options.types.length === 0 ? ["skill", "mcp-server", "pack"] : options.types;
+            args.types.length === 0 ? ["skill", "mcp-server", "pack"] : args.types;
 
           const extensionsDir = path.join(registryRoot, "extensions");
 
@@ -132,7 +132,7 @@ export const createLocalRegistryClient = (
               Effect.gen(function* () {
                 const typeDir = path.join(
                   extensionsDir,
-                  options.scope,
+                  args.scope,
                   pluralizeType(extType),
                 );
                 const typeDirExists = yield* fs
@@ -159,16 +159,16 @@ export const createLocalRegistryClient = (
         });
 
       const all: ReadonlyArray<RegistryExtensionManifest> =
-        options.names.length > 0
-          ? yield* Effect.forEach(options.names, (name) => findForName(name), {
+        args.names.length > 0
+          ? yield* Effect.forEach(args.names, (name) => findForName(name), {
               concurrency: "unbounded",
             }).pipe(Effect.map(Array.flatten))
           : yield* findForName("");
 
       const total = all.length;
-      const offset = options.offset;
+      const offset = args.offset;
       const sliced = all.slice(offset);
-      const extensions = Option.match(options.limit, {
+      const extensions = Option.match(args.limit, {
         onNone: () => sliced,
         onSome: (l) => sliced.slice(0, l),
       });

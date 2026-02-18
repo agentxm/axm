@@ -191,7 +191,7 @@ export interface RegistryExtensionManifest {
  */
 export interface RegistryClient {
   readonly getExtensionsByScope: (
-    options: GetExtensionsByScopeArgs,
+    args: GetExtensionsByScopeArgs,
   ) => Effect.Effect<GetExtensionsByScopeResponse, CliError>;
   readonly scopeExists: (scope: string) => Effect.Effect<ScopeExistsResponse, CliError>;
   readonly getExtensionPackage: (

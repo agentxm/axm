@@ -10,6 +10,11 @@ import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import { makeLogTestLayer } from "../../../tui/index.js";
 import { makeCliError } from "../../../cli-error/index.js";
+import {
+  SourceHostProviders,
+  type SourceHostProvidersService,
+  type ExtensionRef,
+} from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
 import type { SkillPathSource } from "../skill-paths.js";
 import type { InstallSkillOperation } from "../operations.js";
@@ -132,7 +137,31 @@ const withServices = (
 ) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOverrides);
   const [logLayer] = makeLogTestLayer();
-  return Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs), logLayer);
+  const sourceProviders: SourceHostProvidersService = {
+    find: () => Effect.succeed<ReadonlyArray<ExtensionRef>>([]),
+    fetch: (ref) =>
+      Effect.gen(function* () {
+        if (ref.refType === "git-hosted" || ref.refType === "local") {
+          return { directory: new URL(ref.location).pathname };
+        }
+        if (ref.refType === "registry") {
+          return { directory: ref.source.location.pathname };
+        }
+        return yield* makeCliError({
+          code: "SOURCE_FETCH_FAILED",
+          what: "Builtin refs are not fetchable in tests",
+        });
+      }),
+    cloneUrl: () => Option.none(),
+    origin: (source) =>
+      source.type === "registry" ? source.location.href : source.type === "local" ? source.path : source.type,
+  };
+  return Layer.mergeAll(
+    NodeContext.layer,
+    Workspace.layer(mockWs),
+    logLayer,
+    Layer.succeed(SourceHostProviders, sourceProviders),
+  );
 };
 
 /** Creates a minimal AddSkillOperation for testing using the new ref-based args. */
@@ -156,7 +185,7 @@ const makeOp = (
     };
   } = {},
 ): InstallSkillOperation => {
-  const source =
+  const sourceInput =
     overrides.source ??
     ({ type: "local", path: "/tmp/source" } as import("../../../sources/types.js").Source);
   const skill = overrides.skill ?? {
@@ -165,6 +194,10 @@ const makeOp = (
     metadata: Option.none(),
   };
   const location = overrides.location ?? `file://${overrides.sourcePath ?? ""}`;
+  const source: import("../../../sources/types.js").Source =
+    sourceInput.type === "registry" && overrides.location !== undefined
+      ? { ...sourceInput, location: new URL(overrides.location) }
+      : sourceInput;
   const version = overrides.version ?? Option.none();
   const gitTreeSha = overrides.gitTreeSha ?? Option.none();
 
@@ -206,9 +239,6 @@ const makeOp = (
     }
   })();
 
-  // For registry sources, the fetchedLocation is the location
-  const fetchedLocation = ref.refType === "registry" ? location : undefined;
-
   return {
     name: "install-skill",
     args: {
@@ -219,7 +249,6 @@ const makeOp = (
         versionConstraint: overrides.versionConstraint,
       }),
       ...(overrides.skipSettings !== undefined && { skipSettings: overrides.skipSettings }),
-      ...(fetchedLocation !== undefined && { fetchedLocation }),
     },
   };
 };

@@ -13,7 +13,6 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Path from "@effect/platform/Path";
 import {
   resolveSourcePattern,
   SourceHostProviders,
@@ -34,7 +33,6 @@ import { copySkill } from "../copy-skill.js";
 import { installSkill } from "../install/install-skill.js";
 import { publishSkill } from "../publish-skill.js";
 import { expandGlobs } from "../../../skills/index.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
 import type { SkillExtensionRef } from "../../../sources/index.js";
 
@@ -65,11 +63,9 @@ type ForkOp = CopySkillOperation | PublishSkillOperation | InstallSkillOperation
  */
 export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs) {
   const ws = yield* Workspace;
-  const path = yield* Path.Path;
   const log = yield* Log;
   const spinnerSvc = yield* Spinner;
   const sources = yield* SourceHostProviders;
-  const base = path.dirname(ws.path);
 
   yield* log.info("axm skills fork");
 
@@ -194,7 +190,8 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
       }),
     );
   }
-  const registryName = registrySources[0]!.name;
+  const registrySource = registrySources[0]!;
+  const registryName = registrySource.name;
 
   // Step 7: Build plan — fork + publish + install per skill (3 sequential ops)
   const steps: ReadonlyArray<PlannedJobStep<ForkOp>> = Array.flatMap(filtered, (ref) => {
@@ -212,16 +209,13 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
       },
       source: {
         type: "registry" as const,
-        // Placeholder — registry URL unused; install reads from fetchedLocation
-        location: new URL("file://localhost"),
+        location: registrySource.location,
       },
       scope,
       name: ref.skill.name,
       version: "0.1.0",
       integrity: "",
     };
-    const fetchedLocation =
-      "file://" + path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "skills", ref.skill.name, "src");
     return [
       {
         _tag: "PlannedJobStep" as const,
@@ -257,7 +251,6 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
           args: {
             ref: registryRef,
             force: true,
-            fetchedLocation,
           },
         } satisfies InstallSkillOperation,
         expectedResult: { result: "success", message: `Installed ${ref.skill.name}` },

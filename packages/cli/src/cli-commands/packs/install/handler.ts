@@ -2,27 +2,14 @@
  * Install command handler - Effect-based orchestration for `axm packs install`.
  *
  * Packs are registry-only. Flow:
- * 1. Parse source (must be registry)
- * 2. Registry guard (ensure registry configured)
- * 3. Fetch pack archive from registry
- * 4. Extract to managed location
- * 5. Read manifest to discover referenced extensions
- * 6. Build cascading install plan (pack + referenced extensions)
- * 7. Execute plan
+ * 1. Parse input (validate format: @scope/packs/name, bare name)
+ * 2. Resolve to registry source
+ * 3. sources.find() → PackExtensionRef
+ * 4. buildInstallPlan → ws.resolvePlan()
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-/*
- TODO:
- - [ ] warn/error if pack dependencies overwrite another extension?
-   - might vary by extension type - skills might overwrite by name
-   - version diffs?
-
- */
-
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
 import {
   parseInputPattern,
   resolveSource,
@@ -31,19 +18,12 @@ import {
 } from "../../../sources/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import { PackManifestSchema } from "../../../extensions/packs/manifest-schema.js";
-import type { InstallPackOperation } from "../operations.js";
 import { buildInstallPlan } from "./build-plan.js";
 import { installPack } from "./install-pack.js";
 import { installSkill } from "../../skills/install/install-skill.js";
-import type { InstallSkillOperation } from "../../skills/operations.js";
-import { copySkillDirectory } from "../../skills/copy-skill-directory.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
-import { PACK_MANIFEST_FILENAME } from "../constants.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -53,7 +33,7 @@ import { PACK_MANIFEST_FILENAME } from "../constants.js";
  * Arguments for the packs install command.
  */
 export interface InstallPackHandlerArgs {
-  /** Source to install pack from (e.g., "@acme/frontend-tools") */
+  /** Source to install pack from (e.g., "@acme/packs/frontend-tools") */
   readonly source: string;
   /** Install to global ~/.axm/ instead of local .axm/ */
   readonly global: boolean;
@@ -64,6 +44,99 @@ export interface InstallPackHandlerArgs {
   /** Disable all prompts */
   readonly nonInteractive: Option.Option<boolean>;
 }
+
+// -----------------------------------------------------------------------------
+// Input Parsing
+// -----------------------------------------------------------------------------
+
+/**
+ * Parse pack install input into scope, name, and version constraint.
+ *
+ * Accepted formats:
+ * - `@scope/packs/pack-name` → fully qualified
+ * - `@scope/packs/pack-name@^2.0.0` → with version constraint
+ * - `pack-name` → resolved to `@defaultScope/packs/pack-name`
+ * - `pack-name@^2.0.0` → bare with version constraint
+ *
+ * Rejected:
+ * - `@scope/pack-name` (without `/packs/`) — ambiguous, could be a skill
+ * - Non-registry sources (local paths, github:, etc.)
+ */
+export const parsePackInput = (input: string) =>
+  Effect.gen(function* () {
+    const trimmed = input.trim();
+    const parsed = parseInputPattern(trimmed);
+
+    // Handle bare name (e.g., "my-pack") — resolve with default scope
+    if (Option.isSome(parsed) && parsed.value.pattern.pattern === "name-input") {
+      const ws = yield* Workspace;
+      const scope = yield* ws.getConfiguredScope();
+      return {
+        scope,
+        packName: parsed.value.pattern.name,
+        versionConstraint: Option.none<string>(),
+        resolvedInput: `${scope}/packs/${parsed.value.pattern.name}`,
+      };
+    }
+
+    // Handle bare name with version constraint (e.g., "my-pack@^2.0.0")
+    // parseInputPattern returns None for "name@constraint" — handle manually
+    if (Option.isNone(parsed) && !trimmed.startsWith("@") && trimmed.includes("@")) {
+      const atIndex = trimmed.indexOf("@");
+      const name = trimmed.slice(0, atIndex);
+      const constraint = trimmed.slice(atIndex + 1);
+      if (name && constraint && /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(name)) {
+        const ws = yield* Workspace;
+        const scope = yield* ws.getConfiguredScope();
+        return {
+          scope,
+          packName: name,
+          versionConstraint: Option.some(constraint),
+          resolvedInput: `${scope}/packs/${name}@${constraint}`,
+        };
+      }
+    }
+
+    // Handle @scope/packs/pack-name[@constraint]
+    if (Option.isSome(parsed) && parsed.value.pattern.pattern === "registry-pattern-input") {
+      const pat = parsed.value.pattern;
+
+      // Reject @scope/pack-name (without /packs/ segment)
+      if (Option.isNone(pat.type) || pat.type.value !== "packs") {
+        return yield* makeCliError({
+          code: "PACK_SOURCE_INVALID_FORMAT",
+          what: "Pack source must include /packs/ segment",
+          details: [`Provided: ${trimmed}`],
+          howToFix:
+            "Use @scope/packs/pack-name format. The /packs/ segment distinguishes packs from skills.",
+        });
+      }
+
+      if (Option.isNone(pat.name)) {
+        return yield* makeCliError({
+          code: "PACK_SOURCE_MISSING_NAME",
+          what: "Pack source must include a pack name",
+          details: [`Provided: ${trimmed}`],
+          howToFix: "Use @scope/packs/pack-name format.",
+        });
+      }
+
+      return {
+        scope: pat.scope,
+        packName: pat.name.value,
+        versionConstraint: pat.versionConstraint,
+        resolvedInput: trimmed,
+      };
+    }
+
+    // Reject everything else (local paths, github:, URLs, etc.)
+    return yield* makeCliError({
+      code: "PACK_SOURCE_NOT_REGISTRY",
+      what: "Packs can only be installed from a registry",
+      details: [`Provided: ${trimmed}`],
+      howToFix: "Use @scope/packs/pack-name or just pack-name (resolved to default scope).",
+    });
+  });
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -82,56 +155,15 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     const sources = yield* SourceHostProviders;
     const log = yield* Log;
     const spinnerSvc = yield* Spinner;
-    const path = yield* Path.Path;
-    const fs = yield* FileSystem.FileSystem;
 
     yield* log.info(`axm packs install (${scopeLabel})`);
 
-    // Step 1: Parse source (must be registry)
+    // Step 1: Parse and validate input
     const parseHandle = yield* spinnerSvc.start("Parsing source...");
-    const source = yield* resolveSource(args.source).pipe(
-      Effect.mapError((error) =>
-        makeCliError({
-          code: "INVALID_SOURCE",
-          what: `Invalid source: ${error.message}`,
-          details: [`Provided: ${args.source || "(empty)"}`],
-          howToFix:
-            "Packs must be installed from a registry. Use format: @scope/pack-name or @scope/pack-name@version",
-          cause: error,
-        }),
-      ),
-    );
-
-    if (source.type !== "registry") {
-      yield* parseHandle.stop("Failed");
-      return yield* Effect.fail(
-        makeCliError({
-          code: "PACK_SOURCE_NOT_REGISTRY",
-          what: "Packs can only be installed from a registry",
-          details: [`Provided source type: ${source.type}`],
-          howToFix: "Use a registry source: @scope/pack-name or @scope/pack-name@version",
-        }),
-      );
-    }
-    yield* parseHandle.stop(`Source: ${sources.origin(source)} (registry)`);
-    const parsedPattern = parseInputPattern(args.source.trim());
-    const packName =
-      Option.isSome(parsedPattern) &&
-      parsedPattern.value.pattern.pattern === "registry-pattern-input"
-        ? Option.getOrNull(parsedPattern.value.pattern.name)
-        : null;
-    const packVersionConstraint =
-      Option.isSome(parsedPattern) &&
-      parsedPattern.value.pattern.pattern === "registry-pattern-input"
-        ? parsedPattern.value.pattern.versionConstraint
-        : Option.none<string>();
-    if (packName === null) {
-      return yield* makeCliError({
-        code: "PACK_SOURCE_MISSING_NAME",
-        what: "Pack source must include a pack name",
-        howToFix: "Use @scope/packs/name or @scope/name",
-      });
-    }
+    const { scope, packName, versionConstraint, resolvedInput } = yield* parsePackInput(
+      args.source,
+    ).pipe(Effect.tapError(() => parseHandle.stop("Failed")));
+    yield* parseHandle.stop(`Pack: ${scope}/packs/${packName}`);
 
     // Step 2: Check if already installed (unless --force)
     if (!args.force) {
@@ -143,257 +175,81 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
       }
     }
 
-    // Step 3: Registry guard
-    yield* registryGuard;
-
-    // Step 4: Discover and fetch pack from registry
-    const discoverHandle = yield* spinnerSvc.start("Fetching pack from registry...");
-    const findOptions = {
-      skillNames: [packName] satisfies ReadonlyArray<string>,
-      agents: [] satisfies ReadonlyArray<string>,
-      type: "pack" as const,
-    };
-    const refs = yield* sources.find(source, findOptions).pipe(
+    // Step 3: Resolve source and registry guard
+    const source = yield* resolveSource(resolvedInput).pipe(
       Effect.mapError((error) =>
         makeCliError({
-          code: "PACK_FETCH_FAILED",
-          what: `Failed to fetch pack from registry: ${error.message}`,
-          details: [`Pack: ${sources.origin(source)}`],
-          howToFix: "Verify the pack name and registry configuration.",
+          code: "INVALID_SOURCE",
+          what: `Invalid source: ${error.message}`,
+          details: [`Provided: ${args.source || "(empty)"}`],
+          howToFix: "Use @scope/packs/pack-name or just pack-name.",
           cause: error,
         }),
       ),
-      Effect.tapError(() => discoverHandle.stop("Failed")),
     );
+
+    if (source.type !== "registry") {
+      return yield* makeCliError({
+        code: "PACK_SOURCE_NOT_REGISTRY",
+        what: "Packs can only be installed from a registry",
+        details: [`Provided source type: ${source.type}`],
+        howToFix: "Use a registry source: @scope/packs/pack-name",
+      });
+    }
+
+    yield* registryGuard;
+
+    // Step 4: Discover pack from registry
+    const discoverHandle = yield* spinnerSvc.start("Fetching pack from registry...");
+    const refs = yield* sources
+      .find(source, {
+        skillNames: [packName] satisfies ReadonlyArray<string>,
+        type: "pack" as const,
+      })
+      .pipe(
+        Effect.mapError((error) =>
+          makeCliError({
+            code: "PACK_FETCH_FAILED",
+            what: `Failed to fetch pack from registry: ${error.message}`,
+            details: [`Pack: ${scope}/packs/${packName}`],
+            howToFix: "Verify the pack name and registry configuration.",
+            cause: error,
+          }),
+        ),
+        Effect.tapError(() => discoverHandle.stop("Failed")),
+      );
 
     if (refs.length === 0) {
       yield* discoverHandle.stop("Not found");
-      return yield* Effect.fail(
-        makeCliError({
-          code: "PACK_NOT_FOUND",
-          what: `Pack "${packName}" not found in registry`,
-          howToFix: "Verify the pack name and check available packs.",
-        }),
-      );
+      return yield* makeCliError({
+        code: "PACK_NOT_FOUND",
+        what: `Pack "${packName}" not found in registry`,
+        howToFix: "Verify the pack name and check available packs.",
+      });
     }
 
-    // Fetch the pack archive
     const packRef = refs[0]!;
     if (packRef.type !== "pack" || packRef.refType !== "registry") {
-      return yield* Effect.fail(
-        makeCliError({
-          code: "PACK_FETCH_FAILED",
-          what: "Registry did not return a valid pack reference",
-        }),
-      );
+      return yield* makeCliError({
+        code: "PACK_FETCH_FAILED",
+        what: "Registry did not return a valid pack reference",
+      });
     }
-    const registryScope = packRef.scope;
-    const fetched = yield* sources.fetch(packRef).pipe(
-      Effect.mapError((error) =>
-        makeCliError({
-          code: "PACK_FETCH_FAILED",
-          what: `Failed to download pack: ${error.message}`,
-          cause: error,
-        }),
-      ),
-      Effect.tapError(() => discoverHandle.stop("Failed")),
-    );
-    yield* discoverHandle.stop("Fetched pack");
+    yield* discoverHandle.stop("Found pack");
 
-    // Step 5: Extract to managed location
-    const extractHandle = yield* spinnerSvc.start("Extracting pack...");
-    const base = ws.baseDir;
-    const packDir = path.join(base, REGISTRY_EXTENSIONS_DIR, registryScope, "packs", packName);
-
-    yield* copySkillDirectory(fetched.directory, packDir).pipe(
-      Effect.mapError((e) =>
-        makeCliError({
-          code: "PACK_EXTRACT_FAILED",
-          what: `Failed to extract pack to ${packDir}`,
-          cause: e,
-        }),
-      ),
-      Effect.tapError(() => extractHandle.stop("Failed")),
-    );
-    yield* extractHandle.stop("Extracted");
-
-    // Step 6: Read manifest to discover referenced extensions
-    const manifestPath = path.join(packDir, PACK_MANIFEST_FILENAME);
-    const manifestExists = yield* fs
-      .exists(manifestPath)
-      .pipe(Effect.catchAll(() => Effect.succeed(false)));
-
-    if (!manifestExists) {
-      return yield* Effect.fail(
-        makeCliError({
-          code: "PACK_MISSING_MANIFEST",
-          what: `Pack archive does not contain ${PACK_MANIFEST_FILENAME}`,
-          details: [`Expected at: ${manifestPath}`],
-          howToFix: "The pack archive may be corrupted. Try reinstalling.",
-        }),
-      );
-    }
-
-    const manifestContent = yield* fs.readFileString(manifestPath).pipe(
-      Effect.mapError((e) =>
-        makeCliError({
-          code: "PACK_MANIFEST_READ_FAILED",
-          what: `Failed to read pack manifest: ${manifestPath}`,
-          cause: e,
-        }),
-      ),
-    );
-
-    const manifestJson = yield* Effect.try({
-      try: () => JSON.parse(manifestContent) as unknown,
-      catch: (e) =>
-        makeCliError({
-          code: "PACK_MANIFEST_PARSE_FAILED",
-          what: "Failed to parse pack manifest JSON",
-          cause: e,
-        }),
-    });
-
-    const manifest = yield* Schema.decodeUnknown(PackManifestSchema)(manifestJson).pipe(
-      Effect.mapError((e) =>
-        makeCliError({
-          code: "PACK_MANIFEST_PARSE_FAILED",
-          what: "Pack manifest is invalid",
-          details: [e.message],
-          cause: e,
-        }),
-      ),
-    );
-
-    // Build resolved extension maps from manifest
-    const resolvedSkills: Record<string, string> = { ...(manifest.skills ?? {}) };
-    const resolvedCommands: Record<string, string> = { ...(manifest.commands ?? {}) };
-    const resolvedMcpServers: Record<string, string> = { ...(manifest["mcp-servers"] ?? {}) };
-
-    // Resolve version from pack ref (already narrowed to RegistryPackRef above)
-    const resolvedVersion = packRef.version;
-
-    // Step 7: Fetch skill dependencies from manifest
-    const skillEntries = Object.entries(resolvedSkills);
-    const skillOps = yield* Effect.forEach(
-      skillEntries,
-      ([fqn, constraint]) =>
-        Effect.gen(function* () {
-          // Append version constraint from manifest to the source string
-          // e.g., "@acme/code-review" + "^1.0.0" → "@acme/code-review@^1.0.0"
-          const sourceStr = constraint && constraint !== "*" ? `${fqn}@${constraint}` : fqn;
-          const skillSource = yield* resolveSource(sourceStr).pipe(
-            Effect.mapError((error) =>
-              makeCliError({
-                code: "PACK_DEPENDENCY_RESOLVE_FAILED",
-                what: `Failed to resolve pack dependency: ${fqn}`,
-                cause: error,
-              }),
-            ),
-          );
-
-          if (skillSource.type !== "registry") {
-            return yield* makeCliError({
-              code: "PACK_DEPENDENCY_RESOLVE_FAILED",
-              what: `Skill dependency "${fqn}" must be a registry source`,
-              howToFix: "Pack skill dependencies must use @scope/name format.",
-            });
-          }
-          const parsedSkill = parseInputPattern(sourceStr);
-          const skillName =
-            Option.isSome(parsedSkill) &&
-            parsedSkill.value.pattern.pattern === "registry-pattern-input"
-              ? Option.getOrNull(parsedSkill.value.pattern.name)
-              : null;
-          if (skillName === null) {
-            return yield* makeCliError({
-              code: "PACK_DEPENDENCY_RESOLVE_FAILED",
-              what: `Skill dependency "${fqn}" is missing a name`,
-            });
-          }
-
-          const skillFindOpts = {
-            skillNames: [skillName] satisfies ReadonlyArray<string>,
-            agents: [] satisfies ReadonlyArray<string>,
-            type: "skill" as const,
-          };
-          const skillRefs = yield* sources.find(skillSource, skillFindOpts).pipe(
-            Effect.mapError((error) =>
-              makeCliError({
-                code: "PACK_DEPENDENCY_FETCH_FAILED",
-                what: `Failed to discover skill dependency: ${fqn}`,
-                cause: error,
-              }),
-            ),
-          );
-
-          if (skillRefs.length === 0) {
-            return yield* makeCliError({
-              code: "PACK_DEPENDENCY_NOT_FOUND",
-              what: `Skill dependency "${fqn}" not found in registry`,
-              howToFix: "Verify the skill is published to the registry.",
-            });
-          }
-
-          const skillRef = skillRefs[0]!;
-
-          return {
-            ref: skillRef,
-            versionConstraint:
-              Option.isSome(parsedSkill) &&
-              parsedSkill.value.pattern.pattern === "registry-pattern-input"
-                ? parsedSkill.value.pattern.versionConstraint
-                : Option.none<string>(),
-          };
-        }),
-      { concurrency: "unbounded" },
-    );
-
-    // Build InstallSkillOperations from resolved skill deps
-    // Pack dependencies skip settings writes — they only appear in the lockfile
-    const skillInstallOps: ReadonlyArray<InstallSkillOperation> = skillOps.flatMap(
-      ({ ref, versionConstraint }) =>
-        ref.type !== "skill"
-          ? []
-          : [
-              {
-                name: "install-skill" as const,
-                args: {
-                  ref,
-                  force: args.force,
-                  versionConstraint,
-                  skipSettings: true,
-                },
-              },
-            ],
-    );
-
-    // Step 8: Build install plan
-    const op: InstallPackOperation = {
-      name: "install-pack",
-      args: {
-        packName,
-        scope: registryScope,
-        resolvedVersion,
-        integrity: "",
-        sourceName: "default",
-        resolvedSkills,
-        resolvedCommands,
-        resolvedMcpServers,
-        versionConstraint: packVersionConstraint,
-      },
-    };
-
+    // Step 5: Build and execute plan
     const lockedPacks = yield* ws.getLockedPacks();
     const lockedSkills = yield* ws.getLockedSkills();
     const lockfile = { lockfileVersion: 1, skills: lockedSkills, packs: lockedPacks };
 
-    const plan = buildInstallPlan(
-      [op, ...skillInstallOps],
+    const plan = buildInstallPlan({
+      ref: packRef,
+      skillOps: [],
       lockfile,
-      "Install pack",
-      Option.some(`Install pack ${sources.origin(source)}`),
-    );
+      name: "Install pack",
+      description: Option.some(`Install pack ${scope}/packs/${packName}`),
+      versionConstraint,
+    });
 
     yield* ws.resolvePlan(plan, { "install-pack": installPack, "install-skill": installSkill });
 

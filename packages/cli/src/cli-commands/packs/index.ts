@@ -7,7 +7,7 @@ export type {
   PublishPackOperation,
   PublishPackOperationArgs,
 } from "./operations.js";
-export { buildInstallPlan } from "./install/build-plan.js";
+export { buildInstallPlan, type BuildInstallPlanArgs } from "./install/build-plan.js";
 export {
   buildUninstallPlan,
   findOrphanedSkills,

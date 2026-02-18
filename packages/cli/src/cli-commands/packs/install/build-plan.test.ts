@@ -8,26 +8,35 @@ import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
 import type { Lockfile } from "../../../lockfile/schema.js";
 import type { InstallSkillOperation } from "../../skills/operations.js";
-import type { InstallPackOperation } from "../operations.js";
+import type { RegistryPackRef } from "../../../sources/types.js";
 import { buildInstallPlan } from "./build-plan.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-const makeOp = (name: string): InstallPackOperation => ({
-  name: "install-pack",
-  args: {
-    packName: name,
-    scope: "@acme",
-    resolvedVersion: "1.0.0",
-    integrity: "sha512-AAAA==",
-    sourceName: "local",
-    resolvedSkills: { [`@acme/skill-a`]: "1.0.0" },
-    resolvedCommands: {},
-    resolvedMcpServers: {},
-    versionConstraint: Option.none(),
+const makePackRef = (
+  name: string,
+  opts?: {
+    skills?: Readonly<Record<string, string>>;
+    commands?: Readonly<Record<string, string>>;
+    mcpServers?: Readonly<Record<string, string>>;
+    version?: string;
   },
+): RegistryPackRef => ({
+  type: "pack",
+  refType: "registry",
+  source: { type: "registry", location: new URL("file:///tmp/registry") },
+  pack: {
+    name,
+    skills: opts?.skills ?? {},
+    commands: opts?.commands ?? {},
+    mcpServers: opts?.mcpServers ?? {},
+  },
+  scope: "@acme",
+  name,
+  version: opts?.version ?? "1.0.0",
+  integrity: "sha512-AAAA==",
 });
 
 const emptyLockfile: Lockfile = {
@@ -95,12 +104,14 @@ const lockfileWithSkills = (...names: string[]): Lockfile => ({
 
 describe("buildInstallPlan", () => {
   it("marks new packs as expected success", () => {
-    const plan = buildInstallPlan(
-      [makeOp("my-pack")],
-      emptyLockfile,
-      "Install pack",
-      Option.none(),
-    );
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [],
+      lockfile: emptyLockfile,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
 
     expect(plan.jobs).toHaveLength(1);
     expect(plan.jobs[0]!.steps).toHaveLength(1);
@@ -112,12 +123,14 @@ describe("buildInstallPlan", () => {
   });
 
   it("marks already-installed packs as expected no-op", () => {
-    const plan = buildInstallPlan(
-      [makeOp("my-pack")],
-      lockfileWithPacks("my-pack"),
-      "Install pack",
-      Option.none(),
-    );
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [],
+      lockfile: lockfileWithPacks("my-pack"),
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
 
     expect(plan.jobs[0]!.steps[0]!._tag).toBe("PlannedJobStep");
     expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
@@ -126,64 +139,60 @@ describe("buildInstallPlan", () => {
     });
   });
 
-  it("produces empty plan from empty operations", () => {
-    const plan = buildInstallPlan([], emptyLockfile, "Install pack", Option.none());
+  it("produces plan with only pack step when no skill ops provided", () => {
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [],
+      lockfile: emptyLockfile,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
 
     expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.steps).toHaveLength(0);
+    expect(plan.jobs[0]!.steps).toHaveLength(1);
+    expect(plan.jobs[0]!.steps[0]!.operation.name).toBe("install-pack");
   });
 
   it("derives label from pack name", () => {
-    const plan = buildInstallPlan(
-      [makeOp("pack-a"), makeOp("pack-b")],
-      emptyLockfile,
-      "Install pack",
-      Option.none(),
-    );
+    const plan = buildInstallPlan({
+      ref: makePackRef("pack-a"),
+      skillOps: [],
+      lockfile: emptyLockfile,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
 
     expect(plan.jobs[0]!.steps[0]!.label).toBe("pack-a");
-    expect(plan.jobs[0]!.steps[1]!.label).toBe("pack-b");
   });
 
   it("passes through caller-provided name and description", () => {
-    const plan = buildInstallPlan(
-      [makeOp("my-pack")],
-      emptyLockfile,
-      "Install pack(s)",
-      Option.some("Install packs from registry"),
-    );
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [],
+      lockfile: emptyLockfile,
+      name: "Install pack(s)",
+      description: Option.some("Install packs from registry"),
+      versionConstraint: Option.none(),
+    });
 
     expect(plan.name).toBe("Install pack(s)");
     expect(plan.description).toEqual(Option.some("Install packs from registry"));
   });
 
   it("creates a single job with serial concurrency", () => {
-    const plan = buildInstallPlan(
-      [makeOp("a"), makeOp("b")],
-      emptyLockfile,
-      "Install pack",
-      Option.none(),
-    );
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [],
+      lockfile: emptyLockfile,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
 
     expect(plan.jobs).toHaveLength(1);
     expect(plan.jobs[0]!.concurrency).toBe(1);
-  });
-
-  it("handles mixed success and no-op expected results", () => {
-    const plan = buildInstallPlan(
-      [makeOp("pack-a"), makeOp("pack-b"), makeOp("pack-c")],
-      lockfileWithPacks("pack-b"),
-      "Install pack",
-      Option.none(),
-    );
-
-    const steps = plan.jobs[0]!.steps;
-    expect(steps[0]!.expectedResult.result).toBe("success");
-    expect(steps[0]!.label).toBe("pack-a");
-    expect(steps[1]!.expectedResult.result).toBe("no-op");
-    expect(steps[1]!.label).toBe("pack-b");
-    expect(steps[2]!.expectedResult.result).toBe("success");
-    expect(steps[2]!.label).toBe("pack-c");
   });
 
   it("treats lockfile without packs field as empty", () => {
@@ -191,14 +200,53 @@ describe("buildInstallPlan", () => {
       lockfileVersion: 1,
       skills: {},
     };
-    const plan = buildInstallPlan(
-      [makeOp("my-pack")],
-      lockfileNoPacks,
-      "Install pack",
-      Option.none(),
-    );
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [],
+      lockfile: lockfileNoPacks,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
 
     expect(plan.jobs[0]!.steps[0]!.expectedResult.result).toBe("success");
+  });
+
+  // ---------------------------------------------------------------------------
+  // InstallPackOperation construction from ref
+  // ---------------------------------------------------------------------------
+
+  it("constructs InstallPackOperation from the ref", () => {
+    const ref = makePackRef("my-pack", {
+      skills: { "@acme/skill-a": "^1.0.0" },
+      commands: { "@acme/cmd-b": "^2.0.0" },
+      mcpServers: { "@acme/server-c": "^3.0.0" },
+      version: "2.5.0",
+    });
+
+    const plan = buildInstallPlan({
+      ref,
+      skillOps: [],
+      lockfile: emptyLockfile,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.some("^2.0.0"),
+    });
+
+    const packStep = plan.jobs[0]!.steps[0]!;
+    expect(packStep.operation.name).toBe("install-pack");
+    expect(packStep.operation.args).toMatchObject({
+      packName: "my-pack",
+      scope: "@acme",
+      resolvedVersion: "2.5.0",
+      integrity: "sha512-AAAA==",
+      sourceName: "default",
+      resolvedSkills: { "@acme/skill-a": "^1.0.0" },
+      resolvedCommands: { "@acme/cmd-b": "^2.0.0" },
+      resolvedMcpServers: { "@acme/server-c": "^3.0.0" },
+      versionConstraint: Option.some("^2.0.0"),
+    });
+    expect(packStep.operation.args.ref).toBe(ref);
   });
 
   // ---------------------------------------------------------------------------
@@ -206,12 +254,14 @@ describe("buildInstallPlan", () => {
   // ---------------------------------------------------------------------------
 
   it("produces correct steps for mixed pack and skill operations", () => {
-    const plan = buildInstallPlan(
-      [makeOp("my-pack"), makeSkillOp("my-skill")],
-      emptyLockfile,
-      "Install pack",
-      Option.none(),
-    );
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [makeSkillOp("my-skill")],
+      lockfile: emptyLockfile,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
 
     const steps = plan.jobs[0]!.steps;
     expect(steps).toHaveLength(2);
@@ -226,39 +276,47 @@ describe("buildInstallPlan", () => {
   });
 
   it("checks lockfile.skills for skill no-op detection", () => {
-    const plan = buildInstallPlan(
-      [makeSkillOp("my-skill")],
-      lockfileWithSkills("my-skill"),
-      "Install pack",
-      Option.none(),
-    );
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [makeSkillOp("my-skill")],
+      lockfile: lockfileWithSkills("my-skill"),
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
+    const steps = plan.jobs[0]!.steps;
+    expect(steps[1]!.expectedResult).toEqual({
       result: "no-op",
       message: "already installed",
     });
   });
 
   it("marks already-installed skills as no-op", () => {
-    const plan = buildInstallPlan(
-      [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
-      lockfileWithSkills("skill-a"),
-      "Install pack",
-      Option.none(),
-    );
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
+      lockfile: lockfileWithSkills("skill-a"),
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
 
     const steps = plan.jobs[0]!.steps;
-    expect(steps[0]!.expectedResult.result).toBe("no-op");
-    expect(steps[1]!.expectedResult.result).toBe("success");
+    // Step 0 is the pack op
+    expect(steps[1]!.expectedResult.result).toBe("no-op");
+    expect(steps[2]!.expectedResult.result).toBe("success");
   });
 
   it("places pack steps before skill steps in plan order", () => {
-    const plan = buildInstallPlan(
-      [makeOp("my-pack"), makeSkillOp("my-skill")],
-      emptyLockfile,
-      "Install pack",
-      Option.none(),
-    );
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [makeSkillOp("my-skill")],
+      lockfile: emptyLockfile,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
 
     const steps = plan.jobs[0]!.steps;
     expect(steps[0]!.operation.name).toBe("install-pack");
@@ -266,15 +324,70 @@ describe("buildInstallPlan", () => {
   });
 
   it("uses skill name as label for skill steps", () => {
-    const plan = buildInstallPlan(
-      [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
-      emptyLockfile,
-      "Install pack",
-      Option.none(),
-    );
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
+      lockfile: emptyLockfile,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
 
     const steps = plan.jobs[0]!.steps;
-    expect(steps[0]!.label).toBe("skill-a");
-    expect(steps[1]!.label).toBe("skill-b");
+    expect(steps[1]!.label).toBe("skill-a");
+    expect(steps[2]!.label).toBe("skill-b");
+  });
+
+  // ---------------------------------------------------------------------------
+  // Mixed no-op: pack installed, some skills installed
+  // ---------------------------------------------------------------------------
+
+  it("handles pack installed + some skills already installed", () => {
+    const lockfile: Lockfile = {
+      ...lockfileWithPacks("my-pack"),
+      skills: {
+        "skill-a": {
+          type: "local" as const,
+          path: "/tmp/skills/skill-a",
+          agents: [],
+          installedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      },
+    };
+
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
+      lockfile,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
+
+    const steps = plan.jobs[0]!.steps;
+    expect(steps[0]!.expectedResult.result).toBe("no-op"); // pack
+    expect(steps[0]!.label).toBe("my-pack");
+    expect(steps[1]!.expectedResult.result).toBe("no-op"); // skill-a
+    expect(steps[2]!.expectedResult.result).toBe("success"); // skill-b
+  });
+
+  // ---------------------------------------------------------------------------
+  // Version constraint pass-through
+  // ---------------------------------------------------------------------------
+
+  it("passes version constraint to the pack operation", () => {
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [],
+      lockfile: emptyLockfile,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.some("^2.0.0"),
+    });
+
+    const packStep = plan.jobs[0]!.steps[0]!;
+    expect(packStep.operation.name).toBe("install-pack");
+    expect(packStep.operation.args.versionConstraint).toEqual(Option.some("^2.0.0"));
   });
 });

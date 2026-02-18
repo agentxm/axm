@@ -504,7 +504,7 @@ describe("PackExtensionRef", () => {
     const ref: PackExtensionRef = {
       type: "pack",
       refType: "registry",
-      pack: { name: "my-pack" },
+      pack: { name: "my-pack", skills: {}, commands: {}, mcpServers: {} },
       source: {
         type: "registry",
         location: new URL("file:///reg"),
@@ -524,7 +524,7 @@ describe("PackExtensionRef", () => {
     const ref: PackExtensionRef = {
       type: "pack",
       refType: "builtin",
-      pack: { name: "default" },
+      pack: { name: "default", skills: {}, commands: {}, mcpServers: {} },
       source: { type: "builtin" },
     };
     expect(ref.source.type).toBe("builtin");
@@ -566,7 +566,7 @@ describe("ExtensionRef", () => {
     const ref: ExtensionRef = {
       type: "pack",
       refType: "builtin",
-      pack: { name: "p" },
+      pack: { name: "p", skills: {}, commands: {}, mcpServers: {} },
       source: { type: "builtin" },
     };
     if (ref.type === "pack") {

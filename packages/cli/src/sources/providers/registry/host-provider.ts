@@ -100,14 +100,23 @@ const toExtensionRef = (entry: RegistryExtensionManifest, source: RegistrySource
         source,
         ...details,
       };
-    case "pack":
+    case "pack": {
+      const skills: Record<string, string> = {};
+      const commands: Record<string, string> = {};
+      const mcpServers: Record<string, string> = {};
+      for (const [key, version] of Object.entries(dependencies)) {
+        if (key.includes("/skills/")) skills[key] = version;
+        else if (key.includes("/commands/")) commands[key] = version;
+        else if (key.includes("/mcp-servers/")) mcpServers[key] = version;
+      }
       return {
         type: "pack",
         refType: "registry" as const,
-        pack: { name: entry.name },
+        pack: { name: entry.name, skills, commands, mcpServers },
         source,
         ...details,
       };
+    }
   }
 };
 

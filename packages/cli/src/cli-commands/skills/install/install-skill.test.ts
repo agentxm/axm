@@ -27,6 +27,7 @@ const makeWorkspaceMock = (
   axmDir: string,
   overrides?: {
     setSkillFn?: ReturnType<typeof vi.fn>;
+    configuredAgents?: ReadonlyArray<string>;
   },
 ): WorkspaceContextService => {
   const readLf = () => {
@@ -53,7 +54,7 @@ const makeWorkspaceMock = (
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
-    getConfiguredAgents: () => Effect.succeed([]),
+    getConfiguredAgents: () => Effect.succeed(overrides?.configuredAgents ?? ["claude-code"]),
     getLockedSkills: () => Effect.succeed(readLf().skills ?? {}),
     getLockedSkill: (name: string) => Effect.succeed(Option.fromNullable(readLf().skills?.[name])),
     getSkillDir: (name: string, source?: SkillPathSource) => {
@@ -133,6 +134,7 @@ const withServices = (
   axmDir: string,
   wsOverrides?: {
     setSkillFn?: ReturnType<typeof vi.fn>;
+    configuredAgents?: ReadonlyArray<string>;
   },
 ) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOverrides);
@@ -168,7 +170,6 @@ const withServices = (
 const makeOp = (
   overrides: {
     source?: import("../../../sources/types.js").Source;
-    agents?: ReadonlyArray<string>;
     force?: boolean;
     skillName?: string;
     sourcePath?: string;
@@ -243,11 +244,8 @@ const makeOp = (
     name: "install-skill",
     args: {
       ref,
-      agents: overrides.agents ?? ["claude-code"],
       force: overrides.force ?? false,
-      ...(overrides.versionConstraint !== undefined && {
-        versionConstraint: overrides.versionConstraint,
-      }),
+      versionConstraint: overrides.versionConstraint ?? Option.none(),
       ...(overrides.skipSettings !== undefined && { skipSettings: overrides.skipSettings }),
     },
   };
@@ -288,8 +286,10 @@ describe("installSkill", () => {
         const { axmDir, base } = setupBase();
 
         const result = yield* installSkill(
-          makeOp({ agents: ["claude-code"], sourcePath: src }),
-        ).pipe(Effect.provide(withServices(axmDir)));
+          makeOp({ sourcePath: src }),
+        ).pipe(
+          Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code", "cursor"] })),
+        );
 
         expect(result.result).toBe("success");
         expect(result.message).toContain("my-skill");
@@ -317,8 +317,10 @@ describe("installSkill", () => {
         const { axmDir, base } = setupBase();
 
         const result = yield* installSkill(
-          makeOp({ agents: ["claude-code", "cursor"], sourcePath: src }),
-        ).pipe(Effect.provide(withServices(axmDir)));
+          makeOp({ sourcePath: src }),
+        ).pipe(
+          Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code", "cursor"] })),
+        );
 
         expect(result.result).toBe("success");
 
@@ -337,7 +339,6 @@ describe("installSkill", () => {
           makeOp({
             skillName: "My Awesome Skill!!",
             sourcePath: src,
-            agents: ["claude-code"],
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
@@ -363,7 +364,7 @@ describe("installSkill", () => {
         const setSkillFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
 
         const result = yield* installSkill(
-          makeOp({ agents: ["claude-code"], sourcePath: src }),
+          makeOp({ sourcePath: src }),
         ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
 
         expect(result.result).toBe("success");
@@ -391,7 +392,7 @@ describe("installSkill", () => {
         );
 
         const result = yield* installSkill(
-          makeOp({ agents: ["claude-code"], sourcePath: src }),
+          makeOp({ sourcePath: src }),
         ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
 
         expect(result.result).toBe("success");
@@ -406,8 +407,8 @@ describe("installSkill", () => {
         const { axmDir, base } = setupBase();
 
         // amp uses .agents/skills — with external canonical, it now gets a symlink
-        const result = yield* installSkill(makeOp({ agents: ["amp"], sourcePath: src })).pipe(
-          Effect.provide(withServices(axmDir)),
+        const result = yield* installSkill(makeOp({ sourcePath: src })).pipe(
+          Effect.provide(withServices(axmDir, { configuredAgents: ["amp"] })),
         );
 
         expect(result.result).toBe("success");
@@ -431,8 +432,10 @@ describe("installSkill", () => {
 
         // amp (.agents/skills) + claude-code (.claude/skills) — both get symlinks
         const result = yield* installSkill(
-          makeOp({ agents: ["amp", "claude-code"], sourcePath: src }),
-        ).pipe(Effect.provide(withServices(axmDir)));
+          makeOp({ sourcePath: src }),
+        ).pipe(
+          Effect.provide(withServices(axmDir, { configuredAgents: ["amp", "claude-code"] })),
+        );
 
         expect(result.result).toBe("success");
 
@@ -474,7 +477,6 @@ describe("installSkill", () => {
         const result = yield* installSkill(
           makeOp({
             sourcePath: path.join(tmpDir, "nonexistent"),
-            agents: ["claude-code"],
           }),
         ).pipe(
           Effect.provide(withServices(axmDir)),
@@ -499,7 +501,7 @@ describe("installSkill", () => {
         fs.writeFileSync(path.join(canonical, "stale.txt"), "old content");
 
         const result = yield* installSkill(
-          makeOp({ agents: ["claude-code"], sourcePath: src }),
+          makeOp({ sourcePath: src }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
@@ -522,7 +524,7 @@ describe("installSkill", () => {
         fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
 
         const result = yield* installSkill(
-          makeOp({ agents: ["claude-code"], sourcePath: src }),
+          makeOp({ sourcePath: src }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
@@ -550,7 +552,7 @@ describe("installSkill", () => {
         );
 
         const result = yield* installSkill(
-          makeOp({ agents: ["claude-code"], sourcePath: src }),
+          makeOp({ sourcePath: src }),
         ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
 
         // Installation should still succeed even if lockfile failed
@@ -572,10 +574,13 @@ describe("installSkill", () => {
         // Mix valid and invalid agent IDs
         const result = yield* installSkill(
           makeOp({
-            agents: ["claude-code", "nonexistent-agent" as never],
             sourcePath: src,
           }),
-        ).pipe(Effect.provide(withServices(axmDir)));
+        ).pipe(
+          Effect.provide(
+            withServices(axmDir, { configuredAgents: ["claude-code", "nonexistent-agent"] }),
+          ),
+        );
 
         // Overall result should be error (one agent failed)
         expect(result.result).toBe("error");
@@ -609,7 +614,6 @@ describe("installSkill", () => {
 
         const result = yield* installSkill(
           makeOp({
-            agents: ["claude-code"],
             source: { type: "registry", location: new URL("file:///tmp/reg") },
             scope: "@community",
             location: `file://${src}`,
@@ -650,7 +654,6 @@ describe("installSkill", () => {
 
         const result = yield* installSkill(
           makeOp({
-            agents: ["claude-code"],
             source: { type: "registry", location: new URL("file:///tmp/reg") },
             scope: "@myorg",
             location: `file://${src}`,
@@ -683,7 +686,6 @@ describe("installSkill", () => {
 
         const result = yield* installSkill(
           makeOp({
-            agents: ["claude-code"],
             source: { type: "registry", location: new URL("file:///tmp/reg") },
             scope: "@community",
             location: `file://${src}`,
@@ -741,7 +743,6 @@ describe("installSkill", () => {
 
           const result = yield* installSkill(
             makeOp({
-              agents: ["claude-code"],
               source: { type: "registry", location: new URL("file:///tmp/reg") },
               scope: "@community",
               location: `file://${src}`,
@@ -774,7 +775,6 @@ describe("installSkill", () => {
 
         const result = yield* installSkill(
           makeOp({
-            agents: ["claude-code"],
             sourcePath: src,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -822,7 +822,6 @@ describe("installSkill", () => {
 
         const result = yield* installSkill(
           makeOp({
-            agents: ["claude-code"],
             source: { type: "registry", location: new URL("file:///tmp/reg") },
             scope: "@acme",
             skillName: "tool",
@@ -847,7 +846,6 @@ describe("installSkill", () => {
 
         const result = yield* installSkill(
           makeOp({
-            agents: ["claude-code"],
             source: { type: "registry", location: new URL("file:///tmp/reg") },
             scope: "@acme",
             skillName: "tool",
@@ -874,7 +872,6 @@ describe("installSkill", () => {
 
         const result = yield* installSkill(
           makeOp({
-            agents: ["claude-code"],
             source: { type: "registry", location: new URL("file:///tmp/reg") },
             scope: "@acme",
             skillName: "tool",
@@ -900,7 +897,7 @@ describe("installSkill", () => {
         );
 
         const result = yield* installSkill(
-          makeOp({ agents: ["claude-code"], sourcePath: src }),
+          makeOp({ sourcePath: src }),
         ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
 
         expect(result.result).toBe("success");

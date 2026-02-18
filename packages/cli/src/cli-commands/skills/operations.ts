@@ -37,11 +37,9 @@ export interface Skill {
  */
 export type InstallSkillOperationArgs = {
   readonly ref: SkillExtensionRef;
-  /** @deprecated Install handler resolves agents from Workspace.getConfiguredAgents(). */
-  readonly agents?: ReadonlyArray<string>;
   readonly force: boolean;
   /** Version constraint from the original input when available. */
-  readonly versionConstraint?: Option.Option<string>;
+  readonly versionConstraint: Option.Option<string>;
   /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
   readonly skipSettings?: boolean;
 };

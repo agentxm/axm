@@ -153,8 +153,8 @@ const makeOp = (
     name: "install-skill",
     args: {
       ref,
-      agents: [],
       force: overrides?.force ?? false,
+      versionConstraint: Option.none(),
     },
   };
 };

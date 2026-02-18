@@ -251,6 +251,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
           args: {
             ref: registryRef,
             force: true,
+            versionConstraint: Option.none(),
           },
         } satisfies InstallSkillOperation,
         expectedResult: { result: "success", message: `Installed ${ref.skill.name}` },

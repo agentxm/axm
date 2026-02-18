@@ -162,9 +162,7 @@ export const installSkill: OperationHandler<
     const axmDir = ws.path;
     const base = path.dirname(axmDir);
     const { ref } = op.args;
-    const configuredAgents = yield* ws.getConfiguredAgents();
-    const agents =
-      configuredAgents.length > 0 ? configuredAgents : (op.args.agents ?? ([] as ReadonlyArray<string>));
+    const agents = yield* ws.getConfiguredAgents();
 
     const sanitizedName = sanitizeName(ref.skill.name);
 
@@ -234,8 +232,7 @@ export const installSkill: OperationHandler<
     const skillArgs = {
       name: ref.skill.name,
       lockEntry,
-      versionConstraint:
-        ref.refType === "registry" ? (op.args.versionConstraint ?? Option.none()) : Option.none(),
+      versionConstraint: ref.refType === "registry" ? op.args.versionConstraint : Option.none(),
     };
     const writeEffect = op.args.skipSettings ? ws.setSkillLock(skillArgs) : ws.setSkill(skillArgs);
     yield* writeEffect.pipe(Effect.catchAll((e) => log.warn(`Skill update failed: ${String(e)}`)));

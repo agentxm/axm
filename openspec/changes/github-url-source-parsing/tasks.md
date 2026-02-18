@@ -4,16 +4,16 @@
 
 > **Subagent:** Run this entire phase in a single subagent.
 
-- [ ] 1.1 Add tests for `resolveSkillUrl` in `resolve-skill-install-source.test.ts` — cover GitHub HTTPS URL, GitLab HTTPS URL, custom hostname URL, and no-match error scenarios from the spec
-- [ ] 1.2 Add `resolveSkillUrl` function in `resolve-skill-install-source.ts` — resolves URL inputs against configured + built-in sources (same logic as `routeUrlInput`)
-- [ ] 1.3 Wire `url-input` case in `resolveSkillInstallSource` switch to call `resolveSkillUrl`
-- [ ] 1.4 Run `pnpm typecheck` and fix any errors
-- [ ] 1.5 Run `pnpm lint` and fix any errors
+- [x] 1.1 Add tests for `resolveSkillUrl` in `resolve-skill-install-source.test.ts` — cover GitHub HTTPS URL, GitLab HTTPS URL, custom hostname URL, and no-match error scenarios from the spec
+- [x] 1.2 Add `resolveSkillUrl` function in `resolve-skill-install-source.ts` — resolves URL inputs against configured + built-in sources (same logic as `routeUrlInput`)
+- [x] 1.3 Wire `url-input` case in `resolveSkillInstallSource` switch to call `resolveSkillUrl`
+- [x] 1.4 Run `pnpm typecheck` and fix any errors
+- [x] 1.5 Run `pnpm lint` and fix any errors
 
 ## 2. Verification
 
 > **Subagent:** Run this entire phase in a single subagent.
 
-- [ ] 2.1 Run `pnpm test` and fix any failures
-- [ ] 2.2 Run `pnpm test:e2e` and fix any failures
-- [ ] 2.3 Kill any vitest worker processes
+- [x] 2.1 Run `pnpm test` and fix any failures
+- [x] 2.2 Run `pnpm test:e2e` and fix any failures
+- [x] 2.3 Kill any vitest worker processes

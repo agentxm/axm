@@ -11,7 +11,7 @@ import type { CliError } from "../../../cli-error/index.js";
 import type { SourceHostConfig } from "../../../settings/index.js";
 import { parseInputPattern, type InputParseResult } from "../../../sources/parser.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
-import { resolveSkillInstallSource } from "./resolve-skill-install-source.js";
+import { resolveSkillInstallSource, resolveSkillUrl } from "./resolve-skill-install-source.js";
 
 const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService => ({
   global: false,
@@ -186,6 +186,83 @@ describe("resolveSkillInstallSource", () => {
       );
       expect(error._tag).toBe("CliError");
       expect(error.what).toContain('No registry source contains scope "@acme"');
+    });
+  });
+});
+
+describe("resolveSkillUrl", () => {
+  it.effect("resolves GitHub HTTPS URL to GitHubSource", () => {
+    const sources: ReadonlyArray<SourceHostConfig> = [
+      { name: "github", type: "github", url: new URL("https://github.com") },
+      { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
+    ];
+
+    return Effect.gen(function* () {
+      const resolved = yield* resolveSkillUrl(
+        new URL("https://github.com/vercel-labs/agent-skills"),
+        "https://github.com/vercel-labs/agent-skills",
+      ).pipe(Effect.provide(provideTestLayers(sources)));
+
+      expect(resolved.type).toBe("github");
+      expect("owner" in resolved && resolved.owner).toBe("vercel-labs");
+      expect("repo" in resolved && resolved.repo).toBe("agent-skills");
+      expect("url" in resolved && (resolved.url as URL).href).toBe("https://github.com/");
+    });
+  });
+
+  it.effect("resolves GitLab HTTPS URL to GitLabSource", () => {
+    const sources: ReadonlyArray<SourceHostConfig> = [
+      { name: "github", type: "github", url: new URL("https://github.com") },
+      { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
+    ];
+
+    return Effect.gen(function* () {
+      const resolved = yield* resolveSkillUrl(
+        new URL("https://gitlab.com/team/skills"),
+        "https://gitlab.com/team/skills",
+      ).pipe(Effect.provide(provideTestLayers(sources)));
+
+      expect(resolved.type).toBe("gitlab");
+      expect("owner" in resolved && resolved.owner).toBe("team");
+      expect("repo" in resolved && resolved.repo).toBe("skills");
+      expect("url" in resolved && (resolved.url as URL).href).toBe("https://gitlab.com/");
+    });
+  });
+
+  it.effect("resolves custom GitHub Enterprise URL via configured source", () => {
+    const sources: ReadonlyArray<SourceHostConfig> = [
+      { name: "github", type: "github", url: new URL("https://github.com") },
+      { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
+      { name: "ghe", type: "github", url: new URL("https://ghe.corp.com") },
+    ];
+
+    return Effect.gen(function* () {
+      const resolved = yield* resolveSkillUrl(
+        new URL("https://ghe.corp.com/team/repo"),
+        "https://ghe.corp.com/team/repo",
+      ).pipe(Effect.provide(provideTestLayers(sources)));
+
+      expect(resolved.type).toBe("github");
+      expect("owner" in resolved && resolved.owner).toBe("team");
+      expect("repo" in resolved && resolved.repo).toBe("repo");
+      expect("url" in resolved && (resolved.url as URL).href).toBe("https://ghe.corp.com/");
+    });
+  });
+
+  it.effect("fails with CliError when no source matches the URL hostname", () => {
+    const sources: ReadonlyArray<SourceHostConfig> = [
+      { name: "github", type: "github", url: new URL("https://github.com") },
+      { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
+    ];
+
+    return Effect.gen(function* () {
+      const error = yield* resolveSkillUrl(
+        new URL("https://unknown-host.com/owner/repo"),
+        "https://unknown-host.com/owner/repo",
+      ).pipe(Effect.flip, Effect.provide(provideTestLayers(sources)));
+
+      expect(error._tag).toBe("CliError");
+      expect(error.code).toBe("SOURCE_PARSE_FAILED");
     });
   });
 });

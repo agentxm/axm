@@ -127,6 +127,10 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       });
     }
     const parsedSource = parsedSourceOption.value;
+    const versionConstraint =
+      parsedSource.pattern.pattern === "registry-pattern-input"
+        ? parsedSource.pattern.versionConstraint
+        : Option.none<string>();
     const source = yield* resolveSkillInstallSource(parsedSource).pipe(
       Effect.mapError((error) =>
         makeCliError({
@@ -162,16 +166,14 @@ export const handleInstall = (args: InstallHandlerArgs) => {
               ? [parsedSource.pattern.name.value]
               : []
             : [];
-    const findOptions = {
-      names: registryNames,
-      agents: args.agents,
-      type: "skill" as const,
-      versionConstraint:
-        parsedSource.pattern.pattern === "registry-pattern-input"
-          ? parsedSource.pattern.versionConstraint
-          : Option.none<string>(),
-    };
-    const allRefs = yield* sources.find(source, findOptions).pipe(
+    const allRefs = yield*
+      sources
+        .find(source, {
+          names: registryNames,
+          type: "skill" as const,
+          versionConstraint,
+        })
+        .pipe(
       Effect.mapError((error) =>
         makeCliError({
           code: "DISCOVER_FAILED",
@@ -224,7 +226,7 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       selectedSkills,
       source,
       force: args.force,
-      versionConstraint: findOptions.versionConstraint ?? Option.none(),
+      versionConstraint,
     });
 
     yield* ws.resolvePlan(plan, { "install-skill": installSkill });

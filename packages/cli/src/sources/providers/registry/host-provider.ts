@@ -126,6 +126,51 @@ const refName = (ref: ExtensionRef): string => {
 /** Map ExtensionRef type to ExtensionType. */
 const refRegistryType = (ref: ExtensionRef): ExtensionType => ref.type;
 
+const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
+  Effect.gen(function* () {
+    if (ref.refType !== "registry") {
+      return yield* makeCliError({
+        code: "SOURCE_FETCH_FAILED",
+        what: "Ref missing registry details (scope, version, integrity)",
+      });
+    }
+
+    const { scope, version, integrity: expectedIntegrity } = ref;
+    const type = refRegistryType(ref);
+    const name = refName(ref);
+
+    const { archive: archiveBytes } = yield* client.getExtensionPackage({
+      scope,
+      type,
+      name,
+      version: Option.some(version),
+    });
+
+    const actualIntegrity = yield* computeIntegrity(archiveBytes);
+    if (actualIntegrity !== expectedIntegrity) {
+      return yield* makeCliError({
+        code: "SOURCE_FETCH_FAILED",
+        what: `Integrity mismatch for ${type}:${name}@${version}`,
+        details: [`Expected ${expectedIntegrity}, got ${actualIntegrity}`],
+      });
+    }
+
+    const fs = yield* FileSystem.FileSystem;
+    const tmpDir = yield* fs.makeTempDirectory().pipe(
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "SOURCE_FETCH_FAILED",
+          what: "Failed to create temp directory",
+          cause: e,
+        }),
+      ),
+    );
+
+    yield* extractZip(archiveBytes, tmpDir);
+
+    return { directory: tmpDir } satisfies ExtensionFiles;
+  });
+
 // -----------------------------------------------------------------------------
 // LocalRegistrySourceHostProvider
 // -----------------------------------------------------------------------------
@@ -169,50 +214,7 @@ export const createLocalRegistrySourceHostProvider = (
       return results.flat();
     }),
 
-  fetch: (_source, ref) =>
-    Effect.gen(function* () {
-      if (ref.refType !== "registry") {
-        return yield* makeCliError({
-          code: "SOURCE_FETCH_FAILED",
-          what: "Ref missing registry details (scope, version, integrity)",
-        });
-      }
-
-      const { scope, version, integrity: expectedIntegrity } = ref;
-      const type = refRegistryType(ref);
-      const name = refName(ref);
-
-      const { archive: archiveBytes } = yield* client.getExtensionPackage({
-        scope,
-        type,
-        name,
-        version: Option.some(version),
-      });
-
-      const actualIntegrity = yield* computeIntegrity(archiveBytes);
-      if (actualIntegrity !== expectedIntegrity) {
-        return yield* makeCliError({
-          code: "SOURCE_FETCH_FAILED",
-          what: `Integrity mismatch for ${type}:${name}@${version}`,
-          details: [`Expected ${expectedIntegrity}, got ${actualIntegrity}`],
-        });
-      }
-
-      const fs = yield* FileSystem.FileSystem;
-      const tmpDir = yield* fs.makeTempDirectory().pipe(
-        Effect.mapError((e) =>
-          makeCliError({
-            code: "SOURCE_FETCH_FAILED",
-            what: "Failed to create temp directory",
-            cause: e,
-          }),
-        ),
-      );
-
-      yield* extractZip(archiveBytes, tmpDir);
-
-      return { directory: tmpDir } satisfies ExtensionFiles;
-    }),
+  fetch: (_source, ref) => fetchRegistryExtension(client, ref),
 
   publishExtension: (
     scope: string,
@@ -250,50 +252,7 @@ export const createRemoteRegistrySourceHostProvider = (
       return result.extensions.map((entry) => toExtensionRef(entry, source));
     }),
 
-  fetch: (_source, ref) =>
-    Effect.gen(function* () {
-      if (ref.refType !== "registry") {
-        return yield* makeCliError({
-          code: "SOURCE_FETCH_FAILED",
-          what: "Ref missing registry details (scope, version, integrity)",
-        });
-      }
-
-      const { scope, version, integrity: expectedIntegrity } = ref;
-      const type = refRegistryType(ref);
-      const name = refName(ref);
-
-      const { archive: archiveBytes } = yield* client.getExtensionPackage({
-        scope,
-        type,
-        name,
-        version: Option.some(version),
-      });
-
-      const actualIntegrity = yield* computeIntegrity(archiveBytes);
-      if (actualIntegrity !== expectedIntegrity) {
-        return yield* makeCliError({
-          code: "SOURCE_FETCH_FAILED",
-          what: `Integrity mismatch for ${type}:${name}@${version}`,
-          details: [`Expected ${expectedIntegrity}, got ${actualIntegrity}`],
-        });
-      }
-
-      const fs = yield* FileSystem.FileSystem;
-      const tmpDir = yield* fs.makeTempDirectory().pipe(
-        Effect.mapError((e) =>
-          makeCliError({
-            code: "SOURCE_FETCH_FAILED",
-            what: "Failed to create temp directory",
-            cause: e,
-          }),
-        ),
-      );
-
-      yield* extractZip(archiveBytes, tmpDir);
-
-      return { directory: tmpDir } satisfies ExtensionFiles;
-    }),
+  fetch: (_source, ref) => fetchRegistryExtension(client, ref),
 
   publishExtension: (
     scope: string,

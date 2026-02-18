@@ -393,7 +393,7 @@ export const routeRegistryInput = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    void pattern.name;
+    // Name filtering is handled in the find phase; this routing step only resolves registry host.
     const scope = Option.some(pattern.scope);
 
     const registrySources = yield* ws.getConfiguredRegistrySources(scope).pipe(

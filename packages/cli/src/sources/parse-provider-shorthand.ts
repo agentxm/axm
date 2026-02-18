@@ -33,7 +33,7 @@ export const parseProviderShorthand = (input: string, original: string) =>
     return {
       owner: match[1],
       repo: match[2],
-      subPath: match[3] as string | undefined,
-      ref: match[4] as string | undefined,
+      subPath: match[3],
+      ref: match[4],
     };
   });

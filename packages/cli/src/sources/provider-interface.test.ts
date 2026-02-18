@@ -179,4 +179,13 @@ describe("FindOptions", () => {
     const options: FindOptions = { names: [], type: "*" };
     expect(options.type).toBe("*");
   });
+
+  it("accepts optional versionConstraint", () => {
+    const options: FindOptions = {
+      names: ["my-skill"],
+      type: "skill",
+      versionConstraint: Option.some("^1.2.3"),
+    };
+    expect(Option.getOrNull(options.versionConstraint ?? Option.none())).toBe("^1.2.3");
+  });
 });

@@ -13,6 +13,14 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+/*
+ TODO:
+ - [ ] warn/error if pack dependencies overwrite another extension?
+   - might vary by extension type - skills might overwrite by name
+   - version diffs?
+
+ */
+
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import {
@@ -354,7 +362,6 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
 
     // Build InstallSkillOperations from fetched skill deps
     // Pack dependencies skip settings writes — they only appear in the lockfile
-    const agents = yield* ws.getConfiguredAgents();
     const skillInstallOps: ReadonlyArray<InstallSkillOperation> = skillOps.flatMap(
       ({ ref, fetched, versionConstraint }) =>
         ref.type !== "skill"
@@ -364,7 +371,6 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
                 name: "install-skill" as const,
                 args: {
                   ref,
-                  agents,
                   force: args.force,
                   versionConstraint,
                   skipSettings: true,

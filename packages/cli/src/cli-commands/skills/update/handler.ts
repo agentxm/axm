@@ -290,7 +290,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
     }
 
     // Step 8: Build operations
-    const agentIds = yield* ws.getConfiguredAgents();
     const ops = Array.flatMap(resolved, (item) =>
       item.type === "match"
         ? [
@@ -298,7 +297,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               name: "install-skill",
               args: {
                 ref: item.ref,
-                agents: agentIds,
                 force: args.force,
                 fetchedLocation: item.fetchedLocation,
               },
@@ -310,7 +308,6 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               name: "install-skill",
               args: {
                 ref: item.newRef,
-                agents: agentIds,
                 force: args.force,
                 fetchedLocation: item.fetchedLocation,
               },

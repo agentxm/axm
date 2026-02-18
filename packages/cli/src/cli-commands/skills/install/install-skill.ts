@@ -155,6 +155,9 @@ export const installSkill: OperationHandler<
     const axmDir = ws.path;
     const base = path.dirname(axmDir);
     const { ref } = op.args;
+    const configuredAgents = yield* ws.getConfiguredAgents();
+    const agents =
+      configuredAgents.length > 0 ? configuredAgents : (op.args.agents ?? ([] as ReadonlyArray<string>));
 
     const sanitizedName = sanitizeName(ref.skill.name);
 
@@ -202,7 +205,7 @@ export const installSkill: OperationHandler<
     // Create symlinks for each agent (concurrent)
     // Symlinks target skillSrcPath so agents only see skill content (not manifest)
     const agentResults = yield* Effect.forEach(
-      op.args.agents,
+      agents,
       (agentId) =>
         installForAgent({
           agentId,
@@ -217,7 +220,7 @@ export const installSkill: OperationHandler<
     // Pack dependencies skip settings writes (lockfile only)
     const lockEntry = sourceToLockEntry({
       ref,
-      agents: op.args.agents,
+      agents,
       now: new Date(),
     });
     const skillArgs = {

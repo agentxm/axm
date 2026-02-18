@@ -48,8 +48,9 @@ export interface PublishPackHandlerArgs {
 /**
  * Handles the `axm packs publish` command.
  */
-export const handlePublishPack = (args: PublishPackHandlerArgs) =>
-  Effect.gen(function* () {
+export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
+  args: PublishPackHandlerArgs,
+) {
     const ws = yield* Workspace;
     const path = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
@@ -169,4 +170,4 @@ export const handlePublishPack = (args: PublishPackHandlerArgs) =>
     });
 
     yield* log.success("Done");
-  }).pipe(Effect.withSpan("PublishPack.handle"));
+  });

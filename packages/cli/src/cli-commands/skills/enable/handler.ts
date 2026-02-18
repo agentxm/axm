@@ -31,8 +31,7 @@ export interface EnableHandlerArgs {
 // Main Handler
 // -----------------------------------------------------------------------------
 
-export const handleEnable = (args: EnableHandlerArgs) =>
-  Effect.gen(function* () {
+export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHandlerArgs) {
     const ws = yield* Workspace;
     const log = yield* Log;
 
@@ -104,4 +103,4 @@ export const handleEnable = (args: EnableHandlerArgs) =>
     yield* ws.resolvePlan(plan, { "enable-skill": enableSkill });
 
     yield* log.success("Done");
-  }).pipe(Effect.withSpan("Enable.handle"));
+  });

@@ -52,8 +52,7 @@ export interface UninstallHandlerArgs {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const handleUninstall = (args: UninstallHandlerArgs) =>
-  Effect.gen(function* () {
+export const handleUninstall = Effect.fn("Uninstall.handle")(function* (args: UninstallHandlerArgs) {
     const ws = yield* Workspace;
     const log = yield* Log;
 
@@ -107,4 +106,4 @@ export const handleUninstall = (args: UninstallHandlerArgs) =>
     yield* ws.resolvePlan(plan, { "uninstall-skill": uninstallSkill });
 
     yield* log.success("Done");
-  }).pipe(Effect.withSpan("Uninstall.handle"));
+  });

@@ -38,8 +38,7 @@ export interface ResolvedBuiltinPack {
  * Resolves the bundled builtin pack manifest and CLI version.
  * Reads axm-pack.json relative to this module's location.
  */
-export const resolveBuiltinPack = () =>
-  Effect.gen(function* () {
+export const resolveBuiltinPack = Effect.fn("BuiltinPack.resolve")(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
@@ -80,4 +79,4 @@ export const resolveBuiltinPack = () =>
     );
 
     return { manifest, version: manifest.version, skillsDir } satisfies ResolvedBuiltinPack;
-  }).pipe(Effect.withSpan("BuiltinPack.resolve"));
+  });

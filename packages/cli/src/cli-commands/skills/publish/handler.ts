@@ -49,8 +49,7 @@ export interface PublishHandlerArgs {
 /**
  * Handles the `axm skills publish` command.
  */
-export const handlePublish = (args: PublishHandlerArgs) =>
-  Effect.gen(function* () {
+export const handlePublish = Effect.fn("Publish.handle")(function* (args: PublishHandlerArgs) {
     const ws = yield* Workspace;
     const path = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
@@ -172,4 +171,4 @@ export const handlePublish = (args: PublishHandlerArgs) =>
     });
 
     yield* log.success("Done");
-  }).pipe(Effect.withSpan("Publish.handle"));
+  });

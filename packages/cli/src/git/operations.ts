@@ -80,8 +80,11 @@ const mapGitError =
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const cloneRepo = (url: string, destination: string, ref?: string) =>
-  Effect.gen(function* () {
+export const cloneRepo = Effect.fn("Git.cloneRepo")(function* (
+  url: string,
+  destination: string,
+  ref?: string,
+) {
     // Clone the repository
     yield* Effect.tryPromise({
       try: () => createGit().clone(url, destination),
@@ -95,7 +98,7 @@ export const cloneRepo = (url: string, destination: string, ref?: string) =>
         catch: mapGitError("checkout", `Failed to checkout ref '${ref}'`),
       });
     }
-  }).pipe(Effect.withSpan("Git.cloneRepo"));
+  });
 
 /**
  * Shallow clone a git repository (depth 1, single branch).

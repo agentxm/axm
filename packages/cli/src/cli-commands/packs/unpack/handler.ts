@@ -132,8 +132,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
 /**
  * Handles the `axm packs unpack` command.
  */
-export const handleUnpack = (args: UnpackHandlerArgs) =>
-  Effect.gen(function* () {
+export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: UnpackHandlerArgs) {
     const ws = yield* Workspace;
     const log = yield* Log;
     const spinnerSvc = yield* Spinner;
@@ -181,4 +180,4 @@ export const handleUnpack = (args: UnpackHandlerArgs) =>
     });
 
     yield* log.success("Done");
-  }).pipe(Effect.withSpan("UnpackPack.handle"));
+  });

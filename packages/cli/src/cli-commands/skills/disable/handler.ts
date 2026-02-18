@@ -31,8 +31,7 @@ export interface DisableHandlerArgs {
 // Main Handler
 // -----------------------------------------------------------------------------
 
-export const handleDisable = (args: DisableHandlerArgs) =>
-  Effect.gen(function* () {
+export const handleDisable = Effect.fn("Disable.handle")(function* (args: DisableHandlerArgs) {
     const ws = yield* Workspace;
     const log = yield* Log;
 
@@ -109,4 +108,4 @@ export const handleDisable = (args: DisableHandlerArgs) =>
     yield* ws.resolvePlan(plan, { "disable-skill": disableSkill });
 
     yield* log.success("Done");
-  }).pipe(Effect.withSpan("Disable.handle"));
+  });

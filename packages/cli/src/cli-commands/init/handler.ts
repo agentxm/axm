@@ -26,8 +26,7 @@ import { Workspace } from "../../workspace/index.js";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const handleInit = () =>
-  Effect.gen(function* () {
+export const handleInit = Effect.fn("Init.handle")(function* () {
     const log = yield* Log;
     const context = yield* Workspace;
     const scopeLabel = context.global ? "user" : "project";
@@ -53,4 +52,4 @@ export const handleInit = () =>
     yield* log.success(
       agentIds.length > 0 ? `Initialized with agents: ${agentNames}` : "Workspace initialized",
     );
-  }).pipe(Effect.asVoid, Effect.withSpan("Init.handle"));
+  }, Effect.asVoid);

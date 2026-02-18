@@ -45,8 +45,7 @@ const toVersionRange = (version: string): string => `^${version}`;
 // Main Handler
 // -----------------------------------------------------------------------------
 
-export const handlePacksAdd = (args: PacksAddHandlerArgs) =>
-  Effect.gen(function* () {
+export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: PacksAddHandlerArgs) {
     const ws = yield* Workspace;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -181,4 +180,4 @@ export const handlePacksAdd = (args: PacksAddHandlerArgs) =>
     );
 
     yield* log.success("Done");
-  }).pipe(Effect.withSpan("PacksAdd.handle"));
+  });

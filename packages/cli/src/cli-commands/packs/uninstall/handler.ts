@@ -43,8 +43,9 @@ export interface UninstallPackHandlerArgs {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const handleUninstallPack = (args: UninstallPackHandlerArgs) =>
-  Effect.gen(function* () {
+export const handleUninstallPack = Effect.fn("UninstallPack.handle")(function* (
+  args: UninstallPackHandlerArgs,
+) {
     const ws = yield* Workspace;
     const log = yield* Log;
 
@@ -84,4 +85,4 @@ export const handleUninstallPack = (args: UninstallPackHandlerArgs) =>
     yield* ws.resolvePlan(plan, { "uninstall-pack": uninstallPack });
 
     yield* log.success("Done");
-  }).pipe(Effect.withSpan("UninstallPack.handle"));
+  });

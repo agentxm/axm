@@ -35,8 +35,9 @@ export interface PacksRemoveHandlerArgs {
 // Main Handler
 // -----------------------------------------------------------------------------
 
-export const handlePacksRemove = (args: PacksRemoveHandlerArgs) =>
-  Effect.gen(function* () {
+export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
+  args: PacksRemoveHandlerArgs,
+) {
     const ws = yield* Workspace;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -149,4 +150,4 @@ export const handlePacksRemove = (args: PacksRemoveHandlerArgs) =>
     );
 
     yield* log.success("Done");
-  }).pipe(Effect.withSpan("PacksRemove.handle"));
+  });

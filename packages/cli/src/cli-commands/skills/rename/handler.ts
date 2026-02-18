@@ -32,8 +32,7 @@ export interface RenameHandlerArgs {
 // Main Handler
 // -----------------------------------------------------------------------------
 
-export const handleRename = (args: RenameHandlerArgs) =>
-  Effect.gen(function* () {
+export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHandlerArgs) {
     const ws = yield* Workspace;
     const log = yield* Log;
 
@@ -101,4 +100,4 @@ export const handleRename = (args: RenameHandlerArgs) =>
     yield* ws.resolvePlan(plan, { "rename-skill": renameSkill });
 
     yield* log.success("Done");
-  }).pipe(Effect.withSpan("Rename.handle"));
+  });

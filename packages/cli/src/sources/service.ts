@@ -135,15 +135,21 @@ const getOriginFromSource = (source: Source): string => {
 export const createRegistryMetaProvider = () => ({
   type: "registry" as const,
 
-  find: (_source: RegistrySource, options: FindOptions) =>
+  find: (source: RegistrySource, options: FindOptions) =>
     Effect.gen(function* () {
       const ws = yield* Workspace;
 
-      // Determine scope from options names (e.g. @scope/name install)
+      // Determine scope from explicit option, or infer from @scope/name.
       const scope =
-        options.skillNames.length > 0
-          ? Option.fromNullable(options.skillNames.find((n) => n.startsWith("@"))?.split("/")[0] ?? null)
-          : Option.none<string>();
+        options.scope !== undefined
+          ? options.scope
+          : source.scope !== undefined
+            ? source.scope
+          : options.skillNames.length > 0
+            ? Option.fromNullable(
+                options.skillNames.find((n) => n.startsWith("@"))?.split("/")[0] ?? null,
+              )
+            : Option.none<string>();
 
       const registrySources = yield* ws.getConfiguredRegistrySources(scope).pipe(
         Effect.mapError((e) =>

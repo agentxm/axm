@@ -164,14 +164,18 @@ export const handleInstall = (args: InstallHandlerArgs) => {
             ? [parsedSource.pattern.name.value]
             : []
           : [];
+    const requestedScope =
+      parsedSource.pattern.pattern === "registry-pattern-input"
+        ? Option.some(parsedSource.pattern.scope)
+        : source.type === "registry"
+          ? source.scope ?? Option.none<string>()
+          : Option.none<string>();
 
-    /*
-    TODO: what about registry sources? If user provided a scope, should we filter by that?
-    */
     const discoveredSkills = yield* sources
       .find(source, {
         skillNames: requestedSkills,
         type: "skill" as const,
+        scope: requestedScope,
         versionConstraint,
       })
       .pipe(

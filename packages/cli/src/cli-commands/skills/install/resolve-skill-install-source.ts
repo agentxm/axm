@@ -43,6 +43,7 @@ const resolveRegistrySource = (
       return {
         type: "registry" as const,
         location: regConfig.location,
+        scope: Option.some(scope),
       } satisfies RegistrySource;
     }
 
@@ -53,6 +54,7 @@ const resolveRegistrySource = (
         return {
           type: "registry" as const,
           location: regConfig.location,
+          scope: Option.some(scope),
         } satisfies RegistrySource;
       }
     }
@@ -61,6 +63,47 @@ const resolveRegistrySource = (
       // TODO: update and make error more accurate/meaningful
       code: "SOURCE_PARSE_FAILED",
       what: `No registry source contains scope "${scope}"`,
+      details: [input],
+    });
+  });
+
+const resolveSkillRegistrySourceByName = (name: string, input: string) =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace;
+    const scope = yield* ws.getConfiguredScope();
+    const registrySources = yield* ws.getConfiguredRegistrySources(Option.some(scope)).pipe(
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "SOURCE_PARSE_FAILED",
+          what: `Failed to get registry sources: ${e._tag}`,
+          details: [input],
+        }),
+      ),
+    );
+
+    if (registrySources.length === 0) {
+      return yield* makeCliError({
+        code: "SOURCE_PARSE_FAILED",
+        what: `No registry source configured for scope "${scope}"`,
+        details: [input],
+      });
+    }
+
+    for (const regConfig of registrySources) {
+      const client = yield* createRegistryClient(regConfig.location.href);
+      const { exists } = yield* client.extensionExists({ scope, type: "skill", name });
+      if (exists) {
+        return {
+          type: "registry" as const,
+          location: regConfig.location,
+          scope: Option.some(scope),
+        } satisfies RegistrySource;
+      }
+    }
+
+    return yield* makeCliError({
+      code: "SOURCE_PARSE_FAILED",
+      what: `No registry source contains skill "${scope}/${name}"`,
       details: [input],
     });
   });
@@ -96,8 +139,9 @@ export const resolveSkillInstallSource = (parseResult: InputParseResult) =>
         });
       case "slash-pattern":
         return yield* resolveSlashInputSource(pattern, parseResult.originalInput);
-      //Unsupported:
       case "name-input":
+        return yield* resolveSkillRegistrySourceByName(pattern.name, parseResult.originalInput);
+      // Unsupported:
       case "url-input":
       case "git-scp-address":
       case "file-path-pattern":

@@ -12,7 +12,7 @@
 - [ ] 1.6 Add `PackExtensionRefBase<TRefType, TSource>` type alias composing `ExtensionRefBase<"pack", ...>` with `pack: { name }` metadata
 - [ ] 1.7 Replace existing skill ref types (8 individual types) with 4 concrete types: `GitHostedSkillRef`, `RegistrySkillRef`, `LocalSkillRef`, `BuiltinSkillRef`
 - [ ] 1.8 Replace existing MCP server ref types (4 individual types) with 4 concrete types: `GitHostedMcpServerRef`, `RegistryMcpServerRef`, `LocalMcpServerRef`, `BuiltinMcpServerRef`
-- [ ] 1.9 Replace existing pack ref types with `RegistryPackRef` and `BuiltinPackRef` using the new bases
+- [ ] 1.9 Replace existing pack ref types with `RegistryPackRef` and `BuiltinPackRef` using the new bases. Note: `BuiltinPackRef.pack` loses `scope` and `version` fields (only `name` remains via `PackExtensionRefBase`); no production code reads those fields
 - [ ] 1.10 Update `SkillExtensionRef`, `McpServerExtensionRef`, `PackExtensionRef` union types to use new concrete types
 - [ ] 1.11 Rename `SourceExtensionRef` → `ExtensionRef` and remove the old name
 - [ ] 1.12 Remove `SkillRefBase` and `McpServerRefBase` (replaced by generic layer-2 bases)
@@ -23,13 +23,13 @@
 ## 2. Provider construction updates
 
 > **Subagent:** Run this entire phase in a single subagent.
-> **Parallelization:** Tasks 2.1, 2.2, 2.3, 2.4 are independent — launch as parallel subagents.
+> **Parallelization:** Tasks 2.1, 2.2+2.5, 2.3, 2.4 are independent — launch as parallel subagents. Tasks 2.2 and 2.5 MUST run sequentially (same file).
 
 - [ ] 2.1 Update `git-hosting.ts` — add `refType: "git-hosted"` to constructed ref objects, update type assertions, update `skill.description` to use `Option`
 - [ ] 2.2 Update registry `host-provider.ts` (`toSourceExtensionRef`) — add `refType: "registry"`, add `name` to ref details, update `skill.description` to use `Option`
 - [ ] 2.3 Update `local.ts` provider — add `refType: "local"` to constructed ref objects, update `skill.description` to use `Option`
 - [ ] 2.4 Update `builtin.ts` provider — add `refType: "builtin"` to constructed ref objects (if/when find is implemented)
-- [ ] 2.5 Update `host-provider.ts` structural checks: replace `"scope" in ref` / `"version" in ref` / `"integrity" in ref` with `ref.refType === "registry"` narrowing
+- [ ] 2.5 Update `host-provider.ts` structural checks (same file as 2.2 — run after 2.2): replace `"scope" in ref` / `"version" in ref` / `"integrity" in ref` with `ref.refType === "registry"` narrowing
 - [ ] 2.6 Update `refName()` helper if needed (may already work since `ref.type` narrowing is unchanged)
 - [ ] 2.7 Update provider tests: `host-provider.test.ts`, `local.test.ts`, `provider-interface.test.ts`
 - [ ] 2.8 Run `pnpm typecheck` and fix any errors
@@ -49,8 +49,8 @@
 > **Parallelization:** Tasks 4.1, 4.2, 4.3, 4.4, 4.5 are independent — launch as parallel subagents.
 
 - [ ] 4.1 Rewrite `source-to-lock-entry.ts` — outer switch on `ref.refType`, inner switch on `ref.source.type` within `"git-hosted"`, remove all 7 type assertions. Update `source-to-lock-entry.test.ts` if needed
-- [ ] 4.2 Update `install-skill.ts` — replace `"location" in ref` with `ref.refType` narrowing, replace `ref.source.type === "registry"` with `ref.refType === "registry"`, replace `!("scope" in ref)` with `ref.refType` check. Update `install-skill.test.ts`
-- [ ] 4.3 Update `skill-paths.ts` — simplify `SkillPathSource` to use `refType` discriminator instead of `SourceType`. Update `skill-paths.test.ts`
+- [ ] 4.2 Update `install-skill.ts` — replace `"location" in ref` with `ref.refType` narrowing, replace `ref.source.type === "registry"` with `ref.refType === "registry"`, replace `!("scope" in ref)` with `ref.refType` check. Also update `SkillPathSource` construction (line 162) after 4.3 changes the type shape. Update `install-skill.test.ts`
+- [ ] 4.3 Update `skill-paths.ts` — simplify `SkillPathSource` to use `refType` discriminator instead of `SourceType`. Update `skill-paths.test.ts` (substantial rewrite — ~10 test cases construct `SkillPathSource` with `{ type: "github" }` etc., all need `refType`-based construction)
 - [ ] 4.4 Update `skill-utils.ts` (`getSkillDisplayName`) — replace `"location" in ref` with `refType` check, handle `skill.description` as `Option<string>`
 - [ ] 4.5 Update `copy-skill.ts` — replace `"location" in ref` with `refType` narrowing
 - [ ] 4.6 Update `operations.ts` — change import from `SkillExtensionRef` (already correct type name, just verify import path)
@@ -61,9 +61,9 @@
 > **Subagent:** Run this entire phase in a single subagent.
 > **Parallelization:** Tasks 5.1, 5.2, 5.3 are independent — launch as parallel subagents.
 
-- [ ] 5.1 Update `skills/install/handler.ts` and `select-skills.ts` — update type references and any structural checks
+- [ ] 5.1 Update `skills/install/handler.ts` and `select-skills.ts` — fix `ref.skill.description` truthy check in `handler.ts:188` (`ref.skill.description ? ...` → use `Option.match`/`Option.getOrElse`; Option objects are always truthy so the old pattern silently misbehaves). Fix `select-skills.ts:99` `Option.some(s.skill.description)` which double-wraps to `Option<Option<string>>` — use description directly since it's already `Option<string>`. Update type references and any structural checks
 - [ ] 5.2 Update `skills/update/handler.ts` and `build-plan.ts` — replace `GIT_SOURCE_TYPES` set with `ref.refType === "git-hosted"`, replace `"gitTreeSha" in ref` and `"version" in ref` with `refType` narrowing. Update `build-plan.test.ts`
-- [ ] 5.3 Update `skills/fork/handler.ts` — update type references and any structural checks
+- [ ] 5.3 Update `skills/fork/handler.ts` — update type references and any structural checks. Note: line 221 has an inline import-path type assertion (`as import("../../../sources/types.js").RegistrySkillRef`) that is easy to miss in a find/replace sweep — the `as` cast should become unnecessary with proper `refType` narrowing. Also verify `skill.description` pass-through at line 210 is consistent with `Option<string>`
 - [ ] 5.4 Run `pnpm typecheck` and fix any errors
 
 ## 6. Pack and MCP server consumer migration
@@ -78,7 +78,7 @@
 
 > **Subagent:** Run this entire phase in a single subagent.
 
-- [ ] 7.1 Update `workspace/service.ts` — update `SkillPathSource` usage if it changed shape
+- [ ] 7.1 Update `workspace/service.ts` and `skills/rename/rename-skill.ts` — update `SkillPathSource` construction to match new `refType`-based shape (both files construct `SkillPathSource` from lock entry data). Update `rename-skill.test.ts`
 - [ ] 7.2 Update `sources/printer.ts` — update any ref type references (this switches on `source.type` for display, which is unchanged, but imports may need updating)
 - [ ] 7.3 Grep for any remaining references to `SourceExtensionRef`, old individual ref type names (`GitHubSkillRef`, `GitLabSkillRef`, etc.), and structural `"in"` checks on refs. Fix any stragglers
 - [ ] 7.4 Run `pnpm typecheck` and fix any errors

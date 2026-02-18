@@ -1,7 +1,7 @@
 /**
  * Unit tests for the packs install command handler.
  *
- * Tests the pack install flow: source validation, plan build, and execution.
+ * Tests the pack install flow: input validation, plan build, and execution.
  */
 
 import * as fs from "node:fs";
@@ -28,18 +28,21 @@ import {
   type SourceHostProvidersService,
   type ExtensionFiles,
   type PackExtensionRef,
-  type SkillExtensionRef,
 } from "../../../sources/index.js";
-import { handleInstallPack, type InstallPackHandlerArgs } from "./handler.js";
+import { handleInstallPack, parsePackInput, type InstallPackHandlerArgs } from "./handler.js";
 import { CliError, makeCliError } from "../../../cli-error/index.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-/** Stub methods for the new SourceHostProvidersService interface fields. */
+/** Stub methods for SourceHostProvidersService. */
 const serviceStubs = {
   find: (() => Effect.succeed([])) as SourceHostProvidersService["find"],
+  fetch: (() =>
+    Effect.fail(
+      makeCliError({ code: "FETCH_FAILED", what: "stub" }),
+    )) as SourceHostProvidersService["fetch"],
   cloneUrl: () => Option.none() as Option.Option<string>,
   origin: () => "unknown",
 };
@@ -52,12 +55,14 @@ const initWorkspace = (
     lockfilePacks?: Record<string, unknown>;
     settingsPacks?: Record<string, unknown>;
     sources?: ReadonlyArray<unknown>;
+    scope?: string;
   },
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
   const settings: Record<string, unknown> = { agents: ["claude-code"] };
   if (opts?.settingsPacks) settings["packs"] = opts.settingsPacks;
   if (opts?.sources) settings["sources"] = opts.sources;
+  if (opts?.scope) settings["scope"] = opts.scope;
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
@@ -146,8 +151,159 @@ describe("packs install handler", () => {
     return { provide, mockLog, mockSpinner };
   };
 
+  const makeLayersWithMockSources = (
+    mockService: SourceHostProvidersService,
+    wsOverrides?: Partial<WorkspaceContextOptions>,
+  ) => {
+    const [logLayer, mockLog] = makeLogTestLayer();
+    const [spinnerLayer, mockSpinner] = makeSpinnerTestLayer();
+    const [confirmLayer] = makeConfirmTestLayer({ type: "return", value: true });
+    const [selectLayer] = makeSelectTestLayer({ type: "return", index: 0 });
+    const [multiselectLayer] = makeMultiselectTestLayer({ type: "return", indices: [] });
+    const BaseLayer = Layer.mergeAll(
+      NodeContext.layer,
+      logLayer,
+      spinnerLayer,
+      confirmLayer,
+      selectLayer,
+      multiselectLayer,
+    );
+    const wsOptions: WorkspaceContextOptions = {
+      global: false,
+      yes: true,
+      nonInteractive: Option.some(true),
+      preview: true,
+      agents: Option.none(),
+      ...wsOverrides,
+    };
+    const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
+    const SPLayer = Layer.succeed(SourceHostProviders, mockService);
+    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
+      effect.pipe(Effect.provide(FullLayer));
+
+    return { provide, mockLog, mockSpinner };
+  };
+
   // ---------------------------------------------------------------------------
-  // Non-registry source rejected
+  // Input parsing
+  // ---------------------------------------------------------------------------
+
+  describe("input parsing", () => {
+    it.effect("accepts @scope/packs/pack-name format", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          const result = yield* parsePackInput("@acme/packs/my-pack");
+          expect(result.scope).toBe("@acme");
+          expect(result.packName).toBe("my-pack");
+          expect(result.versionConstraint).toEqual(Option.none());
+        }),
+      );
+    });
+
+    it.effect("accepts @scope/packs/pack-name@^2.0.0 with version constraint", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          const result = yield* parsePackInput("@acme/packs/my-pack@^2.0.0");
+          expect(result.scope).toBe("@acme");
+          expect(result.packName).toBe("my-pack");
+          expect(result.versionConstraint).toEqual(Option.some("^2.0.0"));
+        }),
+      );
+    });
+
+    it.effect("resolves bare pack-name to @defaultScope/packs/pack-name", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        scope: "@myorg",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          const result = yield* parsePackInput("my-pack");
+          expect(result.scope).toBe("@myorg");
+          expect(result.packName).toBe("my-pack");
+          expect(result.resolvedInput).toBe("@myorg/packs/my-pack");
+        }),
+      );
+    });
+
+    it.effect("resolves bare pack-name@version with default scope", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        scope: "@myorg",
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          const result = yield* parsePackInput("my-pack@^2.0.0");
+          expect(result.scope).toBe("@myorg");
+          expect(result.packName).toBe("my-pack");
+          expect(result.versionConstraint).toEqual(Option.some("^2.0.0"));
+          expect(result.resolvedInput).toBe("@myorg/packs/my-pack@^2.0.0");
+        }),
+      );
+    });
+
+    it.effect("rejects @scope/pack-name without /packs/ segment", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* parsePackInput("@acme/my-pack").pipe(Effect.flip);
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).code).toBe("PACK_SOURCE_INVALID_FORMAT");
+          expect((error as CliError).what).toContain("/packs/");
+        }),
+      );
+    });
+
+    it.effect("rejects local path sources", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* parsePackInput("./local-path").pipe(Effect.flip);
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
+        }),
+      );
+    });
+
+    it.effect("rejects github shorthand sources", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"));
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* parsePackInput("github:owner/repo").pipe(Effect.flip);
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Non-registry source rejected (handler level)
   // ---------------------------------------------------------------------------
 
   describe("non-registry source rejection", () => {
@@ -175,6 +331,21 @@ describe("packs install handler", () => {
           );
           expect(error._tag).toBe("CliError");
           expect((error as CliError).what).toContain("registry");
+        }),
+      );
+    });
+
+    it.effect("rejects @scope/pack-name without /packs/ segment", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* handleInstallPack(defaultArgs("@acme/my-pack")).pipe(Effect.flip);
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).code).toBe("PACK_SOURCE_INVALID_FORMAT");
         }),
       );
     });
@@ -214,7 +385,7 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstallPack(defaultArgs("@acme/my-pack"));
+          yield* handleInstallPack(defaultArgs("@acme/packs/my-pack"));
 
           expect(mockLog.logs.warn.some((m) => m.includes("already installed"))).toBe(true);
           expect(mockLog.logs.success.some((m) => m.includes("Nothing to install"))).toBe(true);
@@ -228,7 +399,7 @@ describe("packs install handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("preview mode", () => {
-    it.effect("fails at registry guard when no registry configured", () => {
+    it.effect("fails at source resolution when no registry configured", () => {
       const { provide } = makeLayers(
         { confirmBehavior: { type: "return", value: false } },
         { preview: true, yes: false, nonInteractive: Option.some(true) },
@@ -237,8 +408,9 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          // Fails during source parsing since no registry source is configured.
-          const error = yield* handleInstallPack(defaultArgs("@acme/test-pack")).pipe(Effect.flip);
+          const error = yield* handleInstallPack(defaultArgs("@acme/packs/test-pack")).pipe(
+            Effect.flip,
+          );
           expect(error._tag).toBe("CliError");
           expect((error as CliError).code).toBe("INVALID_SOURCE");
         }),
@@ -247,363 +419,72 @@ describe("packs install handler", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Skill dependencies
+  // Pack install plan
   // ---------------------------------------------------------------------------
 
-  describe("skill dependencies", () => {
-    /** Create a pack archive directory with manifest and skill SKILL.md files. */
-    const createPackArchive = (
-      dir: string,
-      manifest: {
-        name: string;
-        version: string;
-        description: string;
+  describe("pack install plan", () => {
+    const makePackRef = (
+      name: string,
+      opts?: {
         skills?: Record<string, string>;
+        commands?: Record<string, string>;
+        mcpServers?: Record<string, string>;
       },
-    ) => {
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(
-        path.join(dir, "axm-pack.json"),
-        JSON.stringify({
-          name: manifest.name,
-          version: manifest.version,
-          description: manifest.description,
-          ...(manifest.skills ? { skills: manifest.skills } : {}),
-        }),
-      );
-    };
-
-    /** Create a skill archive directory with SKILL.md. */
-    const createSkillArchive = (dir: string, name: string, description: string) => {
-      const srcDir = path.join(dir, "src");
-      fs.mkdirSync(srcDir, { recursive: true });
-      fs.writeFileSync(
-        path.join(srcDir, "SKILL.md"),
-        `---\nname: ${name}\ndescription: ${description}\n---\n# ${name}\n`,
-      );
-    };
-
-    const makeLayersWithMockSources = (
-      mockService: SourceHostProvidersService,
-      wsOverrides?: Partial<WorkspaceContextOptions>,
-    ) => {
-      const [logLayer, mockLog] = makeLogTestLayer();
-      const [spinnerLayer, mockSpinner] = makeSpinnerTestLayer();
-      const [confirmLayer] = makeConfirmTestLayer({ type: "return", value: true });
-      const [selectLayer] = makeSelectTestLayer({ type: "return", index: 0 });
-      const [multiselectLayer] = makeMultiselectTestLayer({ type: "return", indices: [] });
-      const BaseLayer = Layer.mergeAll(
-        NodeContext.layer,
-        logLayer,
-        spinnerLayer,
-        confirmLayer,
-        selectLayer,
-        multiselectLayer,
-      );
-      const wsOptions: WorkspaceContextOptions = {
-        global: false,
-        yes: true,
-        nonInteractive: Option.some(true),
-        preview: true,
-        agents: Option.none(),
-        ...wsOverrides,
-      };
-      const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
-      const SPLayer = Layer.succeed(SourceHostProviders, mockService);
-      const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-      const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
-        effect.pipe(Effect.provide(FullLayer));
-
-      return { provide, mockLog, mockSpinner };
-    };
-
-    it.effect("produces combined plan with pack + skill ops", () => {
-      const packArchiveDir = path.join(tempDir, "pack-archive");
-      const skillArchiveDir = path.join(tempDir, "skill-archive");
-      createPackArchive(packArchiveDir, {
-        name: "@acme/test-pack",
-        version: "1.0.0",
-        description: "A test pack",
-        skills: { "@acme/code-review": "^1.0.0" },
-      });
-      createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
-
-      const packRef: PackExtensionRef = {
-        type: "pack",
-        refType: "registry",
-        pack: { name: "test-pack" },
-        source: { type: "registry", location: new URL("file:///tmp/reg") },
-        scope: "@acme",
-        name: "test-pack",
-        version: "1.0.0",
-        integrity: "",
-      };
-
-      const skillRef: SkillExtensionRef = {
-        type: "skill",
-        refType: "registry",
-        skill: {
-          name: "code-review",
-          description: Option.some("Code review skill"),
-          metadata: Option.none(),
-        },
-        source: { type: "registry", location: new URL("file:///tmp/reg") },
-        scope: "@acme",
-        name: "code-review",
-        version: "1.0.0",
-        integrity: "",
-      };
-
-      const mockService: SourceHostProvidersService = {
-        ...serviceStubs,
-        find: (source, options) => {
-          if (options.type === "pack") {
-            return Effect.succeed([packRef]);
-          }
-          if (options.type === "skill") {
-            return Effect.succeed([skillRef]);
-          }
-          return Effect.succeed([]);
-        },
-        fetch: (ref) => {
-          if (ref.type === "pack" && ref.pack.name === "test-pack") {
-            return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
-          }
-          if (ref.type === "skill" && ref.skill.name === "code-review") {
-            return Effect.succeed({ directory: skillArchiveDir } satisfies ExtensionFiles);
-          }
-          return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
-        },
-      };
-
-      initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
-      });
-
-      const { provide, mockLog } = makeLayersWithMockSources(mockService);
-
-      return provide(
-        Effect.gen(function* () {
-          // preview mode so we don't actually install, just build the plan
-          yield* handleInstallPack(defaultArgs("@acme/test-pack"));
-
-          // In preview mode, plan is displayed. Verify logs mention both pack and skill.
-          const allLogs = [
-            ...mockLog.logs.info,
-            ...mockLog.logs.message,
-            ...mockLog.logs.success,
-            ...mockLog.logs.warn,
-          ].join("\n");
-          // The plan should contain both the pack and the skill dependency
-          expect(allLogs).toContain("test-pack");
-          expect(allLogs).toContain("code-review");
-        }),
-      );
+    ): PackExtensionRef => ({
+      type: "pack",
+      refType: "registry",
+      pack: {
+        name,
+        skills: opts?.skills ?? {},
+        commands: opts?.commands ?? {},
+        mcpServers: opts?.mcpServers ?? {},
+      },
+      source: { type: "registry", location: new URL("file:///tmp/reg") },
+      scope: "@acme",
+      name,
+      version: "1.0.0",
+      integrity: "",
     });
 
-    it.effect("marks already-installed skills as no-op in plan", () => {
-      const packArchiveDir = path.join(tempDir, "pack-archive");
-      const skillArchiveDir = path.join(tempDir, "skill-archive");
-      createPackArchive(packArchiveDir, {
-        name: "@acme/test-pack",
-        version: "1.0.0",
-        description: "A test pack",
-        skills: { "@acme/my-skill": "^1.0.0" },
+    it.effect("builds plan from pack ref returned by sources.find", () => {
+      const packRef = makePackRef("test-pack", {
+        skills: { "@acme/skills/code-review": "^1.0.0" },
       });
-      createSkillArchive(skillArchiveDir, "my-skill", "My skill");
-
-      const packRef: PackExtensionRef = {
-        type: "pack",
-        refType: "registry",
-        pack: { name: "test-pack" },
-        source: { type: "registry", location: new URL("file:///tmp/reg") },
-        scope: "@acme",
-        name: "test-pack",
-        version: "1.0.0",
-        integrity: "",
-      };
-
-      const skillRef: SkillExtensionRef = {
-        type: "skill",
-        refType: "registry",
-        skill: { name: "my-skill", description: Option.some("My skill"), metadata: Option.none() },
-        source: { type: "registry", location: new URL("file:///tmp/reg") },
-        scope: "@acme",
-        name: "my-skill",
-        version: "1.0.0",
-        integrity: "",
-      };
-
-      const mockService: SourceHostProvidersService = {
-        ...serviceStubs,
-        find: (source, options) => {
-          if (options.type === "pack") return Effect.succeed([packRef]);
-          if (options.type === "skill") return Effect.succeed([skillRef]);
-          return Effect.succeed([]);
-        },
-        fetch: (ref) => {
-          if (ref.type === "pack" && ref.pack.name === "test-pack") {
-            return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
-          }
-          if (ref.type === "skill" && ref.skill.name === "my-skill") {
-            return Effect.succeed({ directory: skillArchiveDir } satisfies ExtensionFiles);
-          }
-          return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
-        },
-      };
-
-      initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
-        lockfileSkills: {
-          "my-skill": {
-            type: "registry",
-            scope: "@acme",
-            name: "my-skill",
-            resolvedVersion: "1.0.0",
-            integrity: "",
-            sourceName: "default",
-            agents: ["claude-code"],
-            installedAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          },
-        },
-      });
-
-      const { provide, mockLog } = makeLayersWithMockSources(mockService);
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleInstallPack(defaultArgs("@acme/test-pack"));
-
-          const allLogs = [
-            ...mockLog.logs.info,
-            ...mockLog.logs.message,
-            ...mockLog.logs.success,
-            ...mockLog.logs.warn,
-          ].join("\n");
-          // Skill should appear as already installed / no-op
-          expect(allLogs).toContain("my-skill");
-          expect(allLogs).toContain("already installed");
-        }),
-      );
-    });
-
-    it.effect("skill dependencies written to lockfile but NOT to settings", () => {
-      const packArchiveDir = path.join(tempDir, "pack-archive");
-      createPackArchive(packArchiveDir, {
-        name: "@acme/test-pack",
-        version: "1.0.0",
-        description: "A test pack",
-        skills: { "@acme/code-review": "^1.0.0" },
-      });
-
-      initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
-      });
-
-      // Pre-populate canonical directory (empty integrity → useExisting path)
-      const canonicalDir = path.join(
-        tempDir,
-        ".axm",
-        "extensions",
-        "@acme",
-        "skills",
-        "code-review",
-      );
-      createSkillArchive(canonicalDir, "code-review", "Code review skill");
-
-      const packRef: PackExtensionRef = {
-        type: "pack",
-        refType: "registry",
-        pack: { name: "test-pack" },
-        source: { type: "registry", location: new URL("file:///tmp/reg") },
-        scope: "@acme",
-        name: "test-pack",
-        version: "1.0.0",
-        integrity: "",
-      };
-
-      const skillRef: SkillExtensionRef = {
-        type: "skill",
-        refType: "registry",
-        skill: {
-          name: "code-review",
-          description: Option.some("Code review skill"),
-          metadata: Option.none(),
-        },
-        source: { type: "registry", location: new URL("file:///tmp/reg") },
-        scope: "@acme",
-        name: "code-review",
-        version: "1.0.0",
-        integrity: "",
-      };
 
       const mockService: SourceHostProvidersService = {
         ...serviceStubs,
         find: (_source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
-          if (options.type === "skill") return Effect.succeed([skillRef]);
           return Effect.succeed([]);
-        },
-        fetch: (ref) => {
-          if (ref.type === "pack" && ref.pack.name === "test-pack") {
-            return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
-          }
-          return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
         },
       };
 
-      // Non-preview mode so the plan is actually applied
-      const { provide } = makeLayersWithMockSources(mockService, { preview: false });
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+      });
+
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstallPack(defaultArgs("@acme/test-pack"));
+          yield* handleInstallPack(defaultArgs("@acme/packs/test-pack"));
 
-          // Verify: skill dependency is in lockfile
-          const axmDir = path.join(tempDir, ".axm");
-          const lockfileContent = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8");
-          const lockfile = YAML.parse(lockfileContent) as {
-            skills?: Record<string, unknown>;
-            packs?: Record<string, unknown>;
-          };
-          expect(lockfile.skills).toBeDefined();
-          expect(lockfile.skills!["code-review"]).toBeDefined();
-
-          // Verify: skill dependency is NOT in settings
-          const settingsContent = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
-          const settingsJson = JSON.parse(settingsContent) as {
-            skills?: Record<string, unknown>;
-            packs?: Record<string, unknown>;
-          };
-          expect(settingsJson.skills?.["code-review"]).toBeUndefined();
-
-          // Verify: pack IS in settings
-          expect(settingsJson.packs?.["test-pack"]).toBeDefined();
+          const allLogs = [
+            ...mockLog.logs.info,
+            ...mockLog.logs.message,
+            ...mockLog.logs.success,
+            ...mockLog.logs.warn,
+          ].join("\n");
+          expect(allLogs).toContain("test-pack");
         }),
       );
     });
 
     it.effect("pack version constraint from source persisted in settings", () => {
       const packArchiveDir = path.join(tempDir, "pack-archive");
-      createPackArchive(packArchiveDir, {
-        name: "@acme/test-pack",
-        version: "2.0.0",
-        description: "A test pack",
-      });
+      fs.mkdirSync(packArchiveDir, { recursive: true });
 
-      const packRef: PackExtensionRef = {
-        type: "pack",
-        refType: "registry",
-        pack: { name: "test-pack" },
-        source: { type: "registry", location: new URL("file:///tmp/reg") },
-        scope: "@acme",
-        name: "test-pack",
-        version: "2.0.0",
-        integrity: "",
-      };
+      const packRef = makePackRef("test-pack");
 
       const mockService: SourceHostProvidersService = {
         ...serviceStubs,
@@ -623,14 +504,12 @@ describe("packs install handler", () => {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
       });
 
-      // Non-preview mode so the plan is actually applied
       const { provide } = makeLayersWithMockSources(mockService, { preview: false });
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstallPack(defaultArgs("@acme/test-pack@^2.0.0"));
+          yield* handleInstallPack(defaultArgs("@acme/packs/test-pack@^2.0.0"));
 
-          // Verify: pack version constraint persisted in settings
           const axmDir = path.join(tempDir, ".axm");
           const settingsContent = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
           const settingsJson = JSON.parse(settingsContent) as { packs?: Record<string, string> };
@@ -639,142 +518,59 @@ describe("packs install handler", () => {
       );
     });
 
-    it.effect("manifest constraint * resolves to latest (no constraint appended)", () => {
-      const packArchiveDir = path.join(tempDir, "pack-archive");
-      const skillArchiveDir = path.join(tempDir, "skill-archive");
-      createPackArchive(packArchiveDir, {
-        name: "@acme/test-pack",
-        version: "1.0.0",
-        description: "A test pack",
-        skills: { "@acme/code-review": "*" },
-      });
-      createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
-
-      const packRef: PackExtensionRef = {
-        type: "pack",
-        refType: "registry",
-        pack: { name: "test-pack" },
-        source: { type: "registry", location: new URL("file:///tmp/reg") },
-        scope: "@acme",
-        name: "test-pack",
-        version: "1.0.0",
-        integrity: "",
-      };
-
-      // Capture what find receives for skill resolution
-      let capturedSkillSource: unknown;
-      const skillRef: SkillExtensionRef = {
-        type: "skill",
-        refType: "registry",
-        skill: {
-          name: "code-review",
-          description: Option.some("Code review skill"),
-          metadata: Option.none(),
-        },
-        source: { type: "registry", location: new URL("file:///tmp/reg") },
-        scope: "@acme",
-        name: "code-review",
-        version: "1.0.0",
-        integrity: "",
-      };
+    it.effect("marks already-installed packs as no-op in plan", () => {
+      const packRef = makePackRef("test-pack");
 
       const mockService: SourceHostProvidersService = {
         ...serviceStubs,
-        find: (source, options) => {
+        find: (_source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
-          if (options.type === "skill") {
-            capturedSkillSource = source;
-            return Effect.succeed([skillRef]);
-          }
           return Effect.succeed([]);
-        },
-        fetch: (ref) => {
-          if (ref.type === "pack" && ref.pack.name === "test-pack") {
-            return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
-          }
-          if (ref.type === "skill" && ref.skill.name === "code-review") {
-            return Effect.succeed({ directory: skillArchiveDir } satisfies ExtensionFiles);
-          }
-          return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
         },
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        lockfilePacks: {
+          "test-pack": {
+            type: "registry",
+            scope: "@acme",
+            name: "test-pack",
+            resolvedVersion: "1.0.0",
+            integrity: "",
+            sourceName: "default",
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            resolvedSkills: {},
+            resolvedCommands: {},
+            resolvedMcpServers: {},
+          },
+        },
       });
 
-      const { provide } = makeLayersWithMockSources(mockService);
+      // Use --force to bypass the early installed check, so we can see the plan
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstallPack(defaultArgs("@acme/test-pack"));
+          yield* handleInstallPack(defaultArgs("@acme/packs/test-pack", { force: true }));
 
-          // Constraint no longer lives on RegistrySourceParams.
-          expect(capturedSkillSource).toBeDefined();
-          const src = capturedSkillSource as { type: string };
-          expect(src.type).toBe("registry");
+          const allLogs = [
+            ...mockLog.logs.info,
+            ...mockLog.logs.message,
+            ...mockLog.logs.success,
+            ...mockLog.logs.warn,
+          ].join("\n");
+          expect(allLogs).toContain("test-pack");
+          expect(allLogs).toContain("already installed");
         }),
       );
     });
 
-    it.effect("manifest version constraint appended to skill source resolution", () => {
-      const packArchiveDir = path.join(tempDir, "pack-archive");
-      const skillArchiveDir = path.join(tempDir, "skill-archive");
-      createPackArchive(packArchiveDir, {
-        name: "@acme/test-pack",
-        version: "1.0.0",
-        description: "A test pack",
-        skills: { "@acme/code-review": "^1.0.0" },
-      });
-      createSkillArchive(skillArchiveDir, "code-review", "Code review skill");
-
-      const packRef: PackExtensionRef = {
-        type: "pack",
-        refType: "registry",
-        pack: { name: "test-pack" },
-        source: { type: "registry", location: new URL("file:///tmp/reg") },
-        scope: "@acme",
-        name: "test-pack",
-        version: "1.0.0",
-        integrity: "",
-      };
-
-      // Capture what find receives for skill resolution
-      let capturedSkillSource: unknown;
-      const skillRef: SkillExtensionRef = {
-        type: "skill",
-        refType: "registry",
-        skill: {
-          name: "code-review",
-          description: Option.some("Code review skill"),
-          metadata: Option.none(),
-        },
-        source: { type: "registry", location: new URL("file:///tmp/reg") },
-        scope: "@acme",
-        name: "code-review",
-        version: "1.0.0",
-        integrity: "",
-      };
-
+    it.effect("fails when pack not found in registry", () => {
       const mockService: SourceHostProvidersService = {
         ...serviceStubs,
-        find: (source, options) => {
-          if (options.type === "pack") return Effect.succeed([packRef]);
-          if (options.type === "skill") {
-            capturedSkillSource = source;
-            return Effect.succeed([skillRef]);
-          }
-          return Effect.succeed([]);
-        },
-        fetch: (ref) => {
-          if (ref.type === "pack" && ref.pack.name === "test-pack") {
-            return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
-          }
-          if (ref.type === "skill" && ref.skill.name === "code-review") {
-            return Effect.succeed({ directory: skillArchiveDir } satisfies ExtensionFiles);
-          }
-          return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
-        },
+        find: () => Effect.succeed([]),
       };
 
       initWorkspace(path.join(tempDir, ".axm"), {
@@ -785,64 +581,11 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstallPack(defaultArgs("@acme/test-pack"));
-
-          // Constraint no longer lives on RegistrySourceParams.
-          expect(capturedSkillSource).toBeDefined();
-          const src = capturedSkillSource as { type: string };
-          expect(src.type).toBe("registry");
-        }),
-      );
-    });
-
-    it.effect("fails with CliError when skill dependency fetch fails", () => {
-      const packArchiveDir = path.join(tempDir, "pack-archive");
-      createPackArchive(packArchiveDir, {
-        name: "@acme/test-pack",
-        version: "1.0.0",
-        description: "A test pack",
-        skills: { "@acme/missing-skill": "^1.0.0" },
-      });
-
-      const packRef: PackExtensionRef = {
-        type: "pack",
-        refType: "registry",
-        pack: { name: "test-pack" },
-        source: { type: "registry", location: new URL("file:///tmp/reg") },
-        scope: "@acme",
-        name: "test-pack",
-        version: "1.0.0",
-        integrity: "",
-      };
-
-      const mockService: SourceHostProvidersService = {
-        ...serviceStubs,
-        find: (source, options) => {
-          if (options.type === "pack") return Effect.succeed([packRef]);
-          // Return empty for skill — triggers PACK_DEPENDENCY_NOT_FOUND
-          if (options.type === "skill") return Effect.succeed([]);
-          return Effect.succeed([]);
-        },
-        fetch: (ref) => {
-          if (ref.type === "pack" && ref.pack.name === "test-pack") {
-            return Effect.succeed({ directory: packArchiveDir } satisfies ExtensionFiles);
-          }
-          return Effect.fail(makeCliError({ code: "FETCH_FAILED", what: "Unexpected fetch call" }));
-        },
-      };
-
-      initWorkspace(path.join(tempDir, ".axm"), {
-        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
-      });
-
-      const { provide } = makeLayersWithMockSources(mockService);
-
-      return provide(
-        Effect.gen(function* () {
-          const error = yield* handleInstallPack(defaultArgs("@acme/test-pack")).pipe(Effect.flip);
+          const error = yield* handleInstallPack(defaultArgs("@acme/packs/nonexistent")).pipe(
+            Effect.flip,
+          );
           expect(error._tag).toBe("CliError");
-          expect((error as CliError).code).toBe("PACK_DEPENDENCY_NOT_FOUND");
-          expect((error as CliError).what).toContain("missing-skill");
+          expect((error as CliError).code).toBe("PACK_NOT_FOUND");
         }),
       );
     });

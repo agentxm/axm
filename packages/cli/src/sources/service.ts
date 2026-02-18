@@ -252,14 +252,6 @@ export const SourceHostProvidersLive: Layer.Layer<
     return {
       find: findImpl as SourceHostProvidersService["find"],
       fetch: (ref) => {
-        if (ref.type === "pack") {
-          return Effect.fail(
-            makeCliError({
-              code: "SOURCE_FETCH_FAILED",
-              what: "Pack refs are not fetchable by SourceHostProviders",
-            }),
-          );
-        }
         const source = ref.source;
         switch (source.type) {
           case "github":

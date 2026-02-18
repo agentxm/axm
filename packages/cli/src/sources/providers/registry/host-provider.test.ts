@@ -259,7 +259,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     );
   });
 
-  it("maps pack entries to PackExtensionRef", () => {
+  it("maps pack entries to PackExtensionRef with empty deps", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
@@ -296,9 +296,107 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         // Assertion needed: TS can't narrow to RegistryPackRef
         const packRef = ref as RegistryPackRef;
         expect(packRef.pack.name).toBe("my-pack");
+        expect(packRef.pack.skills).toEqual({});
+        expect(packRef.pack.commands).toEqual({});
+        expect(packRef.pack.mcpServers).toEqual({});
         expect(packRef.scope).toBe("@test");
         expect(packRef.name).toBe("my-pack");
         expect(packRef.version).toBe("3.0.0");
+      }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
+    );
+  });
+
+  it("maps pack entries with mixed dependency types", () => {
+    const registry = makeTestRegistry();
+    const entries: ReadonlyArray<RegistryExtensionManifest> = [
+      {
+        scope: "@test",
+        type: "pack",
+        name: "my-pack",
+        description: Option.none(),
+        repository: Option.none(),
+        license: Option.none(),
+        authors: [],
+        dependencies: {
+          "@acme/skills/code-review": "^1.0.0",
+          "@acme/skills/linter": "^2.0.0",
+          "@acme/commands/formatter": "^1.5.0",
+          "@acme/mcp-servers/db": "^3.0.0",
+        },
+        version: "1.0.0",
+        integrity: "sha512-mixed",
+      },
+    ];
+
+    const client = createMockClient({
+      getExtensionsByScope: () => Effect.succeed(toResult(entries)),
+    });
+
+    const provider = createLocalRegistrySourceHostProvider(client);
+
+    return runEffect(
+      Effect.gen(function* () {
+        const refs = yield* provider.find(registry.source, {
+          ...defaultFindOptions,
+          type: "pack",
+        });
+
+        expect(refs).toHaveLength(1);
+        const packRef = refs[0]! as RegistryPackRef;
+        expect(packRef.pack.skills).toEqual({
+          "@acme/skills/code-review": "^1.0.0",
+          "@acme/skills/linter": "^2.0.0",
+        });
+        expect(packRef.pack.commands).toEqual({
+          "@acme/commands/formatter": "^1.5.0",
+        });
+        expect(packRef.pack.mcpServers).toEqual({
+          "@acme/mcp-servers/db": "^3.0.0",
+        });
+      }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
+    );
+  });
+
+  it("ignores malformed dependency keys in pack entries", () => {
+    const registry = makeTestRegistry();
+    const entries: ReadonlyArray<RegistryExtensionManifest> = [
+      {
+        scope: "@test",
+        type: "pack",
+        name: "my-pack",
+        description: Option.none(),
+        repository: Option.none(),
+        license: Option.none(),
+        authors: [],
+        dependencies: {
+          "@acme/skills/valid": "^1.0.0",
+          "no-scope": "^1.0.0",
+          "@acme/unknown-type/foo": "^1.0.0",
+          "@acme/packs/nested": "^1.0.0",
+        },
+        version: "1.0.0",
+        integrity: "sha512-malformed",
+      },
+    ];
+
+    const client = createMockClient({
+      getExtensionsByScope: () => Effect.succeed(toResult(entries)),
+    });
+
+    const provider = createLocalRegistrySourceHostProvider(client);
+
+    return runEffect(
+      Effect.gen(function* () {
+        const refs = yield* provider.find(registry.source, {
+          ...defaultFindOptions,
+          type: "pack",
+        });
+
+        expect(refs).toHaveLength(1);
+        const packRef = refs[0]! as RegistryPackRef;
+        expect(packRef.pack.skills).toEqual({ "@acme/skills/valid": "^1.0.0" });
+        expect(packRef.pack.commands).toEqual({});
+        expect(packRef.pack.mcpServers).toEqual({});
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
   });

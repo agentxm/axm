@@ -26,7 +26,8 @@ export const installPackCommand: CommandModule<{}, InstallPackCommandArgs> = {
     yargs
       .positional("source", {
         type: "string",
-        describe: "Registry pack reference (@scope/name or @scope/name@version)",
+        describe:
+          "Registry pack reference (@scope/packs/name, @scope/packs/name@version, or bare pack-name)",
         demandOption: true,
       })
       .option("global", {
@@ -56,11 +57,18 @@ export const installPackCommand: CommandModule<{}, InstallPackCommandArgs> = {
         describe: "Disable all interactive prompts",
       })
       .example(
-        "$0 packs install @acme/frontend-tools",
+        "$0 packs install @acme/packs/frontend-tools",
         "Install pack and all referenced extensions",
       )
-      .example("$0 packs install @acme/frontend-tools@^2.0.0", "Install specific version range")
-      .example("$0 packs install @acme/frontend-tools --preview", "See what would be installed"),
+      .example(
+        "$0 packs install @acme/packs/frontend-tools@^2.0.0",
+        "Install specific version range",
+      )
+      .example("$0 packs install frontend-tools", "Install using default scope")
+      .example(
+        "$0 packs install @acme/packs/frontend-tools --preview",
+        "See what would be installed",
+      ),
   handler: async (argv) => {
     await run(
       handleInstallPack({

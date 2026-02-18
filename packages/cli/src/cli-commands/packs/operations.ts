@@ -8,6 +8,7 @@
  */
 
 import type { Option } from "effect/Option";
+import type { PackExtensionRef } from "../../sources/types.js";
 import type { Operation } from "../../workspace/plan.js";
 
 // -----------------------------------------------------------------------------
@@ -36,6 +37,8 @@ export interface InstallPackOperationArgs {
   readonly resolvedMcpServers: Readonly<Record<string, string>>;
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings. */
   readonly versionConstraint: Option<string>;
+  /** Pack extension ref for fetching the archive. */
+  readonly ref: PackExtensionRef;
 }
 
 /**

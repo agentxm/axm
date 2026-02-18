@@ -251,6 +251,117 @@ describe("packs publish.handler", () => {
     });
   });
 
+  describe("dependency flattening", () => {
+    it.effect("flattens skills-only manifest into VersionEntry.dependencies", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedPack(tempDir, "@test", "skills-pack", {
+        name: "@test/skills-pack",
+        version: "1.0.0",
+        skills: {
+          "@acme/code-review": "^1.0.0",
+          "@acme/linter": "~2.0.0",
+        },
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublishPack(
+            defaultArgs("@test/skills-pack", { registry: Option.some("local") }),
+          );
+
+          const registryIndexPath = path.join(
+            registryRoot,
+            "extensions",
+            "@test",
+            "packs",
+            "skills-pack",
+            "index.json",
+          );
+          const indexContent = JSON.parse(fs.readFileSync(registryIndexPath, "utf-8"));
+          expect(indexContent.versions[0].dependencies).toEqual({
+            "@acme/skills/code-review": "^1.0.0",
+            "@acme/skills/linter": "~2.0.0",
+          });
+        }),
+      );
+    });
+
+    it.effect("flattens mixed types into VersionEntry.dependencies", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedPack(tempDir, "@test", "mixed-pack", {
+        name: "@test/mixed-pack",
+        version: "2.0.0",
+        skills: { "@acme/code-review": "^1.0.0" },
+        commands: { "@acme/formatter": "^1.5.0" },
+        "mcp-servers": { "@acme/db": "*" },
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublishPack(
+            defaultArgs("@test/mixed-pack", { registry: Option.some("local") }),
+          );
+
+          const registryIndexPath = path.join(
+            registryRoot,
+            "extensions",
+            "@test",
+            "packs",
+            "mixed-pack",
+            "index.json",
+          );
+          const indexContent = JSON.parse(fs.readFileSync(registryIndexPath, "utf-8"));
+          expect(indexContent.versions[0].dependencies).toEqual({
+            "@acme/skills/code-review": "^1.0.0",
+            "@acme/commands/formatter": "^1.5.0",
+            "@acme/mcp-servers/db": "*",
+          });
+        }),
+      );
+    });
+
+    it.effect("publishes with no dependencies when manifest has none", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedPack(tempDir, "@test", "empty-pack", {
+        name: "@test/empty-pack",
+        version: "1.0.0",
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublishPack(
+            defaultArgs("@test/empty-pack", { registry: Option.some("local") }),
+          );
+
+          const registryIndexPath = path.join(
+            registryRoot,
+            "extensions",
+            "@test",
+            "packs",
+            "empty-pack",
+            "index.json",
+          );
+          const indexContent = JSON.parse(fs.readFileSync(registryIndexPath, "utf-8"));
+          // No dependencies field or empty
+          const deps = indexContent.versions[0].dependencies;
+          expect(deps === undefined || Object.keys(deps).length === 0).toBe(true);
+        }),
+      );
+    });
+  });
+
   describe("non-managed pack error", () => {
     it.effect("fails when pack directory does not exist in .axm/extensions/", () => {
       const { provide } = makeLayers();

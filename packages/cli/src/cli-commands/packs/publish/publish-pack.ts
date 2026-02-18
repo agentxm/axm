@@ -26,9 +26,32 @@ import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
-import { parseScopedName } from "../../skills/naming.js";
+import { parseScopedName, parseScopedNameOrThrow } from "../../skills/naming.js";
 import type { PublishPackOperation } from "../operations.js";
 import { PACK_MANIFEST_FILENAME } from "../constants.js";
+
+// -----------------------------------------------------------------------------
+// Internal helpers
+// -----------------------------------------------------------------------------
+
+/**
+ * Expand a manifest extension map into flattened dependency entries.
+ *
+ * Given a map like `{ "@acme/code-review": "^1.0.0" }` and type plural `"skills"`,
+ * returns `{ "@acme/skills/code-review": "^1.0.0" }`.
+ */
+const flattenManifestDeps = (
+  map: Readonly<Record<string, string>> | undefined,
+  typePlural: string,
+): Readonly<Record<string, string>> => {
+  if (!map) return {};
+  const result: Record<string, string> = {};
+  for (const [fqn, version] of Object.entries(map)) {
+    const { scope, name } = parseScopedNameOrThrow(fqn);
+    result[`${scope}/${typePlural}/${name}`] = version;
+  }
+  return result;
+};
 
 // Re-export for convenience
 export type { PublishPackOperation } from "../operations.js";
@@ -128,11 +151,19 @@ export const publishPack: OperationHandler<
 
     const client = yield* createRegistryClient(registrySource.value.location.href);
 
+    // Flatten manifest dependencies into FQN keys
+    const dependencies: Record<string, string> = {
+      ...flattenManifestDeps(manifest.skills, "skills"),
+      ...flattenManifestDeps(manifest.commands, "commands"),
+      ...flattenManifestDeps(manifest["mcp-servers"], "mcp-servers"),
+    };
+
     // Build version entry metadata
     const versionEntry: VersionEntry = {
       version: manifest.version,
       published: new Date().toISOString(),
       integrity,
+      ...(Object.keys(dependencies).length > 0 && { dependencies }),
     };
 
     // Publish to registry (idempotent)

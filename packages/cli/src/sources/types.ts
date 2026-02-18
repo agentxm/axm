@@ -359,7 +359,12 @@ export type PackExtensionRefBase<
   TRefType extends RefType,
   TSource extends Source,
 > = ExtensionRefBase<"pack", TRefType, TSource> & {
-  readonly pack: { readonly name: string };
+  readonly pack: {
+    readonly name: string;
+    readonly skills: Readonly<Record<string, string>>;
+    readonly commands: Readonly<Record<string, string>>;
+    readonly mcpServers: Readonly<Record<string, string>>;
+  };
 };
 
 // -----------------------------------------------------------------------------

@@ -349,10 +349,11 @@ describe("axm packs install", () => {
       );
       fs.rmSync(packDirBefore, { recursive: true, force: true });
 
-      // Install from registry
-      const installResult = await runCli(["packs", "install", "@test/installable-pack", "--yes"], {
-        cwd: temp.path,
-      });
+      // Install from registry (new format: @scope/packs/name)
+      const installResult = await runCli(
+        ["packs", "install", "@test/packs/installable-pack", "--yes"],
+        { cwd: temp.path },
+      );
       expect(installResult.exitCode).toBe(0);
 
       // Verify settings updated
@@ -395,12 +396,164 @@ describe("axm packs install", () => {
       await runCli(["packs", "publish", "already-pack", "--yes"], { cwd: temp.path });
 
       // Pack is already registered from `packs new`, so install should say already installed
-      const installResult = await runCli(["packs", "install", "@test/already-pack", "--yes"], {
-        cwd: temp.path,
-      });
+      const installResult = await runCli(
+        ["packs", "install", "@test/packs/already-pack", "--yes"],
+        { cwd: temp.path },
+      );
 
       expect(installResult.exitCode).toBe(0);
       expect(installResult.stdout).toMatch(/already installed|[Nn]othing to install/);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("installs pack with skill dependencies, records them in lockfile resolvedSkills", async () => {
+    const { temp, registryDir, settingsPath, readSettings, readLock, cleanup } =
+      setupWorkspaceWithRegistry();
+    try {
+      await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
+
+      // Manually create a managed skill in .axm/extensions/ (avoids fork)
+      const skillDir = path.join(temp.path, ".axm", "extensions", "@test", "skills", "dep-skill");
+      const srcDir = path.join(skillDir, "src");
+      fs.mkdirSync(srcDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(srcDir, "SKILL.md"),
+        '---\nname: "dep-skill"\ndescription: "A dependency skill"\n---\n\n# Dep Skill\n',
+      );
+      fs.writeFileSync(
+        path.join(skillDir, "axm-skill.json"),
+        JSON.stringify(
+          {
+            name: "@test/dep-skill",
+            version: "1.0.0",
+            agents: ["claude-code"],
+            dependencies: {},
+          },
+          null,
+          2,
+        ) + "\n",
+      );
+
+      // Publish the skill to registry
+      const skillPublishResult = await runCli(["skills", "publish", "dep-skill", "--yes"], {
+        cwd: temp.path,
+      });
+      expect(skillPublishResult.exitCode).toBe(0);
+
+      // Create a pack and add the skill to its manifest directly
+      await runCli(["packs", "new", "deps-pack", "--yes"], { cwd: temp.path });
+
+      // Manually add the skill to the pack manifest
+      const packManifestPath = path.join(
+        temp.path,
+        ".axm",
+        "extensions",
+        "@test",
+        "packs",
+        "deps-pack",
+        "axm-pack.json",
+      );
+      const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
+      packManifest.skills = { "@test/dep-skill": "^1.0.0" };
+      fs.writeFileSync(packManifestPath, JSON.stringify(packManifest, null, 2));
+
+      // Publish the pack (with the skill dependency)
+      const packPublishResult = await runCli(["packs", "publish", "deps-pack", "--yes"], {
+        cwd: temp.path,
+      });
+      expect(packPublishResult.exitCode).toBe(0);
+
+      // Clean up local state: remove pack from settings/lockfile/disk
+      const settingsBefore = readSettings();
+      delete settingsBefore.packs?.["deps-pack"];
+      fs.writeFileSync(settingsPath, JSON.stringify(settingsBefore, null, 2));
+
+      const lockBefore = readLock();
+      if (lockBefore.packs) delete lockBefore.packs["deps-pack"];
+      fs.writeFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), YAML.stringify(lockBefore));
+
+      fs.rmSync(path.join(temp.path, ".axm", "extensions", "@test", "packs", "deps-pack"), {
+        recursive: true,
+        force: true,
+      });
+
+      // Install the pack from registry
+      const installResult = await runCli(["packs", "install", "@test/packs/deps-pack", "--yes"], {
+        cwd: temp.path,
+      });
+      expect(installResult.exitCode).toBe(0);
+
+      // Verify pack in lockfile with resolvedSkills populated
+      const lock = readLock();
+      expect(lock.packs).toBeDefined();
+      expect(lock.packs["deps-pack"]).toBeDefined();
+      const packEntry = lock.packs["deps-pack"];
+      expect(packEntry.type).toBe("registry");
+      expect(packEntry.resolvedSkills).toBeDefined();
+      const resolvedKeys = Object.keys(packEntry.resolvedSkills);
+      expect(resolvedKeys.length).toBeGreaterThan(0);
+      expect(resolvedKeys.some((k: string) => k.includes("dep-skill"))).toBe(true);
+
+      // Verify pack in settings
+      const settings = readSettings();
+      expect(settings.packs?.["deps-pack"]).toBeDefined();
+
+      // Verify skill is NOT in settings (it's a pack dependency, not a direct install)
+      expect(settings.skills?.["dep-skill"]).toBeUndefined();
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("--preview shows plan without applying changes", async () => {
+    const { temp, registryDir, settingsPath, lockPath, readSettings, readLock, cleanup } =
+      setupWorkspaceWithRegistry();
+    try {
+      await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      configureRegistrySource(settingsPath, `file://${registryDir.path}`);
+
+      // Create and publish a pack
+      await runCli(["packs", "new", "preview-pack", "--yes"], { cwd: temp.path });
+      const publishResult = await runCli(["packs", "publish", "preview-pack", "--yes"], {
+        cwd: temp.path,
+      });
+      expect(publishResult.exitCode).toBe(0);
+
+      // Clean up local state
+      const settingsBefore = readSettings();
+      delete settingsBefore.packs?.["preview-pack"];
+      fs.writeFileSync(settingsPath, JSON.stringify(settingsBefore, null, 2));
+
+      const lockBefore = readLock();
+      if (lockBefore.packs) delete lockBefore.packs["preview-pack"];
+      fs.writeFileSync(path.join(temp.path, ".axm", "axm-lock.yaml"), YAML.stringify(lockBefore));
+
+      fs.rmSync(path.join(temp.path, ".axm", "extensions", "@test", "packs", "preview-pack"), {
+        recursive: true,
+        force: true,
+      });
+
+      // Snapshot settings and lockfile before preview
+      const settingsSnapshot = fs.readFileSync(settingsPath, "utf-8");
+      const lockSnapshot = fs.readFileSync(lockPath, "utf-8");
+
+      // Run install with --preview --non-interactive (no --yes: plan displayed but NOT applied)
+      const previewResult = await runCli(
+        ["packs", "install", "@test/packs/preview-pack", "--preview", "--non-interactive"],
+        { cwd: temp.path },
+      );
+      expect(previewResult.exitCode).toBe(0);
+
+      // Verify stdout mentions the pack name (plan was displayed)
+      const combined = previewResult.stdout + previewResult.stderr;
+      expect(combined).toContain("preview-pack");
+
+      // Verify settings and lockfile are unchanged (nothing actually installed)
+      expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsSnapshot);
+      expect(fs.readFileSync(lockPath, "utf-8")).toBe(lockSnapshot);
     } finally {
       cleanup();
     }

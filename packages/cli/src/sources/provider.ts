@@ -12,7 +12,6 @@ import type * as Effect from "effect/Effect";
 
 import type { CliError } from "../cli-error/index.js";
 import type { ExtensionType } from "../extensions/common.js";
-import type { VersionEntry } from "../registry/index.js";
 import type { Source, SourceExtensionRef } from "./types.js";
 
 // -----------------------------------------------------------------------------
@@ -79,26 +78,4 @@ export interface SourceHostProvider<S extends Source = Source, R = never> {
     source: S,
     ref: SourceExtensionRef,
   ) => Effect.Effect<ExtensionFiles, CliError, R>;
-}
-
-/**
- * Extended provider for registry sources — adds publish operations.
- *
- * Callers construct the archive, determine version, and compute metadata
- * before calling publishExtension — the provider handles storage only.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface PublishableSourceHostProvider<
-  S extends Source = Source,
-  R = never,
-> extends SourceHostProvider<S, R> {
-  readonly publishExtension: (
-    scope: string,
-    type: ExtensionType,
-    name: string,
-    version: string,
-    archive: Uint8Array,
-    metadata: VersionEntry,
-  ) => Effect.Effect<void, CliError, R>;
 }

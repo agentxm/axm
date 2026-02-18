@@ -89,7 +89,6 @@ export type {
   ExtensionFiles,
   FindOptions,
   SourceHostProvider,
-  PublishableSourceHostProvider,
 } from "./provider.js";
 
 // Provider implementations

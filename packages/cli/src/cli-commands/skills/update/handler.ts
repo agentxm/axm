@@ -281,6 +281,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               args: {
                 ref: item.ref,
                 force: args.force,
+                versionConstraint: Option.none(),
               },
             } satisfies InstallSkillOperation,
           ]
@@ -291,6 +292,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
               args: {
                 ref: item.newRef,
                 force: args.force,
+                versionConstraint: Option.none(),
               },
             } satisfies InstallSkillOperation,
             {

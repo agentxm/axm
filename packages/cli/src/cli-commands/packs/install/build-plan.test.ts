@@ -45,8 +45,8 @@ const makeSkillOp = (name: string): InstallSkillOperation => ({
       source: { type: "local", path: `/tmp/skills/${name}` },
       location: `file:///tmp/skills/${name}`,
     },
-    agents: [],
     force: false,
+    versionConstraint: Option.none(),
   },
 });
 

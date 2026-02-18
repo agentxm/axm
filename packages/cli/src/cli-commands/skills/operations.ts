@@ -37,7 +37,8 @@ export interface Skill {
  */
 export type InstallSkillOperationArgs = {
   readonly ref: SkillExtensionRef;
-  readonly agents: ReadonlyArray<string>;
+  /** @deprecated Install handler resolves agents from Workspace.getConfiguredAgents(). */
+  readonly agents?: ReadonlyArray<string>;
   readonly force: boolean;
   /** Version constraint from the original input when available. */
   readonly versionConstraint?: Option.Option<string>;

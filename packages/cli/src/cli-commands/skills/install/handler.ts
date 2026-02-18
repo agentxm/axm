@@ -140,16 +140,14 @@ export const handleInstall = (args: InstallHandlerArgs) => {
               ? [parsedSource.pattern.name.value]
               : []
             : [];
-    // Carry the version constraint only when input matched registry-pattern syntax.
-    // Non-registry sources and non-matching inputs get no constraint.
-    const registryConstraint =
-      parsedSource.pattern.pattern === "registry-pattern-input"
-        ? parsedSource.pattern.versionConstraint
-        : Option.none<string>();
     const findOptions = {
       names: registryNames,
       agents: args.agents,
       type: "skill" as const,
+      versionConstraint:
+        parsedSource.pattern.pattern === "registry-pattern-input"
+          ? parsedSource.pattern.versionConstraint
+          : Option.none<string>(),
     };
     const allRefs = yield* sources.find(source, findOptions).pipe(
       Effect.mapError((error) =>
@@ -227,17 +225,15 @@ export const handleInstall = (args: InstallHandlerArgs) => {
       { concurrency: "unbounded" },
     );
 
-    const agentIds = yield* ws.getConfiguredAgents();
-
     const ops = resolvedSkills.map(
       ({ ref: s, fetchedLocation }) =>
         ({
           name: "install-skill",
           args: {
             ref: s,
-            agents: agentIds,
             force: args.force,
-            versionConstraint: s.refType === "registry" ? registryConstraint : Option.none(),
+            versionConstraint:
+              s.refType === "registry" ? (findOptions.versionConstraint ?? Option.none()) : Option.none(),
             fetchedLocation,
           },
         }) satisfies InstallSkillOperation,

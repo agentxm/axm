@@ -174,7 +174,6 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   yield* handle.stop(`Found ${filtered.length} skill(s)`);
 
   // Step 5: Get agents from workspace
-  const agentIds = yield* ws.getConfiguredAgents();
 
   // Step 6: Determine first registry source name for publishing
   const registrySources = yield* ws.getConfiguredRegistrySources(Option.none()).pipe(
@@ -257,7 +256,6 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
           name: "install-skill",
           args: {
             ref: registryRef,
-            agents: [...agentIds],
             force: true,
             fetchedLocation,
           },

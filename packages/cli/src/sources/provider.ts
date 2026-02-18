@@ -9,6 +9,7 @@
  */
 
 import type * as Effect from "effect/Effect";
+import type * as Option from "effect/Option";
 
 import type { CliError } from "../cli-error/index.js";
 import type { ExtensionType } from "../extensions/common.js";
@@ -23,12 +24,14 @@ import type { ExtensionRef, Source } from "./types.js";
  *
  * - `names`: extension names to match (empty = all)
  * - `type`: findable extension type filter or `"*"` for all
+ * - `versionConstraint`: optional version constraint for registry-backed lookups
  *
  * @experimental This API is unstable and may change without notice.
  */
 export interface FindOptions {
   readonly names: ReadonlyArray<string>;
   readonly type: ExtensionType | "*";
+  readonly versionConstraint?: Option.Option<string>;
 }
 
 // -----------------------------------------------------------------------------

@@ -47,7 +47,7 @@ const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
 });
 
 const defaultFindOptions: FindOptions = {
-  names: [],
+  skillNames: [],
   type: "skill",
 };
 
@@ -168,7 +168,7 @@ describe("registry meta-provider scope routing", () => {
             type: "registry",
             location: new URL(`file://${registryRoot}`),
           },
-          { ...defaultFindOptions, names: ["my-skill"] },
+          { ...defaultFindOptions, skillNames: ["my-skill"] },
         );
         expect(refs).toHaveLength(1);
       }).pipe(
@@ -189,7 +189,7 @@ describe("registry meta-provider scope routing", () => {
             type: "registry",
             location: new URL("file:///tmp/registry"),
           },
-          { ...defaultFindOptions, names: ["my-skill"] },
+          { ...defaultFindOptions, skillNames: ["my-skill"] },
         );
         expect(refs).toHaveLength(0);
       }),
@@ -278,7 +278,7 @@ describe("SourceHostProviders dispatch", () => {
             type: "registry",
             location: new URL(`file://${registryRoot}`),
           },
-          { ...defaultFindOptions, names: ["nonexistent"] },
+          { ...defaultFindOptions, skillNames: ["nonexistent"] },
         );
         // Empty results, but no error (successful dispatch)
         expect(refs).toHaveLength(0);

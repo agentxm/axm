@@ -69,7 +69,7 @@ const testSource: RegistrySource = {
 };
 
 const defaultFindOptions: FindOptions = {
-  names: [],
+  skillNames: [],
   type: "skill",
 };
 
@@ -175,7 +175,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     return runEffect(
       Effect.gen(function* () {
         const findOptions: FindOptions = {
-          names: ["my-skill"],
+          skillNames: ["my-skill"],
           type: "skill",
         };
         const refs = yield* provider.find(registry.source, findOptions);

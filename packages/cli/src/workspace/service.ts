@@ -34,15 +34,15 @@ import {
   BUILTIN_PACK_SCOPE,
   resolveBuiltinPack,
 } from "../builtin-pack/index.js";
-import { copySkillDirectory } from "../cli-commands/skills/copy-skill-directory.js";
+import { copySkillDirectory } from "../extensions/skills/operations/copy-directory.js";
 import { createSymlink } from "../utils/create-symlink.js";
 import {
   computeSkillPaths,
   type SkillDirPaths,
   type SkillPathSource,
-} from "../cli-commands/skills/index.js";
-import { computePackPaths, type PackDirPath } from "../cli-commands/packs/index.js";
-import { sanitizeName } from "../cli-commands/skills/install/skill-utils.js";
+} from "../extensions/skills/paths.js";
+import { computePackPaths, type PackDirPath } from "../extensions/packs/paths.js";
+import { sanitizeName } from "../extensions/skills/utils.js";
 import { AgentIdSchema } from "../extensions/common.js";
 import { formatFqn } from "../extensions/fqn.js";
 import { type CliError, makeCliError } from "../cli-error/index.js";

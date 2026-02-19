@@ -15,8 +15,8 @@ import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { PackManifest } from "../../../extensions/packs/manifest-schema.js";
 import { formatFqn } from "../../../extensions/index.js";
-import { computePackPaths } from "../pack-paths.js";
-import { PACK_MANIFEST_FILENAME } from "../constants.js";
+import { computePackPaths } from "../../../extensions/packs/paths.js";
+import { PACK_MANIFEST_FILENAME } from "../../../extensions/packs/manifest-schema.js";
 
 // -----------------------------------------------------------------------------
 // Types

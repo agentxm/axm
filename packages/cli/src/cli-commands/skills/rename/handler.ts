@@ -10,9 +10,9 @@ import * as Effect from "effect/Effect";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import type { RenameSkillOperation } from "../operations.js";
+import type { RenameSkillOperation } from "../../../extensions/skills/operations/rename.js";
 import { buildSingleStepPlan } from "../plan-helpers.js";
-import { renameSkill } from "./rename-skill.js";
+import { renameSkill } from "../../../extensions/skills/operations/rename.js";
 
 // -----------------------------------------------------------------------------
 // Types

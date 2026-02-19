@@ -19,11 +19,11 @@ import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import type { PublishSkillOperation } from "../operations.js";
-import { publishSkill } from "../publish-skill.js";
+import type { PublishSkillOperation } from "../../../extensions/skills/operations/publish.js";
+import { publishSkill } from "../../../extensions/skills/operations/publish.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
-import { MANIFEST_FILENAME } from "../constants.js";
+import { MANIFEST_FILENAME } from "../../../extensions/skills/manifest-schema.js";
 import { parseFqn } from "../../../extensions/fqn.js";
 import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
 

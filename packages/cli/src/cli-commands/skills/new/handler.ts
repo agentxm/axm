@@ -15,8 +15,8 @@ import type { SkillManifest } from "../../../extensions/skills/manifest-schema.j
 import { Log } from "../../../tui/index.js";
 import { createSymlink } from "../../../utils/create-symlink.js";
 import { Workspace } from "../../../workspace/index.js";
-import { MANIFEST_FILENAME } from "../constants.js";
-import { computeSkillPaths } from "../skill-paths.js";
+import { MANIFEST_FILENAME } from "../../../extensions/skills/manifest-schema.js";
+import { computeSkillPaths } from "../../../extensions/skills/paths.js";
 
 // -----------------------------------------------------------------------------
 // Constants

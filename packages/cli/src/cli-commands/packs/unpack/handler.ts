@@ -15,9 +15,11 @@ import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import type { PlannedJobStep, OperationResult, Operation } from "../../../workspace/plan.js";
-import type { OperationHandler } from "../../../workspace/apply-plan.js";
-import { parseFqn } from "../../../extensions/index.js";
+import type { PlannedJobStep } from "../../../workspace/plan.js";
+import {
+  unpackPack,
+  type UnpackPackOperation,
+} from "../../../extensions/packs/operations/unpack.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -32,98 +34,6 @@ export interface UnpackHandlerArgs {
   /** Skip confirmations. */
   readonly yes: boolean;
 }
-
-/**
- * Args for the unpack-pack operation.
- */
-export type UnpackPackOperationArgs = {
-  /** Pack FQN to unpack. */
-  readonly name: string;
-};
-
-/**
- * Unpack a pack into direct settings entries.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type UnpackPackOperation = Operation<"unpack-pack", UnpackPackOperationArgs>;
-
-// -----------------------------------------------------------------------------
-// Operation Handler
-// -----------------------------------------------------------------------------
-
-/**
- * Unpack operation handler.
- *
- * 1. Look up pack in lockfile for resolved extensions
- * 2. Read current settings to find existing direct skill entries
- * 3. Add resolved skills as direct entries (skip existing)
- * 4. Remove pack from settings and lockfile
- */
-export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op) =>
-  Effect.gen(function* () {
-    const ws = yield* Workspace;
-
-    // Look up the pack in the lockfile
-    const lockedPack = yield* ws.getLockedPack(op.args.name);
-
-    if (Option.isNone(lockedPack)) {
-      return yield* makeCliError({
-        code: "PACK_NOT_INSTALLED",
-        what: `Pack "${op.args.name}" is not installed`,
-        howToFix: "Install the pack first with `axm packs install`.",
-      });
-    }
-
-    const entry = lockedPack.value;
-
-    if (entry.type !== "registry") {
-      return yield* makeCliError({
-        code: "PACK_UNPACK_UNSUPPORTED",
-        what: `Cannot unpack "${op.args.name}" — only registry packs can be unpacked`,
-      });
-    }
-
-    // Read current configured skills to preserve existing direct entries
-    const currentSkills = yield* ws.getConfiguredSkills();
-
-    // Add resolved skills as direct entries (only if not already present)
-    // Use the short name from the FQN as the settings key since SkillsMapSchema
-    // validates keys against agentskills.io naming (no @ or / allowed).
-    yield* Effect.forEach(
-      Object.entries(entry.resolvedSkills),
-      ([skillFqn, version]) =>
-        Effect.gen(function* () {
-          const parsed = yield* parseFqn(skillFqn);
-          if (parsed.name in currentSkills) return; // preserve existing direct entry
-          yield* ws.setSkill({
-            name: parsed.name,
-            lockEntry: {
-              type: "registry" as const,
-              scope: parsed.scope,
-              name: parsed.name,
-              resolvedVersion: version,
-              integrity: "",
-              sourceName: entry.sourceName,
-              agents: [],
-              installedAt: new Date(),
-              updatedAt: new Date(),
-            },
-            versionConstraint: Option.none(),
-          });
-        }),
-      { concurrency: 1 },
-    );
-
-    // Remove the pack entry from settings and lockfile
-    yield* ws.removePack(op.args.name);
-
-    const skillCount = Object.keys(entry.resolvedSkills).length;
-    return {
-      result: "success",
-      message: `Unpacked ${op.args.name}: ${skillCount} skill(s) promoted to direct entries`,
-    } satisfies OperationResult;
-  });
 
 // -----------------------------------------------------------------------------
 // Main Handler

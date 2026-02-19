@@ -14,9 +14,9 @@ import { pipe } from "effect/Function";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import type { DisableSkillOperation } from "../operations.js";
+import type { DisableSkillOperation } from "../../../extensions/skills/operations/disable.js";
 import { buildSingleStepPlan } from "../plan-helpers.js";
-import { disableSkill } from "./disable-skill.js";
+import { disableSkill } from "../../../extensions/skills/operations/disable.js";
 
 // -----------------------------------------------------------------------------
 // Types

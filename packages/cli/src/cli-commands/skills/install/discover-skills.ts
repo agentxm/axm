@@ -12,7 +12,7 @@ import * as Path from "@effect/platform/Path";
 import { getAllAgents } from "../../../agents/index.js";
 import { parseManifests } from "./parse-manifests.js";
 import { parseSkillMd } from "./parse-skill-md.js";
-import type { Skill } from "../operations.js";
+import type { Skill } from "../../../extensions/skills/types.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";

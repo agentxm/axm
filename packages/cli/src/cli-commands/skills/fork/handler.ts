@@ -24,14 +24,12 @@ import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import type {
-  CopySkillOperation,
-  InstallSkillOperation,
-  PublishSkillOperation,
-} from "../operations.js";
-import { copySkill } from "../copy-skill.js";
-import { installSkill } from "../install/install-skill.js";
-import { publishSkill } from "../publish-skill.js";
+import type { CopySkillOperation } from "../../../extensions/skills/operations/copy.js";
+import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
+import type { PublishSkillOperation } from "../../../extensions/skills/operations/publish.js";
+import { copySkill } from "../../../extensions/skills/operations/copy.js";
+import { installSkill } from "../../../extensions/skills/operations/install.js";
+import { publishSkill } from "../../../extensions/skills/operations/publish.js";
 import { expandGlobs } from "../../../skills/index.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
 import type { SkillExtensionRef, RegistrySkillRef } from "../../../sources/index.js";

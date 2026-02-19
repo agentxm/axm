@@ -7,16 +7,16 @@
 
 Co-locate constants into their relevant modules and move path utilities.
 
-- [ ] 1.1 Move `MANIFEST_FILENAME` from `cli-commands/skills/constants.ts` → `extensions/skills/manifest-schema.ts`. Move `UNIVERSAL_SKILLS_DIR` to `extensions/skills/paths.ts` if used, otherwise remove. Update all imports.
-- [ ] 1.2 Move `PACK_MANIFEST_FILENAME` and `RawPackManifest` from `cli-commands/packs/constants.ts` → `extensions/packs/manifest-schema.ts`. Update all imports.
-- [ ] 1.3 Move `computePackPaths` and `PackDirPath` from `cli-commands/packs/pack-paths.ts` → `extensions/packs/paths.ts`. Move `cli-commands/packs/pack-paths.test.ts` → `extensions/packs/paths.test.ts`. Update all imports.
-- [ ] 1.4 Delete `cli-commands/skills/constants.ts` and `cli-commands/packs/constants.ts` (contents distributed).
-- [ ] 1.5 Delete duplicate `Skill` interface from `cli-commands/skills/operations.ts` (already in `extensions/skills/types.ts`).
-- [ ] 1.6 Run `pnpm typecheck` — fix any errors.
-- [ ] 1.7 Run `pnpm lint` — fix any errors.
-- [ ] 1.8 Run `pnpm test` — fix any failures.
-- [ ] 1.9 Run `pnpm test:e2e` — fix any failures.
-- [ ] 1.10 Kill any lingering vitest worker processes.
+- [x] 1.1 Move `MANIFEST_FILENAME` from `cli-commands/skills/constants.ts` → `extensions/skills/manifest-schema.ts`. Move `UNIVERSAL_SKILLS_DIR` to `extensions/skills/paths.ts` if used, otherwise remove. Update all imports.
+- [x] 1.2 Move `PACK_MANIFEST_FILENAME` and `RawPackManifest` from `cli-commands/packs/constants.ts` → `extensions/packs/manifest-schema.ts`. Update all imports.
+- [x] 1.3 Move `computePackPaths` and `PackDirPath` from `cli-commands/packs/pack-paths.ts` → `extensions/packs/paths.ts`. Move `cli-commands/packs/pack-paths.test.ts` → `extensions/packs/paths.test.ts`. Update all imports.
+- [x] 1.4 Delete `cli-commands/skills/constants.ts` and `cli-commands/packs/constants.ts` (contents distributed).
+- [x] 1.5 Delete duplicate `Skill` interface from `cli-commands/skills/operations.ts` (already in `extensions/skills/types.ts`).
+- [x] 1.6 Run `pnpm typecheck` — fix any errors.
+- [x] 1.7 Run `pnpm lint` — fix any errors.
+- [x] 1.8 Run `pnpm test` — fix any failures.
+- [x] 1.9 Run `pnpm test:e2e` — fix any failures.
+- [x] 1.10 Kill any lingering vitest worker processes.
 
 ## 2. Shared Helpers
 
@@ -25,15 +25,15 @@ Co-locate constants into their relevant modules and move path utilities.
 
 Move shared helpers to appropriate general-purpose modules.
 
-- [ ] 2.1 Move `cli-commands/skills/fs-helpers.ts` → `utils/fs-helpers.ts`. Update all imports.
-- [ ] 2.2 Move `cli-commands/skills/source-to-lock-entry.ts` → `sources/source-to-lock-entry.ts`. Move `cli-commands/skills/source-to-lock-entry.test.ts` → `sources/source-to-lock-entry.test.ts`. Update all imports.
-- [ ] 2.3 Move `cli-commands/skills/skill-paths.ts` → `extensions/skills/paths.ts`. Move `cli-commands/skills/skill-paths.test.ts` → `extensions/skills/paths.test.ts`. Update all imports.
-- [ ] 2.4 Move `cli-commands/skills/install/skill-utils.ts` → `extensions/skills/utils.ts`. Move `cli-commands/skills/install/skill-utils.test.ts` → `extensions/skills/utils.test.ts`. Update all imports.
-- [ ] 2.5 Run `pnpm typecheck` — fix any errors.
-- [ ] 2.6 Run `pnpm lint` — fix any errors.
-- [ ] 2.7 Run `pnpm test` — fix any failures.
-- [ ] 2.8 Run `pnpm test:e2e` — fix any failures.
-- [ ] 2.9 Kill any lingering vitest worker processes.
+- [x] 2.1 Move `cli-commands/skills/fs-helpers.ts` → `utils/fs-helpers.ts`. Update all imports.
+- [x] 2.2 Move `cli-commands/skills/source-to-lock-entry.ts` → `sources/source-to-lock-entry.ts`. Move `cli-commands/skills/source-to-lock-entry.test.ts` → `sources/source-to-lock-entry.test.ts`. Update all imports.
+- [x] 2.3 Move `cli-commands/skills/skill-paths.ts` → `extensions/skills/paths.ts`. Move `cli-commands/skills/skill-paths.test.ts` → `extensions/skills/paths.test.ts`. Update all imports.
+- [x] 2.4 Move `cli-commands/skills/install/skill-utils.ts` → `extensions/skills/utils.ts`. Move `cli-commands/skills/install/skill-utils.test.ts` → `extensions/skills/utils.test.ts`. Update all imports.
+- [x] 2.5 Run `pnpm typecheck` — fix any errors.
+- [x] 2.6 Run `pnpm lint` — fix any errors.
+- [x] 2.7 Run `pnpm test` — fix any failures.
+- [x] 2.8 Run `pnpm test:e2e` — fix any failures.
+- [x] 2.9 Kill any lingering vitest worker processes.
 
 ## 3. Skill Operations
 
@@ -42,22 +42,22 @@ Move shared helpers to appropriate general-purpose modules.
 
 Merge each skill operation's type definition (from `operations.ts`) and executor into a single file under `extensions/skills/operations/`. Move operation-level helpers alongside.
 
-- [ ] 3.1 Create `extensions/skills/operations/` directory. Move `cli-commands/skills/install/install-skill.ts` → `extensions/skills/operations/install.ts`. Merge `InstallSkillOperation` and `InstallSkillOperationArgs` types from `operations.ts` into this file. Move test file alongside.
-- [ ] 3.2 Move `cli-commands/skills/uninstall/uninstall-skill.ts` → `extensions/skills/operations/uninstall.ts`. Merge `UninstallSkillOperation` and `UninstallSkillOperationArgs` types. Move test file alongside.
-- [ ] 3.3 Move `cli-commands/skills/publish-skill.ts` → `extensions/skills/operations/publish.ts`. Merge `PublishSkillOperation` and `PublishSkillOperationArgs` types. Move test file alongside.
-- [ ] 3.4 Move `cli-commands/skills/copy-skill.ts` → `extensions/skills/operations/copy.ts`. Merge `CopySkillOperation` and `CopySkillOperationArgs` types. Move test file alongside.
-- [ ] 3.5 Move `cli-commands/skills/enable/enable-skill.ts` → `extensions/skills/operations/enable.ts`. Merge `EnableSkillOperation` type. Move test file alongside.
-- [ ] 3.6 Move `cli-commands/skills/disable/disable-skill.ts` → `extensions/skills/operations/disable.ts`. Merge `DisableSkillOperation` type. Move test file alongside.
-- [ ] 3.7 Move `cli-commands/skills/rename/rename-skill.ts` → `extensions/skills/operations/rename.ts`. Merge `RenameSkillOperation` type. Move test file alongside.
-- [ ] 3.8 Move `cli-commands/skills/copy-skill-directory.ts` → `extensions/skills/operations/copy-directory.ts`. Move test file alongside.
-- [ ] 3.9 Move `cli-commands/skills/install/install-result.ts` → `extensions/skills/operations/install-result.ts`.
-- [ ] 3.10 Update barrel exports: add `extensions/skills/operations/index.ts` re-exporting all operations. Update `extensions/skills/index.ts` and `extensions/index.ts`.
-- [ ] 3.11 Update all imports across the codebase to use new paths.
-- [ ] 3.12 Run `pnpm typecheck` — fix any errors.
-- [ ] 3.13 Run `pnpm lint` — fix any errors.
-- [ ] 3.14 Run `pnpm test` — fix any failures.
-- [ ] 3.15 Run `pnpm test:e2e` — fix any failures.
-- [ ] 3.16 Kill any lingering vitest worker processes.
+- [x] 3.1 Create `extensions/skills/operations/` directory. Move `cli-commands/skills/install/install-skill.ts` → `extensions/skills/operations/install.ts`. Merge `InstallSkillOperation` and `InstallSkillOperationArgs` types from `operations.ts` into this file. Move test file alongside.
+- [x] 3.2 Move `cli-commands/skills/uninstall/uninstall-skill.ts` → `extensions/skills/operations/uninstall.ts`. Merge `UninstallSkillOperation` and `UninstallSkillOperationArgs` types. Move test file alongside.
+- [x] 3.3 Move `cli-commands/skills/publish-skill.ts` → `extensions/skills/operations/publish.ts`. Merge `PublishSkillOperation` and `PublishSkillOperationArgs` types. Move test file alongside.
+- [x] 3.4 Move `cli-commands/skills/copy-skill.ts` → `extensions/skills/operations/copy.ts`. Merge `CopySkillOperation` and `CopySkillOperationArgs` types. Move test file alongside.
+- [x] 3.5 Move `cli-commands/skills/enable/enable-skill.ts` → `extensions/skills/operations/enable.ts`. Merge `EnableSkillOperation` type. Move test file alongside.
+- [x] 3.6 Move `cli-commands/skills/disable/disable-skill.ts` → `extensions/skills/operations/disable.ts`. Merge `DisableSkillOperation` type. Move test file alongside.
+- [x] 3.7 Move `cli-commands/skills/rename/rename-skill.ts` → `extensions/skills/operations/rename.ts`. Merge `RenameSkillOperation` type. Move test file alongside.
+- [x] 3.8 Move `cli-commands/skills/copy-skill-directory.ts` → `extensions/skills/operations/copy-directory.ts`. Move test file alongside.
+- [x] 3.9 Move `cli-commands/skills/install/install-result.ts` → `extensions/skills/operations/install-result.ts`.
+- [x] 3.10 Update barrel exports: add `extensions/skills/operations/index.ts` re-exporting all operations. Update `extensions/skills/index.ts` and `extensions/index.ts`.
+- [x] 3.11 Update all imports across the codebase to use new paths.
+- [x] 3.12 Run `pnpm typecheck` — fix any errors.
+- [x] 3.13 Run `pnpm lint` — fix any errors.
+- [x] 3.14 Run `pnpm test` — fix any failures.
+- [x] 3.15 Run `pnpm test:e2e` — fix any failures.
+- [x] 3.16 Kill any lingering vitest worker processes.
 
 ## 4. Pack Operations
 
@@ -66,18 +66,18 @@ Merge each skill operation's type definition (from `operations.ts`) and executor
 
 Merge each pack operation's type definition and executor into `extensions/packs/operations/`.
 
-- [ ] 4.1 Create `extensions/packs/operations/` directory. Move `cli-commands/packs/install/install-pack.ts` → `extensions/packs/operations/install.ts`. Merge `InstallPackOperation` and `InstallPackOperationArgs` types from `operations.ts`. Move test file alongside.
-- [ ] 4.2 Move `cli-commands/packs/uninstall/uninstall-pack.ts` → `extensions/packs/operations/uninstall.ts`. Merge `UninstallPackOperation` and `UninstallPackOperationArgs` types.
-- [ ] 4.3 Move `cli-commands/packs/publish/publish-pack.ts` → `extensions/packs/operations/publish.ts`. Merge `PublishPackOperation` and `PublishPackOperationArgs` types.
-- [ ] 4.4 Move `cli-commands/packs/publish-extension.ts` → `extensions/packs/operations/publish-extension.ts`. Merge `PublishExtensionOperation` and `PublishExtensionOperationArgs` types. Move test file alongside.
-- [ ] 4.5 Extract `UnpackPackOperation` and `unpackPack` from `cli-commands/packs/unpack/handler.ts` → `extensions/packs/operations/unpack.ts`.
-- [ ] 4.6 Update barrel exports: add `extensions/packs/operations/index.ts` re-exporting all operations. Update `extensions/packs/index.ts` and `extensions/index.ts`.
-- [ ] 4.7 Update all imports across the codebase to use new paths.
-- [ ] 4.8 Run `pnpm typecheck` — fix any errors.
-- [ ] 4.9 Run `pnpm lint` — fix any errors.
-- [ ] 4.10 Run `pnpm test` — fix any failures.
-- [ ] 4.11 Run `pnpm test:e2e` — fix any failures.
-- [ ] 4.12 Kill any lingering vitest worker processes.
+- [x] 4.1 Create `extensions/packs/operations/` directory. Move `cli-commands/packs/install/install-pack.ts` → `extensions/packs/operations/install.ts`. Merge `InstallPackOperation` and `InstallPackOperationArgs` types from `operations.ts`. Move test file alongside.
+- [x] 4.2 Move `cli-commands/packs/uninstall/uninstall-pack.ts` → `extensions/packs/operations/uninstall.ts`. Merge `UninstallPackOperation` and `UninstallPackOperationArgs` types.
+- [x] 4.3 Move `cli-commands/packs/publish/publish-pack.ts` → `extensions/packs/operations/publish.ts`. Merge `PublishPackOperation` and `PublishPackOperationArgs` types.
+- [x] 4.4 Move `cli-commands/packs/publish-extension.ts` → `extensions/packs/operations/publish-extension.ts`. Merge `PublishExtensionOperation` and `PublishExtensionOperationArgs` types. Move test file alongside.
+- [x] 4.5 Extract `UnpackPackOperation` and `unpackPack` from `cli-commands/packs/unpack/handler.ts` → `extensions/packs/operations/unpack.ts`.
+- [x] 4.6 Update barrel exports: add `extensions/packs/operations/index.ts` re-exporting all operations. Update `extensions/packs/index.ts` and `extensions/index.ts`.
+- [x] 4.7 Update all imports across the codebase to use new paths.
+- [x] 4.8 Run `pnpm typecheck` — fix any errors.
+- [x] 4.9 Run `pnpm lint` — fix any errors.
+- [x] 4.10 Run `pnpm test` — fix any failures.
+- [x] 4.11 Run `pnpm test:e2e` — fix any failures.
+- [x] 4.12 Kill any lingering vitest worker processes.
 
 ## 5. Rename Plan Builders
 
@@ -86,16 +86,16 @@ Merge each pack operation's type definition and executor into `extensions/packs/
 
 Rename `build-plan.ts` → `plan.ts` in each command directory. Update imports to point at new module locations.
 
-- [ ] 5.1 Rename `cli-commands/skills/install/build-plan.ts` → `plan.ts` and `build-plan.test.ts` → `plan.test.ts`. Update all imports.
-- [ ] 5.2 Rename `cli-commands/skills/uninstall/build-plan.ts` → `plan.ts` and `build-plan.test.ts` → `plan.test.ts`. Update all imports.
-- [ ] 5.3 Rename `cli-commands/skills/update/build-plan.ts` → `plan.ts` and `build-plan.test.ts` → `plan.test.ts`. Update all imports.
-- [ ] 5.4 Rename `cli-commands/packs/install/build-plan.ts` → `plan.ts` and `build-plan.test.ts` → `plan.test.ts`. Update all imports.
-- [ ] 5.5 Rename `cli-commands/packs/uninstall/build-plan.ts` → `plan.ts` and `build-plan.test.ts` → `plan.test.ts`. Update all imports.
-- [ ] 5.6 Run `pnpm typecheck` — fix any errors.
-- [ ] 5.7 Run `pnpm lint` — fix any errors.
-- [ ] 5.8 Run `pnpm test` — fix any failures.
-- [ ] 5.9 Run `pnpm test:e2e` — fix any failures.
-- [ ] 5.10 Kill any lingering vitest worker processes.
+- [x] 5.1 Rename `cli-commands/skills/install/build-plan.ts` → `plan.ts` and `build-plan.test.ts` → `plan.test.ts`. Update all imports.
+- [x] 5.2 Rename `cli-commands/skills/uninstall/build-plan.ts` → `plan.ts` and `build-plan.test.ts` → `plan.test.ts`. Update all imports.
+- [x] 5.3 Rename `cli-commands/skills/update/build-plan.ts` → `plan.ts` and `build-plan.test.ts` → `plan.test.ts`. Update all imports.
+- [x] 5.4 Rename `cli-commands/packs/install/build-plan.ts` → `plan.ts` and `build-plan.test.ts` → `plan.test.ts`. Update all imports.
+- [x] 5.5 Rename `cli-commands/packs/uninstall/build-plan.ts` → `plan.ts` and `build-plan.test.ts` → `plan.test.ts`. Update all imports.
+- [x] 5.6 Run `pnpm typecheck` — fix any errors.
+- [x] 5.7 Run `pnpm lint` — fix any errors.
+- [x] 5.8 Run `pnpm test` — fix any failures.
+- [x] 5.9 Run `pnpm test:e2e` — fix any failures.
+- [x] 5.10 Kill any lingering vitest worker processes.
 
 ## 6. Cleanup
 
@@ -103,14 +103,14 @@ Rename `build-plan.ts` → `plan.ts` in each command directory. Update imports t
 
 Remove empty files, obsolete barrels, and empty directories.
 
-- [ ] 6.1 Delete `cli-commands/skills/operations.ts` (all types distributed to individual operation files).
-- [ ] 6.2 Delete `cli-commands/packs/operations.ts` (all types distributed to individual operation files).
-- [ ] 6.3 Update `cli-commands/skills/index.ts` — remove re-exports of relocated items (`copySkillDirectory`, `sourceToLockEntry`, `computeSkillPaths`). Remove barrel entirely if empty.
-- [ ] 6.4 Update `cli-commands/packs/index.ts` — remove re-exports of relocated items (`computePackPaths`, `PackDirPath`, operation types). Keep command re-exports.
-- [ ] 6.5 Remove any empty directories left behind after moves.
-- [ ] 6.6 Run `pnpm typecheck` — fix any errors.
-- [ ] 6.7 Run `pnpm lint` — fix any errors.
-- [ ] 6.8 Run `pnpm test` — fix any failures.
-- [ ] 6.9 Run `pnpm test:e2e` — fix any failures.
-- [ ] 6.10 Kill any lingering vitest worker processes.
-- [ ] 6.11 Run `pnpm format` — ensure formatting is clean.
+- [x] 6.1 Delete `cli-commands/skills/operations.ts` (all types distributed to individual operation files).
+- [x] 6.2 Delete `cli-commands/packs/operations.ts` (all types distributed to individual operation files).
+- [x] 6.3 Update `cli-commands/skills/index.ts` — remove re-exports of relocated items (`copySkillDirectory`, `sourceToLockEntry`, `computeSkillPaths`). Remove barrel entirely if empty.
+- [x] 6.4 Update `cli-commands/packs/index.ts` — remove re-exports of relocated items (`computePackPaths`, `PackDirPath`, operation types). Keep command re-exports.
+- [x] 6.5 Remove any empty directories left behind after moves.
+- [x] 6.6 Run `pnpm typecheck` — fix any errors.
+- [x] 6.7 Run `pnpm lint` — fix any errors.
+- [x] 6.8 Run `pnpm test` — fix any failures.
+- [x] 6.9 Run `pnpm test:e2e` — fix any failures.
+- [x] 6.10 Kill any lingering vitest worker processes.
+- [x] 6.11 Run `pnpm format` — ensure formatting is clean.

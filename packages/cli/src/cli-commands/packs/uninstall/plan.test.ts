@@ -1,7 +1,7 @@
 /**
- * Unit tests for pack uninstall buildUninstallPlan and orphan detection.
+ * Unit tests for pack uninstall buildUninstallPlan.
  *
- * Tests the uninstall-specific plan builder and the findOrphaned* functions.
+ * Tests the uninstall-specific plan builder including skill removal steps.
  */
 
 import { describe, expect, it } from "vitest";
@@ -9,11 +9,6 @@ import * as Option from "effect/Option";
 import type { Lockfile, PackLockEntry } from "../../../lockfile/schema.js";
 import type { UninstallPackOperation } from "../../../extensions/packs/operations/uninstall.js";
 import { buildUninstallPlan } from "./plan.js";
-import {
-  findOrphanedSkills,
-  findOrphanedCommands,
-  findOrphanedMcpServers,
-} from "../../../extensions/packs/operations/orphan-detection.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -63,7 +58,13 @@ const lockfileWithPacks = (...entries: [string, PackLockEntry][]): Lockfile => (
 describe("buildUninstallPlan", () => {
   it("marks installed packs as expected success", () => {
     const lockfile = lockfileWithPacks(["my-pack", makePackLockEntry("my-pack")]);
-    const plan = buildUninstallPlan([makeOp("my-pack")], lockfile, "Uninstall pack", Option.none());
+    const plan = buildUninstallPlan(
+      [makeOp("my-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+    );
 
     expect(plan.jobs).toHaveLength(1);
     expect(plan.jobs[0]!.steps).toHaveLength(1);
@@ -78,6 +79,7 @@ describe("buildUninstallPlan", () => {
     const plan = buildUninstallPlan(
       [makeOp("my-pack")],
       emptyLockfile,
+      [],
       "Uninstall pack",
       Option.none(),
     );
@@ -90,7 +92,7 @@ describe("buildUninstallPlan", () => {
   });
 
   it("produces empty plan from empty operations", () => {
-    const plan = buildUninstallPlan([], emptyLockfile, "Uninstall pack", Option.none());
+    const plan = buildUninstallPlan([], emptyLockfile, [], "Uninstall pack", Option.none());
 
     expect(plan.jobs).toHaveLength(1);
     expect(plan.jobs[0]!.steps).toHaveLength(0);
@@ -104,6 +106,7 @@ describe("buildUninstallPlan", () => {
     const plan = buildUninstallPlan(
       [makeOp("pack-a"), makeOp("pack-b")],
       lockfile,
+      [],
       "Uninstall pack",
       Option.none(),
     );
@@ -116,6 +119,7 @@ describe("buildUninstallPlan", () => {
     const plan = buildUninstallPlan(
       [makeOp("my-pack")],
       emptyLockfile,
+      [],
       "Uninstall pack(s)",
       Option.some("Uninstall packs from workspace"),
     );
@@ -132,6 +136,7 @@ describe("buildUninstallPlan", () => {
     const plan = buildUninstallPlan(
       [makeOp("a"), makeOp("b")],
       lockfile,
+      [],
       "Uninstall pack",
       Option.none(),
     );
@@ -148,6 +153,7 @@ describe("buildUninstallPlan", () => {
     const plan = buildUninstallPlan(
       [makeOp("pack-a"), makeOp("pack-b"), makeOp("pack-c")],
       lockfile,
+      [],
       "Uninstall pack",
       Option.none(),
     );
@@ -160,140 +166,271 @@ describe("buildUninstallPlan", () => {
     expect(steps[2]!.expectedResult.result).toBe("success");
     expect(steps[2]!.label).toBe("pack-c");
   });
-});
 
-// -----------------------------------------------------------------------------
-// findOrphanedSkills Tests
-// -----------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Skill removal steps
+  // ---------------------------------------------------------------------------
 
-describe("findOrphanedSkills", () => {
-  it("returns orphaned skills from removed pack", () => {
-    const removed = makePackLockEntry("removed-pack", {
-      resolvedSkills: { "@acme/skills/skill-a": "1.0.0", "@acme/skills/skill-b": "1.0.0" },
-    });
+  it("emits uninstall-skill steps for removable skills", () => {
+    const lockfile = lockfileWithPacks([
+      "my-pack",
+      makePackLockEntry("my-pack", {
+        resolvedSkills: { "@acme/skills/skill-a": "1.0.0", "@acme/skills/skill-b": "1.0.0" },
+      }),
+    ]);
+    const plan = buildUninstallPlan(
+      [makeOp("my-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+    );
 
-    const orphaned = findOrphanedSkills(removed, {}, {});
+    const steps = plan.jobs[0]!.steps;
+    // 1 pack step + 2 skill steps
+    expect(steps).toHaveLength(3);
 
-    expect(orphaned).toEqual(["@acme/skills/skill-a", "@acme/skills/skill-b"]);
+    const skillSteps = steps.filter((s) => s.operation.name === "uninstall-skill");
+    expect(skillSteps).toHaveLength(2);
+    expect(skillSteps.map((s) => s.label).sort()).toEqual([
+      "@acme/skills/skill-a",
+      "@acme/skills/skill-b",
+    ]);
   });
 
-  it("preserves skills shared with another pack", () => {
-    const removed = makePackLockEntry("removed-pack", {
-      resolvedSkills: { "@acme/skills/skill-a": "1.0.0", "@acme/skills/skill-b": "1.0.0" },
-    });
-    const otherPack = makePackLockEntry("other-pack", {
-      resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
-    });
+  it("creates uninstall-skill steps with agents: [] and correct expected result", () => {
+    const lockfile = lockfileWithPacks([
+      "my-pack",
+      makePackLockEntry("my-pack", {
+        resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
+      }),
+    ]);
+    const plan = buildUninstallPlan(
+      [makeOp("my-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+    );
 
-    const orphaned = findOrphanedSkills(removed, { "other-pack": otherPack }, {});
+    const skillStep = plan.jobs[0]!.steps.find((s) => s.operation.name === "uninstall-skill");
+    expect(skillStep).toBeDefined();
+    expect(skillStep!.operation.name).toBe("uninstall-skill");
 
-    expect(orphaned).toEqual(["@acme/skills/skill-b"]);
+    const args = skillStep!.operation.args;
+    expect(args).toEqual({
+      skillName: "skill-a",
+      agents: [],
+    });
+    expect(skillStep!.expectedResult).toEqual({
+      result: "success",
+      message: "Uninstalled skill skill-a",
+    });
   });
 
-  it("preserves skills that are direct entries in settings", () => {
-    const removed = makePackLockEntry("removed-pack", {
-      resolvedSkills: { "@acme/skills/skill-a": "1.0.0", "@acme/skills/skill-b": "1.0.0" },
-    });
-    const configuredSkills = { "@acme/skills/skill-a": "@acme/skills/skill-a" };
+  it("places pack steps before skill steps", () => {
+    const lockfile = lockfileWithPacks([
+      "my-pack",
+      makePackLockEntry("my-pack", {
+        resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
+      }),
+    ]);
+    const plan = buildUninstallPlan(
+      [makeOp("my-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+    );
 
-    const orphaned = findOrphanedSkills(removed, {}, configuredSkills);
-
-    expect(orphaned).toEqual(["@acme/skills/skill-b"]);
+    const steps = plan.jobs[0]!.steps;
+    expect(steps[0]!.operation.name).toBe("uninstall-pack");
+    expect(steps[1]!.operation.name).toBe("uninstall-skill");
   });
 
-  it("returns empty array when all skills are shared", () => {
-    const removed = makePackLockEntry("removed-pack", {
-      resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
-    });
-    const otherPack = makePackLockEntry("other-pack", {
-      resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
-    });
+  it("excludes skills shared with a remaining pack", () => {
+    const lockfile = lockfileWithPacks(
+      [
+        "removing-pack",
+        makePackLockEntry("removing-pack", {
+          resolvedSkills: {
+            "@acme/skills/shared": "1.0.0",
+            "@acme/skills/orphaned": "1.0.0",
+          },
+        }),
+      ],
+      [
+        "staying-pack",
+        makePackLockEntry("staying-pack", {
+          resolvedSkills: { "@acme/skills/shared": "1.0.0" },
+        }),
+      ],
+    );
+    const plan = buildUninstallPlan(
+      [makeOp("removing-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+    );
 
-    const orphaned = findOrphanedSkills(removed, { "other-pack": otherPack }, {});
-
-    expect(orphaned).toEqual([]);
+    const skillSteps = plan.jobs[0]!.steps.filter((s) => s.operation.name === "uninstall-skill");
+    expect(skillSteps).toHaveLength(1);
+    expect(skillSteps[0]!.label).toBe("@acme/skills/orphaned");
   });
 
-  it("returns empty array when pack has no resolved skills", () => {
-    const removed = makePackLockEntry("removed-pack");
+  it("excludes directly-installed skills (simple name match)", () => {
+    const lockfile = lockfileWithPacks([
+      "my-pack",
+      makePackLockEntry("my-pack", {
+        resolvedSkills: {
+          "@acme/skills/code-review": "1.0.0",
+          "@acme/skills/orphaned": "1.0.0",
+        },
+      }),
+    ]);
+    const plan = buildUninstallPlan(
+      [makeOp("my-pack")],
+      lockfile,
+      ["code-review"],
+      "Uninstall pack",
+      Option.none(),
+    );
 
-    const orphaned = findOrphanedSkills(removed, {}, {});
-
-    expect(orphaned).toEqual([]);
+    const skillSteps = plan.jobs[0]!.steps.filter((s) => s.operation.name === "uninstall-skill");
+    expect(skillSteps).toHaveLength(1);
+    expect(skillSteps[0]!.label).toBe("@acme/skills/orphaned");
   });
 
-  it("preserves skills promoted to direct AND shared with another pack", () => {
-    const removed = makePackLockEntry("removed-pack", {
-      resolvedSkills: { "@acme/skills/skill-a": "1.0.0", "@acme/skills/skill-b": "1.0.0" },
-    });
-    const otherPack = makePackLockEntry("other-pack", {
-      resolvedSkills: { "@acme/skills/skill-b": "1.0.0" },
-    });
-    const configuredSkills = { "@acme/skills/skill-a": "@acme/skills/skill-a" };
+  it("handles glob batch: skill shared between TWO removed packs is removable", () => {
+    const lockfile = lockfileWithPacks(
+      [
+        "pack-a",
+        makePackLockEntry("pack-a", {
+          resolvedSkills: { "@acme/skills/shared-skill": "1.0.0" },
+        }),
+      ],
+      [
+        "pack-b",
+        makePackLockEntry("pack-b", {
+          resolvedSkills: { "@acme/skills/shared-skill": "1.0.0" },
+        }),
+      ],
+    );
+    const plan = buildUninstallPlan(
+      [makeOp("pack-a"), makeOp("pack-b")],
+      lockfile,
+      [],
+      "Uninstall packs",
+      Option.none(),
+    );
 
-    const orphaned = findOrphanedSkills(removed, { "other-pack": otherPack }, configuredSkills);
-
-    expect(orphaned).toEqual([]);
-  });
-});
-
-// -----------------------------------------------------------------------------
-// findOrphanedCommands Tests
-// -----------------------------------------------------------------------------
-
-describe("findOrphanedCommands", () => {
-  it("returns orphaned commands from removed pack", () => {
-    const removed = makePackLockEntry("removed-pack", {
-      resolvedCommands: { "@acme/commands/cmd-a": "1.0.0" },
-    });
-
-    const orphaned = findOrphanedCommands(removed, {});
-
-    expect(orphaned).toEqual(["@acme/commands/cmd-a"]);
+    const skillSteps = plan.jobs[0]!.steps.filter((s) => s.operation.name === "uninstall-skill");
+    expect(skillSteps).toHaveLength(1);
+    expect(skillSteps[0]!.label).toBe("@acme/skills/shared-skill");
   });
 
-  it("preserves commands shared with another pack", () => {
-    const removed = makePackLockEntry("removed-pack", {
-      resolvedCommands: { "@acme/commands/cmd-a": "1.0.0", "@acme/commands/cmd-b": "1.0.0" },
-    });
-    const otherPack = makePackLockEntry("other-pack", {
-      resolvedCommands: { "@acme/commands/cmd-a": "1.0.0" },
-    });
+  it("handles glob batch: remaining packs computed correctly", () => {
+    const lockfile = lockfileWithPacks(
+      [
+        "pack-a",
+        makePackLockEntry("pack-a", {
+          resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
+        }),
+      ],
+      [
+        "pack-b",
+        makePackLockEntry("pack-b", {
+          resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
+        }),
+      ],
+      [
+        "pack-c",
+        makePackLockEntry("pack-c", {
+          resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
+        }),
+      ],
+    );
+    // Remove pack-a and pack-b, pack-c remains and references skill-a
+    const plan = buildUninstallPlan(
+      [makeOp("pack-a"), makeOp("pack-b")],
+      lockfile,
+      [],
+      "Uninstall packs",
+      Option.none(),
+    );
 
-    const orphaned = findOrphanedCommands(removed, { "other-pack": otherPack });
-
-    expect(orphaned).toEqual(["@acme/commands/cmd-b"]);
+    const skillSteps = plan.jobs[0]!.steps.filter((s) => s.operation.name === "uninstall-skill");
+    // skill-a is still referenced by pack-c, so no skill removal
+    expect(skillSteps).toHaveLength(0);
   });
-});
 
-// -----------------------------------------------------------------------------
-// findOrphanedMcpServers Tests
-// -----------------------------------------------------------------------------
+  it("does not emit skill steps for packs not in lockfile", () => {
+    const plan = buildUninstallPlan(
+      [makeOp("nonexistent-pack")],
+      emptyLockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+    );
 
-describe("findOrphanedMcpServers", () => {
-  it("returns orphaned MCP servers from removed pack", () => {
-    const removed = makePackLockEntry("removed-pack", {
-      resolvedMcpServers: { "@acme/mcp-servers/server-a": "1.0.0" },
-    });
-
-    const orphaned = findOrphanedMcpServers(removed, {});
-
-    expect(orphaned).toEqual(["@acme/mcp-servers/server-a"]);
+    const skillSteps = plan.jobs[0]!.steps.filter((s) => s.operation.name === "uninstall-skill");
+    expect(skillSteps).toHaveLength(0);
   });
 
-  it("preserves MCP servers shared with another pack", () => {
-    const removed = makePackLockEntry("removed-pack", {
-      resolvedMcpServers: {
-        "@acme/mcp-servers/server-a": "1.0.0",
-        "@acme/mcp-servers/server-b": "1.0.0",
-      },
-    });
-    const otherPack = makePackLockEntry("other-pack", {
-      resolvedMcpServers: { "@acme/mcp-servers/server-a": "1.0.0" },
-    });
+  it("deduplicates skills across multiple packs being removed", () => {
+    const lockfile = lockfileWithPacks(
+      [
+        "pack-a",
+        makePackLockEntry("pack-a", {
+          resolvedSkills: {
+            "@acme/skills/shared": "1.0.0",
+            "@acme/skills/only-a": "1.0.0",
+          },
+        }),
+      ],
+      [
+        "pack-b",
+        makePackLockEntry("pack-b", {
+          resolvedSkills: {
+            "@acme/skills/shared": "1.0.0",
+            "@acme/skills/only-b": "1.0.0",
+          },
+        }),
+      ],
+    );
+    const plan = buildUninstallPlan(
+      [makeOp("pack-a"), makeOp("pack-b")],
+      lockfile,
+      [],
+      "Uninstall packs",
+      Option.none(),
+    );
 
-    const orphaned = findOrphanedMcpServers(removed, { "other-pack": otherPack });
+    const skillSteps = plan.jobs[0]!.steps.filter((s) => s.operation.name === "uninstall-skill");
+    // 3 unique skills: shared, only-a, only-b
+    expect(skillSteps).toHaveLength(3);
+    const labels = skillSteps.map((s) => s.label).sort();
+    expect(labels).toEqual(["@acme/skills/only-a", "@acme/skills/only-b", "@acme/skills/shared"]);
+  });
 
-    expect(orphaned).toEqual(["@acme/mcp-servers/server-b"]);
+  it("returns Plan<PackUninstallOp> with both operation types", () => {
+    const lockfile = lockfileWithPacks([
+      "my-pack",
+      makePackLockEntry("my-pack", {
+        resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
+      }),
+    ]);
+    const plan = buildUninstallPlan(
+      [makeOp("my-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+    );
+
+    const opNames = plan.jobs[0]!.steps.map((s) => s.operation.name);
+    expect(opNames).toContain("uninstall-pack");
+    expect(opNames).toContain("uninstall-skill");
   });
 });

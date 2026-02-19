@@ -80,8 +80,8 @@ export type {
   ExtensionRef,
 } from "./types.js";
 
-// Type guards
-export { isGitHostingProviderSource } from "./utils.js";
+// Type guards and utilities
+export { fileUrlToPath, isGitHostingProviderSource } from "./utils.js";
 
 // Provider types
 export type { ExtensionFiles, FindOptions, SourceHostProvider } from "./provider.js";

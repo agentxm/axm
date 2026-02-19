@@ -26,7 +26,7 @@ const makePackRef = (
 ): RegistryPackRef => ({
   type: "pack",
   refType: "registry",
-  source: { type: "registry", location: new URL("file:///tmp/registry") },
+  source: { type: "registry", location: new URL("file:///tmp/registry"), scope: Option.none() },
   pack: {
     name,
     skills: opts?.skills ?? {},

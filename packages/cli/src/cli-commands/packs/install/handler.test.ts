@@ -438,7 +438,7 @@ describe("packs install handler", () => {
         commands: opts?.commands ?? {},
         mcpServers: opts?.mcpServers ?? {},
       },
-      source: { type: "registry", location: new URL("file:///tmp/reg") },
+      source: { type: "registry", location: new URL("file:///tmp/reg"), scope: Option.none() },
       scope: "@acme",
       name,
       version: "1.0.0",

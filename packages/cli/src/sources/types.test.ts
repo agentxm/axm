@@ -198,6 +198,7 @@ describe("SourceParams", () => {
   it("narrows RegistrySourceParams via type", () => {
     const params: SourceParams = {
       type: "registry",
+      scope: Option.none(),
     };
     if (params.type === "registry") {
       expect(params.type).toBe("registry");
@@ -242,6 +243,7 @@ describe("Source", () => {
     const source: Source = {
       type: "registry",
       location: new URL("file:///registry"),
+      scope: Option.none(),
     };
     if (source.type === "registry") {
       expect(source.location.protocol).toBe("file:");
@@ -392,6 +394,7 @@ describe("SkillExtensionRef", () => {
       source: {
         type: "registry",
         location: new URL("file:///reg"),
+        scope: Option.none(),
       },
       scope: "@acme",
       name: "test-pkg",
@@ -482,6 +485,7 @@ describe("McpServerExtensionRef", () => {
       source: {
         type: "registry",
         location: new URL("file:///reg"),
+        scope: Option.none(),
       },
       scope: "@acme",
       name: "server-pkg",
@@ -508,6 +512,7 @@ describe("PackExtensionRef", () => {
       source: {
         type: "registry",
         location: new URL("file:///reg"),
+        scope: Option.none(),
       },
       scope: "@acme",
       name: "pack-pkg",
@@ -579,7 +584,7 @@ describe("ExtensionRef", () => {
       type: "skill",
       refType: "registry",
       skill: { name: "s", description: Option.none(), metadata: Option.none() },
-      source: { type: "registry", location: new URL("file:///reg") },
+      source: { type: "registry", location: new URL("file:///reg"), scope: Option.none() },
       scope: "@acme",
       name: "pkg",
       version: "1.0.0",
@@ -694,9 +699,11 @@ describe("SourceParams structural equality via Data.struct", () => {
   it("RegistrySourceParams has no additional fields", () => {
     const a: SourceParams = {
       type: "registry",
+      scope: Option.none(),
     };
     const b: SourceParams = {
       type: "registry",
+      scope: Option.none(),
     };
     expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(true);
   });

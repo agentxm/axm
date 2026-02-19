@@ -106,7 +106,12 @@ describe("resolution flow: resolveSource + SourceHostProviders.find()", () => {
 
         const refs = yield* Effect.gen(function* () {
           const svc = yield* SourceHostProviders;
-          return yield* svc.find(source, { skillNames: [], type: "skill" });
+          return yield* svc.find(source, {
+            skillNames: [],
+            type: "skill",
+            scope: Option.none(),
+            versionConstraint: Option.none(),
+          });
         }).pipe(Effect.provide(providers), Effect.scoped);
 
         expect(refs).toHaveLength(1);

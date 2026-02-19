@@ -6,6 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { CliError } from "../../cli-error/index.js";
 import { fetchGitHubTreeHash } from "./api.js";
 
@@ -79,7 +80,7 @@ describe("github-api", () => {
 
           const result = yield* fetchGitHubTreeHash("owner", "repo", "main", "");
 
-          expect(result).toBe("abc123rootsha");
+          expect(result).toEqual(Option.some("abc123rootsha"));
           expect(global.fetch).toHaveBeenCalledWith(
             "https://api.github.com/repos/owner/repo/git/trees/main?recursive=1",
             expect.objectContaining({
@@ -97,7 +98,7 @@ describe("github-api", () => {
 
           const result = yield* fetchGitHubTreeHash("owner", "repo", "v1.0.0", ".");
 
-          expect(result).toBe("abc123rootsha");
+          expect(result).toEqual(Option.some("abc123rootsha"));
         }),
       );
 
@@ -107,7 +108,7 @@ describe("github-api", () => {
 
           const result = yield* fetchGitHubTreeHash("owner", "repo", "main", "src");
 
-          expect(result).toBe("src-tree-sha");
+          expect(result).toEqual(Option.some("src-tree-sha"));
         }),
       );
 
@@ -117,7 +118,7 @@ describe("github-api", () => {
 
           const result = yield* fetchGitHubTreeHash("owner", "repo", "main", "docs/guide");
 
-          expect(result).toBe("guide-tree-sha");
+          expect(result).toEqual(Option.some("guide-tree-sha"));
         }),
       );
 
@@ -127,7 +128,7 @@ describe("github-api", () => {
 
           const result = yield* fetchGitHubTreeHash("owner", "repo", "main", "/src");
 
-          expect(result).toBe("src-tree-sha");
+          expect(result).toEqual(Option.some("src-tree-sha"));
         }),
       );
 
@@ -137,7 +138,7 @@ describe("github-api", () => {
 
           const result = yield* fetchGitHubTreeHash("owner", "repo", "main", "src/");
 
-          expect(result).toBe("src-tree-sha");
+          expect(result).toEqual(Option.some("src-tree-sha"));
         }),
       );
 
@@ -156,33 +157,33 @@ describe("github-api", () => {
     });
 
     describe("not-found cases", () => {
-      it.effect("returns null when repository/ref not found (404)", () =>
+      it.effect("returns None when repository/ref not found (404)", () =>
         Effect.gen(function* () {
           mockFetchError(404, "Not Found");
 
           const result = yield* fetchGitHubTreeHash("owner", "nonexistent", "main", "");
 
-          expect(result).toBe(null);
+          expect(result).toEqual(Option.none());
         }),
       );
 
-      it.effect("returns null when path not found in tree", () =>
+      it.effect("returns None when path not found in tree", () =>
         Effect.gen(function* () {
           mockFetchSuccess(sampleTreeResponse);
 
           const result = yield* fetchGitHubTreeHash("owner", "repo", "main", "nonexistent");
 
-          expect(result).toBe(null);
+          expect(result).toEqual(Option.none());
         }),
       );
 
-      it.effect("returns null when path exists but is a blob, not tree", () =>
+      it.effect("returns None when path exists but is a blob, not tree", () =>
         Effect.gen(function* () {
           mockFetchSuccess(sampleTreeResponse);
 
           const result = yield* fetchGitHubTreeHash("owner", "repo", "main", "README.md");
 
-          expect(result).toBe(null);
+          expect(result).toEqual(Option.none());
         }),
       );
     });

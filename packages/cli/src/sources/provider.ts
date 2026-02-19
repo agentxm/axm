@@ -31,9 +31,9 @@ import type { ExtensionRef, Source } from "./types.js";
 export interface FindOptions {
   readonly skillNames: ReadonlyArray<string>;
   readonly type: ExtensionType | "*";
-  /** Optional registry scope filter (e.g. "@acme"). */
-  readonly scope?: Option.Option<string>;
-  readonly versionConstraint?: Option.Option<string>;
+  /** Registry scope filter (e.g. "@acme"). */
+  readonly scope: Option.Option<string>;
+  readonly versionConstraint: Option.Option<string>;
 }
 
 // -----------------------------------------------------------------------------

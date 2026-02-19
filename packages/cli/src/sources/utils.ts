@@ -17,3 +17,6 @@ export const isGitHostingProviderSource = (
   source.type === "gitlab" ||
   source.type === "bitbucket" ||
   source.type === "azurerepos";
+
+/** Convert a `file://` URL to a local filesystem path. */
+export const fileUrlToPath = (fileUrl: string): string => fileUrl.replace("file://", "");

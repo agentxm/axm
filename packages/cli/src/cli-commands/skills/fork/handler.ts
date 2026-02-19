@@ -107,7 +107,13 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
 
   const allRefs = yield* Effect.forEach(
     resolvedSources,
-    (source) => sources.find(source, { skillNames: [], type: "skill" }),
+    (source) =>
+      sources.find(source, {
+        skillNames: [],
+        type: "skill",
+        scope: Option.none(),
+        versionConstraint: Option.none(),
+      }),
     { concurrency: "unbounded" },
   ).pipe(
     Effect.map(Array.flatten),
@@ -210,6 +216,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
       source: {
         type: "registry" as const,
         location: registrySource.location,
+        scope: Option.none(),
       },
       scope,
       name: ref.skill.name,

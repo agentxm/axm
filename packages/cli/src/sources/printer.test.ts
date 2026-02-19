@@ -81,6 +81,7 @@ describe("printSourceParams", () => {
   it("prints registry source", () => {
     const source = makeSourceParams({
       type: "registry",
+      scope: Option.none(),
     });
     expect(printSourceParams(source)).toBe("registry");
   });
@@ -299,6 +300,7 @@ describe("lockEntryToSourceParams", () => {
     );
     expect(source).toEqual({
       type: "registry",
+      scope: Option.none(),
     });
   });
 

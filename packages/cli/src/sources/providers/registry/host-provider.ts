@@ -12,6 +12,7 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import type * as Scope from "effect/Scope";
 
 import type { CliError } from "../../../cli-error/index.js";
 import { makeCliError } from "../../../cli-error/index.js";
@@ -165,14 +166,17 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
     }
 
     const fs = yield* FileSystem.FileSystem;
-    const tmpDir = yield* fs.makeTempDirectory().pipe(
-      Effect.mapError((e) =>
-        makeCliError({
-          code: "SOURCE_FETCH_FAILED",
-          what: "Failed to create temp directory",
-          cause: e,
-        }),
+    const tmpDir = yield* Effect.acquireRelease(
+      fs.makeTempDirectory().pipe(
+        Effect.mapError((e) =>
+          makeCliError({
+            code: "SOURCE_FETCH_FAILED",
+            what: "Failed to create temp directory",
+            cause: e,
+          }),
+        ),
       ),
+      (dir) => fs.remove(dir, { recursive: true }).pipe(Effect.ignoreLogged),
     );
 
     yield* extractZip(archiveBytes, tmpDir);
@@ -191,7 +195,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
  */
 export const createLocalRegistrySourceHostProvider = (
   client: RegistryClient,
-): RegistrySourceHostProviderWithPublish<FileSystem.FileSystem | Path.Path> => ({
+): RegistrySourceHostProviderWithPublish<FileSystem.FileSystem | Path.Path | Scope.Scope> => ({
   type: "registry",
 
   match: (url: URL) => Effect.succeed(url.protocol === "file:"),
@@ -209,10 +213,9 @@ export const createLocalRegistrySourceHostProvider = (
       const entries = yield* fsService
         .readDirectory(extensionsDir)
         .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
-      const scopes =
-        options.scope !== undefined && Option.isSome(options.scope)
-          ? [options.scope.value]
-          : entries.filter((d) => d.startsWith("@"));
+      const scopes = Option.isSome(options.scope)
+        ? [options.scope.value]
+        : entries.filter((d) => d.startsWith("@"));
 
       const results = yield* Effect.forEach(
         scopes,
@@ -252,15 +255,14 @@ export const createLocalRegistrySourceHostProvider = (
  */
 export const createRemoteRegistrySourceHostProvider = (
   client: RegistryClient,
-): RegistrySourceHostProviderWithPublish<FileSystem.FileSystem | Path.Path> => ({
+): RegistrySourceHostProviderWithPublish<FileSystem.FileSystem | Path.Path | Scope.Scope> => ({
   type: "registry",
 
   match: (url: URL) => Effect.succeed(url.protocol === "https:"),
 
   find: (source, options) =>
     Effect.gen(function* () {
-      const scope =
-        options.scope !== undefined && Option.isSome(options.scope) ? options.scope.value : "*";
+      const scope = Option.isSome(options.scope) ? options.scope.value : "*";
       const searchOptions = toSearchOptions(scope, options);
       const result = yield* client.getExtensionsByScope(searchOptions);
       return result.extensions.map((entry) => toExtensionRef(entry, source));

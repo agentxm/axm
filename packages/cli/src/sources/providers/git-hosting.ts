@@ -17,6 +17,7 @@ import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-
 import { makeCliError } from "../../cli-error/index.js";
 import { getTreeSha, shallowClone } from "../../git/index.js";
 import type { SourceHostProvider } from "../provider.js";
+import { fileUrlToPath } from "../utils.js";
 import type {
   GitHubSourceHost,
   GitLabSourceHost,
@@ -103,7 +104,7 @@ export const createGitHostingSourceHostProvider = <
         oldRefs,
         (d) =>
           Effect.gen(function* () {
-            const skillPath = d.location.replace("file://", "");
+            const skillPath = fileUrlToPath(d.location);
             const relativeDir = path.relative(tempDir, skillPath);
             const gitTreeSha = yield* getTreeSha(tempDir, relativeDir);
             // Assertion needed: TS can't prove S narrows source to a specific ExtensionRef variant
@@ -138,7 +139,7 @@ export const createGitHostingSourceHostProvider = <
       );
     }
     return Effect.succeed({
-      directory: _ref.location.replace("file://", ""),
+      directory: fileUrlToPath(_ref.location),
     });
   },
 });

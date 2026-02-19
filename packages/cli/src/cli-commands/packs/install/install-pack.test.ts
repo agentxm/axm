@@ -68,7 +68,7 @@ const makePackRef = (): RegistryPackRef => ({
   type: "pack",
   refType: "registry",
   pack: { name: "my-pack", skills: {}, commands: {}, mcpServers: {} },
-  source: { type: "registry", location: new URL("file:///tmp/reg") },
+  source: { type: "registry", location: new URL("file:///tmp/reg"), scope: Option.none() },
   scope: "@test",
   name: "my-pack",
   version: "1.0.0",

@@ -93,7 +93,12 @@ describe("SourceHostProvider", () => {
       ref: Option.none(),
       subPath: Option.none(),
     };
-    const options: FindOptions = { skillNames: [], type: "skill" };
+    const options: FindOptions = {
+      skillNames: [],
+      type: "skill",
+      scope: Option.none(),
+      versionConstraint: Option.none(),
+    };
     const result = await Effect.runPromise(provider.find(source, options));
     expect(Array.isArray(result)).toBe(true);
   });
@@ -165,27 +170,48 @@ describe("registry provider shape", () => {
 
 describe("FindOptions", () => {
   it("type field accepts ExtensionType", () => {
-    const options: FindOptions = { skillNames: [], type: "skill" };
+    const options: FindOptions = {
+      skillNames: [],
+      type: "skill",
+      scope: Option.none(),
+      versionConstraint: Option.none(),
+    };
     expect(options.type).toBe("skill");
 
-    const packOptions: FindOptions = { skillNames: [], type: "pack" };
+    const packOptions: FindOptions = {
+      skillNames: [],
+      type: "pack",
+      scope: Option.none(),
+      versionConstraint: Option.none(),
+    };
     expect(packOptions.type).toBe("pack");
 
-    const mcpOptions: FindOptions = { skillNames: [], type: "mcp-server" };
+    const mcpOptions: FindOptions = {
+      skillNames: [],
+      type: "mcp-server",
+      scope: Option.none(),
+      versionConstraint: Option.none(),
+    };
     expect(mcpOptions.type).toBe("mcp-server");
   });
 
   it("type field accepts '*' wildcard", () => {
-    const options: FindOptions = { skillNames: [], type: "*" };
+    const options: FindOptions = {
+      skillNames: [],
+      type: "*",
+      scope: Option.none(),
+      versionConstraint: Option.none(),
+    };
     expect(options.type).toBe("*");
   });
 
-  it("accepts optional versionConstraint", () => {
+  it("accepts versionConstraint", () => {
     const options: FindOptions = {
       skillNames: ["my-skill"],
       type: "skill",
+      scope: Option.none(),
       versionConstraint: Option.some("^1.2.3"),
     };
-    expect(Option.getOrNull(options.versionConstraint ?? Option.none())).toBe("^1.2.3");
+    expect(Option.getOrNull(options.versionConstraint)).toBe("^1.2.3");
   });
 });

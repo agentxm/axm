@@ -617,7 +617,11 @@ describe("installSkill", () => {
 
         const result = yield* installSkill(
           makeOp({
-            source: { type: "registry", location: new URL("file:///tmp/reg") },
+            source: {
+              type: "registry",
+              location: new URL("file:///tmp/reg"),
+              scope: Option.none(),
+            },
             scope: "@community",
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -656,7 +660,11 @@ describe("installSkill", () => {
 
         const result = yield* installSkill(
           makeOp({
-            source: { type: "registry", location: new URL("file:///tmp/reg") },
+            source: {
+              type: "registry",
+              location: new URL("file:///tmp/reg"),
+              scope: Option.none(),
+            },
             scope: "@myorg",
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -687,7 +695,11 @@ describe("installSkill", () => {
 
         const result = yield* installSkill(
           makeOp({
-            source: { type: "registry", location: new URL("file:///tmp/reg") },
+            source: {
+              type: "registry",
+              location: new URL("file:///tmp/reg"),
+              scope: Option.none(),
+            },
             scope: "@community",
             version: Option.some("1.2.3"),
             versionConstraint: Option.some("^1.0.0"),
@@ -732,7 +744,11 @@ describe("installSkill", () => {
 
           const result = yield* installSkill(
             makeOp({
-              source: { type: "registry", location: new URL("file:///tmp/reg") },
+              source: {
+                type: "registry",
+                location: new URL("file:///tmp/reg"),
+                scope: Option.none(),
+              },
               scope: "@community",
             }),
           ).pipe(Effect.provide(withServices(axmDir)));
@@ -797,7 +813,11 @@ describe("installSkill", () => {
 
         const result = yield* installSkill(
           makeOp({
-            source: { type: "registry", location: new URL("file:///tmp/reg") },
+            source: {
+              type: "registry",
+              location: new URL("file:///tmp/reg"),
+              scope: Option.none(),
+            },
             scope: "@acme",
             skillName: "tool",
           }),
@@ -820,7 +840,11 @@ describe("installSkill", () => {
 
         const result = yield* installSkill(
           makeOp({
-            source: { type: "registry", location: new URL("file:///tmp/reg") },
+            source: {
+              type: "registry",
+              location: new URL("file:///tmp/reg"),
+              scope: Option.none(),
+            },
             scope: "@acme",
             skillName: "tool",
             version: Option.some("1.2.3"),
@@ -845,7 +869,11 @@ describe("installSkill", () => {
 
         const result = yield* installSkill(
           makeOp({
-            source: { type: "registry", location: new URL("file:///tmp/reg") },
+            source: {
+              type: "registry",
+              location: new URL("file:///tmp/reg"),
+              scope: Option.none(),
+            },
             scope: "@acme",
             skillName: "tool",
             version: Option.some("1.2.3"),

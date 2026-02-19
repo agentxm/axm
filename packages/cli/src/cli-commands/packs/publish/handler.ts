@@ -17,11 +17,12 @@ import * as Path from "@effect/platform/Path";
 import { registryGuard } from "../../../sources/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { Job, PlannedJobStep } from "../../../workspace/plan.js";
-import { formatFqn, parseFqn, parseFqnOrThrow } from "../../../extensions/index.js";
+import { formatFqn, parseFqn, parseFqnOrThrow, type Fqn } from "../../../extensions/index.js";
 import {
   publishPack,
   type PublishPackOperation,
@@ -41,6 +42,7 @@ import {
 import { computePackPaths } from "../../../extensions/packs/paths.js";
 import {
   PACK_MANIFEST_FILENAME,
+  RawPackManifestSchema,
   type RawPackManifest,
 } from "../../../extensions/packs/manifest-schema.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
@@ -189,8 +191,8 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
       ),
     );
 
-    const manifest = yield* Effect.try({
-      try: () => JSON.parse(manifestContent) as RawPackManifest,
+    const json = yield* Effect.try({
+      try: () => JSON.parse(manifestContent) as unknown,
       catch: (e) =>
         makeCliError({
           code: "PACK_MANIFEST_PARSE_FAILED",
@@ -198,6 +200,18 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
           cause: e,
         }),
     });
+
+    yield* Schema.decodeUnknown(RawPackManifestSchema)(json).pipe(
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "PACK_MANIFEST_INVALID",
+          what: `Invalid pack manifest: ${manifestPath}`,
+          cause: e,
+        }),
+      ),
+    );
+
+    const manifest = json as RawPackManifest;
 
     // Collect all dependency FQNs from skills, commands, mcp-servers
     const allDeps: ReadonlyArray<string> = [
@@ -228,7 +242,7 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
             yield* log.warn(`Skipping non-local dependency: ${depFqn}`);
           }
         }),
-      { concurrency: 1 },
+      { concurrency: "unbounded" },
     );
   }
 
@@ -276,7 +290,7 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
 
 /** Create a per-type publish dependency step from a parsed FQN. */
 const makeDependencyStep = (
-  parsed: { readonly type: string; readonly name: string },
+  parsed: Fqn,
   depFqn: string,
   registryName: string,
 ): PlannedJobStep<PackPublishOp> => {
@@ -311,13 +325,7 @@ const makeDependencyStep = (
           args: { name: depFqn, registryName },
         } satisfies PublishMcpServerOperation,
       };
-    default:
-      return {
-        ...base,
-        operation: {
-          name: "publish-skill",
-          args: { name: depFqn, registryName },
-        } satisfies PublishSkillOperation,
-      };
+    case "packs":
+      throw new Error(`Pack dependencies of packs are not supported for publishing: ${depFqn}`);
   }
 };

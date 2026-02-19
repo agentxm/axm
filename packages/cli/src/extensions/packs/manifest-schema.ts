@@ -22,6 +22,19 @@ export interface RawPackManifest {
 }
 
 /**
+ * Loose structural validation for raw pack manifests.
+ * Validates basic shape (name, version, optional string maps) without FQN enforcement.
+ * Used for read-then-edit workflows where the full PackManifestSchema is too strict.
+ */
+export const RawPackManifestSchema = Schema.Struct({
+  name: Schema.String,
+  version: Schema.String,
+  skills: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+  commands: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+  "mcp-servers": Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+});
+
+/**
  * Version specifier map: FQN keys to semver range values.
  * Used for skills, commands, and mcp-servers in pack manifests.
  *

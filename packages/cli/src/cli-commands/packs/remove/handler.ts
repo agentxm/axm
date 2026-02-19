@@ -10,6 +10,7 @@
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -17,6 +18,7 @@ import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
 import { computePackPaths } from "../../../extensions/packs/paths.js";
 import {
   PACK_MANIFEST_FILENAME,
+  RawPackManifestSchema,
   type RawPackManifest,
 } from "../../../extensions/packs/manifest-schema.js";
 
@@ -82,8 +84,8 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     ),
   );
 
-  const manifest = yield* Effect.try({
-    try: () => JSON.parse(manifestContent) as RawPackManifest,
+  const json = yield* Effect.try({
+    try: () => JSON.parse(manifestContent) as unknown,
     catch: (e) =>
       makeCliError({
         code: "PACK_MANIFEST_PARSE_FAILED",
@@ -91,6 +93,18 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
         cause: e,
       }),
   });
+
+  yield* Schema.decodeUnknown(RawPackManifestSchema)(json).pipe(
+    Effect.mapError((e) =>
+      makeCliError({
+        code: "PACK_MANIFEST_INVALID",
+        what: `Invalid pack manifest: ${manifestPath}`,
+        cause: e,
+      }),
+    ),
+  );
+
+  const manifest = json as RawPackManifest;
 
   // Step 3: Collect all extension names from the manifest (across all sections)
   const allEntries: Array<{ section: "skills" | "commands" | "mcp-servers"; name: string }> = [];

@@ -173,9 +173,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
 
   yield* handle.stop(`Found ${filtered.length} skill(s)`);
 
-  // Step 5: Get agents from workspace
-
-  // Step 6: Determine first registry source name for publishing
+  // Step 5: Determine first registry source name for publishing
   const registrySources = yield* ws.getConfiguredRegistrySources(Option.none()).pipe(
     Effect.mapError((e) =>
       makeCliError({
@@ -197,7 +195,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   const registrySource = registrySources[0]!;
   const registryName = registrySource.name;
 
-  // Step 7: Build plan — fork + publish + install per skill (3 sequential ops)
+  // Step 6: Build plan — fork + publish + install per skill (3 sequential ops)
   const steps: ReadonlyArray<PlannedJobStep<ForkOp>> = Array.flatMap(filtered, (ref) => {
     const targetName = `${namespace}/skills/${ref.skill.name}`;
     const extensionRef = ref;

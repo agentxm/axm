@@ -6,7 +6,6 @@ import type { InputParseResult, InputPattern } from "../../../sources/parser.js"
 import {
   resolveShorthandInputSource,
   resolveSlashInputSource,
-  routeFilePathInput,
   routeUrlInput,
 } from "../../../sources/resolve-source.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -149,7 +148,7 @@ export const resolveSkillInstallSource = (parseResult: InputParseResult) =>
       case "url-input":
         return yield* resolveSkillUrl(pattern.url, parseResult.originalInput);
       case "file-path-pattern":
-        return yield* routeFilePathInput(pattern.path);
+        return { type: "local" as const, path: pattern.path };
       // Unsupported:
       case "git-scp-address":
       case "glob-input":

@@ -379,9 +379,6 @@ export const routeNameInput = (
     });
   });
 
-/** Route FilePathPattern: parse as local source. */
-export const routeFilePathInput = (path: string) => parseLocalPath(path);
-
 /** Route RegistryPatternInput: find matching registry config and intersect with params. */
 export const routeRegistryInput = (
   pattern: {
@@ -571,7 +568,7 @@ export const resolveSource = (
       case "name-input":
         return yield* routeNameInput(pattern.name, parsed.originalInput);
       case "file-path-pattern":
-        return yield* routeFilePathInput(pattern.path);
+        return { type: "local" as const, path: pattern.path };
       case "registry-pattern-input":
         return yield* routeRegistryInput(pattern, parsed.originalInput);
       case "slash-pattern":

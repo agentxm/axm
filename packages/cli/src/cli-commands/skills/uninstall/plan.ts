@@ -17,7 +17,7 @@ import type { UninstallSkillOperation } from "../../../extensions/skills/operati
  *
  * Pure function — no Effect needed.
  */
-export const buildPlan = (
+export const buildSkillUninstallPlan = (
   ops: ReadonlyArray<UninstallSkillOperation>,
   lockfile: Lockfile,
   name: string,

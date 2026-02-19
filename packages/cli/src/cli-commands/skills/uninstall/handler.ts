@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
-import { buildPlan } from "./plan.js";
+import { buildSkillUninstallPlan } from "./plan.js";
 import { expandGlob } from "../../../skills/index.js";
 import { uninstallSkill } from "../../../extensions/skills/operations/uninstall.js";
 
@@ -102,7 +102,7 @@ export const handleUninstall = Effect.fn("Uninstall.handle")(function* (
   );
 
   // Step 4: Build plan
-  const plan = buildPlan(ops, lockfile, "Uninstall skill(s)", Option.none());
+  const plan = buildSkillUninstallPlan(ops, lockfile, "Uninstall skill(s)", Option.none());
 
   // Step 5: Resolve plan via workspace
   yield* ws.resolvePlan(plan, { "uninstall-skill": uninstallSkill });

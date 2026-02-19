@@ -1,5 +1,5 @@
 /**
- * Unit tests for uninstall buildPlan.
+ * Unit tests for buildSkillUninstallPlan.
  *
  * Tests the uninstall-specific plan builder that diffs operations against lockfile state.
  */
@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
 import type { Lockfile } from "../../../lockfile/schema.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
-import { buildPlan } from "./plan.js";
+import { buildSkillUninstallPlan } from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -44,9 +44,14 @@ const lockfileWith = (...names: string[]): Lockfile => ({
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("buildPlan", () => {
+describe("buildSkillUninstallPlan", () => {
   it("marks installed skills as expected success", () => {
-    const plan = buildPlan([makeOp("commit")], lockfileWith("commit"), "Uninstall", Option.none());
+    const plan = buildSkillUninstallPlan(
+      [makeOp("commit")],
+      lockfileWith("commit"),
+      "Uninstall",
+      Option.none(),
+    );
 
     expect(plan.jobs).toHaveLength(1);
     expect(plan.jobs[0]!.steps).toHaveLength(1);
@@ -58,7 +63,12 @@ describe("buildPlan", () => {
   });
 
   it("marks skills not in lockfile as expected no-op", () => {
-    const plan = buildPlan([makeOp("commit")], emptyLockfile, "Uninstall", Option.none());
+    const plan = buildSkillUninstallPlan(
+      [makeOp("commit")],
+      emptyLockfile,
+      "Uninstall",
+      Option.none(),
+    );
 
     expect(plan.jobs[0]!.steps[0]!._tag).toBe("PlannedJobStep");
     expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
@@ -68,14 +78,14 @@ describe("buildPlan", () => {
   });
 
   it("produces empty plan from empty operations", () => {
-    const plan = buildPlan([], emptyLockfile, "Uninstall", Option.none());
+    const plan = buildSkillUninstallPlan([], emptyLockfile, "Uninstall", Option.none());
 
     expect(plan.jobs).toHaveLength(1);
     expect(plan.jobs[0]!.steps).toHaveLength(0);
   });
 
   it("derives label from skillName", () => {
-    const plan = buildPlan(
+    const plan = buildSkillUninstallPlan(
       [makeOp("commit"), makeOp("review-pr")],
       lockfileWith("commit", "review-pr"),
       "Uninstall",
@@ -87,7 +97,7 @@ describe("buildPlan", () => {
   });
 
   it("passes through caller-provided name and description", () => {
-    const plan = buildPlan(
+    const plan = buildSkillUninstallPlan(
       [makeOp("commit")],
       lockfileWith("commit"),
       "Uninstall skill(s)",
@@ -99,7 +109,7 @@ describe("buildPlan", () => {
   });
 
   it("creates a single job with serial concurrency", () => {
-    const plan = buildPlan(
+    const plan = buildSkillUninstallPlan(
       [makeOp("a"), makeOp("b")],
       lockfileWith("a", "b"),
       "Uninstall",
@@ -111,7 +121,7 @@ describe("buildPlan", () => {
   });
 
   it("handles mixed success and no-op expected results", () => {
-    const plan = buildPlan(
+    const plan = buildSkillUninstallPlan(
       [makeOp("commit"), makeOp("review-pr"), makeOp("debug")],
       lockfileWith("commit", "debug"),
       "Uninstall",

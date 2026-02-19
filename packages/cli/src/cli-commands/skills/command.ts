@@ -1,4 +1,5 @@
 import type { CommandModule } from "yargs";
+import { subcommandFailHandler } from "../yargs-helpers.js";
 import { disableCommand } from "./disable/command.js";
 import { enableCommand } from "./enable/command.js";
 import { forkCommand } from "./fork/command.js";
@@ -30,13 +31,6 @@ export const skillsCommand: CommandModule = {
       .example("$0 skills install owner/repo@v1.0.0", "Install skills from a specific version")
       .example("$0 skills install ./local/path", "Install skills from a local directory")
       .example("$0 skills list", "List installed skills")
-      .fail((msg, _err, yargs) => {
-        if (msg?.includes("Not enough non-option arguments")) {
-          yargs.showHelp("log");
-          process.exit(0);
-        }
-        console.error(msg ?? _err);
-        process.exit(1);
-      }),
+      .fail(subcommandFailHandler),
   handler: () => {},
 };

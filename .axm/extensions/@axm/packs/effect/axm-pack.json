@@ -1,19 +1,7 @@
 {
-  "name": "@axm/effect",
+  "name": "@axm/packs/effect",
   "version": "0.0.1",
-  "skills": {
-    "@axm/effect-schema": "^0.1.0",
-    "@axm/effect-stream": "^0.1.0",
-    "@axm/effect-service": "^0.1.0",
-    "@axm/effect-iteration": "^0.1.0",
-    "@axm/effect-option": "^0.1.0",
-    "@axm/effect-filesystem": "^0.1.0",
-    "@axm/effect-concurrency": "^0.1.0",
-    "@axm/effect-collections": "^0.1.0",
-    "@axm/effect-testing": "^0.1.0",
-    "@axm/effect-wrapping": "^0.1.0",
-    "@axm/effect-basics": "^0.1.0"
-  },
+  "skills": {},
   "commands": {},
   "mcp-servers": {}
 }

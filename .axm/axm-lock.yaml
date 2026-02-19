@@ -1,3 +1,197 @@
 lockfileVersion: 1
 skills:
+  effect-testing:
+    type: local
+    path: ./test
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T15:33:15.443Z
+    updatedAt: 2026-02-19T15:33:15.448Z
+  effect-wrapping:
+    type: local
+    path: ./test
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T15:33:15.454Z
+    updatedAt: 2026-02-19T15:33:15.458Z
+  effect-schema:
+    type: local
+    path: ./test
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T15:33:15.461Z
+    updatedAt: 2026-02-19T15:33:15.466Z
+  effect-service:
+    type: local
+    path: ./test
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T15:33:15.469Z
+    updatedAt: 2026-02-19T15:33:15.471Z
+  effect-collections:
+    type: local
+    path: ./test
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T15:33:15.475Z
+    updatedAt: 2026-02-19T15:33:15.477Z
+  effect-iteration:
+    type: local
+    path: ./test
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T15:33:15.480Z
+    updatedAt: 2026-02-19T15:33:15.482Z
+  testing-unit:
+    type: local
+    path: ./test
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T15:33:15.488Z
+    updatedAt: 2026-02-19T15:33:15.490Z
+  effect-basics:
+    type: local
+    path: ./test
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T15:33:15.493Z
+    updatedAt: 2026-02-19T15:33:15.495Z
+  testing-handler:
+    type: local
+    path: ./test
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T15:33:15.498Z
+    updatedAt: 2026-02-19T15:33:15.499Z
+  effect-option:
+    type: local
+    path: ./test
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T15:33:15.518Z
+    updatedAt: 2026-02-19T15:33:15.520Z
+  effect-filesystem:
+    type: local
+    path: ./test
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T15:33:15.525Z
+    updatedAt: 2026-02-19T15:33:15.527Z
+  effect-concurrency:
+    type: local
+    path: ./test
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T15:33:15.530Z
+    updatedAt: 2026-02-19T15:33:15.531Z
+  testing-basics:
+    type: local
+    path: ./test
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T15:33:15.534Z
+    updatedAt: 2026-02-19T15:33:15.536Z
 packs:
+  effect:
+    type: registry
+    scope: "@axm"
+    name: effect
+    resolvedVersion: 0.0.1
+    integrity: ""
+    sourceName: ""
+    installedAt: 2026-02-19T15:33:52.566Z
+    updatedAt: 2026-02-19T15:33:52.577Z
+    resolvedSkills: {}
+    resolvedCommands: {}
+    resolvedMcpServers: {}

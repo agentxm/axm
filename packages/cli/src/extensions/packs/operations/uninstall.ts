@@ -74,6 +74,43 @@ export const uninstallPack: OperationHandler<
     );
 
     if (Option.isNone(lockedPackOpt)) {
+      // Scan for orphaned pack folders on disk
+      const extensionsDir = path.join(base, REGISTRY_EXTENSIONS_DIR);
+      const extensionsDirExists = yield* fs
+        .exists(extensionsDir)
+        .pipe(Effect.catchAll(() => Effect.succeed(false)));
+
+      if (extensionsDirExists) {
+        const namespaceDirs = yield* fs
+          .readDirectory(extensionsDir)
+          .pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<string>>([])));
+
+        const sanitized = sanitizeName(op.args.packName);
+
+        const results = yield* Effect.forEach(
+          namespaceDirs,
+          (nsDir) => {
+            if (!nsDir.startsWith("@")) return Effect.succeed(false);
+            const packDir = path.join(extensionsDir, nsDir, "packs", sanitized);
+            return fs.exists(packDir).pipe(
+              Effect.catchAll(() => Effect.succeed(false)),
+              Effect.flatMap((exists) => {
+                if (!exists) return Effect.succeed(false);
+                return removeIfExists(fs, packDir).pipe(Effect.map(() => true));
+              }),
+            );
+          },
+          { concurrency: "unbounded" },
+        );
+
+        if (results.some((removed) => removed)) {
+          return {
+            result: "success",
+            message: "Removed pack directory from disk",
+          } satisfies OperationResult;
+        }
+      }
+
       return { result: "no-op", message: "not installed" } satisfies OperationResult;
     }
 

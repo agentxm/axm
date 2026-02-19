@@ -101,137 +101,135 @@ const listSkills = ({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const handleInstall = (args: InstallHandlerArgs) => {
+export const handleInstall = Effect.fn("Install.handle")(function* (args: InstallHandlerArgs) {
   const scopeLabel = args.global ? "global" : "project";
 
-  return Effect.gen(function* () {
-    const ws = yield* Workspace;
-    const sources = yield* SourceHostProviders;
-    // Get TUI services
-    const log = yield* Log;
-    const spinnerSvc = yield* Spinner;
+  const ws = yield* Workspace;
+  const sources = yield* SourceHostProviders;
+  // Get TUI services
+  const log = yield* Log;
+  const spinnerSvc = yield* Spinner;
 
-    // Show intro
-    yield* log.info(`axm skills install (${scopeLabel})`);
+  // Show intro
+  yield* log.info(`axm skills install (${scopeLabel})`);
 
-    // Step 1: Parse source
-    const parseHandle = yield* spinnerSvc.start("Parsing source...");
-    const parsedSourceOption = parseInputPattern(args.source.trim());
-    if (Option.isNone(parsedSourceOption)) {
-      return yield* makeCliError({
+  // Step 1: Parse source
+  const parseHandle = yield* spinnerSvc.start("Parsing source...");
+  const parsedSourceOption = parseInputPattern(args.source.trim());
+  if (Option.isNone(parsedSourceOption)) {
+    return yield* makeCliError({
+      code: "INVALID_SOURCE",
+      what: "Invalid source: Unable to parse source",
+      details: [`Provided: ${args.source || "(empty)"}`],
+      howToFix:
+        "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
+    });
+  }
+  const parsedSource = parsedSourceOption.value;
+  const versionConstraint =
+    parsedSource.pattern.pattern === "registry-pattern-input"
+      ? parsedSource.pattern.versionConstraint
+      : Option.none<string>();
+  const source = yield* resolveSkillInstallSource(parsedSource).pipe(
+    Effect.mapError((error) =>
+      makeCliError({
         code: "INVALID_SOURCE",
-        what: "Invalid source: Unable to parse source",
+        what: `Invalid source: ${error.message}`,
         details: [`Provided: ${args.source || "(empty)"}`],
         howToFix:
           "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
-      });
-    }
-    const parsedSource = parsedSourceOption.value;
-    const versionConstraint =
-      parsedSource.pattern.pattern === "registry-pattern-input"
-        ? parsedSource.pattern.versionConstraint
+        cause: error,
+      }),
+    ),
+  );
+  yield* parseHandle.stop(`Source: ${sources.origin(source)} (${source.type})`);
+
+  // Step 2: Registry guard — ensure a registry source is configured
+  if (source.type === "registry") {
+    yield* registryGuard;
+  }
+
+  // Step 3: Discover skills from source via SourceHostProviders
+  const discoverHandle = yield* spinnerSvc.start("Discovering skills...");
+  // Determine requested skill filters in priority order:
+  // 1) explicit positional names (`args.skills`) for all source types
+  // 2) parsed single name from registry-pattern input (e.g. @scope/skills/name)
+  // 3) none (discover all)
+  const requestedSkills: ReadonlyArray<string> =
+    args.skills.length > 0
+      ? args.skills
+      : parsedSource.pattern.pattern === "registry-pattern-input"
+        ? Option.isSome(parsedSource.pattern.name)
+          ? [parsedSource.pattern.name.value]
+          : []
+        : [];
+  const requestedScope =
+    parsedSource.pattern.pattern === "registry-pattern-input"
+      ? Option.some(parsedSource.pattern.scope)
+      : source.type === "registry"
+        ? (source.scope ?? Option.none<string>())
         : Option.none<string>();
-    const source = yield* resolveSkillInstallSource(parsedSource).pipe(
+
+  const discoveredSkills = yield* sources
+    .find(source, {
+      skillNames: requestedSkills,
+      type: "skill" as const,
+      scope: requestedScope,
+      versionConstraint,
+    })
+    .pipe(
+      Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
       Effect.mapError((error) =>
         makeCliError({
-          code: "INVALID_SOURCE",
-          what: `Invalid source: ${error.message}`,
-          details: [`Provided: ${args.source || "(empty)"}`],
-          howToFix:
-            "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
+          code: "DISCOVER_FAILED",
+          what: `Failed to discover skills: ${error.message}`,
+          details: [`Source: ${sources.origin(source)}`],
+          howToFix: "Verify the source path contains directories with SKILL.md files.",
           cause: error,
         }),
       ),
+      Effect.tapError(() => discoverHandle.stop("Failed")),
     );
-    yield* parseHandle.stop(`Source: ${sources.origin(source)} (${source.type})`);
+  if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
+    yield* discoverHandle.stop("No skills found");
+    return yield* Effect.fail(
+      makeCliError({
+        code: "NO_SKILLS_FOUND",
+        what: "No skills found in source",
+        details: [`Source: ${sources.origin(source)}`],
+        howToFix: "Verify the source path contains directories with SKILL.md files.",
+      }),
+    );
+  }
+  yield* discoverHandle.stop(`Found ${discoveredSkills.length} skill(s)`);
 
-    // Step 2: Registry guard — ensure a registry source is configured
-    if (source.type === "registry") {
-      yield* registryGuard;
-    }
+  // Step 6: List mode -> display and exit
+  if (args.list) {
+    yield* listSkills({ discoveredSkills, log });
+    return;
+  }
 
-    // Step 3: Discover skills from source via SourceHostProviders
-    const discoverHandle = yield* spinnerSvc.start("Discovering skills...");
-    // Determine requested skill filters in priority order:
-    // 1) explicit positional names (`args.skills`) for all source types
-    // 2) parsed single name from registry-pattern input (e.g. @scope/skills/name)
-    // 3) none (discover all)
-    const requestedSkills: ReadonlyArray<string> =
-      args.skills.length > 0
-        ? args.skills
-        : parsedSource.pattern.pattern === "registry-pattern-input"
-          ? Option.isSome(parsedSource.pattern.name)
-            ? [parsedSource.pattern.name.value]
-            : []
-          : [];
-    const requestedScope =
-      parsedSource.pattern.pattern === "registry-pattern-input"
-        ? Option.some(parsedSource.pattern.scope)
-        : source.type === "registry"
-          ? (source.scope ?? Option.none<string>())
-          : Option.none<string>();
+  // Step 7: Select skills to install
+  const selectedSkills = yield* determineSkillsToInstall(discoveredSkills, {
+    requestedSkills: args.skills,
+    all: args.all,
+    yes: args.yes,
+  });
 
-    const discoveredSkills = yield* sources
-      .find(source, {
-        skillNames: requestedSkills,
-        type: "skill" as const,
-        scope: requestedScope,
-        versionConstraint,
-      })
-      .pipe(
-        Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
-        Effect.mapError((error) =>
-          makeCliError({
-            code: "DISCOVER_FAILED",
-            what: `Failed to discover skills: ${error.message}`,
-            details: [`Source: ${sources.origin(source)}`],
-            howToFix: "Verify the source path contains directories with SKILL.md files.",
-            cause: error,
-          }),
-        ),
-        Effect.tapError(() => discoverHandle.stop("Failed")),
-      );
-    if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
-      yield* discoverHandle.stop("No skills found");
-      return yield* Effect.fail(
-        makeCliError({
-          code: "NO_SKILLS_FOUND",
-          what: "No skills found in source",
-          details: [`Source: ${sources.origin(source)}`],
-          howToFix: "Verify the source path contains directories with SKILL.md files.",
-        }),
-      );
-    }
-    yield* discoverHandle.stop(`Found ${discoveredSkills.length} skill(s)`);
+  if (!Array.isNonEmptyReadonlyArray(selectedSkills)) {
+    yield* log.warn("No skills selected.");
+    yield* log.success("Nothing to install.");
+    return;
+  }
 
-    // Step 6: List mode -> display and exit
-    if (args.list) {
-      yield* listSkills({ discoveredSkills, log });
-      return;
-    }
+  const plan = yield* buildSkillInstallPlan({
+    selectedSkills,
+    source,
+    force: args.force,
+    versionConstraint,
+  });
 
-    // Step 7: Select skills to install
-    const selectedSkills = yield* determineSkillsToInstall(discoveredSkills, {
-      requestedSkills: args.skills,
-      all: args.all,
-      yes: args.yes,
-    });
+  yield* ws.resolvePlan(plan, { "install-skill": installSkill });
 
-    if (!Array.isNonEmptyReadonlyArray(selectedSkills)) {
-      yield* log.warn("No skills selected.");
-      yield* log.success("Nothing to install.");
-      return;
-    }
-
-    const plan = yield* buildSkillInstallPlan({
-      selectedSkills,
-      source,
-      force: args.force,
-      versionConstraint,
-    });
-
-    yield* ws.resolvePlan(plan, { "install-skill": installSkill });
-
-    yield* log.success("Done");
-  }).pipe(Effect.withSpan("Install.handle"));
-};
+  yield* log.success("Done");
+});

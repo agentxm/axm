@@ -155,6 +155,7 @@ const makeOp = (
       ref,
       force: overrides?.force ?? false,
       versionConstraint: Option.none(),
+      skipSettings: Option.none(),
     },
   };
 };

@@ -41,7 +41,7 @@ export type InstallSkillOperationArgs = {
   /** Version constraint from the original input when available. */
   readonly versionConstraint: Option.Option<string>;
   /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
-  readonly skipSettings?: boolean;
+  readonly skipSettings: Option.Option<boolean>;
 };
 
 /**

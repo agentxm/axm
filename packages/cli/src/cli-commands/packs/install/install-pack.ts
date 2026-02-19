@@ -50,8 +50,12 @@ export const installPack: OperationHandler<
     );
 
     // Extract to managed location
-    const packDir = computePackPaths(path.join, ws.baseDir, op.args.scope, op.args.packName)
-      .canonicalPath;
+    const packDir = computePackPaths(
+      path.join,
+      ws.baseDir,
+      op.args.scope,
+      op.args.packName,
+    ).canonicalPath;
 
     yield* copySkillDirectory(fetched.directory, packDir).pipe(
       Effect.mapError((e) =>

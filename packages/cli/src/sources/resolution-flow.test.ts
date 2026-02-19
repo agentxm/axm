@@ -1,9 +1,6 @@
 /**
- * Tests verifying the new resolution flow:
+ * Tests verifying the resolution flow:
  * resolveSource(input) -> Source, then SourceHostProviders.find(source, options) -> ExtensionRef[]
- *
- * Phase 6: Resolution module cleanup — the resolution module no longer produces
- * ExtensionRef. Extension discovery is exclusively through SourceHostProviders.find().
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -12,12 +9,12 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import { resolveSource } from "../sources/resolve-source.js";
-import { SourceHostProviders } from "../sources/service.js";
-import type { SourceHostProvidersService } from "../sources/service.js";
-import type { FindOptions } from "../sources/provider.js";
+import { resolveSource } from "./resolve-source.js";
+import { SourceHostProviders } from "./service.js";
+import type { SourceHostProvidersService } from "./service.js";
+import type { FindOptions } from "./provider.js";
 import type { SourceHostConfig } from "../settings/index.js";
-import type { ExtensionRef, GitHubSource } from "../sources/types.js";
+import type { ExtensionRef, GitHubSource } from "./types.js";
 import { Workspace } from "../workspace/index.js";
 
 // -----------------------------------------------------------------------------
@@ -151,18 +148,6 @@ describe("resolution flow: resolveSource + SourceHostProviders.find()", () => {
           expect(source.owner).toBe("owner");
           expect(source.repo).toBe("repo");
         }
-      }),
-    { timeout: 10_000 },
-  );
-
-  it.effect(
-    "resolution module no longer exports resolveExtension",
-    () =>
-      Effect.gen(function* () {
-        // Verify the resolution barrel no longer has resolveExtension
-        const barrel = yield* Effect.promise(async () => import("./index.js"));
-        expect("resolveExtension" in barrel).toBe(false);
-        expect("defaultResolutionOptions" in barrel).toBe(false);
       }),
     { timeout: 10_000 },
   );

@@ -5,11 +5,4 @@
  * @packageDocumentation
  */
 
-export {
-  cloneRepo,
-  getCurrentCommit,
-  getTreeSha,
-  isGitRepository,
-  resolveRef,
-  shallowClone,
-} from "./operations.js";
+export { getTreeSha, shallowClone } from "./operations.js";

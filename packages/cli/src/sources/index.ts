@@ -81,7 +81,7 @@ export type {
 } from "./types.js";
 
 // Type guards and utilities
-export { fileUrlToPath, isGitHostingProviderSource } from "./utils.js";
+export { fileUrlToPath } from "./utils.js";
 
 // Provider types
 export type { ExtensionFiles, FindOptions, SourceHostProvider } from "./provider.js";
@@ -119,9 +119,6 @@ export { resolveSourcePattern } from "./resolve-source-pattern.js";
 
 // Printer
 export { lockEntryToSourceParams, printSourceParams } from "./printer.js";
-
-// GitHub API
-export { fetchGitHubTreeHash } from "./github/index.js";
 
 // Registry guard
 export { registryGuard } from "./registry-guard.js";

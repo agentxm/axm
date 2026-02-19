@@ -273,7 +273,7 @@ export type PacksMap = typeof PacksMapSchema.Type;
 /**
  * Canonical key order for settings properties.
  *
- * Used by `writeSettings` and `ensureTopLevelProperty` to ensure properties
+ * Used by `writeSettings` to ensure properties
  * appear in the same order as defined in `SettingsSchema`.
  *
  * @experimental This API is unstable and may change without notice.

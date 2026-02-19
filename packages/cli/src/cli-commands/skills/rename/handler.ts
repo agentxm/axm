@@ -7,12 +7,11 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { RenameSkillOperation } from "../operations.js";
-import type { Plan } from "../../../workspace/plan.js";
+import { buildSingleStepPlan } from "../plan-helpers.js";
 import { renameSkill } from "./rename-skill.js";
 
 // -----------------------------------------------------------------------------
@@ -75,27 +74,14 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
     args: { oldName: args.oldName, newName: args.newName },
   } satisfies RenameSkillOperation;
 
-  // Build single-step plan
-  const plan: Plan<RenameSkillOperation> = {
+  // Build and resolve single-step plan
+  const plan = buildSingleStepPlan({
+    operation: op,
     name: "Rename skill",
-    description: Option.some(`Rename ${args.oldName} to ${args.newName}`),
-    jobs: [
-      {
-        concurrency: 1,
-        steps: [
-          {
-            _tag: "PlannedJobStep",
-            operation: op,
-            expectedResult: {
-              result: "success",
-              message: `Renamed ${args.oldName} to ${args.newName}`,
-            },
-            label: `${args.oldName} -> ${args.newName}`,
-          },
-        ],
-      },
-    ],
-  };
+    description: `Rename ${args.oldName} to ${args.newName}`,
+    label: `${args.oldName} -> ${args.newName}`,
+    expectedMessage: `Renamed ${args.oldName} to ${args.newName}`,
+  });
 
   yield* ws.resolvePlan(plan, { "rename-skill": renameSkill });
 

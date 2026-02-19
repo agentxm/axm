@@ -52,9 +52,4 @@ export {
 } from "./settings.js";
 
 // Format-preserving JSON
-export type { DetectedFormatting, JsonModification } from "./format-preserving-json.js";
-export {
-  detectFormatting,
-  ensureTopLevelProperty,
-  modifyJsonFile,
-} from "./format-preserving-json.js";
+export type { JsonModification } from "./format-preserving-json.js";

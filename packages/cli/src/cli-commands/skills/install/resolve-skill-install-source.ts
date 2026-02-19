@@ -23,20 +23,21 @@ const resolveRegistrySource = (
     const registrySources = yield* ws.getConfiguredRegistrySources(Option.some(scope)).pipe(
       Effect.mapError((e) =>
         makeCliError({
-          // TODO: update and make error more accurate/meaningful
-          code: "SOURCE_PARSE_FAILED",
-          what: `Failed to get registry sources: ${e._tag}`,
+          code: "REGISTRY_CONFIG_READ_FAILED",
+          what: `Failed to read configured registry sources for scope "${scope}"`,
           details: [input],
+          howToFix: "Check that your workspace settings file is valid and accessible",
+          cause: e,
         }),
       ),
     );
 
     if (registrySources.length === 0) {
       return yield* makeCliError({
-        // TODO: update and make error more accurate/meaningful
-        code: "SOURCE_PARSE_FAILED",
-        what: `No registry source configured for scope "${scope}"`,
+        code: "REGISTRY_NO_SOURCE_CONFIGURED",
+        what: `No registry source is configured for scope "${scope}"`,
         details: [input],
+        howToFix: `Add a registry source for scope "${scope}" using "axm sources add"`,
       });
     }
     if (registrySources.length === 1 || !options.findMatchingScope) {
@@ -61,10 +62,10 @@ const resolveRegistrySource = (
     }
 
     return yield* makeCliError({
-      // TODO: update and make error more accurate/meaningful
-      code: "SOURCE_PARSE_FAILED",
-      what: `No registry source contains scope "${scope}"`,
+      code: "REGISTRY_SCOPE_NOT_FOUND",
+      what: `None of the configured registry sources contain scope "${scope}"`,
       details: [input],
+      howToFix: `Verify the scope name is correct, or add a registry that hosts "${scope}"`,
     });
   });
 
@@ -115,10 +116,10 @@ const resolveSkillRegistrySource = (
   Effect.gen(function* () {
     if (Option.isSome(pattern.type) && pattern.type.value !== "skills") {
       return yield* makeCliError({
-        // TODO: update and make error more accurate/meaningful
-        code: "SOURCE_PARSE_FAILED",
-        what: "Expected a skills registry source",
+        code: "SKILL_INSTALL_WRONG_TYPE",
+        what: `Cannot install "${pattern.type.value}" extensions with "skills install"`,
         details: [pattern.scope],
+        howToFix: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a skill`,
       });
     }
 
@@ -151,10 +152,11 @@ export const resolveSkillInstallSource = (parseResult: InputParseResult) =>
       case "file-path-pattern":
       case "glob-input":
         return yield* makeCliError({
-          // TODO: update and make error more accurate/meaningful
-          code: "SOURCE_PARSE_FAILED",
-          what: "Glob patterns are not supported by resolveSkillInstallSource - use resolveSourcePattern instead",
+          code: "SKILL_INSTALL_UNSUPPORTED_INPUT",
+          what: `Input pattern "${pattern.pattern}" is not supported for skill installation`,
           details: [parseResult.originalInput],
+          howToFix:
+            "Use a registry reference (e.g., @scope/skill-name), a URL, or a shorthand (owner/repo) instead",
         });
     }
   });

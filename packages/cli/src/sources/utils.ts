@@ -5,18 +5,5 @@
  * @packageDocumentation
  */
 
-import type { GitHostingSourceParams, SourceParams } from "./types.js";
-
-/**
- * Type guard for git hosting provider sources (GitHub, GitLab, Bitbucket).
- */
-export const isGitHostingProviderSource = (
-  source: SourceParams,
-): source is GitHostingSourceParams =>
-  source.type === "github" ||
-  source.type === "gitlab" ||
-  source.type === "bitbucket" ||
-  source.type === "azurerepos";
-
 /** Convert a `file://` URL to a local filesystem path. */
 export const fileUrlToPath = (fileUrl: string): string => fileUrl.replace("file://", "");

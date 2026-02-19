@@ -85,10 +85,10 @@ describe("registry guard", () => {
           ) + "\n",
         );
 
-        // Set scope but no sources
+        // Set namespace but no sources
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.scope = "@test";
+        settings.namespace = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Attempt to publish with --non-interactive (no registry configured)
@@ -119,7 +119,7 @@ describe("registry guard", () => {
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.scope = "@test";
+        settings.namespace = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Install a skill

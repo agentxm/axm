@@ -49,7 +49,7 @@ const initWorkspace = (
   fs.writeFileSync(
     path.join(axmDir, "settings.json"),
     JSON.stringify({
-      scope: "@test",
+      namespace: "@test",
       agents: ["claude-code"],
       sources: [{ name: "local", type: "registry", location: new URL(`file://${registryRoot}`) }],
     }),
@@ -293,7 +293,7 @@ describe("fork.handler", () => {
 
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
-          // Manifest should use the configured scope
+          // Manifest should use the configured namespace
           const manifestPath = path.join(
             tempDir,
             ".axm",
@@ -609,8 +609,8 @@ describe("fork.handler", () => {
     });
   });
 
-  describe("scope resolution", () => {
-    it.effect("uses scope from project settings", () => {
+  describe("namespace resolution", () => {
+    it.effect("uses namespace from project settings", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
@@ -631,7 +631,7 @@ describe("fork.handler", () => {
         Effect.gen(function* () {
           yield* handleFork(defaultArgs("my-skill"));
 
-          // Manifest should use the configured scope
+          // Manifest should use the configured namespace
           const manifestPath = path.join(
             tempDir,
             ".axm",

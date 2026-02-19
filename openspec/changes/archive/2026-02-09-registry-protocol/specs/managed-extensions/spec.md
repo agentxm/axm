@@ -5,8 +5,8 @@
 Managed extensions (registry-sourced or forked) SHALL be stored in `.axm/extensions/` with the layout:
 
 ```
-.axm/extensions/@<scope>/skills/<name>/
-.axm/extensions/@<scope>/mcp-servers/<name>/
+.axm/extensions/@<namespace>/skills/<name>/
+.axm/extensions/@<namespace>/mcp-servers/<name>/
 ```
 
 #### Scenario: Registry-sourced skill installed to managed location
@@ -62,7 +62,7 @@ The `installSkill` operation executor SHALL determine the canonical path based o
 #### Scenario: Registry source uses managed location
 
 - **WHEN** installing a skill with `source: "registry"`
-- **THEN** files are written to `.axm/extensions/@<scope>/skills/<name>/`
+- **THEN** files are written to `.axm/extensions/@<namespace>/skills/<name>/`
 
 #### Scenario: Other sources use existing location
 
@@ -81,7 +81,7 @@ The `skills uninstall` handler SHALL determine the canonical location from the l
 #### Scenario: Uninstall registry-sourced skill
 
 - **WHEN** uninstalling a skill whose lockfile entry has `source: "registry"`
-- **THEN** files are removed from `.axm/extensions/@<scope>/skills/<name>/`
+- **THEN** files are removed from `.axm/extensions/@<namespace>/skills/<name>/`
 
 #### Scenario: Uninstall git-sourced skill
 

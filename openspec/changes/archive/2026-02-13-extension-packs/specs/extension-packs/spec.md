@@ -35,7 +35,7 @@ All extension entries in the manifest SHALL be version-specifier maps (`"@scope/
 Packs SHALL be stored in the managed extensions directory with the layout:
 
 ```
-.axm/extensions/@<scope>/packs/<name>/
+.axm/extensions/@<namespace>/packs/<name>/
   axm-pack.json
   <optional additional files>
 ```
@@ -55,7 +55,7 @@ Packs SHALL NOT have a `src/` subdirectory. Packs SHALL NOT have agent symlinks.
 #### Scenario: Additional files preserved
 
 - **WHEN** a pack archive contains `axm-pack.json` and `README.md`
-- **THEN** both files are extracted to `.axm/extensions/@<scope>/packs/<name>/`
+- **THEN** both files are extracted to `.axm/extensions/@<namespace>/packs/<name>/`
 
 ### Requirement: Packs are registry-only
 

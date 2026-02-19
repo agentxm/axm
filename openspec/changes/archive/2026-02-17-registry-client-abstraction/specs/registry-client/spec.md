@@ -7,7 +7,7 @@ The system SHALL provide a `RegistryClient` interface with 6 methods for operati
 Methods:
 
 - `getExtensions(options: RegistrySearchOptions)` — discover extensions matching search criteria
-- `scopeExists(scope)` — check if a scope directory exists
+- `namespaceExists(scope)` — check if a scope directory exists
 - `fetchIndex(scope, type, name)` — read and validate the extension's `index.json`
 - `getExtension(scope, type, name, version)` — read raw archive bytes for a version
 - `publishExtension(scope, type, name, version, archive, metadata)` — write archive and update index
@@ -23,9 +23,9 @@ Methods:
 - **WHEN** `getExtensions({ names: ["@acme/code-review"], agents: [], type: "skill" })` is called
 - **THEN** the client scans the registry layout, reads index files, applies version/agent filtering, and returns matching `RegistryExtensionEntry` results
 
-#### Scenario: scopeExists checks scope directory
+#### Scenario: namespaceExists checks scope directory
 
-- **WHEN** `scopeExists("@acme")` is called and the scope directory exists
+- **WHEN** `namespaceExists("@acme")` is called and the scope directory exists
 - **THEN** it returns `true`
 
 #### Scenario: fetchIndex reads and validates index.json

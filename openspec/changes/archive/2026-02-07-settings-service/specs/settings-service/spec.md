@@ -6,7 +6,7 @@ The system SHALL provide a `getScope` method that reads settings from disk and r
 
 #### Scenario: Scope configured
 
-- **WHEN** settings contains `scope: "acme"`
+- **WHEN** settings contains `namespace: "acme"`
 - **THEN** `getScope()` returns `"acme"`
 
 #### Scenario: Scope not configured

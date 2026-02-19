@@ -87,7 +87,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
             name: parsed.name,
             lockEntry: {
               type: "registry" as const,
-              scope: parsed.scope,
+              namespace: parsed.namespace,
               name: parsed.name,
               resolvedVersion: version,
               integrity: "",

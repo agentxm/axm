@@ -40,7 +40,7 @@ const makeWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getConfiguredRegistrySources: () => Effect.succeed([]),
-    getConfiguredScope: () => Effect.succeed("@community"),
+    getConfiguredNamespace: () => Effect.succeed("@community"),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
@@ -92,7 +92,7 @@ const makeLocalLockEntry = (agents: string[]) => ({
 /** Creates a registry source lock entry. */
 const makeRegistryLockEntry = (agents: string[]) => ({
   type: "registry" as const,
-  scope: "@community",
+  namespace: "@community",
   name: "my-skill",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",

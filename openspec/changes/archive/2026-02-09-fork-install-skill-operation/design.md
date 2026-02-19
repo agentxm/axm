@@ -22,7 +22,7 @@ The `skills-fork` spec already requires three operations (fork → publish → i
 
 ### Add `InstallSkillOperation` as third plan step
 
-The fork handler will append an `install-skill` step per skill after its publish step. The operation's `source` is `{ source: "registry" }` since the skill was just published to the local registry. The `location` points to the registry extension path (`file://<base>/.axm/extensions/@<scope>/skills/<name>`).
+The fork handler will append an `install-skill` step per skill after its publish step. The operation's `source` is `{ source: "registry" }` since the skill was just published to the local registry. The `location` points to the registry extension path (`file://<base>/.axm/extensions/@<namespace>/skills/<name>`).
 
 `installSkill`'s `preCleanAllLocations` will delete the extension directory that `fork-skill` created — this is fine because `publish-skill` has already archived the files into the registry. `installSkill` then installs from that registry location, writing files back to the canonical path and handling lockfile, settings, and symlinks.
 
@@ -46,7 +46,7 @@ The `InstallSkillOperationArgs` fields are populated from data already available
 | `agents`     | `agentIds` (from settings)                                                                   |
 | `force`      | `true` (always overwrite — we just forked it)                                                |
 | `skill`      | `{ name: ref.skill.name, description: ref.skill.description, metadata: ref.skill.metadata }` |
-| `location`   | `file://<base>/.axm/extensions/@<scope>/skills/<name>`                                       |
+| `location`   | `file://<base>/.axm/extensions/@<namespace>/skills/<name>`                                   |
 | `version`    | `Option.some("0.1.0")` (fork manifest default)                                               |
 | `gitTreeSha` | `Option.none()`                                                                              |
 

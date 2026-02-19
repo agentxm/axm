@@ -6,7 +6,7 @@ There is no command to create a new skill from scratch. Users adopting axm must 
 
 - Add `axm skills new <name>` command that scaffolds a new managed skill
 - The command creates the skill directory structure under `.axm/extensions/`, writes an `axm-skill.json` manifest, creates a starter `SKILL.md` in `src/`, and registers the skill in settings as a managed entry
-- Supports `--scope` to override the workspace scope (same pattern as `axm packs new`)
+- Supports `--namespace` to override the workspace scope (same pattern as `axm packs new`)
 - Supports `--agent` to wire the skill into specific agents at creation time (defaults to all configured agents)
 - Creates agent symlinks so the skill is immediately usable after creation
 
@@ -24,5 +24,5 @@ There is no command to create a new skill from scratch. Users adopting axm must 
 
 - New command at `packages/cli/src/cli-commands/skills/new/`
 - Workspace service: reuses existing `setSkill` for settings registration
-- Managed extensions layout: follows existing `.axm/extensions/@<scope>/skills/<name>/` convention
+- Managed extensions layout: follows existing `.axm/extensions/@<namespace>/skills/<name>/` convention
 - Agent symlinks: reuses existing symlink creation from install flow

@@ -1,6 +1,6 @@
 ## Context
 
-axm has `axm packs new` for scaffolding packs but no equivalent for skills. The install flow already creates managed skill directories under `.axm/extensions/@<scope>/skills/<name>/` with `axm-skill.json` manifests and `src/` subdirectories, and wires agent symlinks. The `skills new` command needs to produce the same structure but from scratch rather than from a downloaded archive.
+axm has `axm packs new` for scaffolding packs but no equivalent for skills. The install flow already creates managed skill directories under `.axm/extensions/@<namespace>/skills/<name>/` with `axm-skill.json` manifests and `src/` subdirectories, and wires agent symlinks. The `skills new` command needs to produce the same structure but from scratch rather than from a downloaded archive.
 
 ## Goals / Non-Goals
 
@@ -26,7 +26,7 @@ The command structure, handler args, scope resolution, and error handling mirror
 
 ### Reuse existing symlink and path infrastructure
 
-Agent symlinks use the existing `createSymlink` utility. Skill directory paths use the managed extensions layout from `managed-extensions` spec (`.axm/extensions/@<scope>/skills/<name>/`). No new path computation is needed beyond what install already does.
+Agent symlinks use the existing `createSymlink` utility. Skill directory paths use the managed extensions layout from `managed-extensions` spec (`.axm/extensions/@<namespace>/skills/<name>/`). No new path computation is needed beyond what install already does.
 
 **Alternative considered:** A dedicated path helper like `computeSkillPaths` (analogous to `computePackPaths`). This is warranted — extract or reuse a helper that computes the canonical path for a managed skill given scope and name.
 

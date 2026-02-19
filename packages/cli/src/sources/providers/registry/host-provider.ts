@@ -19,7 +19,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import type {
   RegistryClient,
   RegistryExtensionManifest,
-  GetExtensionsByScopeArgs,
+  GetExtensionsByNamespaceArgs,
 } from "../../../registry/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
@@ -31,7 +31,7 @@ import type { VersionEntry } from "../../../registry/index.js";
 
 type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<RegistrySource, R> & {
   readonly publishExtension: (
-    scope: string,
+    namespace: string,
     type: ExtensionType,
     name: string,
     version: string,
@@ -44,9 +44,12 @@ type RegistrySourceHostProviderWithPublish<R = never> = SourceHostProvider<Regis
 // Type Mapping Helpers
 // -----------------------------------------------------------------------------
 
-/** Map FindOptions + scope to GetExtensionsByScopeArgs (no pagination — fetch all). */
-const toSearchOptions = (scope: string, options: FindOptions): GetExtensionsByScopeArgs => ({
-  scope,
+/** Map FindOptions + namespace to GetExtensionsByNamespaceArgs (no pagination — fetch all). */
+const toSearchOptions = (
+  namespace: string,
+  options: FindOptions,
+): GetExtensionsByNamespaceArgs => ({
+  namespace,
   names: options.skillNames,
   types: options.type === "*" ? [] : [options.type as ExtensionType],
   limit: Option.none(),
@@ -73,7 +76,7 @@ const toExtensionRef = (entry: RegistryExtensionManifest, source: RegistrySource
   };
 
   const details = {
-    scope: entry.scope,
+    namespace: entry.namespace,
     name: entry.name,
     version: entry.version,
     integrity: entry.integrity,
@@ -145,16 +148,16 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
     if (ref.refType !== "registry") {
       return yield* makeCliError({
         code: "SOURCE_FETCH_FAILED",
-        what: "Ref missing registry details (scope, version, integrity)",
+        what: "Ref missing registry details (namespace, version, integrity)",
       });
     }
 
-    const { scope, version, integrity: expectedIntegrity } = ref;
+    const { namespace, version, integrity: expectedIntegrity } = ref;
     const type = refRegistryType(ref);
     const name = refName(ref);
 
     const { archive: archiveBytes } = yield* client.getExtensionPackage({
-      scope,
+      namespace,
       type,
       name,
       version: Option.some(version),
@@ -217,15 +220,15 @@ export const createLocalRegistrySourceHostProvider = (
       const entries = yield* fsService
         .readDirectory(extensionsDir)
         .pipe(Effect.orElseSucceed(() => [] as readonly string[]));
-      const scopes = Option.isSome(options.scope)
-        ? [options.scope.value]
+      const namespaces = Option.isSome(options.namespace)
+        ? [options.namespace.value]
         : entries.filter((d) => d.startsWith("@"));
 
       const results = yield* Effect.forEach(
-        scopes,
-        (scope) =>
+        namespaces,
+        (namespace) =>
           Effect.gen(function* () {
-            const result = yield* client.getExtensionsByScope(toSearchOptions(scope, options));
+            const result = yield* client.getExtensionsByScope(toSearchOptions(namespace, options));
             return result.extensions.map((entry) => toExtensionRef(entry, source));
           }),
         { concurrency: "unbounded" },
@@ -236,13 +239,13 @@ export const createLocalRegistrySourceHostProvider = (
   fetch: (_source, ref) => fetchRegistryExtension(client, ref),
 
   publishExtension: (
-    scope: string,
+    namespace: string,
     type: ExtensionType,
     name: string,
     version: string,
     archive: Uint8Array,
     metadata: VersionEntry,
-  ) => client.publishExtension({ scope, type, name, version, archive, metadata }),
+  ) => client.publishExtension({ namespace, type, name, version, archive, metadata }),
 });
 
 // -----------------------------------------------------------------------------
@@ -266,8 +269,8 @@ export const createRemoteRegistrySourceHostProvider = (
 
   find: (source, options) =>
     Effect.gen(function* () {
-      const scope = Option.isSome(options.scope) ? options.scope.value : "*";
-      const searchOptions = toSearchOptions(scope, options);
+      const namespace = Option.isSome(options.namespace) ? options.namespace.value : "*";
+      const searchOptions = toSearchOptions(namespace, options);
       const result = yield* client.getExtensionsByScope(searchOptions);
       return result.extensions.map((entry) => toExtensionRef(entry, source));
     }),
@@ -275,13 +278,13 @@ export const createRemoteRegistrySourceHostProvider = (
   fetch: (_source, ref) => fetchRegistryExtension(client, ref),
 
   publishExtension: (
-    scope: string,
+    namespace: string,
     type: ExtensionType,
     name: string,
     version: string,
     archive: Uint8Array,
     metadata: VersionEntry,
-  ) => client.publishExtension({ scope, type, name, version, archive, metadata }),
+  ) => client.publishExtension({ namespace, type, name, version, archive, metadata }),
 });
 
 // -----------------------------------------------------------------------------

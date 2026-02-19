@@ -5,13 +5,13 @@ const join = (...parts: string[]) => parts.join("/");
 const base = "/workspace";
 
 describe("computePackPaths", () => {
-  it("produces registry extensions path with scope", () => {
+  it("produces registry extensions path with namespace", () => {
     const result = computePackPaths(join, base, "@acme", "my-pack");
 
     expect(result.canonicalPath).toBe("/workspace/.axm/extensions/@acme/packs/my-pack");
   });
 
-  it("handles different scopes correctly", () => {
+  it("handles different namespaces correctly", () => {
     const result = computePackPaths(join, base, "@community", "starter-pack");
 
     expect(result.canonicalPath).toBe("/workspace/.axm/extensions/@community/packs/starter-pack");

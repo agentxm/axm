@@ -87,7 +87,7 @@ The module resolves the path to bundled assets relative to `import.meta.url`. Bo
 ```yaml
 "@axm/cli":
   type: builtin
-  scope: "@axm"
+  namespace: "@axm"
   name: cli
   resolvedVersion: "0.0.16"
   installedAt: "2026-02-14T..."

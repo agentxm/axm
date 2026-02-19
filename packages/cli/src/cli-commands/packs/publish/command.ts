@@ -26,7 +26,7 @@ export const publishPackCommand: CommandModule<{}, PublishPackCommandArgs> = {
     yargs
       .positional("pack", {
         type: "string",
-        describe: "Pack name (@scope/name or bare name)",
+        describe: "Pack name (@namespace/name or bare name)",
         demandOption: true,
       })
       .option("registry", {
@@ -57,7 +57,7 @@ export const publishPackCommand: CommandModule<{}, PublishPackCommandArgs> = {
       .example("$0 packs publish @acme/frontend-tools", "Publish to the default registry")
       .example(
         "$0 packs publish frontend-tools --registry local",
-        "Publish with scope from settings to the local registry",
+        "Publish with namespace from settings to the local registry",
       ),
   handler: async (argv) => {
     await run(

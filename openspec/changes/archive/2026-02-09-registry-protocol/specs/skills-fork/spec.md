@@ -29,12 +29,12 @@ The fork command SHALL determine the default scope for the forked extension usin
 
 #### Scenario: Scope from project settings
 
-- **WHEN** project settings has `scope: "@acme"`
+- **WHEN** project settings has `namespace: "@acme"`
 - **THEN** the default scope is `@acme` (no prompt)
 
 #### Scenario: Scope from global settings
 
-- **WHEN** project settings has no scope but global settings has `scope: "@myorg"`
+- **WHEN** project settings has no scope but global settings has `namespace: "@myorg"`
 - **THEN** the default scope is `@myorg` (no prompt)
 
 #### Scenario: Scope prompted and persisted

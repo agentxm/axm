@@ -34,7 +34,7 @@ Registry source strings SHALL always include the type segment (`skills`, `packs`
 #### Scenario: Registry source scope is @-prefixed
 
 - **WHEN** parsing source string `@community/skills/my-skill`
-- **THEN** the `RegistrySourceParams` has `scope: "@community"` (not `"community"`)
+- **THEN** the `RegistrySourceParams` has `namespace: "@community"` (not `"community"`)
 
 #### Scenario: Registry source resolves host from config
 
@@ -111,7 +111,7 @@ Registry source strings SHALL always include the type segment (`skills`, `packs`
 | bitbucket  | `bitbucket:<owner>/<repo>[/<subPath>][@<ref>]`          | `bitbucket:acme/repo`             |
 | azurerepos | `azurerepos:<org>/<project>/<repo>[/<subPath>][@<ref>]` | `azurerepos:acme/proj/repo@main`  |
 | git        | URL href                                                | `https://example.com/repo.git`    |
-| registry   | `<scope>/<type-plural>/<name>`                          | `@acme/skills/my-skill`           |
+| registry   | `<namespace>/<type-plural>/<name>`                      | `@acme/skills/my-skill`           |
 | local      | path as-is                                              | `./my-skills/dev-skill`           |
 | builtin    | `builtin`                                               | `builtin`                         |
 

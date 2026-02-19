@@ -63,7 +63,12 @@ describe("createLocalSourceHostProvider", () => {
       Effect.gen(function* () {
         const refs = yield* provider.find(
           { type: "local", path: dir },
-          { skillNames: [], type: "skill", scope: Option.none(), versionConstraint: Option.none() },
+          {
+            skillNames: [],
+            type: "skill",
+            namespace: Option.none(),
+            versionConstraint: Option.none(),
+          },
         );
         expect(refs.length).toBeGreaterThanOrEqual(1);
         const skill = refs.find((r) => r.type === "skill" && r.skill.name === "my-skill");
@@ -101,7 +106,7 @@ describe("createLocalSourceHostProvider", () => {
           {
             skillNames: ["skill-a"],
             type: "skill",
-            scope: Option.none(),
+            namespace: Option.none(),
             versionConstraint: Option.none(),
           },
         );

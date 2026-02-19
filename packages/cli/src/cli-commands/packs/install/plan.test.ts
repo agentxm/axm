@@ -26,14 +26,14 @@ const makePackRef = (
 ): RegistryPackRef => ({
   type: "pack",
   refType: "registry",
-  source: { type: "registry", location: new URL("file:///tmp/registry"), scope: Option.none() },
+  source: { type: "registry", location: new URL("file:///tmp/registry"), namespace: Option.none() },
   pack: {
     name,
     skills: opts?.skills ?? {},
     commands: opts?.commands ?? {},
     mcpServers: opts?.mcpServers ?? {},
   },
-  scope: "@acme",
+  namespace: "@acme",
   name,
   version: opts?.version ?? "1.0.0",
   integrity: "sha512-AAAA==",
@@ -68,7 +68,7 @@ const lockfileWithPacks = (...names: string[]): Lockfile => ({
       name,
       {
         type: "registry" as const,
-        scope: "@acme",
+        namespace: "@acme",
         name,
         resolvedVersion: "1.0.0",
         integrity: "sha512-AAAA==",
@@ -238,7 +238,7 @@ describe("buildInstallPlan", () => {
     expect(packStep.operation.name).toBe("install-pack");
     expect(packStep.operation.args).toMatchObject({
       packName: "my-pack",
-      scope: "@acme",
+      namespace: "@acme",
       resolvedVersion: "2.5.0",
       integrity: "sha512-AAAA==",
       sourceName: "default",

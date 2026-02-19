@@ -144,7 +144,7 @@ describe("init.handler", () => {
           fs.mkdirSync(axmDir, { recursive: true });
           const existingSettings: Settings = {
             agents: ["claude-code"],
-            scope: "@community",
+            namespace: "@community",
           };
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existingSettings));
           fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
@@ -168,7 +168,7 @@ describe("init.handler", () => {
             skills: {
               commit: "^1.0.0",
             },
-            scope: "@myorg",
+            namespace: "@myorg",
           };
           fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(existingSettings));
           fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), "lockfileVersion: 1\nskills: {}\n");
@@ -180,7 +180,7 @@ describe("init.handler", () => {
           const settings: Settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.agents).toEqual(["claude-code", "cursor"]);
           expect(settings.skills?.["commit"]).toBe("^1.0.0");
-          expect(settings.scope).toBe("@myorg");
+          expect(settings.namespace).toBe("@myorg");
         }),
       ),
     );
@@ -513,7 +513,7 @@ describe("init.handler", () => {
           expect(lockfile.packs).toBeDefined();
           expect(lockfile.packs["@axm/packs/cli"]).toBeDefined();
           expect(lockfile.packs["@axm/packs/cli"].type).toBe("builtin");
-          expect(lockfile.packs["@axm/packs/cli"].scope).toBe("@axm");
+          expect(lockfile.packs["@axm/packs/cli"].namespace).toBe("@axm");
           expect(lockfile.packs["@axm/packs/cli"].name).toBe("cli");
 
           // Skill entries
@@ -563,7 +563,7 @@ describe("init.handler", () => {
             packs: {
               "@axm/packs/cli": {
                 type: "builtin",
-                scope: "@axm",
+                namespace: "@axm",
                 name: "cli",
                 resolvedVersion: "0.0.16",
                 installedAt: "2025-01-01T00:00:00.000Z",

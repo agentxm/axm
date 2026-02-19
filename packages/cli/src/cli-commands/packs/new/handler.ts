@@ -23,10 +23,10 @@ import { PACK_MANIFEST_FILENAME } from "../../../extensions/packs/manifest-schem
 // -----------------------------------------------------------------------------
 
 export interface PacksNewHandlerArgs {
-  /** Name of the pack (without scope). */
+  /** Name of the pack (without namespace). */
   readonly name: string;
-  /** Optional scope override. */
-  readonly scope: Option.Option<string>;
+  /** Optional namespace override. */
+  readonly namespace: Option.Option<string>;
   /** Skip confirmations. */
   readonly yes: boolean;
 }
@@ -43,29 +43,30 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
 
   yield* log.info("axm packs new");
 
-  // Resolve scope
-  const normalizeScope = (s: string) => (s.startsWith("@") ? s : `@${s}`);
-  const scope = Option.isSome(args.scope)
-    ? normalizeScope(args.scope.value)
-    : yield* ws.getConfiguredScope().pipe(
+  // Resolve namespace
+  const normalizeNamespace = (s: string) => (s.startsWith("@") ? s : `@${s}`);
+  const namespace = Option.isSome(args.namespace)
+    ? normalizeNamespace(args.namespace.value)
+    : yield* ws.getConfiguredNamespace().pipe(
         Effect.flatMap((s) =>
           s === "@community"
             ? Effect.fail(
                 makeCliError({
                   code: "SCOPE_REQUIRED",
-                  what: "No scope configured for pack creation",
-                  howToFix: "Configure a scope in settings.json with `axm init`, or use --scope",
+                  what: "No namespace configured for pack creation",
+                  howToFix:
+                    "Configure a namespace in settings.json with `axm init`, or use --namespace",
                 }),
               )
             : Effect.succeed(s),
         ),
       );
 
-  const fqn = formatFqn({ scope, type: "packs", name: args.name });
+  const fqn = formatFqn({ namespace, type: "packs", name: args.name });
   const base = ws.baseDir;
 
   // Compute pack directory path
-  const packDir = computePackPaths(path.join, base, scope, args.name);
+  const packDir = computePackPaths(path.join, base, namespace, args.name);
   const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
   // Check if pack already exists
@@ -120,7 +121,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   // Register in settings
   const now = new Date();
   yield* ws.setPack({
-    scope,
+    namespace,
     name: args.name,
     resolvedVersion: "0.0.1",
     integrity: "",

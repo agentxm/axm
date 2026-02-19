@@ -11,7 +11,7 @@ import { handlePacksNew } from "./handler.js";
 
 export interface PacksNewCommandArgs {
   name: string;
-  scope: string | undefined;
+  namespace: string | undefined;
   yes: boolean;
   "non-interactive": boolean | undefined;
 }
@@ -24,12 +24,12 @@ export const packsNewCommand: CommandModule<{}, PacksNewCommandArgs> = {
     yargs
       .positional("name", {
         type: "string",
-        describe: "Name of the pack (without scope)",
+        describe: "Name of the pack (without namespace)",
         demandOption: true,
       })
-      .option("scope", {
+      .option("namespace", {
         type: "string",
-        describe: "Override the workspace scope (e.g., @acme)",
+        describe: "Override the workspace namespace (e.g., @acme)",
       })
       .option("yes", {
         alias: "y",
@@ -41,13 +41,13 @@ export const packsNewCommand: CommandModule<{}, PacksNewCommandArgs> = {
         type: "boolean",
         describe: "Disable all interactive prompts",
       })
-      .example("$0 packs new frontend-tools", "Create @<scope>/frontend-tools")
-      .example("$0 packs new frontend-tools --scope @co", "Create @co/frontend-tools"),
+      .example("$0 packs new frontend-tools", "Create @<namespace>/frontend-tools")
+      .example("$0 packs new frontend-tools --namespace @co", "Create @co/frontend-tools"),
   handler: async (argv) => {
     await run(
       handlePacksNew({
         name: argv.name,
-        scope: Option.fromNullable(argv.scope),
+        namespace: Option.fromNullable(argv.namespace),
         yes: argv.yes,
       }),
       {

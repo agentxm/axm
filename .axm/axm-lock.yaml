@@ -2,7 +2,7 @@ lockfileVersion: 1
 skills:
   effect-testing:
     type: registry
-    scope: "@axm"
+    namespace: "@axm"
     name: effect-testing
     resolvedVersion: 0.1.0
     integrity: ""
@@ -20,7 +20,7 @@ skills:
     updatedAt: 2026-02-19T15:35:17.190Z
   effect-wrapping:
     type: registry
-    scope: "@axm"
+    namespace: "@axm"
     name: effect-wrapping
     resolvedVersion: 0.1.0
     integrity: ""
@@ -38,7 +38,7 @@ skills:
     updatedAt: 2026-02-19T15:35:17.206Z
   effect-schema:
     type: registry
-    scope: "@axm"
+    namespace: "@axm"
     name: effect-schema
     resolvedVersion: 0.1.0
     integrity: ""
@@ -56,7 +56,7 @@ skills:
     updatedAt: 2026-02-19T15:35:17.139Z
   effect-service:
     type: registry
-    scope: "@axm"
+    namespace: "@axm"
     name: effect-service
     resolvedVersion: 0.1.0
     integrity: ""
@@ -74,7 +74,7 @@ skills:
     updatedAt: 2026-02-19T15:35:17.155Z
   effect-collections:
     type: registry
-    scope: "@axm"
+    namespace: "@axm"
     name: effect-collections
     resolvedVersion: 0.1.0
     integrity: ""
@@ -92,7 +92,7 @@ skills:
     updatedAt: 2026-02-19T15:35:17.047Z
   effect-iteration:
     type: registry
-    scope: "@axm"
+    namespace: "@axm"
     name: effect-iteration
     resolvedVersion: 0.1.0
     integrity: ""
@@ -124,7 +124,7 @@ skills:
     updatedAt: 2026-02-19T15:33:15.490Z
   effect-basics:
     type: registry
-    scope: "@axm"
+    namespace: "@axm"
     name: effect-basics
     resolvedVersion: 0.1.0
     integrity: ""
@@ -156,7 +156,7 @@ skills:
     updatedAt: 2026-02-19T15:33:15.499Z
   effect-option:
     type: registry
-    scope: "@axm"
+    namespace: "@axm"
     name: effect-option
     resolvedVersion: 0.1.0
     integrity: ""
@@ -174,7 +174,7 @@ skills:
     updatedAt: 2026-02-19T15:35:17.122Z
   effect-filesystem:
     type: registry
-    scope: "@axm"
+    namespace: "@axm"
     name: effect-filesystem
     resolvedVersion: 0.1.0
     integrity: ""
@@ -192,7 +192,7 @@ skills:
     updatedAt: 2026-02-19T15:35:17.093Z
   effect-concurrency:
     type: registry
-    scope: "@axm"
+    namespace: "@axm"
     name: effect-concurrency
     resolvedVersion: 0.1.0
     integrity: ""
@@ -224,7 +224,7 @@ skills:
     updatedAt: 2026-02-19T15:33:15.536Z
   effect-errors:
     type: registry
-    scope: "@axm"
+    namespace: "@axm"
     name: effect-errors
     resolvedVersion: 0.1.0
     integrity: ""
@@ -242,7 +242,7 @@ skills:
     updatedAt: 2026-02-19T15:35:17.078Z
   effect-stream:
     type: registry
-    scope: "@axm"
+    namespace: "@axm"
     name: effect-stream
     resolvedVersion: 0.1.0
     integrity: ""
@@ -261,7 +261,7 @@ skills:
 packs:
   effect:
     type: registry
-    scope: "@axm"
+    namespace: "@axm"
     name: effect
     resolvedVersion: 0.0.1
     integrity: ""

@@ -29,7 +29,7 @@ import {
  * Arguments for the packs unpack command.
  */
 export interface UnpackHandlerArgs {
-  /** Pack name (FQN like @scope/name). */
+  /** Pack name (FQN like @namespace/name). */
   readonly name: string;
   /** Skip confirmations. */
   readonly yes: boolean;

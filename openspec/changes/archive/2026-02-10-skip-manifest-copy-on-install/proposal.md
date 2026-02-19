@@ -1,12 +1,12 @@
 ## Why
 
-When a managed skill is installed, the entire canonical directory (`.axm/extensions/@<scope>/skills/<name>/`) is symlinked or copied into each agent's skill folder (e.g., `.claude/skills/<name>/`). This exposes the `axm-skill.json` manifest — an axm-internal metadata file — to agents that have no use for it. The manifest contains package manager metadata (version, dependencies, scope) that pollutes the agent's skill context and may confuse agents that ingest all files in their skills directory.
+When a managed skill is installed, the entire canonical directory (`.axm/extensions/@<namespace>/skills/<name>/`) is symlinked or copied into each agent's skill folder (e.g., `.claude/skills/<name>/`). This exposes the `axm-skill.json` manifest — an axm-internal metadata file — to agents that have no use for it. The manifest contains package manager metadata (version, dependencies, scope) that pollutes the agent's skill context and may confuse agents that ingest all files in their skills directory.
 
 ## What Changes
 
 - **BREAKING**: Managed extension layout changes to separate manifest from skill content using a `src/` subdirectory:
   ```
-  .axm/extensions/@<scope>/skills/<name>/
+  .axm/extensions/@<namespace>/skills/<name>/
     axm-skill.json        # manifest (axm metadata, not exposed to agents)
     src/                   # skill content (symlinked/copied to agent dirs)
       SKILL.md

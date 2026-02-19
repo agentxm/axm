@@ -184,7 +184,7 @@ describe("axm init", () => {
         expect(lockfile.packs).toBeDefined();
         expect(lockfile.packs["@axm/packs/cli"]).toBeDefined();
         expect(lockfile.packs["@axm/packs/cli"].type).toBe("builtin");
-        expect(lockfile.packs["@axm/packs/cli"].scope).toBe("@axm");
+        expect(lockfile.packs["@axm/packs/cli"].namespace).toBe("@axm");
         expect(lockfile.packs["@axm/packs/cli"].name).toBe("cli");
         expect(lockfile.packs["@axm/packs/cli"].resolvedVersion).toBeDefined();
 

@@ -77,7 +77,7 @@ The `extensions` field SHALL organize entries by extension type:
 - `packs`: Map of pack name → lock entry
 - `mcp-servers`: Map of MCP server name → lock entry
 
-Each extension name SHALL match the `@<scope>/<name>` pattern.
+Each extension name SHALL match the `@<namespace>/<name>` pattern.
 
 #### Scenario: Valid lockfile with multiple types
 

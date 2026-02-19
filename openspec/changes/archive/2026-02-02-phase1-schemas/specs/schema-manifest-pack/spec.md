@@ -4,25 +4,25 @@
 
 The schema SHALL validate pack manifest files with the following fields:
 
-| Field         | Type     | Required | Description                              |
-| ------------- | -------- | -------- | ---------------------------------------- |
-| `name`        | string   | Yes      | Fully qualified name (`@<scope>/<name>`) |
-| `version`     | string   | Yes      | Semver version                           |
-| `description` | string   | No       | Short description                        |
-| `keywords`    | string[] | No       | Tags for discovery                       |
-| `repository`  | string   | No       | Source repository URL                    |
-| `homepage`    | string   | No       | Project homepage URL                     |
-| `license`     | string   | No       | SPDX license identifier                  |
-| `bugs`        | string   | No       | Issue tracker URL                        |
-| `author`      | object   | No       | `{ name, email?, url? }`                 |
-| `skills`      | string[] | No       | Fully qualified skill names              |
-| `commands`    | string[] | No       | Fully qualified command names            |
-| `mcp-servers` | string[] | No       | Fully qualified MCP server names         |
-| `packs`       | string[] | No       | Fully qualified pack names (nested)      |
+| Field         | Type     | Required | Description                                  |
+| ------------- | -------- | -------- | -------------------------------------------- |
+| `name`        | string   | Yes      | Fully qualified name (`@<namespace>/<name>`) |
+| `version`     | string   | Yes      | Semver version                               |
+| `description` | string   | No       | Short description                            |
+| `keywords`    | string[] | No       | Tags for discovery                           |
+| `repository`  | string   | No       | Source repository URL                        |
+| `homepage`    | string   | No       | Project homepage URL                         |
+| `license`     | string   | No       | SPDX license identifier                      |
+| `bugs`        | string   | No       | Issue tracker URL                            |
+| `author`      | object   | No       | `{ name, email?, url? }`                     |
+| `skills`      | string[] | No       | Fully qualified skill names                  |
+| `commands`    | string[] | No       | Fully qualified command names                |
+| `mcp-servers` | string[] | No       | Fully qualified MCP server names             |
+| `packs`       | string[] | No       | Fully qualified pack names (nested)          |
 
-The `name` field SHALL match the pattern `@<scope>/<name>` where scope and name contain only alphanumeric characters, hyphens, and underscores.
+The `name` field SHALL match the pattern `@<namespace>/<name>` where scope and name contain only alphanumeric characters, hyphens, and underscores.
 
-All extension reference arrays (`skills`, `commands`, `mcp-servers`, `packs`) SHALL contain fully qualified names matching the `@<scope>/<name>` pattern.
+All extension reference arrays (`skills`, `commands`, `mcp-servers`, `packs`) SHALL contain fully qualified names matching the `@<namespace>/<name>` pattern.
 
 #### Scenario: Valid minimal pack manifest
 

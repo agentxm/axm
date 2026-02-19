@@ -57,7 +57,7 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     }
 
     // Transitive skill — promote to direct entry with enabled: false
-    // Use the bare name (without scope) as the settings key
+    // Use the bare name (without namespace) as the settings key
     const bareName = args.name.includes("/")
       ? pipe(
           args.name.split("/"),

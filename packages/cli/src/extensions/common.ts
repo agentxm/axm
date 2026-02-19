@@ -37,7 +37,7 @@ export const toAuthor = (author: typeof AuthorSchema.Type): Author => ({
 });
 
 /**
- * Fully qualified name regex: `@<scope>/<name>` where scope and name
+ * Fully qualified name regex: `@<namespace>/<name>` where namespace and name
  * contain only alphanumeric characters, hyphens, and underscores.
  *
  * @experimental This API is unstable and may change without notice.

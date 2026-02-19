@@ -62,7 +62,7 @@ type SkillSource =
   | {
       _tag: "Registry";
       location: RegistryLocation;
-      scope: string;
+      namespace: string;
       name: string;
       version?: string;
     };

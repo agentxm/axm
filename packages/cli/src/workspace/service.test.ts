@@ -556,7 +556,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("returns all registry sources when scope is None", () =>
+    it.effect("returns all registry sources when namespace is None", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -582,7 +582,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("scope argument does not filter registry sources", () =>
+    it.effect("namespace argument does not filter registry sources", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -609,54 +609,54 @@ describe("WorkspaceContextService", () => {
     );
   });
 
-  describe("getConfiguredScope", () => {
-    it.effect("returns project scope when configured", () =>
+  describe("getConfiguredNamespace", () => {
+    it.effect("returns project namespace when configured", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          scope: "@myorg",
+          namespace: "@myorg",
         });
 
         const ws = yield* getService(defaultOptions);
-        const scope = yield* ws.getConfiguredScope();
+        const namespace = yield* ws.getConfiguredNamespace();
 
-        expect(scope).toBe("@myorg");
+        expect(namespace).toBe("@myorg");
       }),
     );
 
-    it.effect("returns global scope when project scope not configured", () =>
+    it.effect("returns global namespace when project namespace not configured", () =>
       Effect.gen(function* () {
-        // Project has no scope
+        // Project has no namespace
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
         });
-        // Global has scope
+        // Global has namespace
         writeSettingsTo(homeDir, {
-          scope: "@globalorg",
+          namespace: "@globalorg",
         });
 
         const ws = yield* getService(defaultOptions);
-        const scope = yield* ws.getConfiguredScope();
+        const namespace = yield* ws.getConfiguredNamespace();
 
-        expect(scope).toBe("@globalorg");
+        expect(namespace).toBe("@globalorg");
       }),
     );
 
-    it.effect("normalizes bare scope by prepending @", () =>
+    it.effect("normalizes bare namespace by prepending @", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          scope: "myorg",
+          namespace: "myorg",
         });
 
         const ws = yield* getService(defaultOptions);
-        const scope = yield* ws.getConfiguredScope();
+        const namespace = yield* ws.getConfiguredNamespace();
 
-        expect(scope).toBe("@myorg");
+        expect(namespace).toBe("@myorg");
       }),
     );
 
-    it.effect("returns @community when no scope configured anywhere", () =>
+    it.effect("returns @community when no namespace configured anywhere", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -664,9 +664,9 @@ describe("WorkspaceContextService", () => {
         // No global settings (readSettingsSafe returns defaults)
 
         const ws = yield* getService(defaultOptions);
-        const scope = yield* ws.getConfiguredScope();
+        const namespace = yield* ws.getConfiguredNamespace();
 
-        expect(scope).toBe("@community");
+        expect(namespace).toBe("@community");
       }),
     );
   });
@@ -997,7 +997,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const registryEntry: SkillLockEntry = {
           type: "registry",
-          scope: "@acme",
+          namespace: "@acme",
           name: "tool",
           resolvedVersion: "1.2.3",
           integrity: "sha512-AAAA==",
@@ -1027,7 +1027,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const registryEntry: SkillLockEntry = {
           type: "registry",
-          scope: "@acme",
+          namespace: "@acme",
           name: "tool",
           resolvedVersion: "1.2.3",
           integrity: "sha512-AAAA==",
@@ -1057,7 +1057,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const registryEntry: SkillLockEntry = {
           type: "registry",
-          scope: "@acme",
+          namespace: "@acme",
           name: "tool",
           resolvedVersion: "1.2.3",
           integrity: "sha512-AAAA==",
@@ -1297,7 +1297,7 @@ describe("WorkspaceContextService", () => {
         writeLockfileTo(projectDir, {
           "my-skill": {
             type: "registry",
-            scope: "@acme",
+            namespace: "@acme",
             name: "my-skill",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -1350,7 +1350,7 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const paths = yield* ws.getSkillDir("my-skill", {
           refType: "registry",
-          scope: "@corp",
+          namespace: "@corp",
         });
 
         expect(paths.canonicalPath).toContain(".axm/extensions/@corp/skills/my-skill");
@@ -1739,7 +1739,7 @@ describe("WorkspaceContextService", () => {
 
   /** Create sample SetPackArgs for testing. */
   const makeSampleSetPackArgs = (overrides?: Partial<SetPackArgs>): SetPackArgs => ({
-    scope: "@acme",
+    namespace: "@acme",
     name: "starter-pack",
     resolvedVersion: "1.0.0",
     integrity: "sha512-AAAA==",
@@ -1820,7 +1820,7 @@ describe("WorkspaceContextService", () => {
           {
             "starter-pack": {
               type: "registry",
-              scope: "@acme",
+              namespace: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -1866,7 +1866,7 @@ describe("WorkspaceContextService", () => {
           {
             "starter-pack": {
               type: "registry",
-              scope: "@acme",
+              namespace: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -1961,7 +1961,7 @@ describe("WorkspaceContextService", () => {
           {
             "starter-pack": {
               type: "registry",
-              scope: "@acme",
+              namespace: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -1974,7 +1974,7 @@ describe("WorkspaceContextService", () => {
             },
             "other-pack": {
               type: "registry",
-              scope: "@acme",
+              namespace: "@acme",
               name: "other-pack",
               resolvedVersion: "2.0.0",
               integrity: "sha512-CCCC==",
@@ -2025,7 +2025,7 @@ describe("WorkspaceContextService", () => {
   });
 
   describe("getPackDir", () => {
-    it.effect("returns registry extensions path with scope", () =>
+    it.effect("returns registry extensions path with namespace", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
         const result = yield* ws.getPackDir("starter-pack", "@acme");
@@ -2034,7 +2034,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("handles different scopes correctly", () =>
+    it.effect("handles different namespaces correctly", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
         const result = yield* ws.getPackDir("my-pack", "@community");
@@ -2061,7 +2061,7 @@ describe("WorkspaceContextService", () => {
           {
             "starter-pack": {
               type: "registry",
-              scope: "@acme",
+              namespace: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -2101,7 +2101,7 @@ describe("WorkspaceContextService", () => {
           {
             "starter-pack": {
               type: "registry",
-              scope: "@acme",
+              namespace: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -2142,7 +2142,7 @@ describe("WorkspaceContextService", () => {
           {
             "pack-a": {
               type: "registry",
-              scope: "@acme",
+              namespace: "@acme",
               name: "pack-a",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",
@@ -2155,7 +2155,7 @@ describe("WorkspaceContextService", () => {
             },
             "pack-b": {
               type: "registry",
-              scope: "@acme",
+              namespace: "@acme",
               name: "pack-b",
               resolvedVersion: "1.0.0",
               integrity: "sha512-BBBB==",
@@ -2192,7 +2192,7 @@ describe("WorkspaceContextService", () => {
           {
             "starter-pack": {
               type: "registry",
-              scope: "@acme",
+              namespace: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",

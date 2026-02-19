@@ -205,7 +205,7 @@ describe("enable.handler", () => {
           lockfilePacks: {
             "starter-pack": {
               type: "registry",
-              scope: "@acme",
+              namespace: "@acme",
               name: "starter-pack",
               resolvedVersion: "1.0.0",
               integrity: "sha512-AAAA==",

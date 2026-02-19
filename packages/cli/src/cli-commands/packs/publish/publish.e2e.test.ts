@@ -12,24 +12,24 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "../../../e2e/utils.js";
 
-/** Set up a workspace with registry source and scope. */
-const setupWorkspace = async (tempPath: string, registryPath: string, scope: string) => {
+/** Set up a workspace with registry source and namespace. */
+const setupWorkspace = async (tempPath: string, registryPath: string, namespace: string) => {
   await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: tempPath });
   const settingsPath = path.join(tempPath, ".axm", "settings.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
-  settings.scope = scope;
+  settings.namespace = namespace;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };
 
 /** Create a managed skill extension in .axm/extensions/. */
 const createManagedSkill = (
   tempPath: string,
-  scope: string,
+  namespace: string,
   name: string,
   version: string = "1.0.0",
 ) => {
-  const extensionDir = path.join(tempPath, ".axm", "extensions", scope, "skills", name);
+  const extensionDir = path.join(tempPath, ".axm", "extensions", namespace, "skills", name);
   const srcDir = path.join(extensionDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
   fs.writeFileSync(
@@ -40,7 +40,7 @@ const createManagedSkill = (
     path.join(extensionDir, "axm-skill.json"),
     JSON.stringify(
       {
-        name: `${scope}/skills/${name}`,
+        name: `${namespace}/skills/${name}`,
         version,
         agents: ["claude-code"],
         dependencies: {},
@@ -54,7 +54,7 @@ const createManagedSkill = (
 /** Create a managed pack in .axm/extensions/ with an axm-pack.json manifest. */
 const createManagedPack = (
   tempPath: string,
-  scope: string,
+  namespace: string,
   name: string,
   manifest: {
     version: string;
@@ -63,13 +63,13 @@ const createManagedPack = (
     "mcp-servers"?: Record<string, string>;
   },
 ) => {
-  const packDir = path.join(tempPath, ".axm", "extensions", scope, "packs", name);
+  const packDir = path.join(tempPath, ".axm", "extensions", namespace, "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
   fs.writeFileSync(
     path.join(packDir, "axm-pack.json"),
     JSON.stringify(
       {
-        name: `${scope}/packs/${name}`,
+        name: `${namespace}/packs/${name}`,
         ...manifest,
       },
       null,
@@ -84,26 +84,26 @@ describe("axm packs publish", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        const scope = "@test";
+        const namespace = "@test";
 
-        await setupWorkspace(temp.path, registryDir.path, scope);
+        await setupWorkspace(temp.path, registryDir.path, namespace);
 
         // Create dependency skills locally
-        createManagedSkill(temp.path, scope, "dep-skill-a", "1.0.0");
-        createManagedSkill(temp.path, scope, "dep-skill-b", "2.0.0");
+        createManagedSkill(temp.path, namespace, "dep-skill-a", "1.0.0");
+        createManagedSkill(temp.path, namespace, "dep-skill-b", "2.0.0");
 
         // Create the pack with dependencies referencing those skills
-        createManagedPack(temp.path, scope, "my-pack", {
+        createManagedPack(temp.path, namespace, "my-pack", {
           version: "1.0.0",
           skills: {
-            [`${scope}/skills/dep-skill-a`]: "^1.0.0",
-            [`${scope}/skills/dep-skill-b`]: "^2.0.0",
+            [`${namespace}/skills/dep-skill-a`]: "^1.0.0",
+            [`${namespace}/skills/dep-skill-b`]: "^2.0.0",
           },
         });
 
         // Publish with --include-dependencies
         const result = await runCli(
-          ["packs", "publish", `${scope}/packs/my-pack`, "--include-dependencies", "--yes"],
+          ["packs", "publish", `${namespace}/packs/my-pack`, "--include-dependencies", "--yes"],
           { cwd: temp.path },
         );
         expect(result.exitCode).toBe(0);
@@ -112,7 +112,7 @@ describe("axm packs publish", () => {
         const depAIndex = path.join(
           registryDir.path,
           "extensions",
-          scope,
+          namespace,
           "skills",
           "dep-skill-a",
           "index.json",
@@ -120,7 +120,7 @@ describe("axm packs publish", () => {
         const depBIndex = path.join(
           registryDir.path,
           "extensions",
-          scope,
+          namespace,
           "skills",
           "dep-skill-b",
           "index.json",
@@ -138,7 +138,7 @@ describe("axm packs publish", () => {
         const packIndex = path.join(
           registryDir.path,
           "extensions",
-          scope,
+          namespace,
           "packs",
           "my-pack",
           "index.json",
@@ -157,18 +157,18 @@ describe("axm packs publish", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        const scope = "@test";
+        const namespace = "@test";
 
-        await setupWorkspace(temp.path, registryDir.path, scope);
+        await setupWorkspace(temp.path, registryDir.path, namespace);
 
         // Create dependency skill locally
-        createManagedSkill(temp.path, scope, "preview-dep", "1.0.0");
+        createManagedSkill(temp.path, namespace, "preview-dep", "1.0.0");
 
         // Create the pack referencing the dependency
-        createManagedPack(temp.path, scope, "preview-pack", {
+        createManagedPack(temp.path, namespace, "preview-pack", {
           version: "1.0.0",
           skills: {
-            [`${scope}/skills/preview-dep`]: "^1.0.0",
+            [`${namespace}/skills/preview-dep`]: "^1.0.0",
           },
         });
 
@@ -177,7 +177,7 @@ describe("axm packs publish", () => {
           [
             "packs",
             "publish",
-            `${scope}/packs/preview-pack`,
+            `${namespace}/packs/preview-pack`,
             "--include-dependencies",
             "--preview",
             "--non-interactive",
@@ -188,14 +188,14 @@ describe("axm packs publish", () => {
 
         // Output should mention the dependency publish step
         const output = result.stdout + result.stderr;
-        expect(output).toContain(`${scope}/skills/preview-dep`);
-        expect(output).toContain(`${scope}/packs/preview-pack`);
+        expect(output).toContain(`${namespace}/skills/preview-dep`);
+        expect(output).toContain(`${namespace}/packs/preview-pack`);
 
         // Registry should NOT have anything published (preview only)
         const depIndex = path.join(
           registryDir.path,
           "extensions",
-          scope,
+          namespace,
           "skills",
           "preview-dep",
           "index.json",
@@ -203,7 +203,7 @@ describe("axm packs publish", () => {
         const packIndex = path.join(
           registryDir.path,
           "extensions",
-          scope,
+          namespace,
           "packs",
           "preview-pack",
           "index.json",
@@ -222,23 +222,23 @@ describe("axm packs publish", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        const scope = "@test";
+        const namespace = "@test";
 
-        await setupWorkspace(temp.path, registryDir.path, scope);
+        await setupWorkspace(temp.path, registryDir.path, namespace);
 
         // Create dependency skill locally (should NOT be published)
-        createManagedSkill(temp.path, scope, "ignored-dep", "1.0.0");
+        createManagedSkill(temp.path, namespace, "ignored-dep", "1.0.0");
 
         // Create the pack referencing the dependency
-        createManagedPack(temp.path, scope, "solo-pack", {
+        createManagedPack(temp.path, namespace, "solo-pack", {
           version: "1.0.0",
           skills: {
-            [`${scope}/skills/ignored-dep`]: "^1.0.0",
+            [`${namespace}/skills/ignored-dep`]: "^1.0.0",
           },
         });
 
         // Publish WITHOUT --include-dependencies
-        const result = await runCli(["packs", "publish", `${scope}/packs/solo-pack`, "--yes"], {
+        const result = await runCli(["packs", "publish", `${namespace}/packs/solo-pack`, "--yes"], {
           cwd: temp.path,
         });
         expect(result.exitCode).toBe(0);
@@ -247,7 +247,7 @@ describe("axm packs publish", () => {
         const packIndex = path.join(
           registryDir.path,
           "extensions",
-          scope,
+          namespace,
           "packs",
           "solo-pack",
           "index.json",
@@ -258,7 +258,7 @@ describe("axm packs publish", () => {
         const depIndex = path.join(
           registryDir.path,
           "extensions",
-          scope,
+          namespace,
           "skills",
           "ignored-dep",
           "index.json",

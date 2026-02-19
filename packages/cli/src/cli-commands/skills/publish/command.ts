@@ -26,7 +26,7 @@ export const publishCommand: CommandModule<{}, PublishCommandArgs> = {
       .positional("extensions", {
         type: "string",
         array: true,
-        describe: "Extension names or glob patterns (@scope/skills/name, bare name, or glob)",
+        describe: "Extension names or glob patterns (@namespace/skills/name, bare name, or glob)",
         demandOption: true,
       })
       .option("registry", {
@@ -52,7 +52,7 @@ export const publishCommand: CommandModule<{}, PublishCommandArgs> = {
       .example("$0 skills publish effect-* commit", "Publish extensions matching patterns")
       .example(
         "$0 skills publish code-review --registry local",
-        "Publish with scope from settings to the local registry",
+        "Publish with namespace from settings to the local registry",
       ),
   handler: async (argv) => {
     await run(

@@ -29,7 +29,7 @@ const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceConte
         (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
       ),
     ),
-  getConfiguredScope: () => Effect.succeed("@test") as Effect.Effect<string, CliError>,
+  getConfiguredNamespace: () => Effect.succeed("@test") as Effect.Effect<string, CliError>,
   addConfiguredSource: () => Effect.void,
   getConfiguredSkills: () => Effect.succeed({}),
   getInstalledSkills: () => Effect.succeed({}),
@@ -55,14 +55,14 @@ const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceConte
   getPackDir: () => Effect.succeed({ canonicalPath: "" }),
 });
 
-const createSkillIndex = (registryRoot: string, scope: string, name: string) => {
-  const skillDir = path.join(registryRoot, "extensions", scope, "skills", name);
+const createSkillIndex = (registryRoot: string, namespace: string, name: string) => {
+  const skillDir = path.join(registryRoot, "extensions", namespace, "skills", name);
   fs.mkdirSync(skillDir, { recursive: true });
   fs.writeFileSync(
     path.join(skillDir, "index.json"),
     JSON.stringify({
       name,
-      scope,
+      namespace,
       type: "skill",
       versions: [
         {
@@ -97,7 +97,7 @@ describe("resolveSkillInstallSource", () => {
     tmpDirs.length = 0;
   });
 
-  it.effect("selects the first registry that contains the requested scope", () => {
+  it.effect("selects the first registry that contains the requested namespace", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
     tmpDirs.push(registryA, registryB);
@@ -121,7 +121,7 @@ describe("resolveSkillInstallSource", () => {
     });
   });
 
-  it.effect("supports scope-only input and resolves against a matching registry", () => {
+  it.effect("supports namespace-only input and resolves against a matching registry", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
     tmpDirs.push(registryA, registryB);
@@ -145,7 +145,7 @@ describe("resolveSkillInstallSource", () => {
     });
   });
 
-  it.effect("resolves bare skill name using configured default scope", () => {
+  it.effect("resolves bare skill name using configured default namespace", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
     tmpDirs.push(registryA, registryB);
@@ -169,7 +169,7 @@ describe("resolveSkillInstallSource", () => {
     });
   });
 
-  it.effect("fails when no configured registry contains the requested scope", () => {
+  it.effect("fails when no configured registry contains the requested namespace", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
     tmpDirs.push(registryA, registryB);
@@ -184,7 +184,7 @@ describe("resolveSkillInstallSource", () => {
         parseInputOrThrow("@acme/skills/my-skill"),
       ).pipe(Effect.flip, Effect.provide(provideTestLayers(sources)));
       expect(error._tag).toBe("CliError");
-      expect(error.what).toContain('configured registry sources contain scope "@acme"');
+      expect(error.what).toContain('configured registry sources contain namespace "@acme"');
     });
   });
 });

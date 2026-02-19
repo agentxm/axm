@@ -1,7 +1,7 @@
 /**
  * Unit tests for the skills new handler.
  *
- * Tests scope resolution, name validation, manifest creation, SKILL.md,
+ * Tests namespace resolution, name validation, manifest creation, SKILL.md,
  * settings registration, agent symlinks, and error paths.
  */
 
@@ -32,7 +32,7 @@ import { handleSkillsNew, type SkillsNewHandlerArgs } from "./handler.js";
 const initWorkspace = (
   axmDir: string,
   opts: {
-    scope?: string;
+    namespace?: string;
     skills?: Record<string, unknown>;
     agents?: string[];
   } = {},
@@ -40,7 +40,7 @@ const initWorkspace = (
   fs.mkdirSync(axmDir, { recursive: true });
   const settings: Record<string, unknown> = {
     agents: opts.agents ?? ["claude-code"],
-    ...(opts.scope && { scope: opts.scope }),
+    ...(opts.namespace && { namespace: opts.namespace }),
     ...(opts.skills && { skills: opts.skills }),
   };
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
@@ -55,7 +55,7 @@ const defaultArgs = (
   overrides: Partial<SkillsNewHandlerArgs> = {},
 ): SkillsNewHandlerArgs => ({
   name,
-  scope: Option.none(),
+  namespace: Option.none(),
   agents: Option.none(),
   yes: true,
   ...overrides,
@@ -113,7 +113,7 @@ describe("skills-new.handler", () => {
   describe("success", () => {
     it.effect("creates skill with manifest, SKILL.md, settings, and symlinks", () => {
       const { provide, mockLog } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { scope: "@acme", agents: ["claude-code"] });
+      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme", agents: ["claude-code"] });
 
       return provide(
         Effect.gen(function* () {
@@ -167,14 +167,14 @@ describe("skills-new.handler", () => {
     });
   });
 
-  describe("scope override", () => {
-    it.effect("uses --scope override instead of workspace scope", () => {
+  describe("namespace override", () => {
+    it.effect("uses --namespace override instead of workspace namespace", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { scope: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handleSkillsNew(defaultArgs("my-skill", { scope: Option.some("@corp") }));
+          yield* handleSkillsNew(defaultArgs("my-skill", { namespace: Option.some("@corp") }));
 
           const manifestPath = path.join(
             tempDir,
@@ -193,13 +193,13 @@ describe("skills-new.handler", () => {
       );
     });
 
-    it.effect("normalizes scope without @ prefix", () => {
+    it.effect("normalizes namespace without @ prefix", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { scope: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handleSkillsNew(defaultArgs("my-skill", { scope: Option.some("corp") }));
+          yield* handleSkillsNew(defaultArgs("my-skill", { namespace: Option.some("corp") }));
 
           const manifestPath = path.join(
             tempDir,
@@ -219,8 +219,8 @@ describe("skills-new.handler", () => {
     });
   });
 
-  describe("no scope configured", () => {
-    it.effect("fails when no scope is configured and no --scope override", () => {
+  describe("no namespace configured", () => {
+    it.effect("fails when no namespace is configured and no --namespace override", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"));
 
@@ -228,7 +228,7 @@ describe("skills-new.handler", () => {
         Effect.gen(function* () {
           const error = yield* handleSkillsNew(defaultArgs("my-skill")).pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("No scope configured");
+          expect((error as CliError).what).toContain("No namespace configured");
         }),
       );
     });
@@ -237,7 +237,7 @@ describe("skills-new.handler", () => {
   describe("name validation", () => {
     it.effect("rejects name starting with hyphen", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { scope: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -250,7 +250,7 @@ describe("skills-new.handler", () => {
 
     it.effect("rejects uppercase name", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { scope: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -263,7 +263,7 @@ describe("skills-new.handler", () => {
 
     it.effect("rejects name exceeding 64 characters", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { scope: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
       const longName = "a".repeat(65);
 
       return provide(
@@ -280,7 +280,7 @@ describe("skills-new.handler", () => {
     it.effect("fails when skill already exists in settings", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        scope: "@acme",
+        namespace: "@acme",
         skills: { "my-skill": "@acme/skills/my-skill" },
       });
 
@@ -297,7 +297,7 @@ describe("skills-new.handler", () => {
   describe("SKILL.md content", () => {
     it.effect("writes SKILL.md with frontmatter and placeholder body", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { scope: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -330,7 +330,7 @@ describe("skills-new.handler", () => {
     it.effect("creates symlinks for all configured agents", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        scope: "@acme",
+        namespace: "@acme",
         agents: ["claude-code", "cursor"],
       });
 
@@ -352,7 +352,7 @@ describe("skills-new.handler", () => {
     it.effect("narrows symlinks to --agent flag agents only", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        scope: "@acme",
+        namespace: "@acme",
         agents: ["claude-code", "cursor"],
       });
 

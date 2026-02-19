@@ -32,14 +32,14 @@ import { handlePacksRemove, type PacksRemoveHandlerArgs } from "./handler.js";
 const initWorkspace = (
   axmDir: string,
   opts: {
-    scope?: string;
+    namespace?: string;
     packs?: Record<string, unknown>;
   } = {},
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
   const settings: Record<string, unknown> = {
     agents: ["claude-code"],
-    ...(opts.scope && { scope: opts.scope }),
+    ...(opts.namespace && { namespace: opts.namespace }),
     ...(opts.packs && { packs: opts.packs }),
   };
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
@@ -51,11 +51,11 @@ const initWorkspace = (
 
 const createPackManifest = (
   tempDir: string,
-  scope: string,
+  namespace: string,
   name: string,
   manifest: Record<string, unknown>,
 ) => {
-  const packDir = path.join(tempDir, ".axm", "extensions", scope, "packs", name);
+  const packDir = path.join(tempDir, ".axm", "extensions", namespace, "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
   fs.writeFileSync(path.join(packDir, "axm-pack.json"), JSON.stringify(manifest, null, 2));
   return packDir;
@@ -125,7 +125,7 @@ describe("packs-remove.handler", () => {
     it.effect("removes a specific extension from the pack manifest", () => {
       const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        scope: "@acme",
+        namespace: "@acme",
         packs: { "frontend-tools": "@acme/packs/frontend-tools" },
       });
       createPackManifest(tempDir, "@acme", "frontend-tools", {
@@ -162,7 +162,7 @@ describe("packs-remove.handler", () => {
     it.effect("removes extensions matching glob from pack manifest", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        scope: "@acme",
+        namespace: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
       });
       createPackManifest(tempDir, "@acme", "my-pack", {
@@ -201,7 +201,7 @@ describe("packs-remove.handler", () => {
     it.effect("fails when glob matches no extensions in pack", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        scope: "@acme",
+        namespace: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
       });
       createPackManifest(tempDir, "@acme", "my-pack", {
@@ -228,7 +228,7 @@ describe("packs-remove.handler", () => {
     it.effect("fails when extension is not in the pack manifest", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
-        scope: "@acme",
+        namespace: "@acme",
         packs: { "my-pack": "@acme/packs/my-pack" },
       });
       createPackManifest(tempDir, "@acme", "my-pack", {
@@ -254,7 +254,7 @@ describe("packs-remove.handler", () => {
   describe("pack not found", () => {
     it.effect("fails when pack does not exist in settings", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { scope: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
 
       return provide(
         Effect.gen(function* () {

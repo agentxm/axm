@@ -14,7 +14,7 @@ Align `RegistrySourceInput.scope` to always carry the `@` prefix from parse time
 - [x] 1.6 Remove defensive `@`-prefix comparison in `packages/cli/src/sources/providers/registry.ts`
 - [x] 1.7 Remove scope normalization block (lines 200-207) in `packages/cli/src/cli-commands/skills/install/install-skill.ts`
 - [x] 1.8 Update `source-to-lock-entry.ts` and its tests if scope handling is affected
-- [x] 1.9 Update any test fixtures that create `RegistrySourceInput` with bare scope (search for `scope: "` without `@`)
+- [x] 1.9 Update any test fixtures that create `RegistrySourceInput` with bare scope (search for `namespace: "` without `@`)
 - [x] 1.10 Run `pnpm typecheck` and fix any errors
 - [x] 1.11 Run `pnpm lint` and fix any errors
 - [x] 1.12 Run `pnpm test` and fix any failures

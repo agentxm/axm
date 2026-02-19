@@ -74,5 +74,5 @@ Settings SHALL support a top-level `scope` field providing the default scope for
 
 #### Scenario: Scope used by fork and publish
 
-- **WHEN** settings has `"scope": "@acme"`
+- **WHEN** settings has `"namespace": "@acme"`
 - **THEN** `getScope()` returns `"@acme"` without prompting

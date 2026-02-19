@@ -153,7 +153,7 @@ export const handleInstall = Effect.fn("Install.handle")(function* (args: Instal
   const discoverHandle = yield* spinnerSvc.start("Discovering skills...");
   // Determine requested skill filters in priority order:
   // 1) explicit positional names (`args.skills`) for all source types
-  // 2) parsed single name from registry-pattern input (e.g. @scope/skills/name)
+  // 2) parsed single name from registry-pattern input (e.g. @namespace/skills/name)
   // 3) none (discover all)
   const requestedSkills: ReadonlyArray<string> =
     args.skills.length > 0
@@ -163,18 +163,18 @@ export const handleInstall = Effect.fn("Install.handle")(function* (args: Instal
           ? [parsedSource.pattern.name.value]
           : []
         : [];
-  const requestedScope =
+  const requestedNamespace =
     parsedSource.pattern.pattern === "registry-pattern-input"
-      ? Option.some(parsedSource.pattern.scope)
+      ? Option.some(parsedSource.pattern.namespace)
       : source.type === "registry"
-        ? (source.scope ?? Option.none<string>())
+        ? (source.namespace ?? Option.none<string>())
         : Option.none<string>();
 
   const discoveredSkills = yield* sources
     .find(source, {
       skillNames: requestedSkills,
       type: "skill" as const,
-      scope: requestedScope,
+      namespace: requestedNamespace,
       versionConstraint,
     })
     .pipe(

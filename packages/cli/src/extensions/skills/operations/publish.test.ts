@@ -30,7 +30,7 @@ const withServices = (axmDir: string, registryRoot: string) => {
     getConfiguredSourceByName: (name: string) =>
       Effect.succeed(name === "local" ? Option.some(registrySource) : Option.none()),
     getConfiguredRegistrySources: () => Effect.succeed([registrySource]),
-    getConfiguredScope: () => Effect.succeed("@community"),
+    getConfiguredNamespace: () => Effect.succeed("@community"),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
@@ -80,13 +80,13 @@ describe("publishSkill", () => {
 
   /** Sets up a workspace with a managed extension and registry. */
   const setup = (
-    scope = "@community",
+    namespace = "@community",
     name = "my-skill",
     manifest: Record<string, unknown> = {},
   ) => {
     const base = path.join(tmpDir, "project");
     const axmDir = path.join(base, ".axm");
-    const extensionDir = path.join(base, ".axm", "extensions", scope, "skills", name);
+    const extensionDir = path.join(base, ".axm", "extensions", namespace, "skills", name);
     const registryRoot = path.join(tmpDir, "registry");
 
     const srcDir = path.join(extensionDir, "src");
@@ -95,7 +95,7 @@ describe("publishSkill", () => {
 
     // Write manifest at extension root (not inside src/)
     const defaultManifest = {
-      name: `${scope}/skills/${name}`,
+      name: `${namespace}/skills/${name}`,
       version: "0.1.0",
       agents: ["claude-code"],
       dependencies: {},
@@ -149,7 +149,7 @@ describe("publishSkill", () => {
 
         const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
         expect(index.name).toBe("my-skill");
-        expect(index.scope).toBe("@community");
+        expect(index.namespace).toBe("@community");
         expect(index.type).toBe("skill");
         expect(index.versions).toHaveLength(1);
         expect(index.versions[0].version).toBe("0.1.0");

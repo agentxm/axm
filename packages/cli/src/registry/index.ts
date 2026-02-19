@@ -16,13 +16,13 @@ export { ExtensionIndexSchema, VersionEntrySchema } from "./local-schema.js";
 export type {
   RegistryClient,
   RegistryExtensionManifest,
-  GetExtensionsByScopeArgs,
-  GetExtensionsByScopeResponse,
+  GetExtensionsByNamespaceArgs,
+  GetExtensionsByNamespaceResponse,
   GetExtensionPackageArgs,
   GetExtensionPackageResponse,
   PublishExtensionArgs,
   PublishExtensionResponse,
-  ScopeExistsResponse,
+  NamespaceExistsResponse,
   ExtensionExistsArgs,
   ExtensionExistsResponse,
 } from "./client.js";

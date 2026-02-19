@@ -12,7 +12,7 @@ Source configurations SHALL be an array of named entries in settings, discrimina
 
 #### Scenario: Registry source with scope filter
 
-- **WHEN** settings contains `{ "name": "corp", "source": "registry", "location": "/registries/corp", "scopes": ["@corp"] }`
+- **WHEN** settings contains `{ "name": "corp", "source": "registry", "location": "/registries/corp", "namespaces": ["@corp"] }`
 - **THEN** the source is only consulted when resolving extensions in the `@corp` scope
 
 #### Scenario: Registry source without scope filter
@@ -99,7 +99,7 @@ Within registry resolution, sources SHALL be selected by scope routing with mutu
 
 #### Scenario: Scope-matched sources used exclusively
 
-- **WHEN** resolving `@corp/tool` and a registry source has `scopes: ["@corp"]`
+- **WHEN** resolving `@corp/tool` and a registry source has `namespaces: ["@corp"]`
 - **THEN** only scope-matched sources are queried (catch-all sources are not tried)
 
 #### Scenario: Catch-all sources used when no scope match

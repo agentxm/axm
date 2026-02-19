@@ -1,7 +1,7 @@
 /**
  * E2E tests for the `axm skills new` command.
  *
- * Tests: scaffolding, scope override, already-exists error, agent narrowing.
+ * Tests: scaffolding, namespace override, already-exists error, agent narrowing.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -25,9 +25,9 @@ function setupWorkspace() {
   return { temp, settingsPath, readSettings };
 }
 
-function configureScope(settingsPath: string, scope = "@test") {
+function configureScope(settingsPath: string, namespace = "@test") {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.scope = scope;
+  settings.namespace = namespace;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }
 
@@ -91,15 +91,18 @@ describe("axm skills new", () => {
     }
   });
 
-  it("respects --scope override", async () => {
+  it("respects --namespace override", async () => {
     const { temp, settingsPath } = setupWorkspace();
     try {
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
       configureScope(settingsPath);
 
-      const result = await runCli(["skills", "new", "my-skill", "--scope", "@custom", "--yes"], {
-        cwd: temp.path,
-      });
+      const result = await runCli(
+        ["skills", "new", "my-skill", "--namespace", "@custom", "--yes"],
+        {
+          cwd: temp.path,
+        },
+      );
       expect(result.exitCode).toBe(0);
 
       const manifestPath = path.join(

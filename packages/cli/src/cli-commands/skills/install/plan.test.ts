@@ -33,9 +33,9 @@ const makeRegistrySkillRef = (name: string) =>
     source: {
       type: "registry",
       location: new URL("https://registry.example.com"),
-      scope: Option.none(),
+      namespace: Option.none(),
     },
-    scope: "@acme",
+    namespace: "@acme",
     name,
     version: "1.2.3",
     integrity: "sha512-deadbeef",

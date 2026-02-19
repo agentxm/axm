@@ -26,16 +26,16 @@ Each `SourceHost` variant SHALL carry the access information for its source type
 
 All `SourceHost` types live in `sources/types.ts`.
 
-| Source Host | Fields                                                                  | Notes                                  |
-| ----------- | ----------------------------------------------------------------------- | -------------------------------------- |
-| github      | `type: "github"`, `url: URL`                                            | Instance URL (github.com or GHE)       |
-| gitlab      | `type: "gitlab"`, `url: URL`                                            | Instance URL                           |
-| bitbucket   | `type: "bitbucket"`, `url: URL`                                         | Instance URL                           |
-| azurerepos  | `type: "azurerepos"`, `url: URL`                                        | Instance URL                           |
-| git         | `type: "git"`                                                           | Self-describing; URL lives in params   |
-| registry    | `type: "registry"`, `url: URL`, `scopes: Option<ReadonlyArray<string>>` | Scopes from settings; None = catch-all |
-| local       | `type: "local"`                                                         | Self-describing; path lives in params  |
-| builtin     | `type: "builtin"`                                                       | Self-describing; bundled extensions    |
+| Source Host | Fields                                                                      | Notes                                      |
+| ----------- | --------------------------------------------------------------------------- | ------------------------------------------ |
+| github      | `type: "github"`, `url: URL`                                                | Instance URL (github.com or GHE)           |
+| gitlab      | `type: "gitlab"`, `url: URL`                                                | Instance URL                               |
+| bitbucket   | `type: "bitbucket"`, `url: URL`                                             | Instance URL                               |
+| azurerepos  | `type: "azurerepos"`, `url: URL`                                            | Instance URL                               |
+| git         | `type: "git"`                                                               | Self-describing; URL lives in params       |
+| registry    | `type: "registry"`, `url: URL`, `namespaces: Option<ReadonlyArray<string>>` | Namespaces from settings; None = catch-all |
+| local       | `type: "local"`                                                             | Self-describing; path lives in params      |
+| builtin     | `type: "builtin"`                                                           | Self-describing; bundled extensions        |
 
 #### Scenario: Configured source host carries URL
 
@@ -47,15 +47,15 @@ All `SourceHost` types live in `sources/types.ts`.
 - **WHEN** a `LocalSourceHost` is created
 - **THEN** it has only `type: "local"` with no additional fields
 
-#### Scenario: Registry source host carries scopes
+#### Scenario: Registry source host carries namespaces
 
-- **WHEN** a `RegistrySourceHost` is created with scopes `["@acme"]`
-- **THEN** `scopes` is `Some(["@acme"])` indicating scope-specific routing
+- **WHEN** a `RegistrySourceHost` is created with namespaces `["@acme"]`
+- **THEN** `namespaces` is `Some(["@acme"])` indicating namespace-specific routing
 
-#### Scenario: Registry source host catch-all has no scopes
+#### Scenario: Registry source host catch-all has no namespaces
 
-- **WHEN** a `RegistrySourceHost` is created without scopes
-- **THEN** `scopes` is `None` indicating catch-all behavior
+- **WHEN** a `RegistrySourceHost` is created without namespaces
+- **THEN** `namespaces` is `None` indicating catch-all behavior
 
 ### Requirement: SourceParams models coordinates within a source
 
@@ -68,7 +68,7 @@ Each `SourceParams` variant SHALL carry the user-specified coordinates for locat
 | bitbucket     | `type`, `owner`, `repo`, `ref: Option<string>`, `subPath: Option<string>`                   |
 | azurerepos    | `type`, `organization`, `project`, `repo`, `ref: Option<string>`, `subPath: Option<string>` |
 | git           | `type`, `url: URL`, `ref: Option<string>`                                                   |
-| registry      | `type`, `scope`, `name`, `versionConstraint: Option<string>`                                |
+| registry      | `type`, `namespace`, `name`, `versionConstraint: Option<string>`                            |
 | local         | `type`, `path: string`                                                                      |
 | builtin       | `type`                                                                                      |
 
@@ -82,10 +82,10 @@ Each `SourceParams` variant SHALL carry the user-specified coordinates for locat
 - **WHEN** an `AzureReposSourceParams` is created for `org/proj/repo`
 - **THEN** it has `organization: "org"`, `project: "proj"`, `repo: "repo"`
 
-#### Scenario: Registry params carry scope and name
+#### Scenario: Registry params carry namespace and name
 
 - **WHEN** a `RegistrySourceParams` is created for `@acme/my-skill@^1.0.0`
-- **THEN** it has `scope: "@acme"`, `name: "my-skill"`, `versionConstraint: Some("^1.0.0")`
+- **THEN** it has `namespace: "@acme"`, `name: "my-skill"`, `versionConstraint: Some("^1.0.0")`
 
 #### Scenario: Builtin params are trivial
 
@@ -104,7 +104,7 @@ Each `Source` variant SHALL be `SourceHost & SourceParams` for the same source t
 #### Scenario: Registry source has host and params fields
 
 - **WHEN** a `RegistrySource` is created
-- **THEN** `source.url`, `source.scopes`, `source.scope`, `source.name`, and `source.versionConstraint` are all directly accessible
+- **THEN** `source.url`, `source.namespaces`, `source.namespace`, `source.name`, and `source.versionConstraint` are all directly accessible
 
 #### Scenario: Switch on source type is exhaustive
 

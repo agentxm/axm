@@ -43,7 +43,7 @@ Source strings SHALL follow existing formats. The registry variant no longer car
 #### Scenario: Registry source scope is @-prefixed
 
 - **WHEN** parsing source string `@community/my-skill`
-- **THEN** the `RegistrySourceParams` has `scope: "@community"` (not `"community"`)
+- **THEN** the `RegistrySourceParams` has `namespace: "@community"` (not `"community"`)
 
 #### Scenario: Registry source resolves host from config
 
@@ -56,7 +56,7 @@ Settings SHALL support a top-level `scope` field providing the default scope for
 
 #### Scenario: Scope used by fork and publish
 
-- **WHEN** settings has `"scope": "@acme"`
+- **WHEN** settings has `"namespace": "@acme"`
 - **THEN** `getScope()` returns `"@acme"` without prompting
 
 ### Requirement: No Source re-export from resolution module
@@ -81,7 +81,7 @@ The `resolution` module SHALL NOT re-export `SourceType` as `Source`. Consumers 
 | bitbucket  | `bitbucket:<owner>/<repo>[/<subPath>][@<ref>]`          | `bitbucket:acme/repo`             |
 | azurerepos | `azurerepos:<org>/<project>/<repo>[/<subPath>][@<ref>]` | `azurerepos:acme/proj/repo@main`  |
 | git        | URL href                                                | `https://example.com/repo.git`    |
-| registry   | `<scope>/<name>`                                        | `@acme/my-skill`                  |
+| registry   | `<namespace>/<name>`                                    | `@acme/my-skill`                  |
 | local      | path as-is                                              | `./my-skills/dev-skill`           |
 | builtin    | `builtin`                                               | `builtin`                         |
 
@@ -108,13 +108,13 @@ The `RegistrySourceHostConfig` schema SHALL encode/decode registry scopes using 
 
 #### Scenario: Registry config with scopes
 
-- **WHEN** settings JSON has `{ "name": "corp", "type": "registry", "url": "https://registry.corp.com", "scopes": ["@corp"] }`
-- **THEN** the decoded `RegistrySourceHost` has `scopes: Some(["@corp"])`
+- **WHEN** settings JSON has `{ "name": "corp", "type": "registry", "url": "https://registry.corp.com", "namespaces": ["@corp"] }`
+- **THEN** the decoded `RegistrySourceHost` has `namespaces: Some(["@corp"])`
 
 #### Scenario: Registry config without scopes
 
 - **WHEN** settings JSON has `{ "name": "public", "type": "registry", "url": "https://registry.example.com" }`
-- **THEN** the decoded `RegistrySourceHost` has `scopes: None`
+- **THEN** the decoded `RegistrySourceHost` has `namespaces: None`
 
 #### Scenario: URL fields decoded as URL objects
 

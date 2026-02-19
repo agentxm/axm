@@ -139,18 +139,18 @@ export const createRegistryMetaProvider = () => ({
     Effect.gen(function* () {
       const ws = yield* Workspace;
 
-      // Determine scope from explicit option, or infer from @scope/name.
-      const scope = Option.isSome(options.scope)
-        ? options.scope
-        : Option.isSome(source.scope)
-          ? source.scope
+      // Determine namespace from explicit option, or infer from @namespace/name.
+      const namespace = Option.isSome(options.namespace)
+        ? options.namespace
+        : Option.isSome(source.namespace)
+          ? source.namespace
           : options.skillNames.length > 0
             ? Option.fromNullable(
                 options.skillNames.find((n) => n.startsWith("@"))?.split("/")[0] ?? null,
               )
             : Option.none<string>();
 
-      const registrySources = yield* ws.getConfiguredRegistrySources(scope).pipe(
+      const registrySources = yield* ws.getConfiguredRegistrySources(namespace).pipe(
         Effect.mapError((e) =>
           makeCliError({
             code: "SOURCE_FETCH_FAILED",
@@ -171,7 +171,7 @@ export const createRegistryMetaProvider = () => ({
 
       for (const regSource of registrySources) {
         const provider = yield* createRegistrySourceHostProviderFromHost(regSource);
-        const registrySource: RegistrySource = { ...regSource, scope };
+        const registrySource: RegistrySource = { ...regSource, namespace };
         const result = yield* provider.find(registrySource, options).pipe(Effect.either);
 
         if (result._tag === "Left") {

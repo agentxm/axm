@@ -140,24 +140,24 @@ The plan apply module SHALL iterate over plan jobs and their steps, promoting ea
 
 Existing source query methods SHALL be renamed to follow the `getConfigured*` naming convention: `getSources` → `getConfiguredSources`, `getSourceByName` → `getConfiguredSourceByName`, `getRegistrySources` → `getConfiguredRegistrySources`. Behavior is unchanged.
 
-### Requirement: Workspace provides scope query
+### Requirement: Workspace provides namespace query
 
-The existing `getScope` method SHALL be renamed to `getConfiguredScope`. Behavior is unchanged.
+The existing `getScope` method SHALL be renamed to `getConfiguredNamespace`. Behavior is unchanged.
 
-#### Scenario: Scope configured in project settings
+#### Scenario: Namespace configured in project settings
 
-- **WHEN** project settings contains `scope: "@acme"`
-- **THEN** `workspace.getConfiguredScope()` returns `"@acme"`
+- **WHEN** project settings contains `namespace: "@acme"`
+- **THEN** `workspace.getConfiguredNamespace()` returns `"@acme"`
 
-#### Scenario: Scope configured in global settings only
+#### Scenario: Namespace configured in global settings only
 
-- **WHEN** project settings does not contain a `scope` field but global settings contains `scope: "@corp"`
-- **THEN** `workspace.getConfiguredScope()` returns `"@corp"`
+- **WHEN** project settings does not contain a `namespace` field but global settings contains `namespace: "@corp"`
+- **THEN** `workspace.getConfiguredNamespace()` returns `"@corp"`
 
-#### Scenario: Scope not configured
+#### Scenario: Namespace not configured
 
-- **WHEN** neither project nor global settings contain a `scope` field
-- **THEN** `workspace.getConfiguredScope()` returns the default scope `"@community"`
+- **WHEN** neither project nor global settings contain a `namespace` field
+- **THEN** `workspace.getConfiguredNamespace()` returns the default namespace `"@community"`
 
 ### Requirement: Workspace provides addSource mutation
 
@@ -288,7 +288,7 @@ The workspace service SHALL use a single `Semaphore(1)` to serialize ALL workspa
 
 #### Scenario: Queries do not block on semaphore
 
-- **WHEN** a query method (`getInstalledSkills`, `getConfiguredAgents`, `getConfiguredScope`, `getConfiguredSources`, `getLockedSkills`, `getLockedSkill`) is called while a mutation holds the semaphore
+- **WHEN** a query method (`getInstalledSkills`, `getConfiguredAgents`, `getConfiguredNamespace`, `getConfiguredSources`, `getLockedSkills`, `getLockedSkill`) is called while a mutation holds the semaphore
 - **THEN** the query proceeds without waiting for the semaphore
 
 ### Requirement: Mutation failure releases the semaphore

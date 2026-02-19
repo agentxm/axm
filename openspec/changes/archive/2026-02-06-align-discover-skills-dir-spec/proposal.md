@@ -34,7 +34,7 @@ Specify that only directory-type entries within each priority directory are chec
 **Phase 3 — Concurrency model:**
 Specify that subdirectories at each level are searched concurrently (the reference uses `Promise.all` at each recursive level). Our spec says "recursive depth-first search" but the reference is actually breadth-first-parallel within each depth level.
 
-**Phase 3 — SKIP_DIRS scope:**
+**Phase 3 — SKIP_DIRS namespace:**
 Clarify that `SKIP_DIRS` (`node_modules`, `.git`, `dist`, `build`, `__pycache__`) only applies to Phase 3 recursive search. Phase 2 does not filter by these names — if any happened to be priority directories, their children would still be scanned.
 
 **Internal skills and seenNames interaction:**

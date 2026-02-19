@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Defines named source configuration, three-layer merge resolution, scope routing, and the registry configuration guard.
+Defines named source configuration, three-layer merge resolution, namespace routing, and the registry configuration guard.
 
 ## Requirements
 
@@ -14,17 +14,17 @@ Source configurations SHALL be an array of named entries in settings, discrimina
 - `source`: discriminator (`"github"`, `"gitlab"`, `"bitbucket"`, `"azurerepos"`, `"registry"`)
 - `url`: base URL for git hosting providers
 - `location`: registry path or URL (registry sources only)
-- `scopes`: optional scope filter (registry sources only)
+- `namespaces`: optional namespace filter (registry sources only)
 
-#### Scenario: Registry source with scope filter
+#### Scenario: Registry source with namespace filter
 
-- **WHEN** settings contains `{ "name": "corp", "source": "registry", "location": "/registries/corp", "scopes": ["@corp"] }`
-- **THEN** the source is only consulted when resolving extensions in the `@corp` scope
+- **WHEN** settings contains `{ "name": "corp", "source": "registry", "location": "/registries/corp", "namespaces": ["@corp"] }`
+- **THEN** the source is only consulted when resolving extensions in the `@corp` namespace
 
-#### Scenario: Registry source without scope filter
+#### Scenario: Registry source without namespace filter
 
 - **WHEN** settings contains `{ "name": "local", "source": "registry", "location": "~/my-registry" }`
-- **THEN** the source is a catch-all registry consulted for any scope (when no scope-matched source exists)
+- **THEN** the source is a catch-all registry consulted for any namespace (when no namespace-matched source exists)
 
 #### Scenario: GitHub source with custom URL
 
@@ -99,29 +99,29 @@ Registry source locations SHALL be normalized at parse time:
 - **WHEN** location is `file:///registries/main`
 - **THEN** it is normalized to `/registries/main`
 
-### Requirement: Scope routing for registry sources
+### Requirement: Namespace routing for registry sources
 
-Within registry resolution, sources SHALL be selected by scope routing with mutually exclusive sets.
+Within registry resolution, sources SHALL be selected by namespace routing with mutually exclusive sets.
 
-#### Scenario: Scope-matched sources used exclusively
+#### Scenario: Namespace-matched sources used exclusively
 
-- **WHEN** resolving `@corp/tool` and a registry source has `scopes: ["@corp"]`
-- **THEN** only scope-matched sources are queried (catch-all sources are not tried)
+- **WHEN** resolving `@corp/tool` and a registry source has `namespaces: ["@corp"]`
+- **THEN** only namespace-matched sources are queried (catch-all sources are not tried)
 
-#### Scenario: Catch-all sources used when no scope match
+#### Scenario: Catch-all sources used when no namespace match
 
-- **WHEN** resolving `@community/tool` and no registry source has `scopes` including `@community`
-- **THEN** registry sources with no `scopes` field are queried
+- **WHEN** resolving `@community/tool` and no registry source has `namespaces` including `@community`
+- **THEN** registry sources with no `namespaces` field are queried
 
-#### Scenario: Scope-matched source 404 does not fall through to catch-all
+#### Scenario: Namespace-matched source 404 does not fall through to catch-all
 
-- **WHEN** resolving `@corp/tool`, the scope-matched source returns 404, and a catch-all source has the extension
-- **THEN** resolution fails (catch-all is not tried when scope-matched sources exist)
+- **WHEN** resolving `@corp/tool`, the namespace-matched source returns 404, and a catch-all source has the extension
+- **THEN** resolution fails (catch-all is not tried when namespace-matched sources exist)
 
-#### Scenario: Multiple scope-matched sources fall through on 404
+#### Scenario: Multiple namespace-matched sources fall through on 404
 
-- **WHEN** resolving `@corp/tool` and two sources match the `@corp` scope
-- **THEN** the first source is queried; if 404, the second scope-matched source is queried
+- **WHEN** resolving `@corp/tool` and two sources match the `@corp` namespace
+- **THEN** the first source is queried; if 404, the second namespace-matched source is queried
 
 ### Requirement: Ambiguous input resolution uses merged sources
 
@@ -158,7 +158,7 @@ Commands depending on a registry SHALL call a guard that detects missing registr
 
 #### Scenario: Non-interactive — no registry configured
 
-- **WHEN** `skills install @scope/name` is called with `--yes` and no registry sources are configured
+- **WHEN** `skills install @namespace/name` is called with `--yes` and no registry sources are configured
 - **THEN** the guard fails with `RegistryNotConfiguredError` explaining how to add a registry source
 
 #### Scenario: Registry already configured

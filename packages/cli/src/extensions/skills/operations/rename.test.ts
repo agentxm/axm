@@ -46,7 +46,7 @@ const makeWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getConfiguredRegistrySources: () => Effect.succeed([]),
-    getConfiguredScope: () => Effect.succeed("@community"),
+    getConfiguredNamespace: () => Effect.succeed("@community"),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () =>
       Effect.succeed(
@@ -79,17 +79,17 @@ const makeWorkspaceMock = (
               ? "builtin"
               : "git-hosted");
       if (srcRefType === "registry") {
-        const scope =
+        const namespace =
           source?.refType === "registry"
-            ? source.scope
-            : "scope" in (lockfileSkills[name] ?? {})
-              ? (lockfileSkills[name] as { scope: string }).scope
+            ? source.namespace
+            : "namespace" in (lockfileSkills[name] ?? {})
+              ? (lockfileSkills[name] as { namespace: string }).namespace
               : "@community";
         // Resolve immutable registry name from lock entry, not user-facing name
         const lockEntry = lockfileSkills[name] as (SkillLockEntry & { name?: string }) | undefined;
         const dirName = lockEntry?.name ?? name;
         const sanitized = sanitizeName(dirName);
-        const canonicalPath = path.join(base, ".axm", "extensions", scope, "skills", sanitized);
+        const canonicalPath = path.join(base, ".axm", "extensions", namespace, "skills", sanitized);
         return Effect.succeed({ canonicalPath, skillSrcPath: path.join(canonicalPath, "src") });
       }
       const sanitized = sanitizeName(name);
@@ -137,9 +137,9 @@ const makeLocalLockEntry = (agents: string[]) => ({
 });
 
 /** Creates a registry source lock entry. */
-const makeRegistryLockEntry = (agents: string[], scope = "@community") => ({
+const makeRegistryLockEntry = (agents: string[], namespace = "@community") => ({
   type: "registry" as const,
-  scope,
+  namespace,
   name: "my-skill",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
@@ -380,12 +380,12 @@ describe("renameSkill", () => {
     const setupRegistryWorkspace = (
       opts: {
         skillName?: string;
-        scope?: string;
+        namespace?: string;
         agents?: string[];
       } = {},
     ) => {
       const skillName = opts.skillName ?? "my-skill";
-      const scope = opts.scope ?? "@community";
+      const namespace = opts.namespace ?? "@community";
       const agents = opts.agents ?? ["claude-code"];
 
       const base = path.join(tmpDir, "project");
@@ -393,7 +393,7 @@ describe("renameSkill", () => {
       fs.mkdirSync(axmDir, { recursive: true });
 
       // Create registry canonical skill dir with src/ subdirectory
-      const canonicalPath = path.join(base, ".axm", "extensions", scope, "skills", skillName);
+      const canonicalPath = path.join(base, ".axm", "extensions", namespace, "skills", skillName);
       const srcPath = path.join(canonicalPath, "src");
       fs.mkdirSync(srcPath, { recursive: true });
       fs.writeFileSync(

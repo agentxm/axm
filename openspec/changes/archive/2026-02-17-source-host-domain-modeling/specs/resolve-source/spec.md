@@ -32,8 +32,8 @@ The intersection SHALL be type-safe — no `as Source` assertions needed because
 #### Scenario: Registry input resolves with host config
 
 - **WHEN** `resolveSource("@acme/my-skill")` is called
-- **AND** workspace has registry config `{ name: "default", type: "registry", url: "https://registry.example.com", scopes: None }`
-- **THEN** the result is a `RegistrySource` with `type: "registry"`, `scope: "@acme"`, `name: "my-skill"`, `url: URL("https://registry.example.com")`, `scopes: None`
+- **AND** workspace has registry config `{ name: "default", type: "registry", url: "https://registry.example.com", namespaces: None }`
+- **THEN** the result is a `RegistrySource` with `type: "registry"`, `namespace: "@acme"`, `name: "my-skill"`, `url: URL("https://registry.example.com")`, `namespaces: None`
 
 #### Scenario: Git source passes through with trivial host
 

@@ -18,7 +18,7 @@ The Workspace service SHALL provide a `getSkillDir` method that resolves the can
 
 For non-registry sources, `canonicalPath` and `skillSrcPath` SHALL be equal (`<base>/.agents/skills/<sanitized-name>`).
 
-For registry sources, `canonicalPath` SHALL be `<base>/.axm/extensions/<scope>/skills/<sanitized-name>` and `skillSrcPath` SHALL be `<canonicalPath>/src`.
+For registry sources, `canonicalPath` SHALL be `<base>/.axm/extensions/<namespace>/skills/<sanitized-name>` and `skillSrcPath` SHALL be `<canonicalPath>/src`.
 
 #### Scenario: Non-registry skill resolved by name
 
@@ -28,13 +28,13 @@ For registry sources, `canonicalPath` SHALL be `<base>/.axm/extensions/<scope>/s
 
 #### Scenario: Registry skill resolved by name
 
-- **WHEN** calling `getSkillDir("my-skill")` and the lockfile entry has `type: "registry"` with `scope: "@acme"`
+- **WHEN** calling `getSkillDir("my-skill")` and the lockfile entry has `type: "registry"` with `namespace: "@acme"`
 - **THEN** `canonicalPath` is `<base>/.axm/extensions/@acme/skills/my-skill`
 - **AND** `skillSrcPath` is `<base>/.axm/extensions/@acme/skills/my-skill/src`
 
 #### Scenario: Explicit source for install (no lock entry)
 
-- **WHEN** calling `getSkillDir("my-skill", { type: "registry", scope: "@acme" })`
+- **WHEN** calling `getSkillDir("my-skill", { type: "registry", namespace: "@acme" })`
 - **THEN** the lockfile is NOT consulted
 - **AND** `canonicalPath` is `<base>/.axm/extensions/@acme/skills/my-skill`
 - **AND** `skillSrcPath` is `<base>/.axm/extensions/@acme/skills/my-skill/src`

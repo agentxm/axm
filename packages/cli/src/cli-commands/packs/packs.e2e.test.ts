@@ -18,7 +18,7 @@ import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../e2e/utils.js";
 // ---------------------------------------------------------------------------
 
 /**
- * Initialize a workspace with a registry source and scope, then install a
+ * Initialize a workspace with a registry source and namespace, then install a
  * skill from the local fixture so we have a registry-sourced skill to work with.
  *
  * Returns the temp dir, registry dir, and helpers for reading settings/lockfile.
@@ -42,12 +42,12 @@ function setupWorkspaceWithRegistry() {
 }
 
 /**
- * Set up registry source and scope in an already-initialized workspace.
+ * Set up registry source and namespace in an already-initialized workspace.
  */
-function configureRegistrySource(settingsPath: string, registryUrl: string, scope = "@test") {
+function configureRegistrySource(settingsPath: string, registryUrl: string, namespace = "@test") {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.sources = [{ name: "local", type: "registry", location: registryUrl }];
-  settings.scope = scope;
+  settings.namespace = namespace;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }
 
@@ -94,13 +94,13 @@ describe("axm packs new", () => {
     }
   });
 
-  it("respects --scope override", async () => {
+  it("respects --namespace override", async () => {
     const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
     try {
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
-      const result = await runCli(["packs", "new", "my-pack", "--scope", "@custom", "--yes"], {
+      const result = await runCli(["packs", "new", "my-pack", "--namespace", "@custom", "--yes"], {
         cwd: temp.path,
       });
 
@@ -263,7 +263,7 @@ describe("axm packs publish", () => {
 
       const index = JSON.parse(fs.readFileSync(registryIndexPath, "utf-8"));
       expect(index.name).toBe("pub-pack");
-      expect(index.scope).toBe("@test");
+      expect(index.namespace).toBe("@test");
       expect(index.type).toBe("pack");
       expect(index.versions).toBeDefined();
       expect(index.versions.length).toBeGreaterThan(0);
@@ -349,7 +349,7 @@ describe("axm packs install", () => {
       );
       fs.rmSync(packDirBefore, { recursive: true, force: true });
 
-      // Install from registry (new format: @scope/packs/name)
+      // Install from registry (new format: @namespace/packs/name)
       const installResult = await runCli(
         ["packs", "install", "@test/packs/installable-pack", "--yes"],
         { cwd: temp.path },
@@ -367,7 +367,7 @@ describe("axm packs install", () => {
       expect(lock.packs["installable-pack"]).toBeDefined();
       const lockEntry = lock.packs["installable-pack"];
       expect(lockEntry.type).toBe("registry");
-      expect(lockEntry.scope).toBe("@test");
+      expect(lockEntry.namespace).toBe("@test");
       expect(lockEntry.name).toBe("installable-pack");
 
       // Verify pack directory exists on disk

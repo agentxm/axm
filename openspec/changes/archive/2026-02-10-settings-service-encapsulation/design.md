@@ -35,7 +35,7 @@ Meanwhile, the workspace service (`workspace/service.ts`) already handles source
 
 ### 2. Workspace uses I/O functions directly, no internal service delegation
 
-**Decision**: Add compound skill mutations (`setSkill`, `removeSkill`), skill/lockfile queries (`getInstalledSkills`, `getLockedSkills`, `getLockedSkill`), and configured agent methods (`getConfiguredAgents`, `addConfiguredAgent`) to `WorkspaceContextService` interface. Rename existing methods to follow the naming convention (`getConfiguredSources`, `getConfiguredScope`, etc.). Workspace implements these by calling I/O functions (`readSettings`, `writeSettings`, `modifyJsonFile`, `readLockfile`, `writeLockfile`) directly — the same pattern workspace already uses for source and scope operations. Compound skill methods acquire the semaphore once and write to both files sequentially.
+**Decision**: Add compound skill mutations (`setSkill`, `removeSkill`), skill/lockfile queries (`getInstalledSkills`, `getLockedSkills`, `getLockedSkill`), and configured agent methods (`getConfiguredAgents`, `addConfiguredAgent`) to `WorkspaceContextService` interface. Rename existing methods to follow the naming convention (`getConfiguredSources`, `getConfiguredNamespace`, etc.). Workspace implements these by calling I/O functions (`readSettings`, `writeSettings`, `modifyJsonFile`, `readLockfile`, `writeLockfile`) directly — the same pattern workspace already uses for source and scope operations. Compound skill methods acquire the semaphore once and write to both files sequentially.
 
 **Rationale**: Workspace already calls I/O functions directly for its existing methods. The services' only value-add beyond the raw I/O functions was the semaphore and read-modify-write cycle — both of which workspace now owns. Instantiating the services internally would create unnecessary indirection (services that need external serialization discipline and exist only to be called by one consumer). The I/O functions (`readSettings`, `writeSettings`, `modifyJsonFile`, `readLockfile`, `writeLockfile`) are well-tested and encapsulate format-preserving JSON, YAML handling, and readOrCreate patterns.
 
@@ -49,7 +49,7 @@ Meanwhile, the workspace service (`workspace/service.ts`) already handles source
 
 ### 4. Query methods remain non-blocking
 
-**Decision**: Query methods (`getInstalledSkills`, `getConfiguredAgents`, `getConfiguredScope`, `getConfiguredSources`, `getConfiguredSourceByName`, `getConfiguredRegistrySources`, `getLockedSkills`, `getLockedSkill`) do NOT acquire the semaphore, consistent with the existing pattern.
+**Decision**: Query methods (`getInstalledSkills`, `getConfiguredAgents`, `getConfiguredNamespace`, `getConfiguredSources`, `getConfiguredSourceByName`, `getConfiguredRegistrySources`, `getLockedSkills`, `getLockedSkill`) do NOT acquire the semaphore, consistent with the existing pattern.
 
 **Rationale**: Queries read from disk on each call and don't perform read-modify-write cycles. Blocking queries behind the mutation semaphore would reduce throughput without preventing inconsistency (the file could change between a query returning and the caller acting on the result anyway).
 

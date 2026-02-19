@@ -27,30 +27,30 @@ describe("Settings schema", () => {
       expect(result).toEqual({});
     });
 
-    it("accepts settings with scope", () => {
-      const input = { scope: "@myorg" };
+    it("accepts settings with namespace", () => {
+      const input = { namespace: "@myorg" };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.scope).toBe("@myorg");
+      expect(result.namespace).toBe("@myorg");
     });
 
-    it("auto-prepends @ to bare scope", () => {
-      const input = { scope: "myorg" };
+    it("auto-prepends @ to bare namespace", () => {
+      const input = { namespace: "myorg" };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.scope).toBe("@myorg");
+      expect(result.namespace).toBe("@myorg");
     });
 
     it("accepts settings with all fields", () => {
       const input = {
-        scope: "@wayne",
+        namespace: "@wayne",
         sources: [{ name: "github", type: "github", url: "https://github.com" }],
         agents: ["claude-code", "cursor"],
         skills: { "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.scope).toBe("@wayne");
+      expect(result.namespace).toBe("@wayne");
       expect(result.agents).toEqual(["claude-code", "cursor"]);
       expect(result.skills).toEqual({ "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" });
     });
@@ -193,7 +193,7 @@ describe("Settings schema", () => {
         expect(getSourceLocation(result)).toBeInstanceOf(URL);
       });
 
-      it("encodes registry source without scopes", () => {
+      it("encodes registry source without namespaces", () => {
         const input = {
           name: "public",
           type: "registry",
@@ -733,7 +733,7 @@ describe("Settings schema", () => {
   describe("complete settings example", () => {
     it("accepts complete Wayne Enterprises settings with array source format", () => {
       const input = {
-        scope: "@wayne",
+        namespace: "@wayne",
         sources: [
           { name: "github", type: "github", url: "https://github.wayne.com" },
           { name: "gitlab", type: "gitlab", url: "https://gitlab.wayne.com" },
@@ -766,7 +766,7 @@ describe("Settings schema", () => {
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.scope).toBe("@wayne");
+      expect(result.namespace).toBe("@wayne");
       expect(result.agents?.length).toBe(3);
       expect(result.sources).toHaveLength(4);
       expect(Object.keys(result.skills ?? {}).length).toBe(3);

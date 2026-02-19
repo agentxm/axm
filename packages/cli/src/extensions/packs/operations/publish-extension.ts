@@ -43,7 +43,7 @@ import { REGISTRY_EXTENSIONS_DIR } from "../../constants.js";
  * Args for the publish-extension operation.
  */
 export interface PublishExtensionOperationArgs {
-  /** Extension identity in `@scope/type/name` FQN format. */
+  /** Extension identity in `@namespace/type/name` FQN format. */
   readonly name: string;
   /** Extension type (singular). */
   readonly type: "skill" | "command" | "mcp-server";
@@ -112,7 +112,13 @@ export const publishExtension: OperationHandler<
     const config = MANIFEST_CONFIG[op.args.type];
 
     // Locate the managed extension directory
-    const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.scope, fqn.type, fqn.name);
+    const extensionDir = path.join(
+      base,
+      REGISTRY_EXTENSIONS_DIR,
+      fqn.namespace,
+      fqn.type,
+      fqn.name,
+    );
     const extensionDirExists = yield* fs
       .exists(extensionDir)
       .pipe(Effect.orElseSucceed(() => false));
@@ -199,7 +205,7 @@ export const publishExtension: OperationHandler<
     // Publish to registry (idempotent)
     yield* client
       .publishExtension({
-        scope: fqn.scope,
+        namespace: fqn.namespace,
         type: op.args.type,
         name: fqn.name,
         version: manifest.version,

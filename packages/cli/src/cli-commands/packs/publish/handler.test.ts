@@ -1,7 +1,7 @@
 /**
  * Unit tests for the packs publish command handler.
  *
- * Tests the registry guard -> scope resolution -> validation -> plan build -> apply flow.
+ * Tests the registry guard -> namespace resolution -> validation -> plan build -> apply flow.
  */
 
 import * as fs from "node:fs";
@@ -36,7 +36,7 @@ const initWorkspace = (axmDir: string, registryRoot: string) => {
   fs.writeFileSync(
     path.join(axmDir, "settings.json"),
     JSON.stringify({
-      scope: "@test",
+      namespace: "@test",
       agents: ["claude-code"],
       sources: [{ name: "local", type: "registry", location: new URL(`file://${registryRoot}`) }],
     }),
@@ -50,11 +50,11 @@ const initWorkspace = (axmDir: string, registryRoot: string) => {
 /** Create a managed pack in .axm/extensions/ with a manifest. */
 const createManagedPack = (
   tempDir: string,
-  scope: string,
+  namespace: string,
   name: string,
   manifest: Record<string, unknown>,
 ) => {
-  const packDir = path.join(tempDir, ".axm", "extensions", scope, "packs", name);
+  const packDir = path.join(tempDir, ".axm", "extensions", namespace, "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
   fs.writeFileSync(path.join(packDir, "axm-pack.json"), JSON.stringify(manifest));
   return packDir;
@@ -63,7 +63,7 @@ const createManagedPack = (
 /** Create a managed extension (skill, command, mcp-server) in .axm/extensions/. */
 const createManagedExtension = (
   tempDir: string,
-  scope: string,
+  namespace: string,
   type: "skills" | "commands" | "mcp-servers",
   name: string,
   manifest: Record<string, unknown>,
@@ -74,7 +74,7 @@ const createManagedExtension = (
       : type === "commands"
         ? "axm-command.json"
         : "axm-mcp-server.json";
-  const extDir = path.join(tempDir, ".axm", "extensions", scope, type, name);
+  const extDir = path.join(tempDir, ".axm", "extensions", namespace, type, name);
   fs.mkdirSync(extDir, { recursive: true });
   fs.writeFileSync(path.join(extDir, manifestFilename), JSON.stringify(manifest));
   return extDir;
@@ -178,7 +178,7 @@ describe("packs publish.handler", () => {
           // Verify index content
           const indexContent = JSON.parse(fs.readFileSync(registryIndexPath, "utf-8"));
           expect(indexContent.name).toBe("frontend-tools");
-          expect(indexContent.scope).toBe("@test");
+          expect(indexContent.namespace).toBe("@test");
           expect(indexContent.type).toBe("pack");
           expect(indexContent.versions).toHaveLength(1);
           expect(indexContent.versions[0].version).toBe("1.0.0");

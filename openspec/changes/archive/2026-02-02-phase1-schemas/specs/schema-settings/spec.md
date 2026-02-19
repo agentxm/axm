@@ -18,7 +18,7 @@ The schema SHALL validate settings files with the following top-level fields:
 
 #### Scenario: Valid settings with scope
 
-- **WHEN** parsing `{ "scope": "@myorg" }`
+- **WHEN** parsing `{ "namespace": "@myorg" }`
 - **THEN** validation succeeds and scope is accessible
 
 ### Requirement: Sources configuration schema
@@ -97,7 +97,7 @@ The `extensions` field SHALL validate extension declarations by type:
 }
 ```
 
-Extension names SHALL match the `@<scope>/<name>` pattern.
+Extension names SHALL match the `@<namespace>/<name>` pattern.
 Version specifiers SHALL be strings (semver ranges like `^1.0.0`, `~2.1.0`, `1.x`, `*`).
 
 #### Scenario: Valid extensions configuration

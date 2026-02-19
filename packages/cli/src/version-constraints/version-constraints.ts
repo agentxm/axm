@@ -6,17 +6,17 @@ import type { VersionEntry } from "../registry/index.js";
 /**
  * Extract a version constraint suffix from a source string.
  *
- * Handles both scoped (`@scope/name@^1.0.0`) and unscoped (`name@^1.0.0`) names.
+ * Handles both scoped (`@namespace/name@^1.0.0`) and unscoped (`name@^1.0.0`) names.
  * Returns `Option.none()` when no version suffix is present.
  */
 export const parseVersionConstraint = (sourceString: string): Option.Option<string> => {
-  // For scoped packages (@scope/name@constraint), find the @ after the scope
+  // For scoped packages (@namespace/name@constraint), find the @ after the namespace
   if (sourceString.startsWith("@")) {
     const slashIndex = sourceString.indexOf("/");
     if (slashIndex === -1) return Option.none();
-    const afterScope = sourceString.indexOf("@", slashIndex + 1);
-    if (afterScope === -1) return Option.none();
-    return Option.some(sourceString.slice(afterScope + 1));
+    const afterNamespace = sourceString.indexOf("@", slashIndex + 1);
+    if (afterNamespace === -1) return Option.none();
+    return Option.some(sourceString.slice(afterNamespace + 1));
   }
   // For unscoped packages (name@constraint)
   const atIndex = sourceString.indexOf("@");

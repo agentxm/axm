@@ -28,7 +28,7 @@ The pipeline:
 #### Scenario: Registry input resolves to scope and name
 
 - **WHEN** `resolveSource("@acme/my-skill")` is called
-- **THEN** the result has `type: "registry"`, `scope: "acme"`, `name: "my-skill"`
+- **THEN** the result has `type: "registry"`, `namespace: "acme"`, `name: "my-skill"`
 - **AND** no config fields are present (`url`, `scopes` are absent — the meta-provider handles config lookup internally)
 
 #### Scenario: Git source passes through without config

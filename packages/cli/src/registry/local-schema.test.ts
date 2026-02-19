@@ -83,7 +83,7 @@ describe("registry schema", () => {
     it("accepts valid index with required fields only", () => {
       const input = {
         name: "my-skill",
-        scope: "@acme",
+        namespace: "@acme",
         type: "skill",
         versions: [
           {
@@ -97,7 +97,7 @@ describe("registry schema", () => {
       const result = Schema.decodeUnknownSync(ExtensionIndexSchema)(input);
 
       expect(result.name).toBe("my-skill");
-      expect(result.scope).toBe("@acme");
+      expect(result.namespace).toBe("@acme");
       expect(result.type).toBe("skill");
       expect(result.versions).toHaveLength(1);
       expect(result.description).toBeUndefined();
@@ -109,7 +109,7 @@ describe("registry schema", () => {
     it("accepts valid index with all fields including multiple versions", () => {
       const input = {
         name: "code-review",
-        scope: "@acme",
+        namespace: "@acme",
         type: "mcp-server",
         description: "Automated code review tool",
         repository: "https://github.com/acme/code-review",
@@ -142,7 +142,7 @@ describe("registry schema", () => {
       const result = Schema.decodeUnknownSync(ExtensionIndexSchema)(input);
 
       expect(result.name).toBe("code-review");
-      expect(result.scope).toBe("@acme");
+      expect(result.namespace).toBe("@acme");
       expect(result.type).toBe("mcp-server");
       expect(result.description).toBe("Automated code review tool");
       expect(result.repository).toBe("https://github.com/acme/code-review");
@@ -156,7 +156,7 @@ describe("registry schema", () => {
 
     it("rejects missing name", () => {
       const input = {
-        scope: "@acme",
+        namespace: "@acme",
         type: "skill",
         versions: [
           {
@@ -170,7 +170,7 @@ describe("registry schema", () => {
       expect(() => Schema.decodeUnknownSync(ExtensionIndexSchema)(input)).toThrow();
     });
 
-    it("rejects missing scope", () => {
+    it("rejects missing namespace", () => {
       const input = {
         name: "my-skill",
         type: "skill",
@@ -189,7 +189,7 @@ describe("registry schema", () => {
     it("rejects missing type", () => {
       const input = {
         name: "my-skill",
-        scope: "@acme",
+        namespace: "@acme",
         versions: [
           {
             version: "1.0.0",
@@ -205,7 +205,7 @@ describe("registry schema", () => {
     it("rejects missing versions", () => {
       const input = {
         name: "my-skill",
-        scope: "@acme",
+        namespace: "@acme",
         type: "skill",
       };
 
@@ -215,7 +215,7 @@ describe("registry schema", () => {
     it("rejects invalid type value", () => {
       const input = {
         name: "my-skill",
-        scope: "@acme",
+        namespace: "@acme",
         type: "invalid-type",
         versions: [],
       };
@@ -226,7 +226,7 @@ describe("registry schema", () => {
     it("accepts empty versions array", () => {
       const input = {
         name: "my-skill",
-        scope: "@acme",
+        namespace: "@acme",
         type: "skill",
         versions: [],
       };
@@ -239,7 +239,7 @@ describe("registry schema", () => {
     it("accepts type mcp-server", () => {
       const input = {
         name: "my-server",
-        scope: "@acme",
+        namespace: "@acme",
         type: "mcp-server",
         versions: [],
       };
@@ -252,7 +252,7 @@ describe("registry schema", () => {
     it("accepts type pack", () => {
       const input = {
         name: "frontend-pack",
-        scope: "@acme",
+        namespace: "@acme",
         type: "pack",
         versions: [],
       };
@@ -265,7 +265,7 @@ describe("registry schema", () => {
     it("accepts authors with only required name field", () => {
       const input = {
         name: "my-skill",
-        scope: "@acme",
+        namespace: "@acme",
         type: "skill",
         authors: [{ name: "Alice" }],
         versions: [],

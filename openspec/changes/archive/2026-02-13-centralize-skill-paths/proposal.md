@@ -9,8 +9,8 @@ Every skill handler (install, enable, disable, uninstall, rename) independently 
 - Rename constant `CANONICAL_SKILLS_DIR` to `UNIVERSAL_SKILLS_DIR` — `.agents/skills/` is the universal (non-registry) location, not the canonical location for all sources
 - Introduce `getSkillDir(join, base, source, sanitizedName)` — a pure function that returns `{ canonicalPath, skillSrcPath }` based on source type:
   - Non-registry → both point to `<base>/.agents/skills/<name>`
-  - Registry → `canonicalPath` is `<base>/.axm/extensions/@<scope>/skills/<name>`, `skillSrcPath` is `<canonicalPath>/src`
-- The function accepts a minimal discriminant (`{ type: "registry"; scope: string } | { type: Exclude<SourceType, "registry"> }`) structurally compatible with both lock entries and source inputs
+  - Registry → `canonicalPath` is `<base>/.axm/extensions/@<namespace>/skills/<name>`, `skillSrcPath` is `<canonicalPath>/src`
+- The function accepts a minimal discriminant (`{ type: "registry"; namespace: string } | { type: Exclude<SourceType, "registry"> }`) structurally compatible with both lock entries and source inputs
 - Replace duplicated path computation in install, enable, rename handlers with `getSkillDir` calls
 - **Fix rename bug**: rename handler uses `getSkillDir` with the lock entry, correctly handling registry-sourced skills (directory rename + SKILL.md frontmatter update at `skillSrcPath/SKILL.md`)
 

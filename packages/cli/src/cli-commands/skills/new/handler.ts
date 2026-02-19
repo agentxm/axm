@@ -31,7 +31,7 @@ const MAX_NAME_LENGTH = 64;
 
 export interface SkillsNewHandlerArgs {
   readonly name: string;
-  readonly scope: Option.Option<string>;
+  readonly namespace: Option.Option<string>;
   readonly agents: Option.Option<readonly string[]>;
   readonly yes: boolean;
 }
@@ -40,7 +40,7 @@ export interface SkillsNewHandlerArgs {
 // Helpers
 // -----------------------------------------------------------------------------
 
-const normalizeScope = (s: string) => (s.startsWith("@") ? s : `@${s}`);
+const normalizeNamespace = (s: string) => (s.startsWith("@") ? s : `@${s}`);
 
 const makeSkillMd = (name: string) =>
   `---
@@ -65,17 +65,18 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
 
   yield* log.info("axm skills new");
 
-  // 1. Resolve scope
-  const scope = Option.isSome(args.scope)
-    ? normalizeScope(args.scope.value)
-    : yield* ws.getConfiguredScope().pipe(
+  // 1. Resolve namespace
+  const namespace = Option.isSome(args.namespace)
+    ? normalizeNamespace(args.namespace.value)
+    : yield* ws.getConfiguredNamespace().pipe(
         Effect.flatMap((s) =>
           s === "@community"
             ? Effect.fail(
                 makeCliError({
                   code: "SCOPE_REQUIRED",
-                  what: "No scope configured for skill creation",
-                  howToFix: "Configure a scope in settings.json with `axm init`, or use --scope",
+                  what: "No namespace configured for skill creation",
+                  howToFix:
+                    "Configure a namespace in settings.json with `axm init`, or use --namespace",
                 }),
               )
             : Effect.succeed(s),
@@ -99,7 +100,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     });
   }
 
-  const fqn = `${scope}/skills/${args.name}`;
+  const fqn = `${namespace}/skills/${args.name}`;
   const base = ws.baseDir;
 
   // 3. Check existence
@@ -116,7 +117,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   const { canonicalPath, skillSrcPath } = computeSkillPaths(
     path.join,
     base,
-    { refType: "registry", scope },
+    { refType: "registry", namespace },
     args.name,
   );
 

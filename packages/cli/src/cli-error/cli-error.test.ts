@@ -24,7 +24,7 @@ describe("CliError", () => {
     const error = new CliError({
       code: "INSTALL_FAILED",
       what: "Installation failed",
-      details: ["Package: @scope/name"],
+      details: ["Package: @namespace/name"],
       howToFix: Option.none(),
       cause: undefined,
     });

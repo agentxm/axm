@@ -12,19 +12,19 @@ import { Workspace } from "../../../workspace/index.js";
 import type { RegistrySource } from "../../../sources/types.js";
 
 const resolveRegistrySource = (
-  scope: string,
+  namespace: string,
   input: string,
   options: {
-    readonly findMatchingScope: boolean;
+    readonly findMatchingNamespace: boolean;
   },
 ) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const registrySources = yield* ws.getConfiguredRegistrySources(Option.some(scope)).pipe(
+    const registrySources = yield* ws.getConfiguredRegistrySources(Option.some(namespace)).pipe(
       Effect.mapError((e) =>
         makeCliError({
           code: "REGISTRY_CONFIG_READ_FAILED",
-          what: `Failed to read configured registry sources for scope "${scope}"`,
+          what: `Failed to read configured registry sources for namespace "${namespace}"`,
           details: [input],
           howToFix: "Check that your workspace settings file is valid and accessible",
           cause: e,
@@ -35,45 +35,45 @@ const resolveRegistrySource = (
     if (registrySources.length === 0) {
       return yield* makeCliError({
         code: "REGISTRY_NO_SOURCE_CONFIGURED",
-        what: `No registry source is configured for scope "${scope}"`,
+        what: `No registry source is configured for namespace "${namespace}"`,
         details: [input],
-        howToFix: `Add a registry source for scope "${scope}" using "axm sources add"`,
+        howToFix: `Add a registry source for namespace "${namespace}" using "axm sources add"`,
       });
     }
-    if (registrySources.length === 1 || !options.findMatchingScope) {
+    if (registrySources.length === 1 || !options.findMatchingNamespace) {
       const regConfig = registrySources[0]!;
       return {
         type: "registry" as const,
         location: regConfig.location,
-        scope: Option.some(scope),
+        namespace: Option.some(namespace),
       } satisfies RegistrySource;
     }
 
     for (const regConfig of registrySources) {
       const client = yield* createRegistryClient(regConfig.location.href);
-      const { exists: hasRequestedScope } = yield* client.scopeExists(scope);
+      const { exists: hasRequestedScope } = yield* client.namespaceExists(namespace);
       if (hasRequestedScope) {
         return {
           type: "registry" as const,
           location: regConfig.location,
-          scope: Option.some(scope),
+          namespace: Option.some(namespace),
         } satisfies RegistrySource;
       }
     }
 
     return yield* makeCliError({
       code: "REGISTRY_SCOPE_NOT_FOUND",
-      what: `None of the configured registry sources contain scope "${scope}"`,
+      what: `None of the configured registry sources contain namespace "${namespace}"`,
       details: [input],
-      howToFix: `Verify the scope name is correct, or add a registry that hosts "${scope}"`,
+      howToFix: `Verify the namespace name is correct, or add a registry that hosts "${namespace}"`,
     });
   });
 
 const resolveSkillRegistrySourceByName = (name: string, input: string) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const scope = yield* ws.getConfiguredScope();
-    const registrySources = yield* ws.getConfiguredRegistrySources(Option.some(scope)).pipe(
+    const namespace = yield* ws.getConfiguredNamespace();
+    const registrySources = yield* ws.getConfiguredRegistrySources(Option.some(namespace)).pipe(
       Effect.mapError((e) =>
         makeCliError({
           code: "SOURCE_PARSE_FAILED",
@@ -86,26 +86,26 @@ const resolveSkillRegistrySourceByName = (name: string, input: string) =>
     if (registrySources.length === 0) {
       return yield* makeCliError({
         code: "SOURCE_PARSE_FAILED",
-        what: `No registry source configured for scope "${scope}"`,
+        what: `No registry source configured for namespace "${namespace}"`,
         details: [input],
       });
     }
 
     for (const regConfig of registrySources) {
       const client = yield* createRegistryClient(regConfig.location.href);
-      const { exists } = yield* client.extensionExists({ scope, type: "skill", name });
+      const { exists } = yield* client.extensionExists({ namespace, type: "skill", name });
       if (exists) {
         return {
           type: "registry" as const,
           location: regConfig.location,
-          scope: Option.some(scope),
+          namespace: Option.some(namespace),
         } satisfies RegistrySource;
       }
     }
 
     return yield* makeCliError({
       code: "SOURCE_PARSE_FAILED",
-      what: `No registry source contains skill "${scope}/${name}"`,
+      what: `No registry source contains skill "${namespace}/${name}"`,
       details: [input],
     });
   });
@@ -118,13 +118,13 @@ const resolveSkillRegistrySource = (
       return yield* makeCliError({
         code: "SKILL_INSTALL_WRONG_TYPE",
         what: `Cannot install "${pattern.type.value}" extensions with "skills install"`,
-        details: [pattern.scope],
+        details: [pattern.namespace],
         howToFix: `Use the "${pattern.type.value}" command instead, or remove the type qualifier to install as a skill`,
       });
     }
 
-    return yield* resolveRegistrySource(pattern.scope, pattern.scope, {
-      findMatchingScope: true,
+    return yield* resolveRegistrySource(pattern.namespace, pattern.namespace, {
+      findMatchingNamespace: true,
     });
   });
 
@@ -157,7 +157,7 @@ export const resolveSkillInstallSource = (parseResult: InputParseResult) =>
           what: `Input pattern "${pattern.pattern}" is not supported for skill installation`,
           details: [parseResult.originalInput],
           howToFix:
-            "Use a registry reference (e.g., @scope/skill-name), a URL, or a shorthand (owner/repo) instead",
+            "Use a registry reference (e.g., @namespace/skill-name), a URL, or a shorthand (owner/repo) instead",
         });
     }
   });

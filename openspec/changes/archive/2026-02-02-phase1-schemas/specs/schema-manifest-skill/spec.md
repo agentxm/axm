@@ -4,19 +4,19 @@
 
 The schema SHALL validate skill manifest files with the following fields:
 
-| Field         | Type     | Required | Description                              |
-| ------------- | -------- | -------- | ---------------------------------------- |
-| `name`        | string   | Yes      | Fully qualified name (`@<scope>/<name>`) |
-| `version`     | string   | Yes      | Semver version                           |
-| `description` | string   | No       | Short description                        |
-| `keywords`    | string[] | No       | Tags for discovery                       |
-| `repository`  | string   | No       | Source repository URL                    |
-| `homepage`    | string   | No       | Project homepage URL                     |
-| `license`     | string   | No       | SPDX license identifier                  |
-| `bugs`        | string   | No       | Issue tracker URL                        |
-| `author`      | object   | No       | `{ name, email?, url? }`                 |
+| Field         | Type     | Required | Description                                  |
+| ------------- | -------- | -------- | -------------------------------------------- |
+| `name`        | string   | Yes      | Fully qualified name (`@<namespace>/<name>`) |
+| `version`     | string   | Yes      | Semver version                               |
+| `description` | string   | No       | Short description                            |
+| `keywords`    | string[] | No       | Tags for discovery                           |
+| `repository`  | string   | No       | Source repository URL                        |
+| `homepage`    | string   | No       | Project homepage URL                         |
+| `license`     | string   | No       | SPDX license identifier                      |
+| `bugs`        | string   | No       | Issue tracker URL                            |
+| `author`      | object   | No       | `{ name, email?, url? }`                     |
 
-The `name` field SHALL match the pattern `@<scope>/<name>` where scope and name contain only alphanumeric characters, hyphens, and underscores.
+The `name` field SHALL match the pattern `@<namespace>/<name>` where scope and name contain only alphanumeric characters, hyphens, and underscores.
 
 #### Scenario: Valid minimal skill manifest
 

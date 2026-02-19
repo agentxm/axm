@@ -5,7 +5,7 @@
 > **Subagent:** Run this entire phase in a single subagent.
 
 - [x] 1.1 Create `packages/cli/src/cli-commands/skills/new/` directory
-- [x] 1.2 Write `command.ts` with yargs definition: positional `<name>`, options `--scope`, `--agent`, `--yes`, `--preview`, `--non-interactive` (mirror `packs new` command structure)
+- [x] 1.2 Write `command.ts` with yargs definition: positional `<name>`, options `--namespace`, `--agent`, `--yes`, `--preview`, `--non-interactive` (mirror `packs new` command structure)
 - [x] 1.3 Write `command.test.ts` testing argument parsing: name positional, scope option, agent array option, yes/preview/non-interactive flags
 - [x] 1.4 Register `skillsNewCommand` in the skills command group (where other skills sub-commands are registered)
 - [x] 1.5 Run `pnpm typecheck` and fix any errors
@@ -19,7 +19,7 @@
 
 Depends on: Phase 1
 
-- [x] 2.1 Write `handler.test.ts` with tests for: default scope resolution, explicit `--scope`, skill-already-exists error, no-scope-configured error, name validation, directory and manifest creation, SKILL.md template content, settings registration, agent symlink creation, `--agent` flag narrowing
+- [x] 2.1 Write `handler.test.ts` with tests for: default scope resolution, explicit `--namespace`, skill-already-exists error, no-scope-configured error, name validation, directory and manifest creation, SKILL.md template content, settings registration, agent symlink creation, `--agent` flag narrowing
 - [x] 2.2 Write `handler.ts` implementing `handleSkillsNew` following the `packs new` handler pattern: resolve scope → validate name → check existence → create directory → write manifest → write starter SKILL.md → register in settings → create agent symlinks → log success
 - [x] 2.3 Extract or create a `computeSkillPaths` helper (analogous to `computePackPaths`) for computing the managed skill directory path from scope and name
 - [x] 2.4 Run `pnpm typecheck` and fix any errors

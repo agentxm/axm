@@ -5,7 +5,7 @@
 ## What Changes
 
 - **BREAKING**: Remove `RegistrySourceProvider` interface and its `LocalRegistrySourceProvider`/`RemoteRegistrySourceProvider` implementations
-- Introduce `RegistryClient` abstraction with registry-specific operations: `getExtensions`, `scopeExists`, `getExtension`, `publishExtension`, `extensionExists`, `fetchIndex`
+- Introduce `RegistryClient` abstraction with registry-specific operations: `getExtensions`, `namespaceExists`, `getExtension`, `publishExtension`, `extensionExists`, `fetchIndex`
 - Implement `LocalRegistryClient` (backed by filesystem) and `RemoteRegistryClient` (stubbed placeholder)
 - Introduce `LocalRegistrySourceHostProvider` and `RemoteRegistrySourceHostProvider` that implement the same `SourceHostProvider` interface as other host providers, each delegating to their respective `RegistryClient`
 - `RemoteRegistrySourceHostProvider` and `RemoteRegistryClient` are placeholders with not-implemented errors
@@ -19,7 +19,7 @@ _(none)_
 
 ### Modified Capabilities
 
-- `registry-client`: Refactor from `RegistrySourceProvider` (which conflated client and host-provider operations) to a focused `RegistryClient` interface with `getExtensions`, `scopeExists`, `getExtension`, `publishExtension`, `extensionExists`, and `fetchIndex`. Two implementations: `LocalRegistryClient` (filesystem-backed) and `RemoteRegistryClient` (stub). Uses registry-domain types instead of source-domain types.
+- `registry-client`: Refactor from `RegistrySourceProvider` (which conflated client and host-provider operations) to a focused `RegistryClient` interface with `getExtensions`, `namespaceExists`, `getExtension`, `publishExtension`, `extensionExists`, and `fetchIndex`. Two implementations: `LocalRegistryClient` (filesystem-backed) and `RemoteRegistryClient` (stub). Uses registry-domain types instead of source-domain types.
 - `source-provider`: Registry source host providers change from a single `RegistrySourceProvider` wrapping pattern to distinct `LocalRegistrySourceHostProvider` and `RemoteRegistrySourceHostProvider` implementations that follow the standard `SourceHostProvider` interface and delegate to `RegistryClient`.
 
 ## Impact

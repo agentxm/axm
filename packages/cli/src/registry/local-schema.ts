@@ -20,7 +20,7 @@ import { AuthorSchema, ExtensionTypeSchema } from "../extensions/common.js";
  * Fields:
  * - version: Semver version string (e.g., "1.2.3")
  * - published: ISO 8601 timestamp of publication
- * - dependencies: Optional map of `@scope/type/name` to semver range
+ * - dependencies: Optional map of `@namespace/type/name` to semver range
  * - integrity: SRI integrity string in `sha512-<base64>` format
  *
  * @experimental This API is unstable and may change without notice.
@@ -47,8 +47,8 @@ export type VersionEntry = typeof VersionEntrySchema.Type;
  * Extension index metadata describing a published extension in the registry.
  *
  * Fields:
- * - name: Extension name without scope
- * - scope: Scope including `@` prefix (e.g., "@acme")
+ * - name: Extension name without namespace
+ * - namespace: Namespace including `@` prefix (e.g., "@acme")
  * - type: Extension type ("skill", "mcp-server", or "pack")
  * - description: Optional human-readable description
  * - repository: Optional repository URL
@@ -60,7 +60,7 @@ export type VersionEntry = typeof VersionEntrySchema.Type;
  */
 export const ExtensionIndexSchema = Schema.Struct({
   name: Schema.String,
-  scope: Schema.String,
+  namespace: Schema.String,
   type: ExtensionTypeSchema,
   description: Schema.optional(Schema.String),
   repository: Schema.optional(Schema.String),

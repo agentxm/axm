@@ -2,7 +2,7 @@
  * Path utilities for axm directory resolution.
  *
  * Provides functions to determine the location of axm configuration directories
- * for both global (user-level) and project-level scopes.
+ * for both global (user-level) and project-level namespaces.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -65,12 +65,12 @@ export const getProjectDir = (): Effect.Effect<string, never, Path.Path> =>
   });
 
 /**
- * Returns the axm directory path based on scope.
+ * Returns the axm directory path based on namespace.
  *
  * - When `global` is true, returns the global directory (~/.axm)
  * - When `global` is false, returns the project directory (./.axm)
  *
- * @param global - Whether to use global scope (true) or project scope (false)
+ * @param global - Whether to use global namespace (true) or project namespace (false)
  * @returns Effect yielding absolute path to the appropriate axm directory
  *
  * @experimental This API is unstable and may change without notice.

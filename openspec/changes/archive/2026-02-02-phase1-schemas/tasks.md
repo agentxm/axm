@@ -8,7 +8,7 @@
 
 - [x] 2.1 Create `common.ts` with Author schema
 - [x] 2.2 Add CommonManifestFields (name, version, description, keywords, repository, homepage, license, bugs, author)
-- [x] 2.3 Add FullyQualifiedName schema with `@<scope>/<name>` pattern validation
+- [x] 2.3 Add FullyQualifiedName schema with `@<namespace>/<name>` pattern validation
 - [x] 2.4 Add ExtensionType, SourceType, and AgentId literal unions
 - [x] 2.5 Add tests for common schemas
 

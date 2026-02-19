@@ -7,7 +7,7 @@ The resolution module SHALL recognize fully qualified AXM names in `@scope/type-
 #### Scenario: Fully qualified AXM name
 
 - **WHEN** the input is `@wayne/skills/grappling-hook`
-- **THEN** `resolveSource` produces a `RegistrySource` with `scope: "@wayne"`, `name: "grappling-hook"`, and host config from matched registry
+- **THEN** `resolveSource` produces a `RegistrySource` with `namespace: "@wayne"`, `name: "grappling-hook"`, and host config from matched registry
 
 #### Scenario: AXM name with version
 
@@ -36,7 +36,7 @@ The resolution module SHALL recognize bare names (no `/`) and resolve them using
 
 #### Scenario: Bare name with implied scope configured
 
-- **WHEN** the input is `grappling-hook` and settings has `scope: "@wayne"`
+- **WHEN** the input is `grappling-hook` and settings has `namespace: "@wayne"`
 - **AND** the command context implies type `skills`
 - **THEN** `resolveSource` resolves `@wayne/skills/grappling-hook` as a `RegistrySource`
 

@@ -5,11 +5,11 @@
 Managed extensions (registry-sourced or forked) SHALL be stored in `.axm/extensions/` with the layout:
 
 ```
-.axm/extensions/@<scope>/skills/<name>/
+.axm/extensions/@<namespace>/skills/<name>/
   axm-skill.json
   src/
     <skill content files>
-.axm/extensions/@<scope>/mcp-servers/<name>/
+.axm/extensions/@<namespace>/mcp-servers/<name>/
 ```
 
 The `axm-skill.json` manifest SHALL reside at the extension root. Skill content files SHALL reside in the `src/` subdirectory.
@@ -38,7 +38,7 @@ The `installSkill` operation executor SHALL determine the canonical path based o
 #### Scenario: Registry source uses managed location
 
 - **WHEN** installing a skill with `source: "registry"`
-- **THEN** skill content files are written to `.axm/extensions/@<scope>/skills/<name>/src/`
+- **THEN** skill content files are written to `.axm/extensions/@<namespace>/skills/<name>/src/`
 
 #### Scenario: Other sources use existing location
 

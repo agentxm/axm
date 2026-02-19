@@ -7,7 +7,7 @@
 Create the foundational FQN type, parsing, formatting, and schema — everything else depends on this.
 
 - [x] 1.1 Write tests for `parseFqn`, `parseFqnOrThrow`, and `formatFqn` in `packages/cli/src/extensions/fqn.test.ts` — cover valid 3-segment FQNs for all types (skills, packs, mcp-servers), invalid inputs (2-segment, no scope, invalid type segment, bare name), and round-trip formatting
-- [x] 1.2 Create `packages/cli/src/extensions/fqn.ts` with: `ExtensionTypePlural` type (`"skills" | "packs" | "mcp-servers"`), `Fqn` type (`{ readonly scope: string; readonly type: ExtensionTypePlural; readonly name: string }`), `parseFqn(input: string): Effect<Fqn, CliError>`, `parseFqnOrThrow(input: string): Fqn`, `formatFqn(fqn: Fqn): string`
+- [x] 1.2 Create `packages/cli/src/extensions/fqn.ts` with: `ExtensionTypePlural` type (`"skills" | "packs" | "mcp-servers"`), `Fqn` type (`{ readonly namespace: string; readonly type: ExtensionTypePlural; readonly name: string }`), `parseFqn(input: string): Effect<Fqn, CliError>`, `parseFqnOrThrow(input: string): Fqn`, `formatFqn(fqn: Fqn): string`
 - [x] 1.3 Update `FQN_PATTERN` in `packages/cli/src/extensions/common.ts` from `/^@[\w-]+\/[\w-]+$/` to `/^@[\w-]+\/(skills|packs|mcp-servers)\/[\w-]+$/`
 - [x] 1.4 Update `packages/cli/src/extensions/common.test.ts` — change all FQN validation test cases from 2-segment to 3-segment format (valid: `@acme/skills/code-review`; invalid: `@acme/code-review`)
 - [x] 1.5 Export `parseFqn`, `parseFqnOrThrow`, `formatFqn`, `Fqn`, and `ExtensionTypePlural` from `packages/cli/src/extensions/index.ts`

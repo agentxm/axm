@@ -69,7 +69,7 @@ The `match` method MAY require I/O (e.g., fetching `.well-known` for future sour
 `PublishableSourceHostProvider` SHALL extend `SourceHostProvider` with a `publishVersion` method for registry-specific operations. Only registry providers implement this interface.
 
 ```
-publishVersion(scope, type, name, version, archive, metadata) → Effect<void, CliError, R>
+publishVersion(namespace, type, name, version, archive, metadata) → Effect<void, CliError, R>
 ```
 
 #### Scenario: Registry provider supports publish
@@ -105,7 +105,7 @@ publishVersion(scope, type, name, version, archive, metadata) → Effect<void, C
 `ExtensionRef` SHALL be a two-dimensional discriminated union with top-level discriminators `type` (extension kind) and `refType` (hosting category). Each ref variant carries a full `Source` object and ref-type-specific details.
 
 - Git-hosted refs carry `location` (file:// URL) and `gitTreeSha: Option<string>`
-- Registry refs carry `scope: string`, `name: string`, `version: string`, and `integrity: string`
+- Registry refs carry `namespace: string`, `name: string`, `version: string`, and `integrity: string`
 - Local refs carry `location` (file:// URL)
 - Builtin refs carry no additional fields
 
@@ -114,10 +114,10 @@ publishVersion(scope, type, name, version, archive, metadata) → Effect<void, C
 - **WHEN** `find` returns a ref from a GitHub source
 - **THEN** it has `refType: "git-hosted"` with `location` (file:// URL to temp clone directory) and `gitTreeSha`
 
-#### Scenario: Registry-sourced ref has scope, name, and version
+#### Scenario: Registry-sourced ref has namespace, name, and version
 
 - **WHEN** `find` returns a ref from a registry source
-- **THEN** it has `refType: "registry"` with `scope`, `name`, `version`, and `integrity`
+- **THEN** it has `refType: "registry"` with `namespace`, `name`, `version`, and `integrity`
 
 #### Scenario: Location is always populated after find
 
@@ -208,10 +208,10 @@ The provider registry SHALL contain a single `registry` entry backed by a meta-p
 - **WHEN** a registry source is added to settings mid-handler (e.g., by the registry guard)
 - **THEN** subsequent `find`/`fetch` calls on the meta-provider see the new source
 
-#### Scenario: Meta-provider applies scope routing
+#### Scenario: Meta-provider applies namespace routing
 
 - **WHEN** `find` is called for `@corp/tool`
-- **THEN** the meta-provider iterates scope-matched registries first, then catch-all
+- **THEN** the meta-provider iterates namespace-matched registries first, then catch-all
 
 ### Requirement: Registry provider populates integrity during discovery
 
@@ -284,14 +284,14 @@ The system SHALL implement `LocalRegistrySourceHostProvider` as a `PublishableSo
 - **WHEN** `find(source, options)` is called with `FindOptions`
 - **THEN** the provider maps `FindOptions` to `RegistrySearchOptions`, calls `client.getExtensions(searchOptions)`, and maps each `RegistryExtensionEntry` to a `ExtensionRef` stamped with the `source` and `RegistryRefDetails`
 
-#### Scenario: fetch extracts scope from ref and delegates to client
+#### Scenario: fetch extracts namespace from ref and delegates to client
 
 - **WHEN** `fetch(source, ref)` is called with a registry-sourced ref
-- **THEN** the provider extracts `scope`, `type`, `name`, `version` from the ref's `RegistryRefDetails`, calls `client.getExtension(scope, type, name, version)` to get archive bytes, verifies the SHA-512 integrity, and extracts the zip archive to a temporary directory
+- **THEN** the provider extracts `namespace`, `type`, `name`, `version` from the ref's `RegistryRefDetails`, calls `client.getExtension(namespace, type, name, version)` to get archive bytes, verifies the SHA-512 integrity, and extracts the zip archive to a temporary directory
 
 #### Scenario: publishExtension delegates to client
 
-- **WHEN** `publishExtension(scope, type, name, version, archive, metadata)` is called
+- **WHEN** `publishExtension(namespace, type, name, version, archive, metadata)` is called
 - **THEN** the provider delegates directly to `client.publishExtension(...)` with the same arguments
 
 ### Requirement: RemoteRegistrySourceHostProvider stub

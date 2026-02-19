@@ -26,7 +26,7 @@ import { formatFqn } from "../../../extensions/index.js";
 // -----------------------------------------------------------------------------
 
 export interface PacksAddHandlerArgs {
-  /** Pack name (without scope). */
+  /** Pack name (without namespace). */
   readonly pack: string;
   /** Extension name or glob pattern. */
   readonly extension: string;
@@ -68,14 +68,16 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     });
   }
 
-  // Resolve pack scope from the entry (format: "@scope/packs/name" or { source: "@scope/packs/name" })
+  // Resolve pack namespace from the entry (format: "@namespace/packs/name" or { source: "@namespace/packs/name" })
   const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
-  const hasScope = packSource.startsWith("@") && packSource.includes("/");
-  const packScope = hasScope ? packSource.split("/")[0]! : yield* ws.getConfiguredScope();
+  const hasNamespace = packSource.startsWith("@") && packSource.includes("/");
+  const packNamespace = hasNamespace
+    ? packSource.split("/")[0]!
+    : yield* ws.getConfiguredNamespace();
   const base = ws.baseDir;
 
   // Step 2: Read pack manifest as raw JSON (no schema validation for editing)
-  const packDir = computePackPaths(path.join, base, packScope, args.pack);
+  const packDir = computePackPaths(path.join, base, packNamespace, args.pack);
   const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
   const manifestContent = yield* fs.readFileString(manifestPath).pipe(
@@ -149,7 +151,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     // All matched extensions are registry-sourced (filtered above)
     if (lockEntry.type !== "registry") continue;
 
-    const fqn = formatFqn({ scope: lockEntry.scope, type: "skills", name: lockEntry.name });
+    const fqn = formatFqn({ namespace: lockEntry.namespace, type: "skills", name: lockEntry.name });
     const version = toVersionRange(lockEntry.resolvedVersion);
 
     // Check if already in pack (by FQN)

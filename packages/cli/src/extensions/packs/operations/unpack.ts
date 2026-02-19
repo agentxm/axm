@@ -11,6 +11,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
+import type { SkillLockEntry } from "../../../lockfile/schema.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -86,7 +87,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
           yield* ws.setSkill({
             name: parsed.name,
             lockEntry: {
-              type: "registry" as const,
+              type: "registry",
               namespace: parsed.namespace,
               name: parsed.name,
               resolvedVersion: version,
@@ -95,7 +96,7 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
               agents: [],
               installedAt: new Date(),
               updatedAt: new Date(),
-            },
+            } satisfies SkillLockEntry,
             versionConstraint: Option.none(),
           });
         }),

@@ -324,6 +324,27 @@ const installForAgent = (opts: {
   });
 
 // -----------------------------------------------------------------------------
+// Dispatch helper
+// -----------------------------------------------------------------------------
+
+const materializeSkill = (
+  ref: SkillExtensionRef,
+  sanitizedName: string,
+  versionConstraint: Option.Option<string>,
+) => {
+  switch (ref.refType) {
+    case "git-hosted":
+      return installFromGitHosted(ref, sanitizedName);
+    case "registry":
+      return installFromRegistry(ref, sanitizedName, versionConstraint);
+    case "local":
+      return installFromLocal(ref, sanitizedName);
+    case "builtin":
+      return installFromBuiltin(ref, sanitizedName);
+  }
+};
+
+// -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
 
@@ -348,18 +369,7 @@ export const installSkill: OperationHandler<
     const sanitizedName = sanitizeName(ref.skill.name);
 
     // ── Per-refType: resolve source, copy to canonical ──────────────
-    const materialized = yield* (() => {
-      switch (ref.refType) {
-        case "git-hosted":
-          return installFromGitHosted(ref, sanitizedName);
-        case "registry":
-          return installFromRegistry(ref, sanitizedName, op.args.versionConstraint);
-        case "local":
-          return installFromLocal(ref, sanitizedName);
-        case "builtin":
-          return installFromBuiltin(ref, sanitizedName);
-      }
-    })();
+    const materialized = yield* materializeSkill(ref, sanitizedName, op.args.versionConstraint);
 
     // ── Shared: symlink to agents ───────────────────────────────────
     const agentResults = yield* Effect.forEach(

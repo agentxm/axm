@@ -1,28 +1,20 @@
 /**
- * Unit tests for pack uninstall buildUninstallPlan and orphan detection.
+ * Unit tests for orphan detection functions.
  *
- * Tests the uninstall-specific plan builder and the findOrphaned* functions.
+ * Tests findOrphanedSkills, findOrphanedCommands, and findOrphanedMcpServers.
  */
 
 import { describe, expect, it } from "vitest";
-import * as Option from "effect/Option";
-import type { Lockfile, PackLockEntry } from "../../../lockfile/schema.js";
-import type { UninstallPackOperation } from "../../../extensions/packs/operations/uninstall.js";
-import { buildUninstallPlan } from "./plan.js";
+import type { PackLockEntry } from "../../../lockfile/schema.js";
 import {
   findOrphanedSkills,
   findOrphanedCommands,
   findOrphanedMcpServers,
-} from "../../../extensions/packs/operations/orphan-detection.js";
+} from "./orphan-detection.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
-
-const makeOp = (name: string): UninstallPackOperation => ({
-  name: "uninstall-pack",
-  args: { packName: name },
-});
 
 const makePackLockEntry = (
   name: string,
@@ -43,123 +35,6 @@ const makePackLockEntry = (
   resolvedSkills: overrides?.resolvedSkills ?? {},
   resolvedCommands: overrides?.resolvedCommands ?? {},
   resolvedMcpServers: overrides?.resolvedMcpServers ?? {},
-});
-
-const emptyLockfile: Lockfile = {
-  lockfileVersion: 1,
-  skills: {},
-};
-
-const lockfileWithPacks = (...entries: [string, PackLockEntry][]): Lockfile => ({
-  lockfileVersion: 1,
-  skills: {},
-  packs: Object.fromEntries(entries),
-});
-
-// -----------------------------------------------------------------------------
-// buildUninstallPlan Tests
-// -----------------------------------------------------------------------------
-
-describe("buildUninstallPlan", () => {
-  it("marks installed packs as expected success", () => {
-    const lockfile = lockfileWithPacks(["my-pack", makePackLockEntry("my-pack")]);
-    const plan = buildUninstallPlan([makeOp("my-pack")], lockfile, "Uninstall pack", Option.none());
-
-    expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.steps).toHaveLength(1);
-    expect(plan.jobs[0]!.steps[0]!._tag).toBe("PlannedJobStep");
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Uninstalled pack my-pack",
-    });
-  });
-
-  it("marks packs not in lockfile as expected no-op", () => {
-    const plan = buildUninstallPlan(
-      [makeOp("my-pack")],
-      emptyLockfile,
-      "Uninstall pack",
-      Option.none(),
-    );
-
-    expect(plan.jobs[0]!.steps[0]!._tag).toBe("PlannedJobStep");
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "no-op",
-      message: "not installed",
-    });
-  });
-
-  it("produces empty plan from empty operations", () => {
-    const plan = buildUninstallPlan([], emptyLockfile, "Uninstall pack", Option.none());
-
-    expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.steps).toHaveLength(0);
-  });
-
-  it("derives label from pack name", () => {
-    const lockfile = lockfileWithPacks(
-      ["pack-a", makePackLockEntry("pack-a")],
-      ["pack-b", makePackLockEntry("pack-b")],
-    );
-    const plan = buildUninstallPlan(
-      [makeOp("pack-a"), makeOp("pack-b")],
-      lockfile,
-      "Uninstall pack",
-      Option.none(),
-    );
-
-    expect(plan.jobs[0]!.steps[0]!.label).toBe("pack-a");
-    expect(plan.jobs[0]!.steps[1]!.label).toBe("pack-b");
-  });
-
-  it("passes through caller-provided name and description", () => {
-    const plan = buildUninstallPlan(
-      [makeOp("my-pack")],
-      emptyLockfile,
-      "Uninstall pack(s)",
-      Option.some("Uninstall packs from workspace"),
-    );
-
-    expect(plan.name).toBe("Uninstall pack(s)");
-    expect(plan.description).toEqual(Option.some("Uninstall packs from workspace"));
-  });
-
-  it("creates a single job with serial concurrency", () => {
-    const lockfile = lockfileWithPacks(
-      ["a", makePackLockEntry("a")],
-      ["b", makePackLockEntry("b")],
-    );
-    const plan = buildUninstallPlan(
-      [makeOp("a"), makeOp("b")],
-      lockfile,
-      "Uninstall pack",
-      Option.none(),
-    );
-
-    expect(plan.jobs).toHaveLength(1);
-    expect(plan.jobs[0]!.concurrency).toBe(1);
-  });
-
-  it("handles mixed success and no-op expected results", () => {
-    const lockfile = lockfileWithPacks(
-      ["pack-a", makePackLockEntry("pack-a")],
-      ["pack-c", makePackLockEntry("pack-c")],
-    );
-    const plan = buildUninstallPlan(
-      [makeOp("pack-a"), makeOp("pack-b"), makeOp("pack-c")],
-      lockfile,
-      "Uninstall pack",
-      Option.none(),
-    );
-
-    const steps = plan.jobs[0]!.steps;
-    expect(steps[0]!.expectedResult.result).toBe("success");
-    expect(steps[0]!.label).toBe("pack-a");
-    expect(steps[1]!.expectedResult.result).toBe("no-op");
-    expect(steps[1]!.label).toBe("pack-b");
-    expect(steps[2]!.expectedResult.result).toBe("success");
-    expect(steps[2]!.label).toBe("pack-c");
-  });
 });
 
 // -----------------------------------------------------------------------------

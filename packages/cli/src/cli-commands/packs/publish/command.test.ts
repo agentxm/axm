@@ -81,4 +81,13 @@ describe("packs publish command", () => {
     expect(capturedOptions["non-interactive"]).toBeDefined();
     expect(capturedOptions["non-interactive"]?.type).toBe("boolean");
   });
+
+  it("defines --include-dependencies flag with alias -d and default false", () => {
+    const { mockYargs, capturedOptions } = createCapturingMock();
+    (publishPackCommand.builder as (yargs: Argv) => Argv)(mockYargs);
+    expect(capturedOptions["include-dependencies"]).toBeDefined();
+    expect(capturedOptions["include-dependencies"]?.type).toBe("boolean");
+    expect(capturedOptions["include-dependencies"]?.alias).toBe("d");
+    expect(capturedOptions["include-dependencies"]?.default).toBe(false);
+  });
 });

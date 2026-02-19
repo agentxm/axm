@@ -15,6 +15,7 @@ export interface PublishPackCommandArgs {
   yes: boolean;
   preview: boolean;
   "non-interactive": boolean | undefined;
+  "include-dependencies": boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -47,6 +48,12 @@ export const publishPackCommand: CommandModule<{}, PublishPackCommandArgs> = {
         type: "boolean",
         describe: "Disable all interactive prompts",
       })
+      .option("include-dependencies", {
+        alias: "d",
+        type: "boolean",
+        describe: "Publish locally managed dependency extensions alongside the pack",
+        default: false,
+      })
       .example("$0 packs publish @acme/frontend-tools", "Publish to the default registry")
       .example(
         "$0 packs publish frontend-tools --registry local",
@@ -58,6 +65,7 @@ export const publishPackCommand: CommandModule<{}, PublishPackCommandArgs> = {
         pack: argv.pack,
         registry: Option.fromNullable(argv.registry),
         yes: argv.yes,
+        includeDependencies: argv["include-dependencies"],
       }),
       {
         workspace: {

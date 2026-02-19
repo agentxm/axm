@@ -5,8 +5,9 @@
  * 1. Registry guard (ensure registry configured)
  * 2. Resolve extension name (bare name -> scope from settings)
  * 3. Validate managed pack exists with manifest
- * 4. Build plan with a single PublishPackOperation
- * 5. Execute via resolvePlan
+ * 4. Discover local dependencies (when --include-dependencies)
+ * 5. Build plan (dependency job + pack job, or pack-only)
+ * 6. Execute via resolvePlan
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -19,12 +20,14 @@ import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import type { PlannedJobStep } from "../../../workspace/plan.js";
-import { formatFqn, parseFqn } from "../../../extensions/index.js";
+import type { Job, PlannedJobStep } from "../../../workspace/plan.js";
+import { formatFqn, parseFqn, parseFqnOrThrow } from "../../../extensions/index.js";
 import { publishPack } from "./publish-pack.js";
-import type { PublishPackOperation } from "../operations.js";
+import { publishExtension } from "../publish-extension.js";
+import type { PublishPackOperation, PublishExtensionOperation } from "../operations.js";
 import { computePackPaths } from "../pack-paths.js";
-import { PACK_MANIFEST_FILENAME } from "../constants.js";
+import { PACK_MANIFEST_FILENAME, type RawPackManifest } from "../constants.js";
+import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -40,7 +43,32 @@ export interface PublishPackHandlerArgs {
   readonly registry: Option.Option<string>;
   /** Skip confirmations. */
   readonly yes: boolean;
+  /** Publish locally managed dependency extensions alongside the pack. */
+  readonly includeDependencies: boolean;
 }
+
+/**
+ * Union of operation types used in the publish plan.
+ */
+export type PackPublishOp = PublishPackOperation | PublishExtensionOperation;
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+/** Map plural extension type (from FQN) to singular (for PublishExtensionOperation). */
+const pluralToSingular = (type: string): "skill" | "command" | "mcp-server" => {
+  switch (type) {
+    case "skills":
+      return "skill";
+    case "commands":
+      return "command";
+    case "mcp-servers":
+      return "mcp-server";
+    default:
+      return type as "skill" | "command" | "mcp-server";
+  }
+};
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -145,30 +173,105 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
     onSome: (name) => name,
   });
 
-  // Step 5: Build plan with a single PublishPackOperation
-  const steps: PlannedJobStep<PublishPackOperation>[] = [
-    {
-      _tag: "PlannedJobStep",
-      operation: {
-        name: "publish-pack",
-        args: {
-          name: packName,
-          registryName,
-        },
-      } satisfies PublishPackOperation,
-      expectedResult: { result: "success", message: `Published ${packName}` },
-      label: `Publish ${packName}`,
-    },
-  ];
+  // Step 5: Discover local dependencies (when --include-dependencies)
+  const dependencySteps: PlannedJobStep<PackPublishOp>[] = [];
+
+  if (args.includeDependencies) {
+    const manifestContent = yield* fs.readFileString(manifestPath).pipe(
+      Effect.mapError((e) =>
+        makeCliError({
+          code: "PACK_MANIFEST_READ_FAILED",
+          what: `Failed to read pack manifest: ${manifestPath}`,
+          cause: e,
+        }),
+      ),
+    );
+
+    const manifest = yield* Effect.try({
+      try: () => JSON.parse(manifestContent) as RawPackManifest,
+      catch: (e) =>
+        makeCliError({
+          code: "PACK_MANIFEST_PARSE_FAILED",
+          what: `Invalid JSON in pack manifest: ${manifestPath}`,
+          cause: e,
+        }),
+    });
+
+    // Collect all dependency FQNs from skills, commands, mcp-servers
+    const allDeps: ReadonlyArray<string> = [
+      ...Object.keys(manifest.skills ?? {}),
+      ...Object.keys(manifest.commands ?? {}),
+      ...Object.keys(manifest["mcp-servers"] ?? {}),
+    ];
+
+    // Check which dependencies exist locally
+    yield* Effect.forEach(
+      allDeps,
+      (depFqn) =>
+        Effect.gen(function* () {
+          const parsed = parseFqnOrThrow(depFqn);
+          const depDir = path.join(
+            base,
+            REGISTRY_EXTENSIONS_DIR,
+            parsed.scope,
+            parsed.type,
+            parsed.name,
+          );
+          const exists = yield* fs.exists(depDir).pipe(Effect.orElseSucceed(() => false));
+
+          if (exists) {
+            dependencySteps.push({
+              _tag: "PlannedJobStep",
+              operation: {
+                name: "publish-extension",
+                args: {
+                  name: depFqn,
+                  type: pluralToSingular(parsed.type),
+                  registryName,
+                },
+              } satisfies PublishExtensionOperation,
+              expectedResult: { result: "success", message: `Published ${depFqn}` },
+              label: `Publish dependency ${depFqn}`,
+            });
+          } else {
+            yield* log.warn(`Skipping non-local dependency: ${depFqn}`);
+          }
+        }),
+      { concurrency: 1 },
+    );
+  }
+
+  // Step 6: Build plan
+  const packStep: PlannedJobStep<PackPublishOp> = {
+    _tag: "PlannedJobStep",
+    operation: {
+      name: "publish-pack",
+      args: {
+        name: packName,
+        registryName,
+      },
+    } satisfies PublishPackOperation,
+    expectedResult: { result: "success", message: `Published ${packName}` },
+    label: `Publish ${packName}`,
+  };
+
+  const jobs: Job<PackPublishOp>[] =
+    dependencySteps.length > 0
+      ? [
+          { steps: dependencySteps, concurrency: "unbounded" as const },
+          { steps: [packStep], concurrency: 1 as const },
+        ]
+      : [{ steps: [packStep], concurrency: 1 as const }];
 
   const plan = {
     name: "Publish pack",
     description: Option.some(`Publish ${packName} to registry "${registryName}"`),
-    jobs: [{ steps, concurrency: 1 as const }],
+    jobs,
   };
 
   yield* ws.resolvePlan(plan, {
     "publish-pack": publishPack,
+    "publish-extension": publishExtension,
   });
 
   yield* log.success("Done");

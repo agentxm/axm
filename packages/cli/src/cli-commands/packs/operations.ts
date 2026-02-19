@@ -87,3 +87,32 @@ export interface PublishPackOperationArgs {
  * @experimental This API is unstable and may change without notice.
  */
 export type PublishPackOperation = Operation<"publish-pack", PublishPackOperationArgs>;
+
+// -----------------------------------------------------------------------------
+// Publish Extension (generic: skill, command, mcp-server)
+// -----------------------------------------------------------------------------
+
+/**
+ * Args for the publish-extension operation.
+ */
+export interface PublishExtensionOperationArgs {
+  /** Extension identity in `@scope/type/name` FQN format. */
+  readonly name: string;
+  /** Extension type (singular). */
+  readonly type: "skill" | "command" | "mcp-server";
+  /** Named source to publish to (e.g., "local"). */
+  readonly registryName: string;
+}
+
+/**
+ * Publish any non-pack extension to a registry.
+ *
+ * Generic operation that works for skills, commands, and MCP servers.
+ * The publish flow is identical: read manifest, zip, compute integrity, publish.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type PublishExtensionOperation = Operation<
+  "publish-extension",
+  PublishExtensionOperationArgs
+>;

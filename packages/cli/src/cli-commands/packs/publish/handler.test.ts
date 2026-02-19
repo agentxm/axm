@@ -60,6 +60,26 @@ const createManagedPack = (
   return packDir;
 };
 
+/** Create a managed extension (skill, command, mcp-server) in .axm/extensions/. */
+const createManagedExtension = (
+  tempDir: string,
+  scope: string,
+  type: "skills" | "commands" | "mcp-servers",
+  name: string,
+  manifest: Record<string, unknown>,
+) => {
+  const manifestFilename =
+    type === "skills"
+      ? "axm-skill.json"
+      : type === "commands"
+        ? "axm-command.json"
+        : "axm-mcp-server.json";
+  const extDir = path.join(tempDir, ".axm", "extensions", scope, type, name);
+  fs.mkdirSync(extDir, { recursive: true });
+  fs.writeFileSync(path.join(extDir, manifestFilename), JSON.stringify(manifest));
+  return extDir;
+};
+
 const defaultArgs = (
   pack: string,
   overrides: Partial<PublishPackHandlerArgs> = {},
@@ -67,6 +87,7 @@ const defaultArgs = (
   pack,
   registry: Option.none(),
   yes: true,
+  includeDependencies: false,
   ...overrides,
 });
 
@@ -386,5 +407,222 @@ describe("packs publish.handler", () => {
         }),
       );
     });
+  });
+
+  describe("include-dependencies flag", () => {
+    it.effect(
+      "builds single-step plan when includeDependencies is false (existing behavior)",
+      () => {
+        const { provide, mockLog } = makeLayers();
+        const registryRoot = path.join(tempDir, "registry");
+
+        createManagedPack(tempDir, "@test", "dep-pack", {
+          name: "@test/packs/dep-pack",
+          version: "1.0.0",
+          skills: { "@test/skills/code-review": "^1.0.0" },
+        });
+
+        // Create the dependency extension locally
+        createManagedExtension(tempDir, "@test", "skills", "code-review", {
+          name: "@test/skills/code-review",
+          version: "1.0.0",
+        });
+
+        initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+        return provide(
+          Effect.gen(function* () {
+            yield* handlePublishPack(
+              defaultArgs("@test/packs/dep-pack", {
+                registry: Option.some("local"),
+                includeDependencies: false,
+              }),
+            );
+
+            expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+
+            // Only the pack should be published, not the dependency
+            const skillIndexPath = path.join(
+              registryRoot,
+              "extensions",
+              "@test",
+              "skills",
+              "code-review",
+              "index.json",
+            );
+            expect(fs.existsSync(skillIndexPath)).toBe(false);
+          }),
+        );
+      },
+    );
+
+    it.effect("publishes local dependencies and pack when includeDependencies is true", () => {
+      const { provide, mockLog } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedPack(tempDir, "@test", "full-pack", {
+        name: "@test/packs/full-pack",
+        version: "1.0.0",
+        skills: { "@test/skills/linter": "^1.0.0" },
+        commands: { "@test/commands/formatter": "^2.0.0" },
+      });
+
+      // Create local managed extensions
+      createManagedExtension(tempDir, "@test", "skills", "linter", {
+        name: "@test/skills/linter",
+        version: "1.0.0",
+      });
+      createManagedExtension(tempDir, "@test", "commands", "formatter", {
+        name: "@test/commands/formatter",
+        version: "2.0.0",
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublishPack(
+            defaultArgs("@test/packs/full-pack", {
+              registry: Option.some("local"),
+              includeDependencies: true,
+            }),
+          );
+
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+
+          // Both dependencies should be published
+          const skillIndex = path.join(
+            registryRoot,
+            "extensions",
+            "@test",
+            "skills",
+            "linter",
+            "index.json",
+          );
+          const commandIndex = path.join(
+            registryRoot,
+            "extensions",
+            "@test",
+            "commands",
+            "formatter",
+            "index.json",
+          );
+          expect(fs.existsSync(skillIndex)).toBe(true);
+          expect(fs.existsSync(commandIndex)).toBe(true);
+
+          // Pack should also be published
+          const packIndex = path.join(
+            registryRoot,
+            "extensions",
+            "@test",
+            "packs",
+            "full-pack",
+            "index.json",
+          );
+          expect(fs.existsSync(packIndex)).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("skips non-local dependencies with a warning", () => {
+      const { provide, mockLog } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedPack(tempDir, "@test", "mixed-deps-pack", {
+        name: "@test/packs/mixed-deps-pack",
+        version: "1.0.0",
+        skills: {
+          "@test/skills/local-skill": "^1.0.0",
+          "@external/skills/remote-skill": "^1.0.0",
+        },
+      });
+
+      // Only create the local dependency, not the external one
+      createManagedExtension(tempDir, "@test", "skills", "local-skill", {
+        name: "@test/skills/local-skill",
+        version: "1.0.0",
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublishPack(
+            defaultArgs("@test/packs/mixed-deps-pack", {
+              registry: Option.some("local"),
+              includeDependencies: true,
+            }),
+          );
+
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+
+          // Local dependency should be published
+          const localSkillIndex = path.join(
+            registryRoot,
+            "extensions",
+            "@test",
+            "skills",
+            "local-skill",
+            "index.json",
+          );
+          expect(fs.existsSync(localSkillIndex)).toBe(true);
+
+          // Non-local dependency should be skipped with a warning
+          expect(mockLog.logs.warn.some((m) => m.includes("@external/skills/remote-skill"))).toBe(
+            true,
+          );
+
+          // Pack should still be published
+          const packIndex = path.join(
+            registryRoot,
+            "extensions",
+            "@test",
+            "packs",
+            "mixed-deps-pack",
+            "index.json",
+          );
+          expect(fs.existsSync(packIndex)).toBe(true);
+        }),
+      );
+    });
+
+    it.effect(
+      "produces single-step plan when pack has no dependencies and includeDependencies is true",
+      () => {
+        const { provide, mockLog } = makeLayers();
+        const registryRoot = path.join(tempDir, "registry");
+
+        createManagedPack(tempDir, "@test", "no-deps-pack", {
+          name: "@test/packs/no-deps-pack",
+          version: "1.0.0",
+        });
+
+        initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+        return provide(
+          Effect.gen(function* () {
+            yield* handlePublishPack(
+              defaultArgs("@test/packs/no-deps-pack", {
+                registry: Option.some("local"),
+                includeDependencies: true,
+              }),
+            );
+
+            expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+
+            // Pack should be published
+            const packIndex = path.join(
+              registryRoot,
+              "extensions",
+              "@test",
+              "packs",
+              "no-deps-pack",
+              "index.json",
+            );
+            expect(fs.existsSync(packIndex)).toBe(true);
+          }),
+        );
+      },
+    );
   });
 });

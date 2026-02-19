@@ -22,7 +22,7 @@ import { parseFqn } from "../../index.js";
 import { computePackPaths } from "../paths.js";
 import { removeIfExists } from "../../../utils/fs-helpers.js";
 import { sanitizeName } from "../../skills/utils.js";
-import { findOrphanedSkills } from "../../../cli-commands/packs/uninstall/plan.js";
+import { findOrphanedSkills } from "./orphan-detection.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -99,10 +99,9 @@ export const uninstallPack: OperationHandler<
     // configured skills use simple names (e.g. name). Include both forms so
     // the orphan check matches regardless of format.
     const simpleKeys = Object.keys(configuredSkillsNormalized);
-    const configuredSkillKeys: Record<string, string> = {};
-    for (const k of simpleKeys) {
-      configuredSkillKeys[k] = "";
-    }
+    const configuredSkillKeys: Record<string, string> = Object.fromEntries(
+      simpleKeys.map((k) => [k, ""]),
+    );
     // Map FQN keys from the removed pack's resolvedSkills back to simple names
     // so direct entries (keyed by simple name) prevent orphan removal
     for (const fqnKey of Object.keys(lockedPack.resolvedSkills)) {

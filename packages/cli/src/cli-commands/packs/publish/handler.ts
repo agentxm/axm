@@ -27,9 +27,17 @@ import {
   type PublishPackOperation,
 } from "../../../extensions/packs/operations/publish.js";
 import {
-  publishExtension,
-  type PublishExtensionOperation,
-} from "../../../extensions/packs/operations/publish-extension.js";
+  publishSkill,
+  type PublishSkillOperation,
+} from "../../../extensions/skills/operations/publish.js";
+import {
+  publishCommand,
+  type PublishCommandOperation,
+} from "../../../extensions/commands/operations/publish.js";
+import {
+  publishMcpServer,
+  type PublishMcpServerOperation,
+} from "../../../extensions/mcp-servers/operations/publish.js";
 import { computePackPaths } from "../../../extensions/packs/paths.js";
 import {
   PACK_MANIFEST_FILENAME,
@@ -58,25 +66,11 @@ export interface PublishPackHandlerArgs {
 /**
  * Union of operation types used in the publish plan.
  */
-export type PackPublishOp = PublishPackOperation | PublishExtensionOperation;
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-/** Map plural extension type (from FQN) to singular (for PublishExtensionOperation). */
-const pluralToSingular = (type: string): "skill" | "command" | "mcp-server" => {
-  switch (type) {
-    case "skills":
-      return "skill";
-    case "commands":
-      return "command";
-    case "mcp-servers":
-      return "mcp-server";
-    default:
-      return type as "skill" | "command" | "mcp-server";
-  }
-};
+export type PackPublishOp =
+  | PublishPackOperation
+  | PublishSkillOperation
+  | PublishCommandOperation
+  | PublishMcpServerOperation;
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -228,19 +222,8 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
           const exists = yield* fs.exists(depDir).pipe(Effect.orElseSucceed(() => false));
 
           if (exists) {
-            dependencySteps.push({
-              _tag: "PlannedJobStep",
-              operation: {
-                name: "publish-extension",
-                args: {
-                  name: depFqn,
-                  type: pluralToSingular(parsed.type),
-                  registryName,
-                },
-              } satisfies PublishExtensionOperation,
-              expectedResult: { result: "success", message: `Published ${depFqn}` },
-              label: `Publish dependency ${depFqn}`,
-            });
+            const step = makeDependencyStep(parsed, depFqn, registryName);
+            dependencySteps.push(step);
           } else {
             yield* log.warn(`Skipping non-local dependency: ${depFqn}`);
           }
@@ -279,8 +262,62 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
 
   yield* ws.resolvePlan(plan, {
     "publish-pack": publishPack,
-    "publish-extension": publishExtension,
+    "publish-skill": publishSkill,
+    "publish-command": publishCommand,
+    "publish-mcp-server": publishMcpServer,
   });
 
   yield* log.success("Done");
 });
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+/** Create a per-type publish dependency step from a parsed FQN. */
+const makeDependencyStep = (
+  parsed: { readonly type: string; readonly name: string },
+  depFqn: string,
+  registryName: string,
+): PlannedJobStep<PackPublishOp> => {
+  const base = {
+    _tag: "PlannedJobStep" as const,
+    expectedResult: { result: "success" as const, message: `Published ${depFqn}` },
+    label: `Publish dependency ${depFqn}`,
+  };
+
+  switch (parsed.type) {
+    case "skills":
+      return {
+        ...base,
+        operation: {
+          name: "publish-skill",
+          args: { name: depFqn, registryName },
+        } satisfies PublishSkillOperation,
+      };
+    case "commands":
+      return {
+        ...base,
+        operation: {
+          name: "publish-command",
+          args: { name: depFqn, registryName },
+        } satisfies PublishCommandOperation,
+      };
+    case "mcp-servers":
+      return {
+        ...base,
+        operation: {
+          name: "publish-mcp-server",
+          args: { name: depFqn, registryName },
+        } satisfies PublishMcpServerOperation,
+      };
+    default:
+      return {
+        ...base,
+        operation: {
+          name: "publish-skill",
+          args: { name: depFqn, registryName },
+        } satisfies PublishSkillOperation,
+      };
+  }
+};

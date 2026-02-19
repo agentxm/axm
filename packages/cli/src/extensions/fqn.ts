@@ -8,7 +8,6 @@
 
 import * as Effect from "effect/Effect";
 import { makeCliError } from "../cli-error/index.js";
-import { FQN_PATTERN } from "./common.js";
 
 /**
  * Extension type in plural form, matching the FQN segment.
@@ -37,15 +36,6 @@ const FQN_PARTS_PATTERN = /^(@[\w-]+)\/(skills|packs|commands|mcp-servers)\/([\w
  */
 export const parseFqn = (input: string) =>
   Effect.gen(function* () {
-    if (!FQN_PATTERN.test(input)) {
-      return yield* makeCliError({
-        code: "INVALID_FQN",
-        what: `Invalid fully qualified name: ${input}`,
-        details: ["Expected format: @namespace/type/name (e.g., @acme/skills/code-review)"],
-        howToFix: "Use the 3-segment format: @namespace/(skills|packs|mcp-servers)/name",
-      });
-    }
-
     const match = FQN_PARTS_PATTERN.exec(input);
     if (!match) {
       return yield* makeCliError({

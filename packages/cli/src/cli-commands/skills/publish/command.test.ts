@@ -32,24 +32,38 @@ const createCapturingMock = () => {
 };
 
 describe("skills publish command", () => {
-  const createParser = () => yargs().command(publishCommand).exitProcess(false);
+  const createParser = () =>
+    yargs()
+      .command({ ...publishCommand, handler: () => {} })
+      .exitProcess(false);
 
   it("registers with correct description", () => {
-    expect(publishCommand.describe).toBe("Publish an extension to a registry");
+    expect(publishCommand.describe).toBe("Publish extensions to a registry");
   });
 
   it("shows command in help output", async () => {
     const helpOutput = await createParser().getHelp();
-    expect(helpOutput).toContain("publish <extension>");
-    expect(helpOutput).toContain("Publish an extension");
+    expect(helpOutput).toContain("publish <extensions..>");
+    expect(helpOutput).toContain("Publish extensions");
   });
 
-  it("requires extension positional argument", () => {
+  it("requires extensions variadic positional argument", () => {
     const { mockYargs, capturedPositionals } = createCapturingMock();
     (publishCommand.builder as (yargs: Argv) => Argv)(mockYargs);
-    expect(capturedPositionals["extension"]).toBeDefined();
-    expect(capturedPositionals["extension"]?.type).toBe("string");
-    expect(capturedPositionals["extension"]?.demandOption).toBe(true);
+    expect(capturedPositionals["extensions"]).toBeDefined();
+    expect(capturedPositionals["extensions"]?.type).toBe("string");
+    expect(capturedPositionals["extensions"]?.array).toBe(true);
+    expect(capturedPositionals["extensions"]?.demandOption).toBe(true);
+  });
+
+  it("parses a single extension as an array", async () => {
+    const parsed = await createParser().parse("publish code-review");
+    expect(parsed["extensions"]).toEqual(["code-review"]);
+  });
+
+  it("parses multiple extensions as an array", async () => {
+    const parsed = await createParser().parse("publish effect-* commit");
+    expect(parsed["extensions"]).toEqual(["effect-*", "commit"]);
   });
 
   it("defines --registry flag as optional string", () => {

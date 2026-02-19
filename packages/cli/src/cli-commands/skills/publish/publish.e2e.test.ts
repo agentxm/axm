@@ -208,6 +208,187 @@ describe("axm skills publish", () => {
     });
   });
 
+  describe("glob and multi-extension publish", () => {
+    /** Create a managed extension in .axm/extensions/ with a manifest. */
+    const createManagedExtension = (
+      tempPath: string,
+      scope: string,
+      name: string,
+      version: string = "1.0.0",
+    ) => {
+      const extensionDir = path.join(tempPath, ".axm", "extensions", scope, "skills", name);
+      const srcDir = path.join(extensionDir, "src");
+      fs.mkdirSync(srcDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(srcDir, "SKILL.md"),
+        `---\nname: "${name}"\ndescription: "Test skill"\n---\n\n# ${name}\n`,
+      );
+      fs.writeFileSync(
+        path.join(extensionDir, "axm-skill.json"),
+        JSON.stringify(
+          {
+            name: `${scope}/skills/${name}`,
+            version,
+            agents: ["claude-code"],
+            dependencies: {},
+          },
+          null,
+          2,
+        ) + "\n",
+      );
+    };
+
+    /** Set up workspace with registry source, scope, and optional skills in settings. */
+    const setupWorkspace = async (
+      tempPath: string,
+      registryPath: string,
+      scope: string,
+      skills?: Record<string, { source: string; managed: boolean }>,
+    ) => {
+      await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: tempPath });
+      const settingsPath = path.join(tempPath, ".axm", "settings.json");
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+      settings.sources = [{ name: "local", type: "registry", location: `file://${registryPath}` }];
+      settings.scope = scope;
+      if (skills) settings.skills = skills;
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    };
+
+    it("glob pattern publishes matching managed skills", async () => {
+      const temp = createTempDir();
+      const registryDir = createTempDir("axm-registry-");
+      try {
+        const scope = "@test";
+
+        // Create 3 managed extensions
+        createManagedExtension(temp.path, scope, "effect-basics");
+        createManagedExtension(temp.path, scope, "effect-stream");
+        createManagedExtension(temp.path, scope, "commit");
+
+        // Set up workspace with all 3 registered as managed skills
+        await setupWorkspace(temp.path, registryDir.path, scope, {
+          "effect-basics": { source: `${scope}/skills/effect-basics`, managed: true },
+          "effect-stream": { source: `${scope}/skills/effect-stream`, managed: true },
+          commit: { source: `${scope}/skills/commit`, managed: true },
+        });
+
+        // Publish with glob pattern
+        const result = await runCli(["skills", "publish", "effect-*", "--yes"], {
+          cwd: temp.path,
+        });
+        expect(result.exitCode).toBe(0);
+
+        // Verify both effect-* skills have index.json in registry
+        const effectBasicsIndex = path.join(
+          registryDir.path,
+          "extensions",
+          scope,
+          "skills",
+          "effect-basics",
+          "index.json",
+        );
+        const effectStreamIndex = path.join(
+          registryDir.path,
+          "extensions",
+          scope,
+          "skills",
+          "effect-stream",
+          "index.json",
+        );
+        expect(fs.existsSync(effectBasicsIndex)).toBe(true);
+        expect(fs.existsSync(effectStreamIndex)).toBe(true);
+
+        // Verify commit was NOT published (not matched by glob)
+        const commitIndex = path.join(
+          registryDir.path,
+          "extensions",
+          scope,
+          "skills",
+          "commit",
+          "index.json",
+        );
+        expect(fs.existsSync(commitIndex)).toBe(false);
+      } finally {
+        temp.cleanup();
+        registryDir.cleanup();
+      }
+    });
+
+    it("multiple literal skills publishes all specified", async () => {
+      const temp = createTempDir();
+      const registryDir = createTempDir("axm-registry-");
+      try {
+        const scope = "@test";
+
+        createManagedExtension(temp.path, scope, "skill-a");
+        createManagedExtension(temp.path, scope, "skill-b");
+
+        await setupWorkspace(temp.path, registryDir.path, scope, {
+          "skill-a": { source: `${scope}/skills/skill-a`, managed: true },
+          "skill-b": { source: `${scope}/skills/skill-b`, managed: true },
+        });
+
+        // Publish multiple literal names
+        const result = await runCli(["skills", "publish", "skill-a", "skill-b", "--yes"], {
+          cwd: temp.path,
+        });
+        expect(result.exitCode).toBe(0);
+
+        // Verify both have index.json in registry
+        const skillAIndex = path.join(
+          registryDir.path,
+          "extensions",
+          scope,
+          "skills",
+          "skill-a",
+          "index.json",
+        );
+        const skillBIndex = path.join(
+          registryDir.path,
+          "extensions",
+          scope,
+          "skills",
+          "skill-b",
+          "index.json",
+        );
+        expect(fs.existsSync(skillAIndex)).toBe(true);
+        expect(fs.existsSync(skillBIndex)).toBe(true);
+      } finally {
+        temp.cleanup();
+        registryDir.cleanup();
+      }
+    });
+
+    it("nonexistent glob warns and exits cleanly", async () => {
+      const temp = createTempDir();
+      const registryDir = createTempDir("axm-registry-");
+      try {
+        const scope = "@test";
+
+        createManagedExtension(temp.path, scope, "some-skill");
+
+        await setupWorkspace(temp.path, registryDir.path, scope, {
+          "some-skill": { source: `${scope}/skills/some-skill`, managed: true },
+        });
+
+        // Publish with a glob that matches nothing
+        const result = await runCli(["skills", "publish", "nonexistent-*", "--yes"], {
+          cwd: temp.path,
+        });
+
+        // Should exit cleanly (not an error)
+        expect(result.exitCode).toBe(0);
+
+        // Should contain warning about no matches
+        const output = result.stdout + result.stderr;
+        expect(output).toMatch(/no skills matched/i);
+      } finally {
+        temp.cleanup();
+        registryDir.cleanup();
+      }
+    });
+  });
+
   describe("--help", () => {
     it("displays usage information", async () => {
       const result = await runCli(["skills", "publish", "--help"]);

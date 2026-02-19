@@ -10,7 +10,7 @@ import { run } from "../../../runtime/index.js";
 import { handlePublish } from "./handler.js";
 
 export interface PublishCommandArgs {
-  extension: string;
+  extensions: string[];
   registry: string | undefined;
   yes: boolean;
   preview: boolean;
@@ -19,13 +19,14 @@ export interface PublishCommandArgs {
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
 export const publishCommand: CommandModule<{}, PublishCommandArgs> = {
-  command: "publish <extension>",
-  describe: "Publish an extension to a registry",
+  command: "publish <extensions..>",
+  describe: "Publish extensions to a registry",
   builder: (yargs) =>
     yargs
-      .positional("extension", {
+      .positional("extensions", {
         type: "string",
-        describe: "Extension name (@scope/skills/name or bare name)",
+        array: true,
+        describe: "Extension names or glob patterns (@scope/skills/name, bare name, or glob)",
         demandOption: true,
       })
       .option("registry", {
@@ -47,7 +48,8 @@ export const publishCommand: CommandModule<{}, PublishCommandArgs> = {
         type: "boolean",
         describe: "Disable all interactive prompts",
       })
-      .example("$0 skills publish @acme/skills/code-review", "Publish to the default registry")
+      .example("$0 skills publish @acme/skills/code-review", "Publish a single extension")
+      .example("$0 skills publish effect-* commit", "Publish extensions matching patterns")
       .example(
         "$0 skills publish code-review --registry local",
         "Publish with scope from settings to the local registry",
@@ -55,7 +57,7 @@ export const publishCommand: CommandModule<{}, PublishCommandArgs> = {
   handler: async (argv) => {
     await run(
       handlePublish({
-        extension: argv.extension,
+        extensions: argv.extensions,
         registry: Option.fromNullable(argv.registry),
         yes: argv.yes,
       }),

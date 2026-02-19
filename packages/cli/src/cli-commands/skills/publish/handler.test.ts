@@ -34,6 +34,7 @@ const initWorkspace = (
   axmDir: string,
   registryRoot: string,
   lockfileSkills: Record<string, unknown> = {},
+  skills?: Record<string, unknown>,
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
   fs.mkdirSync(registryRoot, { recursive: true });
@@ -43,6 +44,7 @@ const initWorkspace = (
       scope: "@test",
       agents: ["claude-code"],
       sources: [{ name: "local", type: "registry", location: new URL(`file://${registryRoot}`) }],
+      ...(skills && { skills }),
     }),
   );
   fs.writeFileSync(
@@ -67,10 +69,10 @@ const createManagedExtension = (
 };
 
 const defaultArgs = (
-  extension: string,
-  overrides: Partial<PublishHandlerArgs> = {},
+  extensions: ReadonlyArray<string>,
+  overrides?: Partial<PublishHandlerArgs>,
 ): PublishHandlerArgs => ({
-  extension,
+  extensions,
   registry: Option.none(),
   yes: true,
   ...overrides,
@@ -144,7 +146,7 @@ describe("publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handlePublish(
-            defaultArgs("@test/skills/code-review", { registry: Option.some("local") }),
+            defaultArgs(["@test/skills/code-review"], { registry: Option.some("local") }),
           );
 
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
@@ -179,7 +181,7 @@ describe("publish.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePublish(defaultArgs("@test/skills/my-skill"));
+          yield* handlePublish(defaultArgs(["@test/skills/my-skill"]));
 
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
@@ -215,7 +217,7 @@ describe("publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           // Pass bare name without scope
-          yield* handlePublish(defaultArgs("code-review"));
+          yield* handlePublish(defaultArgs(["code-review"]));
 
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
@@ -256,7 +258,7 @@ describe("publish.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const result = yield* handlePublish(defaultArgs("@test/skills/no-manifest")).pipe(
+          const result = yield* handlePublish(defaultArgs(["@test/skills/no-manifest"])).pipe(
             Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, what: e.what })),
           );
           expect(result).toHaveProperty("error", true);
@@ -275,7 +277,7 @@ describe("publish.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const result = yield* handlePublish(defaultArgs("@test/skills/nonexistent")).pipe(
+          const result = yield* handlePublish(defaultArgs(["@test/skills/nonexistent"])).pipe(
             Effect.catchTag("CliError", (e) =>
               Effect.succeed({
                 error: true,
@@ -287,6 +289,262 @@ describe("publish.handler", () => {
           expect(result).toHaveProperty("error", true);
           expect((result as { what: string }).what).toContain("Managed extension not found");
           expect((result as { howToFix: string }).howToFix).toContain("axm skills fork");
+        }),
+      );
+    });
+  });
+
+  describe("glob expansion", () => {
+    it.effect("expands glob pattern against installed skill names", () => {
+      const { provide, mockLog } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedExtension(tempDir, "@test", "effect-basics", {
+        name: "@test/skills/effect-basics",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+      createManagedExtension(tempDir, "@test", "effect-advanced", {
+        name: "@test/skills/effect-advanced",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+      createManagedExtension(tempDir, "@test", "commit", {
+        name: "@test/skills/commit",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {},
+        {
+          "effect-basics": { source: "@test/skills/effect-basics", managed: true },
+          "effect-advanced": { source: "@test/skills/effect-advanced", managed: true },
+          commit: { source: "@test/skills/commit", managed: true },
+        },
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(defaultArgs(["effect-*"]));
+
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+
+          // Both effect- skills should be published
+          expect(
+            fs.existsSync(
+              path.join(
+                registryRoot,
+                "extensions",
+                "@test",
+                "skills",
+                "effect-basics",
+                "index.json",
+              ),
+            ),
+          ).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(
+                registryRoot,
+                "extensions",
+                "@test",
+                "skills",
+                "effect-advanced",
+                "index.json",
+              ),
+            ),
+          ).toBe(true);
+          // commit should NOT be published
+          expect(
+            fs.existsSync(
+              path.join(registryRoot, "extensions", "@test", "skills", "commit", "index.json"),
+            ),
+          ).toBe(false);
+        }),
+      );
+    });
+
+    it.effect("literal names pass through without glob expansion", () => {
+      const { provide, mockLog } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedExtension(tempDir, "@test", "commit", {
+        name: "@test/skills/commit",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(defaultArgs(["commit"]));
+
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(registryRoot, "extensions", "@test", "skills", "commit", "index.json"),
+            ),
+          ).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("mixed glob and literal deduplicates", () => {
+      const { provide, mockLog } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedExtension(tempDir, "@test", "effect-basics", {
+        name: "@test/skills/effect-basics",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+      createManagedExtension(tempDir, "@test", "commit", {
+        name: "@test/skills/commit",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {},
+        {
+          "effect-basics": { source: "@test/skills/effect-basics", managed: true },
+          commit: { source: "@test/skills/commit", managed: true },
+        },
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          // effect-basics matches both the glob and the literal
+          yield* handlePublish(defaultArgs(["effect-*", "effect-basics", "commit"]));
+
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(
+                registryRoot,
+                "extensions",
+                "@test",
+                "skills",
+                "effect-basics",
+                "index.json",
+              ),
+            ),
+          ).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(registryRoot, "extensions", "@test", "skills", "commit", "index.json"),
+            ),
+          ).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("glob matching zero skills warns and exits cleanly", () => {
+      const { provide, mockLog } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {},
+        {
+          commit: { source: "@test/skills/commit", managed: true },
+        },
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(defaultArgs(["nonexistent-*"]));
+
+          expect(mockLog.logs.warn.some((m) => m.includes("No skills matched"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Nothing to publish"))).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("FQN input bypasses glob expansion", () => {
+      const { provide, mockLog } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedExtension(tempDir, "@test", "code-review", {
+        name: "@test/skills/code-review",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(defaultArgs(["@test/skills/code-review"]));
+
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          expect(
+            fs.existsSync(
+              path.join(registryRoot, "extensions", "@test", "skills", "code-review", "index.json"),
+            ),
+          ).toBe(true);
+        }),
+      );
+    });
+
+    it.effect("unmanaged skills excluded from glob matches", () => {
+      const { provide, mockLog } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedExtension(tempDir, "@test", "effect-basics", {
+        name: "@test/skills/effect-basics",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {},
+        {
+          "effect-basics": { source: "@test/skills/effect-basics", managed: true },
+          "effect-unmanaged": { source: "@test/skills/effect-unmanaged", managed: false },
+        },
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(defaultArgs(["effect-*"]));
+
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          // Only managed skill should be published
+          expect(
+            fs.existsSync(
+              path.join(
+                registryRoot,
+                "extensions",
+                "@test",
+                "skills",
+                "effect-basics",
+                "index.json",
+              ),
+            ),
+          ).toBe(true);
+          // Unmanaged should NOT be published
+          expect(
+            fs.existsSync(
+              path.join(
+                registryRoot,
+                "extensions",
+                "@test",
+                "skills",
+                "effect-unmanaged",
+                "index.json",
+              ),
+            ),
+          ).toBe(false);
         }),
       );
     });

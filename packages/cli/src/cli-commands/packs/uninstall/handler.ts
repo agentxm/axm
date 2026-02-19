@@ -21,6 +21,7 @@ import {
   uninstallPack,
   type UninstallPackOperation,
 } from "../../../extensions/packs/operations/uninstall.js";
+import { uninstallSkill } from "../../../extensions/skills/operations/uninstall.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -80,11 +81,22 @@ export const handleUninstallPack = Effect.fn("UninstallPack.handle")(function* (
       }) satisfies UninstallPackOperation,
   );
 
-  // Step 4: Build plan
-  const plan = buildUninstallPlan(ops, lockfile, "Uninstall pack(s)", Option.none());
+  // Step 4: Load configured skills and build plan
+  const configuredSkills = yield* ws.getConfiguredSkills();
+  const configuredSkillNames = Object.keys(configuredSkills);
+  const plan = buildUninstallPlan(
+    ops,
+    lockfile,
+    configuredSkillNames,
+    "Uninstall pack(s)",
+    Option.none(),
+  );
 
   // Step 5: Resolve plan via workspace
-  yield* ws.resolvePlan(plan, { "uninstall-pack": uninstallPack });
+  yield* ws.resolvePlan(plan, {
+    "uninstall-pack": uninstallPack,
+    "uninstall-skill": uninstallSkill,
+  });
 
   yield* log.success("Done");
 });

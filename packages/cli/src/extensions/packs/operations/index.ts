@@ -6,8 +6,3 @@ export type { PublishPackOperationArgs, PublishPackOperation } from "./publish.j
 export { publishPack } from "./publish.js";
 export type { UnpackPackOperationArgs, UnpackPackOperation } from "./unpack.js";
 export { unpackPack } from "./unpack.js";
-export {
-  findOrphanedSkills,
-  findOrphanedCommands,
-  findOrphanedMcpServers,
-} from "./orphan-detection.js";

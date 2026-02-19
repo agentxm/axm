@@ -1,147 +1,46 @@
-# extension-resolution Specification
-
-## Purpose
-
-Resolves input strings to `Source` values via `resolveSource`. Extension discovery is the provider's responsibility via `SourceHostProviders.find()`.
-
-## Requirements
-
-### Requirement: Resolution Function
-
-The resolution module SHALL provide `resolveSource` that accepts an input string and returns a `Source` value. Resolution produces `Source` values, not extension references. Extension discovery is exclusively the provider's responsibility via `SourceHostProviders.find()`.
-
-Callers that need to find extensions SHALL use:
-
-1. `resolveSource(input)` → `Source`
-2. `sourceHostProviders.find(source, findOptions)` → `SourceExtensionRef[]`
-
-#### Scenario: Resolution produces Source, discovery is separate
-
-- **WHEN** a caller needs to find extensions from an input string
-- **THEN** they call `resolveSource(input)` to get a `Source`, then `sourceHostProviders.find(source, options)` to discover extensions
-
-#### Scenario: No type/source filter on resolveSource
-
-- **WHEN** `resolveSource` is called
-- **THEN** it returns a `Source` without type or source filtering (filtering moves to `FindOptions` on the provider)
-
-### Requirement: Input Syntax - Local Path
-
-The resolution module SHALL recognize local filesystem paths and resolve them to `LocalSource` values.
-
-#### Scenario: Relative path with dot-slash
-
-- **WHEN** the input is `./path/to/skills`
-- **THEN** `resolveSource` produces a `LocalSource` with `path` resolved relative to the working directory
-
-#### Scenario: Absolute POSIX path
-
-- **WHEN** the input is `/home/user/skills`
-- **THEN** `resolveSource` produces a `LocalSource` with the absolute path
-
-### Requirement: Input Syntax - Home Directory Path
-
-The resolution module SHALL recognize home directory paths starting with `~` and resolve them to `LocalSource` values.
-
-#### Scenario: Home directory path with tilde
-
-- **WHEN** the input is `~/skills/my-skill`
-- **THEN** `resolveSource` produces a `LocalSource` with `~` expanded to the user's home directory
+## MODIFIED Requirements
 
 ### Requirement: Input Syntax - AXM Name
 
-The resolution module SHALL recognize fully qualified AXM names in `@scope/name` format and resolve them to `RegistrySource` values (with host config from settings).
+The resolution module SHALL recognize fully qualified AXM names in `@scope/type-plural/name` format and resolve them to `RegistrySource` values (with host config from settings).
 
 #### Scenario: Fully qualified AXM name
 
-- **WHEN** the input is `@wayne/grappling-hook`
+- **WHEN** the input is `@wayne/skills/grappling-hook`
 - **THEN** `resolveSource` produces a `RegistrySource` with `scope: "@wayne"`, `name: "grappling-hook"`, and host config from matched registry
 
 #### Scenario: AXM name with version
 
-- **WHEN** the input is `@wayne/grappling-hook@^1.0.0`
+- **WHEN** the input is `@wayne/skills/grappling-hook@^1.0.0`
 - **THEN** `resolveSource` produces a `RegistrySource` with `versionConstraint: Some("^1.0.0")`
+
+#### Scenario: Two-segment AXM name not recognized
+
+- **WHEN** the input is `@wayne/grappling-hook` (no type segment)
+- **THEN** `resolveSource` does NOT produce a `RegistrySource`
+- **AND** the input falls through to other resolution steps
+
+#### Scenario: Scope-only input
+
+- **WHEN** the input is `@wayne`
+- **THEN** `resolveSource` produces a `RegistrySource` with scope `@wayne`, no type, no name (browse mode)
+
+#### Scenario: Scope+type input
+
+- **WHEN** the input is `@wayne/skills`
+- **THEN** `resolveSource` produces a `RegistrySource` with scope `@wayne`, type `skills`, no name (browse mode)
 
 ### Requirement: Input Syntax - Bare Name
 
-The resolution module SHALL recognize bare names (no `/`) and resolve them using the implied scope from settings.
+The resolution module SHALL recognize bare names (no `/`) and resolve them using the implied scope from settings. The extension type SHALL be determined by the command context (e.g., `axm skills install` implies `skills`).
 
 #### Scenario: Bare name with implied scope configured
 
 - **WHEN** the input is `grappling-hook` and settings has `scope: "@wayne"`
-- **THEN** `resolveSource` resolves `@wayne/grappling-hook` as a `RegistrySource`
+- **AND** the command context implies type `skills`
+- **THEN** `resolveSource` resolves `@wayne/skills/grappling-hook` as a `RegistrySource`
 
 #### Scenario: Bare name without implied scope
 
 - **WHEN** the input is `grappling-hook` and no scope is configured in settings
 - **THEN** `resolveSource` fails or returns empty (no match)
-
-### Requirement: Input Syntax - Explicit Source
-
-The resolution module SHALL recognize explicit source prefixes in `source:owner/repo` format and resolve them to the corresponding `Source` variant.
-
-#### Scenario: GitHub explicit source
-
-- **WHEN** the input is `github:wayne-industries/skills`
-- **THEN** `resolveSource` produces a `GitHubSource` without checking other sources
-
-#### Scenario: Explicit source with path and ref
-
-- **WHEN** the input is `github:wayne-industries/mono/skills/grappling-hook@v1.0.0`
-- **THEN** `resolveSource` produces a `GitHubSource` with `subPath: Some("skills/grappling-hook")` and `ref: Some("v1.0.0")`
-
-### Requirement: Input Syntax - URL
-
-The resolution module SHALL recognize URLs and resolve them to the appropriate `Source` variant via config-driven hostname matching and provider `match()`.
-
-#### Scenario: GitHub HTTPS URL
-
-- **WHEN** the input is `https://github.com/owner/repo`
-- **THEN** `resolveSource` produces a `GitHubSource` via hostname matching against configured sources
-
-#### Scenario: SSH URL
-
-- **WHEN** the input is `git@github.com:owner/repo.git`
-- **THEN** `resolveSource` produces a `GitHubSource` via hostname matching
-
-### Requirement: Input Syntax - Ambiguous Pattern
-
-The resolution module SHALL disambiguate `a/b` patterns using the merged sources list.
-
-#### Scenario: Ambiguous pattern matches local path
-
-- **WHEN** the input is `skills/my-skill` and that path exists on filesystem
-- **THEN** `resolveSource` produces a `LocalSource`
-
-#### Scenario: Ambiguous pattern falls back to configured sources
-
-- **WHEN** the input is `owner/repo` and no local path matches
-- **THEN** `resolveSource` queries git-hosting sources from configured sources in array order
-
-### Requirement: Resolution Order
-
-The resolution module SHALL attempt resolution steps in a specific order, stopping at the first match.
-
-#### Scenario: Local path takes precedence
-
-- **WHEN** the input is `./skills` (a local path that exists)
-- **THEN** `resolveSource` returns immediately without checking AXM names or sources
-
-#### Scenario: AXM name takes precedence over ambiguous
-
-- **WHEN** the input is `@wayne/skill` (fully qualified)
-- **THEN** `resolveSource` performs registry resolution without treating it as ambiguous
-
-### Requirement: Error Handling
-
-The resolution module SHALL return typed `CliError` errors with recovery guidance.
-
-#### Scenario: Invalid input format
-
-- **WHEN** the input cannot be parsed as any recognized pattern
-- **THEN** `resolveSource` fails with `CliError` with an appropriate error code
-
-#### Scenario: No config matches
-
-- **WHEN** a URL input has no matching configured source
-- **THEN** `resolveSource` fails with `CliError` indicating no configured source matches

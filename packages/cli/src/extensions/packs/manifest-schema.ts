@@ -7,6 +7,20 @@
 import * as Schema from "effect/Schema";
 import { CommonManifestFields, FQN_PATTERN } from "../common.js";
 
+export const PACK_MANIFEST_FILENAME = "axm-pack.json";
+
+/**
+ * Raw pack manifest JSON shape (no schema validation on read to allow editing).
+ */
+export interface RawPackManifest {
+  name: string;
+  version: string;
+  skills?: Record<string, string>;
+  commands?: Record<string, string>;
+  "mcp-servers"?: Record<string, string>;
+  [key: string]: unknown;
+}
+
 /**
  * Version specifier map: FQN keys to semver range values.
  * Used for skills, commands, and mcp-servers in pack manifests.

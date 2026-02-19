@@ -26,8 +26,8 @@ import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner, type LogService } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import { buildSkillInstallPlan } from "./build-plan.js";
-import { installSkill } from "./install-skill.js";
+import { buildSkillInstallPlan } from "./plan.js";
+import { installSkill } from "../../../extensions/skills/operations/install.js";
 
 // -----------------------------------------------------------------------------
 // Types

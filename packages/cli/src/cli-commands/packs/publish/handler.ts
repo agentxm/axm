@@ -22,11 +22,19 @@ import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { Job, PlannedJobStep } from "../../../workspace/plan.js";
 import { formatFqn, parseFqn, parseFqnOrThrow } from "../../../extensions/index.js";
-import { publishPack } from "./publish-pack.js";
-import { publishExtension } from "../publish-extension.js";
-import type { PublishPackOperation, PublishExtensionOperation } from "../operations.js";
-import { computePackPaths } from "../pack-paths.js";
-import { PACK_MANIFEST_FILENAME, type RawPackManifest } from "../constants.js";
+import {
+  publishPack,
+  type PublishPackOperation,
+} from "../../../extensions/packs/operations/publish.js";
+import {
+  publishExtension,
+  type PublishExtensionOperation,
+} from "../../../extensions/packs/operations/publish-extension.js";
+import { computePackPaths } from "../../../extensions/packs/paths.js";
+import {
+  PACK_MANIFEST_FILENAME,
+  type RawPackManifest,
+} from "../../../extensions/packs/manifest-schema.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 
 // -----------------------------------------------------------------------------

@@ -7,6 +7,8 @@
 import * as Schema from "effect/Schema";
 import { CommonManifestFields } from "../common.js";
 
+export const MANIFEST_FILENAME = "axm-skill.json";
+
 /**
  * Schema for skill manifest files (axm-skill.json).
  *

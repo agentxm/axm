@@ -9,7 +9,7 @@
 import matter from "gray-matter";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
-import type { Skill } from "../operations.js";
+import type { Skill } from "../../../extensions/skills/types.js";
 
 /**
  * Parse a SKILL.md file's content and extract skill metadata from frontmatter.

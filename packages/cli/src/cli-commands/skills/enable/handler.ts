@@ -12,9 +12,9 @@ import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import type { EnableSkillOperation } from "../operations.js";
+import type { EnableSkillOperation } from "../../../extensions/skills/operations/enable.js";
 import { buildSingleStepPlan } from "../plan-helpers.js";
-import { enableSkill } from "./enable-skill.js";
+import { enableSkill } from "../../../extensions/skills/operations/enable.js";
 
 // -----------------------------------------------------------------------------
 // Types

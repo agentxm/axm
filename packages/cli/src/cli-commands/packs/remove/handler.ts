@@ -14,8 +14,11 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
-import { computePackPaths } from "../pack-paths.js";
-import { PACK_MANIFEST_FILENAME, type RawPackManifest } from "../constants.js";
+import { computePackPaths } from "../../../extensions/packs/paths.js";
+import {
+  PACK_MANIFEST_FILENAME,
+  type RawPackManifest,
+} from "../../../extensions/packs/manifest-schema.js";
 
 // -----------------------------------------------------------------------------
 // Types

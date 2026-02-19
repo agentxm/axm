@@ -15,10 +15,12 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import type { UninstallPackOperation } from "../operations.js";
-import { buildUninstallPlan } from "./build-plan.js";
+import { buildUninstallPlan } from "./plan.js";
 import { expandGlob } from "../../../skills/index.js";
-import { uninstallPack } from "./uninstall-pack.js";
+import {
+  uninstallPack,
+  type UninstallPackOperation,
+} from "../../../extensions/packs/operations/uninstall.js";
 
 // -----------------------------------------------------------------------------
 // Types

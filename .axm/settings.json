@@ -17,6 +17,22 @@
     "github-copilot",
     "opencode"
   ],
-  "skills": {},
-  "packs": {}
+  "skills": {
+    "effect-testing": "./test",
+    "effect-wrapping": "./test",
+    "effect-schema": "./test",
+    "effect-service": "./test",
+    "effect-collections": "./test",
+    "effect-iteration": "./test",
+    "testing-unit": "./test",
+    "effect-basics": "./test",
+    "testing-handler": "./test",
+    "effect-option": "./test",
+    "effect-filesystem": "./test",
+    "effect-concurrency": "./test",
+    "testing-basics": "./test"
+  },
+  "packs": {
+    "effect": "@axm/packs/effect"
+  }
 }

@@ -1,131 +1,9 @@
 lockfileVersion: 1
 skills:
-  effect-testing:
-    type: registry
-    namespace: "@axm"
-    name: effect-testing
-    resolvedVersion: 0.1.0
-    integrity: ""
-    sourceName: default
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-19T15:35:17.188Z
-    updatedAt: 2026-02-19T15:35:17.190Z
-  effect-wrapping:
-    type: registry
-    namespace: "@axm"
-    name: effect-wrapping
-    resolvedVersion: 0.1.0
-    integrity: ""
-    sourceName: default
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-19T15:35:17.204Z
-    updatedAt: 2026-02-19T15:35:17.206Z
-  effect-schema:
-    type: registry
-    namespace: "@axm"
-    name: effect-schema
-    resolvedVersion: 0.1.0
-    integrity: ""
-    sourceName: default
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-19T15:35:17.137Z
-    updatedAt: 2026-02-19T15:35:17.139Z
-  effect-service:
-    type: registry
-    namespace: "@axm"
-    name: effect-service
-    resolvedVersion: 0.1.0
-    integrity: ""
-    sourceName: default
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-19T15:35:17.153Z
-    updatedAt: 2026-02-19T15:35:17.155Z
-  effect-collections:
-    type: registry
-    namespace: "@axm"
-    name: effect-collections
-    resolvedVersion: 0.1.0
-    integrity: ""
-    sourceName: default
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-19T15:35:17.045Z
-    updatedAt: 2026-02-19T15:35:17.047Z
-  effect-iteration:
-    type: registry
-    namespace: "@axm"
-    name: effect-iteration
-    resolvedVersion: 0.1.0
-    integrity: ""
-    sourceName: default
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-19T15:35:17.106Z
-    updatedAt: 2026-02-19T15:35:17.108Z
   testing-unit:
-    type: local
-    path: ./test
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-19T15:33:15.488Z
-    updatedAt: 2026-02-19T15:33:15.490Z
-  effect-basics:
     type: registry
     namespace: "@axm"
-    name: effect-basics
+    name: testing-unit
     resolvedVersion: 0.1.0
     integrity: ""
     sourceName: default
@@ -138,26 +16,12 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T15:35:17.024Z
-    updatedAt: 2026-02-19T15:35:17.026Z
+    installedAt: 2026-02-19T20:24:34.129Z
+    updatedAt: 2026-02-19T20:24:34.131Z
   testing-handler:
-    type: local
-    path: ./test
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-19T15:33:15.498Z
-    updatedAt: 2026-02-19T15:33:15.499Z
-  effect-option:
     type: registry
     namespace: "@axm"
-    name: effect-option
+    name: testing-handler
     resolvedVersion: 0.1.0
     integrity: ""
     sourceName: default
@@ -170,62 +34,12 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T15:35:17.119Z
-    updatedAt: 2026-02-19T15:35:17.122Z
-  effect-filesystem:
-    type: registry
-    namespace: "@axm"
-    name: effect-filesystem
-    resolvedVersion: 0.1.0
-    integrity: ""
-    sourceName: default
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-19T15:35:17.091Z
-    updatedAt: 2026-02-19T15:35:17.093Z
-  effect-concurrency:
-    type: registry
-    namespace: "@axm"
-    name: effect-concurrency
-    resolvedVersion: 0.1.0
-    integrity: ""
-    sourceName: default
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-19T15:35:17.061Z
-    updatedAt: 2026-02-19T15:35:17.063Z
+    installedAt: 2026-02-19T20:24:34.161Z
+    updatedAt: 2026-02-19T20:24:34.163Z
   testing-basics:
-    type: local
-    path: ./test
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-19T15:33:15.534Z
-    updatedAt: 2026-02-19T15:33:15.536Z
-  effect-errors:
     type: registry
     namespace: "@axm"
-    name: effect-errors
+    name: testing-basics
     resolvedVersion: 0.1.0
     integrity: ""
     sourceName: default
@@ -238,26 +52,8 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T15:35:17.075Z
-    updatedAt: 2026-02-19T15:35:17.078Z
-  effect-stream:
-    type: registry
-    namespace: "@axm"
-    name: effect-stream
-    resolvedVersion: 0.1.0
-    integrity: ""
-    sourceName: default
-    agents:
-      - amp
-      - antigravity
-      - claude-code
-      - codex
-      - cursor
-      - gemini-cli
-      - github-copilot
-      - opencode
-    installedAt: 2026-02-19T15:35:17.170Z
-    updatedAt: 2026-02-19T15:35:17.172Z
+    installedAt: 2026-02-19T20:24:34.247Z
+    updatedAt: 2026-02-19T20:24:34.249Z
 packs:
   effect:
     type: registry
@@ -266,8 +62,8 @@ packs:
     resolvedVersion: 0.0.1
     integrity: ""
     sourceName: ""
-    installedAt: 2026-02-19T15:33:52.566Z
-    updatedAt: 2026-02-19T15:33:52.577Z
+    installedAt: 2026-02-19T20:29:23.997Z
+    updatedAt: 2026-02-19T20:29:24.010Z
     resolvedSkills: {}
     resolvedCommands: {}
     resolvedMcpServers: {}

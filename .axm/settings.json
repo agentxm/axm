@@ -18,21 +18,9 @@
     "opencode"
   ],
   "skills": {
-    "effect-testing": "@axm/skills/effect-testing",
-    "effect-wrapping": "@axm/skills/effect-wrapping",
-    "effect-schema": "@axm/skills/effect-schema",
-    "effect-service": "@axm/skills/effect-service",
-    "effect-collections": "@axm/skills/effect-collections",
-    "effect-iteration": "@axm/skills/effect-iteration",
-    "testing-unit": "./test",
-    "effect-basics": "@axm/skills/effect-basics",
-    "testing-handler": "./test",
-    "effect-option": "@axm/skills/effect-option",
-    "effect-filesystem": "@axm/skills/effect-filesystem",
-    "effect-concurrency": "@axm/skills/effect-concurrency",
-    "testing-basics": "./test",
-    "effect-errors": "@axm/skills/effect-errors",
-    "effect-stream": "@axm/skills/effect-stream"
+    "testing-unit": "@axm/skills/testing-unit",
+    "testing-handler": "@axm/skills/testing-handler",
+    "testing-basics": "@axm/skills/testing-basics"
   },
   "packs": {
     "effect": "@axm/packs/effect"

@@ -12,7 +12,6 @@
     "@axm/skills/effect-option": "^0.1.0",
     "@axm/skills/effect-filesystem": "^0.1.0",
     "@axm/skills/effect-concurrency": "^0.1.0",
-    "@axm/skills/effect-errors": "^0.1.0",
     "@axm/skills/effect-stream": "^0.1.0"
   },
   "commands": {},

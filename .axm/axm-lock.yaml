@@ -54,6 +54,78 @@ skills:
       - opencode
     installedAt: 2026-02-15T00:07:25.644Z
     updatedAt: 2026-02-15T00:07:25.647Z
+  web-design-guidelines:
+    type: registry
+    scope: "@axm"
+    name: web-design-guidelines
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T14:26:29.804Z
+    updatedAt: 2026-02-19T14:26:29.808Z
+  vercel-composition-patterns:
+    type: registry
+    scope: "@axm"
+    name: vercel-composition-patterns
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T14:26:29.826Z
+    updatedAt: 2026-02-19T14:26:29.828Z
+  vercel-react-best-practices:
+    type: registry
+    scope: "@axm"
+    name: vercel-react-best-practices
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T14:26:29.855Z
+    updatedAt: 2026-02-19T14:26:29.857Z
+  vercel-react-native-skills:
+    type: registry
+    scope: "@axm"
+    name: vercel-react-native-skills
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T14:26:29.878Z
+    updatedAt: 2026-02-19T14:26:29.880Z
 packs:
   testing:
     type: registry
@@ -64,6 +136,18 @@ packs:
     sourceName: ""
     installedAt: 2026-02-15T00:07:35.556Z
     updatedAt: 2026-02-15T00:07:35.565Z
+    resolvedSkills: {}
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+  vercel:
+    type: registry
+    scope: "@axm"
+    name: vercel
+    resolvedVersion: 0.0.1
+    integrity: ""
+    sourceName: ""
+    installedAt: 2026-02-19T14:29:05.902Z
+    updatedAt: 2026-02-19T14:29:05.912Z
     resolvedSkills: {}
     resolvedCommands: {}
     resolvedMcpServers: {}

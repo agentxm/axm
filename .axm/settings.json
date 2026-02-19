@@ -32,10 +32,15 @@
     "effect-errors": "@axm/effect-errors",
     "testing-basics": "@axm/testing-basics",
     "testing-handler": "@axm/testing-handler",
-    "testing-unit": "@axm/testing-unit"
+    "testing-unit": "@axm/testing-unit",
+    "web-design-guidelines": "@axm/skills/web-design-guidelines",
+    "vercel-composition-patterns": "@axm/skills/vercel-composition-patterns",
+    "vercel-react-best-practices": "@axm/skills/vercel-react-best-practices",
+    "vercel-react-native-skills": "@axm/skills/vercel-react-native-skills"
   },
   "packs": {
     "effect": "@axm/effect",
-    "testing": "@axm/testing"
+    "testing": "@axm/testing",
+    "vercel": "@axm/packs/vercel"
   }
 }

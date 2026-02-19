@@ -727,7 +727,7 @@ describe("uninstallSkill", () => {
               removeSkillFn,
               lockedPacks: {
                 "starter-pack": makePackLockEntry({
-                  "@acme/other-skill": "1.0.0",
+                  "@acme/skills/other-skill": "1.0.0",
                 }),
               },
             }),
@@ -777,7 +777,7 @@ describe("uninstallSkill", () => {
               removeSkillFromSettingsFn,
               lockedPacks: {
                 "starter-pack": makePackLockEntry({
-                  "@acme/my-skill": "1.0.0",
+                  "@acme/skills/my-skill": "1.0.0",
                 }),
               },
             }),
@@ -827,10 +827,10 @@ describe("uninstallSkill", () => {
               removeSkillFromSettingsFn,
               lockedPacks: {
                 "starter-pack": makePackLockEntry({
-                  "@acme/my-skill": "1.0.0",
+                  "@acme/skills/my-skill": "1.0.0",
                 }),
                 "pro-pack": makePackLockEntry({
-                  "@acme/my-skill": "2.0.0",
+                  "@acme/skills/my-skill": "2.0.0",
                 }),
               },
             }),
@@ -853,7 +853,7 @@ describe("uninstallSkill", () => {
     it.effect("matches skill FQN using lockfile entry scope and name fields", () =>
       Effect.gen(function* () {
         // Skill name in lockfile may differ from FQN in pack resolvedSkills
-        // e.g., lockfile key "my-skill" with scope "@community" → FQN "@community/my-skill"
+        // e.g., lockfile key "my-skill" with scope "@community" → FQN "@community/skills/my-skill"
         const { axmDir, canonicalPath, lockfileSkills } = setupWorkspace({
           agents: ["claude-code"],
           skillName: "my-skill",
@@ -882,7 +882,7 @@ describe("uninstallSkill", () => {
               removeSkillFromSettingsFn,
               lockedPacks: {
                 "starter-pack": makePackLockEntry({
-                  "@community/my-skill": "1.0.0",
+                  "@community/skills/my-skill": "1.0.0",
                 }),
               },
             }),

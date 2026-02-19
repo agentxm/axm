@@ -7,6 +7,6 @@
   "agents": ["claude-code", "cursor"],
   "skills": {
     "code-review": "github:acme/code-review#v1.0.0",
-    "test-runner": "@acme/test-runner@^2.0.0"
+    "test-runner": "@acme/skills/test-runner@^2.0.0"
   }
 }

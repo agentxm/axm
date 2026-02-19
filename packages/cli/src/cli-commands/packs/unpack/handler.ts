@@ -17,7 +17,7 @@ import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { PlannedJobStep, OperationResult, Operation } from "../../../workspace/plan.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
-import { parseScopedName } from "../../skills/naming.js";
+import { parseFqn } from "../../../extensions/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -88,20 +88,20 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
     const currentSkills = yield* ws.getConfiguredSkills();
 
     // Add resolved skills as direct entries (only if not already present)
-    // Use the short name (after scope/) as the settings key since SkillsMapSchema
+    // Use the short name from the FQN as the settings key since SkillsMapSchema
     // validates keys against agentskills.io naming (no @ or / allowed).
     yield* Effect.forEach(
       Object.entries(entry.resolvedSkills),
-      ([fqn, version]) =>
+      ([skillFqn, version]) =>
         Effect.gen(function* () {
-          const { name: shortName } = yield* parseScopedName(fqn);
-          if (shortName in currentSkills) return; // preserve existing direct entry
+          const parsed = yield* parseFqn(skillFqn);
+          if (parsed.name in currentSkills) return; // preserve existing direct entry
           yield* ws.setSkill({
-            name: shortName,
+            name: parsed.name,
             lockEntry: {
               type: "registry" as const,
-              scope: entry.scope,
-              name: shortName,
+              scope: parsed.scope,
+              name: parsed.name,
               resolvedVersion: version,
               integrity: "",
               sourceName: entry.sourceName,

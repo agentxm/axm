@@ -21,7 +21,7 @@ import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
-import { hasScopePrefix, parseScopedName } from "../../skills/naming.js";
+import { formatFqn, parseFqn } from "../../../extensions/index.js";
 import { publishPack, type PublishPackOperation } from "./publish-pack.js";
 import { PACK_MANIFEST_FILENAME } from "../constants.js";
 
@@ -64,10 +64,11 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
   yield* registryGuard;
 
   // Step 2: Resolve pack name
-  const packName = yield* hasScopePrefix(args.pack)
+  const hasScope = args.pack.startsWith("@") && args.pack.includes("/");
+  const packName = yield* hasScope
     ? Effect.succeed(args.pack)
     : ws.getConfiguredScope().pipe(
-        Effect.map((scope) => `${scope}/${args.pack}`),
+        Effect.map((scope) => formatFqn({ scope, type: "packs", name: args.pack })),
         Effect.mapError((e) =>
           makeCliError({
             code: "SCOPE_RESOLUTION_FAILED",
@@ -79,11 +80,11 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
       );
 
   // Parse scope and pack name from the full name
-  const { scope, name: shortName } = yield* parseScopedName(packName);
+  const fqn = yield* parseFqn(packName);
 
   // Step 3: Validate managed pack exists
   const handle = yield* spinnerSvc.start("Validating pack...");
-  const packDir = path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "packs", shortName);
+  const packDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.scope, "packs", fqn.name);
   const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
 
   if (!packDirExists) {

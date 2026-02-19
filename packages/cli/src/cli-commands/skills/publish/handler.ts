@@ -24,7 +24,7 @@ import { publishSkill } from "../publish-skill.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 import { MANIFEST_FILENAME } from "../constants.js";
-import { hasScopePrefix, parseScopedName } from "../naming.js";
+import { parseFqn } from "../../../extensions/fqn.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -34,7 +34,7 @@ import { hasScopePrefix, parseScopedName } from "../naming.js";
  * Arguments for the publish command.
  */
 export interface PublishHandlerArgs {
-  /** Extension name (@scope/name or bare name). */
+  /** Extension name (@scope/skills/name or bare name). */
   readonly extension: string;
   /** Named registry source to publish to. None = default/first configured. */
   readonly registry: Option.Option<string>;
@@ -63,10 +63,10 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
   yield* registryGuard;
 
   // Step 2: Resolve extension name
-  const extensionName = yield* hasScopePrefix(args.extension)
+  const extensionName = yield* args.extension.startsWith("@") && args.extension.includes("/")
     ? Effect.succeed(args.extension)
     : ws.getConfiguredScope().pipe(
-        Effect.map((scope) => `${scope}/${args.extension}`),
+        Effect.map((scope) => `${scope}/skills/${args.extension}`),
         Effect.mapError((e) =>
           makeCliError({
             code: "SCOPE_RESOLUTION_FAILED",
@@ -78,11 +78,11 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
       );
 
   // Parse scope and skill name from the extension name
-  const { scope, name: skillName } = yield* parseScopedName(extensionName);
+  const fqn = yield* parseFqn(extensionName);
 
   // Step 3: Validate managed extension exists
   const handle = yield* spinnerSvc.start("Validating extension...");
-  const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "skills", skillName);
+  const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.scope, "skills", fqn.name);
   const extensionDirExists = yield* fs.exists(extensionDir).pipe(Effect.orElseSucceed(() => false));
 
   if (!extensionDirExists) {

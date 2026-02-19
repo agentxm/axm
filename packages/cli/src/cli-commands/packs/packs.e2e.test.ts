@@ -81,7 +81,7 @@ describe("axm packs new", () => {
       expect(fs.existsSync(manifestPath)).toBe(true);
 
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      expect(manifest.name).toBe("@test/frontend-tools");
+      expect(manifest.name).toBe("@test/packs/frontend-tools");
       expect(manifest.version).toBe("0.0.1");
       expect(manifest.skills).toEqual({});
 
@@ -117,7 +117,7 @@ describe("axm packs new", () => {
       );
       expect(fs.existsSync(manifestPath)).toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      expect(manifest.name).toBe("@custom/my-pack");
+      expect(manifest.name).toBe("@custom/packs/my-pack");
     } finally {
       cleanup();
     }
@@ -298,7 +298,7 @@ describe("axm packs publish", () => {
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
-      const result = await runCli(["packs", "publish", "@test/nonexistent-pack", "--yes"], {
+      const result = await runCli(["packs", "publish", "@test/packs/nonexistent-pack", "--yes"], {
         cwd: temp.path,
       });
       expect(result.exitCode).not.toBe(0);
@@ -427,7 +427,7 @@ describe("axm packs install", () => {
         path.join(skillDir, "axm-skill.json"),
         JSON.stringify(
           {
-            name: "@test/dep-skill",
+            name: "@test/skills/dep-skill",
             version: "1.0.0",
             agents: ["claude-code"],
             dependencies: {},
@@ -457,7 +457,7 @@ describe("axm packs install", () => {
         "axm-pack.json",
       );
       const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
-      packManifest.skills = { "@test/dep-skill": "^1.0.0" };
+      packManifest.skills = { "@test/skills/dep-skill": "^1.0.0" };
       fs.writeFileSync(packManifestPath, JSON.stringify(packManifest, null, 2));
 
       // Publish the pack (with the skill dependency)

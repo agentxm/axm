@@ -134,7 +134,7 @@ describe("publish.handler", () => {
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "code-review", {
-        name: "@test/code-review",
+        name: "@test/skills/code-review",
         version: "1.0.0",
         agents: ["claude-code"],
       });
@@ -144,7 +144,7 @@ describe("publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handlePublish(
-            defaultArgs("@test/code-review", { registry: Option.some("local") }),
+            defaultArgs("@test/skills/code-review", { registry: Option.some("local") }),
           );
 
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
@@ -170,7 +170,7 @@ describe("publish.handler", () => {
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedExtension(tempDir, "@test", "my-skill", {
-        name: "@test/my-skill",
+        name: "@test/skills/my-skill",
         version: "0.1.0",
         agents: ["claude-code"],
       });
@@ -179,7 +179,7 @@ describe("publish.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePublish(defaultArgs("@test/my-skill"));
+          yield* handlePublish(defaultArgs("@test/skills/my-skill"));
 
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
@@ -205,7 +205,7 @@ describe("publish.handler", () => {
 
       // Create managed extension under @test scope
       createManagedExtension(tempDir, "@test", "code-review", {
-        name: "@test/code-review",
+        name: "@test/skills/code-review",
         version: "0.1.0",
         agents: ["claude-code"],
       });
@@ -256,7 +256,7 @@ describe("publish.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const result = yield* handlePublish(defaultArgs("@test/no-manifest")).pipe(
+          const result = yield* handlePublish(defaultArgs("@test/skills/no-manifest")).pipe(
             Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, what: e.what })),
           );
           expect(result).toHaveProperty("error", true);
@@ -275,7 +275,7 @@ describe("publish.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const result = yield* handlePublish(defaultArgs("@test/nonexistent")).pipe(
+          const result = yield* handlePublish(defaultArgs("@test/skills/nonexistent")).pipe(
             Effect.catchTag("CliError", (e) =>
               Effect.succeed({
                 error: true,

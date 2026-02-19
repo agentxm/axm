@@ -1,5 +1,5 @@
 {
-  "name": "@acme/database-mcp",
+  "name": "@acme/mcp-servers/database-mcp",
   "version": "1.0.0",
   "description": "MCP server for database operations",
   "keywords": ["mcp", "database", "sql"],

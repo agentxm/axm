@@ -169,7 +169,7 @@ describe("fork.handler", () => {
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings).toMatchObject({
             skills: {
-              commit: "@test/commit",
+              commit: "@test/skills/commit",
             },
           });
         }),
@@ -304,7 +304,7 @@ describe("fork.handler", () => {
             "axm-skill.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@test/my-skill");
+          expect(manifest.name).toBe("@test/skills/my-skill");
         }),
       );
     });
@@ -642,7 +642,7 @@ describe("fork.handler", () => {
             "axm-skill.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@test/my-skill");
+          expect(manifest.name).toBe("@test/skills/my-skill");
         }),
       );
     });

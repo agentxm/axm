@@ -6,16 +6,20 @@ describe("SkillManifestSchema", () => {
   const decode = Schema.decodeUnknownSync(SkillManifestSchema);
 
   it("accepts valid minimal manifest", () => {
-    const input = { name: "@wayne/grappling-hook", version: "1.0.0", agents: ["claude-code"] };
+    const input = {
+      name: "@wayne/skills/grappling-hook",
+      version: "1.0.0",
+      agents: ["claude-code"],
+    };
     const result = decode(input);
-    expect(result.name).toBe("@wayne/grappling-hook");
+    expect(result.name).toBe("@wayne/skills/grappling-hook");
     expect(result.version).toBe("1.0.0");
     expect(result.agents).toEqual(["claude-code"]);
   });
 
   it("accepts valid full manifest with all optional fields", () => {
     const input = {
-      name: "@wayne/grappling-hook",
+      name: "@wayne/skills/grappling-hook",
       version: "1.0.0",
       description: "A grappling hook skill",
       keywords: ["utility", "mobility"],
@@ -31,15 +35,15 @@ describe("SkillManifestSchema", () => {
         },
       ],
       agents: ["claude-code", "cursor"],
-      dependencies: { "@wayne/batarang": "1.0.0" },
+      dependencies: { "@wayne/skills/batarang": "1.0.0" },
     };
     const result = decode(input);
-    expect(result.name).toBe("@wayne/grappling-hook");
+    expect(result.name).toBe("@wayne/skills/grappling-hook");
     expect(result.description).toBe("A grappling hook skill");
     expect(result.keywords).toEqual(["utility", "mobility"]);
     expect(result.authors?.[0]?.name).toBe("Bruce Wayne");
     expect(result.agents).toEqual(["claude-code", "cursor"]);
-    expect(result.dependencies).toEqual({ "@wayne/batarang": "1.0.0" });
+    expect(result.dependencies).toEqual({ "@wayne/skills/batarang": "1.0.0" });
   });
 
   it("rejects manifest missing name", () => {
@@ -53,13 +57,13 @@ describe("SkillManifestSchema", () => {
   });
 
   it("accepts manifest without agents field", () => {
-    const input = { name: "@wayne/grappling-hook", version: "1.0.0" };
+    const input = { name: "@wayne/skills/grappling-hook", version: "1.0.0" };
     const result = decode(input);
     expect(result.agents).toBeUndefined();
   });
 
   it("rejects manifest with empty agents array", () => {
-    const input = { name: "@wayne/grappling-hook", version: "1.0.0", agents: [] };
+    const input = { name: "@wayne/skills/grappling-hook", version: "1.0.0", agents: [] };
     // Empty array is structurally valid for Schema.Array(Schema.String)
     const result = decode(input);
     expect(result.agents).toEqual([]);
@@ -67,7 +71,7 @@ describe("SkillManifestSchema", () => {
 
   it("accepts manifest with agents as string identifiers", () => {
     const input = {
-      name: "@wayne/grappling-hook",
+      name: "@wayne/skills/grappling-hook",
       version: "1.0.0",
       agents: ["claude-code", "cursor", "windsurf"],
     };
@@ -76,24 +80,31 @@ describe("SkillManifestSchema", () => {
   });
 
   it("rejects manifest with non-string agents", () => {
-    const input = { name: "@wayne/grappling-hook", version: "1.0.0", agents: [123] };
+    const input = { name: "@wayne/skills/grappling-hook", version: "1.0.0", agents: [123] };
     expect(() => decode(input)).toThrow();
   });
 
   it("accepts manifest without optional dependencies", () => {
-    const input = { name: "@wayne/grappling-hook", version: "1.0.0", agents: ["claude-code"] };
+    const input = {
+      name: "@wayne/skills/grappling-hook",
+      version: "1.0.0",
+      agents: ["claude-code"],
+    };
     const result = decode(input);
     expect(result.dependencies).toBeUndefined();
   });
 
   it("accepts manifest with dependencies record", () => {
     const input = {
-      name: "@wayne/grappling-hook",
+      name: "@wayne/skills/grappling-hook",
       version: "1.0.0",
       agents: ["claude-code"],
-      dependencies: { "@wayne/batarang": "1.0.0", "@wayne/cape": "2.0.0" },
+      dependencies: { "@wayne/skills/batarang": "1.0.0", "@wayne/skills/cape": "2.0.0" },
     };
     const result = decode(input);
-    expect(result.dependencies).toEqual({ "@wayne/batarang": "1.0.0", "@wayne/cape": "2.0.0" });
+    expect(result.dependencies).toEqual({
+      "@wayne/skills/batarang": "1.0.0",
+      "@wayne/skills/cape": "2.0.0",
+    });
   });
 });

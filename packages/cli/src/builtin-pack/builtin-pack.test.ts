@@ -10,7 +10,7 @@ import {
 
 describe("builtin-pack", () => {
   it("exports correct identity constants", () => {
-    expect(BUILTIN_PACK_FQN).toBe("@axm/cli");
+    expect(BUILTIN_PACK_FQN).toBe("@axm/packs/cli");
     expect(BUILTIN_PACK_SCOPE).toBe("@axm");
     expect(BUILTIN_PACK_NAME).toBe("cli");
   });
@@ -18,13 +18,13 @@ describe("builtin-pack", () => {
   it.effect("resolves builtin pack manifest", () =>
     Effect.gen(function* () {
       const result = yield* resolveBuiltinPack();
-      expect(result.manifest.name).toBe("@axm/cli");
+      expect(result.manifest.name).toBe("@axm/packs/cli");
       expect(result.manifest.skills).toBeDefined();
       expect(Object.keys(result.manifest.skills!)).toHaveLength(4);
-      expect(result.manifest.skills!["@axm/axm-manage-skills"]).toBeDefined();
-      expect(result.manifest.skills!["@axm/axm-manage-packs"]).toBeDefined();
-      expect(result.manifest.skills!["@axm/axm-manage-mcp-servers"]).toBeDefined();
-      expect(result.manifest.skills!["@axm/axm-manage-commands"]).toBeDefined();
+      expect(result.manifest.skills!["@axm/skills/axm-manage-skills"]).toBeDefined();
+      expect(result.manifest.skills!["@axm/skills/axm-manage-packs"]).toBeDefined();
+      expect(result.manifest.skills!["@axm/skills/axm-manage-mcp-servers"]).toBeDefined();
+      expect(result.manifest.skills!["@axm/skills/axm-manage-commands"]).toBeDefined();
     }).pipe(Effect.provide(NodeContext.layer)),
   );
 

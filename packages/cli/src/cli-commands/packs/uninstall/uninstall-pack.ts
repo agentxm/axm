@@ -19,6 +19,7 @@ import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import type { UninstallPackOperation } from "../operations.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
+import { parseFqn } from "../../../extensions/index.js";
 import { removeIfExists } from "../../skills/fs-helpers.js";
 import { sanitizeName } from "../../skills/install/skill-utils.js";
 import { findOrphanedSkills } from "./build-plan.js";
@@ -75,11 +76,24 @@ export const uninstallPack: OperationHandler<
     void _;
 
     const configuredSkillsNormalized = yield* ws.getConfiguredSkills();
-    // findOrphanedSkills only checks key presence (`fqn in configuredSkills`),
-    // so we build a minimal SkillsMap-shaped record from the normalized keys.
-    const configuredSkillKeys = Object.fromEntries(
-      Object.keys(configuredSkillsNormalized).map((k) => [k, ""]),
-    );
+    // findOrphanedSkills checks key presence (`fqn in configuredSkills`).
+    // resolvedSkills keys are 3-segment FQNs (e.g. @scope/skills/name) while
+    // configured skills use simple names (e.g. name). Include both forms so
+    // the orphan check matches regardless of format.
+    const simpleKeys = Object.keys(configuredSkillsNormalized);
+    const configuredSkillKeys: Record<string, string> = {};
+    for (const k of simpleKeys) {
+      configuredSkillKeys[k] = "";
+    }
+    // Map FQN keys from the removed pack's resolvedSkills back to simple names
+    // so direct entries (keyed by simple name) prevent orphan removal
+    const fqnParts = /^@[\w-]+\/(?:skills|packs|commands|mcp-servers)\/([\w-]+)$/;
+    for (const fqn of Object.keys(lockedPack.resolvedSkills)) {
+      const match = fqnParts.exec(fqn);
+      if (match?.[1] && match[1] in configuredSkillsNormalized) {
+        configuredSkillKeys[fqn] = "";
+      }
+    }
     const orphanedSkills = findOrphanedSkills(lockedPack, remainingPacks, configuredSkillKeys);
 
     // Remove orphaned skills from disk and settings/lockfile
@@ -87,28 +101,44 @@ export const uninstallPack: OperationHandler<
       orphanedSkills,
       (skillFqn) =>
         Effect.gen(function* () {
-          // Remove skill files from all known canonical locations
-          const sanitized = sanitizeName(skillFqn);
           const extensionsDir = path.join(base, REGISTRY_EXTENSIONS_DIR);
-          const extensionsDirExists = yield* fs
-            .exists(extensionsDir)
-            .pipe(Effect.catchAll(() => Effect.succeed(false)));
 
-          if (extensionsDirExists) {
-            const scopeDirs = yield* fs
-              .readDirectory(extensionsDir)
-              .pipe(Effect.catchAll(() => Effect.succeed<ReadonlyArray<string>>([])));
-
-            yield* Effect.forEach(
-              scopeDirs,
-              (scopeDir) => {
-                if (!scopeDir.startsWith("@")) return Effect.void;
-                const skillPath = path.join(extensionsDir, scopeDir, "skills", sanitized);
-                return removeIfExists(fs, skillPath);
-              },
-              { concurrency: "unbounded" },
-            );
-          }
+          // Parse 3-segment FQN to locate the skill on disk; fall back to scanning scope dirs
+          yield* parseFqn(skillFqn).pipe(
+            Effect.flatMap((parsed) => {
+              const skillPath = path.join(
+                extensionsDir,
+                parsed.scope,
+                parsed.type,
+                sanitizeName(parsed.name),
+              );
+              return removeIfExists(fs, skillPath);
+            }),
+            Effect.catchAll(() => {
+              // Fallback: scan scope dirs for legacy 2-segment FQNs
+              const sanitized = sanitizeName(skillFqn);
+              return fs.exists(extensionsDir).pipe(
+                Effect.catchAll(() => Effect.succeed(false)),
+                Effect.flatMap((exists) => {
+                  if (!exists) return Effect.void;
+                  return fs.readDirectory(extensionsDir).pipe(
+                    Effect.catchAll(() => Effect.succeed<ReadonlyArray<string>>([])),
+                    Effect.flatMap((scopeDirs) =>
+                      Effect.forEach(
+                        scopeDirs,
+                        (scopeDir) => {
+                          if (!scopeDir.startsWith("@")) return Effect.void;
+                          const skillPath = path.join(extensionsDir, scopeDir, "skills", sanitized);
+                          return removeIfExists(fs, skillPath);
+                        },
+                        { concurrency: "unbounded" },
+                      ),
+                    ),
+                  );
+                }),
+              );
+            }),
+          );
 
           // Remove from settings + lockfile
           yield* ws.removeSkill(skillFqn).pipe(Effect.catchAll(() => Effect.void));

@@ -50,7 +50,7 @@ describe("axm skills publish", () => {
 
         // Create axm-skill.json manifest at extension root
         const manifest = {
-          name: "@test/my-publish-skill",
+          name: "@test/skills/my-publish-skill",
           version: "1.0.0",
           agents: ["claude-code"],
           dependencies: {},
@@ -62,7 +62,7 @@ describe("axm skills publish", () => {
 
         // Publish the extension
         const publishResult = await runCli(
-          ["skills", "publish", "@test/my-publish-skill", "--yes"],
+          ["skills", "publish", "@test/skills/my-publish-skill", "--yes"],
           { cwd: temp.path },
         );
         expect(publishResult.exitCode).toBe(0);
@@ -146,7 +146,7 @@ describe("axm skills publish", () => {
           path.join(extensionDir, "axm-skill.json"),
           JSON.stringify(
             {
-              name: "@myorg/code-review",
+              name: "@myorg/skills/code-review",
               version: "2.0.0",
               agents: ["claude-code"],
               dependencies: {},
@@ -196,7 +196,7 @@ describe("axm skills publish", () => {
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         const publishResult = await runCli(
-          ["skills", "publish", "@test/nonexistent-skill", "--yes"],
+          ["skills", "publish", "@test/skills/nonexistent-skill", "--yes"],
           { cwd: temp.path },
         );
         expect(publishResult.exitCode).not.toBe(0);

@@ -28,7 +28,7 @@ import { Workspace } from "../../workspace/service.js";
 import type { PublishSkillOperation } from "./operations.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/constants.js";
 import { MANIFEST_FILENAME } from "./constants.js";
-import { parseScopedName } from "./naming.js";
+import { parseFqn } from "../../extensions/fqn.js";
 
 // -----------------------------------------------------------------------------
 // Public API
@@ -53,10 +53,10 @@ export const publishSkill: OperationHandler<
     const ws = yield* Workspace;
     const base = ws.baseDir;
 
-    const { scope, name: skillName } = yield* parseScopedName(op.args.name);
+    const fqn = yield* parseFqn(op.args.name);
 
     // Locate the managed extension directory
-    const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "skills", skillName);
+    const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.scope, "skills", fqn.name);
     const extensionDirExists = yield* fs
       .exists(extensionDir)
       .pipe(Effect.orElseSucceed(() => false));
@@ -138,9 +138,9 @@ export const publishSkill: OperationHandler<
     // Publish to registry (idempotent)
     yield* client
       .publishExtension({
-        scope,
+        scope: fqn.scope,
         type: "skill",
-        name: skillName,
+        name: fqn.name,
         version: manifest.version,
         archive,
         metadata: versionEntry,

@@ -157,7 +157,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         repository: Option.some("https://github.com/test/my-skill"),
         license: Option.some("MIT"),
         authors: [{ name: "Test Author", email: Option.none(), url: Option.none() }],
-        dependencies: { "@test/base-skill": "^1.2.3" },
+        dependencies: { "@test/skills/base-skill": "^1.2.3" },
         version: "1.0.0",
         integrity: "sha512-abc",
       },
@@ -204,7 +204,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
             repository: "https://github.com/test/my-skill",
             license: "MIT",
             authors: [{ name: "Test Author" }],
-            dependencies: { "@test/base-skill": "^1.2.3" },
+            dependencies: { "@test/skills/base-skill": "^1.2.3" },
           }),
         );
         expect(skillRef.scope).toBe("@test");

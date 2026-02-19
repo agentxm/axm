@@ -42,7 +42,7 @@ export const toAuthor = (author: typeof AuthorSchema.Type): Author => ({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const FQN_PATTERN = /^@[\w-]+\/[\w-]+$/;
+export const FQN_PATTERN = /^@[\w-]+\/(skills|packs|commands|mcp-servers)\/[\w-]+$/;
 
 /**
  * Fully qualified name schema using {@link FQN_PATTERN}.

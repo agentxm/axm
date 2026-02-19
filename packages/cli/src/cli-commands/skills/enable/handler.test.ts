@@ -194,14 +194,14 @@ describe("enable.handler", () => {
         path.join(tempDir, ".axm"),
         {
           "code-review": {
-            source: "@acme/code-review",
+            source: "@acme/skills/code-review",
             enabled: false,
           },
         },
         {},
         ["claude-code"],
         {
-          packs: { "starter-pack": "@acme/starter-pack" },
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
           lockfilePacks: {
             "starter-pack": {
               type: "registry",
@@ -212,7 +212,7 @@ describe("enable.handler", () => {
               sourceName: "default",
               installedAt: new Date().toISOString(),
               updatedAt: new Date().toISOString(),
-              resolvedSkills: { "@acme/code-review": "1.2.0" },
+              resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
               resolvedCommands: {},
               resolvedMcpServers: {},
             },
@@ -232,7 +232,7 @@ describe("enable.handler", () => {
             "utf-8",
           );
           const settings = JSON.parse(settingsContent);
-          expect(settings.skills?.["code-review"]).toBe("@acme/code-review");
+          expect(settings.skills?.["code-review"]).toBe("@acme/skills/code-review");
         }),
       );
     });

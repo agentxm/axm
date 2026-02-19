@@ -1015,7 +1015,7 @@ describe("WorkspaceContextService", () => {
 
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings.skills.tool).toBe("@acme/tool@^1.0.0");
+        expect(settings.skills.tool).toBe("@acme/skills/tool@^1.0.0");
       }),
     );
 
@@ -1045,7 +1045,7 @@ describe("WorkspaceContextService", () => {
 
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings.skills.tool).toBe("@acme/tool");
+        expect(settings.skills.tool).toBe("@acme/skills/tool");
       }),
     );
 
@@ -1075,7 +1075,7 @@ describe("WorkspaceContextService", () => {
 
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings.skills.tool).toBe("@acme/tool@1.2.3");
+        expect(settings.skills.tool).toBe("@acme/skills/tool@1.2.3");
       }),
     );
   });
@@ -1758,14 +1758,14 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          packs: { "starter-pack": "@acme/starter-pack" },
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
         });
 
         const ws = yield* getService(defaultOptions);
         const packs = yield* ws.getConfiguredPacks();
 
         expect(packs).toEqual({
-          "starter-pack": "@acme/starter-pack",
+          "starter-pack": "@acme/packs/starter-pack",
         });
       }),
     );
@@ -1787,14 +1787,14 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          packs: { "starter-pack": "@acme/starter-pack" },
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
         });
 
         const ws = yield* getService(defaultOptions);
         const packs = yield* ws.getInstalledPacks();
 
         expect(packs).toEqual({
-          "starter-pack": "@acme/starter-pack",
+          "starter-pack": "@acme/packs/starter-pack",
         });
       }),
     );
@@ -1827,7 +1827,7 @@ describe("WorkspaceContextService", () => {
               sourceName: "default",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: { "@acme/code-review": "1.2.0" },
+              resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
               resolvedCommands: {},
               resolvedMcpServers: {},
             },
@@ -1839,7 +1839,9 @@ describe("WorkspaceContextService", () => {
 
         expect(Object.keys(packs)).toEqual(["starter-pack"]);
         expect(packs["starter-pack"]?.type).toBe("registry");
-        expect(packs["starter-pack"]?.resolvedSkills).toEqual({ "@acme/code-review": "1.2.0" });
+        expect(packs["starter-pack"]?.resolvedSkills).toEqual({
+          "@acme/skills/code-review": "1.2.0",
+        });
       }),
     );
 
@@ -1914,7 +1916,7 @@ describe("WorkspaceContextService", () => {
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         expect(settings.packs).toBeDefined();
-        expect(settings.packs["starter-pack"]).toBe("@acme/starter-pack");
+        expect(settings.packs["starter-pack"]).toBe("@acme/packs/starter-pack");
 
         // Verify lockfile on disk
         const lockfile = readLockfileFromDisk(projectDir);
@@ -1949,8 +1951,8 @@ describe("WorkspaceContextService", () => {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           packs: {
-            "starter-pack": "@acme/starter-pack",
-            "other-pack": "@acme/other-pack",
+            "starter-pack": "@acme/packs/starter-pack",
+            "other-pack": "@acme/packs/other-pack",
           },
         });
         writeLockfileTo(
@@ -2006,7 +2008,7 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          packs: { "other-pack": "@acme/other-pack" },
+          packs: { "other-pack": "@acme/packs/other-pack" },
         });
         writeLockfileTo(projectDir, {});
 
@@ -2051,7 +2053,7 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          packs: { "starter-pack": "@acme/starter-pack" },
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
         });
         writeLockfileTo(
           projectDir,
@@ -2066,7 +2068,7 @@ describe("WorkspaceContextService", () => {
               sourceName: "default",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: { "@acme/code-review": "1.2.0" },
+              resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
               resolvedCommands: {},
               resolvedMcpServers: {},
             },
@@ -2076,9 +2078,9 @@ describe("WorkspaceContextService", () => {
         const ws = yield* getService(defaultOptions);
         const skills = yield* ws.getInstalledSkills();
 
-        expect(skills).toHaveProperty("@acme/code-review");
-        expect(skills["@acme/code-review"]).toEqual({
-          source: Option.some("@acme/code-review"),
+        expect(skills).toHaveProperty("@acme/skills/code-review");
+        expect(skills["@acme/skills/code-review"]).toEqual({
+          source: Option.some("@acme/skills/code-review"),
           enabled: true,
           managed: true,
         });
@@ -2091,7 +2093,7 @@ describe("WorkspaceContextService", () => {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           skills: { "code-review": "github:acme/code-review" },
-          packs: { "starter-pack": "@acme/starter-pack" },
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
         });
         writeLockfileTo(
           projectDir,
@@ -2130,8 +2132,8 @@ describe("WorkspaceContextService", () => {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           packs: {
-            "pack-a": "@acme/pack-a",
-            "pack-b": "@acme/pack-b",
+            "pack-a": "@acme/packs/pack-a",
+            "pack-b": "@acme/packs/pack-b",
           },
         });
         writeLockfileTo(
@@ -2147,7 +2149,7 @@ describe("WorkspaceContextService", () => {
               sourceName: "default",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: { "@acme/shared-skill": "1.0.0" },
+              resolvedSkills: { "@acme/skills/shared-skill": "1.0.0" },
               resolvedCommands: {},
               resolvedMcpServers: {},
             },
@@ -2160,7 +2162,7 @@ describe("WorkspaceContextService", () => {
               sourceName: "default",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: { "@acme/shared-skill": "2.0.0" },
+              resolvedSkills: { "@acme/skills/shared-skill": "2.0.0" },
               resolvedCommands: {},
               resolvedMcpServers: {},
             },
@@ -2171,9 +2173,9 @@ describe("WorkspaceContextService", () => {
         const skills = yield* ws.getInstalledSkills();
 
         // First pack encountered wins
-        expect(skills).toHaveProperty("@acme/shared-skill");
-        const entry = skills["@acme/shared-skill"]!;
-        expect(Option.getOrThrow(entry.source)).toBe("@acme/shared-skill");
+        expect(skills).toHaveProperty("@acme/skills/shared-skill");
+        const entry = skills["@acme/skills/shared-skill"]!;
+        expect(Option.getOrThrow(entry.source)).toBe("@acme/skills/shared-skill");
       }),
     );
 
@@ -2182,7 +2184,7 @@ describe("WorkspaceContextService", () => {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           skills: { "my-skill": "github:acme/my-skill" },
-          packs: { "starter-pack": "@acme/starter-pack" },
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
         });
         writeLockfileTo(
           projectDir,
@@ -2197,7 +2199,7 @@ describe("WorkspaceContextService", () => {
               sourceName: "default",
               installedAt: "2025-01-01T00:00:00.000Z",
               updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: { "@acme/transitive-skill": "1.0.0" },
+              resolvedSkills: { "@acme/skills/transitive-skill": "1.0.0" },
               resolvedCommands: {},
               resolvedMcpServers: {},
             },
@@ -2209,7 +2211,7 @@ describe("WorkspaceContextService", () => {
 
         // Only direct settings entries, no transitive
         expect(Object.keys(configured)).toEqual(["my-skill"]);
-        expect(configured).not.toHaveProperty("@acme/transitive-skill");
+        expect(configured).not.toHaveProperty("@acme/skills/transitive-skill");
       }),
     );
   });

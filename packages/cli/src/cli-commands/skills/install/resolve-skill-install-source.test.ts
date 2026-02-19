@@ -110,9 +110,9 @@ describe("resolveSkillInstallSource", () => {
     ];
 
     return Effect.gen(function* () {
-      const resolved = yield* resolveSkillInstallSource(parseInputOrThrow("@acme/my-skill")).pipe(
-        Effect.provide(provideTestLayers(sources)),
-      );
+      const resolved = yield* resolveSkillInstallSource(
+        parseInputOrThrow("@acme/skills/my-skill"),
+      ).pipe(Effect.provide(provideTestLayers(sources)));
       expect(resolved.type).toBe("registry");
       expect("location" in resolved).toBe(true);
       if ("location" in resolved) {
@@ -180,10 +180,9 @@ describe("resolveSkillInstallSource", () => {
     ];
 
     return Effect.gen(function* () {
-      const error = yield* resolveSkillInstallSource(parseInputOrThrow("@acme/my-skill")).pipe(
-        Effect.flip,
-        Effect.provide(provideTestLayers(sources)),
-      );
+      const error = yield* resolveSkillInstallSource(
+        parseInputOrThrow("@acme/skills/my-skill"),
+      ).pipe(Effect.flip, Effect.provide(provideTestLayers(sources)));
       expect(error._tag).toBe("CliError");
       expect(error.what).toContain('No registry source contains scope "@acme"');
     });

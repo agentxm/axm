@@ -130,7 +130,7 @@ describe("packs-new.handler", () => {
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@acme/frontend-tools");
+          expect(manifest.name).toBe("@acme/packs/frontend-tools");
           expect(manifest.version).toBe("0.0.1");
           expect(manifest.skills).toEqual({});
           expect(manifest.commands).toEqual({});
@@ -140,9 +140,11 @@ describe("packs-new.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.packs).toBeDefined();
-          expect(settings.packs["frontend-tools"]).toBe("@acme/frontend-tools");
+          expect(settings.packs["frontend-tools"]).toBe("@acme/packs/frontend-tools");
 
-          expect(mockLog.logs.success.some((m) => m.includes("@acme/frontend-tools"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("@acme/packs/frontend-tools"))).toBe(
+            true,
+          );
         }),
       );
     });
@@ -169,7 +171,7 @@ describe("packs-new.handler", () => {
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@corp/frontend-tools");
+          expect(manifest.name).toBe("@corp/packs/frontend-tools");
         }),
       );
     });
@@ -194,7 +196,7 @@ describe("packs-new.handler", () => {
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@corp/my-pack");
+          expect(manifest.name).toBe("@corp/packs/my-pack");
         }),
       );
     });

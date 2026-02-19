@@ -99,7 +99,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     });
   }
 
-  const fqn = `${scope}/${args.name}`;
+  const fqn = `${scope}/skills/${args.name}`;
   const base = ws.baseDir;
 
   // 3. Check existence

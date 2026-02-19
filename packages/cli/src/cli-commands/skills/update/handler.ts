@@ -251,7 +251,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       if (item.ref.type !== "skill") continue;
       if (item.ref.refType !== "registry") continue;
       const registryRef = item.ref;
-      const skillFqn = `${registryRef.scope}/${registryRef.skill.name}`;
+      const skillFqn = `${registryRef.scope}/skills/${registryRef.skill.name}`;
       const packConstraints = packConstraintMap.get(skillFqn) ?? [];
       if (packConstraints.length === 0) continue;
 
@@ -331,7 +331,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 /**
  * Read installed pack manifests and collect per-skill constraints.
  *
- * Returns a map from skill FQN (e.g., "@acme/code-review") to an array of
+ * Returns a map from skill FQN (e.g., "@acme/skills/code-review") to an array of
  * pack constraints. Silently skips packs whose manifest can't be read.
  */
 const collectPackConstraints = () =>

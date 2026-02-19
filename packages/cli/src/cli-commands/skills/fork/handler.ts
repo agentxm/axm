@@ -195,7 +195,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
 
   // Step 7: Build plan — fork + publish + install per skill (3 sequential ops)
   const steps: ReadonlyArray<PlannedJobStep<ForkOp>> = Array.flatMap(filtered, (ref) => {
-    const targetName = `${scope}/${ref.skill.name}`;
+    const targetName = `${scope}/skills/${ref.skill.name}`;
     const extensionRef = ref;
     // After fork + publish, the skill lives in the registry extensions dir.
     // Build a registry SkillExtensionRef for the install step.

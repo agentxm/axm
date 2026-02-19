@@ -8,7 +8,7 @@ describe("registry schema", () => {
       const input = {
         version: "1.2.3",
         published: "2025-06-01T12:00:00Z",
-        dependencies: { "@acme/utils": "^1.0.0", "@acme/core": "~2.1.0" },
+        dependencies: { "@acme/skills/utils": "^1.0.0", "@acme/skills/core": "~2.1.0" },
         integrity: "sha512-abc123def456",
       };
 
@@ -17,8 +17,8 @@ describe("registry schema", () => {
       expect(result.version).toBe("1.2.3");
       expect(result.published).toBe("2025-06-01T12:00:00Z");
       expect(result.dependencies).toEqual({
-        "@acme/utils": "^1.0.0",
-        "@acme/core": "~2.1.0",
+        "@acme/skills/utils": "^1.0.0",
+        "@acme/skills/core": "~2.1.0",
       });
       expect(result.integrity).toBe("sha512-abc123def456");
     });
@@ -122,13 +122,13 @@ describe("registry schema", () => {
           {
             version: "2.0.0",
             published: "2025-08-01T12:00:00Z",
-            dependencies: { "@acme/utils": "^1.0.0" },
+            dependencies: { "@acme/skills/utils": "^1.0.0" },
             integrity: "sha512-newest",
           },
           {
             version: "1.1.0",
             published: "2025-07-01T12:00:00Z",
-            dependencies: { "@acme/utils": "^1.0.0" },
+            dependencies: { "@acme/skills/utils": "^1.0.0" },
             integrity: "sha512-middle",
           },
           {

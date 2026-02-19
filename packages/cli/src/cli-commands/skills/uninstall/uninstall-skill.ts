@@ -63,16 +63,16 @@ const existsInAnyLocation = (
   });
 
 /**
- * Derive the FQN (`@scope/name`) for a skill lock entry, if it's a registry entry.
+ * Derive the FQN (`@scope/skills/name`) for a skill lock entry, if it's a registry entry.
  */
 const getSkillFqn = (
   skillName: string,
   lockEntry: { type: string; scope?: string; name?: string } | undefined,
 ): string | undefined => {
   if (lockEntry?.type === "registry" && lockEntry.scope && lockEntry.name) {
-    return `${lockEntry.scope}/${lockEntry.name}`;
+    return `${lockEntry.scope}/skills/${lockEntry.name}`;
   }
-  // For non-registry entries, the skill name itself may be a FQN (e.g., "@scope/name")
+  // For non-registry entries, the skill name itself may be a FQN (e.g., "@scope/skills/name")
   return skillName.startsWith("@") ? skillName : undefined;
 };
 

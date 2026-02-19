@@ -45,14 +45,18 @@ describe("parseInputPattern", () => {
       });
     });
 
-    it("classifies legacy @scope/name as skills registry-pattern-input", () => {
-      expectSome("@myorg/legacy-skill", {
+    it("classifies @scope/packs/name as registry-pattern-input", () => {
+      expectSome("@myorg/packs/my-pack", {
         pattern: "registry-pattern-input",
-        type: Option.some("skills"),
+        type: Option.some("packs"),
         scope: "@myorg",
-        name: Option.some("legacy-skill"),
+        name: Option.some("my-pack"),
         versionConstraint: Option.none(),
       });
+    });
+
+    it("returns None for 2-segment @scope/name (no longer treated as registry)", () => {
+      expectNone("@myorg/legacy-skill");
     });
 
     it("classifies @scope as registry-pattern-input with no type/name", () => {

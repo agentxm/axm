@@ -16,7 +16,6 @@ import { Workspace } from "../../../workspace/index.js";
 import { expandGlobs } from "../../../skills/index.js";
 import { computePackPaths } from "../pack-paths.js";
 import { PACK_MANIFEST_FILENAME, type RawPackManifest } from "../constants.js";
-import { hasScopePrefix, parseScopedNameOrThrow } from "../../skills/naming.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -59,9 +58,8 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
 
   // Resolve pack scope
   const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
-  const packScope = hasScopePrefix(packSource)
-    ? parseScopedNameOrThrow(packSource).scope
-    : yield* ws.getConfiguredScope();
+  const hasScope = packSource.startsWith("@") && packSource.includes("/");
+  const packScope = hasScope ? packSource.split("/")[0]! : yield* ws.getConfiguredScope();
   const base = ws.baseDir;
 
   // Step 2: Read pack manifest

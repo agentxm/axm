@@ -56,7 +56,7 @@ const createPackArchive = (dir: string) => {
   fs.writeFileSync(
     nodePath.join(dir, "axm-pack.json"),
     JSON.stringify({
-      name: "@test/my-pack",
+      name: "@test/packs/my-pack",
       version: "1.0.0",
       description: "Test pack",
     }),
@@ -221,7 +221,7 @@ describe("installPack operation handler", () => {
           packs?: Record<string, string>;
         };
         expect(settings.packs).toBeDefined();
-        expect(settings.packs!["my-pack"]).toBe("@test/my-pack@^1.0.0");
+        expect(settings.packs!["my-pack"]).toBe("@test/packs/my-pack@^1.0.0");
       }),
     );
   });

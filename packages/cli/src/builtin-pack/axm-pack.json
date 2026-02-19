@@ -1,11 +1,11 @@
 {
-  "name": "@axm/cli",
+  "name": "@axm/packs/cli",
   "version": "0.0.16",
   "description": "Built-in management skills for axm workspaces",
   "skills": {
-    "@axm/axm-manage-skills": "0.0.16",
-    "@axm/axm-manage-packs": "0.0.16",
-    "@axm/axm-manage-mcp-servers": "0.0.16",
-    "@axm/axm-manage-commands": "0.0.16"
+    "@axm/skills/axm-manage-skills": "0.0.16",
+    "@axm/skills/axm-manage-packs": "0.0.16",
+    "@axm/skills/axm-manage-mcp-servers": "0.0.16",
+    "@axm/skills/axm-manage-commands": "0.0.16"
   }
 }

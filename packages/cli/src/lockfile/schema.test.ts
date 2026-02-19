@@ -617,8 +617,8 @@ describe("lockfile schema", () => {
         sourceName: "default",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
-        resolvedSkills: { "@acme/code-review": "1.2.0" },
-        resolvedCommands: { "@acme/formatter": "1.0.0" },
+        resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
+        resolvedCommands: { "@acme/commands/formatter": "1.0.0" },
         resolvedMcpServers: {},
       };
 
@@ -634,8 +634,8 @@ describe("lockfile schema", () => {
       }
       expect(result.installedAt).toBeInstanceOf(Date);
       expect(result.updatedAt).toBeInstanceOf(Date);
-      expect(result.resolvedSkills).toEqual({ "@acme/code-review": "1.2.0" });
-      expect(result.resolvedCommands).toEqual({ "@acme/formatter": "1.0.0" });
+      expect(result.resolvedSkills).toEqual({ "@acme/skills/code-review": "1.2.0" });
+      expect(result.resolvedCommands).toEqual({ "@acme/commands/formatter": "1.0.0" });
       expect(result.resolvedMcpServers).toEqual({});
     });
 
@@ -757,7 +757,7 @@ describe("lockfile schema", () => {
         resolvedVersion: "0.0.16",
         installedAt: "2025-01-15T10:30:00Z",
         updatedAt: "2025-01-15T10:30:00Z",
-        resolvedSkills: { "@axm/effect-solutions": "0.0.16" },
+        resolvedSkills: { "@axm/skills/effect-solutions": "0.0.16" },
         resolvedCommands: {},
         resolvedMcpServers: {},
       };
@@ -770,7 +770,7 @@ describe("lockfile schema", () => {
       expect(result.resolvedVersion).toBe("0.0.16");
       expect(result.installedAt).toBeInstanceOf(Date);
       expect(result.updatedAt).toBeInstanceOf(Date);
-      expect(result.resolvedSkills).toEqual({ "@axm/effect-solutions": "0.0.16" });
+      expect(result.resolvedSkills).toEqual({ "@axm/skills/effect-solutions": "0.0.16" });
       expect(result.resolvedCommands).toEqual({});
       expect(result.resolvedMcpServers).toEqual({});
     });
@@ -825,7 +825,7 @@ describe("lockfile schema", () => {
 
     it("accepts map with valid pack entries", () => {
       const input = {
-        "@acme/frontend-pack": {
+        "@acme/packs/frontend-pack": {
           type: "registry",
           scope: "@acme",
           name: "frontend-pack",
@@ -834,7 +834,7 @@ describe("lockfile schema", () => {
           sourceName: "default",
           installedAt: "2025-01-15T10:30:00Z",
           updatedAt: "2025-01-15T10:30:00Z",
-          resolvedSkills: { "@acme/code-review": "1.2.0" },
+          resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
           resolvedCommands: {},
           resolvedMcpServers: {},
         },
@@ -842,9 +842,9 @@ describe("lockfile schema", () => {
 
       const result = Schema.decodeUnknownSync(PacksLockMapSchema)(input);
 
-      expect(result["@acme/frontend-pack"]).toBeDefined();
-      expect(result["@acme/frontend-pack"]?.resolvedSkills).toEqual({
-        "@acme/code-review": "1.2.0",
+      expect(result["@acme/packs/frontend-pack"]).toBeDefined();
+      expect(result["@acme/packs/frontend-pack"]?.resolvedSkills).toEqual({
+        "@acme/skills/code-review": "1.2.0",
       });
     });
   });
@@ -855,7 +855,7 @@ describe("lockfile schema", () => {
         lockfileVersion: 1,
         skills: {},
         packs: {
-          "@acme/frontend-pack": {
+          "@acme/packs/frontend-pack": {
             type: "registry",
             scope: "@acme",
             name: "frontend-pack",
@@ -864,8 +864,8 @@ describe("lockfile schema", () => {
             sourceName: "default",
             installedAt: "2025-01-15T10:30:00Z",
             updatedAt: "2025-01-15T10:30:00Z",
-            resolvedSkills: { "@acme/code-review": "1.2.0" },
-            resolvedCommands: { "@acme/formatter": "1.0.0" },
+            resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
+            resolvedCommands: { "@acme/commands/formatter": "1.0.0" },
             resolvedMcpServers: {},
           },
         },
@@ -874,7 +874,7 @@ describe("lockfile schema", () => {
       const result = Schema.decodeUnknownSync(LockfileSchema)(input);
 
       expect(result.packs).toBeDefined();
-      expect(result.packs?.["@acme/frontend-pack"]).toBeDefined();
+      expect(result.packs?.["@acme/packs/frontend-pack"]).toBeDefined();
     });
 
     it("accepts lockfile without packs section", () => {
@@ -913,7 +913,7 @@ describe("lockfile schema", () => {
           },
         },
         packs: {
-          "@acme/frontend-pack": {
+          "@acme/packs/frontend-pack": {
             type: "registry",
             scope: "@acme",
             name: "frontend-pack",
@@ -922,18 +922,18 @@ describe("lockfile schema", () => {
             sourceName: "default",
             installedAt: "2025-01-15T10:30:00.000Z",
             updatedAt: "2025-01-15T10:30:00.000Z",
-            resolvedSkills: { "@acme/code-review": "1.2.0" },
+            resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
             resolvedCommands: {},
             resolvedMcpServers: {},
           },
-          "@axm/cli": {
+          "@axm/packs/cli": {
             type: "builtin",
             scope: "@axm",
             name: "cli",
             resolvedVersion: "0.0.16",
             installedAt: "2025-01-15T10:30:00.000Z",
             updatedAt: "2025-01-15T10:30:00.000Z",
-            resolvedSkills: { "@axm/effect-solutions": "0.0.16" },
+            resolvedSkills: { "@axm/skills/effect-solutions": "0.0.16" },
             resolvedCommands: {},
             resolvedMcpServers: {},
           },

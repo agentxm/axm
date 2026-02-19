@@ -76,7 +76,7 @@ describe("registry guard", () => {
           path.join(extensionDir, "axm-skill.json"),
           JSON.stringify(
             {
-              name: "@test/my-skill",
+              name: "@test/skills/my-skill",
               version: "1.0.0",
               agents: ["claude-code"],
             },
@@ -93,7 +93,7 @@ describe("registry guard", () => {
 
         // Attempt to publish with --non-interactive (no registry configured)
         const publishResult = await runCli(
-          ["skills", "publish", "@test/my-skill", "--yes", "--non-interactive"],
+          ["skills", "publish", "@test/skills/my-skill", "--yes", "--non-interactive"],
           { cwd: temp.path },
         );
 

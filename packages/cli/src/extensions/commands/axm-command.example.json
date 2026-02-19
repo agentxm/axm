@@ -1,5 +1,5 @@
 {
-  "name": "@acme/deploy",
+  "name": "@acme/commands/deploy",
   "version": "1.0.0",
   "description": "Deploy application to cloud infrastructure",
   "keywords": ["deploy", "cloud", "ci-cd"],

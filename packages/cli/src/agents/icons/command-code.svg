@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title-g-commandcode desc-g-commandcode">
+  <title id="title-g-commandcode">command-code icon</title>
+  <desc id="desc-g-commandcode">Generated fallback icon for command-code</desc>
+  <defs>
+    <linearGradient id="g-commandcode" x1="16" y1="16" x2="240" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ac593d"/>
+      <stop offset="1" stop-color="#9a3412"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#g-commandcode)" stroke="#78290e" stroke-width="8"/>
+  <text x="128" y="146" fill="#ffffff" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="94" font-weight="700" text-anchor="middle" letter-spacing="2">CC</text>
+</svg>

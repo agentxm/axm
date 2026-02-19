@@ -13,6 +13,7 @@ export { detectAgent, detectAgents } from "./detection.js";
 
 // Registry (pure data)
 export { AGENTS, getAgentById, getAgentIds, getAllAgents } from "./registry.js";
+export { AGENT_ICON_PATHS, getAgentIconPath } from "./icons.js";
 
 // Types
 export type { AgentDescriptor, AgentId, AgentRegistry, AgentSkillsDescriptor } from "./types.js";

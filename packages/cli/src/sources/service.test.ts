@@ -49,6 +49,8 @@ const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
 const defaultFindOptions: FindOptions = {
   skillNames: [],
   type: "skill",
+  scope: Option.none(),
+  versionConstraint: Option.none(),
 };
 
 const makeRegistryDir = (): string => mkdtempSync(nodePath.join(tmpdir(), "test-registry-"));
@@ -168,6 +170,7 @@ describe("registry meta-provider scope routing", () => {
           {
             type: "registry",
             location: new URL(`file://${registryRoot}`),
+            scope: Option.none(),
           },
           { ...defaultFindOptions, skillNames: ["my-skill"] },
         );
@@ -189,6 +192,7 @@ describe("registry meta-provider scope routing", () => {
           {
             type: "registry",
             location: new URL("file:///tmp/registry"),
+            scope: Option.none(),
           },
           { ...defaultFindOptions, skillNames: ["my-skill"] },
         );
@@ -248,6 +252,7 @@ describe("registry meta-provider scope routing", () => {
           {
             type: "registry",
             location: new URL(`file://${registryRoot}`),
+            scope: Option.none(),
           },
           { ...defaultFindOptions, scope: Option.some("@acme") },
         );
@@ -346,6 +351,7 @@ describe("SourceHostProviders dispatch", () => {
           {
             type: "registry",
             location: new URL(`file://${registryRoot}`),
+            scope: Option.none(),
           },
           { ...defaultFindOptions, skillNames: ["nonexistent"] },
         );

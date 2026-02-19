@@ -3,6 +3,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import { createBuiltinSourceHostProvider } from "./builtin.js";
 
@@ -36,7 +37,17 @@ describe("createBuiltinSourceHostProvider", () => {
   it("find fails with not-yet-implemented error", () => {
     const provider = createBuiltinSourceHostProvider();
     const result = Effect.runSync(
-      provider.find({ type: "builtin" }, { skillNames: [], type: "skill" }).pipe(Effect.either),
+      provider
+        .find(
+          { type: "builtin" },
+          {
+            skillNames: [],
+            type: "skill",
+            scope: Option.none(),
+            versionConstraint: Option.none(),
+          },
+        )
+        .pipe(Effect.either),
     );
     expect(result._tag).toBe("Left");
     if (result._tag === "Left") {

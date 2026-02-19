@@ -50,7 +50,7 @@ interface GitHubTreeResponse {
  * @param repo - Repository name
  * @param ref - Git ref (branch, tag, or commit SHA)
  * @param path - Path within the repository (empty string or "." for root)
- * @returns Effect that resolves to the tree SHA, null if path not found, or fails with CliError
+ * @returns Effect that resolves to Some(treeSha), None if path not found, or fails with CliError
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -59,7 +59,7 @@ export const fetchGitHubTreeHash = (
   repo: string,
   ref: string,
   path: string,
-): Effect.Effect<string | null, CliError> =>
+): Effect.Effect<Option.Option<string>, CliError> =>
   Effect.gen(function* () {
     const url = `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/trees/${encodeURIComponent(ref)}?recursive=1`;
 
@@ -82,8 +82,8 @@ export const fetchGitHubTreeHash = (
     // Handle HTTP errors
     if (!response.ok) {
       if (response.status === 404) {
-        // Repository or ref not found - return null
-        return null;
+        // Repository or ref not found
+        return Option.none<string>();
       }
       const body = yield* Effect.tryPromise({
         try: () => response.text(),
@@ -117,15 +117,12 @@ export const fetchGitHubTreeHash = (
 
     // For root path, return the root tree SHA
     if (normalizedPath === "") {
-      return data.sha;
+      return Option.some(data.sha);
     }
 
     // Find the tree entry matching the path
-    return Option.match(
+    return Option.map(
       Array.findFirst(data.tree, (e) => e.path === normalizedPath && e.type === "tree"),
-      {
-        onNone: () => null,
-        onSome: (entry) => entry.sha,
-      },
+      (entry) => entry.sha,
     );
   });

@@ -140,16 +140,15 @@ export const createRegistryMetaProvider = () => ({
       const ws = yield* Workspace;
 
       // Determine scope from explicit option, or infer from @scope/name.
-      const scope =
-        options.scope !== undefined
-          ? options.scope
-          : source.scope !== undefined
-            ? source.scope
-            : options.skillNames.length > 0
-              ? Option.fromNullable(
-                  options.skillNames.find((n) => n.startsWith("@"))?.split("/")[0] ?? null,
-                )
-              : Option.none<string>();
+      const scope = Option.isSome(options.scope)
+        ? options.scope
+        : Option.isSome(source.scope)
+          ? source.scope
+          : options.skillNames.length > 0
+            ? Option.fromNullable(
+                options.skillNames.find((n) => n.startsWith("@"))?.split("/")[0] ?? null,
+              )
+            : Option.none<string>();
 
       const registrySources = yield* ws.getConfiguredRegistrySources(scope).pipe(
         Effect.mapError((e) =>
@@ -162,16 +161,18 @@ export const createRegistryMetaProvider = () => ({
       );
 
       if (registrySources.length === 0) {
-        return [] as ReadonlyArray<ExtensionRef>;
+        const empty: ReadonlyArray<ExtensionRef> = [];
+        return empty;
       }
 
       // Try each registry source in order. 404 (empty results) → fallthrough.
       // Sequential: early-exits on first non-404 error (can't use Effect.forEach)
-      const allRefs: Array<ExtensionRef> = [];
+      const allRefs: ExtensionRef[] = [];
 
       for (const regSource of registrySources) {
         const provider = yield* createRegistrySourceHostProviderFromHost(regSource);
-        const result = yield* provider.find(regSource, options).pipe(Effect.either);
+        const registrySource: RegistrySource = { ...regSource, scope };
+        const result = yield* provider.find(registrySource, options).pipe(Effect.either);
 
         if (result._tag === "Left") {
           // Non-404 errors → hard fail
@@ -183,7 +184,8 @@ export const createRegistryMetaProvider = () => ({
         }
       }
 
-      return allRefs as ReadonlyArray<ExtensionRef>;
+      const refs: ReadonlyArray<ExtensionRef> = allRefs;
+      return refs;
     }),
 
   fetch: (source: RegistrySource, ref: ExtensionRef) =>

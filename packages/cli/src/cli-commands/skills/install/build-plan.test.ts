@@ -30,7 +30,11 @@ const makeRegistrySkillRef = (name: string) =>
     type: "skill",
     refType: "registry",
     skill: { name, description: Option.some(`${name} skill`), metadata: Option.none() },
-    source: { type: "registry", location: new URL("https://registry.example.com") },
+    source: {
+      type: "registry",
+      location: new URL("https://registry.example.com"),
+      scope: Option.none(),
+    },
     scope: "@acme",
     name,
     version: "1.2.3",

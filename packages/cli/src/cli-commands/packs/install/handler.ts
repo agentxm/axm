@@ -206,6 +206,8 @@ export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
     .find(source, {
       skillNames: [packName],
       type: "pack",
+      scope: Option.none(),
+      versionConstraint: Option.none(),
     })
     .pipe(
       Effect.mapError((error) =>

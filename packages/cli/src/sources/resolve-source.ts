@@ -418,6 +418,7 @@ export const routeRegistryInput = (
     return {
       type: "registry" as const,
       location: regConfig.location,
+      scope: Option.none(),
     } satisfies RegistrySource;
   });
 
@@ -476,6 +477,7 @@ export const resolveSlashInputSource = (
             return {
               type: "registry" as const,
               location: regSource.location,
+              scope: Option.none(),
             } satisfies RegistrySource;
           }
         }

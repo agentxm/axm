@@ -24,6 +24,7 @@ import { expandGlobs, isGlobPattern } from "../skills/index.js";
 import { Workspace } from "../workspace/index.js";
 import { resolveSource } from "./resolve-source.js";
 import type { Source } from "./types.js";
+import { fileUrlToPath } from "./utils.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -65,7 +66,7 @@ const buildCandidates = Effect.gen(function* () {
   const onDiskByName = new Map<string, string>();
   for (const ref of refsSortedByLocation) {
     if (!onDiskByName.has(ref.skill.name)) {
-      onDiskByName.set(ref.skill.name, ref.location.replace("file://", ""));
+      onDiskByName.set(ref.skill.name, fileUrlToPath(ref.location));
     }
   }
 

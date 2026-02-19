@@ -14,6 +14,7 @@ import * as Path from "@effect/platform/Path";
 import * as NodeContext from "@effect/platform-node/NodeContext";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "vitest";
 
 import { makeCliError } from "../../../cli-error/index.js";
@@ -41,8 +42,9 @@ import {
 // Helpers
 // -----------------------------------------------------------------------------
 
-const runEffect = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  Effect.runPromise(effect.pipe(Effect.provide(NodeContext.layer)));
+const runEffect = <A, E>(
+  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Scope.Scope>,
+) => Effect.runPromise(effect.pipe(Effect.scoped, Effect.provide(NodeContext.layer)));
 
 const sha512 = (data: Uint8Array): string => {
   const b64 = createHash("sha512").update(data).digest("base64");
@@ -58,7 +60,7 @@ const makeTestRegistry = (
     mkdirSync(nodePath.join(dir, "extensions", scope), { recursive: true });
   }
   return {
-    source: { type: "registry", location: new URL(`file://${dir}`) },
+    source: { type: "registry", location: new URL(`file://${dir}`), scope: Option.none() },
     cleanup: () => rmSync(dir, { recursive: true, force: true }),
   };
 };
@@ -66,11 +68,14 @@ const makeTestRegistry = (
 const testSource: RegistrySource = {
   type: "registry",
   location: new URL("file:///tmp/test-registry"),
+  scope: Option.none(),
 };
 
 const defaultFindOptions: FindOptions = {
   skillNames: [],
   type: "skill",
+  scope: Option.none(),
+  versionConstraint: Option.none(),
 };
 
 const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
@@ -177,6 +182,8 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         const findOptions: FindOptions = {
           skillNames: ["my-skill"],
           type: "skill",
+          scope: Option.none(),
+          versionConstraint: Option.none(),
         };
         const refs = yield* provider.find(registry.source, findOptions);
 

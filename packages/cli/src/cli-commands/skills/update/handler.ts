@@ -185,6 +185,8 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         const namedRefs = yield* sources.find(source, {
           skillNames: [name],
           type: "skill",
+          scope: Option.none(),
+          versionConstraint: Option.none(),
         });
         const namedSkillRefs = Array.filter(
           namedRefs,
@@ -200,6 +202,8 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
         const allRefs = yield* sources.find(source, {
           skillNames: [],
           type: "skill",
+          scope: Option.none(),
+          versionConstraint: Option.none(),
         });
         const allSkillRefs = Array.filter(
           allRefs,

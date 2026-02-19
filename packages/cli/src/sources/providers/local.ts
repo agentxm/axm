@@ -17,6 +17,7 @@ import { discoverSkillsInDir } from "../../cli-commands/skills/install/discover-
 import { makeCliError } from "../../cli-error/index.js";
 import type { SourceHostProvider } from "../provider.js";
 import type { LocalSource, ExtensionRef } from "../types.js";
+import { fileUrlToPath } from "../utils.js";
 
 /**
  * Source host provider for local filesystem paths.
@@ -78,7 +79,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
       );
     }
     return Effect.succeed({
-      directory: ref.location.replace("file://", ""),
+      directory: fileUrlToPath(ref.location),
     });
   },
 });

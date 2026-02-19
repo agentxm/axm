@@ -124,7 +124,11 @@ const makeOp = (
       ref = {
         ...skillBase(name),
         refType: "registry",
-        source: { type: "registry", location: new URL("http://localhost:3000") },
+        source: {
+          type: "registry",
+          location: new URL("http://localhost:3000"),
+          scope: Option.none(),
+        },
         scope: "@axm",
         name,
         version: overrides?.version ?? "0.0.0",

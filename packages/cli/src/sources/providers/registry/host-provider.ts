@@ -101,6 +101,10 @@ const toExtensionRef = (entry: RegistryExtensionManifest, source: RegistrySource
         source,
         ...details,
       };
+    case "command":
+      // Command extension refs are not yet supported in registry discovery.
+      // This case exists for exhaustiveness after adding "command" to ExtensionType.
+      throw new Error(`Unsupported extension type for ref conversion: ${entry.type}`);
     case "pack": {
       const skills: Record<string, string> = {};
       const commands: Record<string, string> = {};

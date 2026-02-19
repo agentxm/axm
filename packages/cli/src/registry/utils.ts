@@ -43,6 +43,8 @@ export const pluralizeType = (type: ExtensionType): string => {
   switch (type) {
     case "skill":
       return "skills";
+    case "command":
+      return "commands";
     case "pack":
       return "packs";
     case "mcp-server":

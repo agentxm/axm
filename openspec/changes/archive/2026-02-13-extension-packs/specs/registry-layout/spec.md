@@ -7,7 +7,7 @@ The registry SHALL use a static-file layout organized by scope, extension type, 
 ```
 <registry-root>/
   extensions/
-    @<scope>/
+    @<namespace>/
       <skills|mcp-servers|packs>/
         <name>/
           index.json
@@ -68,12 +68,12 @@ Each extension SHALL have an `index.json` conforming to the `ExtensionIndex` sch
 
 #### Scenario: Valid index with multiple versions
 
-- **WHEN** `index.json` contains `name: "code-review"`, `scope: "@acme"`, `type: "skill"`, and two version entries
+- **WHEN** `index.json` contains `name: "code-review"`, `namespace: "@acme"`, `type: "skill"`, and two version entries
 - **THEN** schema validation succeeds and versions are ordered newest first
 
 #### Scenario: Valid pack index
 
-- **WHEN** `index.json` contains `name: "frontend-tools"`, `scope: "@acme"`, `type: "pack"`, and one version entry
+- **WHEN** `index.json` contains `name: "frontend-tools"`, `namespace: "@acme"`, `type: "pack"`, and one version entry
 - **THEN** schema validation succeeds
 
 #### Scenario: Missing required field

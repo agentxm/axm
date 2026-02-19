@@ -198,7 +198,7 @@ describe("SourceParams", () => {
   it("narrows RegistrySourceParams via type", () => {
     const params: SourceParams = {
       type: "registry",
-      scope: Option.none(),
+      namespace: Option.none(),
     };
     if (params.type === "registry") {
       expect(params.type).toBe("registry");
@@ -243,7 +243,7 @@ describe("Source", () => {
     const source: Source = {
       type: "registry",
       location: new URL("file:///registry"),
-      scope: Option.none(),
+      namespace: Option.none(),
     };
     if (source.type === "registry") {
       expect(source.location.protocol).toBe("file:");
@@ -332,14 +332,14 @@ describe("ref detail interfaces", () => {
     expect(Option.getOrNull(details.gitTreeSha)).toBe("abc123");
   });
 
-  it("RegistryRefDetails has scope, name, version, and integrity", () => {
+  it("RegistryRefDetails has namespace, name, version, and integrity", () => {
     const details: RegistryRefDetails = {
-      scope: "@acme",
+      namespace: "@acme",
       name: "my-skill",
       version: "1.2.3",
       integrity: "sha512-abc==",
     };
-    expect(details.scope).toBe("@acme");
+    expect(details.namespace).toBe("@acme");
     expect(details.name).toBe("my-skill");
     expect(details.version).toBe("1.2.3");
     expect(details.integrity).toBe("sha512-abc==");
@@ -394,9 +394,9 @@ describe("SkillExtensionRef", () => {
       source: {
         type: "registry",
         location: new URL("file:///reg"),
-        scope: Option.none(),
+        namespace: Option.none(),
       },
-      scope: "@acme",
+      namespace: "@acme",
       name: "test-pkg",
       version: "1.0.0",
       integrity: "sha512-abc",
@@ -405,7 +405,7 @@ describe("SkillExtensionRef", () => {
       expect(ref.version).toBe("1.0.0");
       expect(ref.integrity).toBe("sha512-abc");
       expect(ref.name).toBe("test-pkg");
-      expect(ref.scope).toBe("@acme");
+      expect(ref.namespace).toBe("@acme");
     }
   });
 
@@ -485,9 +485,9 @@ describe("McpServerExtensionRef", () => {
       source: {
         type: "registry",
         location: new URL("file:///reg"),
-        scope: Option.none(),
+        namespace: Option.none(),
       },
-      scope: "@acme",
+      namespace: "@acme",
       name: "server-pkg",
       version: "2.0.0",
       integrity: "sha512-def",
@@ -512,9 +512,9 @@ describe("PackExtensionRef", () => {
       source: {
         type: "registry",
         location: new URL("file:///reg"),
-        scope: Option.none(),
+        namespace: Option.none(),
       },
-      scope: "@acme",
+      namespace: "@acme",
       name: "pack-pkg",
       version: "1.0.0",
       integrity: "sha512-ghi",
@@ -584,14 +584,14 @@ describe("ExtensionRef", () => {
       type: "skill",
       refType: "registry",
       skill: { name: "s", description: Option.none(), metadata: Option.none() },
-      source: { type: "registry", location: new URL("file:///reg"), scope: Option.none() },
-      scope: "@acme",
+      source: { type: "registry", location: new URL("file:///reg"), namespace: Option.none() },
+      namespace: "@acme",
       name: "pkg",
       version: "1.0.0",
       integrity: "sha512-abc",
     };
     if (ref.refType === "registry") {
-      expect(ref.scope).toBe("@acme");
+      expect(ref.namespace).toBe("@acme");
       expect(ref.version).toBe("1.0.0");
     }
   });
@@ -699,11 +699,11 @@ describe("SourceParams structural equality via Data.struct", () => {
   it("RegistrySourceParams has no additional fields", () => {
     const a: SourceParams = {
       type: "registry",
-      scope: Option.none(),
+      namespace: Option.none(),
     };
     const b: SourceParams = {
       type: "registry",
-      scope: Option.none(),
+      namespace: Option.none(),
     };
     expect(Equal.equals(Data.struct(a), Data.struct(b))).toBe(true);
   });

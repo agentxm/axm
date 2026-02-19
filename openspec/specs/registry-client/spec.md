@@ -13,11 +13,11 @@ The system SHALL provide a `RegistryClient` interface with 6 methods for operati
 Methods:
 
 - `getExtensions(options: RegistrySearchOptions)` — discover extensions matching search criteria
-- `scopeExists(scope)` — check if a scope directory exists
-- `fetchIndex(scope, type, name)` — read and validate the extension's `index.json`
-- `getExtension(scope, type, name, version)` — read raw archive bytes for a version
-- `publishExtension(scope, type, name, version, archive, metadata)` — write archive and update index
-- `extensionExists(scope, type, name)` — check if an extension's `index.json` exists
+- `namespaceExists(namespace)` — check if a namespace directory exists
+- `fetchIndex(namespace, type, name)` — read and validate the extension's `index.json`
+- `getExtension(namespace, type, name, version)` — read raw archive bytes for a version
+- `publishExtension(namespace, type, name, version, archive, metadata)` — write archive and update index
+- `extensionExists(namespace, type, name)` — check if an extension's `index.json` exists
 
 #### Scenario: Client scoped to registry root
 
@@ -29,9 +29,9 @@ Methods:
 - **WHEN** `getExtensions({ names: ["@acme/code-review"], agents: [], type: "skill" })` is called
 - **THEN** the client scans the registry layout, reads index files, applies version/agent filtering, and returns matching `RegistryExtensionEntry` results
 
-#### Scenario: scopeExists checks scope directory
+#### Scenario: namespaceExists checks namespace directory
 
-- **WHEN** `scopeExists("@acme")` is called and the scope directory exists
+- **WHEN** `namespaceExists("@acme")` is called and the namespace directory exists
 - **THEN** it returns `true`
 
 #### Scenario: fetchIndex reads and validates index.json
@@ -70,7 +70,7 @@ The `RegistryClient` SHALL return `RegistryExtensionEntry` from `getExtensions`.
 
 Fields:
 
-- `scope`: registry scope (e.g., `"@acme"`)
+- `namespace`: registry namespace (e.g., `"@acme"`)
 - `type`: `RegistryExtensionType` (`"skill" | "mcp-server" | "pack"`)
 - `name`: extension name
 - `version`: resolved semver version string
@@ -79,7 +79,7 @@ Fields:
 #### Scenario: Entry contains all fields needed for SourceExtensionRef mapping
 
 - **WHEN** a host provider receives a `RegistryExtensionEntry`
-- **THEN** it has sufficient data to construct a `SourceExtensionRef` with `RegistryRefDetails` (scope, version, integrity)
+- **THEN** it has sufficient data to construct a `SourceExtensionRef` with `RegistryRefDetails` (namespace, version, integrity)
 
 ### Requirement: Version resolution by semver range
 
@@ -157,7 +157,7 @@ The registry client SHALL verify archive integrity using SHA-512 in SRI format.
 
 The system SHALL implement `LocalRegistryClient` that performs all `RegistryClient` operations via filesystem I/O against the static-file registry layout.
 
-#### Scenario: getExtensions scans scope directories
+#### Scenario: getExtensions scans namespace directories
 
 - **WHEN** `getExtensions` is called on a local registry at `/registries/main`
 - **THEN** the client scans `@*` directories under `<root>/extensions/`, reads index files, and applies version/agent filtering

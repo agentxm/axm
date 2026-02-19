@@ -30,7 +30,7 @@ describe("registryGuard", () => {
       getConfiguredSources: vi.fn(() => Effect.succeed([])),
       getConfiguredSourceByName: vi.fn(() => Effect.succeed(Option.none())),
       getConfiguredRegistrySources: () => Effect.succeed(registrySources),
-      getConfiguredScope: () => Effect.succeed("default"),
+      getConfiguredNamespace: () => Effect.succeed("default"),
       addConfiguredSource: addSource,
       getConfiguredSkills: vi.fn(() => Effect.succeed({})),
       getInstalledSkills: vi.fn(() => Effect.succeed({})),

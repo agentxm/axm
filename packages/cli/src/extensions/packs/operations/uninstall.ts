@@ -83,7 +83,7 @@ export const uninstallPack: OperationHandler<
     const packDir = computePackPaths(
       path.join,
       base,
-      lockedPack.scope,
+      lockedPack.namespace,
       lockedPack.name,
     ).canonicalPath;
     yield* removeIfExists(fs, packDir);
@@ -95,7 +95,7 @@ export const uninstallPack: OperationHandler<
 
     const configuredSkillsNormalized = yield* ws.getConfiguredSkills();
     // findOrphanedSkills checks key presence (`fqn in configuredSkills`).
-    // resolvedSkills keys are 3-segment FQNs (e.g. @scope/skills/name) while
+    // resolvedSkills keys are 3-segment FQNs (e.g. @namespace/skills/name) while
     // configured skills use simple names (e.g. name). Include both forms so
     // the orphan check matches regardless of format.
     const simpleKeys = Object.keys(configuredSkillsNormalized);
@@ -120,19 +120,19 @@ export const uninstallPack: OperationHandler<
         Effect.gen(function* () {
           const extensionsDir = path.join(base, REGISTRY_EXTENSIONS_DIR);
 
-          // Parse 3-segment FQN to locate the skill on disk; fall back to scanning scope dirs
+          // Parse 3-segment FQN to locate the skill on disk; fall back to scanning namespace dirs
           yield* parseFqn(skillFqn).pipe(
             Effect.flatMap((parsed) => {
               const skillPath = path.join(
                 extensionsDir,
-                parsed.scope,
+                parsed.namespace,
                 parsed.type,
                 sanitizeName(parsed.name),
               );
               return removeIfExists(fs, skillPath);
             }),
             Effect.catchAll(() => {
-              // Fallback: scan scope dirs for legacy 2-segment FQNs
+              // Fallback: scan namespace dirs for legacy 2-segment FQNs
               const sanitized = sanitizeName(skillFqn);
               return fs.exists(extensionsDir).pipe(
                 Effect.catchAll(() => Effect.succeed(false)),

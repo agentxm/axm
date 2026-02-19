@@ -1,7 +1,7 @@
 /**
  * Unit tests for the publish command handler.
  *
- * Tests the registry guard -> scope resolution -> validation -> plan build -> apply flow.
+ * Tests the registry guard -> namespace resolution -> validation -> plan build -> apply flow.
  */
 
 import * as fs from "node:fs";
@@ -41,7 +41,7 @@ const initWorkspace = (
   fs.writeFileSync(
     path.join(axmDir, "settings.json"),
     JSON.stringify({
-      scope: "@test",
+      namespace: "@test",
       agents: ["claude-code"],
       sources: [{ name: "local", type: "registry", location: new URL(`file://${registryRoot}`) }],
       ...(skills && { skills }),
@@ -56,11 +56,11 @@ const initWorkspace = (
 /** Create a managed extension in .axm/extensions/ with a manifest at root and content in src/. */
 const createManagedExtension = (
   tempDir: string,
-  scope: string,
+  namespace: string,
   name: string,
   manifest: Record<string, unknown>,
 ) => {
-  const extDir = path.join(tempDir, ".axm", "extensions", scope, "skills", name);
+  const extDir = path.join(tempDir, ".axm", "extensions", namespace, "skills", name);
   const srcDir = path.join(extDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
   fs.writeFileSync(path.join(extDir, "axm-skill.json"), JSON.stringify(manifest));
@@ -200,12 +200,12 @@ describe("publish.handler", () => {
     });
   });
 
-  describe("bare name scope resolution", () => {
-    it.effect("resolves bare name using scope from settings", () => {
+  describe("bare name namespace resolution", () => {
+    it.effect("resolves bare name using namespace from settings", () => {
       const { provide, mockLog } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
-      // Create managed extension under @test scope
+      // Create managed extension under @test namespace
       createManagedExtension(tempDir, "@test", "code-review", {
         name: "@test/skills/code-review",
         version: "0.1.0",
@@ -216,12 +216,12 @@ describe("publish.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          // Pass bare name without scope
+          // Pass bare name without namespace
           yield* handlePublish(defaultArgs(["code-review"]));
 
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
-          // Should have published under @test scope
+          // Should have published under @test namespace
           const registryIndexPath = path.join(
             registryRoot,
             "extensions",

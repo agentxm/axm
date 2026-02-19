@@ -51,11 +51,11 @@ describe("skills new command", () => {
     expect(capturedPositionals["name"]?.demandOption).toBe(true);
   });
 
-  it("defines --scope flag as optional string", () => {
+  it("defines --namespace flag as optional string", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
     (skillsNewCommand.builder as (yargs: Argv) => Argv)(mockYargs);
-    expect(capturedOptions["scope"]).toBeDefined();
-    expect(capturedOptions["scope"]?.type).toBe("string");
+    expect(capturedOptions["namespace"]).toBeDefined();
+    expect(capturedOptions["namespace"]?.type).toBe("string");
   });
 
   it("defines --agent flag as array of strings", () => {

@@ -16,27 +16,27 @@ describe("parseFqn", () => {
   it.each([
     {
       input: "@acme/skills/code-review",
-      expected: { scope: "@acme", type: "skills", name: "code-review" },
+      expected: { namespace: "@acme", type: "skills", name: "code-review" },
     },
     {
       input: "@acme/packs/fullstack",
-      expected: { scope: "@acme", type: "packs", name: "fullstack" },
+      expected: { namespace: "@acme", type: "packs", name: "fullstack" },
     },
     {
       input: "@acme/mcp-servers/database",
-      expected: { scope: "@acme", type: "mcp-servers", name: "database" },
+      expected: { namespace: "@acme", type: "mcp-servers", name: "database" },
     },
     {
       input: "@wayne_corp/skills/bat_signal",
-      expected: { scope: "@wayne_corp", type: "skills", name: "bat_signal" },
+      expected: { namespace: "@wayne_corp", type: "skills", name: "bat_signal" },
     },
     {
       input: "@test123/packs/tool456",
-      expected: { scope: "@test123", type: "packs", name: "tool456" },
+      expected: { namespace: "@test123", type: "packs", name: "tool456" },
     },
     {
       input: "@acme/commands/deploy",
-      expected: { scope: "@acme", type: "commands", name: "deploy" },
+      expected: { namespace: "@acme", type: "commands", name: "deploy" },
     },
   ])("parses valid FQN: $input", ({ input, expected }) => {
     const result = runSync(parseFqn(input));
@@ -56,7 +56,7 @@ describe("parseFqn", () => {
     { input: "", desc: "empty string" },
     { input: "@acme/skills/", desc: "trailing slash, no name" },
     { input: "@acme//code-review", desc: "missing type segment" },
-    { input: "@/skills/code-review", desc: "empty scope" },
+    { input: "@/skills/code-review", desc: "empty namespace" },
   ])("rejects invalid input: $desc ($input)", ({ input }) => {
     const result = runSync(parseFqn(input));
 
@@ -68,7 +68,7 @@ describe("parseFqnOrThrow", () => {
   it("returns parsed Fqn for valid input", () => {
     const result = parseFqnOrThrow("@acme/skills/code-review");
 
-    expect(result).toEqual({ scope: "@acme", type: "skills", name: "code-review" });
+    expect(result).toEqual({ namespace: "@acme", type: "skills", name: "code-review" });
   });
 
   it("throws for invalid input", () => {
@@ -82,15 +82,15 @@ describe("parseFqnOrThrow", () => {
 
 describe("formatFqn", () => {
   it("formats Fqn to string", () => {
-    const result = formatFqn({ scope: "@acme", type: "skills", name: "code-review" });
+    const result = formatFqn({ namespace: "@acme", type: "skills", name: "code-review" });
 
     expect(result).toBe("@acme/skills/code-review");
   });
 
   it("formats all type segments correctly", () => {
-    expect(formatFqn({ scope: "@x", type: "packs", name: "y" })).toBe("@x/packs/y");
-    expect(formatFqn({ scope: "@x", type: "commands", name: "y" })).toBe("@x/commands/y");
-    expect(formatFqn({ scope: "@x", type: "mcp-servers", name: "y" })).toBe("@x/mcp-servers/y");
+    expect(formatFqn({ namespace: "@x", type: "packs", name: "y" })).toBe("@x/packs/y");
+    expect(formatFqn({ namespace: "@x", type: "commands", name: "y" })).toBe("@x/commands/y");
+    expect(formatFqn({ namespace: "@x", type: "mcp-servers", name: "y" })).toBe("@x/mcp-servers/y");
   });
 });
 

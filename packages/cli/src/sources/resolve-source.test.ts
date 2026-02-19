@@ -142,7 +142,7 @@ describe("resolveSource", () => {
   });
 
   describe("registry resolution", () => {
-    it.effect("resolves @scope/skills/name with registry host config", () =>
+    it.effect("resolves @namespace/skills/name with registry host config", () =>
       Effect.gen(function* () {
         const registryConfig: Extract<SourceHostConfig, { type: "registry" }> = {
           name: "default",
@@ -150,7 +150,7 @@ describe("resolveSource", () => {
           location: new URL("https://registry.example.com"),
         };
         const sources: ReadonlyArray<SourceHostConfig> = [...BUILT_IN_SOURCES, registryConfig];
-        const result = yield* resolveSource("@scope/skills/name").pipe(
+        const result = yield* resolveSource("@namespace/skills/name").pipe(
           Effect.provide(makeWorkspaceLayer(sources, {}, [registryConfig])),
         );
         expect(result.type).toBe("registry");
@@ -160,25 +160,25 @@ describe("resolveSource", () => {
       }),
     );
 
-    it.effect("fails @scope/skills/name without registry config", () =>
+    it.effect("fails @namespace/skills/name without registry config", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(resolve("@scope/skills/name"));
+        const error = yield* Effect.flip(resolve("@namespace/skills/name"));
         expect(error).toBeInstanceOf(CliError);
         expect(error.what).toContain("No registry source configured");
       }),
     );
 
-    it.effect("fails @scope without registry config", () =>
+    it.effect("fails @namespace without registry config", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(resolve("@scope"));
+        const error = yield* Effect.flip(resolve("@namespace"));
         expect(error).toBeInstanceOf(CliError);
         expect(error.what).toContain("No registry source configured");
       }),
     );
 
-    it.effect("fails @scope/skills without registry config", () =>
+    it.effect("fails @namespace/skills without registry config", () =>
       Effect.gen(function* () {
-        const error = yield* Effect.flip(resolve("@scope/skills"));
+        const error = yield* Effect.flip(resolve("@namespace/skills"));
         expect(error).toBeInstanceOf(CliError);
         expect(error.what).toContain("No registry source configured");
       }),
@@ -222,7 +222,7 @@ describe("resolveSource", () => {
   });
 
   describe("slash source resolution", () => {
-    it.effect("resolves scope/type/name slash pattern to registry when extension exists", () =>
+    it.effect("resolves namespace/type/name slash pattern to registry when extension exists", () =>
       Effect.gen(function* () {
         const registryRoot = mkdtempSync(nodePath.join(tmpdir(), "slash-reg-"));
         const extensionDir = nodePath.join(

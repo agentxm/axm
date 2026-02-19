@@ -37,7 +37,7 @@ import { computePackPaths } from "../paths.js";
  * Args for the publish-pack operation.
  */
 export interface PublishPackOperationArgs {
-  /** Extension identity in `@scope/name` format. */
+  /** Extension identity in `@namespace/name` format. */
   readonly name: string;
   /** Named source to publish to (e.g., "local"). */
   readonly registryName: string;
@@ -76,7 +76,7 @@ export const publishPack: OperationHandler<
     const fqn = yield* parseFqn(op.args.name);
 
     // Locate the managed pack directory
-    const packDir = computePackPaths(path.join, base, fqn.scope, fqn.name).canonicalPath;
+    const packDir = computePackPaths(path.join, base, fqn.namespace, fqn.name).canonicalPath;
     const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
     if (!packDirExists) {
       return yield* makeCliError({
@@ -163,7 +163,7 @@ export const publishPack: OperationHandler<
     // Publish to registry (idempotent)
     yield* client
       .publishExtension({
-        scope: fqn.scope,
+        namespace: fqn.namespace,
         type: "pack",
         name: fqn.name,
         version: manifest.version,

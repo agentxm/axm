@@ -15,7 +15,7 @@ The pipeline:
 1. Parse input → `SourceParams` via `determineSourceInput`
 2. Match on `source.type` discriminator
 3. For git hosting types (github, gitlab, bitbucket, azurerepos): find matching `SourceHostConfig`, intersect `SourceHost` + `SourceParams` → `Source`
-4. For registry: find matching `RegistrySourceHostConfig` (by scope routing), intersect → `RegistrySource` (with `url` and `scopes` from host)
+4. For registry: find matching `RegistrySourceHostConfig` (by namespace routing), intersect → `RegistrySource` (with `url` and `namespaces` from host)
 5. For self-describing types (git, local): pass through as-is (trivial host + params)
 
 The intersection SHALL be type-safe — no `as Source` assertions needed because `SourceHost` and `SourceParams` share the `type` discriminator.
@@ -38,8 +38,8 @@ The intersection SHALL be type-safe — no `as Source` assertions needed because
 #### Scenario: Registry input resolves with host config
 
 - **WHEN** `resolveSource("@acme/my-skill")` is called
-- **AND** workspace has registry config `{ name: "default", type: "registry", url: "https://registry.example.com", scopes: None }`
-- **THEN** the result is a `RegistrySource` with `type: "registry"`, `scope: "@acme"`, `name: "my-skill"`, `url: URL("https://registry.example.com")`, `scopes: None`
+- **AND** workspace has registry config `{ name: "default", type: "registry", url: "https://registry.example.com", namespaces: None }`
+- **THEN** the result is a `RegistrySource` with `type: "registry"`, `namespace: "@acme"`, `name: "my-skill"`, `url: URL("https://registry.example.com")`, `namespaces: None`
 
 #### Scenario: Git source passes through with trivial host
 
@@ -138,12 +138,12 @@ Provider URL and SCP parsers SHALL accept a hostname parameter that defaults to 
 
 ### Requirement: RegistrySource type carries host config
 
-`RegistrySource` SHALL be the flat intersection of `RegistrySourceHost & RegistrySourceParams`, carrying `type`, `url`, `scopes` (from host), `scope`, `name`, and `versionConstraint` (from params). The registry meta-provider no longer needs to look up config internally — the resolved `Source` already has it.
+`RegistrySource` SHALL be the flat intersection of `RegistrySourceHost & RegistrySourceParams`, carrying `type`, `url`, `namespaces` (from host), `namespace`, `name`, and `versionConstraint` (from params). The registry meta-provider no longer needs to look up config internally — the resolved `Source` already has it.
 
 #### Scenario: RegistrySource carries full context
 
 - **WHEN** `resolveSource` produces a registry `Source`
-- **THEN** the result has `type: "registry"`, `url`, `scopes` (from host config), `scope`, `name`, and `versionConstraint` (from parsed input)
+- **THEN** the result has `type: "registry"`, `url`, `namespaces` (from host config), `namespace`, `name`, and `versionConstraint` (from parsed input)
 
 ### Requirement: Name resolution through lockfile and configured skills
 

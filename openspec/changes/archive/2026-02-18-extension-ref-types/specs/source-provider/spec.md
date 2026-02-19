@@ -7,7 +7,7 @@
 `ExtensionRef` SHALL be a two-dimensional discriminated union with top-level discriminators `type` (extension kind) and `refType` (hosting category). Each ref variant carries a full `Source` object and ref-type-specific details.
 
 - Git-hosted refs carry `location` (file:// URL) and `gitTreeSha: Option<string>`
-- Registry refs carry `scope: string`, `name: string`, `version: string`, and `integrity: string`
+- Registry refs carry `namespace: string`, `name: string`, `version: string`, and `integrity: string`
 - Local refs carry `location` (file:// URL)
 - Builtin refs carry no additional fields
 

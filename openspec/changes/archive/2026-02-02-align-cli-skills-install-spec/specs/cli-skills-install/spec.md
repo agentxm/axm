@@ -50,7 +50,7 @@ The CLI SHALL accept AXM name patterns as input.
 
 #### Scenario: Bare name with configured scope
 
-- **WHEN** the user runs `axm skills install grappling-hook` and settings has `scope: "@wayne"`
+- **WHEN** the user runs `axm skills install grappling-hook` and settings has `namespace: "@wayne"`
 - **THEN** the CLI resolves `@wayne/grappling-hook` and installs
 
 ### Requirement: Explicit Source Prefix Support

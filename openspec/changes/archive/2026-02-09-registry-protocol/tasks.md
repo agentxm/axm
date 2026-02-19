@@ -54,7 +54,7 @@ Depends on: none (independent of Phases 1–2).
 Depends on: Phase 1 (uses `SourceInput` types).
 
 - [x] 4.1 Define `SourceConfigSchema` as a discriminated union on `source` field in `settings/schema.ts` with 5 variants (github, gitlab, bitbucket, azurerepos, registry)
-- [x] 4.2 Add `scope: Schema.optional(Schema.String)` to settings schema
+- [x] 4.2 Add `namespace: Schema.optional(Schema.String)` to settings schema
 - [x] 4.3 Evolve `sources` field from per-provider-key object to `Schema.optional(Schema.Array(SourceConfigSchema))`
 - [x] 4.4 Write tests for `SourceConfigSchema` — valid entries for each variant, name validation regex, location normalization, scopes field
 - [x] 4.5 Write tests for evolved settings schema — new sources array format, scope field, old format rejection
@@ -73,7 +73,7 @@ Depends on: Phase 4 (uses `SourceConfig` types).
 - [x] 5.1 Define built-in source defaults (github, gitlab, bitbucket) in `workspace/service.ts`
 - [x] 5.2 Implement `getSources()` — three-layer merge (project → global → built-in) with name-based deduplication and caching
 - [x] 5.3 Implement `getSourceByName(name)` — lookup from merged list, returns `Option<SourceConfig>`
-- [x] 5.4 Implement `getRegistrySources(scope: Option<string>)` — filter to registry sources with scope routing (scope-matched exclusive of catch-all)
+- [x] 5.4 Implement `getRegistrySources(namespace: Option<string>)` — filter to registry sources with scope routing (scope-matched exclusive of catch-all)
 - [x] 5.5 Implement `getScope()` — project > global > prompt (persist to project settings)
 - [x] 5.6 Implement `addSource(source)` — append to project settings sources array (semaphore-serialized)
 - [x] 5.7 Write tests for `getSources()` — merge ordering, deduplication, caching
@@ -235,7 +235,7 @@ Depends on: Phase 6 (SourceInput, SkillRef evolution).
 
 - [x] 14.1 Define `ForkSkillArgs` and `ForkSkillOperation` types in `operations.ts`
 - [x] 14.2 Define `PublishSkillArgs` and `PublishSkillOperation` types in `operations.ts`
-- [x] 14.3 Implement `forkSkill` operation executor — copy source files to `.axm/extensions/@<scope>/skills/<name>/`, generate `axm-skill.json` manifest with defaults (version `0.1.0`, agents from settings, empty dependencies)
+- [x] 14.3 Implement `forkSkill` operation executor — copy source files to `.axm/extensions/@<namespace>/skills/<name>/`, generate `axm-skill.json` manifest with defaults (version `0.1.0`, agents from settings, empty dependencies)
 - [x] 14.4 Implement `publishSkill` operation executor — read manifest, build zip, compute SHA-256, call `provider.publishVersion`, handle idempotency
 - [x] 14.5 Write tests for `forkSkill` executor — file copy, manifest generation, default values
 - [x] 14.6 Write tests for `publishSkill` executor — archive creation, checksum computation, index creation/update, idempotency (same checksum no-op, different checksum error)

@@ -43,7 +43,7 @@ describe("createBuiltinSourceHostProvider", () => {
           {
             skillNames: [],
             type: "skill",
-            scope: Option.none(),
+            namespace: Option.none(),
             versionConstraint: Option.none(),
           },
         )

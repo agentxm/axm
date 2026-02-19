@@ -4,7 +4,7 @@ The current `Settings` schema wraps extension types under an `extensions` object
 
 ```json
 {
-  "scope": "@wayne",
+  "namespace": "@wayne",
   "sources": { ... },
   "agents": ["claude-code"],
   "extensions": {
@@ -38,7 +38,7 @@ Move the four extension type fields directly into the `Settings` schema:
 ```typescript
 // Before
 export const Settings = Schema.Struct({
-  scope: Schema.optional(Schema.String),
+  namespace: Schema.optional(Schema.String),
   sources: Schema.optional(SourcesConfig),
   agents: Schema.optional(Schema.Array(AgentId)),
   extensions: Schema.optional(ExtensionsConfig),
@@ -46,7 +46,7 @@ export const Settings = Schema.Struct({
 
 // After
 export const Settings = Schema.Struct({
-  scope: Schema.optional(Schema.String),
+  namespace: Schema.optional(Schema.String),
   sources: Schema.optional(SourcesConfig),
   agents: Schema.optional(Schema.Array(AgentId)),
   skills: Schema.optional(ExtensionMap),

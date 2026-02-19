@@ -22,7 +22,7 @@
 
 - [x] 2.1 Add pack workspace methods to the workspace service interface: `getConfiguredPacks()`, `getInstalledPacks()`, `getLockedPacks()`, `getLockedPack(name)`, `setPack(name, source, lockEntry)`, `removePack(name)`, `getPackDir(name, scope)`. Add tests for each method.
 - [x] 2.2 Expand `getInstalledSkills()` to merge direct (settings.json) and transitive (pack-provided) skills. Transitive skills derived from installed packs' `resolvedSkills` in lockfile. Direct entries take precedence. Add tests for: pack-provided skill visible, direct entry overrides transitive, multiple packs providing same skill.
-- [x] 2.3 Add `computePackPaths` function (parallel to `computeSkillPaths`) — packs are always registry, no `src/` subdirectory. The canonical path is `.axm/extensions/@<scope>/packs/<name>/`. Add tests.
+- [x] 2.3 Add `computePackPaths` function (parallel to `computeSkillPaths`) — packs are always registry, no `src/` subdirectory. The canonical path is `.axm/extensions/@<namespace>/packs/<name>/`. Add tests.
 - [x] 2.4 Run `pnpm typecheck` — fix any errors
 - [x] 2.5 Run `pnpm lint` — fix any errors
 - [x] 2.6 Run `pnpm test` — fix any failures
@@ -49,8 +49,8 @@
 > **Parallelization:** Tasks 4.1+4.2 and 4.3+4.4 are independent — launch as parallel subagents.
 > Depends on: Phase 2
 
-- [x] 4.1 Implement `packs new` command (`command.ts` + `handler.ts`) — scaffold `axm-pack.json` with workspace scope (or `--scope` override), register in settings.json. Add handler tests for: success, scope override, no scope configured, pack already exists.
-- [x] 4.2 Implement `packs new` command definition (`command.ts`) with yargs args: positional `name`, `--scope`, `--yes`, `--non-interactive`. Add command parsing tests.
+- [x] 4.1 Implement `packs new` command (`command.ts` + `handler.ts`) — scaffold `axm-pack.json` with workspace scope (or `--namespace` override), register in settings.json. Add handler tests for: success, scope override, no scope configured, pack already exists.
+- [x] 4.2 Implement `packs new` command definition (`command.ts`) with yargs args: positional `name`, `--namespace`, `--yes`, `--non-interactive`. Add command parsing tests.
 - [x] 4.3 Implement `packs add` command (`command.ts` + `handler.ts`) — add extension to pack manifest. Support glob expansion against managed, registry-sourced workspace extensions. Infer extension type from lockfile. Derive version range from installed version. Add handler tests for: specific name, glob match, glob no match, non-registry rejected, pack not found, extension already in pack.
 - [x] 4.4 Implement `packs remove` command (`command.ts` + `handler.ts`) — remove extension from pack manifest. Support glob expansion against pack manifest entries. Add handler tests for: specific name, glob match, glob no match, extension not in pack, pack not found.
 - [x] 4.5 Run `pnpm typecheck` — fix any errors

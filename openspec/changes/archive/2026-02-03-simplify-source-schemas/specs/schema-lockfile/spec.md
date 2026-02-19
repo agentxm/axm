@@ -64,7 +64,7 @@ The `source` field SHALL use `SourceSchema` imported from `extension-sources`.
   skills:
     my-skill:
       source: registry
-      scope: "@acme"
+      namespace: "@acme"
       name: my-skill
       version: "1.2.3"
       agents: [claude-code]

@@ -11,7 +11,7 @@ import { handleSkillsNew } from "./handler.js";
 
 export interface SkillsNewCommandArgs {
   name: string;
-  scope: string | undefined;
+  namespace: string | undefined;
   agent: string[] | undefined;
   yes: boolean;
   preview: boolean;
@@ -26,12 +26,12 @@ export const skillsNewCommand: CommandModule<{}, SkillsNewCommandArgs> = {
     yargs
       .positional("name", {
         type: "string",
-        describe: "Name of the skill (without scope)",
+        describe: "Name of the skill (without namespace)",
         demandOption: true,
       })
-      .option("scope", {
+      .option("namespace", {
         type: "string",
-        describe: "Override the workspace scope (e.g., @acme)",
+        describe: "Override the workspace namespace (e.g., @acme)",
       })
       .option("agent", {
         type: "string",
@@ -54,12 +54,12 @@ export const skillsNewCommand: CommandModule<{}, SkillsNewCommandArgs> = {
         describe: "Disable all interactive prompts",
       })
       .example("$0 skills new my-skill", "Create a new skill")
-      .example("$0 skills new my-skill --scope @acme", "Create with custom scope"),
+      .example("$0 skills new my-skill --namespace @acme", "Create with custom namespace"),
   handler: async (argv) => {
     await run(
       handleSkillsNew({
         name: argv.name,
-        scope: Option.fromNullable(argv.scope),
+        namespace: Option.fromNullable(argv.namespace),
         agents: Option.fromNullable(argv.agent),
         yes: argv.yes,
       }),

@@ -1,7 +1,7 @@
 /**
  * Fully qualified name (FQN) parsing and formatting for 3-segment extension names.
  *
- * FQN format: `@scope/type-plural/name` (e.g., `@acme/skills/code-review`)
+ * FQN format: `@namespace/type-plural/name` (e.g., `@acme/skills/code-review`)
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -23,7 +23,7 @@ export type ExtensionTypePlural = "skills" | "packs" | "commands" | "mcp-servers
  * @experimental This API is unstable and may change without notice.
  */
 export interface Fqn {
-  readonly scope: string;
+  readonly namespace: string;
   readonly type: ExtensionTypePlural;
   readonly name: string;
 }
@@ -41,8 +41,8 @@ export const parseFqn = (input: string) =>
       return yield* makeCliError({
         code: "INVALID_FQN",
         what: `Invalid fully qualified name: ${input}`,
-        details: ["Expected format: @scope/type/name (e.g., @acme/skills/code-review)"],
-        howToFix: "Use the 3-segment format: @scope/(skills|packs|mcp-servers)/name",
+        details: ["Expected format: @namespace/type/name (e.g., @acme/skills/code-review)"],
+        howToFix: "Use the 3-segment format: @namespace/(skills|packs|mcp-servers)/name",
       });
     }
 
@@ -51,13 +51,13 @@ export const parseFqn = (input: string) =>
       return yield* makeCliError({
         code: "INVALID_FQN",
         what: `Invalid fully qualified name: ${input}`,
-        details: ["Expected format: @scope/type/name (e.g., @acme/skills/code-review)"],
-        howToFix: "Use the 3-segment format: @scope/(skills|packs|mcp-servers)/name",
+        details: ["Expected format: @namespace/type/name (e.g., @acme/skills/code-review)"],
+        howToFix: "Use the 3-segment format: @namespace/(skills|packs|mcp-servers)/name",
       });
     }
 
     return {
-      scope: match[1]!,
+      namespace: match[1]!,
       type: match[2]! as ExtensionTypePlural,
       name: match[3]!,
     } satisfies Fqn;
@@ -72,12 +72,12 @@ export const parseFqnOrThrow = (input: string): Fqn => {
   const match = FQN_PARTS_PATTERN.exec(input);
   if (!match) {
     throw new Error(
-      `Invalid fully qualified name: ${input}. Expected format: @scope/(skills|packs|mcp-servers)/name`,
+      `Invalid fully qualified name: ${input}. Expected format: @namespace/(skills|packs|mcp-servers)/name`,
     );
   }
 
   return {
-    scope: match[1]!,
+    namespace: match[1]!,
     type: match[2]! as ExtensionTypePlural,
     name: match[3]!,
   } satisfies Fqn;
@@ -88,4 +88,4 @@ export const parseFqnOrThrow = (input: string): Fqn => {
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const formatFqn = (fqn: Fqn): string => `${fqn.scope}/${fqn.type}/${fqn.name}`;
+export const formatFqn = (fqn: Fqn): string => `${fqn.namespace}/${fqn.type}/${fqn.name}`;

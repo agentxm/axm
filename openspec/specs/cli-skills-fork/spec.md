@@ -102,7 +102,7 @@ The fork command SHALL accept a `--skill` option identical to the install comman
 
 ### Requirement: Fork orchestration pipeline
 
-The fork handler SHALL follow this pipeline: registry guard -> resolve scope -> discover skills -> filter by --skill -> build fork+publish+install plan -> resolve plan.
+The fork handler SHALL follow this pipeline: registry guard -> resolve namespace -> discover skills -> filter by --skill -> build fork+publish+install plan -> resolve plan.
 
 When the source is a glob pattern, the discover phase SHALL:
 
@@ -121,7 +121,7 @@ When the source is a glob pattern, the discover phase SHALL:
 - **AND** discover skills for each match
 - **AND** merge and dedupe discovered skills
 - **AND** ensure a registry is configured
-- **AND** resolve the user's scope
+- **AND** resolve the user's namespace
 - **AND** build a plan with fork + publish + install steps for each skill
 - **AND** resolve the plan (display, confirm, apply)
 
@@ -130,7 +130,7 @@ When the source is a glob pattern, the discover phase SHALL:
 - **WHEN** running `axm skills fork github:owner/repo --skill "effect-*" --yes`
 - **THEN** the handler SHALL parse the source
 - **AND** ensure a registry is configured
-- **AND** resolve the user's scope
+- **AND** resolve the user's namespace
 - **AND** discover skills from the source
 - **AND** filter to skills matching `effect-*`
 - **AND** build a plan with fork + publish + install steps for each matched skill

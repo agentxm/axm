@@ -69,7 +69,7 @@ No unmanaged marker (packs are always managed). No enabled flag (enable/disable 
 **Decision:** Pack directory structure is:
 
 ```
-.axm/extensions/@<scope>/packs/<name>/
+.axm/extensions/@<namespace>/packs/<name>/
   axm-pack.json       # Pack manifest (only file)
 ```
 
@@ -124,7 +124,7 @@ This is a settings-level operation — it doesn't re-download or re-install anyt
 **Decision:** Extend `RegistryExtensionTypeSchema` to include `"pack"`. Registry structure:
 
 ```
-<registry-root>/extensions/@<scope>/packs/<name>/
+<registry-root>/extensions/@<namespace>/packs/<name>/
   index.json
   1.0.0.zip
 ```
@@ -144,7 +144,7 @@ Pack `index.json` uses the same `ExtensionIndex` schema with `type: "pack"`.
   "packs": {
     "@acme/frontend-pack": {
       "type": "registry",
-      "scope": "@acme",
+      "namespace": "@acme",
       "name": "frontend-pack",
       "resolvedVersion": "1.0.0",
       "checksum": "sha256:...",
@@ -232,13 +232,13 @@ Scaffold a new empty pack with manifest.
 | Arg/Flag            | Type       | Required | Description                              |
 | ------------------- | ---------- | -------- | ---------------------------------------- |
 | `name`              | positional | yes      | Pack name (scoped using workspace scope) |
-| `--scope`           | string     | no       | Override workspace scope                 |
+| `--namespace`       | string     | no       | Override workspace scope                 |
 | `--yes`, `-y`       | boolean    | no       | Skip confirmation prompts                |
 | `--non-interactive` | boolean    | no       | Disable all prompts                      |
 
 ```bash
-axm packs new frontend-tools                # Create @<scope>/frontend-tools
-axm packs new frontend-tools --scope @co    # Create @co/frontend-tools
+axm packs new frontend-tools                # Create @<namespace>/frontend-tools
+axm packs new frontend-tools --namespace @co    # Create @co/frontend-tools
 ```
 
 #### `axm packs install <source>`

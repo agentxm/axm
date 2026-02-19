@@ -11,7 +11,7 @@
 | bitbucket  | `bitbucket:<owner>/<repo>[/<subPath>][@<ref>]`          | `bitbucket:acme/repo`             |
 | azurerepos | `azurerepos:<org>/<project>/<repo>[/<subPath>][@<ref>]` | `azurerepos:acme/proj/repo@main`  |
 | git        | URL href                                                | `https://example.com/repo.git`    |
-| registry   | `@<scope>/<name>`                                       | `@acme/my-skill`                  |
+| registry   | `@<namespace>/<name>`                                   | `@acme/my-skill`                  |
 | local      | path as-is                                              | `./my-skills/dev-skill`           |
 
 #### Scenario: Print GitHub source input

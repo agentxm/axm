@@ -50,14 +50,14 @@ The `skills publish` command SHALL accept one or more positional arguments. Each
 - **WHEN** `axm skills publish code-review` is called
 - **THEN** behavior SHALL be identical to current single-extension publish
 
-### Requirement: Scope resolution for bare names and glob matches
+### Requirement: Namespace resolution for bare names and glob matches
 
-Each matched bare name SHALL be resolved to an FQN using the project scope from settings, identical to current behavior. FQN inputs (starting with `@`) SHALL be passed through without scope resolution.
+Each matched bare name SHALL be resolved to an FQN using the project namespace from settings, identical to current behavior. FQN inputs (starting with `@`) SHALL be passed through without namespace resolution.
 
-#### Scenario: Bare glob matches resolved with scope
+#### Scenario: Bare glob matches resolved with namespace
 
 - **WHEN** `axm skills publish "effect-*"` is called
-- **AND** project scope is `@acme`
+- **AND** project namespace is `@acme`
 - **AND** `effect-basics` and `effect-stream` match
 - **THEN** the plan SHALL use FQNs `@acme/skills/effect-basics` and `@acme/skills/effect-stream`
 

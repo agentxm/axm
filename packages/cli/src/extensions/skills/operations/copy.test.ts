@@ -23,7 +23,7 @@ const withServices = (axmDir: string) => {
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getConfiguredRegistrySources: () => Effect.succeed([]),
-    getConfiguredScope: () => Effect.succeed("@community"),
+    getConfiguredNamespace: () => Effect.succeed("@community"),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
@@ -97,7 +97,7 @@ describe("copySkill", () => {
   };
 
   describe("file copy", () => {
-    it.effect("copies source files to .axm/extensions/@scope/skills/<name>/src/", () =>
+    it.effect("copies source files to .axm/extensions/@namespace/skills/<name>/src/", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();
@@ -120,7 +120,7 @@ describe("copySkill", () => {
       }),
     );
 
-    it.effect("uses the scope from targetName", () =>
+    it.effect("uses the namespace from targetName", () =>
       Effect.gen(function* () {
         const src = setupSource();
         const { axmDir, base } = setupBase();

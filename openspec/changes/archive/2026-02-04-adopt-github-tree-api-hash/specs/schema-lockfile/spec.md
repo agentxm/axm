@@ -101,7 +101,7 @@ The `gitTreeHash` field SHALL only be present for `github` sources. It contains 
   skills:
     my-skill:
       source: registry
-      scope: "@acme"
+      namespace: "@acme"
       name: my-skill
       version: "1.2.3"
       agents: [claude-code]

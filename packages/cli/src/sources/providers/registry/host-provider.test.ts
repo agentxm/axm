@@ -21,8 +21,8 @@ import { makeCliError } from "../../../cli-error/index.js";
 import type {
   RegistryClient,
   RegistryExtensionManifest,
-  GetExtensionsByScopeArgs,
-  GetExtensionsByScopeResponse,
+  GetExtensionsByNamespaceArgs,
+  GetExtensionsByNamespaceResponse,
   VersionEntry,
 } from "../../../registry/index.js";
 import type {
@@ -51,16 +51,16 @@ const sha512 = (data: Uint8Array): string => {
   return `sha512-${b64}`;
 };
 
-/** Create a temp registry with scope directories and return source + cleanup. */
+/** Create a temp registry with namespace directories and return source + cleanup. */
 const makeTestRegistry = (
-  scopes: ReadonlyArray<string> = ["@test"],
+  namespaces: ReadonlyArray<string> = ["@test"],
 ): { source: RegistrySource; cleanup: () => void } => {
   const dir = mkdtempSync(nodePath.join(tmpdir(), "hp-test-"));
-  for (const scope of scopes) {
-    mkdirSync(nodePath.join(dir, "extensions", scope), { recursive: true });
+  for (const namespace of namespaces) {
+    mkdirSync(nodePath.join(dir, "extensions", namespace), { recursive: true });
   }
   return {
-    source: { type: "registry", location: new URL(`file://${dir}`), scope: Option.none() },
+    source: { type: "registry", location: new URL(`file://${dir}`), namespace: Option.none() },
     cleanup: () => rmSync(dir, { recursive: true, force: true }),
   };
 };
@@ -68,13 +68,13 @@ const makeTestRegistry = (
 const testSource: RegistrySource = {
   type: "registry",
   location: new URL("file:///tmp/test-registry"),
-  scope: Option.none(),
+  namespace: Option.none(),
 };
 
 const defaultFindOptions: FindOptions = {
   skillNames: [],
   type: "skill",
-  scope: Option.none(),
+  namespace: Option.none(),
   versionConstraint: Option.none(),
 };
 
@@ -88,10 +88,10 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 // Minimal zip: just enough bytes to not crash extractZip in a mock context
 // For fetch tests we use the mock client which returns controlled bytes
 
-/** Wrap entries into a GetExtensionsByScopeResponse. */
+/** Wrap entries into a GetExtensionsByNamespaceResponse. */
 const toResult = (
   extensions: ReadonlyArray<RegistryExtensionManifest>,
-): GetExtensionsByScopeResponse => ({
+): GetExtensionsByNamespaceResponse => ({
   extensions,
   total: extensions.length,
 });
@@ -99,7 +99,7 @@ const toResult = (
 /** Create a mock RegistryClient with controllable return values. */
 const createMockClient = (overrides?: Partial<RegistryClient>): RegistryClient => ({
   getExtensionsByScope: () => Effect.succeed(toResult([])),
-  scopeExists: () => Effect.succeed({ exists: false }),
+  namespaceExists: () => Effect.succeed({ exists: false }),
   getExtensionPackage: () =>
     Effect.fail(makeCliError({ code: "REGISTRY_FETCH_FAILED", what: "not implemented" })),
   publishExtension: () => Effect.succeed({ published: true } as const),
@@ -115,7 +115,7 @@ const createFailingClient = (): RegistryClient => ({
         what: "remote registry not yet supported",
       }),
     ),
-  scopeExists: () =>
+  namespaceExists: () =>
     Effect.fail(
       makeCliError({
         code: "REGISTRY_REMOTE_NOT_SUPPORTED",
@@ -150,12 +150,12 @@ const createFailingClient = (): RegistryClient => ({
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.find", () => {
-  it("maps FindOptions to GetExtensionsByScopeArgs and returns ExtensionRefs", () => {
+  it("maps FindOptions to GetExtensionsByNamespaceArgs and returns ExtensionRefs", () => {
     const registry = makeTestRegistry();
-    let capturedOptions: GetExtensionsByScopeArgs | undefined;
+    let capturedOptions: GetExtensionsByNamespaceArgs | undefined;
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
-        scope: "@test",
+        namespace: "@test",
         type: "skill",
         name: "my-skill",
         description: Option.some("My skill description"),
@@ -182,14 +182,14 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         const findOptions: FindOptions = {
           skillNames: ["my-skill"],
           type: "skill",
-          scope: Option.none(),
+          namespace: Option.none(),
           versionConstraint: Option.none(),
         };
         const refs = yield* provider.find(registry.source, findOptions);
 
         // Verify search options were mapped correctly
         expect(capturedOptions).toEqual({
-          scope: "@test",
+          namespace: "@test",
           names: ["my-skill"],
           types: ["skill"],
           limit: Option.none(),
@@ -214,7 +214,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
             dependencies: { "@test/skills/base-skill": "^1.2.3" },
           }),
         );
-        expect(skillRef.scope).toBe("@test");
+        expect(skillRef.namespace).toBe("@test");
         expect(skillRef.name).toBe("my-skill");
         expect(skillRef.version).toBe("1.0.0");
         expect(skillRef.integrity).toBe("sha512-abc");
@@ -226,7 +226,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
-        scope: "@test",
+        namespace: "@test",
         type: "mcp-server",
         name: "my-server",
         description: Option.none(),
@@ -259,7 +259,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         // Assertion needed: TS can't narrow to RegistryMcpServerRef
         const serverRef = ref as RegistryMcpServerRef;
         expect(serverRef.server.name).toBe("my-server");
-        expect(serverRef.scope).toBe("@test");
+        expect(serverRef.namespace).toBe("@test");
         expect(serverRef.name).toBe("my-server");
         expect(serverRef.version).toBe("2.0.0");
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
@@ -270,7 +270,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
-        scope: "@test",
+        namespace: "@test",
         type: "pack",
         name: "my-pack",
         description: Option.none(),
@@ -306,7 +306,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(packRef.pack.skills).toEqual({});
         expect(packRef.pack.commands).toEqual({});
         expect(packRef.pack.mcpServers).toEqual({});
-        expect(packRef.scope).toBe("@test");
+        expect(packRef.namespace).toBe("@test");
         expect(packRef.name).toBe("my-pack");
         expect(packRef.version).toBe("3.0.0");
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
@@ -317,7 +317,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
-        scope: "@test",
+        namespace: "@test",
         type: "pack",
         name: "my-pack",
         description: Option.none(),
@@ -368,7 +368,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
     const registry = makeTestRegistry();
     const entries: ReadonlyArray<RegistryExtensionManifest> = [
       {
-        scope: "@test",
+        namespace: "@test",
         type: "pack",
         name: "my-pack",
         description: Option.none(),
@@ -377,7 +377,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         authors: [],
         dependencies: {
           "@acme/skills/valid": "^1.0.0",
-          "no-scope": "^1.0.0",
+          "no-namespace": "^1.0.0",
           "@acme/unknown-type/foo": "^1.0.0",
           "@acme/packs/nested": "^1.0.0",
         },
@@ -426,7 +426,7 @@ describe("LocalRegistrySourceHostProvider.find", () => {
 
   it("maps wildcard type to client", () => {
     const registry = makeTestRegistry();
-    let capturedOptions: GetExtensionsByScopeArgs | undefined;
+    let capturedOptions: GetExtensionsByNamespaceArgs | undefined;
 
     const client = createMockClient({
       getExtensionsByScope: (args) => {
@@ -471,7 +471,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       refType: "registry",
       skill: { name: "my-skill", description: Option.some("test"), metadata: Option.none() },
       source: testSource,
-      scope: "@test",
+      namespace: "@test",
       name: "my-skill",
       version: "1.0.0",
       integrity,
@@ -483,7 +483,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
         // client delegation happened. Use Effect.either to catch the extraction error.
         const result = yield* provider.fetch(testSource, ref).pipe(Effect.either);
 
-        expect(capturedArgs?.scope).toBe("@test");
+        expect(capturedArgs?.namespace).toBe("@test");
         expect(capturedArgs?.type).toBe("skill");
         expect(capturedArgs?.name).toBe("my-skill");
         expect(capturedArgs?.version).toEqual(Option.some("1.0.0"));
@@ -514,7 +514,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       refType: "registry",
       skill: { name: "my-skill", description: Option.some("test"), metadata: Option.none() },
       source: testSource,
-      scope: "@test",
+      namespace: "@test",
       name: "my-skill",
       version: "1.0.0",
       integrity: "sha512-wrongIntegrityValue==",
@@ -532,7 +532,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
     );
   });
 
-  it("extracts scope/type/name/version from mcp-server ref", () => {
+  it("extracts namespace/type/name/version from mcp-server ref", () => {
     const archiveBytes = new Uint8Array([80, 75, 3, 4]);
     const integrity = sha512(archiveBytes);
 
@@ -554,7 +554,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       refType: "registry",
       server: { name: "my-server" },
       source: testSource,
-      scope: "@test",
+      namespace: "@test",
       name: "my-server",
       version: "2.0.0",
       integrity,
@@ -593,7 +593,7 @@ describe("LocalRegistrySourceHostProvider.publishExtension", () => {
       Effect.gen(function* () {
         yield* provider.publishExtension("@test", "skill", "my-skill", "1.0.0", archive, metadata);
 
-        expect(capturedArgs?.scope).toBe("@test");
+        expect(capturedArgs?.namespace).toBe("@test");
         expect(capturedArgs?.type).toBe("skill");
         expect(capturedArgs?.name).toBe("my-skill");
         expect(capturedArgs?.version).toBe("1.0.0");
@@ -663,7 +663,7 @@ describe("RemoteRegistrySourceHostProvider", () => {
       refType: "registry",
       skill: { name: "my-skill", description: Option.some("test"), metadata: Option.none() },
       source: testSource,
-      scope: "@test",
+      namespace: "@test",
       name: "my-skill",
       version: "1.0.0",
       integrity: "sha512-abc",

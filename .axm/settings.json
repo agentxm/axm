@@ -1,5 +1,5 @@
 {
-  "scope": "@axm",
+  "namespace": "@axm",
   "sources": [
     {
       "name": "local",

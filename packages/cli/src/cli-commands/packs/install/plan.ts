@@ -53,7 +53,7 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs): Plan<PackInstallOp
     name: "install-pack",
     args: {
       packName: ref.pack.name,
-      scope: ref.refType === "registry" ? ref.scope : "",
+      namespace: ref.refType === "registry" ? ref.namespace : "",
       resolvedVersion: ref.refType === "registry" ? ref.version : "",
       integrity: ref.refType === "registry" ? ref.integrity : "",
       sourceName: "default",

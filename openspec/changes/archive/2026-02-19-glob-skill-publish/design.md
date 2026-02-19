@@ -4,7 +4,7 @@
 
 Glob expansion already exists in the codebase (`expandGlob`, `expandGlobs`, `isGlobPattern` in `skills/glob.ts`) and is used by install, fork, uninstall, and update commands. The publish handler needs to follow the same pattern.
 
-Managed extensions are tracked in settings via `getInstalledSkills()` which returns a `Record<string, NormalizedSkillEntry>` where keys are skill names (bare names like `effect-basics`, not FQNs). These correspond to directories under `.axm/extensions/<scope>/skills/<name>/`.
+Managed extensions are tracked in settings via `getInstalledSkills()` which returns a `Record<string, NormalizedSkillEntry>` where keys are skill names (bare names like `effect-basics`, not FQNs). These correspond to directories under `.axm/extensions/<namespace>/skills/<name>/`.
 
 ## Goals / Non-Goals
 

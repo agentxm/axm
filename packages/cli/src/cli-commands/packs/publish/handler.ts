@@ -3,7 +3,7 @@
  *
  * Publishes a pack from `.axm/extensions/` to a target registry:
  * 1. Registry guard (ensure registry configured)
- * 2. Resolve extension name (bare name -> scope from settings)
+ * 2. Resolve extension name (bare name -> namespace from settings)
  * 3. Validate managed pack exists with manifest
  * 4. Discover local dependencies (when --include-dependencies)
  * 5. Build plan (dependency job + pack job, or pack-only)
@@ -45,7 +45,7 @@ import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
  * Arguments for the packs publish command.
  */
 export interface PublishPackHandlerArgs {
-  /** Pack name (@scope/name or bare name). */
+  /** Pack name (@namespace/name or bare name). */
   readonly pack: string;
   /** Named registry source to publish to. None = default/first configured. */
   readonly registry: Option.Option<string>;
@@ -101,27 +101,27 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
   yield* registryGuard;
 
   // Step 2: Resolve pack name
-  const hasScope = args.pack.startsWith("@") && args.pack.includes("/");
-  const packName = yield* hasScope
+  const hasNamespace = args.pack.startsWith("@") && args.pack.includes("/");
+  const packName = yield* hasNamespace
     ? Effect.succeed(args.pack)
-    : ws.getConfiguredScope().pipe(
-        Effect.map((scope) => formatFqn({ scope, type: "packs", name: args.pack })),
+    : ws.getConfiguredNamespace().pipe(
+        Effect.map((namespace) => formatFqn({ namespace, type: "packs", name: args.pack })),
         Effect.mapError((e) =>
           makeCliError({
             code: "SCOPE_RESOLUTION_FAILED",
-            what: `Failed to resolve scope: ${e._tag}`,
-            howToFix: "Configure a scope in your settings with `axm init`.",
+            what: `Failed to resolve namespace: ${e._tag}`,
+            howToFix: "Configure a namespace in your settings with `axm init`.",
             cause: e,
           }),
         ),
       );
 
-  // Parse scope and pack name from the full name
+  // Parse namespace and pack name from the full name
   const fqn = yield* parseFqn(packName);
 
   // Step 3: Validate managed pack exists
   const handle = yield* spinnerSvc.start("Validating pack...");
-  const packDir = computePackPaths(path.join, base, fqn.scope, fqn.name).canonicalPath;
+  const packDir = computePackPaths(path.join, base, fqn.namespace, fqn.name).canonicalPath;
   const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
 
   if (!packDirExists) {
@@ -221,7 +221,7 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
           const depDir = path.join(
             base,
             REGISTRY_EXTENSIONS_DIR,
-            parsed.scope,
+            parsed.namespace,
             parsed.type,
             parsed.name,
           );

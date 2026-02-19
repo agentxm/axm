@@ -1,7 +1,7 @@
 /**
  * Unit tests for path utilities module.
  *
- * Tests the axm directory resolution functions for global and project scopes.
+ * Tests the axm directory resolution functions for global and project namespaces.
  */
 
 import * as os from "node:os";
@@ -77,7 +77,7 @@ describe("paths", () => {
       }).pipe(Effect.provide(NodeContext.layer)),
     );
 
-    it.effect("returns an absolute path regardless of scope", () =>
+    it.effect("returns an absolute path regardless of namespace", () =>
       Effect.gen(function* () {
         const globalResult = yield* getAxmDir(true);
         const projectResult = yield* getAxmDir(false);
@@ -86,7 +86,7 @@ describe("paths", () => {
       }).pipe(Effect.provide(NodeContext.layer)),
     );
 
-    it.effect("returns different paths for global and project scopes", () =>
+    it.effect("returns different paths for global and project namespaces", () =>
       Effect.gen(function* () {
         const globalResult = yield* getAxmDir(true);
         const projectResult = yield* getAxmDir(false);

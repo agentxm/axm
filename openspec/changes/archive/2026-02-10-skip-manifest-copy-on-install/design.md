@@ -1,11 +1,11 @@
 ## Context
 
-Managed extensions (registry-sourced or forked) currently store everything — skill content files and the `axm-skill.json` manifest — in a single flat directory at `.axm/extensions/@<scope>/skills/<name>/`. When `installForAgent` creates symlinks (or copy fallbacks) for each agent, it targets this entire directory. Agents that ingest all files in their skills folder end up seeing `axm-skill.json`, which is axm-internal metadata they have no use for.
+Managed extensions (registry-sourced or forked) currently store everything — skill content files and the `axm-skill.json` manifest — in a single flat directory at `.axm/extensions/@<namespace>/skills/<name>/`. When `installForAgent` creates symlinks (or copy fallbacks) for each agent, it targets this entire directory. Agents that ingest all files in their skills folder end up seeing `axm-skill.json`, which is axm-internal metadata they have no use for.
 
 The current layout:
 
 ```
-.axm/extensions/@<scope>/skills/<name>/
+.axm/extensions/@<namespace>/skills/<name>/
   axm-skill.json
   SKILL.md
   other-files...
@@ -34,7 +34,7 @@ All operations — fork, publish, install, uninstall — assume skill content an
 **Layout:**
 
 ```
-.axm/extensions/@<scope>/skills/<name>/
+.axm/extensions/@<namespace>/skills/<name>/
   axm-skill.json        # manifest (package root)
   src/                   # skill content
     SKILL.md
@@ -72,7 +72,7 @@ This also means the archive is cleaner — it only contains files the consumer n
 
 `installSkill` changes:
 
-- For **registry sources**: the `canonicalPath` remains the extension root (`.axm/extensions/@<scope>/skills/<name>/`). A new `contentPath` is derived as `path.join(canonicalPath, "src")`.
+- For **registry sources**: the `canonicalPath` remains the extension root (`.axm/extensions/@<namespace>/skills/<name>/`). A new `contentPath` is derived as `path.join(canonicalPath, "src")`.
   - `copySkillDirectory` copies into `contentPath` (non-self-copy case).
   - `installForAgent` receives `contentPath` instead of `canonicalPath` for the symlink/copy target.
 - For **non-registry sources**: behavior is unchanged — `canonicalPath` is `.agents/skills/<name>/` with no `src/` subdirectory.
@@ -83,7 +83,7 @@ This also means the archive is cleaner — it only contains files the consumer n
 Uninstall already removes entire directories:
 
 - Agent symlinks/dirs are removed by path (`agent.skills.dir/<name>/`).
-- Canonical directories are removed recursively (`.axm/extensions/@<scope>/skills/<name>/`).
+- Canonical directories are removed recursively (`.axm/extensions/@<namespace>/skills/<name>/`).
 
 Since the `src/` subdirectory is inside the canonical directory, removing the parent removes everything. No changes needed.
 

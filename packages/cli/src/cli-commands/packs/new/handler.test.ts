@@ -1,7 +1,7 @@
 /**
  * Unit tests for the packs new handler.
  *
- * Tests scope resolution, manifest creation, settings registration, and error paths.
+ * Tests namespace resolution, manifest creation, settings registration, and error paths.
  */
 
 import * as fs from "node:fs";
@@ -31,7 +31,7 @@ import { handlePacksNew, type PacksNewHandlerArgs } from "./handler.js";
 const initWorkspace = (
   axmDir: string,
   opts: {
-    scope?: string;
+    namespace?: string;
     packs?: Record<string, unknown>;
     agents?: string[];
   } = {},
@@ -39,7 +39,7 @@ const initWorkspace = (
   fs.mkdirSync(axmDir, { recursive: true });
   const settings: Record<string, unknown> = {
     agents: opts.agents ?? ["claude-code"],
-    ...(opts.scope && { scope: opts.scope }),
+    ...(opts.namespace && { namespace: opts.namespace }),
     ...(opts.packs && { packs: opts.packs }),
   };
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
@@ -54,7 +54,7 @@ const defaultArgs = (
   overrides: Partial<PacksNewHandlerArgs> = {},
 ): PacksNewHandlerArgs => ({
   name,
-  scope: Option.none(),
+  namespace: Option.none(),
   yes: true,
   ...overrides,
 });
@@ -111,7 +111,7 @@ describe("packs-new.handler", () => {
   describe("success", () => {
     it.effect("creates pack manifest and registers in settings", () => {
       const { provide, mockLog } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { scope: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
 
       return provide(
         Effect.gen(function* () {
@@ -150,14 +150,14 @@ describe("packs-new.handler", () => {
     });
   });
 
-  describe("scope override", () => {
-    it.effect("uses --scope override instead of workspace scope", () => {
+  describe("namespace override", () => {
+    it.effect("uses --namespace override instead of workspace namespace", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { scope: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePacksNew(defaultArgs("frontend-tools", { scope: Option.some("@corp") }));
+          yield* handlePacksNew(defaultArgs("frontend-tools", { namespace: Option.some("@corp") }));
 
           const manifestPath = path.join(
             tempDir,
@@ -176,13 +176,13 @@ describe("packs-new.handler", () => {
       );
     });
 
-    it.effect("normalizes scope without @ prefix", () => {
+    it.effect("normalizes namespace without @ prefix", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { scope: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePacksNew(defaultArgs("my-pack", { scope: Option.some("corp") }));
+          yield* handlePacksNew(defaultArgs("my-pack", { namespace: Option.some("corp") }));
 
           const manifestPath = path.join(
             tempDir,
@@ -202,17 +202,17 @@ describe("packs-new.handler", () => {
     });
   });
 
-  describe("no scope configured", () => {
-    it.effect("fails when no scope is configured and no --scope override", () => {
+  describe("no namespace configured", () => {
+    it.effect("fails when no namespace is configured and no --namespace override", () => {
       const { provide } = makeLayers();
-      // No scope in settings — DEFAULT_SCOPE is "@axm"
+      // No namespace in settings — DEFAULT_SCOPE is "@axm"
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(
         Effect.gen(function* () {
           const error = yield* handlePacksNew(defaultArgs("frontend-tools")).pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("No scope configured");
+          expect((error as CliError).what).toContain("No namespace configured");
         }),
       );
     });
@@ -221,7 +221,7 @@ describe("packs-new.handler", () => {
   describe("pack already exists", () => {
     it.effect("fails when pack manifest already exists", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), { scope: "@acme" });
+      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
 
       // Pre-create the manifest
       const packDir = path.join(tempDir, ".axm", "extensions", "@acme", "packs", "frontend-tools");

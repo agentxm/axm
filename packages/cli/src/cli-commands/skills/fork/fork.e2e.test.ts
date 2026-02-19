@@ -31,13 +31,13 @@ describe("axm skills fork", () => {
         // Initialize workspace
         await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
 
-        // Set up registry source and scope in settings
+        // Set up registry source and namespace in settings
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.scope = "@test";
+        settings.namespace = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Install a skill from local source
@@ -99,7 +99,7 @@ describe("axm skills fork", () => {
         expect(fs.existsSync(indexPath)).toBe(true);
         const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
         expect(index.name).toBe("my-skill");
-        expect(index.scope).toBe("@test");
+        expect(index.namespace).toBe("@test");
         expect(index.versions.length).toBeGreaterThan(0);
         expect(index.versions[0].version).toBe("0.1.0");
         expect(index.versions[0].integrity).toMatch(/^sha512-[A-Za-z0-9+/]+=*$/);
@@ -113,7 +113,7 @@ describe("axm skills fork", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
         expect(lock.skills["my-skill"]).toBeDefined();
         expect(lock.skills["my-skill"].type).toBe("registry");
-        expect(lock.skills["my-skill"].scope).toBe("@test");
+        expect(lock.skills["my-skill"].namespace).toBe("@test");
 
         // 4. Verify settings.json was updated with forked skill
         const settingsAfterFork = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -136,7 +136,7 @@ describe("axm skills fork", () => {
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.scope = "@test";
+        settings.namespace = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Install all skills from fixture
@@ -194,7 +194,7 @@ describe("axm skills fork", () => {
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.scope = "@test";
+        settings.namespace = "@test";
         settings.skills = { "unmanaged-configured": { managed: false } };
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
@@ -244,7 +244,7 @@ describe("axm skills fork", () => {
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.scope = "@test";
+        settings.namespace = "@test";
         settings.skills = { "gamma-configured": { managed: false } };
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
@@ -291,7 +291,7 @@ describe("axm skills fork", () => {
         settings.sources = [
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
-        settings.scope = "@test";
+        settings.namespace = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Fork directly from local source (not an installed skill)

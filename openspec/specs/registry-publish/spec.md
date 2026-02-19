@@ -20,14 +20,14 @@ Publishes managed extensions to registries with validation, archiving, integrity
 - **WHEN** `skills publish @acme/skills/code-review` is called without `--registry`
 - **THEN** the extension is published to the `default` named registry or the first configured registry source
 
-#### Scenario: Bare name resolved with scope
+#### Scenario: Bare name resolved with namespace
 
-- **WHEN** `skills publish code-review` is called and project scope is `@acme`
+- **WHEN** `skills publish code-review` is called and project namespace is `@acme`
 - **THEN** the extension `@acme/skills/code-review` is published
 
 #### Scenario: Glob pattern publishes multiple skills
 
-- **WHEN** `skills publish "effect-*"` is called and project scope is `@acme`
+- **WHEN** `skills publish "effect-*"` is called and project namespace is `@acme`
 - **AND** managed skills `effect-basics` and `effect-stream` match the pattern
 - **THEN** both `@acme/skills/effect-basics` and `@acme/skills/effect-stream` are published to the target registry
 

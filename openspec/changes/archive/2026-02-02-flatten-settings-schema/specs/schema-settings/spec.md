@@ -21,7 +21,7 @@ The schema SHALL validate settings files with the following top-level fields:
 
 #### Scenario: Valid settings with scope
 
-- **WHEN** parsing `{ "scope": "@myorg" }`
+- **WHEN** parsing `{ "namespace": "@myorg" }`
 - **THEN** validation succeeds and scope is accessible
 
 #### Scenario: Valid settings with skills at root

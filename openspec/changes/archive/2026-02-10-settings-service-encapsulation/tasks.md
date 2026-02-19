@@ -36,7 +36,7 @@ Rename existing workspace methods to follow the `getConfigured*` naming conventi
 - `getSources` → `getConfiguredSources`
 - `getSourceByName` → `getConfiguredSourceByName`
 - `getRegistrySources` → `getConfiguredRegistrySources`
-- `getScope` → `getConfiguredScope`
+- `getScope` → `getConfiguredNamespace`
 - `addSource` → `addConfiguredSource`
 
 - [x] 2.1 Rename methods on `WorkspaceContextService` interface and `WorkspaceContextServiceLive` implementation

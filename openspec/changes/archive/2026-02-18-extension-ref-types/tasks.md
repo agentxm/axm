@@ -29,7 +29,7 @@
 - [x] 2.2 Update registry `host-provider.ts` (`toSourceExtensionRef`) — add `refType: "registry"`, add `name` to ref details, update `skill.description` to use `Option`
 - [x] 2.3 Update `local.ts` provider — add `refType: "local"` to constructed ref objects, update `skill.description` to use `Option`
 - [x] 2.4 Update `builtin.ts` provider — add `refType: "builtin"` to constructed ref objects (if/when find is implemented)
-- [x] 2.5 Update `host-provider.ts` structural checks (same file as 2.2 — run after 2.2): replace `"scope" in ref` / `"version" in ref` / `"integrity" in ref` with `ref.refType === "registry"` narrowing
+- [x] 2.5 Update `host-provider.ts` structural checks (same file as 2.2 — run after 2.2): replace `"namespace" in ref` / `"version" in ref` / `"integrity" in ref` with `ref.refType === "registry"` narrowing
 - [x] 2.6 Update `refName()` helper if needed (may already work since `ref.type` narrowing is unchanged)
 - [x] 2.7 Update provider tests: `host-provider.test.ts`, `local.test.ts`, `provider-interface.test.ts`
 - [x] 2.8 Run `pnpm typecheck` and fix any errors
@@ -49,7 +49,7 @@
 > **Parallelization:** Tasks 4.1, 4.2, 4.3, 4.4, 4.5 are independent — launch as parallel subagents.
 
 - [x] 4.1 Rewrite `source-to-lock-entry.ts` — outer switch on `ref.refType`, inner switch on `ref.source.type` within `"git-hosted"`, remove all 7 type assertions. Update `source-to-lock-entry.test.ts` if needed
-- [x] 4.2 Update `install-skill.ts` — replace `"location" in ref` with `ref.refType` narrowing, replace `ref.source.type === "registry"` with `ref.refType === "registry"`, replace `!("scope" in ref)` with `ref.refType` check. Also update `SkillPathSource` construction (line 162) after 4.3 changes the type shape. Update `install-skill.test.ts`
+- [x] 4.2 Update `install-skill.ts` — replace `"location" in ref` with `ref.refType` narrowing, replace `ref.source.type === "registry"` with `ref.refType === "registry"`, replace `!("namespace" in ref)` with `ref.refType` check. Also update `SkillPathSource` construction (line 162) after 4.3 changes the type shape. Update `install-skill.test.ts`
 - [x] 4.3 Update `skill-paths.ts` — simplify `SkillPathSource` to use `refType` discriminator instead of `SourceType`. Update `skill-paths.test.ts` (substantial rewrite — ~10 test cases construct `SkillPathSource` with `{ type: "github" }` etc., all need `refType`-based construction)
 - [x] 4.4 Update `skill-utils.ts` (`getSkillDisplayName`) — replace `"location" in ref` with `refType` check, handle `skill.description` as `Option<string>`
 - [x] 4.5 Update `copy-skill.ts` — replace `"location" in ref` with `refType` narrowing
@@ -70,7 +70,7 @@
 
 > **Subagent:** Run this entire phase in a single subagent.
 
-- [x] 6.1 Update `packs/install/handler.ts` — replace `"scope" in packRef` and `"version" in packRef` with `packRef.refType === "registry"` narrowing
+- [x] 6.1 Update `packs/install/handler.ts` — replace `"namespace" in packRef` and `"version" in packRef` with `packRef.refType === "registry"` narrowing
 - [x] 6.2 Update any MCP server command handlers that reference `McpServerExtensionRef` types
 - [x] 6.3 Run `pnpm typecheck` and fix any errors
 

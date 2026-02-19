@@ -12,7 +12,7 @@
 
 > **Subagent:** Run this entire phase in a single subagent.
 
-- [x] 2.1 Update the test in `packages/cli/src/sources/resolve-source.test.ts`: replace the "registry pattern is not yet supported" test with tests that verify `@scope/name` resolves to `{ type: "registry", scope: "scope", name: "name" }` with no config fields. Add a second test for a different scope/name combination.
+- [x] 2.1 Update the test in `packages/cli/src/sources/resolve-source.test.ts`: replace the "registry pattern is not yet supported" test with tests that verify `@scope/name` resolves to `{ type: "registry", namespace: "namespace", name: "name" }` with no config fields. Add a second test for a different scope/name combination.
 - [x] 2.2 In `packages/cli/src/sources/resolve-source.ts`, implement `routeRegistryInput`. Change its signature to accept the parsed `RegistryPatternInput` fields (`scope` and `name`) instead of the raw string. Construct and return a `RegistrySourceInput` (`{ type: "registry", scope, name }`). Update the call site in the `resolveSource` switch to pass `pattern.scope` and `pattern.name`.
 - [x] 2.3 Run `pnpm typecheck` and fix any type errors.
 - [x] 2.4 Run `pnpm lint` and fix any lint errors.

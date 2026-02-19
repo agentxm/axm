@@ -3,7 +3,7 @@
  *
  * Publishes a managed extension from `.axm/extensions/` to a target registry:
  * 1. Registry guard (ensure registry configured)
- * 2. Resolve extension name (bare name -> scope from settings)
+ * 2. Resolve extension name (bare name -> namespace from settings)
  * 3. Validate managed extension exists
  * 4. Build plan with a single PublishSkillOperation
  * 5. Execute via resolvePlan
@@ -98,13 +98,13 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
   const extensionNames = yield* Effect.forEach(resolvedNames, (name) =>
     name.startsWith("@") && name.includes("/")
       ? Effect.succeed(name)
-      : ws.getConfiguredScope().pipe(
-          Effect.map((scope) => `${scope}/skills/${name}`),
+      : ws.getConfiguredNamespace().pipe(
+          Effect.map((namespace) => `${namespace}/skills/${name}`),
           Effect.mapError((e) =>
             makeCliError({
               code: "SCOPE_RESOLUTION_FAILED",
-              what: `Failed to resolve scope: ${e._tag}`,
-              howToFix: "Configure a scope in your settings with `axm init`.",
+              what: `Failed to resolve namespace: ${e._tag}`,
+              howToFix: "Configure a namespace in your settings with `axm init`.",
               cause: e,
             }),
           ),
@@ -118,7 +118,13 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
 
   yield* Effect.forEach(fqns, (fqn, i) => {
     const extName = extensionNames[i]!;
-    const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.scope, "skills", fqn.name);
+    const extensionDir = path.join(
+      base,
+      REGISTRY_EXTENSIONS_DIR,
+      fqn.namespace,
+      "skills",
+      fqn.name,
+    );
 
     return Effect.gen(function* () {
       const extensionDirExists = yield* fs

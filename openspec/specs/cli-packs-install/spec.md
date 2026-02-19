@@ -4,7 +4,7 @@
 
 `axm packs install <source>` SHALL install a pack from a registry and all its referenced extensions.
 
-The source SHALL be a registry reference (`@scope/packs/name`, `@scope/packs/name@version`, or bare name with implied scope and type). Non-registry sources SHALL be rejected.
+The source SHALL be a registry reference (`@namespace/packs/name`, `@namespace/packs/name@version`, or bare name with implied namespace and type). Non-registry sources SHALL be rejected.
 
 #### Scenario: Install pack by fully qualified name
 
@@ -22,7 +22,7 @@ The source SHALL be a registry reference (`@scope/packs/name`, `@scope/packs/nam
 #### Scenario: Install pack with bare name
 
 - **WHEN** user runs `axm packs install frontend-tools`
-- **AND** workspace scope is `@acme`
+- **AND** workspace namespace is `@acme`
 - **THEN** the pack is resolved as `@acme/packs/frontend-tools`
 
 #### Scenario: Non-registry source rejected
@@ -34,7 +34,7 @@ The source SHALL be a registry reference (`@scope/packs/name`, `@scope/packs/nam
 
 When a pack is installed, the system SHALL build a plan that includes install operations for all extensions referenced in the pack manifest that are not already installed.
 
-Pack manifest dependency keys SHALL use the three-segment FQN format (`@scope/type-plural/name`). These keys SHALL be written to the pack's `resolvedSkills`, `resolvedCommands`, and `resolvedMcpServers` maps in the lockfile.
+Pack manifest dependency keys SHALL use the three-segment FQN format (`@namespace/type-plural/name`). These keys SHALL be written to the pack's `resolvedSkills`, `resolvedCommands`, and `resolvedMcpServers` maps in the lockfile.
 
 Pack skill dependencies SHALL be written to the skills lock map (for physical install tracking) and the pack's `resolvedSkills` (for ownership), but SHALL NOT be added to `settings.json`. Settings is reserved for user-intent entries only.
 

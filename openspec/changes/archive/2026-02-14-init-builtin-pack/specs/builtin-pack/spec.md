@@ -12,7 +12,7 @@ The system SHALL recognize `@axm/cli` as the builtin extension pack. This pack i
 #### Scenario: Builtin pack recorded in lockfile
 
 - **WHEN** the builtin pack is installed during init
-- **THEN** the system SHALL write a pack lock entry with `type: "builtin"`, `scope: "@axm"`, `name: "cli"`, and `resolvedVersion` set to the current CLI package version
+- **THEN** the system SHALL write a pack lock entry with `type: "builtin"`, `namespace: "@axm"`, `name: "cli"`, and `resolvedVersion` set to the current CLI package version
 
 ### Requirement: Builtin pack lock entry schema
 

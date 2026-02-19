@@ -11,7 +11,7 @@ The `installSkill` operation handler SHALL orchestrate the full per-skill instal
 
 - **WHEN** writing skill files for a registry source
 - **THEN** skill content SHALL be written to the `skillSrcPath` returned by `getSkillDir(name, source)`
-- **AND** `skillSrcPath` resolves to `<base>/.axm/extensions/@<scope>/skills/<sanitized-name>/src/`
+- **AND** `skillSrcPath` resolves to `<base>/.axm/extensions/@<namespace>/skills/<sanitized-name>/src/`
 - **AND** the canonical path SHALL NOT depend on which agents are targeted
 
 #### Scenario: Non-registry source canonical location
@@ -85,7 +85,7 @@ The install skill executor SHALL call `ws.setSkill` after successful file instal
 
 - **WHEN** pre-cleaning before install
 - **THEN** the handler SHALL remove from `.axm/extensions/external/skills/<name>` (non-registry canonical)
-- **AND** remove from `.axm/extensions/@*/skills/<name>` (registry canonical, any scope)
+- **AND** remove from `.axm/extensions/@*/skills/<name>` (registry canonical, any namespace)
 
 #### Scenario: Per-refType dispatch is exhaustive
 

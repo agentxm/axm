@@ -189,7 +189,7 @@ describe("disable.handler", () => {
   describe("transitive skill disable", () => {
     const makePackLockEntry = (resolvedSkills: Record<string, string>) => ({
       type: "registry",
-      scope: "@acme",
+      namespace: "@acme",
       name: "starter-pack",
       resolvedVersion: "1.0.0",
       integrity: "sha512-AAAA==",

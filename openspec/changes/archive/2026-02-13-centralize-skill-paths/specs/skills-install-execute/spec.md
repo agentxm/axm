@@ -13,7 +13,7 @@ The `executeAddSkill` function SHALL orchestrate the full per-skill installation
 
 - **WHEN** writing skill files for a registry source
 - **THEN** skill content SHALL be written to the `skillSrcPath` returned by `getSkillDir(name, source)`
-- **AND** `skillSrcPath` resolves to `<base>/.axm/extensions/@<scope>/skills/<sanitized-name>/src/`
+- **AND** `skillSrcPath` resolves to `<base>/.axm/extensions/@<namespace>/skills/<sanitized-name>/src/`
 - **AND** the canonical path SHALL NOT depend on which agents are targeted
 
 #### Scenario: Non-registry source canonical location

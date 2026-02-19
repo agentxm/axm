@@ -58,7 +58,7 @@ The `enableSkill` operation handler SHALL re-install skill files to agent direct
 
 - **WHEN** an `EnableSkillOperation` is executed
 - **THEN** the handler SHALL determine the canonical path from the lock entry's `type` field
-- **AND** registry sources SHALL use `.axm/extensions/@<scope>/skills/<name>/`
+- **AND** registry sources SHALL use `.axm/extensions/@<namespace>/skills/<name>/`
 - **AND** other sources SHALL use `.agents/skills/<name>/`
 
 ### Requirement: Disable command definition

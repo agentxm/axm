@@ -120,7 +120,7 @@ This is enforced at the type level via the generic parameter `TSource` — a `Gi
 ```typescript
 interface RegistryRefDetails {
   /** Registry scope (e.g., "@corp") */
-  readonly scope: string;
+  readonly namespace: string;
   /**
    * Registry package name — the name under which this extension is published.
    * This may differ from the extension-specific name (e.g., skill.name, pack.name)
@@ -178,7 +178,7 @@ switch (ref.refType) {
   }
   case "registry":
     // TS knows: ref has scope, name, version — no type assertion needed
-    return { type: "registry", scope: ref.scope, ... }
+    return { type: "registry", namespace: ref.scope, ... }
   case "local":
     return { type: "local", path: ref.source.path, ... }
   case "builtin":
@@ -197,14 +197,14 @@ switch (ref.refType) {
 
 ```typescript
 type SkillPathSource =
-  | { readonly refType: "registry"; readonly scope: string }
+  | { readonly refType: "registry"; readonly namespace: string }
   | { readonly refType: Exclude<RefType, "registry"> };
 ```
 
 **`packs/install/handler.ts`** — replace structural checks:
 
 ```typescript
-// Before: "scope" in packRef, "version" in packRef
+// Before: "namespace" in packRef, "version" in packRef
 // After:  packRef.refType === "registry" → TS knows scope, name, version from RegistryRefDetails
 ```
 
@@ -220,7 +220,7 @@ The `refType` discriminator eliminates several categories of workarounds in exis
 
 **Type assertions removed** — `sourceToLockEntry()` has 7 `ref as GitHubSkillRef`-style assertions that become unnecessary when `refType` narrowing gives TS the ref detail fields directly.
 
-**Structural `"in"` checks removed** — 14+ instances of `"location" in ref`, `"scope" in ref`, `"version" in ref` across install, update, copy, and pack handlers. All become `switch (ref.refType)`.
+**Structural `"in"` checks removed** — 14+ instances of `"location" in ref`, `"namespace" in ref`, `"version" in ref` across install, update, copy, and pack handlers. All become `switch (ref.refType)`.
 
 **`GIT_SOURCE_TYPES` set removed** — `build-plan.ts` maintains `new Set(["github", "gitlab", "bitbucket", "azurerepos", "git"])` for change detection. Replace with `ref.refType === "git-hosted"`.
 

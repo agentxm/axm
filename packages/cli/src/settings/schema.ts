@@ -279,7 +279,7 @@ export type PacksMap = typeof PacksMapSchema.Type;
  * @experimental This API is unstable and may change without notice.
  */
 export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
-  "scope",
+  "namespace",
   "sources",
   "agents",
   "skills",
@@ -292,7 +292,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * AXM settings configuration schema.
  *
  * Settings define global configuration for AXM including:
- * - scope: Default scope for resolving/publishing extensions
+ * - namespace: Default namespace for resolving/publishing extensions
  * - sources: Source provider configurations
  * - agents: List of agent IDs to sync extensions to
  * - skills: Desired skills by name to source string
@@ -302,14 +302,14 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  *
  * @experimental This API is unstable and may change without notice.
  */
-const ScopeSchema = Schema.transform(Schema.String, Schema.String, {
+const NamespaceSchema = Schema.transform(Schema.String, Schema.String, {
   strict: true,
   decode: (s) => (s.startsWith("@") ? s : `@${s}`),
   encode: (s) => s,
 });
 
 export const SettingsSchema = Schema.Struct({
-  scope: Schema.optional(ScopeSchema),
+  namespace: Schema.optional(NamespaceSchema),
   agents: Schema.optional(Schema.Array(AgentIdSchema)),
   sources: Schema.optional(Schema.Array(SourceHostConfigSchema)),
   commands: Schema.optional(NonSkillExtensionsMapSchema),

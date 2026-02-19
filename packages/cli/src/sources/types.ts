@@ -186,7 +186,7 @@ export interface GitSourceParams {
 /** @experimental */
 export interface RegistrySourceParams {
   readonly type: "registry";
-  readonly scope: Option.Option<string>;
+  readonly namespace: Option.Option<string>;
 }
 
 /** @experimental */
@@ -287,8 +287,8 @@ export interface GitHostedRefDetails {
 
 /** Ref details for registry sources. @experimental */
 export interface RegistryRefDetails {
-  /** Registry scope that owns the published extension */
-  readonly scope: string;
+  /** Registry namespace that owns the published extension */
+  readonly namespace: string;
   /**
    * Registry package name — the identifier used for registry operations (fetch, version resolution).
    * This may differ from the extension-specific display name (e.g., skill.name, pack.name,

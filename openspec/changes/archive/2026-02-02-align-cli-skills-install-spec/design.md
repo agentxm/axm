@@ -202,7 +202,7 @@ skills:
 
 // After
 {
-  "scope": "@community",
+  "namespace": "@community",
   "agents": ["claude-code"],
   "extensions": {
     "skills": { "my-skill": "^1.0.0" }

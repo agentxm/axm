@@ -64,7 +64,7 @@ const defaultArgs = (
 });
 
 const makePackLockEntry = (
-  scope: string,
+  namespace: string,
   name: string,
   overrides?: {
     resolvedSkills?: Record<string, string>;
@@ -73,7 +73,7 @@ const makePackLockEntry = (
   },
 ) => ({
   type: "registry",
-  scope,
+  namespace,
   name,
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",

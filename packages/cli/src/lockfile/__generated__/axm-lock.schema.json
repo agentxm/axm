@@ -241,13 +241,13 @@
           },
           {
             "type": "object",
-            "required": ["source", "scope", "name", "agents", "installedAt", "updatedAt"],
+            "required": ["source", "namespace", "name", "agents", "installedAt", "updatedAt"],
             "properties": {
               "source": {
                 "type": "string",
                 "enum": ["registry"]
               },
-              "scope": {
+              "namespace": {
                 "type": "string"
               },
               "name": {

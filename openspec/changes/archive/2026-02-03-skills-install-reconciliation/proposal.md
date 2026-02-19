@@ -7,7 +7,7 @@ The current skills install implementation mixes concerns and uses ad-hoc diffing
 - **Replace validity with issues**: Remove `SkillValidity` union; issues computed during state loading and attached at appropriate levels (ActualSkill, SkillState, CurrentState)
 - **Simplify plan steps**: Replace 5-way `SkillChange` (Add/Update/Remove/Unchanged/Repair) with 3-way `PlanStep` (InstallSkill/UpdateSkill/UninstallSkill)
 - **Name-based skill identity**: Skills matched by name (unique across all sources); rejects duplicates from different sources
-- **New install paths**: Registry → `.axm/extensions/@<scope>/skills/<name>`, External → `.axm/extensions/external/skills/<name>`
+- **New install paths**: Registry → `.axm/extensions/@<namespace>/skills/<name>`, External → `.axm/extensions/external/skills/<name>`
 - **BREAKING**: Lockfile schema changes - rename `folderHash` → `gitTreeHash`, add `agents` field per skill
 - **BREAKING**: Settings schema changes - flatten `extensions.skills` to root `skills`, use structured source entries
 - **Remove rollback**: On apply failure, stop and return partial result; lockfile only updated on full success

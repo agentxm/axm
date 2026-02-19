@@ -97,6 +97,6 @@ The `init` command provides explicit control while the state-based architecture 
 
 **[Risk] Agent detection returns empty list** → Mitigation: Error with helpful message suggesting manual agent specification (future `--agent` flag).
 
-**[Trade-off] Scope is not configurable** → Accepted: Explicit non-goal. Can add `--scope` flag later without breaking changes.
+**[Trade-off] Scope is not configurable** → Accepted: Explicit non-goal. Can add `--namespace` flag later without breaking changes.
 
 **[Trade-off] No validation of invalid workspaces** → Accepted: Proposal specifies "Error for now" for invalid workspaces. Future work can add repair/migration.

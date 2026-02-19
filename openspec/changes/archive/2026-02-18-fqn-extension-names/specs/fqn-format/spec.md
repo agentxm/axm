@@ -2,7 +2,7 @@
 
 ### Requirement: Canonical FQN format
 
-A Fully Qualified Name (FQN) SHALL use the three-segment format `@<scope>/<type-plural>/<name>` where:
+A Fully Qualified Name (FQN) SHALL use the three-segment format `@<namespace>/<type-plural>/<name>` where:
 
 - `scope`: `@` followed by one or more alphanumeric characters, hyphens, or underscores
 - `type-plural`: one of `skills`, `packs`, `mcp-servers`
@@ -48,14 +48,14 @@ The system SHALL provide `parseFqn` and `parseFqnOrThrow` functions that decompo
 
 The `Fqn` type SHALL have fields:
 
-- `scope: string` — the scope including `@` prefix (e.g., `"@acme"`)
+- `namespace: string` — the scope including `@` prefix (e.g., `"@acme"`)
 - `type: "skills" | "packs" | "mcp-servers"` — the plural type segment
 - `name: string` — the extension name
 
 #### Scenario: Parse valid FQN
 
 - **WHEN** calling `parseFqn("@acme/skills/code-review")`
-- **THEN** the result is `{ scope: "@acme", type: "skills", name: "code-review" }`
+- **THEN** the result is `{ namespace: "@acme", type: "skills", name: "code-review" }`
 
 #### Scenario: Parse invalid FQN returns CliError
 
@@ -73,7 +73,7 @@ The system SHALL provide a `formatFqn` function that constructs an FQN string fr
 
 #### Scenario: Format from parts
 
-- **WHEN** calling `formatFqn({ scope: "@acme", type: "skills", name: "code-review" })`
+- **WHEN** calling `formatFqn({ namespace: "@acme", type: "skills", name: "code-review" })`
 - **THEN** the result is `"@acme/skills/code-review"`
 
 #### Scenario: Format round-trips with parse

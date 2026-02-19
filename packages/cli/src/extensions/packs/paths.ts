@@ -12,7 +12,7 @@ import { REGISTRY_EXTENSIONS_DIR } from "../constants.js";
 /**
  * Computed path for an installed pack directory.
  *
- * `canonicalPath` = `<base>/.axm/extensions/<scope>/packs/<name>/`
+ * `canonicalPath` = `<base>/.axm/extensions/<namespace>/packs/<name>/`
  *
  * No `src/` subdirectory for packs.
  */
@@ -25,15 +25,15 @@ export interface PackDirPath {
  *
  * @param join - Path join function (e.g., `path.join`)
  * @param base - Workspace root (parent of `.axm`)
- * @param scope - Pack scope (e.g., "@acme")
+ * @param namespace - Pack namespace (e.g., "@acme")
  * @param name - Pack name for filesystem use
  */
 export const computePackPaths = (
   join: (...paths: string[]) => string,
   base: string,
-  scope: string,
+  namespace: string,
   name: string,
 ): PackDirPath => {
-  const canonicalPath = join(base, REGISTRY_EXTENSIONS_DIR, scope, "packs", name);
+  const canonicalPath = join(base, REGISTRY_EXTENSIONS_DIR, namespace, "packs", name);
   return { canonicalPath };
 };

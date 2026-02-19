@@ -30,7 +30,7 @@ installed skills from the lockfile.
 - **THEN** the CLI displays a message indicating no skills are installed
 - **AND** exits with code 0
 
-### Requirement: Global scope flag
+### Requirement: Global namespace flag
 
 The list command SHALL support a `--global` flag to read from the global lockfile
 instead of the project lockfile.
@@ -41,7 +41,7 @@ instead of the project lockfile.
 - **THEN** the CLI reads from the global `~/.axm/axm-lock.yaml`
 - **AND** displays globally installed skills
 
-#### Scenario: Default to project scope
+#### Scenario: Default to project namespace
 
 - **WHEN** the user runs `axm skills list` without `--global`
 - **THEN** the CLI reads from the project `.axm/axm-lock.yaml`

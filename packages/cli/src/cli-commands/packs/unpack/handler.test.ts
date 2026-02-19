@@ -43,7 +43,7 @@ const initWorkspace = (
   fs.writeFileSync(
     path.join(axmDir, "settings.json"),
     JSON.stringify({
-      scope: "@test",
+      namespace: "@test",
       agents: ["claude-code"],
       sources: [{ name: "local", type: "registry", location: "file:///tmp/test-registry" }],
       ...(options.skills ? { skills: options.skills } : {}),
@@ -131,7 +131,7 @@ describe("packs unpack.handler", () => {
         lockPacks: {
           "frontend-tools": {
             type: "registry",
-            scope: "@test",
+            namespace: "@test",
             name: "frontend-tools",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
@@ -162,7 +162,7 @@ describe("packs unpack.handler", () => {
           const packs = settingsContent.packs ?? {};
           expect(Object.keys(packs)).not.toContain("frontend-tools");
           expect(settingsContent.skills).toBeDefined();
-          // Skills are stored by short name (after scope/)
+          // Skills are stored by short name (after namespace/)
           expect(settingsContent.skills["code-review"]).toBe("@test/skills/code-review");
           expect(settingsContent.skills["test-writer"]).toBe("@test/skills/test-writer");
 
@@ -190,7 +190,7 @@ describe("packs unpack.handler", () => {
         lockSkills: {
           "code-review": {
             type: "registry",
-            scope: "@test",
+            namespace: "@test",
             name: "code-review",
             resolvedVersion: "0.9.0",
             integrity: "sha512-BBBB==",
@@ -203,7 +203,7 @@ describe("packs unpack.handler", () => {
         lockPacks: {
           "frontend-tools": {
             type: "registry",
-            scope: "@test",
+            namespace: "@test",
             name: "frontend-tools",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",

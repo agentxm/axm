@@ -36,7 +36,7 @@ const withServices = (axmDir: string, registryRoot: string) => {
     getConfiguredSourceByName: (name: string) =>
       Effect.succeed(name === "local" ? Option.some(registrySource) : Option.none()),
     getConfiguredRegistrySources: () => Effect.succeed([registrySource]),
-    getConfiguredScope: () => Effect.succeed("@community"),
+    getConfiguredNamespace: () => Effect.succeed("@community"),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
@@ -93,13 +93,13 @@ describe("publishExtension", () => {
   const setup = (
     typePlural: "skills" | "commands" | "mcp-servers",
     manifestFilename: string,
-    scope = "@community",
+    namespace = "@community",
     name = "my-ext",
     manifest: Record<string, unknown> = {},
   ) => {
     const base = path.join(tmpDir, "project");
     const axmDir = path.join(base, ".axm");
-    const extensionDir = path.join(base, ".axm", "extensions", scope, typePlural, name);
+    const extensionDir = path.join(base, ".axm", "extensions", namespace, typePlural, name);
     const registryRoot = path.join(tmpDir, "registry");
 
     const srcDir = path.join(extensionDir, "src");
@@ -108,7 +108,7 @@ describe("publishExtension", () => {
 
     // Write manifest at extension root
     const defaultManifest = {
-      name: `${scope}/${typePlural}/${name}`,
+      name: `${namespace}/${typePlural}/${name}`,
       version: "0.1.0",
       ...manifest,
     };
@@ -172,7 +172,7 @@ describe("publishExtension", () => {
 
         const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
         expect(index.name).toBe("my-skill");
-        expect(index.scope).toBe("@community");
+        expect(index.namespace).toBe("@community");
         expect(index.type).toBe("skill");
         expect(index.versions).toHaveLength(1);
         expect(index.versions[0].version).toBe("0.1.0");
@@ -213,7 +213,7 @@ describe("publishExtension", () => {
 
         const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
         expect(index.name).toBe("my-cmd");
-        expect(index.scope).toBe("@community");
+        expect(index.namespace).toBe("@community");
         expect(index.type).toBe("command");
         expect(index.versions).toHaveLength(1);
       }),
@@ -257,7 +257,7 @@ describe("publishExtension", () => {
 
         const index = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
         expect(index.name).toBe("my-mcp");
-        expect(index.scope).toBe("@community");
+        expect(index.namespace).toBe("@community");
         expect(index.type).toBe("mcp-server");
         expect(index.versions).toHaveLength(1);
       }),

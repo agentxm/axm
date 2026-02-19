@@ -6,7 +6,7 @@ The system SHALL provide a `getScope` method that reads settings from disk and r
 
 #### Scenario: Scope configured
 
-- **WHEN** settings contains `scope: "@acme"`
+- **WHEN** settings contains `namespace: "@acme"`
 - **THEN** `getScope()` returns `"@acme"`
 
 #### Scenario: Scope not configured
@@ -88,7 +88,7 @@ The settings schema SHALL evolve `sources` from a per-provider-key object to an 
 
 #### Scenario: New schema format
 
-- **WHEN** settings contains `"sources": [{ "name": "corp", "source": "registry", "location": "/reg", "scopes": ["@corp"] }]`
+- **WHEN** settings contains `"sources": [{ "name": "corp", "source": "registry", "location": "/reg", "namespaces": ["@corp"] }]`
 - **THEN** schema validation succeeds
 
 #### Scenario: Old schema format rejected

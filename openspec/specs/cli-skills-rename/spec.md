@@ -59,5 +59,5 @@ The `renameSkill` operation handler SHALL rename canonical directories, update a
 
 - **WHEN** a `RenameSkillOperation` is executed
 - **THEN** the handler SHALL determine the canonical path from the lock entry's `type` field
-- **AND** registry sources SHALL use `.axm/extensions/@<scope>/skills/`
+- **AND** registry sources SHALL use `.axm/extensions/@<namespace>/skills/`
 - **AND** other sources SHALL use `.agents/skills/`

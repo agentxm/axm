@@ -1,5 +1,5 @@
 {
-  "scope": "@acme",
+  "namespace": "@acme",
   "sources": [
     { "name": "github", "type": "github", "url": "https://github.com" },
     { "name": "main-registry", "type": "registry", "location": "https://registry.agentskills.io" }

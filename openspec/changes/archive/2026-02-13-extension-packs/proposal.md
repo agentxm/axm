@@ -14,7 +14,7 @@ Extensions today are managed individually — each skill, command, or MCP server
   - `axm packs remove` — remove an extension from a pack
   - `axm packs publish` — publish a pack to a registry
   - `axm packs unpack` — install all of a pack's extensions directly into workspace settings (as individual entries in skills, commands, mcp-servers)
-- Packs are **always managed** (stored in `.axm/extensions/@<scope>/packs/<name>/`) and **registry-only** (no GitHub, git, or local sources)
+- Packs are **always managed** (stored in `.axm/extensions/@<namespace>/packs/<name>/`) and **registry-only** (no GitHub, git, or local sources)
 
 ## Capabilities
 

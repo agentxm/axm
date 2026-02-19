@@ -50,7 +50,7 @@ The registry layout is:
 ```
 <registry-root>/
   extensions/
-    @<scope>/
+    @<namespace>/
       <skills|mcp-servers>/
         <name>/
           index.json
@@ -212,18 +212,18 @@ Registry source providers extend the base `SourceProvider` (Decision 2) with reg
 interface RegistrySourceProvider extends SourceProvider<RegistrySourceInput> {
   readonly type: "registry";
   readonly fetchIndex: (
-    scope: string,
+    namespace: string,
     type: ExtensionType,
     name: string,
   ) => Effect<ExtensionIndex, RegistryError>;
   readonly fetchArchive: (
-    scope: string,
+    namespace: string,
     type: ExtensionType,
     name: string,
     version: string,
   ) => Effect<Uint8Array, RegistryError>;
   readonly publishVersion: (
-    scope: string,
+    namespace: string,
     type: ExtensionType,
     name: string,
     version: string,
@@ -231,7 +231,7 @@ interface RegistrySourceProvider extends SourceProvider<RegistrySourceInput> {
     metadata: VersionEntry,
   ) => Effect<void, RegistryError>;
   readonly checkNameExists: (
-    scope: string,
+    namespace: string,
     type: ExtensionType,
     name: string,
   ) => Effect<boolean, RegistryError>;
@@ -245,7 +245,7 @@ Two implementations dispatch by the configured location (see Decision 5 for `Sou
 class LocalRegistrySourceProvider implements RegistrySourceProvider {
   readonly type = "registry";
   // find/fetch: read from filesystem using registry layout
-  // fetchIndex: read <root>/extensions/@<scope>/skills/<name>/index.json
+  // fetchIndex: read <root>/extensions/@<namespace>/skills/<name>/index.json
   // publishVersion: write zip + update index.json
   // All operations are filesystem I/O against the static-file layout
 }
@@ -349,7 +349,7 @@ New schema consolidates all source types into a single array, discriminated by `
 
 ```json
 {
-  "scope": "@acme",
+  "namespace": "@acme",
   "sources": [
     { "name": "github.acme", "source": "github", "url": "https://github.acme.corp" },
     { "name": "corp-gitlab", "source": "gitlab", "url": "https://gitlab.corp.com" },
@@ -362,7 +362,7 @@ New schema consolidates all source types into a single array, discriminated by `
       "name": "corp",
       "source": "registry",
       "location": "https://registry.corp.example.com",
-      "scopes": ["@corp", "@internal"]
+      "namespaces": ["@corp", "@internal"]
     }
   ]
 }
@@ -389,7 +389,7 @@ type SourceConfig =
       readonly name: string;
       readonly source: "registry";
       readonly location: string; // absolute path or URL (normalized at parse time)
-      readonly scopes: Option<ReadonlyArray<string>>;
+      readonly namespaces: Option<ReadonlyArray<string>>;
     };
 ```
 
@@ -441,7 +441,7 @@ export interface WorkspaceContextService {
 
   /** Get registry sources only, optionally filtered by scope. */
   readonly getRegistrySources: (
-    scope: Option<string>,
+    namespace: Option<string>,
   ) => Effect<ReadonlyArray<SourceConfig & { source: "registry" }>, SettingsError>;
 }
 ```
@@ -509,7 +509,7 @@ This means:
 ```
 .axm/
   extensions/
-    @<scope>/
+    @<namespace>/
       skills/
         <name>/
           axm-skill.json
@@ -530,7 +530,7 @@ When installing a registry-sourced extension, the pipeline becomes:
 1. Resolve version from registry `index.json`
 2. Download/read archive
 3. Verify SHA-256 checksum
-4. Extract to `.axm/extensions/@<scope>/skills/<name>/`
+4. Extract to `.axm/extensions/@<namespace>/skills/<name>/`
 5. Symlink from agent dirs (reusing existing `installForAgent` logic)
 6. Update lockfile and settings
 
@@ -560,7 +560,7 @@ Future scope sources (default registry scope, logged-in user scope) will be inse
 2. **Determine scope/name**: Use scope resolution above for default scope, original skill name. Prompt user to confirm or change.
 3. **Check uniqueness**: Query configured registry sources (via `checkNameExists`) to ensure `@scope/name` doesn't collide. If collision, prompt for alternate name.
 4. **Build plan with three operations**:
-   - `fork-skill`: Copy the discovered skill's files to `.axm/extensions/@<scope>/skills/<name>/`, generate `axm-skill.json` manifest with `name: "@scope/name"`, `version: "0.1.0"`, agent compatibility from settings
+   - `fork-skill`: Copy the discovered skill's files to `.axm/extensions/@<namespace>/skills/<name>/`, generate `axm-skill.json` manifest with `name: "@scope/name"`, `version: "0.1.0"`, agent compatibility from settings
    - `publish-skill`: Publish the newly created managed extension to the target registry
    - `install-skill`: Install from registry (new `@scope/name` identity, so not a no-op)
 5. **Execute via `resolvePlan`**: Display plan, confirm, apply — reusing the existing plan model
@@ -586,13 +586,13 @@ The `ForkSkillOperation` is a new operation type with params `source` (where to 
 
 **Flow:**
 
-1. **Validate extension**: Read `axm-skill.json` from `.axm/extensions/@<scope>/skills/<name>/`. Verify required fields (name, version).
-2. **Build archive**: Create a zip containing the extension's files at the root (no enclosing directory). The archive is extracted to the target directory directly — e.g., `axm-skill.json`, `SKILL.md`, and other files appear at the top level of the zip, and are extracted to `<registry>/extensions/@<scope>/skills/<name>/`.
+1. **Validate extension**: Read `axm-skill.json` from `.axm/extensions/@<namespace>/skills/<name>/`. Verify required fields (name, version).
+2. **Build archive**: Create a zip containing the extension's files at the root (no enclosing directory). The archive is extracted to the target directory directly — e.g., `axm-skill.json`, `SKILL.md`, and other files appear at the top level of the zip, and are extracted to `<registry>/extensions/@<namespace>/skills/<name>/`.
 3. **Compute checksum**: SHA-256 of the zip bytes, formatted as `sha256:<hex>`.
 4. **Determine agent compatibility**: Read from `axm-skill.json` or from workspace settings.
 5. **Write to registry**:
-   - Write `<version>.zip` to `<registry>/extensions/@<scope>/skills/<name>/`
-   - Read existing `index.json` at `<registry>/extensions/@<scope>/skills/<name>/index.json` (or create new), prepend version entry, write back
+   - Write `<version>.zip` to `<registry>/extensions/@<namespace>/skills/<name>/`
+   - Read existing `index.json` at `<registry>/extensions/@<namespace>/skills/<name>/index.json` (or create new), prepend version entry, write back
 6. **Idempotency**: If the version already exists and checksum matches, no-op. If version exists with different checksum, fail (no overwrites without `--force`).
 
 Only extensions in `.axm/extensions/` (axm-managed extensions) can be published. Git-sourced and local-path skills are not publishable because they lack the manifest and versioning metadata — they must be forked first using `skills fork` to become managed extensions, then published. This makes fork a prerequisite for the migration workflow: fork converts unmanaged → managed, publish distributes managed → registry.
@@ -736,7 +736,7 @@ handleInstall(args)
 installSkill(op)
 │
 ├─ determine canonical path:
-│    ├─ registry source → .axm/extensions/@<scope>/skills/<name>/
+│    ├─ registry source → .axm/extensions/@<namespace>/skills/<name>/
 │    └─ other sources   → .agents/skills/<sanitized-name>/
 │
 ├─ pre-clean: remove existing skill from ALL known locations
@@ -758,7 +758,7 @@ installSkill(op)
 
 ### `skills uninstall` handler
 
-Minimal changes. Reads lockfile entry's `source` field to determine canonical location for cleanup: `.axm/extensions/@<scope>/skills/<name>/` for registry sources, `.agents/skills/<name>/` for others.
+Minimal changes. Reads lockfile entry's `source` field to determine canonical location for cleanup: `.axm/extensions/@<namespace>/skills/<name>/` for registry sources, `.agents/skills/<name>/` for others.
 
 ### `skills fork` handler (new)
 
@@ -803,7 +803,7 @@ handleFork(args)
 forkSkill(op)
 │
 ├─ resolve source files (from discovery or existing install location)
-├─ write to .axm/extensions/@<scope>/skills/<name>/
+├─ write to .axm/extensions/@<namespace>/skills/<name>/
 └─ generate axm-skill.json manifest:
      { name: "@scope/name", version: "0.1.0", agents: [...], dependencies: {} }
 ```
@@ -826,7 +826,7 @@ handlePublish(args)
 ```
 publishSkill(op)
 │
-├─ read axm-skill.json from .axm/extensions/@<scope>/skills/<name>/
+├─ read axm-skill.json from .axm/extensions/@<namespace>/skills/<name>/
 ├─ build zip archive of extension directory
 ├─ compute SHA-256 checksum
 ├─ get target registry provider (by registryName from op args)

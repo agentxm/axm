@@ -32,7 +32,7 @@ The `RegistrySourceInput.scope` field SHALL always be `@`-prefixed (e.g., `"@acm
 #### Scenario: Registry source scope is @-prefixed
 
 - **WHEN** parsing source string `@community/my-skill`
-- **THEN** the `RegistrySourceInput` has `scope: "@community"` (not `"community"`)
+- **THEN** the `RegistrySourceInput` has `namespace: "@community"` (not `"community"`)
 
 #### Scenario: Registry source has no location fields
 
@@ -93,7 +93,7 @@ The `RegistrySourceInput.scope` field SHALL always be `@`-prefixed (e.g., `"@acm
 | bitbucket  | `bitbucket:<owner>/<repo>[/<subPath>][@<ref>]`          | `bitbucket:acme/repo`             |
 | azurerepos | `azurerepos:<org>/<project>/<repo>[/<subPath>][@<ref>]` | `azurerepos:acme/proj/repo@main`  |
 | git        | URL href                                                | `https://example.com/repo.git`    |
-| registry   | `<scope>/<name>`                                        | `@acme/my-skill`                  |
+| registry   | `<namespace>/<name>`                                    | `@acme/my-skill`                  |
 | local      | path as-is                                              | `./my-skills/dev-skill`           |
 
 Since `RegistrySourceInput.scope` is now `@`-prefixed, the printer SHALL output the scope directly (e.g., `@acme/my-skill`) without adding a prefix.

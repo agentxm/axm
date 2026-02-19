@@ -2,7 +2,7 @@
 
 ### Requirement: Ownership-aware skill removal
 
-When uninstalling a skill, the handler SHALL check whether any installed pack still references the skill's FQN in its `resolvedSkills`. The FQN keys in `resolvedSkills` SHALL use the three-segment format (`@scope/skills/name`). If a pack still references it, the skill SHALL be removed from settings but kept in the lockfile and on disk.
+When uninstalling a skill, the handler SHALL check whether any installed pack still references the skill's FQN in its `resolvedSkills`. The FQN keys in `resolvedSkills` SHALL use the three-segment format (`@namespace/skills/name`). If a pack still references it, the skill SHALL be removed from settings but kept in the lockfile and on disk.
 
 #### Scenario: Skill removed when no pack references it
 

@@ -15,7 +15,7 @@ The CLI SHALL provide `axm skills new <name>` to scaffold a new managed skill.
 
 #### Scenario: Create a skill with explicit scope
 
-- **WHEN** the user runs `axm skills new my-skill --scope @acme`
+- **WHEN** the user runs `axm skills new my-skill --namespace @acme`
 - **THEN** the CLI uses `@acme` as the scope instead of the workspace-configured scope
 - **AND** the skill directory is `.axm/extensions/@acme/skills/my-skill/`
 - **AND** the manifest `name` is `@acme/my-skill`
@@ -32,11 +32,11 @@ The CLI SHALL provide `axm skills new <name>` to scaffold a new managed skill.
 - **THEN** the CLI fails with an error indicating the skill already exists
 - **AND** no files are created or modified
 
-#### Scenario: No scope configured and no --scope flag
+#### Scenario: No scope configured and no --namespace flag
 
 - **WHEN** the user runs `axm skills new my-skill` and no scope is configured (or scope is `@community`)
 - **THEN** the CLI fails with an error indicating a scope is required
-- **AND** suggests using `--scope` or configuring a scope via `axm init`
+- **AND** suggests using `--namespace` or configuring a scope via `axm init`
 
 ### Requirement: Starter SKILL.md template
 

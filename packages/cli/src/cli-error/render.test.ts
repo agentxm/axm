@@ -28,7 +28,7 @@ describe("renderCliError", () => {
     const error = new CliError({
       code: "INSTALL_FAILED",
       what: "Installation failed",
-      details: ["Package: @scope/name"],
+      details: ["Package: @namespace/name"],
       howToFix: Option.none(),
       cause: undefined,
     });
@@ -36,7 +36,7 @@ describe("renderCliError", () => {
     const result = renderCliError(error);
 
     expect(result).toBe(
-      ["\u2717 Installation failed (INSTALL_FAILED)", "  Package: @scope/name"].join("\n"),
+      ["\u2717 Installation failed (INSTALL_FAILED)", "  Package: @namespace/name"].join("\n"),
     );
   });
 

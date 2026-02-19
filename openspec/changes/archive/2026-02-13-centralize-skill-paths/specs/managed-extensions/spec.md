@@ -8,7 +8,7 @@ Skill operation handlers SHALL delegate canonical path computation to `Workspace
 
 - **WHEN** installing a skill with `source: "registry"`
 - **THEN** skill content files are written to the `skillSrcPath` returned by `getSkillDir`
-- **AND** `skillSrcPath` resolves to `.axm/extensions/@<scope>/skills/<name>/src/`
+- **AND** `skillSrcPath` resolves to `.axm/extensions/@<namespace>/skills/<name>/src/`
 
 #### Scenario: Other sources use existing location
 
@@ -28,7 +28,7 @@ The `skills uninstall` handler SHALL determine the canonical location from the l
 #### Scenario: Uninstall registry-sourced skill
 
 - **WHEN** uninstalling a skill whose lockfile entry has `source: "registry"`
-- **THEN** files are removed from `.axm/extensions/@<scope>/skills/<name>/`
+- **THEN** files are removed from `.axm/extensions/@<namespace>/skills/<name>/`
 
 #### Scenario: Uninstall git-sourced skill
 

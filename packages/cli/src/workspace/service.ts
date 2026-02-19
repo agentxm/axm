@@ -231,7 +231,7 @@ const materializeBuiltinPack = (workspaceDir: string, agentIds: ReadonlyArray<st
 
     const packLockEntry = {
       type: "builtin" as const,
-      scope: BUILTIN_PACK_SCOPE,
+      namespace: BUILTIN_PACK_SCOPE,
       name: BUILTIN_PACK_NAME,
       resolvedVersion: builtinPack.version,
       installedAt: now,
@@ -415,7 +415,7 @@ const ensureProjectWorkspaceInitialized = (localDir: string, options: WorkspaceC
 /**
  * Create workspace context effect.
  *
- * Loads settings and lockfile based on workspace scope:
+ * Loads settings and lockfile based on workspace namespace:
  * - Global mode: reads only global settings (auto-creates with {} if not found)
  * - Local mode: merges global and local settings (local overrides global),
  *   runs initialization flow if local settings don't exist
@@ -594,10 +594,10 @@ const make = (options: WorkspaceContextOptions) =>
           Effect.map((sources) => Option.fromNullable(sources.find((s) => s.name === name))),
         ),
 
-      getConfiguredRegistrySources: (scope: Option.Option<string>) =>
+      getConfiguredRegistrySources: (namespace: Option.Option<string>) =>
         getConfiguredSources().pipe(
           Effect.map((sources) => {
-            void scope;
+            void namespace;
             const registrySources = sources.filter(
               (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
             );
@@ -605,13 +605,13 @@ const make = (options: WorkspaceContextOptions) =>
           }),
         ),
 
-      getConfiguredScope: () =>
+      getConfiguredNamespace: () =>
         Effect.gen(function* () {
-          const normalizeScope = (s: string): string => (s.startsWith("@") ? s : `@${s}`);
+          const normalizeNamespace = (s: string): string => (s.startsWith("@") ? s : `@${s}`);
           const projectSettings = yield* readSettingsSafe(localDir);
-          if (projectSettings.scope) return normalizeScope(projectSettings.scope);
+          if (projectSettings.namespace) return normalizeNamespace(projectSettings.namespace);
           const globalSettings = yield* readSettingsSafe(globalDir);
-          if (globalSettings.scope) return normalizeScope(globalSettings.scope);
+          if (globalSettings.namespace) return normalizeNamespace(globalSettings.namespace);
           return DEFAULT_SCOPE;
         }),
 
@@ -693,7 +693,7 @@ const make = (options: WorkspaceContextOptions) =>
           const entry = lockEntry.value;
           const entrySource: SkillPathSource =
             entry.type === "registry"
-              ? { refType: "registry", scope: entry.scope }
+              ? { refType: "registry", namespace: entry.namespace }
               : entry.type === "local"
                 ? { refType: "local" }
                 : entry.type === "builtin"
@@ -712,7 +712,7 @@ const make = (options: WorkspaceContextOptions) =>
             const source =
               lockEntry.type === "registry"
                 ? (() => {
-                    const fqn = formatFqn({ scope: lockEntry.scope, type: "skills", name });
+                    const fqn = formatFqn({ namespace: lockEntry.namespace, type: "skills", name });
                     return Option.isSome(versionConstraint)
                       ? `${fqn}@${versionConstraint.value}`
                       : fqn;
@@ -940,7 +940,7 @@ const make = (options: WorkspaceContextOptions) =>
             const { name, versionConstraint, ...lockFields } = args;
             const lockEntry: RegistryPackLockEntry = { ...lockFields, name, type: "registry" };
             // Update settings — thread versionConstraint through so it's preserved
-            const fqn = formatFqn({ scope: args.scope, type: "packs", name });
+            const fqn = formatFqn({ namespace: args.namespace, type: "packs", name });
             const source = Option.isSome(versionConstraint)
               ? `${fqn}@${versionConstraint.value}`
               : fqn;
@@ -994,8 +994,8 @@ const make = (options: WorkspaceContextOptions) =>
           }),
         ),
 
-      getPackDir: (name: string, scope: string) =>
-        Effect.succeed(computePackPaths(path.join, baseDir, scope, name)),
+      getPackDir: (name: string, namespace: string) =>
+        Effect.succeed(computePackPaths(path.join, baseDir, namespace, name)),
     };
   });
 
@@ -1048,12 +1048,12 @@ export interface WorkspaceContextService {
   readonly getConfiguredSourceByName: (
     name: string,
   ) => Effect.Effect<Option.Option<SourceHostConfig>, CliError>;
-  /** Filter merged sources to registry sources, optionally filtered by scope. */
+  /** Filter merged sources to registry sources, optionally filtered by namespace. */
   readonly getConfiguredRegistrySources: (
-    scope: Option.Option<string>,
+    namespace: Option.Option<string>,
   ) => Effect.Effect<ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>, CliError>;
-  /** Resolve scope: project settings -> global settings -> DEFAULT_SCOPE. */
-  readonly getConfiguredScope: () => Effect.Effect<string, CliError>;
+  /** Resolve namespace: project settings -> global settings -> DEFAULT_SCOPE. */
+  readonly getConfiguredNamespace: () => Effect.Effect<string, CliError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
   readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, CliError>;
   /** Read settings and return all skill entries normalized (managed + unmanaged). */
@@ -1123,5 +1123,5 @@ export interface WorkspaceContextService {
   /** Remove a pack from both settings and lockfile. No-op if absent. Serialized by semaphore. */
   readonly removePack: (name: string) => Effect.Effect<void, CliError>;
   /** Compute the pack directory path. Packs are always registry-sourced. */
-  readonly getPackDir: (name: string, scope: string) => Effect.Effect<PackDirPath, CliError>;
+  readonly getPackDir: (name: string, namespace: string) => Effect.Effect<PackDirPath, CliError>;
 }

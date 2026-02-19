@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Forks installed skills into managed extensions with scope resolution, uniqueness checking, and a three-operation plan (fork, publish, install).
+Forks installed skills into managed extensions with namespace resolution, uniqueness checking, and a three-operation plan (fork, publish, install).
 
 ## Requirements
 
@@ -26,32 +26,32 @@ Forks installed skills into managed extensions with scope resolution, uniqueness
 - **THEN** local skills matching the glob are identified from the combined candidate set
 - **AND** a plan with fork operations for each match is built
 
-### Requirement: Scope resolution
+### Requirement: Namespace resolution
 
-The fork command SHALL determine the default scope for the forked extension using a resolution chain (highest priority wins):
+The fork command SHALL determine the default namespace for the forked extension using a resolution chain (highest priority wins):
 
-1. Project settings `scope` field
-2. Global settings `scope` field
+1. Project settings `namespace` field
+2. Global settings `namespace` field
 3. Prompt user (persisted to project settings)
 
-#### Scenario: Scope from project settings
+#### Scenario: Namespace from project settings
 
-- **WHEN** project settings has `scope: "@acme"`
-- **THEN** the default scope is `@acme` (no prompt)
+- **WHEN** project settings has `namespace: "@acme"`
+- **THEN** the default namespace is `@acme` (no prompt)
 
-#### Scenario: Scope from global settings
+#### Scenario: Namespace from global settings
 
-- **WHEN** project settings has no scope but global settings has `scope: "@myorg"`
-- **THEN** the default scope is `@myorg` (no prompt)
+- **WHEN** project settings has no namespace but global settings has `namespace: "@myorg"`
+- **THEN** the default namespace is `@myorg` (no prompt)
 
-#### Scenario: Scope prompted and persisted
+#### Scenario: Namespace prompted and persisted
 
-- **WHEN** no scope is configured anywhere and the session is interactive
-- **THEN** the user is prompted for a scope, and the provided value is persisted to project settings
+- **WHEN** no namespace is configured anywhere and the session is interactive
+- **THEN** the user is prompted for a namespace, and the provided value is persisted to project settings
 
 ### Requirement: Uniqueness check
 
-The fork command SHALL verify that `@scope/name` does not collide with an existing extension in configured registries.
+The fork command SHALL verify that `@namespace/name` does not collide with an existing extension in configured registries.
 
 #### Scenario: Name available
 
@@ -108,7 +108,7 @@ The `copy-skill` executor SHALL copy source files to `.axm/extensions/` and gene
 #### Scenario: Manifest generated without agents
 
 - **WHEN** forking a skill
-- **THEN** `axm-skill.json` is created with `name: "@scope/name"`, `version: "0.1.0"`, and empty `dependencies`
+- **THEN** `axm-skill.json` is created with `name: "@namespace/name"`, `version: "0.1.0"`, and empty `dependencies`
 - **AND** the `agents` property SHALL NOT be present in the manifest
 
 ### Requirement: Glob-based batch forking

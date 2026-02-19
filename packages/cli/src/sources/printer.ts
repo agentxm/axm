@@ -93,7 +93,7 @@ export const lockEntryToSourceParams = (entry: SkillLockEntry): SourceParams => 
     case "registry":
       return {
         type: "registry",
-        scope: Option.none(),
+        namespace: Option.none(),
       };
     case "builtin":
       return { type: "builtin" };

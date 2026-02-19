@@ -22,11 +22,11 @@ const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
 /** A simple name with no `/`, `@`, or URL scheme. */
 type NameInput = { readonly pattern: "name-input"; readonly name: string };
 
-/** A scoped registry source: `@scope/(skills|mcp-servers|packs)/name`. */
+/** A scoped registry source: `@namespace/(skills|mcp-servers|packs)/name`. */
 type RegistryPatternInput = {
   readonly pattern: "registry-pattern-input";
   readonly type: Option.Option<"skills" | "mcp-servers" | "packs">;
-  readonly scope: string;
+  readonly namespace: string;
   readonly name: Option.Option<string>;
   readonly versionConstraint: Option.Option<string>;
 };
@@ -155,20 +155,20 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
   }
 
   // 5. Registry source:
-  //    - @scope
-  //    - @scope/{type}
-  //    - @scope/{type}/{name}@constraint
+  //    - @namespace
+  //    - @namespace/{type}
+  //    - @namespace/{type}/{name}@constraint
   if (input.startsWith("@")) {
     const segments = input.split("/");
     if (segments.length >= 1 && REGISTRY_SCOPE_PATTERN.test(segments[0] ?? "")) {
-      const scope = segments[0]!;
+      const namespace = segments[0]!;
 
       if (segments.length === 1) {
         return Option.some(
           wrap({
             pattern: "registry-pattern-input",
             type: Option.none(),
-            scope,
+            namespace,
             name: Option.none(),
             versionConstraint: Option.none(),
           }),
@@ -182,7 +182,7 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
             wrap({
               pattern: "registry-pattern-input",
               type: Option.some(second),
-              scope,
+              namespace,
               name: Option.none(),
               versionConstraint: Option.none(),
             }),
@@ -200,7 +200,7 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
               wrap({
                 pattern: "registry-pattern-input",
                 type: Option.some(second),
-                scope,
+                namespace,
                 name: parsedName.value.name,
                 versionConstraint: parsedName.value.versionConstraint,
               }),

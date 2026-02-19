@@ -24,16 +24,16 @@ import { createRemoteRegistryClient } from "./client-remote.js";
 // -----------------------------------------------------------------------------
 
 /**
- * Options for searching extensions within a specific registry scope.
+ * Options for searching extensions within a specific registry namespace.
  *
- * - `scope`: registry scope to search (e.g. `"@acme"`)
+ * - `namespace`: registry namespace to search (e.g. `"@acme"`)
  * - `names`: extension names to match (empty = all)
  * - `types`: extension types to include (empty = all)
  * - `limit`: max results to return (default: all)
  * - `offset`: number of results to skip (default: 0)
  */
-export interface GetExtensionsByScopeArgs {
-  readonly scope: string;
+export interface GetExtensionsByNamespaceArgs {
+  readonly namespace: string;
   readonly names: ReadonlyArray<string>;
   readonly types: ReadonlyArray<ExtensionType>;
   readonly limit: Option.Option<number>;
@@ -47,13 +47,13 @@ export interface GetExtensionsByScopeArgs {
 /**
  * Options for fetching a specific extension version from a registry.
  *
- * - `scope`: registry scope (e.g. `"@acme"`)
+ * - `namespace`: registry namespace (e.g. `"@acme"`)
  * - `type`: extension type
  * - `name`: extension name
  * - `version`: specific version to fetch, or `None` for latest
  */
 export interface GetExtensionPackageArgs {
-  readonly scope: string;
+  readonly namespace: string;
   readonly type: ExtensionType;
   readonly name: string;
   readonly version: Option.Option<string>;
@@ -66,7 +66,7 @@ export interface GetExtensionPackageArgs {
 /**
  * Options for publishing an extension version to a registry.
  *
- * - `scope`: registry scope (e.g. `"@acme"`)
+ * - `namespace`: registry namespace (e.g. `"@acme"`)
  * - `type`: extension type
  * - `name`: extension name
  * - `version`: version string to publish
@@ -74,7 +74,7 @@ export interface GetExtensionPackageArgs {
  * - `metadata`: version entry metadata
  */
 export interface PublishExtensionArgs {
-  readonly scope: string;
+  readonly namespace: string;
   readonly type: ExtensionType;
   readonly name: string;
   readonly version: string;
@@ -89,24 +89,24 @@ export interface PublishExtensionArgs {
 /**
  * Options for checking whether an extension exists in a registry.
  *
- * - `scope`: registry scope (e.g. `"@acme"`)
+ * - `namespace`: registry namespace (e.g. `"@acme"`)
  * - `type`: extension type
  * - `name`: extension name
  */
 export interface ExtensionExistsArgs {
-  readonly scope: string;
+  readonly namespace: string;
   readonly type: ExtensionType;
   readonly name: string;
 }
 
 // -----------------------------------------------------------------------------
-// Get Extensions By Scope Response
+// Get Extensions By Namespace Response
 // -----------------------------------------------------------------------------
 
 /**
  * Result from a registry extension search.
  */
-export interface GetExtensionsByScopeResponse {
+export interface GetExtensionsByNamespaceResponse {
   readonly extensions: ReadonlyArray<RegistryExtensionManifest<ExtensionType>>;
   readonly total: number;
 }
@@ -134,13 +134,13 @@ export interface PublishExtensionResponse {
 }
 
 // -----------------------------------------------------------------------------
-// Scope Exists Response
+// Namespace Exists Response
 // -----------------------------------------------------------------------------
 
 /**
- * Response from checking whether a scope exists in a registry.
+ * Response from checking whether a namespace exists in a registry.
  */
-export interface ScopeExistsResponse {
+export interface NamespaceExistsResponse {
   readonly exists: boolean;
 }
 
@@ -165,7 +165,7 @@ export interface ExtensionExistsResponse {
  * Represents a single matched extension with its resolved version and integrity.
  */
 export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionType> {
-  readonly scope: string;
+  readonly namespace: string;
   readonly type: T;
   readonly name: string;
   readonly description: Option.Option<string>;
@@ -191,9 +191,9 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
  */
 export interface RegistryClient {
   readonly getExtensionsByScope: (
-    args: GetExtensionsByScopeArgs,
-  ) => Effect.Effect<GetExtensionsByScopeResponse, CliError>;
-  readonly scopeExists: (scope: string) => Effect.Effect<ScopeExistsResponse, CliError>;
+    args: GetExtensionsByNamespaceArgs,
+  ) => Effect.Effect<GetExtensionsByNamespaceResponse, CliError>;
+  readonly namespaceExists: (namespace: string) => Effect.Effect<NamespaceExistsResponse, CliError>;
   readonly getExtensionPackage: (
     args: GetExtensionPackageArgs,
   ) => Effect.Effect<GetExtensionPackageResponse, CliError>;

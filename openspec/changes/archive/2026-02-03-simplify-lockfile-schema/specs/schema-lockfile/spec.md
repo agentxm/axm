@@ -62,7 +62,7 @@ Each lock entry SHALL have the following fields:
   skills:
     my-skill:
       source: registry
-      scope: "@acme"
+      namespace: "@acme"
       name: my-skill
       version: "1.2.3"
       agents: [claude-code]

@@ -4,7 +4,7 @@
  * Converts an unmanaged skill into a managed extension:
  * 1. Registry guard (ensure registry configured)
  * 2. Parse source via resolveSource
- * 3. Scope resolution
+ * 3. Namespace resolution
  * 4. Discover skills via SourceHostProviders
  * 5. Filter by --skill globs (if provided)
  * 6. Build plan: fork → publish → install (sequential)
@@ -70,13 +70,13 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   // Step 1: Registry guard
   yield* registryGuard;
 
-  // Step 2: Resolve scope
-  const scope = yield* ws.getConfiguredScope().pipe(
+  // Step 2: Resolve namespace
+  const namespace = yield* ws.getConfiguredNamespace().pipe(
     Effect.mapError((e) =>
       makeCliError({
         code: "SCOPE_RESOLUTION_FAILED",
-        what: `Failed to resolve scope: ${e._tag}`,
-        howToFix: "Configure a scope in your settings with `axm init`.",
+        what: `Failed to resolve namespace: ${e._tag}`,
+        howToFix: "Configure a namespace in your settings with `axm init`.",
         cause: e,
       }),
     ),
@@ -109,7 +109,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
       sources.find(source, {
         skillNames: [],
         type: "skill",
-        scope: Option.none(),
+        namespace: Option.none(),
         versionConstraint: Option.none(),
       }),
     { concurrency: "unbounded" },
@@ -199,7 +199,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
 
   // Step 7: Build plan — fork + publish + install per skill (3 sequential ops)
   const steps: ReadonlyArray<PlannedJobStep<ForkOp>> = Array.flatMap(filtered, (ref) => {
-    const targetName = `${scope}/skills/${ref.skill.name}`;
+    const targetName = `${namespace}/skills/${ref.skill.name}`;
     const extensionRef = ref;
     // After fork + publish, the skill lives in the registry extensions dir.
     // Build a registry SkillExtensionRef for the install step.
@@ -214,9 +214,9 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
       source: {
         type: "registry" as const,
         location: registrySource.location,
-        scope: Option.none(),
+        namespace: Option.none(),
       },
-      scope,
+      namespace,
       name: ref.skill.name,
       version: "0.1.0",
       integrity: "",

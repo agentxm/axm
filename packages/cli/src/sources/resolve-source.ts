@@ -62,7 +62,7 @@ const getConfiguredSources = (input: string) =>
 /** Get the relative path of an installed skill from its lockfile entry. */
 const getInstalledSkillPath = (name: string, entry: SkillLockEntry): string => {
   if (entry.type === "registry") {
-    return `${REGISTRY_EXTENSIONS_DIR}/${entry.scope}/skills/${name}`;
+    return `${REGISTRY_EXTENSIONS_DIR}/${entry.namespace}/skills/${name}`;
   }
   return `${EXTERNAL_EXTENSIONS_DIR}/skills/${name}`;
 };
@@ -383,7 +383,7 @@ export const routeNameInput = (
 export const routeRegistryInput = (
   pattern: {
     readonly type: Option.Option<"skills" | "mcp-servers" | "packs">;
-    readonly scope: string;
+    readonly namespace: string;
     readonly name: Option.Option<string>;
   },
   input: string,
@@ -391,9 +391,9 @@ export const routeRegistryInput = (
   Effect.gen(function* () {
     const ws = yield* Workspace;
     // Name filtering is handled in the find phase; this routing step only resolves registry host.
-    const scope = Option.some(pattern.scope);
+    const namespace = Option.some(pattern.namespace);
 
-    const registrySources = yield* ws.getConfiguredRegistrySources(scope).pipe(
+    const registrySources = yield* ws.getConfiguredRegistrySources(namespace).pipe(
       Effect.mapError((e) =>
         makeCliError({
           code: "SOURCE_PARSE_FAILED",
@@ -406,7 +406,7 @@ export const routeRegistryInput = (
     if (registrySources.length === 0) {
       return yield* makeCliError({
         code: "SOURCE_PARSE_FAILED",
-        what: `No registry source configured for scope "${pattern.scope}"`,
+        what: `No registry source configured for namespace "${pattern.namespace}"`,
         details: [input],
       });
     }
@@ -415,7 +415,7 @@ export const routeRegistryInput = (
     return {
       type: "registry" as const,
       location: regConfig.location,
-      scope: Option.none(),
+      namespace: Option.none(),
     } satisfies RegistrySource;
   });
 
@@ -453,9 +453,9 @@ export const resolveSlashInputSource = (
       const extensionType = registryExtensionTypeFromSegment(pattern.second);
       if (Option.isSome(extensionType)) {
         const ws = yield* Workspace;
-        const scope = pattern.first.startsWith("@") ? pattern.first : `@${pattern.first}`;
+        const namespace = pattern.first.startsWith("@") ? pattern.first : `@${pattern.first}`;
         const extensionName = pattern.third.value;
-        const registrySources = yield* ws.getConfiguredRegistrySources(Option.some(scope)).pipe(
+        const registrySources = yield* ws.getConfiguredRegistrySources(Option.some(namespace)).pipe(
           Effect.mapError((e) =>
             makeCliError({
               code: "SOURCE_PARSE_FAILED",
@@ -468,13 +468,13 @@ export const resolveSlashInputSource = (
         for (const regSource of registrySources) {
           const client = yield* createRegistryClient(regSource.location.href);
           const exists = yield* client
-            .extensionExists({ scope, type: extensionType.value, name: extensionName })
+            .extensionExists({ namespace, type: extensionType.value, name: extensionName })
             .pipe(Effect.orElseSucceed(() => false));
           if (exists) {
             return {
               type: "registry" as const,
               location: regSource.location,
-              scope: Option.none(),
+              namespace: Option.none(),
             } satisfies RegistrySource;
           }
         }

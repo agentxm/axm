@@ -25,7 +25,7 @@ import {
 // -----------------------------------------------------------------------------
 
 export interface PacksRemoveHandlerArgs {
-  /** Pack name (without scope). */
+  /** Pack name (without namespace). */
   readonly pack: string;
   /** Extension name or glob pattern. */
   readonly extension: string;
@@ -59,14 +59,16 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     });
   }
 
-  // Resolve pack scope
+  // Resolve pack namespace
   const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
-  const hasScope = packSource.startsWith("@") && packSource.includes("/");
-  const packScope = hasScope ? packSource.split("/")[0]! : yield* ws.getConfiguredScope();
+  const hasNamespace = packSource.startsWith("@") && packSource.includes("/");
+  const packNamespace = hasNamespace
+    ? packSource.split("/")[0]!
+    : yield* ws.getConfiguredNamespace();
   const base = ws.baseDir;
 
   // Step 2: Read pack manifest
-  const packDir = computePackPaths(path.join, base, packScope, args.pack);
+  const packDir = computePackPaths(path.join, base, packNamespace, args.pack);
   const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
   const manifestContent = yield* fs.readFileString(manifestPath).pipe(

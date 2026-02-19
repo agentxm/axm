@@ -85,7 +85,7 @@ export const renameSkill: OperationHandler<
     // Derive source from lock entry — new name doesn't exist in lockfile yet
     const pathSource: SkillPathSource =
       lockEntry.type === "registry"
-        ? { refType: "registry", scope: lockEntry.scope }
+        ? { refType: "registry", namespace: lockEntry.namespace }
         : lockEntry.type === "local"
           ? { refType: "local" }
           : lockEntry.type === "builtin"

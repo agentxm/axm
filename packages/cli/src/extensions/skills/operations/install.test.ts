@@ -51,7 +51,7 @@ const makeWorkspaceMock = (
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getConfiguredRegistrySources: () => Effect.succeed([]),
-    getConfiguredScope: () => Effect.succeed("@community"),
+    getConfiguredNamespace: () => Effect.succeed("@community"),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),
@@ -66,7 +66,7 @@ const makeWorkspaceMock = (
           base,
           ".axm",
           "extensions",
-          source.scope,
+          source.namespace,
           "skills",
           sanitized,
         );
@@ -178,7 +178,7 @@ const makeOp = (
     force?: boolean;
     skillName?: string;
     sourcePath?: string;
-    scope?: string;
+    namespace?: string;
     location?: string;
     version?: Option.Option<string>;
     versionConstraint?: Option.Option<string>;
@@ -216,7 +216,7 @@ const makeOp = (
           ...base,
           refType: "registry" as const,
           source: source as never,
-          scope: overrides.scope ?? "@community",
+          namespace: overrides.namespace ?? "@community",
           name: skill.name,
           version: Option.getOrElse(version, () => ""),
           integrity: "",
@@ -289,8 +289,8 @@ describe("installSkill", () => {
    * Registry tests use empty integrity (synthetic refs from fork/publish pipeline),
    * so the handler reuses existing canonical files instead of fetching.
    */
-  const setupRegistryCanonical = (base: string, scope: string, name = "my-skill") => {
-    const canonicalPath = path.join(base, ".axm", "extensions", scope, "skills", name);
+  const setupRegistryCanonical = (base: string, namespace: string, name = "my-skill") => {
+    const canonicalPath = path.join(base, ".axm", "extensions", namespace, "skills", name);
     const srcDir = path.join(canonicalPath, "src");
     fs.mkdirSync(srcDir, { recursive: true });
     fs.writeFileSync(
@@ -610,7 +610,7 @@ describe("installSkill", () => {
   });
 
   describe("registry source canonical path", () => {
-    it.effect("uses .axm/extensions/@scope/skills/<name>/src/ for registry sources", () =>
+    it.effect("uses .axm/extensions/@namespace/skills/<name>/src/ for registry sources", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
@@ -620,9 +620,9 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               location: new URL("file:///tmp/reg"),
-              scope: Option.none(),
+              namespace: Option.none(),
             },
-            scope: "@community",
+            namespace: "@community",
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
@@ -653,7 +653,7 @@ describe("installSkill", () => {
       }),
     );
 
-    it.effect("uses scope from source, not location path", () =>
+    it.effect("uses namespace from source, not location path", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@myorg");
@@ -663,15 +663,15 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               location: new URL("file:///tmp/reg"),
-              scope: Option.none(),
+              namespace: Option.none(),
             },
-            scope: "@myorg",
+            namespace: "@myorg",
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
 
-        // Should use source.scope for canonical path
+        // Should use source.namespace for canonical path
         const registryCanonical = path.join(
           base,
           ".axm",
@@ -698,9 +698,9 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               location: new URL("file:///tmp/reg"),
-              scope: Option.none(),
+              namespace: Option.none(),
             },
-            scope: "@community",
+            namespace: "@community",
             version: Option.some("1.2.3"),
             versionConstraint: Option.some("^1.0.0"),
           }),
@@ -714,7 +714,7 @@ describe("installSkill", () => {
         const entry = lockfile.skills["my-skill"];
         expect(entry).toBeDefined();
         expect(entry.type).toBe("registry");
-        expect(entry.scope).toBe("@community");
+        expect(entry.namespace).toBe("@community");
         expect(entry.name).toBe("my-skill");
         expect(entry.resolvedVersion).toBe("1.2.3");
         expect(entry.sourceName).toBe("default");
@@ -747,9 +747,9 @@ describe("installSkill", () => {
               source: {
                 type: "registry",
                 location: new URL("file:///tmp/reg"),
-                scope: Option.none(),
+                namespace: Option.none(),
               },
-              scope: "@community",
+              namespace: "@community",
             }),
           ).pipe(Effect.provide(withServices(axmDir)));
 
@@ -816,9 +816,9 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               location: new URL("file:///tmp/reg"),
-              scope: Option.none(),
+              namespace: Option.none(),
             },
-            scope: "@acme",
+            namespace: "@acme",
             skillName: "tool",
           }),
         ).pipe(Effect.provide(withServices(axmDir, { setSkillFn })));
@@ -843,9 +843,9 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               location: new URL("file:///tmp/reg"),
-              scope: Option.none(),
+              namespace: Option.none(),
             },
-            scope: "@acme",
+            namespace: "@acme",
             skillName: "tool",
             version: Option.some("1.2.3"),
             versionConstraint: Option.some("^1.0.0"),
@@ -872,9 +872,9 @@ describe("installSkill", () => {
             source: {
               type: "registry",
               location: new URL("file:///tmp/reg"),
-              scope: Option.none(),
+              namespace: Option.none(),
             },
-            scope: "@acme",
+            namespace: "@acme",
             skillName: "tool",
             version: Option.some("1.2.3"),
             versionConstraint: Option.some("1.2.3"),

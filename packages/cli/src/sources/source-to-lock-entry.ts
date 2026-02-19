@@ -125,7 +125,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
     case "registry":
       return {
         type: "registry",
-        scope: ref.scope,
+        namespace: ref.namespace,
         name: ref.skill.name,
         resolvedVersion: ref.version,
         integrity: ref.integrity,

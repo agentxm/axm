@@ -29,13 +29,13 @@ import type { SkillExtensionRef } from "../../../sources/types.js";
 /**
  * Args for the copy-skill operation.
  *
- * Copies source files to `.axm/extensions/@<scope>/skills/<name>/`
+ * Copies source files to `.axm/extensions/@<namespace>/skills/<name>/`
  * and generates an `axm-skill.json` manifest.
  */
 export type CopySkillOperationArgs = {
   /** The skill extension ref carrying source and location. */
   readonly ref: SkillExtensionRef;
-  /** Target identity in `@scope/name` format. */
+  /** Target identity in `@namespace/name` format. */
   readonly targetName: string;
 };
 
@@ -59,9 +59,9 @@ const DEFAULT_VERSION = "0.1.0";
 /**
  * Copy-skill operation handler.
  *
- * 1. Parse target name (`@scope/name`)
+ * 1. Parse target name (`@namespace/name`)
  * 2. Resolve source path from ref location
- * 3. Copy files to `.axm/extensions/@<scope>/skills/<name>/`
+ * 3. Copy files to `.axm/extensions/@<namespace>/skills/<name>/`
  * 4. Generate `axm-skill.json` manifest with defaults
  */
 export const copySkill: OperationHandler<
@@ -77,7 +77,7 @@ export const copySkill: OperationHandler<
     const fqn = yield* parseFqn(op.args.targetName);
 
     // Target path in the managed extensions store
-    const targetDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.scope, "skills", fqn.name);
+    const targetDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.namespace, "skills", fqn.name);
 
     // Source path from the ref location (registry/builtin refs don't carry location)
     const { ref } = op.args;

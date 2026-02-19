@@ -20,16 +20,16 @@ Each `SourceHost` variant SHALL carry the access information for its source type
 
 All `SourceHost` types live in `sources/types.ts`.
 
-| Source Host | Fields                                                                  | Notes                                  |
-| ----------- | ----------------------------------------------------------------------- | -------------------------------------- |
-| github      | `type: "github"`, `url: URL`                                            | Instance URL (github.com or GHE)       |
-| gitlab      | `type: "gitlab"`, `url: URL`                                            | Instance URL                           |
-| bitbucket   | `type: "bitbucket"`, `url: URL`                                         | Instance URL                           |
-| azurerepos  | `type: "azurerepos"`, `url: URL`                                        | Instance URL                           |
-| git         | `type: "git"`                                                           | Self-describing; URL lives in params   |
-| registry    | `type: "registry"`, `url: URL`, `scopes: Option<ReadonlyArray<string>>` | Scopes from settings; None = catch-all |
-| local       | `type: "local"`                                                         | Self-describing; path lives in params  |
-| builtin     | `type: "builtin"`                                                       | Self-describing; bundled extensions    |
+| Source Host | Fields                                                                      | Notes                                  |
+| ----------- | --------------------------------------------------------------------------- | -------------------------------------- |
+| github      | `type: "github"`, `url: URL`                                                | Instance URL (github.com or GHE)       |
+| gitlab      | `type: "gitlab"`, `url: URL`                                                | Instance URL                           |
+| bitbucket   | `type: "bitbucket"`, `url: URL`                                             | Instance URL                           |
+| azurerepos  | `type: "azurerepos"`, `url: URL`                                            | Instance URL                           |
+| git         | `type: "git"`                                                               | Self-describing; URL lives in params   |
+| registry    | `type: "registry"`, `url: URL`, `namespaces: Option<ReadonlyArray<string>>` | Scopes from settings; None = catch-all |
+| local       | `type: "local"`                                                             | Self-describing; path lives in params  |
+| builtin     | `type: "builtin"`                                                           | Self-describing; bundled extensions    |
 
 #### Scenario: Configured source host carries URL
 
@@ -79,7 +79,7 @@ Each `SourceParams` variant SHALL carry the user-specified coordinates for locat
 #### Scenario: Registry params carry scope and name
 
 - **WHEN** a `RegistrySourceParams` is created for `@acme/my-skill@^1.0.0`
-- **THEN** it has `scope: "@acme"`, `name: "my-skill"`, `versionConstraint: Some("^1.0.0")`
+- **THEN** it has `namespace: "@acme"`, `name: "my-skill"`, `versionConstraint: Some("^1.0.0")`
 
 #### Scenario: Builtin params are trivial
 

@@ -67,7 +67,7 @@ describe("PackManifestSchema", () => {
       version: "1.0.0",
       skills: { "@wayne/grappling-hook": "^1.0.0" },
     };
-    expect(() => decode(input)).toThrow(/Names must match @scope\/type\/name format/);
+    expect(() => decode(input)).toThrow(/Names must match @namespace\/type\/name format/);
   });
 
   it("rejects manifest missing required fields", () => {

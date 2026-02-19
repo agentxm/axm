@@ -12,7 +12,7 @@ The system SHALL load actual skill state by scanning the `.axm/extensions/` dire
 #### Scenario: Registry skill location
 
 - **WHEN** loading actual state for a registry skill
-- **THEN** the system scans `.axm/extensions/@<scope>/skills/<name>`
+- **THEN** the system scans `.axm/extensions/@<namespace>/skills/<name>`
 
 #### Scenario: External skill location
 

@@ -152,7 +152,7 @@ describe("lockfile schema", () => {
         skills: {
           "my-skill": {
             type: "registry",
-            scope: "@acme",
+            namespace: "@acme",
             name: "my-skill",
             resolvedVersion: "1.0.0",
             integrity: "sha512-abc123def456",
@@ -170,7 +170,7 @@ describe("lockfile schema", () => {
       expect(skill).toBeDefined();
       expect(skill?.type).toBe("registry");
       if (skill?.type === "registry") {
-        expect(skill.scope).toBe("@acme");
+        expect(skill.namespace).toBe("@acme");
         expect(skill.name).toBe("my-skill");
         expect(skill.resolvedVersion).toBe("1.0.0");
         expect(skill.integrity).toBe("sha512-abc123def456");
@@ -310,7 +310,7 @@ describe("lockfile schema", () => {
     it("accepts valid registry lock entry", () => {
       const input = {
         type: "registry",
-        scope: "@acme",
+        namespace: "@acme",
         name: "my-skill",
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123def456",
@@ -324,7 +324,7 @@ describe("lockfile schema", () => {
 
       expect(result.type).toBe("registry");
       if (result.type === "registry") {
-        expect(result.scope).toBe("@acme");
+        expect(result.namespace).toBe("@acme");
         expect(result.name).toBe("my-skill");
         expect(result.resolvedVersion).toBe("1.0.0");
         expect(result.integrity).toBe("sha512-abc123def456");
@@ -448,7 +448,7 @@ describe("lockfile schema", () => {
       expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
 
-    it("rejects registry lock entry missing scope", () => {
+    it("rejects registry lock entry missing namespace", () => {
       const input = {
         type: "registry",
         name: "my-skill",
@@ -466,7 +466,7 @@ describe("lockfile schema", () => {
     it("rejects registry lock entry missing name", () => {
       const input = {
         type: "registry",
-        scope: "@acme",
+        namespace: "@acme",
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123def456",
         sourceName: "local",
@@ -481,7 +481,7 @@ describe("lockfile schema", () => {
     it("rejects registry lock entry missing resolvedVersion", () => {
       const input = {
         type: "registry",
-        scope: "@acme",
+        namespace: "@acme",
         name: "my-skill",
         integrity: "sha512-abc123def456",
         sourceName: "local",
@@ -496,7 +496,7 @@ describe("lockfile schema", () => {
     it("rejects registry lock entry missing integrity", () => {
       const input = {
         type: "registry",
-        scope: "@acme",
+        namespace: "@acme",
         name: "my-skill",
         resolvedVersion: "1.0.0",
         sourceName: "local",
@@ -511,7 +511,7 @@ describe("lockfile schema", () => {
     it("rejects registry lock entry missing sourceName", () => {
       const input = {
         type: "registry",
-        scope: "@acme",
+        namespace: "@acme",
         name: "my-skill",
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123def456",
@@ -610,7 +610,7 @@ describe("lockfile schema", () => {
     it("accepts valid pack lock entry with all resolved maps", () => {
       const input = {
         type: "registry",
-        scope: "@acme",
+        namespace: "@acme",
         name: "frontend-pack",
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123def456",
@@ -625,7 +625,7 @@ describe("lockfile schema", () => {
       const result = Schema.decodeUnknownSync(PackLockEntrySchema)(input);
 
       expect(result.type).toBe("registry");
-      expect(result.scope).toBe("@acme");
+      expect(result.namespace).toBe("@acme");
       expect(result.name).toBe("frontend-pack");
       expect(result.resolvedVersion).toBe("1.0.0");
       if (result.type === "registry") {
@@ -642,7 +642,7 @@ describe("lockfile schema", () => {
     it("accepts pack lock entry with empty resolved maps", () => {
       const input = {
         type: "registry",
-        scope: "@acme",
+        namespace: "@acme",
         name: "empty-pack",
         resolvedVersion: "0.1.0",
         integrity: "sha512-deadbeef",
@@ -661,7 +661,7 @@ describe("lockfile schema", () => {
       expect(result.resolvedMcpServers).toEqual({});
     });
 
-    it("rejects pack lock entry missing scope", () => {
+    it("rejects pack lock entry missing namespace", () => {
       const input = {
         type: "registry",
         name: "frontend-pack",
@@ -681,7 +681,7 @@ describe("lockfile schema", () => {
     it("rejects pack lock entry missing resolvedSkills", () => {
       const input = {
         type: "registry",
-        scope: "@acme",
+        namespace: "@acme",
         name: "frontend-pack",
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123",
@@ -698,7 +698,7 @@ describe("lockfile schema", () => {
     it("rejects pack lock entry missing resolvedCommands", () => {
       const input = {
         type: "registry",
-        scope: "@acme",
+        namespace: "@acme",
         name: "frontend-pack",
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123",
@@ -715,7 +715,7 @@ describe("lockfile schema", () => {
     it("rejects pack lock entry missing resolvedMcpServers", () => {
       const input = {
         type: "registry",
-        scope: "@acme",
+        namespace: "@acme",
         name: "frontend-pack",
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123",
@@ -732,7 +732,7 @@ describe("lockfile schema", () => {
     it("rejects pack lock entry with non-registry type", () => {
       const input = {
         type: "github",
-        scope: "@acme",
+        namespace: "@acme",
         name: "frontend-pack",
         resolvedVersion: "1.0.0",
         integrity: "sha512-abc123",
@@ -752,7 +752,7 @@ describe("lockfile schema", () => {
     it("accepts valid builtin pack lock entry", () => {
       const input = {
         type: "builtin",
-        scope: "@axm",
+        namespace: "@axm",
         name: "cli",
         resolvedVersion: "0.0.16",
         installedAt: "2025-01-15T10:30:00Z",
@@ -765,7 +765,7 @@ describe("lockfile schema", () => {
       const result = Schema.decodeUnknownSync(BuiltinPackLockEntrySchema)(input);
 
       expect(result.type).toBe("builtin");
-      expect(result.scope).toBe("@axm");
+      expect(result.namespace).toBe("@axm");
       expect(result.name).toBe("cli");
       expect(result.resolvedVersion).toBe("0.0.16");
       expect(result.installedAt).toBeInstanceOf(Date);
@@ -778,7 +778,7 @@ describe("lockfile schema", () => {
     it("strips integrity and sourceName on decode", () => {
       const input = {
         type: "builtin",
-        scope: "@axm",
+        namespace: "@axm",
         name: "cli",
         resolvedVersion: "0.0.16",
         installedAt: "2025-01-15T10:30:00Z",
@@ -800,7 +800,7 @@ describe("lockfile schema", () => {
     it("is accepted by PackLockEntrySchema union", () => {
       const input = {
         type: "builtin",
-        scope: "@axm",
+        namespace: "@axm",
         name: "cli",
         resolvedVersion: "0.0.16",
         installedAt: "2025-01-15T10:30:00Z",
@@ -827,7 +827,7 @@ describe("lockfile schema", () => {
       const input = {
         "@acme/packs/frontend-pack": {
           type: "registry",
-          scope: "@acme",
+          namespace: "@acme",
           name: "frontend-pack",
           resolvedVersion: "1.0.0",
           integrity: "sha512-abc123",
@@ -857,7 +857,7 @@ describe("lockfile schema", () => {
         packs: {
           "@acme/packs/frontend-pack": {
             type: "registry",
-            scope: "@acme",
+            namespace: "@acme",
             name: "frontend-pack",
             resolvedVersion: "1.0.0",
             integrity: "sha512-abc123",
@@ -896,7 +896,7 @@ describe("lockfile schema", () => {
         skills: {
           "registry-skill": {
             type: "registry",
-            scope: "@acme",
+            namespace: "@acme",
             name: "code-review",
             resolvedVersion: "1.2.0",
             integrity: "sha512-abc123",
@@ -915,7 +915,7 @@ describe("lockfile schema", () => {
         packs: {
           "@acme/packs/frontend-pack": {
             type: "registry",
-            scope: "@acme",
+            namespace: "@acme",
             name: "frontend-pack",
             resolvedVersion: "1.0.0",
             integrity: "sha512-abc123",
@@ -928,7 +928,7 @@ describe("lockfile schema", () => {
           },
           "@axm/packs/cli": {
             type: "builtin",
-            scope: "@axm",
+            namespace: "@axm",
             name: "cli",
             resolvedVersion: "0.0.16",
             installedAt: "2025-01-15T10:30:00.000Z",

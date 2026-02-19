@@ -136,13 +136,13 @@ describe("common schemas", () => {
       expect(Either.isLeft(result)).toBe(true);
     });
 
-    it("rejects name without scope (just name)", () => {
+    it("rejects name without namespace (just name)", () => {
       const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("grappling-hook");
 
       expect(Either.isLeft(result)).toBe(true);
     });
 
-    it("rejects incomplete pattern (@scope only)", () => {
+    it("rejects incomplete pattern (@namespace only)", () => {
       const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne");
 
       expect(Either.isLeft(result)).toBe(true);

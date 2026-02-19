@@ -31,8 +31,8 @@ import { computePackPaths } from "../paths.js";
 export interface InstallPackOperationArgs {
   /** Pack name (e.g., "my-pack") */
   readonly packName: string;
-  /** Pack scope (e.g., "@acme") */
-  readonly scope: string;
+  /** Pack namespace (e.g., "@acme") */
+  readonly namespace: string;
   /** Exact resolved version */
   readonly resolvedVersion: string;
   /** SRI integrity string */
@@ -62,7 +62,7 @@ export type InstallPackOperation = Operation<"install-pack", InstallPackOperatio
  * Install-pack operation handler.
  *
  * Fetches the pack archive via sources.fetch(), extracts to the managed
- * pack location (.axm/extensions/@scope/packs/pack-name/), then records
+ * pack location (.axm/extensions/@namespace/packs/pack-name/), then records
  * the pack in settings and lockfile.
  */
 export const installPack: OperationHandler<
@@ -91,7 +91,7 @@ export const installPack: OperationHandler<
     const packDir = computePackPaths(
       path.join,
       ws.baseDir,
-      op.args.scope,
+      op.args.namespace,
       op.args.packName,
     ).canonicalPath;
 
@@ -108,7 +108,7 @@ export const installPack: OperationHandler<
     // Write lockfile + settings
     yield* ws
       .setPack({
-        scope: op.args.scope,
+        namespace: op.args.namespace,
         name: op.args.packName,
         resolvedVersion: op.args.resolvedVersion,
         integrity: op.args.integrity,

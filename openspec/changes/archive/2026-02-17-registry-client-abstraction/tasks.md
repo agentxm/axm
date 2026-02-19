@@ -21,7 +21,7 @@ Create the shared foundation that both client and host-provider depend on.
 
 Depends on: Phase 1.
 
-- [x] 2.1 Define `RegistryClient` interface in `registry/client.ts` with 6 methods: `getExtensions`, `scopeExists`, `fetchIndex`, `getExtension`, `publishExtension`, `extensionExists`
+- [x] 2.1 Define `RegistryClient` interface in `registry/client.ts` with 6 methods: `getExtensions`, `namespaceExists`, `fetchIndex`, `getExtension`, `publishExtension`, `extensionExists`
 - [x] 2.2 Write tests for `LocalRegistryClient` in `registry/client.test.ts` — migrate and adapt existing tests from `sources/providers/registry.test.ts` (update to use `RegistrySearchOptions` / `RegistryExtensionEntry` instead of source-domain types, drop scope-scanning tests)
 - [x] 2.3 Implement `createLocalRegistryClient(registryRoot: string): RegistryClient` — extract logic from `createLocalRegistryProvider`, return `RegistryExtensionEntry` from `getExtensions`, remove scope-scanning from fetch path
 - [x] 2.4 Run `pnpm typecheck` and fix any errors
@@ -71,7 +71,7 @@ Depends on: Phase 3.
 Depends on: Phase 4.
 
 - [x] 5.1 Update `sources/service.ts` — import `createRegistrySourceHostProvider` from `@/sources/providers/registry`, replace `createRegistryProvider` usage in meta-provider with `createRegistrySourceHostProvider`, call `provider.find`/`provider.fetch` instead of `provider.getExtensions`/`provider.fetch`
-- [x] 5.2 Update `sources/resolve-source.ts` — import `createRegistryClient` from `@/registry`, replace `createRegistryProvider` usage with `createRegistryClient`, call `client.extensionExists`/`client.scopeExists` directly
+- [x] 5.2 Update `sources/resolve-source.ts` — import `createRegistryClient` from `@/registry`, replace `createRegistryProvider` usage with `createRegistryClient`, call `client.extensionExists`/`client.namespaceExists` directly
 - [x] 5.3 Update `cli-commands/skills/publish-skill.ts` — import `createRegistryClient` from `@/registry`, replace `createRegistryProvider` with `createRegistryClient`
 - [x] 5.4 Update `cli-commands/packs/publish/publish-pack.ts` — import `createRegistryClient` from `@/registry`, replace `createRegistryProvider` with `createRegistryClient`
 - [x] 5.5 Update `cli-commands/skills/install/resolve-skill-install-source.ts` — import `createRegistryClient` from `@/registry`, replace `createRegistryProvider` with `createRegistryClient`

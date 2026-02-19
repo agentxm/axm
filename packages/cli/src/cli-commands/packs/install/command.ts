@@ -27,7 +27,7 @@ export const installPackCommand: CommandModule<{}, InstallPackCommandArgs> = {
       .positional("source", {
         type: "string",
         describe:
-          "Registry pack reference (@scope/packs/name, @scope/packs/name@version, or bare pack-name)",
+          "Registry pack reference (@namespace/packs/name, @namespace/packs/name@version, or bare pack-name)",
         demandOption: true,
       })
       .option("global", {
@@ -64,7 +64,7 @@ export const installPackCommand: CommandModule<{}, InstallPackCommandArgs> = {
         "$0 packs install @acme/packs/frontend-tools@^2.0.0",
         "Install specific version range",
       )
-      .example("$0 packs install frontend-tools", "Install using default scope")
+      .example("$0 packs install frontend-tools", "Install using default namespace")
       .example(
         "$0 packs install @acme/packs/frontend-tools --preview",
         "See what would be installed",

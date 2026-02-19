@@ -2,7 +2,7 @@
 
 `RegistrySourceProvider` (in `sources/providers/registry.ts`) serves two roles:
 
-1. **Registry client** — low-level operations against the registry layout: `scopeExists`, `fetchIndex`, `getExtension`, `publishExtension`, `extensionExists`, `getExtensions`
+1. **Registry client** — low-level operations against the registry layout: `namespaceExists`, `fetchIndex`, `getExtension`, `publishExtension`, `extensionExists`, `getExtensions`
 2. **Source host provider** — discovery and materialization for `SourceHostProvider`: `find` (wraps `getExtensions`), `fetch` (archive extraction + integrity verification)
 
 These are conflated into a single 7-method interface. The host provider wrapper (`createRegistrySourceHostProvider`) delegates everything to the inner `RegistrySourceProvider`, making it a thin pass-through. The registry meta-provider in `service.ts` creates `RegistrySourceProvider` instances directly.
@@ -46,7 +46,7 @@ The host provider maps at the boundary:
 
 ```
 getExtensions(options: RegistrySearchOptions) → Effect<ReadonlyArray<RegistryExtensionEntry>, CliError, FileSystem | Path>
-scopeExists(scope) → Effect<boolean, CliError, FileSystem | Path>
+namespaceExists(scope) → Effect<boolean, CliError, FileSystem | Path>
 fetchIndex(scope, type, name) → Effect<ExtensionIndex, CliError, FileSystem | Path>
 getExtension(scope, type, name, version) → Effect<Uint8Array, CliError, FileSystem | Path>
 publishExtension(scope, type, name, version, archive, metadata) → Effect<void, CliError, FileSystem | Path>
@@ -117,10 +117,10 @@ Shared helpers (`selectVersion`, `computeChecksum`, `extractZip`, path-building 
 | File                                                          | Current import                                                                    | New import                                                                                                              |
 | ------------------------------------------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `sources/service.ts`                                          | `createRegistryProvider`                                                          | `createRegistrySourceHostProvider` from `@/sources/providers/registry` (meta-provider now creates host providers)       |
-| `sources/resolve-source.ts`                                   | `createRegistryProvider`                                                          | `createRegistryClient` from `@/registry` (uses `extensionExists` / `scopeExists` directly)                              |
+| `sources/resolve-source.ts`                                   | `createRegistryProvider`                                                          | `createRegistryClient` from `@/registry` (uses `extensionExists` / `namespaceExists` directly)                          |
 | `cli-commands/skills/publish-skill.ts`                        | `createRegistryProvider`                                                          | `createRegistryClient` from `@/registry` (uses `publishExtension` directly)                                             |
 | `cli-commands/packs/publish/publish-pack.ts`                  | `createRegistryProvider`                                                          | `createRegistryClient` from `@/registry` (uses `publishExtension` directly)                                             |
-| `cli-commands/skills/install/resolve-skill-install-source.ts` | `createRegistryProvider`                                                          | `createRegistryClient` from `@/registry` (uses `scopeExists` directly)                                                  |
+| `cli-commands/skills/install/resolve-skill-install-source.ts` | `createRegistryProvider`                                                          | `createRegistryClient` from `@/registry` (uses `namespaceExists` directly)                                              |
 | `sources/providers/index.ts`                                  | re-exports `RegistrySourceProvider` type + factory functions from `./registry.js` | re-exports `createRegistrySourceHostProvider` from `./registry/index.js`. `RegistrySourceProvider` type export removed. |
 | `sources/index.ts`                                            | re-exports `RegistrySourceProvider` via providers barrel                          | remove `RegistrySourceProvider` re-export (transitive from providers barrel update)                                     |
 

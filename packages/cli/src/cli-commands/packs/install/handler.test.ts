@@ -55,14 +55,14 @@ const initWorkspace = (
     lockfilePacks?: Record<string, unknown>;
     settingsPacks?: Record<string, unknown>;
     sources?: ReadonlyArray<unknown>;
-    scope?: string;
+    namespace?: string;
   },
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
   const settings: Record<string, unknown> = { agents: ["claude-code"] };
   if (opts?.settingsPacks) settings["packs"] = opts.settingsPacks;
   if (opts?.sources) settings["sources"] = opts.sources;
-  if (opts?.scope) settings["scope"] = opts.scope;
+  if (opts?.namespace) settings["namespace"] = opts.namespace;
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
@@ -192,7 +192,7 @@ describe("packs install handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("input parsing", () => {
-    it.effect("accepts @scope/packs/pack-name format", () => {
+    it.effect("accepts @namespace/packs/pack-name format", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
@@ -201,14 +201,14 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* parsePackInput("@acme/packs/my-pack");
-          expect(result.scope).toBe("@acme");
+          expect(result.namespace).toBe("@acme");
           expect(result.packName).toBe("my-pack");
           expect(result.versionConstraint).toEqual(Option.none());
         }),
       );
     });
 
-    it.effect("accepts @scope/packs/pack-name@^2.0.0 with version constraint", () => {
+    it.effect("accepts @namespace/packs/pack-name@^2.0.0 with version constraint", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
@@ -217,7 +217,7 @@ describe("packs install handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* parsePackInput("@acme/packs/my-pack@^2.0.0");
-          expect(result.scope).toBe("@acme");
+          expect(result.namespace).toBe("@acme");
           expect(result.packName).toBe("my-pack");
           expect(result.versionConstraint).toEqual(Option.some("^2.0.0"));
         }),
@@ -228,30 +228,30 @@ describe("packs install handler", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
-        scope: "@myorg",
+        namespace: "@myorg",
       });
 
       return provide(
         Effect.gen(function* () {
           const result = yield* parsePackInput("my-pack");
-          expect(result.scope).toBe("@myorg");
+          expect(result.namespace).toBe("@myorg");
           expect(result.packName).toBe("my-pack");
           expect(result.resolvedInput).toBe("@myorg/packs/my-pack");
         }),
       );
     });
 
-    it.effect("resolves bare pack-name@version with default scope", () => {
+    it.effect("resolves bare pack-name@version with default namespace", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
-        scope: "@myorg",
+        namespace: "@myorg",
       });
 
       return provide(
         Effect.gen(function* () {
           const result = yield* parsePackInput("my-pack@^2.0.0");
-          expect(result.scope).toBe("@myorg");
+          expect(result.namespace).toBe("@myorg");
           expect(result.packName).toBe("my-pack");
           expect(result.versionConstraint).toEqual(Option.some("^2.0.0"));
           expect(result.resolvedInput).toBe("@myorg/packs/my-pack@^2.0.0");
@@ -259,7 +259,7 @@ describe("packs install handler", () => {
       );
     });
 
-    it.effect("rejects @scope/pack-name without /packs/ segment", () => {
+    it.effect("rejects @namespace/pack-name without /packs/ segment", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
@@ -334,7 +334,7 @@ describe("packs install handler", () => {
       );
     });
 
-    it.effect("rejects @scope/pack-name without /packs/ segment", () => {
+    it.effect("rejects @namespace/pack-name without /packs/ segment", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
@@ -368,7 +368,7 @@ describe("packs install handler", () => {
         lockfilePacks: {
           "my-pack": {
             type: "registry",
-            scope: "@acme",
+            namespace: "@acme",
             name: "my-pack",
             resolvedVersion: "1.0.0",
             integrity: "abc",
@@ -438,8 +438,8 @@ describe("packs install handler", () => {
         commands: opts?.commands ?? {},
         mcpServers: opts?.mcpServers ?? {},
       },
-      source: { type: "registry", location: new URL("file:///tmp/reg"), scope: Option.none() },
-      scope: "@acme",
+      source: { type: "registry", location: new URL("file:///tmp/reg"), namespace: Option.none() },
+      namespace: "@acme",
       name,
       version: "1.0.0",
       integrity: "",
@@ -533,7 +533,7 @@ describe("packs install handler", () => {
         lockfilePacks: {
           "test-pack": {
             type: "registry",
-            scope: "@acme",
+            namespace: "@acme",
             name: "test-pack",
             resolvedVersion: "1.0.0",
             integrity: "",

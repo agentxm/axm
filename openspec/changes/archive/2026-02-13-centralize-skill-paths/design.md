@@ -1,8 +1,8 @@
 ## Context
 
-Skill handlers (install, enable, disable, uninstall, rename) each independently compute where a skill lives on disk. The logic branches on source type: registry skills go to `.axm/extensions/@<scope>/skills/<name>/` with content in a `src/` subdirectory; all others go to `.agents/skills/<name>/`. This branching is duplicated across 5 handlers, and the rename handler got it wrong — it hardcodes the non-registry path, silently breaking registry-sourced renames.
+Skill handlers (install, enable, disable, uninstall, rename) each independently compute where a skill lives on disk. The logic branches on source type: registry skills go to `.axm/extensions/@<namespace>/skills/<name>/` with content in a `src/` subdirectory; all others go to `.agents/skills/<name>/`. This branching is duplicated across 5 handlers, and the rename handler got it wrong — it hardcodes the non-registry path, silently breaking registry-sourced renames.
 
-Compounding the issue, scope representation is inconsistent. The parser strips the `@` from `@community/skill-name`, producing `scope: "community"`. At least 3 downstream sites (install-skill, source service, settings schema) re-add the `@` before touching the filesystem or lockfile. The lock entry and filesystem always store `@community`, creating a mismatch with `SourceInput`.
+Compounding the issue, scope representation is inconsistent. The parser strips the `@` from `@community/skill-name`, producing `namespace: "community"`. At least 3 downstream sites (install-skill, source service, settings schema) re-add the `@` before touching the filesystem or lockfile. The lock entry and filesystem always store `@community`, creating a mismatch with `SourceInput`.
 
 ## Goals / Non-Goals
 
@@ -45,11 +45,11 @@ The name is run through `sanitizeName` internally.
 
 ```typescript
 export type SkillPathSource =
-  | { readonly type: "registry"; readonly scope: string }
+  | { readonly type: "registry"; readonly namespace: string }
   | { readonly type: Exclude<SourceType, "registry"> };
 ```
 
-Both `SkillLockEntry` (when type is `"registry"`) and `RegistrySourceInput` structurally satisfy `{ type: "registry"; scope: string }`. All non-registry variants satisfy the second branch. Callers pass what they already have — no adapter needed.
+Both `SkillLockEntry` (when type is `"registry"`) and `RegistrySourceInput` structurally satisfy `{ type: "registry"; namespace: string }`. All non-registry variants satisfy the second branch. Callers pass what they already have — no adapter needed.
 
 **Why `Exclude<SourceType, "registry">` over `string`?** Type-safe. If a new source type is added to `SourceType`, it automatically works. A bare `string` would accept invalid types silently.
 

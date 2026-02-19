@@ -69,7 +69,7 @@ interface PublishableSourceHostProvider<
   R = never,
 > extends SourceHostProvider<S, R> {
   readonly publishVersion: (
-    scope: string,
+    namespace: string,
     type: RegistryExtensionType,
     name: string,
     version: string,
@@ -185,7 +185,7 @@ The resolution module's individual resolvers (`resolveAxmName`, `resolveBareName
 
 **NameInput resolution** (bare name like `my-skill`) fits this model without special handling:
 
-- **Tier 1 — lockfile lookup**: Finds the skill by name in the lockfile → resolves to `LocalSource` pointing to the installed directory. The `LocalSourceParams.path` is derived from the workspace layout (e.g., `<extensions-dir>/skills/<name>` for external sources, `<registry-dir>/<scope>/skills/<name>` for registry sources), not stored in the lock entry. The resolution layer answers "where is this extension now?" — the caller then does `find(localSource)` to discover what's there. For operations that need the _original_ source (e.g., update checks), the update handler reads the lockfile entry directly and reconstructs the original `Source` from lock entry fields (see below).
+- **Tier 1 — lockfile lookup**: Finds the skill by name in the lockfile → resolves to `LocalSource` pointing to the installed directory. The `LocalSourceParams.path` is derived from the workspace layout (e.g., `<extensions-dir>/skills/<name>` for external sources, `<registry-dir>/<namespace>/skills/<name>` for registry sources), not stored in the lock entry. The resolution layer answers "where is this extension now?" — the caller then does `find(localSource)` to discover what's there. For operations that need the _original_ source (e.g., update checks), the update handler reads the lockfile entry directly and reconstructs the original `Source` from lock entry fields (see below).
 - **Tier 2 — configured skills**: Finds the skill in settings → recursively calls `resolveSource()` on the configured source string → returns whatever `Source` that string resolves to.
 
 **Lockfile-to-Source reconstruction** (for update/reinstall from original source):
@@ -404,7 +404,7 @@ interface RegistrySourceHost {
   readonly type: "registry";
   readonly url: URL;
   /** Scopes this registry handles; None = catch-all */
-  readonly scopes: Option<ReadonlyArray<string>>;
+  readonly namespaces: Option<ReadonlyArray<string>>;
 }
 
 /** Self-describing — the filesystem path lives in SourceParams */
@@ -475,7 +475,7 @@ interface GitSourceParams {
 
 interface RegistrySourceParams {
   readonly type: "registry";
-  readonly scope: string;
+  readonly namespace: string;
   readonly name: string;
   readonly versionConstraint: Option<string>;
 }
@@ -571,7 +571,7 @@ type SourceHostConfig = { readonly name: string } & ConfiguredSourceHost;
 //
 // Example:
 // { name: "my-github", type: "github", url: "https://github.com" }
-// { name: "my-registry", type: "registry", url: "file:///path", scopes: ["@myorg"] }
+// { name: "my-registry", type: "registry", url: "file:///path", namespaces: ["@myorg"] }
 ```
 
 #### Schema definition
@@ -609,7 +609,7 @@ const RegistrySourceHostConfigSchema = Schema.Struct({
   name: SourceNameSchema,
   type: Schema.Literal("registry"),
   url: Schema.URL,
-  scopes: Schema.optionFromNullishOr(Schema.Array(Schema.String), undefined),
+  namespaces: Schema.optionFromNullishOr(Schema.Array(Schema.String), undefined),
 });
 
 const SourceHostConfigSchema = Schema.Union(
@@ -744,7 +744,7 @@ type RegistryPackRef = {
 
 type BuiltinPackRef = {
   readonly type: "pack";
-  readonly pack: { readonly scope: string; readonly name: string; readonly version: string };
+  readonly pack: { readonly namespace: string; readonly name: string; readonly version: string };
   readonly source: BuiltinSource;
 } & BuiltinRefDetails;
 
@@ -804,7 +804,7 @@ interface PublishableSourceHostProvider<
   R = never,
 > extends SourceHostProvider<S, R> {
   readonly publishVersion: (
-    scope: string,
+    namespace: string,
     type: RegistryExtensionType,
     name: string,
     version: string,
@@ -902,7 +902,7 @@ No host configuration — the path in `LocalSourceParams` is the target. `match`
 |                 | Registry                                                                                                                                                                          |
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Status**      | Implemented (local); stub (remote)                                                                                                                                                |
-| **Host config** | `url: URL`, `scopes: Option<ReadonlyArray<string>>`                                                                                                                               |
+| **Host config** | `url: URL`, `namespaces: Option<ReadonlyArray<string>>`                                                                                                                           |
 | **match**       | Matches URLs from known registry hosts (e.g., `agentxm.ai`) — resolves extension coordinates from the URL path. `@scope/name` patterns are classified by the parser, not `match`. |
 | **find**        | Scope routing → iterate configured registries → read index.json → version selection → populate checksum from index                                                                |
 | **fetch**       | Read archive → verify checksum → extract                                                                                                                                          |

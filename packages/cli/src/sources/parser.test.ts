@@ -25,55 +25,55 @@ describe("parseInputPattern", () => {
       expectSome("some-name", { pattern: "name-input", name: "some-name" });
     });
 
-    it("classifies @scope/skills/name as registry-pattern-input", () => {
+    it("classifies @namespace/skills/name as registry-pattern-input", () => {
       expectSome("@myorg/skills/some-name", {
         pattern: "registry-pattern-input",
         type: Option.some("skills"),
-        scope: "@myorg",
+        namespace: "@myorg",
         name: Option.some("some-name"),
         versionConstraint: Option.none(),
       });
     });
 
-    it("classifies @scope/mcp-servers/name@constraint as registry-pattern-input", () => {
+    it("classifies @namespace/mcp-servers/name@constraint as registry-pattern-input", () => {
       expectSome("@myorg/mcp-servers/server-a@^1.2.3", {
         pattern: "registry-pattern-input",
         type: Option.some("mcp-servers"),
-        scope: "@myorg",
+        namespace: "@myorg",
         name: Option.some("server-a"),
         versionConstraint: Option.some("^1.2.3"),
       });
     });
 
-    it("classifies @scope/packs/name as registry-pattern-input", () => {
+    it("classifies @namespace/packs/name as registry-pattern-input", () => {
       expectSome("@myorg/packs/my-pack", {
         pattern: "registry-pattern-input",
         type: Option.some("packs"),
-        scope: "@myorg",
+        namespace: "@myorg",
         name: Option.some("my-pack"),
         versionConstraint: Option.none(),
       });
     });
 
-    it("returns None for 2-segment @scope/name (no longer treated as registry)", () => {
+    it("returns None for 2-segment @namespace/name (no longer treated as registry)", () => {
       expectNone("@myorg/legacy-skill");
     });
 
-    it("classifies @scope as registry-pattern-input with no type/name", () => {
+    it("classifies @namespace as registry-pattern-input with no type/name", () => {
       expectSome("@myorg", {
         pattern: "registry-pattern-input",
         type: Option.none(),
-        scope: "@myorg",
+        namespace: "@myorg",
         name: Option.none(),
         versionConstraint: Option.none(),
       });
     });
 
-    it("classifies @scope/{type} as registry-pattern-input with no name", () => {
+    it("classifies @namespace/{type} as registry-pattern-input with no name", () => {
       expectSome("@myorg/skills", {
         pattern: "registry-pattern-input",
         type: Option.some("skills"),
-        scope: "@myorg",
+        namespace: "@myorg",
         name: Option.none(),
         versionConstraint: Option.none(),
       });

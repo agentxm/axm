@@ -39,7 +39,12 @@ describe("createGitSourceHostProvider", () => {
       provider
         .find(
           { type: "git", url: new URL("git://example.com/repo.git"), ref: Option.none() },
-          { skillNames: [], type: "skill", scope: Option.none(), versionConstraint: Option.none() },
+          {
+            skillNames: [],
+            type: "skill",
+            namespace: Option.none(),
+            versionConstraint: Option.none(),
+          },
         )
         .pipe(Effect.either),
     );

@@ -24,12 +24,12 @@ Each `VersionEntry` SHALL contain:
 
 #### Scenario: Valid index with multiple versions
 
-- **WHEN** `index.json` contains `name: "code-review"`, `scope: "@acme"`, `type: "skill"`, and two version entries
+- **WHEN** `index.json` contains `name: "code-review"`, `namespace: "@acme"`, `type: "skill"`, and two version entries
 - **THEN** schema validation succeeds and versions are ordered newest first
 
 #### Scenario: Valid pack index
 
-- **WHEN** `index.json` contains `name: "frontend-tools"`, `scope: "@acme"`, `type: "pack"`, and one version entry
+- **WHEN** `index.json` contains `name: "frontend-tools"`, `namespace: "@acme"`, `type: "pack"`, and one version entry
 - **THEN** schema validation succeeds
 
 #### Scenario: Missing required field

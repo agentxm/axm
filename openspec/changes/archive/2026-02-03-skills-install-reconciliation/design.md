@@ -35,7 +35,7 @@ This change implements that design for the skills install command.
 
 ### D2: Install path change
 
-**Decision**: Move from `.axm/skills/<name>` to `.axm/extensions/@<scope>/skills/<name>` (registry) or `.axm/extensions/external/skills/<name>` (GitHub/local).
+**Decision**: Move from `.axm/skills/<name>` to `.axm/extensions/@<namespace>/skills/<name>` (registry) or `.axm/extensions/external/skills/<name>` (GitHub/local).
 
 **Rationale**: Consistent with multi-extension-type future; separates registry vs external sources.
 

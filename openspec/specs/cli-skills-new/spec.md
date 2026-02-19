@@ -10,19 +10,19 @@ The `axm skills new` command scaffolds a new managed skill with manifest, starte
 
 The CLI SHALL provide `axm skills new <name>` to scaffold a new managed skill.
 
-#### Scenario: Create a skill with default scope
+#### Scenario: Create a skill with default namespace
 
 - **WHEN** the user runs `axm skills new my-skill`
-- **THEN** the CLI creates the skill directory at `.axm/extensions/@<configured-scope>/skills/my-skill/`
-- **AND** writes an `axm-skill.json` manifest with `name` set to `@<configured-scope>/my-skill` and `version` set to `0.0.1`
+- **THEN** the CLI creates the skill directory at `.axm/extensions/@<configured-namespace>/skills/my-skill/`
+- **AND** writes an `axm-skill.json` manifest with `name` set to `@<configured-namespace>/my-skill` and `version` set to `0.0.1`
 - **AND** creates `src/SKILL.md` with a starter template
 - **AND** registers the skill in `settings.json` as a managed entry
 - **AND** creates symlinks in all configured agent skill directories pointing to the `src/` subdirectory
 
-#### Scenario: Create a skill with explicit scope
+#### Scenario: Create a skill with explicit namespace
 
-- **WHEN** the user runs `axm skills new my-skill --scope @acme`
-- **THEN** the CLI uses `@acme` as the scope instead of the workspace-configured scope
+- **WHEN** the user runs `axm skills new my-skill --namespace @acme`
+- **THEN** the CLI uses `@acme` as the namespace instead of the workspace-configured namespace
 - **AND** the skill directory is `.axm/extensions/@acme/skills/my-skill/`
 - **AND** the manifest `name` is `@acme/my-skill`
 
@@ -38,11 +38,11 @@ The CLI SHALL provide `axm skills new <name>` to scaffold a new managed skill.
 - **THEN** the CLI fails with an error indicating the skill already exists
 - **AND** no files are created or modified
 
-#### Scenario: No scope configured and no --scope flag
+#### Scenario: No namespace configured and no --namespace flag
 
-- **WHEN** the user runs `axm skills new my-skill` and no scope is configured (or scope is `@community`)
-- **THEN** the CLI fails with an error indicating a scope is required
-- **AND** suggests using `--scope` or configuring a scope via `axm init`
+- **WHEN** the user runs `axm skills new my-skill` and no namespace is configured (or namespace is `@community`)
+- **THEN** the CLI fails with an error indicating a namespace is required
+- **AND** suggests using `--namespace` or configuring a namespace via `axm init`
 
 ### Requirement: Starter SKILL.md template
 

@@ -132,13 +132,13 @@ export const LocalLockEntrySchema = Schema.Struct({
 
 /**
  * Registry source - skill from a registry.
- * Required: scope, name, resolvedVersion, integrity, sourceName
+ * Required: namespace, name, resolvedVersion, integrity, sourceName
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const RegistryLockEntrySchema = Schema.Struct({
   type: Schema.Literal("registry"),
-  scope: Schema.String,
+  namespace: Schema.String,
   name: Schema.String,
   resolvedVersion: Schema.String,
   integrity: Schema.String,
@@ -235,7 +235,7 @@ export const ResolvedExtensionMapSchema = Schema.Record({
  */
 export const RegistryPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("registry"),
-  scope: Schema.String,
+  namespace: Schema.String,
   name: Schema.String,
   resolvedVersion: Schema.String,
   integrity: Schema.String,
@@ -262,7 +262,7 @@ export type RegistryPackLockEntry = typeof RegistryPackLockEntrySchema.Type;
  */
 export const BuiltinPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("builtin"),
-  scope: Schema.String,
+  namespace: Schema.String,
   name: Schema.String,
   resolvedVersion: Schema.String,
   installedAt: DateFromString,

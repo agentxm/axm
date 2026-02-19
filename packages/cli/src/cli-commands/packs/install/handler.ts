@@ -2,7 +2,7 @@
  * Install command handler - Effect-based orchestration for `axm packs install`.
  *
  * Packs are registry-only. Flow:
- * 1. Parse input (validate format: @scope/packs/name, bare name)
+ * 1. Parse input (validate format: @namespace/packs/name, bare name)
  * 2. Resolve to registry source
  * 3. sources.find() → PackExtensionRef
  * 4. buildInstallPlan → ws.resolvePlan()
@@ -50,16 +50,16 @@ export interface InstallPackHandlerArgs {
 // -----------------------------------------------------------------------------
 
 /**
- * Parse pack install input into scope, name, and version constraint.
+ * Parse pack install input into namespace, name, and version constraint.
  *
  * Accepted formats:
- * - `@scope/packs/pack-name` → fully qualified
- * - `@scope/packs/pack-name@^2.0.0` → with version constraint
+ * - `@namespace/packs/pack-name` → fully qualified
+ * - `@namespace/packs/pack-name@^2.0.0` → with version constraint
  * - `pack-name` → resolved to `@defaultScope/packs/pack-name`
  * - `pack-name@^2.0.0` → bare with version constraint
  *
  * Rejected:
- * - `@scope/pack-name` (without `/packs/`) — ambiguous, could be a skill
+ * - `@namespace/pack-name` (without `/packs/`) — ambiguous, could be a skill
  * - Non-registry sources (local paths, github:, etc.)
  */
 export const parsePackInput = (input: string) =>
@@ -67,15 +67,15 @@ export const parsePackInput = (input: string) =>
     const trimmed = input.trim();
     const parsed = parseInputPattern(trimmed);
 
-    // Handle bare name (e.g., "my-pack") — resolve with default scope
+    // Handle bare name (e.g., "my-pack") — resolve with default namespace
     if (Option.isSome(parsed) && parsed.value.pattern.pattern === "name-input") {
       const ws = yield* Workspace;
-      const scope = yield* ws.getConfiguredScope();
+      const namespace = yield* ws.getConfiguredNamespace();
       return {
-        scope,
+        namespace,
         packName: parsed.value.pattern.name,
         versionConstraint: Option.none<string>(),
-        resolvedInput: `${scope}/packs/${parsed.value.pattern.name}`,
+        resolvedInput: `${namespace}/packs/${parsed.value.pattern.name}`,
       };
     }
 
@@ -87,28 +87,28 @@ export const parsePackInput = (input: string) =>
       const constraint = trimmed.slice(atIndex + 1);
       if (name && constraint && /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(name)) {
         const ws = yield* Workspace;
-        const scope = yield* ws.getConfiguredScope();
+        const namespace = yield* ws.getConfiguredNamespace();
         return {
-          scope,
+          namespace,
           packName: name,
           versionConstraint: Option.some(constraint),
-          resolvedInput: `${scope}/packs/${name}@${constraint}`,
+          resolvedInput: `${namespace}/packs/${name}@${constraint}`,
         };
       }
     }
 
-    // Handle @scope/packs/pack-name[@constraint]
+    // Handle @namespace/packs/pack-name[@constraint]
     if (Option.isSome(parsed) && parsed.value.pattern.pattern === "registry-pattern-input") {
       const pat = parsed.value.pattern;
 
-      // Reject @scope/pack-name (without /packs/ segment)
+      // Reject @namespace/pack-name (without /packs/ segment)
       if (Option.isNone(pat.type) || pat.type.value !== "packs") {
         return yield* makeCliError({
           code: "PACK_SOURCE_INVALID_FORMAT",
           what: "Pack source must include /packs/ segment",
           details: [`Provided: ${trimmed}`],
           howToFix:
-            "Use @scope/packs/pack-name format. The /packs/ segment distinguishes packs from skills.",
+            "Use @namespace/packs/pack-name format. The /packs/ segment distinguishes packs from skills.",
         });
       }
 
@@ -117,12 +117,12 @@ export const parsePackInput = (input: string) =>
           code: "PACK_SOURCE_MISSING_NAME",
           what: "Pack source must include a pack name",
           details: [`Provided: ${trimmed}`],
-          howToFix: "Use @scope/packs/pack-name format.",
+          howToFix: "Use @namespace/packs/pack-name format.",
         });
       }
 
       return {
-        scope: pat.scope,
+        namespace: pat.namespace,
         packName: pat.name.value,
         versionConstraint: pat.versionConstraint,
         resolvedInput: trimmed,
@@ -134,7 +134,7 @@ export const parsePackInput = (input: string) =>
       code: "PACK_SOURCE_NOT_REGISTRY",
       what: "Packs can only be installed from a registry",
       details: [`Provided: ${trimmed}`],
-      howToFix: "Use @scope/packs/pack-name or just pack-name (resolved to default scope).",
+      howToFix: "Use @namespace/packs/pack-name or just pack-name (resolved to default namespace).",
     });
   });
 
@@ -161,10 +161,10 @@ export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
 
   // Step 1: Parse and validate input
   const parseHandle = yield* spinnerSvc.start("Parsing source...");
-  const { scope, packName, versionConstraint, resolvedInput } = yield* parsePackInput(
+  const { namespace, packName, versionConstraint, resolvedInput } = yield* parsePackInput(
     args.source,
   ).pipe(Effect.tapError(() => parseHandle.stop("Failed")));
-  yield* parseHandle.stop(`Pack: ${scope}/packs/${packName}`);
+  yield* parseHandle.stop(`Pack: ${namespace}/packs/${packName}`);
 
   // Step 2: Check if already installed (unless --force)
   if (!args.force) {
@@ -183,7 +183,7 @@ export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
         code: "INVALID_SOURCE",
         what: `Invalid source: ${error.message}`,
         details: [`Provided: ${args.source || "(empty)"}`],
-        howToFix: "Use @scope/packs/pack-name or just pack-name.",
+        howToFix: "Use @namespace/packs/pack-name or just pack-name.",
         cause: error,
       }),
     ),
@@ -194,7 +194,7 @@ export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
       code: "PACK_SOURCE_NOT_REGISTRY",
       what: "Packs can only be installed from a registry",
       details: [`Provided source type: ${source.type}`],
-      howToFix: "Use a registry source: @scope/packs/pack-name",
+      howToFix: "Use a registry source: @namespace/packs/pack-name",
     });
   }
 
@@ -206,7 +206,7 @@ export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
     .find(source, {
       skillNames: [packName],
       type: "pack",
-      scope: Option.none(),
+      namespace: Option.none(),
       versionConstraint: Option.none(),
     })
     .pipe(
@@ -214,7 +214,7 @@ export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
         makeCliError({
           code: "PACK_FETCH_FAILED",
           what: `Failed to fetch pack from registry: ${error.message}`,
-          details: [`Pack: ${scope}/packs/${packName}`],
+          details: [`Pack: ${namespace}/packs/${packName}`],
           howToFix: "Verify the pack name and registry configuration.",
           cause: error,
         }),
@@ -250,7 +250,7 @@ export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
     skillOps: [],
     lockfile,
     name: "Install pack",
-    description: Option.some(`Install pack ${scope}/packs/${packName}`),
+    description: Option.some(`Install pack ${namespace}/packs/${packName}`),
     versionConstraint,
   });
 

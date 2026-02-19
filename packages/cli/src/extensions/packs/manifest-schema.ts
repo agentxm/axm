@@ -34,7 +34,7 @@ const VersionSpecifierMapSchema = Schema.Record({
   Schema.filter((record) => {
     const invalidKeys = Object.keys(record).filter((key) => !FQN_PATTERN.test(key));
     if (invalidKeys.length > 0) {
-      return `Invalid fully qualified name(s): ${invalidKeys.join(", ")}. Names must match @scope/type/name format (e.g. @scope/skills/my-skill).`;
+      return `Invalid fully qualified name(s): ${invalidKeys.join(", ")}. Names must match @namespace/type/name format (e.g. @namespace/skills/my-skill).`;
     }
     return undefined;
   }),

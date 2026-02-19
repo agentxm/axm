@@ -69,7 +69,7 @@ The resolution module SHALL recognize bare names (no `/`) and resolve them using
 
 #### Scenario: Bare name with implied scope configured
 
-- **WHEN** the input is `grappling-hook` and settings has `scope: "@wayne"`
+- **WHEN** the input is `grappling-hook` and settings has `namespace: "@wayne"`
 - **THEN** the module resolves `@wayne/grappling-hook` via AXM name resolution
 
 #### Scenario: Bare name without implied scope

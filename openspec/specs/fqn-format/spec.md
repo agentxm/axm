@@ -2,9 +2,9 @@
 
 ### Requirement: Canonical FQN format
 
-A Fully Qualified Name (FQN) SHALL use the three-segment format `@<scope>/<type-plural>/<name>` where:
+A Fully Qualified Name (FQN) SHALL use the three-segment format `@<namespace>/<type-plural>/<name>` where:
 
-- `scope`: `@` followed by one or more alphanumeric characters, hyphens, or underscores
+- `namespace`: `@` followed by one or more alphanumeric characters, hyphens, or underscores
 - `type-plural`: one of `skills`, `packs`, `mcp-servers`
 - `name`: one or more alphanumeric characters, hyphens, or underscores
 
@@ -13,17 +13,17 @@ The canonical regex pattern SHALL be: `/^@[\w-]+\/(skills|packs|mcp-servers)\/[\
 #### Scenario: Valid skill FQN
 
 - **WHEN** validating `@acme/skills/code-review`
-- **THEN** validation succeeds with scope `@acme`, type `skills`, name `code-review`
+- **THEN** validation succeeds with namespace `@acme`, type `skills`, name `code-review`
 
 #### Scenario: Valid pack FQN
 
 - **WHEN** validating `@acme/packs/frontend-tools`
-- **THEN** validation succeeds with scope `@acme`, type `packs`, name `frontend-tools`
+- **THEN** validation succeeds with namespace `@acme`, type `packs`, name `frontend-tools`
 
 #### Scenario: Valid MCP server FQN
 
 - **WHEN** validating `@acme/mcp-servers/db-connector`
-- **THEN** validation succeeds with scope `@acme`, type `mcp-servers`, name `db-connector`
+- **THEN** validation succeeds with namespace `@acme`, type `mcp-servers`, name `db-connector`
 
 #### Scenario: Two-segment name rejected
 
@@ -35,7 +35,7 @@ The canonical regex pattern SHALL be: `/^@[\w-]+\/(skills|packs|mcp-servers)\/[\
 - **WHEN** validating `@acme/commands/formatter` (unrecognized type)
 - **THEN** validation fails
 
-#### Scenario: Missing scope prefix rejected
+#### Scenario: Missing namespace prefix rejected
 
 - **WHEN** validating `acme/skills/code-review` (no `@`)
 - **THEN** validation fails
@@ -48,14 +48,14 @@ The system SHALL provide `parseFqn` and `parseFqnOrThrow` functions that decompo
 
 The `Fqn` type SHALL have fields:
 
-- `scope: string` — the scope including `@` prefix (e.g., `"@acme"`)
+- `namespace: string` — the namespace including `@` prefix (e.g., `"@acme"`)
 - `type: "skills" | "packs" | "mcp-servers"` — the plural type segment
 - `name: string` — the extension name
 
 #### Scenario: Parse valid FQN
 
 - **WHEN** calling `parseFqn("@acme/skills/code-review")`
-- **THEN** the result is `{ scope: "@acme", type: "skills", name: "code-review" }`
+- **THEN** the result is `{ namespace: "@acme", type: "skills", name: "code-review" }`
 
 #### Scenario: Parse invalid FQN returns CliError
 
@@ -73,7 +73,7 @@ The system SHALL provide a `formatFqn` function that constructs an FQN string fr
 
 #### Scenario: Format from parts
 
-- **WHEN** calling `formatFqn({ scope: "@acme", type: "skills", name: "code-review" })`
+- **WHEN** calling `formatFqn({ namespace: "@acme", type: "skills", name: "code-review" })`
 - **THEN** the result is `"@acme/skills/code-review"`
 
 #### Scenario: Format round-trips with parse

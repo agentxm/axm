@@ -46,13 +46,13 @@ describe("Settings schema", () => {
         scope: "@wayne",
         sources: [{ name: "github", type: "github", url: "https://github.com" }],
         agents: ["claude-code", "cursor"],
-        skills: { "grappling-hook": "@wayne/grappling-hook@^1.0.0" },
+        skills: { "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.scope).toBe("@wayne");
       expect(result.agents).toEqual(["claude-code", "cursor"]);
-      expect(result.skills).toEqual({ "grappling-hook": "@wayne/grappling-hook@^1.0.0" });
+      expect(result.skills).toEqual({ "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" });
     });
   });
 
@@ -390,12 +390,12 @@ describe("Settings schema", () => {
     it("accepts skills with registry source", () => {
       const input = {
         skills: {
-          "my-skill": "@acme/my-skill@^1.0.0",
+          "my-skill": "@acme/skills/my-skill@^1.0.0",
         },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.skills).toEqual({ "my-skill": "@acme/my-skill@^1.0.0" });
+      expect(result.skills).toEqual({ "my-skill": "@acme/skills/my-skill@^1.0.0" });
     });
 
     it("accepts skills with GitHub source", () => {
@@ -425,14 +425,14 @@ describe("Settings schema", () => {
     it("accepts skills with mixed source types", () => {
       const input = {
         skills: {
-          "registry-skill": "@wayne/registry-skill@^1.0.0",
+          "registry-skill": "@wayne/skills/registry-skill@^1.0.0",
           "github-skill": "github:wayne-industries/skills#main",
           "local-skill": "local:./dev/local-skill",
         },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.skills?.["registry-skill"]).toBe("@wayne/registry-skill@^1.0.0");
+      expect(result.skills?.["registry-skill"]).toBe("@wayne/skills/registry-skill@^1.0.0");
       expect(result.skills?.["github-skill"]).toBe("github:wayne-industries/skills#main");
       expect(result.skills?.["local-skill"]).toBe("local:./dev/local-skill");
     });
@@ -449,74 +449,74 @@ describe("Settings schema", () => {
 
   describe("SkillsMap schema (skill name validation)", () => {
     it("accepts valid skill name", () => {
-      const input = { commit: "@wayne/commit@^1.0.0" };
+      const input = { commit: "@wayne/skills/commit@^1.0.0" };
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
-      expect(result).toEqual({ commit: "@wayne/commit@^1.0.0" });
+      expect(result).toEqual({ commit: "@wayne/skills/commit@^1.0.0" });
     });
 
     it("accepts skill name with hyphens", () => {
-      const input = { "my-extension": "@wayne/my-extension@^1.0.0" };
+      const input = { "my-extension": "@wayne/skills/my-extension@^1.0.0" };
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
-      expect(result).toEqual({ "my-extension": "@wayne/my-extension@^1.0.0" });
+      expect(result).toEqual({ "my-extension": "@wayne/skills/my-extension@^1.0.0" });
     });
 
     it("accepts skill name with numbers", () => {
-      const input = { skill123: "@wayne/skill123@^1.0.0" };
+      const input = { skill123: "@wayne/skills/skill123@^1.0.0" };
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
-      expect(result).toEqual({ skill123: "@wayne/skill123@^1.0.0" });
+      expect(result).toEqual({ skill123: "@wayne/skills/skill123@^1.0.0" });
     });
 
     it("accepts single character skill name", () => {
-      const input = { a: "@wayne/a@^1.0.0" };
+      const input = { a: "@wayne/skills/a@^1.0.0" };
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
-      expect(result).toEqual({ a: "@wayne/a@^1.0.0" });
+      expect(result).toEqual({ a: "@wayne/skills/a@^1.0.0" });
     });
 
     it("accepts 64 character skill name (max length)", () => {
       const name = "a".repeat(64);
-      const input = { [name]: "@wayne/skill@^1.0.0" };
+      const input = { [name]: "@wayne/skills/skill@^1.0.0" };
       const result = Schema.decodeUnknownSync(SkillsMapSchema)(input);
 
-      expect(result).toEqual({ [name]: "@wayne/skill@^1.0.0" });
+      expect(result).toEqual({ [name]: "@wayne/skills/skill@^1.0.0" });
     });
 
     it("rejects skill name over 64 characters", () => {
       const name = "a".repeat(65);
-      const input = { [name]: "@wayne/skill@^1.0.0" };
+      const input = { [name]: "@wayne/skills/skill@^1.0.0" };
 
       expect(() => Schema.decodeUnknownSync(SkillsMapSchema)(input)).toThrow();
     });
 
     it("rejects skill name starting with hyphen", () => {
-      const input = { "-invalid": "@wayne/skill@^1.0.0" };
+      const input = { "-invalid": "@wayne/skills/skill@^1.0.0" };
 
       expect(() => Schema.decodeUnknownSync(SkillsMapSchema)(input)).toThrow();
     });
 
     it("rejects skill name ending with hyphen", () => {
-      const input = { "invalid-": "@wayne/skill@^1.0.0" };
+      const input = { "invalid-": "@wayne/skills/skill@^1.0.0" };
 
       expect(() => Schema.decodeUnknownSync(SkillsMapSchema)(input)).toThrow();
     });
 
     it("rejects skill name with uppercase letters", () => {
-      const input = { MySkill: "@wayne/skill@^1.0.0" };
+      const input = { MySkill: "@wayne/skills/skill@^1.0.0" };
 
       expect(() => Schema.decodeUnknownSync(SkillsMapSchema)(input)).toThrow();
     });
 
     it("rejects skill name with underscores", () => {
-      const input = { my_skill: "@wayne/skill@^1.0.0" };
+      const input = { my_skill: "@wayne/skills/skill@^1.0.0" };
 
       expect(() => Schema.decodeUnknownSync(SkillsMapSchema)(input)).toThrow();
     });
 
     it("rejects skill name with special characters", () => {
-      const input = { "my@skill": "@wayne/skill@^1.0.0" };
+      const input = { "my@skill": "@wayne/skills/skill@^1.0.0" };
 
       expect(() => Schema.decodeUnknownSync(SkillsMapSchema)(input)).toThrow();
     });
@@ -534,20 +534,22 @@ describe("Settings schema", () => {
 
     it("accepts valid packs at root with string entry", () => {
       const input = {
-        packs: { "utility-belt": "@wayne/utility-belt@^1.0.0" },
+        packs: { "utility-belt": "@wayne/packs/utility-belt@^1.0.0" },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.packs).toEqual({ "utility-belt": "@wayne/utility-belt@^1.0.0" });
+      expect(result.packs).toEqual({ "utility-belt": "@wayne/packs/utility-belt@^1.0.0" });
     });
 
     it("accepts valid packs at root with object entry", () => {
       const input = {
-        packs: { "utility-belt": { source: "@wayne/utility-belt@^1.0.0" } },
+        packs: { "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" } },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.packs).toEqual({ "utility-belt": { source: "@wayne/utility-belt@^1.0.0" } });
+      expect(result.packs).toEqual({
+        "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" },
+      });
     });
 
     it("accepts valid mcp-servers at root", () => {
@@ -561,16 +563,16 @@ describe("Settings schema", () => {
 
     it("accepts all extension types together at root", () => {
       const input = {
-        skills: { "grappling-hook": "@wayne/grappling-hook@^1.0.0" },
+        skills: { "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" },
         commands: { "batcomputer-sync": "^1.0.0" },
-        packs: { "utility-belt": "@wayne/utility-belt@^1.0.0" },
+        packs: { "utility-belt": "@wayne/packs/utility-belt@^1.0.0" },
         "mcp-servers": { batcomputer: "^2.0.0" },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result.skills).toEqual({ "grappling-hook": "@wayne/grappling-hook@^1.0.0" });
+      expect(result.skills).toEqual({ "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" });
       expect(result.commands).toEqual({ "batcomputer-sync": "^1.0.0" });
-      expect(result.packs).toEqual({ "utility-belt": "@wayne/utility-belt@^1.0.0" });
+      expect(result.packs).toEqual({ "utility-belt": "@wayne/packs/utility-belt@^1.0.0" });
       expect(result["mcp-servers"]).toEqual({ batcomputer: "^2.0.0" });
     });
 
@@ -661,17 +663,17 @@ describe("Settings schema", () => {
 
   describe("PackEntrySchema", () => {
     it("accepts a plain string", () => {
-      const result = Schema.decodeUnknownSync(PackEntrySchema)("@wayne/utility-belt@^1.0.0");
+      const result = Schema.decodeUnknownSync(PackEntrySchema)("@wayne/packs/utility-belt@^1.0.0");
 
-      expect(result).toBe("@wayne/utility-belt@^1.0.0");
+      expect(result).toBe("@wayne/packs/utility-belt@^1.0.0");
     });
 
     it("accepts a PackEntryObject with source", () => {
       const result = Schema.decodeUnknownSync(PackEntryObjectSchema)({
-        source: "@wayne/utility-belt@^1.0.0",
+        source: "@wayne/packs/utility-belt@^1.0.0",
       });
 
-      expect(result).toEqual({ source: "@wayne/utility-belt@^1.0.0" });
+      expect(result).toEqual({ source: "@wayne/packs/utility-belt@^1.0.0" });
     });
 
     it("rejects invalid object with managed field", () => {
@@ -689,17 +691,17 @@ describe("Settings schema", () => {
 
   describe("PacksMap schema (pack name validation)", () => {
     it("accepts valid pack name with string entry", () => {
-      const input = { "utility-belt": "@wayne/utility-belt@^1.0.0" };
+      const input = { "utility-belt": "@wayne/packs/utility-belt@^1.0.0" };
       const result = Schema.decodeUnknownSync(PacksMapSchema)(input);
 
-      expect(result).toEqual({ "utility-belt": "@wayne/utility-belt@^1.0.0" });
+      expect(result).toEqual({ "utility-belt": "@wayne/packs/utility-belt@^1.0.0" });
     });
 
     it("accepts valid pack name with object entry", () => {
-      const input = { "utility-belt": { source: "@wayne/utility-belt@^1.0.0" } };
+      const input = { "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" } };
       const result = Schema.decodeUnknownSync(PacksMapSchema)(input);
 
-      expect(result).toEqual({ "utility-belt": { source: "@wayne/utility-belt@^1.0.0" } });
+      expect(result).toEqual({ "utility-belt": { source: "@wayne/packs/utility-belt@^1.0.0" } });
     });
 
     it("accepts empty packs map", () => {
@@ -709,20 +711,20 @@ describe("Settings schema", () => {
     });
 
     it("rejects pack name starting with hyphen", () => {
-      const input = { "-invalid": "@wayne/pack@^1.0.0" };
+      const input = { "-invalid": "@wayne/packs/pack@^1.0.0" };
 
       expect(() => Schema.decodeUnknownSync(PacksMapSchema)(input)).toThrow();
     });
 
     it("rejects pack name with uppercase letters", () => {
-      const input = { MyPack: "@wayne/pack@^1.0.0" };
+      const input = { MyPack: "@wayne/packs/pack@^1.0.0" };
 
       expect(() => Schema.decodeUnknownSync(PacksMapSchema)(input)).toThrow();
     });
 
     it("rejects pack name over 64 characters", () => {
       const name = "a".repeat(65);
-      const input = { [name]: "@wayne/pack@^1.0.0" };
+      const input = { [name]: "@wayne/packs/pack@^1.0.0" };
 
       expect(() => Schema.decodeUnknownSync(PacksMapSchema)(input)).toThrow();
     });
@@ -748,7 +750,7 @@ describe("Settings schema", () => {
         ],
         agents: ["claude-code", "cursor", "windsurf"],
         skills: {
-          "grappling-hook": "@wayne/grappling-hook@^1.0.0",
+          "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0",
           batarang: "github:wayne-industries/gadgets/skills/batarang#main",
           "dev-gadget": "local:./dev/gadgets/dev-gadget",
         },
@@ -756,7 +758,7 @@ describe("Settings schema", () => {
           "batcomputer-sync": "^1.0.0",
         },
         packs: {
-          "utility-belt": "@wayne/utility-belt@^1.0.0",
+          "utility-belt": "@wayne/packs/utility-belt@^1.0.0",
         },
         "mcp-servers": {
           batcomputer: "^2.0.0",
@@ -768,7 +770,7 @@ describe("Settings schema", () => {
       expect(result.agents?.length).toBe(3);
       expect(result.sources).toHaveLength(4);
       expect(Object.keys(result.skills ?? {}).length).toBe(3);
-      expect(result.skills?.["grappling-hook"]).toBe("@wayne/grappling-hook@^1.0.0");
+      expect(result.skills?.["grappling-hook"]).toBe("@wayne/skills/grappling-hook@^1.0.0");
       expect(result.skills?.["batarang"]).toBe(
         "github:wayne-industries/gadgets/skills/batarang#main",
       );

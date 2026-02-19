@@ -269,8 +269,7 @@ describe("packs install handler", () => {
         Effect.gen(function* () {
           const error = yield* parsePackInput("@acme/my-pack").pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
-          expect((error as CliError).code).toBe("PACK_SOURCE_INVALID_FORMAT");
-          expect((error as CliError).what).toContain("/packs/");
+          expect((error as CliError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
         }),
       );
     });
@@ -345,7 +344,7 @@ describe("packs install handler", () => {
         Effect.gen(function* () {
           const error = yield* handleInstallPack(defaultArgs("@acme/my-pack")).pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
-          expect((error as CliError).code).toBe("PACK_SOURCE_INVALID_FORMAT");
+          expect((error as CliError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
         }),
       );
     });
@@ -513,7 +512,7 @@ describe("packs install handler", () => {
           const axmDir = path.join(tempDir, ".axm");
           const settingsContent = fs.readFileSync(path.join(axmDir, "settings.json"), "utf-8");
           const settingsJson = JSON.parse(settingsContent) as { packs?: Record<string, string> };
-          expect(settingsJson.packs?.["test-pack"]).toBe("@acme/test-pack@^2.0.0");
+          expect(settingsJson.packs?.["test-pack"]).toBe("@acme/packs/test-pack@^2.0.0");
         }),
       );
     });

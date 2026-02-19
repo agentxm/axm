@@ -14,6 +14,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { PackManifest } from "../../../extensions/packs/manifest-schema.js";
+import { formatFqn } from "../../../extensions/index.js";
 import { computePackPaths } from "../pack-paths.js";
 import { PACK_MANIFEST_FILENAME } from "../constants.js";
 
@@ -60,7 +61,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
         ),
       );
 
-  const fqn = `${scope}/${args.name}`;
+  const fqn = formatFqn({ scope, type: "packs", name: args.name });
   const base = ws.baseDir;
 
   // Compute pack directory path

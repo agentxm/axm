@@ -84,7 +84,7 @@ const createPackManifest = (
     path.join(packDir, "axm-pack.json"),
     JSON.stringify(
       manifest ?? {
-        name: `${scope}/${name}`,
+        name: `${scope}/packs/${name}`,
         version: "0.0.1",
         skills: {},
         commands: {},
@@ -162,8 +162,8 @@ describe("packs-add.handler", () => {
       const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         scope: "@acme",
-        packs: { "frontend-tools": "@acme/frontend-tools" },
-        skills: { "code-review": "@acme/code-review" },
+        packs: { "frontend-tools": "@acme/packs/frontend-tools" },
+        skills: { "code-review": "@acme/skills/code-review" },
         lockfileSkills: {
           "code-review": makeRegistryLockEntry("@acme", "code-review", "1.2.0"),
         },
@@ -184,7 +184,7 @@ describe("packs-add.handler", () => {
             "axm-pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.skills["@acme/code-review"]).toBe("^1.2.0");
+          expect(manifest.skills["@acme/skills/code-review"]).toBe("^1.2.0");
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
         }),
       );
@@ -196,7 +196,7 @@ describe("packs-add.handler", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         scope: "@acme",
-        packs: { "my-pack": "@acme/my-pack" },
+        packs: { "my-pack": "@acme/packs/my-pack" },
         lockfileSkills: {
           "effect-basics": makeRegistryLockEntry("@acme", "effect-basics", "1.0.0"),
           "effect-streams": makeRegistryLockEntry("@acme", "effect-streams", "2.0.0"),
@@ -219,9 +219,9 @@ describe("packs-add.handler", () => {
             "axm-pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.skills["@acme/effect-basics"]).toBe("^1.0.0");
-          expect(manifest.skills["@acme/effect-streams"]).toBe("^2.0.0");
-          expect(manifest.skills["@acme/other-skill"]).toBeUndefined();
+          expect(manifest.skills["@acme/skills/effect-basics"]).toBe("^1.0.0");
+          expect(manifest.skills["@acme/skills/effect-streams"]).toBe("^2.0.0");
+          expect(manifest.skills["@acme/skills/other-skill"]).toBeUndefined();
         }),
       );
     });
@@ -230,7 +230,7 @@ describe("packs-add.handler", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         scope: "@acme",
-        packs: { "my-pack": "@acme/my-pack" },
+        packs: { "my-pack": "@acme/packs/my-pack" },
         lockfileSkills: {
           "some-skill": makeRegistryLockEntry("@acme", "some-skill", "1.0.0"),
         },
@@ -254,7 +254,7 @@ describe("packs-add.handler", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         scope: "@acme",
-        packs: { "my-pack": "@acme/my-pack" },
+        packs: { "my-pack": "@acme/packs/my-pack" },
         lockfileSkills: {
           "local-skill": makeLocalLockEntry(),
         },
@@ -295,15 +295,15 @@ describe("packs-add.handler", () => {
       const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         scope: "@acme",
-        packs: { "my-pack": "@acme/my-pack" },
+        packs: { "my-pack": "@acme/packs/my-pack" },
         lockfileSkills: {
           "code-review": makeRegistryLockEntry("@acme", "code-review", "1.2.0"),
         },
       });
       createPackManifest(tempDir, "@acme", "my-pack", {
-        name: "@acme/my-pack",
+        name: "@acme/packs/my-pack",
         version: "0.0.1",
-        skills: { "@acme/code-review": "^1.2.0" },
+        skills: { "@acme/skills/code-review": "^1.2.0" },
         commands: {},
         "mcp-servers": {},
       });

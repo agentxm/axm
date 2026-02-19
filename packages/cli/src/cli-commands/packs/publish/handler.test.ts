@@ -128,9 +128,9 @@ describe("packs publish.handler", () => {
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedPack(tempDir, "@test", "frontend-tools", {
-        name: "@test/frontend-tools",
+        name: "@test/packs/frontend-tools",
         version: "1.0.0",
-        skills: { "@test/code-review": "^1.0.0" },
+        skills: { "@test/skills/code-review": "^1.0.0" },
       });
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
@@ -138,7 +138,7 @@ describe("packs publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handlePublishPack(
-            defaultArgs("@test/frontend-tools", { registry: Option.some("local") }),
+            defaultArgs("@test/packs/frontend-tools", { registry: Option.some("local") }),
           );
 
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
@@ -172,7 +172,7 @@ describe("packs publish.handler", () => {
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedPack(tempDir, "@test", "my-pack", {
-        name: "@test/my-pack",
+        name: "@test/packs/my-pack",
         version: "0.1.0",
       });
 
@@ -180,7 +180,7 @@ describe("packs publish.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePublishPack(defaultArgs("@test/my-pack"));
+          yield* handlePublishPack(defaultArgs("@test/packs/my-pack"));
 
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
@@ -211,7 +211,7 @@ describe("packs publish.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const result = yield* handlePublishPack(defaultArgs("@test/no-manifest")).pipe(
+          const result = yield* handlePublishPack(defaultArgs("@test/packs/no-manifest")).pipe(
             Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, what: e.what })),
           );
           expect(result).toHaveProperty("error", true);
@@ -227,7 +227,7 @@ describe("packs publish.handler", () => {
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedPack(tempDir, "@test", "idempotent-pack", {
-        name: "@test/idempotent-pack",
+        name: "@test/packs/idempotent-pack",
         version: "1.0.0",
       });
 
@@ -237,12 +237,12 @@ describe("packs publish.handler", () => {
         Effect.gen(function* () {
           // First publish
           yield* handlePublishPack(
-            defaultArgs("@test/idempotent-pack", { registry: Option.some("local") }),
+            defaultArgs("@test/packs/idempotent-pack", { registry: Option.some("local") }),
           );
 
           // Second publish (same content, same version)
           yield* handlePublishPack(
-            defaultArgs("@test/idempotent-pack", { registry: Option.some("local") }),
+            defaultArgs("@test/packs/idempotent-pack", { registry: Option.some("local") }),
           );
 
           expect(mockLog.logs.success.filter((m) => m.includes("Done"))).toHaveLength(2);
@@ -257,11 +257,11 @@ describe("packs publish.handler", () => {
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedPack(tempDir, "@test", "skills-pack", {
-        name: "@test/skills-pack",
+        name: "@test/packs/skills-pack",
         version: "1.0.0",
         skills: {
-          "@acme/code-review": "^1.0.0",
-          "@acme/linter": "~2.0.0",
+          "@acme/skills/code-review": "^1.0.0",
+          "@acme/skills/linter": "~2.0.0",
         },
       });
 
@@ -270,7 +270,7 @@ describe("packs publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handlePublishPack(
-            defaultArgs("@test/skills-pack", { registry: Option.some("local") }),
+            defaultArgs("@test/packs/skills-pack", { registry: Option.some("local") }),
           );
 
           const registryIndexPath = path.join(
@@ -295,11 +295,11 @@ describe("packs publish.handler", () => {
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedPack(tempDir, "@test", "mixed-pack", {
-        name: "@test/mixed-pack",
+        name: "@test/packs/mixed-pack",
         version: "2.0.0",
-        skills: { "@acme/code-review": "^1.0.0" },
-        commands: { "@acme/formatter": "^1.5.0" },
-        "mcp-servers": { "@acme/db": "*" },
+        skills: { "@acme/skills/code-review": "^1.0.0" },
+        commands: { "@acme/commands/formatter": "^1.5.0" },
+        "mcp-servers": { "@acme/mcp-servers/db": "*" },
       });
 
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
@@ -307,7 +307,7 @@ describe("packs publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handlePublishPack(
-            defaultArgs("@test/mixed-pack", { registry: Option.some("local") }),
+            defaultArgs("@test/packs/mixed-pack", { registry: Option.some("local") }),
           );
 
           const registryIndexPath = path.join(
@@ -333,7 +333,7 @@ describe("packs publish.handler", () => {
       const registryRoot = path.join(tempDir, "registry");
 
       createManagedPack(tempDir, "@test", "empty-pack", {
-        name: "@test/empty-pack",
+        name: "@test/packs/empty-pack",
         version: "1.0.0",
       });
 
@@ -342,7 +342,7 @@ describe("packs publish.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handlePublishPack(
-            defaultArgs("@test/empty-pack", { registry: Option.some("local") }),
+            defaultArgs("@test/packs/empty-pack", { registry: Option.some("local") }),
           );
 
           const registryIndexPath = path.join(
@@ -371,7 +371,7 @@ describe("packs publish.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const result = yield* handlePublishPack(defaultArgs("@test/nonexistent")).pipe(
+          const result = yield* handlePublishPack(defaultArgs("@test/packs/nonexistent")).pipe(
             Effect.catchTag("CliError", (e) =>
               Effect.succeed({
                 error: true,

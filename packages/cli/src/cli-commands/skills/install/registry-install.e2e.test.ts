@@ -227,7 +227,7 @@ describe("axm skills install from local registry (via fork)", () => {
 
       // Fresh install from registry using @scope/name syntax
       const registryInstallResult = await runCli(
-        ["skills", "install", "@test/my-skill", "--yes", "--agent", "claude-code"],
+        ["skills", "install", "@test/skills/my-skill", "--yes", "--agent", "claude-code"],
         { cwd: temp.path },
       );
       expect(registryInstallResult.exitCode).toBe(0);

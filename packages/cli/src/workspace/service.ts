@@ -44,6 +44,7 @@ import {
 import { computePackPaths, type PackDirPath } from "../cli-commands/packs/index.js";
 import { sanitizeName } from "../cli-commands/skills/install/skill-utils.js";
 import { AgentIdSchema } from "../extensions/common.js";
+import { formatFqn } from "../extensions/fqn.js";
 import { type CliError, makeCliError } from "../cli-error/index.js";
 import {
   collapseSkillEntry,
@@ -177,8 +178,8 @@ const materializeBuiltinPack = (workspaceDir: string, agentIds: ReadonlyArray<st
       skillEntries,
       ([fqn, version]) =>
         Effect.gen(function* () {
-          // Extract skill name from FQN (@axm/axm-manage-skills -> axm-manage-skills)
-          const skillName = fqn.split("/")[1]!;
+          // Extract skill name from FQN (@axm/skills/axm-manage-skills -> axm-manage-skills)
+          const skillName = fqn.split("/")[2]!;
 
           // Source: bundled skill directory
           const sourceDir = path.join(builtinPack.skillsDir, skillName);
@@ -219,7 +220,7 @@ const materializeBuiltinPack = (workspaceDir: string, agentIds: ReadonlyArray<st
       { type: "builtin"; agents: string[]; installedAt: Date; updatedAt: Date }
     > = {};
     for (const [fqn] of skillEntries) {
-      const skillName = fqn.split("/")[1]!;
+      const skillName = fqn.split("/")[2]!;
       skillLockEntries[skillName] = {
         type: "builtin" as const,
         agents: [...agentIds],
@@ -710,9 +711,12 @@ const make = (options: WorkspaceContextOptions) =>
             const sourceInput = lockEntryToSourceParams(lockEntry);
             const source =
               lockEntry.type === "registry"
-                ? Option.isSome(versionConstraint)
-                  ? `${lockEntry.scope}/${name}@${versionConstraint.value}`
-                  : `${lockEntry.scope}/${name}`
+                ? (() => {
+                    const fqn = formatFqn({ scope: lockEntry.scope, type: "skills", name });
+                    return Option.isSome(versionConstraint)
+                      ? `${fqn}@${versionConstraint.value}`
+                      : fqn;
+                  })()
                 : printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSkills: SkillsMap = currentSettings.skills ?? {};
@@ -936,9 +940,10 @@ const make = (options: WorkspaceContextOptions) =>
             const { name, versionConstraint, ...lockFields } = args;
             const lockEntry: RegistryPackLockEntry = { ...lockFields, name, type: "registry" };
             // Update settings — thread versionConstraint through so it's preserved
+            const fqn = formatFqn({ scope: args.scope, type: "packs", name });
             const source = Option.isSome(versionConstraint)
-              ? `${args.scope}/${name}@${versionConstraint.value}`
-              : `${args.scope}/${name}`;
+              ? `${fqn}@${versionConstraint.value}`
+              : fqn;
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentPacks: PacksMap = currentSettings.packs ?? {};
             const updatedSettings = {

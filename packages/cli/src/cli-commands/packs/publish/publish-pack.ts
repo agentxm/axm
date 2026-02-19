@@ -26,32 +26,9 @@ import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
-import { parseScopedName, parseScopedNameOrThrow } from "../../skills/naming.js";
+import { parseFqn } from "../../../extensions/fqn.js";
 import type { PublishPackOperation } from "../operations.js";
 import { PACK_MANIFEST_FILENAME } from "../constants.js";
-
-// -----------------------------------------------------------------------------
-// Internal helpers
-// -----------------------------------------------------------------------------
-
-/**
- * Expand a manifest extension map into flattened dependency entries.
- *
- * Given a map like `{ "@acme/code-review": "^1.0.0" }` and type plural `"skills"`,
- * returns `{ "@acme/skills/code-review": "^1.0.0" }`.
- */
-const flattenManifestDeps = (
-  map: Readonly<Record<string, string>> | undefined,
-  typePlural: string,
-): Readonly<Record<string, string>> => {
-  if (!map) return {};
-  const result: Record<string, string> = {};
-  for (const [fqn, version] of Object.entries(map)) {
-    const { scope, name } = parseScopedNameOrThrow(fqn);
-    result[`${scope}/${typePlural}/${name}`] = version;
-  }
-  return result;
-};
 
 // Re-export for convenience
 export type { PublishPackOperation } from "../operations.js";
@@ -79,10 +56,10 @@ export const publishPack: OperationHandler<
     const ws = yield* Workspace;
     const base = ws.baseDir;
 
-    const { scope, name: shortName } = yield* parseScopedName(op.args.name);
+    const fqn = yield* parseFqn(op.args.name);
 
     // Locate the managed pack directory
-    const packDir = path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "packs", shortName);
+    const packDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.scope, "packs", fqn.name);
     const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
     if (!packDirExists) {
       return yield* makeCliError({
@@ -151,11 +128,11 @@ export const publishPack: OperationHandler<
 
     const client = yield* createRegistryClient(registrySource.value.location.href);
 
-    // Flatten manifest dependencies into FQN keys
+    // Collect manifest dependencies (keys are already 3-segment FQNs)
     const dependencies: Record<string, string> = {
-      ...flattenManifestDeps(manifest.skills, "skills"),
-      ...flattenManifestDeps(manifest.commands, "commands"),
-      ...flattenManifestDeps(manifest["mcp-servers"], "mcp-servers"),
+      ...manifest.skills,
+      ...manifest.commands,
+      ...manifest["mcp-servers"],
     };
 
     // Build version entry metadata
@@ -169,9 +146,9 @@ export const publishPack: OperationHandler<
     // Publish to registry (idempotent)
     yield* client
       .publishExtension({
-        scope,
+        scope: fqn.scope,
         type: "pack",
-        name: shortName,
+        name: fqn.name,
         version: manifest.version,
         archive,
         metadata: versionEntry,

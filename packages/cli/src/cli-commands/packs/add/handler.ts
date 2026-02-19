@@ -16,7 +16,7 @@ import { Workspace } from "../../../workspace/index.js";
 import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
 import { computePackPaths } from "../pack-paths.js";
 import { PACK_MANIFEST_FILENAME, type RawPackManifest } from "../constants.js";
-import { hasScopePrefix, parseScopedNameOrThrow } from "../../skills/naming.js";
+import { formatFqn } from "../../../extensions/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -65,11 +65,10 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     });
   }
 
-  // Resolve pack scope from the entry (format: "@scope/name" or { source: "@scope/name" })
+  // Resolve pack scope from the entry (format: "@scope/packs/name" or { source: "@scope/packs/name" })
   const packSource = typeof packEntry === "string" ? packEntry : packEntry.source;
-  const packScope = hasScopePrefix(packSource)
-    ? parseScopedNameOrThrow(packSource).scope
-    : yield* ws.getConfiguredScope();
+  const hasScope = packSource.startsWith("@") && packSource.includes("/");
+  const packScope = hasScope ? packSource.split("/")[0]! : yield* ws.getConfiguredScope();
   const base = ws.baseDir;
 
   // Step 2: Read pack manifest as raw JSON (no schema validation for editing)
@@ -147,7 +146,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     // All matched extensions are registry-sourced (filtered above)
     if (lockEntry.type !== "registry") continue;
 
-    const fqn = `${lockEntry.scope}/${lockEntry.name}`;
+    const fqn = formatFqn({ scope: lockEntry.scope, type: "skills", name: lockEntry.name });
     const version = toVersionRange(lockEntry.resolvedVersion);
 
     // Check if already in pack (by FQN)

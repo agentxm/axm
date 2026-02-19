@@ -126,19 +126,19 @@ describe("packs-remove.handler", () => {
       const { provide, mockLog } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         scope: "@acme",
-        packs: { "frontend-tools": "@acme/frontend-tools" },
+        packs: { "frontend-tools": "@acme/packs/frontend-tools" },
       });
       createPackManifest(tempDir, "@acme", "frontend-tools", {
-        name: "@acme/frontend-tools",
+        name: "@acme/packs/frontend-tools",
         version: "0.0.1",
-        skills: { "@acme/code-review": "^1.2.0", "@acme/linting": "^2.0.0" },
+        skills: { "@acme/skills/code-review": "^1.2.0", "@acme/skills/linting": "^2.0.0" },
         commands: {},
         "mcp-servers": {},
       });
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePacksRemove(defaultArgs("frontend-tools", "@acme/code-review"));
+          yield* handlePacksRemove(defaultArgs("frontend-tools", "@acme/skills/code-review"));
 
           const manifestPath = path.join(
             tempDir,
@@ -150,8 +150,8 @@ describe("packs-remove.handler", () => {
             "axm-pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.skills["@acme/code-review"]).toBeUndefined();
-          expect(manifest.skills["@acme/linting"]).toBe("^2.0.0");
+          expect(manifest.skills["@acme/skills/code-review"]).toBeUndefined();
+          expect(manifest.skills["@acme/skills/linting"]).toBe("^2.0.0");
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
         }),
       );
@@ -163,15 +163,15 @@ describe("packs-remove.handler", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         scope: "@acme",
-        packs: { "my-pack": "@acme/my-pack" },
+        packs: { "my-pack": "@acme/packs/my-pack" },
       });
       createPackManifest(tempDir, "@acme", "my-pack", {
-        name: "@acme/my-pack",
+        name: "@acme/packs/my-pack",
         version: "0.0.1",
         skills: {
-          "@acme/effect-basics": "^1.0.0",
-          "@acme/effect-streams": "^2.0.0",
-          "@acme/other-skill": "^3.0.0",
+          "@acme/skills/effect-basics": "^1.0.0",
+          "@acme/skills/effect-streams": "^2.0.0",
+          "@acme/skills/other-skill": "^3.0.0",
         },
         commands: {},
         "mcp-servers": {},
@@ -179,7 +179,7 @@ describe("packs-remove.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePacksRemove(defaultArgs("my-pack", "@acme/effect-*"));
+          yield* handlePacksRemove(defaultArgs("my-pack", "@acme/skills/effect-*"));
 
           const manifestPath = path.join(
             tempDir,
@@ -191,9 +191,9 @@ describe("packs-remove.handler", () => {
             "axm-pack.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.skills["@acme/effect-basics"]).toBeUndefined();
-          expect(manifest.skills["@acme/effect-streams"]).toBeUndefined();
-          expect(manifest.skills["@acme/other-skill"]).toBe("^3.0.0");
+          expect(manifest.skills["@acme/skills/effect-basics"]).toBeUndefined();
+          expect(manifest.skills["@acme/skills/effect-streams"]).toBeUndefined();
+          expect(manifest.skills["@acme/skills/other-skill"]).toBe("^3.0.0");
         }),
       );
     });
@@ -202,12 +202,12 @@ describe("packs-remove.handler", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         scope: "@acme",
-        packs: { "my-pack": "@acme/my-pack" },
+        packs: { "my-pack": "@acme/packs/my-pack" },
       });
       createPackManifest(tempDir, "@acme", "my-pack", {
-        name: "@acme/my-pack",
+        name: "@acme/packs/my-pack",
         version: "0.0.1",
-        skills: { "@acme/some-skill": "^1.0.0" },
+        skills: { "@acme/skills/some-skill": "^1.0.0" },
         commands: {},
         "mcp-servers": {},
       });
@@ -229,10 +229,10 @@ describe("packs-remove.handler", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         scope: "@acme",
-        packs: { "my-pack": "@acme/my-pack" },
+        packs: { "my-pack": "@acme/packs/my-pack" },
       });
       createPackManifest(tempDir, "@acme", "my-pack", {
-        name: "@acme/my-pack",
+        name: "@acme/packs/my-pack",
         version: "0.0.1",
         skills: {},
         commands: {},
@@ -241,9 +241,9 @@ describe("packs-remove.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handlePacksRemove(defaultArgs("my-pack", "@acme/nonexistent")).pipe(
-            Effect.flip,
-          );
+          const error = yield* handlePacksRemove(
+            defaultArgs("my-pack", "@acme/skills/nonexistent"),
+          ).pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
           expect((error as CliError).what).toContain("not in the pack");
         }),
@@ -259,7 +259,7 @@ describe("packs-remove.handler", () => {
       return provide(
         Effect.gen(function* () {
           const error = yield* handlePacksRemove(
-            defaultArgs("nonexistent-pack", "@acme/some-ext"),
+            defaultArgs("nonexistent-pack", "@acme/skills/some-ext"),
           ).pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
           expect((error as CliError).what).toContain("not found");

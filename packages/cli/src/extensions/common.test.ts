@@ -72,29 +72,66 @@ describe("common schemas", () => {
   });
 
   describe("FullyQualifiedName", () => {
-    it("accepts valid @scope/name pattern", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne/grappling-hook");
+    it("accepts valid 3-segment FQN", () => {
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)(
+        "@wayne/skills/grappling-hook",
+      );
 
       expect(Either.isRight(result)).toBe(true);
       if (Either.isRight(result)) {
-        expect(result.right).toBe("@wayne/grappling-hook");
+        expect(result.right).toBe("@wayne/skills/grappling-hook");
       }
     });
 
+    it("accepts packs type segment", () => {
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)(
+        "@wayne/packs/bat-utility",
+      );
+
+      expect(Either.isRight(result)).toBe(true);
+    });
+
+    it("accepts commands type segment", () => {
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)(
+        "@wayne/commands/bat-deploy",
+      );
+
+      expect(Either.isRight(result)).toBe(true);
+    });
+
+    it("accepts mcp-servers type segment", () => {
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)(
+        "@wayne/mcp-servers/bat-signal",
+      );
+
+      expect(Either.isRight(result)).toBe(true);
+    });
+
     it("accepts pattern with underscores", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne_corp/bat_signal");
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)(
+        "@wayne_corp/skills/bat_signal",
+      );
 
       expect(Either.isRight(result)).toBe(true);
     });
 
     it("accepts pattern with numbers", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne123/tool456");
+      const result =
+        Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne123/packs/tool456");
 
       expect(Either.isRight(result)).toBe(true);
     });
 
+    it("rejects 2-segment name (old format)", () => {
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne/grappling-hook");
+
+      expect(Either.isLeft(result)).toBe(true);
+    });
+
     it("rejects name without @ prefix", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("wayne/grappling-hook");
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)(
+        "wayne/skills/grappling-hook",
+      );
 
       expect(Either.isLeft(result)).toBe(true);
     });
@@ -111,14 +148,10 @@ describe("common schemas", () => {
       expect(Either.isLeft(result)).toBe(true);
     });
 
-    it("rejects pattern with trailing slash", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne/");
-
-      expect(Either.isLeft(result)).toBe(true);
-    });
-
-    it("rejects pattern with multiple slashes", () => {
-      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)("@wayne/tools/hook");
+    it("rejects invalid type segment", () => {
+      const result = Schema.decodeUnknownEither(FullyQualifiedNameSchema)(
+        "@wayne/widgets/grappling-hook",
+      );
 
       expect(Either.isLeft(result)).toBe(true);
     });
@@ -135,7 +168,7 @@ describe("common schemas", () => {
 
     it("accepts valid full manifest", () => {
       const input = {
-        name: "@wayne/grappling-hook",
+        name: "@wayne/skills/grappling-hook",
         version: "1.0.0",
         description: "A grappling hook skill",
         keywords: ["batman", "tools"],
@@ -153,7 +186,7 @@ describe("common schemas", () => {
 
     it("accepts minimal manifest (name and version only)", () => {
       const input = {
-        name: "@wayne/hook",
+        name: "@wayne/skills/hook",
         version: "0.1.0",
       };
 

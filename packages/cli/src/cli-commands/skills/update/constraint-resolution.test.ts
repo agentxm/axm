@@ -160,10 +160,15 @@ describe("detectHoldbackWarnings", () => {
       packConstraints: [{ packName: "frontend-pack", constraint: "^1.0.0" }],
     };
 
-    const warnings = detectHoldbackWarnings("2.0.0", "1.3.0", constraints, "@acme/code-review");
+    const warnings = detectHoldbackWarnings(
+      "2.0.0",
+      "1.3.0",
+      constraints,
+      "@acme/skills/code-review",
+    );
 
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]).toContain("@acme/code-review");
+    expect(warnings[0]).toContain("@acme/skills/code-review");
     expect(warnings[0]).toContain("1.3.0");
     expect(warnings[0]).toContain("frontend-pack");
     expect(warnings[0]).toContain("^1.0.0");
@@ -176,7 +181,12 @@ describe("detectHoldbackWarnings", () => {
       packConstraints: [{ packName: "frontend-pack", constraint: "^1.0.0" }],
     };
 
-    const warnings = detectHoldbackWarnings("2.0.0", "1.3.0", constraints, "@acme/code-review");
+    const warnings = detectHoldbackWarnings(
+      "2.0.0",
+      "1.3.0",
+      constraints,
+      "@acme/skills/code-review",
+    );
 
     expect(warnings).toHaveLength(0);
   });
@@ -187,7 +197,12 @@ describe("detectHoldbackWarnings", () => {
       packConstraints: [{ packName: "frontend-pack", constraint: "^1.0.0" }],
     };
 
-    const warnings = detectHoldbackWarnings("1.3.0", "1.3.0", constraints, "@acme/code-review");
+    const warnings = detectHoldbackWarnings(
+      "1.3.0",
+      "1.3.0",
+      constraints,
+      "@acme/skills/code-review",
+    );
 
     expect(warnings).toHaveLength(0);
   });
@@ -198,7 +213,12 @@ describe("detectHoldbackWarnings", () => {
       packConstraints: [{ packName: "frontend-pack", constraint: "^1.0.0" }],
     };
 
-    const warnings = detectHoldbackWarnings("2.0.0", "1.3.0", constraints, "@acme/code-review");
+    const warnings = detectHoldbackWarnings(
+      "2.0.0",
+      "1.3.0",
+      constraints,
+      "@acme/skills/code-review",
+    );
 
     expect(warnings).toHaveLength(0);
   });
@@ -209,7 +229,12 @@ describe("detectHoldbackWarnings", () => {
       packConstraints: [],
     };
 
-    const warnings = detectHoldbackWarnings("2.0.0", "1.3.0", constraints, "@acme/code-review");
+    const warnings = detectHoldbackWarnings(
+      "2.0.0",
+      "1.3.0",
+      constraints,
+      "@acme/skills/code-review",
+    );
 
     expect(warnings).toHaveLength(0);
   });
@@ -224,7 +249,12 @@ describe("detectHoldbackWarnings", () => {
     };
 
     // pack-a ^1.0.0 doesn't satisfy 2.0.0, pack-b >=1.0.0 does
-    const warnings = detectHoldbackWarnings("2.0.0", "1.3.0", constraints, "@acme/code-review");
+    const warnings = detectHoldbackWarnings(
+      "2.0.0",
+      "1.3.0",
+      constraints,
+      "@acme/skills/code-review",
+    );
 
     expect(warnings).toHaveLength(1);
     expect(warnings[0]).toContain("pack-a");

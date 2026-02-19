@@ -175,12 +175,12 @@ describe("packs install command parser", () => {
   });
 
   it("parses source positional argument", async () => {
-    const argv = await createParser().parse(["install", "@acme/my-pack"]);
-    expect(argv["source"]).toBe("@acme/my-pack");
+    const argv = await createParser().parse(["install", "@acme/packs/my-pack"]);
+    expect(argv["source"]).toBe("@acme/packs/my-pack");
   });
 
   it("parses with default values when no options provided", async () => {
-    const argv = await createParser().parse(["install", "@acme/my-pack"]);
+    const argv = await createParser().parse(["install", "@acme/packs/my-pack"]);
     expect(argv["global"]).toBe(false);
     expect(argv["yes"]).toBe(false);
     expect(argv["force"]).toBe(false);
@@ -188,45 +188,45 @@ describe("packs install command parser", () => {
   });
 
   it("parses --global flag", async () => {
-    const argv = await createParser().parse(["install", "@acme/my-pack", "--global"]);
+    const argv = await createParser().parse(["install", "@acme/packs/my-pack", "--global"]);
     expect(argv["global"]).toBe(true);
   });
 
   it("parses --yes flag", async () => {
-    const argv = await createParser().parse(["install", "@acme/my-pack", "--yes"]);
+    const argv = await createParser().parse(["install", "@acme/packs/my-pack", "--yes"]);
     expect(argv["yes"]).toBe(true);
   });
 
   it("parses -y alias for --yes", async () => {
-    const argv = await createParser().parse(["install", "@acme/my-pack", "-y"]);
+    const argv = await createParser().parse(["install", "@acme/packs/my-pack", "-y"]);
     expect(argv["yes"]).toBe(true);
   });
 
   it("parses --force flag", async () => {
-    const argv = await createParser().parse(["install", "@acme/my-pack", "--force"]);
+    const argv = await createParser().parse(["install", "@acme/packs/my-pack", "--force"]);
     expect(argv["force"]).toBe(true);
   });
 
   it("parses -f alias for --force", async () => {
-    const argv = await createParser().parse(["install", "@acme/my-pack", "-f"]);
+    const argv = await createParser().parse(["install", "@acme/packs/my-pack", "-f"]);
     expect(argv["force"]).toBe(true);
   });
 
   it("parses --preview flag", async () => {
-    const argv = await createParser().parse(["install", "@acme/my-pack", "--preview"]);
+    const argv = await createParser().parse(["install", "@acme/packs/my-pack", "--preview"]);
     expect(argv["preview"]).toBe(true);
   });
 
   it("parses combination of flags", async () => {
     const argv = await createParser().parse([
       "install",
-      "@acme/my-pack",
+      "@acme/packs/my-pack",
       "--global",
       "-y",
       "-f",
       "--preview",
     ]);
-    expect(argv["source"]).toBe("@acme/my-pack");
+    expect(argv["source"]).toBe("@acme/packs/my-pack");
     expect(argv["global"]).toBe(true);
     expect(argv["yes"]).toBe(true);
     expect(argv["force"]).toBe(true);

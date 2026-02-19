@@ -20,7 +20,7 @@ import { AuthorSchema, ExtensionTypeSchema } from "../extensions/common.js";
  * Fields:
  * - version: Semver version string (e.g., "1.2.3")
  * - published: ISO 8601 timestamp of publication
- * - dependencies: Optional map of `@scope/name` to semver range
+ * - dependencies: Optional map of `@scope/type/name` to semver range
  * - integrity: SRI integrity string in `sha512-<base64>` format
  *
  * @experimental This API is unstable and may change without notice.

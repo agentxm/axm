@@ -511,10 +511,10 @@ describe("init.handler", () => {
 
           // Pack entry
           expect(lockfile.packs).toBeDefined();
-          expect(lockfile.packs["@axm/cli"]).toBeDefined();
-          expect(lockfile.packs["@axm/cli"].type).toBe("builtin");
-          expect(lockfile.packs["@axm/cli"].scope).toBe("@axm");
-          expect(lockfile.packs["@axm/cli"].name).toBe("cli");
+          expect(lockfile.packs["@axm/packs/cli"]).toBeDefined();
+          expect(lockfile.packs["@axm/packs/cli"].type).toBe("builtin");
+          expect(lockfile.packs["@axm/packs/cli"].scope).toBe("@axm");
+          expect(lockfile.packs["@axm/packs/cli"].name).toBe("cli");
 
           // Skill entries
           for (const skillName of BUILTIN_SKILL_NAMES) {
@@ -561,14 +561,14 @@ describe("init.handler", () => {
               },
             },
             packs: {
-              "@axm/cli": {
+              "@axm/packs/cli": {
                 type: "builtin",
                 scope: "@axm",
                 name: "cli",
                 resolvedVersion: "0.0.16",
                 installedAt: "2025-01-01T00:00:00.000Z",
                 updatedAt: "2025-01-01T00:00:00.000Z",
-                resolvedSkills: { "@axm/axm-manage-skills": "0.0.16" },
+                resolvedSkills: { "@axm/skills/axm-manage-skills": "0.0.16" },
                 resolvedCommands: {},
                 resolvedMcpServers: {},
               },
@@ -581,8 +581,8 @@ describe("init.handler", () => {
           // Lockfile should retain original timestamps (not overwritten)
           const lockfileContent = fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockfileContent);
-          expect(lockfile.packs["@axm/cli"].installedAt).toBe("2025-01-01T00:00:00.000Z");
-          expect(lockfile.packs["@axm/cli"].updatedAt).toBe("2025-01-01T00:00:00.000Z");
+          expect(lockfile.packs["@axm/packs/cli"].installedAt).toBe("2025-01-01T00:00:00.000Z");
+          expect(lockfile.packs["@axm/packs/cli"].updatedAt).toBe("2025-01-01T00:00:00.000Z");
         }),
       ),
     );

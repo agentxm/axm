@@ -6,14 +6,14 @@ describe("CommandManifestSchema", () => {
   const decode = Schema.decodeUnknownSync(CommandManifestSchema);
 
   it("accepts valid minimal manifest", () => {
-    const input = { name: "@wayne/batcomputer-sync", version: "1.0.0" };
+    const input = { name: "@wayne/commands/batcomputer-sync", version: "1.0.0" };
     const result = decode(input);
-    expect(result.name).toBe("@wayne/batcomputer-sync");
+    expect(result.name).toBe("@wayne/commands/batcomputer-sync");
     expect(result.version).toBe("1.0.0");
   });
 
   it("rejects manifest missing version", () => {
-    const input = { name: "@wayne/batcomputer-sync" };
+    const input = { name: "@wayne/commands/batcomputer-sync" };
     expect(() => decode(input)).toThrow();
   });
 

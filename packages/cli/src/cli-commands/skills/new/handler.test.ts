@@ -131,7 +131,7 @@ describe("skills-new.handler", () => {
           );
           expect(fs.existsSync(manifestPath)).toBe(true);
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@acme/my-skill");
+          expect(manifest.name).toBe("@acme/skills/my-skill");
           expect(manifest.version).toBe("0.0.1");
 
           // Verify SKILL.md
@@ -154,14 +154,14 @@ describe("skills-new.handler", () => {
           const settingsPath = path.join(tempDir, ".axm", "settings.json");
           const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
           expect(settings.skills).toBeDefined();
-          expect(settings.skills["my-skill"]).toBe("@acme/my-skill");
+          expect(settings.skills["my-skill"]).toBe("@acme/skills/my-skill");
 
           // Verify symlink
           const symlinkPath = path.join(tempDir, ".claude", "skills", "my-skill");
           expect(fs.existsSync(symlinkPath)).toBe(true);
           expect(fs.lstatSync(symlinkPath).isSymbolicLink()).toBe(true);
 
-          expect(mockLog.logs.success.some((m) => m.includes("@acme/my-skill"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("@acme/skills/my-skill"))).toBe(true);
         }),
       );
     });
@@ -188,7 +188,7 @@ describe("skills-new.handler", () => {
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@corp/my-skill");
+          expect(manifest.name).toBe("@corp/skills/my-skill");
         }),
       );
     });
@@ -213,7 +213,7 @@ describe("skills-new.handler", () => {
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@corp/my-skill");
+          expect(manifest.name).toBe("@corp/skills/my-skill");
         }),
       );
     });
@@ -281,7 +281,7 @@ describe("skills-new.handler", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), {
         scope: "@acme",
-        skills: { "my-skill": "@acme/my-skill" },
+        skills: { "my-skill": "@acme/skills/my-skill" },
       });
 
       return provide(

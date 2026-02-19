@@ -20,7 +20,7 @@ import type { CopySkillOperation } from "./operations.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../extensions/constants.js";
 import { MANIFEST_FILENAME } from "./constants.js";
 import { stripFileProtocol } from "./fs-helpers.js";
-import { parseScopedName } from "./naming.js";
+import { parseFqn } from "../../extensions/fqn.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -50,10 +50,10 @@ export const copySkill: OperationHandler<
     const ws = yield* Workspace;
     const base = ws.baseDir;
 
-    const { scope, name } = yield* parseScopedName(op.args.targetName);
+    const fqn = yield* parseFqn(op.args.targetName);
 
     // Target path in the managed extensions store
-    const targetDir = path.join(base, REGISTRY_EXTENSIONS_DIR, scope, "skills", name);
+    const targetDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.scope, "skills", fqn.name);
 
     // Source path from the ref location (registry/builtin refs don't carry location)
     const { ref } = op.args;
@@ -96,6 +96,6 @@ export const copySkill: OperationHandler<
 
     return {
       result: "success",
-      message: `Copied ${name} to ${op.args.targetName}`,
+      message: `Copied ${fqn.name} to ${op.args.targetName}`,
     } satisfies OperationResult;
   });

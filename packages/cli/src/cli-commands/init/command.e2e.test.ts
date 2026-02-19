@@ -182,11 +182,11 @@ describe("axm init", () => {
         const lockfile = YAML.parse(lockfileContent);
 
         expect(lockfile.packs).toBeDefined();
-        expect(lockfile.packs["@axm/cli"]).toBeDefined();
-        expect(lockfile.packs["@axm/cli"].type).toBe("builtin");
-        expect(lockfile.packs["@axm/cli"].scope).toBe("@axm");
-        expect(lockfile.packs["@axm/cli"].name).toBe("cli");
-        expect(lockfile.packs["@axm/cli"].resolvedVersion).toBeDefined();
+        expect(lockfile.packs["@axm/packs/cli"]).toBeDefined();
+        expect(lockfile.packs["@axm/packs/cli"].type).toBe("builtin");
+        expect(lockfile.packs["@axm/packs/cli"].scope).toBe("@axm");
+        expect(lockfile.packs["@axm/packs/cli"].name).toBe("cli");
+        expect(lockfile.packs["@axm/packs/cli"].resolvedVersion).toBeDefined();
 
         // Verify builtin skill lock entries
         const skillNames = [

@@ -25,7 +25,7 @@ export const publishCommand: CommandModule<{}, PublishCommandArgs> = {
     yargs
       .positional("extension", {
         type: "string",
-        describe: "Extension name (@scope/name or bare name)",
+        describe: "Extension name (@scope/skills/name or bare name)",
         demandOption: true,
       })
       .option("registry", {
@@ -47,7 +47,7 @@ export const publishCommand: CommandModule<{}, PublishCommandArgs> = {
         type: "boolean",
         describe: "Disable all interactive prompts",
       })
-      .example("$0 skills publish @acme/code-review", "Publish to the default registry")
+      .example("$0 skills publish @acme/skills/code-review", "Publish to the default registry")
       .example(
         "$0 skills publish code-review --registry local",
         "Publish with scope from settings to the local registry",

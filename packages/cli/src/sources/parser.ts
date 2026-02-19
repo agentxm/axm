@@ -22,7 +22,7 @@ const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
 /** A simple name with no `/`, `@`, or URL scheme. */
 type NameInput = { readonly pattern: "name-input"; readonly name: string };
 
-/** A scoped registry source: `@scope/(skills|mcp-servers)/name` (or legacy `@scope/name`). */
+/** A scoped registry source: `@scope/(skills|mcp-servers|packs)/name`. */
 type RegistryPatternInput = {
   readonly pattern: "registry-pattern-input";
   readonly type: Option.Option<"skills" | "mcp-servers" | "packs">;
@@ -158,7 +158,6 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
   //    - @scope
   //    - @scope/{type}
   //    - @scope/{type}/{name}@constraint
-  //    - legacy: @scope/{name}@constraint (defaults type to skills)
   if (input.startsWith("@")) {
     const segments = input.split("/");
     if (segments.length >= 1 && REGISTRY_SCOPE_PATTERN.test(segments[0] ?? "")) {
@@ -186,19 +185,6 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
               scope,
               name: Option.none(),
               versionConstraint: Option.none(),
-            }),
-          );
-        }
-
-        const parsedLegacyName = parseNameAndConstraint(second);
-        if (Option.isSome(parsedLegacyName)) {
-          return Option.some(
-            wrap({
-              pattern: "registry-pattern-input",
-              type: Option.some("skills"),
-              scope,
-              name: parsedLegacyName.value.name,
-              versionConstraint: parsedLegacyName.value.versionConstraint,
             }),
           );
         }

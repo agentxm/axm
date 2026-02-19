@@ -359,7 +359,7 @@ describe("enableSkill", () => {
               lockfileSkills: { "my-skill": makeRegistryLockEntry([]) },
               settingsSkills: {
                 "my-skill": {
-                  source: "@community/my-skill",
+                  source: "@community/skills/my-skill",
                   enabled: false,
                   managed: true,
                 },

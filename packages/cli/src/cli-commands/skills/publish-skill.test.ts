@@ -62,7 +62,7 @@ const withServices = (axmDir: string, registryRoot: string) => {
 const makeOp = (overrides: Partial<PublishSkillOperation["args"]> = {}): PublishSkillOperation => ({
   name: "publish-skill",
   args: {
-    name: overrides.name ?? "@community/my-skill",
+    name: overrides.name ?? "@community/skills/my-skill",
     registryName: overrides.registryName ?? "local",
   },
 });
@@ -95,7 +95,7 @@ describe("publishSkill", () => {
 
     // Write manifest at extension root (not inside src/)
     const defaultManifest = {
-      name: `${scope}/${name}`,
+      name: `${scope}/skills/${name}`,
       version: "0.1.0",
       agents: ["claude-code"],
       dependencies: {},
@@ -119,11 +119,11 @@ describe("publishSkill", () => {
         const { axmDir, registryRoot } = setup();
 
         const result = yield* publishSkill(
-          makeOp({ name: "@community/my-skill", registryName: "local" }),
+          makeOp({ name: "@community/skills/my-skill", registryName: "local" }),
         ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 
         expect(result.result).toBe("success");
-        expect(result.message).toContain("@community/my-skill@0.1.0");
+        expect(result.message).toContain("@community/skills/my-skill@0.1.0");
 
         // Registry should have the archive
         const archivePath = path.join(
@@ -162,9 +162,9 @@ describe("publishSkill", () => {
       Effect.gen(function* () {
         const { axmDir, registryRoot } = setup();
 
-        yield* publishSkill(makeOp({ name: "@community/my-skill", registryName: "local" })).pipe(
-          Effect.provide(withServices(axmDir, registryRoot)),
-        );
+        yield* publishSkill(
+          makeOp({ name: "@community/skills/my-skill", registryName: "local" }),
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 
         const indexPath = path.join(
           registryRoot,
@@ -185,9 +185,9 @@ describe("publishSkill", () => {
       Effect.gen(function* () {
         const { axmDir, registryRoot } = setup();
 
-        yield* publishSkill(makeOp({ name: "@community/my-skill", registryName: "local" })).pipe(
-          Effect.provide(withServices(axmDir, registryRoot)),
-        );
+        yield* publishSkill(
+          makeOp({ name: "@community/skills/my-skill", registryName: "local" }),
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 
         const indexPath = path.join(
           registryRoot,
@@ -208,9 +208,9 @@ describe("publishSkill", () => {
         const { axmDir, registryRoot, extensionDir } = setup();
 
         // Publish v0.1.0 first
-        yield* publishSkill(makeOp({ name: "@community/my-skill", registryName: "local" })).pipe(
-          Effect.provide(withServices(axmDir, registryRoot)),
-        );
+        yield* publishSkill(
+          makeOp({ name: "@community/skills/my-skill", registryName: "local" }),
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 
         // Update manifest to v0.2.0
         const manifestPath = path.join(extensionDir, "axm-skill.json");
@@ -219,9 +219,9 @@ describe("publishSkill", () => {
         fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
 
         // Publish v0.2.0
-        yield* publishSkill(makeOp({ name: "@community/my-skill", registryName: "local" })).pipe(
-          Effect.provide(withServices(axmDir, registryRoot)),
-        );
+        yield* publishSkill(
+          makeOp({ name: "@community/skills/my-skill", registryName: "local" }),
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 
         const indexPath = path.join(
           registryRoot,
@@ -246,13 +246,13 @@ describe("publishSkill", () => {
         const { axmDir, registryRoot } = setup();
 
         // Publish once
-        yield* publishSkill(makeOp({ name: "@community/my-skill", registryName: "local" })).pipe(
-          Effect.provide(withServices(axmDir, registryRoot)),
-        );
+        yield* publishSkill(
+          makeOp({ name: "@community/skills/my-skill", registryName: "local" }),
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 
         // Publish again — same content, same version
         const result = yield* publishSkill(
-          makeOp({ name: "@community/my-skill", registryName: "local" }),
+          makeOp({ name: "@community/skills/my-skill", registryName: "local" }),
         ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 
         expect(result.result).toBe("success");
@@ -276,16 +276,16 @@ describe("publishSkill", () => {
         const { axmDir, registryRoot, extensionDir } = setup();
 
         // Publish v0.1.0
-        yield* publishSkill(makeOp({ name: "@community/my-skill", registryName: "local" })).pipe(
-          Effect.provide(withServices(axmDir, registryRoot)),
-        );
+        yield* publishSkill(
+          makeOp({ name: "@community/skills/my-skill", registryName: "local" }),
+        ).pipe(Effect.provide(withServices(axmDir, registryRoot)));
 
         // Change content (different integrity) but keep same version
         fs.writeFileSync(path.join(extensionDir, "src", "prompt.md"), "changed content");
 
         // Publish again — same version, different content → should fail
         const error = yield* publishSkill(
-          makeOp({ name: "@community/my-skill", registryName: "local" }),
+          makeOp({ name: "@community/skills/my-skill", registryName: "local" }),
         ).pipe(Effect.provide(withServices(axmDir, registryRoot)), Effect.flip);
 
         expect(error.what).toBe("Failed to publish to registry");
@@ -308,7 +308,7 @@ describe("publishSkill", () => {
         fs.mkdirSync(registryRoot, { recursive: true });
 
         const result = yield* publishSkill(
-          makeOp({ name: "@community/nonexistent", registryName: "local" }),
+          makeOp({ name: "@community/skills/nonexistent", registryName: "local" }),
         ).pipe(
           Effect.provide(withServices(axmDir, registryRoot)),
           Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
@@ -324,7 +324,7 @@ describe("publishSkill", () => {
         const { axmDir, registryRoot } = setup();
 
         const result = yield* publishSkill(
-          makeOp({ name: "@community/my-skill", registryName: "nonexistent" }),
+          makeOp({ name: "@community/skills/my-skill", registryName: "nonexistent" }),
         ).pipe(
           Effect.provide(withServices(axmDir, registryRoot)),
           Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),

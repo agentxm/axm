@@ -64,7 +64,7 @@ const makeOp = (
       source: { type: "local", path: "/tmp/source" },
       location: overrides.location ?? "file:///tmp/source",
     },
-    targetName: overrides.targetName ?? "@community/my-skill",
+    targetName: overrides.targetName ?? "@community/skills/my-skill",
   },
 });
 
@@ -103,7 +103,7 @@ describe("copySkill", () => {
         const { axmDir, base } = setupBase();
 
         const result = yield* copySkill(
-          makeOp({ targetName: "@community/my-skill", location: `file://${src}` }),
+          makeOp({ targetName: "@community/skills/my-skill", location: `file://${src}` }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
@@ -126,7 +126,7 @@ describe("copySkill", () => {
         const { axmDir, base } = setupBase();
 
         const result = yield* copySkill(
-          makeOp({ targetName: "@myorg/cool-skill", location: `file://${src}` }),
+          makeOp({ targetName: "@myorg/skills/cool-skill", location: `file://${src}` }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
@@ -160,7 +160,7 @@ describe("copySkill", () => {
 
         yield* copySkill(
           makeOp({
-            targetName: "@community/my-skill",
+            targetName: "@community/skills/my-skill",
             location: `file://${src}`,
           }),
         ).pipe(Effect.provide(withServices(axmDir)));
@@ -170,7 +170,7 @@ describe("copySkill", () => {
         expect(fs.existsSync(manifestPath)).toBe(true);
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.name).toBe("@community/my-skill");
+        expect(manifest.name).toBe("@community/skills/my-skill");
         expect(manifest.version).toBe("0.1.0");
         expect(manifest).not.toHaveProperty("agents");
         expect(manifest.dependencies).toEqual({});
@@ -183,7 +183,7 @@ describe("copySkill", () => {
         const { axmDir, base } = setupBase();
 
         yield* copySkill(
-          makeOp({ targetName: "@community/my-skill", location: `file://${src}` }),
+          makeOp({ targetName: "@community/skills/my-skill", location: `file://${src}` }),
         ).pipe(Effect.provide(withServices(axmDir)));
 
         const manifestPath = path.join(

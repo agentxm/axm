@@ -43,7 +43,7 @@ export const packsAddCommand: CommandModule<{}, PacksAddCommandArgs> = {
         describe: "Disable all interactive prompts",
       })
       .example(
-        "$0 packs add frontend-tools @acme/code-review",
+        "$0 packs add frontend-tools @acme/skills/code-review",
         "Add a specific extension to a pack",
       )
       .example('$0 packs add my-pack "effect-*"', "Add all matching extensions via glob"),

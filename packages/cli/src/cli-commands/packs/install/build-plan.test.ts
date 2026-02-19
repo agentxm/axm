@@ -218,9 +218,9 @@ describe("buildInstallPlan", () => {
 
   it("constructs InstallPackOperation from the ref", () => {
     const ref = makePackRef("my-pack", {
-      skills: { "@acme/skill-a": "^1.0.0" },
-      commands: { "@acme/cmd-b": "^2.0.0" },
-      mcpServers: { "@acme/server-c": "^3.0.0" },
+      skills: { "@acme/skills/skill-a": "^1.0.0" },
+      commands: { "@acme/commands/cmd-b": "^2.0.0" },
+      mcpServers: { "@acme/mcp-servers/server-c": "^3.0.0" },
       version: "2.5.0",
     });
 
@@ -241,9 +241,9 @@ describe("buildInstallPlan", () => {
       resolvedVersion: "2.5.0",
       integrity: "sha512-AAAA==",
       sourceName: "default",
-      resolvedSkills: { "@acme/skill-a": "^1.0.0" },
-      resolvedCommands: { "@acme/cmd-b": "^2.0.0" },
-      resolvedMcpServers: { "@acme/server-c": "^3.0.0" },
+      resolvedSkills: { "@acme/skills/skill-a": "^1.0.0" },
+      resolvedCommands: { "@acme/commands/cmd-b": "^2.0.0" },
+      resolvedMcpServers: { "@acme/mcp-servers/server-c": "^3.0.0" },
       versionConstraint: Option.some("^2.0.0"),
     });
     expect(packStep.operation.args.ref).toBe(ref);

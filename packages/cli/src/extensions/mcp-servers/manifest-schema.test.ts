@@ -6,15 +6,15 @@ describe("McpServerManifestSchema", () => {
   const decode = Schema.decodeUnknownSync(McpServerManifestSchema);
 
   it("accepts valid minimal manifest", () => {
-    const input = { name: "@wayne/batcave-mcp", version: "1.0.0" };
+    const input = { name: "@wayne/mcp-servers/batcave-mcp", version: "1.0.0" };
     const result = decode(input);
-    expect(result.name).toBe("@wayne/batcave-mcp");
+    expect(result.name).toBe("@wayne/mcp-servers/batcave-mcp");
     expect(result.version).toBe("1.0.0");
   });
 
   it("accepts valid full manifest with all optional fields", () => {
     const input = {
-      name: "@wayne/batcave-mcp",
+      name: "@wayne/mcp-servers/batcave-mcp",
       version: "1.0.0",
       description: "MCP server for Batcave systems",
       keywords: ["mcp", "batcave"],

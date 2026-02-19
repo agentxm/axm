@@ -43,7 +43,7 @@ export const packsRemoveCommand: CommandModule<{}, PacksRemoveCommandArgs> = {
         describe: "Disable all interactive prompts",
       })
       .example(
-        "$0 packs remove frontend-tools @acme/code-review",
+        "$0 packs remove frontend-tools @acme/skills/code-review",
         "Remove a specific extension from a pack",
       )
       .example(

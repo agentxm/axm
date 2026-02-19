@@ -16,7 +16,7 @@ import type { PackManifest } from "../extensions/packs/manifest-schema.js";
 // Identity Constants
 // -----------------------------------------------------------------------------
 
-export const BUILTIN_PACK_FQN = "@axm/cli";
+export const BUILTIN_PACK_FQN = "@axm/packs/cli";
 export const BUILTIN_PACK_SCOPE = "@axm";
 export const BUILTIN_PACK_NAME = "cli";
 

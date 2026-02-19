@@ -189,6 +189,48 @@ describe("resolveSkillInstallSource", () => {
   });
 });
 
+describe("resolveSkillInstallSource — local path", () => {
+  it.effect("resolves relative path to LocalSource", () => {
+    return Effect.gen(function* () {
+      const resolved = yield* resolveSkillInstallSource(parseInputOrThrow("./my-skill")).pipe(
+        Effect.provide(provideTestLayers([])),
+      );
+      expect(resolved.type).toBe("local");
+      expect("path" in resolved && resolved.path).toBe("./my-skill");
+    });
+  });
+
+  it.effect("resolves absolute path to LocalSource", () => {
+    return Effect.gen(function* () {
+      const resolved = yield* resolveSkillInstallSource(
+        parseInputOrThrow("/absolute/path/to/skill"),
+      ).pipe(Effect.provide(provideTestLayers([])));
+      expect(resolved.type).toBe("local");
+      expect("path" in resolved && resolved.path).toBe("/absolute/path/to/skill");
+    });
+  });
+
+  it.effect("resolves parent-relative path to LocalSource", () => {
+    return Effect.gen(function* () {
+      const resolved = yield* resolveSkillInstallSource(parseInputOrThrow("../parent-skill")).pipe(
+        Effect.provide(provideTestLayers([])),
+      );
+      expect(resolved.type).toBe("local");
+      expect("path" in resolved && resolved.path).toBe("../parent-skill");
+    });
+  });
+
+  it.effect("resolves home-relative path to LocalSource", () => {
+    return Effect.gen(function* () {
+      const resolved = yield* resolveSkillInstallSource(parseInputOrThrow("~/home-skill")).pipe(
+        Effect.provide(provideTestLayers([])),
+      );
+      expect(resolved.type).toBe("local");
+      expect("path" in resolved && resolved.path).toBe("~/home-skill");
+    });
+  });
+});
+
 describe("resolveSkillUrl", () => {
   it.effect("resolves GitHub HTTPS URL to GitHubSource", () => {
     const sources: ReadonlyArray<SourceHostConfig> = [

@@ -6,6 +6,7 @@ import type { InputParseResult, InputPattern } from "../../../sources/parser.js"
 import {
   resolveShorthandInputSource,
   resolveSlashInputSource,
+  routeFilePathInput,
   routeUrlInput,
 } from "../../../sources/resolve-source.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -147,9 +148,10 @@ export const resolveSkillInstallSource = (parseResult: InputParseResult) =>
         return yield* resolveSkillRegistrySourceByName(pattern.name, parseResult.originalInput);
       case "url-input":
         return yield* resolveSkillUrl(pattern.url, parseResult.originalInput);
+      case "file-path-pattern":
+        return yield* routeFilePathInput(pattern.path);
       // Unsupported:
       case "git-scp-address":
-      case "file-path-pattern":
       case "glob-input":
         return yield* makeCliError({
           code: "SKILL_INSTALL_UNSUPPORTED_INPUT",

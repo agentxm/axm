@@ -25,6 +25,7 @@ import type { PlannedJobStep } from "../../../workspace/plan.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 import { MANIFEST_FILENAME } from "../constants.js";
 import { parseFqn } from "../../../extensions/fqn.js";
+import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -34,8 +35,8 @@ import { parseFqn } from "../../../extensions/fqn.js";
  * Arguments for the publish command.
  */
 export interface PublishHandlerArgs {
-  /** Extension name (@scope/skills/name or bare name). */
-  readonly extension: string;
+  /** Extension names, FQNs, or glob patterns. */
+  readonly extensions: ReadonlyArray<string>;
   /** Named registry source to publish to. None = default/first configured. */
   readonly registry: Option.Option<string>;
   /** Skip confirmations. */
@@ -62,61 +63,101 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
   // Step 1: Registry guard
   yield* registryGuard;
 
-  // Step 2: Resolve extension name
-  const extensionName = yield* args.extension.startsWith("@") && args.extension.includes("/")
-    ? Effect.succeed(args.extension)
-    : ws.getConfiguredScope().pipe(
-        Effect.map((scope) => `${scope}/skills/${args.extension}`),
-        Effect.mapError((e) =>
-          makeCliError({
-            code: "SCOPE_RESOLUTION_FAILED",
-            what: `Failed to resolve scope: ${e._tag}`,
-            howToFix: "Configure a scope in your settings with `axm init`.",
-            cause: e,
-          }),
+  // Step 2: Separate glob patterns from literal inputs, expand globs
+  const globPatterns = args.extensions.filter((e) => isGlobPattern(e));
+  const literalInputs = args.extensions.filter((e) => !isGlobPattern(e));
+
+  let resolvedNames: ReadonlyArray<string>;
+
+  if (globPatterns.length > 0) {
+    const installedSkills = yield* ws.getInstalledSkills();
+    const installedNames = Object.keys(installedSkills);
+    const globMatches = expandGlobs(globPatterns, installedNames);
+
+    if (globPatterns.length === args.extensions.length && globMatches.length === 0) {
+      yield* log.warn(`No skills matched pattern "${globPatterns.join(", ")}"`);
+      yield* log.success("Nothing to publish.");
+      return;
+    }
+
+    // Combine glob matches with literal inputs, deduplicate
+    const seen = new Set<string>(globMatches);
+    const combined = [...globMatches];
+    for (const lit of literalInputs) {
+      if (!seen.has(lit)) {
+        seen.add(lit);
+        combined.push(lit);
+      }
+    }
+    resolvedNames = combined;
+  } else {
+    resolvedNames = literalInputs;
+  }
+
+  // Step 3: Resolve each name to FQN
+  const extensionNames = yield* Effect.forEach(resolvedNames, (name) =>
+    name.startsWith("@") && name.includes("/")
+      ? Effect.succeed(name)
+      : ws.getConfiguredScope().pipe(
+          Effect.map((scope) => `${scope}/skills/${name}`),
+          Effect.mapError((e) =>
+            makeCliError({
+              code: "SCOPE_RESOLUTION_FAILED",
+              what: `Failed to resolve scope: ${e._tag}`,
+              howToFix: "Configure a scope in your settings with `axm init`.",
+              cause: e,
+            }),
+          ),
         ),
-      );
+  );
 
-  // Parse scope and skill name from the extension name
-  const fqn = yield* parseFqn(extensionName);
+  // Step 4: Validate each extension
+  const handle = yield* spinnerSvc.start("Validating extensions...");
 
-  // Step 3: Validate managed extension exists
-  const handle = yield* spinnerSvc.start("Validating extension...");
-  const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.scope, "skills", fqn.name);
-  const extensionDirExists = yield* fs.exists(extensionDir).pipe(Effect.orElseSucceed(() => false));
+  const fqns = yield* Effect.forEach(extensionNames, (extName) => parseFqn(extName));
 
-  if (!extensionDirExists) {
-    yield* handle.stop("Failed");
-    return yield* Effect.fail(
-      makeCliError({
-        code: "EXTENSION_NOT_FOUND",
-        what: `Managed extension not found: ${extensionName}`,
-        details: [`Expected at: ${extensionDir}`],
-        howToFix:
-          "Only managed extensions (in .axm/extensions/) can be published. Use `axm skills fork` first.",
-      }),
-    );
-  }
+  yield* Effect.forEach(fqns, (fqn, i) => {
+    const extName = extensionNames[i]!;
+    const extensionDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.scope, "skills", fqn.name);
 
-  // Validate manifest exists
-  const manifestPath = path.join(extensionDir, MANIFEST_FILENAME);
-  const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.orElseSucceed(() => false));
+    return Effect.gen(function* () {
+      const extensionDirExists = yield* fs
+        .exists(extensionDir)
+        .pipe(Effect.orElseSucceed(() => false));
 
-  if (!manifestExists) {
-    yield* handle.stop("Failed");
-    return yield* Effect.fail(
-      makeCliError({
-        code: "MISSING_MANIFEST",
-        what: `Missing manifest: ${MANIFEST_FILENAME}`,
-        details: [`Expected at: ${manifestPath}`],
-        howToFix: "Ensure the extension has a valid axm-skill.json manifest.",
-      }),
-    );
-  }
+      if (!extensionDirExists) {
+        yield* handle.stop("Failed");
+        return yield* Effect.fail(
+          makeCliError({
+            code: "EXTENSION_NOT_FOUND",
+            what: `Managed extension not found: ${extName}`,
+            details: [`Expected at: ${extensionDir}`],
+            howToFix:
+              "Only managed extensions (in .axm/extensions/) can be published. Use `axm skills fork` first.",
+          }),
+        );
+      }
 
-  yield* handle.stop(`Validated ${extensionName}`);
+      const manifestPath = path.join(extensionDir, MANIFEST_FILENAME);
+      const manifestExists = yield* fs.exists(manifestPath).pipe(Effect.orElseSucceed(() => false));
 
-  // Step 4: Determine target registry
+      if (!manifestExists) {
+        yield* handle.stop("Failed");
+        return yield* Effect.fail(
+          makeCliError({
+            code: "MISSING_MANIFEST",
+            what: `Missing manifest: ${MANIFEST_FILENAME}`,
+            details: [`Expected at: ${manifestPath}`],
+            howToFix: "Ensure the extension has a valid axm-skill.json manifest.",
+          }),
+        );
+      }
+    });
+  });
+
+  yield* handle.stop(`Validated ${extensionNames.length} extension(s)`);
+
+  // Step 5: Determine target registry
   const registrySources = yield* ws.getConfiguredRegistrySources(Option.none()).pipe(
     Effect.mapError((e) =>
       makeCliError({
@@ -142,25 +183,25 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
     onSome: (name) => name,
   });
 
-  // Step 5: Build plan with a single PublishSkillOperation
-  const steps: PlannedJobStep<PublishSkillOperation>[] = [
-    {
-      _tag: "PlannedJobStep",
-      operation: {
-        name: "publish-skill",
-        args: {
-          name: extensionName,
-          registryName,
-        },
-      } satisfies PublishSkillOperation,
-      expectedResult: { result: "success", message: `Published ${extensionName}` },
-      label: `Publish ${extensionName}`,
-    },
-  ];
+  // Step 6: Build multi-step plan
+  const steps: PlannedJobStep<PublishSkillOperation>[] = extensionNames.map((extName) => ({
+    _tag: "PlannedJobStep" as const,
+    operation: {
+      name: "publish-skill",
+      args: { name: extName, registryName },
+    } satisfies PublishSkillOperation,
+    expectedResult: { result: "success" as const, message: `Published ${extName}` },
+    label: `Publish ${extName}`,
+  }));
+
+  const description =
+    extensionNames.length === 1
+      ? `Publish ${extensionNames[0]} to registry "${registryName}"`
+      : `Publish ${extensionNames.length} skills to registry "${registryName}"`;
 
   const plan = {
     name: "Publish skill",
-    description: Option.some(`Publish ${extensionName} to registry "${registryName}"`),
+    description: Option.some(description),
     jobs: [{ steps, concurrency: 1 as const }],
   };
 

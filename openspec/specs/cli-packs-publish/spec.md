@@ -1,8 +1,10 @@
-## ADDED Requirements
+## Requirements
 
 ### Requirement: Publish pack to registry
 
 `axm packs publish <pack>` SHALL publish a pack to a registry following the same flow as skill publishing.
+
+The command SHALL accept an `--include-dependencies` flag (shorthand `-d`, default `false`) that causes locally managed dependency extensions to be published alongside the pack.
 
 #### Scenario: Publish pack to default registry
 
@@ -34,6 +36,18 @@
 - **WHEN** the same version with a different integrity is published
 - **AND** `--force` is not provided
 - **THEN** the command fails with a `CliError` indicating the version already exists with a different integrity
+
+#### Scenario: Publish with --include-dependencies flag
+
+- **WHEN** user runs `axm packs publish @acme/frontend-tools --include-dependencies`
+- **THEN** locally managed dependency extensions are published before the pack
+- **AND** the pack is published to the registry
+
+#### Scenario: Publish without --include-dependencies flag
+
+- **WHEN** user runs `axm packs publish @acme/frontend-tools`
+- **THEN** only the pack is published (no dependency extensions are published)
+- **AND** behavior is identical to the current implementation
 
 ### Requirement: Archive includes all pack files
 

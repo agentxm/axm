@@ -15,7 +15,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { DisableSkillOperation } from "../operations.js";
-import type { Plan } from "../../../workspace/plan.js";
+import { buildSingleStepPlan } from "../plan-helpers.js";
 import { disableSkill } from "./disable-skill.js";
 
 // -----------------------------------------------------------------------------
@@ -94,24 +94,14 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     args: { skillName: args.name },
   } satisfies DisableSkillOperation;
 
-  // Build single-step plan
-  const plan: Plan<DisableSkillOperation> = {
+  // Build and resolve single-step plan
+  const plan = buildSingleStepPlan({
+    operation: op,
     name: "Disable skill",
-    description: Option.some(`Disable ${args.name}`),
-    jobs: [
-      {
-        concurrency: 1,
-        steps: [
-          {
-            _tag: "PlannedJobStep",
-            operation: op,
-            expectedResult: { result: "success", message: `Disabled ${args.name}` },
-            label: args.name,
-          },
-        ],
-      },
-    ],
-  };
+    description: `Disable ${args.name}`,
+    label: args.name,
+    expectedMessage: `Disabled ${args.name}`,
+  });
 
   yield* ws.resolvePlan(plan, { "disable-skill": disableSkill });
 

@@ -13,7 +13,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { EnableSkillOperation } from "../operations.js";
-import type { Plan } from "../../../workspace/plan.js";
+import { buildSingleStepPlan } from "../plan-helpers.js";
 import { enableSkill } from "./enable-skill.js";
 
 // -----------------------------------------------------------------------------
@@ -81,24 +81,14 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     args: { skillName: args.name },
   } satisfies EnableSkillOperation;
 
-  // Build single-step plan
-  const plan: Plan<EnableSkillOperation> = {
+  // Build and resolve single-step plan
+  const plan = buildSingleStepPlan({
+    operation: op,
     name: "Enable skill",
-    description: Option.some(`Enable ${args.name}`),
-    jobs: [
-      {
-        concurrency: 1,
-        steps: [
-          {
-            _tag: "PlannedJobStep",
-            operation: op,
-            expectedResult: { result: "success", message: `Enabled ${args.name}` },
-            label: args.name,
-          },
-        ],
-      },
-    ],
-  };
+    description: `Enable ${args.name}`,
+    label: args.name,
+    expectedMessage: `Enabled ${args.name}`,
+  });
 
   yield* ws.resolvePlan(plan, { "enable-skill": enableSkill });
 

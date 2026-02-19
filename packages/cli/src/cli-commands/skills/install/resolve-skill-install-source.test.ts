@@ -184,7 +184,7 @@ describe("resolveSkillInstallSource", () => {
         parseInputOrThrow("@acme/skills/my-skill"),
       ).pipe(Effect.flip, Effect.provide(provideTestLayers(sources)));
       expect(error._tag).toBe("CliError");
-      expect(error.what).toContain('No registry source contains scope "@acme"');
+      expect(error.what).toContain('configured registry sources contain scope "@acme"');
     });
   });
 });

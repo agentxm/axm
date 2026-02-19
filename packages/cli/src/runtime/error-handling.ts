@@ -1,7 +1,7 @@
 import { type CliError, renderCliError } from "../cli-error/index.js";
 import type { PromptCancelled } from "../tui/index.js";
 
-export type ErrorClassification =
+type ErrorClassification =
   | { readonly exitCode: 0 }
   | { readonly exitCode: 1; readonly message: string };
 

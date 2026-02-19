@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import { expandGlobs } from "../../../skills/index.js";
+import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
 import { computePackPaths } from "../pack-paths.js";
 import { PACK_MANIFEST_FILENAME, type RawPackManifest } from "../constants.js";
 
@@ -98,7 +98,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
   const allNames = allEntries.map((e) => e.name);
 
   // Step 4: Match extensions by name or glob
-  const isGlob = args.extension.includes("*");
+  const isGlob = isGlobPattern(args.extension);
   const matchedNames = isGlob
     ? expandGlobs([args.extension], allNames)
     : allNames.includes(args.extension)

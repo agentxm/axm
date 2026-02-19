@@ -11,7 +11,6 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import { makeCliError } from "../../../cli-error/index.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 import { SourceHostProviders } from "../../../sources/index.js";
 import { Log } from "../../../tui/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
@@ -19,6 +18,7 @@ import type { OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import { copySkillDirectory } from "../../skills/copy-skill-directory.js";
 import type { InstallPackOperation } from "../operations.js";
+import { computePackPaths } from "../pack-paths.js";
 
 /**
  * Install-pack operation handler.
@@ -50,13 +50,8 @@ export const installPack: OperationHandler<
     );
 
     // Extract to managed location
-    const packDir = path.join(
-      ws.baseDir,
-      REGISTRY_EXTENSIONS_DIR,
-      op.args.scope,
-      "packs",
-      op.args.packName,
-    );
+    const packDir = computePackPaths(path.join, ws.baseDir, op.args.scope, op.args.packName)
+      .canonicalPath;
 
     yield* copySkillDirectory(fetched.directory, packDir).pipe(
       Effect.mapError((e) =>

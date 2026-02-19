@@ -20,9 +20,10 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
-import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 import { formatFqn, parseFqn } from "../../../extensions/index.js";
-import { publishPack, type PublishPackOperation } from "./publish-pack.js";
+import { publishPack } from "./publish-pack.js";
+import type { PublishPackOperation } from "../operations.js";
+import { computePackPaths } from "../pack-paths.js";
 import { PACK_MANIFEST_FILENAME } from "../constants.js";
 
 // -----------------------------------------------------------------------------
@@ -84,7 +85,7 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
 
   // Step 3: Validate managed pack exists
   const handle = yield* spinnerSvc.start("Validating pack...");
-  const packDir = path.join(base, REGISTRY_EXTENSIONS_DIR, fqn.scope, "packs", fqn.name);
+  const packDir = computePackPaths(path.join, base, fqn.scope, fqn.name).canonicalPath;
   const packDirExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
 
   if (!packDirExists) {

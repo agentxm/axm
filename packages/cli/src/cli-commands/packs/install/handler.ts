@@ -147,14 +147,15 @@ export const parsePackInput = (input: string) =>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const handleInstallPack = (args: InstallPackHandlerArgs) => {
+export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
+  args: InstallPackHandlerArgs,
+) {
   const scopeLabel = args.global ? "global" : "project";
 
-  return Effect.gen(function* () {
-    const ws = yield* Workspace;
-    const sources = yield* SourceHostProviders;
-    const log = yield* Log;
-    const spinnerSvc = yield* Spinner;
+  const ws = yield* Workspace;
+  const sources = yield* SourceHostProviders;
+  const log = yield* Log;
+  const spinnerSvc = yield* Spinner;
 
     yield* log.info(`axm packs install (${scopeLabel})`);
 
@@ -203,8 +204,8 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     const discoverHandle = yield* spinnerSvc.start("Fetching pack from registry...");
     const refs = yield* sources
       .find(source, {
-        skillNames: [packName] satisfies ReadonlyArray<string>,
-        type: "pack" as const,
+        skillNames: [packName],
+        type: "pack",
       })
       .pipe(
         Effect.mapError((error) =>
@@ -254,5 +255,4 @@ export const handleInstallPack = (args: InstallPackHandlerArgs) => {
     yield* ws.resolvePlan(plan, { "install-pack": installPack, "install-skill": installSkill });
 
     yield* log.success("Done");
-  }).pipe(Effect.withSpan("InstallPack.handle"));
-};
+});

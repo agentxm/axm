@@ -20,6 +20,7 @@ import { Workspace } from "../../../workspace/service.js";
 import type { UninstallPackOperation } from "../operations.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 import { parseFqn } from "../../../extensions/index.js";
+import { computePackPaths } from "../pack-paths.js";
 import { removeIfExists } from "../../skills/fs-helpers.js";
 import { sanitizeName } from "../../skills/install/skill-utils.js";
 import { findOrphanedSkills } from "./build-plan.js";
@@ -61,13 +62,8 @@ export const uninstallPack: OperationHandler<
     const lockedPack = lockedPackOpt.value;
 
     // Remove pack directory from disk
-    const packDir = path.join(
-      base,
-      REGISTRY_EXTENSIONS_DIR,
-      lockedPack.scope,
-      "packs",
-      lockedPack.name,
-    );
+    const packDir = computePackPaths(path.join, base, lockedPack.scope, lockedPack.name)
+      .canonicalPath;
     yield* removeIfExists(fs, packDir);
 
     // Detect orphaned skills
@@ -87,11 +83,10 @@ export const uninstallPack: OperationHandler<
     }
     // Map FQN keys from the removed pack's resolvedSkills back to simple names
     // so direct entries (keyed by simple name) prevent orphan removal
-    const fqnParts = /^@[\w-]+\/(?:skills|packs|commands|mcp-servers)\/([\w-]+)$/;
-    for (const fqn of Object.keys(lockedPack.resolvedSkills)) {
-      const match = fqnParts.exec(fqn);
-      if (match?.[1] && match[1] in configuredSkillsNormalized) {
-        configuredSkillKeys[fqn] = "";
+    for (const fqnKey of Object.keys(lockedPack.resolvedSkills)) {
+      const parsed = yield* parseFqn(fqnKey).pipe(Effect.option);
+      if (Option.isSome(parsed) && parsed.value.name in configuredSkillsNormalized) {
+        configuredSkillKeys[fqnKey] = "";
       }
     }
     const orphanedSkills = findOrphanedSkills(lockedPack, remainingPacks, configuredSkillKeys);
@@ -156,4 +151,11 @@ export const uninstallPack: OperationHandler<
       result: "success",
       message: `Uninstalled pack ${op.args.packName}`,
     } satisfies OperationResult;
-  });
+  }).pipe(
+    Effect.catchAll((error) =>
+      Effect.succeed({
+        result: "error",
+        message: `Failed to uninstall pack: ${error.what}`,
+      } satisfies OperationResult),
+    ),
+  );

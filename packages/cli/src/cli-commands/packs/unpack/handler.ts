@@ -176,7 +176,7 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
   };
 
   yield* ws.resolvePlan(plan, {
-    "unpack-pack": unpackPack as OperationHandler<UnpackPackOperation, never>,
+    "unpack-pack": unpackPack,
   });
 
   yield* log.success("Done");

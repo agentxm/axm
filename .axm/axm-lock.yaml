@@ -1,8 +1,12 @@
 lockfileVersion: 1
 skills:
   effect-testing:
-    type: local
-    path: ./test
+    type: registry
+    scope: "@axm"
+    name: effect-testing
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
     agents:
       - amp
       - antigravity
@@ -12,11 +16,15 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T15:33:15.443Z
-    updatedAt: 2026-02-19T15:33:15.448Z
+    installedAt: 2026-02-19T15:35:17.188Z
+    updatedAt: 2026-02-19T15:35:17.190Z
   effect-wrapping:
-    type: local
-    path: ./test
+    type: registry
+    scope: "@axm"
+    name: effect-wrapping
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
     agents:
       - amp
       - antigravity
@@ -26,11 +34,15 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T15:33:15.454Z
-    updatedAt: 2026-02-19T15:33:15.458Z
+    installedAt: 2026-02-19T15:35:17.204Z
+    updatedAt: 2026-02-19T15:35:17.206Z
   effect-schema:
-    type: local
-    path: ./test
+    type: registry
+    scope: "@axm"
+    name: effect-schema
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
     agents:
       - amp
       - antigravity
@@ -40,11 +52,15 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T15:33:15.461Z
-    updatedAt: 2026-02-19T15:33:15.466Z
+    installedAt: 2026-02-19T15:35:17.137Z
+    updatedAt: 2026-02-19T15:35:17.139Z
   effect-service:
-    type: local
-    path: ./test
+    type: registry
+    scope: "@axm"
+    name: effect-service
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
     agents:
       - amp
       - antigravity
@@ -54,11 +70,15 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T15:33:15.469Z
-    updatedAt: 2026-02-19T15:33:15.471Z
+    installedAt: 2026-02-19T15:35:17.153Z
+    updatedAt: 2026-02-19T15:35:17.155Z
   effect-collections:
-    type: local
-    path: ./test
+    type: registry
+    scope: "@axm"
+    name: effect-collections
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
     agents:
       - amp
       - antigravity
@@ -68,11 +88,15 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T15:33:15.475Z
-    updatedAt: 2026-02-19T15:33:15.477Z
+    installedAt: 2026-02-19T15:35:17.045Z
+    updatedAt: 2026-02-19T15:35:17.047Z
   effect-iteration:
-    type: local
-    path: ./test
+    type: registry
+    scope: "@axm"
+    name: effect-iteration
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
     agents:
       - amp
       - antigravity
@@ -82,8 +106,8 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T15:33:15.480Z
-    updatedAt: 2026-02-19T15:33:15.482Z
+    installedAt: 2026-02-19T15:35:17.106Z
+    updatedAt: 2026-02-19T15:35:17.108Z
   testing-unit:
     type: local
     path: ./test
@@ -99,8 +123,12 @@ skills:
     installedAt: 2026-02-19T15:33:15.488Z
     updatedAt: 2026-02-19T15:33:15.490Z
   effect-basics:
-    type: local
-    path: ./test
+    type: registry
+    scope: "@axm"
+    name: effect-basics
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
     agents:
       - amp
       - antigravity
@@ -110,8 +138,8 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T15:33:15.493Z
-    updatedAt: 2026-02-19T15:33:15.495Z
+    installedAt: 2026-02-19T15:35:17.024Z
+    updatedAt: 2026-02-19T15:35:17.026Z
   testing-handler:
     type: local
     path: ./test
@@ -127,8 +155,12 @@ skills:
     installedAt: 2026-02-19T15:33:15.498Z
     updatedAt: 2026-02-19T15:33:15.499Z
   effect-option:
-    type: local
-    path: ./test
+    type: registry
+    scope: "@axm"
+    name: effect-option
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
     agents:
       - amp
       - antigravity
@@ -138,11 +170,15 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T15:33:15.518Z
-    updatedAt: 2026-02-19T15:33:15.520Z
+    installedAt: 2026-02-19T15:35:17.119Z
+    updatedAt: 2026-02-19T15:35:17.122Z
   effect-filesystem:
-    type: local
-    path: ./test
+    type: registry
+    scope: "@axm"
+    name: effect-filesystem
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
     agents:
       - amp
       - antigravity
@@ -152,11 +188,15 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T15:33:15.525Z
-    updatedAt: 2026-02-19T15:33:15.527Z
+    installedAt: 2026-02-19T15:35:17.091Z
+    updatedAt: 2026-02-19T15:35:17.093Z
   effect-concurrency:
-    type: local
-    path: ./test
+    type: registry
+    scope: "@axm"
+    name: effect-concurrency
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
     agents:
       - amp
       - antigravity
@@ -166,8 +206,8 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T15:33:15.530Z
-    updatedAt: 2026-02-19T15:33:15.531Z
+    installedAt: 2026-02-19T15:35:17.061Z
+    updatedAt: 2026-02-19T15:35:17.063Z
   testing-basics:
     type: local
     path: ./test
@@ -182,6 +222,42 @@ skills:
       - opencode
     installedAt: 2026-02-19T15:33:15.534Z
     updatedAt: 2026-02-19T15:33:15.536Z
+  effect-errors:
+    type: registry
+    scope: "@axm"
+    name: effect-errors
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T15:35:17.075Z
+    updatedAt: 2026-02-19T15:35:17.078Z
+  effect-stream:
+    type: registry
+    scope: "@axm"
+    name: effect-stream
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-19T15:35:17.170Z
+    updatedAt: 2026-02-19T15:35:17.172Z
 packs:
   effect:
     type: registry

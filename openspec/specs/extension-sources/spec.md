@@ -1,16 +1,16 @@
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Source string format
 
 Source strings SHALL follow these formats:
 
-| Source   | Format                                 | Examples                                         |
-| -------- | -------------------------------------- | ------------------------------------------------ |
-| registry | `@scope/name` or `@scope/name@version` | `@acme/my-skill`, `@acme/my-skill@1.0.0`         |
-| github   | `github:owner/repo[/path][#ref]`       | `github:acme/skills`, `github:acme/repo/path#v1` |
-| git      | `git:url[#ref]`                        | `git:https://example.com/repo.git#main`          |
-| local    | bare path (no prefix)                  | `./skills`, `~/my-skills`, `/absolute/path`      |
-| local    | `file://` URL                          | `file:///absolute/path/to/skill`                 |
+| Source   | Format                                                         | Examples                                              |
+| -------- | -------------------------------------------------------------- | ----------------------------------------------------- |
+| registry | `@scope/type-plural/name` or `@scope/type-plural/name@version` | `@acme/skills/my-skill`, `@acme/packs/frontend@1.0.0` |
+| github   | `github:owner/repo[/path][#ref]`                               | `github:acme/skills`, `github:acme/repo/path#v1`      |
+| git      | `git:url[#ref]`                                                | `git:https://example.com/repo.git#main`               |
+| local    | bare path (no prefix)                                          | `./skills`, `~/my-skills`, `/absolute/path`           |
+| local    | `file://` URL                                                  | `file:///absolute/path/to/skill`                      |
 
 Bare paths starting with `./`, `../`, `/`, `~/`, or Windows drive letters (e.g., `C:\`) are recognized as local sources and stored as-is (not normalized with a prefix).
 
@@ -24,20 +24,38 @@ HTTPS and SSH URLs (e.g., `https://github.com/owner/repo`, `git@github.com:owner
 
 The `RegistrySourceParams.scope` field SHALL always be `@`-prefixed (e.g., `"@acme"`, not `"acme"`). The parser SHALL preserve the `@` prefix from the input pattern. No downstream normalization SHALL be required.
 
-#### Scenario: Registry source string
+Registry source strings SHALL always include the type segment (`skills`, `packs`, or `mcp-servers`). The legacy two-segment format `@scope/name` SHALL NOT be recognized as a registry pattern. Input matching this legacy format SHALL fall through to other pattern matchers (e.g., slash pattern for `owner/repo`).
 
-- **WHEN** parsing source string `@acme/my-skill@^1.0.0`
-- **THEN** source type is `registry` with scope `@acme`, name `my-skill`, versionConstraint `^1.0.0`
+#### Scenario: Registry source string with type segment
+
+- **WHEN** parsing source string `@acme/skills/my-skill@^1.0.0`
+- **THEN** source type is `registry` with scope `@acme`, name `my-skill`, type `skills`, versionConstraint `^1.0.0`
 
 #### Scenario: Registry source scope is @-prefixed
 
-- **WHEN** parsing source string `@community/my-skill`
+- **WHEN** parsing source string `@community/skills/my-skill`
 - **THEN** the `RegistrySourceParams` has `scope: "@community"` (not `"community"`)
 
 #### Scenario: Registry source resolves host from config
 
 - **WHEN** a `RegistrySource` is fully resolved
 - **THEN** it has `url` and `scopes` from the matched `RegistrySourceHost` config, plus `scope`, `name`, and `versionConstraint` from parsed params
+
+#### Scenario: Registry scope-only pattern
+
+- **WHEN** parsing source string `@acme`
+- **THEN** the result is a registry pattern with scope `@acme`, type `None`, name `None`
+
+#### Scenario: Registry scope+type pattern
+
+- **WHEN** parsing source string `@acme/skills`
+- **THEN** the result is a registry pattern with scope `@acme`, type `Some("skills")`, name `None`
+
+#### Scenario: Two-segment input not recognized as registry
+
+- **WHEN** parsing source string `@acme/my-skill` (no type segment)
+- **THEN** the input SHALL NOT be classified as a registry pattern
+- **AND** SHALL fall through to other pattern matchers
 
 #### Scenario: GitHub source string with path and ref
 
@@ -82,57 +100,6 @@ The `RegistrySourceParams.scope` field SHALL always be `@`-prefixed (e.g., `"@ac
 - **THEN** the input is classified as `GitScpAddress` (not resolved to a source type)
 - **AND** source type determination happens in `resolveSource` via config matching
 
-### Requirement: Source configuration schema
-
-Settings SHALL use a `sources` array of named entries. Each entry is a `SourceHostConfig` — the settings `name` wrapping a `ConfiguredSourceHost`. The on-disk format is unchanged. `SourceConfig` is renamed to `SourceHostConfig`.
-
-`SourceHostConfig` is defined in `settings/schema.ts` and wraps `ConfiguredSourceHost` (from `sources/types.ts`) with a user-assigned `name` label.
-
-Supported config types: `github`, `gitlab`, `bitbucket`, `azurerepos`, `registry`. Self-describing types (`git`, `local`, `builtin`) do not appear in settings.
-
-#### Scenario: Array replaces object
-
-- **WHEN** settings has `"sources": [{ "name": "local", "type": "registry", "url": "file:///path/to/registry" }]`
-- **THEN** the sources are parsed as a `SourceHostConfig` array
-
-#### Scenario: Git and local sources not in config
-
-- **WHEN** the sources array is configured
-- **THEN** `git`, `local`, and `builtin` source types do not appear (coordinates come from the source string)
-
-#### Scenario: Config name stays in settings layer
-
-- **WHEN** a `SourceHostConfig` is created
-- **THEN** `name` is a settings concern — it does NOT appear on the domain `SourceHost` type
-
-### Requirement: Registry SourceHost schema with scopes
-
-The `RegistrySourceHostConfig` schema SHALL encode/decode registry scopes using `Schema.optionFromNullishOr`. The on-disk format is unchanged — `scopes` remains an optional JSON array. The schema handles `undefined | string[] ↔ Option<ReadonlyArray<string>>` conversion.
-
-#### Scenario: Registry config with scopes
-
-- **WHEN** settings JSON has `{ "name": "corp", "type": "registry", "url": "https://registry.corp.com", "scopes": ["@corp"] }`
-- **THEN** the decoded `RegistrySourceHost` has `scopes: Some(["@corp"])`
-
-#### Scenario: Registry config without scopes
-
-- **WHEN** settings JSON has `{ "name": "public", "type": "registry", "url": "https://registry.example.com" }`
-- **THEN** the decoded `RegistrySourceHost` has `scopes: None`
-
-#### Scenario: URL fields decoded as URL objects
-
-- **WHEN** a `SourceHostConfig` is decoded from settings JSON
-- **THEN** the `url` field is a `URL` object (decoded from string via `Schema.URL` or `Schema.transform`)
-
-### Requirement: Scope field in settings
-
-Settings SHALL support a top-level `scope` field providing the default scope for extension identity.
-
-#### Scenario: Scope used by fork and publish
-
-- **WHEN** settings has `"scope": "@acme"`
-- **THEN** `getScope()` returns `"@acme"` without prompting
-
 ### Requirement: Print source input canonical string
 
 `printSourceInput` SHALL be replaced by `SourceHostProvidersService.origin()`. The service method SHALL accept a `Source` and return a human-readable canonical string for all 8 source types.
@@ -144,7 +111,7 @@ Settings SHALL support a top-level `scope` field providing the default scope for
 | bitbucket  | `bitbucket:<owner>/<repo>[/<subPath>][@<ref>]`          | `bitbucket:acme/repo`             |
 | azurerepos | `azurerepos:<org>/<project>/<repo>[/<subPath>][@<ref>]` | `azurerepos:acme/proj/repo@main`  |
 | git        | URL href                                                | `https://example.com/repo.git`    |
-| registry   | `<scope>/<name>`                                        | `@acme/my-skill`                  |
+| registry   | `<scope>/<type-plural>/<name>`                          | `@acme/skills/my-skill`           |
 | local      | path as-is                                              | `./my-skills/dev-skill`           |
 | builtin    | `builtin`                                               | `builtin`                         |
 
@@ -155,19 +122,10 @@ Settings SHALL support a top-level `scope` field providing the default scope for
 
 #### Scenario: Origin for registry source
 
-- **WHEN** `origin` is called with a `RegistrySource` with scope `@acme` and name `my-skill`
-- **THEN** the result is `@acme/my-skill`
+- **WHEN** `origin` is called with a `RegistrySource` with scope `@acme`, type `skills`, and name `my-skill`
+- **THEN** the result is `@acme/skills/my-skill`
 
 #### Scenario: Origin for builtin source
 
 - **WHEN** `origin` is called with a `BuiltinSource`
 - **THEN** the result is `builtin`
-
-### Requirement: No Source re-export from resolution module
-
-The `resolution` module SHALL NOT re-export `SourceType` as `Source`. Consumers that need `SourceType` SHALL import it from `sources/`.
-
-#### Scenario: Resolution types do not alias Source
-
-- **WHEN** inspecting `resolution/types.ts` exports
-- **THEN** there is no `Source` type export

@@ -157,102 +157,102 @@ export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
   const log = yield* Log;
   const spinnerSvc = yield* Spinner;
 
-    yield* log.info(`axm packs install (${scopeLabel})`);
+  yield* log.info(`axm packs install (${scopeLabel})`);
 
-    // Step 1: Parse and validate input
-    const parseHandle = yield* spinnerSvc.start("Parsing source...");
-    const { scope, packName, versionConstraint, resolvedInput } = yield* parsePackInput(
-      args.source,
-    ).pipe(Effect.tapError(() => parseHandle.stop("Failed")));
-    yield* parseHandle.stop(`Pack: ${scope}/packs/${packName}`);
+  // Step 1: Parse and validate input
+  const parseHandle = yield* spinnerSvc.start("Parsing source...");
+  const { scope, packName, versionConstraint, resolvedInput } = yield* parsePackInput(
+    args.source,
+  ).pipe(Effect.tapError(() => parseHandle.stop("Failed")));
+  yield* parseHandle.stop(`Pack: ${scope}/packs/${packName}`);
 
-    // Step 2: Check if already installed (unless --force)
-    if (!args.force) {
-      const lockedPack = yield* ws.getLockedPack(packName);
-      if (Option.isSome(lockedPack)) {
-        yield* log.warn(`Pack "${packName}" is already installed. Use --force to overwrite.`);
-        yield* log.success("Nothing to install.");
-        return;
-      }
+  // Step 2: Check if already installed (unless --force)
+  if (!args.force) {
+    const lockedPack = yield* ws.getLockedPack(packName);
+    if (Option.isSome(lockedPack)) {
+      yield* log.warn(`Pack "${packName}" is already installed. Use --force to overwrite.`);
+      yield* log.success("Nothing to install.");
+      return;
     }
+  }
 
-    // Step 3: Resolve source and registry guard
-    const source = yield* resolveSource(resolvedInput).pipe(
+  // Step 3: Resolve source and registry guard
+  const source = yield* resolveSource(resolvedInput).pipe(
+    Effect.mapError((error) =>
+      makeCliError({
+        code: "INVALID_SOURCE",
+        what: `Invalid source: ${error.message}`,
+        details: [`Provided: ${args.source || "(empty)"}`],
+        howToFix: "Use @scope/packs/pack-name or just pack-name.",
+        cause: error,
+      }),
+    ),
+  );
+
+  if (source.type !== "registry") {
+    return yield* makeCliError({
+      code: "PACK_SOURCE_NOT_REGISTRY",
+      what: "Packs can only be installed from a registry",
+      details: [`Provided source type: ${source.type}`],
+      howToFix: "Use a registry source: @scope/packs/pack-name",
+    });
+  }
+
+  yield* registryGuard;
+
+  // Step 4: Discover pack from registry
+  const discoverHandle = yield* spinnerSvc.start("Fetching pack from registry...");
+  const refs = yield* sources
+    .find(source, {
+      skillNames: [packName],
+      type: "pack",
+    })
+    .pipe(
       Effect.mapError((error) =>
         makeCliError({
-          code: "INVALID_SOURCE",
-          what: `Invalid source: ${error.message}`,
-          details: [`Provided: ${args.source || "(empty)"}`],
-          howToFix: "Use @scope/packs/pack-name or just pack-name.",
+          code: "PACK_FETCH_FAILED",
+          what: `Failed to fetch pack from registry: ${error.message}`,
+          details: [`Pack: ${scope}/packs/${packName}`],
+          howToFix: "Verify the pack name and registry configuration.",
           cause: error,
         }),
       ),
+      Effect.tapError(() => discoverHandle.stop("Failed")),
     );
 
-    if (source.type !== "registry") {
-      return yield* makeCliError({
-        code: "PACK_SOURCE_NOT_REGISTRY",
-        what: "Packs can only be installed from a registry",
-        details: [`Provided source type: ${source.type}`],
-        howToFix: "Use a registry source: @scope/packs/pack-name",
-      });
-    }
-
-    yield* registryGuard;
-
-    // Step 4: Discover pack from registry
-    const discoverHandle = yield* spinnerSvc.start("Fetching pack from registry...");
-    const refs = yield* sources
-      .find(source, {
-        skillNames: [packName],
-        type: "pack",
-      })
-      .pipe(
-        Effect.mapError((error) =>
-          makeCliError({
-            code: "PACK_FETCH_FAILED",
-            what: `Failed to fetch pack from registry: ${error.message}`,
-            details: [`Pack: ${scope}/packs/${packName}`],
-            howToFix: "Verify the pack name and registry configuration.",
-            cause: error,
-          }),
-        ),
-        Effect.tapError(() => discoverHandle.stop("Failed")),
-      );
-
-    if (refs.length === 0) {
-      yield* discoverHandle.stop("Not found");
-      return yield* makeCliError({
-        code: "PACK_NOT_FOUND",
-        what: `Pack "${packName}" not found in registry`,
-        howToFix: "Verify the pack name and check available packs.",
-      });
-    }
-
-    const packRef = refs[0]!;
-    if (packRef.type !== "pack" || packRef.refType !== "registry") {
-      return yield* makeCliError({
-        code: "PACK_FETCH_FAILED",
-        what: "Registry did not return a valid pack reference",
-      });
-    }
-    yield* discoverHandle.stop("Found pack");
-
-    // Step 5: Build and execute plan
-    const lockedPacks = yield* ws.getLockedPacks();
-    const lockedSkills = yield* ws.getLockedSkills();
-    const lockfile = { lockfileVersion: 1, skills: lockedSkills, packs: lockedPacks };
-
-    const plan = buildInstallPlan({
-      ref: packRef,
-      skillOps: [],
-      lockfile,
-      name: "Install pack",
-      description: Option.some(`Install pack ${scope}/packs/${packName}`),
-      versionConstraint,
+  if (refs.length === 0) {
+    yield* discoverHandle.stop("Not found");
+    return yield* makeCliError({
+      code: "PACK_NOT_FOUND",
+      what: `Pack "${packName}" not found in registry`,
+      howToFix: "Verify the pack name and check available packs.",
     });
+  }
 
-    yield* ws.resolvePlan(plan, { "install-pack": installPack, "install-skill": installSkill });
+  const packRef = refs[0]!;
+  if (packRef.type !== "pack" || packRef.refType !== "registry") {
+    return yield* makeCliError({
+      code: "PACK_FETCH_FAILED",
+      what: "Registry did not return a valid pack reference",
+    });
+  }
+  yield* discoverHandle.stop("Found pack");
 
-    yield* log.success("Done");
+  // Step 5: Build and execute plan
+  const lockedPacks = yield* ws.getLockedPacks();
+  const lockedSkills = yield* ws.getLockedSkills();
+  const lockfile = { lockfileVersion: 1, skills: lockedSkills, packs: lockedPacks };
+
+  const plan = buildInstallPlan({
+    ref: packRef,
+    skillOps: [],
+    lockfile,
+    name: "Install pack",
+    description: Option.some(`Install pack ${scope}/packs/${packName}`),
+    versionConstraint,
+  });
+
+  yield* ws.resolvePlan(plan, { "install-pack": installPack, "install-skill": installSkill });
+
+  yield* log.success("Done");
 });

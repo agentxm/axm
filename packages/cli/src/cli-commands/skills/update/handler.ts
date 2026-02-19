@@ -87,241 +87,241 @@ export interface UpdateHandlerArgs {
 export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHandlerArgs) {
   const scopeLabel = args.global ? "global" : "project";
 
-  return yield* Effect.gen(function* () {
-    const ws = yield* Workspace;
-    const sources = yield* SourceHostProviders;
-    const log = yield* Log;
-    const spinnerSvc = yield* Spinner;
+  const ws = yield* Workspace;
+  const sources = yield* SourceHostProviders;
+  const log = yield* Log;
+  const spinnerSvc = yield* Spinner;
 
-    yield* log.info(`axm skills update (${scopeLabel})`);
+  yield* log.info(`axm skills update (${scopeLabel})`);
 
-    // Step 1: Load all configured skills and filter to managed + enabled
-    const allSkills = yield* ws.getConfiguredSkills();
-    const lockedSkills = yield* ws.getLockedSkills();
+  // Step 1: Load all configured skills and filter to managed + enabled
+  const allSkills = yield* ws.getConfiguredSkills();
+  const lockedSkills = yield* ws.getLockedSkills();
 
-    const skillEntries: Array<[string, string]> = [];
-    for (const [name, entry] of Object.entries(allSkills)) {
-      if (!entry.managed) {
-        yield* log.info(`Skipping ${name} (unmanaged)`);
-        continue;
-      }
-      if (!entry.enabled) {
-        yield* log.info(`Skipping ${name} (disabled)`);
-        continue;
-      }
-      // Managed + enabled entries always have Some source
-      const source = Option.getOrThrow(entry.source);
-      skillEntries.push([name, source]);
+  const skillEntries: Array<[string, string]> = [];
+  for (const [name, entry] of Object.entries(allSkills)) {
+    if (!entry.managed) {
+      yield* log.info(`Skipping ${name} (unmanaged)`);
+      continue;
     }
+    if (!entry.enabled) {
+      yield* log.info(`Skipping ${name} (disabled)`);
+      continue;
+    }
+    // Managed + enabled entries always have Some source
+    const source = Option.getOrThrow(entry.source);
+    skillEntries.push([name, source]);
+  }
 
-    if (skillEntries.length === 0) {
-      yield* log.info("No skills installed. Nothing to update.");
+  if (skillEntries.length === 0) {
+    yield* log.info("No skills installed. Nothing to update.");
+    return;
+  }
+
+  // Step 2: Filter by source argument if provided
+  const sourceValue = Option.getOrUndefined(args.source);
+  const sourceFilteredEntries =
+    sourceValue !== undefined
+      ? yield* Effect.gen(function* () {
+          const sourceArg = yield* resolveSource(sourceValue).pipe(
+            Effect.mapError((error) =>
+              makeCliError({
+                code: "INVALID_SOURCE",
+                what: `Invalid source: ${error.message}`,
+                details: [`Provided: ${sourceValue}`],
+                cause: error,
+              }),
+            ),
+          );
+          // Compare sources by identity using canonical origin string
+          const sourceArgOrigin = sources.origin(sourceArg);
+          return yield* Effect.forEach(
+            skillEntries,
+            ([name, sourceStr]) =>
+              resolveSource(sourceStr).pipe(
+                Effect.map((resolved) =>
+                  sources.origin(resolved) === sourceArgOrigin
+                    ? Option.some([name, sourceStr] as [string, string])
+                    : Option.none<[string, string]>(),
+                ),
+                Effect.catchAll(() => Effect.succeed(Option.none<[string, string]>())),
+              ),
+            { concurrency: "unbounded" },
+          ).pipe(Effect.map(Array.getSomes));
+        })
+      : skillEntries;
+
+  // Step 3: Filter by --skill glob patterns
+  const filteredEntries = (() => {
+    if (args.skills.length === 0) return sourceFilteredEntries;
+    const allNames = sourceFilteredEntries.map(([name]) => name);
+    const matchedNames = expandGlobs(args.skills, allNames);
+    const matchedSet = new Set(matchedNames);
+    return sourceFilteredEntries.filter(([name]) => matchedSet.has(name));
+  })();
+  if (args.skills.length > 0) {
+    if (filteredEntries.length === 0) {
+      yield* log.warn("No installed skills match the --skill filter. Nothing to update.");
       return;
     }
+  }
 
-    // Step 2: Filter by source argument if provided
-    const sourceValue = Option.getOrUndefined(args.source);
-    const sourceFilteredEntries =
-      sourceValue !== undefined
-        ? yield* Effect.gen(function* () {
-            const sourceArg = yield* resolveSource(sourceValue).pipe(
-              Effect.mapError((error) =>
-                makeCliError({
-                  code: "INVALID_SOURCE",
-                  what: `Invalid source: ${error.message}`,
-                  details: [`Provided: ${sourceValue}`],
-                  cause: error,
-                }),
-              ),
-            );
-            // Compare sources by identity using canonical origin string
-            const sourceArgOrigin = sources.origin(sourceArg);
-            return yield* Effect.forEach(
-              skillEntries,
-              ([name, sourceStr]) =>
-                resolveSource(sourceStr).pipe(
-                  Effect.map((resolved) =>
-                    sources.origin(resolved) === sourceArgOrigin
-                      ? Option.some([name, sourceStr] as [string, string])
-                      : Option.none<[string, string]>(),
-                  ),
-                  Effect.catchAll(() => Effect.succeed(Option.none<[string, string]>())),
-                ),
-              { concurrency: "unbounded" },
-            ).pipe(Effect.map(Array.getSomes));
-          })
-        : skillEntries;
+  // Step 4: Collect pack constraints from installed pack manifests
+  const packConstraintMap = yield* collectPackConstraints();
 
-    // Step 3: Filter by --skill glob patterns
-    const filteredEntries = (() => {
-      if (args.skills.length === 0) return sourceFilteredEntries;
-      const allNames = sourceFilteredEntries.map(([name]) => name);
-      const matchedNames = expandGlobs(args.skills, allNames);
-      const matchedSet = new Set(matchedNames);
-      return sourceFilteredEntries.filter(([name]) => matchedSet.has(name));
-    })();
-    if (args.skills.length > 0) {
-      if (filteredEntries.length === 0) {
-        yield* log.warn("No installed skills match the --skill filter. Nothing to update.");
-        return;
-      }
-    }
+  // Step 5: Re-resolve each source and discover skills
+  type ResolveResult =
+    | { type: "match"; ref: SkillExtensionRef }
+    | { type: "rename"; oldName: string; newRef: SkillExtensionRef };
 
-    // Step 4: Collect pack constraints from installed pack manifests
-    const packConstraintMap = yield* collectPackConstraints();
+  const resolveHandle = yield* spinnerSvc.start("Resolving sources...");
+  const results = yield* Effect.forEach(
+    filteredEntries,
+    ([name, sourceStr]) =>
+      Effect.gen(function* () {
+        const source = yield* resolveSource(sourceStr);
 
-    // Step 5: Re-resolve each source and discover skills
-    type ResolveResult =
-      | { type: "match"; ref: SkillExtensionRef }
-      | { type: "rename"; oldName: string; newRef: SkillExtensionRef };
+        // First try with name filter (fast path)
+        const namedRefs = yield* sources.find(source, {
+          skillNames: [name],
+          type: "skill",
+        });
+        const namedSkillRefs = Array.filter(
+          namedRefs,
+          (r): r is SkillExtensionRef => r.type === "skill",
+        );
+        const skillRef = namedSkillRefs.find((r) => r.skill.name === name);
 
-    const resolveHandle = yield* spinnerSvc.start("Resolving sources...");
-    const results = yield* Effect.forEach(
-      filteredEntries,
-      ([name, sourceStr]) =>
-        Effect.gen(function* () {
-          const source = yield* resolveSource(sourceStr);
+        if (skillRef) {
+          return Option.some<ResolveResult>({ type: "match", ref: skillRef });
+        }
 
-          // First try with name filter (fast path)
-          const namedRefs = yield* sources.find(source, {
-            skillNames: [name],
-            type: "skill",
-          });
-          const namedSkillRefs = Array.filter(
-            namedRefs,
-            (r): r is SkillExtensionRef => r.type === "skill",
+        // Skill not found by name — re-resolve without name filter for rename detection
+        const allRefs = yield* sources.find(source, {
+          skillNames: [],
+          type: "skill",
+        });
+        const allSkillRefs = Array.filter(
+          allRefs,
+          (r): r is SkillExtensionRef => r.type === "skill",
+        );
+
+        if (allSkillRefs.length === 1) {
+          // Single-skill source: treat as rename
+          const newRef = allSkillRefs[0]!;
+          return Option.some<ResolveResult>({ type: "rename", oldName: name, newRef });
+        } else if (allSkillRefs.length > 1) {
+          // Multi-skill source: ambiguous rename
+          const availableNames = allSkillRefs.map((r) => r.skill.name).join(", ");
+          yield* log.warn(
+            `Skill "${name}" not found in source. Available skills: ${availableNames}. Use \`axm skills rename ${name} <new-name>\` to update.`,
           );
-          const skillRef = namedSkillRefs.find((r) => r.skill.name === name);
-
-          if (skillRef) {
-            return Option.some<ResolveResult>({ type: "match", ref: skillRef });
-          }
-
-          // Skill not found by name — re-resolve without name filter for rename detection
-          const allRefs = yield* sources.find(source, {
-            skillNames: [],
-            type: "skill",
-          });
-          const allSkillRefs = Array.filter(
-            allRefs,
-            (r): r is SkillExtensionRef => r.type === "skill",
-          );
-
-          if (allSkillRefs.length === 1) {
-            // Single-skill source: treat as rename
-            const newRef = allSkillRefs[0]!;
-            return Option.some<ResolveResult>({ type: "rename", oldName: name, newRef });
-          } else if (allSkillRefs.length > 1) {
-            // Multi-skill source: ambiguous rename
-            const availableNames = allSkillRefs.map((r) => r.skill.name).join(", ");
-            yield* log.warn(
-              `Skill "${name}" not found in source. Available skills: ${availableNames}. Use \`axm skills rename ${name} <new-name>\` to update.`,
-            );
-            return Option.none<ResolveResult>();
-          } else {
-            yield* log.warn(`Skill "${name}" not found in source ${sources.origin(source)}`);
-            return Option.none<ResolveResult>();
-          }
-        }).pipe(
-          Effect.catchAll((error) => {
-            return log
-              .warn(`Failed to resolve "${name}": ${String(error)}`)
-              .pipe(Effect.map(() => Option.none<ResolveResult>()));
-          }),
-        ),
-      { concurrency: "unbounded" },
-    );
-    yield* resolveHandle.stop("Sources resolved");
-
-    // Step 6: Collect successful resolutions
-    const resolved = Array.getSomes(results);
-    if (resolved.length === 0) {
-      return yield* Effect.fail(
-        makeCliError({
-          code: "UPDATE_FAILED",
-          what: "All source re-resolutions failed. Nothing to update.",
-          howToFix: "Verify the original source paths are still accessible.",
+          return Option.none<ResolveResult>();
+        } else {
+          yield* log.warn(`Skill "${name}" not found in source ${sources.origin(source)}`);
+          return Option.none<ResolveResult>();
+        }
+      }).pipe(
+        Effect.catchAll((error) => {
+          return log
+            .warn(`Failed to resolve "${name}": ${String(error)}`)
+            .pipe(Effect.map(() => Option.none<ResolveResult>()));
         }),
-      );
-    }
+      ),
+    { concurrency: "unbounded" },
+  );
+  yield* resolveHandle.stop("Sources resolved");
 
-    // Step 7: Emit holdback warnings for registry skills held back by pack constraints
-    for (const item of resolved) {
-      if (item.type !== "match") continue;
-      if (item.ref.type !== "skill") continue;
-      if (item.ref.refType !== "registry") continue;
-      const registryRef = item.ref;
-      const skillFqn = `${registryRef.scope}/skills/${registryRef.skill.name}`;
-      const packConstraints = packConstraintMap.get(skillFqn) ?? [];
-      if (packConstraints.length === 0) continue;
-
-      // Get user constraint from the settings source string
-      const settingsEntry = filteredEntries.find(([name]) => name === registryRef.skill.name);
-      const userConstraint =
-        settingsEntry !== undefined ? parseVersionConstraint(settingsEntry[1]) : Option.none();
-
-      const constraints: SkillConstraints = { userConstraint, packConstraints };
-      const warnings = detectHoldbackWarnings(
-        registryRef.version,
-        registryRef.version,
-        constraints,
-        skillFqn,
-      );
-      for (const warning of warnings) {
-        yield* log.warn(warning);
-      }
-    }
-
-    // Step 8: Build operations
-    const ops = Array.flatMap(resolved, (item) =>
-      item.type === "match"
-        ? [
-            {
-              name: "install-skill",
-              args: {
-                ref: item.ref,
-                force: args.force,
-                versionConstraint: Option.none(),
-              },
-            } satisfies InstallSkillOperation,
-          ]
-        : [
-            // Rename: install new name + uninstall old name
-            {
-              name: "install-skill",
-              args: {
-                ref: item.newRef,
-                force: args.force,
-                versionConstraint: Option.none(),
-              },
-            } satisfies InstallSkillOperation,
-            {
-              name: "uninstall-skill",
-              args: {
-                skillName: item.oldName,
-                agents: [],
-              },
-            } satisfies UninstallSkillOperation,
-          ],
+  // Step 6: Collect successful resolutions
+  const resolved = Array.getSomes(results);
+  if (resolved.length === 0) {
+    return yield* Effect.fail(
+      makeCliError({
+        code: "UPDATE_FAILED",
+        what: "All source re-resolutions failed. Nothing to update.",
+        howToFix: "Verify the original source paths are still accessible.",
+      }),
     );
+  }
 
-    // Step 9: Build plan
-    const lockfile = { lockfileVersion: 1, skills: lockedSkills };
-    const plan = buildUpdatePlan(
-      ops,
-      lockfile,
-      "Update skill(s)",
-      Option.some("Update installed skills"),
+  // Step 7: Emit holdback warnings for registry skills held back by pack constraints
+  for (const item of resolved) {
+    if (item.type !== "match") continue;
+    if (item.ref.type !== "skill") continue;
+    if (item.ref.refType !== "registry") continue;
+    const registryRef = item.ref;
+    const skillFqn = `${registryRef.scope}/skills/${registryRef.skill.name}`;
+    const packConstraints = packConstraintMap.get(skillFqn) ?? [];
+    if (packConstraints.length === 0) continue;
+
+    // Get user constraint from the settings source string
+    const settingsEntry = filteredEntries.find(([name]) => name === registryRef.skill.name);
+    const userConstraint =
+      settingsEntry !== undefined ? parseVersionConstraint(settingsEntry[1]) : Option.none();
+
+    const constraints: SkillConstraints = { userConstraint, packConstraints };
+    const warnings = detectHoldbackWarnings(
+      registryRef.version,
+      registryRef.version,
+      constraints,
+      skillFqn,
     );
+    for (const warning of warnings) {
+      yield* log.warn(warning);
+    }
+  }
 
-    // Step 10: Resolve plan
-    yield* ws.resolvePlan(plan, {
-      "install-skill": installSkill,
-      "uninstall-skill": uninstallSkill,
-    });
+  // Step 8: Build operations
+  const ops = Array.flatMap(resolved, (item) =>
+    item.type === "match"
+      ? [
+          {
+            name: "install-skill",
+            args: {
+              ref: item.ref,
+              force: args.force,
+              versionConstraint: Option.none(),
+              skipSettings: Option.none(),
+            },
+          } satisfies InstallSkillOperation,
+        ]
+      : [
+          // Rename: install new name + uninstall old name
+          {
+            name: "install-skill",
+            args: {
+              ref: item.newRef,
+              force: args.force,
+              versionConstraint: Option.none(),
+              skipSettings: Option.none(),
+            },
+          } satisfies InstallSkillOperation,
+          {
+            name: "uninstall-skill",
+            args: {
+              skillName: item.oldName,
+              agents: [],
+            },
+          } satisfies UninstallSkillOperation,
+        ],
+  );
 
-    yield* log.success("Done");
+  // Step 9: Build plan
+  const lockfile = { lockfileVersion: 1, skills: lockedSkills };
+  const plan = buildUpdatePlan(
+    ops,
+    lockfile,
+    "Update skill(s)",
+    Option.some("Update installed skills"),
+  );
+
+  // Step 10: Resolve plan
+  yield* ws.resolvePlan(plan, {
+    "install-skill": installSkill,
+    "uninstall-skill": uninstallSkill,
   });
+
+  yield* log.success("Done");
 });
 
 // -----------------------------------------------------------------------------
@@ -373,19 +373,16 @@ const collectPackConstraints = () =>
             .pipe(Effect.catchAll(() => Effect.succeed("")));
           if (content === "") return;
 
-          const json = yield* Effect.try({
-            try: () => JSON.parse(content) as unknown,
-            catch: () => undefined,
-          }).pipe(Effect.catchAll(() => Effect.void));
-          if (json === undefined) return;
+          const json = yield* Effect.try(() => JSON.parse(content) as unknown).pipe(Effect.option);
+          if (Option.isNone(json)) return;
 
-          const manifest = yield* Schema.decodeUnknown(PackManifestSchema)(json).pipe(
-            Effect.catchAll(() => Effect.void),
+          const manifest = yield* Schema.decodeUnknown(PackManifestSchema)(json.value).pipe(
+            Effect.option,
           );
-          if (manifest === undefined) return;
+          if (Option.isNone(manifest)) return;
 
           // Collect skill constraints from manifest
-          const skills = manifest.skills ?? {};
+          const skills = manifest.value.skills ?? {};
           for (const [fqn, constraint] of Object.entries(skills)) {
             if (constraint === "*" || constraint === "") continue;
             const existing = constraintMap.get(fqn) ?? [];

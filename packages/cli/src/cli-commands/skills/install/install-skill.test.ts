@@ -251,7 +251,7 @@ const makeOp = (
       ref,
       force: overrides.force ?? false,
       versionConstraint: overrides.versionConstraint ?? Option.none(),
-      ...(overrides.skipSettings !== undefined && { skipSettings: overrides.skipSettings }),
+      skipSettings: Option.fromNullable(overrides.skipSettings),
     },
   };
 };

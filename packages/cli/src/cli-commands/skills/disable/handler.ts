@@ -7,8 +7,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { pipe } from "effect/Function";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -56,7 +58,13 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
 
     // Transitive skill — promote to direct entry with enabled: false
     // Use the bare name (without scope) as the settings key
-    const bareName = args.name.includes("/") ? args.name.split("/").pop()! : args.name;
+    const bareName = args.name.includes("/")
+      ? pipe(
+          args.name.split("/"),
+          Array.last,
+          Option.getOrElse(() => args.name),
+        )
+      : args.name;
     const source = Option.orElse(installedEntry.source, () => Option.some(args.name));
     yield* ws.setSkillEntry(bareName, { source, enabled: false, managed: true });
 

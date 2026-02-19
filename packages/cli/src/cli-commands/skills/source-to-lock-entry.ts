@@ -21,7 +21,7 @@ export interface SourceToLockEntryInput {
   readonly agents: ReadonlyArray<string>;
   readonly now: Date;
   /** Required for registry sources — which named registry config was used. */
-  readonly sourceName?: string | undefined;
+  readonly sourceName: Option.Option<string>;
 }
 
 // -----------------------------------------------------------------------------
@@ -129,7 +129,7 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
         name: ref.skill.name,
         resolvedVersion: ref.version,
         integrity: ref.integrity,
-        sourceName: input.sourceName ?? "default",
+        sourceName: Option.getOrElse(input.sourceName, () => "default"),
         ...common,
       };
 

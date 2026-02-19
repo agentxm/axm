@@ -62,8 +62,12 @@ export const uninstallPack: OperationHandler<
     const lockedPack = lockedPackOpt.value;
 
     // Remove pack directory from disk
-    const packDir = computePackPaths(path.join, base, lockedPack.scope, lockedPack.name)
-      .canonicalPath;
+    const packDir = computePackPaths(
+      path.join,
+      base,
+      lockedPack.scope,
+      lockedPack.name,
+    ).canonicalPath;
     yield* removeIfExists(fs, packDir);
 
     // Detect orphaned skills

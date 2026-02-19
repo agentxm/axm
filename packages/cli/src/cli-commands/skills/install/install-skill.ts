@@ -351,13 +351,20 @@ export const installSkill: OperationHandler<
     );
 
     // ── Shared: update lockfile + settings ──────────────────────────
-    const lockEntry = sourceToLockEntry({ ref, agents, now: new Date() });
+    const lockEntry = sourceToLockEntry({
+      ref,
+      agents,
+      now: new Date(),
+      sourceName: Option.none(),
+    });
     const skillArgs = {
       name: ref.skill.name,
       lockEntry,
       versionConstraint: materialized.versionConstraint,
     };
-    const writeEffect = op.args.skipSettings ? ws.setSkillLock(skillArgs) : ws.setSkill(skillArgs);
+    const writeEffect = Option.getOrElse(op.args.skipSettings, () => false)
+      ? ws.setSkillLock(skillArgs)
+      : ws.setSkill(skillArgs);
     yield* writeEffect.pipe(Effect.catchAll((e) => log.warn(`Skill update failed: ${String(e)}`)));
 
     // ── Shared: compute result ──────────────────────────────────────

@@ -34,7 +34,7 @@ import { installSkill } from "../install/install-skill.js";
 import { publishSkill } from "../publish-skill.js";
 import { expandGlobs } from "../../../skills/index.js";
 import type { PlannedJobStep } from "../../../workspace/plan.js";
-import type { SkillExtensionRef } from "../../../sources/index.js";
+import type { SkillExtensionRef, RegistrySkillRef } from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -199,7 +199,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     const extensionRef = ref;
     // After fork + publish, the skill lives in the registry extensions dir.
     // Build a registry SkillExtensionRef for the install step.
-    const registryRef: import("../../../sources/types.js").RegistrySkillRef = {
+    const registryRef: RegistrySkillRef = {
       type: "skill" as const,
       refType: "registry" as const,
       skill: {
@@ -252,6 +252,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
             ref: registryRef,
             force: true,
             versionConstraint: Option.none(),
+            skipSettings: Option.none(),
           },
         } satisfies InstallSkillOperation,
         expectedResult: { result: "success", message: `Installed ${ref.skill.name}` },

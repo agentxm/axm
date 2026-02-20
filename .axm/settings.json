@@ -17,13 +17,8 @@
     "github-copilot",
     "opencode"
   ],
-  "skills": {
-    "testing-unit": "@axm/skills/testing-unit",
-    "testing-handler": "@axm/skills/testing-handler",
-    "testing-basics": "@axm/skills/testing-basics"
-  },
+  "skills": {},
   "packs": {
-    "effect": "@axm/packs/effect",
-    "testing": "@axm/packs/testing"
+    "effect": "@axm/packs/effect"
   }
 }

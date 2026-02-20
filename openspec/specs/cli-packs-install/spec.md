@@ -1,4 +1,4 @@
-## MODIFIED Requirements
+## Requirements
 
 ### Requirement: Install pack from registry
 
@@ -36,17 +36,24 @@ When a pack is installed, the system SHALL build a plan that includes install op
 
 Pack manifest dependency keys SHALL use the three-segment FQN format (`@namespace/type-plural/name`). These keys SHALL be written to the pack's `resolvedSkills`, `resolvedCommands`, and `resolvedMcpServers` maps in the lockfile.
 
-Pack skill dependencies SHALL be written to the skills lock map (for physical install tracking) and the pack's `resolvedSkills` (for ownership), but SHALL NOT be added to `settings.json`. Settings is reserved for user-intent entries only.
+The pack install handler SHALL build extension refs from the pack ref's resolved extension maps and pass them to the plan builder as install operations. Extension refs SHALL use the pack's registry source and empty integrity (skip validation — trust the pack's source).
+
+Pack skill dependencies SHALL be installed to disk (canonical location + agent symlinks) and written to the skills lock map, but SHALL NOT be added to `settings.json`. Settings is reserved for user-intent entries only.
+
+Pack command dependencies SHALL be installed to disk (canonical location) and written to the commands lock map, but SHALL NOT be added to `settings.json`.
+
+Pack MCP server dependencies SHALL be installed to disk (canonical location) and written to the MCP servers lock map, but SHALL NOT be added to `settings.json`.
 
 Extensions already installed in the workspace SHALL be skipped (no-op).
 
 #### Scenario: All referenced extensions installed
 
-- **WHEN** pack `@acme/packs/frontend-pack` references skills `@acme/skills/code-review: "^1.0.0"` and `@acme/skills/linting: "^2.0.0"` in its manifest
-- **AND** neither skill is currently installed
-- **THEN** the plan includes `install-pack` for the pack AND `install-skill` for both skills
+- **WHEN** pack `@acme/packs/frontend-pack` references skills `@acme/skills/code-review: "^1.0.0"` and `@acme/skills/linting: "^2.0.0"`, and command `@acme/commands/formatter: "^1.0.0"` in its manifest
+- **AND** none of these extensions are currently installed
+- **THEN** the plan includes `install-pack` for the pack, `install-skill` for both skills, and `install-command` for the command
 - **AND** both skills are added to the lockfile skills section
-- **AND** neither skill is added to `settings.json`
+- **AND** the command is added to the lockfile commands section
+- **AND** no extensions are added to `settings.json`
 
 #### Scenario: Some extensions already installed
 
@@ -58,8 +65,21 @@ Extensions already installed in the workspace SHALL be skipped (no-op).
 #### Scenario: Extensions installed to configured agents
 
 - **WHEN** a pack is installed
-- **THEN** all referenced extensions are installed to all agents configured in the workspace
+- **THEN** all referenced skill extensions are installed to all agents configured in the workspace
+- **AND** command and MCP server extensions are installed to the workspace (no agent symlinks)
 - **AND** no `--agent` flag is needed or accepted
+
+#### Scenario: Plan ordering — pack first, then extensions
+
+- **WHEN** the pack install plan is built
+- **THEN** the `install-pack` step SHALL appear first
+- **AND** `install-skill`, `install-command`, and `install-mcp-server` steps SHALL appear after the pack step
+
+#### Scenario: Extension refs built from pack resolved maps
+
+- **WHEN** the pack ref contains `pack.skills: { "@acme/skills/code-review": "1.2.0" }`
+- **THEN** the handler SHALL build a `RegistrySkillRef` with namespace `@acme`, name `code-review`, version `1.2.0`, and empty integrity
+- **AND** the ref's source SHALL be the pack's registry source
 
 ### Requirement: Pack manifest version constraints applied during install
 

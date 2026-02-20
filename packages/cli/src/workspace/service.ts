@@ -22,6 +22,10 @@ import {
   LOCKFILE_NAME,
   readLockfile,
   writeLockfile,
+  type CommandLockEntry,
+  type CommandsLockMap,
+  type McpServerLockEntry,
+  type McpServersLockMap,
   type PackLockEntry,
   type PacksLockMap,
   type RegistryPackLockEntry,
@@ -51,6 +55,7 @@ import {
   createDefaultSettings,
   DEFAULT_SCOPE,
   getSkillEntrySource,
+  type NonSkillExtensionsMap,
   type NormalizedSkillEntry,
   normalizeSkillEntry,
   type PackEntry,
@@ -93,6 +98,22 @@ export type SetPackArgs = Omit<RegistryPackLockEntry, "type"> & {
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings, not in lockfile. */
   readonly versionConstraint: Option.Option<string>;
 };
+
+/**
+ * Arguments for `setCommand` — bundles the command name with the lock entry.
+ */
+export interface SetCommandArgs {
+  readonly name: string;
+  readonly lockEntry: CommandLockEntry;
+}
+
+/**
+ * Arguments for `setMcpServer` — bundles the MCP server name with the lock entry.
+ */
+export interface SetMcpServerArgs {
+  readonly name: string;
+  readonly lockEntry: McpServerLockEntry;
+}
 
 /**
  * Built-in source defaults that are always available unless overridden.
@@ -918,6 +939,12 @@ const make = (options: WorkspaceContextOptions) =>
           }),
         ),
 
+      getConfiguredCommands: () =>
+        readSettingsSafe(workspaceDir).pipe(Effect.map((s) => s.commands ?? {})),
+
+      getConfiguredMcpServers: () =>
+        readSettingsSafe(workspaceDir).pipe(Effect.map((s) => s["mcp-servers"] ?? {})),
+
       getConfiguredPacks: () =>
         readSettingsSafe(workspaceDir).pipe(Effect.map((s) => s.packs ?? {})),
 
@@ -996,6 +1023,195 @@ const make = (options: WorkspaceContextOptions) =>
 
       getPackDir: (name: string, namespace: string) =>
         Effect.succeed(computePackPaths(path.join, baseDir, namespace, name)),
+
+      // -----------------------------------------------------------------------
+      // Command methods
+      // -----------------------------------------------------------------------
+
+      getLockedCommands: () =>
+        readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.commands ?? {})),
+
+      getLockedCommand: (name: string) =>
+        readLockfileSafe(workspaceDir).pipe(
+          Effect.map((lf) => Option.fromNullable((lf.commands ?? {})[name])),
+        ),
+
+      setCommand: ({ name, lockEntry }: SetCommandArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            // Update settings
+            // Assertion needed: CommandLockEntry is structurally compatible with SkillLockEntry
+            // for lockEntryToSourceParams (only accesses source-type fields, not agents)
+            const sourceInput = lockEntryToSourceParams(lockEntry as unknown as SkillLockEntry);
+            const source = printSourceParams(sourceInput);
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentCommands: NonSkillExtensionsMap = currentSettings.commands ?? {};
+            const updatedSettings = {
+              ...currentSettings,
+              commands: { ...currentCommands, [name]: source },
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+
+            // Update lockfile
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedCommands = currentLockfile.commands ?? {};
+            const updatedLockfile = {
+              ...currentLockfile,
+              commands: {
+                ...currentLockedCommands,
+                [name]: {
+                  ...lockEntry,
+                  updatedAt: new Date(),
+                },
+              },
+            };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      setCommandLock: ({ name, lockEntry }: SetCommandArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            // Update lockfile only (skip settings) — used for pack dependencies
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedCommands = currentLockfile.commands ?? {};
+            const updatedLockfile = {
+              ...currentLockfile,
+              commands: {
+                ...currentLockedCommands,
+                [name]: {
+                  ...lockEntry,
+                  updatedAt: new Date(),
+                },
+              },
+            };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      removeCommand: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            // Update settings
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentCommands: NonSkillExtensionsMap = currentSettings.commands ?? {};
+            if (!(name in currentCommands)) return; // no-op
+
+            const { [name]: _, ...remainingCommands } = currentCommands;
+            void _;
+            const updatedSettings = { ...currentSettings, commands: remainingCommands };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+
+            // Update lockfile
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedCommands = currentLockfile.commands ?? {};
+            if (name in currentLockedCommands) {
+              const { [name]: __, ...remainingLockedCommands } = currentLockedCommands;
+              void __;
+              const updatedLockfile = {
+                ...currentLockfile,
+                commands: remainingLockedCommands,
+              };
+              yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            }
+          }),
+        ),
+
+      // -----------------------------------------------------------------------
+      // MCP Server methods
+      // -----------------------------------------------------------------------
+
+      getLockedMcpServers: () =>
+        readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.mcpServers ?? {})),
+
+      getLockedMcpServer: (name: string) =>
+        readLockfileSafe(workspaceDir).pipe(
+          Effect.map((lf) => Option.fromNullable((lf.mcpServers ?? {})[name])),
+        ),
+
+      setMcpServer: ({ name, lockEntry }: SetMcpServerArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            // Update settings (uses "mcp-servers" key)
+            // Assertion needed: McpServerLockEntry is structurally compatible with SkillLockEntry
+            // for lockEntryToSourceParams (only accesses source-type fields, not agents)
+            const sourceInput = lockEntryToSourceParams(lockEntry as unknown as SkillLockEntry);
+            const source = printSourceParams(sourceInput);
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentMcpServers: NonSkillExtensionsMap = currentSettings["mcp-servers"] ?? {};
+            const updatedSettings = {
+              ...currentSettings,
+              "mcp-servers": { ...currentMcpServers, [name]: source },
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+
+            // Update lockfile (uses "mcpServers" key)
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedMcpServers = currentLockfile.mcpServers ?? {};
+            const updatedLockfile = {
+              ...currentLockfile,
+              mcpServers: {
+                ...currentLockedMcpServers,
+                [name]: {
+                  ...lockEntry,
+                  updatedAt: new Date(),
+                },
+              },
+            };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      setMcpServerLock: ({ name, lockEntry }: SetMcpServerArgs) =>
+        withMutex(
+          Effect.gen(function* () {
+            // Update lockfile only (skip settings) — used for pack dependencies
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedMcpServers = currentLockfile.mcpServers ?? {};
+            const updatedLockfile = {
+              ...currentLockfile,
+              mcpServers: {
+                ...currentLockedMcpServers,
+                [name]: {
+                  ...lockEntry,
+                  updatedAt: new Date(),
+                },
+              },
+            };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      removeMcpServer: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            // Update settings (uses "mcp-servers" key)
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentMcpServers: NonSkillExtensionsMap = currentSettings["mcp-servers"] ?? {};
+            if (!(name in currentMcpServers)) return; // no-op
+
+            const { [name]: _, ...remainingMcpServers } = currentMcpServers;
+            void _;
+            const updatedSettings = {
+              ...currentSettings,
+              "mcp-servers": remainingMcpServers,
+            };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+
+            // Update lockfile (uses "mcpServers" key)
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedMcpServers = currentLockfile.mcpServers ?? {};
+            if (name in currentLockedMcpServers) {
+              const { [name]: __, ...remainingLockedMcpServers } = currentLockedMcpServers;
+              void __;
+              const updatedLockfile = {
+                ...currentLockfile,
+                mcpServers: remainingLockedMcpServers,
+              };
+              yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+            }
+          }),
+        ),
     };
   });
 
@@ -1104,6 +1320,10 @@ export interface WorkspaceContextService {
   ) => Effect.Effect<void, CliError>;
   /** Append an agent ID if not already present and write to disk. Fails with CliError if invalid. Serialized by semaphore. */
   readonly addConfiguredAgent: (agentId: string) => Effect.Effect<void, CliError>;
+  /** Read settings and return the commands map (name -> version specifier). */
+  readonly getConfiguredCommands: () => Effect.Effect<NonSkillExtensionsMap, CliError>;
+  /** Read settings and return the MCP servers map (name -> version specifier). */
+  readonly getConfiguredMcpServers: () => Effect.Effect<NonSkillExtensionsMap, CliError>;
   /** Read settings and return the packs map. */
   readonly getConfiguredPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, PackEntry>,
@@ -1124,4 +1344,28 @@ export interface WorkspaceContextService {
   readonly removePack: (name: string) => Effect.Effect<void, CliError>;
   /** Compute the pack directory path. Packs are always registry-sourced. */
   readonly getPackDir: (name: string, namespace: string) => Effect.Effect<PackDirPath, CliError>;
+  /** Read lockfile and return the commands lock map. */
+  readonly getLockedCommands: () => Effect.Effect<CommandsLockMap, CliError>;
+  /** Read lockfile and return the entry for a specific command, or Option.none(). */
+  readonly getLockedCommand: (
+    name: string,
+  ) => Effect.Effect<Option.Option<CommandLockEntry>, CliError>;
+  /** Add or update a command in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
+  readonly setCommand: (args: SetCommandArgs) => Effect.Effect<void, CliError>;
+  /** Add or update a command in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
+  readonly setCommandLock: (args: SetCommandArgs) => Effect.Effect<void, CliError>;
+  /** Remove a command from both settings and lockfile. No-op if absent. Serialized by semaphore. */
+  readonly removeCommand: (name: string) => Effect.Effect<void, CliError>;
+  /** Read lockfile and return the MCP servers lock map. */
+  readonly getLockedMcpServers: () => Effect.Effect<McpServersLockMap, CliError>;
+  /** Read lockfile and return the entry for a specific MCP server, or Option.none(). */
+  readonly getLockedMcpServer: (
+    name: string,
+  ) => Effect.Effect<Option.Option<McpServerLockEntry>, CliError>;
+  /** Add or update an MCP server in both settings and lockfile. Sets updatedAt. Serialized by semaphore. */
+  readonly setMcpServer: (args: SetMcpServerArgs) => Effect.Effect<void, CliError>;
+  /** Add or update an MCP server in lockfile only (skip settings). Used for pack dependencies. Serialized by semaphore. */
+  readonly setMcpServerLock: (args: SetMcpServerArgs) => Effect.Effect<void, CliError>;
+  /** Remove an MCP server from both settings and lockfile. No-op if absent. Serialized by semaphore. */
+  readonly removeMcpServer: (name: string) => Effect.Effect<void, CliError>;
 }

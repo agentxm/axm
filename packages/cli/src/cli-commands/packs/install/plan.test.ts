@@ -8,6 +8,8 @@ import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
 import type { Lockfile } from "../../../lockfile/schema.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
+import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
+import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/install.js";
 import type { RegistryPackRef } from "../../../sources/types.js";
 import { buildInstallPlan } from "./plan.js";
 
@@ -83,6 +85,92 @@ const lockfileWithPacks = (...names: string[]): Lockfile => ({
   ),
 });
 
+const makeCommandOp = (name: string): InstallCommandOperation => ({
+  name: "install-command",
+  args: {
+    ref: {
+      type: "command",
+      refType: "registry",
+      command: { name },
+      source: {
+        type: "registry",
+        location: new URL("file:///tmp/registry"),
+        namespace: Option.none(),
+      },
+      namespace: "@acme",
+      name,
+      version: "1.0.0",
+      integrity: "",
+    },
+    force: false,
+    versionConstraint: Option.none(),
+    skipSettings: Option.some(true),
+  },
+});
+
+const makeMcpServerOp = (name: string): InstallMcpServerOperation => ({
+  name: "install-mcp-server",
+  args: {
+    ref: {
+      type: "mcp-server",
+      refType: "registry",
+      server: { name },
+      source: {
+        type: "registry",
+        location: new URL("file:///tmp/registry"),
+        namespace: Option.none(),
+      },
+      namespace: "@acme",
+      name,
+      version: "1.0.0",
+      integrity: "",
+    },
+    force: false,
+    versionConstraint: Option.none(),
+    skipSettings: Option.some(true),
+  },
+});
+
+const lockfileWithCommands = (...names: string[]): Lockfile => ({
+  lockfileVersion: 1,
+  skills: {},
+  commands: Object.fromEntries(
+    names.map((name) => [
+      name,
+      {
+        type: "registry" as const,
+        namespace: "@acme",
+        name,
+        resolvedVersion: "1.0.0",
+        integrity: "",
+        sourceName: "default",
+        installedAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]),
+  ),
+});
+
+const lockfileWithMcpServers = (...names: string[]): Lockfile => ({
+  lockfileVersion: 1,
+  skills: {},
+  mcpServers: Object.fromEntries(
+    names.map((name) => [
+      name,
+      {
+        type: "registry" as const,
+        namespace: "@acme",
+        name,
+        resolvedVersion: "1.0.0",
+        integrity: "",
+        sourceName: "default",
+        installedAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]),
+  ),
+});
+
 const lockfileWithSkills = (...names: string[]): Lockfile => ({
   lockfileVersion: 1,
   skills: Object.fromEntries(
@@ -108,6 +196,8 @@ describe("buildInstallPlan", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [],
+      commandOps: [],
+      mcpServerOps: [],
       lockfile: emptyLockfile,
       name: "Install pack",
       description: Option.none(),
@@ -127,6 +217,8 @@ describe("buildInstallPlan", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [],
+      commandOps: [],
+      mcpServerOps: [],
       lockfile: lockfileWithPacks("my-pack"),
       name: "Install pack",
       description: Option.none(),
@@ -144,6 +236,8 @@ describe("buildInstallPlan", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [],
+      commandOps: [],
+      mcpServerOps: [],
       lockfile: emptyLockfile,
       name: "Install pack",
       description: Option.none(),
@@ -159,6 +253,8 @@ describe("buildInstallPlan", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("pack-a"),
       skillOps: [],
+      commandOps: [],
+      mcpServerOps: [],
       lockfile: emptyLockfile,
       name: "Install pack",
       description: Option.none(),
@@ -172,6 +268,8 @@ describe("buildInstallPlan", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [],
+      commandOps: [],
+      mcpServerOps: [],
       lockfile: emptyLockfile,
       name: "Install pack(s)",
       description: Option.some("Install packs from registry"),
@@ -186,6 +284,8 @@ describe("buildInstallPlan", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [],
+      commandOps: [],
+      mcpServerOps: [],
       lockfile: emptyLockfile,
       name: "Install pack",
       description: Option.none(),
@@ -204,6 +304,8 @@ describe("buildInstallPlan", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [],
+      commandOps: [],
+      mcpServerOps: [],
       lockfile: lockfileNoPacks,
       name: "Install pack",
       description: Option.none(),
@@ -228,6 +330,8 @@ describe("buildInstallPlan", () => {
     const plan = buildInstallPlan({
       ref,
       skillOps: [],
+      commandOps: [],
+      mcpServerOps: [],
       lockfile: emptyLockfile,
       name: "Install pack",
       description: Option.none(),
@@ -258,6 +362,8 @@ describe("buildInstallPlan", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [makeSkillOp("my-skill")],
+      commandOps: [],
+      mcpServerOps: [],
       lockfile: emptyLockfile,
       name: "Install pack",
       description: Option.none(),
@@ -280,6 +386,8 @@ describe("buildInstallPlan", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [makeSkillOp("my-skill")],
+      commandOps: [],
+      mcpServerOps: [],
       lockfile: lockfileWithSkills("my-skill"),
       name: "Install pack",
       description: Option.none(),
@@ -297,6 +405,8 @@ describe("buildInstallPlan", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
+      commandOps: [],
+      mcpServerOps: [],
       lockfile: lockfileWithSkills("skill-a"),
       name: "Install pack",
       description: Option.none(),
@@ -313,6 +423,8 @@ describe("buildInstallPlan", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [makeSkillOp("my-skill")],
+      commandOps: [],
+      mcpServerOps: [],
       lockfile: emptyLockfile,
       name: "Install pack",
       description: Option.none(),
@@ -328,6 +440,8 @@ describe("buildInstallPlan", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
+      commandOps: [],
+      mcpServerOps: [],
       lockfile: emptyLockfile,
       name: "Install pack",
       description: Option.none(),
@@ -360,6 +474,8 @@ describe("buildInstallPlan", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
+      commandOps: [],
+      mcpServerOps: [],
       lockfile,
       name: "Install pack",
       description: Option.none(),
@@ -381,6 +497,8 @@ describe("buildInstallPlan", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [],
+      commandOps: [],
+      mcpServerOps: [],
       lockfile: emptyLockfile,
       name: "Install pack",
       description: Option.none(),
@@ -390,5 +508,181 @@ describe("buildInstallPlan", () => {
     const packStep = plan.jobs[0]!.steps[0]!;
     expect(packStep.operation.name).toBe("install-pack");
     expect(packStep.operation.args.versionConstraint).toEqual(Option.some("^2.0.0"));
+  });
+
+  // ---------------------------------------------------------------------------
+  // Command operations
+  // ---------------------------------------------------------------------------
+
+  it("includes command ops in plan", () => {
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [],
+      commandOps: [makeCommandOp("my-cmd")],
+      mcpServerOps: [],
+      lockfile: emptyLockfile,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
+
+    const steps = plan.jobs[0]!.steps;
+    expect(steps).toHaveLength(2);
+    expect(steps[0]!.operation.name).toBe("install-pack");
+    expect(steps[1]!.operation.name).toBe("install-command");
+    expect(steps[1]!.expectedResult).toEqual({
+      result: "success",
+      message: "Installed command my-cmd",
+    });
+  });
+
+  it("marks already-installed commands as no-op", () => {
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [],
+      commandOps: [makeCommandOp("my-cmd")],
+      mcpServerOps: [],
+      lockfile: lockfileWithCommands("my-cmd"),
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
+
+    const steps = plan.jobs[0]!.steps;
+    expect(steps[1]!.expectedResult).toEqual({
+      result: "no-op",
+      message: "already installed",
+    });
+  });
+
+  it("uses command name as label for command steps", () => {
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [],
+      commandOps: [makeCommandOp("cmd-a"), makeCommandOp("cmd-b")],
+      mcpServerOps: [],
+      lockfile: emptyLockfile,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
+
+    const steps = plan.jobs[0]!.steps;
+    expect(steps[1]!.label).toBe("cmd-a");
+    expect(steps[2]!.label).toBe("cmd-b");
+  });
+
+  // ---------------------------------------------------------------------------
+  // MCP server operations
+  // ---------------------------------------------------------------------------
+
+  it("includes mcp-server ops in plan", () => {
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [],
+      commandOps: [],
+      mcpServerOps: [makeMcpServerOp("my-server")],
+      lockfile: emptyLockfile,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
+
+    const steps = plan.jobs[0]!.steps;
+    expect(steps).toHaveLength(2);
+    expect(steps[0]!.operation.name).toBe("install-pack");
+    expect(steps[1]!.operation.name).toBe("install-mcp-server");
+    expect(steps[1]!.expectedResult).toEqual({
+      result: "success",
+      message: "Installed mcp-server my-server",
+    });
+  });
+
+  it("marks already-installed mcp-servers as no-op", () => {
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [],
+      commandOps: [],
+      mcpServerOps: [makeMcpServerOp("my-server")],
+      lockfile: lockfileWithMcpServers("my-server"),
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
+
+    const steps = plan.jobs[0]!.steps;
+    expect(steps[1]!.expectedResult).toEqual({
+      result: "no-op",
+      message: "already installed",
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Mixed: all extension types
+  // ---------------------------------------------------------------------------
+
+  it("orders steps: pack, skills, commands, mcp-servers", () => {
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [makeSkillOp("my-skill")],
+      commandOps: [makeCommandOp("my-cmd")],
+      mcpServerOps: [makeMcpServerOp("my-server")],
+      lockfile: emptyLockfile,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
+
+    const steps = plan.jobs[0]!.steps;
+    expect(steps).toHaveLength(4);
+    expect(steps[0]!.operation.name).toBe("install-pack");
+    expect(steps[1]!.operation.name).toBe("install-skill");
+    expect(steps[2]!.operation.name).toBe("install-command");
+    expect(steps[3]!.operation.name).toBe("install-mcp-server");
+  });
+
+  it("handles mixed no-ops across extension types", () => {
+    const lockfile: Lockfile = {
+      ...lockfileWithPacks("my-pack"),
+      skills: {
+        "skill-a": {
+          type: "local" as const,
+          path: "/tmp/skills/skill-a",
+          agents: [],
+          installedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      },
+      commands: {
+        "cmd-a": {
+          type: "registry" as const,
+          namespace: "@acme",
+          name: "cmd-a",
+          resolvedVersion: "1.0.0",
+          integrity: "",
+          sourceName: "default",
+          installedAt: new Date(),
+          updatedAt: new Date(),
+        },
+      },
+    };
+
+    const plan = buildInstallPlan({
+      ref: makePackRef("my-pack"),
+      skillOps: [makeSkillOp("skill-a")],
+      commandOps: [makeCommandOp("cmd-a"), makeCommandOp("cmd-b")],
+      mcpServerOps: [makeMcpServerOp("server-a")],
+      lockfile,
+      name: "Install pack",
+      description: Option.none(),
+      versionConstraint: Option.none(),
+    });
+
+    const steps = plan.jobs[0]!.steps;
+    expect(steps[0]!.expectedResult.result).toBe("no-op"); // pack
+    expect(steps[1]!.expectedResult.result).toBe("no-op"); // skill-a
+    expect(steps[2]!.expectedResult.result).toBe("no-op"); // cmd-a
+    expect(steps[3]!.expectedResult.result).toBe("success"); // cmd-b
+    expect(steps[4]!.expectedResult.result).toBe("success"); // server-a
   });
 });

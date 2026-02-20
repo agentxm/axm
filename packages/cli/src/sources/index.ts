@@ -58,6 +58,7 @@ export type {
   // Extension ref base types
   ExtensionRefBase,
   SkillExtensionRefBase,
+  CommandExtensionRefBase,
   McpServerExtensionRefBase,
   PackExtensionRefBase,
   // Skill extension refs
@@ -66,6 +67,12 @@ export type {
   LocalSkillRef,
   RegistrySkillRef,
   SkillExtensionRef,
+  // Command extension refs
+  GitHostedCommandRef,
+  BuiltinCommandRef,
+  LocalCommandRef,
+  RegistryCommandRef,
+  CommandExtensionRef,
   // MCP server extension refs
   GitHostedMcpServerRef,
   BuiltinMcpServerRef,

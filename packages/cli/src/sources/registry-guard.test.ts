@@ -54,6 +54,18 @@ describe("registryGuard", () => {
       setPack: vi.fn(() => Effect.void),
       removePack: vi.fn(() => Effect.void),
       getPackDir: vi.fn(() => Effect.succeed({ canonicalPath: "" })),
+      getLockedCommands: vi.fn(() => Effect.succeed({})),
+      getLockedCommand: vi.fn(() => Effect.succeed(Option.none())),
+      setCommand: vi.fn(() => Effect.void),
+      setCommandLock: vi.fn(() => Effect.void),
+      removeCommand: vi.fn(() => Effect.void),
+      getLockedMcpServers: vi.fn(() => Effect.succeed({})),
+      getLockedMcpServer: vi.fn(() => Effect.succeed(Option.none())),
+      setMcpServer: vi.fn(() => Effect.void),
+      setMcpServerLock: vi.fn(() => Effect.void),
+      removeMcpServer: vi.fn(() => Effect.void),
+      getConfiguredCommands: vi.fn(() => Effect.succeed({})),
+      getConfiguredMcpServers: vi.fn(() => Effect.succeed({})),
     };
 
     return Layer.succeed(Workspace, mockWorkspace);

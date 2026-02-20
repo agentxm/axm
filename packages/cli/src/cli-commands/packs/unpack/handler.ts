@@ -5,7 +5,9 @@
  * preserves existing direct entries, and removes the pack entry from settings
  * and lockfile.
  *
- * This is a settings-level operation -- it does not re-download anything.
+ * Uses plan-based approach: emits install-skill, install-command,
+ * install-mcp-server ops (with skipSettings: false) to promote extensions,
+ * then an uninstall-pack op to remove the pack.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -15,11 +17,20 @@ import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import type { PlannedJobStep } from "../../../workspace/plan.js";
+import { installSkill } from "../../../extensions/skills/operations/install.js";
+import { installCommand } from "../../../extensions/commands/operations/install.js";
+import { installMcpServer } from "../../../extensions/mcp-servers/operations/install.js";
+import { uninstallPack } from "../../../extensions/packs/operations/uninstall.js";
 import {
-  unpackPack,
-  type UnpackPackOperation,
-} from "../../../extensions/packs/operations/unpack.js";
+  buildRegistrySkillRef,
+  buildRegistryCommandRef,
+  buildRegistryMcpServerRef,
+} from "../../../extensions/index.js";
+import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
+import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
+import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/install.js";
+import type { RegistrySource } from "../../../sources/types.js";
+import { buildUnpackPlan } from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -64,29 +75,95 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     );
   }
 
+  const entry = lockedPack.value;
+
+  if (entry.type !== "registry") {
+    yield* handle.stop("Failed");
+    return yield* Effect.fail(
+      makeCliError({
+        code: "PACK_UNPACK_UNSUPPORTED",
+        what: `Cannot unpack "${args.name}" — only registry packs can be unpacked`,
+      }),
+    );
+  }
+
   yield* handle.stop(`Found ${args.name}`);
 
-  // Build plan
-  const steps: PlannedJobStep<UnpackPackOperation>[] = [
-    {
-      _tag: "PlannedJobStep",
-      operation: {
-        name: "unpack-pack",
-        args: { name: args.name },
-      } satisfies UnpackPackOperation,
-      expectedResult: { result: "success", message: `Unpacked ${args.name}` },
-      label: `Unpack ${args.name}`,
-    },
-  ];
+  // Look up the registry source used for this pack
+  const sourceOpt = yield* ws.getConfiguredSourceByName(entry.sourceName);
+  const source: RegistrySource =
+    Option.isSome(sourceOpt) && sourceOpt.value.type === "registry"
+      ? {
+          type: "registry",
+          location: sourceOpt.value.location,
+          namespace: Option.none(),
+        }
+      : {
+          type: "registry",
+          location: new URL("file:///unknown"),
+          namespace: Option.none(),
+        };
 
-  const plan = {
+  // Build install ops from pack's resolved maps (skipSettings: false for unpack)
+  const skillOps: ReadonlyArray<InstallSkillOperation> = Object.entries(entry.resolvedSkills).map(
+    ([fqn, version]) => ({
+      name: "install-skill" as const,
+      args: {
+        ref: buildRegistrySkillRef(fqn, version, source),
+        force: false,
+        versionConstraint: Option.none<string>(),
+        skipSettings: Option.none<boolean>(),
+      },
+    }),
+  );
+
+  const commandOps: ReadonlyArray<InstallCommandOperation> = Object.entries(
+    entry.resolvedCommands,
+  ).map(([fqn, version]) => ({
+    name: "install-command" as const,
+    args: {
+      ref: buildRegistryCommandRef(fqn, version, source),
+      force: false,
+      versionConstraint: Option.none<string>(),
+      skipSettings: Option.none<boolean>(),
+    },
+  }));
+
+  const mcpServerOps: ReadonlyArray<InstallMcpServerOperation> = Object.entries(
+    entry.resolvedMcpServers,
+  ).map(([fqn, version]) => ({
+    name: "install-mcp-server" as const,
+    args: {
+      ref: buildRegistryMcpServerRef(fqn, version, source),
+      force: false,
+      versionConstraint: Option.none<string>(),
+      skipSettings: Option.none<boolean>(),
+    },
+  }));
+
+  // Load configured extensions for no-op detection
+  const configuredSkills = yield* ws.getConfiguredSkills();
+  const configuredCommands = yield* ws.getConfiguredCommands();
+  const configuredMcpServers = yield* ws.getConfiguredMcpServers();
+
+  // Build and execute plan
+  const plan = buildUnpackPlan({
+    skillOps,
+    commandOps,
+    mcpServerOps,
+    uninstallPackOp: { name: "uninstall-pack", args: { packName: args.name } },
+    configuredSkillNames: Object.keys(configuredSkills),
+    configuredCommandNames: Object.keys(configuredCommands),
+    configuredMcpServerNames: Object.keys(configuredMcpServers),
     name: "Unpack pack",
     description: Option.some(`Unpack ${args.name} into direct settings entries`),
-    jobs: [{ steps, concurrency: 1 as const }],
-  };
+  });
 
   yield* ws.resolvePlan(plan, {
-    "unpack-pack": unpackPack,
+    "install-skill": installSkill,
+    "install-command": installCommand,
+    "install-mcp-server": installMcpServer,
+    "uninstall-pack": uninstallPack,
   });
 
   yield* log.success("Done");

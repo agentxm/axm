@@ -10,7 +10,11 @@
 
 // Schema types and schemas
 export type {
+  CommandLockEntry,
+  CommandsLockMap,
   Lockfile,
+  McpServerLockEntry,
+  McpServersLockMap,
   PackLockEntry,
   PacksLockMap,
   RegistryPackLockEntry,
@@ -22,12 +26,16 @@ export {
   BitbucketLockEntrySchema,
   BuiltinPackLockEntrySchema,
   BuiltinSkillLockEntrySchema,
+  CommandLockEntrySchema,
+  CommandsLockMapSchema,
   DateFromString,
   GitHubLockEntrySchema,
   GitLabLockEntrySchema,
   GitLockEntrySchema,
   LocalLockEntrySchema,
   LockfileSchema,
+  McpServerLockEntrySchema,
+  McpServersLockMapSchema,
   PackLockEntrySchema,
   PacksLockMapSchema,
   RegistryLockEntrySchema,

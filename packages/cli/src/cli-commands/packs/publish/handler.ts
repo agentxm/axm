@@ -18,7 +18,7 @@ import { registryGuard } from "../../../sources/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeCliError, type CliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { Job, PlannedJobStep } from "../../../workspace/plan.js";
@@ -43,7 +43,6 @@ import { computePackPaths } from "../../../extensions/packs/paths.js";
 import {
   PACK_MANIFEST_FILENAME,
   RawPackManifestSchema,
-  type RawPackManifest,
 } from "../../../extensions/packs/manifest-schema.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 
@@ -201,7 +200,7 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
         }),
     });
 
-    yield* Schema.decodeUnknown(RawPackManifestSchema)(json).pipe(
+    const manifest = yield* Schema.decodeUnknown(RawPackManifestSchema)(json).pipe(
       Effect.mapError((e) =>
         makeCliError({
           code: "PACK_MANIFEST_INVALID",
@@ -210,8 +209,6 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
         }),
       ),
     );
-
-    const manifest = json as RawPackManifest;
 
     // Collect all dependency FQNs from skills, commands, mcp-servers
     const allDeps: ReadonlyArray<string> = [
@@ -236,7 +233,7 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
           const exists = yield* fs.exists(depDir).pipe(Effect.orElseSucceed(() => false));
 
           if (exists) {
-            const step = makeDependencyStep(parsed, depFqn, registryName);
+            const step = yield* makeDependencyStep(parsed, depFqn, registryName);
             dependencySteps.push(step);
           } else {
             yield* log.warn(`Skipping non-local dependency: ${depFqn}`);
@@ -293,7 +290,7 @@ const makeDependencyStep = (
   parsed: Fqn,
   depFqn: string,
   registryName: string,
-): PlannedJobStep<PackPublishOp> => {
+): Effect.Effect<PlannedJobStep<PackPublishOp>, CliError> => {
   const base = {
     _tag: "PlannedJobStep" as const,
     readiness: { status: "ready" as const, message: Option.none() },
@@ -302,30 +299,35 @@ const makeDependencyStep = (
 
   switch (parsed.type) {
     case "skills":
-      return {
+      return Effect.succeed({
         ...base,
         operation: {
           name: "publish-skill",
           args: { name: depFqn, registryName },
         } satisfies PublishSkillOperation,
-      };
+      });
     case "commands":
-      return {
+      return Effect.succeed({
         ...base,
         operation: {
           name: "publish-command",
           args: { name: depFqn, registryName },
         } satisfies PublishCommandOperation,
-      };
+      });
     case "mcp-servers":
-      return {
+      return Effect.succeed({
         ...base,
         operation: {
           name: "publish-mcp-server",
           args: { name: depFqn, registryName },
         } satisfies PublishMcpServerOperation,
-      };
+      });
     case "packs":
-      throw new Error(`Pack dependencies of packs are not supported for publishing: ${depFqn}`);
+      return Effect.fail(
+        makeCliError({
+          code: "PACK_DEPENDENCY_UNSUPPORTED",
+          what: `Pack dependencies of packs are not supported for publishing: ${depFqn}`,
+        }),
+      );
   }
 };

@@ -103,7 +103,8 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       }),
   });
 
-  yield* Schema.decodeUnknown(RawPackManifestSchema)(json).pipe(
+  // Assertion needed: Schema decode produces readonly type; handler mutates manifest in-place
+  const manifest = (yield* Schema.decodeUnknown(RawPackManifestSchema)(json).pipe(
     Effect.mapError((e) =>
       makeCliError({
         code: "PACK_MANIFEST_INVALID",
@@ -111,9 +112,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
         cause: e,
       }),
     ),
-  );
-
-  const manifest = json as RawPackManifest;
+  )) as RawPackManifest;
 
   // Step 3: Resolve extensions - get all managed, registry-sourced skills from lockfile
   const lockedSkills = yield* ws.getLockedSkills();

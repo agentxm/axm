@@ -53,6 +53,31 @@ export interface ForkHandlerArgs {
 type ForkOp = CopySkillOperation | PublishSkillOperation | InstallSkillOperation;
 
 // -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+const filterBySkillGlobs = (
+  discoveredSkills: ReadonlyArray<SkillExtensionRef>,
+  skillPatterns: readonly string[],
+) =>
+  Effect.gen(function* () {
+    if (skillPatterns.length === 0) return discoveredSkills;
+    const allNames = Array.map(discoveredSkills, (r) => r.skill.name);
+    const matched = expandGlobs(skillPatterns, allNames);
+    if (matched.length === 0) {
+      return yield* Effect.fail(
+        makeCliError({
+          code: "NO_SKILLS_MATCHED",
+          what: "No skills matched the given patterns",
+          details: [`Patterns: ${skillPatterns.join(", ")}`, `Available: ${allNames.join(", ")}`],
+          howToFix: "Check skill names with `axm skills install --list <source>`.",
+        }),
+      );
+    }
+    return Array.filter(discoveredSkills, (s) => matched.includes(s.skill.name));
+  });
+
+// -----------------------------------------------------------------------------
 // Main Handler
 // -----------------------------------------------------------------------------
 
@@ -145,31 +170,9 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   }
 
   // Step 4: Filter by --skill globs (if provided)
-  const filtered: ReadonlyArray<SkillExtensionRef> =
-    args.skills.length > 0
-      ? (() => {
-          const allNames = Array.map(discoveredSkills, (r) => r.skill.name);
-          const matched = expandGlobs(args.skills, allNames);
-          if (matched.length === 0) {
-            // Yield an error — cannot be done inside the IIFE, so return empty and check below
-            return [];
-          }
-          return Array.filter(discoveredSkills, (s) => matched.includes(s.skill.name));
-        })()
-      : discoveredSkills;
-
-  if (args.skills.length > 0 && filtered.length === 0) {
-    yield* handle.stop("No matches");
-    const allNames = Array.map(discoveredSkills, (r) => r.skill.name);
-    return yield* Effect.fail(
-      makeCliError({
-        code: "NO_SKILLS_MATCHED",
-        what: "No skills matched the given patterns",
-        details: [`Patterns: ${args.skills.join(", ")}`, `Available: ${allNames.join(", ")}`],
-        howToFix: "Check skill names with `axm skills install --list <source>`.",
-      }),
-    );
-  }
+  const filtered = yield* filterBySkillGlobs(discoveredSkills, args.skills).pipe(
+    Effect.tapError(() => handle.stop("No matches")),
+  );
 
   yield* handle.stop(`Found ${filtered.length} skill(s)`);
 

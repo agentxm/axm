@@ -54,8 +54,12 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
   }
 
   // Display each skill
-  for (const [name, entry] of filtered) {
-    const agents = entry.agents.length > 0 ? entry.agents.join(", ") : "none";
-    yield* log.message(`${name}  (${entry.type})  [${agents}]`);
-  }
+  yield* Effect.forEach(
+    filtered,
+    ([name, entry]) => {
+      const agents = entry.agents.length > 0 ? entry.agents.join(", ") : "none";
+      return log.message(`${name}  (${entry.type})  [${agents}]`);
+    },
+    { discard: true },
+  );
 });

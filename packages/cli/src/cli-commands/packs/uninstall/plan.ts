@@ -9,7 +9,8 @@
  */
 
 import * as Option from "effect/Option";
-import type { Lockfile } from "../../../lockfile/schema.js";
+import type { Lockfile, PackLockEntry } from "../../../lockfile/schema.js";
+import { makeStep } from "../../../workspace/plan.js";
 import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
 import type { UninstallCommandOperation } from "../../../extensions/commands/operations/uninstall.js";
 import type { UninstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/uninstall.js";
@@ -35,151 +36,127 @@ const simpleNameFromFqn = (fqn: string): string => {
 };
 
 /**
+ * Compute FQNs orphaned by pack removal: candidates from packs being removed,
+ * minus those still referenced by remaining packs, minus directly configured ones.
+ */
+const computeOrphanedFqns = (
+  lockedPacks: Record<string, PackLockEntry>,
+  removingNames: ReadonlySet<string>,
+  configured: ReadonlyArray<string>,
+  getResolvedFqns: (entry: PackLockEntry) => Record<string, string>,
+): ReadonlyArray<string> => {
+  const candidates = new Set<string>();
+  const remaining = new Set<string>();
+  for (const [packName, entry] of Object.entries(lockedPacks)) {
+    if (removingNames.has(packName)) {
+      for (const fqn of Object.keys(getResolvedFqns(entry))) {
+        candidates.add(fqn);
+      }
+    } else {
+      for (const fqn of Object.keys(getResolvedFqns(entry))) {
+        remaining.add(fqn);
+      }
+    }
+  }
+  const configuredSet = new Set(configured);
+  return [...candidates].filter(
+    (fqn) => !remaining.has(fqn) && !configuredSet.has(simpleNameFromFqn(fqn)),
+  );
+};
+
+/**
+ * Arguments for building a pack uninstall plan.
+ */
+export interface BuildUninstallPlanArgs {
+  /** Uninstall operations to plan */
+  readonly ops: ReadonlyArray<UninstallPackOperation>;
+  /** Current lockfile state for installed-pack detection */
+  readonly lockfile: Lockfile;
+  /** Directly configured skill names (protected from orphan removal) */
+  readonly configuredSkills: ReadonlyArray<string>;
+  /** Plan display name */
+  readonly name: string;
+  /** Plan description */
+  readonly description: Option.Option<string>;
+  /** Directly configured command names (protected from orphan removal) */
+  readonly configuredCommands: ReadonlyArray<string>;
+  /** Directly configured MCP server names (protected from orphan removal) */
+  readonly configuredMcpServers: ReadonlyArray<string>;
+}
+
+/**
  * Build an uninstall plan by comparing pack operations against the lockfile.
  * Computes removable skills, commands, and MCP servers inline and emits
  * uninstall steps for each orphaned extension.
  *
  * Pure function — no Effect needed.
  */
-export const buildUninstallPlan = (
-  ops: ReadonlyArray<UninstallPackOperation>,
-  lockfile: Lockfile,
-  configuredSkills: ReadonlyArray<string>,
-  name: string,
-  description: Option.Option<string>,
-  configuredCommands: ReadonlyArray<string> = [],
-  configuredMcpServers: ReadonlyArray<string> = [],
-): Plan<PackUninstallOp> => {
+export const buildUninstallPlan = (args: BuildUninstallPlanArgs): Plan<PackUninstallOp> => {
+  const {
+    ops,
+    lockfile,
+    configuredSkills,
+    name,
+    description,
+    configuredCommands,
+    configuredMcpServers,
+  } = args;
   const lockedPacks = lockfile.packs ?? {};
   const removingNames = new Set(ops.map((op) => op.args.packName));
 
   // Build pack steps
-  const packSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> = ops.map(
-    (op): PlannedJobStep<PackUninstallOp> => {
-      const installed = Object.hasOwn(lockedPacks, op.args.packName);
-      return installed
-        ? {
-            _tag: "PlannedJobStep",
-            operation: op,
-            readiness: { status: "ready", message: Option.none() },
-            label: op.args.packName,
-          }
-        : {
-            _tag: "PlannedJobStep",
-            operation: op,
-            readiness: { status: "skip", message: "not installed" },
-            label: op.args.packName,
-          };
-    },
+  const packSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> = ops.map((op) => {
+    const installed = Object.hasOwn(lockedPacks, op.args.packName);
+    return makeStep<PackUninstallOp>(op, op.args.packName, installed, "not installed");
+  });
+
+  // Compute orphaned extensions
+  const removableSkillFqns = computeOrphanedFqns(
+    lockedPacks,
+    removingNames,
+    configuredSkills,
+    (entry) => entry.resolvedSkills,
   );
-
-  // --- Skill orphan computation ---
-  const candidateSkillFqns = new Set<string>();
-  const remainingPackSkillFqns = new Set<string>();
-  for (const [packName, entry] of Object.entries(lockedPacks)) {
-    if (removingNames.has(packName)) {
-      for (const fqn of Object.keys(entry.resolvedSkills)) {
-        candidateSkillFqns.add(fqn);
-      }
-    } else {
-      for (const fqn of Object.keys(entry.resolvedSkills)) {
-        remainingPackSkillFqns.add(fqn);
-      }
-    }
-  }
-
-  const configuredSkillsSet = new Set(configuredSkills);
-  const removableSkillFqns = [...candidateSkillFqns].filter(
-    (fqn) => !remainingPackSkillFqns.has(fqn) && !configuredSkillsSet.has(simpleNameFromFqn(fqn)),
+  const removableCommandFqns = computeOrphanedFqns(
+    lockedPacks,
+    removingNames,
+    configuredCommands,
+    (entry) => entry.resolvedCommands,
+  );
+  const removableMcpServerFqns = computeOrphanedFqns(
+    lockedPacks,
+    removingNames,
+    configuredMcpServers,
+    (entry) => entry.resolvedMcpServers,
   );
 
   const skillSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> = removableSkillFqns.map(
-    (fqn): PlannedJobStep<PackUninstallOp> => {
-      const simpleName = simpleNameFromFqn(fqn);
+    (fqn) => {
       const op: UninstallSkillOperation = {
         name: "uninstall-skill",
-        args: { skillName: simpleName, agents: [] },
+        args: { skillName: simpleNameFromFqn(fqn), agents: [] },
       };
-      return {
-        _tag: "PlannedJobStep",
-        operation: op,
-        readiness: { status: "ready", message: Option.none() },
-        label: fqn,
-      };
+      return makeStep<PackUninstallOp>(op, fqn, true, "");
     },
-  );
-
-  // --- Command orphan computation ---
-  const candidateCommandFqns = new Set<string>();
-  const remainingPackCommandFqns = new Set<string>();
-  for (const [packName, entry] of Object.entries(lockedPacks)) {
-    if (removingNames.has(packName)) {
-      for (const fqn of Object.keys(entry.resolvedCommands)) {
-        candidateCommandFqns.add(fqn);
-      }
-    } else {
-      for (const fqn of Object.keys(entry.resolvedCommands)) {
-        remainingPackCommandFqns.add(fqn);
-      }
-    }
-  }
-
-  const configuredCommandsSet = new Set(configuredCommands);
-  const removableCommandFqns = [...candidateCommandFqns].filter(
-    (fqn) =>
-      !remainingPackCommandFqns.has(fqn) && !configuredCommandsSet.has(simpleNameFromFqn(fqn)),
   );
 
   const commandSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> = removableCommandFqns.map(
-    (fqn): PlannedJobStep<PackUninstallOp> => {
-      const simpleName = simpleNameFromFqn(fqn);
+    (fqn) => {
       const op: UninstallCommandOperation = {
         name: "uninstall-command",
-        args: { commandName: simpleName },
+        args: { commandName: simpleNameFromFqn(fqn) },
       };
-      return {
-        _tag: "PlannedJobStep",
-        operation: op,
-        readiness: { status: "ready", message: Option.none() },
-        label: fqn,
-      };
+      return makeStep<PackUninstallOp>(op, fqn, true, "");
     },
   );
 
-  // --- MCP server orphan computation ---
-  const candidateMcpServerFqns = new Set<string>();
-  const remainingPackMcpServerFqns = new Set<string>();
-  for (const [packName, entry] of Object.entries(lockedPacks)) {
-    if (removingNames.has(packName)) {
-      for (const fqn of Object.keys(entry.resolvedMcpServers)) {
-        candidateMcpServerFqns.add(fqn);
-      }
-    } else {
-      for (const fqn of Object.keys(entry.resolvedMcpServers)) {
-        remainingPackMcpServerFqns.add(fqn);
-      }
-    }
-  }
-
-  const configuredMcpServersSet = new Set(configuredMcpServers);
-  const removableMcpServerFqns = [...candidateMcpServerFqns].filter(
-    (fqn) =>
-      !remainingPackMcpServerFqns.has(fqn) && !configuredMcpServersSet.has(simpleNameFromFqn(fqn)),
-  );
-
   const mcpServerSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> = removableMcpServerFqns.map(
-    (fqn): PlannedJobStep<PackUninstallOp> => {
-      const simpleName = simpleNameFromFqn(fqn);
+    (fqn) => {
       const op: UninstallMcpServerOperation = {
         name: "uninstall-mcp-server",
-        args: { serverName: simpleName },
+        args: { serverName: simpleNameFromFqn(fqn) },
       };
-      return {
-        _tag: "PlannedJobStep",
-        operation: op,
-        readiness: { status: "ready", message: Option.none() },
-        label: fqn,
-      };
+      return makeStep<PackUninstallOp>(op, fqn, true, "");
     },
   );
 

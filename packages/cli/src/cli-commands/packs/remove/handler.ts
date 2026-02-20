@@ -94,7 +94,8 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       }),
   });
 
-  yield* Schema.decodeUnknown(RawPackManifestSchema)(json).pipe(
+  // Assertion needed: Schema decode produces readonly type; handler mutates manifest in-place
+  const manifest = (yield* Schema.decodeUnknown(RawPackManifestSchema)(json).pipe(
     Effect.mapError((e) =>
       makeCliError({
         code: "PACK_MANIFEST_INVALID",
@@ -102,9 +103,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
         cause: e,
       }),
     ),
-  );
-
-  const manifest = json as RawPackManifest;
+  )) as RawPackManifest;
 
   // Step 3: Collect all extension names from the manifest (across all sections)
   const allEntries: Array<{ section: "skills" | "commands" | "mcp-servers"; name: string }> = [];

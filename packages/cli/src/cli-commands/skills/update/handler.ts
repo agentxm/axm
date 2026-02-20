@@ -99,20 +99,20 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   const allSkills = yield* ws.getConfiguredSkills();
   const lockedSkills = yield* ws.getLockedSkills();
 
-  const skillEntries: Array<[string, string]> = [];
-  for (const [name, entry] of Object.entries(allSkills)) {
-    if (!entry.managed) {
-      yield* log.info(`Skipping ${name} (unmanaged)`);
-      continue;
-    }
-    if (!entry.enabled) {
-      yield* log.info(`Skipping ${name} (disabled)`);
-      continue;
-    }
-    // Managed + enabled entries always have Some source
-    const source = Option.getOrThrow(entry.source);
-    skillEntries.push([name, source]);
-  }
+  const skillEntries = yield* Effect.forEach(Object.entries(allSkills), ([name, entry]) =>
+    Effect.gen(function* () {
+      if (!entry.managed) {
+        yield* log.info(`Skipping ${name} (unmanaged)`);
+        return Option.none<readonly [string, string]>();
+      }
+      if (!entry.enabled) {
+        yield* log.info(`Skipping ${name} (disabled)`);
+        return Option.none<readonly [string, string]>();
+      }
+      const source = Option.getOrThrow(entry.source);
+      return Option.some([name, source] as const);
+    }),
+  ).pipe(Effect.map(Array.getSomes));
 
   if (skillEntries.length === 0) {
     yield* log.info("No skills installed. Nothing to update.");
@@ -271,9 +271,7 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
       constraints,
       skillFqn,
     );
-    for (const warning of warnings) {
-      yield* log.warn(warning);
-    }
+    yield* Effect.forEach(warnings, (w) => log.warn(w), { discard: true });
   }
 
   // Step 8: Build operations

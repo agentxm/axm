@@ -59,7 +59,15 @@ export const handleUninstallPack = Effect.fn("UninstallPack.handle")(function* (
   // Step 1: Load lockfile
   const lockedPacks = yield* ws.getLockedPacks();
   const lockedSkills = yield* ws.getLockedSkills();
-  const lockfile = { lockfileVersion: 1, skills: lockedSkills, packs: lockedPacks };
+  const lockedCommands = yield* ws.getLockedCommands();
+  const lockedMcpServers = yield* ws.getLockedMcpServers();
+  const lockfile = {
+    lockfileVersion: 1,
+    skills: lockedSkills,
+    commands: lockedCommands,
+    mcpServers: lockedMcpServers,
+    packs: lockedPacks,
+  };
 
   // Step 2: Expand glob pattern
   const packNames = expandGlob(args.name, Object.keys(lockedPacks));
@@ -91,15 +99,15 @@ export const handleUninstallPack = Effect.fn("UninstallPack.handle")(function* (
   const configuredMcpServers = yield* ws.getConfiguredMcpServers();
   const configuredMcpServerNames = Object.keys(configuredMcpServers);
 
-  const plan = buildUninstallPlan(
+  const plan = buildUninstallPlan({
     ops,
     lockfile,
-    configuredSkillNames,
-    "Uninstall pack(s)",
-    Option.none(),
-    configuredCommandNames,
-    configuredMcpServerNames,
-  );
+    configuredSkills: configuredSkillNames,
+    name: "Uninstall pack(s)",
+    description: Option.none(),
+    configuredCommands: configuredCommandNames,
+    configuredMcpServers: configuredMcpServerNames,
+  });
 
   // Step 5: Resolve plan via workspace
   yield* ws.resolvePlan(plan, {

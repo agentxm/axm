@@ -23,6 +23,7 @@
     "testing-basics": "@axm/skills/testing-basics"
   },
   "packs": {
-    "effect": "@axm/packs/effect"
+    "effect": "@axm/packs/effect",
+    "testing": "@axm/packs/testing"
   }
 }

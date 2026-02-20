@@ -16,8 +16,8 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T20:24:34.129Z
-    updatedAt: 2026-02-19T20:24:34.131Z
+    installedAt: 2026-02-20T01:57:57.368Z
+    updatedAt: 2026-02-20T01:57:57.371Z
   testing-handler:
     type: registry
     namespace: "@axm"
@@ -34,8 +34,8 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T20:24:34.161Z
-    updatedAt: 2026-02-19T20:24:34.163Z
+    installedAt: 2026-02-20T01:57:57.356Z
+    updatedAt: 2026-02-20T01:57:57.358Z
   testing-basics:
     type: registry
     namespace: "@axm"
@@ -52,8 +52,8 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-19T20:24:34.247Z
-    updatedAt: 2026-02-19T20:24:34.249Z
+    installedAt: 2026-02-20T01:57:57.339Z
+    updatedAt: 2026-02-20T01:57:57.341Z
 packs:
   effect:
     type: registry
@@ -64,6 +64,18 @@ packs:
     sourceName: ""
     installedAt: 2026-02-19T20:29:23.997Z
     updatedAt: 2026-02-19T20:29:24.010Z
+    resolvedSkills: {}
+    resolvedCommands: {}
+    resolvedMcpServers: {}
+  testing:
+    type: registry
+    namespace: "@axm"
+    name: testing
+    resolvedVersion: 0.0.1
+    integrity: ""
+    sourceName: ""
+    installedAt: 2026-02-20T01:59:21.729Z
+    updatedAt: 2026-02-20T01:59:21.739Z
     resolvedSkills: {}
     resolvedCommands: {}
     resolvedMcpServers: {}

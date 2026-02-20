@@ -101,16 +101,13 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs): Plan<PackInstallOp
               ? {
                   _tag: "PlannedJobStep",
                   operation: op,
-                  expectedResult: { result: "no-op", message: "already installed" },
+                  readiness: { status: "skip", message: "already installed" },
                   label: op.args.packName,
                 }
               : {
                   _tag: "PlannedJobStep",
                   operation: op,
-                  expectedResult: {
-                    result: "success",
-                    message: `Installed pack ${op.args.packName}`,
-                  },
+                  readiness: { status: "ready", message: Option.none() },
                   label: op.args.packName,
                 };
           }
@@ -120,16 +117,13 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs): Plan<PackInstallOp
               ? {
                   _tag: "PlannedJobStep",
                   operation: op,
-                  expectedResult: { result: "no-op", message: "already installed" },
+                  readiness: { status: "skip", message: "already installed" },
                   label: op.args.ref.skill.name,
                 }
               : {
                   _tag: "PlannedJobStep",
                   operation: op,
-                  expectedResult: {
-                    result: "success",
-                    message: `Installed skill ${op.args.ref.skill.name}`,
-                  },
+                  readiness: { status: "ready", message: Option.none() },
                   label: op.args.ref.skill.name,
                 };
           }
@@ -140,16 +134,13 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs): Plan<PackInstallOp
               ? {
                   _tag: "PlannedJobStep",
                   operation: op,
-                  expectedResult: { result: "no-op", message: "already installed" },
+                  readiness: { status: "skip", message: "already installed" },
                   label: op.args.ref.command.name,
                 }
               : {
                   _tag: "PlannedJobStep",
                   operation: op,
-                  expectedResult: {
-                    result: "success",
-                    message: `Installed command ${op.args.ref.command.name}`,
-                  },
+                  readiness: { status: "ready", message: Option.none() },
                   label: op.args.ref.command.name,
                 };
           }
@@ -160,16 +151,13 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs): Plan<PackInstallOp
             ? {
                 _tag: "PlannedJobStep",
                 operation: op,
-                expectedResult: { result: "no-op", message: "already installed" },
+                readiness: { status: "skip", message: "already installed" },
                 label: op.args.ref.server.name,
               }
             : {
                 _tag: "PlannedJobStep",
                 operation: op,
-                expectedResult: {
-                  result: "success",
-                  message: `Installed mcp-server ${op.args.ref.server.name}`,
-                },
+                readiness: { status: "ready", message: Option.none() },
                 label: op.args.ref.server.name,
               };
         }),

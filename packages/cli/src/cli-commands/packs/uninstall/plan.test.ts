@@ -8,7 +8,11 @@ import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
 import type { Lockfile, PackLockEntry } from "../../../lockfile/schema.js";
 import type { UninstallPackOperation } from "../../../extensions/packs/operations/uninstall.js";
+import type { PlannedJobStep } from "../../../workspace/plan.js";
 import { buildUninstallPlan } from "./plan.js";
+
+// Assertion needed: plan builders only produce PlannedJobStep
+const planned = <T>(step: { readonly _tag: string }) => step as PlannedJobStep<T>;
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -56,7 +60,7 @@ const lockfileWithPacks = (...entries: [string, PackLockEntry][]): Lockfile => (
 // -----------------------------------------------------------------------------
 
 describe("buildUninstallPlan", () => {
-  it("marks installed packs as expected success", () => {
+  it("marks installed packs as ready", () => {
     const lockfile = lockfileWithPacks(["my-pack", makePackLockEntry("my-pack")]);
     const plan = buildUninstallPlan(
       [makeOp("my-pack")],
@@ -69,13 +73,13 @@ describe("buildUninstallPlan", () => {
     expect(plan.jobs).toHaveLength(1);
     expect(plan.jobs[0]!.steps).toHaveLength(1);
     expect(plan.jobs[0]!.steps[0]!._tag).toBe("PlannedJobStep");
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Uninstalled pack my-pack",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
-  it("marks packs not in lockfile as expected no-op", () => {
+  it("marks packs not in lockfile as skip", () => {
     const plan = buildUninstallPlan(
       [makeOp("my-pack")],
       emptyLockfile,
@@ -85,8 +89,8 @@ describe("buildUninstallPlan", () => {
     );
 
     expect(plan.jobs[0]!.steps[0]!._tag).toBe("PlannedJobStep");
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "no-op",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "skip",
       message: "not installed",
     });
   });
@@ -145,7 +149,7 @@ describe("buildUninstallPlan", () => {
     expect(plan.jobs[0]!.concurrency).toBe(1);
   });
 
-  it("handles mixed success and no-op expected results", () => {
+  it("handles mixed ready and skip readiness", () => {
     const lockfile = lockfileWithPacks(
       ["pack-a", makePackLockEntry("pack-a")],
       ["pack-c", makePackLockEntry("pack-c")],
@@ -159,11 +163,11 @@ describe("buildUninstallPlan", () => {
     );
 
     const steps = plan.jobs[0]!.steps;
-    expect(steps[0]!.expectedResult.result).toBe("success");
+    expect(planned(steps[0]!).readiness.status).toBe("ready");
     expect(steps[0]!.label).toBe("pack-a");
-    expect(steps[1]!.expectedResult.result).toBe("no-op");
+    expect(planned(steps[1]!).readiness.status).toBe("skip");
     expect(steps[1]!.label).toBe("pack-b");
-    expect(steps[2]!.expectedResult.result).toBe("success");
+    expect(planned(steps[2]!).readiness.status).toBe("ready");
     expect(steps[2]!.label).toBe("pack-c");
   });
 
@@ -222,9 +226,9 @@ describe("buildUninstallPlan", () => {
       skillName: "skill-a",
       agents: [],
     });
-    expect(skillStep!.expectedResult).toEqual({
-      result: "success",
-      message: "Uninstalled skill skill-a",
+    expect(planned(skillStep!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
@@ -481,9 +485,9 @@ describe("buildUninstallPlan", () => {
     const cmdStep = plan.jobs[0]!.steps.find((s) => s.operation.name === "uninstall-command");
     expect(cmdStep).toBeDefined();
     expect(cmdStep!.operation.args).toEqual({ commandName: "cmd-a" });
-    expect(cmdStep!.expectedResult).toEqual({
-      result: "success",
-      message: "Uninstalled command cmd-a",
+    expect(planned(cmdStep!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
@@ -624,9 +628,9 @@ describe("buildUninstallPlan", () => {
     const mcpStep = plan.jobs[0]!.steps.find((s) => s.operation.name === "uninstall-mcp-server");
     expect(mcpStep).toBeDefined();
     expect(mcpStep!.operation.args).toEqual({ serverName: "srv-a" });
-    expect(mcpStep!.expectedResult).toEqual({
-      result: "success",
-      message: "Uninstalled MCP server srv-a",
+    expect(planned(mcpStep!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 

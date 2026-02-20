@@ -1,8 +1,9 @@
 /**
  * Unit tests for applyPlan.
  *
- * Tests the executor registry pattern: dispatches steps expected to succeed
- * to handlers keyed by name, skips non-success steps, catches CliError.
+ * Tests the executor registry pattern: dispatches steps with ready/warn
+ * readiness to handlers keyed by name, promotes skip/error steps without
+ * dispatch, catches CliError.
  */
 
 import { describe, expect, it } from "@effect/vitest";
@@ -10,7 +11,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { type CliError, makeCliError } from "../cli-error/index.js";
 import { applyPlan } from "./apply-plan.js";
-import type { OperationResult } from "./plan.js";
+import type { OperationResult, Readiness } from "./plan.js";
 import type { Operation, Plan, PlannedJobStep } from "./plan.js";
 
 // -----------------------------------------------------------------------------
@@ -42,13 +43,15 @@ const errorHandler = (op: TestOp): Effect.Effect<OperationResult, CliError> =>
 const noopResultHandler = (op: TestOp): Effect.Effect<OperationResult> =>
   Effect.succeed({ result: "no-op", message: `Already installed ${op.args.label}` });
 
+const readyReadiness: Readiness = { status: "ready", message: Option.none() };
+
 const makeStep = (
   label: string,
-  expectedResult: OperationResult = { result: "success", message: `Installed ${label}` },
+  readiness: Readiness = readyReadiness,
 ): PlannedJobStep<TestOp> => ({
   _tag: "PlannedJobStep",
   operation: makeOp(label),
-  expectedResult,
+  readiness,
   label,
 });
 
@@ -57,7 +60,7 @@ const makeStep = (
 // -----------------------------------------------------------------------------
 
 describe("applyPlan", () => {
-  it.effect("dispatches steps expected to succeed to handler by name", () =>
+  it.effect("dispatches steps with ready readiness to handler by name", () =>
     Effect.gen(function* () {
       const applied = yield* applyPlan(
         makePlan({
@@ -75,16 +78,16 @@ describe("applyPlan", () => {
       expect(steps).toHaveLength(2);
       expect(steps[0]).toMatchObject({
         _tag: "JobStepResult",
-        actualResult: { result: "success", message: "Installed commit" },
+        result: { result: "success", message: "Installed commit" },
       });
       expect(steps[1]).toMatchObject({
         _tag: "JobStepResult",
-        actualResult: { result: "success", message: "Installed review-pr" },
+        result: { result: "success", message: "Installed review-pr" },
       });
     }),
   );
 
-  it.effect("skips steps with no-op expected result", () =>
+  it.effect("promotes steps with skip readiness as no-op without dispatch", () =>
     Effect.gen(function* () {
       const applied = yield* applyPlan(
         makePlan({
@@ -93,7 +96,7 @@ describe("applyPlan", () => {
               concurrency: "unbounded",
               steps: [
                 makeStep("commit"),
-                makeStep("review-pr", { result: "no-op", message: "already installed" }),
+                makeStep("review-pr", { status: "skip", message: "already installed" }),
               ],
             },
           ],
@@ -105,16 +108,16 @@ describe("applyPlan", () => {
       expect(steps).toHaveLength(2);
       expect(steps[0]).toMatchObject({
         _tag: "JobStepResult",
-        actualResult: { result: "success", message: "Installed commit" },
+        result: { result: "success", message: "Installed commit" },
       });
       expect(steps[1]).toMatchObject({
         _tag: "JobStepResult",
-        actualResult: { result: "no-op", message: "already installed" },
+        result: { result: "no-op", message: "already installed" },
       });
     }),
   );
 
-  it.effect("returns no-op results when all steps expect no-op", () =>
+  it.effect("returns no-op results when all steps have skip readiness", () =>
     Effect.gen(function* () {
       const applied = yield* applyPlan(
         makePlan({
@@ -122,8 +125,8 @@ describe("applyPlan", () => {
             {
               concurrency: "unbounded",
               steps: [
-                makeStep("commit", { result: "no-op", message: "already installed" }),
-                makeStep("review-pr", { result: "no-op", message: "already installed" }),
+                makeStep("commit", { status: "skip", message: "already installed" }),
+                makeStep("review-pr", { status: "skip", message: "already installed" }),
               ],
             },
           ],
@@ -135,10 +138,60 @@ describe("applyPlan", () => {
       expect(steps).toHaveLength(2);
       expect(
         steps.every(
-          (s) =>
-            s._tag === "JobStepResult" && "actualResult" in s && s.actualResult.result === "no-op",
+          (s) => s._tag === "JobStepResult" && "result" in s && s.result.result === "no-op",
         ),
       ).toBe(true);
+    }),
+  );
+
+  it.effect("promotes steps with error readiness as error without dispatch", () =>
+    Effect.gen(function* () {
+      const applied = yield* applyPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: 1,
+              steps: [
+                makeStep("blocked", {
+                  status: "error",
+                  message: "depends on pack @org/pack",
+                }),
+              ],
+            },
+          ],
+        }),
+        { "test-op": successHandler },
+      );
+
+      const steps = applied.jobs.flatMap((j) => j.steps);
+      expect(steps).toHaveLength(1);
+      expect(steps[0]).toMatchObject({
+        _tag: "JobStepResult",
+        result: { result: "error", message: "depends on pack @org/pack" },
+      });
+    }),
+  );
+
+  it.effect("dispatches steps with warn readiness to handler", () =>
+    Effect.gen(function* () {
+      const applied = yield* applyPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: 1,
+              steps: [makeStep("cautious", { status: "warn", message: "may conflict" })],
+            },
+          ],
+        }),
+        { "test-op": successHandler },
+      );
+
+      const steps = applied.jobs.flatMap((j) => j.steps);
+      expect(steps).toHaveLength(1);
+      expect(steps[0]).toMatchObject({
+        _tag: "JobStepResult",
+        result: { result: "success", message: "Installed cautious" },
+      });
     }),
   );
 
@@ -189,11 +242,11 @@ describe("applyPlan", () => {
       expect(steps).toHaveLength(2);
       expect(steps[0]).toMatchObject({
         _tag: "JobStepResult",
-        actualResult: { result: "success", message: "Installed commit" },
+        result: { result: "success", message: "Installed commit" },
       });
       expect(steps[1]).toMatchObject({
         _tag: "JobStepResult",
-        actualResult: { result: "success", message: "Installed review-pr" },
+        result: { result: "success", message: "Installed review-pr" },
       });
     }),
   );
@@ -216,7 +269,7 @@ describe("applyPlan", () => {
       expect(steps).toHaveLength(1);
       expect(steps[0]).toMatchObject({
         _tag: "JobStepResult",
-        actualResult: { result: "error", message: "Failed to install bad" },
+        result: { result: "error", message: "Failed to install bad" },
       });
     }),
   );
@@ -239,7 +292,7 @@ describe("applyPlan", () => {
       expect(steps).toHaveLength(1);
       expect(steps[0]).toMatchObject({
         _tag: "JobStepResult",
-        actualResult: { result: "no-op", message: "Already installed skip" },
+        result: { result: "no-op", message: "Already installed skip" },
       });
     }),
   );

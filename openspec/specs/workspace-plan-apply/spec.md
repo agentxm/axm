@@ -2,7 +2,7 @@
 
 ### Requirement: Apply plan orchestration
 
-The plan apply module SHALL iterate over plan jobs and their steps, promoting each `PlannedJobStep` to a `JobStepResult`. Steps with `expectedResult.result === "success"` are dispatched to the matching handler from a typed registry keyed by operation `name`. All other steps set `actualResult` to their `expectedResult` directly. `applyPlan` SHALL return a new `Plan<Op>` with all steps promoted to `JobStepResult`.
+The plan apply module SHALL iterate over plan jobs and their steps, promoting each `PlannedJobStep` to a `JobStepResult`. Steps with `readiness.status` of `"ready"` or `"warn"` are dispatched to the matching handler from a typed registry keyed by operation `name`. Steps with `readiness.status` of `"skip"` or `"error"` are promoted without dispatch. `applyPlan` SHALL return a new `Plan<Op>` with all steps promoted to `JobStepResult`.
 
 #### Scenario: Job concurrency respected
 
@@ -14,22 +14,29 @@ The plan apply module SHALL iterate over plan jobs and their steps, promoting ea
 - **WHEN** applying a job with `concurrency: 1`
 - **THEN** the system SHALL execute steps sequentially
 
-#### Scenario: Dispatch step expected to succeed
+#### Scenario: Dispatch step with ready readiness
 
-- **WHEN** applying a step with `expectedResult.result === "success"` and `operation.name` value `K`
+- **WHEN** applying a step with `readiness.status === "ready"` and `operation.name` value `K`
 - **THEN** the system SHALL call `handlers[K](step.operation)` from the provided handler registry
-- **AND** the step SHALL be promoted to `JobStepResult` with the handler's return value as `actualResult`
+- **AND** the step SHALL be promoted to `JobStepResult` with the handler's return value as `result`
 
-#### Scenario: Non-success step promoted without dispatch
+#### Scenario: Dispatch step with warn readiness
 
-- **WHEN** a step has `expectedResult.result` that is not `"success"`
-- **THEN** the system SHALL promote it to `JobStepResult` with `actualResult` set to `expectedResult`
+- **WHEN** applying a step with `readiness.status === "warn"` and `operation.name` value `K`
+- **THEN** the system SHALL call `handlers[K](step.operation)` from the provided handler registry
+- **AND** the step SHALL be promoted to `JobStepResult` with the handler's return value as `result`
+
+#### Scenario: Skip step promoted without dispatch
+
+- **WHEN** a step has `readiness.status === "skip"`
+- **THEN** the system SHALL promote it to `JobStepResult` with `result: { result: "no-op", message: readiness.message }`
 - **AND** the system SHALL NOT call any handler for that step
 
-#### Scenario: No steps expected to succeed
+#### Scenario: Error step promoted without dispatch
 
-- **WHEN** every step in the plan has `expectedResult.result !== "success"`
-- **THEN** no handlers SHALL be called
+- **WHEN** a step has `readiness.status === "error"`
+- **THEN** the system SHALL promote it to `JobStepResult` with `result: { result: "error", message: readiness.message }`
+- **AND** the system SHALL NOT call any handler for that step
 
 #### Scenario: Handler registry is exhaustive
 
@@ -47,3 +54,9 @@ The plan apply module SHALL iterate over plan jobs and their steps, promoting ea
 - **WHEN** `applyPlan` completes
 - **THEN** it SHALL return a `Plan<Op>` where every step is a `JobStepResult`
 - **AND** the returned plan SHALL preserve the original `name`, `description`, and job structure
+
+#### Scenario: Handler error caught and converted to error result
+
+- **WHEN** a handler fails with a `CliError`
+- **THEN** the step SHALL be promoted to `JobStepResult` with `result: { result: "error", message: error.what }`
+- **AND** `applyPlan` SHALL NOT fail — errors are captured in results

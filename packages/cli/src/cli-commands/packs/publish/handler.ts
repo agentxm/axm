@@ -256,7 +256,7 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
         registryName,
       },
     } satisfies PublishPackOperation,
-    expectedResult: { result: "success", message: `Published ${packName}` },
+    readiness: { status: "ready", message: Option.none() },
     label: `Publish ${packName}`,
   };
 
@@ -296,7 +296,7 @@ const makeDependencyStep = (
 ): PlannedJobStep<PackPublishOp> => {
   const base = {
     _tag: "PlannedJobStep" as const,
-    expectedResult: { result: "success" as const, message: `Published ${depFqn}` },
+    readiness: { status: "ready" as const, message: Option.none() },
     label: `Publish dependency ${depFqn}`,
   };
 

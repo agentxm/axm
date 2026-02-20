@@ -11,7 +11,11 @@ import type { InstallSkillOperation } from "../../../extensions/skills/operation
 import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
 import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/install.js";
 import type { RegistryPackRef } from "../../../sources/types.js";
+import type { PlannedJobStep } from "../../../workspace/plan.js";
 import { buildInstallPlan } from "./plan.js";
+
+// Assertion needed: plan builders only produce PlannedJobStep
+const planned = <T>(step: { readonly _tag: string }) => step as PlannedJobStep<T>;
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -192,7 +196,7 @@ const lockfileWithSkills = (...names: string[]): Lockfile => ({
 // -----------------------------------------------------------------------------
 
 describe("buildInstallPlan", () => {
-  it("marks new packs as expected success", () => {
+  it("marks new packs as ready", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [],
@@ -207,13 +211,13 @@ describe("buildInstallPlan", () => {
     expect(plan.jobs).toHaveLength(1);
     expect(plan.jobs[0]!.steps).toHaveLength(1);
     expect(plan.jobs[0]!.steps[0]!._tag).toBe("PlannedJobStep");
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Installed pack my-pack",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
-  it("marks already-installed packs as expected no-op", () => {
+  it("marks already-installed packs as skip", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [],
@@ -226,8 +230,8 @@ describe("buildInstallPlan", () => {
     });
 
     expect(plan.jobs[0]!.steps[0]!._tag).toBe("PlannedJobStep");
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "no-op",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "skip",
       message: "already installed",
     });
   });
@@ -312,7 +316,7 @@ describe("buildInstallPlan", () => {
       versionConstraint: Option.none(),
     });
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult.result).toBe("success");
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness.status).toBe("ready");
   });
 
   // ---------------------------------------------------------------------------
@@ -372,17 +376,17 @@ describe("buildInstallPlan", () => {
 
     const steps = plan.jobs[0]!.steps;
     expect(steps).toHaveLength(2);
-    expect(steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Installed pack my-pack",
+    expect(planned(steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
-    expect(steps[1]!.expectedResult).toEqual({
-      result: "success",
-      message: "Installed skill my-skill",
+    expect(planned(steps[1]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
-  it("checks lockfile.skills for skill no-op detection", () => {
+  it("checks lockfile.skills for skill skip detection", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [makeSkillOp("my-skill")],
@@ -395,13 +399,13 @@ describe("buildInstallPlan", () => {
     });
 
     const steps = plan.jobs[0]!.steps;
-    expect(steps[1]!.expectedResult).toEqual({
-      result: "no-op",
+    expect(planned(steps[1]!).readiness).toEqual({
+      status: "skip",
       message: "already installed",
     });
   });
 
-  it("marks already-installed skills as no-op", () => {
+  it("marks already-installed skills as skip", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
@@ -415,8 +419,8 @@ describe("buildInstallPlan", () => {
 
     const steps = plan.jobs[0]!.steps;
     // Step 0 is the pack op
-    expect(steps[1]!.expectedResult.result).toBe("no-op");
-    expect(steps[2]!.expectedResult.result).toBe("success");
+    expect(planned(steps[1]!).readiness.status).toBe("skip");
+    expect(planned(steps[2]!).readiness.status).toBe("ready");
   });
 
   it("places pack steps before skill steps in plan order", () => {
@@ -483,10 +487,10 @@ describe("buildInstallPlan", () => {
     });
 
     const steps = plan.jobs[0]!.steps;
-    expect(steps[0]!.expectedResult.result).toBe("no-op"); // pack
+    expect(planned(steps[0]!).readiness.status).toBe("skip"); // pack
     expect(steps[0]!.label).toBe("my-pack");
-    expect(steps[1]!.expectedResult.result).toBe("no-op"); // skill-a
-    expect(steps[2]!.expectedResult.result).toBe("success"); // skill-b
+    expect(planned(steps[1]!).readiness.status).toBe("skip"); // skill-a
+    expect(planned(steps[2]!).readiness.status).toBe("ready"); // skill-b
   });
 
   // ---------------------------------------------------------------------------
@@ -530,13 +534,13 @@ describe("buildInstallPlan", () => {
     expect(steps).toHaveLength(2);
     expect(steps[0]!.operation.name).toBe("install-pack");
     expect(steps[1]!.operation.name).toBe("install-command");
-    expect(steps[1]!.expectedResult).toEqual({
-      result: "success",
-      message: "Installed command my-cmd",
+    expect(planned(steps[1]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
-  it("marks already-installed commands as no-op", () => {
+  it("marks already-installed commands as skip", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [],
@@ -549,8 +553,8 @@ describe("buildInstallPlan", () => {
     });
 
     const steps = plan.jobs[0]!.steps;
-    expect(steps[1]!.expectedResult).toEqual({
-      result: "no-op",
+    expect(planned(steps[1]!).readiness).toEqual({
+      status: "skip",
       message: "already installed",
     });
   });
@@ -592,13 +596,13 @@ describe("buildInstallPlan", () => {
     expect(steps).toHaveLength(2);
     expect(steps[0]!.operation.name).toBe("install-pack");
     expect(steps[1]!.operation.name).toBe("install-mcp-server");
-    expect(steps[1]!.expectedResult).toEqual({
-      result: "success",
-      message: "Installed mcp-server my-server",
+    expect(planned(steps[1]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
-  it("marks already-installed mcp-servers as no-op", () => {
+  it("marks already-installed mcp-servers as skip", () => {
     const plan = buildInstallPlan({
       ref: makePackRef("my-pack"),
       skillOps: [],
@@ -611,8 +615,8 @@ describe("buildInstallPlan", () => {
     });
 
     const steps = plan.jobs[0]!.steps;
-    expect(steps[1]!.expectedResult).toEqual({
-      result: "no-op",
+    expect(planned(steps[1]!).readiness).toEqual({
+      status: "skip",
       message: "already installed",
     });
   });
@@ -679,10 +683,10 @@ describe("buildInstallPlan", () => {
     });
 
     const steps = plan.jobs[0]!.steps;
-    expect(steps[0]!.expectedResult.result).toBe("no-op"); // pack
-    expect(steps[1]!.expectedResult.result).toBe("no-op"); // skill-a
-    expect(steps[2]!.expectedResult.result).toBe("no-op"); // cmd-a
-    expect(steps[3]!.expectedResult.result).toBe("success"); // cmd-b
-    expect(steps[4]!.expectedResult.result).toBe("success"); // server-a
+    expect(planned(steps[0]!).readiness.status).toBe("skip"); // pack
+    expect(planned(steps[1]!).readiness.status).toBe("skip"); // skill-a
+    expect(planned(steps[2]!).readiness.status).toBe("skip"); // cmd-a
+    expect(planned(steps[3]!).readiness.status).toBe("ready"); // cmd-b
+    expect(planned(steps[4]!).readiness.status).toBe("ready"); // server-a
   });
 });

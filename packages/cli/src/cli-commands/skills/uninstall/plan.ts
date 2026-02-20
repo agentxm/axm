@@ -8,9 +8,15 @@
  */
 
 import * as Option from "effect/Option";
-import type { Lockfile } from "../../../lockfile/schema.js";
+import type { Record as EffectRecord } from "effect";
 import type { Plan } from "../../../workspace/plan.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
+
+/** Keyed by skill name. Presence = installed. */
+export type InstalledSkills = EffectRecord.ReadonlyRecord<
+  string,
+  { readonly referencingPacks: ReadonlyArray<string> }
+>;
 
 /**
  * Build a plan by comparing operations against the lockfile.
@@ -19,7 +25,7 @@ import type { UninstallSkillOperation } from "../../../extensions/skills/operati
  */
 export const buildSkillUninstallPlan = (
   ops: ReadonlyArray<UninstallSkillOperation>,
-  lockfile: Lockfile,
+  installed: InstalledSkills,
   name: string,
   description: Option.Option<string>,
 ): Plan<UninstallSkillOperation> => ({
@@ -29,23 +35,33 @@ export const buildSkillUninstallPlan = (
     {
       concurrency: 1,
       steps: ops.map((op) => {
-        const installed = op.args.skillName in lockfile.skills;
-        return installed
-          ? {
-              _tag: "PlannedJobStep",
-              operation: op,
-              expectedResult: {
-                result: "success",
-                message: `Uninstalled ${op.args.skillName}`,
-              },
-              label: op.args.skillName,
-            }
-          : {
-              _tag: "PlannedJobStep",
-              operation: op,
-              expectedResult: { result: "no-op", message: "not installed" },
-              label: op.args.skillName,
-            };
+        const entry = installed[op.args.skillName];
+        if (entry === undefined) {
+          return {
+            _tag: "PlannedJobStep",
+            operation: op,
+            readiness: { status: "skip", message: "not installed" },
+            label: op.args.skillName,
+          };
+        }
+        if (entry.referencingPacks.length > 0) {
+          const packs = entry.referencingPacks.join(", ");
+          return {
+            _tag: "PlannedJobStep",
+            operation: op,
+            readiness: {
+              status: "error",
+              message: `required by pack ${packs}. Use 'axm skills disable <skill>' instead`,
+            },
+            label: op.args.skillName,
+          };
+        }
+        return {
+          _tag: "PlannedJobStep",
+          operation: op,
+          readiness: { status: "ready", message: Option.none() },
+          label: op.args.skillName,
+        };
       }),
     },
   ],

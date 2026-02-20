@@ -18,7 +18,7 @@ import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
 import { EXTERNAL_EXTENSIONS_DIR, REGISTRY_EXTENSIONS_DIR } from "../../constants.js";
 import { removeFromAllCanonicalLocations } from "../../../utils/fs-helpers.js";
-import { sanitizeName } from "../utils.js";
+import { getSkillFqn, isReferencedByPack, sanitizeName } from "../utils.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -80,30 +80,6 @@ const existsInAnyLocation = (
 
     return results.some((exists) => exists);
   });
-
-/**
- * Derive the FQN (`@namespace/skills/name`) for a skill lock entry, if it's a registry entry.
- */
-const getSkillFqn = (
-  skillName: string,
-  lockEntry: { type: string; namespace?: string; name?: string } | undefined,
-): string | undefined => {
-  if (lockEntry?.type === "registry" && lockEntry.namespace && lockEntry.name) {
-    return `${lockEntry.namespace}/skills/${lockEntry.name}`;
-  }
-  // For non-registry entries, the skill name itself may be a FQN (e.g., "@namespace/skills/name")
-  return skillName.startsWith("@") ? skillName : undefined;
-};
-
-/**
- * Check if a skill is referenced by any pack's `resolvedSkills`.
- *
- * Pure function — scans all pack lock entries for the given FQN.
- */
-const isReferencedByPack = (
-  skillFqn: string,
-  lockedPacks: Readonly<Record<string, { resolvedSkills: Readonly<Record<string, string>> }>>,
-): boolean => Object.values(lockedPacks).some((pack) => skillFqn in pack.resolvedSkills);
 
 // -----------------------------------------------------------------------------
 // Public API

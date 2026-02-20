@@ -196,7 +196,7 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
       name: "publish-skill",
       args: { name: extName, registryName },
     } satisfies PublishSkillOperation,
-    expectedResult: { result: "success" as const, message: `Published ${extName}` },
+    readiness: { status: "ready" as const, message: Option.none() },
     label: `Publish ${extName}`,
   }));
 

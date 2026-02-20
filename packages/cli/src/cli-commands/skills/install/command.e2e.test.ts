@@ -555,8 +555,8 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        // Should show summary with install count (V2 format: "to install")
-        expect(result.stdout).toMatch(/\d+ to install/);
+        // Should show summary with apply count
+        expect(result.stdout).toMatch(/\d+ to apply/);
       } finally {
         temp.cleanup();
       }

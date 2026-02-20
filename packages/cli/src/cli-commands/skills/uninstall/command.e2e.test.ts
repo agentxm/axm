@@ -309,7 +309,7 @@ describe("axm skills uninstall", () => {
 
         expect(result.exitCode).toBe(0);
         // Should show summary with counts
-        expect(result.stdout).toMatch(/\d+ to install, \d+ to skip/);
+        expect(result.stdout).toMatch(/\d+ to apply/);
       } finally {
         temp.cleanup();
       }

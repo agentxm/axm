@@ -61,16 +61,13 @@ export const buildUninstallPlan = (
         ? {
             _tag: "PlannedJobStep",
             operation: op,
-            expectedResult: {
-              result: "success",
-              message: `Uninstalled pack ${op.args.packName}`,
-            },
+            readiness: { status: "ready", message: Option.none() },
             label: op.args.packName,
           }
         : {
             _tag: "PlannedJobStep",
             operation: op,
-            expectedResult: { result: "no-op", message: "not installed" },
+            readiness: { status: "skip", message: "not installed" },
             label: op.args.packName,
           };
     },
@@ -106,10 +103,7 @@ export const buildUninstallPlan = (
       return {
         _tag: "PlannedJobStep",
         operation: op,
-        expectedResult: {
-          result: "success",
-          message: `Uninstalled skill ${simpleName}`,
-        },
+        readiness: { status: "ready", message: Option.none() },
         label: fqn,
       };
     },
@@ -146,10 +140,7 @@ export const buildUninstallPlan = (
       return {
         _tag: "PlannedJobStep",
         operation: op,
-        expectedResult: {
-          result: "success",
-          message: `Uninstalled command ${simpleName}`,
-        },
+        readiness: { status: "ready", message: Option.none() },
         label: fqn,
       };
     },
@@ -186,10 +177,7 @@ export const buildUninstallPlan = (
       return {
         _tag: "PlannedJobStep",
         operation: op,
-        expectedResult: {
-          result: "success",
-          message: `Uninstalled MCP server ${simpleName}`,
-        },
+        readiness: { status: "ready", message: Option.none() },
         label: fqn,
       };
     },

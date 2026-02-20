@@ -41,6 +41,7 @@ const initWorkspace = (
   axmDir: string,
   lockfileSkills: Record<string, unknown> = {},
   agents: string[] = ["claude-code"],
+  lockfilePacks: Record<string, unknown> = {},
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
   // Build settings skills map so removeSkill can find them
@@ -54,10 +55,11 @@ const initWorkspace = (
     settings["skills"] = settingsSkills;
   }
   fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-  fs.writeFileSync(
-    path.join(axmDir, "axm-lock.yaml"),
-    YAML.stringify({ lockfileVersion: 1, skills: lockfileSkills }),
-  );
+  const lockfile: Record<string, unknown> = { lockfileVersion: 1, skills: lockfileSkills };
+  if (Object.keys(lockfilePacks).length > 0) {
+    lockfile["packs"] = lockfilePacks;
+  }
+  fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
 };
 
 /** Create a canonical skill directory with SKILL.md. */
@@ -82,6 +84,40 @@ const makeLockEntry = (agents: string[] = ["claude-code"]) => ({
   agents,
   installedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
+});
+
+const makeRegistryLockEntry = (
+  namespace: string,
+  name: string,
+  agents: string[] = ["claude-code"],
+) => ({
+  type: "registry",
+  namespace,
+  name,
+  resolvedVersion: "1.0.0",
+  integrity: "sha256-abc",
+  sourceName: "default",
+  agents,
+  installedAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+});
+
+const makePackLockEntry = (
+  namespace: string,
+  name: string,
+  resolvedSkills: Record<string, string> = {},
+) => ({
+  type: "registry",
+  namespace,
+  name,
+  resolvedVersion: "1.0.0",
+  integrity: "sha256-abc",
+  sourceName: "default",
+  installedAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  resolvedSkills,
+  resolvedCommands: {},
+  resolvedMcpServers: {},
 });
 
 const defaultArgs = (
@@ -305,6 +341,43 @@ describe("uninstall.handler", () => {
           expect(lockfile.skills["my-skill"]).toBeDefined();
           expect(lockfile.skills["my-skill"].agents).not.toContain("claude-code");
           expect(lockfile.skills["my-skill"].agents).toContain("cursor");
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Pack dependency guard
+  // ---------------------------------------------------------------------------
+
+  describe("pack dependency guard", () => {
+    it.effect("blocks uninstall of pack-referenced skill with error", () => {
+      const { provide, mockLog } = makeLayers();
+      const skillName = "my-skill";
+      const fqn = "@my-ns/skills/my-skill";
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        { [skillName]: makeRegistryLockEntry("@my-ns", "my-skill") },
+        ["claude-code"],
+        { "my-pack": makePackLockEntry("@my-ns", "my-pack", { [fqn]: "1.0.0" }) },
+      );
+      createCanonicalSkill(tempDir, skillName);
+      createAgentSymlink(tempDir, ".claude", skillName);
+
+      return provide(
+        Effect.gen(function* () {
+          // Plan has errors → resolvePlan will fail with PLAN_HAS_ERRORS
+          const result = yield* handleUninstall(defaultArgs(skillName)).pipe(Effect.either);
+
+          // The plan should have failed due to error readiness
+          expect(result._tag).toBe("Left");
+
+          // Error readiness renders via log.error — check error logs for pack reference
+          expect(
+            mockLog.logs.error.some(
+              (m) => m.includes("my-pack") && m.includes("axm skills disable"),
+            ),
+          ).toBe(true);
         }),
       );
     });

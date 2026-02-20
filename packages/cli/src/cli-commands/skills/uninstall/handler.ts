@@ -2,11 +2,12 @@
  * Uninstall command handler - Effect-based orchestration for `axm skills uninstall`.
  *
  * Uses plan-based reconciliation pattern:
- * 1. Load lockfile
- * 2. Expand glob pattern against lockfile keys
- * 3. Build UninstallSkillOperations
- * 4. Build plan (diff against lockfile)
- * 5. Resolve plan via workspace (display, confirm, apply based on flags)
+ * 1. Load locked skills and packs
+ * 2. Build InstalledSkills lookup with pack references
+ * 3. Expand glob pattern against locked skill names
+ * 4. Build UninstallSkillOperations
+ * 5. Build plan (diff against installed state)
+ * 6. Resolve plan via workspace (display, confirm, apply based on flags)
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -16,9 +17,10 @@ import * as Option from "effect/Option";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
-import { buildSkillUninstallPlan } from "./plan.js";
+import { buildSkillUninstallPlan, type InstalledSkills } from "./plan.js";
 import { expandGlob } from "../../../skills/index.js";
 import { uninstallSkill } from "../../../extensions/skills/operations/uninstall.js";
+import { getSkillFqn, getReferencingPacks } from "../../../extensions/skills/utils.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -44,11 +46,12 @@ export interface UninstallHandlerArgs {
  * Handles the `axm skills uninstall` command.
  *
  * Flow (state-based architecture):
- * 1. Load lockfile from workspace
- * 2. Expand glob pattern against lockfile skill names
- * 3. Build UninstallSkillOperations
- * 4. Build plan (diff against lockfile)
- * 5. Resolve plan via workspace (display, confirm, apply based on flags)
+ * 1. Load locked skills and packs from workspace
+ * 2. Build InstalledSkills lookup with pack references
+ * 3. Expand glob pattern against locked skill names
+ * 4. Build UninstallSkillOperations
+ * 5. Build plan (diff against installed state)
+ * 6. Resolve plan via workspace (display, confirm, apply based on flags)
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -72,12 +75,21 @@ export const handleUninstall = Effect.fn("Uninstall.handle")(function* (
     }
   }
 
-  // Step 1: Load lockfile
+  // Step 1: Load locked state
   const lockedSkills = yield* ws.getLockedSkills();
-  const lockfile = { lockfileVersion: 1, skills: lockedSkills };
+  const lockedPacks = yield* ws.getLockedPacks();
 
-  // Step 2: Expand glob pattern
-  const skillNames = expandGlob(args.skill, Object.keys(lockfile.skills));
+  // Step 2: Build InstalledSkills lookup
+  const installed: InstalledSkills = Object.fromEntries(
+    Object.entries(lockedSkills).map(([name, entry]) => {
+      const fqn = getSkillFqn(name, entry);
+      const packs = fqn !== undefined ? getReferencingPacks(fqn, lockedPacks) : [];
+      return [name, { referencingPacks: packs }];
+    }),
+  );
+
+  // Step 3: Expand glob pattern
+  const skillNames = expandGlob(args.skill, Object.keys(lockedSkills));
 
   // Handle glob matching zero skills
   if (args.skill.includes("*") && skillNames.length === 0) {
@@ -89,7 +101,7 @@ export const handleUninstall = Effect.fn("Uninstall.handle")(function* (
   // For literal names not in lockfile, still build an operation (plan marks as no-op)
   const names = skillNames.length > 0 ? skillNames : [args.skill];
 
-  // Step 3: Build operations
+  // Step 4: Build operations
   const ops = names.map(
     (name) =>
       ({
@@ -101,10 +113,10 @@ export const handleUninstall = Effect.fn("Uninstall.handle")(function* (
       }) satisfies UninstallSkillOperation,
   );
 
-  // Step 4: Build plan
-  const plan = buildSkillUninstallPlan(ops, lockfile, "Uninstall skill(s)", Option.none());
+  // Step 5: Build plan
+  const plan = buildSkillUninstallPlan(ops, installed, "Uninstall skill(s)", Option.none());
 
-  // Step 5: Resolve plan via workspace
+  // Step 6: Resolve plan via workspace
   yield* ws.resolvePlan(plan, { "uninstall-skill": uninstallSkill });
 
   yield* log.success("Done");

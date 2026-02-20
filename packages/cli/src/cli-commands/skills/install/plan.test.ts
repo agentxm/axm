@@ -14,7 +14,11 @@ import {
   type SourceHostProvidersService,
 } from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/index.js";
+import type { PlannedJobStep } from "../../../workspace/plan.js";
 import { buildSkillInstallPlan } from "./plan.js";
+
+// Assertion needed: plan builders only produce PlannedJobStep
+const planned = <T>(step: { readonly _tag: string }) => step as PlannedJobStep<T>;
 
 const makeLocalSkillRef = (name: string) =>
   ({
@@ -106,7 +110,7 @@ describe("buildSkillInstallPlan", () => {
     expect(plan.description).toEqual(Option.some("Install skills from /fake"));
   });
 
-  it("marks new skills as expected success", () => {
+  it("marks new skills as ready", () => {
     const plan = runBuildPlan({
       selectedSkills: [makeLocalSkillRef("commit")],
       lockedSkills: {},
@@ -115,21 +119,21 @@ describe("buildSkillInstallPlan", () => {
     expect(plan.jobs).toHaveLength(1);
     expect(plan.jobs[0]!.steps).toHaveLength(1);
     expect(plan.jobs[0]!.steps[0]!._tag).toBe("PlannedJobStep");
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Installed commit",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
-  it("marks already-installed skills as expected no-op", () => {
+  it("marks already-installed skills as skip", () => {
     const plan = runBuildPlan({
       selectedSkills: [makeLocalSkillRef("commit")],
       lockedSkills: lockfileWith("commit"),
     });
 
     expect(plan.jobs[0]!.steps[0]!._tag).toBe("PlannedJobStep");
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "no-op",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "skip",
       message: "already installed",
     });
   });
@@ -144,14 +148,17 @@ describe("buildSkillInstallPlan", () => {
     expect(plan.jobs[0]!.concurrency).toBe(1);
   });
 
-  it("marks already-installed skills as expected success when force is true", () => {
+  it("marks already-installed skills as ready when force is true", () => {
     const plan = runBuildPlan({
       selectedSkills: [makeLocalSkillRef("commit")],
       lockedSkills: lockfileWith("commit"),
       force: true,
     });
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult.result).toBe("success");
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
+    });
   });
 
   it("applies version constraint only to registry refs", () => {

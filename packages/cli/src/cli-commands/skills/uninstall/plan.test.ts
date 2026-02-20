@@ -6,9 +6,12 @@
 
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
-import type { Lockfile } from "../../../lockfile/schema.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
-import { buildSkillUninstallPlan } from "./plan.js";
+import type { PlannedJobStep } from "../../../workspace/plan.js";
+import { buildSkillUninstallPlan, type InstalledSkills } from "./plan.js";
+
+// Assertion needed: plan builders only produce PlannedJobStep
+const planned = <T>(step: { readonly _tag: string }) => step as PlannedJobStep<T>;
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -19,36 +22,25 @@ const makeOp = (name: string): UninstallSkillOperation => ({
   args: { skillName: name, agents: [] },
 });
 
-const emptyLockfile: Lockfile = {
-  lockfileVersion: 1,
-  skills: {},
-};
+const emptyInstalled: InstalledSkills = {};
 
-const lockfileWith = (...names: string[]): Lockfile => ({
-  lockfileVersion: 1,
-  skills: Object.fromEntries(
-    names.map((name) => [
-      name,
-      {
-        type: "local" as const,
-        path: "/installed",
-        agents: [],
-        installedAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ]),
-  ),
-});
+const installedWith = (...names: string[]): InstalledSkills =>
+  Object.fromEntries(names.map((name) => [name, { referencingPacks: [] }]));
+
+const installedWithPacks = (entries: Record<string, ReadonlyArray<string>>): InstalledSkills =>
+  Object.fromEntries(
+    Object.entries(entries).map(([name, packs]) => [name, { referencingPacks: packs }]),
+  );
 
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
 
 describe("buildSkillUninstallPlan", () => {
-  it("marks installed skills as expected success", () => {
+  it("marks installed skills as ready", () => {
     const plan = buildSkillUninstallPlan(
       [makeOp("commit")],
-      lockfileWith("commit"),
+      installedWith("commit"),
       "Uninstall",
       Option.none(),
     );
@@ -56,29 +48,29 @@ describe("buildSkillUninstallPlan", () => {
     expect(plan.jobs).toHaveLength(1);
     expect(plan.jobs[0]!.steps).toHaveLength(1);
     expect(plan.jobs[0]!.steps[0]!._tag).toBe("PlannedJobStep");
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Uninstalled commit",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
-  it("marks skills not in lockfile as expected no-op", () => {
+  it("marks skills not installed as skip", () => {
     const plan = buildSkillUninstallPlan(
       [makeOp("commit")],
-      emptyLockfile,
+      emptyInstalled,
       "Uninstall",
       Option.none(),
     );
 
     expect(plan.jobs[0]!.steps[0]!._tag).toBe("PlannedJobStep");
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "no-op",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "skip",
       message: "not installed",
     });
   });
 
   it("produces empty plan from empty operations", () => {
-    const plan = buildSkillUninstallPlan([], emptyLockfile, "Uninstall", Option.none());
+    const plan = buildSkillUninstallPlan([], emptyInstalled, "Uninstall", Option.none());
 
     expect(plan.jobs).toHaveLength(1);
     expect(plan.jobs[0]!.steps).toHaveLength(0);
@@ -87,7 +79,7 @@ describe("buildSkillUninstallPlan", () => {
   it("derives label from skillName", () => {
     const plan = buildSkillUninstallPlan(
       [makeOp("commit"), makeOp("review-pr")],
-      lockfileWith("commit", "review-pr"),
+      installedWith("commit", "review-pr"),
       "Uninstall",
       Option.none(),
     );
@@ -99,7 +91,7 @@ describe("buildSkillUninstallPlan", () => {
   it("passes through caller-provided name and description", () => {
     const plan = buildSkillUninstallPlan(
       [makeOp("commit")],
-      lockfileWith("commit"),
+      installedWith("commit"),
       "Uninstall skill(s)",
       Option.some("Uninstall skills from workspace"),
     );
@@ -111,7 +103,7 @@ describe("buildSkillUninstallPlan", () => {
   it("creates a single job with serial concurrency", () => {
     const plan = buildSkillUninstallPlan(
       [makeOp("a"), makeOp("b")],
-      lockfileWith("a", "b"),
+      installedWith("a", "b"),
       "Uninstall",
       Option.none(),
     );
@@ -120,20 +112,50 @@ describe("buildSkillUninstallPlan", () => {
     expect(plan.jobs[0]!.concurrency).toBe(1);
   });
 
-  it("handles mixed success and no-op expected results", () => {
+  it("handles mixed ready and skip readiness", () => {
     const plan = buildSkillUninstallPlan(
       [makeOp("commit"), makeOp("review-pr"), makeOp("debug")],
-      lockfileWith("commit", "debug"),
+      installedWith("commit", "debug"),
       "Uninstall",
       Option.none(),
     );
 
     const steps = plan.jobs[0]!.steps;
-    expect(steps[0]!.expectedResult.result).toBe("success");
+    expect(planned(steps[0]!).readiness.status).toBe("ready");
     expect(steps[0]!.label).toBe("commit");
-    expect(steps[1]!.expectedResult.result).toBe("no-op");
+    expect(planned(steps[1]!).readiness.status).toBe("skip");
     expect(steps[1]!.label).toBe("review-pr");
-    expect(steps[2]!.expectedResult.result).toBe("success");
+    expect(planned(steps[2]!).readiness.status).toBe("ready");
     expect(steps[2]!.label).toBe("debug");
+  });
+
+  it("marks pack-dependent skill (single pack) as error", () => {
+    const plan = buildSkillUninstallPlan(
+      [makeOp("commit")],
+      installedWithPacks({ commit: ["my-pack"] }),
+      "Uninstall",
+      Option.none(),
+    );
+
+    const step = planned(plan.jobs[0]!.steps[0]!);
+    expect(step.readiness).toEqual({
+      status: "error",
+      message: "required by pack my-pack. Use 'axm skills disable <skill>' instead",
+    });
+  });
+
+  it("marks pack-dependent skill (multiple packs) as error", () => {
+    const plan = buildSkillUninstallPlan(
+      [makeOp("commit")],
+      installedWithPacks({ commit: ["pack-a", "pack-b"] }),
+      "Uninstall",
+      Option.none(),
+    );
+
+    const step = planned(plan.jobs[0]!.steps[0]!);
+    expect(step.readiness).toEqual({
+      status: "error",
+      message: "required by pack pack-a, pack-b. Use 'axm skills disable <skill>' instead",
+    });
   });
 });

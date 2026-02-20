@@ -100,7 +100,6 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     name: "Disable skill",
     description: `Disable ${args.name}`,
     label: args.name,
-    expectedMessage: `Disabled ${args.name}`,
   });
 
   yield* ws.resolvePlan(plan, { "disable-skill": disableSkill });

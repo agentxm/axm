@@ -25,18 +25,23 @@ export type OperationResult = {
   readonly message: string;
 };
 
+export type Readiness =
+  | { readonly status: "ready"; readonly message: Option<string> }
+  | { readonly status: "skip"; readonly message: string }
+  | { readonly status: "warn"; readonly message: string }
+  | { readonly status: "error"; readonly message: string };
+
 export interface PlannedJobStep<TOperation> {
   readonly _tag: "PlannedJobStep";
   readonly operation: TOperation;
-  readonly expectedResult: OperationResult;
+  readonly readiness: Readiness;
   readonly label: string;
 }
 
 export interface JobStepResult<TOperation> {
   readonly _tag: "JobStepResult";
   readonly operation: TOperation;
-  readonly expectedResult: OperationResult;
-  readonly actualResult: OperationResult;
+  readonly result: OperationResult;
   readonly label: string;
 }
 

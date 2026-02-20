@@ -11,7 +11,7 @@ import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Log } from "../tui/index.js";
-import type { JobStep, OperationResult, Plan } from "./plan.js";
+import type { JobStep, Plan } from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Implementation
@@ -28,15 +28,7 @@ export const displayPlan = <Op>(plan: Plan<Op>) =>
 
     const allSteps = Array.flatMap(plan.jobs, (job) => [...job.steps]);
 
-    // Extract the relevant result based on step phase
-    const getResult = (step: JobStep<Op>): OperationResult =>
-      step._tag === "JobStepResult" ? step.actualResult : step.expectedResult;
-
     const isApplied = allSteps.length > 0 && allSteps[0]!._tag === "JobStepResult";
-
-    const successSteps = Array.filter(allSteps, (s) => getResult(s).result === "success");
-    const noopSteps = Array.filter(allSteps, (s) => getResult(s).result === "no-op");
-    const errorSteps = Array.filter(allSteps, (s) => getResult(s).result === "error");
 
     // Heading
     const heading = Option.match(plan.description, {
@@ -45,37 +37,93 @@ export const displayPlan = <Op>(plan: Plan<Op>) =>
     });
     yield* log.info(heading);
 
-    // Success items
-    if (successSteps.length > 0) {
-      for (const step of successSteps) {
-        if (isApplied) {
-          yield* log.success(`  ✓ ${step.label}`);
-        } else {
-          yield* log.success(`  + ${step.label}`);
-        }
-      }
+    // Render each step
+    for (const step of allSteps) {
+      yield* renderStep(step, log);
     }
 
-    // No-op items
-    if (noopSteps.length > 0) {
-      for (const step of noopSteps) {
-        yield* log.warn(`  - ${step.label} (${getResult(step).message})`);
-      }
-    }
-
-    // Error items
-    if (errorSteps.length > 0) {
-      for (const step of errorSteps) {
-        yield* log.error(`  ✗ ${step.label} (${getResult(step).message})`);
-      }
-    }
-
-    // Summary with phase-appropriate tense
-    const successCount = successSteps.length;
-    const skipCount = noopSteps.length;
-    if (isApplied) {
-      yield* log.message(`${successCount} installed, ${skipCount} skipped`);
-    } else {
-      yield* log.message(`${successCount} to install, ${skipCount} to skip`);
-    }
+    // Summary
+    yield* renderSummary(allSteps, isApplied, log);
   });
+
+const renderStep = <Op>(step: JobStep<Op>, log: Log["Type"]) => {
+  if (step._tag === "JobStepResult") {
+    switch (step.result.result) {
+      case "success":
+        return log.success(`  \u2713 ${step.label}`);
+      case "no-op":
+        return log.warn(`  - ${step.label} (${step.result.message})`);
+      case "error":
+        return log.error(`  \u2717 ${step.label} (${step.result.message})`);
+    }
+  }
+
+  // PlannedJobStep — branch on readiness.status
+  switch (step.readiness.status) {
+    case "ready":
+      return Option.match(step.readiness.message, {
+        onNone: () => log.success(`  + ${step.label}`),
+        onSome: (msg) => log.success(`  + ${step.label} (${msg})`),
+      });
+    case "skip":
+      return log.warn(`  - ${step.label} (${step.readiness.message})`);
+    case "warn":
+      return log.warn(`  \u26A0 ${step.label} (${step.readiness.message})`);
+    case "error":
+      return log.error(`  \u2717 ${step.label} (${step.readiness.message})`);
+  }
+};
+
+const renderSummary = <Op>(
+  allSteps: ReadonlyArray<JobStep<Op>>,
+  isApplied: boolean,
+  log: Log["Type"],
+) => {
+  if (isApplied) {
+    const successCount = Array.filter(
+      allSteps,
+      (s) => s._tag === "JobStepResult" && s.result.result === "success",
+    ).length;
+    const skipCount = Array.filter(
+      allSteps,
+      (s) => s._tag === "JobStepResult" && s.result.result === "no-op",
+    ).length;
+    const failCount = Array.filter(
+      allSteps,
+      (s) => s._tag === "JobStepResult" && s.result.result === "error",
+    ).length;
+
+    const parts: string[] = [];
+    if (successCount > 0) parts.push(`${successCount} applied`);
+    if (skipCount > 0) parts.push(`${skipCount} skipped`);
+    if (failCount > 0) parts.push(`${failCount} failed`);
+
+    return log.message(parts.join(", "));
+  }
+
+  // Unapplied plan — count by readiness
+  const readyCount = Array.filter(
+    allSteps,
+    (s) => s._tag === "PlannedJobStep" && s.readiness.status === "ready",
+  ).length;
+  const skipCount = Array.filter(
+    allSteps,
+    (s) => s._tag === "PlannedJobStep" && s.readiness.status === "skip",
+  ).length;
+  const warnCount = Array.filter(
+    allSteps,
+    (s) => s._tag === "PlannedJobStep" && s.readiness.status === "warn",
+  ).length;
+  const errorCount = Array.filter(
+    allSteps,
+    (s) => s._tag === "PlannedJobStep" && s.readiness.status === "error",
+  ).length;
+
+  const parts: string[] = [];
+  if (readyCount > 0) parts.push(`${readyCount} to apply`);
+  if (skipCount > 0) parts.push(`${skipCount} to skip`);
+  if (errorCount > 0) parts.push(`${errorCount} error${errorCount > 1 ? "s" : ""}`);
+  if (warnCount > 0) parts.push(`${warnCount} warning${warnCount > 1 ? "s" : ""}`);
+
+  return log.message(parts.join(", "));
+};

@@ -24,6 +24,16 @@ import { Workspace } from "../../../workspace/index.js";
 import { buildInstallPlan } from "./plan.js";
 import { installPack } from "../../../extensions/packs/operations/install.js";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
+import { installCommand } from "../../../extensions/commands/operations/install.js";
+import { installMcpServer } from "../../../extensions/mcp-servers/operations/install.js";
+import {
+  buildRegistrySkillRef,
+  buildRegistryCommandRef,
+  buildRegistryMcpServerRef,
+} from "../../../extensions/index.js";
+import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
+import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
+import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/install.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -240,21 +250,73 @@ export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
   }
   yield* discoverHandle.stop("Found pack");
 
-  // Step 5: Build and execute plan
+  // Step 5: Build extension ops from pack ref's resolved maps
+  const skillOps: ReadonlyArray<InstallSkillOperation> = Object.entries(packRef.pack.skills).map(
+    ([fqn, version]) => ({
+      name: "install-skill" as const,
+      args: {
+        ref: buildRegistrySkillRef(fqn, version, packRef.source),
+        force: false,
+        versionConstraint: Option.none<string>(),
+        skipSettings: Option.some(true),
+      },
+    }),
+  );
+
+  const commandOps: ReadonlyArray<InstallCommandOperation> = Object.entries(
+    packRef.pack.commands,
+  ).map(([fqn, version]) => ({
+    name: "install-command" as const,
+    args: {
+      ref: buildRegistryCommandRef(fqn, version, packRef.source),
+      force: false,
+      versionConstraint: Option.none<string>(),
+      skipSettings: Option.some(true),
+    },
+  }));
+
+  const mcpServerOps: ReadonlyArray<InstallMcpServerOperation> = Object.entries(
+    packRef.pack.mcpServers,
+  ).map(([fqn, version]) => ({
+    name: "install-mcp-server" as const,
+    args: {
+      ref: buildRegistryMcpServerRef(fqn, version, packRef.source),
+      force: false,
+      versionConstraint: Option.none<string>(),
+      skipSettings: Option.some(true),
+    },
+  }));
+
+  // Step 6: Build and execute plan
   const lockedPacks = yield* ws.getLockedPacks();
   const lockedSkills = yield* ws.getLockedSkills();
-  const lockfile = { lockfileVersion: 1, skills: lockedSkills, packs: lockedPacks };
+  const lockedCommands = yield* ws.getLockedCommands();
+  const lockedMcpServers = yield* ws.getLockedMcpServers();
+  const lockfile = {
+    lockfileVersion: 1,
+    skills: lockedSkills,
+    commands: lockedCommands,
+    mcpServers: lockedMcpServers,
+    packs: lockedPacks,
+  };
 
   const plan = buildInstallPlan({
     ref: packRef,
-    skillOps: [],
+    skillOps,
+    commandOps,
+    mcpServerOps,
     lockfile,
     name: "Install pack",
     description: Option.some(`Install pack ${namespace}/packs/${packName}`),
     versionConstraint,
   });
 
-  yield* ws.resolvePlan(plan, { "install-pack": installPack, "install-skill": installSkill });
+  yield* ws.resolvePlan(plan, {
+    "install-pack": installPack,
+    "install-skill": installSkill,
+    "install-command": installCommand,
+    "install-mcp-server": installMcpServer,
+  });
 
   yield* log.success("Done");
 });

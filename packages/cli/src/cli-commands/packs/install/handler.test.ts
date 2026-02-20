@@ -588,5 +588,94 @@ describe("packs install handler", () => {
         }),
       );
     });
+
+    it.effect("builds skill, command, and mcp-server ops from pack resolved maps", () => {
+      const packRef = makePackRef("multi-pack", {
+        skills: { "@acme/skills/code-review": "1.0.0" },
+        commands: { "@acme/commands/lint": "2.0.0" },
+        mcpServers: { "@acme/mcp-servers/analytics": "3.0.0" },
+      });
+
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (_source, options) => {
+          if (options.type === "pack") return Effect.succeed([packRef]);
+          return Effect.succeed([]);
+        },
+      };
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+      });
+
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstallPack(defaultArgs("@acme/packs/multi-pack"));
+
+          const allLogs = [
+            ...mockLog.logs.info,
+            ...mockLog.logs.message,
+            ...mockLog.logs.success,
+            ...mockLog.logs.warn,
+          ].join("\n");
+          // Plan should include the pack and all extension steps
+          expect(allLogs).toContain("multi-pack");
+          expect(allLogs).toContain("code-review");
+          expect(allLogs).toContain("lint");
+          expect(allLogs).toContain("analytics");
+        }),
+      );
+    });
+
+    it.effect("skips already-installed extension dependencies", () => {
+      const packRef = makePackRef("dep-pack", {
+        skills: { "@acme/skills/existing-skill": "1.0.0" },
+        commands: { "@acme/commands/existing-cmd": "1.0.0" },
+      });
+
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (_source, options) => {
+          if (options.type === "pack") return Effect.succeed([packRef]);
+          return Effect.succeed([]);
+        },
+      };
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [{ type: "registry", name: "default", location: "file:///tmp/reg" }],
+        lockfileSkills: {
+          "existing-skill": {
+            type: "registry",
+            namespace: "@acme",
+            name: "existing-skill",
+            resolvedVersion: "1.0.0",
+            integrity: "",
+            sourceName: "default",
+            agents: [],
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      });
+
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstallPack(defaultArgs("@acme/packs/dep-pack"));
+
+          const allLogs = [
+            ...mockLog.logs.info,
+            ...mockLog.logs.message,
+            ...mockLog.logs.success,
+            ...mockLog.logs.warn,
+          ].join("\n");
+          expect(allLogs).toContain("existing-skill");
+          expect(allLogs).toContain("already installed");
+        }),
+      );
+    });
   });
 });

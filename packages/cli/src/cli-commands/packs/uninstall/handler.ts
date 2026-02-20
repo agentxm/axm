@@ -17,6 +17,8 @@ import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { buildUninstallPlan } from "./plan.js";
 import { expandGlob } from "../../../skills/index.js";
+import { uninstallCommand } from "../../../extensions/commands/operations/uninstall.js";
+import { uninstallMcpServer } from "../../../extensions/mcp-servers/operations/uninstall.js";
 import {
   uninstallPack,
   type UninstallPackOperation,
@@ -81,21 +83,30 @@ export const handleUninstallPack = Effect.fn("UninstallPack.handle")(function* (
       }) satisfies UninstallPackOperation,
   );
 
-  // Step 4: Load configured skills and build plan
+  // Step 4: Load configured extensions and build plan
   const configuredSkills = yield* ws.getConfiguredSkills();
   const configuredSkillNames = Object.keys(configuredSkills);
+  const configuredCommands = yield* ws.getConfiguredCommands();
+  const configuredCommandNames = Object.keys(configuredCommands);
+  const configuredMcpServers = yield* ws.getConfiguredMcpServers();
+  const configuredMcpServerNames = Object.keys(configuredMcpServers);
+
   const plan = buildUninstallPlan(
     ops,
     lockfile,
     configuredSkillNames,
     "Uninstall pack(s)",
     Option.none(),
+    configuredCommandNames,
+    configuredMcpServerNames,
   );
 
   // Step 5: Resolve plan via workspace
   yield* ws.resolvePlan(plan, {
     "uninstall-pack": uninstallPack,
     "uninstall-skill": uninstallSkill,
+    "uninstall-command": uninstallCommand,
+    "uninstall-mcp-server": uninstallMcpServer,
   });
 
   yield* log.success("Done");

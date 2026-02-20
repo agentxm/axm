@@ -433,4 +433,381 @@ describe("buildUninstallPlan", () => {
     expect(opNames).toContain("uninstall-pack");
     expect(opNames).toContain("uninstall-skill");
   });
+
+  // ---------------------------------------------------------------------------
+  // Command removal steps
+  // ---------------------------------------------------------------------------
+
+  it("emits uninstall-command steps for orphaned commands", () => {
+    const lockfile = lockfileWithPacks([
+      "my-pack",
+      makePackLockEntry("my-pack", {
+        resolvedCommands: { "@acme/commands/cmd-a": "1.0.0", "@acme/commands/cmd-b": "1.0.0" },
+      }),
+    ]);
+    const plan = buildUninstallPlan(
+      [makeOp("my-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+    );
+
+    const commandSteps = plan.jobs[0]!.steps.filter(
+      (s) => s.operation.name === "uninstall-command",
+    );
+    expect(commandSteps).toHaveLength(2);
+    expect(commandSteps.map((s) => s.label).sort()).toEqual([
+      "@acme/commands/cmd-a",
+      "@acme/commands/cmd-b",
+    ]);
+  });
+
+  it("creates uninstall-command steps with correct args and expected result", () => {
+    const lockfile = lockfileWithPacks([
+      "my-pack",
+      makePackLockEntry("my-pack", {
+        resolvedCommands: { "@acme/commands/cmd-a": "1.0.0" },
+      }),
+    ]);
+    const plan = buildUninstallPlan(
+      [makeOp("my-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+    );
+
+    const cmdStep = plan.jobs[0]!.steps.find((s) => s.operation.name === "uninstall-command");
+    expect(cmdStep).toBeDefined();
+    expect(cmdStep!.operation.args).toEqual({ commandName: "cmd-a" });
+    expect(cmdStep!.expectedResult).toEqual({
+      result: "success",
+      message: "Uninstalled command cmd-a",
+    });
+  });
+
+  it("excludes commands shared with a remaining pack", () => {
+    const lockfile = lockfileWithPacks(
+      [
+        "removing-pack",
+        makePackLockEntry("removing-pack", {
+          resolvedCommands: {
+            "@acme/commands/shared": "1.0.0",
+            "@acme/commands/orphaned": "1.0.0",
+          },
+        }),
+      ],
+      [
+        "staying-pack",
+        makePackLockEntry("staying-pack", {
+          resolvedCommands: { "@acme/commands/shared": "1.0.0" },
+        }),
+      ],
+    );
+    const plan = buildUninstallPlan(
+      [makeOp("removing-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+    );
+
+    const commandSteps = plan.jobs[0]!.steps.filter(
+      (s) => s.operation.name === "uninstall-command",
+    );
+    expect(commandSteps).toHaveLength(1);
+    expect(commandSteps[0]!.label).toBe("@acme/commands/orphaned");
+  });
+
+  it("excludes directly-configured commands", () => {
+    const lockfile = lockfileWithPacks([
+      "my-pack",
+      makePackLockEntry("my-pack", {
+        resolvedCommands: {
+          "@acme/commands/direct-cmd": "1.0.0",
+          "@acme/commands/orphaned": "1.0.0",
+        },
+      }),
+    ]);
+    const plan = buildUninstallPlan(
+      [makeOp("my-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+      ["direct-cmd"],
+    );
+
+    const commandSteps = plan.jobs[0]!.steps.filter(
+      (s) => s.operation.name === "uninstall-command",
+    );
+    expect(commandSteps).toHaveLength(1);
+    expect(commandSteps[0]!.label).toBe("@acme/commands/orphaned");
+  });
+
+  it("glob: command shared between two removed packs produces one step", () => {
+    const lockfile = lockfileWithPacks(
+      [
+        "pack-a",
+        makePackLockEntry("pack-a", {
+          resolvedCommands: { "@acme/commands/shared-cmd": "1.0.0" },
+        }),
+      ],
+      [
+        "pack-b",
+        makePackLockEntry("pack-b", {
+          resolvedCommands: { "@acme/commands/shared-cmd": "1.0.0" },
+        }),
+      ],
+    );
+    const plan = buildUninstallPlan(
+      [makeOp("pack-a"), makeOp("pack-b")],
+      lockfile,
+      [],
+      "Uninstall packs",
+      Option.none(),
+    );
+
+    const commandSteps = plan.jobs[0]!.steps.filter(
+      (s) => s.operation.name === "uninstall-command",
+    );
+    expect(commandSteps).toHaveLength(1);
+    expect(commandSteps[0]!.label).toBe("@acme/commands/shared-cmd");
+  });
+
+  // ---------------------------------------------------------------------------
+  // MCP server removal steps
+  // ---------------------------------------------------------------------------
+
+  it("emits uninstall-mcp-server steps for orphaned MCP servers", () => {
+    const lockfile = lockfileWithPacks([
+      "my-pack",
+      makePackLockEntry("my-pack", {
+        resolvedMcpServers: {
+          "@acme/mcp-servers/srv-a": "1.0.0",
+          "@acme/mcp-servers/srv-b": "1.0.0",
+        },
+      }),
+    ]);
+    const plan = buildUninstallPlan(
+      [makeOp("my-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+    );
+
+    const mcpSteps = plan.jobs[0]!.steps.filter((s) => s.operation.name === "uninstall-mcp-server");
+    expect(mcpSteps).toHaveLength(2);
+    expect(mcpSteps.map((s) => s.label).sort()).toEqual([
+      "@acme/mcp-servers/srv-a",
+      "@acme/mcp-servers/srv-b",
+    ]);
+  });
+
+  it("creates uninstall-mcp-server steps with correct args and expected result", () => {
+    const lockfile = lockfileWithPacks([
+      "my-pack",
+      makePackLockEntry("my-pack", {
+        resolvedMcpServers: { "@acme/mcp-servers/srv-a": "1.0.0" },
+      }),
+    ]);
+    const plan = buildUninstallPlan(
+      [makeOp("my-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+    );
+
+    const mcpStep = plan.jobs[0]!.steps.find((s) => s.operation.name === "uninstall-mcp-server");
+    expect(mcpStep).toBeDefined();
+    expect(mcpStep!.operation.args).toEqual({ serverName: "srv-a" });
+    expect(mcpStep!.expectedResult).toEqual({
+      result: "success",
+      message: "Uninstalled MCP server srv-a",
+    });
+  });
+
+  it("excludes MCP servers shared with a remaining pack", () => {
+    const lockfile = lockfileWithPacks(
+      [
+        "removing-pack",
+        makePackLockEntry("removing-pack", {
+          resolvedMcpServers: {
+            "@acme/mcp-servers/shared": "1.0.0",
+            "@acme/mcp-servers/orphaned": "1.0.0",
+          },
+        }),
+      ],
+      [
+        "staying-pack",
+        makePackLockEntry("staying-pack", {
+          resolvedMcpServers: { "@acme/mcp-servers/shared": "1.0.0" },
+        }),
+      ],
+    );
+    const plan = buildUninstallPlan(
+      [makeOp("removing-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+    );
+
+    const mcpSteps = plan.jobs[0]!.steps.filter((s) => s.operation.name === "uninstall-mcp-server");
+    expect(mcpSteps).toHaveLength(1);
+    expect(mcpSteps[0]!.label).toBe("@acme/mcp-servers/orphaned");
+  });
+
+  it("excludes directly-configured MCP servers", () => {
+    const lockfile = lockfileWithPacks([
+      "my-pack",
+      makePackLockEntry("my-pack", {
+        resolvedMcpServers: {
+          "@acme/mcp-servers/direct-srv": "1.0.0",
+          "@acme/mcp-servers/orphaned": "1.0.0",
+        },
+      }),
+    ]);
+    const plan = buildUninstallPlan(
+      [makeOp("my-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+      [],
+      ["direct-srv"],
+    );
+
+    const mcpSteps = plan.jobs[0]!.steps.filter((s) => s.operation.name === "uninstall-mcp-server");
+    expect(mcpSteps).toHaveLength(1);
+    expect(mcpSteps[0]!.label).toBe("@acme/mcp-servers/orphaned");
+  });
+
+  it("glob: MCP server shared between two removed packs produces one step", () => {
+    const lockfile = lockfileWithPacks(
+      [
+        "pack-a",
+        makePackLockEntry("pack-a", {
+          resolvedMcpServers: { "@acme/mcp-servers/shared-srv": "1.0.0" },
+        }),
+      ],
+      [
+        "pack-b",
+        makePackLockEntry("pack-b", {
+          resolvedMcpServers: { "@acme/mcp-servers/shared-srv": "1.0.0" },
+        }),
+      ],
+    );
+    const plan = buildUninstallPlan(
+      [makeOp("pack-a"), makeOp("pack-b")],
+      lockfile,
+      [],
+      "Uninstall packs",
+      Option.none(),
+    );
+
+    const mcpSteps = plan.jobs[0]!.steps.filter((s) => s.operation.name === "uninstall-mcp-server");
+    expect(mcpSteps).toHaveLength(1);
+    expect(mcpSteps[0]!.label).toBe("@acme/mcp-servers/shared-srv");
+  });
+
+  // ---------------------------------------------------------------------------
+  // Mixed extension types
+  // ---------------------------------------------------------------------------
+
+  it("places pack steps before skill/command/mcp-server steps", () => {
+    const lockfile = lockfileWithPacks([
+      "my-pack",
+      makePackLockEntry("my-pack", {
+        resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
+        resolvedCommands: { "@acme/commands/cmd-a": "1.0.0" },
+        resolvedMcpServers: { "@acme/mcp-servers/srv-a": "1.0.0" },
+      }),
+    ]);
+    const plan = buildUninstallPlan(
+      [makeOp("my-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+    );
+
+    const steps = plan.jobs[0]!.steps;
+    expect(steps).toHaveLength(4);
+    expect(steps[0]!.operation.name).toBe("uninstall-pack");
+    // Extension steps follow pack steps
+    const extensionOpNames = steps.slice(1).map((s) => s.operation.name);
+    expect(extensionOpNames).toContain("uninstall-skill");
+    expect(extensionOpNames).toContain("uninstall-command");
+    expect(extensionOpNames).toContain("uninstall-mcp-server");
+  });
+
+  it("returns Plan with all four operation types", () => {
+    const lockfile = lockfileWithPacks([
+      "my-pack",
+      makePackLockEntry("my-pack", {
+        resolvedSkills: { "@acme/skills/skill-a": "1.0.0" },
+        resolvedCommands: { "@acme/commands/cmd-a": "1.0.0" },
+        resolvedMcpServers: { "@acme/mcp-servers/srv-a": "1.0.0" },
+      }),
+    ]);
+    const plan = buildUninstallPlan(
+      [makeOp("my-pack")],
+      lockfile,
+      [],
+      "Uninstall pack",
+      Option.none(),
+    );
+
+    const opNames = plan.jobs[0]!.steps.map((s) => s.operation.name);
+    expect(opNames).toContain("uninstall-pack");
+    expect(opNames).toContain("uninstall-skill");
+    expect(opNames).toContain("uninstall-command");
+    expect(opNames).toContain("uninstall-mcp-server");
+  });
+
+  it("glob removing multiple packs that share extensions across all types", () => {
+    const lockfile = lockfileWithPacks(
+      [
+        "pack-a",
+        makePackLockEntry("pack-a", {
+          resolvedSkills: { "@acme/skills/shared": "1.0.0" },
+          resolvedCommands: { "@acme/commands/shared": "1.0.0", "@acme/commands/only-a": "1.0.0" },
+          resolvedMcpServers: { "@acme/mcp-servers/shared": "1.0.0" },
+        }),
+      ],
+      [
+        "pack-b",
+        makePackLockEntry("pack-b", {
+          resolvedSkills: { "@acme/skills/shared": "1.0.0", "@acme/skills/only-b": "1.0.0" },
+          resolvedCommands: { "@acme/commands/shared": "1.0.0" },
+          resolvedMcpServers: {
+            "@acme/mcp-servers/shared": "1.0.0",
+            "@acme/mcp-servers/only-b": "1.0.0",
+          },
+        }),
+      ],
+    );
+    const plan = buildUninstallPlan(
+      [makeOp("pack-a"), makeOp("pack-b")],
+      lockfile,
+      [],
+      "Uninstall packs",
+      Option.none(),
+    );
+
+    const skillSteps = plan.jobs[0]!.steps.filter((s) => s.operation.name === "uninstall-skill");
+    const commandSteps = plan.jobs[0]!.steps.filter(
+      (s) => s.operation.name === "uninstall-command",
+    );
+    const mcpSteps = plan.jobs[0]!.steps.filter((s) => s.operation.name === "uninstall-mcp-server");
+
+    // All shared extensions are removable since both packs are being removed
+    expect(skillSteps).toHaveLength(2); // shared + only-b
+    expect(commandSteps).toHaveLength(2); // shared + only-a
+    expect(mcpSteps).toHaveLength(2); // shared + only-b
+  });
 });

@@ -33,6 +33,8 @@ export { getAxmDir, getGlobalDir, getProjectDir } from "./paths.js";
 // Workspace context service (for CLI commands)
 export {
   layer,
+  type SetCommandArgs,
+  type SetMcpServerArgs,
   type SetPackArgs,
   type SetSkillArgs,
   type WorkspaceContextService,

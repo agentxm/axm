@@ -14,12 +14,18 @@ import type { Lockfile } from "../../../lockfile/schema.js";
 import type { PackExtensionRef } from "../../../sources/types.js";
 import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
+import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
+import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/install.js";
 import type { InstallPackOperation } from "../../../extensions/packs/operations/install.js";
 
 /**
  * Union of operation types produced by the pack install plan builder.
  */
-export type PackInstallOp = InstallPackOperation | InstallSkillOperation;
+export type PackInstallOp =
+  | InstallPackOperation
+  | InstallSkillOperation
+  | InstallCommandOperation
+  | InstallMcpServerOperation;
 
 /**
  * Arguments for building a pack install plan.
@@ -29,6 +35,10 @@ export interface BuildInstallPlanArgs {
   readonly ref: PackExtensionRef;
   /** Already-resolved skill install operations */
   readonly skillOps: ReadonlyArray<InstallSkillOperation>;
+  /** Already-resolved command install operations */
+  readonly commandOps: ReadonlyArray<InstallCommandOperation>;
+  /** Already-resolved MCP server install operations */
+  readonly mcpServerOps: ReadonlyArray<InstallMcpServerOperation>;
   /** Current lockfile state for no-op detection */
   readonly lockfile: Lockfile;
   /** Plan display name */
@@ -46,7 +56,16 @@ export interface BuildInstallPlanArgs {
  * Pure function — no Effect needed.
  */
 export const buildInstallPlan = (args: BuildInstallPlanArgs): Plan<PackInstallOp> => {
-  const { ref, skillOps, lockfile, name, description, versionConstraint } = args;
+  const {
+    ref,
+    skillOps,
+    commandOps,
+    mcpServerOps,
+    lockfile,
+    name,
+    description,
+    versionConstraint,
+  } = args;
 
   // Build InstallPackOperation from the ref
   const packOp: InstallPackOperation = {
@@ -65,8 +84,8 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs): Plan<PackInstallOp
     },
   };
 
-  // Combine pack + skill ops
-  const ops: ReadonlyArray<PackInstallOp> = [packOp, ...skillOps];
+  // Combine: pack first, then skills, commands, mcp-servers
+  const ops: ReadonlyArray<PackInstallOp> = [packOp, ...skillOps, ...commandOps, ...mcpServerOps];
 
   return {
     name,
@@ -95,23 +114,63 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs): Plan<PackInstallOp
                   label: op.args.packName,
                 };
           }
-          // install-skill
-          const installed = Object.hasOwn(lockfile.skills, op.args.ref.skill.name);
+          if (op.name === "install-skill") {
+            const installed = Object.hasOwn(lockfile.skills, op.args.ref.skill.name);
+            return installed
+              ? {
+                  _tag: "PlannedJobStep",
+                  operation: op,
+                  expectedResult: { result: "no-op", message: "already installed" },
+                  label: op.args.ref.skill.name,
+                }
+              : {
+                  _tag: "PlannedJobStep",
+                  operation: op,
+                  expectedResult: {
+                    result: "success",
+                    message: `Installed skill ${op.args.ref.skill.name}`,
+                  },
+                  label: op.args.ref.skill.name,
+                };
+          }
+          if (op.name === "install-command") {
+            const lockedCommands = lockfile.commands ?? {};
+            const installed = Object.hasOwn(lockedCommands, op.args.ref.command.name);
+            return installed
+              ? {
+                  _tag: "PlannedJobStep",
+                  operation: op,
+                  expectedResult: { result: "no-op", message: "already installed" },
+                  label: op.args.ref.command.name,
+                }
+              : {
+                  _tag: "PlannedJobStep",
+                  operation: op,
+                  expectedResult: {
+                    result: "success",
+                    message: `Installed command ${op.args.ref.command.name}`,
+                  },
+                  label: op.args.ref.command.name,
+                };
+          }
+          // install-mcp-server
+          const lockedMcpServers = lockfile.mcpServers ?? {};
+          const installed = Object.hasOwn(lockedMcpServers, op.args.ref.server.name);
           return installed
             ? {
                 _tag: "PlannedJobStep",
                 operation: op,
                 expectedResult: { result: "no-op", message: "already installed" },
-                label: op.args.ref.skill.name,
+                label: op.args.ref.server.name,
               }
             : {
                 _tag: "PlannedJobStep",
                 operation: op,
                 expectedResult: {
                   result: "success",
-                  message: `Installed skill ${op.args.ref.skill.name}`,
+                  message: `Installed mcp-server ${op.args.ref.server.name}`,
                 },
-                label: op.args.ref.skill.name,
+                label: op.args.ref.server.name,
               };
         }),
       },

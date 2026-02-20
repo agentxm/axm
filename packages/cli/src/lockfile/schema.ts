@@ -29,13 +29,20 @@ export const DateFromString = Schema.transform(Schema.String, Schema.DateFromSel
 // =============================================================================
 
 /**
- * Common fields shared by all lock entries.
+ * Common fields shared by all lock entries (without agents).
  */
-const CommonFields = {
-  agents: Schema.Array(Schema.String),
+const BaseCommonFields = {
   installedAt: DateFromString,
   updatedAt: DateFromString,
   gitTreeHash: Schema.optional(Schema.String),
+};
+
+/**
+ * Common fields shared by skill lock entries (includes agents).
+ */
+const CommonFields = {
+  agents: Schema.Array(Schema.String),
+  ...BaseCommonFields,
 };
 
 /**
@@ -216,6 +223,194 @@ export const SkillsLockMapSchema = Schema.Record({
 export type SkillsLockMap = typeof SkillsLockMapSchema.Type;
 
 // =============================================================================
+// Command Lock Entry (union of all source types, no agents)
+// =============================================================================
+
+/**
+ * Lock entry for a single installed command.
+ * Discriminated union by the `type` field.
+ *
+ * Same structure as SkillLockEntry but without the `agents` field.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const CommandLockEntrySchema = Schema.Union(
+  Schema.Struct({
+    type: Schema.Literal("github"),
+    owner: Schema.String,
+    repo: Schema.String,
+    ref: Schema.optional(Schema.String),
+    path: Schema.optional(Schema.String),
+    ...BaseCommonFields,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("gitlab"),
+    owner: Schema.String,
+    repo: Schema.String,
+    ref: Schema.optional(Schema.String),
+    path: Schema.optional(Schema.String),
+    ...BaseCommonFields,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("bitbucket"),
+    owner: Schema.String,
+    repo: Schema.String,
+    ref: Schema.optional(Schema.String),
+    path: Schema.optional(Schema.String),
+    ...BaseCommonFields,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("azurerepos"),
+    organization: Schema.String,
+    project: Schema.String,
+    repo: Schema.String,
+    ref: Schema.optional(Schema.String),
+    path: Schema.optional(Schema.String),
+    ...BaseCommonFields,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("git"),
+    url: Schema.String,
+    ref: Schema.optional(Schema.String),
+    path: Schema.optional(Schema.String),
+    ...BaseCommonFields,
+  }),
+  Schema.Struct({ type: Schema.Literal("local"), path: Schema.String, ...BaseCommonFields }),
+  Schema.Struct({
+    type: Schema.Literal("registry"),
+    namespace: Schema.String,
+    name: Schema.String,
+    resolvedVersion: Schema.String,
+    integrity: Schema.String,
+    sourceName: Schema.String,
+    ...BaseCommonFields,
+  }),
+  Schema.Struct({ type: Schema.Literal("builtin"), ...BaseCommonFields }),
+);
+
+/**
+ * Inferred type for CommandLockEntry schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type CommandLockEntry = typeof CommandLockEntrySchema.Type;
+
+// =============================================================================
+// Commands Lock Map
+// =============================================================================
+
+/**
+ * Map of command names to their lock entries.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const CommandsLockMapSchema = Schema.Record({
+  key: Schema.String,
+  value: CommandLockEntrySchema,
+});
+
+/**
+ * Inferred type for CommandsLockMap schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type CommandsLockMap = typeof CommandsLockMapSchema.Type;
+
+// =============================================================================
+// MCP Server Lock Entry (union of all source types, no agents)
+// =============================================================================
+
+/**
+ * Lock entry for a single installed MCP server.
+ * Discriminated union by the `type` field.
+ *
+ * Same structure as SkillLockEntry but without the `agents` field.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const McpServerLockEntrySchema = Schema.Union(
+  Schema.Struct({
+    type: Schema.Literal("github"),
+    owner: Schema.String,
+    repo: Schema.String,
+    ref: Schema.optional(Schema.String),
+    path: Schema.optional(Schema.String),
+    ...BaseCommonFields,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("gitlab"),
+    owner: Schema.String,
+    repo: Schema.String,
+    ref: Schema.optional(Schema.String),
+    path: Schema.optional(Schema.String),
+    ...BaseCommonFields,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("bitbucket"),
+    owner: Schema.String,
+    repo: Schema.String,
+    ref: Schema.optional(Schema.String),
+    path: Schema.optional(Schema.String),
+    ...BaseCommonFields,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("azurerepos"),
+    organization: Schema.String,
+    project: Schema.String,
+    repo: Schema.String,
+    ref: Schema.optional(Schema.String),
+    path: Schema.optional(Schema.String),
+    ...BaseCommonFields,
+  }),
+  Schema.Struct({
+    type: Schema.Literal("git"),
+    url: Schema.String,
+    ref: Schema.optional(Schema.String),
+    path: Schema.optional(Schema.String),
+    ...BaseCommonFields,
+  }),
+  Schema.Struct({ type: Schema.Literal("local"), path: Schema.String, ...BaseCommonFields }),
+  Schema.Struct({
+    type: Schema.Literal("registry"),
+    namespace: Schema.String,
+    name: Schema.String,
+    resolvedVersion: Schema.String,
+    integrity: Schema.String,
+    sourceName: Schema.String,
+    ...BaseCommonFields,
+  }),
+  Schema.Struct({ type: Schema.Literal("builtin"), ...BaseCommonFields }),
+);
+
+/**
+ * Inferred type for McpServerLockEntry schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type McpServerLockEntry = typeof McpServerLockEntrySchema.Type;
+
+// =============================================================================
+// MCP Servers Lock Map
+// =============================================================================
+
+/**
+ * Map of MCP server names to their lock entries.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const McpServersLockMapSchema = Schema.Record({
+  key: Schema.String,
+  value: McpServerLockEntrySchema,
+});
+
+/**
+ * Inferred type for McpServersLockMap schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type McpServersLockMap = typeof McpServersLockMapSchema.Type;
+
+// =============================================================================
 // Pack Lock Entry
 // =============================================================================
 
@@ -331,6 +526,8 @@ export type PacksLockMap = typeof PacksLockMapSchema.Type;
 export const LockfileSchema = Schema.Struct({
   lockfileVersion: Schema.Number,
   skills: SkillsLockMapSchema,
+  commands: Schema.optional(CommandsLockMapSchema),
+  mcpServers: Schema.optional(McpServersLockMapSchema),
   packs: Schema.optional(PacksLockMapSchema),
 });
 

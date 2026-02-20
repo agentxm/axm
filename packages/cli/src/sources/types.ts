@@ -347,6 +347,14 @@ export type SkillExtensionRefBase<
 };
 
 /** @experimental */
+export type CommandExtensionRefBase<
+  TRefType extends RefType,
+  TSource extends Source,
+> = ExtensionRefBase<"command", TRefType, TSource> & {
+  readonly command: { readonly name: string };
+};
+
+/** @experimental */
 export type McpServerExtensionRefBase<
   TRefType extends RefType,
   TSource extends Source,
@@ -390,6 +398,29 @@ export type SkillExtensionRef =
   | BuiltinSkillRef;
 
 // -----------------------------------------------------------------------------
+// Layer 3: Concrete Command Extension Refs
+// -----------------------------------------------------------------------------
+
+/** @experimental */
+export type GitHostedCommandRef = CommandExtensionRefBase<"git-hosted", GitBasedSource> &
+  GitHostedRefDetails;
+/** @experimental */
+export type RegistryCommandRef = CommandExtensionRefBase<"registry", RegistrySource> &
+  RegistryRefDetails;
+/** @experimental */
+export type LocalCommandRef = CommandExtensionRefBase<"local", LocalSource> & LocalRefDetails;
+/** @experimental */
+export type BuiltinCommandRef = CommandExtensionRefBase<"builtin", BuiltinSource> &
+  BuiltinRefDetails;
+
+/** @experimental */
+export type CommandExtensionRef =
+  | GitHostedCommandRef
+  | RegistryCommandRef
+  | LocalCommandRef
+  | BuiltinCommandRef;
+
+// -----------------------------------------------------------------------------
 // Layer 3: Concrete MCP Server Extension Refs
 // -----------------------------------------------------------------------------
 
@@ -429,4 +460,8 @@ export type PackExtensionRef = RegistryPackRef | BuiltinPackRef;
 // -----------------------------------------------------------------------------
 
 /** @experimental */
-export type ExtensionRef = SkillExtensionRef | McpServerExtensionRef | PackExtensionRef;
+export type ExtensionRef =
+  | SkillExtensionRef
+  | CommandExtensionRef
+  | McpServerExtensionRef
+  | PackExtensionRef;

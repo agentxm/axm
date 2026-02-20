@@ -25,12 +25,14 @@ import {
 import YAML from "yaml";
 import { CliError } from "../cli-error/index.js";
 import type { NormalizedSkillEntry, SourceHostConfig } from "../settings/index.js";
-import type { SkillLockEntry } from "../lockfile/index.js";
+import type { CommandLockEntry, McpServerLockEntry, SkillLockEntry } from "../lockfile/index.js";
 import type { OperationResult } from "./plan.js";
 import type { Operation, Plan, PlannedJobStep } from "./plan.js";
 import {
   Workspace,
   layer as workspaceLayer,
+  type SetCommandArgs,
+  type SetMcpServerArgs,
   type SetPackArgs,
   type WorkspaceContextOptions,
 } from "./service.js";
@@ -726,12 +728,20 @@ describe("WorkspaceContextService", () => {
     dir: string,
     skills: Record<string, unknown>,
     packs?: Record<string, unknown>,
+    commands?: Record<string, unknown>,
+    mcpServers?: Record<string, unknown>,
   ) => {
     const axmDir = path.join(dir, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
     const lockfileData: Record<string, unknown> = { lockfileVersion: 1, skills };
     if (packs !== undefined) {
       lockfileData["packs"] = packs;
+    }
+    if (commands !== undefined) {
+      lockfileData["commands"] = commands;
+    }
+    if (mcpServers !== undefined) {
+      lockfileData["mcpServers"] = mcpServers;
     }
     fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfileData));
   };
@@ -742,6 +752,8 @@ describe("WorkspaceContextService", () => {
       lockfileVersion: number;
       skills: Record<string, unknown>;
       packs?: Record<string, unknown>;
+      commands?: Record<string, unknown>;
+      mcpServers?: Record<string, unknown>;
     };
 
   /** Create a sample SkillLockEntry for testing. */
@@ -2212,6 +2224,538 @@ describe("WorkspaceContextService", () => {
         // Only direct settings entries, no transitive
         expect(Object.keys(configured)).toEqual(["my-skill"]);
         expect(configured).not.toHaveProperty("@acme/skills/transitive-skill");
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Command methods
+  // ---------------------------------------------------------------------------
+
+  /** Create a sample CommandLockEntry for testing. */
+  const makeSampleCommandLockEntry = (): CommandLockEntry => ({
+    type: "github" as const,
+    owner: "acme",
+    repo: "my-command",
+    installedAt: new Date("2025-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+  });
+
+  /** Create sample SetCommandArgs for testing. */
+  const makeSampleSetCommandArgs = (overrides?: Partial<SetCommandArgs>): SetCommandArgs => ({
+    name: "my-command",
+    lockEntry: makeSampleCommandLockEntry(),
+    ...overrides,
+  });
+
+  describe("getLockedCommands", () => {
+    it.effect("returns commands lock map when lock entries are present", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {}, undefined, {
+          "my-command": {
+            type: "github",
+            owner: "acme",
+            repo: "my-command",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const commands = yield* ws.getLockedCommands();
+
+        expect(Object.keys(commands)).toEqual(["my-command"]);
+        expect(commands["my-command"]?.type).toBe("github");
+      }),
+    );
+
+    it.effect("returns empty record when no command lock entries", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const commands = yield* ws.getLockedCommands();
+
+        expect(commands).toEqual({});
+      }),
+    );
+  });
+
+  describe("getLockedCommand", () => {
+    it.effect("returns Option.some when command exists in lockfile", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {}, undefined, {
+          "my-command": {
+            type: "github",
+            owner: "acme",
+            repo: "my-command",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const entry = yield* ws.getLockedCommand("my-command");
+
+        expect(Option.isSome(entry)).toBe(true);
+        if (Option.isSome(entry)) {
+          expect(entry.value.type).toBe("github");
+        }
+      }),
+    );
+
+    it.effect("returns Option.none when command not in lockfile", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const entry = yield* ws.getLockedCommand("nonexistent");
+
+        expect(Option.isNone(entry)).toBe(true);
+      }),
+    );
+  });
+
+  describe("setCommand", () => {
+    it.effect("installs new command: adds to settings and lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setCommand(makeSampleSetCommandArgs());
+
+        // Verify settings on disk
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.commands).toBeDefined();
+        expect(settings.commands["my-command"]).toBe("github:acme/my-command");
+
+        // Verify lockfile on disk
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.commands).toHaveProperty("my-command");
+        expect((lockfile.commands!["my-command"] as { type: string }).type).toBe("github");
+      }),
+    );
+
+    it.effect("sets updatedAt to current time", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const before = new Date();
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setCommand(makeSampleSetCommandArgs());
+        const after = new Date();
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        const updatedAt = new Date(
+          (lockfile.commands!["my-command"] as { updatedAt: string }).updatedAt,
+        );
+        expect(updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
+        expect(updatedAt.getTime()).toBeLessThanOrEqual(after.getTime());
+      }),
+    );
+
+    it.effect("updates existing command: replaces in settings and lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          commands: { "my-command": "github:acme/my-command" },
+        });
+        writeLockfileTo(projectDir, {}, undefined, {
+          "my-command": {
+            type: "github",
+            owner: "acme",
+            repo: "my-command",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const updatedEntry: CommandLockEntry = {
+          type: "github",
+          owner: "acme",
+          repo: "my-command-v2",
+          installedAt: new Date("2025-01-01T00:00:00.000Z"),
+          updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+        };
+        yield* ws.setCommand({
+          name: "my-command",
+          lockEntry: updatedEntry,
+        });
+
+        // Verify settings updated
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.commands["my-command"]).toBe("github:acme/my-command-v2");
+
+        // Verify lockfile updated
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect((lockfile.commands!["my-command"] as { repo: string }).repo).toBe("my-command-v2");
+      }),
+    );
+  });
+
+  describe("setCommandLock", () => {
+    it.effect("writes to lockfile only, not settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setCommandLock(makeSampleSetCommandArgs());
+
+        // Settings should NOT have commands
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.commands).toBeUndefined();
+
+        // Lockfile should have the command
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.commands).toHaveProperty("my-command");
+        expect((lockfile.commands!["my-command"] as { type: string }).type).toBe("github");
+      }),
+    );
+  });
+
+  describe("removeCommand", () => {
+    it.effect("removes existing command from both settings and lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          commands: {
+            "my-command": "github:acme/my-command",
+            "other-command": "local:/tmp/other",
+          },
+        });
+        writeLockfileTo(projectDir, {}, undefined, {
+          "my-command": {
+            type: "github",
+            owner: "acme",
+            repo: "my-command",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          "other-command": {
+            type: "local",
+            path: "/tmp/other",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeCommand("my-command");
+
+        // Verify settings: my-command removed, other-command remains
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.commands).not.toHaveProperty("my-command");
+        expect(settings.commands).toHaveProperty("other-command");
+
+        // Verify lockfile: my-command removed, other-command remains
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.commands).not.toHaveProperty("my-command");
+        expect(lockfile.commands).toHaveProperty("other-command");
+      }),
+    );
+
+    it.effect("no-op when command does not exist", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          commands: { "other-command": "local:/tmp/other" },
+        });
+        writeLockfileTo(projectDir, {}, undefined, {
+          "other-command": {
+            type: "local",
+            path: "/tmp/other",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeCommand("nonexistent");
+
+        // Verify nothing changed
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.commands).toHaveProperty("other-command");
+        expect(Object.keys(settings.commands as Record<string, string>)).toHaveLength(1);
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.commands).toHaveProperty("other-command");
+        expect(Object.keys(lockfile.commands!)).toHaveLength(1);
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // MCP Server methods
+  // ---------------------------------------------------------------------------
+
+  /** Create a sample McpServerLockEntry for testing. */
+  const makeSampleMcpServerLockEntry = (): McpServerLockEntry => ({
+    type: "github" as const,
+    owner: "acme",
+    repo: "my-mcp-server",
+    installedAt: new Date("2025-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+  });
+
+  /** Create sample SetMcpServerArgs for testing. */
+  const makeSampleSetMcpServerArgs = (overrides?: Partial<SetMcpServerArgs>): SetMcpServerArgs => ({
+    name: "my-mcp-server",
+    lockEntry: makeSampleMcpServerLockEntry(),
+    ...overrides,
+  });
+
+  describe("getLockedMcpServers", () => {
+    it.effect("returns mcp servers lock map when lock entries are present", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {}, undefined, undefined, {
+          "my-mcp-server": {
+            type: "github",
+            owner: "acme",
+            repo: "my-mcp-server",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const mcpServers = yield* ws.getLockedMcpServers();
+
+        expect(Object.keys(mcpServers)).toEqual(["my-mcp-server"]);
+        expect(mcpServers["my-mcp-server"]?.type).toBe("github");
+      }),
+    );
+
+    it.effect("returns empty record when no mcp server lock entries", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const mcpServers = yield* ws.getLockedMcpServers();
+
+        expect(mcpServers).toEqual({});
+      }),
+    );
+  });
+
+  describe("getLockedMcpServer", () => {
+    it.effect("returns Option.some when mcp server exists in lockfile", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {}, undefined, undefined, {
+          "my-mcp-server": {
+            type: "github",
+            owner: "acme",
+            repo: "my-mcp-server",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const entry = yield* ws.getLockedMcpServer("my-mcp-server");
+
+        expect(Option.isSome(entry)).toBe(true);
+        if (Option.isSome(entry)) {
+          expect(entry.value.type).toBe("github");
+        }
+      }),
+    );
+
+    it.effect("returns Option.none when mcp server not in lockfile", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const entry = yield* ws.getLockedMcpServer("nonexistent");
+
+        expect(Option.isNone(entry)).toBe(true);
+      }),
+    );
+  });
+
+  describe("setMcpServer", () => {
+    it.effect("installs new mcp server: adds to settings and lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setMcpServer(makeSampleSetMcpServerArgs());
+
+        // Verify settings on disk
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings["mcp-servers"]).toBeDefined();
+        expect(settings["mcp-servers"]["my-mcp-server"]).toBe("github:acme/my-mcp-server");
+
+        // Verify lockfile on disk
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.mcpServers).toHaveProperty("my-mcp-server");
+        expect((lockfile.mcpServers!["my-mcp-server"] as { type: string }).type).toBe("github");
+      }),
+    );
+
+    it.effect("sets updatedAt to current time", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const before = new Date();
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setMcpServer(makeSampleSetMcpServerArgs());
+        const after = new Date();
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        const updatedAt = new Date(
+          (lockfile.mcpServers!["my-mcp-server"] as { updatedAt: string }).updatedAt,
+        );
+        expect(updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
+        expect(updatedAt.getTime()).toBeLessThanOrEqual(after.getTime());
+      }),
+    );
+
+    it.effect("updates existing mcp server: replaces in settings and lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          "mcp-servers": { "my-mcp-server": "github:acme/my-mcp-server" },
+        });
+        writeLockfileTo(projectDir, {}, undefined, undefined, {
+          "my-mcp-server": {
+            type: "github",
+            owner: "acme",
+            repo: "my-mcp-server",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const updatedEntry: McpServerLockEntry = {
+          type: "github",
+          owner: "acme",
+          repo: "my-mcp-server-v2",
+          installedAt: new Date("2025-01-01T00:00:00.000Z"),
+          updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+        };
+        yield* ws.setMcpServer({
+          name: "my-mcp-server",
+          lockEntry: updatedEntry,
+        });
+
+        // Verify settings updated
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings["mcp-servers"]["my-mcp-server"]).toBe("github:acme/my-mcp-server-v2");
+
+        // Verify lockfile updated
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect((lockfile.mcpServers!["my-mcp-server"] as { repo: string }).repo).toBe(
+          "my-mcp-server-v2",
+        );
+      }),
+    );
+  });
+
+  describe("setMcpServerLock", () => {
+    it.effect("writes to lockfile only, not settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setMcpServerLock(makeSampleSetMcpServerArgs());
+
+        // Settings should NOT have mcp-servers
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings["mcp-servers"]).toBeUndefined();
+
+        // Lockfile should have the mcp server
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.mcpServers).toHaveProperty("my-mcp-server");
+        expect((lockfile.mcpServers!["my-mcp-server"] as { type: string }).type).toBe("github");
+      }),
+    );
+  });
+
+  describe("removeMcpServer", () => {
+    it.effect("removes existing mcp server from both settings and lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          "mcp-servers": {
+            "my-mcp-server": "github:acme/my-mcp-server",
+            "other-server": "local:/tmp/other",
+          },
+        });
+        writeLockfileTo(projectDir, {}, undefined, undefined, {
+          "my-mcp-server": {
+            type: "github",
+            owner: "acme",
+            repo: "my-mcp-server",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          "other-server": {
+            type: "local",
+            path: "/tmp/other",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeMcpServer("my-mcp-server");
+
+        // Verify settings: my-mcp-server removed, other-server remains
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings["mcp-servers"]).not.toHaveProperty("my-mcp-server");
+        expect(settings["mcp-servers"]).toHaveProperty("other-server");
+
+        // Verify lockfile: my-mcp-server removed, other-server remains
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.mcpServers).not.toHaveProperty("my-mcp-server");
+        expect(lockfile.mcpServers).toHaveProperty("other-server");
+      }),
+    );
+
+    it.effect("no-op when mcp server does not exist", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          "mcp-servers": { "other-server": "local:/tmp/other" },
+        });
+        writeLockfileTo(projectDir, {}, undefined, undefined, {
+          "other-server": {
+            type: "local",
+            path: "/tmp/other",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeMcpServer("nonexistent");
+
+        // Verify nothing changed
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings["mcp-servers"]).toHaveProperty("other-server");
+        expect(Object.keys(settings["mcp-servers"] as Record<string, string>)).toHaveLength(1);
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.mcpServers).toHaveProperty("other-server");
+        expect(Object.keys(lockfile.mcpServers!)).toHaveLength(1);
       }),
     );
   });

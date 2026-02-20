@@ -133,6 +133,8 @@ const refName = (ref: ExtensionRef): string => {
   switch (ref.type) {
     case "skill":
       return ref.skill.name;
+    case "command":
+      return ref.command.name;
     case "mcp-server":
       return ref.server.name;
     case "pack":

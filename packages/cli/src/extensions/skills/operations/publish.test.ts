@@ -54,6 +54,18 @@ const withServices = (axmDir: string, registryRoot: string) => {
     setPack: () => Effect.void,
     removePack: () => Effect.void,
     getPackDir: () => Effect.succeed({ canonicalPath: "" }),
+    getLockedCommands: () => Effect.succeed({}),
+    getLockedCommand: () => Effect.succeed(Option.none()),
+    setCommand: () => Effect.void,
+    setCommandLock: () => Effect.void,
+    removeCommand: () => Effect.void,
+    getLockedMcpServers: () => Effect.succeed({}),
+    getLockedMcpServer: () => Effect.succeed(Option.none()),
+    setMcpServer: () => Effect.void,
+    setMcpServerLock: () => Effect.void,
+    removeMcpServer: () => Effect.void,
+    getConfiguredCommands: () => Effect.succeed({}),
+    getConfiguredMcpServers: () => Effect.succeed({}),
   };
   return Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs));
 };

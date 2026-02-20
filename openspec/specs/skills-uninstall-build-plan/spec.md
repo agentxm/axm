@@ -1,18 +1,28 @@
 ## Requirements
 
-### Requirement: Build plan from operations and lockfile
+### Requirement: Build plan from operations and installed skills lookup
 
-The uninstall plan builder SHALL accept `ReadonlyArray<UninstallSkillOperation>`, a `Lockfile`, a plan `name`, and a plan `description: Option<string>`, and return a `Plan<UninstallSkillOperation>` with one `PlannedJobStep` per operation.
+The uninstall plan builder SHALL accept `ReadonlyArray<UninstallSkillOperation>`, an `InstalledSkills` lookup (keyed by skill name, with `referencingPacks: ReadonlyArray<string>` per entry), a plan `name`, and a plan `description: Option<string>`, and return a `Plan<UninstallSkillOperation>` with one `PlannedJobStep` per operation.
 
-#### Scenario: Skill present in lockfile
+#### Scenario: Skill installed with no pack dependencies
 
-- **WHEN** a `UninstallSkillOperation` targets a skill name present in the lockfile
-- **THEN** the step SHALL be a `PlannedJobStep` with `expectedResult: { result: "success", message: "Uninstalled <skill-name>" }`
+- **WHEN** a `UninstallSkillOperation` targets a skill name present in `InstalledSkills` with empty `referencingPacks`
+- **THEN** the step SHALL have `readiness: { status: "ready", message: Option.none() }`
 
-#### Scenario: Skill not in lockfile
+#### Scenario: Skill not installed
 
-- **WHEN** a `UninstallSkillOperation` targets a skill name not present in the lockfile
-- **THEN** the step SHALL be a `PlannedJobStep` with `expectedResult: { result: "no-op", message: "not installed" }`
+- **WHEN** a `UninstallSkillOperation` targets a skill name not present in `InstalledSkills`
+- **THEN** the step SHALL have `readiness: { status: "skip", message: "not installed" }`
+
+#### Scenario: Skill installed but referenced by one pack
+
+- **WHEN** a `UninstallSkillOperation` targets a skill name present in `InstalledSkills` with `referencingPacks: ["starter"]`
+- **THEN** the step SHALL have `readiness: { status: "error" }` with a message that names the pack "starter" and suggests using `axm skills disable <skill>` instead
+
+#### Scenario: Skill installed but referenced by multiple packs
+
+- **WHEN** a `UninstallSkillOperation` targets a skill name present in `InstalledSkills` with `referencingPacks: ["starter", "pro"]`
+- **THEN** the step SHALL have `readiness: { status: "error" }` with a message that names both packs and suggests using `axm skills disable <skill>` instead
 
 #### Scenario: Single job with sequential concurrency
 
@@ -41,3 +51,29 @@ The plan builder SHALL use the caller-provided `name` and `description` on the r
 
 - **WHEN** building a plan
 - **THEN** the plan `name` SHALL be the `name` argument and the plan `description` SHALL be the `description` argument passed by the caller
+
+## Additional Requirements
+
+### Requirement: InstalledSkills lookup type
+
+The uninstall plan module SHALL export an `InstalledSkills` type defined as `ReadonlyRecord<string, { readonly referencingPacks: ReadonlyArray<string> }>`, keyed by skill name. Presence of a key indicates the skill is installed. The `referencingPacks` array lists pack names that reference the skill.
+
+#### Scenario: Type is exported
+
+- **WHEN** importing from the uninstall plan module
+- **THEN** the `InstalledSkills` type SHALL be available for import
+
+### Requirement: Handler builds InstalledSkills lookup
+
+The uninstall handler SHALL build the `InstalledSkills` lookup by combining locked skills and locked packs data from the workspace, then pass it to the plan builder.
+
+#### Scenario: Handler derives referencing packs for each locked skill
+
+- **WHEN** the handler builds the `InstalledSkills` lookup
+- **THEN** for each entry in `lockedSkills`, it SHALL derive the skill's FQN and check all entries in `lockedPacks` for references in their `resolvedSkills`
+- **AND** the `referencingPacks` array SHALL contain the names of all packs that reference the skill's FQN
+
+#### Scenario: Handler passes lookup to plan builder
+
+- **WHEN** the handler calls `buildSkillUninstallPlan`
+- **THEN** it SHALL pass the `InstalledSkills` lookup instead of a `Lockfile`

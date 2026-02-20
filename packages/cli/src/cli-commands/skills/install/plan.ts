@@ -67,16 +67,13 @@ export const buildSkillInstallPlan = ({
               ? ({
                   _tag: "PlannedJobStep",
                   operation: op,
-                  expectedResult: { result: "no-op", message: "already installed" },
+                  readiness: { status: "skip", message: "already installed" },
                   label: op.args.ref.skill.name,
                 } satisfies PlannedJobStep<InstallSkillOperation>)
               : ({
                   _tag: "PlannedJobStep",
                   operation: op,
-                  expectedResult: {
-                    result: "success",
-                    message: `Installed ${op.args.ref.skill.name}`,
-                  },
+                  readiness: { status: "ready", message: Option.none() },
                   label: op.args.ref.skill.name,
                 } satisfies PlannedJobStep<InstallSkillOperation>);
           }),

@@ -229,10 +229,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
             targetName,
           },
         } satisfies CopySkillOperation,
-        expectedResult: {
-          result: "success",
-          message: `Copied ${ref.skill.name} to ${targetName}`,
-        },
+        readiness: { status: "ready", message: Option.none() },
         label: `Fork ${ref.skill.name}`,
       },
       {
@@ -244,7 +241,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
             registryName,
           },
         } satisfies PublishSkillOperation,
-        expectedResult: { result: "success", message: `Published ${targetName}` },
+        readiness: { status: "ready", message: Option.none() },
         label: `Publish ${targetName}`,
       },
       {
@@ -258,7 +255,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
             skipSettings: Option.none(),
           },
         } satisfies InstallSkillOperation,
-        expectedResult: { result: "success", message: `Installed ${ref.skill.name}` },
+        readiness: { status: "ready", message: Option.none() },
         label: `Install ${ref.skill.name}`,
       },
     ];

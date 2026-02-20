@@ -23,8 +23,6 @@ export interface BuildSingleStepPlanArgs<TOperation> {
   readonly description: string;
   /** Step label (e.g. skill name) */
   readonly label: string;
-  /** Expected success message */
-  readonly expectedMessage: string;
 }
 
 // -----------------------------------------------------------------------------
@@ -43,7 +41,7 @@ export const buildSingleStepPlan = <TOperation>(
         {
           _tag: "PlannedJobStep",
           operation: args.operation,
-          expectedResult: { result: "success", message: args.expectedMessage },
+          readiness: { status: "ready", message: Option.none() },
           label: args.label,
         },
       ],

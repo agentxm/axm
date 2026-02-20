@@ -80,7 +80,6 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
     name: "Rename skill",
     description: `Rename ${args.oldName} to ${args.newName}`,
     label: `${args.oldName} -> ${args.newName}`,
-    expectedMessage: `Renamed ${args.oldName} to ${args.newName}`,
   });
 
   yield* ws.resolvePlan(plan, { "rename-skill": renameSkill });

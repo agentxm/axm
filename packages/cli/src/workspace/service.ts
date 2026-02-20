@@ -75,7 +75,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { Confirm, Log, Multiselect } from "../tui/index.js";
 import { PromptCancelled } from "../tui/index.js";
-import type { Operation, Plan } from "./plan.js";
+import type { Operation, Plan, PlannedJobStep } from "./plan.js";
 import { displayPlan } from "./display-plan.js";
 import { applyPlan, type ExecutionContext, type Handlers } from "./apply-plan.js";
 
@@ -581,27 +581,94 @@ const make = (options: WorkspaceContextOptions) =>
       ) =>
         Effect.gen(function* () {
           const log = yield* Log;
+          const confirm = yield* Confirm;
+          const emptyPlan = { ...plan, jobs: [] } satisfies Plan<Op>;
+
+          // Scan readiness across all planned steps
+          const allSteps = Array.flatMap(plan.jobs, (job) => [...job.steps]);
+          const plannedSteps = allSteps.filter(
+            (s): s is PlannedJobStep<Op> => s._tag === "PlannedJobStep",
+          );
+          const hasErrors = plannedSteps.some((s) => s.readiness.status === "error");
+          const hasWarnings = plannedSteps.some((s) => s.readiness.status === "warn");
+
+          // Aggregate error messages for the CliError detail
+          const errorMessages = plannedSteps
+            .filter((s) => s.readiness.status === "error")
+            .map((s) => `${s.label}: ${s.readiness.message}`);
+
           if (options.preview) {
             yield* log.info("Previewing changes...");
             yield* displayPlan(plan);
+
+            if (hasErrors) {
+              return yield* makeCliError({
+                code: "PLAN_HAS_ERRORS",
+                what: "Plan has errors that prevent execution",
+                details: errorMessages,
+              });
+            }
+
+            if (hasWarnings && resolvedNonInteractive) {
+              return yield* makeCliError({
+                code: "PLAN_HAS_WARNINGS",
+                what: "Plan has warnings and cannot prompt in non-interactive mode",
+              });
+            }
+
             if (options.yes) {
+              if (hasWarnings) {
+                const confirmed = yield* confirm.prompt({
+                  message: "Plan has warnings. Continue anyway?",
+                });
+                if (!confirmed) return emptyPlan;
+              }
               yield* log.info("Pre-approved via --yes, applying changes...");
               return yield* applyPlan(plan, handlers);
             } else if (resolvedNonInteractive) {
               yield* log.warn(
                 "Cannot prompt in non-interactive mode. Use --yes to apply, or remove --preview.",
               );
-              return { ...plan, jobs: [] } satisfies Plan<Op>;
+              return emptyPlan;
             } else {
-              const confirm = yield* Confirm;
-              const confirmed = yield* confirm.prompt({ message: "Apply changes?" });
-              if (!confirmed) {
-                yield* log.success("Cancelled.");
-                return { ...plan, jobs: [] } satisfies Plan<Op>;
+              if (hasWarnings) {
+                const confirmed = yield* confirm.prompt({
+                  message: "Plan has warnings. Continue anyway?",
+                });
+                if (!confirmed) return emptyPlan;
+              } else {
+                const confirmed = yield* confirm.prompt({ message: "Apply changes?" });
+                if (!confirmed) {
+                  yield* log.success("Cancelled.");
+                  return emptyPlan;
+                }
               }
               return yield* applyPlan(plan, handlers);
             }
           } else {
+            if (hasErrors) {
+              yield* displayPlan(plan);
+              return yield* makeCliError({
+                code: "PLAN_HAS_ERRORS",
+                what: "Plan has errors that prevent execution",
+                details: errorMessages,
+              });
+            }
+
+            if (hasWarnings) {
+              yield* displayPlan(plan);
+              if (resolvedNonInteractive) {
+                return yield* makeCliError({
+                  code: "PLAN_HAS_WARNINGS",
+                  what: "Plan has warnings and cannot prompt in non-interactive mode",
+                });
+              }
+              const confirmed = yield* confirm.prompt({
+                message: "Plan has warnings. Continue anyway?",
+              });
+              if (!confirmed) return emptyPlan;
+            }
+
             const applied = yield* applyPlan(plan, handlers);
             yield* displayPlan(applied);
             return applied;

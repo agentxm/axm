@@ -87,7 +87,6 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     name: "Enable skill",
     description: `Enable ${args.name}`,
     label: args.name,
-    expectedMessage: `Enabled ${args.name}`,
   });
 
   yield* ws.resolvePlan(plan, { "enable-skill": enableSkill });

@@ -73,9 +73,9 @@ const buildInstallStep = (
   return {
     _tag: "PlannedJobStep",
     operation: op,
-    expectedResult: needsUpdate
-      ? { result: "success", message: `Updated ${op.args.ref.skill.name}` }
-      : { result: "no-op", message: "already up to date" },
+    readiness: needsUpdate
+      ? { status: "ready", message: Option.none() }
+      : { status: "skip", message: "already up to date" },
     label: op.args.ref.skill.name,
   };
 };
@@ -83,10 +83,7 @@ const buildInstallStep = (
 const buildUninstallStep = (op: UninstallSkillOperation): PlannedJobStep<UpdateOperation> => ({
   _tag: "PlannedJobStep",
   operation: op,
-  expectedResult: {
-    result: "success",
-    message: `Clean up ${op.args.skillName} (renamed)`,
-  },
+  readiness: { status: "ready", message: Option.none() },
   label: `${op.args.skillName} (renamed)`,
 });
 

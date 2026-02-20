@@ -83,16 +83,13 @@ export const buildUnpackPlan = (args: BuildUnpackPlanArgs): Plan<PackUnpackOp> =
         ? {
             _tag: "PlannedJobStep",
             operation: op,
-            expectedResult: { result: "no-op", message: "already directly installed" },
+            readiness: { status: "skip", message: "already directly installed" },
             label: op.args.ref.skill.name,
           }
         : {
             _tag: "PlannedJobStep",
             operation: op,
-            expectedResult: {
-              result: "success",
-              message: `Promoted skill ${op.args.ref.skill.name}`,
-            },
+            readiness: { status: "ready", message: Option.none() },
             label: op.args.ref.skill.name,
           };
     }),
@@ -102,16 +99,13 @@ export const buildUnpackPlan = (args: BuildUnpackPlanArgs): Plan<PackUnpackOp> =
         ? {
             _tag: "PlannedJobStep",
             operation: op,
-            expectedResult: { result: "no-op", message: "already directly installed" },
+            readiness: { status: "skip", message: "already directly installed" },
             label: op.args.ref.command.name,
           }
         : {
             _tag: "PlannedJobStep",
             operation: op,
-            expectedResult: {
-              result: "success",
-              message: `Promoted command ${op.args.ref.command.name}`,
-            },
+            readiness: { status: "ready", message: Option.none() },
             label: op.args.ref.command.name,
           };
     }),
@@ -121,16 +115,13 @@ export const buildUnpackPlan = (args: BuildUnpackPlanArgs): Plan<PackUnpackOp> =
         ? {
             _tag: "PlannedJobStep",
             operation: op,
-            expectedResult: { result: "no-op", message: "already directly installed" },
+            readiness: { status: "skip", message: "already directly installed" },
             label: op.args.ref.server.name,
           }
         : {
             _tag: "PlannedJobStep",
             operation: op,
-            expectedResult: {
-              result: "success",
-              message: `Promoted mcp-server ${op.args.ref.server.name}`,
-            },
+            readiness: { status: "ready", message: Option.none() },
             label: op.args.ref.server.name,
           };
     }),
@@ -138,10 +129,7 @@ export const buildUnpackPlan = (args: BuildUnpackPlanArgs): Plan<PackUnpackOp> =
     {
       _tag: "PlannedJobStep",
       operation: uninstallPackOp,
-      expectedResult: {
-        result: "success",
-        message: `Removed pack ${uninstallPackOp.args.packName}`,
-      },
+      readiness: { status: "ready", message: Option.none() },
       label: uninstallPackOp.args.packName,
     },
   ];

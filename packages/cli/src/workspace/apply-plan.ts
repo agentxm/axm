@@ -1,9 +1,10 @@
 /**
  * Shared plan apply module.
  *
- * Iterates over plan jobs and their steps, dispatching each step expected
- * to succeed to the matching executor from a typed registry keyed by `name`.
- * Non-success steps are promoted with expectedResult as actualResult.
+ * Iterates over plan jobs and their steps, dispatching each step with
+ * `ready` or `warn` readiness to the matching handler from a typed registry
+ * keyed by operation `name`. Steps with `skip` or `error` readiness are
+ * promoted without dispatch.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -58,34 +59,39 @@ const applyStep = <Op extends Operation<string, unknown>, T extends Handlers<Op>
   step: PlannedJobStep<Op>,
   handlers: T,
 ): Effect.Effect<JobStepResult<Op>, never, ExecutionContext<T>> => {
-  const promote = (actualResult: OperationResult): JobStepResult<Op> => ({
+  const promote = (result: OperationResult): JobStepResult<Op> => ({
     _tag: "JobStepResult",
     operation: step.operation,
-    expectedResult: step.expectedResult,
-    actualResult,
+    result,
     label: step.label,
   });
 
-  if (step.expectedResult.result !== "success") {
-    return Effect.succeed(promote(step.expectedResult));
+  switch (step.readiness.status) {
+    case "skip":
+      return Effect.succeed(promote({ result: "no-op", message: step.readiness.message }));
+    case "error":
+      return Effect.succeed(promote({ result: "error", message: step.readiness.message }));
+    case "ready":
+    case "warn": {
+      // Cast needed: TS can't correlate dynamic name lookup with the Extract<Op, {name: K}> parameter
+      const handler = handlers[step.operation.name as Op["name"]] as unknown as (
+        op: Op,
+      ) => Effect.Effect<OperationResult, CliError, ExecutionContext<T>>;
+      return handler(step.operation).pipe(
+        Effect.map(promote),
+        Effect.catchAll((error) =>
+          Effect.succeed(promote({ result: "error" as const, message: error.what })),
+        ),
+      );
+    }
   }
-  // Cast needed: TS can't correlate dynamic name lookup with the Extract<Op, {name: K}> parameter
-  const handler = handlers[step.operation.name as Op["name"]] as unknown as (
-    op: Op,
-  ) => Effect.Effect<OperationResult, CliError, ExecutionContext<T>>;
-  return handler(step.operation).pipe(
-    Effect.map(promote),
-    Effect.catchAll((error) =>
-      Effect.succeed(promote({ result: "error" as const, message: error.what })),
-    ),
-  );
 };
 
 /**
- * Apply a plan by iterating jobs and dispatching steps expected to succeed to the executor registry.
+ * Apply a plan by iterating jobs and dispatching steps to the executor registry.
  *
  * Uses `Effect.forEach` with each job's `concurrency` setting.
- * Only dispatches steps with `expectedResult.result === "success"` — others are promoted with expectedResult as actualResult.
+ * Steps with `ready` or `warn` readiness are dispatched to handlers; `skip` and `error` are promoted without dispatch.
  * Never fails — catches CliError and converts to error results.
  */
 export const applyPlan = <Op extends Operation<string, unknown>, T extends Handlers<Op>>(

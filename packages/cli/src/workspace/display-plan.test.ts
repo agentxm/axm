@@ -43,7 +43,7 @@ describe("displayPlan", () => {
                 {
                   _tag: "PlannedJobStep" as const,
                   operation: { name: "commit" },
-                  expectedResult: { result: "success" as const, message: "Installed commit" },
+                  readiness: { status: "ready" as const, message: Option.none() },
                   label: "commit",
                 },
               ],
@@ -70,7 +70,7 @@ describe("displayPlan", () => {
                 {
                   _tag: "PlannedJobStep" as const,
                   operation: { name: "commit" },
-                  expectedResult: { result: "success" as const, message: "Installed commit" },
+                  readiness: { status: "ready" as const, message: Option.none() },
                   label: "commit",
                 },
               ],
@@ -85,7 +85,7 @@ describe("displayPlan", () => {
     }).pipe(Effect.provide(logLayer));
   });
 
-  it.effect("lists success items for unapplied plan", () => {
+  it.effect("lists ready items with + prefix for unapplied plan", () => {
     const [logLayer, mockLog] = makeLogTestLayer();
 
     return Effect.gen(function* () {
@@ -98,13 +98,13 @@ describe("displayPlan", () => {
                 {
                   _tag: "PlannedJobStep" as const,
                   operation: { name: "commit" },
-                  expectedResult: { result: "success" as const, message: "Installed commit" },
+                  readiness: { status: "ready" as const, message: Option.none() },
                   label: "commit",
                 },
                 {
                   _tag: "PlannedJobStep" as const,
                   operation: { name: "review-pr" },
-                  expectedResult: { result: "success" as const, message: "Installed review-pr" },
+                  readiness: { status: "ready" as const, message: Option.none() },
                   label: "review-pr",
                 },
               ],
@@ -113,42 +113,14 @@ describe("displayPlan", () => {
         }),
       );
 
-      const allMessages = [...mockLog.logs.info, ...mockLog.logs.message, ...mockLog.logs.success];
-      expect(allMessages.some((m) => m.includes("commit"))).toBe(true);
-      expect(allMessages.some((m) => m.includes("review-pr"))).toBe(true);
-    }).pipe(Effect.provide(logLayer));
-  });
-
-  it.effect("shows no-op actions with reasons", () => {
-    const [logLayer, mockLog] = makeLogTestLayer();
-
-    return Effect.gen(function* () {
-      yield* displayPlan(
-        makePlan({
-          jobs: [
-            {
-              concurrency: "unbounded",
-              steps: [
-                {
-                  _tag: "PlannedJobStep" as const,
-                  operation: { name: "commit" },
-                  expectedResult: { result: "no-op" as const, message: "already installed" },
-                  label: "commit",
-                },
-              ],
-            },
-          ],
-        }),
-      );
-
-      const allMessages = [...mockLog.logs.info, ...mockLog.logs.warn, ...mockLog.logs.message];
-      expect(allMessages.some((m) => m.includes("commit") && m.includes("already installed"))).toBe(
+      expect(mockLog.logs.success.some((m) => m.includes("+") && m.includes("commit"))).toBe(true);
+      expect(mockLog.logs.success.some((m) => m.includes("+") && m.includes("review-pr"))).toBe(
         true,
       );
     }).pipe(Effect.provide(logLayer));
   });
 
-  it.effect("shows summary counts", () => {
+  it.effect("shows ready item with message in parentheses", () => {
     const [logLayer, mockLog] = makeLogTestLayer();
 
     return Effect.gen(function* () {
@@ -161,14 +133,8 @@ describe("displayPlan", () => {
                 {
                   _tag: "PlannedJobStep" as const,
                   operation: { name: "commit" },
-                  expectedResult: { result: "success" as const, message: "Installed commit" },
+                  readiness: { status: "ready" as const, message: Option.some("new version") },
                   label: "commit",
-                },
-                {
-                  _tag: "PlannedJobStep" as const,
-                  operation: { name: "review-pr" },
-                  expectedResult: { result: "no-op" as const, message: "already installed" },
-                  label: "review-pr",
                 },
               ],
             },
@@ -176,60 +142,256 @@ describe("displayPlan", () => {
         }),
       );
 
-      const allMessages = [
-        ...mockLog.logs.info,
-        ...mockLog.logs.message,
-        ...mockLog.logs.success,
-        ...mockLog.logs.warn,
-      ];
-      expect(allMessages.some((m) => m.includes("1") && m.includes("install"))).toBe(true);
-      expect(allMessages.some((m) => m.includes("1") && m.includes("skip"))).toBe(true);
-    }).pipe(Effect.provide(logLayer));
-  });
-
-  it.effect("handles all no-ops case", () => {
-    const [logLayer, mockLog] = makeLogTestLayer();
-
-    return Effect.gen(function* () {
-      yield* displayPlan(
-        makePlan({
-          jobs: [
-            {
-              concurrency: "unbounded",
-              steps: [
-                {
-                  _tag: "PlannedJobStep" as const,
-                  operation: { name: "commit" },
-                  expectedResult: { result: "no-op" as const, message: "already installed" },
-                  label: "commit",
-                },
-                {
-                  _tag: "PlannedJobStep" as const,
-                  operation: { name: "review-pr" },
-                  expectedResult: { result: "no-op" as const, message: "already installed" },
-                  label: "review-pr",
-                },
-              ],
-            },
-          ],
-        }),
-      );
-
-      const allMessages = [
-        ...mockLog.logs.info,
-        ...mockLog.logs.message,
-        ...mockLog.logs.success,
-        ...mockLog.logs.warn,
-      ];
-      // Should indicate nothing to execute
-      expect(allMessages.some((m) => m.includes("0") && m.includes("install"))).toBe(true);
-      // Should show skipped items
-      expect(allMessages.some((m) => m.includes("commit") && m.includes("already installed"))).toBe(
-        true,
-      );
       expect(
-        allMessages.some((m) => m.includes("review-pr") && m.includes("already installed")),
+        mockLog.logs.success.some(
+          (m) => m.includes("+") && m.includes("commit") && m.includes("(new version)"),
+        ),
       ).toBe(true);
+    }).pipe(Effect.provide(logLayer));
+  });
+
+  it.effect("shows skip items with - prefix and message", () => {
+    const [logLayer, mockLog] = makeLogTestLayer();
+
+    return Effect.gen(function* () {
+      yield* displayPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "commit" },
+                  readiness: { status: "skip" as const, message: "already installed" },
+                  label: "commit",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      expect(
+        mockLog.logs.warn.some(
+          (m) => m.includes("-") && m.includes("commit") && m.includes("already installed"),
+        ),
+      ).toBe(true);
+    }).pipe(Effect.provide(logLayer));
+  });
+
+  it.effect("shows warn items with warning prefix and message", () => {
+    const [logLayer, mockLog] = makeLogTestLayer();
+
+    return Effect.gen(function* () {
+      yield* displayPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "commit" },
+                  readiness: { status: "warn" as const, message: "version mismatch" },
+                  label: "commit",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      expect(
+        mockLog.logs.warn.some(
+          (m) => m.includes("\u26A0") && m.includes("commit") && m.includes("version mismatch"),
+        ),
+      ).toBe(true);
+    }).pipe(Effect.provide(logLayer));
+  });
+
+  it.effect("shows error readiness items with error prefix and message", () => {
+    const [logLayer, mockLog] = makeLogTestLayer();
+
+    return Effect.gen(function* () {
+      yield* displayPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "commit" },
+                  readiness: { status: "error" as const, message: "dependency missing" },
+                  label: "commit",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      expect(
+        mockLog.logs.error.some(
+          (m) => m.includes("\u2717") && m.includes("commit") && m.includes("dependency missing"),
+        ),
+      ).toBe(true);
+    }).pipe(Effect.provide(logLayer));
+  });
+
+  it.effect("shows summary counts for unapplied plan", () => {
+    const [logLayer, mockLog] = makeLogTestLayer();
+
+    return Effect.gen(function* () {
+      yield* displayPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "commit" },
+                  readiness: { status: "ready" as const, message: Option.none() },
+                  label: "commit",
+                },
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "review-pr" },
+                  readiness: { status: "skip" as const, message: "already installed" },
+                  label: "review-pr",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      expect(
+        mockLog.logs.message.some((m) => m.includes("1 to apply") && m.includes("1 to skip")),
+      ).toBe(true);
+    }).pipe(Effect.provide(logLayer));
+  });
+
+  it.effect("omits zero counts in summary", () => {
+    const [logLayer, mockLog] = makeLogTestLayer();
+
+    return Effect.gen(function* () {
+      yield* displayPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "commit" },
+                  readiness: { status: "ready" as const, message: Option.none() },
+                  label: "commit",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      const summary = mockLog.logs.message.find((m) => m.includes("to apply"));
+      expect(summary).toBeDefined();
+      expect(summary).not.toContain("skip");
+      expect(summary).not.toContain("error");
+      expect(summary).not.toContain("warning");
+    }).pipe(Effect.provide(logLayer));
+  });
+
+  it.effect("includes warn and error counts in unapplied summary", () => {
+    const [logLayer, mockLog] = makeLogTestLayer();
+
+    return Effect.gen(function* () {
+      yield* displayPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "a" },
+                  readiness: { status: "ready" as const, message: Option.none() },
+                  label: "a",
+                },
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "b" },
+                  readiness: { status: "skip" as const, message: "skip reason" },
+                  label: "b",
+                },
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "c" },
+                  readiness: { status: "warn" as const, message: "warn reason" },
+                  label: "c",
+                },
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "d" },
+                  readiness: { status: "error" as const, message: "error reason" },
+                  label: "d",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      const summary = mockLog.logs.message.find((m) => m.includes("to apply"));
+      expect(summary).toBeDefined();
+      expect(summary).toContain("1 to apply");
+      expect(summary).toContain("1 to skip");
+      expect(summary).toContain("1 error");
+      expect(summary).toContain("1 warning");
+    }).pipe(Effect.provide(logLayer));
+  });
+
+  it.effect("handles all skips case", () => {
+    const [logLayer, mockLog] = makeLogTestLayer();
+
+    return Effect.gen(function* () {
+      yield* displayPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "commit" },
+                  readiness: { status: "skip" as const, message: "already installed" },
+                  label: "commit",
+                },
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "review-pr" },
+                  readiness: { status: "skip" as const, message: "already installed" },
+                  label: "review-pr",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      // Should show skipped items
+      expect(
+        mockLog.logs.warn.some((m) => m.includes("commit") && m.includes("already installed")),
+      ).toBe(true);
+      expect(
+        mockLog.logs.warn.some((m) => m.includes("review-pr") && m.includes("already installed")),
+      ).toBe(true);
+      // Summary should only have skip count, no apply count
+      const summary = mockLog.logs.message.find((m) => m.includes("skip"));
+      expect(summary).toBeDefined();
+      expect(summary).not.toContain("to apply");
     }).pipe(Effect.provide(logLayer));
   });
 
@@ -246,8 +408,7 @@ describe("displayPlan", () => {
                 {
                   _tag: "JobStepResult" as const,
                   operation: { name: "commit" },
-                  expectedResult: { result: "success" as const, message: "Installed commit" },
-                  actualResult: { result: "success" as const, message: "Installed commit" },
+                  result: { result: "success" as const, message: "Applied commit" },
                   label: "commit",
                 },
               ],
@@ -256,9 +417,69 @@ describe("displayPlan", () => {
         }),
       );
 
-      const allMessages = [...mockLog.logs.info, ...mockLog.logs.message, ...mockLog.logs.success];
-      expect(allMessages.some((m) => m.includes("\u2713") && m.includes("commit"))).toBe(true);
-      expect(allMessages.some((m) => m.includes("installed"))).toBe(true);
+      expect(mockLog.logs.success.some((m) => m.includes("\u2713") && m.includes("commit"))).toBe(
+        true,
+      );
+    }).pipe(Effect.provide(logLayer));
+  });
+
+  it.effect("shows no-op items with reason for applied plan", () => {
+    const [logLayer, mockLog] = makeLogTestLayer();
+
+    return Effect.gen(function* () {
+      yield* displayPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  _tag: "JobStepResult" as const,
+                  operation: { name: "commit" },
+                  result: { result: "no-op" as const, message: "already installed" },
+                  label: "commit",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      expect(
+        mockLog.logs.warn.some(
+          (m) => m.includes("-") && m.includes("commit") && m.includes("already installed"),
+        ),
+      ).toBe(true);
+    }).pipe(Effect.provide(logLayer));
+  });
+
+  it.effect("shows error items for applied plan", () => {
+    const [logLayer, mockLog] = makeLogTestLayer();
+
+    return Effect.gen(function* () {
+      yield* displayPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  _tag: "JobStepResult" as const,
+                  operation: { name: "commit" },
+                  result: { result: "error" as const, message: "failed to apply" },
+                  label: "commit",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      expect(
+        mockLog.logs.error.some(
+          (m) => m.includes("\u2717") && m.includes("commit") && m.includes("failed to apply"),
+        ),
+      ).toBe(true);
     }).pipe(Effect.provide(logLayer));
   });
 
@@ -275,15 +496,13 @@ describe("displayPlan", () => {
                 {
                   _tag: "JobStepResult" as const,
                   operation: { name: "commit" },
-                  expectedResult: { result: "success" as const, message: "Installed commit" },
-                  actualResult: { result: "success" as const, message: "Installed commit" },
+                  result: { result: "success" as const, message: "Applied commit" },
                   label: "commit",
                 },
                 {
                   _tag: "JobStepResult" as const,
                   operation: { name: "review-pr" },
-                  expectedResult: { result: "no-op" as const, message: "already installed" },
-                  actualResult: { result: "no-op" as const, message: "already installed" },
+                  result: { result: "no-op" as const, message: "already installed" },
                   label: "review-pr",
                 },
               ],
@@ -292,14 +511,39 @@ describe("displayPlan", () => {
         }),
       );
 
-      const allMessages = [
-        ...mockLog.logs.info,
-        ...mockLog.logs.message,
-        ...mockLog.logs.success,
-        ...mockLog.logs.warn,
-      ];
-      expect(allMessages.some((m) => m.includes("1") && m.includes("installed"))).toBe(true);
-      expect(allMessages.some((m) => m.includes("1") && m.includes("skipped"))).toBe(true);
+      const summary = mockLog.logs.message.find((m) => m.includes("applied"));
+      expect(summary).toBeDefined();
+      expect(summary).toContain("1 applied");
+      expect(summary).toContain("1 skipped");
+    }).pipe(Effect.provide(logLayer));
+  });
+
+  it.effect("omits zero counts in applied summary", () => {
+    const [logLayer, mockLog] = makeLogTestLayer();
+
+    return Effect.gen(function* () {
+      yield* displayPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  _tag: "JobStepResult" as const,
+                  operation: { name: "commit" },
+                  result: { result: "success" as const, message: "Applied commit" },
+                  label: "commit",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      const summary = mockLog.logs.message.find((m) => m.includes("applied"));
+      expect(summary).toBeDefined();
+      expect(summary).not.toContain("skipped");
+      expect(summary).not.toContain("failed");
     }).pipe(Effect.provide(logLayer));
   });
 });

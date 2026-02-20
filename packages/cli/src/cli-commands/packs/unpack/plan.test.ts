@@ -11,7 +11,11 @@ import type { InstallSkillOperation } from "../../../extensions/skills/operation
 import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
 import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/install.js";
 import type { UninstallPackOperation } from "../../../extensions/packs/operations/uninstall.js";
+import type { PlannedJobStep } from "../../../workspace/plan.js";
 import { buildUnpackPlan } from "./plan.js";
+
+// Assertion needed: plan builders only produce PlannedJobStep
+const planned = <T>(step: { readonly _tag: string }) => step as PlannedJobStep<T>;
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -112,10 +116,10 @@ describe("buildUnpackPlan", () => {
     const steps = plan.jobs[0]!.steps;
     expect(steps[0]!.operation.name).toBe("install-skill");
     expect(steps[0]!.label).toBe("skill-a");
-    expect(steps[0]!.expectedResult.result).toBe("success");
+    expect(planned(steps[0]!).readiness.status).toBe("ready");
     expect(steps[1]!.operation.name).toBe("install-skill");
     expect(steps[1]!.label).toBe("skill-b");
-    expect(steps[1]!.expectedResult.result).toBe("success");
+    expect(planned(steps[1]!).readiness.status).toBe("ready");
   });
 
   it("emits install-command steps for each command op", () => {
@@ -134,7 +138,7 @@ describe("buildUnpackPlan", () => {
     const steps = plan.jobs[0]!.steps;
     expect(steps[0]!.operation.name).toBe("install-command");
     expect(steps[0]!.label).toBe("cmd-a");
-    expect(steps[0]!.expectedResult.result).toBe("success");
+    expect(planned(steps[0]!).readiness.status).toBe("ready");
   });
 
   it("emits install-mcp-server steps for each mcp-server op", () => {
@@ -153,10 +157,10 @@ describe("buildUnpackPlan", () => {
     const steps = plan.jobs[0]!.steps;
     expect(steps[0]!.operation.name).toBe("install-mcp-server");
     expect(steps[0]!.label).toBe("server-a");
-    expect(steps[0]!.expectedResult.result).toBe("success");
+    expect(planned(steps[0]!).readiness.status).toBe("ready");
   });
 
-  it("marks already directly installed skills as no-op", () => {
+  it("marks already directly installed skills as skip", () => {
     const plan = buildUnpackPlan({
       skillOps: [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
       commandOps: [],
@@ -170,12 +174,14 @@ describe("buildUnpackPlan", () => {
     });
 
     const steps = plan.jobs[0]!.steps;
-    expect(steps[0]!.expectedResult.result).toBe("no-op");
-    expect(steps[0]!.expectedResult.message).toBe("already directly installed");
-    expect(steps[1]!.expectedResult.result).toBe("success");
+    expect(planned(steps[0]!).readiness).toEqual({
+      status: "skip",
+      message: "already directly installed",
+    });
+    expect(planned(steps[1]!).readiness.status).toBe("ready");
   });
 
-  it("marks already directly installed commands as no-op", () => {
+  it("marks already directly installed commands as skip", () => {
     const plan = buildUnpackPlan({
       skillOps: [],
       commandOps: [makeCommandOp("cmd-a"), makeCommandOp("cmd-b")],
@@ -189,11 +195,11 @@ describe("buildUnpackPlan", () => {
     });
 
     const steps = plan.jobs[0]!.steps;
-    expect(steps[0]!.expectedResult.result).toBe("no-op");
-    expect(steps[1]!.expectedResult.result).toBe("success");
+    expect(planned(steps[0]!).readiness.status).toBe("skip");
+    expect(planned(steps[1]!).readiness.status).toBe("ready");
   });
 
-  it("marks already directly installed mcp-servers as no-op", () => {
+  it("marks already directly installed mcp-servers as skip", () => {
     const plan = buildUnpackPlan({
       skillOps: [],
       commandOps: [],
@@ -207,8 +213,8 @@ describe("buildUnpackPlan", () => {
     });
 
     const steps = plan.jobs[0]!.steps;
-    expect(steps[0]!.expectedResult.result).toBe("no-op");
-    expect(steps[1]!.expectedResult.result).toBe("success");
+    expect(planned(steps[0]!).readiness.status).toBe("skip");
+    expect(planned(steps[1]!).readiness.status).toBe("ready");
   });
 
   it("orders steps: install ops first, uninstall-pack last", () => {
@@ -249,7 +255,7 @@ describe("buildUnpackPlan", () => {
     expect(steps).toHaveLength(1);
     expect(steps[0]!.operation.name).toBe("uninstall-pack");
     expect(steps[0]!.label).toBe("my-pack");
-    expect(steps[0]!.expectedResult.result).toBe("success");
+    expect(planned(steps[0]!).readiness.status).toBe("ready");
   });
 
   it("passes through caller-provided name and description", () => {
@@ -286,7 +292,7 @@ describe("buildUnpackPlan", () => {
     expect(plan.jobs[0]!.concurrency).toBe(1);
   });
 
-  it("handles mixed no-ops across extension types", () => {
+  it("handles mixed skip/ready across extension types", () => {
     const plan = buildUnpackPlan({
       skillOps: [makeSkillOp("skill-a"), makeSkillOp("skill-b")],
       commandOps: [makeCommandOp("cmd-a"), makeCommandOp("cmd-b")],
@@ -301,11 +307,11 @@ describe("buildUnpackPlan", () => {
 
     const steps = plan.jobs[0]!.steps;
     expect(steps).toHaveLength(6);
-    expect(steps[0]!.expectedResult.result).toBe("no-op"); // skill-a
-    expect(steps[1]!.expectedResult.result).toBe("success"); // skill-b
-    expect(steps[2]!.expectedResult.result).toBe("success"); // cmd-a
-    expect(steps[3]!.expectedResult.result).toBe("no-op"); // cmd-b
-    expect(steps[4]!.expectedResult.result).toBe("success"); // server-a
+    expect(planned(steps[0]!).readiness.status).toBe("skip"); // skill-a
+    expect(planned(steps[1]!).readiness.status).toBe("ready"); // skill-b
+    expect(planned(steps[2]!).readiness.status).toBe("ready"); // cmd-a
+    expect(planned(steps[3]!).readiness.status).toBe("skip"); // cmd-b
+    expect(planned(steps[4]!).readiness.status).toBe("ready"); // server-a
     expect(steps[5]!.operation.name).toBe("uninstall-pack"); // last
   });
 

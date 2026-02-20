@@ -11,7 +11,11 @@ import type { Lockfile, SkillLockEntry } from "../../../lockfile/schema.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
 import type { SkillExtensionRef } from "../../../sources/types.js";
+import type { PlannedJobStep } from "../../../workspace/plan.js";
 import { buildUpdatePlan } from "./plan.js";
+
+// Assertion needed: plan builders only produce PlannedJobStep
+const planned = <T>(step: { readonly _tag: string }) => step as PlannedJobStep<T>;
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -195,7 +199,7 @@ describe("buildUpdatePlan", () => {
   // Git hosting sources (github, gitlab, bitbucket, azurerepos, git)
   // ---------------------------------------------------------------------------
 
-  it("marks git source as success when gitTreeHash changed", () => {
+  it("marks git source as ready when gitTreeHash changed", () => {
     const op = makeOp("commit", {
       sourceType: "github",
       gitTreeSha: Option.some("new-sha"),
@@ -211,13 +215,13 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Updated commit",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
-  it("marks git source as no-op when gitTreeHash unchanged", () => {
+  it("marks git source as skip when gitTreeHash unchanged", () => {
     const op = makeOp("commit", {
       sourceType: "github",
       gitTreeSha: Option.some("same-sha"),
@@ -233,13 +237,13 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "no-op",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "skip",
       message: "already up to date",
     });
   });
 
-  it("marks git source as success when lockfile gitTreeHash is missing", () => {
+  it("marks git source as ready when lockfile gitTreeHash is missing", () => {
     const op = makeOp("commit", {
       sourceType: "github",
       gitTreeSha: Option.some("new-sha"),
@@ -255,13 +259,13 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Updated commit",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
-  it("marks git source as success when operation gitTreeSha is missing", () => {
+  it("marks git source as ready when operation gitTreeSha is missing", () => {
     const op = makeOp("commit", {
       sourceType: "github",
       gitTreeSha: Option.none(),
@@ -277,13 +281,13 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Updated commit",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
-  it("marks git source as success when both gitTreeHash and gitTreeSha are missing", () => {
+  it("marks git source as ready when both gitTreeHash and gitTreeSha are missing", () => {
     const op = makeOp("commit", {
       sourceType: "github",
       gitTreeSha: Option.none(),
@@ -299,9 +303,9 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Updated commit",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
@@ -321,7 +325,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult.result).toBe("success");
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness.status).toBe("ready");
   });
 
   it("handles bitbucket source with git hash comparison", () => {
@@ -340,7 +344,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult.result).toBe("no-op");
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness.status).toBe("skip");
   });
 
   it("handles azurerepos source with git hash comparison", () => {
@@ -360,7 +364,7 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult.result).toBe("success");
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness.status).toBe("ready");
   });
 
   it("handles generic git source with git hash comparison", () => {
@@ -378,14 +382,14 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult.result).toBe("success");
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness.status).toBe("ready");
   });
 
   // ---------------------------------------------------------------------------
   // Registry sources
   // ---------------------------------------------------------------------------
 
-  it("marks registry source as success when resolvedVersion changed", () => {
+  it("marks registry source as ready when resolvedVersion changed", () => {
     const op = makeOp("commit", {
       sourceType: "registry",
       version: "2.0.0",
@@ -403,13 +407,13 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Updated commit",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
-  it("marks registry source as no-op when resolvedVersion unchanged", () => {
+  it("marks registry source as skip when resolvedVersion unchanged", () => {
     const op = makeOp("commit", {
       sourceType: "registry",
       version: "1.0.0",
@@ -427,8 +431,8 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "no-op",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "skip",
       message: "already up to date",
     });
   });
@@ -437,7 +441,7 @@ describe("buildUpdatePlan", () => {
   // Builtin sources
   // ---------------------------------------------------------------------------
 
-  it("marks builtin source as no-op (updated separately via pack flow)", () => {
+  it("marks builtin source as skip (updated separately via pack flow)", () => {
     const op = makeOp("commit", { sourceType: "builtin" });
     const lf = lockfileWith({
       commit: makeLockEntry({ type: "builtin" }),
@@ -445,13 +449,13 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "no-op",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "skip",
       message: "already up to date",
     });
   });
 
-  it("marks builtin source as success when force is true", () => {
+  it("marks builtin source as ready when force is true", () => {
     const op = makeOp("commit", { sourceType: "builtin", force: true });
     const lf = lockfileWith({
       commit: makeLockEntry({ type: "builtin" }),
@@ -459,9 +463,9 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Updated commit",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
@@ -469,7 +473,7 @@ describe("buildUpdatePlan", () => {
   // Local sources
   // ---------------------------------------------------------------------------
 
-  it("always marks local source as success (no version tracking)", () => {
+  it("always marks local source as ready (no version tracking)", () => {
     const op = makeOp("commit", { sourceType: "local" });
     const lf = lockfileWith({
       commit: makeLockEntry({ type: "local", path: "/installed" }),
@@ -477,9 +481,9 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Updated commit",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
@@ -487,7 +491,7 @@ describe("buildUpdatePlan", () => {
   // Force flag
   // ---------------------------------------------------------------------------
 
-  it("marks as success when force is true regardless of version match", () => {
+  it("marks as ready when force is true regardless of version match", () => {
     const op = makeOp("commit", {
       sourceType: "github",
       force: true,
@@ -504,13 +508,13 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Updated commit",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
-  it("marks as success when force is true for registry with same version", () => {
+  it("marks as ready when force is true for registry with same version", () => {
     const op = makeOp("commit", {
       sourceType: "registry",
       force: true,
@@ -529,21 +533,21 @@ describe("buildUpdatePlan", () => {
 
     const plan = buildUpdatePlan([op], lf, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult.result).toBe("success");
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness.status).toBe("ready");
   });
 
   // ---------------------------------------------------------------------------
   // Skill not in lockfile (new skill during update)
   // ---------------------------------------------------------------------------
 
-  it("marks as success when skill is not in lockfile", () => {
+  it("marks as ready when skill is not in lockfile", () => {
     const op = makeOp("new-skill", { sourceType: "github", gitTreeSha: Option.some("sha") });
 
     const plan = buildUpdatePlan([op], emptyLockfile, "Update", Option.none());
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Updated new-skill",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
@@ -594,7 +598,7 @@ describe("buildUpdatePlan", () => {
     expect(plan.jobs[0]!.concurrency).toBe("unbounded");
   });
 
-  it("handles mixed success and no-op expected results", () => {
+  it("handles mixed ready and skip readiness", () => {
     const ops = [
       makeOp("changed", {
         sourceType: "github",
@@ -625,11 +629,11 @@ describe("buildUpdatePlan", () => {
     const plan = buildUpdatePlan(ops, lf, "Update", Option.none());
 
     const steps = plan.jobs[0]!.steps;
-    expect(steps[0]!.expectedResult.result).toBe("success");
+    expect(planned(steps[0]!).readiness.status).toBe("ready");
     expect(steps[0]!.label).toBe("changed");
-    expect(steps[1]!.expectedResult.result).toBe("no-op");
+    expect(planned(steps[1]!).readiness.status).toBe("skip");
     expect(steps[1]!.label).toBe("unchanged");
-    expect(steps[2]!.expectedResult.result).toBe("success");
+    expect(planned(steps[2]!).readiness.status).toBe("ready");
     expect(steps[2]!.label).toBe("local-skill");
   });
 
@@ -662,7 +666,7 @@ describe("buildUpdatePlan", () => {
     const step = plan.jobs[0]!.steps[0]!;
     expect(step.label).toContain("old-name");
     expect(step.label).toContain("renamed");
-    expect(step.expectedResult.result).toBe("success");
+    expect(planned(step).readiness.status).toBe("ready");
   });
 
   it("handles mixed install and uninstall operations", () => {
@@ -684,7 +688,7 @@ describe("buildUpdatePlan", () => {
 
     expect(plan.jobs[0]!.steps).toHaveLength(2);
     expect(plan.jobs[0]!.steps[0]!.label).toBe("new-skill");
-    expect(plan.jobs[0]!.steps[0]!.expectedResult.message).toContain("Updated new-skill");
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness.status).toBe("ready");
     expect(plan.jobs[0]!.steps[1]!.label).toContain("old-skill");
     expect(plan.jobs[0]!.steps[1]!.label).toContain("renamed");
   });

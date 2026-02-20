@@ -4,8 +4,11 @@
 
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
-import type { Operation } from "../../workspace/plan.js";
+import type { Operation, PlannedJobStep } from "../../workspace/plan.js";
 import { buildSingleStepPlan } from "./plan-helpers.js";
+
+// Assertion needed: plan builders only produce PlannedJobStep
+const planned = <T>(step: { readonly _tag: string }) => step as PlannedJobStep<T>;
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -29,7 +32,6 @@ describe("buildSingleStepPlan", () => {
       name: "Test plan",
       description: "Do a test",
       label: "my-skill",
-      expectedMessage: "Done",
     });
 
     expect(plan.jobs).toHaveLength(1);
@@ -42,7 +44,6 @@ describe("buildSingleStepPlan", () => {
       name: "Enable skill",
       description: "Enable my-skill",
       label: "my-skill",
-      expectedMessage: "Enabled my-skill",
     });
 
     expect(plan.name).toBe("Enable skill");
@@ -55,24 +56,22 @@ describe("buildSingleStepPlan", () => {
       name: "Test",
       description: "desc",
       label: "step-label",
-      expectedMessage: "Done",
     });
 
     expect(plan.jobs[0]!.steps[0]!.label).toBe("step-label");
   });
 
-  it("sets the expected result with success and provided message", () => {
+  it("sets readiness to ready", () => {
     const plan = buildSingleStepPlan({
       operation: makeOp("a"),
       name: "Test",
       description: "desc",
       label: "lbl",
-      expectedMessage: "Enabled foo",
     });
 
-    expect(plan.jobs[0]!.steps[0]!.expectedResult).toEqual({
-      result: "success",
-      message: "Enabled foo",
+    expect(planned(plan.jobs[0]!.steps[0]!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
     });
   });
 
@@ -83,7 +82,6 @@ describe("buildSingleStepPlan", () => {
       name: "Test",
       description: "desc",
       label: "lbl",
-      expectedMessage: "Done",
     });
 
     expect(plan.jobs[0]!.steps[0]!.operation).toBe(op);
@@ -95,7 +93,6 @@ describe("buildSingleStepPlan", () => {
       name: "Test",
       description: "desc",
       label: "lbl",
-      expectedMessage: "Done",
     });
 
     expect(plan.jobs[0]!.steps[0]!._tag).toBe("PlannedJobStep");
@@ -107,7 +104,6 @@ describe("buildSingleStepPlan", () => {
       name: "Test",
       description: "desc",
       label: "lbl",
-      expectedMessage: "Done",
     });
 
     expect(plan.jobs[0]!.concurrency).toBe(1);

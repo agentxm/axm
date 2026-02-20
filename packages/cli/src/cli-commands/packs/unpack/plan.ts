@@ -15,6 +15,7 @@
  */
 
 import * as Option from "effect/Option";
+import { makeStep } from "../../../workspace/plan.js";
 import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
@@ -77,61 +78,35 @@ export const buildUnpackPlan = (args: BuildUnpackPlanArgs): Plan<PackUnpackOp> =
 
   const steps: ReadonlyArray<PlannedJobStep<PackUnpackOp>> = [
     // Install ops first
-    ...skillOps.map((op): PlannedJobStep<PackUnpackOp> => {
+    ...skillOps.map((op) => {
       const alreadyConfigured = configuredSkillNames.includes(op.args.ref.skill.name);
-      return alreadyConfigured
-        ? {
-            _tag: "PlannedJobStep",
-            operation: op,
-            readiness: { status: "skip", message: "already directly installed" },
-            label: op.args.ref.skill.name,
-          }
-        : {
-            _tag: "PlannedJobStep",
-            operation: op,
-            readiness: { status: "ready", message: Option.none() },
-            label: op.args.ref.skill.name,
-          };
+      return makeStep<PackUnpackOp>(
+        op,
+        op.args.ref.skill.name,
+        !alreadyConfigured,
+        "already directly installed",
+      );
     }),
-    ...commandOps.map((op): PlannedJobStep<PackUnpackOp> => {
+    ...commandOps.map((op) => {
       const alreadyConfigured = configuredCommandNames.includes(op.args.ref.command.name);
-      return alreadyConfigured
-        ? {
-            _tag: "PlannedJobStep",
-            operation: op,
-            readiness: { status: "skip", message: "already directly installed" },
-            label: op.args.ref.command.name,
-          }
-        : {
-            _tag: "PlannedJobStep",
-            operation: op,
-            readiness: { status: "ready", message: Option.none() },
-            label: op.args.ref.command.name,
-          };
+      return makeStep<PackUnpackOp>(
+        op,
+        op.args.ref.command.name,
+        !alreadyConfigured,
+        "already directly installed",
+      );
     }),
-    ...mcpServerOps.map((op): PlannedJobStep<PackUnpackOp> => {
+    ...mcpServerOps.map((op) => {
       const alreadyConfigured = configuredMcpServerNames.includes(op.args.ref.server.name);
-      return alreadyConfigured
-        ? {
-            _tag: "PlannedJobStep",
-            operation: op,
-            readiness: { status: "skip", message: "already directly installed" },
-            label: op.args.ref.server.name,
-          }
-        : {
-            _tag: "PlannedJobStep",
-            operation: op,
-            readiness: { status: "ready", message: Option.none() },
-            label: op.args.ref.server.name,
-          };
+      return makeStep<PackUnpackOp>(
+        op,
+        op.args.ref.server.name,
+        !alreadyConfigured,
+        "already directly installed",
+      );
     }),
     // Uninstall-pack last
-    {
-      _tag: "PlannedJobStep",
-      operation: uninstallPackOp,
-      readiness: { status: "ready", message: Option.none() },
-      label: uninstallPackOp.args.packName,
-    },
+    makeStep<PackUnpackOp>(uninstallPackOp, uninstallPackOp.args.packName, true, ""),
   ];
 
   return {

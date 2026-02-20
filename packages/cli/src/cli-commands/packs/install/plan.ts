@@ -12,6 +12,7 @@
 import * as Option from "effect/Option";
 import type { Lockfile } from "../../../lockfile/schema.js";
 import type { PackExtensionRef } from "../../../sources/types.js";
+import { makeStep } from "../../../workspace/plan.js";
 import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
@@ -97,69 +98,21 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs): Plan<PackInstallOp
           if (op.name === "install-pack") {
             const lockedPacks = lockfile.packs ?? {};
             const installed = Object.hasOwn(lockedPacks, op.args.packName);
-            return installed
-              ? {
-                  _tag: "PlannedJobStep",
-                  operation: op,
-                  readiness: { status: "skip", message: "already installed" },
-                  label: op.args.packName,
-                }
-              : {
-                  _tag: "PlannedJobStep",
-                  operation: op,
-                  readiness: { status: "ready", message: Option.none() },
-                  label: op.args.packName,
-                };
+            return makeStep(op, op.args.packName, !installed, "already installed");
           }
           if (op.name === "install-skill") {
             const installed = Object.hasOwn(lockfile.skills, op.args.ref.skill.name);
-            return installed
-              ? {
-                  _tag: "PlannedJobStep",
-                  operation: op,
-                  readiness: { status: "skip", message: "already installed" },
-                  label: op.args.ref.skill.name,
-                }
-              : {
-                  _tag: "PlannedJobStep",
-                  operation: op,
-                  readiness: { status: "ready", message: Option.none() },
-                  label: op.args.ref.skill.name,
-                };
+            return makeStep(op, op.args.ref.skill.name, !installed, "already installed");
           }
           if (op.name === "install-command") {
             const lockedCommands = lockfile.commands ?? {};
             const installed = Object.hasOwn(lockedCommands, op.args.ref.command.name);
-            return installed
-              ? {
-                  _tag: "PlannedJobStep",
-                  operation: op,
-                  readiness: { status: "skip", message: "already installed" },
-                  label: op.args.ref.command.name,
-                }
-              : {
-                  _tag: "PlannedJobStep",
-                  operation: op,
-                  readiness: { status: "ready", message: Option.none() },
-                  label: op.args.ref.command.name,
-                };
+            return makeStep(op, op.args.ref.command.name, !installed, "already installed");
           }
           // install-mcp-server
           const lockedMcpServers = lockfile.mcpServers ?? {};
           const installed = Object.hasOwn(lockedMcpServers, op.args.ref.server.name);
-          return installed
-            ? {
-                _tag: "PlannedJobStep",
-                operation: op,
-                readiness: { status: "skip", message: "already installed" },
-                label: op.args.ref.server.name,
-              }
-            : {
-                _tag: "PlannedJobStep",
-                operation: op,
-                readiness: { status: "ready", message: Option.none() },
-                label: op.args.ref.server.name,
-              };
+          return makeStep(op, op.args.ref.server.name, !installed, "already installed");
         }),
       },
     ],

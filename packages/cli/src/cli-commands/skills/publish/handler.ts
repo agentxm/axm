@@ -44,6 +44,41 @@ export interface PublishHandlerArgs {
 }
 
 // -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+const resolveExtensionInputs = (extensions: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace;
+    const log = yield* Log;
+
+    const globPatterns = extensions.filter((e) => isGlobPattern(e));
+    const literalInputs = extensions.filter((e) => !isGlobPattern(e));
+
+    if (globPatterns.length === 0) return literalInputs;
+
+    const installedSkills = yield* ws.getInstalledSkills();
+    const installedNames = Object.keys(installedSkills);
+    const globMatches = expandGlobs(globPatterns, installedNames);
+
+    if (globPatterns.length === extensions.length && globMatches.length === 0) {
+      yield* log.warn(`No skills matched pattern "${globPatterns.join(", ")}"`);
+      yield* log.success("Nothing to publish.");
+      return [] as ReadonlyArray<string>;
+    }
+
+    const seen = new Set<string>(globMatches);
+    return [
+      ...globMatches,
+      ...literalInputs.filter((lit) => {
+        if (seen.has(lit)) return false;
+        seen.add(lit);
+        return true;
+      }),
+    ];
+  });
+
+// -----------------------------------------------------------------------------
 // Main Handler
 // -----------------------------------------------------------------------------
 
@@ -64,35 +99,8 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
   yield* registryGuard;
 
   // Step 2: Separate glob patterns from literal inputs, expand globs
-  const globPatterns = args.extensions.filter((e) => isGlobPattern(e));
-  const literalInputs = args.extensions.filter((e) => !isGlobPattern(e));
-
-  let resolvedNames: ReadonlyArray<string>;
-
-  if (globPatterns.length > 0) {
-    const installedSkills = yield* ws.getInstalledSkills();
-    const installedNames = Object.keys(installedSkills);
-    const globMatches = expandGlobs(globPatterns, installedNames);
-
-    if (globPatterns.length === args.extensions.length && globMatches.length === 0) {
-      yield* log.warn(`No skills matched pattern "${globPatterns.join(", ")}"`);
-      yield* log.success("Nothing to publish.");
-      return;
-    }
-
-    // Combine glob matches with literal inputs, deduplicate
-    const seen = new Set<string>(globMatches);
-    const combined = [...globMatches];
-    for (const lit of literalInputs) {
-      if (!seen.has(lit)) {
-        seen.add(lit);
-        combined.push(lit);
-      }
-    }
-    resolvedNames = combined;
-  } else {
-    resolvedNames = literalInputs;
-  }
+  const resolvedNames = yield* resolveExtensionInputs(args.extensions);
+  if (resolvedNames.length === 0) return;
 
   // Step 3: Resolve each name to FQN
   const extensionNames = yield* Effect.forEach(resolvedNames, (name) =>

@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-// Plan types
+// Plan types and helpers
 export type {
   Job,
   JobStep,
@@ -16,6 +16,7 @@ export type {
   PlannedJobStep,
   Readiness,
 } from "./plan.js";
+export { makeStep } from "./plan.js";
 
 // Plan display
 export { displayPlan } from "./display-plan.js";

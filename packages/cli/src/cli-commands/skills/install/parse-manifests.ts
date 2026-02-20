@@ -141,27 +141,21 @@ const parseMarketplaceJson = (
     const pluginRoot = data.value.metadata?.pluginRoot;
     if (pluginRoot !== undefined && !pluginRoot.startsWith("./")) return [];
 
-    const dirs: string[] = [];
-
-    for (const plugin of data.value.plugins) {
+    return data.value.plugins.flatMap((plugin) => {
       const pluginBase = resolvePluginBase(plugin.source, basePath, pluginRoot, path);
-      if (Option.isNone(pluginBase)) continue;
+      if (Option.isNone(pluginBase)) return [];
 
       // Conventional {pluginBase}/skills/ always added
-      dirs.push(path.join(pluginBase.value, "skills"));
+      const conventional = [path.join(pluginBase.value, "skills")];
 
       // Explicit skill paths transformed via dirname
-      if (plugin.skills) {
-        for (const skillPath of plugin.skills) {
-          const validated = validatePath(skillPath, pluginBase.value, path);
-          if (Option.isSome(validated)) {
-            dirs.push(validated.value);
-          }
-        }
-      }
-    }
+      const explicit = (plugin.skills ?? []).flatMap((skillPath) => {
+        const validated = validatePath(skillPath, pluginBase.value, path);
+        return Option.isSome(validated) ? [validated.value] : [];
+      });
 
-    return dirs;
+      return [...conventional, ...explicit];
+    });
   });
 
 /**

@@ -9,7 +9,7 @@
  * @packageDocumentation
  */
 
-import type { Option } from "effect/Option";
+import * as Option from "effect/Option";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -26,7 +26,7 @@ export type OperationResult = {
 };
 
 export type Readiness =
-  | { readonly status: "ready"; readonly message: Option<string> }
+  | { readonly status: "ready"; readonly message: Option.Option<string> }
   | { readonly status: "skip"; readonly message: string }
   | { readonly status: "warn"; readonly message: string }
   | { readonly status: "error"; readonly message: string };
@@ -54,6 +54,27 @@ export interface Job<TOperation> {
 
 export interface Plan<TOperation> {
   readonly name: string;
-  readonly description: Option<string>;
+  readonly description: Option.Option<string>;
   readonly jobs: ReadonlyArray<Job<TOperation>>;
 }
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+/**
+ * Construct a PlannedJobStep — ready when `isReady` is true, skip otherwise.
+ */
+export const makeStep = <TOperation>(
+  operation: TOperation,
+  label: string,
+  isReady: boolean,
+  skipMessage: string,
+): PlannedJobStep<TOperation> => ({
+  _tag: "PlannedJobStep",
+  operation,
+  readiness: isReady
+    ? { status: "ready", message: Option.none() }
+    : { status: "skip", message: skipMessage },
+  label,
+});

@@ -82,6 +82,7 @@ Alternatives considered:
 ### Ignore Pattern Semantics
 
 - Matching supports `*` wildcard only.
+- Matching semantics MUST reuse the shared glob utilities in `packages/cli/src/skills/glob.ts` (`expandGlob`, `expandGlobs`, `isGlobPattern`) rather than a new regex/glob implementation.
 - Matching is anchored to the full extension name.
 - Examples:
   - `openspec-*` matches `openspec-core`
@@ -168,26 +169,38 @@ All failures include actionable `howToFix` guidance.
 ```ts
 import { Array, Effect, Option } from "effect";
 import type { ExtensionType } from "../extensions/common.js";
+import { makeCliError } from "@/cli-error";
+import type { CliError } from "@/cli-error";
+import { expandGlob } from "@/skills";
 
 type ClassifierExtensionType = ExtensionType;
-type ExtensionLifecycle = "configured" | "implicit" | "unmanaged";
 type PackagingKind = "native" | "non-native";
 
-interface ClassifiedExtension {
-  readonly type: ClassifierExtensionType;
-  readonly name: string;
-  readonly source: Option.Option<string>;
-  readonly enabled: boolean;
-  readonly packagingKind: PackagingKind;
-  readonly isBuiltIn: boolean;
-  readonly lifecycle: ExtensionLifecycle;
-}
+type ClassifiedExtension =
+  | {
+      readonly type: ClassifierExtensionType;
+      readonly name: string;
+      readonly source: string;
+      readonly enabled: boolean;
+      readonly packagingKind: PackagingKind;
+      readonly isBuiltIn: boolean;
+      readonly lifecycle: "configured";
+    }
+  | {
+      readonly type: ClassifierExtensionType;
+      readonly name: string;
+      readonly source: Option.Option<string>;
+      readonly enabled: true;
+      readonly packagingKind: PackagingKind;
+      readonly isBuiltIn: boolean;
+      readonly lifecycle: "implicit" | "unmanaged";
+    };
 
 interface ClassifierInput {
   readonly type: ClassifierExtensionType;
   readonly configured: Readonly<
-    Record<string, { readonly source: string; readonly enabled: boolean }>
-  >;
+    Record<string, { readonly source: string; readonly enabled?: boolean }>
+  >; // enabled defaults to true when omitted (MCP servers and packs omit it)
   readonly lockedNames: ReadonlyArray<string>;
   readonly detectedNames: ReadonlyArray<string>; // phase 1: skills include disk detection; non-skill types pass [] (settings+lockfile are modeled via configured/lockedNames)
   readonly ignoredPatterns: ReadonlyArray<string>;
@@ -196,94 +209,99 @@ interface ClassifierInput {
   >;
 }
 
-const toSimpleGlobRegex = (pattern: string): RegExp => {
-  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replaceAll("*", ".*");
-  return new RegExp(`^${escaped}$`);
-};
-
 const isIgnoredName = (patterns: ReadonlyArray<string>, name: string): boolean =>
-  Array.some(patterns, (pattern) => toSimpleGlobRegex(pattern).test(name));
+  Array.some(patterns, (pattern) => expandGlob(pattern, [name]).length > 0);
 
-const classifyExtensions = (input: ClassifierInput): ReadonlyArray<ClassifiedExtension> => {
-  const sourceMetaFor = (name: string) =>
-    input.sourceMetaByName[name] ??
-    ({
-      packagingKind: input.type === "pack" ? "native" : "non-native",
-      isBuiltIn: false,
-    } as const);
-  const configuredNames = new Set(Object.keys(input.configured));
-  const invalidLockfileOnlyNonNative = Array.filter(
-    input.lockedNames,
-    (name) =>
-      !configuredNames.has(name) &&
-      !isIgnoredName(input.ignoredPatterns, name) &&
-      sourceMetaFor(name).packagingKind !== "native",
-  );
-  if (invalidLockfileOnlyNonNative.length > 0) {
-    throw new Error("WORKSPACE_CLASSIFIER_NON_NATIVE_LOCKFILE_ONLY");
-  }
-  const implicitNames = new Set(
-    Array.filter(
+const classifyExtensions = (
+  input: ClassifierInput,
+): Effect.Effect<ReadonlyArray<ClassifiedExtension>, CliError> =>
+  Effect.gen(function* () {
+    const sourceMetaFor = (name: string) =>
+      input.sourceMetaByName[name] ??
+      ({
+        packagingKind: input.type === "pack" ? "native" : "non-native",
+        isBuiltIn: false,
+      } as const);
+    const configuredNames = new Set(Object.keys(input.configured));
+    const invalidLockfileOnlyNonNative = Array.filter(
       input.lockedNames,
       (name) =>
         !configuredNames.has(name) &&
         !isIgnoredName(input.ignoredPatterns, name) &&
-        sourceMetaFor(name).packagingKind === "native",
-    ),
-  );
+        sourceMetaFor(name).packagingKind !== "native",
+    );
+    if (invalidLockfileOnlyNonNative.length > 0) {
+      yield* makeCliError({
+        code: "WORKSPACE_CLASSIFIER_NON_NATIVE_LOCKFILE_ONLY",
+        what: "Lockfile-only non-native entries are invalid classifier input",
+        details: invalidLockfileOnlyNonNative,
+        howToFix: Option.some(
+          "Remove the lockfile-only non-native entries or add explicit configured entries in settings.",
+        ),
+      });
+    }
+    const implicitNames = new Set(
+      Array.filter(
+        input.lockedNames,
+        (name) =>
+          !configuredNames.has(name) &&
+          !isIgnoredName(input.ignoredPatterns, name) &&
+          sourceMetaFor(name).packagingKind === "native",
+      ),
+    );
 
-  const unmanagedNames = Array.filter(
-    Array.dedupe(input.detectedNames),
-    (name) =>
-      !configuredNames.has(name) &&
-      !implicitNames.has(name) &&
-      !isIgnoredName(input.ignoredPatterns, name),
-  );
+    const unmanagedNames = Array.filter(
+      Array.dedupe(input.detectedNames),
+      (name) =>
+        !configuredNames.has(name) &&
+        !implicitNames.has(name) &&
+        !isIgnoredName(input.ignoredPatterns, name),
+    );
 
-  const configured = Object.keys(input.configured)
-    .sort()
-    .map((name) => {
-      const entry = input.configured[name]!;
+    const configured = Object.keys(input.configured)
+      .sort()
+      .map((name) => {
+        const entry = input.configured[name]!;
+        const sourceMeta = sourceMetaFor(name);
+        return {
+          type: input.type,
+          name,
+          source: entry.source,
+          enabled: entry.enabled ?? true,
+          packagingKind: sourceMeta.packagingKind,
+          isBuiltIn: sourceMeta.isBuiltIn,
+          lifecycle: "configured" as const,
+        };
+      });
+
+    const implicit = [...implicitNames].sort().map((name) => {
       const sourceMeta = sourceMetaFor(name);
       return {
         type: input.type,
         name,
-        source: Option.some(entry.source),
-        enabled: entry.enabled,
+        source: Option.none<string>(),
+        enabled: true,
         packagingKind: sourceMeta.packagingKind,
         isBuiltIn: sourceMeta.isBuiltIn,
-        lifecycle: "configured" as const,
+        lifecycle: "implicit" as const,
       };
     });
 
-  const implicit = [...implicitNames].sort().map((name) => {
-    const sourceMeta = sourceMetaFor(name);
-    return {
-      type: input.type,
-      name,
-      source: Option.none<string>(),
-      enabled: true,
-      packagingKind: sourceMeta.packagingKind,
-      isBuiltIn: sourceMeta.isBuiltIn,
-      lifecycle: "implicit" as const,
-    };
-  });
+    const unmanaged = unmanagedNames.sort().map((name) => {
+      const sourceMeta = sourceMetaFor(name);
+      return {
+        type: input.type,
+        name,
+        source: Option.none<string>(),
+        enabled: true,
+        packagingKind: sourceMeta.packagingKind,
+        isBuiltIn: sourceMeta.isBuiltIn,
+        lifecycle: "unmanaged" as const,
+      };
+    });
 
-  const unmanaged = unmanagedNames.sort().map((name) => {
-    const sourceMeta = sourceMetaFor(name);
-    return {
-      type: input.type,
-      name,
-      source: Option.none<string>(),
-      enabled: true,
-      packagingKind: sourceMeta.packagingKind,
-      isBuiltIn: sourceMeta.isBuiltIn,
-      lifecycle: "unmanaged" as const,
-    };
+    return [...configured, ...implicit, ...unmanaged];
   });
-
-  return [...configured, ...implicit, ...unmanaged];
-};
 
 // Workspace-internal helper by extension type
 const getClassifiedExtensions = (type: ClassifierExtensionType) =>
@@ -294,7 +312,7 @@ const getClassifiedExtensions = (type: ClassifierExtensionType) =>
       case "skill": {
         const detectedNames = yield* detectSkillNamesOnDisk(settings.agents ?? []);
         const configured = normalizeConfiguredSkills(settings.skills ?? {});
-        return classifyExtensions({
+        return yield* classifyExtensions({
           type,
           configured: Object.fromEntries(
             Object.entries(configured).map(([name, entry]) => [
@@ -315,7 +333,7 @@ const getClassifiedExtensions = (type: ClassifierExtensionType) =>
             { source, enabled: true },
           ]),
         );
-        return classifyExtensions({
+        return yield* classifyExtensions({
           type,
           configured,
           lockedNames: Object.keys(lockfile.commands ?? {}),
@@ -326,12 +344,9 @@ const getClassifiedExtensions = (type: ClassifierExtensionType) =>
       }
       case "mcp-server": {
         const configured = Object.fromEntries(
-          Object.entries(settings.mcpServers ?? {}).map(([name, source]) => [
-            name,
-            { source, enabled: true },
-          ]),
+          Object.entries(settings.mcpServers ?? {}).map(([name, source]) => [name, { source }]),
         );
-        return classifyExtensions({
+        return yield* classifyExtensions({
           type,
           configured,
           lockedNames: Object.keys(lockfile.mcpServers ?? {}),
@@ -341,8 +356,13 @@ const getClassifiedExtensions = (type: ClassifierExtensionType) =>
         });
       }
       case "pack": {
-        const configured = normalizeConfiguredPacks(settings.packs ?? {});
-        return classifyExtensions({
+        const configured = Object.fromEntries(
+          Object.entries(normalizeConfiguredPacks(settings.packs ?? {})).map(([name, entry]) => [
+            name,
+            { source: entry.source },
+          ]),
+        );
+        return yield* classifyExtensions({
           type,
           configured,
           lockedNames: Object.keys(lockfile.packs ?? {}),
@@ -620,12 +640,60 @@ interface WorkspaceContextService {
 
 ### New Command / MCP / Pack Getters and Return Types
 
+Commands support `enabled/disabled` (like skills). MCP servers and packs do not.
+
 ```ts
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Record from "effect/Record";
 
 type PackagingKind = "native" | "non-native";
+
+// --- Command types (with enabled, like skills) ---
+
+interface ConfiguredCommand {
+  readonly source: string;
+  readonly enabled: boolean;
+  readonly packagingKind: PackagingKind;
+  readonly isBuiltIn: boolean;
+}
+
+interface ImplicitCommand {
+  readonly source: Option.Option<string>;
+  readonly enabled: true;
+  readonly packagingKind: PackagingKind;
+  readonly isBuiltIn: boolean;
+}
+
+interface UnmanagedCommand {
+  readonly source: Option.Option<string>;
+  readonly enabled: true;
+  readonly packagingKind: PackagingKind;
+  readonly isBuiltIn: boolean;
+}
+
+type InstalledCommand =
+  | {
+      readonly lifecycle: "configured";
+      readonly source: string;
+      readonly enabled: boolean;
+      readonly packagingKind: PackagingKind;
+      readonly isBuiltIn: boolean;
+    }
+  | {
+      readonly lifecycle: "implicit";
+      readonly source: Option.Option<string>;
+      readonly enabled: true;
+      readonly packagingKind: PackagingKind;
+      readonly isBuiltIn: boolean;
+    };
+
+type ClassifiedCommand =
+  | ({ readonly lifecycle: "configured" } & ConfiguredCommand)
+  | ({ readonly lifecycle: "implicit" } & ImplicitCommand)
+  | ({ readonly lifecycle: "unmanaged" } & UnmanagedCommand);
+
+// --- MCP server / Pack types (no enabled) ---
 
 interface ConfiguredExtensionRef {
   readonly source: string;
@@ -681,32 +749,33 @@ type UnmanagedExtensionRef = {
 };
 
 interface WorkspaceContextService {
+  // --- Commands (with enabled) ---
   readonly getConfiguredCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
+    Record.ReadonlyRecord<string, ConfiguredCommand>,
     CliError
   >;
   readonly getImplicitCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ImplicitExtensionRef>,
+    Record.ReadonlyRecord<string, ImplicitCommand>,
     CliError
   >;
   readonly getInstalledCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, InstalledExtensionRef>,
+    Record.ReadonlyRecord<string, InstalledCommand>,
     CliError
   >;
   readonly getClassifiedCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ClassifiedExtensionRef>,
+    Record.ReadonlyRecord<string, ClassifiedCommand>,
     CliError
   >;
   readonly getConfiguredExternalCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
+    Record.ReadonlyRecord<string, ConfiguredCommand>,
     CliError
   >;
   readonly getUnmanagedCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
+    Record.ReadonlyRecord<string, UnmanagedCommand>,
     CliError
   >; // empty in phase 1
   readonly getUnmanagedExternalCommands: () => Effect.Effect<
-    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
+    Record.ReadonlyRecord<string, UnmanagedCommand>,
     CliError
   >;
   readonly getIgnoredCommandPatterns: () => Effect.Effect<ReadonlyArray<string>, CliError>;
@@ -795,7 +864,7 @@ Updated methods:
 - `getConfiguredSkills`: return `Record.ReadonlyRecord<string, ConfiguredSkill>` (no `managed` marker in shape).
 - `getInstalledSkills`: return classifier installed set (`configured ∪ implicit`) from settings + native implicit lockfile rows; no transitive pack-only visibility from `resolvedSkills`.
 - `setSkillEntry` / `updateSkillEntry`: update to configured-skill shape (no `managed` marker).
-- `getConfiguredCommands`: return `Record.ReadonlyRecord<string, ConfiguredExtensionRef>` (includes source metadata).
+- `getConfiguredCommands`: return `Record.ReadonlyRecord<string, ConfiguredCommand>` (includes source metadata and `enabled`).
 - `getConfiguredMcpServers`: return `Record.ReadonlyRecord<string, ConfiguredExtensionRef>` and read/write `settings.mcpServers`.
 - `getConfiguredPacks`: return `Record.ReadonlyRecord<string, ConfiguredExtensionRef>`.
 - `getInstalledPacks`: return classifier installed set (`configured ∪ implicit`) instead of aliasing configured.
@@ -886,6 +955,8 @@ Rationale:
    - Add `ignored` schema/types and settings key ordering.
    - Use camelCase `mcpServers` key in settings and lockfile, and `ignored.mcpServers`.
    - Add simple glob pattern support (`*`) for ignored entries.
+   - Reuse `packages/cli/src/skills/glob.ts` for ignored-pattern matching (`*` only); avoid a second matcher implementation.
+   - Follow the existing normalize/collapse pattern used in `settings/skill-entry.ts` when adding ignored-pattern normalization helpers.
    - Add ignored-pattern normalization (trim/dedupe) and invalid-pattern rejection (`SETTINGS_IGNORED_PATTERN_INVALID`).
    - Add validation for configured-vs-ignored conflicts (`SETTINGS_IGNORED_CONFIG_CONFLICT`).
    - Remove `UnmanagedSkillEntrySchema` from skill union.
@@ -899,6 +970,7 @@ Rationale:
    - Add classifier-backed configured/implicit/installed/ignored getters for `commands`, `mcpServers`, and `packs` (with unmanaged empty in this phase).
    - Expose `ConfiguredExternalExtensions` and `UnmanagedExternalExtensions` views (type-specific getters).
    - Add ignored-aware detection for unmanaged on-disk skills.
+   - Reuse candidate discovery patterns from `sources/resolve-source-pattern.ts` (lockfile + configured + on-disk) for skill detected-set construction.
    - Add dedicated classifier unit tests for normative taxonomy scenarios, error codes, deterministic ordering, source metadata derivation precedence, and invariants across all `ExtensionType` values.
 
 3. **Skill command updates**
@@ -918,9 +990,12 @@ Rationale:
      - `skills-fork`
      - `cli-skills-publish-glob`
      - `cli-skills-update`
+     - `resolve-source`
+     - `source-aware-glob`
 
 5. **Test and cleanup**
    - Replace unmanaged marker fixtures with ignored fixtures where relevant.
+   - Reuse and extend `packages/cli/src/skills/glob.test.ts` for ignored-pattern wildcard semantics to avoid parallel matcher test suites.
    - Add tests for ignored glob behavior (for example `openspec-*`).
    - Add workspace service tests for changed method semantics:
      - `getInstalledPacks` includes lockfile-only implicit packs (including builtin lockfile entries).

@@ -14,6 +14,7 @@ We need a single, strict classification model so workspace behavior is predictab
   - `packs` are native-only
 - **BREAKING**: remove `managed: false` from skill entry schema. `settings.skills` will only represent configured managed entries (string/object forms).
 - Add ignored pattern support in settings with simple glob matching (`*`) for extension names (for example, `ignored.skills: ["openspec-*"]`).
+- Reuse shared glob utilities from `packages/cli/src/skills/glob.ts` for ignored pattern matching to keep wildcard behavior consistent across commands and workspace classification.
 - Align command behavior and workspace APIs with the new taxonomy so state checks no longer depend on `managed: false` markers.
 
 ## Explicit Non-Goal
@@ -44,7 +45,8 @@ Classification is defined per extension type (`skills`, `commands`, `mcpServers`
 - `Ignored` entries are excluded from all lifecycle classes in `E`
 - `P ⊆ { e ∈ E | packagingKind = native }`
 - Lockfile-only non-native entries are invalid state and must fail classification.
-- `enabled/disabled` is a state on configured entries only; it does not define lifecycle class
+- `enabled/disabled` is a state on configured skill and command entries only; it does not define lifecycle class
+- MCP servers and packs do not support `enabled/disabled` state
 
 #### Orthogonal Source Classification
 
@@ -90,7 +92,7 @@ Classification notes for contributors:
 
 - First decide lifecycle class (`Configured` vs `Implicit` vs `Unmanaged`).
 - Then apply source classification metadata (`packagingKind`, `isBuiltIn`) and derive `External` view from non-native entries.
-- `enabled/disabled` is a configured-state flag, not a lifecycle class.
+- `enabled/disabled` is a configured-state flag (skills and commands only), not a lifecycle class.
 - `settings.skills.<name> = { managed: false }` is removed by this change and must not be used in new behavior.
 
 ## Capabilities
@@ -109,11 +111,14 @@ Classification notes for contributors:
 - `skills-fork`: Align discovery and conflict rules with taxonomy-based unmanaged detection (not settings markers).
 - `cli-skills-publish-glob`: Clarify glob expansion against installed skills under the new taxonomy language.
 - `cli-skills-update`: Stop unmanaged skip logging; iterate configured entries only, respecting `enabled`.
+- `resolve-source`: Update configured skill lookup assumptions to `source: string` configured entries.
+- `source-aware-glob`: Align positional glob expansion candidate semantics with taxonomy-derived extension sets.
 
 ## Impact
 
 - Settings schema and skill entry normalization/collapse behavior (`packages/cli/src/settings/`)
 - Workspace classification/query methods (`packages/cli/src/workspace/service.ts`)
 - Skills command handlers that branch on `entry.managed` semantics (`enable`, `disable`, `rename`, `uninstall`, `update`, `fork`, `publish`)
+- Source resolution/glob handling that currently depends on configured skill source optionality (`packages/cli/src/sources/`)
 - Specs and docs that currently reference unmanaged settings markers
 - Legacy compatibility behavior is intentionally unspecified and out of scope.

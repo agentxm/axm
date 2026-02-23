@@ -644,3 +644,186 @@ Supports variadic names for batch updates.
 **[User vs project scope complexity]** → Some agents have complex user-scope config mechanisms (Claude Code nests in `~/.claude.json` by project path, VS Code uses user `settings.json`). Mitigation: initial implementation supports user scope for agents with straightforward user config files (Cursor, Gemini CLI, Codex). Claude Code and Copilot user scope deferred.
 
 **[VS Code input variables]** → VS Code supports `inputs` array for secret prompting via `${input:id}` references. axm doesn't manage this mechanism but must preserve the `inputs` array at the root of `.vscode/mcp.json` during read-modify-write. Future consideration: axm could generate `inputs` entries for env vars that need secret prompting.
+
+## Appendix: Agent MCP Configuration References
+
+### Claude Code
+
+[Documentation](https://code.claude.com/docs/en/mcp)
+
+Config file: `.mcp.json` (project scope) or `~/.claude.json` (local/user scope). JSON format, `mcpServers` key. Supports stdio, HTTP, and SSE transports. Environment variable expansion with `${VAR}` and `${VAR:-default}` syntax.
+
+Scopes: `local` (default, per-user per-project in `~/.claude.json`), `project` (shared `.mcp.json` at project root), `user` (cross-project in `~/.claude.json`).
+
+```jsonc
+// .mcp.json
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"],
+    },
+    "remote-api": {
+      "type": "http",
+      "url": "https://mcp.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${API_KEY}",
+      },
+    },
+  },
+}
+```
+
+### Gemini CLI
+
+[Documentation](https://geminicli.com/docs/tools/mcp-server/)
+
+Config file: `.gemini/settings.json` (project) or `~/.gemini/settings.json` (user). JSON format, `mcpServers` key. Supports stdio (`command`), SSE (`url`), and HTTP (`httpUrl`) transports. Environment variable pass-through with `$VAR_NAME` syntax in `env`.
+
+Agent-specific fields: `cwd` (working directory for stdio), `timeout` (request timeout in ms, default 600000), `trust` (bypass tool confirmations), `includeTools`/`excludeTools` (tool filtering).
+
+```jsonc
+// .gemini/settings.json
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"],
+      "cwd": ".",
+      "env": {
+        "API_KEY": "$MY_API_TOKEN",
+      },
+      "timeout": 30000,
+      "trust": false,
+    },
+    "remote-api": {
+      "httpUrl": "https://mcp.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer token",
+      },
+    },
+  },
+}
+```
+
+### GitHub Copilot (VS Code)
+
+[Documentation](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)
+
+Config file: `.vscode/mcp.json` (project) or VS Code user settings (user scope). JSON format, `servers` key. Requires explicit `type` discriminator on HTTP entries. Supports `inputs` array for secret prompting via `${input:id}` references and `envFile` for loading environment files.
+
+```jsonc
+// .vscode/mcp.json
+{
+  "servers": {
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"],
+      "env": {
+        "API_KEY": "${input:apiKey}",
+      },
+    },
+    "remote-api": {
+      "type": "http",
+      "url": "https://mcp.example.com/mcp",
+    },
+  },
+  "inputs": [
+    {
+      "id": "apiKey",
+      "type": "promptString",
+      "description": "API Key",
+      "password": true,
+    },
+  ],
+}
+```
+
+### Codex CLI
+
+[Documentation](https://developers.openai.com/codex/mcp/)
+
+Config file: `.codex/config.toml` (project) or `~/.codex/config.toml` (user). TOML format, `[mcp_servers.<name>]` tables. Native `enabled` field for toggling without deletion. HTTP auth via `bearer_token_env_var` and `env_http_headers`.
+
+Agent-specific fields: `enabled`, `required` (fail startup if unavailable), `startup_timeout_sec` (default 10), `tool_timeout_sec` (default 60), `enabled_tools`/`disabled_tools` (tool filtering), `cwd`.
+
+```toml
+# .codex/config.toml
+
+# stdio server
+[mcp_servers.chrome-devtools]
+command = "npx"
+args = ["-y", "chrome-devtools-mcp@latest"]
+enabled = true
+
+[mcp_servers.chrome-devtools.env]
+API_KEY = "value"
+
+# HTTP server with auth
+[mcp_servers.remote-api]
+url = "https://mcp.example.com/mcp"
+bearer_token_env_var = "API_KEY"
+http_headers = { "X-Custom" = "value" }
+startup_timeout_sec = 20
+tool_timeout_sec = 45
+```
+
+### OpenCode
+
+[Documentation](https://opencode.ai/docs/mcp-servers/)
+
+Config file: `opencode.jsonc` (project only, no user scope). JSON format, `mcp` key. Uses `local`/`remote` type discriminator. Command is an array of strings (not separate `command`/`args`). Native `enabled` field. Environment variables via `environment` key (not `env`).
+
+```jsonc
+// opencode.jsonc
+{
+  "mcp": {
+    "chrome-devtools": {
+      "type": "local",
+      "command": ["npx", "-y", "chrome-devtools-mcp@latest"],
+      "enabled": true,
+      "environment": {
+        "API_KEY": "value",
+      },
+      "timeout": 5000,
+    },
+    "remote-api": {
+      "type": "remote",
+      "url": "https://mcp.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer token",
+      },
+    },
+  },
+}
+```
+
+### Cursor
+
+[Documentation](https://cursor.com/docs/context/mcp)
+
+Config file: `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (user). JSON format, `mcpServers` key. Supports stdio and SSE transports via `transport` field. No explicit `type` field on entries — uses `command` (stdio) or `url` (remote) to distinguish.
+
+```jsonc
+// .cursor/mcp.json
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest"],
+      "env": {
+        "API_KEY": "value",
+      },
+    },
+    "remote-api": {
+      "url": "https://mcp.example.com/mcp",
+      "transport": "sse",
+      "headers": {
+        "Authorization": "Bearer token",
+      },
+    },
+  },
+}
+```

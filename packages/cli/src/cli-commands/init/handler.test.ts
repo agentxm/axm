@@ -187,11 +187,11 @@ describe("init.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Global Flag
+  // User Scope
   // ---------------------------------------------------------------------------
 
-  describe("global flag", () => {
-    it.effect("creates settings in home directory when --global is set", () =>
+  describe("user scope", () => {
+    it.effect("creates settings in home directory when scope is user", () =>
       Effect.gen(function* () {
         const globalAxmDir = path.join(os.homedir(), ".axm");
         const settingsPath = path.join(globalAxmDir, "settings.json");
@@ -205,7 +205,7 @@ describe("init.handler", () => {
 
         try {
           // handleInit() uses the workspace context which auto-initializes
-          // the global workspace during layer construction, ensuring
+          // the user-scope workspace during layer construction, ensuring
           // settings.json exists in ~/.axm
           yield* handleInit();
 
@@ -232,9 +232,9 @@ describe("init.handler", () => {
       ),
     );
 
-    it.effect("does not create settings in project directory when --global is set", () =>
+    it.effect("does not create settings in project directory when scope is user", () =>
       Effect.gen(function* () {
-        // Backup and cleanup global settings
+        // Backup and cleanup user-scope settings
         const globalAxmDir = path.join(os.homedir(), ".axm");
         const globalSettingsPath = path.join(globalAxmDir, "settings.json");
         const globalLockfilePath = path.join(globalAxmDir, "axm-lock.yaml");

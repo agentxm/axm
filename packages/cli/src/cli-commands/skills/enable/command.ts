@@ -8,10 +8,18 @@ import type { CommandModule } from "yargs";
 import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
 import { handleEnable } from "./handler.js";
+import {
+  CONFIGURATION_SCOPES,
+  DEFAULT_CONFIGURATION_SCOPE,
+  type ConfigurationScope,
+  resolveConfigurationScope,
+  toGlobalWorkspaceFlag,
+} from "../../../workspace/config-scope.js";
 
 export interface EnableCommandArgs {
   name: string;
-  global: boolean;
+  scope: ConfigurationScope;
+  global?: boolean;
   yes: boolean;
   preview: boolean;
   "non-interactive": boolean | undefined;
@@ -28,9 +36,16 @@ export const enableCommand: CommandModule<{}, EnableCommandArgs> = {
         describe: "Name of the skill to enable",
         demandOption: true,
       })
+      .option("scope", {
+        type: "string",
+        choices: CONFIGURATION_SCOPES,
+        describe: "Configuration scope: project (default) or user",
+        default: DEFAULT_CONFIGURATION_SCOPE,
+      })
       .option("global", {
         type: "boolean",
-        describe: "Use global ~/.axm/ workspace",
+        hidden: true,
+        describe: "Deprecated alias for --scope user",
         default: false,
       })
       .option("yes", {
@@ -51,6 +66,7 @@ export const enableCommand: CommandModule<{}, EnableCommandArgs> = {
       .example("$0 skills enable my-skill", "Enable a previously disabled skill")
       .example("$0 skills enable my-skill --preview", "Preview what would be enabled"),
   handler: async (argv) => {
+    const scope = resolveConfigurationScope(argv.scope, argv.global);
     await run(
       handleEnable({
         name: argv.name,
@@ -58,7 +74,7 @@ export const enableCommand: CommandModule<{}, EnableCommandArgs> = {
       }),
       {
         workspace: {
-          global: argv.global,
+          global: toGlobalWorkspaceFlag(scope),
           yes: argv.yes,
           nonInteractive: Option.fromNullable(argv["non-interactive"]),
           preview: argv.preview,

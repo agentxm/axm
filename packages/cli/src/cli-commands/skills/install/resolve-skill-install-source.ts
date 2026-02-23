@@ -51,8 +51,8 @@ const resolveRegistrySource = (
 
     for (const regConfig of registrySources) {
       const client = yield* createRegistryClient(regConfig.location.href);
-      const { exists: hasRequestedScope } = yield* client.namespaceExists(namespace);
-      if (hasRequestedScope) {
+      const { exists: hasRequestedNamespace } = yield* client.namespaceExists(namespace);
+      if (hasRequestedNamespace) {
         return {
           type: "registry" as const,
           location: regConfig.location,
@@ -62,7 +62,7 @@ const resolveRegistrySource = (
     }
 
     return yield* makeCliError({
-      code: "REGISTRY_SCOPE_NOT_FOUND",
+      code: "REGISTRY_NAMESPACE_NOT_FOUND",
       what: `None of the configured registry sources contain namespace "${namespace}"`,
       details: [input],
       howToFix: `Verify the namespace name is correct, or add a registry that hosts "${namespace}"`,

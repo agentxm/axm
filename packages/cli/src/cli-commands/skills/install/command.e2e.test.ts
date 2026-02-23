@@ -488,7 +488,7 @@ describe("axm skills install", () => {
       expect(result.stdout).toContain("--yes");
       expect(result.stdout).toContain("--skill");
       expect(result.stdout).toContain("--agent");
-      expect(result.stdout).toContain("--global");
+      expect(result.stdout).toContain("--scope");
       expect(result.stdout).toContain("--force");
       expect(result.stdout).toContain("--preview");
     });

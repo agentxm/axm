@@ -8,10 +8,18 @@ import type { CommandModule } from "yargs";
 import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
 import { handleInstallPack } from "./handler.js";
+import {
+  CONFIGURATION_SCOPES,
+  DEFAULT_CONFIGURATION_SCOPE,
+  type ConfigurationScope,
+  resolveConfigurationScope,
+  toGlobalWorkspaceFlag,
+} from "../../../workspace/config-scope.js";
 
 interface InstallPackCommandArgs {
   source: string;
-  global: boolean;
+  scope: ConfigurationScope;
+  global?: boolean;
   yes: boolean;
   force: boolean;
   preview: boolean;
@@ -30,9 +38,16 @@ export const installPackCommand: CommandModule<{}, InstallPackCommandArgs> = {
           "Registry pack reference (@namespace/packs/name, @namespace/packs/name@version, or bare pack-name)",
         demandOption: true,
       })
+      .option("scope", {
+        type: "string",
+        choices: CONFIGURATION_SCOPES,
+        describe: "Configuration scope: project (default) or user",
+        default: DEFAULT_CONFIGURATION_SCOPE,
+      })
       .option("global", {
         type: "boolean",
-        describe: "Install to global ~/.axm/ instead of local .axm/",
+        hidden: true,
+        describe: "Deprecated alias for --scope user",
         default: false,
       })
       .option("yes", {
@@ -70,17 +85,19 @@ export const installPackCommand: CommandModule<{}, InstallPackCommandArgs> = {
         "See what would be installed",
       ),
   handler: async (argv) => {
+    const scope = resolveConfigurationScope(argv.scope, argv.global);
+    const global = toGlobalWorkspaceFlag(scope);
     await run(
       handleInstallPack({
         source: argv.source,
-        global: argv.global,
+        global,
         yes: argv.yes,
         force: argv.force,
         nonInteractive: Option.fromNullable(argv["non-interactive"]),
       }),
       {
         workspace: {
-          global: argv.global,
+          global,
           yes: argv.yes,
           nonInteractive: Option.fromNullable(argv["non-interactive"]),
           preview: argv.preview,

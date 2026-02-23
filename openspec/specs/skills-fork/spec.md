@@ -31,7 +31,7 @@ Forks installed skills into managed extensions with namespace resolution, unique
 The fork command SHALL determine the default namespace for the forked extension using a resolution chain (highest priority wins):
 
 1. Project settings `namespace` field
-2. Global settings `namespace` field
+2. User-scope settings `namespace` field
 3. Prompt user (persisted to project settings)
 
 #### Scenario: Namespace from project settings
@@ -39,9 +39,9 @@ The fork command SHALL determine the default namespace for the forked extension 
 - **WHEN** project settings has `namespace: "@acme"`
 - **THEN** the default namespace is `@acme` (no prompt)
 
-#### Scenario: Namespace from global settings
+#### Scenario: Namespace from user-scope settings
 
-- **WHEN** project settings has no namespace but global settings has `namespace: "@myorg"`
+- **WHEN** project settings has no namespace but user-scope settings has `namespace: "@myorg"`
 - **THEN** the default namespace is `@myorg` (no prompt)
 
 #### Scenario: Namespace prompted and persisted

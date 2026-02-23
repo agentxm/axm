@@ -22,7 +22,7 @@ import type { AgentDescriptor } from "./types.js";
 
 /**
  * Check if a specific agent is installed by checking both project-level
- * and global directories.
+ * and user-scope directories.
  *
  * - **Project-level**: Checks if the first path segment of `skills.dir`
  *   exists in `projectDir` (e.g., `.claude/` for Claude Code)

@@ -2,10 +2,18 @@ import type { CommandModule } from "yargs";
 import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
 import { handleInstall } from "./handler.js";
+import {
+  CONFIGURATION_SCOPES,
+  DEFAULT_CONFIGURATION_SCOPE,
+  type ConfigurationScope,
+  resolveConfigurationScope,
+  toGlobalWorkspaceFlag,
+} from "../../../workspace/config-scope.js";
 
 interface InstallCommandArgs {
   source: string;
-  global: boolean;
+  scope: ConfigurationScope;
+  global?: boolean;
   agent: ReadonlyArray<string>;
   skill: ReadonlyArray<string>;
   yes: boolean;
@@ -27,9 +35,16 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
         describe: "GitHub shorthand (owner/repo), local path, or URL",
         demandOption: true,
       })
+      .option("scope", {
+        type: "string",
+        choices: CONFIGURATION_SCOPES,
+        describe: "Configuration scope: project (default) or user",
+        default: DEFAULT_CONFIGURATION_SCOPE,
+      })
       .option("global", {
         type: "boolean",
-        describe: "Install to global ~/.axm/ instead of local .axm/",
+        hidden: true,
+        describe: "Deprecated alias for --scope user",
         default: false,
       })
       .option("agent", {
@@ -76,7 +91,7 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
         type: "boolean",
         describe: "Disable all interactive prompts",
       })
-      .group(["global", "agent", "skill"], "Filtering:")
+      .group(["scope", "agent", "skill"], "Filtering:")
       .group(["yes", "list", "all", "force", "preview"], "Behavior:")
       .example("$0 skills install owner/repo", "Install skills interactively")
       .example(
@@ -91,10 +106,12 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
         "Target specific skill and agent",
       ),
   handler: async (argv) => {
+    const scope = resolveConfigurationScope(argv.scope, argv.global);
+    const global = toGlobalWorkspaceFlag(scope);
     await run(
       handleInstall({
         source: argv.source,
-        global: argv.global,
+        global,
         agents: argv.agent,
         skills: argv.skill,
         yes: argv.yes,
@@ -105,7 +122,7 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
       }),
       {
         workspace: {
-          global: argv.global,
+          global,
           yes: argv.yes,
           nonInteractive: Option.fromNullable(argv["non-interactive"]),
           preview: argv.preview,

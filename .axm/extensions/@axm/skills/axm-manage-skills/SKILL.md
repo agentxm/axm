@@ -20,7 +20,7 @@ axm skills install owner/repo --all --yes  # Install all, skip prompts
 axm skills install owner/repo --skill pr-review --agent claude-code
 ```
 
-**Options:** `--global`, `--agent <id>...`, `--skill <name>...`, `--yes`, `--list`, `--all`, `--force`, `--preview`
+**Options:** `--scope <project|user>`, `--agent <id>...`, `--skill <name>...`, `--yes`, `--list`, `--all`, `--force`, `--preview`
 
 ## Uninstall Skills
 
@@ -35,7 +35,7 @@ axm skills uninstall my-skill --agent claude-code
 
 ```bash
 axm skills list
-axm skills list --global
+axm skills list --scope user
 axm skills list --agent claude-code
 ```
 
@@ -50,7 +50,7 @@ axm skills update --skill pr-review # Filter by name/glob
 axm skills update --force           # Force re-install
 ```
 
-**Options:** `--global`, `--agent <id>...`, `--skill <name>...`, `--yes`, `--force`, `--preview`
+**Options:** `--scope <project|user>`, `--agent <id>...`, `--skill <name>...`, `--yes`, `--force`, `--preview`
 
 ## Enable / Disable Skills
 
@@ -59,7 +59,7 @@ axm skills enable my-skill
 axm skills disable my-skill
 ```
 
-**Options:** `--global`, `--yes`, `--preview`
+**Options:** `--scope <project|user>`, `--yes`, `--preview`
 
 ## Fork a Skill
 

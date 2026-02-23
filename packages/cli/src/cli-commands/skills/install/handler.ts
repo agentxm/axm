@@ -2,7 +2,7 @@
  * Install command handler - Effect-based orchestration for `axm skills install`.
  *
  * Uses desired-state reconciliation pattern:
- * 1. Create workspace context (local vs global)
+ * 1. Create workspace context (project vs user scope)
  * 2. Ensure workspace is initialized
  * 3. Load current state (actual from disk + locked from lockfile)
  * 4. Build ideal state from command
@@ -39,7 +39,7 @@ import { installSkill } from "../../../extensions/skills/operations/install.js";
 export interface InstallHandlerArgs {
   /** Source to install skills from */
   readonly source: string;
-  /** Install to global ~/.axm/ instead of local .axm/ */
+  /** Install to user scope (~/.axm/) instead of project scope (.axm/) */
   readonly global: boolean;
   /** Target agent(s) to install skills for */
   readonly agents: readonly string[];
@@ -102,7 +102,7 @@ const listSkills = ({
  * @experimental This API is unstable and may change without notice.
  */
 export const handleInstall = Effect.fn("Install.handle")(function* (args: InstallHandlerArgs) {
-  const scopeLabel = args.global ? "global" : "project";
+  const scopeLabel = args.global ? "user" : "project";
 
   const ws = yield* Workspace;
   const sources = yield* SourceHostProviders;

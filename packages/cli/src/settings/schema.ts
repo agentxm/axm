@@ -1,7 +1,7 @@
 /**
  * Schema definitions for AXM settings configuration.
  *
- * Settings define global configuration including sources, agents, and extensions.
+ * Settings define workspace configuration including sources, agents, and extensions.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -291,7 +291,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
 /**
  * AXM settings configuration schema.
  *
- * Settings define global configuration for AXM including:
+ * Settings define workspace configuration for AXM including:
  * - namespace: Default namespace for resolving/publishing extensions
  * - sources: Source provider configurations
  * - agents: List of agent IDs to sync extensions to

@@ -86,15 +86,15 @@ describe("skills update command positional", () => {
 });
 
 describe("skills update command options", () => {
-  it("defines --global option with boolean type and default false", () => {
+  it("defines --scope option with string type and default project", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof updateCommand.builder === "function") {
       updateCommand.builder(mockYargs);
-      expect(capturedOptions["global"]).toEqual(
+      expect(capturedOptions["scope"]).toEqual(
         expect.objectContaining({
-          type: "boolean",
-          default: false,
+          type: "string",
+          default: "project",
         }),
       );
     }
@@ -188,13 +188,13 @@ describe("skills update command options", () => {
     }
   });
 
-  it("includes description for --global option", () => {
+  it("includes description for --scope option", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof updateCommand.builder === "function") {
       updateCommand.builder(mockYargs);
-      expect(capturedOptions["global"]?.describe).toBeDefined();
-      expect(capturedOptions["global"]?.describe).toContain("global");
+      expect(capturedOptions["scope"]?.describe).toBeDefined();
+      expect(capturedOptions["scope"]?.describe).toContain("Configuration scope");
     }
   });
 
@@ -285,7 +285,7 @@ describe("skills update command parser", () => {
   it("parses with default values when no options provided", async () => {
     const argv = await createParser().parse(["update"]);
 
-    expect(argv["global"]).toBe(false);
+    expect(argv["scope"]).toBe("project");
     expect(argv["yes"]).toBe(false);
     expect(argv["force"]).toBe(false);
     expect(argv["preview"]).toBe(false);
@@ -293,10 +293,10 @@ describe("skills update command parser", () => {
     expect(argv["skill"]).toEqual([]);
   });
 
-  it("parses --global flag", async () => {
-    const argv = await createParser().parse(["update", "--global"]);
+  it("parses --scope user", async () => {
+    const argv = await createParser().parse(["update", "--scope", "user"]);
 
-    expect(argv["global"]).toBe(true);
+    expect(argv["scope"]).toBe("user");
   });
 
   it("parses --yes flag", async () => {
@@ -357,7 +357,8 @@ describe("skills update command parser", () => {
     const argv = await createParser().parse([
       "update",
       "owner/repo",
-      "--global",
+      "--scope",
+      "user",
       "-y",
       "-f",
       "--skill",
@@ -365,7 +366,7 @@ describe("skills update command parser", () => {
     ]);
 
     expect(argv["source"]).toBe("owner/repo");
-    expect(argv["global"]).toBe(true);
+    expect(argv["scope"]).toBe("user");
     expect(argv["yes"]).toBe(true);
     expect(argv["force"]).toBe(true);
     expect(argv["skill"]).toEqual(["pr-review"]);

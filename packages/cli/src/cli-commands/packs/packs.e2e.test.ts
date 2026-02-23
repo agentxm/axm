@@ -196,8 +196,8 @@ describe("axm packs add/remove", () => {
       expect(manifest.skills).toBeDefined();
       const skillKeys = Object.keys(manifest.skills);
       expect(skillKeys.length).toBe(1);
-      // The FQN should be @test/my-skill
-      expect(skillKeys[0]).toMatch(/@test\/my-skill/);
+      // The FQN should be @test/skills/my-skill
+      expect(skillKeys[0]).toMatch(/@test\/skills\/my-skill/);
 
       // Remove the extension from the pack
       const removeResult = await runCli(["packs", "remove", "test-pack", skillKeys[0]!, "--yes"], {

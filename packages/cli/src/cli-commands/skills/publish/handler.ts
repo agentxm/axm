@@ -110,7 +110,7 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
           Effect.map((namespace) => `${namespace}/skills/${name}`),
           Effect.mapError((e) =>
             makeCliError({
-              code: "SCOPE_RESOLUTION_FAILED",
+              code: "NAMESPACE_RESOLUTION_FAILED",
               what: `Failed to resolve namespace: ${e._tag}`,
               howToFix: "Configure a namespace in your settings with `axm init`.",
               cause: e,

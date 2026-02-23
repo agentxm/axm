@@ -8,9 +8,17 @@ import type { CommandModule } from "yargs";
 import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
 import { handleList } from "./handler.js";
+import {
+  CONFIGURATION_SCOPES,
+  DEFAULT_CONFIGURATION_SCOPE,
+  type ConfigurationScope,
+  resolveConfigurationScope,
+  toGlobalWorkspaceFlag,
+} from "../../../workspace/config-scope.js";
 
 export interface ListCommandArgs {
-  global: boolean;
+  scope: ConfigurationScope;
+  global?: boolean;
   agent: ReadonlyArray<string>;
 }
 
@@ -21,9 +29,16 @@ export const listCommand: CommandModule<{}, ListCommandArgs> = {
   describe: "List installed skills",
   builder: (yargs) =>
     yargs
+      .option("scope", {
+        type: "string",
+        choices: CONFIGURATION_SCOPES,
+        describe: "Configuration scope: project (default) or user",
+        default: DEFAULT_CONFIGURATION_SCOPE,
+      })
       .option("global", {
         type: "boolean",
-        describe: "List globally installed skills",
+        hidden: true,
+        describe: "Deprecated alias for --scope user",
         default: false,
       })
       .option("agent", {
@@ -33,16 +48,17 @@ export const listCommand: CommandModule<{}, ListCommandArgs> = {
         default: [],
       })
       .example("$0 skills list", "List all installed skills")
-      .example("$0 skills list --global", "List globally installed skills")
+      .example("$0 skills list --scope user", "List user-scope installed skills")
       .example("$0 skills list --agent claude-code", "List skills for a specific agent"),
   handler: async (argv) => {
+    const scope = resolveConfigurationScope(argv.scope, argv.global);
     await run(
       handleList({
         agents: argv.agent,
       }),
       {
         workspace: {
-          global: argv.global,
+          global: toGlobalWorkspaceFlag(scope),
           yes: true,
           nonInteractive: Option.some(true),
           preview: false,

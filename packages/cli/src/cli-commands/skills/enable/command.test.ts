@@ -74,15 +74,15 @@ describe("skills enable command positional", () => {
 });
 
 describe("skills enable command options", () => {
-  it("defines --global option with boolean type and default false", () => {
+  it("defines --scope option with string type and default project", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof enableCommand.builder === "function") {
       enableCommand.builder(mockYargs);
-      expect(capturedOptions["global"]).toEqual(
+      expect(capturedOptions["scope"]).toEqual(
         expect.objectContaining({
-          type: "boolean",
-          default: false,
+          type: "string",
+          default: "project",
         }),
       );
     }
@@ -162,14 +162,14 @@ describe("skills enable command parser", () => {
 
   it("parses with default values when no options provided", async () => {
     const argv = await createParser().parse(["enable", "my-skill"]);
-    expect(argv["global"]).toBe(false);
+    expect(argv["scope"]).toBe("project");
     expect(argv["yes"]).toBe(false);
     expect(argv["preview"]).toBe(false);
   });
 
-  it("parses --global flag", async () => {
-    const argv = await createParser().parse(["enable", "my-skill", "--global"]);
-    expect(argv["global"]).toBe(true);
+  it("parses --scope user", async () => {
+    const argv = await createParser().parse(["enable", "my-skill", "--scope", "user"]);
+    expect(argv["scope"]).toBe("user");
   });
 
   it("parses --yes flag", async () => {
@@ -188,9 +188,16 @@ describe("skills enable command parser", () => {
   });
 
   it("parses combination of flags", async () => {
-    const argv = await createParser().parse(["enable", "my-skill", "--global", "-y", "--preview"]);
+    const argv = await createParser().parse([
+      "enable",
+      "my-skill",
+      "--scope",
+      "user",
+      "-y",
+      "--preview",
+    ]);
     expect(argv["name"]).toBe("my-skill");
-    expect(argv["global"]).toBe(true);
+    expect(argv["scope"]).toBe("user");
     expect(argv["yes"]).toBe(true);
     expect(argv["preview"]).toBe(true);
   });

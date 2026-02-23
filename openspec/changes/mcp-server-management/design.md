@@ -4,7 +4,7 @@ axm has scaffolded MCP server infrastructure: install/uninstall/publish operatio
 
 1. **No transport config in manifests** — `axm-mcp-server.json` only has common fields (name, version, description). Agents need to know _how_ to run the server (stdio command, HTTP URL, env vars).
 2. **No agent config writing** — Installing an MCP server updates the axm lockfile/settings but doesn't write to any agent's native config file (`.mcp.json`, `.cursor/mcp.json`, etc.).
-3. **No CLI commands** — No `axm mcps install|uninstall|list|...` commands exist.
+3. **No CLI commands** — No `axm mcp install|uninstall|list|...` commands exist.
 4. **No enable/disable** — MCP servers are either installed or not; no way to temporarily disable without uninstalling.
 
 The prior art research covers 6 target agents. Key findings:
@@ -42,7 +42,7 @@ Key differences: Smithery is cloud-hosted (servers proxied via `server.smithery.
 
 - MCP server manifest includes transport and runtime config
 - Agent config writers for the 6 priority agents: Claude Code, Gemini CLI, GitHub Copilot, Cursor, Codex, OpenCode
-- CLI commands: install, uninstall, list, enable, disable, update, publish
+- CLI commands: install, uninstall, list, enable, disable, update, publish, new
 - Install writes to agent configs; uninstall cleans up; enable/disable toggles without re-fetching
 - Chrome DevTools MCP as end-to-end validation target
 
@@ -133,16 +133,16 @@ The manifest `env` array declares what variables the server needs (name, descrip
 1. **Required env vars without defaults** — prompt the user via Bombshell text input (or accept via `--env KEY=VALUE` flag, repeatable)
 2. **Required env vars with defaults** — use the default; prompt only if user wants to override
 3. **Optional env vars not provided** — write `$VAR_NAME` pass-through syntax into agent config entries (most agents support env var expansion at runtime)
-4. **`--non-interactive` / `--yes` mode** — fail if required env vars are missing and not provided via `--env`
+4. **`--non-interactive` mode** — uses defaults where available; errors if a required prompt cannot be skipped (e.g., required env var with no default and no `--env` flag). `--yes` auto-accepts confirmations but still prompts for required input.
 
 Resolved values are written directly into agent config entries. The manifest `env` is declarative; agent configs get concrete values.
 
 ```bash
 # Interactive: prompts for required vars
-axm mcps install chrome-devtools
+axm mcp install chrome-devtools
 
 # Non-interactive: pass values via flags
-axm mcps install chrome-devtools --env BROWSER_URL=ws://localhost:9222 --yes
+axm mcp install chrome-devtools --env BROWSER_URL=ws://localhost:9222 --yes
 ```
 
 ### 3. Agent descriptor extension for MCP config
@@ -153,8 +153,8 @@ Extend `AgentDescriptor` with an optional `mcp` field describing where and how t
 interface AgentMcpDescriptor {
   /** Config file path relative to project root (e.g., ".mcp.json") — project scope */
   readonly configFile: string;
-  /** Config file path for user/global scope (absolute, e.g., "~/.cursor/mcp.json") — optional, not all agents distinguish scopes */
-  readonly globalConfigFile?: string;
+  /** Config file path for user scope (absolute, e.g., "~/.cursor/mcp.json") — optional, not all agents distinguish scopes */
+  readonly userConfigFile?: string;
   /** Config file format */
   readonly format: "json" | "toml";
   /** Key under which MCP servers are stored (e.g., "mcpServers") */
@@ -173,7 +173,7 @@ interface AgentDescriptor {
 
 Agent MCP config map (6 priority agents):
 
-| Agent          | `configFile`            | `globalConfigFile`        | `format` | `serversKey`  | `nativeEnabled` | Docs                                                                         |
+| Agent          | `configFile`            | `userConfigFile`          | `format` | `serversKey`  | `nativeEnabled` | Docs                                                                         |
 | -------------- | ----------------------- | ------------------------- | -------- | ------------- | --------------- | ---------------------------------------------------------------------------- |
 | Claude Code    | `.mcp.json`             | _(see note)_              | json     | `mcpServers`  | —               | [docs](https://code.claude.com/docs/en/mcp)                                  |
 | Cursor         | `.cursor/mcp.json`      | `~/.cursor/mcp.json`      | json     | `mcpServers`  | —               | [docs](https://cursor.com/docs/context/model-context-protocol)               |
@@ -182,9 +182,9 @@ Agent MCP config map (6 priority agents):
 | Codex          | `.codex/config.toml`    | `~/.codex/config.toml`    | toml     | `mcp_servers` | yes             | [docs](https://developers.openai.com/codex/mcp/)                             |
 | OpenCode       | `opencode.json`         | _(none)_                  | json     | `mcp`         | yes             | [docs](https://opencode.ai/docs/mcp-servers/)                                |
 
-**Claude Code global scope note:** Claude Code stores user/local-scoped servers in `~/.claude.json` under project-specific paths, not in a standalone config file. This is a more complex write target — the `globalConfigFile` for Claude Code requires writing into a nested structure in `~/.claude.json` keyed by project path. Initial implementation targets project scope (`.mcp.json`) only; global scope for Claude Code can be added later.
+**Claude Code user-scope note:** Claude Code stores user/local-scoped servers in `~/.claude.json` under project-specific paths, not in a standalone config file. This is a more complex write target — the `userConfigFile` for Claude Code requires writing into a nested structure in `~/.claude.json` keyed by project path. Initial implementation targets project scope (`.mcp.json`) only; user scope for Claude Code can be added later.
 
-**GitHub Copilot global scope note:** VS Code user-scoped MCP config is stored in VS Code's user `settings.json`, which is a complex multi-purpose file. Initial implementation targets project scope (`.vscode/mcp.json`) only; user scope for Copilot can be added later.
+**GitHub Copilot user-scope note:** VS Code user-scoped MCP config is stored in VS Code's user `settings.json`, which is a complex multi-purpose file. Initial implementation targets project scope (`.vscode/mcp.json`) only; user scope for Copilot can be added later.
 
 **Future agent expansion:** Smithery CLI supports 20+ MCP clients. Beyond our 6 priority agents, the `AgentMcpDescriptor` pattern naturally extends to windsurf, cline, goose, roocode, amazon-bedrock, and others — each just needs a descriptor with `mcp` config and a `buildEntry` mapper.
 
@@ -202,7 +202,7 @@ A new `agent-mcp-config` module that reads/modifies/writes agent config files. C
 - `removeMcpServerFromAgent(agentId, serverName)` — Removes server entry from agent's config file
 - `listMcpServersInAgent(agentId)` — Reads current MCP servers from agent's config file
 
-**Ownership rule:** axm owns the entries defined in `settings.json`. Any server name present in the settings `mcpServers` map is axm-managed. On uninstall/disable, axm removes that entry from agent configs. Entries not in settings are left untouched — they belong to the user or other tools.
+**Ownership rule:** axm owns the entries defined in `settings.json`. Any server name present in the settings `mcpServers` map (renamed from `mcp-servers` to align with camelCase convention) is axm-managed. On uninstall/disable, axm removes that entry from agent configs. Entries not in settings are left untouched — they belong to the user or other tools.
 
 **Transport mapping per agent:** Each agent expects a slightly different entry shape. A per-agent mapper translates the manifest transport config:
 
@@ -255,16 +255,18 @@ Extend the existing operation handlers:
 1. Fetch archive → Extract → Update lockfile → Update settings _(existing)_
 2. Read manifest from canonical location to get transport config _(new)_
 3. Resolve env var values (prompt or `--env` flags) _(new)_
-4. For each configured agent with MCP support, write server entry to agent config file _(new)_
+4. For each target agent (see agent filtering below), write server entry to agent config file _(new)_
 
 **Uninstall flow** (before current steps):
 
-1. For each configured agent with MCP support, remove server entry from agent config file _(new)_
+1. For each target agent (see agent filtering below), remove server entry from agent config file _(new)_
 2. Remove canonical dir → Remove lockfile entry → Remove settings entry _(existing)_
 
 **Pack dependency installs:** When a pack installs an MCP server as a dependency, the existing `skipSettings` flag prevents writing to settings (the server is an implicit dependency, not user-managed). However, agent configs ARE written — this is what actually makes the server available to agents. The server appears in the lockfile (for reproducibility) and agent configs (for runtime), but not in settings (it's not directly user-managed).
 
 The agent config step uses `Effect.forEach(..., { concurrency: "unbounded" })` to write to all agents concurrently, matching the skill install pattern.
+
+**Agent filtering:** The target agent set starts from `settings.agents` (the user's configured agent list), then filters to agents whose `AgentDescriptor` has an `mcp` field (i.e., the agent supports MCP server configuration). Agents in `settings.agents` without MCP support are silently skipped. If `settings.agents` is empty or unset, no agent configs are written — the user must configure agents first via `axm init`.
 
 **Failure handling:** Agent config write failures are logged as warnings but don't fail the operation (consistent with existing lockfile/settings write failure handling).
 
@@ -272,15 +274,16 @@ The agent config step uses `Effect.forEach(..., { concurrency: "unbounded" })` t
 
 Enable/disable controls whether an installed MCP server is actively configured in agent config files, without removing it from the axm lockfile or deleting the canonical directory.
 
-**State tracking:** Upgrade the `mcpServers` settings entry from `Record<string, string>` (name → version) to support an object form with `enabled` state, following the existing `SkillEntry` pattern:
+**State tracking:** Rename the settings key from `mcp-servers` to `mcpServers` (aligning with the lockfile key and camelCase convention for multi-word keys). Upgrade from `NonSkillExtensionsMapSchema` (`Record<string, string>`, name → version specifier) to a new `McpServersMapSchema` supporting an object form with `enabled` state and resolved env values. Follows the existing `SkillEntry` pattern:
 
 ```typescript
 // New: MCP server entry in settings can be string or object
 McpServerEntrySchema = Schema.Union(
-  Schema.String, // "1.0.0" — enabled by default
+  Schema.String, // "^1.0.0" — enabled by default, no env
   Schema.Struct({
-    source: Schema.String, // version specifier
+    source: Schema.String, // version specifier (e.g., "^1.0.0")
     enabled: Schema.optional(Schema.Boolean), // defaults to true
+    env: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
   }),
 );
 ```
@@ -301,7 +304,9 @@ McpServerEntrySchema = Schema.Union(
    - **Agents with `nativeEnabled` (Codex, OpenCode):** Set the native `enabled: false` field on the existing entry (preserving all other fields, including any user customizations)
    - **Other agents:** Remove server entry from agent's config file
 
-The canonical directory with the manifest stays on disk for both operations — only uninstall removes it. Re-enabling reads the manifest from the still-present canonical dir, so no lockfile transport caching is needed.
+The canonical directory with the manifest stays on disk for both operations — only uninstall removes it. Re-enabling reads the manifest transport config from the still-present canonical dir, and resolved env values from the settings entry — no re-prompting or lockfile transport caching needed.
+
+**Env var persistence across disable/re-enable:** When an MCP server with env vars is disabled, agents without native `enabled` have their config entries removed — losing the resolved env values that were written at install time. To avoid re-prompting on re-enable, resolved env values are stored in the settings entry's `env` field at install time. Re-enable reads `env` from settings and rewrites agent config entries. `--env` flags on enable can override stored values.
 
 **Why native `enabled` where available:** Codex and OpenCode have built-in `enabled` boolean fields on server entries. Using native toggle is less destructive than add/remove — it preserves user customizations (tool filtering, timeouts, etc.) on the entry. For agents without native `enabled`, add/remove is the only option.
 
@@ -309,9 +314,39 @@ The canonical directory with the manifest stays on disk for both operations — 
 
 **Why a settings flag over a lockfile flag:** Settings is the user-facing, editable config. Lockfile is the resolved, reproducible state. Enable/disable is a user preference, not a resolution detail.
 
+**Normalized entry pattern:** Following the `SkillEntry` → `NormalizedSkillEntry` pattern, introduce `NormalizedMcpServerEntry` as the canonical internal representation:
+
+```typescript
+interface NormalizedMcpServerEntry {
+  readonly source: Option.Option<string>;
+  readonly enabled: boolean;
+  readonly env: Record.ReadonlyRecord<string, string>;
+}
+```
+
+With `normalizeMcpServerEntry` (settings form → normalized) and `collapseMcpServerEntry` (normalized → settings form) functions. The collapsed form uses the compact string when `enabled: true` and `env` is empty. Scope (project vs user) is determined by the workspace service's `global` flag, not stored per-entry.
+
+**Workspace service methods:** New methods on `WorkspaceContextService` following the existing skill pattern:
+
+```typescript
+// Reading
+readonly getConfiguredMcpServers: () => Effect<Record.ReadonlyRecord<string, NormalizedMcpServerEntry>, CliError>;
+readonly getLockedMcpServers: () => Effect<McpServersLockMap, CliError>;
+readonly getLockedMcpServer: (name: string) => Effect<Option<McpServerLockEntry>, CliError>;
+
+// Writing (all semaphore-protected)
+readonly setMcpServer: (args: SetMcpServerArgs) => Effect<void, CliError>;
+readonly setMcpServerLock: (args: SetMcpServerArgs) => Effect<void, CliError>;
+readonly removeMcpServer: (name: string) => Effect<void, CliError>;
+readonly updateMcpServerEntry: (name: string, updater: (entry: NormalizedMcpServerEntry) => NormalizedMcpServerEntry) => Effect<void, CliError>;
+readonly setMcpServerEntry: (name: string, entry: NormalizedMcpServerEntry) => Effect<void, CliError>;
+```
+
+`setMcpServer` and `setMcpServerLock` already exist in the workspace service. New additions: `getConfiguredMcpServers`, `getLockedMcpServers`, `getLockedMcpServer`, `updateMcpServerEntry`, and `setMcpServerEntry`. `updateMcpServerEntry` is the key method for enable/disable — it normalizes, applies the updater, and collapses back to settings form.
+
 ### 7. CLI command structure
 
-CLI command is `mcps`. Registered in `main.ts` via `.command(mcpsCommand)`. Follows existing patterns: `skills` and `packs` command trees.
+CLI command is `mcp`. Registered in `main.ts` via `.command(mcpCommand)`. Follows existing patterns: `skills` and `packs` command trees.
 
 #### Example walkthrough: Chrome DevTools MCP
 
@@ -336,7 +371,7 @@ CLI command is `mcps`. Registered in `main.ts` via `.command(mcpsCommand)`. Foll
 **1. Install** — fetches archive, writes config to all active agents:
 
 ```bash
-axm mcps install chrome-devtools
+axm mcp install chrome-devtools
 ```
 
 This writes the following to each agent's project-level config:
@@ -368,7 +403,7 @@ args = ["-y", "chrome-devtools-mcp@latest"]
 **2. List** — shows installed servers:
 
 ```bash
-axm mcps list
+axm mcp list
 # NAME               VERSION  TRANSPORT  STATUS
 # chrome-devtools    0.17.3   stdio      enabled
 ```
@@ -376,13 +411,13 @@ axm mcps list
 **3. Disable** — temporarily removes from agent configs without uninstalling:
 
 ```bash
-axm mcps disable chrome-devtools
+axm mcp disable chrome-devtools
 ```
 
 For most agents, this removes the `chrome-devtools` entry from the config file. For Codex and OpenCode (which have native `enabled` fields), it sets `enabled = false` instead, preserving any user customizations (timeouts, tool filtering, etc.).
 
 ```bash
-axm mcps list
+axm mcp list
 # NAME               VERSION  TRANSPORT  STATUS
 # chrome-devtools    0.17.3   stdio      disabled
 ```
@@ -390,7 +425,7 @@ axm mcps list
 **4. Enable** — re-adds config to agent files (or sets native `enabled: true`):
 
 ```bash
-axm mcps enable chrome-devtools
+axm mcp enable chrome-devtools
 ```
 
 Reads the still-present manifest from the canonical directory — no re-fetch needed.
@@ -399,10 +434,10 @@ Reads the still-present manifest from the canonical directory — no re-fetch ne
 
 ```bash
 # Preview what would change
-axm mcps update chrome-devtools --preview
+axm mcp update chrome-devtools --preview
 
 # Apply the update
-axm mcps update chrome-devtools
+axm mcp update chrome-devtools
 ```
 
 Re-resolves from the registry, downloads the new archive, and rewrites all agent config files with any updated transport config.
@@ -410,10 +445,10 @@ Re-resolves from the registry, downloads the new archive, and rewrites all agent
 **6. Uninstall** — removes config from all agents, deletes canonical dir, cleans lockfile/settings:
 
 ```bash
-axm mcps uninstall chrome-devtools
+axm mcp uninstall chrome-devtools
 ```
 
-#### `axm mcps install <source>`
+#### `axm mcp install <source>`
 
 Install an MCP server from a registry and configure it for all active agents. Fetches the archive, extracts to canonical location, updates lockfile/settings, prompts for required env vars, and writes transport config to each agent's MCP config file.
 
@@ -424,134 +459,134 @@ Install an MCP server from a registry and configure it for all active agents. Fe
 | `--yes`, `-y`       | boolean             | no       | Skip confirmation prompts (default: false)                                            |
 | `--force`, `-f`     | boolean             | no       | Overwrite if already installed (default: false)                                       |
 | `--preview`         | boolean             | no       | Display plan without applying (default: false)                                        |
-| `--non-interactive` | boolean             | no       | Disable all interactive prompts                                                       |
+| `--non-interactive` | boolean             | no       | Suppress all prompts; errors if required input missing                                |
 
 ```bash
-axm mcps install chrome-devtools                     # bare name, latest version
-axm mcps install chrome-devtools@0.17.3              # pinned version
-axm mcps install chrome-devtools --preview           # dry run
-axm mcps install chrome-devtools --force             # overwrite existing
-axm mcps install chrome-devtools --yes               # skip confirmation (CI)
+axm mcp install chrome-devtools                     # bare name, latest version
+axm mcp install chrome-devtools@0.17.3              # pinned version
+axm mcp install chrome-devtools --preview           # dry run
+axm mcp install chrome-devtools --force             # overwrite existing
+axm mcp install chrome-devtools --yes               # skip confirmation (CI)
 ```
 
-#### `axm mcps uninstall <name>`
+#### `axm mcp uninstall <name>`
 
 Remove an installed MCP server. Removes transport config from all agent config files, deletes the canonical directory, and cleans up lockfile/settings entries.
 
-| Arg/Flag            | Type       | Required | Description                                    |
-| ------------------- | ---------- | -------- | ---------------------------------------------- |
-| `<name>`            | positional | yes      | Server name (e.g., `chrome-devtools`)          |
-| `--yes`, `-y`       | boolean    | no       | Skip confirmation prompts (default: false)     |
-| `--preview`         | boolean    | no       | Display plan without applying (default: false) |
-| `--non-interactive` | boolean    | no       | Disable all interactive prompts                |
+| Arg/Flag            | Type       | Required | Description                                            |
+| ------------------- | ---------- | -------- | ------------------------------------------------------ |
+| `<name>`            | positional | yes      | Server name (e.g., `chrome-devtools`)                  |
+| `--yes`, `-y`       | boolean    | no       | Skip confirmation prompts (default: false)             |
+| `--preview`         | boolean    | no       | Display plan without applying (default: false)         |
+| `--non-interactive` | boolean    | no       | Suppress all prompts; errors if required input missing |
 
 ```bash
-axm mcps uninstall chrome-devtools                   # with confirmation prompt
-axm mcps uninstall chrome-devtools --yes             # skip confirmation
-axm mcps uninstall chrome-devtools --preview         # preview removal plan
+axm mcp uninstall chrome-devtools                   # with confirmation prompt
+axm mcp uninstall chrome-devtools --yes             # skip confirmation
+axm mcp uninstall chrome-devtools --preview         # preview removal plan
 ```
 
-#### `axm mcps list`
+#### `axm mcp list`
 
 List all installed MCP servers with their version, transport type, and enabled/disabled status.
 
 _(No flags)_
 
 ```bash
-axm mcps list
+axm mcp list
 # NAME               VERSION  TRANSPORT  STATUS
 # chrome-devtools    0.17.3   stdio      enabled
 ```
 
-#### `axm mcps enable <name>`
+#### `axm mcp enable <name>`
 
 Enable a previously disabled MCP server. Sets `enabled: true` in settings and writes transport config to all active agents' config files.
 
-| Arg/Flag            | Type       | Required | Description                                    |
-| ------------------- | ---------- | -------- | ---------------------------------------------- |
-| `<name>`            | positional | yes      | Server name to enable                          |
-| `--yes`, `-y`       | boolean    | no       | Skip confirmation prompts (default: false)     |
-| `--preview`         | boolean    | no       | Display plan without applying (default: false) |
-| `--non-interactive` | boolean    | no       | Disable all interactive prompts                |
+| Arg/Flag            | Type       | Required | Description                                            |
+| ------------------- | ---------- | -------- | ------------------------------------------------------ |
+| `<name>`            | positional | yes      | Server name to enable                                  |
+| `--yes`, `-y`       | boolean    | no       | Skip confirmation prompts (default: false)             |
+| `--preview`         | boolean    | no       | Display plan without applying (default: false)         |
+| `--non-interactive` | boolean    | no       | Suppress all prompts; errors if required input missing |
 
 ```bash
-axm mcps enable chrome-devtools                      # re-enable, writes config back
-axm mcps enable chrome-devtools --preview            # preview what would be written
+axm mcp enable chrome-devtools                      # re-enable, writes config back
+axm mcp enable chrome-devtools --preview            # preview what would be written
 ```
 
-#### `axm mcps disable <name>`
+#### `axm mcp disable <name>`
 
 Disable an installed MCP server without uninstalling. Sets `enabled: false` in settings and removes transport config from all active agents' config files. The canonical directory and lockfile entry remain intact for quick re-enable.
 
-| Arg/Flag            | Type       | Required | Description                                    |
-| ------------------- | ---------- | -------- | ---------------------------------------------- |
-| `<name>`            | positional | yes      | Server name to disable                         |
-| `--yes`, `-y`       | boolean    | no       | Skip confirmation prompts (default: false)     |
-| `--preview`         | boolean    | no       | Display plan without applying (default: false) |
-| `--non-interactive` | boolean    | no       | Disable all interactive prompts                |
+| Arg/Flag            | Type       | Required | Description                                            |
+| ------------------- | ---------- | -------- | ------------------------------------------------------ |
+| `<name>`            | positional | yes      | Server name to disable                                 |
+| `--yes`, `-y`       | boolean    | no       | Skip confirmation prompts (default: false)             |
+| `--preview`         | boolean    | no       | Display plan without applying (default: false)         |
+| `--non-interactive` | boolean    | no       | Suppress all prompts; errors if required input missing |
 
 ```bash
-axm mcps disable chrome-devtools                     # disable, keeps lockfile intact
-axm mcps disable chrome-devtools --preview           # preview what would be removed
+axm mcp disable chrome-devtools                     # disable, keeps lockfile intact
+axm mcp disable chrome-devtools --preview           # preview what would be removed
 ```
 
-#### `axm mcps update <name..>`
+#### `axm mcp update <name..>`
 
 Update one or more installed MCP servers to the latest version matching their version constraint. Re-resolves from the registry, re-installs if newer, and rewrites agent config files with updated transport config.
 
-| Arg/Flag            | Type                  | Required | Description                                    |
-| ------------------- | --------------------- | -------- | ---------------------------------------------- |
-| `<name..>`          | positional (variadic) | yes      | One or more server names to update             |
-| `--yes`, `-y`       | boolean               | no       | Skip confirmation prompts (default: false)     |
-| `--preview`         | boolean               | no       | Display plan without applying (default: false) |
-| `--non-interactive` | boolean               | no       | Disable all interactive prompts                |
+| Arg/Flag            | Type                  | Required | Description                                            |
+| ------------------- | --------------------- | -------- | ------------------------------------------------------ |
+| `<name..>`          | positional (variadic) | yes      | One or more server names to update                     |
+| `--yes`, `-y`       | boolean               | no       | Skip confirmation prompts (default: false)             |
+| `--preview`         | boolean               | no       | Display plan without applying (default: false)         |
+| `--non-interactive` | boolean               | no       | Suppress all prompts; errors if required input missing |
 
 ```bash
-axm mcps update chrome-devtools                      # update single server
-axm mcps update chrome-devtools --preview            # preview what would change
-axm mcps update chrome-devtools --yes                # auto-accept (CI)
+axm mcp update chrome-devtools                      # update single server
+axm mcp update chrome-devtools --preview            # preview what would change
+axm mcp update chrome-devtools --yes                # auto-accept (CI)
 ```
 
-#### `axm mcps publish <extensions..>`
+#### `axm mcp publish <extensions..>`
 
 Publish one or more MCP server extensions to a registry. Reads the manifest, builds an archive, computes integrity hash, and publishes.
 
-| Arg/Flag            | Type                  | Required | Description                                    |
-| ------------------- | --------------------- | -------- | ---------------------------------------------- |
-| `<extensions..>`    | positional (variadic) | yes      | Extension names or glob patterns               |
-| `--registry`        | string                | no       | Named registry source to publish to            |
-| `--yes`, `-y`       | boolean               | no       | Skip confirmation prompts (default: false)     |
-| `--preview`         | boolean               | no       | Display plan without applying (default: false) |
-| `--non-interactive` | boolean               | no       | Disable all interactive prompts                |
+| Arg/Flag            | Type                  | Required | Description                                            |
+| ------------------- | --------------------- | -------- | ------------------------------------------------------ |
+| `<extensions..>`    | positional (variadic) | yes      | Extension names or glob patterns                       |
+| `--registry`        | string                | no       | Named registry source to publish to                    |
+| `--yes`, `-y`       | boolean               | no       | Skip confirmation prompts (default: false)             |
+| `--preview`         | boolean               | no       | Display plan without applying (default: false)         |
+| `--non-interactive` | boolean               | no       | Suppress all prompts; errors if required input missing |
 
 ```bash
-axm mcps publish chrome-devtools                     # publish to default registry
-axm mcps publish chrome-devtools --registry internal  # publish to named registry
-axm mcps publish '*'                                 # publish all MCP server extensions
+axm mcp publish chrome-devtools                     # publish to default registry
+axm mcp publish chrome-devtools --registry internal  # publish to named registry
+axm mcp publish '*'                                 # publish all MCP server extensions
 ```
 
-#### `axm mcps new <name>`
+#### `axm mcp new <name>`
 
 Scaffold a new MCP server extension with a manifest template (`axm-mcp-server.json`) including transport and environment variable placeholders.
 
-| Arg/Flag            | Type       | Required | Description                                      |
-| ------------------- | ---------- | -------- | ------------------------------------------------ |
-| `<name>`            | positional | yes      | Server name (kebab-case)                         |
-| `--namespace`       | string     | no       | Override the workspace namespace (e.g., `@acme`) |
-| `--yes`, `-y`       | boolean    | no       | Skip confirmation prompts (default: false)       |
-| `--preview`         | boolean    | no       | Display plan without applying (default: false)   |
-| `--non-interactive` | boolean    | no       | Disable all interactive prompts                  |
+| Arg/Flag            | Type       | Required | Description                                            |
+| ------------------- | ---------- | -------- | ------------------------------------------------------ |
+| `<name>`            | positional | yes      | Server name (kebab-case)                               |
+| `--namespace`       | string     | no       | Override the workspace namespace (e.g., `@acme`)       |
+| `--yes`, `-y`       | boolean    | no       | Skip confirmation prompts (default: false)             |
+| `--preview`         | boolean    | no       | Display plan without applying (default: false)         |
+| `--non-interactive` | boolean    | no       | Suppress all prompts; errors if required input missing |
 
 ```bash
-axm mcps new my-devtools-wrapper                     # scaffold new MCP server
-axm mcps new my-devtools-wrapper --namespace @acme   # with custom namespace
+axm mcp new my-devtools-wrapper                     # scaffold new MCP server
+axm mcp new my-devtools-wrapper --namespace @acme   # with custom namespace
 # Creates: mcp-servers/my-devtools-wrapper/axm-mcp-server.json
 ```
 
 **File structure:**
 
 ```
-packages/cli/src/cli-commands/mcps/
+packages/cli/src/cli-commands/mcp/
 ├── command.ts                    # Parent command with subcommands
 ├── install/
 │   ├── command.ts                # yargs definition
@@ -581,7 +616,7 @@ packages/cli/src/cli-commands/mcps/
 
 ### 8. Update command strategy
 
-`axm mcps update <name..>` re-resolves version constraints and re-installs if a newer version is available. Follows the same approach as `axm skills update`:
+`axm mcp update <name..>` re-resolves version constraints and re-installs if a newer version is available. Follows the same approach as `axm skills update`:
 
 1. Read lockfile to get current version and source
 2. Re-resolve from source with version constraint from settings
@@ -606,6 +641,6 @@ Supports variadic names for batch updates.
 
 **[Tool filtering clobbering]** → Several agents support tool-level filtering (Gemini `includeTools`/`excludeTools`, Codex `enabled_tools`/`disabled_tools`) and other agent-specific fields (`trust`, `timeout`, `required`, `envFile`). Mitigation: read-modify-write merges only axm-managed fields; unknown fields on existing entries are preserved. Deletion removes the entire entry (acceptable since the server is being uninstalled).
 
-**[Global vs project scope complexity]** → Some agents have complex global config mechanisms (Claude Code nests in `~/.claude.json` by project path, VS Code uses user `settings.json`). Mitigation: initial implementation supports global scope for agents with straightforward global config files (Cursor, Gemini CLI, Codex). Claude Code and Copilot global scope deferred.
+**[User vs project scope complexity]** → Some agents have complex user-scope config mechanisms (Claude Code nests in `~/.claude.json` by project path, VS Code uses user `settings.json`). Mitigation: initial implementation supports user scope for agents with straightforward user config files (Cursor, Gemini CLI, Codex). Claude Code and Copilot user scope deferred.
 
 **[VS Code input variables]** → VS Code supports `inputs` array for secret prompting via `${input:id}` references. axm doesn't manage this mechanism but must preserve the `inputs` array at the root of `.vscode/mcp.json` during read-modify-write. Future consideration: axm could generate `inputs` entries for env vars that need secret prompting.

@@ -30,7 +30,7 @@ export const SETTINGS_FILENAME = "settings.json";
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const DEFAULT_SCOPE = "@community";
+export const DEFAULT_NAMESPACE = "@community";
 
 // -----------------------------------------------------------------------------
 // Default Settings

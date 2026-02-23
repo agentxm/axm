@@ -45,7 +45,7 @@ import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/
 export interface InstallPackHandlerArgs {
   /** Source to install pack from (e.g., "@acme/packs/frontend-tools") */
   readonly source: string;
-  /** Install to global ~/.axm/ instead of local .axm/ */
+  /** Install to user scope (~/.axm/) instead of project scope (.axm/) */
   readonly global: boolean;
   /** Skip confirmations */
   readonly yes: boolean;
@@ -160,7 +160,7 @@ export const parsePackInput = (input: string) =>
 export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
   args: InstallPackHandlerArgs,
 ) {
-  const scopeLabel = args.global ? "global" : "project";
+  const scopeLabel = args.global ? "user" : "project";
 
   const ws = yield* Workspace;
   const sources = yield* SourceHostProviders;

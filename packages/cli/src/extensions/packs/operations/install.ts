@@ -75,18 +75,6 @@ export const installPack: OperationHandler<
     const sources = yield* SourceHostProviders;
     const path = yield* Path.Path;
 
-    // Fetch the pack archive
-    const fetched = yield* sources.fetch(op.args.ref).pipe(
-      Effect.mapError((error) =>
-        makeCliError({
-          code: "PACK_FETCH_FAILED",
-          what: `Failed to fetch pack archive: ${error.message}`,
-          cause: error,
-        }),
-      ),
-      Effect.scoped,
-    );
-
     // Extract to managed location
     const packDir = computePackPaths(
       path.join,
@@ -95,14 +83,29 @@ export const installPack: OperationHandler<
       op.args.packName,
     ).canonicalPath;
 
-    yield* copySkillDirectory(fetched.directory, packDir).pipe(
-      Effect.mapError((e) =>
-        makeCliError({
-          code: "PACK_EXTRACT_FAILED",
-          what: `Failed to extract pack to ${packDir}`,
-          cause: e,
-        }),
-      ),
+    // Keep fetch scope alive through copy; fetched directories are released on scope close.
+    yield* Effect.scoped(
+      Effect.gen(function* () {
+        const fetched = yield* sources.fetch(op.args.ref).pipe(
+          Effect.mapError((error) =>
+            makeCliError({
+              code: "PACK_FETCH_FAILED",
+              what: `Failed to fetch pack archive: ${error.message}`,
+              cause: error,
+            }),
+          ),
+        );
+
+        yield* copySkillDirectory(fetched.directory, packDir).pipe(
+          Effect.mapError((e) =>
+            makeCliError({
+              code: "PACK_EXTRACT_FAILED",
+              what: `Failed to extract pack to ${packDir}`,
+              cause: e,
+            }),
+          ),
+        );
+      }),
     );
 
     // Write lockfile + settings

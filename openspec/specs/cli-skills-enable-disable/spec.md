@@ -7,7 +7,7 @@ The CLI SHALL provide an `enable` subcommand under `axm skills` with the syntax 
 #### Scenario: Command accepts standard flags
 
 - **WHEN** the user runs `axm skills enable <name>`
-- **THEN** the command SHALL accept `--yes`, `--preview`, `--global`, and `--non-interactive` options
+- **THEN** the command SHALL accept `--yes`, `--preview`, `--scope`, and `--non-interactive` options
 
 ### Requirement: Enable handler orchestration
 
@@ -75,7 +75,7 @@ The CLI SHALL provide a `disable` subcommand under `axm skills` with the syntax 
 #### Scenario: Command accepts standard flags
 
 - **WHEN** the user runs `axm skills disable <name>`
-- **THEN** the command SHALL accept `--yes`, `--preview`, `--global`, and `--non-interactive` options
+- **THEN** the command SHALL accept `--yes`, `--preview`, `--scope`, and `--non-interactive` options
 
 ### Requirement: Disable handler orchestration
 

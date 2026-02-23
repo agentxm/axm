@@ -2,10 +2,18 @@ import type { CommandModule } from "yargs";
 import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
 import { handleUpdate } from "./handler.js";
+import {
+  CONFIGURATION_SCOPES,
+  DEFAULT_CONFIGURATION_SCOPE,
+  type ConfigurationScope,
+  resolveConfigurationScope,
+  toGlobalWorkspaceFlag,
+} from "../../../workspace/config-scope.js";
 
 interface UpdateCommandArgs {
   source: string | undefined;
-  global: boolean;
+  scope: ConfigurationScope;
+  global?: boolean;
   agent: ReadonlyArray<string>;
   skill: ReadonlyArray<string>;
   yes: boolean;
@@ -24,9 +32,16 @@ export const updateCommand: CommandModule<{}, UpdateCommandArgs> = {
         type: "string",
         describe: "Filter to skills from a specific source (owner/repo, path, or URL)",
       })
+      .option("scope", {
+        type: "string",
+        choices: CONFIGURATION_SCOPES,
+        describe: "Configuration scope: project (default) or user",
+        default: DEFAULT_CONFIGURATION_SCOPE,
+      })
       .option("global", {
         type: "boolean",
-        describe: "Update skills in global ~/.axm/ instead of local .axm/",
+        hidden: true,
+        describe: "Deprecated alias for --scope user",
         default: false,
       })
       .option("agent", {
@@ -67,10 +82,12 @@ export const updateCommand: CommandModule<{}, UpdateCommandArgs> = {
       .example("$0 skills update --skill pr-review", "Update a specific skill by name")
       .example("$0 skills update --yes", "Update all skills without confirmation"),
   handler: async (argv) => {
+    const scope = resolveConfigurationScope(argv.scope, argv.global);
+    const global = toGlobalWorkspaceFlag(scope);
     await run(
       handleUpdate({
         source: Option.fromNullable(argv.source),
-        global: argv.global,
+        global,
         agents: argv.agent,
         skills: argv.skill,
         yes: argv.yes,
@@ -79,7 +96,7 @@ export const updateCommand: CommandModule<{}, UpdateCommandArgs> = {
       }),
       {
         workspace: {
-          global: argv.global,
+          global,
           yes: argv.yes,
           nonInteractive: Option.fromNullable(argv["non-interactive"]),
           preview: argv.preview,

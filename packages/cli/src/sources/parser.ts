@@ -22,7 +22,7 @@ const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
 /** A simple name with no `/`, `@`, or URL scheme. */
 type NameInput = { readonly pattern: "name-input"; readonly name: string };
 
-/** A scoped registry source: `@namespace/(skills|mcp-servers|packs)/name`. */
+/** A namespaced registry source: `@namespace/(skills|mcp-servers|packs)/name`. */
 type RegistryPatternInput = {
   readonly pattern: "registry-pattern-input";
   readonly type: Option.Option<"skills" | "mcp-servers" | "packs">;
@@ -80,7 +80,7 @@ export type InputParseResult<T = InputPattern> = {
   readonly originalInput: string;
 };
 
-const REGISTRY_SCOPE_PATTERN = /^@[^/]+$/;
+const REGISTRY_NAMESPACE_PATTERN = /^@[^/]+$/;
 
 /** SCP-style: `user@host:path` — no `://` scheme. */
 const SCP_PATTERN = /^([^@]+)@([^:]+):(.+)$/;
@@ -160,7 +160,7 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
   //    - @namespace/{type}/{name}@constraint
   if (input.startsWith("@")) {
     const segments = input.split("/");
-    if (segments.length >= 1 && REGISTRY_SCOPE_PATTERN.test(segments[0] ?? "")) {
+    if (segments.length >= 1 && REGISTRY_NAMESPACE_PATTERN.test(segments[0] ?? "")) {
       const namespace = segments[0]!;
 
       if (segments.length === 1) {

@@ -43,6 +43,7 @@ Classification is defined per extension type (`skills`, `commands`, `mcpServers`
 - `E = C ⊎ P ⊎ U` (disjoint union)
 - `Ignored` entries are excluded from all lifecycle classes in `E`
 - `P ⊆ { e ∈ E | packagingKind = native }`
+- Lockfile-only non-native entries are invalid state and must fail classification.
 - `enabled/disabled` is a state on configured entries only; it does not define lifecycle class
 
 #### Orthogonal Source Classification
@@ -96,7 +97,7 @@ Classification notes for contributors:
 
 ### New Capabilities
 
-- `workspace-extension-classification`: Canonical workspace extension taxonomy and invariants (set definitions, disjointness rules, and derived sets used by CLI and workspace services) with an extension-type-agnostic classifier contract that applies to `skills` now and is reusable for `commands`, `mcp-servers`, and `packs`.
+- `workspace-extension-classification`: Canonical workspace extension taxonomy and invariants (set definitions, disjointness rules, and derived sets used by CLI and workspace services) with an extension-type-agnostic classifier contract that applies to `skills` now and is reusable for `commands`, `mcpServers`, and `packs`.
 
 ### Modified Capabilities
 
@@ -107,11 +108,12 @@ Classification notes for contributors:
 - `cli-skills-fork`: Update configured/discovered skill input semantics now that settings no longer stores unmanaged markers.
 - `skills-fork`: Align discovery and conflict rules with taxonomy-based unmanaged detection (not settings markers).
 - `cli-skills-publish-glob`: Clarify glob expansion against installed skills under the new taxonomy language.
+- `cli-skills-update`: Stop unmanaged skip logging; iterate configured entries only, respecting `enabled`.
 
 ## Impact
 
 - Settings schema and skill entry normalization/collapse behavior (`packages/cli/src/settings/`)
 - Workspace classification/query methods (`packages/cli/src/workspace/service.ts`)
-- Skills command handlers that branch on `entry.managed` semantics (`enable`, `disable`, `rename`, `uninstall`, `fork`, `publish`)
+- Skills command handlers that branch on `entry.managed` semantics (`enable`, `disable`, `rename`, `uninstall`, `update`, `fork`, `publish`)
 - Specs and docs that currently reference unmanaged settings markers
 - Legacy compatibility behavior is intentionally unspecified and out of scope.

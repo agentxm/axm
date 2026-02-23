@@ -625,6 +625,916 @@ packages/cli/src/cli-commands/mcp/
 
 Supports variadic names for batch updates.
 
+### 9. Handler pseudo-code
+
+Pseudo-code for all new handlers, grouped by command. Uses Effect patterns consistent with the codebase (`Effect.gen`, `yield*`, services via `Workspace`/`Log`/`Spinner`, `CliError` for failures, `Effect.forEach` with `concurrency: "unbounded"` for parallelism).
+
+#### Agent config writer module (`agent-mcp-config`)
+
+Shared module used by operation handlers for reading/writing agent MCP config files.
+
+```typescript
+// agent-mcp-config/writer.ts — read-modify-write for agent config files
+
+const readAgentConfig = (agentId, scope) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const ws = yield* Workspace;
+
+    const agent = yield* getAgentById(agentId); // returns Option
+    const mcpDesc = agent.mcp; // AgentMcpDescriptor | undefined
+    if (!mcpDesc) return Option.none(); // agent doesn't support MCP
+
+    const configPath =
+      scope === "user" && mcpDesc.userConfigFile
+        ? resolveHome(mcpDesc.userConfigFile)
+        : path.join(ws.baseDir, mcpDesc.configFile);
+
+    const exists = yield* fs.exists(configPath).pipe(Effect.catchAll(() => Effect.succeed(false)));
+    if (!exists) return Option.some({ path: configPath, content: {}, mcpDesc });
+
+    const raw = yield* fs.readFileString(configPath);
+    const parsed =
+      mcpDesc.format === "toml"
+        ? yield* Effect.try(() => TOML.parse(raw))
+        : yield* Effect.try(() => JSON.parse(raw) as unknown);
+
+    return Option.some({ path: configPath, content: parsed, mcpDesc });
+  });
+
+const writeAgentConfig = (configPath, content, format) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+
+    // Ensure parent directory exists
+    yield* fs.makeDirectory(path.dirname(configPath), { recursive: true }).pipe(Effect.ignore);
+
+    const serialized =
+      format === "toml" ? TOML.stringify(content) : JSON.stringify(content, null, 2) + "\n";
+
+    yield* fs.writeFileString(configPath, serialized);
+  });
+
+const addMcpServerToAgent = (agentId, serverName, transport, envValues, scope) =>
+  Effect.gen(function* () {
+    const configOption = yield* readAgentConfig(agentId, scope);
+    if (Option.isNone(configOption)) return; // agent doesn't support MCP
+
+    const { path: configPath, content, mcpDesc } = configOption.value;
+    const agent = yield* getAgentById(agentId);
+
+    // Build agent-specific entry via per-agent mapper
+    const entry = agent.mcp.buildEntry(transport, envValues);
+
+    // Read-modify-write: merge into existing servers map
+    const serversKey = mcpDesc.serversKey;
+    const existingServers = content[serversKey] ?? {};
+    const existingEntry = existingServers[serverName] ?? {};
+
+    // Merge: axm-managed fields overwrite, unknown fields preserved
+    const mergedEntry = { ...existingEntry, ...entry };
+    const updated = { ...content, [serversKey]: { ...existingServers, [serverName]: mergedEntry } };
+
+    yield* writeAgentConfig(configPath, updated, mcpDesc.format);
+  });
+
+const removeMcpServerFromAgent = (agentId, serverName, scope) =>
+  Effect.gen(function* () {
+    const configOption = yield* readAgentConfig(agentId, scope);
+    if (Option.isNone(configOption)) return;
+
+    const { path: configPath, content, mcpDesc } = configOption.value;
+    const serversKey = mcpDesc.serversKey;
+    const existingServers = content[serversKey] ?? {};
+
+    if (!(serverName in existingServers)) return; // nothing to remove
+
+    const { [serverName]: _, ...remaining } = existingServers;
+    const updated = { ...content, [serversKey]: remaining };
+
+    yield* writeAgentConfig(configPath, updated, mcpDesc.format);
+  });
+
+const setNativeEnabled = (agentId, serverName, enabled, scope) =>
+  Effect.gen(function* () {
+    const configOption = yield* readAgentConfig(agentId, scope);
+    if (Option.isNone(configOption)) return;
+
+    const { path: configPath, content, mcpDesc } = configOption.value;
+    const serversKey = mcpDesc.serversKey;
+    const existingServers = content[serversKey] ?? {};
+    const existingEntry = existingServers[serverName];
+
+    if (!existingEntry) return; // entry doesn't exist, nothing to toggle
+
+    const updated = {
+      ...content,
+      [serversKey]: { ...existingServers, [serverName]: { ...existingEntry, enabled } },
+    };
+
+    yield* writeAgentConfig(configPath, updated, mcpDesc.format);
+  });
+```
+
+#### `axm mcp install`
+
+**CLI handler** — orchestrates source resolution, env prompts, and delegates to install operation.
+
+```typescript
+// cli-commands/mcp/install/handler.ts
+
+interface InstallHandlerArgs {
+  readonly source: string
+  readonly env: ReadonlyArray<string>         // KEY=VALUE pairs from --env
+  readonly yes: boolean
+  readonly force: boolean
+  readonly preview: boolean
+  readonly nonInteractive: Option<boolean>
+}
+
+const handleInstall = Effect.fn("McpInstall.handle")(function* (args: InstallHandlerArgs) {
+  const ws = yield* Workspace
+  const sources = yield* SourceHostProviders
+  const log = yield* Log
+  const spinnerSvc = yield* Spinner
+
+  yield* log.info("axm mcp install")
+
+  // Step 1: Parse source string
+  const parsedSource = yield* parseInputPattern(args.source)
+  const versionConstraint = /* extract from registry pattern if present */
+
+  // Step 2: Registry guard — ensure a registry source is configured
+  yield* registryGuard
+
+  // Step 3: Resolve source and discover MCP server
+  const handle = yield* spinnerSvc.start("Resolving...")
+  const discoveredRefs = yield* sources.find(resolvedSource, {
+    type: "mcp-server",
+    namespace: requestedNamespace,
+    versionConstraint,
+    skillNames: requestedNames,
+  })
+  const mcpServerRefs = Array.filter(discoveredRefs, (r) => r.type === "mcp-server")
+  yield* handle.stop(`Found ${mcpServerRefs.length} server(s)`)
+
+  if (mcpServerRefs.length === 0) {
+    return yield* makeCliError({ code: "NO_MCP_SERVERS_FOUND", what: "No MCP servers found" })
+  }
+  const ref = mcpServerRefs[0]
+
+  // Step 4: Read manifest to get transport config and env declarations
+  // (After install, manifest is at canonical path)
+  // For now, ref carries transport info from the manifest
+
+  // Step 5: Resolve env var values
+  const manifest = /* read from ref or fetched archive manifest */
+  const envValues = yield* resolveEnvValues(manifest.env, args.env, args.nonInteractive)
+
+  // Step 6: Build plan with install-mcp-server operation
+  const plan = yield* buildMcpInstallPlan({
+    ref,
+    force: args.force,
+    versionConstraint,
+    envValues,
+  })
+
+  // Step 7: Resolve plan (display, confirm, apply)
+  yield* ws.resolvePlan(plan, { "install-mcp-server": installMcpServer })
+
+  yield* log.success("Done")
+})
+
+// Env resolution helper
+const resolveEnvValues = (envDeclarations, cliEnvFlags, nonInteractive) =>
+  Effect.gen(function* () {
+    // Parse --env KEY=VALUE flags into a map
+    const cliValues = parseEnvFlags(cliEnvFlags)
+    const resolved: Record<string, string> = {}
+
+    for (const decl of envDeclarations) {
+      if (cliValues[decl.name]) {
+        resolved[decl.name] = cliValues[decl.name]
+      } else if (decl.default) {
+        resolved[decl.name] = decl.default
+      } else if (decl.required) {
+        if (Option.isSome(nonInteractive) && nonInteractive.value) {
+          return yield* makeCliError({
+            code: "MCP_ENV_REQUIRED",
+            what: `Required env var ${decl.name} not provided`,
+            howToFix: `Use --env ${decl.name}=VALUE`,
+          })
+        }
+        // Interactive prompt via Bombshell
+        resolved[decl.name] = yield* promptForEnvVar(decl)
+      }
+      // Optional vars not provided: write $VAR_NAME pass-through
+    }
+
+    return resolved
+  })
+```
+
+**Operation handler** — extended from existing `installMcpServer` with agent config step.
+
+```typescript
+// extensions/mcp-servers/operations/install.ts — EXTENDED
+
+const installMcpServer: OperationHandler<InstallMcpServerOperation, ...> = (op) =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace
+    const log = yield* Log
+
+    // --- Existing steps (unchanged) ---
+    // 1. Fetch archive from registry
+    // 2. Validate integrity
+    // 3. Extract to canonical path
+    // 4. Build lock entry and persist to lockfile/settings
+    yield* installFromRegistry(ref)
+    const lockEntry = buildLockEntry(ref, new Date())
+    yield* writeEffect // setMcpServer or setMcpServerLock
+
+    // --- NEW: Agent config writing step ---
+    // 5. Read manifest from canonical path to get transport config
+    const manifest = yield* readManifestFromCanonical(ref)
+
+    // 6. Get env values from operation args (resolved at CLI handler level)
+    const envValues = op.args.envValues ?? {}
+
+    // 7. Store resolved env values in settings entry
+    if (Object.keys(envValues).length > 0) {
+      yield* ws.updateMcpServerEntry(ref.server.name, (e) => ({ ...e, env: envValues }))
+    }
+
+    // 8. Write to all configured agents (concurrent)
+    const configuredAgents = yield* ws.getConfiguredAgents()
+    yield* Effect.forEach(
+      configuredAgents,
+      (agentId) =>
+        addMcpServerToAgent(agentId, ref.server.name, manifest.transport, envValues, "project")
+          .pipe(Effect.catchAll((e) => log.warn(`Agent config write failed for ${agentId}: ${e}`))),
+      { concurrency: "unbounded" },
+    )
+
+    return { result: "success", message: `Installed ${ref.server.name}` } satisfies OperationResult
+  })
+```
+
+#### `axm mcp uninstall`
+
+**CLI handler** — validates server exists, builds plan, resolves.
+
+```typescript
+// cli-commands/mcp/uninstall/handler.ts
+
+interface UninstallHandlerArgs {
+  readonly name: string;
+  readonly yes: boolean;
+  readonly preview: boolean;
+  readonly nonInteractive: Option<boolean>;
+}
+
+const handleUninstall = Effect.fn("McpUninstall.handle")(function* (args: UninstallHandlerArgs) {
+  const ws = yield* Workspace;
+  const log = yield* Log;
+
+  yield* log.info("axm mcp uninstall");
+
+  // Step 1: Validate server exists
+  const lockEntry = yield* ws.getLockedMcpServer(args.name);
+  if (Option.isNone(lockEntry)) {
+    return yield* makeCliError({
+      code: "MCP_SERVER_NOT_FOUND",
+      what: `MCP server '${args.name}' is not installed`,
+      howToFix: "Run `axm mcp list` to see installed servers",
+    });
+  }
+
+  // Step 2: Build operation
+  const op = {
+    name: "uninstall-mcp-server",
+    args: { serverName: args.name },
+  } satisfies UninstallMcpServerOperation;
+
+  // Step 3: Build and resolve plan
+  const plan = buildSingleStepPlan({
+    operation: op,
+    name: "Uninstall MCP server",
+    description: `Uninstall ${args.name}`,
+    label: args.name,
+  });
+
+  yield* ws.resolvePlan(plan, { "uninstall-mcp-server": uninstallMcpServer });
+
+  yield* log.success("Done");
+});
+```
+
+**Operation handler** — extended from existing `uninstallMcpServer` with agent config removal.
+
+```typescript
+// extensions/mcp-servers/operations/uninstall.ts — EXTENDED
+
+const uninstallMcpServer: OperationHandler<UninstallMcpServerOperation, ...> = (op) =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace
+
+    // --- NEW: Remove from agent configs FIRST (before removing files) ---
+    const configuredAgents = yield* ws.getConfiguredAgents()
+    yield* Effect.forEach(
+      configuredAgents,
+      (agentId) =>
+        removeMcpServerFromAgent(agentId, op.args.serverName, "project")
+          .pipe(Effect.catchAll(() => Effect.void)),
+      { concurrency: "unbounded" },
+    )
+
+    // --- Existing steps (unchanged) ---
+    // 1. Read lockfile
+    // 2. Remove canonical directory from disk
+    // 3. Remove lockfile + settings entry
+    yield* /* existing removal logic */
+
+    return { result: "success", message: `Uninstalled ${op.args.serverName}` } satisfies OperationResult
+  })
+```
+
+#### `axm mcp list`
+
+**CLI handler** — reads settings and lockfile, displays table.
+
+```typescript
+// cli-commands/mcp/list/handler.ts
+
+const handleList = Effect.fn("McpList.handle")(function* () {
+  const ws = yield* Workspace;
+  const log = yield* Log;
+
+  // Step 1: Read configured MCP servers (settings) and locked MCP servers (lockfile)
+  const configuredServers = yield* ws.getConfiguredMcpServers();
+  const lockedServers = yield* ws.getLockedMcpServers();
+
+  const entries = Object.entries(configuredServers);
+
+  if (entries.length === 0) {
+    yield* log.info("No MCP servers installed");
+    return;
+  }
+
+  // Step 2: Build display rows by joining settings + lockfile data
+  yield* log.message("NAME               VERSION  TRANSPORT  STATUS");
+  yield* Effect.forEach(
+    entries,
+    ([name, entry]) => {
+      const locked = lockedServers[name];
+      const version = locked?.resolvedVersion ?? "unknown";
+      // Read manifest to get transport type (or cache in lock entry)
+      const transport = locked ? "stdio" : "unknown"; // simplified; real impl reads manifest
+      const status = entry.enabled ? "enabled" : "disabled";
+      return log.message(`${name.padEnd(19)}${version.padEnd(9)}${transport.padEnd(11)}${status}`);
+    },
+    { discard: true },
+  );
+});
+```
+
+#### `axm mcp enable`
+
+**CLI handler** — validates state, builds single-step plan.
+
+```typescript
+// cli-commands/mcp/enable/handler.ts
+
+interface EnableHandlerArgs {
+  readonly name: string;
+  readonly yes: boolean;
+  readonly preview: boolean;
+  readonly nonInteractive: Option<boolean>;
+}
+
+const handleEnable = Effect.fn("McpEnable.handle")(function* (args: EnableHandlerArgs) {
+  const ws = yield* Workspace;
+  const log = yield* Log;
+
+  yield* log.info("axm mcp enable");
+
+  // Step 1: Validate server is installed
+  const configuredServers = yield* ws.getConfiguredMcpServers();
+  const entry = configuredServers[args.name];
+  if (entry === undefined) {
+    return yield* makeCliError({
+      code: "MCP_SERVER_NOT_FOUND",
+      what: `MCP server '${args.name}' not found`,
+      howToFix: "Run `axm mcp list` to see installed servers",
+    });
+  }
+
+  // Step 2: Validate server is currently disabled
+  if (entry.enabled) {
+    yield* log.info(`MCP server '${args.name}' is already enabled`);
+    yield* log.success("Nothing to do.");
+    return;
+  }
+
+  // Step 3: Validate lockfile entry exists (server files on disk)
+  const lockEntry = yield* ws.getLockedMcpServer(args.name);
+  if (Option.isNone(lockEntry)) {
+    return yield* makeCliError({
+      code: "MCP_SERVER_NOT_INSTALLED",
+      what: `MCP server '${args.name}' has no lockfile entry`,
+      howToFix: "Try reinstalling with `axm mcp install`",
+    });
+  }
+
+  // Step 4: Build and resolve plan
+  const op = {
+    name: "enable-mcp-server",
+    args: { serverName: args.name },
+  } satisfies EnableMcpServerOperation;
+
+  const plan = buildSingleStepPlan({
+    operation: op,
+    name: "Enable MCP server",
+    description: `Enable ${args.name}`,
+    label: args.name,
+  });
+
+  yield* ws.resolvePlan(plan, { "enable-mcp-server": enableMcpServer });
+
+  yield* log.success("Done");
+});
+```
+
+**Operation handler** — reads manifest, writes to agent configs or sets native enabled.
+
+```typescript
+// extensions/mcp-servers/operations/enable.ts — NEW
+
+type EnableMcpServerOperation = Operation<"enable-mcp-server", { readonly serverName: string }>
+
+const enableMcpServer: OperationHandler<EnableMcpServerOperation, ...> = (op) =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace
+    const log = yield* Log
+
+    // 1. Read manifest from canonical dir to get transport config
+    const manifest = yield* readManifestFromCanonical(op.args.serverName)
+
+    // 2. Read stored env values from settings entry
+    const configuredServers = yield* ws.getConfiguredMcpServers()
+    const entry = configuredServers[op.args.serverName]
+    const envValues = entry?.env ?? {}
+
+    // 3. Get configured agents
+    const configuredAgents = yield* ws.getConfiguredAgents()
+
+    // 4. Write to each agent (concurrent)
+    yield* Effect.forEach(
+      configuredAgents,
+      (agentId) => {
+        const maybeAgent = getAgentById(agentId)
+        if (Option.isNone(maybeAgent)) return Effect.void
+        const agent = maybeAgent.value
+
+        if (!agent.mcp) return Effect.void // agent doesn't support MCP
+
+        if (agent.mcp.nativeEnabled) {
+          // Codex, OpenCode: set native enabled: true (preserves user customizations)
+          return setNativeEnabled(agentId, op.args.serverName, true, "project")
+            .pipe(Effect.catchAll((e) => log.warn(`Failed to enable in ${agentId}: ${e}`)))
+        } else {
+          // Other agents: write full entry (add if missing)
+          return addMcpServerToAgent(agentId, op.args.serverName, manifest.transport, envValues, "project")
+            .pipe(Effect.catchAll((e) => log.warn(`Failed to enable in ${agentId}: ${e}`)))
+        }
+      },
+      { concurrency: "unbounded" },
+    )
+
+    // 5. Update settings: set enabled: true
+    yield* ws.updateMcpServerEntry(op.args.serverName, (e) => ({ ...e, enabled: true }))
+      .pipe(Effect.catchAll(() => Effect.void))
+
+    return { result: "success", message: `Enabled ${op.args.serverName}` } satisfies OperationResult
+  })
+```
+
+#### `axm mcp disable`
+
+**CLI handler** — validates state, builds single-step plan.
+
+```typescript
+// cli-commands/mcp/disable/handler.ts
+
+interface DisableHandlerArgs {
+  readonly name: string;
+  readonly yes: boolean;
+  readonly preview: boolean;
+  readonly nonInteractive: Option<boolean>;
+}
+
+const handleDisable = Effect.fn("McpDisable.handle")(function* (args: DisableHandlerArgs) {
+  const ws = yield* Workspace;
+  const log = yield* Log;
+
+  yield* log.info("axm mcp disable");
+
+  // Step 1: Validate server exists in settings
+  const configuredServers = yield* ws.getConfiguredMcpServers();
+  const entry = configuredServers[args.name];
+  if (entry === undefined) {
+    return yield* makeCliError({
+      code: "MCP_SERVER_NOT_FOUND",
+      what: `MCP server '${args.name}' not found`,
+      howToFix: "Run `axm mcp list` to see installed servers",
+    });
+  }
+
+  // Step 2: Validate server is currently enabled
+  if (!entry.enabled) {
+    yield* log.info(`MCP server '${args.name}' is already disabled`);
+    yield* log.success("Nothing to do.");
+    return;
+  }
+
+  // Step 3: Build and resolve plan
+  const op = {
+    name: "disable-mcp-server",
+    args: { serverName: args.name },
+  } satisfies DisableMcpServerOperation;
+
+  const plan = buildSingleStepPlan({
+    operation: op,
+    name: "Disable MCP server",
+    description: `Disable ${args.name}`,
+    label: args.name,
+  });
+
+  yield* ws.resolvePlan(plan, { "disable-mcp-server": disableMcpServer });
+
+  yield* log.success("Done");
+});
+```
+
+**Operation handler** — removes from agent configs or sets native enabled: false.
+
+```typescript
+// extensions/mcp-servers/operations/disable.ts — NEW
+
+type DisableMcpServerOperation = Operation<"disable-mcp-server", { readonly serverName: string }>
+
+const disableMcpServer: OperationHandler<DisableMcpServerOperation, ...> = (op) =>
+  Effect.gen(function* () {
+    const ws = yield* Workspace
+    const log = yield* Log
+
+    // 1. Get configured agents
+    const configuredAgents = yield* ws.getConfiguredAgents()
+
+    // 2. Remove from each agent or set native enabled: false (concurrent)
+    yield* Effect.forEach(
+      configuredAgents,
+      (agentId) => {
+        const maybeAgent = getAgentById(agentId)
+        if (Option.isNone(maybeAgent)) return Effect.void
+        const agent = maybeAgent.value
+
+        if (!agent.mcp) return Effect.void
+
+        if (agent.mcp.nativeEnabled) {
+          // Codex, OpenCode: set native enabled: false (preserves user customizations)
+          return setNativeEnabled(agentId, op.args.serverName, false, "project")
+            .pipe(Effect.catchAll((e) => log.warn(`Failed to disable in ${agentId}: ${e}`)))
+        } else {
+          // Other agents: remove entry entirely
+          return removeMcpServerFromAgent(agentId, op.args.serverName, "project")
+            .pipe(Effect.catchAll((e) => log.warn(`Failed to disable in ${agentId}: ${e}`)))
+        }
+      },
+      { concurrency: "unbounded" },
+    )
+
+    // 3. Update settings: set enabled: false
+    yield* ws.updateMcpServerEntry(op.args.serverName, (e) => ({ ...e, enabled: false }))
+      .pipe(Effect.catchAll(() => Effect.void))
+
+    return { result: "success", message: `Disabled ${op.args.serverName}` } satisfies OperationResult
+  })
+```
+
+#### `axm mcp update`
+
+**CLI handler** — re-resolves from registry, detects version changes, builds plan.
+
+```typescript
+// cli-commands/mcp/update/handler.ts
+
+interface UpdateHandlerArgs {
+  readonly names: ReadonlyArray<string>    // variadic positional
+  readonly yes: boolean
+  readonly preview: boolean
+  readonly nonInteractive: Option<boolean>
+}
+
+const handleUpdate = Effect.fn("McpUpdate.handle")(function* (args: UpdateHandlerArgs) {
+  const ws = yield* Workspace
+  const sources = yield* SourceHostProviders
+  const log = yield* Log
+  const spinnerSvc = yield* Spinner
+
+  yield* log.info("axm mcp update")
+
+  // Step 1: Load configured + locked MCP servers
+  const configuredServers = yield* ws.getConfiguredMcpServers()
+  const lockedServers = yield* ws.getLockedMcpServers()
+
+  // Step 2: Filter to requested names, validate all exist
+  const targets = yield* Effect.forEach(args.names, (name) =>
+    Effect.gen(function* () {
+      const entry = configuredServers[name]
+      if (entry === undefined) {
+        return yield* makeCliError({
+          code: "MCP_SERVER_NOT_FOUND",
+          what: `MCP server '${name}' not found`,
+        })
+      }
+      if (!entry.enabled) {
+        yield* log.warn(`Skipping ${name} (disabled)`)
+        return Option.none()
+      }
+      return Option.some({ name, entry, locked: lockedServers[name] })
+    }),
+  ).pipe(Effect.map(Array.getSomes))
+
+  if (targets.length === 0) {
+    yield* log.info("Nothing to update.")
+    return
+  }
+
+  // Step 3: Re-resolve each from registry with version constraint from settings
+  const resolveHandle = yield* spinnerSvc.start("Checking for updates...")
+  const results = yield* Effect.forEach(
+    targets,
+    (target) =>
+      Effect.gen(function* () {
+        const versionConstraint = Option.fromNullable(target.entry.source)
+        const newRefs = yield* sources.find(/* registry source */, {
+          type: "mcp-server",
+          namespace: Option.some(target.locked.namespace),
+          versionConstraint,
+          skillNames: [target.name],
+        })
+        const newRef = newRefs.find((r) => r.type === "mcp-server")
+        if (!newRef) return Option.none()
+
+        // Compare versions — skip if already at latest
+        if (newRef.version === target.locked.resolvedVersion) {
+          yield* log.info(`${target.name} already at ${target.locked.resolvedVersion}`)
+          return Option.none()
+        }
+
+        return Option.some({ name: target.name, ref: newRef, envValues: target.entry.env })
+      }).pipe(Effect.catchAll((e) => {
+        return log.warn(`Failed to resolve ${target.name}: ${e}`)
+          .pipe(Effect.map(() => Option.none()))
+      })),
+    { concurrency: "unbounded" },
+  )
+  yield* resolveHandle.stop("Sources resolved")
+
+  const updates = Array.getSomes(results)
+  if (updates.length === 0) {
+    yield* log.info("All servers up to date.")
+    return
+  }
+
+  // Step 4: Build install operations with force: true
+  const ops = updates.map((u) => ({
+    name: "install-mcp-server",
+    args: {
+      ref: u.ref,
+      force: true,
+      versionConstraint: Option.none(),
+      skipSettings: Option.none(),
+      envValues: u.envValues,
+    },
+  }) satisfies InstallMcpServerOperation)
+
+  // Step 5: Build and resolve plan
+  const plan = buildUpdatePlan(ops, "Update MCP server(s)")
+  yield* ws.resolvePlan(plan, { "install-mcp-server": installMcpServer })
+
+  yield* log.success("Done")
+})
+```
+
+#### `axm mcp publish`
+
+**CLI handler** — validates extensions, builds multi-step plan.
+
+```typescript
+// cli-commands/mcp/publish/handler.ts
+
+interface PublishHandlerArgs {
+  readonly extensions: ReadonlyArray<string>;
+  readonly registry: Option<string>;
+  readonly yes: boolean;
+  readonly preview: boolean;
+  readonly nonInteractive: Option<boolean>;
+}
+
+const handlePublish = Effect.fn("McpPublish.handle")(function* (args: PublishHandlerArgs) {
+  const ws = yield* Workspace;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const log = yield* Log;
+  const spinnerSvc = yield* Spinner;
+  const base = ws.baseDir;
+
+  yield* log.info("axm mcp publish");
+
+  // Step 1: Registry guard
+  yield* registryGuard;
+
+  // Step 2: Resolve extension inputs (expand globs)
+  const resolvedNames = yield* resolveExtensionInputs(args.extensions, "mcp-server");
+  if (resolvedNames.length === 0) return;
+
+  // Step 3: Resolve each name to FQN
+  const extensionNames = yield* Effect.forEach(resolvedNames, (name) =>
+    name.startsWith("@") && name.includes("/")
+      ? Effect.succeed(name)
+      : ws
+          .getConfiguredNamespace()
+          .pipe(Effect.map((namespace) => `${namespace}/mcp-servers/${name}`)),
+  );
+
+  // Step 4: Validate each extension exists on disk with manifest
+  const handle = yield* spinnerSvc.start("Validating extensions...");
+  yield* Effect.forEach(extensionNames, (extName) =>
+    Effect.gen(function* () {
+      const fqn = yield* parseFqn(extName);
+      const extensionDir = path.join(
+        base,
+        REGISTRY_EXTENSIONS_DIR,
+        fqn.namespace,
+        "mcp-servers",
+        fqn.name,
+      );
+      const manifestPath = path.join(extensionDir, MCP_SERVER_MANIFEST_FILENAME);
+
+      const exists = yield* fs
+        .exists(manifestPath)
+        .pipe(Effect.catchAll(() => Effect.succeed(false)));
+      if (!exists) {
+        yield* handle.stop("Failed");
+        return yield* makeCliError({
+          code: "EXTENSION_NOT_FOUND",
+          what: `Managed MCP server not found: ${extName}`,
+          details: [`Expected manifest at: ${manifestPath}`],
+        });
+      }
+    }),
+  );
+  yield* handle.stop(`Validated ${extensionNames.length} extension(s)`);
+
+  // Step 5: Determine target registry
+  const registrySources = yield* ws.getConfiguredRegistrySources(Option.none());
+  const registryName = Option.match(args.registry, {
+    onNone: () => registrySources[0].name,
+    onSome: (name) => name,
+  });
+
+  // Step 6: Build multi-step plan
+  const steps = extensionNames.map((extName) => ({
+    _tag: "PlannedJobStep" as const,
+    operation: {
+      name: "publish-mcp-server",
+      args: { name: extName, registryName },
+    } satisfies PublishMcpServerOperation,
+    readiness: { status: "ready" as const, message: Option.none() },
+    label: `Publish ${extName}`,
+  }));
+
+  const plan = {
+    name: "Publish MCP server",
+    description: Option.some(`Publish ${extensionNames.length} server(s) to "${registryName}"`),
+    jobs: [{ steps, concurrency: 1 as const }],
+  };
+
+  yield* ws.resolvePlan(plan, { "publish-mcp-server": publishMcpServer });
+
+  yield* log.success("Done");
+});
+```
+
+#### `axm mcp new`
+
+**CLI handler** — scaffolds manifest with transport template, registers in settings.
+
+```typescript
+// cli-commands/mcp/new/handler.ts
+
+interface McpNewHandlerArgs {
+  readonly name: string;
+  readonly namespace: Option<string>;
+  readonly yes: boolean;
+  readonly preview: boolean;
+  readonly nonInteractive: Option<boolean>;
+}
+
+const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
+const MAX_NAME_LENGTH = 64;
+
+const handleMcpNew = Effect.fn("McpNew.handle")(function* (args: McpNewHandlerArgs) {
+  const ws = yield* Workspace;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const log = yield* Log;
+
+  yield* log.info("axm mcp new");
+
+  // 1. Resolve namespace
+  const namespace = Option.isSome(args.namespace)
+    ? normalizeNamespace(args.namespace.value)
+    : yield* ws.getConfiguredNamespace().pipe(
+        Effect.flatMap((s) =>
+          s === "@community"
+            ? Effect.fail(
+                makeCliError({
+                  code: "NAMESPACE_REQUIRED",
+                  what: "No namespace configured for MCP server creation",
+                  howToFix: "Use --namespace or configure via `axm init`",
+                }),
+              )
+            : Effect.succeed(s),
+        ),
+      );
+
+  // 2. Validate name
+  if (!NAME_PATTERN.test(args.name) || args.name.length > MAX_NAME_LENGTH) {
+    return yield* makeCliError({
+      code: "MCP_SERVER_NAME_INVALID",
+      what: `Invalid MCP server name: "${args.name}"`,
+      howToFix: "Choose a name matching /^[a-z0-9][a-z0-9-]*$/ (max 64 chars)",
+    });
+  }
+
+  const fqn = `${namespace}/mcp-servers/${args.name}`;
+  const base = ws.baseDir;
+
+  // 3. Check existence
+  const configuredServers = yield* ws.getConfiguredMcpServers();
+  if (args.name in configuredServers) {
+    return yield* makeCliError({
+      code: "MCP_SERVER_ALREADY_EXISTS",
+      what: `MCP server '${args.name}' already exists in settings`,
+    });
+  }
+
+  // 4. Compute paths
+  const canonicalPath = path.join(
+    base,
+    REGISTRY_EXTENSIONS_DIR,
+    namespace,
+    "mcp-servers",
+    args.name,
+  );
+
+  // 5. Create directory
+  yield* fs.makeDirectory(canonicalPath, { recursive: true });
+
+  // 6. Write manifest template with transport placeholder
+  const manifest = {
+    name: fqn,
+    version: "0.0.1",
+    description: `A new MCP server`,
+    transport: {
+      type: "stdio",
+      command: "npx",
+      args: ["-y", `${args.name}@latest`],
+    },
+    env: [],
+  };
+
+  yield* fs.writeFileString(
+    path.join(canonicalPath, MCP_SERVER_MANIFEST_FILENAME),
+    JSON.stringify(manifest, null, 2) + "\n",
+  );
+
+  // 7. Register in settings
+  yield* ws.setMcpServerEntry(args.name, {
+    source: Option.some(fqn),
+    enabled: true,
+    env: {},
+  });
+
+  yield* log.success(`Created MCP server ${fqn}`);
+});
+```
+
 ## Risks / Trade-offs
 
 **[Agent config file conflicts]** → axm and users both write to `.mcp.json` and other agent config files. Mitigation: read-modify-write preserves existing entries and unmanaged fields (tool filtering, timeouts, etc.); axm only touches entries present in its settings `mcpServers` map. Users can manually edit around axm-managed entries. When updating an existing entry, axm merges managed fields into the existing entry rather than replacing it wholesale.

@@ -20,7 +20,7 @@ Review code changes against project conventions and suggest improvements.
 
 2. **Consult guidance** — Check relevant project conventions:
    - `CLAUDE.md` for project-wide rules
-   - `docs/guides/` for domain-specific guidance (Effect, testing, CLI design)
+   - `contributing/guides/` for domain-specific guidance (Effect, testing, CLI design)
    - `.claude/skills/` for pattern-specific skills (errors, schemas, services)
    - Co-located `CLAUDE.md` files in affected directories
 
@@ -37,7 +37,7 @@ Review code changes against project conventions and suggest improvements.
       → Load applicable skills and check each convention
 - [ ] **Agent instructions** — Code conforms to all relevant `CLAUDE.md` guidance
       → Check root and co-located `CLAUDE.md` files in affected directories
-- [ ] **Guides** — Code conforms to all relevant guidance in `docs/guides/`
+- [ ] **Guides** — Code conforms to all relevant guidance in `contributing/guides/`
       → Consult domain guides (Effect, testing, CLI design, etc.)
 
 ---

@@ -99,7 +99,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   const namespace = yield* ws.getConfiguredNamespace().pipe(
     Effect.mapError((e) =>
       makeCliError({
-        code: "SCOPE_RESOLUTION_FAILED",
+        code: "NAMESPACE_RESOLUTION_FAILED",
         what: `Failed to resolve namespace: ${e._tag}`,
         howToFix: "Configure a namespace in your settings with `axm init`.",
         cause: e,

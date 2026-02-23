@@ -87,15 +87,15 @@ describe("skills install command positional", () => {
 });
 
 describe("skills install command options", () => {
-  it("defines --global option with boolean type and default false", () => {
+  it("defines --scope option with string type and default project", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
       installCommand.builder(mockYargs);
-      expect(capturedOptions["global"]).toEqual(
+      expect(capturedOptions["scope"]).toEqual(
         expect.objectContaining({
-          type: "boolean",
-          default: false,
+          type: "string",
+          default: "project",
         }),
       );
     }
@@ -175,13 +175,13 @@ describe("skills install command options", () => {
     }
   });
 
-  it("includes description for --global option", () => {
+  it("includes description for --scope option", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
       installCommand.builder(mockYargs);
-      expect(capturedOptions["global"]?.describe).toBeDefined();
-      expect(capturedOptions["global"]?.describe).toContain("global");
+      expect(capturedOptions["scope"]?.describe).toBeDefined();
+      expect(capturedOptions["scope"]?.describe).toContain("Configuration scope");
     }
   });
 
@@ -326,7 +326,7 @@ describe("skills install command parser", () => {
   it("parses with default values when no options provided", async () => {
     const argv = await createParser().parse(["install", "owner/repo"]);
 
-    expect(argv["global"]).toBe(false);
+    expect(argv["scope"]).toBe("project");
     expect(argv["yes"]).toBe(false);
     expect(argv["list"]).toBe(false);
     expect(argv["all"]).toBe(false);
@@ -334,10 +334,10 @@ describe("skills install command parser", () => {
     expect(argv["skill"]).toEqual([]);
   });
 
-  it("parses --global flag", async () => {
-    const argv = await createParser().parse(["install", "owner/repo", "--global"]);
+  it("parses --scope user", async () => {
+    const argv = await createParser().parse(["install", "owner/repo", "--scope", "user"]);
 
-    expect(argv["global"]).toBe(true);
+    expect(argv["scope"]).toBe("user");
   });
 
   it("parses --yes flag", async () => {
@@ -412,7 +412,8 @@ describe("skills install command parser", () => {
     const argv = await createParser().parse([
       "install",
       "owner/repo",
-      "--global",
+      "--scope",
+      "user",
       "-y",
       "-l",
       "--agent",
@@ -422,7 +423,7 @@ describe("skills install command parser", () => {
     ]);
 
     expect(argv["source"]).toBe("owner/repo");
-    expect(argv["global"]).toBe(true);
+    expect(argv["scope"]).toBe("user");
     expect(argv["yes"]).toBe(true);
     expect(argv["list"]).toBe(true);
     expect(argv["agent"]).toEqual(["claude-code"]);

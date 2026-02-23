@@ -53,7 +53,7 @@ import { type CliError, makeCliError } from "../cli-error/index.js";
 import {
   collapseSkillEntry,
   createDefaultSettings,
-  DEFAULT_SCOPE,
+  DEFAULT_NAMESPACE,
   getSkillEntrySource,
   type NonSkillExtensionsMap,
   type NormalizedSkillEntry,
@@ -155,7 +155,7 @@ export type WorkspaceContextError = CliError | PromptCancelled;
  * @experimental This API is unstable and may change without notice.
  */
 export interface WorkspaceContextOptions {
-  /** Whether to use global workspace (~/.axm) or local (.axm) */
+  /** Whether to use user-scope workspace (~/.axm) or project workspace (.axm) */
   readonly global: boolean;
   /** Auto-accept detected agents without prompting */
   readonly yes: boolean;
@@ -358,11 +358,11 @@ const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextO
   });
 
 /**
- * Ensure global workspace directory has settings.json and axm-lock.yaml.
+ * Ensure user-scope workspace directory has settings.json and axm-lock.yaml.
  *
  * Creates missing files with empty defaults.
  *
- * @param globalDir - Path to global .axm directory
+ * @param globalDir - Path to user-scope .axm directory
  *
  * @internal
  */
@@ -437,8 +437,8 @@ const ensureProjectWorkspaceInitialized = (localDir: string, options: WorkspaceC
  * Create workspace context effect.
  *
  * Loads settings and lockfile based on workspace namespace:
- * - Global mode: reads only global settings (auto-creates with {} if not found)
- * - Local mode: merges global and local settings (local overrides global),
+ * - User-scope mode: reads only user-scope settings (auto-creates with {} if not found)
+ * - Project mode: merges user-scope and project settings (project overrides user),
  *   runs initialization flow if local settings don't exist
  *
  * When project initialization is needed and `yes=false` and `nonInteractive=false`,
@@ -542,7 +542,7 @@ const make = (options: WorkspaceContextOptions) =>
       });
 
     /**
-     * Three-layer merge: project sources -> global sources -> built-in sources.
+     * Three-layer merge: project sources -> user-scope sources -> built-in sources.
      * Name-based deduplication: earlier layers win.
      */
     const getConfiguredSources = (): Effect.Effect<ReadonlyArray<SourceHostConfig>, CliError> =>
@@ -700,7 +700,7 @@ const make = (options: WorkspaceContextOptions) =>
           if (projectSettings.namespace) return normalizeNamespace(projectSettings.namespace);
           const globalSettings = yield* readSettingsSafe(globalDir);
           if (globalSettings.namespace) return normalizeNamespace(globalSettings.namespace);
-          return DEFAULT_SCOPE;
+          return DEFAULT_NAMESPACE;
         }),
 
       addConfiguredSource: (source: SourceHostConfig) =>
@@ -1310,7 +1310,7 @@ export const layer = (options: WorkspaceContextOptions) => Layer.effect(Workspac
  * @experimental This API is unstable and may change without notice.
  */
 export interface WorkspaceContextService {
-  /** Whether this is a global workspace (~/.axm) or local (.axm) */
+  /** Whether this is a user-scope workspace (~/.axm) or project workspace (.axm) */
   readonly global: boolean;
   /** Path to the .axm directory */
   readonly path: string;
@@ -1325,7 +1325,7 @@ export interface WorkspaceContextService {
     plan: Plan<Op>,
     handlers: T,
   ) => Effect.Effect<Plan<Op>, PromptCancelled | CliError, Log | Confirm | ExecutionContext<T>>;
-  /** Merged sources from project, global, and built-in defaults. Cached per workspace lifetime. */
+  /** Merged sources from project, user-scope, and built-in defaults. Cached per workspace lifetime. */
   readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, CliError>;
   /** Lookup a source by name from the merged sources list. */
   readonly getConfiguredSourceByName: (
@@ -1335,7 +1335,7 @@ export interface WorkspaceContextService {
   readonly getConfiguredRegistrySources: (
     namespace: Option.Option<string>,
   ) => Effect.Effect<ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>, CliError>;
-  /** Resolve namespace: project settings -> global settings -> DEFAULT_SCOPE. */
+  /** Resolve namespace: project settings -> user-scope settings -> DEFAULT_NAMESPACE. */
   readonly getConfiguredNamespace: () => Effect.Effect<string, CliError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
   readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, CliError>;

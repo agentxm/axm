@@ -2,9 +2,17 @@ import type { CommandModule } from "yargs";
 import * as Option from "effect/Option";
 import { run } from "../../runtime/index.js";
 import { handleInit } from "./handler.js";
+import {
+  CONFIGURATION_SCOPES,
+  DEFAULT_CONFIGURATION_SCOPE,
+  type ConfigurationScope,
+  resolveConfigurationScope,
+  toGlobalWorkspaceFlag,
+} from "../../workspace/config-scope.js";
 
 interface InitArgs {
-  global: boolean;
+  scope: ConfigurationScope;
+  global?: boolean;
   agent: ReadonlyArray<string>;
   yes: boolean;
   "non-interactive"?: boolean;
@@ -16,9 +24,16 @@ export const initCommand: CommandModule<{}, InitArgs> = {
   describe: "Set up axm in the current project",
   builder: (yargs) =>
     yargs
+      .option("scope", {
+        type: "string",
+        choices: CONFIGURATION_SCOPES,
+        describe: "Configuration scope: project (default) or user",
+        default: DEFAULT_CONFIGURATION_SCOPE,
+      })
       .option("global", {
         type: "boolean",
-        describe: "Initialize globally in ~/.axm/ instead of the current directory",
+        hidden: true,
+        describe: "Deprecated alias for --scope user",
         default: false,
       })
       .option("agent", {
@@ -40,12 +55,13 @@ export const initCommand: CommandModule<{}, InitArgs> = {
       })
       .example("$0 init", "Detect installed agents and create .axm/settings.json")
       .example("$0 init --yes", "Initialize with all detected agents (non-interactive)")
-      .example("$0 init --global", "Initialize in ~/.axm/ for user-wide configuration")
+      .example("$0 init --scope user", "Initialize in ~/.axm/ for user-scope configuration")
       .example("$0 init --agent claude-code --agent cursor", "Initialize with specific agents"),
   handler: async (argv) => {
+    const scope = resolveConfigurationScope(argv.scope, argv.global);
     await run(handleInit(), {
       workspace: {
-        global: argv.global,
+        global: toGlobalWorkspaceFlag(scope),
         yes: argv.yes,
         nonInteractive: Option.fromNullable(argv["non-interactive"]),
         preview: false,

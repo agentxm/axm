@@ -52,7 +52,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
           s === "@community"
             ? Effect.fail(
                 makeCliError({
-                  code: "SCOPE_REQUIRED",
+                  code: "NAMESPACE_REQUIRED",
                   what: "No namespace configured for pack creation",
                   howToFix:
                     "Configure a namespace in settings.json with `axm init`, or use --namespace",

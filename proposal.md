@@ -1028,8 +1028,7 @@ axm skills install <skill>
 
 **Flags**:
 
-- `--global`: Install to `~/.axm/` (user-wide) instead of `.axm/`
-  (project-local)
+- `--scope <project|user>`: Configuration scope (`project` default, `user` for `~/.axm/`)
 - `--agent <name>`: Target specific agents (e.g., `claude-code`, `cursor`)
 - `--skill <name>`: Install only specific skills by name
 - `--all`: Install all discovered skills

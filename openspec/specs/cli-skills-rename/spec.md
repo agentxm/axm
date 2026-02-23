@@ -7,7 +7,7 @@ The CLI SHALL provide a `rename` subcommand under `axm skills` with the syntax `
 #### Scenario: Command accepts standard flags
 
 - **WHEN** the user runs `axm skills rename <old-name> <new-name>`
-- **THEN** the command SHALL accept `--yes`, `--preview`, `--global`, and `--non-interactive` options
+- **THEN** the command SHALL accept `--yes`, `--preview`, `--scope`, and `--non-interactive` options
 
 ### Requirement: Rename handler orchestration
 

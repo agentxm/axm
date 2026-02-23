@@ -53,15 +53,15 @@ describe("skills list command", () => {
 });
 
 describe("skills list command options", () => {
-  it("defines --global option with boolean type and default false", () => {
+  it("defines --scope option with string type and default project", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof listCommand.builder === "function") {
       listCommand.builder(mockYargs);
-      expect(capturedOptions["global"]).toEqual(
+      expect(capturedOptions["scope"]).toEqual(
         expect.objectContaining({
-          type: "boolean",
-          default: false,
+          type: "string",
+          default: "project",
         }),
       );
     }
@@ -111,14 +111,14 @@ describe("skills list command parser", () => {
   it("parses with default values", async () => {
     const argv = await createParser().parse(["list"]);
 
-    expect(argv["global"]).toBe(false);
+    expect(argv["scope"]).toBe("project");
     expect(argv["agent"]).toEqual([]);
   });
 
-  it("parses --global flag", async () => {
-    const argv = await createParser().parse(["list", "--global"]);
+  it("parses --scope user", async () => {
+    const argv = await createParser().parse(["list", "--scope", "user"]);
 
-    expect(argv["global"]).toBe(true);
+    expect(argv["scope"]).toBe("user");
   });
 
   it("parses single --agent value", async () => {
@@ -139,10 +139,10 @@ describe("skills list command parser", () => {
     expect(argv["agent"]).toEqual(["claude-code", "cursor"]);
   });
 
-  it("parses --agent with --global", async () => {
-    const argv = await createParser().parse(["list", "--global", "--agent", "claude-code"]);
+  it("parses --agent with --scope user", async () => {
+    const argv = await createParser().parse(["list", "--scope", "user", "--agent", "claude-code"]);
 
-    expect(argv["global"]).toBe(true);
+    expect(argv["scope"]).toBe("user");
     expect(argv["agent"]).toEqual(["claude-code"]);
   });
 });

@@ -58,15 +58,15 @@ describe("init command options", () => {
     }
   });
 
-  it("defines --global option with boolean type and default false", () => {
+  it("defines --scope option with string type and default project", () => {
     const { mockYargs, capturedOptions } = createOptionCapturingMock();
 
     if (typeof initCommand.builder === "function") {
       initCommand.builder(mockYargs as unknown as Argv);
-      expect(capturedOptions["global"]).toEqual(
+      expect(capturedOptions["scope"]).toEqual(
         expect.objectContaining({
-          type: "boolean",
-          default: false,
+          type: "string",
+          default: "project",
         }),
       );
     }
@@ -112,14 +112,14 @@ describe("init command options", () => {
     }
   });
 
-  it("includes description for --global option", () => {
+  it("includes description for --scope option", () => {
     const { mockYargs, capturedOptions } = createOptionCapturingMock();
 
     if (typeof initCommand.builder === "function") {
       initCommand.builder(mockYargs as unknown as Argv);
-      const globalOption = capturedOptions["global"] as Options;
-      expect(globalOption.describe).toBeDefined();
-      expect(globalOption.describe).toContain("globally");
+      const scopeOption = capturedOptions["scope"] as Options;
+      expect(scopeOption.describe).toBeDefined();
+      expect(scopeOption.describe).toContain("Configuration scope");
     }
   });
 
@@ -190,16 +190,16 @@ describe("init command parser", () => {
   it("parses with default values when no options provided", async () => {
     const argv = await createParser().parse(["init"]);
 
-    expect(argv["global"]).toBe(false);
+    expect(argv["scope"]).toBe("project");
     expect(argv["yes"]).toBe(false);
     expect(argv["agent"]).toEqual([]);
     expect(argv["non-interactive"]).toBe(false);
   });
 
-  it("parses --global flag", async () => {
-    const argv = await createParser().parse(["init", "--global"]);
+  it("parses --scope user", async () => {
+    const argv = await createParser().parse(["init", "--scope", "user"]);
 
-    expect(argv["global"]).toBe(true);
+    expect(argv["scope"]).toBe("user");
   });
 
   it("parses --yes flag", async () => {
@@ -241,14 +241,15 @@ describe("init command parser", () => {
   it("parses combination of flags", async () => {
     const argv = await createParser().parse([
       "init",
-      "--global",
+      "--scope",
+      "user",
       "-y",
       "--agent",
       "claude-code",
       "--non-interactive",
     ]);
 
-    expect(argv["global"]).toBe(true);
+    expect(argv["scope"]).toBe("user");
     expect(argv["yes"]).toBe(true);
     expect(argv["agent"]).toEqual(["claude-code"]);
     expect(argv["non-interactive"]).toBe(true);

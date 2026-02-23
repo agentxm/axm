@@ -205,7 +205,7 @@ describe("packs-new.handler", () => {
   describe("no namespace configured", () => {
     it.effect("fails when no namespace is configured and no --namespace override", () => {
       const { provide } = makeLayers();
-      // No namespace in settings — DEFAULT_SCOPE is "@axm"
+      // No namespace in settings — DEFAULT_NAMESPACE is "@axm"
       initWorkspace(path.join(tempDir, ".axm"));
 
       return provide(

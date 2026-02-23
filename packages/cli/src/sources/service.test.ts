@@ -336,7 +336,8 @@ describe("SourceHostProviders dispatch", () => {
               repo: "repo",
               ref: Option.none(),
               subPath: Option.none(),
-              url: new URL("https://dev.azure.com/org/proj/_git/repo"),
+              // Use an unreachable local URL to avoid credential prompts against live hosts.
+              url: new URL("https://127.0.0.1:1/org/proj/_git/repo"),
             },
             defaultFindOptions,
           )

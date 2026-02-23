@@ -30,20 +30,20 @@ installed skills from the lockfile.
 - **THEN** the CLI displays a message indicating no skills are installed
 - **AND** exits with code 0
 
-### Requirement: Global namespace flag
+### Requirement: Scope flag
 
-The list command SHALL support a `--global` flag to read from the global lockfile
+The list command SHALL support a `--scope` flag (`project` or `user`) to select the configuration scope.
 instead of the project lockfile.
 
-#### Scenario: List global skills
+#### Scenario: List user-scope skills
 
-- **WHEN** the user runs `axm skills list --global`
-- **THEN** the CLI reads from the global `~/.axm/axm-lock.yaml`
-- **AND** displays globally installed skills
+- **WHEN** the user runs `axm skills list --scope user`
+- **THEN** the CLI reads from the user-scope `~/.axm/axm-lock.yaml`
+- **AND** displays user-scope installed skills
 
-#### Scenario: Default to project namespace
+#### Scenario: Default to project scope
 
-- **WHEN** the user runs `axm skills list` without `--global`
+- **WHEN** the user runs `axm skills list` without `--scope`
 - **THEN** the CLI reads from the project `.axm/axm-lock.yaml`
 
 ### Requirement: Agent filter flag
@@ -80,5 +80,5 @@ The list command SHALL be aliased as `ls`.
 
 #### Scenario: Alias with flags
 
-- **WHEN** the user runs `axm skills ls --global --agent claude-code`
-- **THEN** the behavior is identical to `axm skills list --global --agent claude-code`
+- **WHEN** the user runs `axm skills ls --scope user --agent claude-code`
+- **THEN** the behavior is identical to `axm skills list --scope user --agent claude-code`

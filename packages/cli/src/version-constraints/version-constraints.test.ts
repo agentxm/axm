@@ -24,7 +24,7 @@ const makeVersionEntry = (version: string): VersionEntry => ({
 // -----------------------------------------------------------------------------
 
 describe("parseVersionConstraint", () => {
-  it("returns Option.none() for a bare scoped name", () => {
+  it("returns Option.none() for a bare namespaced name", () => {
     expect(parseVersionConstraint("@namespace/name")).toEqual(Option.none());
   });
 
@@ -46,11 +46,11 @@ describe("parseVersionConstraint", () => {
     );
   });
 
-  it("returns Option.none() for unscoped bare name", () => {
+  it("returns Option.none() for non-namespaced bare name", () => {
     expect(parseVersionConstraint("name")).toEqual(Option.none());
   });
 
-  it("extracts constraint from unscoped name", () => {
+  it("extracts constraint from non-namespaced name", () => {
     expect(parseVersionConstraint("name@^2.0.0")).toEqual(Option.some("^2.0.0"));
   });
 });

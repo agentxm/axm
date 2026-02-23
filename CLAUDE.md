@@ -39,6 +39,7 @@ Use extereme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md i
 
 - `--yes` — Auto-accept all prompts (skip confirmations)
 - `--preview` — Display plan without applying (requires --yes or confirmation to apply)
+- `--non-interactive` — Suppress all prompts. Uses defaults where available; errors if a prompt is required (e.g., missing required env var with no default)
 
 ## Code Organization
 

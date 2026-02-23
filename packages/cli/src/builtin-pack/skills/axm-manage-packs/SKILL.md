@@ -15,7 +15,7 @@ axm packs install @namespace/pack-name@^2.0.0
 axm packs install @namespace/pack-name --preview
 ```
 
-**Options:** `--global`, `--yes`, `--force`, `--preview`
+**Options:** `--scope <project|user>`, `--yes`, `--force`, `--preview`
 
 ## Uninstall a Pack
 

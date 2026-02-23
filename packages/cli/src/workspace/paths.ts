@@ -2,7 +2,7 @@
  * Path utilities for axm directory resolution.
  *
  * Provides functions to determine the location of axm configuration directories
- * for both global (user-level) and project-level namespaces.
+ * for both user and project configuration scopes.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -17,11 +17,11 @@ import * as Effect from "effect/Effect";
 // -----------------------------------------------------------------------------
 
 /**
- * Returns the global axm directory path (~/.axm).
+ * Returns the user-scope axm directory path (~/.axm).
  *
- * The global directory stores user-level configuration and globally installed skills.
+ * The user-scope directory stores user-level configuration and installed skills.
  *
- * @returns Effect yielding absolute path to the global axm directory
+ * @returns Effect yielding absolute path to the user-scope axm directory
  *
  * @experimental This API is unstable and may change without notice.
  *
@@ -29,7 +29,7 @@ import * as Effect from "effect/Effect";
  * ```typescript
  * import { getGlobalDir } from "./workspace/paths";
  *
- * const globalDir = yield* getGlobalDir();
+ * const userScopeDir = yield* getGlobalDir();
  * // => "/Users/username/.axm" (macOS/Linux)
  * // => "C:\\Users\\username\\.axm" (Windows)
  * ```
@@ -65,12 +65,12 @@ export const getProjectDir = (): Effect.Effect<string, never, Path.Path> =>
   });
 
 /**
- * Returns the axm directory path based on namespace.
+ * Returns the axm directory path based on configuration scope.
  *
- * - When `global` is true, returns the global directory (~/.axm)
+ * - When `global` is true, returns the user-scope directory (~/.axm)
  * - When `global` is false, returns the project directory (./.axm)
  *
- * @param global - Whether to use global namespace (true) or project namespace (false)
+ * @param global - Whether to use user scope (true) or project scope (false)
  * @returns Effect yielding absolute path to the appropriate axm directory
  *
  * @experimental This API is unstable and may change without notice.
@@ -83,8 +83,8 @@ export const getProjectDir = (): Effect.Effect<string, never, Path.Path> =>
  * const projectDir = yield* getAxmDir(false);
  * // => "/path/to/project/.axm"
  *
- * // Global directory
- * const globalDir = yield* getAxmDir(true);
+ * // User-scope directory
+ * const userScopeDir = yield* getAxmDir(true);
  * // => "/Users/username/.axm"
  * ```
  */

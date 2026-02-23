@@ -96,15 +96,15 @@ describe("skills rename command positionals", () => {
 });
 
 describe("skills rename command options", () => {
-  it("defines --global option with boolean type and default false", () => {
+  it("defines --scope option with string type and default project", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof renameCommand.builder === "function") {
       renameCommand.builder(mockYargs);
-      expect(capturedOptions["global"]).toEqual(
+      expect(capturedOptions["scope"]).toEqual(
         expect.objectContaining({
-          type: "boolean",
-          default: false,
+          type: "string",
+          default: "project",
         }),
       );
     }
@@ -196,14 +196,20 @@ describe("skills rename command parser", () => {
 
   it("parses with default values when no options provided", async () => {
     const argv = await createParser().parse(["rename", "old-skill", "new-skill"]);
-    expect(argv["global"]).toBe(false);
+    expect(argv["scope"]).toBe("project");
     expect(argv["yes"]).toBe(false);
     expect(argv["preview"]).toBe(false);
   });
 
-  it("parses --global flag", async () => {
-    const argv = await createParser().parse(["rename", "old-skill", "new-skill", "--global"]);
-    expect(argv["global"]).toBe(true);
+  it("parses --scope user", async () => {
+    const argv = await createParser().parse([
+      "rename",
+      "old-skill",
+      "new-skill",
+      "--scope",
+      "user",
+    ]);
+    expect(argv["scope"]).toBe("user");
   });
 
   it("parses --yes flag", async () => {
@@ -226,13 +232,14 @@ describe("skills rename command parser", () => {
       "rename",
       "old-skill",
       "new-skill",
-      "--global",
+      "--scope",
+      "user",
       "-y",
       "--preview",
     ]);
     expect(argv["old-name"]).toBe("old-skill");
     expect(argv["new-name"]).toBe("new-skill");
-    expect(argv["global"]).toBe(true);
+    expect(argv["scope"]).toBe("user");
     expect(argv["yes"]).toBe(true);
     expect(argv["preview"]).toBe(true);
   });

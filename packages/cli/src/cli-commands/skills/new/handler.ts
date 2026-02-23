@@ -73,7 +73,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
           s === "@community"
             ? Effect.fail(
                 makeCliError({
-                  code: "SCOPE_REQUIRED",
+                  code: "NAMESPACE_REQUIRED",
                   what: "No namespace configured for skill creation",
                   howToFix:
                     "Configure a namespace in settings.json with `axm init`, or use --namespace",

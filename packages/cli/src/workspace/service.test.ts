@@ -894,7 +894,7 @@ describe("WorkspaceContextService", () => {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
         });
-        // No global settings (readSettingsSafe returns defaults)
+        // No user-scope settings (readSettingsSafe returns defaults)
 
         const ws = yield* getService(defaultOptions);
         const namespace = yield* ws.getConfiguredNamespace();

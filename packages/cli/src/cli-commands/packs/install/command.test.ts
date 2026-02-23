@@ -78,15 +78,15 @@ describe("packs install command positional", () => {
 });
 
 describe("packs install command options", () => {
-  it("defines --global option with boolean type and default false", () => {
+  it("defines --scope option with string type and default project", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installPackCommand.builder === "function") {
       installPackCommand.builder(mockYargs);
-      expect(capturedOptions["global"]).toEqual(
+      expect(capturedOptions["scope"]).toEqual(
         expect.objectContaining({
-          type: "boolean",
-          default: false,
+          type: "string",
+          default: "project",
         }),
       );
     }
@@ -181,15 +181,15 @@ describe("packs install command parser", () => {
 
   it("parses with default values when no options provided", async () => {
     const argv = await createParser().parse(["install", "@acme/packs/my-pack"]);
-    expect(argv["global"]).toBe(false);
+    expect(argv["scope"]).toBe("project");
     expect(argv["yes"]).toBe(false);
     expect(argv["force"]).toBe(false);
     expect(argv["preview"]).toBe(false);
   });
 
-  it("parses --global flag", async () => {
-    const argv = await createParser().parse(["install", "@acme/packs/my-pack", "--global"]);
-    expect(argv["global"]).toBe(true);
+  it("parses --scope user", async () => {
+    const argv = await createParser().parse(["install", "@acme/packs/my-pack", "--scope", "user"]);
+    expect(argv["scope"]).toBe("user");
   });
 
   it("parses --yes flag", async () => {
@@ -221,13 +221,14 @@ describe("packs install command parser", () => {
     const argv = await createParser().parse([
       "install",
       "@acme/packs/my-pack",
-      "--global",
+      "--scope",
+      "user",
       "-y",
       "-f",
       "--preview",
     ]);
     expect(argv["source"]).toBe("@acme/packs/my-pack");
-    expect(argv["global"]).toBe(true);
+    expect(argv["scope"]).toBe("user");
     expect(argv["yes"]).toBe(true);
     expect(argv["force"]).toBe(true);
     expect(argv["preview"]).toBe(true);

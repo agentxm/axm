@@ -103,7 +103,7 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
         Effect.map((namespace) => formatFqn({ namespace, type: "packs", name: args.pack })),
         Effect.mapError((e) =>
           makeCliError({
-            code: "SCOPE_RESOLUTION_FAILED",
+            code: "NAMESPACE_RESOLUTION_FAILED",
             what: `Failed to resolve namespace: ${e._tag}`,
             howToFix: "Configure a namespace in your settings with `axm init`.",
             cause: e,

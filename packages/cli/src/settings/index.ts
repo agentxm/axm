@@ -44,7 +44,7 @@ export { collapseSkillEntry, getSkillEntrySource, normalizeSkillEntry } from "./
 // Settings I/O
 export {
   createDefaultSettings,
-  DEFAULT_SCOPE,
+  DEFAULT_NAMESPACE,
   orderSettingsKeys,
   readSettings,
   SETTINGS_FILENAME,

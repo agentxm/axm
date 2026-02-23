@@ -13,15 +13,15 @@ The CLI SHALL provide an `init` command that creates WorkspaceContext to trigger
 #### Scenario: First-time project initialization
 
 - **WHEN** the user runs `axm init` in a directory without `.axm/`
-- **THEN** the CLI SHALL detect agents by checking both project-level directories (first segment of each agent's `skills.dir` in cwd) and global directories (`~/.{agent-id}` in home)
+- **THEN** the CLI SHALL detect agents by checking both project-level directories (first segment of each agent's `skills.dir` in cwd) and user-level directories (`~/.{agent-id}` in home)
 - **AND** SHALL present a multiselect of all registered agents with detected agents pre-selected
 - **AND** SHALL write selected agents to `.axm/settings.json`
 - **AND** SHALL materialize the `@axm/cli` builtin pack skills into the workspace
 - **AND** SHALL record the builtin pack and its skills in the lockfile
 
-#### Scenario: First-time global initialization
+#### Scenario: First-time user-scope initialization
 
-- **WHEN** the user runs `axm init --global` without `~/.axm/`
+- **WHEN** the user runs `axm init --scope user` without `~/.axm/`
 - **THEN** the CLI creates WorkspaceContext layer which creates empty settings and lockfile
 - **AND** SHALL materialize the `@axm/cli` builtin pack skills into the workspace
 
@@ -33,12 +33,12 @@ The CLI SHALL provide an `init` command that creates WorkspaceContext to trigger
 #### Scenario: Non-interactive initialization
 
 - **WHEN** the user runs `axm init --yes`
-- **THEN** the CLI SHALL auto-select all detected agents (project-level + global) without prompting
+- **THEN** the CLI SHALL auto-select all detected agents (project-level + user-level) without prompting
 - **AND** SHALL materialize the `@axm/cli` builtin pack skills into the workspace
 
 #### Scenario: No agents detected
 
-- **WHEN** the user runs `axm init` in a directory without agent config directories and no matching global directories
+- **WHEN** the user runs `axm init` in a directory without agent config directories and no matching user-level directories
 - **THEN** the CLI SHALL present a multiselect of all registered agents with none pre-selected
 - **AND** SHALL materialize the `@axm/cli` builtin pack skills into the workspace after agent selection
 
@@ -46,9 +46,9 @@ The CLI SHALL provide an `init` command that creates WorkspaceContext to trigger
 
 The CLI SHALL support flags for controlling initialization behavior.
 
-#### Scenario: Global flag
+#### Scenario: Scope flag
 
-- **WHEN** the user runs `axm init --global`
+- **WHEN** the user runs `axm init --scope user`
 - **THEN** WorkspaceContext is created with `global=true`
 
 #### Scenario: Yes flag
@@ -91,7 +91,7 @@ The system SHALL detect installed agents by checking two locations per agent.
 - **THEN** the system SHALL check if the first path segment of each agent's `skills.dir` exists as a directory in cwd
 - **AND** SHALL mark matching agents as detected
 
-#### Scenario: Global detection
+#### Scenario: User-level detection
 
 - **WHEN** detecting agents for a project directory
 - **THEN** the system SHALL also check if `~/.{agent-id}` exists as a directory in the user's home
@@ -99,7 +99,7 @@ The system SHALL detect installed agents by checking two locations per agent.
 
 #### Scenario: Combined detection
 
-- **WHEN** an agent matches either project-level or global detection
+- **WHEN** an agent matches either project-level or user-level detection
 - **THEN** the agent SHALL be considered detected (logical OR)
 
 #### Scenario: Shared skills directory

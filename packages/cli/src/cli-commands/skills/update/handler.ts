@@ -48,7 +48,7 @@ import {
 export interface UpdateHandlerArgs {
   /** Optional source to filter skills by */
   readonly source: Option.Option<string>;
-  /** Use global workspace */
+  /** Use user-scope workspace */
   readonly global: boolean;
   /** Target agent(s) */
   readonly agents: readonly string[];
@@ -86,7 +86,7 @@ export interface UpdateHandlerArgs {
  * @experimental This API is unstable and may change without notice.
  */
 export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHandlerArgs) {
-  const scopeLabel = args.global ? "global" : "project";
+  const scopeLabel = args.global ? "user" : "project";
 
   const ws = yield* Workspace;
   const sources = yield* SourceHostProviders;

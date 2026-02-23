@@ -13,9 +13,13 @@ We need a single, strict classification model so workspace behavior is predictab
   - `External` as a derived contributor-facing set: all non-native extensions
   - `packs` are native-only
 - **BREAKING**: remove `managed: false` from skill entry schema. `settings.skills` will only represent configured managed entries (string/object forms).
-- **BREAKING**: reject legacy `settings.skills.<name> = { managed: false }` entries at validation time.
 - Add ignored pattern support in settings with simple glob matching (`*`) for extension names (for example, `ignored.skills: ["openspec-*"]`).
 - Align command behavior and workspace APIs with the new taxonomy so state checks no longer depend on `managed: false` markers.
+
+## Explicit Non-Goal
+
+- Backward compatibility for legacy settings/behavior is not a goal of this change.
+- Legacy migration/remediation behavior is out of scope.
 
 ### Taxonomy (Normative)
 
@@ -27,7 +31,7 @@ Classification is defined per extension type (`skills`, `commands`, `mcpServers`
 - `I` (Ignored): extensions explicitly marked ignored in settings.
 - `E` (Extensions): all unignored detected extensions, `E = D \ I`.
 - `C` (Configured): explicit non-ignore entries in settings.
-- `P` (Implicit): installed extensions with no settings entry.
+- `P` (Implicit): installed **native** extensions with no settings entry.
 - `U` (Unmanaged): detected, unignored, not configured, and not implicit, `U = E \ (C ∪ P)`.
 - `Installed`: `C ∪ P`.
 - `Managed`: alias of `Installed` (no separate flag).
@@ -38,6 +42,7 @@ Classification is defined per extension type (`skills`, `commands`, `mcpServers`
 - `U ∩ Installed = ∅`
 - `E = C ⊎ P ⊎ U` (disjoint union)
 - `Ignored` entries are excluded from all lifecycle classes in `E`
+- `P ⊆ { e ∈ E | packagingKind = native }`
 - `enabled/disabled` is a state on configured entries only; it does not define lifecycle class
 
 #### Orthogonal Source Classification
@@ -70,7 +75,7 @@ Use this glossary in contributor-facing docs.
 - `Extensions`: all detected extensions except ignored ones.
 - `Ignored extensions`: extensions explicitly ignored in settings; ignored items are excluded from normal workspace extension lists and lifecycle classes.
 - `Configured`: extensions with explicit non-ignore entries in settings.
-- `Implicit`: installed extensions with no settings entry (for example builtin defaults or pack-provided dependencies).
+- `Implicit`: installed native extensions with no settings entry (typically builtin defaults and pack-provided dependencies).
 - `Installed`: everything currently installed (`Configured` + `Implicit`).
 - `Managed`: same as `Installed` in this model (there is no separate managed flag).
 - `Unmanaged`: detected and not ignored, but neither configured nor implicit installed.
@@ -109,4 +114,4 @@ Classification notes for contributors:
 - Workspace classification/query methods (`packages/cli/src/workspace/service.ts`)
 - Skills command handlers that branch on `entry.managed` semantics (`enable`, `disable`, `rename`, `uninstall`, `fork`, `publish`)
 - Specs and docs that currently reference unmanaged settings markers
-- Breaking validation behavior for existing `settings.json` files that still use `skills.<name> = { managed: false }`
+- Legacy compatibility behavior is intentionally unspecified and out of scope.

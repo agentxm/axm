@@ -157,6 +157,7 @@ Introduce explicit `CliError` codes for taxonomy validation/classification paths
 
 - `SETTINGS_IGNORED_PATTERN_INVALID` — ignored pattern is empty/invalid after normalization.
 - `SETTINGS_IGNORED_CONFIG_CONFLICT` — configured entry matches an ignored pattern.
+- `WORKSPACE_CLASSIFIER_NON_NATIVE_LOCKFILE_ONLY` — lockfile-only entry resolves to `packagingKind = "non-native"` (invalid; implicit is native-only).
 - `WORKSPACE_CLASSIFIER_UNSUPPORTED_TYPE` — unsupported/unknown `ExtensionType` passed to classifier adapter.
 - `WORKSPACE_EXTENSION_NAME_COLLISION` — implicit→configured promotion detects conflicting configured key/source.
 
@@ -185,10 +186,10 @@ interface ClassifiedExtension {
 interface ClassifierInput {
   readonly type: ClassifierExtensionType;
   readonly configured: Readonly<
-    Record<string, { readonly source: Option.Option<string>; readonly enabled: boolean }>
+    Record<string, { readonly source: string; readonly enabled: boolean }>
   >;
   readonly lockedNames: ReadonlyArray<string>;
-  readonly detectedNames: ReadonlyArray<string>; // phase 1: skills include disk detection; others use settings+lockfile names
+  readonly detectedNames: ReadonlyArray<string>; // phase 1: skills include disk detection; non-skill types pass [] (settings+lockfile are modeled via configured/lockedNames)
   readonly ignoredPatterns: ReadonlyArray<string>;
   readonly sourceMetaByName: Readonly<
     Record<string, { readonly packagingKind: PackagingKind; readonly isBuiltIn: boolean }>
@@ -211,6 +212,16 @@ const classifyExtensions = (input: ClassifierInput): ReadonlyArray<ClassifiedExt
       isBuiltIn: false,
     } as const);
   const configuredNames = new Set(Object.keys(input.configured));
+  const invalidLockfileOnlyNonNative = Array.filter(
+    input.lockedNames,
+    (name) =>
+      !configuredNames.has(name) &&
+      !isIgnoredName(input.ignoredPatterns, name) &&
+      sourceMetaFor(name).packagingKind !== "native",
+  );
+  if (invalidLockfileOnlyNonNative.length > 0) {
+    throw new Error("WORKSPACE_CLASSIFIER_NON_NATIVE_LOCKFILE_ONLY");
+  }
   const implicitNames = new Set(
     Array.filter(
       input.lockedNames,
@@ -237,7 +248,7 @@ const classifyExtensions = (input: ClassifierInput): ReadonlyArray<ClassifiedExt
       return {
         type: input.type,
         name,
-        source: entry.source,
+        source: Option.some(entry.source),
         enabled: entry.enabled,
         packagingKind: sourceMeta.packagingKind,
         isBuiltIn: sourceMeta.isBuiltIn,
@@ -301,7 +312,7 @@ const getClassifiedExtensions = (type: ClassifierExtensionType) =>
         const configured = Object.fromEntries(
           Object.entries(settings.commands ?? {}).map(([name, source]) => [
             name,
-            { source: Option.some(source), enabled: true },
+            { source, enabled: true },
           ]),
         );
         return classifyExtensions({
@@ -317,7 +328,7 @@ const getClassifiedExtensions = (type: ClassifierExtensionType) =>
         const configured = Object.fromEntries(
           Object.entries(settings.mcpServers ?? {}).map(([name, source]) => [
             name,
-            { source: Option.some(source), enabled: true },
+            { source, enabled: true },
           ]),
         );
         return classifyExtensions({
@@ -387,7 +398,8 @@ For commands/MCP/packs:
 
 Phase-1 assumption:
 
-- Non-skill implicit candidates are expected to be native (pack dependencies / builtin sources). Non-native lockfile-only non-skill entries are not promoted to `Implicit` in this phase.
+- Non-skill implicit candidates are expected to be native (pack dependencies / builtin sources).
+- Non-native lockfile-only entries are invalid in this model and fail fast with `WORKSPACE_CLASSIFIER_NON_NATIVE_LOCKFILE_ONLY`.
 
 `Managed` is derived alias of `Installed` and not stored.
 
@@ -403,7 +415,7 @@ Extension-agnostic contract (target shape):
 - `getImplicitExtensions(type)`
 - `getUnmanagedExtensions(type)`
 - `getInstalledExtensions(type)`
-- `getIgnoredExtensions(type)`
+- `getIgnoredPatterns(type)`
 - `getConfiguredExternalExtensions(type)`
 - `getUnmanagedExternalExtensions(type)`
 - `getExtensions(type)`
@@ -451,7 +463,8 @@ Add a dedicated unit test suite for the shared classifier module. Tests must ass
 
 - `configured only` yields configured + installed
 - `implicit only` yields implicit + installed
-- `implicit requires native source metadata` (`packagingKind = "native"`); non-native lockfile-only rows are excluded from implicit
+- `implicit requires native source metadata` (`packagingKind = "native"`)
+- `non-native lockfile-only` returns classifier failure (`WORKSPACE_CLASSIFIER_NON_NATIVE_LOCKFILE_ONLY`)
 - `configured + implicit` keeps sets disjoint and installed as union
 - `ignored exact match` excludes names from installed and unmanaged
 - `ignored glob` supports simple `*` with full-name anchoring (`openspec-*` matches `openspec-core`, not `core-openspec`)
@@ -688,6 +701,10 @@ interface WorkspaceContextService {
     Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
     CliError
   >;
+  readonly getUnmanagedCommands: () => Effect.Effect<
+    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
+    CliError
+  >; // empty in phase 1
   readonly getUnmanagedExternalCommands: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
     CliError
@@ -714,6 +731,10 @@ interface WorkspaceContextService {
     Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
     CliError
   >;
+  readonly getUnmanagedMcpServers: () => Effect.Effect<
+    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
+    CliError
+  >; // empty in phase 1
   readonly getUnmanagedExternalMcpServers: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
     CliError
@@ -740,6 +761,10 @@ interface WorkspaceContextService {
     Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
     CliError
   >; // expected empty by invariant
+  readonly getUnmanagedPacks: () => Effect.Effect<
+    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
+    CliError
+  >; // empty in phase 1
   readonly getUnmanagedExternalPacks: () => Effect.Effect<
     Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
     CliError
@@ -755,13 +780,13 @@ Added methods:
 - `getImplicitSkills`, `getUnmanagedSkills`, `getClassifiedSkills`
 - `getConfiguredExternalSkills`, `getUnmanagedExternalSkills`
 - `getIgnoredSkillPatterns`
-- `getImplicitCommands`, `getInstalledCommands`, `getClassifiedCommands`
+- `getImplicitCommands`, `getUnmanagedCommands` (empty in phase 1), `getInstalledCommands`, `getClassifiedCommands`
 - `getConfiguredExternalCommands`, `getUnmanagedExternalCommands`
 - `getIgnoredCommandPatterns`
-- `getImplicitMcpServers`, `getInstalledMcpServers`, `getClassifiedMcpServers`
+- `getImplicitMcpServers`, `getUnmanagedMcpServers` (empty in phase 1), `getInstalledMcpServers`, `getClassifiedMcpServers`
 - `getConfiguredExternalMcpServers`, `getUnmanagedExternalMcpServers`
 - `getIgnoredMcpServerPatterns`
-- `getImplicitPacks`, `getClassifiedPacks`
+- `getImplicitPacks`, `getUnmanagedPacks` (empty in phase 1), `getClassifiedPacks`
 - `getConfiguredExternalPacks`, `getUnmanagedExternalPacks`
 - `getIgnoredPackPatterns`
 
@@ -877,7 +902,8 @@ Rationale:
    - Add dedicated classifier unit tests for normative taxonomy scenarios, error codes, deterministic ordering, source metadata derivation precedence, and invariants across all `ExtensionType` values.
 
 3. **Skill command updates**
-   - Refactor `enable`, `disable`, `rename`, `uninstall`, `update`, `fork`, `publish`, `resolve-source-pattern`.
+   - Refactor `enable`, `disable`, `rename`, `uninstall`, `update`, `fork`, `publish`, `resolve-source`, `resolve-source-pattern`.
+   - Update `resolve-source` and `resolve-source-pattern` configured skill source from `Option<string>` to `string` semantics.
    - Remove unmanaged-marker-specific branches/messages.
    - Add collision guard during implicit promotion.
 
@@ -891,6 +917,7 @@ Rationale:
      - `cli-skills-fork`
      - `skills-fork`
      - `cli-skills-publish-glob`
+     - `cli-skills-update`
 
 5. **Test and cleanup**
    - Replace unmanaged marker fixtures with ignored fixtures where relevant.
@@ -910,6 +937,7 @@ Rollback approach:
 
 - `ignored` remains internal in this change (no new dedicated ignore CLI commands); list/install/update flows consume classifier output and therefore naturally exclude ignored entries.
 - Backward compatibility and migration for legacy marker-based settings are explicitly out of scope for this change.
+- Lockfile-only non-native entries are treated as invalid classifier input and fail fast.
 - Unmanaged discovery remains skills-only in this change; `command` / `mcp-server` / `pack` unmanaged sets stay empty until explicit follow-up detection work.
 - Phase-1 detected sets are lockfile+settings for `command`/`mcp-server`/`pack`, and lockfile+settings+disk detection for `skill`.
 - Short-name collisions are fail-fast with `WORKSPACE_EXTENSION_NAME_COLLISION`; no interactive rename path in this change.

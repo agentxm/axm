@@ -13,6 +13,7 @@ export interface PacksNewCommandArgs {
   name: string;
   namespace: string | undefined;
   yes: boolean;
+  preview: boolean;
   "non-interactive": boolean | undefined;
 }
 
@@ -37,6 +38,11 @@ export const packsNewCommand: CommandModule<{}, PacksNewCommandArgs> = {
         describe: "Skip confirmation prompts",
         default: false,
       })
+      .option("preview", {
+        type: "boolean",
+        describe: "Display plan without applying",
+        default: false,
+      })
       .option("non-interactive", {
         type: "boolean",
         describe: "Disable all interactive prompts",
@@ -55,7 +61,7 @@ export const packsNewCommand: CommandModule<{}, PacksNewCommandArgs> = {
           global: false,
           yes: argv.yes,
           nonInteractive: Option.fromNullable(argv["non-interactive"]),
-          preview: false,
+          preview: argv.preview,
           agents: Option.none(),
         },
       },

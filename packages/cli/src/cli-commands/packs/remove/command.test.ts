@@ -64,10 +64,41 @@ describe("packs remove command", () => {
     expect(capturedOptions["yes"]?.default).toBe(false);
   });
 
+  it("defines --preview flag with default false", () => {
+    const { mockYargs, capturedOptions } = createCapturingMock();
+    (packsRemoveCommand.builder as (yargs: Argv) => Argv)(mockYargs);
+    expect(capturedOptions["preview"]).toBeDefined();
+    expect(capturedOptions["preview"]?.type).toBe("boolean");
+    expect(capturedOptions["preview"]?.default).toBe(false);
+  });
+
   it("defines --non-interactive flag as optional boolean", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
     (packsRemoveCommand.builder as (yargs: Argv) => Argv)(mockYargs);
     expect(capturedOptions["non-interactive"]).toBeDefined();
     expect(capturedOptions["non-interactive"]?.type).toBe("boolean");
+  });
+});
+
+describe("packs remove command parser", () => {
+  const createParser = () =>
+    yargs()
+      .command({
+        command: packsRemoveCommand.command,
+        describe: packsRemoveCommand.describe,
+        builder: packsRemoveCommand.builder,
+        handler: () => {},
+      })
+      .exitProcess(false)
+      .fail(false);
+
+  it("parses --preview flag", async () => {
+    const argv = await createParser().parse(["remove", "my-pack", "some-ext", "--preview"]);
+    expect(argv["preview"]).toBe(true);
+  });
+
+  it("defaults --preview to false", async () => {
+    const argv = await createParser().parse(["remove", "my-pack", "some-ext"]);
+    expect(argv["preview"]).toBe(false);
   });
 });

@@ -14,3 +14,5 @@ export type { DisableSkillOperation } from "./disable.js";
 export { disableSkill } from "./disable.js";
 export type { RenameSkillOperation } from "./rename.js";
 export { renameSkill } from "./rename.js";
+export type { NewSkillOperationArgs, NewSkillOperation } from "./new-skill.js";
+export { newSkill } from "./new-skill.js";

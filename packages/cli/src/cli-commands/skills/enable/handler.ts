@@ -8,7 +8,6 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -57,16 +56,7 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     return;
   }
 
-  // Check if this is a promoted transitive skill (no lock entry)
-  const lockEntry = yield* ws.getLockedSkill(args.name);
-  if (Option.isNone(lockEntry)) {
-    // Promoted transitive skill — just update settings entry
-    yield* ws.updateSkillEntry(args.name, (e) => ({ ...e, enabled: true }));
-    yield* log.success("Done");
-    return;
-  }
-
-  // Build operation
+  // Build operation — operation handles both lock-backed and settings-only paths
   const op = {
     name: "enable-skill",
     args: { skillName: args.name },

@@ -326,6 +326,43 @@ describe("skills-new.handler", () => {
     });
   });
 
+  describe("preview mode", () => {
+    it.effect("performs no writes when preview mode is active", () => {
+      const { provide, mockLog } = makeLayers({ preview: true, yes: false });
+      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme", agents: ["claude-code"] });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSkillsNew(defaultArgs("my-skill", { yes: false }));
+
+          // Manifest should NOT be created
+          const manifestPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@acme",
+            "skills",
+            "my-skill",
+            "axm-skill.json",
+          );
+          expect(fs.existsSync(manifestPath)).toBe(false);
+
+          // Settings should NOT have the skill registered
+          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+          expect(settings.skills?.["my-skill"]).toBeUndefined();
+
+          // Agent symlink should NOT exist
+          const symlinkPath = path.join(tempDir, ".claude", "skills", "my-skill");
+          expect(fs.existsSync(symlinkPath)).toBe(false);
+
+          // Preview log message should appear
+          expect(mockLog.logs.info.some((m) => m.includes("Previewing"))).toBe(true);
+        }),
+      );
+    });
+  });
+
   describe("agent symlinks", () => {
     it.effect("creates symlinks for all configured agents", () => {
       const { provide } = makeLayers();

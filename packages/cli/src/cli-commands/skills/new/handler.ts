@@ -1,22 +1,18 @@
 /**
- * Skills new handler — scaffolds a new skill with `axm-skill.json`, `SKILL.md`,
- * registers in settings, and creates agent symlinks.
+ * Skills new handler — validates input, resolves namespace and agents,
+ * builds a single-step plan, and executes via `ws.resolvePlan()`.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as FileSystem from "@effect/platform/FileSystem";
-import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { getAgentById } from "../../../agents/index.js";
 import { makeCliError } from "../../../cli-error/index.js";
-import type { SkillManifest } from "../../../extensions/skills/manifest-schema.js";
+import type { NewSkillOperation } from "../../../extensions/skills/operations/new-skill.js";
+import { newSkill } from "../../../extensions/skills/operations/new-skill.js";
 import { Log } from "../../../tui/index.js";
-import { createSymlink } from "../../../utils/create-symlink.js";
 import { Workspace } from "../../../workspace/index.js";
-import { MANIFEST_FILENAME } from "../../../extensions/skills/manifest-schema.js";
-import { computeSkillPaths } from "../../../extensions/skills/paths.js";
+import { buildSingleStepPlan } from "../plan-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -42,15 +38,6 @@ export interface SkillsNewHandlerArgs {
 
 const normalizeNamespace = (s: string) => (s.startsWith("@") ? s : `@${s}`);
 
-const makeSkillMd = (name: string) =>
-  `---
-name: ${name}
-description: A new skill
----
-
-Describe what this skill does and when to use it.
-`;
-
 // -----------------------------------------------------------------------------
 // Main Handler
 // -----------------------------------------------------------------------------
@@ -59,8 +46,6 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
   args: SkillsNewHandlerArgs,
 ) {
   const ws = yield* Workspace;
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
   const log = yield* Log;
 
   yield* log.info("axm skills new");
@@ -100,9 +85,6 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     });
   }
 
-  const fqn = `${namespace}/skills/${args.name}`;
-  const base = ws.baseDir;
-
   // 3. Check existence
   const configuredSkills = yield* ws.getConfiguredSkills();
   if (args.name in configuredSkills) {
@@ -113,79 +95,25 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     });
   }
 
-  // 4. Compute paths
-  const { canonicalPath, skillSrcPath } = computeSkillPaths(
-    path.join,
-    base,
-    { refType: "registry", namespace },
-    args.name,
-  );
+  // 4. Resolve agents
+  const agents = Option.isSome(args.agents) ? args.agents.value : yield* ws.getConfiguredAgents();
 
-  // 5. Create directory (src/ implies canonicalPath is also created)
-  yield* fs.makeDirectory(skillSrcPath, { recursive: true }).pipe(
-    Effect.mapError((e) =>
-      makeCliError({
-        code: "SKILL_CREATE_FAILED",
-        what: `Failed to create skill directory: ${skillSrcPath}`,
-        cause: e,
-      }),
-    ),
-  );
+  // 5. Build operation
+  const op = {
+    name: "new-skill",
+    args: { name: args.name, namespace, agents: [...agents] },
+  } satisfies NewSkillOperation;
 
-  // 6. Write manifest
-  const manifest: SkillManifest = {
-    name: fqn,
-    version: "0.0.1",
-  };
-
-  yield* fs
-    .writeFileString(
-      path.join(canonicalPath, MANIFEST_FILENAME),
-      JSON.stringify(manifest, null, 2) + "\n",
-    )
-    .pipe(
-      Effect.mapError((e) =>
-        makeCliError({
-          code: "SKILL_CREATE_FAILED",
-          what: `Failed to write skill manifest`,
-          cause: e,
-        }),
-      ),
-    );
-
-  // 7. Write starter SKILL.md
-  yield* fs.writeFileString(path.join(skillSrcPath, "SKILL.md"), makeSkillMd(args.name)).pipe(
-    Effect.mapError((e) =>
-      makeCliError({
-        code: "SKILL_CREATE_FAILED",
-        what: `Failed to write SKILL.md`,
-        cause: e,
-      }),
-    ),
-  );
-
-  // 8. Register in settings
-  yield* ws.setSkillEntry(args.name, {
-    source: fqn,
-    enabled: true,
+  // 6. Build and resolve single-step plan
+  const fqn = `${namespace}/skills/${args.name}`;
+  const plan = buildSingleStepPlan({
+    operation: op,
+    name: "New skill",
+    description: `Create ${fqn}`,
+    label: fqn,
   });
 
-  // 9. Resolve agents
-  const agentIds = Option.isSome(args.agents) ? args.agents.value : yield* ws.getConfiguredAgents();
-
-  // 10. Create symlinks
-  yield* Effect.forEach(
-    agentIds,
-    (agentId) =>
-      Effect.gen(function* () {
-        const maybeAgent = getAgentById(agentId);
-        if (Option.isNone(maybeAgent)) return;
-        const agent = maybeAgent.value;
-        const link = path.join(base, agent.skills.dir, args.name);
-        yield* createSymlink({ target: skillSrcPath, link });
-      }),
-    { concurrency: "unbounded" },
-  );
+  yield* ws.resolvePlan(plan, { "new-skill": newSkill });
 
   yield* log.success(`Created skill ${fqn}`);
 });

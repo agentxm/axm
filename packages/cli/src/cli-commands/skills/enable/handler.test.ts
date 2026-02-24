@@ -278,6 +278,44 @@ describe("enable.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Settings-only enable (no lock entry)
+  // ---------------------------------------------------------------------------
+
+  describe("settings-only enable (no lock entry)", () => {
+    it.effect("enables a configured-disabled skill with no lockfile entry", () => {
+      const { provide, mockLog } = makeLayers();
+      // Skill in settings as disabled but not in lockfile
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        {
+          "my-skill": {
+            source: "@acme/skills/my-skill",
+            enabled: false,
+          },
+        },
+        {},
+        ["claude-code"],
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleEnable(defaultArgs("my-skill"));
+
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+
+          // Settings should show re-enabled (collapsed to string form)
+          const settingsContent = fs.readFileSync(
+            path.join(tempDir, ".axm", "settings.json"),
+            "utf-8",
+          );
+          const settings = JSON.parse(settingsContent);
+          expect(settings.skills?.["my-skill"]).toBe("@acme/skills/my-skill");
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
   // Plan building and execution
   // ---------------------------------------------------------------------------
 

@@ -1,8 +1,9 @@
 /**
  * Enable skill executor — re-creates agent symlinks for a previously disabled skill.
  *
- * Pipeline: read state → verify canonical dir exists → create symlinks →
- * update lock agents → update settings entry.
+ * Two paths:
+ * - Lock entry present: full enable (symlinks + lock agents + settings)
+ * - No lock entry: settings-only toggle (configured skill with no lock backing)
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -38,12 +39,16 @@ export type EnableSkillOperation = Operation<"enable-skill", { readonly skillNam
 /**
  * Enable-skill operation handler.
  *
+ * Lock-backed path:
  * 1. Read configured agents, lock entry
  * 2. Compute canonical path via getSkillDir (uses lockfile)
  * 3. Verify canonical directory exists
  * 4. Create agent symlinks (concurrent)
  * 5. Update lock agents
  * 6. Update settings entry to set enabled: true
+ *
+ * Settings-only path (no lock entry):
+ * 1. Update settings entry to set enabled: true
  */
 export const enableSkill: OperationHandler<
   EnableSkillOperation,
@@ -55,15 +60,27 @@ export const enableSkill: OperationHandler<
     const ws = yield* Workspace;
     const base = ws.baseDir;
 
-    const sanitizedName = sanitizeName(op.args.skillName);
+    // Check for lock entry to determine path
+    const lockEntry = yield* ws.getLockedSkill(op.args.skillName);
 
-    // 1. Read workspace state
+    // Settings-only path: no lock entry, just toggle enabled flag
+    if (Option.isNone(lockEntry)) {
+      yield* ws
+        .updateSkillEntry(op.args.skillName, (e) => ({ ...e, enabled: true }))
+        .pipe(Effect.catchAll(() => Effect.void));
+
+      return {
+        result: "success",
+        message: `Enabled ${op.args.skillName}`,
+      } satisfies OperationResult;
+    }
+
+    // Lock-backed path: full enable with symlinks
+    const sanitizedName = sanitizeName(op.args.skillName);
     const configuredAgents = yield* ws.getConfiguredAgents();
 
-    // 2. Compute canonical path via getSkillDir (name-only mode — uses lockfile)
     const { skillSrcPath } = yield* ws.getSkillDir(op.args.skillName);
 
-    // 3. Verify canonical directory exists
     const exists = yield* fs
       .exists(skillSrcPath)
       .pipe(Effect.catchAll(() => Effect.succeed(false)));
@@ -75,7 +92,6 @@ export const enableSkill: OperationHandler<
       });
     }
 
-    // 4. Create agent symlinks (concurrent)
     yield* Effect.forEach(
       configuredAgents,
       (agentId) => {
@@ -95,12 +111,10 @@ export const enableSkill: OperationHandler<
       { concurrency: "unbounded" },
     );
 
-    // 5. Update lock agents
     yield* ws
       .updateLockEntryAgents(op.args.skillName, configuredAgents)
       .pipe(Effect.catchAll(() => Effect.void));
 
-    // 6. Update settings entry to set enabled: true
     yield* ws
       .updateSkillEntry(op.args.skillName, (e) => ({ ...e, enabled: true }))
       .pipe(Effect.catchAll(() => Effect.void));

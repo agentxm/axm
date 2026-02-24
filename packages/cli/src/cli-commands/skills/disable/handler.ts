@@ -2,16 +2,13 @@
  * Disable command handler - Effect-based orchestration for `axm skills disable`.
  *
  * Validates skill state using taxonomy lifecycle views then builds and resolves
- * a single-step plan. Supports both configured skills and implicit skills
- * (promoted to configured entry with `enabled: false`).
+ * a single-step plan. The operation handles all paths: configured disable,
+ * settings-only disable, and implicit-to-configured promotion.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import { pipe } from "effect/Function";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -53,30 +50,14 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     });
   }
 
-  // If implicit (not configured), promote to configured entry with enabled: false
-  if (installedEntry.lifecycle === "implicit") {
-    const bareName = args.name.includes("/")
-      ? pipe(
-          args.name.split("/"),
-          Array.last,
-          Option.getOrElse(() => args.name),
-        )
-      : args.name;
-    const source = Option.getOrElse(installedEntry.source, () => args.name);
-    yield* ws.setSkillEntry(bareName, { source, enabled: false });
-
-    yield* log.success("Done");
-    return;
-  }
-
-  // Configured skill — check if already disabled
-  if (!installedEntry.enabled) {
+  // Configured skill — check if already disabled (implicit skills are always enabled)
+  if (installedEntry.lifecycle === "configured" && !installedEntry.enabled) {
     yield* log.info(`Skill '${args.name}' is already disabled`);
     yield* log.success("Nothing to do.");
     return;
   }
 
-  // Build operation
+  // Build operation — operation handles configured, settings-only, and implicit promotion
   const op = {
     name: "disable-skill",
     args: { skillName: args.name },

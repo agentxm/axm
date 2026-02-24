@@ -1,7 +1,6 @@
 /**
- * Packs new handler — scaffolds a new empty pack with `axm-pack.json`.
- *
- * Creates the pack directory and manifest, then registers the pack in settings.
+ * Packs new handler — validates input, resolves namespace,
+ * builds a single-step plan, and executes via `ws.resolvePlan()`.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -11,12 +10,14 @@ import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
+import { formatFqn } from "../../../extensions/index.js";
+import { PACK_MANIFEST_FILENAME } from "../../../extensions/packs/manifest-schema.js";
+import type { NewPackOperation } from "../../../extensions/packs/operations/new-pack.js";
+import { newPack } from "../../../extensions/packs/operations/new-pack.js";
+import { computePackPaths } from "../../../extensions/packs/paths.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import type { PackManifest } from "../../../extensions/packs/manifest-schema.js";
-import { formatFqn } from "../../../extensions/index.js";
-import { computePackPaths } from "../../../extensions/packs/paths.js";
-import { PACK_MANIFEST_FILENAME } from "../../../extensions/packs/manifest-schema.js";
+import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -65,11 +66,10 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
   const fqn = formatFqn({ namespace, type: "packs", name: args.name });
   const base = ws.baseDir;
 
-  // Compute pack directory path
+  // Check if pack already exists
   const packDir = computePackPaths(path.join, base, namespace, args.name);
   const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
-  // Check if pack already exists
   const exists = yield* fs.exists(manifestPath).pipe(
     Effect.mapError((e) =>
       makeCliError({
@@ -88,51 +88,21 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     });
   }
 
-  // Create pack directory
-  yield* fs.makeDirectory(packDir.canonicalPath, { recursive: true }).pipe(
-    Effect.mapError((e) =>
-      makeCliError({
-        code: "PACK_CREATE_FAILED",
-        what: `Failed to create pack directory: ${packDir.canonicalPath}`,
-        cause: e,
-      }),
-    ),
-  );
+  // Build operation
+  const op = {
+    name: "new-pack",
+    args: { name: args.name, namespace },
+  } satisfies NewPackOperation;
 
-  // Write manifest
-  const manifest: PackManifest = {
-    name: fqn,
-    version: "0.0.1",
-    skills: {},
-    commands: {},
-    "mcp-servers": {},
-  };
-
-  yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
-    Effect.mapError((e) =>
-      makeCliError({
-        code: "PACK_CREATE_FAILED",
-        what: `Failed to write pack manifest: ${manifestPath}`,
-        cause: e,
-      }),
-    ),
-  );
-
-  // Register in settings
-  const now = new Date();
-  yield* ws.setPack({
-    namespace,
-    name: args.name,
-    resolvedVersion: "0.0.1",
-    integrity: "",
-    sourceName: "",
-    installedAt: now,
-    updatedAt: now,
-    resolvedSkills: {},
-    resolvedCommands: {},
-    resolvedMcpServers: {},
-    versionConstraint: Option.none(),
+  // Build and resolve single-step plan
+  const plan = buildSingleStepPlan({
+    operation: op,
+    name: "New pack",
+    description: `Create ${fqn}`,
+    label: fqn,
   });
+
+  yield* ws.resolvePlan(plan, { "new-pack": newPack });
 
   yield* log.success(`Created pack ${fqn}`);
 });

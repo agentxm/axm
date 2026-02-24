@@ -158,6 +158,48 @@ describe("packs-remove.handler", () => {
     });
   });
 
+  describe("preview mode", () => {
+    it.effect("performs no writes when preview mode is active", () => {
+      const { provide, mockLog } = makeLayers({ preview: true, yes: false });
+      initWorkspace(path.join(tempDir, ".axm"), {
+        namespace: "@acme",
+        packs: { "frontend-tools": "@acme/packs/frontend-tools" },
+      });
+      createPackManifest(tempDir, "@acme", "frontend-tools", {
+        name: "@acme/packs/frontend-tools",
+        version: "0.0.1",
+        skills: { "@acme/skills/code-review": "^1.2.0", "@acme/skills/linting": "^2.0.0" },
+        commands: {},
+        "mcp-servers": {},
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePacksRemove(
+            defaultArgs("frontend-tools", "@acme/skills/code-review", { yes: false }),
+          );
+
+          // Manifest should still have the extension (not removed)
+          const manifestPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@acme",
+            "packs",
+            "frontend-tools",
+            "axm-pack.json",
+          );
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+          expect(manifest.skills["@acme/skills/code-review"]).toBe("^1.2.0");
+          expect(manifest.skills["@acme/skills/linting"]).toBe("^2.0.0");
+
+          // Preview log message should appear
+          expect(mockLog.logs.info.some((m) => m.includes("Previewing"))).toBe(true);
+        }),
+      );
+    });
+  });
+
   describe("glob pattern expansion", () => {
     it.effect("removes extensions matching glob from pack manifest", () => {
       const { provide } = makeLayers();
@@ -219,6 +261,51 @@ describe("packs-remove.handler", () => {
           );
           expect(error._tag).toBe("CliError");
           expect((error as CliError).what).toContain("No extensions in pack match");
+        }),
+      );
+    });
+  });
+
+  describe("conflict-safe manifest apply", () => {
+    it.effect("sequential removes each see updated manifest", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        namespace: "@acme",
+        packs: { "frontend-tools": "@acme/packs/frontend-tools" },
+      });
+      createPackManifest(tempDir, "@acme", "frontend-tools", {
+        name: "@acme/packs/frontend-tools",
+        version: "0.0.1",
+        skills: {
+          "@acme/skills/code-review": "^1.2.0",
+          "@acme/skills/linting": "^2.0.0",
+          "@acme/skills/testing": "^3.0.0",
+        },
+        commands: {},
+        "mcp-servers": {},
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          // First removal
+          yield* handlePacksRemove(defaultArgs("frontend-tools", "@acme/skills/code-review"));
+
+          // Second removal (hash is re-read from updated manifest)
+          yield* handlePacksRemove(defaultArgs("frontend-tools", "@acme/skills/linting"));
+
+          const manifestPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@acme",
+            "packs",
+            "frontend-tools",
+            "axm-pack.json",
+          );
+          const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
+          expect(manifest.skills["@acme/skills/code-review"]).toBeUndefined();
+          expect(manifest.skills["@acme/skills/linting"]).toBeUndefined();
+          expect(manifest.skills["@acme/skills/testing"]).toBe("^3.0.0");
         }),
       );
     });

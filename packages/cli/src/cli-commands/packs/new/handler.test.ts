@@ -150,6 +150,39 @@ describe("packs-new.handler", () => {
     });
   });
 
+  describe("preview mode", () => {
+    it.effect("performs no writes when preview mode is active", () => {
+      const { provide, mockLog } = makeLayers({ preview: true, yes: false });
+      initWorkspace(path.join(tempDir, ".axm"), { namespace: "@acme" });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePacksNew(defaultArgs("frontend-tools", { yes: false }));
+
+          // Manifest should NOT be created
+          const manifestPath = path.join(
+            tempDir,
+            ".axm",
+            "extensions",
+            "@acme",
+            "packs",
+            "frontend-tools",
+            "axm-pack.json",
+          );
+          expect(fs.existsSync(manifestPath)).toBe(false);
+
+          // Settings should NOT have the pack registered
+          const settingsPath = path.join(tempDir, ".axm", "settings.json");
+          const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+          expect(settings.packs?.["frontend-tools"]).toBeUndefined();
+
+          // Preview log message should appear
+          expect(mockLog.logs.info.some((m) => m.includes("Previewing"))).toBe(true);
+        }),
+      );
+    });
+  });
+
   describe("namespace override", () => {
     it.effect("uses --namespace override instead of workspace namespace", () => {
       const { provide } = makeLayers();

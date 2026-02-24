@@ -1,5 +1,6 @@
 /**
- * Packs remove handler — removes extensions from a pack manifest.
+ * Packs remove handler — computes manifest delta at plan time,
+ * builds a single-step plan, and executes via `ws.resolvePlan()`.
  *
  * Supports glob expansion against pack manifest entries.
  * This is a manifest edit only — it does not uninstall extensions.
@@ -7,20 +8,23 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as crypto from "node:crypto";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeCliError } from "../../../cli-error/index.js";
-import { Log } from "../../../tui/index.js";
-import { Workspace } from "../../../workspace/index.js";
-import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
-import { computePackPaths } from "../../../extensions/packs/paths.js";
+import type { RemoveFromPackOperation } from "../../../extensions/packs/operations/remove-from-pack.js";
+import { removeFromPack } from "../../../extensions/packs/operations/remove-from-pack.js";
 import {
   PACK_MANIFEST_FILENAME,
   RawPackManifestSchema,
-  type RawPackManifest,
 } from "../../../extensions/packs/manifest-schema.js";
+import { computePackPaths } from "../../../extensions/packs/paths.js";
+import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
+import { Log } from "../../../tui/index.js";
+import { Workspace } from "../../../workspace/index.js";
+import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -34,6 +38,12 @@ export interface PacksRemoveHandlerArgs {
   /** Skip confirmations. */
   readonly yes: boolean;
 }
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+const hashContent = (content: string) => crypto.createHash("sha256").update(content).digest("hex");
 
 // -----------------------------------------------------------------------------
 // Main Handler
@@ -69,7 +79,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     : yield* ws.getConfiguredNamespace();
   const base = ws.baseDir;
 
-  // Step 2: Read pack manifest
+  // Step 2: Read pack manifest and compute hash for stale-check
   const packDir = computePackPaths(path.join, base, packNamespace, args.pack);
   const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
@@ -84,6 +94,8 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     ),
   );
 
+  const manifestHash = hashContent(manifestContent);
+
   const json = yield* Effect.try({
     try: () => JSON.parse(manifestContent) as unknown,
     catch: (e) =>
@@ -94,8 +106,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
       }),
   });
 
-  // Assertion needed: Schema decode produces readonly type; handler mutates manifest in-place
-  const manifest = (yield* Schema.decodeUnknown(RawPackManifestSchema)(json).pipe(
+  const manifest = yield* Schema.decodeUnknown(RawPackManifestSchema)(json).pipe(
     Effect.mapError((e) =>
       makeCliError({
         code: "PACK_MANIFEST_INVALID",
@@ -103,7 +114,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
         cause: e,
       }),
     ),
-  )) as RawPackManifest;
+  );
 
   // Step 3: Collect all extension names from the manifest (across all sections)
   const allEntries: Array<{ section: "skills" | "commands" | "mcp-servers"; name: string }> = [];
@@ -141,29 +152,26 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     });
   }
 
-  // Step 5: Remove matched extensions from the relevant sections
-  const matchedSet = new Set(matchedNames);
-  for (const section of ["skills", "commands", "mcp-servers"] as const) {
-    const entries = manifest[section];
-    if (entries === undefined) continue;
-    for (const name of Object.keys(entries)) {
-      if (matchedSet.has(name)) {
-        delete entries[name];
-        yield* log.info(`Removed ${name} from ${section}`);
-      }
-    }
-  }
+  // Step 5: Build operation with precomputed delta and manifest hash
+  const op = {
+    name: "remove-from-pack",
+    args: {
+      packName: args.pack,
+      packNamespace,
+      removals: matchedNames,
+      manifestHash,
+    },
+  } satisfies RemoveFromPackOperation;
 
-  // Step 6: Write updated manifest
-  yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
-    Effect.mapError((e) =>
-      makeCliError({
-        code: "PACK_WRITE_FAILED",
-        what: `Failed to write pack manifest: ${manifestPath}`,
-        cause: e,
-      }),
-    ),
-  );
+  // Build and resolve single-step plan
+  const plan = buildSingleStepPlan({
+    operation: op,
+    name: "Remove from pack",
+    description: `Remove ${matchedNames.length} extension(s) from ${args.pack}`,
+    label: args.pack,
+  });
+
+  yield* ws.resolvePlan(plan, { "remove-from-pack": removeFromPack });
 
   yield* log.success("Done");
 });

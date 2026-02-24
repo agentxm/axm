@@ -1,5 +1,6 @@
 /**
- * Packs add handler — adds extensions to a pack manifest.
+ * Packs add handler — computes manifest delta at plan time,
+ * builds a single-step plan, and executes via `ws.resolvePlan()`.
  *
  * Supports glob expansion against managed, registry-sourced workspace extensions.
  * Infers extension type from lockfile. Derives version range from installed version.
@@ -7,21 +8,24 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as crypto from "node:crypto";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { makeCliError } from "../../../cli-error/index.js";
-import { Log } from "../../../tui/index.js";
-import { Workspace } from "../../../workspace/index.js";
-import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
-import { computePackPaths } from "../../../extensions/packs/paths.js";
+import { formatFqn } from "../../../extensions/index.js";
+import type { AddToPackOperation } from "../../../extensions/packs/operations/add-to-pack.js";
+import { addToPack } from "../../../extensions/packs/operations/add-to-pack.js";
 import {
   PACK_MANIFEST_FILENAME,
   RawPackManifestSchema,
-  type RawPackManifest,
 } from "../../../extensions/packs/manifest-schema.js";
-import { formatFqn } from "../../../extensions/index.js";
+import { computePackPaths } from "../../../extensions/packs/paths.js";
+import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
+import { Log } from "../../../tui/index.js";
+import { Workspace } from "../../../workspace/index.js";
+import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -39,6 +43,8 @@ export interface PacksAddHandlerArgs {
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
+
+const hashContent = (content: string) => crypto.createHash("sha256").update(content).digest("hex");
 
 /**
  * Derive a caret version range from a resolved version.
@@ -78,7 +84,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     : yield* ws.getConfiguredNamespace();
   const base = ws.baseDir;
 
-  // Step 2: Read pack manifest as raw JSON (no schema validation for editing)
+  // Step 2: Read pack manifest and compute hash for stale-check
   const packDir = computePackPaths(path.join, base, packNamespace, args.pack);
   const manifestPath = path.join(packDir.canonicalPath, PACK_MANIFEST_FILENAME);
 
@@ -93,6 +99,8 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     ),
   );
 
+  const manifestHash = hashContent(manifestContent);
+
   const json = yield* Effect.try({
     try: () => JSON.parse(manifestContent) as unknown,
     catch: (e) =>
@@ -103,8 +111,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       }),
   });
 
-  // Assertion needed: Schema decode produces readonly type; handler mutates manifest in-place
-  const manifest = (yield* Schema.decodeUnknown(RawPackManifestSchema)(json).pipe(
+  const manifest = yield* Schema.decodeUnknown(RawPackManifestSchema)(json).pipe(
     Effect.mapError((e) =>
       makeCliError({
         code: "PACK_MANIFEST_INVALID",
@@ -112,7 +119,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
         cause: e,
       }),
     ),
-  )) as RawPackManifest;
+  );
 
   // Step 3: Resolve extensions - get all managed, registry-sourced skills from lockfile
   const lockedSkills = yield* ws.getLockedSkills();
@@ -154,9 +161,9 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     });
   }
 
-  // Step 4: Add extensions to manifest
-  let updated = false;
-  const currentSkills = { ...(manifest.skills ?? {}) };
+  // Step 4: Compute manifest delta (additions)
+  const currentSkills = manifest.skills ?? {};
+  const additions: Record<string, string> = {};
 
   for (const name of matchedNames) {
     const lockEntry = lockedSkills[name]!;
@@ -173,28 +180,35 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
       continue;
     }
 
-    currentSkills[fqn] = version;
-    updated = true;
+    additions[fqn] = version;
     yield* log.info(`Adding ${fqn}@${version}`);
   }
 
-  if (!updated) {
+  if (Object.keys(additions).length === 0) {
     yield* log.success("Nothing to do.");
     return;
   }
 
-  manifest.skills = currentSkills;
+  // Step 5: Build operation with precomputed delta and manifest hash
+  const op = {
+    name: "add-to-pack",
+    args: {
+      packName: args.pack,
+      packNamespace,
+      additions,
+      manifestHash,
+    },
+  } satisfies AddToPackOperation;
 
-  // Step 5: Write updated manifest
-  yield* fs.writeFileString(manifestPath, JSON.stringify(manifest, null, 2) + "\n").pipe(
-    Effect.mapError((e) =>
-      makeCliError({
-        code: "PACK_WRITE_FAILED",
-        what: `Failed to write pack manifest: ${manifestPath}`,
-        cause: e,
-      }),
-    ),
-  );
+  // Build and resolve single-step plan
+  const plan = buildSingleStepPlan({
+    operation: op,
+    name: "Add to pack",
+    description: `Add ${Object.keys(additions).length} extension(s) to ${args.pack}`,
+    label: args.pack,
+  });
+
+  yield* ws.resolvePlan(plan, { "add-to-pack": addToPack });
 
   yield* log.success("Done");
 });

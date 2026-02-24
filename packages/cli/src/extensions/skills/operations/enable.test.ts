@@ -390,16 +390,57 @@ describe("enableSkill", () => {
     );
   });
 
-  describe("error cases", () => {
-    it.effect("fails when lock entry is missing", () =>
+  describe("settings-only enable (no lock entry)", () => {
+    it.effect("updates settings to enabled: true without lockfile or symlink work", () =>
       Effect.gen(function* () {
-        const { axmDir } = setupWorkspace();
+        const base = path.join(tmpDir, "project");
+        const axmDir = path.join(base, ".axm");
+        fs.mkdirSync(axmDir, { recursive: true });
+
+        const updateSkillEntryFn = vi.fn((_name: string, _updater: unknown) => Effect.void);
+        const updateLockEntryAgentsFn = vi.fn(
+          (_name: string, _agents: ReadonlyArray<string>) => Effect.void,
+        );
 
         const result = yield* enableSkill(makeOp()).pipe(
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
               lockfileSkills: {},
+              settingsSkills: {
+                "my-skill": { source: "local:/tmp/source", enabled: false },
+              },
+              updateSkillEntryFn,
+              updateLockEntryAgentsFn,
+            }),
+          ),
+        );
+
+        expect(result.result).toBe("success");
+        // Settings should be updated
+        expect(updateSkillEntryFn).toHaveBeenCalledOnce();
+        expect(updateSkillEntryFn).toHaveBeenCalledWith("my-skill", expect.any(Function));
+        // Lock agents should NOT be updated (no lock entry)
+        expect(updateLockEntryAgentsFn).not.toHaveBeenCalled();
+        // No agent symlinks should have been created (no canonical dir)
+        expect(fs.existsSync(path.join(base, ".claude", "skills", "my-skill"))).toBe(false);
+      }),
+    );
+  });
+
+  describe("error cases", () => {
+    it.effect("fails when canonical directory is missing (lock entry present)", () =>
+      Effect.gen(function* () {
+        const base = path.join(tmpDir, "project");
+        const axmDir = path.join(base, ".axm");
+        fs.mkdirSync(axmDir, { recursive: true });
+        // Do NOT create canonical directory
+
+        const result = yield* enableSkill(makeOp()).pipe(
+          Effect.provide(
+            withServices(axmDir, {
+              configuredAgents: ["claude-code"],
+              lockfileSkills: { "my-skill": makeLocalLockEntry([]) },
               settingsSkills: {
                 "my-skill": { source: "local:/tmp/source", enabled: false },
               },

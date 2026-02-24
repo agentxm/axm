@@ -13,6 +13,7 @@ export interface PacksRemoveCommandArgs {
   pack: string;
   extension: string;
   yes: boolean;
+  preview: boolean;
   "non-interactive": boolean | undefined;
 }
 
@@ -36,6 +37,11 @@ export const packsRemoveCommand: CommandModule<{}, PacksRemoveCommandArgs> = {
         alias: "y",
         type: "boolean",
         describe: "Skip confirmation prompts",
+        default: false,
+      })
+      .option("preview", {
+        type: "boolean",
+        describe: "Display plan without applying",
         default: false,
       })
       .option("non-interactive", {
@@ -62,7 +68,7 @@ export const packsRemoveCommand: CommandModule<{}, PacksRemoveCommandArgs> = {
           global: false,
           yes: argv.yes,
           nonInteractive: Option.fromNullable(argv["non-interactive"]),
-          preview: false,
+          preview: argv.preview,
           agents: Option.none(),
         },
       },

@@ -85,9 +85,7 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
 };
 
 /** Creates a minimal NewPackOperation for testing. */
-const makeOp = (
-  overrides: Partial<NewPackOperation["args"]> = {},
-): NewPackOperation => ({
+const makeOp = (overrides: Partial<NewPackOperation["args"]> = {}): NewPackOperation => ({
   name: "new-pack",
   args: {
     name: overrides.name ?? "my-pack",
@@ -122,21 +120,12 @@ describe("newPack", () => {
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
 
-        const result = yield* newPack(makeOp()).pipe(
-          Effect.provide(withServices(axmDir)),
-        );
+        const result = yield* newPack(makeOp()).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
 
         // Verify pack directory and manifest were created
-        const packDir = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "packs",
-          "my-pack",
-        );
+        const packDir = path.join(base, ".axm", "extensions", "@myorg", "packs", "my-pack");
         expect(fs.existsSync(packDir)).toBe(true);
         expect(fs.existsSync(path.join(packDir, "axm-pack.json"))).toBe(true);
       }),
@@ -146,9 +135,7 @@ describe("newPack", () => {
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
 
-        const result = yield* newPack(makeOp()).pipe(
-          Effect.provide(withServices(axmDir)),
-        );
+        const result = yield* newPack(makeOp()).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
 
@@ -197,14 +184,7 @@ describe("newPack", () => {
         const { axmDir, base } = setupBase();
 
         // Pre-create the pack manifest
-        const packDir = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "packs",
-          "my-pack",
-        );
+        const packDir = path.join(base, ".axm", "extensions", "@myorg", "packs", "my-pack");
         fs.mkdirSync(packDir, { recursive: true });
         fs.writeFileSync(
           path.join(packDir, "axm-pack.json"),
@@ -213,9 +193,7 @@ describe("newPack", () => {
 
         const result = yield* newPack(makeOp()).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catchAll((e) =>
-            Effect.succeed({ result: "error" as const, message: e.what }),
-          ),
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");

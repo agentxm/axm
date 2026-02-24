@@ -50,21 +50,21 @@ Depends on: Phase 1
 
 Depends on: Phase 2
 
-- [ ] 3.1 Add/red workspace service tests for new getter contracts (`configured/implicit/unmanaged/installed/classified/ignored/external`) for skills, commands, mcp servers, and packs
-- [ ] 3.2 Implement workspace service integration with the classifier and add new getters per design contract
-- [ ] 3.3 Run `pnpm typecheck` immediately after task 3.2 and fix any errors
-- [ ] 3.4 Update existing workspace methods (`getConfiguredSkills`, `getInstalledSkills`, `setSkillEntry`, `updateSkillEntry`, `getConfiguredCommands`, `getConfiguredMcpServers`, `getConfiguredPacks`, `getInstalledPacks`) to taxonomy-consistent shapes/semantics
-- [ ] 3.5 Run `pnpm typecheck` immediately after task 3.4 and fix any errors
-- [ ] 3.6 Implement non-skill phase-1 behavior (empty unmanaged sets) and adapter mapping to settings/lockfile keys
-- [ ] 3.7 Run `pnpm typecheck` immediately after task 3.6 and fix any errors
-- [ ] 3.8 Run `pnpm typecheck` and fix any errors
-- [ ] 3.9 Run `pnpm lint` and fix any errors
-- [ ] 3.10 Run `pnpm test` and fix any failures
-- [ ] 3.11 Run `pnpm test:e2e` and fix any failures
-- [ ] 3.12 Kill any vitest worker processes
-- [ ] 3.13 Acceptance criteria: `getConfiguredSkills` and `getInstalledSkills` return taxonomy-consistent shapes and no `managed` marker field
-- [ ] 3.14 Acceptance criteria: `getInstalledPacks` includes lockfile-only implicit packs (including built-in lockfile entries)
-- [ ] 3.15 Acceptance criteria: MCP settings APIs use `mcpServers` (camelCase) consistently for read/write paths
+- [x] 3.1 Add/red workspace service tests for new getter contracts (`configured/implicit/unmanaged/installed/classified/ignored/external`) for skills, commands, mcp servers, and packs
+- [x] 3.2 Implement workspace service integration with the classifier and add new getters per design contract
+- [x] 3.3 Run `pnpm typecheck` immediately after task 3.2 and fix any errors
+- [x] 3.4 Update existing workspace methods (`getConfiguredSkills`, `getInstalledSkills`, `setSkillEntry`, `updateSkillEntry`, `getConfiguredCommands`, `getConfiguredMcpServers`, `getConfiguredPacks`, `getInstalledPacks`) to taxonomy-consistent shapes/semantics
+- [x] 3.5 Run `pnpm typecheck` immediately after task 3.4 and fix any errors
+- [x] 3.6 Implement non-skill phase-1 behavior (empty unmanaged sets) and adapter mapping to settings/lockfile keys
+- [x] 3.7 Run `pnpm typecheck` immediately after task 3.6 and fix any errors
+- [x] 3.8 Run `pnpm typecheck` and fix any errors
+- [x] 3.9 Run `pnpm lint` and fix any errors
+- [x] 3.10 Run `pnpm test` and fix any failures
+- [x] 3.11 Run `pnpm test:e2e` and fix any failures
+- [x] 3.12 Kill any vitest worker processes
+- [x] 3.13 Acceptance criteria: `getConfiguredSkills` and `getInstalledSkills` return taxonomy-consistent shapes and no `managed` marker field
+- [x] 3.14 Acceptance criteria: `getInstalledPacks` includes lockfile-only implicit packs (including built-in lockfile entries)
+- [x] 3.15 Acceptance criteria: MCP settings APIs use `mcpServers` (camelCase) consistently for read/write paths
 
 ## 4. Command And Source Behavior Migration
 

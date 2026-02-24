@@ -424,8 +424,7 @@ describe("disableSkill", () => {
           baseDir: path.dirname(axmDir),
           nonInteractive: true,
           preview: false,
-          resolvePlan: () =>
-            Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
+          resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
           getConfiguredSources: () => Effect.succeed([]),
           getConfiguredSourceByName: () => Effect.succeed(Option.none()),
           getConfiguredRegistrySources: () => Effect.succeed([]),
@@ -443,9 +442,16 @@ describe("disableSkill", () => {
               },
             }),
           getConfiguredAgents: () => Effect.succeed(["claude-code"]),
-          getLockedSkills: () => Effect.succeed({ "my-skill": makeLocalLockEntry(["claude-code"]) }),
+          getLockedSkills: () =>
+            Effect.succeed({ "my-skill": makeLocalLockEntry(["claude-code"]) }),
           getLockedSkill: () =>
-            Effect.succeed(Option.some(makeLocalLockEntry(["claude-code"]) as unknown as import("../../../lockfile/schema.js").SkillLockEntry)),
+            Effect.succeed(
+              Option.some(
+                makeLocalLockEntry([
+                  "claude-code",
+                ]) as unknown as import("../../../lockfile/schema.js").SkillLockEntry,
+              ),
+            ),
           getSkillDir: () => Effect.succeed({ canonicalPath: "", skillSrcPath: "" }),
           setSkill: () => Effect.void,
           setSkillLock: () => Effect.void,
@@ -505,8 +511,7 @@ describe("disableSkill", () => {
           baseDir: path.dirname(axmDir),
           nonInteractive: true,
           preview: false,
-          resolvePlan: () =>
-            Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
+          resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
           getConfiguredSources: () => Effect.succeed([]),
           getConfiguredSourceByName: () => Effect.succeed(Option.none()),
           getConfiguredRegistrySources: () => Effect.succeed([]),
@@ -559,9 +564,7 @@ describe("disableSkill", () => {
 
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs))),
-          Effect.catchAll((e) =>
-            Effect.succeed({ result: "error" as const, message: e.what }),
-          ),
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");
@@ -583,8 +586,7 @@ describe("disableSkill", () => {
           baseDir: path.dirname(axmDir),
           nonInteractive: true,
           preview: false,
-          resolvePlan: () =>
-            Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
+          resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
           getConfiguredSources: () => Effect.succeed([]),
           getConfiguredSourceByName: () => Effect.succeed(Option.none()),
           getConfiguredRegistrySources: () => Effect.succeed([]),
@@ -637,9 +639,7 @@ describe("disableSkill", () => {
 
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(Layer.mergeAll(NodeContext.layer, Workspace.layer(mockWs))),
-          Effect.catchAll((e) =>
-            Effect.succeed({ result: "error" as const, message: e.what }),
-          ),
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");

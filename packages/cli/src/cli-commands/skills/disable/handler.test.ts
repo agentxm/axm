@@ -290,12 +290,9 @@ describe("disable.handler", () => {
     it.effect("disables a configured skill with no lockfile entry", () => {
       const { provide, mockLog } = makeLayers();
       // Skill in settings as enabled (string form) but not in lockfile
-      initWorkspace(
-        path.join(tempDir, ".axm"),
-        { "my-skill": "@acme/skills/my-skill" },
-        {},
-        ["claude-code"],
-      );
+      initWorkspace(path.join(tempDir, ".axm"), { "my-skill": "@acme/skills/my-skill" }, {}, [
+        "claude-code",
+      ]);
 
       return provide(
         Effect.gen(function* () {

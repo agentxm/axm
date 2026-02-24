@@ -103,9 +103,7 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
 };
 
 /** Creates a minimal NewSkillOperation for testing. */
-const makeOp = (
-  overrides: Partial<NewSkillOperation["args"]> = {},
-): NewSkillOperation => ({
+const makeOp = (overrides: Partial<NewSkillOperation["args"]> = {}): NewSkillOperation => ({
   name: "new-skill",
   args: {
     name: overrides.name ?? "my-skill",
@@ -141,21 +139,12 @@ describe("newSkill", () => {
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
 
-        const result = yield* newSkill(makeOp()).pipe(
-          Effect.provide(withServices(axmDir)),
-        );
+        const result = yield* newSkill(makeOp()).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
 
         // Verify skill directory was created under registry path
-        const skillDir = path.join(
-          base,
-          ".axm",
-          "extensions",
-          "@myorg",
-          "skills",
-          "my-skill",
-        );
+        const skillDir = path.join(base, ".axm", "extensions", "@myorg", "skills", "my-skill");
         expect(fs.existsSync(path.join(skillDir, "src", "SKILL.md"))).toBe(true);
       }),
     );
@@ -164,12 +153,8 @@ describe("newSkill", () => {
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
 
-        const result = yield* newSkill(
-          makeOp({ agents: ["claude-code", "cursor"] }),
-        ).pipe(
-          Effect.provide(
-            withServices(axmDir, { configuredAgents: ["claude-code", "cursor"] }),
-          ),
+        const result = yield* newSkill(makeOp({ agents: ["claude-code", "cursor"] })).pipe(
+          Effect.provide(withServices(axmDir, { configuredAgents: ["claude-code", "cursor"] })),
         );
 
         expect(result.result).toBe("success");
@@ -183,9 +168,7 @@ describe("newSkill", () => {
     it.effect("registers skill in settings via setSkillEntry", () =>
       Effect.gen(function* () {
         const { axmDir } = setupBase();
-        const setSkillEntryFn = vi.fn(
-          (_name: string, _entry: unknown) => Effect.void,
-        );
+        const setSkillEntryFn = vi.fn((_name: string, _entry: unknown) => Effect.void);
 
         const result = yield* newSkill(makeOp()).pipe(
           Effect.provide(withServices(axmDir, { setSkillEntryFn })),
@@ -193,10 +176,13 @@ describe("newSkill", () => {
 
         expect(result.result).toBe("success");
         expect(setSkillEntryFn).toHaveBeenCalledOnce();
-        expect(setSkillEntryFn).toHaveBeenCalledWith("my-skill", expect.objectContaining({
-          source: "@myorg/skills/my-skill",
-          enabled: true,
-        }));
+        expect(setSkillEntryFn).toHaveBeenCalledWith(
+          "my-skill",
+          expect.objectContaining({
+            source: "@myorg/skills/my-skill",
+            enabled: true,
+          }),
+        );
       }),
     );
 
@@ -204,9 +190,7 @@ describe("newSkill", () => {
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
 
-        const result = yield* newSkill(makeOp()).pipe(
-          Effect.provide(withServices(axmDir)),
-        );
+        const result = yield* newSkill(makeOp()).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
 
@@ -238,9 +222,7 @@ describe("newSkill", () => {
               configuredSkills: { "my-skill": "@myorg/skills/my-skill" },
             }),
           ),
-          Effect.catchAll((e) =>
-            Effect.succeed({ result: "error" as const, message: e.what }),
-          ),
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         // Should fail because skill already exists in settings

@@ -19,8 +19,7 @@ import { addToPack } from "./add-to-pack.js";
 // -----------------------------------------------------------------------------
 
 /** Compute a content hash for stale-check testing. */
-const hashContent = (content: string) =>
-  crypto.createHash("sha256").update(content).digest("hex");
+const hashContent = (content: string) => crypto.createHash("sha256").update(content).digest("hex");
 
 /** Creates a workspace mock for add-to-pack tests. */
 const makeWorkspaceMock = (
@@ -217,9 +216,9 @@ describe("addToPack", () => {
         const { axmDir, base } = setupBase();
         const { manifestHash } = createPackManifest(base, "@myorg", "my-pack");
 
-        const result = yield* addToPack(
-          makeOp({ additions: {}, manifestHash }),
-        ).pipe(Effect.provide(withServices(axmDir)));
+        const result = yield* addToPack(makeOp({ additions: {}, manifestHash })).pipe(
+          Effect.provide(withServices(axmDir)),
+        );
 
         expect(result.result).toBe("no-op");
       }),
@@ -240,9 +239,7 @@ describe("addToPack", () => {
           }),
         ).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catchAll((e) =>
-            Effect.succeed({ result: "error" as const, message: e.what }),
-          ),
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");
@@ -293,9 +290,7 @@ describe("addToPack", () => {
           }),
         ).pipe(
           Effect.provide(withServices(axmDir)),
-          Effect.catchAll((e) =>
-            Effect.succeed({ result: "error" as const, message: e.what }),
-          ),
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, message: e.what })),
         );
 
         expect(result.result).toBe("error");

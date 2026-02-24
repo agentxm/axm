@@ -2397,6 +2397,910 @@ describe("WorkspaceContextService", () => {
   });
 
   // ---------------------------------------------------------------------------
+  // Taxonomy getter contracts (skills)
+  // ---------------------------------------------------------------------------
+
+  describe("getImplicitSkills", () => {
+    it.effect("returns lockfile-only native skills as implicit", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {
+          "implicit-skill": {
+            type: "registry",
+            namespace: "@acme",
+            name: "implicit-skill",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const implicit = yield* ws.getImplicitSkills();
+
+        expect(Object.keys(implicit)).toEqual(["implicit-skill"]);
+        expect(implicit["implicit-skill"]).toEqual({
+          source: Option.none(),
+          enabled: true,
+          packagingKind: "native",
+          isBuiltIn: false,
+        });
+      }),
+    );
+
+    it.effect("excludes configured skills from implicit set", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "my-skill": "@acme/skills/my-skill" },
+        });
+        writeLockfileTo(projectDir, {
+          "my-skill": {
+            type: "registry",
+            namespace: "@acme",
+            name: "my-skill",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const implicit = yield* ws.getImplicitSkills();
+
+        expect(implicit).toEqual({});
+      }),
+    );
+
+    it.effect("returns empty when no lockfile-only native skills", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const implicit = yield* ws.getImplicitSkills();
+
+        expect(implicit).toEqual({});
+      }),
+    );
+  });
+
+  describe("getUnmanagedSkills", () => {
+    it.effect("returns empty when no unmanaged skills detected", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const unmanaged = yield* ws.getUnmanagedSkills();
+
+        expect(unmanaged).toEqual({});
+      }),
+    );
+  });
+
+  describe("getClassifiedSkills", () => {
+    it.effect("returns all configured and implicit skills with lifecycle tag", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "my-skill": "github:acme/my-skill" },
+        });
+        writeLockfileTo(projectDir, {
+          "my-skill": {
+            type: "github",
+            owner: "acme",
+            repo: "my-skill",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          "implicit-skill": {
+            type: "registry",
+            namespace: "@acme",
+            name: "implicit-skill",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-BBBB==",
+            sourceName: "default",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const classified = yield* ws.getClassifiedSkills();
+
+        expect(classified["my-skill"]!.lifecycle).toBe("configured");
+        expect(classified["implicit-skill"]!.lifecycle).toBe("implicit");
+      }),
+    );
+  });
+
+  describe("getConfiguredExternalSkills", () => {
+    it.effect("returns only non-native configured skills", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: {
+            "native-skill": "@acme/skills/native-skill",
+            "external-skill": "github:acme/external-skill",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const external = yield* ws.getConfiguredExternalSkills();
+
+        expect(Object.keys(external)).toEqual(["external-skill"]);
+        expect(external["external-skill"]!.packagingKind).toBe("non-native");
+      }),
+    );
+  });
+
+  describe("getUnmanagedExternalSkills", () => {
+    it.effect("returns empty when no unmanaged skills", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const external = yield* ws.getUnmanagedExternalSkills();
+
+        expect(external).toEqual({});
+      }),
+    );
+  });
+
+  describe("getIgnoredSkillPatterns", () => {
+    it.effect("returns configured ignored patterns", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          ignored: { skills: ["test-*", "deprecated-tool"] },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const patterns = yield* ws.getIgnoredSkillPatterns();
+
+        expect(patterns).toEqual(["test-*", "deprecated-tool"]);
+      }),
+    );
+
+    it.effect("returns empty array when no ignored patterns configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const patterns = yield* ws.getIgnoredSkillPatterns();
+
+        expect(patterns).toEqual([]);
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Taxonomy getter contracts (commands)
+  // ---------------------------------------------------------------------------
+
+  describe("getConfiguredCommands (taxonomy)", () => {
+    it.effect("returns configured commands with source metadata", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          commands: { "my-cmd": "github:acme/my-cmd" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const commands = yield* ws.getConfiguredCommands();
+
+        expect(commands["my-cmd"]).toEqual({
+          source: "github:acme/my-cmd",
+          enabled: true,
+          packagingKind: "non-native",
+          isBuiltIn: false,
+        });
+      }),
+    );
+
+    it.effect("returns empty record when no commands configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const commands = yield* ws.getConfiguredCommands();
+
+        expect(commands).toEqual({});
+      }),
+    );
+  });
+
+  describe("getImplicitCommands", () => {
+    it.effect("returns lockfile-only native commands as implicit", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {}, undefined, {
+          "implicit-cmd": {
+            type: "registry",
+            namespace: "@acme",
+            name: "implicit-cmd",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const implicit = yield* ws.getImplicitCommands();
+
+        expect(Object.keys(implicit)).toEqual(["implicit-cmd"]);
+        expect(implicit["implicit-cmd"]).toEqual({
+          source: Option.none(),
+          enabled: true,
+          packagingKind: "native",
+          isBuiltIn: false,
+        });
+      }),
+    );
+
+    it.effect("returns empty when no lockfile-only commands", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const implicit = yield* ws.getImplicitCommands();
+
+        expect(implicit).toEqual({});
+      }),
+    );
+  });
+
+  describe("getUnmanagedCommands", () => {
+    it.effect("returns empty (phase 1 - no command unmanaged detection)", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const unmanaged = yield* ws.getUnmanagedCommands();
+
+        expect(unmanaged).toEqual({});
+      }),
+    );
+  });
+
+  describe("getInstalledCommands", () => {
+    it.effect("includes both configured and implicit commands", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          commands: { "configured-cmd": "github:acme/configured-cmd" },
+        });
+        writeLockfileTo(projectDir, {}, undefined, {
+          "configured-cmd": {
+            type: "github",
+            owner: "acme",
+            repo: "configured-cmd",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          "implicit-cmd": {
+            type: "registry",
+            namespace: "@acme",
+            name: "implicit-cmd",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const installed = yield* ws.getInstalledCommands();
+
+        expect(installed["configured-cmd"]!.lifecycle).toBe("configured");
+        expect(installed["implicit-cmd"]!.lifecycle).toBe("implicit");
+      }),
+    );
+  });
+
+  describe("getClassifiedCommands", () => {
+    it.effect("returns all classified commands with lifecycle tags", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          commands: { "my-cmd": "github:acme/my-cmd" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const classified = yield* ws.getClassifiedCommands();
+
+        expect(classified["my-cmd"]!.lifecycle).toBe("configured");
+      }),
+    );
+  });
+
+  describe("getConfiguredExternalCommands", () => {
+    it.effect("returns only non-native configured commands", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          commands: {
+            "native-cmd": "@acme/commands/native-cmd",
+            "external-cmd": "github:acme/external-cmd",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const external = yield* ws.getConfiguredExternalCommands();
+
+        expect(Object.keys(external)).toEqual(["external-cmd"]);
+      }),
+    );
+  });
+
+  describe("getUnmanagedExternalCommands", () => {
+    it.effect("returns empty (phase 1)", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const external = yield* ws.getUnmanagedExternalCommands();
+
+        expect(external).toEqual({});
+      }),
+    );
+  });
+
+  describe("getIgnoredCommandPatterns", () => {
+    it.effect("returns configured ignored command patterns", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          ignored: { commands: ["debug-*"] },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const patterns = yield* ws.getIgnoredCommandPatterns();
+
+        expect(patterns).toEqual(["debug-*"]);
+      }),
+    );
+
+    it.effect("returns empty array when no ignored patterns", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const patterns = yield* ws.getIgnoredCommandPatterns();
+
+        expect(patterns).toEqual([]);
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Taxonomy getter contracts (MCP servers)
+  // ---------------------------------------------------------------------------
+
+  describe("getConfiguredMcpServers (taxonomy)", () => {
+    it.effect("returns configured MCP servers with source metadata", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          mcpServers: { "my-mcp": "github:acme/my-mcp" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const servers = yield* ws.getConfiguredMcpServers();
+
+        expect(servers["my-mcp"]).toEqual({
+          source: "github:acme/my-mcp",
+          packagingKind: "non-native",
+          isBuiltIn: false,
+        });
+      }),
+    );
+
+    it.effect("returns empty record when no MCP servers configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const servers = yield* ws.getConfiguredMcpServers();
+
+        expect(servers).toEqual({});
+      }),
+    );
+  });
+
+  describe("getImplicitMcpServers", () => {
+    it.effect("returns lockfile-only native MCP servers as implicit", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {}, undefined, undefined, {
+          "implicit-mcp": {
+            type: "registry",
+            namespace: "@acme",
+            name: "implicit-mcp",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const implicit = yield* ws.getImplicitMcpServers();
+
+        expect(Object.keys(implicit)).toEqual(["implicit-mcp"]);
+        expect(implicit["implicit-mcp"]).toEqual({
+          source: Option.none(),
+          packagingKind: "native",
+          isBuiltIn: false,
+        });
+      }),
+    );
+
+    it.effect("returns empty when no lockfile-only MCP servers", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const implicit = yield* ws.getImplicitMcpServers();
+
+        expect(implicit).toEqual({});
+      }),
+    );
+  });
+
+  describe("getUnmanagedMcpServers", () => {
+    it.effect("returns empty (phase 1 - no MCP server unmanaged detection)", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const unmanaged = yield* ws.getUnmanagedMcpServers();
+
+        expect(unmanaged).toEqual({});
+      }),
+    );
+  });
+
+  describe("getInstalledMcpServers", () => {
+    it.effect("includes both configured and implicit MCP servers", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          mcpServers: { "configured-mcp": "github:acme/configured-mcp" },
+        });
+        writeLockfileTo(projectDir, {}, undefined, undefined, {
+          "configured-mcp": {
+            type: "github",
+            owner: "acme",
+            repo: "configured-mcp",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+          "implicit-mcp": {
+            type: "registry",
+            namespace: "@acme",
+            name: "implicit-mcp",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const installed = yield* ws.getInstalledMcpServers();
+
+        expect(installed["configured-mcp"]!.lifecycle).toBe("configured");
+        expect(installed["implicit-mcp"]!.lifecycle).toBe("implicit");
+      }),
+    );
+  });
+
+  describe("getClassifiedMcpServers", () => {
+    it.effect("returns all classified MCP servers with lifecycle tags", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          mcpServers: { "my-mcp": "github:acme/my-mcp" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const classified = yield* ws.getClassifiedMcpServers();
+
+        expect(classified["my-mcp"]!.lifecycle).toBe("configured");
+      }),
+    );
+  });
+
+  describe("getConfiguredExternalMcpServers", () => {
+    it.effect("returns only non-native configured MCP servers", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          mcpServers: {
+            "native-mcp": "@acme/mcp-servers/native-mcp",
+            "external-mcp": "github:acme/external-mcp",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const external = yield* ws.getConfiguredExternalMcpServers();
+
+        expect(Object.keys(external)).toEqual(["external-mcp"]);
+      }),
+    );
+  });
+
+  describe("getUnmanagedExternalMcpServers", () => {
+    it.effect("returns empty (phase 1)", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const external = yield* ws.getUnmanagedExternalMcpServers();
+
+        expect(external).toEqual({});
+      }),
+    );
+  });
+
+  describe("getIgnoredMcpServerPatterns", () => {
+    it.effect("returns configured ignored MCP server patterns", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          ignored: { mcpServers: ["test-*"] },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const patterns = yield* ws.getIgnoredMcpServerPatterns();
+
+        expect(patterns).toEqual(["test-*"]);
+      }),
+    );
+
+    it.effect("returns empty array when no ignored patterns", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const patterns = yield* ws.getIgnoredMcpServerPatterns();
+
+        expect(patterns).toEqual([]);
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Taxonomy getter contracts (packs)
+  // ---------------------------------------------------------------------------
+
+  describe("getImplicitPacks", () => {
+    it.effect("returns lockfile-only packs as implicit", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "@axm/packs/axm-builtin": {
+              type: "builtin",
+              namespace: "@axm",
+              name: "axm-builtin",
+              resolvedVersion: "1.0.0",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const implicit = yield* ws.getImplicitPacks();
+
+        expect(Object.keys(implicit)).toEqual(["@axm/packs/axm-builtin"]);
+        expect(implicit["@axm/packs/axm-builtin"]).toEqual({
+          source: Option.none(),
+          packagingKind: "native",
+          isBuiltIn: true,
+        });
+      }),
+    );
+
+    it.effect("returns empty when no lockfile-only packs", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const implicit = yield* ws.getImplicitPacks();
+
+        expect(implicit).toEqual({});
+      }),
+    );
+  });
+
+  describe("getUnmanagedPacks", () => {
+    it.effect("returns empty (phase 1 - no pack unmanaged detection)", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const unmanaged = yield* ws.getUnmanagedPacks();
+
+        expect(unmanaged).toEqual({});
+      }),
+    );
+  });
+
+  describe("getInstalledPacks (taxonomy)", () => {
+    it.effect("includes lockfile-only implicit packs (builtin)", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "@axm/packs/axm-builtin": {
+              type: "builtin",
+              namespace: "@axm",
+              name: "axm-builtin",
+              resolvedVersion: "1.0.0",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const installed = yield* ws.getInstalledPacks();
+
+        expect(installed["@axm/packs/axm-builtin"]!.lifecycle).toBe("implicit");
+        expect(installed["@axm/packs/axm-builtin"]!.isBuiltIn).toBe(true);
+      }),
+    );
+
+    it.effect("includes both configured and implicit packs", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "my-pack": "@acme/packs/my-pack" },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "my-pack": {
+              type: "registry",
+              namespace: "@acme",
+              name: "my-pack",
+              resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+            "@axm/packs/axm-builtin": {
+              type: "builtin",
+              namespace: "@axm",
+              name: "axm-builtin",
+              resolvedVersion: "1.0.0",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const installed = yield* ws.getInstalledPacks();
+
+        expect(installed["my-pack"]!.lifecycle).toBe("configured");
+        expect(installed["@axm/packs/axm-builtin"]!.lifecycle).toBe("implicit");
+      }),
+    );
+  });
+
+  describe("getClassifiedPacks", () => {
+    it.effect("returns all classified packs with lifecycle tags", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "my-pack": "@acme/packs/my-pack" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const classified = yield* ws.getClassifiedPacks();
+
+        expect(classified["my-pack"]!.lifecycle).toBe("configured");
+      }),
+    );
+  });
+
+  describe("getConfiguredExternalPacks", () => {
+    it.effect("returns empty (packs are native-only)", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "my-pack": "@acme/packs/my-pack" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const external = yield* ws.getConfiguredExternalPacks();
+
+        expect(external).toEqual({});
+      }),
+    );
+  });
+
+  describe("getUnmanagedExternalPacks", () => {
+    it.effect("returns empty (phase 1 + packs native-only)", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const external = yield* ws.getUnmanagedExternalPacks();
+
+        expect(external).toEqual({});
+      }),
+    );
+  });
+
+  describe("getIgnoredPackPatterns", () => {
+    it.effect("returns configured ignored pack patterns", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          ignored: { packs: ["legacy-*"] },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const patterns = yield* ws.getIgnoredPackPatterns();
+
+        expect(patterns).toEqual(["legacy-*"]);
+      }),
+    );
+
+    it.effect("returns empty array when no ignored patterns", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        const patterns = yield* ws.getIgnoredPackPatterns();
+
+        expect(patterns).toEqual([]);
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // MCP settings API consistency (camelCase)
+  // ---------------------------------------------------------------------------
+
+  describe("MCP settings API camelCase consistency", () => {
+    it.effect("setMcpServer writes to mcpServers key in settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.setMcpServer({
+          name: "my-mcp",
+          lockEntry: {
+            type: "github" as const,
+            owner: "acme",
+            repo: "my-mcp",
+            installedAt: new Date("2025-01-01T00:00:00.000Z"),
+            updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+          },
+        });
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings).toHaveProperty("mcpServers");
+        expect(settings["mcpServers"]).toHaveProperty("my-mcp");
+      }),
+    );
+
+    it.effect("removeMcpServer reads from mcpServers key in settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          mcpServers: { "my-mcp": "github:acme/my-mcp" },
+        });
+        writeLockfileTo(projectDir, {}, undefined, undefined, {
+          "my-mcp": {
+            type: "github",
+            owner: "acme",
+            repo: "my-mcp",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeMcpServer("my-mcp");
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings["mcpServers"]).not.toHaveProperty("my-mcp");
+      }),
+    );
+
+    it.effect("getConfiguredMcpServers reads from mcpServers key", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          mcpServers: { "my-mcp": "github:acme/my-mcp" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const servers = yield* ws.getConfiguredMcpServers();
+
+        expect(servers).toHaveProperty("my-mcp");
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Taxonomy shapes: no managed marker
+  // ---------------------------------------------------------------------------
+
+  describe("taxonomy shapes have no managed marker", () => {
+    it.effect("getConfiguredSkills entries have no managed field", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "my-skill": "github:acme/my-skill" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const skills = yield* ws.getConfiguredSkills();
+
+        for (const entry of Object.values(skills)) {
+          expect(entry).not.toHaveProperty("managed");
+        }
+      }),
+    );
+
+    it.effect("getInstalledSkills entries have no managed field", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "my-skill": "github:acme/my-skill" },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const skills = yield* ws.getInstalledSkills();
+
+        for (const entry of Object.values(skills)) {
+          expect(entry).not.toHaveProperty("managed");
+        }
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
   // Command methods
   // ---------------------------------------------------------------------------
 

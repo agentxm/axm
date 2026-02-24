@@ -2,24 +2,29 @@
 
 ### Requirement: Ownership-aware skill removal
 
-When uninstalling a skill, the handler SHALL check whether any installed pack still references the skill's FQN in its `resolvedSkills`. The FQN keys in `resolvedSkills` SHALL use the three-segment format (`@namespace/skills/name`). If a pack still references it, the skill SHALL be removed from settings but kept in the lockfile and on disk.
+When uninstalling a skill, the handler SHALL resolve eligibility from taxonomy installed state (configured or implicit) and SHALL check pack ownership via `resolvedSkills` FQNs before removing lockfile and disk state.
 
-#### Scenario: Skill removed when no pack references it
+#### Scenario: Installed skill removed when no pack references it
 
 - **WHEN** user runs `axm skills uninstall review`
-- **AND** skill "review" (`@acme/skills/code-review`) is not referenced by any pack's `resolvedSkills`
+- **AND** `review` is installed
+- **AND** its FQN is not referenced by any installed pack `resolvedSkills`
 - **THEN** the skill SHALL be removed from settings, lockfile, and disk
 
-#### Scenario: Skill kept on disk when pack still references it
+#### Scenario: Installed skill kept on disk when pack still references it
 
 - **WHEN** user runs `axm skills uninstall review`
-- **AND** skill "review" (`@acme/skills/code-review`) is referenced by pack "starter"'s `resolvedSkills` with key `@acme/skills/code-review`
-- **THEN** the skill SHALL be removed from `settings.json`
-- **AND** the skill SHALL remain in the lockfile and on disk (pack still needs it)
+- **AND** the skill's FQN is referenced by one or more installed packs in `resolvedSkills`
+- **THEN** the skill SHALL be removed from settings when present
+- **AND** the skill SHALL remain in lockfile and on disk
 
-#### Scenario: Skill kept on disk when multiple packs reference it
+#### Scenario: Name resolves to unmanaged only
 
-- **WHEN** user runs `axm skills uninstall review`
-- **AND** `@acme/skills/code-review` is referenced by both pack "starter" and pack "pro" via `resolvedSkills` keys
-- **THEN** the skill SHALL be removed from settings
-- **AND** the skill SHALL remain in the lockfile and on disk
+- **WHEN** user runs `axm skills uninstall <name>` and `<name>` is unmanaged-only (not installed)
+- **THEN** uninstall SHALL fail with a `CliError` indicating the skill is not installed
+- **AND** the flow SHALL NOT execute legacy unmanaged-marker removal shortcuts
+
+#### Scenario: Ignored name is treated as not installed
+
+- **WHEN** user runs `axm skills uninstall <name>` and `<name>` matches ignored patterns
+- **THEN** uninstall SHALL treat the skill as not installed for lifecycle checks

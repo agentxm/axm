@@ -1,5 +1,5 @@
 /**
- * Publish command executor — reads a managed command's manifest, builds a zip
+ * Publish command executor — reads a command's manifest, builds a zip
  * archive, computes the SRI integrity hash, and publishes to a target registry.
  *
  * Pipeline: validate manifest -> build archive -> compute integrity ->
@@ -40,7 +40,7 @@ export type PublishCommandOperationArgs = {
 };
 
 /**
- * Publish a managed command extension to a registry.
+ * Publish a command extension to a registry.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -77,7 +77,7 @@ export const publishCommand: OperationHandler<
 
     const fqn = yield* parseFqn(op.args.name);
 
-    // Locate the managed extension directory
+    // Locate the extension directory
     const extensionDir = path.join(
       base,
       REGISTRY_EXTENSIONS_DIR,

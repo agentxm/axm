@@ -169,24 +169,13 @@ export const SkillEntryObjectSchema = Schema.Struct({
 });
 
 /**
- * Unmanaged skill — just a marker, no source or enabled fields.
+ * Union of skill entry forms: plain source string or object with source + enabled.
+ *
+ * The legacy unmanaged marker (`{ managed: false }`) is no longer supported.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const UnmanagedSkillEntrySchema = Schema.Struct({
-  managed: Schema.Literal(false),
-});
-
-/**
- * Union of skill entry forms: plain string, managed object, or unmanaged marker.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const SkillEntrySchema = Schema.Union(
-  Schema.String,
-  SkillEntryObjectSchema,
-  UnmanagedSkillEntrySchema,
-);
+export const SkillEntrySchema = Schema.Union(Schema.String, SkillEntryObjectSchema);
 
 /**
  * Inferred type for SkillEntry schema.
@@ -203,7 +192,7 @@ export type SkillEntry = typeof SkillEntrySchema.Type;
  * - Lowercase letters, numbers, and hyphens only
  * - Must not start or end with a hyphen
  *
- * Values are skill entries: plain source strings, managed objects, or unmanaged markers.
+ * Values are skill entries: plain source strings or objects with source + enabled.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -224,7 +213,7 @@ export type SkillsMap = typeof SkillsMapSchema.Type;
 // -----------------------------------------------------------------------------
 
 /**
- * Managed pack with source.
+ * Pack entry object with source.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -233,7 +222,7 @@ export const PackEntryObjectSchema = Schema.Struct({
 });
 
 /**
- * Union of pack entry forms: plain string or managed object.
+ * Union of pack entry forms: plain source string or object with source.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -254,7 +243,7 @@ export type PackEntry = typeof PackEntrySchema.Type;
  * - Lowercase letters, numbers, and hyphens only
  * - Must not start or end with a hyphen
  *
- * Values are pack entries: plain source strings or managed objects.
+ * Values are pack entries: plain source strings or objects with source.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -269,6 +258,30 @@ export const PacksMapSchema = Schema.Record({
  * @experimental This API is unstable and may change without notice.
  */
 export type PacksMap = typeof PacksMapSchema.Type;
+
+// -----------------------------------------------------------------------------
+// Ignored Patterns Schema
+// -----------------------------------------------------------------------------
+
+/**
+ * Ignored patterns map — per-extension-type arrays of glob patterns
+ * for extensions to exclude from lifecycle classification.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const IgnoredSettingsSchema = Schema.Struct({
+  skills: Schema.optional(Schema.Array(Schema.String)),
+  commands: Schema.optional(Schema.Array(Schema.String)),
+  mcpServers: Schema.optional(Schema.Array(Schema.String)),
+  packs: Schema.optional(Schema.Array(Schema.String)),
+});
+
+/**
+ * Inferred type for IgnoredSettings schema.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export type IgnoredSettings = typeof IgnoredSettingsSchema.Type;
 
 /**
  * Canonical key order for settings properties.
@@ -285,7 +298,8 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "skills",
   "commands",
   "packs",
-  "mcp-servers",
+  "mcpServers",
+  "ignored",
 ];
 
 /**
@@ -313,9 +327,10 @@ export const SettingsSchema = Schema.Struct({
   agents: Schema.optional(Schema.Array(AgentIdSchema)),
   sources: Schema.optional(Schema.Array(SourceHostConfigSchema)),
   commands: Schema.optional(NonSkillExtensionsMapSchema),
-  "mcp-servers": Schema.optional(NonSkillExtensionsMapSchema),
+  mcpServers: Schema.optional(NonSkillExtensionsMapSchema),
   packs: Schema.optional(PacksMapSchema),
   skills: Schema.optional(SkillsMapSchema),
+  ignored: Schema.optional(IgnoredSettingsSchema),
 });
 
 /**

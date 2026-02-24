@@ -11,6 +11,7 @@ import { afterEach, beforeEach, vi } from "vitest";
 import type { McpServerLockEntry } from "../../../lockfile/schema.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { UninstallMcpServerOperation } from "./uninstall.js";
 import { uninstallMcpServer } from "./uninstall.js";
 
@@ -47,6 +48,7 @@ const makeWorkspaceMock = (
   };
 
   return {
+    ...taxonomyStubs,
     global: false,
     path: axmDir,
     baseDir: path.dirname(axmDir),

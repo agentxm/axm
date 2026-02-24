@@ -53,7 +53,7 @@ const initWorkspace = (
   );
 };
 
-/** Create a managed extension in .axm/extensions/ with a manifest at root and content in src/. */
+/** Create an extension in .axm/extensions/ with a manifest at root and content in src/. */
 const createManagedExtension = (
   tempDir: string,
   namespace: string,
@@ -131,7 +131,7 @@ describe("publish.handler", () => {
   };
 
   describe("publish with explicit registry", () => {
-    it.effect("publishes a managed extension to a named registry", () => {
+    it.effect("publishes an extension to a named registry", () => {
       const { provide, mockLog } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
@@ -205,7 +205,7 @@ describe("publish.handler", () => {
       const { provide, mockLog } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
-      // Create managed extension under @test namespace
+      // Create extension under @test namespace
       createManagedExtension(tempDir, "@test", "code-review", {
         name: "@test/skills/code-review",
         version: "0.1.0",
@@ -237,7 +237,7 @@ describe("publish.handler", () => {
   });
 
   describe("missing manifest error", () => {
-    it.effect("fails when managed extension directory has no manifest", () => {
+    it.effect("fails when extension directory has no manifest", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
@@ -268,7 +268,7 @@ describe("publish.handler", () => {
     });
   });
 
-  describe("non-managed skill error", () => {
+  describe("non-installed skill error", () => {
     it.effect("fails when extension directory does not exist in .axm/extensions/", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
@@ -320,9 +320,9 @@ describe("publish.handler", () => {
         registryRoot,
         {},
         {
-          "effect-basics": { source: "@test/skills/effect-basics", managed: true },
-          "effect-advanced": { source: "@test/skills/effect-advanced", managed: true },
-          commit: { source: "@test/skills/commit", managed: true },
+          "effect-basics": "@test/skills/effect-basics",
+          "effect-advanced": "@test/skills/effect-advanced",
+          commit: "@test/skills/commit",
         },
       );
 
@@ -413,8 +413,8 @@ describe("publish.handler", () => {
         registryRoot,
         {},
         {
-          "effect-basics": { source: "@test/skills/effect-basics", managed: true },
-          commit: { source: "@test/skills/commit", managed: true },
+          "effect-basics": "@test/skills/effect-basics",
+          commit: "@test/skills/commit",
         },
       );
 
@@ -454,7 +454,7 @@ describe("publish.handler", () => {
         registryRoot,
         {},
         {
-          commit: { source: "@test/skills/commit", managed: true },
+          commit: "@test/skills/commit",
         },
       );
 
@@ -494,7 +494,7 @@ describe("publish.handler", () => {
       );
     });
 
-    it.effect("unmanaged skills excluded from glob matches", () => {
+    it.effect("all configured skills included in glob matches", () => {
       const { provide, mockLog } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
@@ -509,8 +509,7 @@ describe("publish.handler", () => {
         registryRoot,
         {},
         {
-          "effect-basics": { source: "@test/skills/effect-basics", managed: true },
-          "effect-unmanaged": { source: "@test/skills/effect-unmanaged", managed: false },
+          "effect-basics": { source: "@test/skills/effect-basics" },
         },
       );
 
@@ -519,7 +518,7 @@ describe("publish.handler", () => {
           yield* handlePublish(defaultArgs(["effect-*"]));
 
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
-          // Only managed skill should be published
+          // Only configured skill should be published
           expect(
             fs.existsSync(
               path.join(
@@ -532,19 +531,7 @@ describe("publish.handler", () => {
               ),
             ),
           ).toBe(true);
-          // Unmanaged should NOT be published
-          expect(
-            fs.existsSync(
-              path.join(
-                registryRoot,
-                "extensions",
-                "@test",
-                "skills",
-                "effect-unmanaged",
-                "index.json",
-              ),
-            ),
-          ).toBe(false);
+          // Only configured skills with sources are in installed set
         }),
       );
     });

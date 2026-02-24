@@ -8,12 +8,14 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import { copySkill } from "./copy.js";
 import type { CopySkillOperation } from "./copy.js";
 
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
 const withServices = (axmDir: string) => {
   const mockWs: WorkspaceContextService = {
+    ...taxonomyStubs,
     global: false,
     path: axmDir,
     baseDir: path.dirname(axmDir),

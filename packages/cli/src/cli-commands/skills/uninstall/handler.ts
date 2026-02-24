@@ -1,10 +1,10 @@
 /**
  * Uninstall command handler - Effect-based orchestration for `axm skills uninstall`.
  *
- * Uses plan-based reconciliation pattern:
- * 1. Load locked skills and packs
+ * Uses taxonomy lifecycle views and plan-based reconciliation:
+ * 1. Load installed skills and locked state
  * 2. Build InstalledSkills lookup with pack references
- * 3. Expand glob pattern against locked skill names
+ * 3. Expand glob pattern against installed skill names (excludes ignored)
  * 4. Build UninstallSkillOperations
  * 5. Build plan (diff against installed state)
  * 6. Resolve plan via workspace (display, confirm, apply based on flags)
@@ -45,10 +45,10 @@ export interface UninstallHandlerArgs {
 /**
  * Handles the `axm skills uninstall` command.
  *
- * Flow (state-based architecture):
- * 1. Load locked skills and packs from workspace
- * 2. Build InstalledSkills lookup with pack references
- * 3. Expand glob pattern against locked skill names
+ * Flow (taxonomy-driven architecture):
+ * 1. Load installed skills (taxonomy: configured ∪ implicit) and locked state
+ * 2. Build InstalledSkills lookup with pack references using locked entries
+ * 3. Expand glob pattern against installed skill names (excludes ignored)
  * 4. Build UninstallSkillOperations
  * 5. Build plan (diff against installed state)
  * 6. Resolve plan via workspace (display, confirm, apply based on flags)
@@ -63,33 +63,24 @@ export const handleUninstall = Effect.fn("Uninstall.handle")(function* (
 
   yield* log.info("axm skills uninstall");
 
-  // Check if the target is an unmanaged skill (bypass plan system entirely)
-  if (!args.skill.includes("*")) {
-    const configuredSkills = yield* ws.getConfiguredSkills();
-    const entry = configuredSkills[args.skill];
-    if (entry !== undefined && !entry.managed) {
-      yield* ws.removeSkill(args.skill);
-      yield* log.info(`Removed unmanaged skill marker '${args.skill}'`);
-      yield* log.success("Done");
-      return;
-    }
-  }
-
-  // Step 1: Load locked state
+  // Step 1: Load taxonomy installed skills and locked state
+  const taxonomyInstalled = yield* ws.getInstalledSkills();
   const lockedSkills = yield* ws.getLockedSkills();
   const lockedPacks = yield* ws.getLockedPacks();
 
-  // Step 2: Build InstalledSkills lookup
+  // Step 2: Build InstalledSkills lookup from locked entries (for pack reference checks)
   const installed: InstalledSkills = Object.fromEntries(
-    Object.entries(lockedSkills).map(([name, entry]) => {
-      const fqn = getSkillFqn(name, entry);
+    Object.keys(taxonomyInstalled).map((name) => {
+      const lockEntry = lockedSkills[name];
+      const fqn = lockEntry !== undefined ? getSkillFqn(name, lockEntry) : undefined;
       const packs = fqn !== undefined ? getReferencingPacks(fqn, lockedPacks) : [];
       return [name, { referencingPacks: packs }];
     }),
   );
 
-  // Step 3: Expand glob pattern
-  const skillNames = expandGlob(args.skill, Object.keys(lockedSkills));
+  // Step 3: Expand glob pattern against installed skill names (excludes ignored)
+  const installedNames = Object.keys(taxonomyInstalled);
+  const skillNames = expandGlob(args.skill, installedNames);
 
   // Handle glob matching zero skills
   if (args.skill.includes("*") && skillNames.length === 0) {
@@ -98,7 +89,7 @@ export const handleUninstall = Effect.fn("Uninstall.handle")(function* (
     return;
   }
 
-  // For literal names not in lockfile, still build an operation (plan marks as no-op)
+  // For literal names not in installed set, still build an operation (plan marks as no-op)
   const names = skillNames.length > 0 ? skillNames : [args.skill];
 
   // Step 4: Build operations

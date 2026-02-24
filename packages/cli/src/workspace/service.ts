@@ -58,7 +58,6 @@ import {
   type NonSkillExtensionsMap,
   type NormalizedSkillEntry,
   normalizeSkillEntry,
-  type PackEntry,
   type PacksMap,
   readSettings,
   SETTINGS_FILENAME,
@@ -78,6 +77,8 @@ import { PromptCancelled } from "../tui/index.js";
 import type { Operation, Plan, PlannedJobStep } from "./plan.js";
 import { displayPlan } from "./display-plan.js";
 import { applyPlan, type ExecutionContext, type Handlers } from "./apply-plan.js";
+import { classifyExtensions, type ClassifiedExtension, type PackagingKind } from "./classifier.js";
+import { discoverSkillsInDir } from "../cli-commands/skills/install/discover-skills.js";
 
 /**
  * Arguments for `setSkill` — bundles the skill name (map key) with the lock entry.
@@ -114,6 +115,117 @@ export interface SetMcpServerArgs {
   readonly name: string;
   readonly lockEntry: McpServerLockEntry;
 }
+
+// ---------------------------------------------------------------------------
+// Taxonomy types (classifier-backed workspace getters)
+// ---------------------------------------------------------------------------
+
+/** Configured extension with source metadata. Skills and commands include `enabled`. */
+export interface ConfiguredSkill {
+  readonly source: string;
+  readonly enabled: boolean;
+  readonly packagingKind: PackagingKind;
+  readonly isBuiltIn: boolean;
+}
+
+export interface ImplicitSkill {
+  readonly source: Option.Option<string>;
+  readonly enabled: true;
+  readonly packagingKind: PackagingKind;
+  readonly isBuiltIn: boolean;
+}
+
+export interface UnmanagedSkill {
+  readonly source: Option.Option<string>;
+  readonly enabled: true;
+  readonly packagingKind: PackagingKind;
+  readonly isBuiltIn: boolean;
+}
+
+export type InstalledSkill =
+  | ({ readonly lifecycle: "configured" } & ConfiguredSkill)
+  | ({ readonly lifecycle: "implicit" } & ImplicitSkill);
+
+export type ClassifiedSkill =
+  | ({ readonly lifecycle: "configured" } & ConfiguredSkill)
+  | ({ readonly lifecycle: "implicit" } & ImplicitSkill)
+  | ({ readonly lifecycle: "unmanaged" } & UnmanagedSkill);
+
+export interface ConfiguredCommand {
+  readonly source: string;
+  readonly enabled: boolean;
+  readonly packagingKind: PackagingKind;
+  readonly isBuiltIn: boolean;
+}
+
+export interface ImplicitCommand {
+  readonly source: Option.Option<string>;
+  readonly enabled: true;
+  readonly packagingKind: PackagingKind;
+  readonly isBuiltIn: boolean;
+}
+
+export interface UnmanagedCommand {
+  readonly source: Option.Option<string>;
+  readonly enabled: true;
+  readonly packagingKind: PackagingKind;
+  readonly isBuiltIn: boolean;
+}
+
+export type InstalledCommand =
+  | ({ readonly lifecycle: "configured" } & ConfiguredCommand)
+  | ({ readonly lifecycle: "implicit" } & ImplicitCommand);
+
+export type ClassifiedCommand =
+  | ({ readonly lifecycle: "configured" } & ConfiguredCommand)
+  | ({ readonly lifecycle: "implicit" } & ImplicitCommand)
+  | ({ readonly lifecycle: "unmanaged" } & UnmanagedCommand);
+
+/** MCP servers and packs do not have `enabled` — use `ExtensionRef` shapes. */
+export interface ConfiguredExtensionRef {
+  readonly source: string;
+  readonly packagingKind: PackagingKind;
+  readonly isBuiltIn: boolean;
+}
+
+export interface ImplicitExtensionRef {
+  readonly source: Option.Option<string>;
+  readonly packagingKind: PackagingKind;
+  readonly isBuiltIn: boolean;
+}
+
+export interface UnmanagedExtensionRef {
+  readonly source: Option.Option<string>;
+  readonly packagingKind: PackagingKind;
+  readonly isBuiltIn: boolean;
+}
+
+export type InstalledExtensionRef =
+  | ({ readonly lifecycle: "configured" } & ConfiguredExtensionRef)
+  | ({ readonly lifecycle: "implicit" } & ImplicitExtensionRef);
+
+export type ClassifiedExtensionRef =
+  | ({ readonly lifecycle: "configured" } & ConfiguredExtensionRef)
+  | ({ readonly lifecycle: "implicit" } & ImplicitExtensionRef)
+  | ({ readonly lifecycle: "unmanaged" } & UnmanagedExtensionRef);
+
+// ---------------------------------------------------------------------------
+// Source metadata derivation helpers
+// ---------------------------------------------------------------------------
+
+type SourceMeta = { readonly packagingKind: PackagingKind; readonly isBuiltIn: boolean };
+
+const deriveSourceMetaFromLockType = (lockType: string): SourceMeta => {
+  switch (lockType) {
+    case "builtin":
+      return { packagingKind: "native", isBuiltIn: true };
+    case "registry":
+      return { packagingKind: "native", isBuiltIn: false };
+    default:
+      // git, github, gitlab, bitbucket, azurerepos, local
+      return { packagingKind: "non-native", isBuiltIn: false };
+  }
+};
 
 /**
  * Built-in source defaults that are always available unless overridden.
@@ -497,6 +609,318 @@ const make = (options: WorkspaceContextOptions) =>
      */
     const readLockfileSafe = (dir: string) => readLockfile(dir).pipe(Effect.provide(fsLayer));
 
+    // -----------------------------------------------------------------------
+    // Classifier integration
+    // -----------------------------------------------------------------------
+
+    /**
+     * Detect skill names on disk from configured agent skill directories.
+     */
+    const detectSkillNamesOnDisk = (agentIds: ReadonlyArray<string>) =>
+      Effect.gen(function* () {
+        const agentRoots = Array.getSomes(
+          Array.map(agentIds, (agentId) =>
+            Option.map(getAgentById(agentId), (agent) => path.join(baseDir, agent.skills.dir)),
+          ),
+        );
+        const dedupedRoots = Array.dedupe(agentRoots);
+        const discovered = yield* Effect.forEach(
+          dedupedRoots,
+          (agentRoot) =>
+            discoverSkillsInDir(agentRoot, Option.none(), {
+              fullDepth: false,
+              includeInternal: false,
+            }).pipe(
+              Effect.catchAll(() =>
+                Effect.succeed<ReadonlyArray<{ skill: { name: string }; location: string }>>([]),
+              ),
+              Effect.provide(fsLayer),
+            ),
+          { concurrency: "unbounded" },
+        ).pipe(Effect.map(Array.flatten));
+        return Array.dedupe(discovered.map((d) => d.skill.name));
+      });
+
+    /**
+     * Build source metadata map for skills from lockfile and settings.
+     */
+    const deriveSourceMetaForSkills = (
+      settings: import("../settings/index.js").Settings,
+      lockSkills: Readonly<Record<string, { type: string }>>,
+      _detectedNames: ReadonlyArray<string>,
+    ): Readonly<Record<string, SourceMeta>> => {
+      const result: Record<string, SourceMeta> = {};
+      // Lockfile entries take precedence
+      for (const [name, entry] of Object.entries(lockSkills)) {
+        result[name] = deriveSourceMetaFromLockType(entry.type);
+      }
+      // Configured entries without lockfile entries — parse source string
+      const configuredSkills = settings.skills ?? {};
+      for (const [name, entry] of Object.entries(configuredSkills)) {
+        if (name in result) continue;
+        const sourceStr = getSkillEntrySource(entry);
+        // Registry/FQN → native; otherwise → non-native
+        if (sourceStr.includes("/skills/") || sourceStr.startsWith("@")) {
+          result[name] = { packagingKind: "native", isBuiltIn: false };
+        } else {
+          result[name] = { packagingKind: "non-native", isBuiltIn: false };
+        }
+      }
+      return result;
+    };
+
+    /**
+     * Build source metadata map for non-skill extension types.
+     */
+    const deriveSourceMetaForNonSkill = (
+      settingsEntries: Readonly<Record<string, string>>,
+      lockEntries: Readonly<Record<string, { type: string }>>,
+    ): Readonly<Record<string, SourceMeta>> => {
+      const result: Record<string, SourceMeta> = {};
+      for (const [name, entry] of Object.entries(lockEntries)) {
+        result[name] = deriveSourceMetaFromLockType(entry.type);
+      }
+      for (const [name, source] of Object.entries(settingsEntries)) {
+        if (name in result) continue;
+        if (source.includes("/") && source.startsWith("@")) {
+          result[name] = { packagingKind: "native", isBuiltIn: false };
+        } else {
+          result[name] = { packagingKind: "non-native", isBuiltIn: false };
+        }
+      }
+      return result;
+    };
+
+    /**
+     * Build source metadata map for packs (always native).
+     */
+    const deriveSourceMetaForPacks = (
+      _settingsEntries: Readonly<Record<string, unknown>>,
+      lockEntries: Readonly<Record<string, { type: string }>>,
+    ): Readonly<Record<string, SourceMeta>> => {
+      const result: Record<string, SourceMeta> = {};
+      for (const [name, entry] of Object.entries(lockEntries)) {
+        result[name] = { packagingKind: "native", isBuiltIn: entry.type === "builtin" };
+      }
+      return result;
+    };
+
+    /**
+     * Classify extensions by type using the shared classifier.
+     */
+    const getClassifiedExtensions = (type: import("../extensions/common.js").ExtensionType) =>
+      Effect.gen(function* () {
+        const settings = yield* readSettingsSafe(workspaceDir);
+        const lockfile = yield* readLockfileSafe(workspaceDir);
+        switch (type) {
+          case "skill": {
+            const detectedNames = yield* detectSkillNamesOnDisk(settings.agents ?? []);
+            const configuredSkills = settings.skills ?? {};
+            const configured = Object.fromEntries(
+              Object.entries(configuredSkills).map(([name, entry]) => {
+                const normalized = normalizeSkillEntry(entry);
+                return [name, { source: normalized.source, enabled: normalized.enabled }];
+              }),
+            );
+            return yield* classifyExtensions({
+              type,
+              configured,
+              lockedNames: Object.keys(lockfile.skills),
+              detectedNames,
+              ignoredPatterns: settings.ignored?.skills ?? [],
+              sourceMetaByName: deriveSourceMetaForSkills(
+                settings,
+                lockfile.skills as Record<string, { type: string }>,
+                detectedNames,
+              ),
+            });
+          }
+          case "command": {
+            const commandSettings = settings.commands ?? {};
+            const configured = Object.fromEntries(
+              Object.entries(commandSettings).map(([name, source]) => [
+                name,
+                { source, enabled: true },
+              ]),
+            );
+            return yield* classifyExtensions({
+              type,
+              configured,
+              lockedNames: Object.keys(lockfile.commands ?? {}),
+              detectedNames: [],
+              ignoredPatterns: settings.ignored?.commands ?? [],
+              sourceMetaByName: deriveSourceMetaForNonSkill(
+                commandSettings,
+                (lockfile.commands ?? {}) as Record<string, { type: string }>,
+              ),
+            });
+          }
+          case "mcp-server": {
+            const mcpSettings = settings.mcpServers ?? {};
+            const configured = Object.fromEntries(
+              Object.entries(mcpSettings).map(([name, source]) => [name, { source }]),
+            );
+            return yield* classifyExtensions({
+              type,
+              configured,
+              lockedNames: Object.keys(lockfile.mcpServers ?? {}),
+              detectedNames: [],
+              ignoredPatterns: settings.ignored?.mcpServers ?? [],
+              sourceMetaByName: deriveSourceMetaForNonSkill(
+                mcpSettings,
+                (lockfile.mcpServers ?? {}) as Record<string, { type: string }>,
+              ),
+            });
+          }
+          case "pack": {
+            const packSettings = settings.packs ?? {};
+            const configured = Object.fromEntries(
+              Object.entries(packSettings).map(([name, entry]) => {
+                const source = typeof entry === "string" ? entry : entry.source;
+                return [name, { source }];
+              }),
+            );
+            return yield* classifyExtensions({
+              type,
+              configured,
+              lockedNames: Object.keys(lockfile.packs ?? {}),
+              detectedNames: [],
+              ignoredPatterns: settings.ignored?.packs ?? [],
+              sourceMetaByName: deriveSourceMetaForPacks(
+                packSettings,
+                (lockfile.packs ?? {}) as Record<string, { type: string }>,
+              ),
+            });
+          }
+        }
+      });
+
+    // Helpers to convert classified rows to record maps
+
+    const toConfiguredSkillRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
+      Object.fromEntries(
+        rows
+          .filter(
+            (r): r is ClassifiedExtension & { lifecycle: "configured" } =>
+              r.lifecycle === "configured",
+          )
+          .map((r) => [
+            r.name,
+            {
+              source: r.source,
+              enabled: r.enabled,
+              packagingKind: r.packagingKind,
+              isBuiltIn: r.isBuiltIn,
+            },
+          ]),
+      ) as Record.ReadonlyRecord<string, ConfiguredSkill>;
+
+    const toImplicitSkillRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
+      Object.fromEntries(
+        rows
+          .filter((r) => r.lifecycle === "implicit")
+          .map((r) => [
+            r.name,
+            {
+              source: r.source as Option.Option<string>,
+              enabled: true as const,
+              packagingKind: r.packagingKind,
+              isBuiltIn: r.isBuiltIn,
+            },
+          ]),
+      ) as Record.ReadonlyRecord<string, ImplicitSkill>;
+
+    const toUnmanagedSkillRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
+      Object.fromEntries(
+        rows
+          .filter((r) => r.lifecycle === "unmanaged")
+          .map((r) => [
+            r.name,
+            {
+              source: r.source as Option.Option<string>,
+              enabled: true as const,
+              packagingKind: r.packagingKind,
+              isBuiltIn: r.isBuiltIn,
+            },
+          ]),
+      ) as Record.ReadonlyRecord<string, UnmanagedSkill>;
+
+    const toInstalledSkillRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
+      Object.fromEntries(
+        rows
+          .filter((r) => r.lifecycle === "configured" || r.lifecycle === "implicit")
+          .map((r) => {
+            if (r.lifecycle === "configured") {
+              return [
+                r.name,
+                {
+                  lifecycle: "configured" as const,
+                  source: r.source,
+                  enabled: r.enabled,
+                  packagingKind: r.packagingKind,
+                  isBuiltIn: r.isBuiltIn,
+                },
+              ];
+            }
+            return [
+              r.name,
+              {
+                lifecycle: "implicit" as const,
+                source: r.source as Option.Option<string>,
+                enabled: true as const,
+                packagingKind: r.packagingKind,
+                isBuiltIn: r.isBuiltIn,
+              },
+            ];
+          }),
+      ) as Record.ReadonlyRecord<string, InstalledSkill>;
+
+    const toClassifiedSkillRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
+      Object.fromEntries(
+        rows.map((r) => {
+          if (r.lifecycle === "configured") {
+            return [
+              r.name,
+              {
+                lifecycle: "configured" as const,
+                source: r.source,
+                enabled: r.enabled,
+                packagingKind: r.packagingKind,
+                isBuiltIn: r.isBuiltIn,
+              },
+            ];
+          }
+          return [
+            r.name,
+            {
+              lifecycle: r.lifecycle,
+              source: r.source as Option.Option<string>,
+              enabled: true as const,
+              packagingKind: r.packagingKind,
+              isBuiltIn: r.isBuiltIn,
+            },
+          ];
+        }),
+      ) as Record.ReadonlyRecord<string, ClassifiedSkill>;
+
+    const toConfiguredCommandRecord = (rows: ReadonlyArray<ClassifiedExtension>) =>
+      Object.fromEntries(
+        rows
+          .filter(
+            (r): r is ClassifiedExtension & { lifecycle: "configured" } =>
+              r.lifecycle === "configured",
+          )
+          .map((r) => [
+            r.name,
+            {
+              source: r.source,
+              enabled: r.enabled,
+              packagingKind: r.packagingKind,
+              isBuiltIn: r.isBuiltIn,
+            },
+          ]),
+      ) as Record.ReadonlyRecord<string, ConfiguredCommand>;
+
     /**
      * Resolve the immutable registry name for a skill's directory.
      *
@@ -715,38 +1139,64 @@ const make = (options: WorkspaceContextOptions) =>
         ),
 
       getConfiguredSkills: () =>
-        readSettingsSafe(workspaceDir).pipe(
-          Effect.map((s) => {
-            const skills = s.skills ?? {};
-            return Record.map(skills, (entry) => normalizeSkillEntry(entry));
-          }),
-        ),
+        getClassifiedExtensions("skill").pipe(Effect.map(toConfiguredSkillRecord)),
+
+      getImplicitSkills: () =>
+        getClassifiedExtensions("skill").pipe(Effect.map(toImplicitSkillRecord)),
+
+      getUnmanagedSkills: () =>
+        getClassifiedExtensions("skill").pipe(Effect.map(toUnmanagedSkillRecord)),
 
       getInstalledSkills: () =>
-        Effect.gen(function* () {
-          const settings = yield* readSettingsSafe(workspaceDir);
-          const skills = settings.skills ?? {};
-          const directNormalized = Record.map(skills, (entry) => normalizeSkillEntry(entry));
-          const directManaged = Record.filter(directNormalized, (entry) => entry.managed);
+        getClassifiedExtensions("skill").pipe(Effect.map(toInstalledSkillRecord)),
 
-          // Merge transitive skills from installed packs (first pack wins per key)
-          const lockfile = yield* readLockfileSafe(workspaceDir);
-          const lockedPacks = lockfile.packs ?? {};
-          const makeTransitive = (fqn: string): NormalizedSkillEntry => ({
-            source: Option.some(fqn),
-            enabled: true,
-            managed: true,
-          });
-          const transitiveSkills = Array.flatMap(Object.values(lockedPacks), (packEntry) =>
-            Object.keys(packEntry.resolvedSkills),
-          ).reduce<Record.ReadonlyRecord<string, NormalizedSkillEntry>>(
-            (acc, fqn) => (fqn in acc ? acc : { ...acc, [fqn]: makeTransitive(fqn) }),
-            {},
-          );
+      getClassifiedSkills: () =>
+        getClassifiedExtensions("skill").pipe(Effect.map(toClassifiedSkillRecord)),
 
-          // Direct managed entries take precedence over transitive
-          return { ...transitiveSkills, ...directManaged };
-        }),
+      getConfiguredExternalSkills: () =>
+        getClassifiedExtensions("skill").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "configured" && r.packagingKind === "non-native")
+                  .map((r) => [
+                    r.name,
+                    {
+                      source: r.source as string,
+                      enabled: (r as { enabled: boolean }).enabled,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ]),
+              ) as Record.ReadonlyRecord<string, ConfiguredSkill>,
+          ),
+        ),
+
+      getUnmanagedExternalSkills: () =>
+        getClassifiedExtensions("skill").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "unmanaged" && r.packagingKind === "non-native")
+                  .map((r) => [
+                    r.name,
+                    {
+                      source: r.source as Option.Option<string>,
+                      enabled: true as const,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ]),
+              ) as Record.ReadonlyRecord<string, UnmanagedSkill>,
+          ),
+        ),
+
+      getIgnoredSkillPatterns: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s) => (s.ignored?.skills ?? []) as ReadonlyArray<string>),
+        ),
 
       getConfiguredAgents: () =>
         readSettingsSafe(workspaceDir).pipe(Effect.map((s) => s.agents ?? [])),
@@ -1006,20 +1456,499 @@ const make = (options: WorkspaceContextOptions) =>
           }),
         ),
 
+      // -----------------------------------------------------------------------
+      // Command taxonomy getters
+      // -----------------------------------------------------------------------
+
       getConfiguredCommands: () =>
-        readSettingsSafe(workspaceDir).pipe(Effect.map((s) => s.commands ?? {})),
+        getClassifiedExtensions("command").pipe(Effect.map(toConfiguredCommandRecord)),
+
+      getImplicitCommands: () =>
+        getClassifiedExtensions("command").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "implicit")
+                  .map((r) => [
+                    r.name,
+                    {
+                      source: r.source as Option.Option<string>,
+                      enabled: true as const,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ]),
+              ) as Record.ReadonlyRecord<string, ImplicitCommand>,
+          ),
+        ),
+
+      getUnmanagedCommands: () =>
+        getClassifiedExtensions("command").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "unmanaged")
+                  .map((r) => [
+                    r.name,
+                    {
+                      source: r.source as Option.Option<string>,
+                      enabled: true as const,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ]),
+              ) as Record.ReadonlyRecord<string, UnmanagedCommand>,
+          ),
+        ),
+
+      getInstalledCommands: () =>
+        getClassifiedExtensions("command").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "configured" || r.lifecycle === "implicit")
+                  .map((r) => {
+                    if (r.lifecycle === "configured") {
+                      return [
+                        r.name,
+                        {
+                          lifecycle: "configured" as const,
+                          source: r.source,
+                          enabled: r.enabled,
+                          packagingKind: r.packagingKind,
+                          isBuiltIn: r.isBuiltIn,
+                        },
+                      ];
+                    }
+                    return [
+                      r.name,
+                      {
+                        lifecycle: "implicit" as const,
+                        source: r.source as Option.Option<string>,
+                        enabled: true as const,
+                        packagingKind: r.packagingKind,
+                        isBuiltIn: r.isBuiltIn,
+                      },
+                    ];
+                  }),
+              ) as Record.ReadonlyRecord<string, InstalledCommand>,
+          ),
+        ),
+
+      getClassifiedCommands: () =>
+        getClassifiedExtensions("command").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows.map((r) => {
+                  if (r.lifecycle === "configured") {
+                    return [
+                      r.name,
+                      {
+                        lifecycle: "configured" as const,
+                        source: r.source,
+                        enabled: r.enabled,
+                        packagingKind: r.packagingKind,
+                        isBuiltIn: r.isBuiltIn,
+                      },
+                    ];
+                  }
+                  return [
+                    r.name,
+                    {
+                      lifecycle: r.lifecycle,
+                      source: r.source as Option.Option<string>,
+                      enabled: true as const,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ];
+                }),
+              ) as Record.ReadonlyRecord<string, ClassifiedCommand>,
+          ),
+        ),
+
+      getConfiguredExternalCommands: () =>
+        getClassifiedExtensions("command").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "configured" && r.packagingKind === "non-native")
+                  .map((r) => [
+                    r.name,
+                    {
+                      source: r.source as string,
+                      enabled: (r as { enabled: boolean }).enabled,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ]),
+              ) as Record.ReadonlyRecord<string, ConfiguredCommand>,
+          ),
+        ),
+
+      getUnmanagedExternalCommands: () =>
+        getClassifiedExtensions("command").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "unmanaged" && r.packagingKind === "non-native")
+                  .map((r) => [
+                    r.name,
+                    {
+                      source: r.source as Option.Option<string>,
+                      enabled: true as const,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ]),
+              ) as Record.ReadonlyRecord<string, UnmanagedCommand>,
+          ),
+        ),
+
+      getIgnoredCommandPatterns: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s) => (s.ignored?.commands ?? []) as ReadonlyArray<string>),
+        ),
+
+      // -----------------------------------------------------------------------
+      // MCP Server taxonomy getters
+      // -----------------------------------------------------------------------
 
       getConfiguredMcpServers: () =>
-        readSettingsSafe(workspaceDir).pipe(Effect.map((s) => s["mcp-servers"] ?? {})),
+        getClassifiedExtensions("mcp-server").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter(
+                    (r): r is ClassifiedExtension & { lifecycle: "configured" } =>
+                      r.lifecycle === "configured",
+                  )
+                  .map((r) => [
+                    r.name,
+                    { source: r.source, packagingKind: r.packagingKind, isBuiltIn: r.isBuiltIn },
+                  ]),
+              ) as Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
+          ),
+        ),
+
+      getImplicitMcpServers: () =>
+        getClassifiedExtensions("mcp-server").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "implicit")
+                  .map((r) => [
+                    r.name,
+                    {
+                      source: r.source as Option.Option<string>,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ]),
+              ) as Record.ReadonlyRecord<string, ImplicitExtensionRef>,
+          ),
+        ),
+
+      getUnmanagedMcpServers: () =>
+        getClassifiedExtensions("mcp-server").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "unmanaged")
+                  .map((r) => [
+                    r.name,
+                    {
+                      source: r.source as Option.Option<string>,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ]),
+              ) as Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
+          ),
+        ),
+
+      getInstalledMcpServers: () =>
+        getClassifiedExtensions("mcp-server").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "configured" || r.lifecycle === "implicit")
+                  .map((r) => {
+                    if (r.lifecycle === "configured") {
+                      return [
+                        r.name,
+                        {
+                          lifecycle: "configured" as const,
+                          source: r.source,
+                          packagingKind: r.packagingKind,
+                          isBuiltIn: r.isBuiltIn,
+                        },
+                      ];
+                    }
+                    return [
+                      r.name,
+                      {
+                        lifecycle: "implicit" as const,
+                        source: r.source as Option.Option<string>,
+                        packagingKind: r.packagingKind,
+                        isBuiltIn: r.isBuiltIn,
+                      },
+                    ];
+                  }),
+              ) as Record.ReadonlyRecord<string, InstalledExtensionRef>,
+          ),
+        ),
+
+      getClassifiedMcpServers: () =>
+        getClassifiedExtensions("mcp-server").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows.map((r) => {
+                  if (r.lifecycle === "configured") {
+                    return [
+                      r.name,
+                      {
+                        lifecycle: "configured" as const,
+                        source: r.source,
+                        packagingKind: r.packagingKind,
+                        isBuiltIn: r.isBuiltIn,
+                      },
+                    ];
+                  }
+                  return [
+                    r.name,
+                    {
+                      lifecycle: r.lifecycle,
+                      source: r.source as Option.Option<string>,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ];
+                }),
+              ) as Record.ReadonlyRecord<string, ClassifiedExtensionRef>,
+          ),
+        ),
+
+      getConfiguredExternalMcpServers: () =>
+        getClassifiedExtensions("mcp-server").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "configured" && r.packagingKind === "non-native")
+                  .map((r) => [
+                    r.name,
+                    {
+                      source: r.source as string,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ]),
+              ) as Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
+          ),
+        ),
+
+      getUnmanagedExternalMcpServers: () =>
+        getClassifiedExtensions("mcp-server").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "unmanaged" && r.packagingKind === "non-native")
+                  .map((r) => [
+                    r.name,
+                    {
+                      source: r.source as Option.Option<string>,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ]),
+              ) as Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
+          ),
+        ),
+
+      getIgnoredMcpServerPatterns: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s) => (s.ignored?.mcpServers ?? []) as ReadonlyArray<string>),
+        ),
+
+      // -----------------------------------------------------------------------
+      // Pack taxonomy getters
+      // -----------------------------------------------------------------------
 
       getConfiguredPacks: () =>
-        readSettingsSafe(workspaceDir).pipe(Effect.map((s) => s.packs ?? {})),
+        getClassifiedExtensions("pack").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter(
+                    (r): r is ClassifiedExtension & { lifecycle: "configured" } =>
+                      r.lifecycle === "configured",
+                  )
+                  .map((r) => [
+                    r.name,
+                    { source: r.source, packagingKind: r.packagingKind, isBuiltIn: r.isBuiltIn },
+                  ]),
+              ) as Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
+          ),
+        ),
 
-      // Packs are always 1:1 with settings — unlike skills, packs cannot be
-      // transitive dependencies of other extensions, so installed === configured.
-      getInstalledPacks() {
-        return this.getConfiguredPacks();
-      },
+      getImplicitPacks: () =>
+        getClassifiedExtensions("pack").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "implicit")
+                  .map((r) => [
+                    r.name,
+                    {
+                      source: r.source as Option.Option<string>,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ]),
+              ) as Record.ReadonlyRecord<string, ImplicitExtensionRef>,
+          ),
+        ),
+
+      getUnmanagedPacks: () =>
+        getClassifiedExtensions("pack").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "unmanaged")
+                  .map((r) => [
+                    r.name,
+                    {
+                      source: r.source as Option.Option<string>,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ]),
+              ) as Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
+          ),
+        ),
+
+      getInstalledPacks: () =>
+        getClassifiedExtensions("pack").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "configured" || r.lifecycle === "implicit")
+                  .map((r) => {
+                    if (r.lifecycle === "configured") {
+                      return [
+                        r.name,
+                        {
+                          lifecycle: "configured" as const,
+                          source: r.source,
+                          packagingKind: r.packagingKind,
+                          isBuiltIn: r.isBuiltIn,
+                        },
+                      ];
+                    }
+                    return [
+                      r.name,
+                      {
+                        lifecycle: "implicit" as const,
+                        source: r.source as Option.Option<string>,
+                        packagingKind: r.packagingKind,
+                        isBuiltIn: r.isBuiltIn,
+                      },
+                    ];
+                  }),
+              ) as Record.ReadonlyRecord<string, InstalledExtensionRef>,
+          ),
+        ),
+
+      getClassifiedPacks: () =>
+        getClassifiedExtensions("pack").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows.map((r) => {
+                  if (r.lifecycle === "configured") {
+                    return [
+                      r.name,
+                      {
+                        lifecycle: "configured" as const,
+                        source: r.source,
+                        packagingKind: r.packagingKind,
+                        isBuiltIn: r.isBuiltIn,
+                      },
+                    ];
+                  }
+                  return [
+                    r.name,
+                    {
+                      lifecycle: r.lifecycle,
+                      source: r.source as Option.Option<string>,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ];
+                }),
+              ) as Record.ReadonlyRecord<string, ClassifiedExtensionRef>,
+          ),
+        ),
+
+      getConfiguredExternalPacks: () =>
+        getClassifiedExtensions("pack").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "configured" && r.packagingKind === "non-native")
+                  .map((r) => [
+                    r.name,
+                    {
+                      source: r.source as string,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ]),
+              ) as Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
+          ),
+        ),
+
+      getUnmanagedExternalPacks: () =>
+        getClassifiedExtensions("pack").pipe(
+          Effect.map(
+            (rows) =>
+              Object.fromEntries(
+                rows
+                  .filter((r) => r.lifecycle === "unmanaged" && r.packagingKind === "non-native")
+                  .map((r) => [
+                    r.name,
+                    {
+                      source: r.source as Option.Option<string>,
+                      packagingKind: r.packagingKind,
+                      isBuiltIn: r.isBuiltIn,
+                    },
+                  ]),
+              ) as Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
+          ),
+        ),
+
+      getIgnoredPackPatterns: () =>
+        readSettingsSafe(workspaceDir).pipe(
+          Effect.map((s) => (s.ignored?.packs ?? []) as ReadonlyArray<string>),
+        ),
 
       getLockedPacks: () => readLockfileSafe(workspaceDir).pipe(Effect.map((lf) => lf.packs ?? {})),
 
@@ -1199,16 +2128,16 @@ const make = (options: WorkspaceContextOptions) =>
       setMcpServer: ({ name, lockEntry }: SetMcpServerArgs) =>
         withMutex(
           Effect.gen(function* () {
-            // Update settings (uses "mcp-servers" key)
+            // Update settings (uses "mcpServers" key)
             // Assertion needed: McpServerLockEntry is structurally compatible with SkillLockEntry
             // for lockEntryToSourceParams (only accesses source-type fields, not agents)
             const sourceInput = lockEntryToSourceParams(lockEntry as unknown as SkillLockEntry);
             const source = printSourceParams(sourceInput);
             const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentMcpServers: NonSkillExtensionsMap = currentSettings["mcp-servers"] ?? {};
+            const currentMcpServers: NonSkillExtensionsMap = currentSettings.mcpServers ?? {};
             const updatedSettings = {
               ...currentSettings,
-              "mcp-servers": { ...currentMcpServers, [name]: source },
+              mcpServers: { ...currentMcpServers, [name]: source },
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
@@ -1252,16 +2181,16 @@ const make = (options: WorkspaceContextOptions) =>
       removeMcpServer: (name: string) =>
         withMutex(
           Effect.gen(function* () {
-            // Update settings (uses "mcp-servers" key)
+            // Update settings (uses "mcpServers" key)
             const currentSettings = yield* readSettingsSafe(workspaceDir);
-            const currentMcpServers: NonSkillExtensionsMap = currentSettings["mcp-servers"] ?? {};
+            const currentMcpServers: NonSkillExtensionsMap = currentSettings.mcpServers ?? {};
             if (!(name in currentMcpServers)) return; // no-op
 
             const { [name]: _, ...remainingMcpServers } = currentMcpServers;
             void _;
             const updatedSettings = {
               ...currentSettings,
-              "mcp-servers": remainingMcpServers,
+              mcpServers: remainingMcpServers,
             };
             yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
 
@@ -1339,16 +2268,43 @@ export interface WorkspaceContextService {
   readonly getConfiguredNamespace: () => Effect.Effect<string, CliError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
   readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, CliError>;
-  /** Read settings and return all skill entries normalized (managed + unmanaged). */
+  /** Configured skills from settings with source metadata. */
   readonly getConfiguredSkills: () => Effect.Effect<
-    Record.ReadonlyRecord<string, NormalizedSkillEntry>,
+    Record.ReadonlyRecord<string, ConfiguredSkill>,
     CliError
   >;
-  /** Read settings and return only managed skill entries, normalized. Filters out unmanaged. */
+  /** Implicit skills (lockfile-only native entries). */
+  readonly getImplicitSkills: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ImplicitSkill>,
+    CliError
+  >;
+  /** Unmanaged skills (on-disk only, not configured or implicit). */
+  readonly getUnmanagedSkills: () => Effect.Effect<
+    Record.ReadonlyRecord<string, UnmanagedSkill>,
+    CliError
+  >;
+  /** Installed skills (configured ∪ implicit). */
   readonly getInstalledSkills: () => Effect.Effect<
-    Record.ReadonlyRecord<string, NormalizedSkillEntry>,
+    Record.ReadonlyRecord<string, InstalledSkill>,
     CliError
   >;
+  /** All classified skills. */
+  readonly getClassifiedSkills: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ClassifiedSkill>,
+    CliError
+  >;
+  /** Configured skills with non-native packaging. */
+  readonly getConfiguredExternalSkills: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ConfiguredSkill>,
+    CliError
+  >;
+  /** Unmanaged skills with non-native packaging. */
+  readonly getUnmanagedExternalSkills: () => Effect.Effect<
+    Record.ReadonlyRecord<string, UnmanagedSkill>,
+    CliError
+  >;
+  /** Ignored skill patterns from settings. */
+  readonly getIgnoredSkillPatterns: () => Effect.Effect<ReadonlyArray<string>, CliError>;
   /** Read settings and return the configured agent IDs, defaulting to `[]`. */
   readonly getConfiguredAgents: () => Effect.Effect<ReadonlyArray<string>, CliError>;
   /** Read lockfile and return the skills lock map. */
@@ -1387,20 +2343,96 @@ export interface WorkspaceContextService {
   ) => Effect.Effect<void, CliError>;
   /** Append an agent ID if not already present and write to disk. Fails with CliError if invalid. Serialized by semaphore. */
   readonly addConfiguredAgent: (agentId: string) => Effect.Effect<void, CliError>;
-  /** Read settings and return the commands map (name -> version specifier). */
-  readonly getConfiguredCommands: () => Effect.Effect<NonSkillExtensionsMap, CliError>;
-  /** Read settings and return the MCP servers map (name -> version specifier). */
-  readonly getConfiguredMcpServers: () => Effect.Effect<NonSkillExtensionsMap, CliError>;
-  /** Read settings and return the packs map. */
+  // --- Command taxonomy ---
+  readonly getConfiguredCommands: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ConfiguredCommand>,
+    CliError
+  >;
+  readonly getImplicitCommands: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ImplicitCommand>,
+    CliError
+  >;
+  readonly getUnmanagedCommands: () => Effect.Effect<
+    Record.ReadonlyRecord<string, UnmanagedCommand>,
+    CliError
+  >;
+  readonly getInstalledCommands: () => Effect.Effect<
+    Record.ReadonlyRecord<string, InstalledCommand>,
+    CliError
+  >;
+  readonly getClassifiedCommands: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ClassifiedCommand>,
+    CliError
+  >;
+  readonly getConfiguredExternalCommands: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ConfiguredCommand>,
+    CliError
+  >;
+  readonly getUnmanagedExternalCommands: () => Effect.Effect<
+    Record.ReadonlyRecord<string, UnmanagedCommand>,
+    CliError
+  >;
+  readonly getIgnoredCommandPatterns: () => Effect.Effect<ReadonlyArray<string>, CliError>;
+  // --- MCP Server taxonomy ---
+  readonly getConfiguredMcpServers: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
+    CliError
+  >;
+  readonly getImplicitMcpServers: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ImplicitExtensionRef>,
+    CliError
+  >;
+  readonly getUnmanagedMcpServers: () => Effect.Effect<
+    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
+    CliError
+  >;
+  readonly getInstalledMcpServers: () => Effect.Effect<
+    Record.ReadonlyRecord<string, InstalledExtensionRef>,
+    CliError
+  >;
+  readonly getClassifiedMcpServers: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ClassifiedExtensionRef>,
+    CliError
+  >;
+  readonly getConfiguredExternalMcpServers: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
+    CliError
+  >;
+  readonly getUnmanagedExternalMcpServers: () => Effect.Effect<
+    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
+    CliError
+  >;
+  readonly getIgnoredMcpServerPatterns: () => Effect.Effect<ReadonlyArray<string>, CliError>;
+  // --- Pack taxonomy ---
   readonly getConfiguredPacks: () => Effect.Effect<
-    Record.ReadonlyRecord<string, PackEntry>,
+    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
     CliError
   >;
-  /** Read settings and return all installed packs (same as configured for packs). */
+  readonly getImplicitPacks: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ImplicitExtensionRef>,
+    CliError
+  >;
+  readonly getUnmanagedPacks: () => Effect.Effect<
+    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
+    CliError
+  >;
   readonly getInstalledPacks: () => Effect.Effect<
-    Record.ReadonlyRecord<string, PackEntry>,
+    Record.ReadonlyRecord<string, InstalledExtensionRef>,
     CliError
   >;
+  readonly getClassifiedPacks: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ClassifiedExtensionRef>,
+    CliError
+  >;
+  readonly getConfiguredExternalPacks: () => Effect.Effect<
+    Record.ReadonlyRecord<string, ConfiguredExtensionRef>,
+    CliError
+  >;
+  readonly getUnmanagedExternalPacks: () => Effect.Effect<
+    Record.ReadonlyRecord<string, UnmanagedExtensionRef>,
+    CliError
+  >;
+  readonly getIgnoredPackPatterns: () => Effect.Effect<ReadonlyArray<string>, CliError>;
   /** Read lockfile and return the packs lock map. */
   readonly getLockedPacks: () => Effect.Effect<PacksLockMap, CliError>;
   /** Read lockfile and return the entry for a specific pack, or Option.none(). */

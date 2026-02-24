@@ -3,7 +3,7 @@
  *
  * Task 17.1: Since the CLI parser does not yet support `registry:` prefix for
  * direct registry installs, this test verifies the registry install flow via
- * the fork command, which forks an installed skill to a managed extension,
+ * the fork command, which forks an installed skill to an extension,
  * publishes it to a local registry, and updates the lockfile with registry
  * fields (resolvedVersion, integrity, sourceName).
  *

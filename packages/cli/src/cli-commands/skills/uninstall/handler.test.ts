@@ -384,68 +384,51 @@ describe("uninstall.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Unmanaged skill uninstall
+  // Taxonomy: ignored skill excluded from candidates
   // ---------------------------------------------------------------------------
 
-  describe("unmanaged skill uninstall", () => {
-    /** Create a workspace with an unmanaged skill marker in settings (no lockfile entry). */
-    const initWorkspaceWithUnmanaged = (axmDir: string, skillName: string) => {
+  describe("taxonomy: ignored skill excluded from candidates", () => {
+    it.effect("glob expansion excludes ignored implicit skill names", () => {
+      const { provide } = makeLayers();
+      // effect-basics: configured (in settings + lockfile)
+      // effect-stream: implicit (lockfile-only, registry type = native), matches ignored pattern
+      const axmDir = path.join(tempDir, ".axm");
       fs.mkdirSync(axmDir, { recursive: true });
       const settings = {
         agents: ["claude-code"],
-        skills: { [skillName]: { managed: false } },
+        skills: { "effect-basics": "local" },
+        ignored: { skills: ["effect-stream"] },
       };
       fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
-      fs.writeFileSync(
-        path.join(axmDir, "axm-lock.yaml"),
-        YAML.stringify({ lockfileVersion: 1, skills: {} }),
-      );
-    };
-
-    it.effect("removes unmanaged skill marker without building a plan", () => {
-      const { provide, mockLog } = makeLayers();
-      initWorkspaceWithUnmanaged(path.join(tempDir, ".axm"), "my-skill");
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleUninstall(defaultArgs("my-skill"));
-
-          // Settings should no longer contain the skill
-          const settingsContent = fs.readFileSync(
-            path.join(tempDir, ".axm", "settings.json"),
-            "utf-8",
-          );
-          const settings = JSON.parse(settingsContent);
-          expect(settings.skills?.["my-skill"]).toBeUndefined();
-
-          // Should log the removal message
-          const allLogs = [...mockLog.logs.info, ...mockLog.logs.success, ...mockLog.logs.message];
-          expect(allLogs.some((m) => m.includes("unmanaged") && m.includes("my-skill"))).toBe(true);
-        }),
-      );
-    });
-
-    it.effect("does not touch lockfile for unmanaged skill", () => {
-      const { provide } = makeLayers();
-      const axmDir = path.join(tempDir, ".axm");
-      initWorkspaceWithUnmanaged(axmDir, "my-skill");
-
-      // Add a different managed skill to the lockfile to verify it's untouched
-      const lockContent = YAML.stringify({
+      const lockfile = {
         lockfileVersion: 1,
-        skills: { "other-skill": makeLockEntry() },
-      });
-      fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), lockContent);
+        skills: {
+          "effect-basics": makeLockEntry(),
+          "effect-stream": makeRegistryLockEntry("@acme", "effect-stream"),
+        },
+      };
+      fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
+
+      createCanonicalSkill(tempDir, "effect-basics");
+      createCanonicalSkill(tempDir, "effect-stream");
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstall(defaultArgs("my-skill"));
+          yield* handleUninstall(defaultArgs("effect-*"));
 
-          // Lockfile should still have the other skill, untouched
-          const updatedLock = YAML.parse(
-            fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf-8"),
-          );
-          expect(updatedLock.skills["other-skill"]).toBeDefined();
+          // effect-basics should be removed (matched glob, not ignored)
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-basics"),
+            ),
+          ).toBe(false);
+
+          // effect-stream should remain (ignored, excluded from installed candidates)
+          expect(
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-stream"),
+            ),
+          ).toBe(true);
         }),
       );
     });

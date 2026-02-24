@@ -23,6 +23,7 @@ import type { CliError } from "../cli-error/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { WorkspaceContextService } from "../workspace/service.js";
 import { Workspace } from "../workspace/service.js";
+import { taxonomyStubs } from "../workspace/test-stubs.js";
 import type { ExtensionIndex, VersionEntry } from "../registry/index.js";
 import type { FindOptions } from "./provider.js";
 import { SourceHostProviders, SourceHostProvidersLive } from "./service.js";
@@ -77,6 +78,7 @@ const computeIntegrity = (data: Uint8Array): string => {
  * Returns registry sources without namespace filtering.
  */
 const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService => ({
+  ...taxonomyStubs,
   global: false,
   path: "/tmp/test-workspace",
   baseDir: "/tmp",

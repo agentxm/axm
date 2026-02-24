@@ -50,15 +50,6 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
     });
   }
 
-  // Validate: skill is managed
-  if (!entry.managed) {
-    return yield* makeCliError({
-      code: "SKILL_NOT_MANAGED",
-      what: `Cannot rename unmanaged skill '${args.oldName}'`,
-      howToFix: "Only managed skills (installed via axm) can be renamed",
-    });
-  }
-
   // Validate: new name doesn't conflict
   if (configuredSkills[args.newName] !== undefined) {
     return yield* makeCliError({

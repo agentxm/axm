@@ -10,6 +10,7 @@ import matter from "gray-matter";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { SkillLockEntry } from "../../../lockfile/schema.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { SkillPathSource } from "../paths.js";
 import { sanitizeName } from "../utils.js";
 import type { RenameSkillOperation } from "./rename.js";
@@ -37,6 +38,7 @@ const makeWorkspaceMock = (
   const settingsSkills = opts.settingsSkills ?? {};
 
   return {
+    ...taxonomyStubs,
     global: false,
     path: axmDir,
     baseDir: path.dirname(axmDir),
@@ -54,9 +56,10 @@ const makeWorkspaceMock = (
           Object.entries(settingsSkills).map(([k, v]) => [
             k,
             {
-              source: Option.fromNullable(typeof v === "string" ? v : v?.source),
+              source: typeof v === "string" ? v : (v?.source ?? ""),
               enabled: typeof v === "string" ? true : (v?.enabled ?? true),
-              managed: typeof v === "string" ? true : (v?.managed ?? true),
+              packagingKind: "non-native" as const,
+              isBuiltIn: false,
             },
           ]),
         ),

@@ -43,17 +43,19 @@ const initWorkspace = (
   axmDir: string,
   registryRoot: string,
   lockfileSkills: Record<string, unknown> = {},
+  settingsSkills: Record<string, unknown> = {},
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
   fs.mkdirSync(registryRoot, { recursive: true });
-  fs.writeFileSync(
-    path.join(axmDir, "settings.json"),
-    JSON.stringify({
-      namespace: "@test",
-      agents: ["claude-code"],
-      sources: [{ name: "local", type: "registry", location: new URL(`file://${registryRoot}`) }],
-    }),
-  );
+  const settings: Record<string, unknown> = {
+    namespace: "@test",
+    agents: ["claude-code"],
+    sources: [{ name: "local", type: "registry", location: new URL(`file://${registryRoot}`) }],
+  };
+  if (Object.keys(settingsSkills).length > 0) {
+    settings["skills"] = settingsSkills;
+  }
+  fs.writeFileSync(path.join(axmDir, "settings.json"), JSON.stringify(settings));
   fs.writeFileSync(
     path.join(axmDir, "axm-lock.yaml"),
     YAML.stringify({ lockfileVersion: 1, skills: lockfileSkills }),
@@ -131,15 +133,20 @@ describe("fork.handler", () => {
       const skillsDir = path.join(tempDir, ".axm", "extensions", "external", "skills", "commit");
       createSkillMd(skillsDir, "commit", "Auto-commit");
 
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
-        commit: {
-          type: "local",
-          path: skillsDir,
-          agents: ["claude-code"],
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {
+          commit: {
+            type: "local",
+            path: skillsDir,
+            agents: ["claude-code"],
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
         },
-      });
+        { commit: `local:${skillsDir}` },
+      );
 
       return provide(
         Effect.gen(function* () {
@@ -148,7 +155,7 @@ describe("fork.handler", () => {
           // Should have logged success
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
-          // Managed extension should exist in .axm/extensions/
+          // Extension should exist in .axm/extensions/
           const managedDir = path.join(tempDir, ".axm", "extensions", "@test", "skills", "commit");
           expect(fs.existsSync(managedDir)).toBe(true);
           expect(fs.existsSync(path.join(managedDir, "axm-skill.json"))).toBe(true);
@@ -194,7 +201,7 @@ describe("fork.handler", () => {
 
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
-          // Managed extension should exist
+          // Extension should exist
           const managedDir = path.join(
             tempDir,
             ".axm",
@@ -277,15 +284,20 @@ describe("fork.handler", () => {
       const skillsDir = path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill");
       createSkillMd(skillsDir, "my-skill", "My skill");
 
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
-        "my-skill": {
-          type: "local",
-          path: skillsDir,
-          agents: ["claude-code"],
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {
+          "my-skill": {
+            type: "local",
+            path: skillsDir,
+            agents: ["claude-code"],
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
         },
-      });
+        { "my-skill": `local:${skillsDir}` },
+      );
 
       return provide(
         Effect.gen(function* () {
@@ -320,36 +332,20 @@ describe("fork.handler", () => {
         createSkillMd(skillsDir, name, name);
       }
 
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
-        "effect-basics": {
+      const lockSkills: Record<string, unknown> = {};
+      const settingsSkills: Record<string, string> = {};
+      for (const name of ["effect-basics", "effect-stream", "effect-testing", "commit"]) {
+        const skillPath = path.join(tempDir, ".axm", "extensions", "external", "skills", name);
+        lockSkills[name] = {
           type: "local",
-          path: path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-basics"),
+          path: skillPath,
           agents: ["claude-code"],
           installedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        },
-        "effect-stream": {
-          type: "local",
-          path: path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-stream"),
-          agents: ["claude-code"],
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        "effect-testing": {
-          type: "local",
-          path: path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-testing"),
-          agents: ["claude-code"],
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        commit: {
-          type: "local",
-          path: path.join(tempDir, ".axm", "extensions", "external", "skills", "commit"),
-          agents: ["claude-code"],
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      });
+        };
+        settingsSkills[name] = `local:${skillPath}`;
+      }
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot, lockSkills, settingsSkills);
 
       return provide(
         Effect.gen(function* () {
@@ -384,32 +380,27 @@ describe("fork.handler", () => {
       );
     });
 
-    it.effect("matches unmanaged configured skills from configured agent directories", () => {
+    it.effect("matches on-disk configured skills from configured agent directories", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
-      const unmanagedDir = path.join(tempDir, ".claude", "skills", "unmanaged-configured");
-      createSkillMd(unmanagedDir, "unmanaged-configured", "Unmanaged configured");
+      const configuredDir = path.join(tempDir, ".claude", "skills", "configured-local");
+      createSkillMd(configuredDir, "configured-local", "Configured local skill");
       initWorkspace(path.join(tempDir, ".axm"), registryRoot);
-
-      const settingsPath = path.join(tempDir, ".axm", "settings.json");
-      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-      settings.skills = { "unmanaged-configured": { managed: false } };
-      fs.writeFileSync(settingsPath, JSON.stringify(settings));
 
       return provide(
         Effect.gen(function* () {
-          yield* handleFork(defaultArgs("unmanaged-*"));
+          yield* handleFork(defaultArgs("configured-*"));
           expect(
             fs.existsSync(
-              path.join(tempDir, ".axm", "extensions", "@test", "skills", "unmanaged-configured"),
+              path.join(tempDir, ".axm", "extensions", "@test", "skills", "configured-local"),
             ),
           ).toBe(true);
         }),
       );
     });
 
-    it.effect("matches unmanaged on-disk skills from configured agent directories", () => {
+    it.effect("matches on-disk skills from configured agent directories", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
@@ -435,7 +426,7 @@ describe("fork.handler", () => {
 
       const sharedName = "shared-skill";
       const managedDir = path.join(tempDir, ".axm", "extensions", "external", "skills", sharedName);
-      createSkillMd(managedDir, sharedName, "Managed");
+      createSkillMd(managedDir, sharedName, "Installed");
       const agentDir = path.join(tempDir, ".claude", "skills", sharedName);
       createSkillMd(agentDir, sharedName, "Agent");
       initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
@@ -450,7 +441,7 @@ describe("fork.handler", () => {
 
       const settingsPath = path.join(tempDir, ".axm", "settings.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-      settings.skills = { [sharedName]: { managed: false } };
+      settings.skills = { [sharedName]: `local:${managedDir}` };
       fs.writeFileSync(settingsPath, JSON.stringify(settings));
 
       return provide(
@@ -473,22 +464,26 @@ describe("fork.handler", () => {
       const diskDir = path.join(tempDir, ".claude", "skills", diskName);
       createSkillMd(diskDir, diskName, diskName);
 
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
-        [lockName]: {
-          type: "local",
-          path: lockDir,
-          agents: ["claude-code"],
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      });
+      const gammaDir = path.join(tempDir, ".claude", "skills", "gamma-configured");
+      createSkillMd(gammaDir, "gamma-configured", "gamma-configured");
 
-      const settingsPath = path.join(tempDir, ".axm", "settings.json");
-      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-      settings.skills = {
-        "gamma-configured": { managed: false },
-      };
-      fs.writeFileSync(settingsPath, JSON.stringify(settings));
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {
+          [lockName]: {
+            type: "local",
+            path: lockDir,
+            agents: ["claude-code"],
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
+        {
+          [lockName]: `local:${lockDir}`,
+          "gamma-configured": `local:${gammaDir}`,
+        },
+      );
 
       return provide(
         Effect.gen(function* () {
@@ -517,29 +512,20 @@ describe("fork.handler", () => {
         createSkillMd(skillsDir, name, name);
       }
 
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
-        "effect-basics": {
+      const lockSkills2: Record<string, unknown> = {};
+      const settingsSkills2: Record<string, string> = {};
+      for (const name of ["effect-basics", "effect-stream", "effect-testing"]) {
+        const skillPath = path.join(tempDir, ".axm", "extensions", "external", "skills", name);
+        lockSkills2[name] = {
           type: "local",
-          path: path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-basics"),
+          path: skillPath,
           agents: ["claude-code"],
           installedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        },
-        "effect-stream": {
-          type: "local",
-          path: path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-stream"),
-          agents: ["claude-code"],
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        "effect-testing": {
-          type: "local",
-          path: path.join(tempDir, ".axm", "extensions", "external", "skills", "effect-testing"),
-          agents: ["claude-code"],
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      });
+        };
+        settingsSkills2[name] = `local:${skillPath}`;
+      }
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot, lockSkills2, settingsSkills2);
 
       return provide(
         Effect.gen(function* () {
@@ -569,15 +555,20 @@ describe("fork.handler", () => {
 
       const skillsDir = path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill");
       createSkillMd(skillsDir, "my-skill", "My skill");
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
-        "my-skill": {
-          type: "local",
-          path: skillsDir,
-          agents: ["claude-code"],
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {
+          "my-skill": {
+            type: "local",
+            path: skillsDir,
+            agents: ["claude-code"],
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
         },
-      });
+        { "my-skill": `local:${skillsDir}` },
+      );
 
       return provide(
         Effect.gen(function* () {
@@ -617,15 +608,20 @@ describe("fork.handler", () => {
       const skillsDir = path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill");
       createSkillMd(skillsDir, "my-skill", "My skill");
 
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {
-        "my-skill": {
-          type: "local",
-          path: skillsDir,
-          agents: ["claude-code"],
-          installedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        registryRoot,
+        {
+          "my-skill": {
+            type: "local",
+            path: skillsDir,
+            agents: ["claude-code"],
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
         },
-      });
+        { "my-skill": `local:${skillsDir}` },
+      );
 
       return provide(
         Effect.gen(function* () {

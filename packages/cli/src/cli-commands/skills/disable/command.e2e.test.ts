@@ -130,7 +130,7 @@ describe("axm skills disable", () => {
       });
 
       expect(result.exitCode).not.toBe(0);
-      expect(result.stderr).toContain("not found");
+      expect(result.stderr).toContain("is not installed");
     } finally {
       temp.cleanup();
     }

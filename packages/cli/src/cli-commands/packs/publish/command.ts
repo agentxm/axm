@@ -21,7 +21,7 @@ export interface PublishPackCommandArgs {
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
 export const publishPackCommand: CommandModule<{}, PublishPackCommandArgs> = {
   command: "publish <pack>",
-  describe: "Publish a managed pack to a registry",
+  describe: "Publish a pack to a registry",
   builder: (yargs) =>
     yargs
       .positional("pack", {

@@ -1,5 +1,5 @@
 /**
- * Publish MCP server executor — reads a managed MCP server's manifest, builds a
+ * Publish MCP server executor — reads an MCP server's manifest, builds a
  * zip archive, computes the SRI integrity hash, and publishes to a target registry.
  *
  * Pipeline: validate manifest -> build archive -> compute integrity ->
@@ -40,7 +40,7 @@ export type PublishMcpServerOperationArgs = {
 };
 
 /**
- * Publish a managed MCP server extension to a registry.
+ * Publish an MCP server extension to a registry.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -80,7 +80,7 @@ export const publishMcpServer: OperationHandler<
 
     const fqn = yield* parseFqn(op.args.name);
 
-    // Locate the managed extension directory
+    // Locate the extension directory
     const extensionDir = path.join(
       base,
       REGISTRY_EXTENSIONS_DIR,

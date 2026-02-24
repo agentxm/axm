@@ -55,6 +55,30 @@ describe("expandGlob", () => {
   it("matches case-sensitively", () => {
     expect(expandGlob("Effect-*", ["effect-basics", "Effect-Basics"])).toEqual(["Effect-Basics"]);
   });
+
+  // Ignored-pattern semantics (full-name anchored, no partial matches)
+
+  it("does not partially match substrings", () => {
+    // "openspec-*" should not match "my-openspec-tool" (full-name anchoring)
+    expect(expandGlob("openspec-*", ["my-openspec-tool", "openspec-core"])).toEqual([
+      "openspec-core",
+    ]);
+  });
+
+  it("handles multiple * wildcards in one pattern", () => {
+    expect(expandGlob("*-core-*", ["openspec-core-utils", "openspec-core", "core-utils"])).toEqual([
+      "openspec-core-utils",
+    ]);
+  });
+
+  it("escapes regex special characters in pattern", () => {
+    // Dots, plus signs etc. in patterns should be treated as literals
+    expect(expandGlob("my.skill+v2", ["my.skill+v2", "myXskillXv2"])).toEqual(["my.skill+v2"]);
+  });
+
+  it("empty pattern matches only empty string", () => {
+    expect(expandGlob("", ["", "anything"])).toEqual([""]);
+  });
 });
 
 // ---------------------------------------------------------------------------

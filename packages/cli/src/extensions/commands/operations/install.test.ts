@@ -17,6 +17,7 @@ import {
   type ExtensionRef,
 } from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { InstallCommandOperation } from "./install.js";
 import { installCommand } from "./install.js";
 import type { CommandExtensionRef, RegistryCommandRef } from "../../../sources/types.js";
@@ -43,6 +44,7 @@ const makeWorkspaceMock = (
   const setCommandFn = overrides?.setCommandFn;
 
   return {
+    ...taxonomyStubs,
     global: false,
     path: axmDir,
     baseDir: path.dirname(axmDir),

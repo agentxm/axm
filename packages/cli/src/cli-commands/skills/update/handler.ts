@@ -70,7 +70,7 @@ export interface UpdateHandlerArgs {
  * Handles the `axm skills update` command.
  *
  * Flow:
- * 1. Load configured skills and filter to managed + enabled
+ * 1. Load configured skills and filter to enabled
  * 2. If no eligible skills, log info and return
  * 3. Filter by source argument if provided
  * 4. Filter by --skill glob patterns
@@ -95,22 +95,17 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
 
   yield* log.info(`axm skills update (${scopeLabel})`);
 
-  // Step 1: Load all configured skills and filter to managed + enabled
+  // Step 1: Load configured skills and filter to enabled
   const allSkills = yield* ws.getConfiguredSkills();
   const lockedSkills = yield* ws.getLockedSkills();
 
   const skillEntries = yield* Effect.forEach(Object.entries(allSkills), ([name, entry]) =>
     Effect.gen(function* () {
-      if (!entry.managed) {
-        yield* log.info(`Skipping ${name} (unmanaged)`);
-        return Option.none<readonly [string, string]>();
-      }
       if (!entry.enabled) {
         yield* log.info(`Skipping ${name} (disabled)`);
         return Option.none<readonly [string, string]>();
       }
-      const source = Option.getOrThrow(entry.source);
-      return Option.some([name, source] as const);
+      return Option.some([name, entry.source] as const);
     }),
   ).pipe(Effect.map(Array.getSomes));
 

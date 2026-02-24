@@ -8,6 +8,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { PublishSkillOperation } from "./publish.js";
 import { publishSkill } from "./publish.js";
 
@@ -20,6 +21,7 @@ const withServices = (axmDir: string, registryRoot: string) => {
   };
 
   const mockWs: WorkspaceContextService = {
+    ...taxonomyStubs,
     global: false,
     path: axmDir,
     baseDir: path.dirname(axmDir),
@@ -90,7 +92,7 @@ describe("publishSkill", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  /** Sets up a workspace with a managed extension and registry. */
+  /** Sets up a workspace with an installed extension and registry. */
   const setup = (
     namespace = "@community",
     name = "my-skill",
@@ -311,7 +313,7 @@ describe("publishSkill", () => {
   });
 
   describe("error cases", () => {
-    it.effect("fails when managed extension does not exist", () =>
+    it.effect("fails when extension directory does not exist", () =>
       Effect.gen(function* () {
         const base = path.join(tmpDir, "project");
         const axmDir = path.join(base, ".axm");

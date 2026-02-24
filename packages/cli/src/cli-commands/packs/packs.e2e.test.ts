@@ -292,7 +292,7 @@ describe("axm packs publish", () => {
     }
   });
 
-  it("fails when managed pack does not exist", async () => {
+  it("fails when pack does not exist", async () => {
     const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
     try {
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
@@ -415,7 +415,7 @@ describe("axm packs install", () => {
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
-      // Manually create a managed skill in .axm/extensions/ (avoids fork)
+      // Manually create a skill in .axm/extensions/ (avoids fork)
       const skillDir = path.join(temp.path, ".axm", "extensions", "@test", "skills", "dep-skill");
       const srcDir = path.join(skillDir, "src");
       fs.mkdirSync(srcDir, { recursive: true });

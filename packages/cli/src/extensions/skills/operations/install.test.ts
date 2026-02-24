@@ -16,6 +16,7 @@ import {
   type ExtensionRef,
 } from "../../../sources/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { SkillPathSource } from "../paths.js";
 import type { InstallSkillOperation } from "./install.js";
 import type { SkillExtensionRef } from "../../../sources/types.js";
@@ -42,6 +43,7 @@ const makeWorkspaceMock = (
   const setSkillFn = overrides?.setSkillFn;
 
   return {
+    ...taxonomyStubs,
     global: false,
     path: axmDir,
     baseDir: path.dirname(axmDir),

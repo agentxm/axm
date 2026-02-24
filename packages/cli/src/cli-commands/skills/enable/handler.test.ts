@@ -143,22 +143,20 @@ describe("enable.handler", () => {
         Effect.gen(function* () {
           const error = yield* handleEnable(defaultArgs("nonexistent")).pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("not found");
+          expect((error as CliError).what).toContain("is not installed");
         }),
       );
     });
 
-    it.effect("fails when skill is unmanaged", () => {
+    it.effect("fails when skill is not found", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), {
-        "my-skill": { managed: false },
-      });
+      initWorkspace(path.join(tempDir, ".axm"), {});
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleEnable(defaultArgs("my-skill")).pipe(Effect.flip);
+          const error = yield* handleEnable(defaultArgs("nonexistent")).pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("unmanaged");
+          expect((error as CliError).what).toContain("is not installed");
         }),
       );
     });
@@ -177,6 +175,47 @@ describe("enable.handler", () => {
 
           expect(mockLog.logs.info.some((m) => m.includes("already enabled"))).toBe(true);
           expect(mockLog.logs.success.some((m) => m.includes("Nothing to do"))).toBe(true);
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Taxonomy: ignored skill excluded from installed
+  // ---------------------------------------------------------------------------
+
+  describe("taxonomy: ignored skill excluded", () => {
+    it.effect("fails for ignored implicit skill (treated as not installed)", () => {
+      const { provide } = makeLayers();
+      // Implicit skill: in lockfile only (registry type = native), with ignored pattern
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        {},
+        {
+          "code-review": {
+            type: "registry",
+            namespace: "@acme",
+            name: "code-review",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            agents: ["claude-code"],
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      );
+      // Add ignored pattern that matches the skill
+      const settingsPath = path.join(tempDir, ".axm", "settings.json");
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+      settings.ignored = { skills: ["code-review"] };
+      fs.writeFileSync(settingsPath, JSON.stringify(settings));
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* handleEnable(defaultArgs("code-review")).pipe(Effect.flip);
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).what).toContain("is not installed");
         }),
       );
     });

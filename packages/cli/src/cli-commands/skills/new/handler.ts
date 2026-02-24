@@ -166,9 +166,8 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
 
   // 8. Register in settings
   yield* ws.setSkillEntry(args.name, {
-    source: Option.some(fqn),
+    source: fqn,
     enabled: true,
-    managed: true,
   });
 
   // 9. Resolve agents

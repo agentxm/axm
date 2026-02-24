@@ -11,6 +11,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import type { SkillLockEntry } from "../../../lockfile/schema.js";
 import { makeLogTestLayer } from "../../../tui/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import { sanitizeName } from "../utils.js";
 import type { EnableSkillOperation } from "./enable.js";
 import { enableSkill } from "./enable.js";
@@ -37,6 +38,7 @@ const makeWorkspaceMock = (
   const settingsSkills = opts.settingsSkills ?? {};
 
   return {
+    ...taxonomyStubs,
     global: false,
     path: axmDir,
     baseDir: path.dirname(axmDir),
@@ -54,9 +56,10 @@ const makeWorkspaceMock = (
           Object.entries(settingsSkills).map(([k, v]) => [
             k,
             {
-              source: Option.fromNullable(typeof v === "string" ? v : v?.source),
+              source: typeof v === "string" ? v : (v?.source ?? ""),
               enabled: typeof v === "string" ? true : (v?.enabled ?? true),
-              managed: typeof v === "string" ? true : (v?.managed ?? true),
+              packagingKind: "non-native" as const,
+              isBuiltIn: false,
             },
           ]),
         ),
@@ -64,18 +67,16 @@ const makeWorkspaceMock = (
     getInstalledSkills: () =>
       Effect.succeed(
         Object.fromEntries(
-          Object.entries(settingsSkills)
-            .filter(
-              ([, v]) => typeof v === "string" || (v as { managed?: boolean })?.managed !== false,
-            )
-            .map(([k, v]) => [
-              k,
-              {
-                source: Option.fromNullable(typeof v === "string" ? v : v?.source),
-                enabled: typeof v === "string" ? true : (v?.enabled ?? true),
-                managed: true,
-              },
-            ]),
+          Object.entries(settingsSkills).map(([k, v]) => [
+            k,
+            {
+              lifecycle: "configured" as const,
+              source: typeof v === "string" ? v : (v?.source ?? ""),
+              enabled: typeof v === "string" ? true : (v?.enabled ?? true),
+              packagingKind: "non-native" as const,
+              isBuiltIn: false,
+            },
+          ]),
         ),
       ),
     getConfiguredAgents: () => Effect.succeed(configuredAgents),
@@ -217,7 +218,7 @@ describe("enableSkill", () => {
               configuredAgents: ["claude-code"],
               lockfileSkills: { "my-skill": makeLocalLockEntry([]) },
               settingsSkills: {
-                "my-skill": { source: "local:/tmp/source", enabled: false, managed: true },
+                "my-skill": { source: "local:/tmp/source", enabled: false },
               },
             }),
           ),
@@ -246,7 +247,7 @@ describe("enableSkill", () => {
               configuredAgents: ["claude-code", "cursor"],
               lockfileSkills: { "my-skill": makeLocalLockEntry([]) },
               settingsSkills: {
-                "my-skill": { source: "local:/tmp/source", enabled: false, managed: true },
+                "my-skill": { source: "local:/tmp/source", enabled: false },
               },
             }),
           ),
@@ -273,7 +274,7 @@ describe("enableSkill", () => {
               configuredAgents: ["claude-code"],
               lockfileSkills: { "my-skill": makeLocalLockEntry([]) },
               settingsSkills: {
-                "my-skill": { source: "local:/tmp/source", enabled: false, managed: true },
+                "my-skill": { source: "local:/tmp/source", enabled: false },
               },
               updateLockEntryAgentsFn,
             }),
@@ -296,7 +297,7 @@ describe("enableSkill", () => {
               configuredAgents: ["claude-code"],
               lockfileSkills: { "my-skill": makeLocalLockEntry([]) },
               settingsSkills: {
-                "my-skill": { source: "local:/tmp/source", enabled: false, managed: true },
+                "my-skill": { source: "local:/tmp/source", enabled: false },
               },
               updateSkillEntryFn,
             }),
@@ -328,7 +329,7 @@ describe("enableSkill", () => {
               configuredAgents: ["claude-code"],
               lockfileSkills: { "my-skill": makeLocalLockEntry([]) },
               settingsSkills: {
-                "my-skill": { source: "local:/tmp/source", enabled: false, managed: true },
+                "my-skill": { source: "local:/tmp/source", enabled: false },
               },
               updateSkillEntryFn,
               updateLockEntryAgentsFn,
@@ -374,7 +375,6 @@ describe("enableSkill", () => {
                 "my-skill": {
                   source: "@community/skills/my-skill",
                   enabled: false,
-                  managed: true,
                 },
               },
             }),
@@ -401,7 +401,7 @@ describe("enableSkill", () => {
               configuredAgents: ["claude-code"],
               lockfileSkills: {},
               settingsSkills: {
-                "my-skill": { source: "local:/tmp/source", enabled: false, managed: true },
+                "my-skill": { source: "local:/tmp/source", enabled: false },
               },
             }),
           ),

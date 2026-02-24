@@ -11,6 +11,7 @@ import { afterEach, beforeEach, vi } from "vitest";
 import type { SkillLockEntry } from "../../../lockfile/schema.js";
 import { CliError, makeCliError } from "../../../cli-error/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { UninstallSkillOperation } from "./uninstall.js";
 import { uninstallSkill } from "./uninstall.js";
 
@@ -55,6 +56,7 @@ const makeWorkspaceMock = (
   };
 
   return {
+    ...taxonomyStubs,
     global: false,
     path: axmDir,
     baseDir: path.dirname(axmDir),

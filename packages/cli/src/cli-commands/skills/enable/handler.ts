@@ -1,8 +1,8 @@
 /**
  * Enable command handler - Effect-based orchestration for `axm skills enable`.
  *
- * Validates skill state then builds and resolves a single-step plan.
- * Supports both direct skills (with lock entry) and promoted transitive skills.
+ * Validates skill state using taxonomy lifecycle views then builds and resolves
+ * a single-step plan. Enable only works for installed skills (configured or implicit).
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -37,25 +37,16 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
 
   yield* log.info("axm skills enable");
 
-  // Load configured skills
-  const configuredSkills = yield* ws.getConfiguredSkills();
-  const entry = configuredSkills[args.name];
+  // Load installed skills (configured ∪ implicit) — taxonomy lifecycle view
+  const installedSkills = yield* ws.getInstalledSkills();
+  const entry = installedSkills[args.name];
 
-  // Validate: skill exists
+  // Validate: skill is installed (ignored names are excluded from installed)
   if (entry === undefined) {
     return yield* makeCliError({
       code: "SKILL_NOT_FOUND",
-      what: `Skill '${args.name}' not found`,
+      what: `Skill '${args.name}' is not installed`,
       howToFix: "Run `axm skills list` to see available skills",
-    });
-  }
-
-  // Validate: skill is managed
-  if (!entry.managed) {
-    return yield* makeCliError({
-      code: "SKILL_NOT_MANAGED",
-      what: `Cannot enable unmanaged skill '${args.name}'`,
-      howToFix: "Only managed skills (installed via axm) can be enabled/disabled",
     });
   }
 

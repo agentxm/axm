@@ -11,9 +11,11 @@ import type { CliError } from "../../../cli-error/index.js";
 import type { SourceHostConfig } from "../../../settings/index.js";
 import { parseInputPattern, type InputParseResult } from "../../../sources/parser.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import { resolveSkillInstallSource, resolveSkillUrl } from "./resolve-skill-install-source.js";
 
 const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService => ({
+  ...taxonomyStubs,
   global: false,
   path: "/tmp/test-workspace",
   baseDir: "/tmp",

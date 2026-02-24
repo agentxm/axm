@@ -1,7 +1,7 @@
 /**
  * E2E tests for `axm skills publish`.
  *
- * Task 17.3: Set up a managed extension, publish to a local registry, verify
+ * Task 17.3: Set up an extension, publish to a local registry, verify
  * archive and index.json in registry.
  *
  * @experimental This API is unstable and may change without notice.
@@ -14,7 +14,7 @@ import { createTempDir, runCli } from "../../../e2e/utils.js";
 
 describe("axm skills publish", () => {
   describe("publish to local registry", () => {
-    it("publishes a managed extension and creates archive + index.json in registry", async () => {
+    it("publishes an extension and creates archive + index.json in registry", async () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
@@ -30,7 +30,7 @@ describe("axm skills publish", () => {
         settings.namespace = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
-        // Manually create a managed extension in .axm/extensions/
+        // Manually create an extension in .axm/extensions/
         const extensionDir = path.join(
           temp.path,
           ".axm",
@@ -127,7 +127,7 @@ describe("axm skills publish", () => {
         settings.namespace = "@myorg";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
-        // Create managed extension with namespace from settings
+        // Create extension with namespace from settings
         const extensionDir = path.join(
           temp.path,
           ".axm",
@@ -181,7 +181,7 @@ describe("axm skills publish", () => {
       }
     });
 
-    it("fails when managed extension does not exist", async () => {
+    it("fails when extension does not exist", async () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
@@ -209,7 +209,7 @@ describe("axm skills publish", () => {
   });
 
   describe("glob and multi-extension publish", () => {
-    /** Create a managed extension in .axm/extensions/ with a manifest. */
+    /** Create an extension in .axm/extensions/ with a manifest. */
     const createManagedExtension = (
       tempPath: string,
       namespace: string,
@@ -243,7 +243,7 @@ describe("axm skills publish", () => {
       tempPath: string,
       registryPath: string,
       namespace: string,
-      skills?: Record<string, { source: string; managed: boolean }>,
+      skills?: Record<string, string>,
     ) => {
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: tempPath });
       const settingsPath = path.join(tempPath, ".axm", "settings.json");
@@ -254,22 +254,22 @@ describe("axm skills publish", () => {
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
     };
 
-    it("glob pattern publishes matching managed skills", async () => {
+    it("glob pattern publishes matching configured skills", async () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
         const namespace = "@test";
 
-        // Create 3 managed extensions
+        // Create 3 extensions
         createManagedExtension(temp.path, namespace, "effect-basics");
         createManagedExtension(temp.path, namespace, "effect-stream");
         createManagedExtension(temp.path, namespace, "commit");
 
-        // Set up workspace with all 3 registered as managed skills
+        // Set up workspace with all 3 registered as configured skills
         await setupWorkspace(temp.path, registryDir.path, namespace, {
-          "effect-basics": { source: `${namespace}/skills/effect-basics`, managed: true },
-          "effect-stream": { source: `${namespace}/skills/effect-stream`, managed: true },
-          commit: { source: `${namespace}/skills/commit`, managed: true },
+          "effect-basics": `${namespace}/skills/effect-basics`,
+          "effect-stream": `${namespace}/skills/effect-stream`,
+          commit: `${namespace}/skills/commit`,
         });
 
         // Publish with glob pattern
@@ -324,8 +324,8 @@ describe("axm skills publish", () => {
         createManagedExtension(temp.path, namespace, "skill-b");
 
         await setupWorkspace(temp.path, registryDir.path, namespace, {
-          "skill-a": { source: `${namespace}/skills/skill-a`, managed: true },
-          "skill-b": { source: `${namespace}/skills/skill-b`, managed: true },
+          "skill-a": `${namespace}/skills/skill-a`,
+          "skill-b": `${namespace}/skills/skill-b`,
         });
 
         // Publish multiple literal names
@@ -368,7 +368,7 @@ describe("axm skills publish", () => {
         createManagedExtension(temp.path, namespace, "some-skill");
 
         await setupWorkspace(temp.path, registryDir.path, namespace, {
-          "some-skill": { source: `${namespace}/skills/some-skill`, managed: true },
+          "some-skill": `${namespace}/skills/some-skill`,
         });
 
         // Publish with a glob that matches nothing

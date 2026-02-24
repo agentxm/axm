@@ -9,6 +9,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { makeLogTestLayer } from "../../../tui/index.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { UninstallPackOperation } from "./uninstall.js";
 import { uninstallPack } from "./uninstall.js";
 
@@ -17,6 +18,7 @@ import { uninstallPack } from "./uninstall.js";
 // -----------------------------------------------------------------------------
 
 const makeWorkspaceMock = (axmDir: string): WorkspaceContextService => ({
+  ...taxonomyStubs,
   global: false,
   path: axmDir,
   baseDir: path.dirname(axmDir),

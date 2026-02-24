@@ -552,13 +552,13 @@ describe("Settings schema", () => {
       });
     });
 
-    it("accepts valid mcp-servers at root", () => {
+    it("accepts valid mcpServers at root", () => {
       const input = {
-        "mcp-servers": { batcomputer: "^2.0.0" },
+        mcpServers: { batcomputer: "^2.0.0" },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
-      expect(result["mcp-servers"]).toEqual({ batcomputer: "^2.0.0" });
+      expect(result.mcpServers).toEqual({ batcomputer: "^2.0.0" });
     });
 
     it("accepts all extension types together at root", () => {
@@ -566,14 +566,14 @@ describe("Settings schema", () => {
         skills: { "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" },
         commands: { "batcomputer-sync": "^1.0.0" },
         packs: { "utility-belt": "@wayne/packs/utility-belt@^1.0.0" },
-        "mcp-servers": { batcomputer: "^2.0.0" },
+        mcpServers: { batcomputer: "^2.0.0" },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.skills).toEqual({ "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" });
       expect(result.commands).toEqual({ "batcomputer-sync": "^1.0.0" });
       expect(result.packs).toEqual({ "utility-belt": "@wayne/packs/utility-belt@^1.0.0" });
-      expect(result["mcp-servers"]).toEqual({ batcomputer: "^2.0.0" });
+      expect(result.mcpServers).toEqual({ batcomputer: "^2.0.0" });
     });
 
     it("accepts empty extension map", () => {
@@ -760,7 +760,7 @@ describe("Settings schema", () => {
         packs: {
           "utility-belt": "@wayne/packs/utility-belt@^1.0.0",
         },
-        "mcp-servers": {
+        mcpServers: {
           batcomputer: "^2.0.0",
         },
       };

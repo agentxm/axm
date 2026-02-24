@@ -147,17 +147,47 @@ describe("rename.handler", () => {
       );
     });
 
-    it.effect("fails when old name is unmanaged", () => {
+    it.effect("fails when old name is not found", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), {
-        "my-skill": { managed: false },
-      });
+      initWorkspace(path.join(tempDir, ".axm"), {});
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* handleRename(defaultArgs("nonexistent", "new-name")).pipe(
+            Effect.flip,
+          );
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).what).toContain("not found");
+        }),
+      );
+    });
+
+    it.effect("fails when old name is implicit-only (not configured)", () => {
+      const { provide } = makeLayers();
+      // Implicit skill: only in lockfile (registry type = native), not in settings
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        {},
+        {
+          "my-skill": {
+            type: "registry",
+            namespace: "@acme",
+            name: "my-skill",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            agents: ["claude-code"],
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
+      );
 
       return provide(
         Effect.gen(function* () {
           const error = yield* handleRename(defaultArgs("my-skill", "new-name")).pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("unmanaged");
+          expect((error as CliError).what).toContain("not found");
         }),
       );
     });

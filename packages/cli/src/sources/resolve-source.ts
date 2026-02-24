@@ -368,8 +368,8 @@ export const routeNameInput = (
       ),
     );
     const entry = configured[name];
-    if (entry !== undefined && Option.isSome(entry.source)) {
-      return yield* resolveSource(entry.source.value);
+    if (entry !== undefined) {
+      return yield* resolveSource(entry.source);
     }
 
     return yield* makeCliError({

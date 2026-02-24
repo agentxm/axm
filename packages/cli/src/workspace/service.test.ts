@@ -24,7 +24,7 @@ import {
 } from "../tui/index.js";
 import YAML from "yaml";
 import { CliError } from "../cli-error/index.js";
-import type { NormalizedSkillEntry, SourceHostConfig } from "../settings/index.js";
+import type { SourceHostConfig } from "../settings/index.js";
 import type { CommandLockEntry, McpServerLockEntry, SkillLockEntry } from "../lockfile/index.js";
 import type { OperationResult, Readiness } from "./plan.js";
 import type { Operation, Plan, PlannedJobStep } from "./plan.js";
@@ -1002,7 +1002,7 @@ describe("WorkspaceContextService", () => {
   // ---------------------------------------------------------------------------
 
   describe("getInstalledSkills", () => {
-    it.effect("returns normalized managed skills when skills are configured", () =>
+    it.effect("returns normalized installed skills when skills are configured", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -1014,14 +1014,18 @@ describe("WorkspaceContextService", () => {
 
         expect(skills).toEqual({
           "code-review": {
-            source: Option.some("github:acme/code-review"),
+            lifecycle: "configured",
+            source: "github:acme/code-review",
             enabled: true,
-            managed: true,
+            packagingKind: "non-native",
+            isBuiltIn: false,
           },
           "test-gen": {
-            source: Option.some("local:/tmp/test-gen"),
+            lifecycle: "configured",
+            source: "local:/tmp/test-gen",
             enabled: true,
-            managed: true,
+            packagingKind: "non-native",
+            isBuiltIn: false,
           },
         });
       }),
@@ -1676,42 +1680,36 @@ describe("WorkspaceContextService", () => {
   // ---------------------------------------------------------------------------
 
   describe("getConfiguredSkills", () => {
-    it.effect("returns all entries normalized (managed + unmanaged)", () =>
+    it.effect("returns all configured entries normalized", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           skills: {
             "code-review": "github:acme/code-review",
             "my-linter": { source: "github:acme/linter", enabled: false },
-            "external-tool": { managed: false },
           },
         });
 
         const ws = yield* getService(defaultOptions);
         const skills = yield* ws.getConfiguredSkills();
 
-        expect(Object.keys(skills)).toEqual(["code-review", "my-linter", "external-tool"]);
+        expect(Object.keys(skills)).toEqual(["code-review", "my-linter"]);
 
-        // String entry normalizes to managed + enabled with source
+        // String entry normalizes to enabled with source + metadata
         expect(skills["code-review"]).toEqual({
-          source: Option.some("github:acme/code-review"),
+          source: "github:acme/code-review",
           enabled: true,
-          managed: true,
-        } satisfies NormalizedSkillEntry);
+          packagingKind: "non-native",
+          isBuiltIn: false,
+        });
 
-        // Object entry normalizes to managed + disabled with source
+        // Object entry normalizes to disabled with source + metadata
         expect(skills["my-linter"]).toEqual({
-          source: Option.some("github:acme/linter"),
+          source: "github:acme/linter",
           enabled: false,
-          managed: true,
-        } satisfies NormalizedSkillEntry);
-
-        // Unmanaged entry normalizes to unmanaged, no source
-        expect(skills["external-tool"]).toEqual({
-          source: Option.none(),
-          enabled: true,
-          managed: false,
-        } satisfies NormalizedSkillEntry);
+          packagingKind: "non-native",
+          isBuiltIn: false,
+        });
       }),
     );
 
@@ -1728,38 +1726,40 @@ describe("WorkspaceContextService", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // getInstalledSkills (modified — managed only, normalized)
+  // getInstalledSkills (normalized taxonomy shapes)
   // ---------------------------------------------------------------------------
 
   describe("getInstalledSkills (normalized)", () => {
-    it.effect("returns only managed entries as NormalizedSkillEntry", () =>
+    it.effect("returns all configured entries as NormalizedSkillEntry", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           skills: {
             "code-review": "github:acme/code-review",
             "my-linter": { source: "github:acme/linter", enabled: false },
-            "external-tool": { managed: false },
           },
         });
 
         const ws = yield* getService(defaultOptions);
         const skills = yield* ws.getInstalledSkills();
 
-        // Only managed entries (external-tool excluded)
         expect(Object.keys(skills)).toEqual(["code-review", "my-linter"]);
 
         expect(skills["code-review"]).toEqual({
-          source: Option.some("github:acme/code-review"),
+          lifecycle: "configured",
+          source: "github:acme/code-review",
           enabled: true,
-          managed: true,
-        } satisfies NormalizedSkillEntry);
+          packagingKind: "non-native",
+          isBuiltIn: false,
+        });
 
         expect(skills["my-linter"]).toEqual({
-          source: Option.some("github:acme/linter"),
+          lifecycle: "configured",
+          source: "github:acme/linter",
           enabled: false,
-          managed: true,
-        } satisfies NormalizedSkillEntry);
+          packagingKind: "non-native",
+          isBuiltIn: false,
+        });
       }),
     );
 
@@ -1774,13 +1774,12 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("all returned entries have source as Some", () =>
+    it.effect("configured entries have source as string", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           skills: {
             "code-review": "github:acme/code-review",
-            "external-tool": { managed: false },
           },
         });
 
@@ -1788,7 +1787,9 @@ describe("WorkspaceContextService", () => {
         const skills = yield* ws.getInstalledSkills();
 
         for (const entry of Object.values(skills)) {
-          expect(Option.isSome(entry.source)).toBe(true);
+          if (entry.lifecycle === "configured") {
+            expect(typeof entry.source).toBe("string");
+          }
         }
       }),
     );
@@ -2008,7 +2009,11 @@ describe("WorkspaceContextService", () => {
         const packs = yield* ws.getConfiguredPacks();
 
         expect(packs).toEqual({
-          "starter-pack": "@acme/packs/starter-pack",
+          "starter-pack": {
+            source: "@acme/packs/starter-pack",
+            packagingKind: "native",
+            isBuiltIn: false,
+          },
         });
       }),
     );
@@ -2037,7 +2042,12 @@ describe("WorkspaceContextService", () => {
         const packs = yield* ws.getInstalledPacks();
 
         expect(packs).toEqual({
-          "starter-pack": "@acme/packs/starter-pack",
+          "starter-pack": {
+            lifecycle: "configured",
+            source: "@acme/packs/starter-pack",
+            packagingKind: "native",
+            isBuiltIn: false,
+          },
         });
       }),
     );
@@ -2291,170 +2301,97 @@ describe("WorkspaceContextService", () => {
   // getInstalledSkills with transitive pack skills
   // ---------------------------------------------------------------------------
 
-  describe("getInstalledSkills (transitive visibility)", () => {
-    it.effect("pack-provided skill visible in getInstalledSkills", () =>
+  describe("getInstalledSkills (taxonomy)", () => {
+    it.effect("lockfile-only native skill appears as implicit", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          packs: { "starter-pack": "@acme/packs/starter-pack" },
         });
-        writeLockfileTo(
-          projectDir,
-          {},
-          {
-            "starter-pack": {
-              type: "registry",
-              namespace: "@acme",
-              name: "starter-pack",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-AAAA==",
-              sourceName: "default",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
-              resolvedCommands: {},
-              resolvedMcpServers: {},
-            },
+        writeLockfileTo(projectDir, {
+          "code-review": {
+            type: "registry",
+            namespace: "@acme",
+            name: "code-review",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
           },
-        );
+        });
 
         const ws = yield* getService(defaultOptions);
         const skills = yield* ws.getInstalledSkills();
 
-        expect(skills).toHaveProperty("@acme/skills/code-review");
-        expect(skills["@acme/skills/code-review"]).toEqual({
-          source: Option.some("@acme/skills/code-review"),
-          enabled: true,
-          managed: true,
-        });
+        expect(skills).toHaveProperty("code-review");
+        expect(skills["code-review"]!.lifecycle).toBe("implicit");
       }),
     );
 
-    it.effect("direct entry with same key overrides transitive", () =>
+    it.effect("configured entry takes precedence over lockfile-only", () =>
       Effect.gen(function* () {
-        // Direct skill "code-review" and transitive skill "code-review" from pack
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           skills: { "code-review": "github:acme/code-review" },
-          packs: { "starter-pack": "@acme/packs/starter-pack" },
         });
-        writeLockfileTo(
-          projectDir,
-          {},
-          {
-            "starter-pack": {
-              type: "registry",
-              namespace: "@acme",
-              name: "starter-pack",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-AAAA==",
-              sourceName: "default",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: { "code-review": "1.2.0" },
-              resolvedCommands: {},
-              resolvedMcpServers: {},
-            },
+        writeLockfileTo(projectDir, {
+          "code-review": {
+            type: "registry",
+            namespace: "@acme",
+            name: "code-review",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
           },
-        );
+        });
 
         const ws = yield* getService(defaultOptions);
         const skills = yield* ws.getInstalledSkills();
 
-        // Direct entry wins over transitive
-        expect(skills["code-review"]).toEqual({
-          source: Option.some("github:acme/code-review"),
-          enabled: true,
-          managed: true,
-        });
+        expect(skills["code-review"]!.lifecycle).toBe("configured");
       }),
     );
 
-    it.effect("multiple packs providing same skill — first pack wins", () =>
-      Effect.gen(function* () {
-        writeSettingsTo(projectDir, {
-          agents: ["claude-code"],
-          packs: {
-            "pack-a": "@acme/packs/pack-a",
-            "pack-b": "@acme/packs/pack-b",
-          },
-        });
-        writeLockfileTo(
-          projectDir,
-          {},
-          {
-            "pack-a": {
-              type: "registry",
-              namespace: "@acme",
-              name: "pack-a",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-AAAA==",
-              sourceName: "default",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: { "@acme/skills/shared-skill": "1.0.0" },
-              resolvedCommands: {},
-              resolvedMcpServers: {},
-            },
-            "pack-b": {
-              type: "registry",
-              namespace: "@acme",
-              name: "pack-b",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-BBBB==",
-              sourceName: "default",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: { "@acme/skills/shared-skill": "2.0.0" },
-              resolvedCommands: {},
-              resolvedMcpServers: {},
-            },
-          },
-        );
-
-        const ws = yield* getService(defaultOptions);
-        const skills = yield* ws.getInstalledSkills();
-
-        // First pack encountered wins
-        expect(skills).toHaveProperty("@acme/skills/shared-skill");
-        const entry = skills["@acme/skills/shared-skill"]!;
-        expect(Option.getOrThrow(entry.source)).toBe("@acme/skills/shared-skill");
-      }),
-    );
-
-    it.effect("getConfiguredSkills unchanged — only returns direct settings entries", () =>
+    it.effect("getConfiguredSkills only returns direct settings entries", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
           skills: { "my-skill": "github:acme/my-skill" },
-          packs: { "starter-pack": "@acme/packs/starter-pack" },
         });
-        writeLockfileTo(
-          projectDir,
-          {},
-          {
-            "starter-pack": {
-              type: "registry",
-              namespace: "@acme",
-              name: "starter-pack",
-              resolvedVersion: "1.0.0",
-              integrity: "sha512-AAAA==",
-              sourceName: "default",
-              installedAt: "2025-01-01T00:00:00.000Z",
-              updatedAt: "2025-01-01T00:00:00.000Z",
-              resolvedSkills: { "@acme/skills/transitive-skill": "1.0.0" },
-              resolvedCommands: {},
-              resolvedMcpServers: {},
-            },
+        writeLockfileTo(projectDir, {
+          "my-skill": {
+            type: "registry",
+            namespace: "@acme",
+            name: "my-skill",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
           },
-        );
+          "implicit-skill": {
+            type: "registry",
+            namespace: "@acme",
+            name: "implicit-skill",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-BBBB==",
+            sourceName: "default",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
 
         const ws = yield* getService(defaultOptions);
         const configured = yield* ws.getConfiguredSkills();
 
-        // Only direct settings entries, no transitive
         expect(Object.keys(configured)).toEqual(["my-skill"]);
-        expect(configured).not.toHaveProperty("@acme/skills/transitive-skill");
+        expect(configured).not.toHaveProperty("implicit-skill");
       }),
     );
   });
@@ -2824,8 +2761,8 @@ describe("WorkspaceContextService", () => {
         // Verify settings on disk
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings["mcp-servers"]).toBeDefined();
-        expect(settings["mcp-servers"]["my-mcp-server"]).toBe("github:acme/my-mcp-server");
+        expect(settings["mcpServers"]).toBeDefined();
+        expect(settings["mcpServers"]["my-mcp-server"]).toBe("github:acme/my-mcp-server");
 
         // Verify lockfile on disk
         const lockfile = readLockfileFromDisk(projectDir);
@@ -2857,7 +2794,7 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          "mcp-servers": { "my-mcp-server": "github:acme/my-mcp-server" },
+          mcpServers: { "my-mcp-server": "github:acme/my-mcp-server" },
         });
         writeLockfileTo(projectDir, {}, undefined, undefined, {
           "my-mcp-server": {
@@ -2885,7 +2822,7 @@ describe("WorkspaceContextService", () => {
         // Verify settings updated
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings["mcp-servers"]["my-mcp-server"]).toBe("github:acme/my-mcp-server-v2");
+        expect(settings["mcpServers"]["my-mcp-server"]).toBe("github:acme/my-mcp-server-v2");
 
         // Verify lockfile updated
         const lockfile = readLockfileFromDisk(projectDir);
@@ -2908,7 +2845,7 @@ describe("WorkspaceContextService", () => {
         // Settings should NOT have mcp-servers
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings["mcp-servers"]).toBeUndefined();
+        expect(settings["mcpServers"]).toBeUndefined();
 
         // Lockfile should have the mcp server
         const lockfile = readLockfileFromDisk(projectDir);
@@ -2923,7 +2860,7 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          "mcp-servers": {
+          mcpServers: {
             "my-mcp-server": "github:acme/my-mcp-server",
             "other-server": "local:/tmp/other",
           },
@@ -2950,8 +2887,8 @@ describe("WorkspaceContextService", () => {
         // Verify settings: my-mcp-server removed, other-server remains
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings["mcp-servers"]).not.toHaveProperty("my-mcp-server");
-        expect(settings["mcp-servers"]).toHaveProperty("other-server");
+        expect(settings["mcpServers"]).not.toHaveProperty("my-mcp-server");
+        expect(settings["mcpServers"]).toHaveProperty("other-server");
 
         // Verify lockfile: my-mcp-server removed, other-server remains
         const lockfile = readLockfileFromDisk(projectDir);
@@ -2964,7 +2901,7 @@ describe("WorkspaceContextService", () => {
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
-          "mcp-servers": { "other-server": "local:/tmp/other" },
+          mcpServers: { "other-server": "local:/tmp/other" },
         });
         writeLockfileTo(projectDir, {}, undefined, undefined, {
           "other-server": {
@@ -2981,8 +2918,8 @@ describe("WorkspaceContextService", () => {
         // Verify nothing changed
         const settingsPath = path.join(projectDir, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        expect(settings["mcp-servers"]).toHaveProperty("other-server");
-        expect(Object.keys(settings["mcp-servers"] as Record<string, string>)).toHaveLength(1);
+        expect(settings["mcpServers"]).toHaveProperty("other-server");
+        expect(Object.keys(settings["mcpServers"] as Record<string, string>)).toHaveLength(1);
 
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.mcpServers).toHaveProperty("other-server");

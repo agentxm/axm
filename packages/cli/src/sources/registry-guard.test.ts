@@ -7,6 +7,7 @@ import { CliError } from "../cli-error/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import { makeTextInputTestLayer } from "../tui/index.js";
 import { Workspace, type WorkspaceContextService } from "../workspace/index.js";
+import { taxonomyStubs } from "../workspace/test-stubs.js";
 import { registryGuard } from "./registry-guard.js";
 
 describe("registryGuard", () => {
@@ -21,6 +22,7 @@ describe("registryGuard", () => {
     const registrySources: ReadonlyArray<RegistrySource> = opts.registrySources ?? [];
 
     const mockWorkspace: WorkspaceContextService = {
+      ...taxonomyStubs,
       global: false,
       path: "/test",
       baseDir: "/",

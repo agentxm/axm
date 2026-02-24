@@ -9,6 +9,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { SkillLockEntry } from "../../../lockfile/schema.js";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import type { DisableSkillOperation } from "./disable.js";
 import { disableSkill } from "./disable.js";
 
@@ -31,6 +32,7 @@ const makeWorkspaceMock = (
   const lockfileSkills = opts.lockfileSkills ?? {};
 
   return {
+    ...taxonomyStubs,
     global: false,
     path: axmDir,
     baseDir: path.dirname(axmDir),

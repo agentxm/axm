@@ -22,7 +22,7 @@ const setupWorkspace = async (tempPath: string, registryPath: string, namespace:
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };
 
-/** Create a managed skill extension in .axm/extensions/. */
+/** Create a skill extension in .axm/extensions/. */
 const createManagedSkill = (
   tempPath: string,
   namespace: string,
@@ -51,7 +51,7 @@ const createManagedSkill = (
   );
 };
 
-/** Create a managed pack in .axm/extensions/ with an axm-pack.json manifest. */
+/** Create a pack in .axm/extensions/ with an axm-pack.json manifest. */
 const createManagedPack = (
   tempPath: string,
   namespace: string,

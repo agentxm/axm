@@ -175,47 +175,6 @@ describe("axm skills update", () => {
         temp.cleanup();
       }
     });
-
-    it("skips unmanaged skills during update", async () => {
-      const temp = createTempDir();
-      try {
-        // Initialize and install
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
-
-        // Manually add an unmanaged skill marker to settings
-        const settingsPath = path.join(temp.path, ".axm", "settings.json");
-        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        settings.skills["manual-skill"] = { managed: false };
-        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-
-        // Run update
-        const result = await runCli(["skills", "update", "--yes"], {
-          cwd: temp.path,
-        });
-
-        expect(result.exitCode).toBe(0);
-        // Should log that manual-skill was skipped (unmanaged)
-        expect(result.stdout).toMatch(/[Ss]kipping.*manual-skill.*unmanaged/);
-      } finally {
-        temp.cleanup();
-      }
-    });
   });
 
   describe("--skill filters correctly", () => {

@@ -58,7 +58,7 @@ describe("registry guard", () => {
         // Initialize workspace without registry source
         await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
 
-        // Create a fake managed extension so publish has something to find
+        // Create an extension so publish has something to find
         const extensionDir = path.join(
           temp.path,
           ".axm",

@@ -35,13 +35,13 @@ describe("packs publish command", () => {
   const createParser = () => yargs().command(publishPackCommand).exitProcess(false);
 
   it("registers with correct description", () => {
-    expect(publishPackCommand.describe).toBe("Publish a managed pack to a registry");
+    expect(publishPackCommand.describe).toBe("Publish a pack to a registry");
   });
 
   it("shows command in help output", async () => {
     const helpOutput = await createParser().getHelp();
     expect(helpOutput).toContain("publish <pack>");
-    expect(helpOutput).toContain("Publish a managed pack");
+    expect(helpOutput).toContain("Publish a pack");
   });
 
   it("requires pack positional argument", () => {

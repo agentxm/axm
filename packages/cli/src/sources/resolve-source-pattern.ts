@@ -33,12 +33,13 @@ import { fileUrlToPath } from "./utils.js";
 const sortNames = (names: ReadonlyArray<string>): ReadonlyArray<string> =>
   [...names].sort((a, b) => a.localeCompare(b));
 
-/** Build candidate skill names and on-disk locations from all available sources. */
+/** Build candidate skill names and on-disk locations from all available sources, excluding ignored. */
 const buildCandidates = Effect.gen(function* () {
   const ws = yield* Workspace;
   const path = yield* Path.Path;
   const base = ws.baseDir;
-  const lockedSkills = yield* ws.getLockedSkills();
+  const installedSkills = yield* ws.getInstalledSkills();
+  const unmanagedSkills = yield* ws.getUnmanagedSkills();
   const configuredSkills = yield* ws.getConfiguredSkills();
   const configuredAgents = yield* ws.getConfiguredAgents();
 
@@ -70,21 +71,29 @@ const buildCandidates = Effect.gen(function* () {
     }
   }
 
+  // Candidate set: installed + unmanaged (both exclude ignored names via classifier)
   const names = sortNames(
     Array.dedupe([
-      ...Object.keys(lockedSkills),
-      ...Object.keys(configuredSkills),
+      ...Object.keys(installedSkills),
+      ...Object.keys(unmanagedSkills),
       ...onDiskByName.keys(),
     ]),
   );
 
-  return { names, configuredSkills, onDiskByName } as const;
+  // Filter out ignored names from on-disk discoveries
+  const ignoredPatterns = yield* ws.getIgnoredSkillPatterns();
+  const filteredNames =
+    ignoredPatterns.length > 0
+      ? names.filter((name) => !expandGlobs(ignoredPatterns, [name]).length)
+      : names;
+
+  return { names: filteredNames, configuredSkills, onDiskByName } as const;
 });
 
 /** Resolve a single skill name with fallbacks: resolveSource → configured source → on-disk path. */
 const resolveNameWithFallback = (
   name: string,
-  configuredSkills: Readonly<Record<string, { readonly source: Option.Option<string> }>>,
+  configuredSkills: Readonly<Record<string, { readonly source: string }>>,
   onDiskByName: ReadonlyMap<string, string>,
 ) =>
   resolveSource(name).pipe(
@@ -94,8 +103,8 @@ const resolveNameWithFallback = (
       }
 
       const configuredEntry = configuredSkills[name];
-      if (configuredEntry !== undefined && Option.isSome(configuredEntry.source)) {
-        return resolveSource(configuredEntry.source.value);
+      if (configuredEntry !== undefined) {
+        return resolveSource(configuredEntry.source);
       }
 
       const diskPath = onDiskByName.get(name);

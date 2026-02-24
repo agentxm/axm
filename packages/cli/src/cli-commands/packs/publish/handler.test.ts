@@ -47,7 +47,7 @@ const initWorkspace = (axmDir: string, registryRoot: string) => {
   );
 };
 
-/** Create a managed pack in .axm/extensions/ with a manifest. */
+/** Create a pack in .axm/extensions/ with a manifest. */
 const createManagedPack = (
   tempDir: string,
   namespace: string,
@@ -60,7 +60,7 @@ const createManagedPack = (
   return packDir;
 };
 
-/** Create a managed extension (skill, command, mcp-server) in .axm/extensions/. */
+/** Create an extension (skill, command, mcp-server) in .axm/extensions/. */
 const createManagedExtension = (
   tempDir: string,
   namespace: string,
@@ -144,7 +144,7 @@ describe("packs publish.handler", () => {
   };
 
   describe("successful publish", () => {
-    it.effect("publishes a managed pack to a named registry", () => {
+    it.effect("publishes a pack to a named registry", () => {
       const { provide, mockLog } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
@@ -220,7 +220,7 @@ describe("packs publish.handler", () => {
   });
 
   describe("missing manifest error", () => {
-    it.effect("fails when managed pack directory has no manifest", () => {
+    it.effect("fails when pack directory has no manifest", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
@@ -383,7 +383,7 @@ describe("packs publish.handler", () => {
     });
   });
 
-  describe("non-managed pack error", () => {
+  describe("non-installed pack error", () => {
     it.effect("fails when pack directory does not exist in .axm/extensions/", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
@@ -467,7 +467,7 @@ describe("packs publish.handler", () => {
         commands: { "@test/commands/formatter": "^2.0.0" },
       });
 
-      // Create local managed extensions
+      // Create local extensions
       createManagedExtension(tempDir, "@test", "skills", "linter", {
         name: "@test/skills/linter",
         version: "1.0.0",

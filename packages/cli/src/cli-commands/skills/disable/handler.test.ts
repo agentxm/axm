@@ -143,22 +143,20 @@ describe("disable.handler", () => {
         Effect.gen(function* () {
           const error = yield* handleDisable(defaultArgs("nonexistent")).pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("not found");
+          expect((error as CliError).what).toContain("is not installed");
         }),
       );
     });
 
-    it.effect("fails when skill is unmanaged", () => {
+    it.effect("fails when skill is not found", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), {
-        "my-skill": { managed: false },
-      });
+      initWorkspace(path.join(tempDir, ".axm"), {});
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleDisable(defaultArgs("my-skill")).pipe(Effect.flip);
+          const error = yield* handleDisable(defaultArgs("nonexistent")).pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("unmanaged");
+          expect((error as CliError).what).toContain("is not installed");
         }),
       );
     });
@@ -183,47 +181,87 @@ describe("disable.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Transitive skill disable (direct entry promotion)
+  // Taxonomy: ignored skill excluded from installed
   // ---------------------------------------------------------------------------
 
-  describe("transitive skill disable", () => {
-    const makePackLockEntry = (resolvedSkills: Record<string, string>) => ({
-      type: "registry",
-      namespace: "@acme",
-      name: "starter-pack",
-      resolvedVersion: "1.0.0",
-      integrity: "sha512-AAAA==",
-      sourceName: "default",
-      installedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      resolvedSkills,
-      resolvedCommands: {},
-      resolvedMcpServers: {},
-    });
-
-    it.effect("creates direct entry when disabling transitive skill", () => {
-      const { provide, mockLog } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), {}, {}, ["claude-code"], {
-        packs: { "starter-pack": "@acme/packs/starter-pack" },
-        lockfilePacks: {
-          "starter-pack": makePackLockEntry({ "@acme/skills/code-review": "1.2.0" }),
+  describe("taxonomy: ignored skill excluded", () => {
+    it.effect("fails for ignored implicit skill (treated as not installed)", () => {
+      const { provide } = makeLayers();
+      // Implicit skill: in lockfile only (registry type = native), with ignored pattern
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        {},
+        {
+          "code-review": {
+            type: "registry",
+            namespace: "@acme",
+            name: "code-review",
+            resolvedVersion: "1.0.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            agents: ["claude-code"],
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
         },
-      });
+      );
+      // Add ignored pattern that matches the skill
+      const settingsPath = path.join(tempDir, ".axm", "settings.json");
+      const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+      settings.ignored = { skills: ["code-review"] };
+      fs.writeFileSync(settingsPath, JSON.stringify(settings));
 
       return provide(
         Effect.gen(function* () {
-          yield* handleDisable(defaultArgs("@acme/skills/code-review"));
+          const error = yield* handleDisable(defaultArgs("code-review")).pipe(Effect.flip);
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).what).toContain("is not installed");
+        }),
+      );
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Transitive skill disable (direct entry promotion)
+  // ---------------------------------------------------------------------------
+
+  describe("implicit skill disable (lockfile-only entry promotion)", () => {
+    it.effect("creates direct entry when disabling implicit skill", () => {
+      const { provide, mockLog } = makeLayers();
+      // Implicit skill: in lockfile but not in settings, with native (registry) type
+      initWorkspace(
+        path.join(tempDir, ".axm"),
+        {},
+        {
+          "code-review": {
+            type: "registry",
+            namespace: "@acme",
+            name: "code-review",
+            resolvedVersion: "1.2.0",
+            integrity: "sha512-AAAA==",
+            sourceName: "default",
+            agents: ["claude-code"],
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        },
+        ["claude-code"],
+      );
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleDisable(defaultArgs("code-review"));
 
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
 
-          // Settings should have a new direct entry with bare name key and enabled: false
+          // Settings should have a new direct entry with enabled: false
           const settingsContent = fs.readFileSync(
             path.join(tempDir, ".axm", "settings.json"),
             "utf-8",
           );
           const settings = JSON.parse(settingsContent);
           expect(settings.skills?.["code-review"]).toEqual({
-            source: "@acme/skills/code-review",
+            source: "code-review",
             enabled: false,
           });
         }),
@@ -232,18 +270,13 @@ describe("disable.handler", () => {
 
     it.effect("fails when skill not in configured or installed", () => {
       const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), {}, {}, ["claude-code"], {
-        packs: { "starter-pack": "@acme/packs/starter-pack" },
-        lockfilePacks: {
-          "starter-pack": makePackLockEntry({ "@acme/skills/code-review": "1.2.0" }),
-        },
-      });
+      initWorkspace(path.join(tempDir, ".axm"), {}, {}, ["claude-code"]);
 
       return provide(
         Effect.gen(function* () {
           const error = yield* handleDisable(defaultArgs("nonexistent")).pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
-          expect((error as CliError).what).toContain("not found");
+          expect((error as CliError).what).toContain("is not installed");
         }),
       );
     });

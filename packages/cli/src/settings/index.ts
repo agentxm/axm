@@ -15,6 +15,7 @@ export type {
   NonSkillExtensionsMap,
   GitHubSourceHostConfig,
   GitLabSourceHostConfig,
+  IgnoredSettings,
   PackEntry,
   PacksMap,
   RegistrySourceHostConfig,
@@ -24,6 +25,7 @@ export type {
   SourceHostConfig,
 } from "./schema.js";
 export {
+  IgnoredSettingsSchema,
   NonSkillExtensionsMapSchema,
   PackEntryObjectSchema,
   PackEntrySchema,
@@ -34,12 +36,14 @@ export {
   SkillEntrySchema,
   SkillsMapSchema,
   SourceHostConfigSchema,
-  UnmanagedSkillEntrySchema,
 } from "./schema.js";
 
 // Skill entry normalization
 export type { NormalizedSkillEntry } from "./skill-entry.js";
 export { collapseSkillEntry, getSkillEntrySource, normalizeSkillEntry } from "./skill-entry.js";
+
+// Ignored patterns
+export { normalizeIgnoredPatterns, validateIgnoredConfigConflicts } from "./ignored-patterns.js";
 
 // Settings I/O
 export {

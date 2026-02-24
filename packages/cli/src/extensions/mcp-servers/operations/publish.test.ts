@@ -12,6 +12,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { Workspace, type WorkspaceContextService } from "../../../workspace/service.js";
+import { taxonomyStubs } from "../../../workspace/test-stubs.js";
 import { publishMcpServer, type PublishMcpServerOperation } from "./publish.js";
 
 /** Creates a layer providing FileSystem + a minimal Workspace service. */
@@ -23,6 +24,7 @@ const withServices = (axmDir: string, registryRoot: string) => {
   };
 
   const mockWs: WorkspaceContextService = {
+    ...taxonomyStubs,
     global: false,
     path: axmDir,
     baseDir: path.dirname(axmDir),
@@ -95,7 +97,7 @@ describe("publishMcpServer", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  /** Sets up a workspace with a managed MCP server and registry. */
+  /** Sets up a workspace with an installed MCP server and registry. */
   const setup = (
     namespace = "@community",
     name = "my-mcp",
@@ -154,7 +156,7 @@ describe("publishMcpServer", () => {
     }),
   );
 
-  it.effect("fails when managed extension does not exist", () =>
+  it.effect("fails when extension directory does not exist", () =>
     Effect.gen(function* () {
       const base = path.join(tmpDir, "project");
       const axmDir = path.join(base, ".axm");

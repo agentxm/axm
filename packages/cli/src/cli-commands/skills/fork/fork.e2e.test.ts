@@ -2,7 +2,7 @@
  * E2E tests for `axm skills fork`.
  *
  * Task 17.2: Fork from an installed skill — install locally, fork to local
- * registry, verify managed extension in `.axm/extensions/`, verify published
+ * registry, verify extension in `.axm/extensions/`, verify published
  * in registry, verify lockfile updated with registry source.
  *
  * @experimental This API is unstable and may change without notice.
@@ -24,7 +24,7 @@ const createSkillMd = (dir: string, name: string) => {
 
 describe("axm skills fork", () => {
   describe("fork from installed skill", () => {
-    it("forks an installed skill to a managed extension and publishes to registry", async () => {
+    it("forks an installed skill to an extension and publishes to registry", async () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
@@ -62,7 +62,7 @@ describe("axm skills fork", () => {
         });
         expect(forkResult.exitCode).toBe(0);
 
-        // 1. Verify managed extension in .axm/extensions/
+        // 1. Verify extension in .axm/extensions/
         const extensionDir = path.join(
           temp.path,
           ".axm",
@@ -183,7 +183,7 @@ describe("axm skills fork", () => {
       }
     });
 
-    it("forks unmanaged configured and unmanaged on-disk skills via glob source", async () => {
+    it("forks on-disk skills via glob source", async () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
@@ -195,36 +195,24 @@ describe("axm skills fork", () => {
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
         settings.namespace = "@test";
-        settings.skills = { "unmanaged-configured": { managed: false } };
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
-        createSkillMd(
-          path.join(temp.path, ".claude", "skills", "unmanaged-configured"),
-          "unmanaged-configured",
-        );
-        createSkillMd(
-          path.join(temp.path, ".claude", "skills", "disk-only-skill"),
-          "disk-only-skill",
-        );
+        createSkillMd(path.join(temp.path, ".claude", "skills", "ondisk-alpha"), "ondisk-alpha");
+        createSkillMd(path.join(temp.path, ".claude", "skills", "ondisk-beta"), "ondisk-beta");
 
-        const configuredResult = await runCli(["skills", "fork", "unmanaged-*", "--yes"], {
+        const result = await runCli(["skills", "fork", "ondisk-*", "--yes"], {
           cwd: temp.path,
         });
-        expect(configuredResult.exitCode).toBe(0);
-
-        const diskOnlyResult = await runCli(["skills", "fork", "disk-only-*", "--yes"], {
-          cwd: temp.path,
-        });
-        expect(diskOnlyResult.exitCode).toBe(0);
+        expect(result.exitCode).toBe(0);
 
         expect(
           fs.existsSync(
-            path.join(temp.path, ".axm", "extensions", "@test", "skills", "unmanaged-configured"),
+            path.join(temp.path, ".axm", "extensions", "@test", "skills", "ondisk-alpha"),
           ),
         ).toBe(true);
         expect(
           fs.existsSync(
-            path.join(temp.path, ".axm", "extensions", "@test", "skills", "disk-only-skill"),
+            path.join(temp.path, ".axm", "extensions", "@test", "skills", "ondisk-beta"),
           ),
         ).toBe(true);
       } finally {
@@ -245,10 +233,10 @@ describe("axm skills fork", () => {
           { name: "local", type: "registry", location: `file://${registryDir.path}` },
         ];
         settings.namespace = "@test";
-        settings.skills = { "gamma-configured": { managed: false } };
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         createSkillMd(path.join(temp.path, ".claude", "skills", "beta-disk"), "beta-disk");
+        createSkillMd(path.join(temp.path, ".claude", "skills", "gamma-disk"), "gamma-disk");
 
         const installResult = await runCli(
           [
@@ -270,7 +258,7 @@ describe("axm skills fork", () => {
         const output = `${result.stdout}\n${result.stderr}`;
         expect(output).toContain("Available:");
         expect(output).toContain("beta-disk");
-        expect(output).toContain("gamma-configured");
+        expect(output).toContain("gamma-disk");
         expect(output).toContain("my-skill");
       } finally {
         temp.cleanup();

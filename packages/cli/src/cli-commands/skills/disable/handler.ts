@@ -1,8 +1,9 @@
 /**
  * Disable command handler - Effect-based orchestration for `axm skills disable`.
  *
- * Validates skill state then builds and resolves a single-step plan.
- * Supports both direct skills (settings entry) and transitive skills (via packs).
+ * Validates skill state using taxonomy lifecycle views then builds and resolves
+ * a single-step plan. Supports both configured skills and implicit skills
+ * (promoted to configured entry with `enabled: false`).
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -39,25 +40,21 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
 
   yield* log.info("axm skills disable");
 
-  // Load configured skills (direct settings entries)
-  const configuredSkills = yield* ws.getConfiguredSkills();
-  const entry = configuredSkills[args.name];
+  // Load installed skills (configured ∪ implicit) — taxonomy lifecycle view
+  const installedSkills = yield* ws.getInstalledSkills();
+  const installedEntry = installedSkills[args.name];
 
-  // If not found in configured skills, check installed skills (includes transitive via packs)
-  if (entry === undefined) {
-    const installedSkills = yield* ws.getInstalledSkills();
-    const installedEntry = installedSkills[args.name];
+  // Validate: skill is installed (ignored names are excluded from installed)
+  if (installedEntry === undefined) {
+    return yield* makeCliError({
+      code: "SKILL_NOT_FOUND",
+      what: `Skill '${args.name}' is not installed`,
+      howToFix: "Run `axm skills list` to see available skills",
+    });
+  }
 
-    if (installedEntry === undefined) {
-      return yield* makeCliError({
-        code: "SKILL_NOT_FOUND",
-        what: `Skill '${args.name}' not found`,
-        howToFix: "Run `axm skills list` to see available skills",
-      });
-    }
-
-    // Transitive skill — promote to direct entry with enabled: false
-    // Use the bare name (without namespace) as the settings key
+  // If implicit (not configured), promote to configured entry with enabled: false
+  if (installedEntry.lifecycle === "implicit") {
     const bareName = args.name.includes("/")
       ? pipe(
           args.name.split("/"),
@@ -65,24 +62,15 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
           Option.getOrElse(() => args.name),
         )
       : args.name;
-    const source = Option.orElse(installedEntry.source, () => Option.some(args.name));
-    yield* ws.setSkillEntry(bareName, { source, enabled: false, managed: true });
+    const source = Option.getOrElse(installedEntry.source, () => args.name);
+    yield* ws.setSkillEntry(bareName, { source, enabled: false });
 
     yield* log.success("Done");
     return;
   }
 
-  // Validate: skill is managed
-  if (!entry.managed) {
-    return yield* makeCliError({
-      code: "SKILL_NOT_MANAGED",
-      what: `Cannot disable unmanaged skill '${args.name}'`,
-      howToFix: "Only managed skills (installed via axm) can be enabled/disabled",
-    });
-  }
-
-  // Validate: skill is currently enabled
-  if (!entry.enabled) {
+  // Configured skill — check if already disabled
+  if (!installedEntry.enabled) {
     yield* log.info(`Skill '${args.name}' is already disabled`);
     yield* log.success("Nothing to do.");
     return;

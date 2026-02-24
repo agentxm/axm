@@ -1,115 +1,72 @@
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: SkillEntry schema union type
 
-The `SkillEntrySchema` SHALL be a union of three forms: a plain string, a `SkillEntryObjectSchema`, and an `UnmanagedSkillEntrySchema`. The `SkillsMapSchema` value type SHALL use `SkillEntrySchema` instead of `Schema.String`.
+The `SkillEntrySchema` SHALL be a union of two forms only: a plain string and a `SkillEntryObjectSchema`. The unmanaged marker object (`{ managed: false }`) SHALL NOT be part of valid schema input.
 
-#### Scenario: Plain string entry
+#### Scenario: Plain string entry remains valid
 
 - **WHEN** a skill entry in settings is a plain string (e.g., `"github:owner/repo"`)
-- **THEN** it SHALL be valid and equivalent to `{ source: "<value>", enabled: true, managed: true }`
+- **THEN** it SHALL be parsed as a configured entry with `source` set to that string and `enabled` defaulting to `true`
 
-#### Scenario: Managed object entry with source
+#### Scenario: Object entry with source remains valid
 
-- **WHEN** a skill entry is an object with a `source` field
-- **THEN** it SHALL be parsed as `SkillEntryObjectSchema` with `source: string` (required) and `enabled: boolean` (optional, default `true`)
+- **WHEN** a skill entry is an object with `source`
+- **THEN** it SHALL be parsed as a configured entry with `source: string` and optional `enabled`
 
-#### Scenario: Unmanaged entry
+#### Scenario: Legacy unmanaged marker is rejected
 
-- **WHEN** a skill entry is an object with `managed: false`
-- **THEN** it SHALL be parsed as `UnmanagedSkillEntrySchema`
-- **AND** no `source` or `enabled` fields SHALL be present
-
-#### Scenario: Invalid entry rejected
-
-- **WHEN** a skill entry is an object that matches neither `SkillEntryObjectSchema` nor `UnmanagedSkillEntrySchema`
-- **THEN** the schema SHALL reject it with a parse error
+- **WHEN** a skill entry is `{ managed: false }`
+- **THEN** settings validation SHALL fail
+- **AND** the failure SHALL indicate the marker-based unmanaged form is unsupported in this model
 
 ### Requirement: NormalizedSkillEntry internal representation
 
-All handler and service code SHALL work with `NormalizedSkillEntry` — the canonical internal form with `source: Option<string>`, `enabled: boolean`, and `managed: boolean`.
+Internal workspace and handler logic SHALL treat configured skill settings entries as configured lifecycle inputs (`source: string`, `enabled: boolean`) and SHALL derive unmanaged status from classifier inputs instead of entry markers.
 
-#### Scenario: String entry normalization
+#### Scenario: Configured entry keeps concrete source string
 
-- **WHEN** a plain string entry `"github:owner/repo"` is normalized
-- **THEN** it SHALL produce `{ source: Some("github:owner/repo"), enabled: true, managed: true }`
+- **WHEN** a configured skill entry is read from settings
+- **THEN** the configured representation SHALL expose `source` as `string`
+- **AND** the representation SHALL NOT include a `managed` boolean
 
-#### Scenario: SkillEntryObject normalization
+#### Scenario: Unmanaged status is classifier-derived
 
-- **WHEN** a `SkillEntryObjectSchema` entry `{ source: "github:owner/repo", enabled: false }` is normalized
-- **THEN** it SHALL produce `{ source: Some("github:owner/repo"), enabled: false, managed: true }`
-
-#### Scenario: SkillEntryObject with defaults normalization
-
-- **WHEN** a `SkillEntryObjectSchema` entry `{ source: "github:owner/repo" }` is normalized (no `enabled` field)
-- **THEN** it SHALL produce `{ source: Some("github:owner/repo"), enabled: true, managed: true }`
-
-#### Scenario: UnmanagedSkillEntry normalization
-
-- **WHEN** an `UnmanagedSkillEntrySchema` entry `{ managed: false }` is normalized
-- **THEN** it SHALL produce `{ source: None, enabled: true, managed: false }`
+- **WHEN** a skill appears on disk but has no configured settings entry
+- **THEN** unmanaged status SHALL be derived by classification
+- **AND** settings entry shape SHALL remain unchanged
 
 ### Requirement: Collapse on write
 
-The `collapseSkillEntry` function SHALL convert a `NormalizedSkillEntry` back to the most compact settings representation.
+The collapse/write path for skill entries SHALL emit only configured-entry forms: plain source string for enabled defaults, or object form when non-default fields are needed.
 
-#### Scenario: Collapse to string when all defaults
+#### Scenario: Enabled configured entry collapses to string
 
-- **WHEN** a `NormalizedSkillEntry` has `source: Some("<value>")`, `enabled: true`, and `managed: true`
-- **THEN** it SHALL collapse to the plain string `"<value>"`
+- **WHEN** a configured skill has `source: "github:owner/repo"` and `enabled: true`
+- **THEN** it SHALL collapse to the plain string `"github:owner/repo"`
 
-#### Scenario: Preserve object form when enabled is false
+#### Scenario: Disabled configured entry collapses to object
 
-- **WHEN** a `NormalizedSkillEntry` has `source: Some("<value>")`, `enabled: false`, and `managed: true`
-- **THEN** it SHALL collapse to `{ source: "<value>", enabled: false }`
-
-#### Scenario: Unmanaged collapses to managed-false marker
-
-- **WHEN** a `NormalizedSkillEntry` has `managed: false`
-- **THEN** it SHALL collapse to `{ managed: false }` regardless of `enabled` or `source` values
+- **WHEN** a configured skill has `source: "github:owner/repo"` and `enabled: false`
+- **THEN** it SHALL collapse to `{ source: "github:owner/repo", enabled: false }`
 
 ### Requirement: Workspace service entry access
 
-The workspace service SHALL provide methods for reading and updating skill entries using the normalized form.
+Workspace service skill getters SHALL expose classifier-consistent lifecycle views, with configured entries from settings and installed entries from configured-plus-implicit classification.
 
-#### Scenario: getConfiguredSkills returns all entries normalized
+#### Scenario: getConfiguredSkills returns configured entries only
 
 - **WHEN** `getConfiguredSkills()` is called
-- **THEN** it SHALL return all skill entries from settings (managed and unmanaged), normalized to `NormalizedSkillEntry`
+- **THEN** it SHALL return only configured settings entries
+- **AND** each returned value SHALL include configured source and enabled state
 
-#### Scenario: getInstalledSkills returns managed entries only
+#### Scenario: getInstalledSkills returns configured plus implicit
 
 - **WHEN** `getInstalledSkills()` is called
-- **THEN** it SHALL return only entries where `managed` is `true`, normalized to `NormalizedSkillEntry`
-- **AND** all returned entries SHALL have `source` as `Some`
+- **THEN** it SHALL return configured and implicit installed entries
+- **AND** it SHALL exclude unmanaged and ignored names
 
-#### Scenario: updateSkillEntry applies updater function
+#### Scenario: updateSkillEntry fails for missing configured skill
 
-- **WHEN** `updateSkillEntry(name, updater)` is called with a name that exists in settings
-- **THEN** it SHALL read the current entry, normalize it, apply the updater function, collapse the result, and write back to settings
-
-#### Scenario: updateSkillEntry fails for missing skill
-
-- **WHEN** `updateSkillEntry(name, updater)` is called with a name not in settings
-- **THEN** it SHALL fail with a `CliError`
-
-#### Scenario: renameSkill atomically renames keys
-
-- **WHEN** `renameSkill(oldName, newName)` is called
-- **THEN** it SHALL read the old entry and lock entry, write both under the new key, and remove the old keys
-- **AND** the operation SHALL be mutex-protected
-
-#### Scenario: renameSkill fails for missing skill
-
-- **WHEN** `renameSkill(oldName, newName)` is called with an old name not in settings
-- **THEN** it SHALL fail with a `CliError`
-
-#### Scenario: updateLockEntryAgents updates lock agents
-
-- **WHEN** `updateLockEntryAgents(name, agents)` is called
-- **THEN** it SHALL update the `agents` field on the lock entry for the given skill
-
-#### Scenario: updateLockEntryAgents fails for missing lock entry
-
-- **WHEN** `updateLockEntryAgents(name, agents)` is called with a name not in the lockfile
-- **THEN** it SHALL fail with a `CliError`
+- **WHEN** `updateSkillEntry(name, updater)` is called with a name not present in configured settings entries
+- **THEN** it SHALL fail with `SKILL_NOT_FOUND`

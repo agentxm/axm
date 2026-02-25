@@ -485,6 +485,7 @@ describe("displayPlan", () => {
           (m) => m.includes("\u2717") && m.includes("commit") && m.includes("failed to apply"),
         ),
       ).toBe(true);
+      expect(mockLog.logs.error.some((m) => m.includes("commit: failed to apply"))).toBe(true);
     }).pipe(Effect.provide(logLayer));
   });
 

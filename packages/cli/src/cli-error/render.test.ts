@@ -108,6 +108,35 @@ describe("renderCliError", () => {
     expect(result).toContain("Stack: Error: permission denied");
     expect(result).toContain("Stack:  at test");
   });
+
+  it("does not duplicate cause details already present on parent error", () => {
+    const nested = new CliError({
+      code: "REGISTRY_PUBLISH_NETWORK_ERROR",
+      what: "Failed to connect to the remote registry",
+      details: ["Request: PUT https://localhost:4300/v1/extensions/@axm/skill/effect-basics/0.1.0"],
+      howToFix: Option.none(),
+      cause: undefined,
+    });
+
+    const error = new CliError({
+      code: "PUBLISH_SKILL_PUBLISH_FAILED",
+      what: 'Failed to publish to registry "local-registry"',
+      details: [
+        "Registry source: local-registry",
+        "Registry error: Failed to connect to the remote registry (REGISTRY_PUBLISH_NETWORK_ERROR)",
+        "Request: PUT https://localhost:4300/v1/extensions/@axm/skill/effect-basics/0.1.0",
+      ],
+      howToFix: Option.none(),
+      cause: nested,
+    });
+
+    const result = renderCliError(error, { verbose: true, debug: true });
+
+    expect(result).not.toContain(
+      "Cause: Failed to connect to the remote registry (REGISTRY_PUBLISH_NETWORK_ERROR)",
+    );
+    expect(result.match(/Cause detail: Request: PUT/g)).toBeNull();
+  });
 });
 
 describe("renderDefect", () => {

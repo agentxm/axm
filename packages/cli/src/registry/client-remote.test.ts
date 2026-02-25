@@ -327,6 +327,24 @@ describe("createRemoteRegistryClient", () => {
       }),
     );
 
+    it.effect("normalizes trailing slash in registry base URL", () =>
+      Effect.gen(function* () {
+        let capturedUrl = "";
+
+        const httpClient = makeMockHttpClient((request) => {
+          capturedUrl = request.url;
+          return new Response(JSON.stringify({ publish_status: "created" }), { status: 201 });
+        });
+
+        const client = createRemoteRegistryClient("https://registry.example.com/", httpClient);
+        yield* client.publishExtension(makePublishArgs());
+
+        expect(capturedUrl).toBe(
+          "https://registry.example.com/v1/extensions/@acme/skill/code-review/1.0.0",
+        );
+      }),
+    );
+
     // -------------------------------------------------------------------------
     // Multipart FormData with archive and integrity
     // -------------------------------------------------------------------------
@@ -476,8 +494,40 @@ describe("createRemoteRegistryClient", () => {
         if (result._tag === "Left") {
           expect(result.left.code).toBe("REGISTRY_PUBLISH_NETWORK_ERROR");
           expect(result.left.cause).toBeDefined();
+          expect(Option.isSome(result.left.howToFix)).toBe(true);
           expect(result.left.details).toContain(
             "Request: PUT https://registry.example.com/v1/extensions/@acme/skill/code-review/1.0.0",
+          );
+        }
+      }),
+    );
+
+    it.effect("suggests http for localhost https network failures", () =>
+      Effect.gen(function* () {
+        const httpClient = HttpClient.make((request) =>
+          Effect.fail(
+            new HttpClientError.RequestError({
+              request,
+              reason: "Transport",
+              cause: new Error("Connection refused"),
+            }),
+          ),
+        );
+
+        const client = createRemoteRegistryClient("https://localhost:4000/", httpClient);
+        const result = yield* client.publishExtension(makePublishArgs()).pipe(Effect.either);
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left.code).toBe("REGISTRY_PUBLISH_NETWORK_ERROR");
+          expect(Option.isSome(result.left.howToFix)).toBe(true);
+          expect(Option.getOrThrow(result.left.howToFix)).toContain(
+            "switch the source URL to http://localhost",
+          );
+          expect(result.left.details).toContain(
+            "Request: PUT https://localhost:4000/v1/extensions/@acme/skill/code-review/1.0.0",
+          );
+          expect(result.left.details).toContain(
+            "Diagnosis: Local registry appears HTTP-only while source uses HTTPS.",
           );
         }
       }),

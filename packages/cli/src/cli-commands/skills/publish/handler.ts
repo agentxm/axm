@@ -219,9 +219,18 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
     jobs: [{ steps, concurrency: 1 as const }],
   };
 
-  yield* ws.resolvePlan(plan, {
+  const resolvedPlan = yield* ws.resolvePlan(plan, {
     "publish-skill": publishSkill,
   });
+
+  const failedCount = resolvedPlan.jobs
+    .flatMap((job) => job.steps)
+    .filter((step) => step._tag === "JobStepResult" && step.result.result === "error").length;
+
+  if (failedCount > 0) {
+    yield* log.warn("Done with errors");
+    return;
+  }
 
   yield* log.success("Done");
 });

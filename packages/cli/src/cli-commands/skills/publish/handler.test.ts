@@ -35,6 +35,11 @@ const initWorkspace = (
   registryRoot: string,
   lockfileSkills: Record<string, unknown> = {},
   skills?: Record<string, unknown>,
+  sources?: ReadonlyArray<{
+    readonly name: string;
+    readonly type: "registry";
+    readonly location: URL;
+  }>,
 ) => {
   fs.mkdirSync(axmDir, { recursive: true });
   fs.mkdirSync(registryRoot, { recursive: true });
@@ -43,7 +48,9 @@ const initWorkspace = (
     JSON.stringify({
       namespace: "@test",
       agents: ["claude-code"],
-      sources: [{ name: "local", type: "registry", location: new URL(`file://${registryRoot}`) }],
+      sources: sources ?? [
+        { name: "local", type: "registry", location: new URL(`file://${registryRoot}`) },
+      ],
       ...(skills && { skills }),
     }),
   );
@@ -532,6 +539,36 @@ describe("publish.handler", () => {
             ),
           ).toBe(true);
           // Only configured skills with sources are in installed set
+        }),
+      );
+    });
+  });
+
+  describe("completion status", () => {
+    it.effect("logs 'Done with errors' when plan contains failed publish steps", () => {
+      const { provide, mockLog } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      createManagedExtension(tempDir, "@test", "effect-basics", {
+        name: "@test/skills/effect-basics",
+        version: "1.0.0",
+        agents: ["claude-code"],
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot, {}, undefined, [
+        { name: "local-registry", type: "registry", location: new URL("https://localhost:4300/") },
+      ]);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handlePublish(
+            defaultArgs(["@test/skills/effect-basics"], {
+              registry: Option.some("local-registry"),
+            }),
+          );
+
+          expect(mockLog.logs.warn.some((m) => m.includes("Done with errors"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(false);
         }),
       );
     });

@@ -216,8 +216,52 @@ const remoteNotSupported = () =>
 /**
  * Build the publish URL for an extension version.
  */
+const normalizeBaseUrl = (baseUrl: string): string => baseUrl.replace(/\/+$/, "");
+
+const buildNetworkHowToFix = (baseUrl: string): string => {
+  const fallback = "Check registry URL/network connectivity and retry.";
+
+  try {
+    const parsed = new URL(baseUrl);
+    const isLocalhost =
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "::1";
+
+    if (isLocalhost && parsed.protocol === "https:") {
+      return "Ensure local registry is running with TLS, or switch the source URL to http://localhost:<port>.";
+    }
+
+    if (isLocalhost) {
+      return "Ensure local registry is running and reachable at the configured host/port.";
+    }
+
+    return fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const buildNetworkDiagnosis = (baseUrl: string): Option.Option<string> => {
+  try {
+    const parsed = new URL(baseUrl);
+    const isLocalhost =
+      parsed.hostname === "localhost" ||
+      parsed.hostname === "127.0.0.1" ||
+      parsed.hostname === "::1";
+
+    if (isLocalhost && parsed.protocol === "https:") {
+      return Option.some("Diagnosis: Local registry appears HTTP-only while source uses HTTPS.");
+    }
+
+    return Option.none();
+  } catch {
+    return Option.none();
+  }
+};
+
 const buildPublishUrl = (baseUrl: string, args: PublishExtensionArgs): string =>
-  `${baseUrl}/v1/extensions/${args.namespace}/${args.type}/${args.name}/${args.version}`;
+  `${normalizeBaseUrl(baseUrl)}/v1/extensions/${args.namespace}/${args.type}/${args.name}/${args.version}`;
 
 /**
  * Publish an extension version to the remote registry via multipart PUT.
@@ -230,6 +274,8 @@ const publishExtension = (
   Effect.gen(function* () {
     const url = buildPublishUrl(baseUrl, args);
     const requestSummary = `PUT ${url}`;
+    const networkHowToFix = buildNetworkHowToFix(baseUrl);
+    const networkDiagnosis = buildNetworkDiagnosis(baseUrl);
 
     // Build multipart FormData
     const formData = new FormData();
@@ -251,7 +297,12 @@ const publishExtension = (
               makeCliError({
                 code: "REGISTRY_PUBLISH_NETWORK_ERROR",
                 what: "Failed to connect to the remote registry",
-                details: [`Request: ${requestSummary}`, error.message],
+                details: [
+                  `Request: ${requestSummary}`,
+                  ...(Option.isSome(networkDiagnosis) ? [networkDiagnosis.value] : []),
+                  error.message,
+                ],
+                howToFix: networkHowToFix,
                 cause: error,
               }),
             )
@@ -259,7 +310,11 @@ const publishExtension = (
               makeCliError({
                 code: "REGISTRY_PUBLISH_NETWORK_ERROR",
                 what: "Failed to connect to the remote registry",
-                details: [`Request: ${requestSummary}`],
+                details: [
+                  `Request: ${requestSummary}`,
+                  ...(Option.isSome(networkDiagnosis) ? [networkDiagnosis.value] : []),
+                ],
+                howToFix: networkHowToFix,
                 cause: error,
               }),
             ),

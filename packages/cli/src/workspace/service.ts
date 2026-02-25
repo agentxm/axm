@@ -1106,10 +1106,9 @@ const make = (options: WorkspaceContextOptions) =>
           Effect.map((sources) => Option.fromNullable(sources.find((s) => s.name === name))),
         ),
 
-      getConfiguredRegistrySources: (namespace: Option.Option<string>) =>
+      getConfiguredRegistrySources: () =>
         getConfiguredSources().pipe(
           Effect.map((sources) => {
-            void namespace;
             const registrySources = sources.filter(
               (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
             );
@@ -2260,10 +2259,11 @@ export interface WorkspaceContextService {
   readonly getConfiguredSourceByName: (
     name: string,
   ) => Effect.Effect<Option.Option<SourceHostConfig>, CliError>;
-  /** Filter merged sources to registry sources, optionally filtered by namespace. */
-  readonly getConfiguredRegistrySources: (
-    namespace: Option.Option<string>,
-  ) => Effect.Effect<ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>, CliError>;
+  /** Filter merged sources to registry sources. */
+  readonly getConfiguredRegistrySources: () => Effect.Effect<
+    ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>,
+    CliError
+  >;
   /** Resolve namespace: project settings -> user-scope settings -> DEFAULT_NAMESPACE. */
   readonly getConfiguredNamespace: () => Effect.Effect<string, CliError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */

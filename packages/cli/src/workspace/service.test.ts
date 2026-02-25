@@ -782,14 +782,14 @@ describe("WorkspaceContextService", () => {
     it.effect("returns empty when no registry sources configured", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getConfiguredRegistrySources(Option.none());
+        const sources = yield* ws.getConfiguredRegistrySources();
 
         // Built-in sources are github/gitlab/bitbucket, none are registry type
         expect(sources).toHaveLength(0);
       }),
     );
 
-    it.effect("returns all registry sources when namespace is None", () =>
+    it.effect("returns all configured registry sources", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -808,14 +808,14 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getConfiguredRegistrySources(Option.none());
+        const sources = yield* ws.getConfiguredRegistrySources();
 
         expect(sources).toHaveLength(2);
         expect(sources.map((s) => s.name)).toEqual(["r1", "r2"]);
       }),
     );
 
-    it.effect("namespace argument does not filter registry sources", () =>
+    it.effect("returns all registry sources without namespace filtering", () =>
       Effect.gen(function* () {
         writeSettingsTo(projectDir, {
           agents: ["claude-code"],
@@ -834,7 +834,7 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getConfiguredRegistrySources(Option.some("@corp"));
+        const sources = yield* ws.getConfiguredRegistrySources();
 
         expect(sources).toHaveLength(2);
         expect(sources.map((s) => s.name)).toEqual(["corp-reg", "public-reg"]);

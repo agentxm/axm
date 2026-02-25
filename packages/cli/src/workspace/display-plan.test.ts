@@ -7,6 +7,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { makeCliError } from "../cli-error/index.js";
 import { makeLogTestLayer } from "../tui/index.js";
 import { displayPlan } from "./display-plan.js";
 import type { Plan } from "./plan.js";
@@ -466,7 +467,11 @@ describe("displayPlan", () => {
                 {
                   _tag: "JobStepResult" as const,
                   operation: { name: "commit" },
-                  result: { result: "error" as const, message: "failed to apply" },
+                  result: {
+                    result: "error" as const,
+                    message: "failed to apply",
+                    error: makeCliError({ code: "TEST_STEP_FAILED", what: "failed to apply" }),
+                  },
                   label: "commit",
                 },
               ],

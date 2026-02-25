@@ -410,9 +410,15 @@ export const installSkill: OperationHandler<
       const failedAgents = agentResults
         .filter((r) => !r.success)
         .map((r) => Option.getOrElse(r.error, () => "unknown error"));
+      const message = `Failed to install ${ref.skill.name} for some agents: ${failedAgents.join(", ")}`;
       return {
         result: "error",
-        message: `Failed to install ${ref.skill.name} for some agents: ${failedAgents.join(", ")}`,
+        message,
+        error: makeCliError({
+          code: "SKILL_INSTALL_PARTIAL_FAILED",
+          what: message,
+          details: failedAgents,
+        }),
       } satisfies OperationResult;
     }
 

@@ -1,5 +1,203 @@
 lockfileVersion: 1
-skills: {}
+skills:
+  effect-testing:
+    type: registry
+    namespace: "@axm"
+    name: effect-testing
+    resolvedVersion: ^0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-25T14:22:10.031Z
+    updatedAt: 2026-02-25T14:22:10.033Z
+  effect-wrapping:
+    type: registry
+    namespace: "@axm"
+    name: effect-wrapping
+    resolvedVersion: ^0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-25T14:22:10.049Z
+    updatedAt: 2026-02-25T14:22:10.050Z
+  effect-schema:
+    type: registry
+    namespace: "@axm"
+    name: effect-schema
+    resolvedVersion: ^0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-25T14:22:10.062Z
+    updatedAt: 2026-02-25T14:22:10.063Z
+  effect-service:
+    type: registry
+    namespace: "@axm"
+    name: effect-service
+    resolvedVersion: ^0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-25T14:22:10.076Z
+    updatedAt: 2026-02-25T14:22:10.077Z
+  effect-collections:
+    type: registry
+    namespace: "@axm"
+    name: effect-collections
+    resolvedVersion: ^0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-25T14:22:10.090Z
+    updatedAt: 2026-02-25T14:22:10.092Z
+  effect-iteration:
+    type: registry
+    namespace: "@axm"
+    name: effect-iteration
+    resolvedVersion: ^0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-25T14:22:10.105Z
+    updatedAt: 2026-02-25T14:22:10.106Z
+  effect-basics:
+    type: registry
+    namespace: "@axm"
+    name: effect-basics
+    resolvedVersion: ^0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-25T14:22:10.117Z
+    updatedAt: 2026-02-25T14:22:10.118Z
+  effect-option:
+    type: registry
+    namespace: "@axm"
+    name: effect-option
+    resolvedVersion: ^0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-25T14:22:10.131Z
+    updatedAt: 2026-02-25T14:22:10.132Z
+  effect-filesystem:
+    type: registry
+    namespace: "@axm"
+    name: effect-filesystem
+    resolvedVersion: ^0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-25T14:22:10.144Z
+    updatedAt: 2026-02-25T14:22:10.146Z
+  effect-concurrency:
+    type: registry
+    namespace: "@axm"
+    name: effect-concurrency
+    resolvedVersion: ^0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-25T14:22:10.158Z
+    updatedAt: 2026-02-25T14:22:10.159Z
+  effect-stream:
+    type: registry
+    namespace: "@axm"
+    name: effect-stream
+    resolvedVersion: ^0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-25T14:22:10.172Z
+    updatedAt: 2026-02-25T14:22:10.173Z
 packs:
   effect:
     type: registry

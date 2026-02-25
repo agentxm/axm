@@ -430,6 +430,46 @@ describe("LocalRegistryClient.getExtensionPackage", () => {
     );
   });
 
+  it.effect("resolves archive from semver range constraint", () => {
+    const registryRoot = makeRegistryDir();
+    const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
+    const archiveV015 = createTestZip("SKILL.md", "# My Skill v0.1.5");
+    const archiveV020 = createTestZip("SKILL.md", "# My Skill v0.2.0");
+
+    return Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      yield* fs.makeDirectory(skillDir, { recursive: true });
+      yield* fs.writeFileString(
+        nodePath.join(skillDir, "index.json"),
+        JSON.stringify(
+          makeIndex({
+            versions: [
+              makeVersionEntry({ version: "0.2.0" }),
+              makeVersionEntry({ version: "0.1.5" }),
+            ],
+          }),
+        ),
+      );
+      yield* fs.writeFile(nodePath.join(skillDir, "0.1.5.zip"), archiveV015);
+      yield* fs.writeFile(nodePath.join(skillDir, "0.2.0.zip"), archiveV020);
+
+      const client = yield* makeLocalClient(registryRoot);
+      const { archive: bytes } = yield* client.getExtensionPackage({
+        namespace: "@test",
+        type: "skill",
+        name: "my-skill",
+        version: Option.some("^0.1.0"),
+      });
+
+      expect(bytes.length).toBe(archiveV015.length);
+    }).pipe(
+      Effect.ensuring(
+        Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+      ),
+      Effect.provide(NodeContext.layer),
+    );
+  });
+
   it.effect("fails when archive does not exist", () => {
     const registryRoot = makeRegistryDir();
 
@@ -706,9 +746,7 @@ describe("LocalRegistryClient.extensionExists", () => {
 describe("RemoteRegistryClient", () => {
   /** A stub HttpClient that returns 200 for any request. */
   const stubHttpClient = HttpClient.make((request) =>
-    Effect.sync(() =>
-      HttpClientResponse.fromWeb(request, new Response("", { status: 200 })),
-    ),
+    Effect.sync(() => HttpClientResponse.fromWeb(request, new Response("", { status: 200 }))),
   );
   const client = createRemoteRegistryClient("https://registry.example.com", stubHttpClient);
 

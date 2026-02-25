@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { makeCliError, type CliError } from "../cli-error/index.js";
+import { resolveVersionWithConstraint } from "../version-constraints/version-constraints.js";
 import type {
   RegistryClient,
   RegistryExtensionManifest,
@@ -228,7 +229,62 @@ export const createLocalRegistryClient = (
             }
             return selected.value.version;
           }),
-        onSome: (v) => Effect.succeed(v),
+        onSome: (requestedVersion) =>
+          Effect.gen(function* () {
+            const requestedArchivePath = path.join(dir, `${requestedVersion}.zip`);
+            const requestedExists = yield* fs
+              .exists(requestedArchivePath)
+              .pipe(Effect.orElseSucceed(() => false));
+
+            // Fast path: exact version archive exists.
+            if (requestedExists) {
+              return requestedVersion;
+            }
+
+            // Fallback: treat requested version as semver constraint (e.g. ^1.0.0).
+            const idxPath = path.join(dir, "index.json");
+            const content = yield* fs.readFileString(idxPath).pipe(
+              Effect.mapError((e) =>
+                makeCliError({
+                  code: "REGISTRY_FETCH_FAILED",
+                  what: `Failed to read index: ${idxPath}`,
+                  cause: e,
+                }),
+              ),
+            );
+            const json = yield* Effect.try({
+              try: () => JSON.parse(content) as unknown,
+              catch: (e) =>
+                makeCliError({
+                  code: "REGISTRY_FETCH_FAILED",
+                  what: `Invalid JSON in index: ${idxPath}`,
+                  cause: e,
+                }),
+            });
+            const index = yield* Schema.decodeUnknown(ExtensionIndexSchema)(json).pipe(
+              Effect.mapError((e) =>
+                makeCliError({
+                  code: "REGISTRY_FETCH_FAILED",
+                  what: `Invalid index schema: ${idxPath}`,
+                  cause: e,
+                }),
+              ),
+            );
+
+            const selected = resolveVersionWithConstraint(
+              index.versions,
+              Option.some(requestedVersion),
+            );
+            if (Option.isNone(selected)) {
+              return yield* Effect.fail(
+                makeCliError({
+                  code: "REGISTRY_FETCH_FAILED",
+                  what: `No version matched constraint "${requestedVersion}" for ${args.namespace}/${args.type}/${args.name}`,
+                }),
+              );
+            }
+            return selected.value.version;
+          }),
       });
 
       const archivePath = path.join(dir, `${version}.zip`);

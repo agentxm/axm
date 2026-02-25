@@ -209,13 +209,16 @@ const installFromRegistry = (
         version: Option.some(ref.version),
       });
 
-      const actualIntegrity = yield* computeIntegrity(archive);
-      if (actualIntegrity !== ref.integrity) {
-        return yield* makeCliError({
-          code: "INSTALL_SKILL_INTEGRITY_MISMATCH",
-          what: `Integrity mismatch for ${ref.name}@${ref.version}`,
-          details: [`Expected ${ref.integrity}, got ${actualIntegrity}`],
-        });
+      // Non-empty integrity -> validate
+      if (ref.integrity !== "") {
+        const actualIntegrity = yield* computeIntegrity(archive);
+        if (actualIntegrity !== ref.integrity) {
+          return yield* makeCliError({
+            code: "INSTALL_SKILL_INTEGRITY_MISMATCH",
+            what: `Integrity mismatch for ${ref.name}@${ref.version}`,
+            details: [`Expected ${ref.integrity}, got ${actualIntegrity}`],
+          });
+        }
       }
 
       const tmpDir = yield* fs.makeTempDirectory().pipe(

@@ -2,7 +2,7 @@
  * SourceHostProviders Effect service.
  *
  * Provides a unified interface for discovering and fetching extensions
- * across all source types, plus clone URL and origin building.
+ * across all source types, plus clone URL and source display building.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -17,7 +17,6 @@ import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 
 import type { CliError } from "../cli-error/index.js";
-import { makeCliError } from "../cli-error/index.js";
 import { Workspace } from "../workspace/service.js";
 import type { ExtensionFiles, FindOptions } from "./provider.js";
 import type { ExtensionRef, RegistrySource, Source } from "./types.js";
@@ -94,7 +93,7 @@ const buildCloneUrlFromSource = (source: Source): Option.Option<string> => {
 // -----------------------------------------------------------------------------
 
 /**
- * Get the canonical origin string for display/comparison.
+ * Get the canonical source string for display/comparison.
  * Handles all source types including builtin.
  */
 const getOriginFromSource = (source: Source): string => {
@@ -110,7 +109,7 @@ const getOriginFromSource = (source: Source): string => {
     case "git":
       return source.url.href;
     case "registry":
-      return source.location.origin;
+      return source.location.href;
     case "builtin":
       return "builtin";
   }
@@ -121,14 +120,8 @@ const getOriginFromSource = (source: Source): string => {
 // -----------------------------------------------------------------------------
 
 /**
- * Creates a registry meta-provider that wraps N configured registries
- * into a single find/fetch interface returning `ExtensionRef`.
- *
- * Reads `workspace.getRegistrySourceHosts()` lazily on each call — always
- * reflects the current config (including sources added by the registry guard).
- *
- * Reads all configured registry sources for lookups.
- * 404 → fallthrough within the set; other errors → hard fail.
+ * Creates a registry meta-provider that delegates find/fetch to the
+ * resolved registry host encoded in the provided `RegistrySource`.
  *
  * @internal
  */
@@ -137,8 +130,6 @@ export const createRegistryMetaProvider = () => ({
 
   find: (source: RegistrySource, options: FindOptions) =>
     Effect.gen(function* () {
-      const ws = yield* Workspace;
-
       // Determine namespace from explicit option, or infer from @namespace/name.
       const namespace = Option.isSome(options.namespace)
         ? options.namespace
@@ -150,42 +141,9 @@ export const createRegistryMetaProvider = () => ({
               )
             : Option.none<string>();
 
-      const registrySources = yield* ws.getRegistrySourceHosts().pipe(
-        Effect.mapError((e) =>
-          makeCliError({
-            code: "SOURCE_FETCH_FAILED",
-            what: `Failed to get registry sources: ${e._tag}`,
-            cause: e,
-          }),
-        ),
-      );
-
-      if (registrySources.length === 0) {
-        const empty: ReadonlyArray<ExtensionRef> = [];
-        return empty;
-      }
-
-      // Try each registry source in order. 404 (empty results) → fallthrough.
-      // Sequential: early-exits on first non-404 error (can't use Effect.forEach)
-      const allRefs: ExtensionRef[] = [];
-
-      for (const regSource of registrySources) {
-        const provider = yield* createRegistrySourceHostProviderFromHost(regSource);
-        const registrySource: RegistrySource = { ...regSource, namespace };
-        const result = yield* provider.find(registrySource, options).pipe(Effect.either);
-
-        if (result._tag === "Left") {
-          // Non-404 errors → hard fail
-          return yield* Effect.fail(result.left);
-        }
-
-        if (result.right.length > 0) {
-          allRefs.push(...result.right);
-        }
-      }
-
-      const refs: ReadonlyArray<ExtensionRef> = allRefs;
-      return refs;
+      const provider = yield* createRegistrySourceHostProviderFromHost(source);
+      const registrySource: RegistrySource = { ...source, namespace };
+      return yield* provider.find(registrySource, options);
     }),
 
   fetch: (source: RegistrySource, ref: ExtensionRef) =>

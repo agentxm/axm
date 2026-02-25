@@ -16,14 +16,18 @@ import {
   SourceHostProviders,
   parseInputPattern,
   registryGuard,
+  type Source,
   type SkillExtensionRef,
 } from "../../../sources/index.js";
-import { resolveSkillInstallSource } from "./resolve-skill-install-source.js";
+import {
+  resolveSkillInstallSource,
+  type RegistryLookupProbe,
+} from "./resolve-skill-install-source.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeCliError, type CliError } from "../../../cli-error/index.js";
 import { Log, Spinner, type LogService } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSkillInstallPlan } from "./plan.js";
@@ -80,6 +84,61 @@ const listSkills = ({
     yield* log.success(`${discoveredSkills.length} skill(s) available`);
   });
 
+const isCliError = (error: unknown): error is CliError =>
+  typeof error === "object" &&
+  error !== null &&
+  "_tag" in error &&
+  error._tag === "CliError" &&
+  "what" in error &&
+  "code" in error;
+
+const summarizeDiscoverError = (error: unknown): string => {
+  if (isCliError(error)) {
+    return `${error.what} (${error.code})`;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+};
+
+const discoverHowToFix = (source: Source, error: unknown): string => {
+  if (source.type === "registry") {
+    if (isCliError(error) && error.code === "REGISTRY_REMOTE_NOT_SUPPORTED") {
+      return "Remote registry discovery is not yet supported for HTTP(S) sources. Use a file:// registry source, or install from github:owner/repo.";
+    }
+    return "Verify the configured registry is reachable and contains the requested namespace/skill.";
+  }
+  if (source.type === "local") {
+    return "Verify the source path contains directories with SKILL.md files.";
+  }
+  return "Verify the source is reachable and contains valid skill directories.";
+};
+
+const noSkillsFoundHowToFix = (source: Source): string => {
+  if (source.type === "registry") {
+    return "Verify the namespace and skill name, or run with --list to inspect available skills in that registry.";
+  }
+  if (source.type === "local") {
+    return "Verify the source path contains directories with SKILL.md files.";
+  }
+  return "Verify the source contains skill directories with SKILL.md files.";
+};
+
+const formatRegistryProbe = (probe: RegistryLookupProbe): string => {
+  switch (probe.outcome) {
+    case "matched":
+      return `${probe.location}: matched`;
+    case "not-found":
+      return `${probe.location}: no match`;
+    case "error":
+      return Option.match(probe.reason, {
+        onNone: () => `${probe.location}: error`,
+        onSome: (reason) => `${probe.location}: ${reason}`,
+      });
+  }
+};
+
 // -----------------------------------------------------------------------------
 // Main Handler
 // -----------------------------------------------------------------------------
@@ -130,8 +189,18 @@ export const handleInstall = Effect.fn("Install.handle")(function* (args: Instal
     parsedSource.pattern.pattern === "registry-pattern-input"
       ? parsedSource.pattern.versionConstraint
       : Option.none<string>();
-  const source = yield* resolveSkillInstallSource(parsedSource);
+  const resolutionProbes: RegistryLookupProbe[] = [];
+  const source = yield* resolveSkillInstallSource(parsedSource, {
+    onRegistryProbe: (probe) => {
+      resolutionProbes.push(probe);
+    },
+  });
   yield* parseHandle.stop(`Source: ${sources.origin(source)} (${source.type})`);
+  if (resolutionProbes.length > 0) {
+    yield* log.message(
+      `Resolution: ${resolutionProbes.map((probe) => formatRegistryProbe(probe)).join("; ")}`,
+    );
+  }
 
   // Step 2: Registry guard — ensure a registry source is configured
   if (source.type === "registry") {
@@ -147,11 +216,13 @@ export const handleInstall = Effect.fn("Install.handle")(function* (args: Instal
   const requestedSkills: ReadonlyArray<string> =
     args.skills.length > 0
       ? args.skills
-      : parsedSource.pattern.pattern === "registry-pattern-input"
-        ? Option.isSome(parsedSource.pattern.name)
-          ? [parsedSource.pattern.name.value]
-          : []
-        : [];
+      : parsedSource.pattern.pattern === "name-input"
+        ? [parsedSource.pattern.name]
+        : parsedSource.pattern.pattern === "registry-pattern-input"
+          ? Option.isSome(parsedSource.pattern.name)
+            ? [parsedSource.pattern.name.value]
+            : []
+          : [];
   const requestedNamespace =
     parsedSource.pattern.pattern === "registry-pattern-input"
       ? Option.some(parsedSource.pattern.namespace)
@@ -168,15 +239,16 @@ export const handleInstall = Effect.fn("Install.handle")(function* (args: Instal
     })
     .pipe(
       Effect.map(Array.filter((ref): ref is SkillExtensionRef => ref.type === "skill")),
-      Effect.mapError((error) =>
-        makeCliError({
+      Effect.mapError((error) => {
+        const reason = summarizeDiscoverError(error);
+        return makeCliError({
           code: "DISCOVER_FAILED",
-          what: `Failed to discover skills: ${error.message}`,
-          details: [`Source: ${sources.origin(source)}`],
-          howToFix: "Verify the source path contains directories with SKILL.md files.",
+          what: "Failed to discover skills from source",
+          details: [`Source: ${sources.origin(source)}`, `Reason: ${reason}`],
+          howToFix: discoverHowToFix(source, error),
           cause: error,
-        }),
-      ),
+        });
+      }),
       Effect.tapError(() => discoverHandle.stop("Failed")),
     );
   if (!Array.isNonEmptyReadonlyArray(discoveredSkills)) {
@@ -186,7 +258,7 @@ export const handleInstall = Effect.fn("Install.handle")(function* (args: Instal
         code: "NO_SKILLS_FOUND",
         what: "No skills found in source",
         details: [`Source: ${sources.origin(source)}`],
-        howToFix: "Verify the source path contains directories with SKILL.md files.",
+        howToFix: noSkillsFoundHowToFix(source),
       }),
     );
   }

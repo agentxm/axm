@@ -17,11 +17,12 @@ import {
   resolveSourcePattern,
   SourceHostProviders,
   registryGuard,
+  type Source,
 } from "../../../sources/index.js";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeCliError } from "../../../cli-error/index.js";
+import { makeCliError, type CliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { CopySkillOperation } from "../../../extensions/skills/operations/copy.js";
@@ -77,6 +78,42 @@ const filterBySkillGlobs = (
     return Array.filter(discoveredSkills, (s) => matched.includes(s.skill.name));
   });
 
+const isCliError = (error: unknown): error is CliError =>
+  typeof error === "object" &&
+  error !== null &&
+  "_tag" in error &&
+  error._tag === "CliError" &&
+  "what" in error &&
+  "code" in error;
+
+const summarizeError = (error: unknown): string => {
+  if (isCliError(error)) {
+    return `${error.what} (${error.code})`;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+};
+
+const discoverHowToFix = (source: Source, error: unknown): string => {
+  if (source.type === "registry") {
+    if (isCliError(error) && error.code === "REGISTRY_REMOTE_NOT_SUPPORTED") {
+      return "Remote registry discovery is not yet supported for HTTP(S) sources. Use a file:// registry source, or fork from a local/git source.";
+    }
+    return "Verify the configured registry is reachable and contains the requested namespace/skill.";
+  }
+  if (source.type === "local") {
+    return "Verify the source path contains directories with SKILL.md files.";
+  }
+  return "Verify the source is reachable and contains valid skill directories.";
+};
+
+const noSkillsFoundHowToFix = (sourceInput: string): string =>
+  sourceInput.includes("@") || sourceInput.startsWith("http://") || sourceInput.startsWith("https://")
+    ? "Verify the namespace and skill name, or use --list with skills install to inspect available skills."
+    : "Verify the source path contains directories with SKILL.md files.";
+
 // -----------------------------------------------------------------------------
 // Main Handler
 // -----------------------------------------------------------------------------
@@ -113,16 +150,19 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   const resolvedSources = yield* resolveSourcePattern(args.source).pipe(
     Effect.catchTag("CliError", (error) =>
       error.code === "SOURCE_PARSE_FAILED"
-        ? Effect.fail(
-            makeCliError({
-              code: "INVALID_SOURCE",
-              what: `Invalid source: ${error.message}`,
-              details: [`Provided: ${args.source}`],
-              howToFix:
-                "Valid formats: installed skill name, local path, github:owner/repo, or glob pattern",
-              cause: error,
-            }),
-          )
+        ? (() => {
+            const reason = summarizeError(error);
+            return Effect.fail(
+              makeCliError({
+                code: "INVALID_SOURCE",
+                what: "Invalid source",
+                details: [`Provided: ${args.source}`, `Reason: ${reason}`],
+                howToFix:
+                  "Valid formats: installed skill name, local path, github:owner/repo, or glob pattern",
+                cause: error,
+              }),
+            );
+          })()
         : Effect.fail(error),
     ),
     Effect.tapError(() => handle.stop("Failed")),
@@ -140,15 +180,19 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     { concurrency: "unbounded" },
   ).pipe(
     Effect.map(Array.flatten),
-    Effect.mapError((error) =>
-      makeCliError({
+    Effect.mapError((error) => {
+      const reason = summarizeError(error);
+      const firstResolved = resolvedSources[0];
+      const sourceLabel = firstResolved ? sources.origin(firstResolved) : args.source;
+      const howToFix = firstResolved ? discoverHowToFix(firstResolved, error) : noSkillsFoundHowToFix(args.source);
+      return makeCliError({
         code: "DISCOVER_FAILED",
-        what: `Failed to discover skills: ${error.message}`,
-        details: [`Source: ${args.source}`],
-        howToFix: "Verify the source path contains directories with SKILL.md files.",
+        what: "Failed to discover skills from source",
+        details: [`Source: ${sourceLabel}`, `Reason: ${reason}`],
+        howToFix,
         cause: error,
-      }),
-    ),
+      });
+    }),
     Effect.tapError(() => handle.stop("Failed")),
   );
 
@@ -164,7 +208,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
         code: "NO_SKILLS_FOUND",
         what: "No skills found in source",
         details: [`Source: ${args.source}`],
-        howToFix: "Verify the source path contains directories with SKILL.md files.",
+        howToFix: noSkillsFoundHowToFix(args.source),
       }),
     );
   }

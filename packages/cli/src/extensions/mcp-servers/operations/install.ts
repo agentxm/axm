@@ -14,6 +14,7 @@ import * as Option from "effect/Option";
 import { Log } from "../../../tui/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
 import { makeCliError } from "../../../cli-error/index.js";
+import { validateExactResolvedVersion } from "../../../lockfile/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
@@ -194,6 +195,11 @@ export const installMcpServer: OperationHandler<
     }
 
     yield* installFromRegistry(ref);
+
+    yield* validateExactResolvedVersion(
+      `mcpServers.${ref.server.name}.resolvedVersion`,
+      ref.version,
+    );
 
     // Build lock entry and persist
     const lockEntry = buildLockEntry(ref, new Date());

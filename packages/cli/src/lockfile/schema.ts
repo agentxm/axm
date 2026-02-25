@@ -8,6 +8,7 @@
  */
 
 import * as Schema from "effect/Schema";
+import * as semver from "semver";
 
 // =============================================================================
 // Date Transform
@@ -23,6 +24,16 @@ export const DateFromString = Schema.transform(Schema.String, Schema.DateFromSel
   decode: (s) => new Date(s),
   encode: (d) => d.toISOString(),
 });
+
+/**
+ * Exact semver version (no ranges).
+ */
+export const ExactSemverVersionSchema = Schema.String.pipe(
+  Schema.filter((value) => {
+    const normalized = semver.valid(value);
+    return normalized === value ? undefined : `Expected exact semver version, got: ${value}`;
+  }),
+);
 
 // =============================================================================
 // Flat Source Schemas (discriminated by type field)
@@ -147,7 +158,7 @@ export const RegistryLockEntrySchema = Schema.Struct({
   type: Schema.Literal("registry"),
   namespace: Schema.String,
   name: Schema.String,
-  resolvedVersion: Schema.String,
+  resolvedVersion: ExactSemverVersionSchema,
   integrity: Schema.String,
   sourceName: Schema.String,
   ...CommonFields,
@@ -280,7 +291,7 @@ export const CommandLockEntrySchema = Schema.Union(
     type: Schema.Literal("registry"),
     namespace: Schema.String,
     name: Schema.String,
-    resolvedVersion: Schema.String,
+    resolvedVersion: ExactSemverVersionSchema,
     integrity: Schema.String,
     sourceName: Schema.String,
     ...BaseCommonFields,
@@ -374,7 +385,7 @@ export const McpServerLockEntrySchema = Schema.Union(
     type: Schema.Literal("registry"),
     namespace: Schema.String,
     name: Schema.String,
-    resolvedVersion: Schema.String,
+    resolvedVersion: ExactSemverVersionSchema,
     integrity: Schema.String,
     sourceName: Schema.String,
     ...BaseCommonFields,
@@ -420,7 +431,7 @@ export type McpServersLockMap = typeof McpServersLockMapSchema.Type;
  */
 export const ResolvedExtensionMapSchema = Schema.Record({
   key: Schema.String,
-  value: Schema.String,
+  value: ExactSemverVersionSchema,
 });
 
 /**
@@ -432,7 +443,7 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("registry"),
   namespace: Schema.String,
   name: Schema.String,
-  resolvedVersion: Schema.String,
+  resolvedVersion: ExactSemverVersionSchema,
   integrity: Schema.String,
   sourceName: Schema.String,
   installedAt: DateFromString,
@@ -459,7 +470,7 @@ export const BuiltinPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("builtin"),
   namespace: Schema.String,
   name: Schema.String,
-  resolvedVersion: Schema.String,
+  resolvedVersion: ExactSemverVersionSchema,
   installedAt: DateFromString,
   updatedAt: DateFromString,
   resolvedSkills: ResolvedExtensionMapSchema,

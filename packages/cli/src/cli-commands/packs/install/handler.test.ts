@@ -391,6 +391,40 @@ describe("packs install handler", () => {
         }),
       );
     });
+
+    it.effect("fails fast when lockfile has range values in resolved fields", () => {
+      const { provide } = makeLayers();
+      initWorkspace(path.join(tempDir, ".axm"), {
+        lockfilePacks: {
+          "test-pack": {
+            type: "registry",
+            namespace: "@acme",
+            name: "test-pack",
+            resolvedVersion: "1.0.0",
+            integrity: "abc",
+            sourceName: "default",
+            installedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            resolvedSkills: {
+              "@acme/skills/dep-skill": "^1.0.0",
+            },
+            resolvedCommands: {},
+            resolvedMcpServers: {},
+          },
+        },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          const error = yield* handleInstallPack(defaultArgs("@acme/packs/test-pack")).pipe(
+            Effect.flip,
+          );
+          expect(error._tag).toBe("CliError");
+          expect((error as CliError).code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
+          expect((error as CliError).what).toContain("exact semver");
+        }),
+      );
+    });
   });
 
   // ---------------------------------------------------------------------------
@@ -454,6 +488,28 @@ describe("packs install handler", () => {
         ...serviceStubs,
         find: (_source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
+          if (options.type === "skill") {
+            return Effect.succeed([
+              {
+                type: "skill",
+                refType: "registry",
+                skill: {
+                  name: "code-review",
+                  description: Option.none(),
+                  metadata: Option.none(),
+                },
+                source: {
+                  type: "registry",
+                  location: new URL("file:///tmp/reg"),
+                  namespace: Option.none(),
+                },
+                namespace: "@acme",
+                name: "code-review",
+                version: "1.2.3",
+                integrity: "",
+              },
+            ]);
+          }
           return Effect.succeed([]);
         },
       };
@@ -524,6 +580,60 @@ describe("packs install handler", () => {
         ...serviceStubs,
         find: (_source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
+          if (options.type === "skill") {
+            return Effect.succeed([
+              {
+                type: "skill",
+                refType: "registry",
+                skill: { name: "code-review", description: Option.none(), metadata: Option.none() },
+                source: {
+                  type: "registry",
+                  location: new URL("file:///tmp/reg"),
+                  namespace: Option.none(),
+                },
+                namespace: "@acme",
+                name: "code-review",
+                version: "1.0.0",
+                integrity: "",
+              },
+            ]);
+          }
+          if (options.type === "command") {
+            return Effect.succeed([
+              {
+                type: "command",
+                refType: "registry",
+                command: { name: "lint" },
+                source: {
+                  type: "registry",
+                  location: new URL("file:///tmp/reg"),
+                  namespace: Option.none(),
+                },
+                namespace: "@acme",
+                name: "lint",
+                version: "2.0.0",
+                integrity: "",
+              },
+            ]);
+          }
+          if (options.type === "mcp-server") {
+            return Effect.succeed([
+              {
+                type: "mcp-server",
+                refType: "registry",
+                server: { name: "analytics" },
+                source: {
+                  type: "registry",
+                  location: new URL("file:///tmp/reg"),
+                  namespace: Option.none(),
+                },
+                namespace: "@acme",
+                name: "analytics",
+                version: "3.0.0",
+                integrity: "",
+              },
+            ]);
+          }
           return Effect.succeed([]);
         },
       };
@@ -600,6 +710,64 @@ describe("packs install handler", () => {
         ...serviceStubs,
         find: (_source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
+          if (options.type === "skill") {
+            return Effect.succeed([
+              {
+                type: "skill",
+                refType: "registry",
+                skill: {
+                  name: "code-review",
+                  description: Option.none(),
+                  metadata: Option.none(),
+                },
+                source: {
+                  type: "registry",
+                  location: new URL("file:///tmp/reg"),
+                  namespace: Option.none(),
+                },
+                namespace: "@acme",
+                name: "code-review",
+                version: "1.0.0",
+                integrity: "",
+              },
+            ]);
+          }
+          if (options.type === "command") {
+            return Effect.succeed([
+              {
+                type: "command",
+                refType: "registry",
+                command: { name: "lint" },
+                source: {
+                  type: "registry",
+                  location: new URL("file:///tmp/reg"),
+                  namespace: Option.none(),
+                },
+                namespace: "@acme",
+                name: "lint",
+                version: "2.0.0",
+                integrity: "",
+              },
+            ]);
+          }
+          if (options.type === "mcp-server") {
+            return Effect.succeed([
+              {
+                type: "mcp-server",
+                refType: "registry",
+                server: { name: "analytics" },
+                source: {
+                  type: "registry",
+                  location: new URL("file:///tmp/reg"),
+                  namespace: Option.none(),
+                },
+                namespace: "@acme",
+                name: "analytics",
+                version: "3.0.0",
+                integrity: "",
+              },
+            ]);
+          }
           return Effect.succeed([]);
         },
       };
@@ -639,6 +807,46 @@ describe("packs install handler", () => {
         ...serviceStubs,
         find: (_source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
+          if (options.type === "skill") {
+            return Effect.succeed([
+              {
+                type: "skill",
+                refType: "registry",
+                skill: {
+                  name: "existing-skill",
+                  description: Option.none(),
+                  metadata: Option.none(),
+                },
+                source: {
+                  type: "registry",
+                  location: new URL("file:///tmp/reg"),
+                  namespace: Option.none(),
+                },
+                namespace: "@acme",
+                name: "existing-skill",
+                version: "1.0.0",
+                integrity: "",
+              },
+            ]);
+          }
+          if (options.type === "command") {
+            return Effect.succeed([
+              {
+                type: "command",
+                refType: "registry",
+                command: { name: "existing-cmd" },
+                source: {
+                  type: "registry",
+                  location: new URL("file:///tmp/reg"),
+                  namespace: Option.none(),
+                },
+                namespace: "@acme",
+                name: "existing-cmd",
+                version: "1.0.0",
+                integrity: "",
+              },
+            ]);
+          }
           return Effect.succeed([]);
         },
       };

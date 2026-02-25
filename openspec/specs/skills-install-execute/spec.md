@@ -2,6 +2,8 @@
 
 The `installSkill` operation handler SHALL orchestrate the full per-skill installation pipeline by dispatching to a per-refType install function via `switch(ref.refType)`. Each case (`git-hosted`, `registry`, `local`, `builtin`) SHALL produce a `MaterializedSkill` containing the `skillSrcPath` and `versionConstraint`. Shared post-install steps (agent symlinks, lockfile/settings writes, result computation) SHALL run after materialization.
 
+For registry-sourced skills, any `resolvedVersion` written to lockfile MUST be an exact semver version and MUST NOT be a semver range.
+
 #### Scenario: Sanitize skill name for canonical path
 
 - **WHEN** executing an install skill operation
@@ -53,6 +55,12 @@ The `installSkill` operation handler SHALL orchestrate the full per-skill instal
 
 - **WHEN** skill files and symlinks are successfully created
 - **THEN** `ws.setSkillLock` or `ws.setSkill` SHALL be called with the skill name, lock entry from `sourceToLockEntry`, and the materialized `versionConstraint`
+
+#### Scenario: Registry lockfile resolvedVersion is exact
+
+- **WHEN** executing an install skill operation for a registry source
+- **THEN** the written lockfile entry's `resolvedVersion` SHALL be an exact version (for example, `1.2.3`)
+- **AND** the operation SHALL fail if a range value (for example, `^1.2.0`) would be written
 
 #### Scenario: Lockfile write failure does not fail installation
 

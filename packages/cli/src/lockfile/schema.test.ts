@@ -3,6 +3,7 @@ import * as Schema from "effect/Schema";
 import {
   BuiltinPackLockEntrySchema,
   BuiltinSkillLockEntrySchema,
+  ExactSemverVersionSchema,
   LockfileSchema,
   PackLockEntrySchema,
   PacksLockMapSchema,
@@ -11,6 +12,22 @@ import {
 } from "./schema.js";
 
 describe("lockfile schema", () => {
+  describe("ExactSemverVersion", () => {
+    it("accepts exact semver versions", () => {
+      expect(Schema.decodeUnknownSync(ExactSemverVersionSchema)("1.2.3")).toBe("1.2.3");
+      expect(Schema.decodeUnknownSync(ExactSemverVersionSchema)("1.2.3-beta.1")).toBe(
+        "1.2.3-beta.1",
+      );
+    });
+
+    it("rejects semver ranges", () => {
+      expect(() => Schema.decodeUnknownSync(ExactSemverVersionSchema)("^1.2.3")).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExactSemverVersionSchema)("~1.2.3")).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExactSemverVersionSchema)(">=1.0.0 <2.0.0")).toThrow();
+      expect(() => Schema.decodeUnknownSync(ExactSemverVersionSchema)("*")).toThrow();
+    });
+  });
+
   describe("Lockfile", () => {
     it("accepts valid minimal lockfile", () => {
       const input = {
@@ -27,6 +44,48 @@ describe("lockfile schema", () => {
     it("rejects missing lockfileVersion", () => {
       const input = {
         skills: {},
+      };
+
+      expect(() => Schema.decodeUnknownSync(LockfileSchema)(input)).toThrow();
+    });
+
+    it("rejects command registry lock entry with range resolvedVersion", () => {
+      const input = {
+        lockfileVersion: 1,
+        skills: {},
+        commands: {
+          formatter: {
+            type: "registry",
+            namespace: "@acme",
+            name: "formatter",
+            resolvedVersion: "^1.0.0",
+            integrity: "sha512-abc123",
+            sourceName: "default",
+            installedAt: "2025-01-15T10:30:00Z",
+            updatedAt: "2025-01-15T10:30:00Z",
+          },
+        },
+      };
+
+      expect(() => Schema.decodeUnknownSync(LockfileSchema)(input)).toThrow();
+    });
+
+    it("rejects mcp server registry lock entry with range resolvedVersion", () => {
+      const input = {
+        lockfileVersion: 1,
+        skills: {},
+        mcpServers: {
+          "local-tools": {
+            type: "registry",
+            namespace: "@acme",
+            name: "local-tools",
+            resolvedVersion: "~2.0.0",
+            integrity: "sha512-abc123",
+            sourceName: "default",
+            installedAt: "2025-01-15T10:30:00Z",
+            updatedAt: "2025-01-15T10:30:00Z",
+          },
+        },
       };
 
       expect(() => Schema.decodeUnknownSync(LockfileSchema)(input)).toThrow();
@@ -330,6 +389,22 @@ describe("lockfile schema", () => {
         expect(result.integrity).toBe("sha512-abc123def456");
         expect(result.sourceName).toBe("local");
       }
+    });
+
+    it("rejects registry lock entry with range resolvedVersion", () => {
+      const input = {
+        type: "registry",
+        namespace: "@acme",
+        name: "my-skill",
+        resolvedVersion: "^1.0.0",
+        integrity: "sha512-abc123def456",
+        sourceName: "local",
+        agents: ["claude-code"],
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+      };
+
+      expect(() => Schema.decodeUnknownSync(SkillLockEntrySchema)(input)).toThrow();
     });
 
     it("accepts lock entry with empty agents array", () => {
@@ -659,6 +734,42 @@ describe("lockfile schema", () => {
       expect(result.resolvedSkills).toEqual({});
       expect(result.resolvedCommands).toEqual({});
       expect(result.resolvedMcpServers).toEqual({});
+    });
+
+    it("rejects pack lock entry with range resolvedVersion", () => {
+      const input = {
+        type: "registry",
+        namespace: "@acme",
+        name: "frontend-pack",
+        resolvedVersion: "^1.0.0",
+        integrity: "sha512-abc123",
+        sourceName: "default",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: {},
+        resolvedCommands: {},
+        resolvedMcpServers: {},
+      };
+
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
+    });
+
+    it("rejects pack lock entry with range value in resolved maps", () => {
+      const input = {
+        type: "registry",
+        namespace: "@acme",
+        name: "frontend-pack",
+        resolvedVersion: "1.0.0",
+        integrity: "sha512-abc123",
+        sourceName: "default",
+        installedAt: "2025-01-15T10:30:00Z",
+        updatedAt: "2025-01-15T10:30:00Z",
+        resolvedSkills: { "@acme/skills/code-review": "^1.2.0" },
+        resolvedCommands: { "@acme/commands/formatter": "~1.0.0" },
+        resolvedMcpServers: { "@acme/mcp-servers/local-tools": ">=1.0.0 <2.0.0" },
+      };
+
+      expect(() => Schema.decodeUnknownSync(PackLockEntrySchema)(input)).toThrow();
     });
 
     it("rejects pack lock entry missing namespace", () => {

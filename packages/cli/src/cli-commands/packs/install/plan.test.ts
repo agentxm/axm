@@ -66,6 +66,29 @@ const makeSkillOp = (name: string): InstallSkillOperation => ({
   },
 });
 
+const makeRegistrySkillOp = (name: string, version: string): InstallSkillOperation => ({
+  name: "install-skill",
+  args: {
+    ref: {
+      type: "skill",
+      refType: "registry",
+      skill: { name, description: Option.some(`Skill ${name}`), metadata: Option.none() },
+      source: {
+        type: "registry",
+        location: new URL("file:///tmp/registry"),
+        namespace: Option.none(),
+      },
+      namespace: "@acme",
+      name,
+      version,
+      integrity: "",
+    },
+    force: false,
+    versionConstraint: Option.none(),
+    skipSettings: Option.some(true),
+  },
+});
+
 const lockfileWithPacks = (...names: string[]): Lockfile => ({
   lockfileVersion: 1,
   skills: {},
@@ -323,7 +346,7 @@ describe("buildInstallPlan", () => {
   // InstallPackOperation construction from ref
   // ---------------------------------------------------------------------------
 
-  it("constructs InstallPackOperation from the ref", () => {
+  it("constructs InstallPackOperation with exact resolved maps from dependency ops", () => {
     const ref = makePackRef("my-pack", {
       skills: { "@acme/skills/skill-a": "^1.0.0" },
       commands: { "@acme/commands/cmd-b": "^2.0.0" },
@@ -333,9 +356,9 @@ describe("buildInstallPlan", () => {
 
     const plan = buildInstallPlan({
       ref,
-      skillOps: [],
-      commandOps: [],
-      mcpServerOps: [],
+      skillOps: [makeRegistrySkillOp("skill-a", "1.4.2")],
+      commandOps: [makeCommandOp("cmd-b")],
+      mcpServerOps: [makeMcpServerOp("server-c")],
       lockfile: emptyLockfile,
       name: "Install pack",
       description: Option.none(),
@@ -350,9 +373,9 @@ describe("buildInstallPlan", () => {
       resolvedVersion: "2.5.0",
       integrity: "sha512-AAAA==",
       sourceName: "default",
-      resolvedSkills: { "@acme/skills/skill-a": "^1.0.0" },
-      resolvedCommands: { "@acme/commands/cmd-b": "^2.0.0" },
-      resolvedMcpServers: { "@acme/mcp-servers/server-c": "^3.0.0" },
+      resolvedSkills: { "@acme/skills/skill-a": "1.4.2" },
+      resolvedCommands: { "@acme/commands/cmd-b": "1.0.0" },
+      resolvedMcpServers: { "@acme/mcp-servers/server-c": "1.0.0" },
       versionConstraint: Option.some("^2.0.0"),
     });
     expect(packStep.operation.args.ref).toBe(ref);

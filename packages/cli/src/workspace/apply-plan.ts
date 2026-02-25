@@ -11,8 +11,17 @@
 
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import type { CliError } from "../cli-error/index.js";
-import type { JobStepResult, Operation, OperationResult, Plan, PlannedJobStep } from "./plan.js";
+import { makeCliError, type CliError } from "../cli-error/index.js";
+import type {
+  JobStep,
+  JobStepResult,
+  Operation,
+  OperationMap,
+  OperationMapFromUnion,
+  OperationResult,
+  Plan,
+  PlannedJobStep,
+} from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -32,20 +41,16 @@ export type OperationHandler<Op, R = never> = (
  * R is left as a free parameter so concrete registries can carry requirements
  * (e.g. FileSystem, Log). `ExecutionContext` extracts R from the concrete type.
  */
-export type Handlers<Op extends Operation<string, unknown>> = {
-  [K in Op["name"]]: (
-    op: Extract<Op, { name: K }>,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ) => Effect.Effect<OperationResult, CliError, any>;
+export type Handlers<Ops extends OperationMap> = {
+  [K in keyof Ops]: OperationHandler<Ops[K], unknown>;
 };
 
 /**
  * Extract the union of R (requirements) from all handler functions in the registry.
  */
-export type ExecutionContext<T> = {
+export type ExecutionContext<T extends Record<string, unknown>> = {
   [K in keyof T]: T[K] extends (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...args: any[]
+    ...args: ReadonlyArray<never>
   ) => Effect.Effect<OperationResult, CliError, infer R>
     ? R
     : never;
@@ -55,10 +60,18 @@ export type ExecutionContext<T> = {
 // Implementation
 // -----------------------------------------------------------------------------
 
-const applyStep = <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
+const applyStep = <
+  Op extends Operation<string, unknown>,
+  T extends Handlers<OperationMapFromUnion<Op>>,
+>(
   step: PlannedJobStep<Op>,
   handlers: T,
 ): Effect.Effect<JobStepResult<Op>, never, ExecutionContext<T>> => {
+  const formatStepError = (error: CliError): string => {
+    const detailSuffix = error.details.length > 0 ? ` | ${error.details.join(" | ")}` : "";
+    return `${error.what} (${error.code})${detailSuffix}`;
+  };
+
   const promote = (result: OperationResult): JobStepResult<Op> => ({
     _tag: "JobStepResult",
     operation: step.operation,
@@ -70,22 +83,54 @@ const applyStep = <Op extends Operation<string, unknown>, T extends Handlers<Op>
     case "skip":
       return Effect.succeed(promote({ result: "no-op", message: step.readiness.message }));
     case "error":
-      return Effect.succeed(promote({ result: "error", message: step.readiness.message }));
+      return Effect.succeed(
+        promote({
+          result: "error",
+          message: step.readiness.message,
+          error: makeCliError({
+            code: "PLAN_STEP_ERROR",
+            what: step.readiness.message,
+          }),
+        }),
+      );
     case "ready":
     case "warn": {
-      // Cast needed: TS can't correlate dynamic name lookup with the Extract<Op, {name: K}> parameter
-      const handler = handlers[step.operation.name as Op["name"]] as unknown as (
-        op: Op,
-      ) => Effect.Effect<OperationResult, CliError, ExecutionContext<T>>;
-      return handler(step.operation).pipe(
+      return runHandler(handlers, step.operation).pipe(
         Effect.map(promote),
         Effect.catchAll((error) =>
-          Effect.succeed(promote({ result: "error" as const, message: error.what })),
+          Effect.succeed(promote({ result: "error", message: formatStepError(error), error })),
         ),
       );
     }
   }
 };
+
+const runHandler = <
+  Op extends Operation<string, unknown>,
+  T extends Handlers<OperationMapFromUnion<Op>>,
+>(
+  handlers: T,
+  operation: Op,
+): Effect.Effect<OperationResult, CliError, ExecutionContext<T>> => {
+  const handler = handlers[operation.name as Op["name"]] as unknown as OperationHandler<
+    Op,
+    ExecutionContext<T>
+  >;
+  return handler(operation);
+};
+
+const isPlannedStep = <Op extends Operation<string, unknown>>(
+  step: JobStep<Op>,
+): step is PlannedJobStep<Op> => step._tag === "PlannedJobStep";
+
+const applyOrKeepStep = <
+  Op extends Operation<string, unknown>,
+  T extends Handlers<OperationMapFromUnion<Op>>,
+>(
+  step: JobStep<Op>,
+  handlers: T,
+): Effect.Effect<JobStepResult<Op>, never, ExecutionContext<T>> =>
+  isPlannedStep(step) ? applyStep(step, handlers) : Effect.succeed(step);
 
 /**
  * Apply a plan by iterating jobs and dispatching steps to the executor registry.
@@ -94,7 +139,10 @@ const applyStep = <Op extends Operation<string, unknown>, T extends Handlers<Op>
  * Steps with `ready` or `warn` readiness are dispatched to handlers; `skip` and `error` are promoted without dispatch.
  * Never fails — catches CliError and converts to error results.
  */
-export const applyPlan = <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
+export const applyPlan = <
+  Op extends Operation<string, unknown>,
+  T extends Handlers<OperationMapFromUnion<Op>>,
+>(
   plan: Plan<Op>,
   handlers: T,
 ): Effect.Effect<Plan<Op>, never, ExecutionContext<T>> =>
@@ -102,7 +150,7 @@ export const applyPlan = <Op extends Operation<string, unknown>, T extends Handl
     Effect.forEach(
       plan.jobs,
       (job) =>
-        Effect.forEach(job.steps, (step) => applyStep(step as PlannedJobStep<Op>, handlers), {
+        Effect.forEach(job.steps, (step) => applyOrKeepStep(step, handlers), {
           concurrency: job.concurrency,
         }),
       { concurrency: 1 },

@@ -74,6 +74,40 @@ describe("renderCliError", () => {
       ].join("\n"),
     );
   });
+
+  it("includes cause message in verbose mode", () => {
+    const error = new CliError({
+      code: "INSTALL_FAILED",
+      what: "Installation failed",
+      details: [],
+      howToFix: Option.none(),
+      cause: new Error("permission denied"),
+    });
+
+    const result = renderCliError(error, { verbose: true, debug: false });
+
+    expect(result).toBe(
+      ["\u2717 Installation failed (INSTALL_FAILED)", "  Cause: permission denied"].join("\n"),
+    );
+  });
+
+  it("includes stack in debug mode", () => {
+    const cause = new Error("permission denied");
+    cause.stack = "Error: permission denied\n at test";
+    const error = new CliError({
+      code: "INSTALL_FAILED",
+      what: "Installation failed",
+      details: [],
+      howToFix: Option.none(),
+      cause,
+    });
+
+    const result = renderCliError(error, { verbose: true, debug: true });
+
+    expect(result).toContain("Cause: permission denied");
+    expect(result).toContain("Stack: Error: permission denied");
+    expect(result).toContain("Stack:  at test");
+  });
 });
 
 describe("renderDefect", () => {

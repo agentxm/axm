@@ -74,7 +74,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { Confirm, Log, Multiselect } from "../tui/index.js";
 import { PromptCancelled } from "../tui/index.js";
-import type { Operation, Plan, PlannedJobStep } from "./plan.js";
+import type { Operation, OperationMapFromUnion, Plan, PlannedJobStep } from "./plan.js";
 import { displayPlan } from "./display-plan.js";
 import { applyPlan, type ExecutionContext, type Handlers } from "./apply-plan.js";
 import { classifyExtensions, type ClassifiedExtension, type PackagingKind } from "./classifier.js";
@@ -999,7 +999,10 @@ const make = (options: WorkspaceContextOptions) =>
       baseDir,
       nonInteractive: resolvedNonInteractive,
       preview: options.preview,
-      resolvePlan: <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
+      resolvePlan: <
+        Op extends Operation<string, unknown>,
+        T extends Handlers<OperationMapFromUnion<Op>>,
+      >(
         plan: Plan<Op>,
         handlers: T,
       ) =>
@@ -2249,7 +2252,10 @@ export interface WorkspaceContextService {
   /** Whether to show plan without applying (preview mode) */
   readonly preview: boolean;
   /** Display, confirm, and apply a plan based on preview/yes/nonInteractive flags. */
-  readonly resolvePlan: <Op extends Operation<string, unknown>, T extends Handlers<Op>>(
+  readonly resolvePlan: <
+    Op extends Operation<string, unknown>,
+    T extends Handlers<OperationMapFromUnion<Op>>,
+  >(
     plan: Plan<Op>,
     handlers: T,
   ) => Effect.Effect<Plan<Op>, PromptCancelled | CliError, Log | Confirm | ExecutionContext<T>>;

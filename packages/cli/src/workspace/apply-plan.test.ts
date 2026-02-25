@@ -269,7 +269,43 @@ describe("applyPlan", () => {
       expect(steps).toHaveLength(1);
       expect(steps[0]).toMatchObject({
         _tag: "JobStepResult",
-        result: { result: "error", message: "Failed to install bad" },
+        result: { result: "error", message: "Failed to install bad (TEST_OP_FAILED)" },
+      });
+    }),
+  );
+
+  it.effect("includes CliError details in error result message", () =>
+    Effect.gen(function* () {
+      const errorWithDetailsHandler = (_op: TestOp): Effect.Effect<OperationResult, CliError> =>
+        Effect.fail(
+          makeCliError({
+            code: "TEST_OP_FAILED",
+            what: "Failed to install detail-skill",
+            details: ["Directory is not writable", "Path: /tmp/skills"],
+          }),
+        );
+
+      const applied = yield* applyPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: 1,
+              steps: [makeStep("detail-skill")],
+            },
+          ],
+        }),
+        { "test-op": errorWithDetailsHandler },
+      );
+
+      const steps = applied.jobs.flatMap((j) => j.steps);
+      expect(steps).toHaveLength(1);
+      expect(steps[0]).toMatchObject({
+        _tag: "JobStepResult",
+        result: {
+          result: "error",
+          message:
+            "Failed to install detail-skill (TEST_OP_FAILED) | Directory is not writable | Path: /tmp/skills",
+        },
       });
     }),
   );

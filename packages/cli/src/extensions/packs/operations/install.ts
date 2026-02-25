@@ -134,6 +134,7 @@ export const installPack: OperationHandler<
       Effect.succeed({
         result: "error",
         message: `Failed to install pack: ${error.what}`,
+        error,
       } satisfies OperationResult),
     ),
   );

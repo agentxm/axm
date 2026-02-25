@@ -2,7 +2,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "vitest";
 import { CliError } from "../cli-error/index.js";
 import { PromptCancelled } from "../tui/errors.js";
-import { classifyError } from "./error-handling.js";
+import { classifyError, resolveDiagnosticVerbosity } from "./error-handling.js";
 
 describe("classifyError", () => {
   it("returns exit 0 with no message for PromptCancelled", () => {
@@ -28,6 +28,32 @@ describe("classifyError", () => {
       expect(result.message).toContain("TEST_ERROR");
       expect(result.message).toContain("detail line");
       expect(result.message).toContain("Try again");
+    }
+  });
+
+  it("enables debug from argv and implies verbose", () => {
+    const verbosity = resolveDiagnosticVerbosity(["node", "axm", "--debug"], {});
+    expect(verbosity).toEqual({ debug: true, verbose: true });
+  });
+
+  it("enables verbose from env", () => {
+    const verbosity = resolveDiagnosticVerbosity(["node", "axm"], { AXM_VERBOSE: "1" });
+    expect(verbosity).toEqual({ debug: false, verbose: true });
+  });
+
+  it("passes verbosity to rendered CliError output", () => {
+    const error = new CliError({
+      code: "TEST_ERROR",
+      what: "Something failed",
+      details: [],
+      howToFix: Option.none(),
+      cause: new Error("boom"),
+    });
+
+    const result = classifyError(error, { verbose: true, debug: false });
+    expect(result.exitCode).toBe(1);
+    if (result.exitCode !== 0) {
+      expect(result.message).toContain("Cause: boom");
     }
   });
 });

@@ -10,6 +10,7 @@
  */
 
 import * as Option from "effect/Option";
+import type { CliError } from "../cli-error/index.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -20,10 +21,24 @@ export interface Operation<TName extends string, TArgs> {
   readonly args: TArgs;
 }
 
-export type OperationResult = {
-  readonly result: "no-op" | "success" | "error";
-  readonly message: string;
+export type OperationMap = Record<string, Operation<string, unknown>>;
+
+export type OperationMapFromUnion<Op extends Operation<string, unknown>> = {
+  [K in Op["name"]]: Extract<Op, { name: K }>;
 };
+
+export type OperationUnion<Ops extends OperationMap> = Ops[keyof Ops];
+
+export type OperationResult =
+  | {
+      readonly result: "no-op" | "success";
+      readonly message: string;
+    }
+  | {
+      readonly result: "error";
+      readonly message: string;
+      readonly error: CliError;
+    };
 
 export type Readiness =
   | { readonly status: "ready"; readonly message: Option.Option<string> }

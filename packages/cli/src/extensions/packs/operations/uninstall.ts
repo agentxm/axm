@@ -135,6 +135,7 @@ export const uninstallPack: OperationHandler<
       Effect.succeed({
         result: "error",
         message: `Failed to uninstall pack: ${error.what}`,
+        error,
       } satisfies OperationResult),
     ),
   );

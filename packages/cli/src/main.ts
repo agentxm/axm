@@ -33,6 +33,17 @@ export const program = Effect.promise(() =>
       type: "boolean",
       describe: "Disable all interactive prompts",
     })
+    .option("verbose", {
+      alias: "v",
+      type: "boolean",
+      describe: "Show additional diagnostic details for errors",
+      default: false,
+    })
+    .option("debug", {
+      type: "boolean",
+      describe: "Show full debug details for errors (implies --verbose)",
+      default: false,
+    })
     .command(initCommand)
     .command(skillsCommand)
     .command(packsCommand)

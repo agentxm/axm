@@ -545,7 +545,7 @@ describe("publish.handler", () => {
   });
 
   describe("completion status", () => {
-    it.effect("logs 'Done with errors' when plan contains failed publish steps", () => {
+    it.effect("fails when plan contains failed publish steps", () => {
       const { provide, mockLog } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
@@ -561,13 +561,22 @@ describe("publish.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handlePublish(
+          const result = yield* handlePublish(
             defaultArgs(["@test/skills/effect-basics"], {
               registry: Option.some("local-registry"),
             }),
+          ).pipe(
+            Effect.as({ error: false as const }),
+            Effect.catchTag("CliError", (e) =>
+              Effect.succeed({ error: true as const, code: e.code, what: e.what }),
+            ),
           );
 
-          expect(mockLog.logs.warn.some((m) => m.includes("Done with errors"))).toBe(true);
+          expect(result).toMatchObject({ error: true, code: "PUBLISH_PLAN_FAILED" });
+          if (result.error) {
+            expect(result.what).toContain("Failed to publish");
+          }
+          expect(mockLog.logs.warn.some((m) => m.includes("Done with errors"))).toBe(false);
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(false);
         }),
       );

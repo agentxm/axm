@@ -215,7 +215,7 @@ export interface RegistryClient {
  * Create the appropriate registry client based on location scheme.
  *
  * - Local paths and `file://` URLs -> `LocalRegistryClient`
- * - `https://` URLs -> `RemoteRegistryClient` (stub)
+ * - `http://` and `https://` URLs -> `RemoteRegistryClient`
  *
  * @param location - Registry location (local path, file:// URL, or https:// URL)
  *
@@ -223,10 +223,8 @@ export interface RegistryClient {
  */
 export const createRegistryClient = (location: string) =>
   Effect.gen(function* () {
-    if (location.startsWith("https://")) {
-      const httpClient = yield* HttpClient.HttpClient.pipe(
-        Effect.provide(FetchHttpClient.layer),
-      );
+    if (location.startsWith("https://") || location.startsWith("http://")) {
+      const httpClient = yield* HttpClient.HttpClient.pipe(Effect.provide(FetchHttpClient.layer));
       return createRemoteRegistryClient(location, httpClient);
     }
 

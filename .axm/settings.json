@@ -4,7 +4,7 @@
     {
       "name": "local-registry",
       "type": "registry",
-      "location": "https://localhost:4000"
+      "location": "http://localhost:4300"
     },
     {
       "name": "local",

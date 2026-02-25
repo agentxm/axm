@@ -17,6 +17,7 @@ import * as Option from "effect/Option";
 
 import { type CliError, makeCliError } from "../cli-error/index.js";
 import type { PublishExtensionArgs, RegistryClient } from "./client.js";
+import { pluralizeType } from "./utils.js";
 
 // -----------------------------------------------------------------------------
 // RFC 7807 Problem Detail → CliError Mapping
@@ -32,8 +33,9 @@ import type { PublishExtensionArgs, RegistryClient } from "./client.js";
 export const mapProblemDetailToCliError = (status: number, problem: unknown): CliError => {
   const detail = getStringField(problem, "detail");
   const requestId = getStringField(problem, "requestId");
+  const validationIssueDetails = getValidationIssueDetails(problem);
   const code = getStringField(problem, "code");
-  const details = buildDetails(detail, requestId);
+  const details = buildDetails(detail, requestId, validationIssueDetails);
 
   if (code !== undefined) {
     // 409 publish_conflict
@@ -168,12 +170,80 @@ const getNumberField = (obj: unknown, field: string): number | undefined => {
   return undefined;
 };
 
+const getArrayField = (obj: unknown, field: string): ReadonlyArray<unknown> | undefined => {
+  if (obj !== null && obj !== undefined && typeof obj === "object" && field in obj) {
+    const value = (obj as Record<string, unknown>)[field];
+    return Array.isArray(value) ? value : undefined;
+  }
+  return undefined;
+};
+
+const formatIssuePath = (path: unknown): string | undefined => {
+  if (!Array.isArray(path)) {
+    return undefined;
+  }
+
+  const segments = path
+    .map((segment) => {
+      if (typeof segment === "string" || typeof segment === "number") {
+        return String(segment);
+      }
+      return undefined;
+    })
+    .filter((segment): segment is string => segment !== undefined);
+
+  return segments.length > 0 ? segments.join(".") : undefined;
+};
+
+const formatValidationIssue = (issue: unknown): string | undefined => {
+  if (typeof issue === "string") {
+    return `Validation error: ${issue}`;
+  }
+
+  if (issue === null || issue === undefined || typeof issue !== "object") {
+    return undefined;
+  }
+
+  const message = getStringField(issue, "message");
+  const path = formatIssuePath((issue as Record<string, unknown>)["path"]);
+  const values = getArrayField(issue, "values")
+    ?.map((value) => (typeof value === "string" ? value : undefined))
+    .filter((value): value is string => value !== undefined);
+
+  if (path !== undefined && values !== undefined && values.length > 0) {
+    return `Invalid value at '${path}'. Expected one of: ${values.join(", ")}.`;
+  }
+
+  if (message !== undefined && path !== undefined) {
+    return `Validation error at '${path}': ${message}`;
+  }
+
+  if (message !== undefined) {
+    return `Validation error: ${message}`;
+  }
+
+  return undefined;
+};
+
+const getValidationIssueDetails = (problem: unknown): ReadonlyArray<string> => {
+  const issues = getArrayField(problem, "details");
+  if (issues === undefined) {
+    return [];
+  }
+
+  return issues
+    .map((issue) => formatValidationIssue(issue))
+    .filter((line): line is string => line !== undefined);
+};
+
 const buildDetails = (
   detail: string | undefined,
   requestId: string | undefined,
+  validationIssueDetails: ReadonlyArray<string>,
 ): ReadonlyArray<string> => {
   const result: Array<string> = [];
   if (detail !== undefined) result.push(detail);
+  result.push(...validationIssueDetails);
   if (requestId !== undefined) result.push(`Request ID: ${requestId}`);
   return result;
 };
@@ -261,7 +331,7 @@ const buildNetworkDiagnosis = (baseUrl: string): Option.Option<string> => {
 };
 
 const buildPublishUrl = (baseUrl: string, args: PublishExtensionArgs): string =>
-  `${normalizeBaseUrl(baseUrl)}/v1/extensions/${args.namespace}/${args.type}/${args.name}/${args.version}`;
+  `${normalizeBaseUrl(baseUrl)}/v1/extensions/${args.namespace}/${pluralizeType(args.type)}/${args.name}/${args.version}`;
 
 /**
  * Publish an extension version to the remote registry via multipart PUT.

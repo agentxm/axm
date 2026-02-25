@@ -568,13 +568,20 @@ describe("publish.handler", () => {
           ).pipe(
             Effect.as({ error: false as const }),
             Effect.catchTag("CliError", (e) =>
-              Effect.succeed({ error: true as const, code: e.code, what: e.what }),
+              Effect.succeed({
+                error: true as const,
+                code: e.code,
+                what: e.what,
+                details: e.details,
+              }),
             ),
           );
 
           expect(result).toMatchObject({ error: true, code: "PUBLISH_PLAN_FAILED" });
           if (result.error) {
             expect(result.what).toContain("Failed to publish");
+            expect(result.details[0]).toContain("PUBLISH_SKILL_PUBLISH_FAILED");
+            expect(result.details[0]).not.toContain("Registry URL:");
           }
           expect(mockLog.logs.warn.some((m) => m.includes("Done with errors"))).toBe(false);
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(false);

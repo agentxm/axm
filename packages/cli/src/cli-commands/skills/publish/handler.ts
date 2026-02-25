@@ -227,7 +227,7 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
     .flatMap((job) => job.steps)
     .flatMap((step) =>
       step._tag === "JobStepResult" && step.result.result === "error"
-        ? [`${step.label}: ${step.result.message}`]
+        ? [`${step.label}: ${step.result.error.what} (${step.result.error.code})`]
         : [],
     );
 

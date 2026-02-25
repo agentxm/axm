@@ -42,6 +42,7 @@ const emptyArr = (): RA => Effect.succeed([]);
  * ```
  */
 export const taxonomyStubs = {
+  getLockfileState: () => Effect.succeed("ok" as const),
   // Skill taxonomy
   getConfiguredSkills: empty<ConfiguredSkill>,
   getImplicitSkills: empty<ImplicitSkill>,

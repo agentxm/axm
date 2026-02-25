@@ -32,6 +32,20 @@ export {
   type OperationHandler,
 } from "./apply-plan.js";
 
+// Operation metadata + registry
+export {
+  defineOperationMetadata,
+  lockfilePolicyPrecedence,
+  type LockfilePolicy,
+  type OperationMetadata,
+} from "./operation-metadata.js";
+export {
+  getOperationMetadata,
+  hasOperationMetadata,
+  operationMetadataRegistry,
+  type RegisteredOperationName,
+} from "./operation-registry.js";
+
 // Path utilities
 export { getAxmDir, getGlobalDir, getProjectDir } from "./paths.js";
 

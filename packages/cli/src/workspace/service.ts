@@ -78,8 +78,14 @@ import { resolveDiagnosticVerbosity } from "../runtime/error-handling.js";
 import type { Operation, OperationMapFromUnion, Plan, PlannedJobStep } from "./plan.js";
 import { displayPlan } from "./display-plan.js";
 import { applyPlan, type ExecutionContext, type Handlers } from "./apply-plan.js";
+import { augmentPlan, type LockfileState } from "./augment-plan.js";
 import { classifyExtensions, type ClassifiedExtension, type PackagingKind } from "./classifier.js";
 import { discoverSkillsInDir } from "../cli-commands/skills/install/discover-skills.js";
+import {
+  runReadRecoverOperation,
+  runReconcileMaterializeOperation,
+  type ReconciliationOperation,
+} from "./reconciliation.js";
 
 /**
  * Arguments for `setSkill` — bundles the skill name (map key) with the lock entry.
@@ -610,6 +616,41 @@ const make = (options: WorkspaceContextOptions) =>
      */
     const readLockfileSafe = (dir: string) => readLockfile(dir).pipe(Effect.provide(fsLayer));
 
+    /**
+     * Probe lockfile state without mutating disk.
+     */
+    const getLockfileState = (): Effect.Effect<LockfileState, CliError> =>
+      Effect.gen(function* () {
+        const lockfilePath = path.join(workspaceDir, LOCKFILE_NAME);
+        const exists = yield* fs.exists(lockfilePath).pipe(
+          Effect.mapError((error) =>
+            makeCliError({
+              code: "LOCKFILE_PARSE_FAILED",
+              what: `Failed to check if lockfile exists at ${lockfilePath}`,
+              cause: error,
+            }),
+          ),
+        );
+
+        if (!exists) {
+          return "missing";
+        }
+
+        return yield* readLockfileSafe(workspaceDir).pipe(
+          Effect.as("ok" as const),
+          Effect.catchAll((error) => {
+            if (
+              error.code === "LOCKFILE_PARSE_FAILED" ||
+              error.code === "LOCKFILE_RESOLVED_VERSION_INVALID"
+            ) {
+              return Effect.succeed("invalid" as const);
+            }
+
+            return Effect.fail(error);
+          }),
+        );
+      });
+
     // -----------------------------------------------------------------------
     // Classifier integration
     // -----------------------------------------------------------------------
@@ -1011,10 +1052,47 @@ const make = (options: WorkspaceContextOptions) =>
           const log = yield* Log;
           const confirm = yield* Confirm;
           const verbosity = resolveDiagnosticVerbosity();
-          const emptyPlan = { ...plan, jobs: [] } satisfies Plan<Op>;
+          const augmentation = yield* augmentPlan(plan, {
+            getLockfileState,
+          });
+          const augmentedPlan = augmentation.plan;
+          if (augmentation.diagnostics.warnings.length > 0) {
+            yield* Effect.forEach(
+              augmentation.diagnostics.warnings,
+              (warning) => log.warn(warning),
+              { discard: true },
+            );
+          }
+          const emptyPlan = { ...augmentedPlan, jobs: [] } satisfies Plan<Op>;
+
+          const reconciliationContext = yield* Effect.gen(function* () {
+            const settings = yield* readSettingsSafe(workspaceDir);
+            return {
+              baseDir,
+              now: new Date(),
+              defaultNamespace: settings.namespace ?? DEFAULT_NAMESPACE,
+              agents: settings.agents ?? [],
+              settings,
+            };
+          });
+
+          const internalReconciliationHandlers = {
+            "read-recover-lockfile": (
+              _op: Extract<ReconciliationOperation, { name: "read-recover-lockfile" }>,
+            ) => runReadRecoverOperation(reconciliationContext),
+            "reconcile-materialize-lockfile": (
+              op: Extract<ReconciliationOperation, { name: "reconcile-materialize-lockfile" }>,
+            ) =>
+              runReconcileMaterializeOperation(reconciliationContext, workspaceDir, op.args.reason),
+          } as const;
+
+          const mergedHandlers = {
+            ...handlers,
+            ...internalReconciliationHandlers,
+          } as unknown as T;
 
           // Scan readiness across all planned steps
-          const allSteps = Array.flatMap(plan.jobs, (job) => [...job.steps]);
+          const allSteps = Array.flatMap(augmentedPlan.jobs, (job) => [...job.steps]);
           const plannedSteps = allSteps.filter(
             (s): s is PlannedJobStep<Op> => s._tag === "PlannedJobStep",
           );
@@ -1028,7 +1106,7 @@ const make = (options: WorkspaceContextOptions) =>
 
           if (options.preview) {
             yield* log.info("Previewing changes...");
-            yield* displayPlan(plan, { verbosity });
+            yield* displayPlan(augmentedPlan, { verbosity });
 
             if (hasErrors) {
               return yield* makeCliError({
@@ -1038,45 +1116,10 @@ const make = (options: WorkspaceContextOptions) =>
               });
             }
 
-            if (hasWarnings && resolvedNonInteractive) {
-              return yield* makeCliError({
-                code: "PLAN_HAS_WARNINGS",
-                what: "Plan has warnings and cannot prompt in non-interactive mode",
-              });
-            }
-
-            if (options.yes) {
-              if (hasWarnings) {
-                const confirmed = yield* confirm.prompt({
-                  message: "Plan has warnings. Continue anyway?",
-                });
-                if (!confirmed) return emptyPlan;
-              }
-              yield* log.info("Pre-approved via --yes, applying changes...");
-              return yield* applyPlan(plan, handlers);
-            } else if (resolvedNonInteractive) {
-              yield* log.warn(
-                "Cannot prompt in non-interactive mode. Use --yes to apply, or remove --preview.",
-              );
-              return emptyPlan;
-            } else {
-              if (hasWarnings) {
-                const confirmed = yield* confirm.prompt({
-                  message: "Plan has warnings. Continue anyway?",
-                });
-                if (!confirmed) return emptyPlan;
-              } else {
-                const confirmed = yield* confirm.prompt({ message: "Apply changes?" });
-                if (!confirmed) {
-                  yield* log.success("Cancelled.");
-                  return emptyPlan;
-                }
-              }
-              return yield* applyPlan(plan, handlers);
-            }
+            return augmentedPlan;
           } else {
             if (hasErrors) {
-              yield* displayPlan(plan, { verbosity });
+              yield* displayPlan(augmentedPlan, { verbosity });
               return yield* makeCliError({
                 code: "PLAN_HAS_ERRORS",
                 what: "Plan has errors that prevent execution",
@@ -1084,25 +1127,47 @@ const make = (options: WorkspaceContextOptions) =>
               });
             }
 
+            yield* displayPlan(augmentedPlan, { verbosity });
+
             if (hasWarnings) {
-              yield* displayPlan(plan, { verbosity });
               if (resolvedNonInteractive) {
                 return yield* makeCliError({
                   code: "PLAN_HAS_WARNINGS",
                   what: "Plan has warnings and cannot prompt in non-interactive mode",
                 });
               }
-              const confirmed = yield* confirm.prompt({
-                message: "Plan has warnings. Continue anyway?",
-              });
-              if (!confirmed) return emptyPlan;
+              if (!options.yes) {
+                const confirmed = yield* confirm.prompt({
+                  message: "Plan has warnings. Continue anyway?",
+                });
+                if (!confirmed) {
+                  yield* log.success("Cancelled.");
+                  return emptyPlan;
+                }
+              }
+            } else if (!options.yes) {
+              if (resolvedNonInteractive) {
+                return yield* makeCliError({
+                  code: "PLAN_CONFIRMATION_REQUIRED",
+                  what: "Cannot apply plan in non-interactive mode without --yes",
+                  howToFix: "Re-run with --yes, or run interactively to confirm",
+                });
+              }
+
+              const confirmed = yield* confirm.prompt({ message: "Apply changes?" });
+              if (!confirmed) {
+                yield* log.success("Cancelled.");
+                return emptyPlan;
+              }
             }
 
-            const applied = yield* applyPlan(plan, handlers);
+            const applied = yield* applyPlan(augmentedPlan, mergedHandlers);
             yield* displayPlan(applied, { verbosity });
             return applied;
           }
         }),
+
+      getLockfileState,
 
       getConfiguredSources,
 
@@ -2266,6 +2331,8 @@ export interface WorkspaceContextService {
   readonly nonInteractive: boolean;
   /** Whether to show plan without applying (preview mode) */
   readonly preview: boolean;
+  /** Probe lockfile state for policy decisions: ok | missing | invalid. */
+  readonly getLockfileState: () => Effect.Effect<LockfileState, CliError>;
   /** Display, confirm, and apply a plan based on preview/yes/nonInteractive flags. */
   readonly resolvePlan: <
     Op extends Operation<string, unknown>,

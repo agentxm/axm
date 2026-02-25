@@ -12,3 +12,13 @@ export type { AddToPackOperationArgs, AddToPackOperation } from "./add-to-pack.j
 export { addToPack } from "./add-to-pack.js";
 export type { RemoveFromPackOperationArgs, RemoveFromPackOperation } from "./remove-from-pack.js";
 export { removeFromPack } from "./remove-from-pack.js";
+export {
+  addToPackOperationMetadata,
+  installPackOperationMetadata,
+  newPackOperationMetadata,
+  packOperationMetadataRegistry,
+  publishPackOperationMetadata,
+  removeFromPackOperationMetadata,
+  uninstallPackOperationMetadata,
+  unpackPackOperationMetadata,
+} from "./metadata.js";

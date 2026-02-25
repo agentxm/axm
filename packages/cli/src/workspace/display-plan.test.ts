@@ -354,6 +354,60 @@ describe("displayPlan", () => {
     }).pipe(Effect.provide(logLayer));
   });
 
+  it.effect("shows deterministic per-type counts for unapplied plans", () => {
+    const [logLayer, mockLog] = makeLogTestLayer();
+
+    return Effect.gen(function* () {
+      yield* displayPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "install-mcp-server" },
+                  readiness: { status: "ready" as const, message: Option.none() },
+                  label: "mcp install",
+                },
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "install-skill" },
+                  readiness: { status: "ready" as const, message: Option.none() },
+                  label: "skill install",
+                },
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "read-recover-lockfile" },
+                  readiness: { status: "ready" as const, message: Option.none() },
+                  label: "[auto] read-recover lockfile (missing)",
+                },
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "install-command" },
+                  readiness: { status: "ready" as const, message: Option.none() },
+                  label: "command install",
+                },
+                {
+                  _tag: "PlannedJobStep" as const,
+                  operation: { name: "install-pack" },
+                  readiness: { status: "ready" as const, message: Option.none() },
+                  label: "pack install",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      const byType = mockLog.logs.message.find((m) => m.startsWith("by type:"));
+      expect(byType).toBeDefined();
+      expect(byType).toContain(
+        "by type: skills=1, commands=1, packs=1, mcp-servers=1, reconciliation=1",
+      );
+    }).pipe(Effect.provide(logLayer));
+  });
+
   it.effect("handles all skips case", () => {
     const [logLayer, mockLog] = makeLogTestLayer();
 
@@ -589,6 +643,39 @@ describe("displayPlan", () => {
       expect(summary).toBeDefined();
       expect(summary).not.toContain("skipped");
       expect(summary).not.toContain("failed");
+    }).pipe(Effect.provide(logLayer));
+  });
+
+  it.effect("shows per-type counts for applied plans", () => {
+    const [logLayer, mockLog] = makeLogTestLayer();
+
+    return Effect.gen(function* () {
+      yield* displayPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  _tag: "JobStepResult" as const,
+                  operation: { name: "read-recover-lockfile" },
+                  result: { result: "success" as const, message: "Recovered" },
+                  label: "[auto] read-recover lockfile (invalid)",
+                },
+                {
+                  _tag: "JobStepResult" as const,
+                  operation: { name: "install-skill" },
+                  result: { result: "success" as const, message: "Installed" },
+                  label: "install skill",
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      const byType = mockLog.logs.message.find((m) => m.startsWith("by type:"));
+      expect(byType).toContain("by type: skills=1, reconciliation=1");
     }).pipe(Effect.provide(logLayer));
   });
 });

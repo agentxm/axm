@@ -23,6 +23,60 @@ const defaultVerbosity: RenderCliErrorOptions = {
   debug: false,
 };
 
+const extensionTypeOrder = [
+  "skills",
+  "commands",
+  "packs",
+  "mcp-servers",
+  "reconciliation",
+  "other",
+] as const;
+
+type ExtensionTypeBucket = (typeof extensionTypeOrder)[number];
+
+const getExtensionTypeBucket = (operationName: string): ExtensionTypeBucket => {
+  if (
+    operationName === "read-recover-lockfile" ||
+    operationName === "reconcile-materialize-lockfile"
+  ) {
+    return "reconciliation";
+  }
+  if (
+    operationName.endsWith("-skill") ||
+    operationName === "copy-skill" ||
+    operationName === "enable-skill" ||
+    operationName === "disable-skill" ||
+    operationName === "rename-skill" ||
+    operationName === "new-skill"
+  ) {
+    return "skills";
+  }
+  if (operationName.endsWith("-command")) {
+    return "commands";
+  }
+  if (
+    operationName.endsWith("-pack") ||
+    operationName === "add-to-pack" ||
+    operationName === "remove-from-pack"
+  ) {
+    return "packs";
+  }
+  if (operationName.endsWith("-mcp-server")) {
+    return "mcp-servers";
+  }
+  return "other";
+};
+
+const collectTypeCounts = <Op>(allSteps: ReadonlyArray<JobStep<Op>>) => {
+  const counts = new Map<ExtensionTypeBucket, number>();
+  for (const step of allSteps) {
+    const opName = (step.operation as { readonly name: string }).name;
+    const bucket = getExtensionTypeBucket(opName);
+    counts.set(bucket, (counts.get(bucket) ?? 0) + 1);
+  }
+  return counts;
+};
+
 export interface DisplayPlanOptions {
   readonly verbosity?: RenderCliErrorOptions;
 }
@@ -101,51 +155,65 @@ const renderSummary = <Op>(
   isApplied: boolean,
   log: Log["Type"],
 ) => {
-  if (isApplied) {
-    const successCount = Array.filter(
-      allSteps,
-      (s) => s._tag === "JobStepResult" && s.result.result === "success",
-    ).length;
-    const skipCount = Array.filter(
-      allSteps,
-      (s) => s._tag === "JobStepResult" && s.result.result === "no-op",
-    ).length;
-    const failCount = Array.filter(
-      allSteps,
-      (s) => s._tag === "JobStepResult" && s.result.result === "error",
-    ).length;
+  return Effect.gen(function* () {
+    if (isApplied) {
+      const successCount = Array.filter(
+        allSteps,
+        (s) => s._tag === "JobStepResult" && s.result.result === "success",
+      ).length;
+      const skipCount = Array.filter(
+        allSteps,
+        (s) => s._tag === "JobStepResult" && s.result.result === "no-op",
+      ).length;
+      const failCount = Array.filter(
+        allSteps,
+        (s) => s._tag === "JobStepResult" && s.result.result === "error",
+      ).length;
 
-    const parts: string[] = [];
-    if (successCount > 0) parts.push(`${successCount} applied`);
-    if (skipCount > 0) parts.push(`${skipCount} skipped`);
-    if (failCount > 0) parts.push(`${failCount} failed`);
+      const parts: string[] = [];
+      if (successCount > 0) parts.push(`${successCount} applied`);
+      if (skipCount > 0) parts.push(`${skipCount} skipped`);
+      if (failCount > 0) parts.push(`${failCount} failed`);
 
-    return log.message(parts.join(", "));
-  }
+      if (parts.length > 0) {
+        yield* log.message(parts.join(", "));
+      }
+    } else {
+      // Unapplied plan — count by readiness
+      const readyCount = Array.filter(
+        allSteps,
+        (s) => s._tag === "PlannedJobStep" && s.readiness.status === "ready",
+      ).length;
+      const skipCount = Array.filter(
+        allSteps,
+        (s) => s._tag === "PlannedJobStep" && s.readiness.status === "skip",
+      ).length;
+      const warnCount = Array.filter(
+        allSteps,
+        (s) => s._tag === "PlannedJobStep" && s.readiness.status === "warn",
+      ).length;
+      const errorCount = Array.filter(
+        allSteps,
+        (s) => s._tag === "PlannedJobStep" && s.readiness.status === "error",
+      ).length;
 
-  // Unapplied plan — count by readiness
-  const readyCount = Array.filter(
-    allSteps,
-    (s) => s._tag === "PlannedJobStep" && s.readiness.status === "ready",
-  ).length;
-  const skipCount = Array.filter(
-    allSteps,
-    (s) => s._tag === "PlannedJobStep" && s.readiness.status === "skip",
-  ).length;
-  const warnCount = Array.filter(
-    allSteps,
-    (s) => s._tag === "PlannedJobStep" && s.readiness.status === "warn",
-  ).length;
-  const errorCount = Array.filter(
-    allSteps,
-    (s) => s._tag === "PlannedJobStep" && s.readiness.status === "error",
-  ).length;
+      const parts: string[] = [];
+      if (readyCount > 0) parts.push(`${readyCount} to apply`);
+      if (skipCount > 0) parts.push(`${skipCount} to skip`);
+      if (errorCount > 0) parts.push(`${errorCount} error${errorCount > 1 ? "s" : ""}`);
+      if (warnCount > 0) parts.push(`${warnCount} warning${warnCount > 1 ? "s" : ""}`);
 
-  const parts: string[] = [];
-  if (readyCount > 0) parts.push(`${readyCount} to apply`);
-  if (skipCount > 0) parts.push(`${skipCount} to skip`);
-  if (errorCount > 0) parts.push(`${errorCount} error${errorCount > 1 ? "s" : ""}`);
-  if (warnCount > 0) parts.push(`${warnCount} warning${warnCount > 1 ? "s" : ""}`);
+      if (parts.length > 0) {
+        yield* log.message(parts.join(", "));
+      }
+    }
 
-  return log.message(parts.join(", "));
+    const typeCounts = collectTypeCounts(allSteps);
+    const orderedCounts = extensionTypeOrder
+      .filter((bucket) => (typeCounts.get(bucket) ?? 0) > 0)
+      .map((bucket) => `${bucket}=${typeCounts.get(bucket) ?? 0}`);
+    if (orderedCounts.length > 0) {
+      yield* log.message(`by type: ${orderedCounts.join(", ")}`);
+    }
+  });
 };

@@ -46,6 +46,16 @@ export const toAuthor = (author: typeof AuthorSchema.Type): Author => ({
 export const FQN_PATTERN = /^@[\w-]+\/(skills|packs|commands|mcp-servers)\/[\w-]+$/;
 
 /**
+ * Manifest namespace regex: `@<namespace>`.
+ */
+export const MANIFEST_NAMESPACE_PATTERN = /^@[\w-]+$/;
+
+/**
+ * Manifest short name regex: `<name>` with alphanumeric, hyphen, underscore.
+ */
+export const MANIFEST_NAME_PATTERN = /^[\w-]+$/;
+
+/**
  * Fully qualified name schema using {@link FQN_PATTERN}.
  *
  * @experimental This API is unstable and may change without notice.
@@ -60,13 +70,26 @@ export const FullyQualifiedNameSchema = Schema.String.pipe(Schema.pattern(FQN_PA
 export type FullyQualifiedName = typeof FullyQualifiedNameSchema.Type;
 
 /**
+ * Manifest namespace schema.
+ */
+export const ManifestNamespaceSchema = Schema.String.pipe(
+  Schema.pattern(MANIFEST_NAMESPACE_PATTERN),
+);
+
+/**
+ * Manifest short name schema.
+ */
+export const ManifestNameSchema = Schema.String.pipe(Schema.pattern(MANIFEST_NAME_PATTERN));
+
+/**
  * Common fields shared across all manifest types.
  * Used as a spread in manifest struct definitions.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const CommonManifestFields = {
-  name: FullyQualifiedNameSchema,
+  namespace: ManifestNamespaceSchema,
+  name: ManifestNameSchema,
   version: Schema.String,
   description: Schema.optional(Schema.String),
   keywords: Schema.optional(Schema.Array(Schema.String)),

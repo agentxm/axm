@@ -113,7 +113,9 @@ describe("publishCommand", () => {
     fs.mkdirSync(registryRoot, { recursive: true });
 
     const defaultManifest = {
-      name: `${namespace}/commands/${name}`,
+      namespace,
+      type: "command",
+      name,
       version: "0.1.0",
       ...manifest,
     };

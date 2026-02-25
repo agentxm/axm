@@ -1,5 +1,7 @@
 {
-  "name": "@acme/packs/fullstack-pack",
+  "namespace": "@acme",
+  "type": "pack",
+  "name": "fullstack-pack",
   "version": "1.0.0",
   "description": "Complete fullstack development toolkit",
   "keywords": ["fullstack", "web", "development"],

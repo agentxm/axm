@@ -19,8 +19,8 @@ export const MANIFEST_FILENAME = "axm-skill.json";
  */
 export const SkillManifestSchema = Schema.Struct({
   ...CommonManifestFields,
+  type: Schema.Literal("skill"),
   agents: Schema.optional(Schema.Array(Schema.String)),
-  dependencies: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
 });
 
 /**

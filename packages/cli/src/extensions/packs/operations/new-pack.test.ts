@@ -131,7 +131,7 @@ describe("newPack", () => {
       }),
     );
 
-    it.effect("writes correct manifest with FQN and empty extension maps", () =>
+    it.effect("writes correct manifest identity fields and empty extension maps", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
 
@@ -149,7 +149,9 @@ describe("newPack", () => {
           "axm-pack.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.name).toBe("@myorg/packs/my-pack");
+        expect(manifest.namespace).toBe("@myorg");
+        expect(manifest.type).toBe("pack");
+        expect(manifest.name).toBe("my-pack");
         expect(manifest.version).toBe("0.0.1");
         expect(manifest.skills).toEqual({});
         expect(manifest.commands).toEqual({});
@@ -188,7 +190,7 @@ describe("newPack", () => {
         fs.mkdirSync(packDir, { recursive: true });
         fs.writeFileSync(
           path.join(packDir, "axm-pack.json"),
-          JSON.stringify({ name: "@myorg/packs/my-pack", version: "0.0.1" }),
+          JSON.stringify({ namespace: "@myorg", type: "pack", name: "my-pack", version: "0.0.1" }),
         );
 
         const result = yield* newPack(makeOp()).pipe(

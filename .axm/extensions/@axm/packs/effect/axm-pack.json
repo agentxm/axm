@@ -1,5 +1,5 @@
 {
-  "name": "@axm/packs/effect",
+  "name": "effect",
   "version": "0.0.1",
   "skills": {
     "@axm/skills/effect-testing": "^0.1.0",
@@ -15,5 +15,7 @@
     "@axm/skills/effect-stream": "^0.1.0"
   },
   "commands": {},
-  "mcp-servers": {}
+  "mcp-servers": {},
+  "namespace": "@axm",
+  "type": "pack"
 }

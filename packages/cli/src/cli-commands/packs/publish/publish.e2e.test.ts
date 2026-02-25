@@ -40,10 +40,11 @@ const createManagedSkill = (
     path.join(extensionDir, "axm-skill.json"),
     JSON.stringify(
       {
-        name: `${namespace}/skills/${name}`,
+        namespace,
+        type: "skill",
+        name,
         version,
         agents: ["claude-code"],
-        dependencies: {},
       },
       null,
       2,

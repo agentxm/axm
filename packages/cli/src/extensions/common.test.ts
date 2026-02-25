@@ -14,6 +14,8 @@ import {
   CommonManifestFields,
   ExtensionTypeSchema,
   FullyQualifiedNameSchema,
+  ManifestNameSchema,
+  ManifestNamespaceSchema,
 } from "./common.js";
 
 describe("common schemas", () => {
@@ -168,7 +170,8 @@ describe("common schemas", () => {
 
     it("accepts valid full manifest", () => {
       const input = {
-        name: "@wayne/skills/grappling-hook",
+        namespace: "@wayne",
+        name: "grappling-hook",
         version: "1.0.0",
         description: "A grappling hook skill",
         keywords: ["batman", "tools"],
@@ -186,7 +189,8 @@ describe("common schemas", () => {
 
     it("accepts minimal manifest (name and version only)", () => {
       const input = {
-        name: "@wayne/skills/hook",
+        namespace: "@wayne",
+        name: "hook",
         version: "0.1.0",
       };
 
@@ -197,7 +201,19 @@ describe("common schemas", () => {
 
     it("rejects manifest with invalid name pattern", () => {
       const input = {
-        name: "invalid-name",
+        namespace: "@wayne",
+        name: "invalid/name",
+        version: "1.0.0",
+      };
+
+      const result = Schema.decodeUnknownEither(TestManifest)(input);
+
+      expect(Either.isLeft(result)).toBe(true);
+    });
+
+    it("rejects manifest missing required namespace", () => {
+      const input = {
+        name: "hook",
         version: "1.0.0",
       };
 
@@ -208,6 +224,7 @@ describe("common schemas", () => {
 
     it("rejects manifest missing required name", () => {
       const input = {
+        namespace: "@wayne",
         version: "1.0.0",
       };
 
@@ -218,11 +235,36 @@ describe("common schemas", () => {
 
     it("rejects manifest missing required version", () => {
       const input = {
-        name: "@wayne/hook",
+        namespace: "@wayne",
+        name: "hook",
       };
 
       const result = Schema.decodeUnknownEither(TestManifest)(input);
 
+      expect(Either.isLeft(result)).toBe(true);
+    });
+  });
+
+  describe("ManifestNamespace", () => {
+    it("accepts @-prefixed namespace", () => {
+      const result = Schema.decodeUnknownEither(ManifestNamespaceSchema)("@wayne");
+      expect(Either.isRight(result)).toBe(true);
+    });
+
+    it("rejects namespace without @", () => {
+      const result = Schema.decodeUnknownEither(ManifestNamespaceSchema)("wayne");
+      expect(Either.isLeft(result)).toBe(true);
+    });
+  });
+
+  describe("ManifestName", () => {
+    it("accepts simple short name", () => {
+      const result = Schema.decodeUnknownEither(ManifestNameSchema)("grappling-hook");
+      expect(Either.isRight(result)).toBe(true);
+    });
+
+    it("rejects FQN as short name", () => {
+      const result = Schema.decodeUnknownEither(ManifestNameSchema)("@wayne/skills/grappling-hook");
       expect(Either.isLeft(result)).toBe(true);
     });
   });

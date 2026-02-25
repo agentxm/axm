@@ -1,12 +1,21 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
-  "required": ["name", "version", "agents"],
+  "required": ["namespace", "type", "name", "version"],
   "properties": {
+    "namespace": {
+      "type": "string",
+      "description": "a string matching the pattern ^@[\\w-]+$",
+      "pattern": "^@[\\w-]+$"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["skill"]
+    },
     "name": {
       "type": "string",
-      "description": "a string matching the pattern ^@[\\w-]+\\/[\\w-]+$",
-      "pattern": "^@[\\w-]+\\/[\\w-]+$"
+      "description": "a string matching the pattern ^[\\w-]+$",
+      "pattern": "^[\\w-]+$"
     },
     "version": {
       "type": "string"
@@ -54,14 +63,6 @@
     "agents": {
       "type": "array",
       "items": {
-        "type": "string"
-      }
-    },
-    "dependencies": {
-      "type": "object",
-      "required": [],
-      "properties": {},
-      "additionalProperties": {
         "type": "string"
       }
     }

@@ -109,10 +109,11 @@ describe("publishSkill", () => {
 
     // Write manifest at extension root (not inside src/)
     const defaultManifest = {
-      name: `${namespace}/skills/${name}`,
+      namespace,
+      type: "skill",
+      name,
       version: "0.1.0",
       agents: ["claude-code"],
-      dependencies: {},
       ...manifest,
     };
     fs.writeFileSync(

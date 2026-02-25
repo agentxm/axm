@@ -130,7 +130,9 @@ describe("packs-new.handler", () => {
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@acme/packs/frontend-tools");
+          expect(manifest.namespace).toBe("@acme");
+          expect(manifest.type).toBe("pack");
+          expect(manifest.name).toBe("frontend-tools");
           expect(manifest.version).toBe("0.0.1");
           expect(manifest.skills).toEqual({});
           expect(manifest.commands).toEqual({});
@@ -204,7 +206,9 @@ describe("packs-new.handler", () => {
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@corp/packs/frontend-tools");
+          expect(manifest.namespace).toBe("@corp");
+          expect(manifest.type).toBe("pack");
+          expect(manifest.name).toBe("frontend-tools");
         }),
       );
     });
@@ -229,7 +233,9 @@ describe("packs-new.handler", () => {
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@corp/packs/my-pack");
+          expect(manifest.namespace).toBe("@corp");
+          expect(manifest.type).toBe("pack");
+          expect(manifest.name).toBe("my-pack");
         }),
       );
     });

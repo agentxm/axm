@@ -57,7 +57,20 @@ const createPackManifest = (
 ) => {
   const packDir = path.join(tempDir, ".axm", "extensions", namespace, "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
-  fs.writeFileSync(path.join(packDir, "axm-pack.json"), JSON.stringify(manifest, null, 2));
+  const normalizedManifest = {
+    ...manifest,
+    namespace,
+    type: "pack",
+    name,
+    version: manifest["version"] ?? "0.0.1",
+    skills: manifest["skills"] ?? {},
+    commands: manifest["commands"] ?? {},
+    "mcp-servers": manifest["mcp-servers"] ?? {},
+  };
+  fs.writeFileSync(
+    path.join(packDir, "axm-pack.json"),
+    JSON.stringify(normalizedManifest, null, 2),
+  );
   return packDir;
 };
 

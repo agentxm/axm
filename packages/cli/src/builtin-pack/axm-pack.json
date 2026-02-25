@@ -1,5 +1,7 @@
 {
-  "name": "@axm/packs/cli",
+  "namespace": "@axm",
+  "type": "pack",
+  "name": "cli",
   "version": "0.0.16",
   "description": "Built-in management skills for axm workspaces",
   "skills": {

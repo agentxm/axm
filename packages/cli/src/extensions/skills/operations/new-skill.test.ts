@@ -186,7 +186,7 @@ describe("newSkill", () => {
       }),
     );
 
-    it.effect("writes correct manifest with FQN and version", () =>
+    it.effect("writes correct manifest identity fields and version", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
 
@@ -205,7 +205,9 @@ describe("newSkill", () => {
           "axm-skill.json",
         );
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.name).toBe("@myorg/skills/my-skill");
+        expect(manifest.namespace).toBe("@myorg");
+        expect(manifest.type).toBe("skill");
+        expect(manifest.name).toBe("my-skill");
         expect(manifest.version).toBe("0.0.1");
       }),
     );

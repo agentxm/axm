@@ -1,5 +1,7 @@
 {
-  "name": "@acme/commands/deploy",
+  "namespace": "@acme",
+  "type": "command",
+  "name": "deploy",
   "version": "1.0.0",
   "description": "Deploy application to cloud infrastructure",
   "keywords": ["deploy", "cloud", "ci-cd"],

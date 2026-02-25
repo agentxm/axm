@@ -83,12 +83,15 @@ const createPackManifest = (
   fs.writeFileSync(
     path.join(packDir, "axm-pack.json"),
     JSON.stringify(
-      manifest ?? {
-        name: `${namespace}/packs/${name}`,
-        version: "0.0.1",
-        skills: {},
-        commands: {},
-        "mcp-servers": {},
+      {
+        ...(manifest ?? {}),
+        namespace,
+        type: "pack",
+        name,
+        version: manifest?.["version"] ?? "0.0.1",
+        skills: manifest?.["skills"] ?? {},
+        commands: manifest?.["commands"] ?? {},
+        "mcp-servers": manifest?.["mcp-servers"] ?? {},
       },
       null,
       2,
@@ -385,7 +388,9 @@ describe("packs-add.handler", () => {
         },
       });
       createPackManifest(tempDir, "@acme", "my-pack", {
-        name: "@acme/packs/my-pack",
+        namespace: "@acme",
+        type: "pack",
+        name: "my-pack",
         version: "0.0.1",
         skills: { "@acme/skills/code-review": "^1.2.0" },
         commands: {},

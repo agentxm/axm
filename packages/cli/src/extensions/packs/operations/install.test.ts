@@ -55,7 +55,9 @@ const createPackArchive = (dir: string) => {
   fs.writeFileSync(
     nodePath.join(dir, "axm-pack.json"),
     JSON.stringify({
-      name: "@test/packs/my-pack",
+      namespace: "@test",
+      type: "pack",
+      name: "my-pack",
       version: "1.0.0",
       description: "Test pack",
     }),

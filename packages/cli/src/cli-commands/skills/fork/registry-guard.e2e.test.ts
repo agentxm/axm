@@ -76,7 +76,9 @@ describe("registry guard", () => {
           path.join(extensionDir, "axm-skill.json"),
           JSON.stringify(
             {
-              name: "@test/skills/my-skill",
+              namespace: "@test",
+              type: "skill",
+              name: "my-skill",
               version: "1.0.0",
               agents: ["claude-code"],
             },

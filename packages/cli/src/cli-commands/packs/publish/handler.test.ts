@@ -56,7 +56,14 @@ const createManagedPack = (
 ) => {
   const packDir = path.join(tempDir, ".axm", "extensions", namespace, "packs", name);
   fs.mkdirSync(packDir, { recursive: true });
-  fs.writeFileSync(path.join(packDir, "axm-pack.json"), JSON.stringify(manifest));
+  const normalizedManifest = {
+    ...manifest,
+    namespace,
+    type: "pack",
+    name,
+    version: manifest["version"] ?? "0.0.1",
+  };
+  fs.writeFileSync(path.join(packDir, "axm-pack.json"), JSON.stringify(normalizedManifest));
   return packDir;
 };
 
@@ -76,7 +83,14 @@ const createManagedExtension = (
         : "axm-mcp-server.json";
   const extDir = path.join(tempDir, ".axm", "extensions", namespace, type, name);
   fs.mkdirSync(extDir, { recursive: true });
-  fs.writeFileSync(path.join(extDir, manifestFilename), JSON.stringify(manifest));
+  const normalizedManifest = {
+    ...manifest,
+    namespace,
+    type: type === "skills" ? "skill" : type === "commands" ? "command" : "mcp-server",
+    name,
+    version: manifest["version"] ?? "0.0.1",
+  };
+  fs.writeFileSync(path.join(extDir, manifestFilename), JSON.stringify(normalizedManifest));
   return extDir;
 };
 

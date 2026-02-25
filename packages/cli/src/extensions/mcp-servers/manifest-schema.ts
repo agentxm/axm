@@ -17,6 +17,7 @@ import { CommonManifestFields } from "../common.js";
  */
 export const McpServerManifestSchema = Schema.Struct({
   ...CommonManifestFields,
+  type: Schema.Literal("mcp-server"),
 });
 
 /**

@@ -17,6 +17,7 @@ import { CommonManifestFields } from "../common.js";
  */
 export const CommandManifestSchema = Schema.Struct({
   ...CommonManifestFields,
+  type: Schema.Literal("command"),
 });
 
 /**

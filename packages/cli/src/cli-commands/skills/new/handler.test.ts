@@ -131,7 +131,9 @@ describe("skills-new.handler", () => {
           );
           expect(fs.existsSync(manifestPath)).toBe(true);
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@acme/skills/my-skill");
+          expect(manifest.namespace).toBe("@acme");
+          expect(manifest.type).toBe("skill");
+          expect(manifest.name).toBe("my-skill");
           expect(manifest.version).toBe("0.0.1");
 
           // Verify SKILL.md
@@ -188,7 +190,9 @@ describe("skills-new.handler", () => {
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@corp/skills/my-skill");
+          expect(manifest.namespace).toBe("@corp");
+          expect(manifest.type).toBe("skill");
+          expect(manifest.name).toBe("my-skill");
         }),
       );
     });
@@ -213,7 +217,9 @@ describe("skills-new.handler", () => {
           expect(fs.existsSync(manifestPath)).toBe(true);
 
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@corp/skills/my-skill");
+          expect(manifest.namespace).toBe("@corp");
+          expect(manifest.type).toBe("skill");
+          expect(manifest.name).toBe("my-skill");
         }),
       );
     });

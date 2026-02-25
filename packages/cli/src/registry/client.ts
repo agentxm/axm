@@ -8,7 +8,9 @@
  * @packageDocumentation
  */
 
+import * as FetchHttpClient from "@effect/platform/FetchHttpClient";
 import * as FileSystem from "@effect/platform/FileSystem";
+import * as HttpClient from "@effect/platform/HttpClient";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -222,7 +224,10 @@ export interface RegistryClient {
 export const createRegistryClient = (location: string) =>
   Effect.gen(function* () {
     if (location.startsWith("https://")) {
-      return createRemoteRegistryClient();
+      const httpClient = yield* HttpClient.HttpClient.pipe(
+        Effect.provide(FetchHttpClient.layer),
+      );
+      return createRemoteRegistryClient(location, httpClient);
     }
 
     const localPath = location.startsWith("file://") ? location.slice(7) : location;

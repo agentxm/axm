@@ -30,6 +30,7 @@ interface ProblemDetail {
   readonly requestId?: string;
   readonly retryable?: boolean;
   readonly retryAfterSeconds?: number;
+  readonly details?: ReadonlyArray<unknown>;
 }
 
 const makeProblem = (overrides: ProblemDetail = {}): ProblemDetail => ({
@@ -279,6 +280,28 @@ describe("mapProblemDetailToCliError", () => {
     expect(error.code).toBe("REGISTRY_PUBLISH_CONFLICT");
   });
 
+  it("includes validation issue details when present", () => {
+    const error = mapProblemDetailToCliError(
+      400,
+      makeProblem({
+        code: "invalid_request",
+        detail: "Request validation failed.",
+        details: [
+          {
+            code: "invalid_value",
+            values: ["skills", "commands"],
+            path: ["type"],
+            message: 'Invalid option: expected one of "skills"|"commands"',
+          },
+        ],
+      }),
+    );
+
+    expect(error.details).toContain("Request validation failed.");
+    expect(error.details).toContain("Invalid value at 'type'. Expected one of: skills, commands.");
+    expect(error.details).toContain("Request ID: req-123");
+  });
+
   // ---------------------------------------------------------------------------
   // Non-JSON / null problem
   // ---------------------------------------------------------------------------
@@ -322,7 +345,7 @@ describe("createRemoteRegistryClient", () => {
 
         expect(capturedMethod).toBe("PUT");
         expect(capturedUrl).toBe(
-          "https://registry.example.com/v1/extensions/@acme/skill/code-review/1.0.0",
+          "https://registry.example.com/v1/extensions/@acme/skills/code-review/1.0.0",
         );
       }),
     );
@@ -340,7 +363,7 @@ describe("createRemoteRegistryClient", () => {
         yield* client.publishExtension(makePublishArgs());
 
         expect(capturedUrl).toBe(
-          "https://registry.example.com/v1/extensions/@acme/skill/code-review/1.0.0",
+          "https://registry.example.com/v1/extensions/@acme/skills/code-review/1.0.0",
         );
       }),
     );
@@ -443,7 +466,7 @@ describe("createRemoteRegistryClient", () => {
         if (result._tag === "Left") {
           expect(result.left.code).toBe("REGISTRY_PUBLISH_CONFLICT");
           expect(result.left.details).toContain(
-            "Request: PUT https://registry.example.com/v1/extensions/@acme/skill/code-review/1.0.0",
+            "Request: PUT https://registry.example.com/v1/extensions/@acme/skills/code-review/1.0.0",
           );
           expect(result.left.details).toContain("HTTP status: 409");
         }
@@ -496,7 +519,7 @@ describe("createRemoteRegistryClient", () => {
           expect(result.left.cause).toBeDefined();
           expect(Option.isSome(result.left.howToFix)).toBe(true);
           expect(result.left.details).toContain(
-            "Request: PUT https://registry.example.com/v1/extensions/@acme/skill/code-review/1.0.0",
+            "Request: PUT https://registry.example.com/v1/extensions/@acme/skills/code-review/1.0.0",
           );
         }
       }),
@@ -524,7 +547,7 @@ describe("createRemoteRegistryClient", () => {
             "switch the source URL to http://localhost",
           );
           expect(result.left.details).toContain(
-            "Request: PUT https://localhost:4000/v1/extensions/@acme/skill/code-review/1.0.0",
+            "Request: PUT https://localhost:4000/v1/extensions/@acme/skills/code-review/1.0.0",
           );
           expect(result.left.details).toContain(
             "Diagnosis: Local registry appears HTTP-only while source uses HTTPS.",

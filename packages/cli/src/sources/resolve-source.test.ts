@@ -34,7 +34,7 @@ const makeWorkspaceLayer = (
     Layer.succeed(Workspace, {
       getConfiguredSources: () => Effect.succeed(sources),
       getLockedSkills: () => Effect.succeed(skills),
-      getConfiguredRegistrySources: () =>
+      getRegistrySourceHosts: () =>
         Effect.succeed(
           registrySources ??
             sources.filter(

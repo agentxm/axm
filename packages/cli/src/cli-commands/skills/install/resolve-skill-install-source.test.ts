@@ -25,13 +25,14 @@ const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceConte
   getConfiguredSources: () => Effect.succeed(sources),
   getConfiguredSourceByName: (name: string) =>
     Effect.succeed(Option.fromNullable(sources.find((s) => s.name === name))),
-  getConfiguredRegistrySources: () =>
+  getRegistrySourceHosts: () =>
     Effect.succeed(
       sources.filter(
         (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
       ),
     ),
   getConfiguredNamespace: () => Effect.succeed("@test") as Effect.Effect<string, CliError>,
+  getDefaultNamespace: () => Effect.succeed(Option.none()),
   addConfiguredSource: () => Effect.void,
   getConfiguredSkills: () => Effect.succeed({}),
   getInstalledSkills: () => Effect.succeed({}),
@@ -173,7 +174,15 @@ describe("resolveSkillInstallSource", () => {
 
     return Effect.gen(function* () {
       const resolved = yield* resolveSkillInstallSource(parseInputOrThrow("some-name")).pipe(
-        Effect.provide(provideTestLayers(sources)),
+        Effect.provide(
+          Layer.mergeAll(
+            NodeContext.layer,
+            Workspace.layer({
+              ...makeWorkspace(sources),
+              getDefaultNamespace: () => Effect.succeed(Option.some("@test")),
+            }),
+          ),
+        ),
       );
       expect(resolved.type).toBe("registry");
       expect("location" in resolved).toBe(true);
@@ -243,6 +252,141 @@ describe("resolveSkillInstallSource — local path", () => {
       expect("path" in resolved && resolved.path).toBe("~/home-skill");
     });
   });
+});
+
+describe("resolveSkillRegistrySourceByName", () => {
+  const tmpDirs: string[] = [];
+
+  afterEach(() => {
+    for (const dir of tmpDirs) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+    tmpDirs.length = 0;
+  });
+
+  const provideLayersWithNamespace = (
+    sources: ReadonlyArray<SourceHostConfig>,
+    namespace: Option.Option<string>,
+  ) =>
+    Layer.mergeAll(
+      NodeContext.layer,
+      Workspace.layer({
+        ...makeWorkspace(sources),
+        getDefaultNamespace: () => Effect.succeed(namespace),
+      }),
+    );
+
+  it.effect("bare name found in first registry returns registry source", () => {
+    const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
+    tmpDirs.push(registryA);
+
+    createSkillIndex(registryA, "@myns", "cool-skill");
+
+    const sources: ReadonlyArray<SourceHostConfig> = [
+      { name: "first", type: "registry", location: new URL(`file://${registryA}`) },
+    ];
+
+    return Effect.gen(function* () {
+      const resolved = yield* resolveSkillInstallSource(parseInputOrThrow("cool-skill")).pipe(
+        Effect.provide(provideLayersWithNamespace(sources, Option.some("@myns"))),
+      );
+      expect(resolved.type).toBe("registry");
+      expect("location" in resolved).toBe(true);
+      if ("location" in resolved) {
+        expect(resolved.location.href).toBe(new URL(`file://${registryA}`).href);
+      }
+    });
+  });
+
+  it.effect("bare name found in later registry returns the correct registry source", () => {
+    const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
+    const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
+    tmpDirs.push(registryA, registryB);
+
+    createSkillIndex(registryB, "@myns", "cool-skill");
+
+    const sources: ReadonlyArray<SourceHostConfig> = [
+      { name: "first", type: "registry", location: new URL(`file://${registryA}`) },
+      { name: "second", type: "registry", location: new URL(`file://${registryB}`) },
+    ];
+
+    return Effect.gen(function* () {
+      const resolved = yield* resolveSkillInstallSource(parseInputOrThrow("cool-skill")).pipe(
+        Effect.provide(provideLayersWithNamespace(sources, Option.some("@myns"))),
+      );
+      expect(resolved.type).toBe("registry");
+      expect("location" in resolved).toBe(true);
+      if ("location" in resolved) {
+        expect(resolved.location.href).toBe(new URL(`file://${registryB}`).href);
+      }
+    });
+  });
+
+  it.effect(
+    "bare name not found in any registry fails with REGISTRY_SKILL_NOT_FOUND including checked list",
+    () => {
+      const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
+      const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
+      tmpDirs.push(registryA, registryB);
+
+      const sources: ReadonlyArray<SourceHostConfig> = [
+        { name: "first", type: "registry", location: new URL(`file://${registryA}`) },
+        { name: "second", type: "registry", location: new URL(`file://${registryB}`) },
+      ];
+
+      return Effect.gen(function* () {
+        const error = yield* resolveSkillInstallSource(parseInputOrThrow("missing-skill")).pipe(
+          Effect.flip,
+          Effect.provide(provideLayersWithNamespace(sources, Option.some("@myns"))),
+        );
+        expect(error._tag).toBe("CliError");
+        expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
+        expect(error.what).toContain("@myns/missing-skill");
+        expect(error.what).toContain("not found");
+        const detailsText = error.details.join(" ");
+        expect(detailsText).toContain(`file://${registryA}`);
+        expect(detailsText).toContain(`file://${registryB}`);
+      });
+    },
+  );
+
+  it.effect(
+    "no default namespace available fails with REGISTRY_SKILL_NOT_FOUND with no default namespace detail",
+    () => {
+      const sources: ReadonlyArray<SourceHostConfig> = [
+        { name: "first", type: "registry", location: new URL("file:///tmp/reg") },
+      ];
+
+      return Effect.gen(function* () {
+        const error = yield* resolveSkillInstallSource(parseInputOrThrow("some-skill")).pipe(
+          Effect.flip,
+          Effect.provide(provideLayersWithNamespace(sources, Option.none())),
+        );
+        expect(error._tag).toBe("CliError");
+        expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
+        expect(error.what).toContain("no default namespace");
+        const detailsText = error.details.join(" ");
+        expect(detailsText).toContain("No default namespace configured");
+      });
+    },
+  );
+
+  it.effect(
+    "no registry source hosts fails with REGISTRY_SKILL_NOT_FOUND with no registry sources detail",
+    () => {
+      return Effect.gen(function* () {
+        const error = yield* resolveSkillInstallSource(parseInputOrThrow("some-skill")).pipe(
+          Effect.flip,
+          Effect.provide(provideLayersWithNamespace([], Option.some("@myns"))),
+        );
+        expect(error._tag).toBe("CliError");
+        expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
+        expect(error.what).toContain("no registry sources");
+        const detailsText = error.details.join(" ");
+        expect(detailsText).toContain("No registry sources configured");
+      });
+    },
+  );
 });
 
 describe("resolveSkillUrl", () => {

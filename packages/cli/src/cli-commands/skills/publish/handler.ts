@@ -172,7 +172,7 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
   yield* handle.stop(`Validated ${extensionNames.length} extension(s)`);
 
   // Step 5: Determine target registry
-  const registrySources = yield* ws.getConfiguredRegistrySources().pipe(
+  const registrySources = yield* ws.getRegistrySourceHosts().pipe(
     Effect.mapError((e) =>
       makeCliError({
         code: "REGISTRY_SOURCES_FAILED",

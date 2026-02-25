@@ -130,18 +130,7 @@ export const handleInstall = Effect.fn("Install.handle")(function* (args: Instal
     parsedSource.pattern.pattern === "registry-pattern-input"
       ? parsedSource.pattern.versionConstraint
       : Option.none<string>();
-  const source = yield* resolveSkillInstallSource(parsedSource).pipe(
-    Effect.mapError((error) =>
-      makeCliError({
-        code: "INVALID_SOURCE",
-        what: `Invalid source: ${error.message}`,
-        details: [`Provided: ${args.source || "(empty)"}`],
-        howToFix:
-          "Valid formats: local path, github:owner/repo, gitlab:owner/repo, or https://example.com",
-        cause: error,
-      }),
-    ),
-  );
+  const source = yield* resolveSkillInstallSource(parsedSource);
   yield* parseHandle.stop(`Source: ${sources.origin(source)} (${source.type})`);
 
   // Step 2: Registry guard — ensure a registry source is configured

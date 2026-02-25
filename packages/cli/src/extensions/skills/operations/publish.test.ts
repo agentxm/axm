@@ -31,8 +31,9 @@ const withServices = (axmDir: string, registryRoot: string) => {
     getConfiguredSources: () => Effect.succeed([registrySource]),
     getConfiguredSourceByName: (name: string) =>
       Effect.succeed(name === "local" ? Option.some(registrySource) : Option.none()),
-    getConfiguredRegistrySources: () => Effect.succeed([registrySource]),
+    getRegistrySourceHosts: () => Effect.succeed([registrySource]),
     getConfiguredNamespace: () => Effect.succeed("@community"),
+    getDefaultNamespace: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () => Effect.succeed({}),
     getInstalledSkills: () => Effect.succeed({}),

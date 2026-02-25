@@ -42,8 +42,9 @@ const makeWorkspaceMock = (
     resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-    getConfiguredRegistrySources: () => Effect.succeed([]),
+    getRegistrySourceHosts: () => Effect.succeed([]),
     getConfiguredNamespace: () => Effect.succeed(configuredNamespace),
+    getDefaultNamespace: () => Effect.succeed(Option.none()),
     addConfiguredSource: () => Effect.void,
     getConfiguredSkills: () =>
       Effect.succeed(

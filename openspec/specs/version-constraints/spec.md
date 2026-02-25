@@ -14,6 +14,8 @@ All other valid semver ranges (`~x.y.z`, `>=x.y.z <a.b.c`, etc.) SHALL be accept
 
 Version constraints apply to registry-sourced extensions only. Non-registry sources (git, GitHub, local, etc.) are unaffected.
 
+Accepted version constraints at input boundaries (CLI source strings, settings entries, and pack manifest dependencies) MUST be resolved to an exact version before lockfile persistence. Lockfile resolved fields MUST contain exact versions only and MUST NOT contain semver ranges.
+
 #### Scenario: No version means latest
 
 - **WHEN** an extension source has no version suffix (e.g., `@acme/tool`)
@@ -44,6 +46,11 @@ Version constraints apply to registry-sourced extensions only. Non-registry sour
 - **WHEN** an extension source specifies `@acme/tool@not-a-version`
 - **AND** `semver.validRange()` returns null
 - **THEN** the system SHALL fail with a CliError indicating the version constraint is invalid
+
+#### Scenario: Lockfile resolved values reject ranges
+
+- **WHEN** a resolved lockfile field would be written as `^1.2.0`
+- **THEN** the operation SHALL fail with a `CliError` indicating resolved lockfile versions must be exact
 
 ### Requirement: Constraint priority
 

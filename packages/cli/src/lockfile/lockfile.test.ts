@@ -4,6 +4,7 @@ import * as path from "node:path";
 import * as NodeContext from "@effect/platform-node/NodeContext";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import YAML from "yaml";
 import type { Lockfile, SkillLockEntry } from "./schema.js";
 import { CliError } from "../cli-error/index.js";
@@ -124,6 +125,77 @@ describe("lockfile", () => {
           expect(error).toBeInstanceOf(CliError);
           expect(error._tag).toBe("CliError");
           expect(error.code).toBe("LOCKFILE_PARSE_FAILED");
+        }),
+      ),
+    );
+
+    it.effect("fails fast with actionable error for range resolvedVersion", () =>
+      withContext(
+        Effect.gen(function* () {
+          fs.mkdirSync(axmDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(axmDir, "axm-lock.yaml"),
+            YAML.stringify({
+              lockfileVersion: 1,
+              skills: {
+                "dep-skill": {
+                  type: "registry",
+                  namespace: "@acme",
+                  name: "dep-skill",
+                  resolvedVersion: "^1.0.0",
+                  integrity: "sha512-abc123",
+                  sourceName: "default",
+                  agents: ["claude-code"],
+                  installedAt: "2026-01-28T10:00:00.000Z",
+                  updatedAt: "2026-01-28T10:00:00.000Z",
+                },
+              },
+            }),
+          );
+
+          const error = yield* readLockfile(axmDir).pipe(Effect.flip);
+
+          expect(error.code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
+          expect(error.what).toContain("exact semver");
+          expect(Option.isSome(error.howToFix)).toBe(true);
+        }),
+      ),
+    );
+
+    it.effect("fails fast with actionable error for range in pack resolved maps", () =>
+      withContext(
+        Effect.gen(function* () {
+          fs.mkdirSync(axmDir, { recursive: true });
+          fs.writeFileSync(
+            path.join(axmDir, "axm-lock.yaml"),
+            YAML.stringify({
+              lockfileVersion: 1,
+              skills: {},
+              packs: {
+                "deps-pack": {
+                  type: "registry",
+                  namespace: "@acme",
+                  name: "deps-pack",
+                  resolvedVersion: "1.0.0",
+                  integrity: "sha512-abc123",
+                  sourceName: "default",
+                  installedAt: "2026-01-28T10:00:00.000Z",
+                  updatedAt: "2026-01-28T10:00:00.000Z",
+                  resolvedSkills: {
+                    "@acme/skills/dep-skill": "^1.0.0",
+                  },
+                  resolvedCommands: {},
+                  resolvedMcpServers: {},
+                },
+              },
+            }),
+          );
+
+          const error = yield* readLockfile(axmDir).pipe(Effect.flip);
+
+          expect(error.code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
+          expect(error.what).toContain("exact semver");
+          expect(Option.isSome(error.howToFix)).toBe(true);
         }),
       ),
     );

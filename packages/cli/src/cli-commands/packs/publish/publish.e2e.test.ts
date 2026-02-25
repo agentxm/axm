@@ -70,7 +70,9 @@ const createManagedPack = (
     path.join(packDir, "axm-pack.json"),
     JSON.stringify(
       {
-        name: `${namespace}/packs/${name}`,
+        namespace,
+        type: "pack",
+        name,
         ...manifest,
       },
       null,

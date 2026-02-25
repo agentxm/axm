@@ -19,6 +19,7 @@ import { computeIntegrity } from "../../../utils/integrity.js";
 import { isPathSafe } from "../../../utils/path-safety.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
+import { validateExactResolvedVersion } from "../../../lockfile/index.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/service.js";
@@ -393,6 +394,14 @@ export const installSkill: OperationHandler<
       now: new Date(),
       sourceName: Option.none(),
     });
+
+    if (lockEntry.type === "registry") {
+      yield* validateExactResolvedVersion(
+        `skills.${ref.skill.name}.resolvedVersion`,
+        lockEntry.resolvedVersion,
+      );
+    }
+
     const skillArgs = {
       name: ref.skill.name,
       lockEntry,

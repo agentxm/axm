@@ -26,14 +26,15 @@ import { installPack } from "../../../extensions/packs/operations/install.js";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
 import { installCommand } from "../../../extensions/commands/operations/install.js";
 import { installMcpServer } from "../../../extensions/mcp-servers/operations/install.js";
-import {
-  buildRegistrySkillRef,
-  buildRegistryCommandRef,
-  buildRegistryMcpServerRef,
-} from "../../../extensions/index.js";
+import { parseFqn } from "../../../extensions/fqn.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
 import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/install.js";
+import type {
+  RegistrySkillRef,
+  RegistryCommandRef,
+  RegistryMcpServerRef,
+} from "../../../sources/types.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -250,42 +251,147 @@ export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
   }
   yield* discoverHandle.stop("Found pack");
 
-  // Step 5: Build extension ops from pack ref's resolved maps
-  const skillOps: ReadonlyArray<InstallSkillOperation> = Object.entries(packRef.pack.skills).map(
-    ([fqn, version]) => ({
-      name: "install-skill" as const,
-      args: {
-        ref: buildRegistrySkillRef(fqn, version, packRef.source),
-        force: false,
-        versionConstraint: Option.none<string>(),
-        skipSettings: Option.some(true),
-      },
-    }),
+  // Step 5: Resolve dependency constraints to exact registry refs
+  const skillOps: ReadonlyArray<InstallSkillOperation> = yield* Effect.forEach(
+    Object.entries(packRef.pack.skills),
+    ([fqn, versionConstraint]) =>
+      Effect.gen(function* () {
+        const parsed = yield* parseFqn(fqn);
+        if (parsed.type !== "skills") {
+          return yield* makeCliError({
+            code: "PACK_DEPENDENCY_INVALID_FQN",
+            what: `Expected a skill FQN, got: ${fqn}`,
+          });
+        }
+
+        const refs = yield* sources.find(packRef.source, {
+          skillNames: [parsed.name],
+          type: "skill",
+          namespace: Option.some(parsed.namespace),
+          versionConstraint: Option.some(versionConstraint),
+        });
+
+        const resolved = refs.find(
+          (ref): ref is RegistrySkillRef =>
+            ref.type === "skill" &&
+            ref.refType === "registry" &&
+            ref.namespace === parsed.namespace &&
+            ref.name === parsed.name,
+        );
+
+        if (resolved === undefined) {
+          return yield* makeCliError({
+            code: "PACK_DEPENDENCY_NOT_FOUND",
+            what: `Skill dependency not found: ${fqn}@${versionConstraint}`,
+          });
+        }
+
+        return {
+          name: "install-skill",
+          args: {
+            ref: resolved,
+            force: false,
+            versionConstraint: Option.some(versionConstraint),
+            skipSettings: Option.some(true),
+          },
+        } satisfies InstallSkillOperation;
+      }),
+    { concurrency: "unbounded" },
   );
 
-  const commandOps: ReadonlyArray<InstallCommandOperation> = Object.entries(
-    packRef.pack.commands,
-  ).map(([fqn, version]) => ({
-    name: "install-command" as const,
-    args: {
-      ref: buildRegistryCommandRef(fqn, version, packRef.source),
-      force: false,
-      versionConstraint: Option.none<string>(),
-      skipSettings: Option.some(true),
-    },
-  }));
+  const commandOps: ReadonlyArray<InstallCommandOperation> = yield* Effect.forEach(
+    Object.entries(packRef.pack.commands),
+    ([fqn, versionConstraint]) =>
+      Effect.gen(function* () {
+        const parsed = yield* parseFqn(fqn);
+        if (parsed.type !== "commands") {
+          return yield* makeCliError({
+            code: "PACK_DEPENDENCY_INVALID_FQN",
+            what: `Expected a command FQN, got: ${fqn}`,
+          });
+        }
 
-  const mcpServerOps: ReadonlyArray<InstallMcpServerOperation> = Object.entries(
-    packRef.pack.mcpServers,
-  ).map(([fqn, version]) => ({
-    name: "install-mcp-server" as const,
-    args: {
-      ref: buildRegistryMcpServerRef(fqn, version, packRef.source),
-      force: false,
-      versionConstraint: Option.none<string>(),
-      skipSettings: Option.some(true),
-    },
-  }));
+        const refs = yield* sources.find(packRef.source, {
+          skillNames: [parsed.name],
+          type: "command",
+          namespace: Option.some(parsed.namespace),
+          versionConstraint: Option.some(versionConstraint),
+        });
+
+        const resolved = refs.find(
+          (ref): ref is RegistryCommandRef =>
+            ref.type === "command" &&
+            ref.refType === "registry" &&
+            ref.namespace === parsed.namespace &&
+            ref.name === parsed.name,
+        );
+
+        if (resolved === undefined) {
+          return yield* makeCliError({
+            code: "PACK_DEPENDENCY_NOT_FOUND",
+            what: `Command dependency not found: ${fqn}@${versionConstraint}`,
+          });
+        }
+
+        return {
+          name: "install-command",
+          args: {
+            ref: resolved,
+            force: false,
+            versionConstraint: Option.some(versionConstraint),
+            skipSettings: Option.some(true),
+          },
+        } satisfies InstallCommandOperation;
+      }),
+    { concurrency: "unbounded" },
+  );
+
+  const mcpServerOps: ReadonlyArray<InstallMcpServerOperation> = yield* Effect.forEach(
+    Object.entries(packRef.pack.mcpServers),
+    ([fqn, versionConstraint]) =>
+      Effect.gen(function* () {
+        const parsed = yield* parseFqn(fqn);
+        if (parsed.type !== "mcp-servers") {
+          return yield* makeCliError({
+            code: "PACK_DEPENDENCY_INVALID_FQN",
+            what: `Expected an MCP server FQN, got: ${fqn}`,
+          });
+        }
+
+        const refs = yield* sources.find(packRef.source, {
+          skillNames: [parsed.name],
+          type: "mcp-server",
+          namespace: Option.some(parsed.namespace),
+          versionConstraint: Option.some(versionConstraint),
+        });
+
+        const resolved = refs.find(
+          (ref): ref is RegistryMcpServerRef =>
+            ref.type === "mcp-server" &&
+            ref.refType === "registry" &&
+            ref.namespace === parsed.namespace &&
+            ref.name === parsed.name,
+        );
+
+        if (resolved === undefined) {
+          return yield* makeCliError({
+            code: "PACK_DEPENDENCY_NOT_FOUND",
+            what: `MCP server dependency not found: ${fqn}@${versionConstraint}`,
+          });
+        }
+
+        return {
+          name: "install-mcp-server",
+          args: {
+            ref: resolved,
+            force: false,
+            versionConstraint: Option.some(versionConstraint),
+            skipSettings: Option.some(true),
+          },
+        } satisfies InstallMcpServerOperation;
+      }),
+    { concurrency: "unbounded" },
+  );
 
   // Step 6: Build and execute plan
   const lockedPacks = yield* ws.getLockedPacks();

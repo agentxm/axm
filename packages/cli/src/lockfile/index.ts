@@ -48,3 +48,7 @@ export {
 export { LOCKFILE_NAME } from "./lockfile.js";
 
 export { readLockfile, writeLockfile } from "./lockfile.js";
+export {
+  validateExactResolvedVersion,
+  validateExactResolvedVersionMap,
+} from "./resolved-version.js";

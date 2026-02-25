@@ -29,6 +29,7 @@ import { type Lockfile, LockfileSchema } from "./schema.js";
 export const LOCKFILE_NAME = "axm-lock.yaml";
 
 const LOCKFILE_VERSION = 1;
+const EXACT_VERSION_ERROR_PREFIX = "Expected exact semver version, got:";
 
 // -----------------------------------------------------------------------------
 // Internal Helpers
@@ -48,13 +49,27 @@ const createEmptyLockfile = (): Lockfile => ({
  */
 const decodeLockfile = (data: unknown): Effect.Effect<Lockfile, CliError> =>
   Schema.decodeUnknown(LockfileSchema)(data).pipe(
-    Effect.mapError((e) =>
-      makeCliError({
+    Effect.mapError((cause) => {
+      const message = cause instanceof Error ? cause.message : String(cause);
+      const isResolvedVersionViolation = message.includes(EXACT_VERSION_ERROR_PREFIX);
+
+      if (isResolvedVersionViolation) {
+        return makeCliError({
+          code: "LOCKFILE_RESOLVED_VERSION_INVALID",
+          what: "Lockfile resolved versions must be exact semver values",
+          details: [message],
+          howToFix:
+            "Replace range values in lockfile resolved fields with exact versions (for example, 1.2.3 instead of ^1.2.3).",
+          cause,
+        });
+      }
+
+      return makeCliError({
         code: "LOCKFILE_PARSE_FAILED",
         what: "Invalid lockfile format",
-        cause: e,
-      }),
-    ),
+        cause,
+      });
+    }),
   );
 
 // -----------------------------------------------------------------------------

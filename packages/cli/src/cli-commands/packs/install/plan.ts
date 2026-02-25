@@ -10,6 +10,7 @@
  */
 
 import * as Option from "effect/Option";
+import { formatFqn } from "../../../extensions/fqn.js";
 import type { Lockfile } from "../../../lockfile/schema.js";
 import type { PackExtensionRef } from "../../../sources/types.js";
 import { makeStep } from "../../../workspace/plan.js";
@@ -68,6 +69,57 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs): Plan<PackInstallOp
     versionConstraint,
   } = args;
 
+  const resolvedSkills = Object.fromEntries(
+    skillOps.flatMap((op) =>
+      op.args.ref.refType === "registry"
+        ? [
+            [
+              formatFqn({
+                namespace: op.args.ref.namespace,
+                type: "skills",
+                name: op.args.ref.name,
+              }),
+              op.args.ref.version,
+            ],
+          ]
+        : [],
+    ),
+  );
+
+  const resolvedCommands = Object.fromEntries(
+    commandOps.flatMap((op) =>
+      op.args.ref.refType === "registry"
+        ? [
+            [
+              formatFqn({
+                namespace: op.args.ref.namespace,
+                type: "commands",
+                name: op.args.ref.name,
+              }),
+              op.args.ref.version,
+            ],
+          ]
+        : [],
+    ),
+  );
+
+  const resolvedMcpServers = Object.fromEntries(
+    mcpServerOps.flatMap((op) =>
+      op.args.ref.refType === "registry"
+        ? [
+            [
+              formatFqn({
+                namespace: op.args.ref.namespace,
+                type: "mcp-servers",
+                name: op.args.ref.name,
+              }),
+              op.args.ref.version,
+            ],
+          ]
+        : [],
+    ),
+  );
+
   // Build InstallPackOperation from the ref
   const packOp: InstallPackOperation = {
     name: "install-pack",
@@ -77,9 +129,9 @@ export const buildInstallPlan = (args: BuildInstallPlanArgs): Plan<PackInstallOp
       resolvedVersion: ref.refType === "registry" ? ref.version : "",
       integrity: ref.refType === "registry" ? ref.integrity : "",
       sourceName: "default",
-      resolvedSkills: { ...ref.pack.skills },
-      resolvedCommands: { ...ref.pack.commands },
-      resolvedMcpServers: { ...ref.pack.mcpServers },
+      resolvedSkills,
+      resolvedCommands,
+      resolvedMcpServers,
       versionConstraint,
       ref,
     },

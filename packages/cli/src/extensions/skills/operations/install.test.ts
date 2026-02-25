@@ -218,7 +218,7 @@ const makeOp = (
     sourceInput.type === "registry" && overrides.location !== undefined
       ? { ...sourceInput, location: new URL(overrides.location) }
       : sourceInput;
-  const version = overrides.version ?? Option.none();
+  const version = overrides.version ?? Option.some("1.0.0");
   const gitTreeSha = overrides.gitTreeSha ?? Option.none();
 
   // Construct SkillExtensionRef directly based on source type
@@ -732,6 +732,36 @@ describe("installSkill", () => {
         expect(entry.name).toBe("my-skill");
         expect(entry.resolvedVersion).toBe("1.2.3");
         expect(entry.sourceName).toBe("default");
+      }),
+    );
+
+    it.effect("fails when registry resolvedVersion is a range", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
+
+        const result = yield* installSkill(
+          makeOp({
+            source: {
+              type: "registry",
+              location: new URL("file:///tmp/reg"),
+              namespace: Option.none(),
+            },
+            namespace: "@community",
+            version: Option.some("^1.0.0"),
+            versionConstraint: Option.some("^1.0.0"),
+          }),
+        ).pipe(
+          Effect.provide(withServices(axmDir)),
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, error: e })),
+        );
+
+        expect(result.result).toBe("error");
+        if (result.result === "error") {
+          expect(result.error.code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
+          expect(result.error.what).toContain("exact semver");
+          expect(result.error.details.join("\n")).toContain("Received: ^1.0.0");
+        }
       }),
     );
   });

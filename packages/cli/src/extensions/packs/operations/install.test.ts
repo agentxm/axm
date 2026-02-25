@@ -227,6 +227,88 @@ describe("installPack operation handler", () => {
     );
   });
 
+  it.effect("persists exact resolved maps in pack lockfile entry", () => {
+    const archiveDir = nodePath.join(tempDir, "archive");
+    createPackArchive(archiveDir);
+
+    const mockService: SourceHostProvidersService = {
+      find: () => Effect.succeed([]),
+      fetch: () => Effect.succeed({ directory: archiveDir } satisfies ExtensionFiles),
+      cloneUrl: () => Option.none(),
+      origin: () => "unknown",
+    };
+
+    initWorkspace(nodePath.join(tempDir, ".axm"));
+
+    const ref = makePackRef();
+    const op = makeOperation(ref, {
+      resolvedSkills: { "@acme/skills/code-review": "1.2.0" },
+      resolvedCommands: { "@acme/commands/format": "2.0.0" },
+      resolvedMcpServers: { "@acme/mcp-servers/local-tools": "3.0.1" },
+    });
+    const { provide } = makeLayers(mockService);
+
+    return provide(
+      Effect.gen(function* () {
+        const result = yield* installPack(op).pipe(Effect.scoped);
+        expect(result.result).toBe("success");
+
+        const axmDir = nodePath.join(tempDir, ".axm");
+        const lockfile = YAML.parse(
+          fs.readFileSync(nodePath.join(axmDir, "axm-lock.yaml"), "utf-8"),
+        ) as {
+          packs?: Record<
+            string,
+            {
+              resolvedSkills: Record<string, string>;
+              resolvedCommands: Record<string, string>;
+              resolvedMcpServers: Record<string, string>;
+            }
+          >;
+        };
+        const entry = lockfile.packs?.["my-pack"];
+        expect(entry).toBeDefined();
+        expect(entry?.resolvedSkills).toEqual({ "@acme/skills/code-review": "1.2.0" });
+        expect(entry?.resolvedCommands).toEqual({ "@acme/commands/format": "2.0.0" });
+        expect(entry?.resolvedMcpServers).toEqual({ "@acme/mcp-servers/local-tools": "3.0.1" });
+      }),
+    );
+  });
+
+  it.effect("fails when a pack resolved map contains a range", () => {
+    const archiveDir = nodePath.join(tempDir, "archive");
+    createPackArchive(archiveDir);
+
+    const mockService: SourceHostProvidersService = {
+      find: () => Effect.succeed([]),
+      fetch: () => Effect.succeed({ directory: archiveDir } satisfies ExtensionFiles),
+      cloneUrl: () => Option.none(),
+      origin: () => "unknown",
+    };
+
+    initWorkspace(nodePath.join(tempDir, ".axm"));
+
+    const ref = makePackRef();
+    const op = makeOperation(ref, {
+      resolvedSkills: { "@acme/skills/code-review": "^1.2.0" },
+    });
+    const { provide } = makeLayers(mockService);
+
+    return provide(
+      Effect.gen(function* () {
+        const result = yield* installPack(op).pipe(Effect.scoped);
+        expect(result.result).toBe("error");
+        if (result.result === "error") {
+          expect(result.error.code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
+          expect(result.error.what).toContain("exact semver");
+          expect(result.error.details.join("\n")).toContain(
+            "resolvedSkills.@acme/skills/code-review",
+          );
+        }
+      }),
+    );
+  });
+
   it.effect("returns error result when fetch fails", () => {
     const mockService: SourceHostProvidersService = {
       find: () => Effect.succeed([]),

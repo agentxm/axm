@@ -497,10 +497,17 @@ describe("axm packs install", () => {
       expect(lock.packs["deps-pack"]).toBeDefined();
       const packEntry = lock.packs["deps-pack"];
       expect(packEntry.type).toBe("registry");
+      expect(packEntry.resolvedVersion).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/);
+      expect(packEntry.resolvedVersion.startsWith("^")).toBe(false);
+      expect(packEntry.resolvedVersion.startsWith("~")).toBe(false);
       expect(packEntry.resolvedSkills).toBeDefined();
       const resolvedKeys = Object.keys(packEntry.resolvedSkills);
       expect(resolvedKeys.length).toBeGreaterThan(0);
       expect(resolvedKeys.some((k: string) => k.includes("dep-skill"))).toBe(true);
+      const resolvedSkillVersion = packEntry.resolvedSkills["@test/skills/dep-skill"];
+      expect(resolvedSkillVersion).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/);
+      expect(resolvedSkillVersion.startsWith("^")).toBe(false);
+      expect(resolvedSkillVersion.startsWith("~")).toBe(false);
 
       // Verify pack in settings
       const settings = readSettings();

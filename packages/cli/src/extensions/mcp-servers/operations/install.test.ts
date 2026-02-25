@@ -391,6 +391,48 @@ describe("installMcpServer", () => {
         expect(result.result).toBe("success");
       }),
     );
+
+    it.effect("accepts exact registry resolvedVersion for lockfile persistence", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
+        const setMcpServerFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
+
+        const result = yield* installMcpServer(
+          makeOp({ ref: makeRegistryRef({ integrity: "", version: "1.2.3" }) }),
+        ).pipe(Effect.provide(withServices(axmDir, { setMcpServerFn })));
+
+        expect(result.result).toBe("success");
+        expect(setMcpServerFn).toHaveBeenCalledOnce();
+        expect(setMcpServerFn).toHaveBeenCalledWith({
+          name: "my-server",
+          lockEntry: expect.objectContaining({ resolvedVersion: "1.2.3" }),
+        });
+      }),
+    );
+
+    it.effect("fails when registry resolvedVersion is a range", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
+        const setMcpServerFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
+
+        const result = yield* installMcpServer(
+          makeOp({ ref: makeRegistryRef({ integrity: "", version: "^1.0.0" }) }),
+        ).pipe(
+          Effect.provide(withServices(axmDir, { setMcpServerFn })),
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, error: e })),
+        );
+
+        expect(result.result).toBe("error");
+        expect(setMcpServerFn).not.toHaveBeenCalled();
+        if (result.result === "error") {
+          expect(result.error.code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
+          expect(result.error.what).toContain("exact semver");
+          expect(result.error.details.join("\n")).toContain("Received: ^1.0.0");
+        }
+      }),
+    );
   });
 
   describe("non-empty integrity validation", () => {

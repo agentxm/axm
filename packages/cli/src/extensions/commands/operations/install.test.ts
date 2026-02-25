@@ -393,6 +393,48 @@ describe("installCommand", () => {
         expect(result.result).toBe("success");
       }),
     );
+
+    it.effect("accepts exact registry resolvedVersion for lockfile persistence", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
+        const setCommandFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
+
+        const result = yield* installCommand(
+          makeOp({ ref: makeRegistryRef({ integrity: "", version: "1.2.3" }) }),
+        ).pipe(Effect.provide(withServices(axmDir, { setCommandFn })));
+
+        expect(result.result).toBe("success");
+        expect(setCommandFn).toHaveBeenCalledOnce();
+        expect(setCommandFn).toHaveBeenCalledWith({
+          name: "my-command",
+          lockEntry: expect.objectContaining({ resolvedVersion: "1.2.3" }),
+        });
+      }),
+    );
+
+    it.effect("fails when registry resolvedVersion is a range", () =>
+      Effect.gen(function* () {
+        const { axmDir, base } = setupBase();
+        setupRegistryCanonical(base, "@community");
+        const setCommandFn = vi.fn((_args: { name: string; lockEntry: unknown }) => Effect.void);
+
+        const result = yield* installCommand(
+          makeOp({ ref: makeRegistryRef({ integrity: "", version: "^1.0.0" }) }),
+        ).pipe(
+          Effect.provide(withServices(axmDir, { setCommandFn })),
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, error: e })),
+        );
+
+        expect(result.result).toBe("error");
+        expect(setCommandFn).not.toHaveBeenCalled();
+        if (result.result === "error") {
+          expect(result.error.code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
+          expect(result.error.what).toContain("exact semver");
+          expect(result.error.details.join("\n")).toContain("Received: ^1.0.0");
+        }
+      }),
+    );
   });
 
   describe("non-empty integrity validation", () => {

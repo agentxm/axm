@@ -12,6 +12,10 @@ import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import type { Option } from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
+import {
+  validateExactResolvedVersion,
+  validateExactResolvedVersionMap,
+} from "../../../lockfile/index.js";
 import { SourceHostProviders } from "../../../sources/index.js";
 import type { PackExtensionRef } from "../../../sources/types.js";
 import { Log } from "../../../tui/index.js";
@@ -74,6 +78,23 @@ export const installPack: OperationHandler<
     const log = yield* Log;
     const sources = yield* SourceHostProviders;
     const path = yield* Path.Path;
+
+    yield* validateExactResolvedVersion(
+      `packs.${op.args.packName}.resolvedVersion`,
+      op.args.resolvedVersion,
+    );
+    yield* validateExactResolvedVersionMap(
+      `packs.${op.args.packName}.resolvedSkills`,
+      op.args.resolvedSkills,
+    );
+    yield* validateExactResolvedVersionMap(
+      `packs.${op.args.packName}.resolvedCommands`,
+      op.args.resolvedCommands,
+    );
+    yield* validateExactResolvedVersionMap(
+      `packs.${op.args.packName}.resolvedMcpServers`,
+      op.args.resolvedMcpServers,
+    );
 
     // Extract to managed location
     const packDir = computePackPaths(

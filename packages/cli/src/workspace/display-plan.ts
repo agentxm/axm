@@ -71,7 +71,7 @@ const renderStep = <Op>(step: JobStep<Op>, log: Log["Type"], verbosity: RenderCl
         const headline = first.startsWith("\u2717 ") ? first.slice(2) : first;
 
         return Effect.gen(function* () {
-          yield* log.error(`  \u2717 ${step.label} (${headline})`);
+          yield* log.error(`  \u2717 ${step.label}: ${headline}`);
           for (const line of rest) {
             yield* log.error(`    ${line.trimStart()}`);
           }

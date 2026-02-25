@@ -19,13 +19,26 @@ const isCliError = (cause: unknown): cause is CliError =>
   "what" in cause &&
   "code" in cause;
 
-const formatCause = (cause: unknown, options: RenderCliErrorOptions): ReadonlyArray<string> => {
+const formatCause = (
+  cause: unknown,
+  options: RenderCliErrorOptions,
+  parentDetails: ReadonlyArray<string>,
+): ReadonlyArray<string> => {
   if (cause === undefined || cause === null) return [];
 
   if (isCliError(cause)) {
-    const lines = [`Cause: ${cause.what} (${cause.code})`];
+    const causeHeadline = `${cause.what} (${cause.code})`;
+    const parentDetailSet = new Set(parentDetails);
+    const hasEquivalentParentSummary = Array.from(parentDetailSet).some(
+      (detail) => detail === causeHeadline || detail.endsWith(`: ${causeHeadline}`),
+    );
+    const lines = hasEquivalentParentSummary ? [] : [`Cause: ${causeHeadline}`];
+
     if (options.debug) {
       for (const detail of cause.details) {
+        if (parentDetailSet.has(detail)) {
+          continue;
+        }
         lines.push(`Cause detail: ${detail}`);
       }
     }
@@ -72,7 +85,7 @@ export const renderCliError = (
   }
 
   if (options.verbose || options.debug) {
-    for (const line of formatCause(error.cause, options)) {
+    for (const line of formatCause(error.cause, options, error.details)) {
       lines.push(`  ${line}`);
     }
   }

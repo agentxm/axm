@@ -193,6 +193,7 @@ export const publishSkill: OperationHandler<
               `Registry error: ${e.what} (${e.code})`,
               ...e.details,
             ],
+            ...(Option.isSome(e.howToFix) && { howToFix: e.howToFix.value }),
             cause: e,
           }),
         ),

@@ -223,13 +223,20 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
     "publish-skill": publishSkill,
   });
 
-  const failedCount = resolvedPlan.jobs
+  const failedStepDetails = resolvedPlan.jobs
     .flatMap((job) => job.steps)
-    .filter((step) => step._tag === "JobStepResult" && step.result.result === "error").length;
+    .flatMap((step) =>
+      step._tag === "JobStepResult" && step.result.result === "error"
+        ? [`${step.label}: ${step.result.message}`]
+        : [],
+    );
 
-  if (failedCount > 0) {
-    yield* log.warn("Done with errors");
-    return;
+  if (failedStepDetails.length > 0) {
+    return yield* makeCliError({
+      code: "PUBLISH_PLAN_FAILED",
+      what: `Failed to publish ${failedStepDetails.length} skill${failedStepDetails.length === 1 ? "" : "s"}`,
+      details: failedStepDetails,
+    });
   }
 
   yield* log.success("Done");

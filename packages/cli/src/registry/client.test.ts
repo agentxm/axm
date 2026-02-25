@@ -890,4 +890,15 @@ describe("createRegistryClient", () => {
       }
     }).pipe(Effect.provide(NodeContext.layer)),
   );
+
+  it.effect("creates a remote client for an http:// URL", () =>
+    Effect.gen(function* () {
+      const client = yield* createRegistryClient("http://registry.example.com");
+      const result = yield* client.getExtensionsByScope(defaultSearchOptions).pipe(Effect.either);
+      expect(result._tag).toBe("Left");
+      if (result._tag === "Left") {
+        expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
+      }
+    }).pipe(Effect.provide(NodeContext.layer)),
+  );
 });

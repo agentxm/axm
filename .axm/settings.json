@@ -4,7 +4,7 @@
     {
       "name": "local-registry",
       "type": "registry",
-      "location": "http://localhost:4300"
+      "location": "http://localhost:4300/"
     },
     {
       "name": "local",
@@ -22,7 +22,9 @@
     "github-copilot",
     "opencode"
   ],
-  "skills": {},
+  "skills": {
+    "effect-basics": "@axm/skills/effect-basics"
+  },
   "packs": {
     "effect": "@axm/packs/effect"
   }

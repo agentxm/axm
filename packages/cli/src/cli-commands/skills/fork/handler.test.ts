@@ -584,7 +584,7 @@ describe("fork.handler", () => {
   });
 
   describe("unknown skill name", () => {
-    it.effect("fails with descriptive error for unknown skill name", () => {
+    it.effect("fails with INVALID_SOURCE and includes a concrete reason", () => {
       const { provide } = makeLayers();
       const registryRoot = path.join(tempDir, "registry");
 
@@ -593,10 +593,40 @@ describe("fork.handler", () => {
       return provide(
         Effect.gen(function* () {
           const result = yield* handleFork(defaultArgs("nonexistent-skill")).pipe(
-            Effect.catchTag("CliError", (e) => Effect.succeed({ error: true, what: e.what })),
+            Effect.catchTag("CliError", (e) =>
+              Effect.succeed({ error: true, code: e.code, what: e.what, details: e.details }),
+            ),
           );
           expect(result).toHaveProperty("error", true);
           expect((result as { what: string }).what).toContain("Invalid source");
+          expect((result as { code: string }).code).toBe("INVALID_SOURCE");
+          const reason = (result as { details: ReadonlyArray<string> }).details.find((d) =>
+            d.startsWith("Reason:"),
+          );
+          expect(reason).toBeDefined();
+          expect(reason).not.toBe("Reason:");
+        }),
+      );
+    });
+
+    it.effect("returns DISCOVER_FAILED with a concrete reason when local source discovery fails", () => {
+      const { provide } = makeLayers();
+      const registryRoot = path.join(tempDir, "registry");
+
+      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+
+      return provide(
+        Effect.gen(function* () {
+          const result = yield* handleFork(defaultArgs("/path/does/not/exist")).pipe(
+            Effect.catchTag("CliError", (e) => Effect.succeed({ code: e.code, details: e.details })),
+          );
+          expect(result).toBeDefined();
+          expect((result as { code: string }).code).toBe("DISCOVER_FAILED");
+          const reason = (result as { details: ReadonlyArray<string> }).details.find((d) =>
+            d.startsWith("Reason:"),
+          );
+          expect(reason).toBeDefined();
+          expect(reason).not.toBe("Reason:");
         }),
       );
     });

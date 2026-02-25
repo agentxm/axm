@@ -51,6 +51,35 @@ const initWorkspace = (
   );
 };
 
+const createRegistrySkill = ({
+  registryRoot,
+  namespace,
+  name,
+}: {
+  readonly registryRoot: string;
+  readonly namespace: string;
+  readonly name: string;
+}) => {
+  const skillDir = path.join(registryRoot, "extensions", namespace, "skills", name);
+  fs.mkdirSync(skillDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(skillDir, "index.json"),
+    JSON.stringify({
+      name,
+      namespace,
+      type: "skill",
+      versions: [
+        {
+          version: "1.0.0",
+          published: "2025-01-01T00:00:00Z",
+          agents: [],
+          integrity: "sha512-AAAA==",
+        },
+      ],
+    }),
+  );
+};
+
 const defaultArgs = (
   source: string,
   overrides: Partial<InstallHandlerArgs> = {},
@@ -87,11 +116,14 @@ describe("skills install handler — error propagation", () => {
   });
 
   const makeLayers = (wsOverrides?: Partial<WorkspaceContextOptions>) => {
-    const [logLayer] = makeLogTestLayer();
+    const [logLayer, logMock] = makeLogTestLayer();
     const [spinnerLayer] = makeSpinnerTestLayer();
     const [confirmLayer] = makeConfirmTestLayer({ type: "return", value: true });
     const [selectLayer] = makeSelectTestLayer({ type: "return", index: 0 });
-    const [multiselectLayer] = makeMultiselectTestLayer({ type: "return", indices: [] });
+    const [multiselectLayer, multiselectMock] = makeMultiselectTestLayer({
+      type: "return",
+      indices: [],
+    });
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
       logLayer,
@@ -116,7 +148,11 @@ describe("skills install handler — error propagation", () => {
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
       effect.pipe(Effect.provide(FullLayer));
 
-    return { provide };
+    return {
+      provide,
+      logMock,
+      multiselectMock,
+    };
   };
 
   it.effect(
@@ -151,6 +187,79 @@ describe("skills install handler — error propagation", () => {
         const error = yield* handleInstall(defaultArgs("")).pipe(Effect.flip);
         expect(error._tag).toBe("CliError");
         expect((error as CliError).code).toBe("INVALID_SOURCE");
+      }),
+    );
+  });
+
+  it.effect(
+    "discovers from the resolved registry source when an earlier registry is unsupported",
+    () => {
+      const { provide } = makeLayers();
+
+      const registryDir = path.join(tempDir, "registry");
+      createRegistrySkill({
+        registryRoot: registryDir,
+        namespace: "@myorg",
+        name: "effect-basics",
+      });
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        namespace: "@myorg",
+        sources: [
+          { type: "registry", name: "remote", location: "http://localhost:4300" },
+          { type: "registry", name: "local", location: `file://${registryDir}` },
+        ],
+      });
+
+      return provide(handleInstall(defaultArgs("effect-basics", { list: true })));
+    },
+  );
+
+  it.effect("auto-selects a uniquely matched bare-name skill without multiselect prompt", () => {
+    const { provide, logMock, multiselectMock } = makeLayers({
+      yes: false,
+      nonInteractive: Option.none(),
+    });
+
+    const registryDir = path.join(tempDir, "registry");
+    createRegistrySkill({ registryRoot: registryDir, namespace: "@myorg", name: "effect-basics" });
+
+    initWorkspace(path.join(tempDir, ".axm"), {
+      namespace: "@myorg",
+      sources: [
+        { type: "registry", name: "remote", location: "http://localhost:4300" },
+        { type: "registry", name: "local", location: `file://${registryDir}` },
+      ],
+    });
+
+    return provide(
+      Effect.gen(function* () {
+        yield* handleInstall(
+          defaultArgs("effect-basics", {
+            yes: false,
+            nonInteractive: Option.none(),
+          }),
+        );
+
+        expect(multiselectMock.calls).toHaveLength(0);
+        expect(logMock.logs.message.some((line) => line.startsWith("Resolution:"))).toBe(true);
+      }),
+    );
+  });
+
+  it.effect("returns DISCOVER_FAILED with a concrete reason detail", () => {
+    const { provide } = makeLayers();
+    initWorkspace(path.join(tempDir, ".axm"));
+
+    return provide(
+      Effect.gen(function* () {
+        const error = yield* handleInstall(defaultArgs("/path/does/not/exist")).pipe(Effect.flip);
+        expect(error._tag).toBe("CliError");
+        expect((error as CliError).code).toBe("DISCOVER_FAILED");
+        const details = (error as CliError).details;
+        const reason = details.find((d) => d.startsWith("Reason:"));
+        expect(reason).toBeDefined();
+        expect(reason).not.toBe("Reason:");
       }),
     );
   });

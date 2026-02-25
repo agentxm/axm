@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { makeCliError } from "../../../cli-error/index.js";
-import { createRegistryClient } from "../../../registry/index.js";
+import { makeCliError, type CliError } from "../../../cli-error/index.js";
+import { createRegistryClient, type RegistryClient } from "../../../registry/index.js";
 import type { InputParseResult, InputPattern } from "../../../sources/parser.js";
 import {
   resolveShorthandInputSource,
@@ -11,11 +11,82 @@ import {
 import { Workspace } from "../../../workspace/index.js";
 import type { RegistrySource } from "../../../sources/types.js";
 
+export type RegistryLookupProbe = {
+  readonly location: string;
+  readonly outcome: "matched" | "not-found" | "error";
+  readonly reason: Option.Option<string>;
+};
+
+type ResolveSkillInstallSourceOptions = {
+  readonly onRegistryProbe: (probe: RegistryLookupProbe) => void;
+};
+
+type RegistryLookupIssue = {
+  readonly location: string;
+  readonly message: string;
+  readonly code: Option.Option<string>;
+};
+
+const isCliError = (error: unknown): error is CliError =>
+  typeof error === "object" &&
+  error !== null &&
+  "_tag" in error &&
+  error._tag === "CliError" &&
+  "what" in error &&
+  "code" in error;
+
+const summarizeLookupError = (error: unknown): string => {
+  if (isCliError(error)) {
+    return `${error.what} (${error.code})`;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+};
+
+const toLookupIssue = (location: URL, error: unknown): RegistryLookupIssue => ({
+  location: location.href,
+  message: summarizeLookupError(error),
+  code: isCliError(error) ? Option.some(error.code) : Option.none<string>(),
+});
+
+const hasRemoteNotSupportedIssue = (issues: ReadonlyArray<RegistryLookupIssue>): boolean =>
+  issues.some(
+    (issue) => Option.isSome(issue.code) && issue.code.value === "REGISTRY_REMOTE_NOT_SUPPORTED",
+  );
+
+const registryLookupHowToFix = ({
+  issues,
+  fallback,
+}: {
+  readonly issues: ReadonlyArray<RegistryLookupIssue>;
+  readonly fallback: string;
+}): string =>
+  hasRemoteNotSupportedIssue(issues)
+    ? "Remote registry discovery is not yet supported for HTTP(S) sources. Use a file:// registry source, or install from github:owner/repo."
+    : fallback;
+
+const checkRegistryMatch = ({
+  client,
+  namespace,
+  skillName,
+}: {
+  readonly client: RegistryClient;
+  readonly namespace: string;
+  readonly skillName: Option.Option<string>;
+}) =>
+  Option.match(skillName, {
+    onNone: () => client.namespaceExists(namespace),
+    onSome: (name) => client.extensionExists({ namespace, type: "skill", name }),
+  });
+
 const resolveRegistrySource = (
   namespace: string,
   input: string,
   options: {
-    readonly findMatchingNamespace: boolean;
+    readonly skillName: Option.Option<string>;
+    readonly resolutionOptions: Option.Option<ResolveSkillInstallSourceOptions>;
   },
 ) =>
   Effect.gen(function* () {
@@ -36,40 +107,97 @@ const resolveRegistrySource = (
       return yield* makeCliError({
         code: "REGISTRY_NO_SOURCE_CONFIGURED",
         what: `No registry source is configured for namespace "${namespace}"`,
-        details: [input],
+        details: [`Provided: ${input}`],
         howToFix: `Add a registry source for namespace "${namespace}" using "axm sources add"`,
       });
     }
-    if (registrySources.length === 1 || !options.findMatchingNamespace) {
-      const regConfig = registrySources[0]!;
-      return {
-        type: "registry" as const,
-        location: regConfig.location,
-        namespace: Option.some(namespace),
-      } satisfies RegistrySource;
-    }
+
+    const checked: string[] = [];
+    const issues: RegistryLookupIssue[] = [];
 
     for (const regConfig of registrySources) {
+      checked.push(regConfig.location.href);
       const client = yield* createRegistryClient(regConfig.location.href);
-      const { exists: hasRequestedNamespace } = yield* client.namespaceExists(namespace);
-      if (hasRequestedNamespace) {
+      const matchResult = yield* checkRegistryMatch({
+        client,
+        namespace,
+        skillName: options.skillName,
+      }).pipe(Effect.either);
+
+      if (matchResult._tag === "Left") {
+        if (Option.isSome(options.resolutionOptions)) {
+          options.resolutionOptions.value.onRegistryProbe({
+            location: regConfig.location.href,
+            outcome: "error",
+            reason: Option.some(summarizeLookupError(matchResult.left)),
+          });
+        }
+        issues.push(toLookupIssue(regConfig.location, matchResult.left));
+        continue;
+      }
+
+      if (matchResult.right.exists) {
+        if (Option.isSome(options.resolutionOptions)) {
+          options.resolutionOptions.value.onRegistryProbe({
+            location: regConfig.location.href,
+            outcome: "matched",
+            reason: Option.none<string>(),
+          });
+        }
         return {
           type: "registry" as const,
           location: regConfig.location,
           namespace: Option.some(namespace),
         } satisfies RegistrySource;
       }
+
+      if (Option.isSome(options.resolutionOptions)) {
+        options.resolutionOptions.value.onRegistryProbe({
+          location: regConfig.location.href,
+          outcome: "not-found",
+          reason: Option.none<string>(),
+        });
+      }
+    }
+
+    if (Option.isSome(options.skillName)) {
+      const skillName = options.skillName.value;
+      return yield* makeCliError({
+        code: "REGISTRY_SKILL_NOT_FOUND",
+        what: `Skill "${namespace}/${skillName}" was not found in configured registries`,
+        details: [
+          `Provided: ${input}`,
+          `Checked registries: ${checked.join(", ")}`,
+          ...issues.map((issue) => `Lookup failed at ${issue.location}: ${issue.message}`),
+        ],
+        howToFix: registryLookupHowToFix({
+          issues,
+          fallback:
+            "Verify the namespace/skill name, or install with an explicit source like github:owner/repo",
+        }),
+      });
     }
 
     return yield* makeCliError({
       code: "REGISTRY_NAMESPACE_NOT_FOUND",
       what: `None of the configured registry sources contain namespace "${namespace}"`,
-      details: [input],
-      howToFix: `Verify the namespace name is correct, or add a registry that hosts "${namespace}"`,
+      details: [
+        `Provided: ${input}`,
+        `Checked registries: ${checked.join(", ")}`,
+        ...issues.map((issue) => `Lookup failed at ${issue.location}: ${issue.message}`),
+      ],
+      howToFix: registryLookupHowToFix({
+        issues,
+        fallback: `Verify the namespace name is correct, or add a registry that hosts "${namespace}"`,
+      }),
     });
   });
 
-const resolveSkillRegistrySourceByName = (name: string, input: string) =>
+const resolveSkillRegistrySourceByName = (
+  name: string,
+  input: string,
+  resolutionOptions: Option.Option<ResolveSkillInstallSourceOptions>,
+) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
 
@@ -104,18 +232,46 @@ const resolveSkillRegistrySourceByName = (name: string, input: string) =>
     }
 
     const checked: string[] = [];
+    const issues: RegistryLookupIssue[] = [];
     for (const reg of registryHosts) {
       checked.push(reg.location.href);
       const client = yield* createRegistryClient(reg.location.href);
-      const { exists } = yield* client
+      const existsResult = yield* client
         .extensionExists({ namespace, type: "skill", name })
-        .pipe(Effect.orElseSucceed(() => ({ exists: false })));
-      if (exists) {
+        .pipe(Effect.either);
+      if (existsResult._tag === "Left") {
+        if (Option.isSome(resolutionOptions)) {
+          resolutionOptions.value.onRegistryProbe({
+            location: reg.location.href,
+            outcome: "error",
+            reason: Option.some(summarizeLookupError(existsResult.left)),
+          });
+        }
+        issues.push(toLookupIssue(reg.location, existsResult.left));
+        continue;
+      }
+
+      if (existsResult.right.exists) {
+        if (Option.isSome(resolutionOptions)) {
+          resolutionOptions.value.onRegistryProbe({
+            location: reg.location.href,
+            outcome: "matched",
+            reason: Option.none<string>(),
+          });
+        }
         return {
           type: "registry" as const,
           location: reg.location,
           namespace: Option.some(namespace),
         } satisfies RegistrySource;
+      }
+
+      if (Option.isSome(resolutionOptions)) {
+        resolutionOptions.value.onRegistryProbe({
+          location: reg.location.href,
+          outcome: "not-found",
+          reason: Option.none<string>(),
+        });
       }
     }
 
@@ -126,14 +282,20 @@ const resolveSkillRegistrySourceByName = (name: string, input: string) =>
         `Provided: ${input}`,
         `Default namespace: ${namespace}`,
         `Checked registries: ${checked.join(", ")}`,
+        ...issues.map((issue) => `Lookup failed at ${issue.location}: ${issue.message}`),
       ],
-      howToFix:
-        "Verify the skill name, or install with an explicit source like github:owner/repo or @namespace/skills/name",
+      howToFix: registryLookupHowToFix({
+        issues,
+        fallback:
+          "Verify the skill name, or install with an explicit source like github:owner/repo or @namespace/skills/name",
+      }),
     });
   });
 
 const resolveSkillRegistrySource = (
   pattern: Extract<InputPattern, { readonly pattern: "registry-pattern-input" }>,
+  input: string,
+  resolutionOptions: Option.Option<ResolveSkillInstallSourceOptions>,
 ) =>
   Effect.gen(function* () {
     if (Option.isSome(pattern.type) && pattern.type.value !== "skills") {
@@ -145,19 +307,28 @@ const resolveSkillRegistrySource = (
       });
     }
 
-    return yield* resolveRegistrySource(pattern.namespace, pattern.namespace, {
-      findMatchingNamespace: true,
+    return yield* resolveRegistrySource(pattern.namespace, input, {
+      skillName: pattern.name,
+      resolutionOptions,
     });
   });
 
 export const resolveSkillUrl = (url: URL, input: string) => routeUrlInput(url, input);
 
-export const resolveSkillInstallSource = (parseResult: InputParseResult) =>
+export const resolveSkillInstallSource = (
+  parseResult: InputParseResult,
+  options?: ResolveSkillInstallSourceOptions,
+) =>
   Effect.gen(function* () {
+    const resolutionOptions = Option.fromNullable(options);
     const pattern = parseResult.pattern;
     switch (pattern.pattern) {
       case "registry-pattern-input":
-        return yield* resolveSkillRegistrySource(pattern);
+        return yield* resolveSkillRegistrySource(
+          pattern,
+          parseResult.originalInput,
+          resolutionOptions,
+        );
       case "shorthand-input":
         return yield* resolveShorthandInputSource({
           pattern,
@@ -166,7 +337,11 @@ export const resolveSkillInstallSource = (parseResult: InputParseResult) =>
       case "slash-pattern":
         return yield* resolveSlashInputSource(pattern, parseResult.originalInput);
       case "name-input":
-        return yield* resolveSkillRegistrySourceByName(pattern.name, parseResult.originalInput);
+        return yield* resolveSkillRegistrySourceByName(
+          pattern.name,
+          parseResult.originalInput,
+          resolutionOptions,
+        );
       case "url-input":
         return yield* resolveSkillUrl(pattern.url, parseResult.originalInput);
       case "file-path-pattern":

@@ -136,6 +136,71 @@ describe("resolveSkillInstallSource", () => {
     });
   });
 
+  it.effect(
+    "skips unsupported registries and resolves a namespaced skill from a later registry",
+    () => {
+      const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
+      tmpDirs.push(registryB);
+
+      createSkillIndex(registryB, "@acme", "my-skill");
+
+      const sources: ReadonlyArray<SourceHostConfig> = [
+        { name: "remote", type: "registry", location: new URL("http://localhost:4300") },
+        { name: "local", type: "registry", location: new URL(`file://${registryB}`) },
+      ];
+
+      return Effect.gen(function* () {
+        const resolved = yield* resolveSkillInstallSource(
+          parseInputOrThrow("@acme/skills/my-skill"),
+        ).pipe(Effect.provide(provideTestLayers(sources)));
+        expect(resolved.type).toBe("registry");
+        expect("location" in resolved).toBe(true);
+        if ("location" in resolved) {
+          expect(resolved.location.href).toBe(new URL(`file://${registryB}`).href);
+        }
+      });
+    },
+  );
+
+  it.effect("reports registry probe outcomes while resolving namespaced skill", () => {
+    const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
+    tmpDirs.push(registryB);
+
+    createSkillIndex(registryB, "@acme", "my-skill");
+
+    const sources: ReadonlyArray<SourceHostConfig> = [
+      { name: "remote", type: "registry", location: new URL("http://localhost:4300") },
+      { name: "local", type: "registry", location: new URL(`file://${registryB}`) },
+    ];
+
+    return Effect.gen(function* () {
+      const probes: Array<{
+        readonly location: string;
+        readonly outcome: "matched" | "not-found" | "error";
+      }> = [];
+
+      const resolved = yield* resolveSkillInstallSource(
+        parseInputOrThrow("@acme/skills/my-skill"),
+        {
+          onRegistryProbe: (probe) => {
+            probes.push({ location: probe.location, outcome: probe.outcome });
+          },
+        },
+      ).pipe(Effect.provide(provideTestLayers(sources)));
+
+      expect(resolved.type).toBe("registry");
+      expect(probes).toHaveLength(2);
+      expect(probes[0]).toMatchObject({
+        location: "http://localhost:4300/",
+        outcome: "error",
+      });
+      expect(probes[1]).toMatchObject({
+        location: new URL(`file://${registryB}`).href,
+        outcome: "matched",
+      });
+    });
+  });
+
   it.effect("supports namespace-only input and resolves against a matching registry", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
@@ -192,7 +257,7 @@ describe("resolveSkillInstallSource", () => {
     });
   });
 
-  it.effect("fails when no configured registry contains the requested namespace", () => {
+  it.effect("fails when no configured registry contains the requested namespaced skill", () => {
     const registryA = fs.mkdtempSync(path.join(os.tmpdir(), "registry-a-"));
     const registryB = fs.mkdtempSync(path.join(os.tmpdir(), "registry-b-"));
     tmpDirs.push(registryA, registryB);
@@ -207,7 +272,9 @@ describe("resolveSkillInstallSource", () => {
         parseInputOrThrow("@acme/skills/my-skill"),
       ).pipe(Effect.flip, Effect.provide(provideTestLayers(sources)));
       expect(error._tag).toBe("CliError");
-      expect(error.what).toContain('configured registry sources contain namespace "@acme"');
+      expect(error.code).toBe("REGISTRY_SKILL_NOT_FOUND");
+      expect(error.what).toContain("@acme/my-skill");
+      expect(error.details.join(" ")).toContain("Checked registries:");
     });
   });
 });

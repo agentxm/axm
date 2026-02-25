@@ -283,6 +283,41 @@ describe("registry meta-provider namespace routing", () => {
       ),
     );
   });
+
+  it("uses the provided registry source and ignores other configured registries", () => {
+    const registryRoot = makeRegistryDir();
+
+    return runWithService(
+      [
+        {
+          name: "remote",
+          type: "registry" as const,
+          location: new URL("http://localhost:4300"),
+        },
+        {
+          name: "local",
+          type: "registry" as const,
+          location: new URL(`file://${registryRoot}`),
+        },
+      ],
+      Effect.gen(function* () {
+        const svc = yield* SourceHostProviders;
+        const refs = yield* svc.find(
+          {
+            type: "registry",
+            location: new URL(`file://${registryRoot}`),
+            namespace: Option.some("@test"),
+          },
+          { ...defaultFindOptions, skillNames: ["missing"] },
+        );
+        expect(refs).toHaveLength(0);
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+        ),
+      ),
+    );
+  });
 });
 
 // -----------------------------------------------------------------------------

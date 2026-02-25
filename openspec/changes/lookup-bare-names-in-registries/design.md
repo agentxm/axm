@@ -14,7 +14,7 @@ This change keeps default-namespace lookup behavior, but makes lookup attempts e
 
 **Goals:**
 
-- Preserve current bare-name resolution behavior (default namespace + configured registries in order).
+- Preserve current bare-name resolution behavior (default namespace + effective registry source hosts in order).
 - Make lookup attempts visible in CLI output for not-found cases.
 - Distinguish parse/format errors from lookup-not-found failures.
 - Keep the change scoped to `skills install` path first.
@@ -49,9 +49,13 @@ Decision: update the bare-name resolver path to collect checked registry endpoin
 
 Primary code paths:
 
+- `packages/cli/src/workspace/service.ts`
+  - Add `getDefaultNamespace` returning `Effect<Option<string>, CliError>` with precedence: project settings > user settings > logged-in identity handle (TODO: auth not implemented) > `Option.none()`.
+  - Rename `getConfiguredRegistrySources` to `getRegistrySourceHosts` (aligns to ontology `Registry Source Hosts` set term).
 - `packages/cli/src/cli-commands/skills/install/resolve-skill-install-source.ts`
-  - Update `resolveSkillRegistrySourceByName` to accumulate registry attempts.
-  - On miss, fail with structured details (`input`, `namespace`, `checked registries`).
+  - Update `resolveSkillRegistrySourceByName` to use `getDefaultNamespace` and `getRegistrySourceHosts`.
+  - When `getDefaultNamespace` returns `Option.none()`, fail with `REGISTRY_SKILL_NOT_FOUND` explaining that no namespace was available for lookup (not a separate error code — just a different detail message on the same not-found path).
+  - Accumulate registry attempts; on miss, fail with structured details (`input`, `namespace`, `checked registries`).
 - `packages/cli/src/cli-commands/skills/install/handler.ts`
   - Stop coercing all resolver failures into `INVALID_SOURCE`.
   - Preserve specific resolver errors; map only true parse failures to `INVALID_SOURCE`.
@@ -63,19 +67,46 @@ Pseudo-code (target behavior):
 const resolveSkillRegistrySourceByName = (name: string, input: string) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const namespace = yield* ws.getConfiguredNamespace();
-    const registrySources = yield* ws.getConfiguredRegistrySources();
 
-    if (registrySources.length === 0) {
+    // DefaultNamespace: project settings > user settings > logged-in identity > none
+    const maybeNamespace = yield* ws.getDefaultNamespace();
+
+    // No namespace available — can't perform bare-name lookup
+    if (Option.isNone(maybeNamespace)) {
       return yield* makeCliError({
-        code: "REGISTRY_NO_SOURCE_CONFIGURED",
-        what: `No registry sources configured for namespace "${namespace}"`,
-        details: [`Provided: ${input}`],
+        code: "REGISTRY_SKILL_NOT_FOUND",
+        what: `Skill "${name}" could not be looked up (no default namespace)`,
+        details: [
+          `Provided: ${input}`,
+          `No default namespace configured and not logged in`,
+        ],
+        howToFix: Option.some(
+          "Configure a namespace in settings.json, log in with `axm auth login`, or install with an explicit source like github:owner/repo or @namespace/skills/name",
+        ),
+      });
+    }
+    const namespace = maybeNamespace.value;
+
+    // Registry Source Hosts (H_registry): effective registry hosts from merged source inventory
+    const registryHosts = yield* ws.getRegistrySourceHosts();
+
+    if (registryHosts.length === 0) {
+      return yield* makeCliError({
+        code: "REGISTRY_SKILL_NOT_FOUND",
+        what: `Skill "${namespace}/${name}" could not be looked up (no registry sources)`,
+        details: [
+          `Provided: ${input}`,
+          `Default namespace: ${namespace}`,
+          `No registry sources configured`,
+        ],
+        howToFix: Option.some(
+          "Configure a registry source in settings.json, or install with an explicit source like github:owner/repo",
+        ),
       });
     }
 
     const checked: ReadonlyArray<string> = [];
-    for (const reg of registrySources) {
+    for (const reg of registryHosts) {
       checked.push(reg.location.href);
       const client = yield* createRegistryClient(reg.location.href);
       const { exists } = yield* client
@@ -132,6 +163,17 @@ info axm skills install (project)
   Verify the skill name, or install with an explicit source like github:owner/repo or @namespace/skills/name
 ```
 
+Expected CLI output (no default namespace available):
+
+```text
+info axm skills install (project)
+⠋ Parsing source...
+✗ Skill "effect-basics" could not be looked up (no default namespace) (REGISTRY_SKILL_NOT_FOUND)
+  Provided: effect-basics
+  No default namespace configured and not logged in
+  Configure a namespace in settings.json, log in with `axm auth login`, or install with an explicit source like github:owner/repo or @namespace/skills/name
+```
+
 Expected CLI output (true format error stays unchanged category):
 
 ```text
@@ -148,6 +190,8 @@ Decision: add/adjust tests in install-source resolver and install handler suites
   - bare name found in first registry -> returns registry source.
   - bare name found in later registry -> returns matching registry.
   - bare name not found anywhere -> fails with `REGISTRY_SKILL_NOT_FOUND` and includes checked list.
+  - no default namespace available -> fails with `REGISTRY_SKILL_NOT_FOUND` with "no default namespace" detail.
+  - no registry source hosts -> fails with `REGISTRY_SKILL_NOT_FOUND` with "no registry sources" detail.
 - `packages/cli/src/cli-commands/skills/install/handler.test.ts`
   - resolver not-found error is surfaced (not remapped to `INVALID_SOURCE`).
   - true parse failure still returns `INVALID_SOURCE`.
@@ -160,11 +204,13 @@ Decision: add/adjust tests in install-source resolver and install handler suites
 
 ## Migration Plan
 
-1. Add resolver error shape/code for bare-name lookup misses with diagnostics.
-2. Update `skills install` handler to preserve resolver errors.
-3. Update/add tests for resolver + handler behavior.
-4. Run `pnpm lint`, `pnpm typecheck`, and targeted tests (`skills/install` suites), then full test suite if required.
-5. Rollback path: revert handler mapping and resolver error code changes.
+1. Add `getDefaultNamespace` to workspace service returning `Option<string>` (precedence: project settings > user settings > TODO logged-in identity > none). Update callers of `getConfiguredNamespace` in bare-name paths.
+2. Rename `getConfiguredRegistrySources` to `getRegistrySourceHosts` in workspace service and all callers.
+3. Add `REGISTRY_SKILL_NOT_FOUND` error code for bare-name lookup misses with diagnostics (covers no-namespace, no-registries, and not-found-after-search paths).
+4. Update `skills install` handler to preserve resolver errors.
+5. Update/add tests for resolver + handler behavior.
+6. Run `pnpm lint`, `pnpm typecheck`, and targeted tests (`skills/install` suites), then full test suite if required.
+7. Rollback path: revert workspace API changes, handler mapping, and resolver error code changes.
 
 ## Open Questions
 

@@ -1111,7 +1111,7 @@ const make = (options: WorkspaceContextOptions) =>
           Effect.map((sources) => Option.fromNullable(sources.find((s) => s.name === name))),
         ),
 
-      getConfiguredRegistrySources: () =>
+      getRegistrySourceHosts: () =>
         getConfiguredSources().pipe(
           Effect.map((sources) => {
             const registrySources = sources.filter(
@@ -1129,6 +1129,19 @@ const make = (options: WorkspaceContextOptions) =>
           const globalSettings = yield* readSettingsSafe(globalDir);
           if (globalSettings.namespace) return normalizeNamespace(globalSettings.namespace);
           return DEFAULT_NAMESPACE;
+        }),
+
+      // TODO: check logged-in identity handle when auth is implemented
+      getDefaultNamespace: () =>
+        Effect.gen(function* () {
+          const normalizeNamespace = (s: string): string => (s.startsWith("@") ? s : `@${s}`);
+          const projectSettings = yield* readSettingsSafe(localDir);
+          if (projectSettings.namespace)
+            return Option.some(normalizeNamespace(projectSettings.namespace));
+          const globalSettings = yield* readSettingsSafe(globalDir);
+          if (globalSettings.namespace)
+            return Option.some(normalizeNamespace(globalSettings.namespace));
+          return Option.none<string>();
         }),
 
       addConfiguredSource: (source: SourceHostConfig) =>
@@ -2268,12 +2281,14 @@ export interface WorkspaceContextService {
     name: string,
   ) => Effect.Effect<Option.Option<SourceHostConfig>, CliError>;
   /** Filter merged sources to registry sources. */
-  readonly getConfiguredRegistrySources: () => Effect.Effect<
+  readonly getRegistrySourceHosts: () => Effect.Effect<
     ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>,
     CliError
   >;
   /** Resolve namespace: project settings -> user-scope settings -> DEFAULT_NAMESPACE. */
   readonly getConfiguredNamespace: () => Effect.Effect<string, CliError>;
+  /** Resolve namespace without fallback: project settings -> user-scope settings -> Option.none(). */
+  readonly getDefaultNamespace: () => Effect.Effect<Option.Option<string>, CliError>;
   /** Append a source to project settings. Invalidates the sources cache. Serialized by semaphore. */
   readonly addConfiguredSource: (source: SourceHostConfig) => Effect.Effect<void, CliError>;
   /** Configured skills from settings with source metadata. */

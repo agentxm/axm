@@ -88,13 +88,14 @@ const makeTestWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceC
   getConfiguredSources: () => Effect.succeed(sources),
   getConfiguredSourceByName: (name: string) =>
     Effect.succeed(Option.fromNullable(sources.find((s) => s.name === name))),
-  getConfiguredRegistrySources: () =>
+  getRegistrySourceHosts: () =>
     Effect.succeed(
       sources.filter(
         (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",
       ),
     ),
   getConfiguredNamespace: () => Effect.succeed("@test") as Effect.Effect<string, CliError>,
+  getDefaultNamespace: () => Effect.succeed(Option.none()),
   addConfiguredSource: () => Effect.void,
   getConfiguredSkills: () => Effect.succeed({}),
   getInstalledSkills: () => Effect.succeed({}),

@@ -177,7 +177,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   yield* handle.stop(`Found ${filtered.length} skill(s)`);
 
   // Step 5: Determine first registry source name for publishing
-  const registrySources = yield* ws.getConfiguredRegistrySources().pipe(
+  const registrySources = yield* ws.getRegistrySourceHosts().pipe(
     Effect.mapError((e) =>
       makeCliError({
         code: "REGISTRY_SOURCES_FAILED",

@@ -24,7 +24,7 @@ import { Workspace } from "../workspace/index.js";
  */
 export const registryGuard = Effect.gen(function* () {
   const workspace = yield* Workspace;
-  const registrySources = yield* workspace.getConfiguredRegistrySources();
+  const registrySources = yield* workspace.getRegistrySourceHosts();
 
   // Already configured - no-op
   if (registrySources.length > 0) return;

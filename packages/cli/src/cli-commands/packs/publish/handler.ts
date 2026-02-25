@@ -151,7 +151,7 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
   yield* handle.stop(`Validated ${packName}`);
 
   // Step 4: Determine target registry
-  const registrySources = yield* ws.getConfiguredRegistrySources().pipe(
+  const registrySources = yield* ws.getRegistrySourceHosts().pipe(
     Effect.mapError((e) =>
       makeCliError({
         code: "REGISTRY_SOURCES_FAILED",

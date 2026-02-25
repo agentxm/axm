@@ -392,7 +392,7 @@ export const routeRegistryInput = (
     const ws = yield* Workspace;
     // Name filtering is handled in the find phase; this routing step only resolves registry host.
 
-    const registrySources = yield* ws.getConfiguredRegistrySources().pipe(
+    const registrySources = yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
         makeCliError({
           code: "SOURCE_PARSE_FAILED",
@@ -454,7 +454,7 @@ export const resolveSlashInputSource = (
         const ws = yield* Workspace;
         const namespace = pattern.first.startsWith("@") ? pattern.first : `@${pattern.first}`;
         const extensionName = pattern.third.value;
-        const registrySources = yield* ws.getConfiguredRegistrySources().pipe(
+        const registrySources = yield* ws.getRegistrySourceHosts().pipe(
           Effect.mapError((e) =>
             makeCliError({
               code: "SOURCE_PARSE_FAILED",

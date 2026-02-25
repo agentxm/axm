@@ -124,7 +124,7 @@ const getOriginFromSource = (source: Source): string => {
  * Creates a registry meta-provider that wraps N configured registries
  * into a single find/fetch interface returning `ExtensionRef`.
  *
- * Reads `workspace.getConfiguredRegistrySources()` lazily on each call — always
+ * Reads `workspace.getRegistrySourceHosts()` lazily on each call — always
  * reflects the current config (including sources added by the registry guard).
  *
  * Reads all configured registry sources for lookups.
@@ -150,7 +150,7 @@ export const createRegistryMetaProvider = () => ({
               )
             : Option.none<string>();
 
-      const registrySources = yield* ws.getConfiguredRegistrySources().pipe(
+      const registrySources = yield* ws.getRegistrySourceHosts().pipe(
         Effect.mapError((e) =>
           makeCliError({
             code: "SOURCE_FETCH_FAILED",

@@ -778,11 +778,11 @@ describe("WorkspaceContextService", () => {
     );
   });
 
-  describe("getConfiguredRegistrySources", () => {
+  describe("getRegistrySourceHosts", () => {
     it.effect("returns empty when no registry sources configured", () =>
       Effect.gen(function* () {
         const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getConfiguredRegistrySources();
+        const sources = yield* ws.getRegistrySourceHosts();
 
         // Built-in sources are github/gitlab/bitbucket, none are registry type
         expect(sources).toHaveLength(0);
@@ -808,7 +808,7 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getConfiguredRegistrySources();
+        const sources = yield* ws.getRegistrySourceHosts();
 
         expect(sources).toHaveLength(2);
         expect(sources.map((s) => s.name)).toEqual(["r1", "r2"]);
@@ -834,7 +834,7 @@ describe("WorkspaceContextService", () => {
         });
 
         const ws = yield* getService(defaultOptions);
-        const sources = yield* ws.getConfiguredRegistrySources();
+        const sources = yield* ws.getRegistrySourceHosts();
 
         expect(sources).toHaveLength(2);
         expect(sources.map((s) => s.name)).toEqual(["corp-reg", "public-reg"]);
@@ -900,6 +900,68 @@ describe("WorkspaceContextService", () => {
         const namespace = yield* ws.getConfiguredNamespace();
 
         expect(namespace).toBe("@community");
+      }),
+    );
+  });
+
+  describe("getDefaultNamespace", () => {
+    it.effect("returns Option.some with project namespace when configured", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          namespace: "@myorg",
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.getDefaultNamespace();
+
+        expect(Option.isSome(result)).toBe(true);
+        expect(Option.getOrThrow(result)).toBe("@myorg");
+      }),
+    );
+
+    it.effect("returns Option.some with user namespace when project has none", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+        });
+        writeSettingsTo(homeDir, {
+          namespace: "@globalorg",
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.getDefaultNamespace();
+
+        expect(Option.isSome(result)).toBe(true);
+        expect(Option.getOrThrow(result)).toBe("@globalorg");
+      }),
+    );
+
+    it.effect("returns Option.none when neither project nor user has namespace", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.getDefaultNamespace();
+
+        expect(Option.isNone(result)).toBe(true);
+      }),
+    );
+
+    it.effect("normalizes bare namespace by prepending @", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          namespace: "myorg",
+        });
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.getDefaultNamespace();
+
+        expect(Option.isSome(result)).toBe(true);
+        expect(Option.getOrThrow(result)).toBe("@myorg");
       }),
     );
   });

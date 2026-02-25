@@ -31,8 +31,9 @@ describe("registryGuard", () => {
       resolvePlan: vi.fn(),
       getConfiguredSources: vi.fn(() => Effect.succeed([])),
       getConfiguredSourceByName: vi.fn(() => Effect.succeed(Option.none())),
-      getConfiguredRegistrySources: () => Effect.succeed(registrySources),
+      getRegistrySourceHosts: () => Effect.succeed(registrySources),
       getConfiguredNamespace: () => Effect.succeed("default"),
+      getDefaultNamespace: () => Effect.succeed(Option.none()),
       addConfiguredSource: addSource,
       getConfiguredSkills: vi.fn(() => Effect.succeed({})),
       getInstalledSkills: vi.fn(() => Effect.succeed({})),
@@ -175,7 +176,7 @@ describe("registryGuard", () => {
   it.effect("guard changes visible to subsequent calls", () =>
     Effect.gen(function* () {
       // This test verifies that after the guard persists a source,
-      // subsequent calls to getConfiguredRegistrySources would see it.
+      // subsequent calls to getRegistrySourceHosts would see it.
       // We test this by mocking addSource and verifying it was called with the correct args.
 
       const addSourceMock = vi.fn(() => Effect.void);

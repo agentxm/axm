@@ -20,7 +20,7 @@ const resolveRegistrySource = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const registrySources = yield* ws.getConfiguredRegistrySources().pipe(
+    const registrySources = yield* ws.getRegistrySourceHosts().pipe(
       Effect.mapError((e) =>
         makeCliError({
           code: "REGISTRY_CONFIG_READ_FAILED",
@@ -72,41 +72,63 @@ const resolveRegistrySource = (
 const resolveSkillRegistrySourceByName = (name: string, input: string) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const namespace = yield* ws.getConfiguredNamespace();
-    const registrySources = yield* ws.getConfiguredRegistrySources().pipe(
-      Effect.mapError((e) =>
-        makeCliError({
-          code: "SOURCE_PARSE_FAILED",
-          what: `Failed to get registry sources: ${e._tag}`,
-          details: [input],
-        }),
-      ),
-    );
 
-    if (registrySources.length === 0) {
+    // DefaultNamespace: project settings > user settings > logged-in identity > none
+    const maybeNamespace = yield* ws.getDefaultNamespace();
+
+    if (Option.isNone(maybeNamespace)) {
       return yield* makeCliError({
-        code: "SOURCE_PARSE_FAILED",
-        what: `No registry source configured for namespace "${namespace}"`,
-        details: [input],
+        code: "REGISTRY_SKILL_NOT_FOUND",
+        what: `Skill "${name}" could not be looked up (no default namespace)`,
+        details: [`Provided: ${input}`, `No default namespace configured and not logged in`],
+        howToFix:
+          "Configure a namespace in settings.json, log in with `axm auth login`, or install with an explicit source like github:owner/repo or @namespace/skills/name",
+      });
+    }
+    const namespace = maybeNamespace.value;
+
+    const registryHosts = yield* ws.getRegistrySourceHosts();
+
+    if (registryHosts.length === 0) {
+      return yield* makeCliError({
+        code: "REGISTRY_SKILL_NOT_FOUND",
+        what: `Skill "${namespace}/${name}" could not be looked up (no registry sources)`,
+        details: [
+          `Provided: ${input}`,
+          `Default namespace: ${namespace}`,
+          `No registry sources configured`,
+        ],
+        howToFix:
+          "Configure a registry source in settings.json, or install with an explicit source like github:owner/repo",
       });
     }
 
-    for (const regConfig of registrySources) {
-      const client = yield* createRegistryClient(regConfig.location.href);
-      const { exists } = yield* client.extensionExists({ namespace, type: "skill", name });
+    const checked: string[] = [];
+    for (const reg of registryHosts) {
+      checked.push(reg.location.href);
+      const client = yield* createRegistryClient(reg.location.href);
+      const { exists } = yield* client
+        .extensionExists({ namespace, type: "skill", name })
+        .pipe(Effect.orElseSucceed(() => ({ exists: false })));
       if (exists) {
         return {
           type: "registry" as const,
-          location: regConfig.location,
+          location: reg.location,
           namespace: Option.some(namespace),
         } satisfies RegistrySource;
       }
     }
 
     return yield* makeCliError({
-      code: "SOURCE_PARSE_FAILED",
-      what: `No registry source contains skill "${namespace}/${name}"`,
-      details: [input],
+      code: "REGISTRY_SKILL_NOT_FOUND",
+      what: `Skill "${namespace}/${name}" was not found in configured registries`,
+      details: [
+        `Provided: ${input}`,
+        `Default namespace: ${namespace}`,
+        `Checked registries: ${checked.join(", ")}`,
+      ],
+      howToFix:
+        "Verify the skill name, or install with an explicit source like github:owner/repo or @namespace/skills/name",
     });
   });
 

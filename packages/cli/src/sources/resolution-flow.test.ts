@@ -33,7 +33,7 @@ const makeWorkspaceLayer = (sources: ReadonlyArray<SourceHostConfig> = BUILT_IN_
       getConfiguredSources: () => Effect.succeed(sources),
       getLockedSkills: () => Effect.succeed({}),
       getConfiguredSkills: () => Effect.succeed({}),
-      getConfiguredRegistrySources: () =>
+      getRegistrySourceHosts: () =>
         Effect.succeed(
           sources.filter(
             (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",

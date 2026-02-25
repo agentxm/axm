@@ -74,6 +74,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { Confirm, Log, Multiselect } from "../tui/index.js";
 import { PromptCancelled } from "../tui/index.js";
+import { resolveDiagnosticVerbosity } from "../runtime/error-handling.js";
 import type { Operation, OperationMapFromUnion, Plan, PlannedJobStep } from "./plan.js";
 import { displayPlan } from "./display-plan.js";
 import { applyPlan, type ExecutionContext, type Handlers } from "./apply-plan.js";
@@ -1009,6 +1010,7 @@ const make = (options: WorkspaceContextOptions) =>
         Effect.gen(function* () {
           const log = yield* Log;
           const confirm = yield* Confirm;
+          const verbosity = resolveDiagnosticVerbosity();
           const emptyPlan = { ...plan, jobs: [] } satisfies Plan<Op>;
 
           // Scan readiness across all planned steps
@@ -1026,7 +1028,7 @@ const make = (options: WorkspaceContextOptions) =>
 
           if (options.preview) {
             yield* log.info("Previewing changes...");
-            yield* displayPlan(plan);
+            yield* displayPlan(plan, { verbosity });
 
             if (hasErrors) {
               return yield* makeCliError({
@@ -1074,7 +1076,7 @@ const make = (options: WorkspaceContextOptions) =>
             }
           } else {
             if (hasErrors) {
-              yield* displayPlan(plan);
+              yield* displayPlan(plan, { verbosity });
               return yield* makeCliError({
                 code: "PLAN_HAS_ERRORS",
                 what: "Plan has errors that prevent execution",
@@ -1083,7 +1085,7 @@ const make = (options: WorkspaceContextOptions) =>
             }
 
             if (hasWarnings) {
-              yield* displayPlan(plan);
+              yield* displayPlan(plan, { verbosity });
               if (resolvedNonInteractive) {
                 return yield* makeCliError({
                   code: "PLAN_HAS_WARNINGS",
@@ -1097,7 +1099,7 @@ const make = (options: WorkspaceContextOptions) =>
             }
 
             const applied = yield* applyPlan(plan, handlers);
-            yield* displayPlan(applied);
+            yield* displayPlan(applied, { verbosity });
             return applied;
           }
         }),

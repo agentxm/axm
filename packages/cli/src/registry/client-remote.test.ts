@@ -63,15 +63,9 @@ const makePublishArgs = (overrides: Partial<PublishExtensionArgs> = {}): Publish
 /**
  * Create a mock HttpClient that captures the request and returns a controlled response.
  */
-const makeMockHttpClient = (
-  handler: (
-    request: HttpClientRequest.HttpClientRequest,
-  ) => Response,
-) =>
+const makeMockHttpClient = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
   HttpClient.make((request) =>
-    Effect.sync(() =>
-      HttpClientResponse.fromWeb(request, handler(request)),
-    ),
+    Effect.sync(() => HttpClientResponse.fromWeb(request, handler(request))),
   );
 
 // -----------------------------------------------------------------------------
@@ -378,8 +372,8 @@ describe("createRemoteRegistryClient", () => {
 
     it.effect("returns { published: true } on 201", () =>
       Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(() =>
-          new Response(JSON.stringify({ publish_status: "created" }), { status: 201 }),
+        const httpClient = makeMockHttpClient(
+          () => new Response(JSON.stringify({ publish_status: "created" }), { status: 201 }),
         );
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
@@ -394,8 +388,8 @@ describe("createRemoteRegistryClient", () => {
 
     it.effect("returns { published: true } on 200", () =>
       Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(() =>
-          new Response(JSON.stringify({ publish_status: "idempotent" }), { status: 200 }),
+        const httpClient = makeMockHttpClient(
+          () => new Response(JSON.stringify({ publish_status: "idempotent" }), { status: 200 }),
         );
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
@@ -410,18 +404,19 @@ describe("createRemoteRegistryClient", () => {
 
     it.effect("maps 409 problem detail to REGISTRY_PUBLISH_CONFLICT", () =>
       Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(() =>
-          new Response(
-            JSON.stringify({
-              type: "about:blank",
-              title: "Conflict",
-              status: 409,
-              detail: "Version already exists",
-              code: "publish_conflict",
-              requestId: "req-123",
-            }),
-            { status: 409 },
-          ),
+        const httpClient = makeMockHttpClient(
+          () =>
+            new Response(
+              JSON.stringify({
+                type: "about:blank",
+                title: "Conflict",
+                status: 409,
+                detail: "Version already exists",
+                code: "publish_conflict",
+                requestId: "req-123",
+              }),
+              { status: 409 },
+            ),
         );
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
@@ -429,6 +424,10 @@ describe("createRemoteRegistryClient", () => {
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
           expect(result.left.code).toBe("REGISTRY_PUBLISH_CONFLICT");
+          expect(result.left.details).toContain(
+            "Request: PUT https://registry.example.com/v1/extensions/@acme/skill/code-review/1.0.0",
+          );
+          expect(result.left.details).toContain("HTTP status: 409");
         }
       }),
     );
@@ -439,8 +438,8 @@ describe("createRemoteRegistryClient", () => {
 
     it.effect("maps non-JSON error response to REGISTRY_PUBLISH_FAILED", () =>
       Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(() =>
-          new Response("Internal Server Error", { status: 500 }),
+        const httpClient = makeMockHttpClient(
+          () => new Response("Internal Server Error", { status: 500 }),
         );
 
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
@@ -477,6 +476,9 @@ describe("createRemoteRegistryClient", () => {
         if (result._tag === "Left") {
           expect(result.left.code).toBe("REGISTRY_PUBLISH_NETWORK_ERROR");
           expect(result.left.cause).toBeDefined();
+          expect(result.left.details).toContain(
+            "Request: PUT https://registry.example.com/v1/extensions/@acme/skill/code-review/1.0.0",
+          );
         }
       }),
     );

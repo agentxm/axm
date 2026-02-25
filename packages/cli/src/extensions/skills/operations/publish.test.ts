@@ -302,9 +302,12 @@ describe("publishSkill", () => {
           makeOp({ name: "@community/skills/my-skill", registryName: "local" }),
         ).pipe(Effect.provide(withServices(axmDir, registryRoot)), Effect.flip);
 
-        expect(error.what).toBe("Failed to publish to registry");
+        expect(error.what).toBe('Failed to publish to registry "local"');
         expect(error.details).toEqual(
           expect.arrayContaining([
+            expect.stringContaining("Registry source: local"),
+            expect.stringContaining("Registry URL:"),
+            expect.stringContaining("Registry error:"),
             expect.stringContaining("already exists with different integrity"),
           ]),
         );

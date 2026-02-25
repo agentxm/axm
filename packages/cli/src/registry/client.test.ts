@@ -9,6 +9,8 @@ import { execSync, type ExecSyncOptions } from "node:child_process";
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
+import * as HttpClient from "@effect/platform/HttpClient";
+import * as HttpClientResponse from "@effect/platform/HttpClientResponse";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as NodeContext from "@effect/platform-node/NodeContext";
@@ -702,7 +704,13 @@ describe("LocalRegistryClient.extensionExists", () => {
 // -----------------------------------------------------------------------------
 
 describe("RemoteRegistryClient", () => {
-  const client = createRemoteRegistryClient();
+  /** A stub HttpClient that returns 200 for any request. */
+  const stubHttpClient = HttpClient.make((request) =>
+    Effect.sync(() =>
+      HttpClientResponse.fromWeb(request, new Response("", { status: 200 })),
+    ),
+  );
+  const client = createRemoteRegistryClient("https://registry.example.com", stubHttpClient);
 
   it.effect("getExtensions fails with remote not supported", () =>
     Effect.gen(function* () {
@@ -742,22 +750,29 @@ describe("RemoteRegistryClient", () => {
     }).pipe(Effect.provide(NodeContext.layer)),
   );
 
-  it.effect("publishExtension fails with remote not supported", () =>
+  it.effect("publishExtension succeeds via remote client", () =>
     Effect.gen(function* () {
-      const result = yield* client
-        .publishExtension({
-          namespace: "@test",
-          type: "skill",
-          name: "my-skill",
-          version: "1.0.0",
-          archive: new Uint8Array(),
-          metadata: makeVersionEntry(),
-        })
-        .pipe(Effect.either);
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
-      }
+      const publishHttpClient = HttpClient.make((request) =>
+        Effect.sync(() =>
+          HttpClientResponse.fromWeb(
+            request,
+            new Response(JSON.stringify({ publish_status: "created" }), { status: 201 }),
+          ),
+        ),
+      );
+      const publishClient = createRemoteRegistryClient(
+        "https://registry.example.com",
+        publishHttpClient,
+      );
+      const result = yield* publishClient.publishExtension({
+        namespace: "@test",
+        type: "skill",
+        name: "my-skill",
+        version: "1.0.0",
+        archive: new Uint8Array([0x50, 0x4b]),
+        metadata: makeVersionEntry(),
+      });
+      expect(result).toEqual({ published: true });
     }).pipe(Effect.provide(NodeContext.layer)),
   );
 

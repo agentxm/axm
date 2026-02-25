@@ -20,7 +20,7 @@ const resolveRegistrySource = (
 ) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const registrySources = yield* ws.getConfiguredRegistrySources(Option.some(namespace)).pipe(
+    const registrySources = yield* ws.getConfiguredRegistrySources().pipe(
       Effect.mapError((e) =>
         makeCliError({
           code: "REGISTRY_CONFIG_READ_FAILED",
@@ -73,7 +73,7 @@ const resolveSkillRegistrySourceByName = (name: string, input: string) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
     const namespace = yield* ws.getConfiguredNamespace();
-    const registrySources = yield* ws.getConfiguredRegistrySources(Option.some(namespace)).pipe(
+    const registrySources = yield* ws.getConfiguredRegistrySources().pipe(
       Effect.mapError((e) =>
         makeCliError({
           code: "SOURCE_PARSE_FAILED",

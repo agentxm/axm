@@ -8,7 +8,6 @@
 import { homedir } from "node:os";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { makeCliError } from "../cli-error/index.js";
 import { TextInput } from "../tui/index.js";
 import { Workspace } from "../workspace/index.js";
@@ -25,7 +24,7 @@ import { Workspace } from "../workspace/index.js";
  */
 export const registryGuard = Effect.gen(function* () {
   const workspace = yield* Workspace;
-  const registrySources = yield* workspace.getConfiguredRegistrySources(Option.none());
+  const registrySources = yield* workspace.getConfiguredRegistrySources();
 
   // Already configured - no-op
   if (registrySources.length > 0) return;

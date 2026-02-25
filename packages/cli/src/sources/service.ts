@@ -150,7 +150,7 @@ export const createRegistryMetaProvider = () => ({
               )
             : Option.none<string>();
 
-      const registrySources = yield* ws.getConfiguredRegistrySources(namespace).pipe(
+      const registrySources = yield* ws.getConfiguredRegistrySources().pipe(
         Effect.mapError((e) =>
           makeCliError({
             code: "SOURCE_FETCH_FAILED",

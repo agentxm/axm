@@ -25,7 +25,7 @@ const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceConte
   getConfiguredSources: () => Effect.succeed(sources),
   getConfiguredSourceByName: (name: string) =>
     Effect.succeed(Option.fromNullable(sources.find((s) => s.name === name))),
-  getConfiguredRegistrySources: (_scope: Option.Option<string>) =>
+  getConfiguredRegistrySources: () =>
     Effect.succeed(
       sources.filter(
         (s): s is Extract<SourceHostConfig, { type: "registry" }> => s.type === "registry",

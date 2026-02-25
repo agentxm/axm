@@ -2,6 +2,11 @@
   "namespace": "@axm",
   "sources": [
     {
+      "name": "local-registry",
+      "type": "registry",
+      "location": "https://localhost:4000"
+    },
+    {
       "name": "local",
       "type": "registry",
       "location": "file:///Users/craig/sandbox_reg"

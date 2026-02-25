@@ -104,7 +104,9 @@ const createPackManifestWithSkills = (
   const packDir = path.join(base, ".axm", "extensions", namespace, "packs", packName);
   fs.mkdirSync(packDir, { recursive: true });
   const manifest = {
-    name: `${namespace}/packs/${packName}`,
+    namespace,
+    type: "pack",
+    name: packName,
     version: "0.0.1",
     skills,
     commands: {},

@@ -70,7 +70,14 @@ const createManagedExtension = (
   const extDir = path.join(tempDir, ".axm", "extensions", namespace, "skills", name);
   const srcDir = path.join(extDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
-  fs.writeFileSync(path.join(extDir, "axm-skill.json"), JSON.stringify(manifest));
+  const normalizedManifest = {
+    ...manifest,
+    namespace,
+    type: "skill",
+    name,
+    version: manifest["version"] ?? "0.0.1",
+  };
+  fs.writeFileSync(path.join(extDir, "axm-skill.json"), JSON.stringify(normalizedManifest));
   fs.writeFileSync(path.join(srcDir, "SKILL.md"), `---\nname: "${name}"\n---\n\n# ${name}\n`);
   return extDir;
 };

@@ -168,7 +168,6 @@ export const publishSkill: OperationHandler<
       version: manifest.version,
       published: new Date().toISOString(),
       integrity,
-      ...(manifest.dependencies ? { dependencies: { ...manifest.dependencies } } : {}),
     };
 
     // Publish to registry (idempotent)

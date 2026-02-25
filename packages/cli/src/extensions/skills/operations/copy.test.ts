@@ -184,10 +184,12 @@ describe("copySkill", () => {
         expect(fs.existsSync(manifestPath)).toBe(true);
 
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.name).toBe("@community/skills/my-skill");
+        expect(manifest.namespace).toBe("@community");
+        expect(manifest.type).toBe("skill");
+        expect(manifest.name).toBe("my-skill");
         expect(manifest.version).toBe("0.1.0");
         expect(manifest).not.toHaveProperty("agents");
-        expect(manifest.dependencies).toEqual({});
+        expect(manifest).not.toHaveProperty("dependencies");
       }),
     );
 

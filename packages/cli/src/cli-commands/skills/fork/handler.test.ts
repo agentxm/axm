@@ -316,7 +316,9 @@ describe("fork.handler", () => {
             "axm-skill.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@test/skills/my-skill");
+          expect(manifest.namespace).toBe("@test");
+          expect(manifest.type).toBe("skill");
+          expect(manifest.name).toBe("my-skill");
         }),
       );
     });
@@ -638,7 +640,9 @@ describe("fork.handler", () => {
             "axm-skill.json",
           );
           const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-          expect(manifest.name).toBe("@test/skills/my-skill");
+          expect(manifest.namespace).toBe("@test");
+          expect(manifest.type).toBe("skill");
+          expect(manifest.name).toBe("my-skill");
         }),
       );
     });

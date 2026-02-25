@@ -114,7 +114,9 @@ export const newSkill: OperationHandler<
 
     // 4. Write manifest
     const manifest: SkillManifest = {
-      name: fqn,
+      namespace,
+      type: "skill",
+      name,
       version: "0.0.1",
     };
 

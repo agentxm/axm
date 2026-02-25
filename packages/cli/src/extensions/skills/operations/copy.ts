@@ -102,9 +102,10 @@ export const copySkill: OperationHandler<
 
     // Generate axm-skill.json manifest
     const manifest = {
-      name: op.args.targetName,
+      namespace: fqn.namespace,
+      type: "skill",
+      name: fqn.name,
       version: DEFAULT_VERSION,
-      dependencies: {},
     };
 
     const manifestPath = path.join(targetDir, MANIFEST_FILENAME);

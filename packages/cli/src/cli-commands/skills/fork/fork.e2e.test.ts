@@ -80,7 +80,9 @@ describe("axm skills fork", () => {
         expect(fs.existsSync(manifestPath)).toBe(true);
         expect(fs.existsSync(path.join(extensionDir, "src", "axm-skill.json"))).toBe(false);
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        expect(manifest.name).toBe("@test/skills/my-skill");
+        expect(manifest.namespace).toBe("@test");
+        expect(manifest.type).toBe("skill");
+        expect(manifest.name).toBe("my-skill");
         expect(manifest.version).toBe("0.1.0");
         expect(manifest).not.toHaveProperty("agents");
 

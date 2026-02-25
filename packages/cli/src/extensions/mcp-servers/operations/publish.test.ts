@@ -113,7 +113,9 @@ describe("publishMcpServer", () => {
     fs.mkdirSync(registryRoot, { recursive: true });
 
     const defaultManifest = {
-      name: `${namespace}/mcp-servers/${name}`,
+      namespace,
+      type: "mcp-server",
+      name,
       version: "0.1.0",
       ...manifest,
     };

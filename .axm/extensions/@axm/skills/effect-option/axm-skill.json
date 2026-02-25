@@ -1,5 +1,6 @@
 {
-  "name": "@axm/skills/effect-option",
+  "name": "effect-option",
   "version": "0.1.0",
-  "dependencies": {}
+  "namespace": "@axm",
+  "type": "skill"
 }

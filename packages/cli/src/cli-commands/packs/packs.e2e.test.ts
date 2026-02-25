@@ -81,7 +81,9 @@ describe("axm packs new", () => {
       expect(fs.existsSync(manifestPath)).toBe(true);
 
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      expect(manifest.name).toBe("@test/packs/frontend-tools");
+      expect(manifest.namespace).toBe("@test");
+      expect(manifest.type).toBe("pack");
+      expect(manifest.name).toBe("frontend-tools");
       expect(manifest.version).toBe("0.0.1");
       expect(manifest.skills).toEqual({});
 
@@ -117,7 +119,9 @@ describe("axm packs new", () => {
       );
       expect(fs.existsSync(manifestPath)).toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      expect(manifest.name).toBe("@custom/packs/my-pack");
+      expect(manifest.namespace).toBe("@custom");
+      expect(manifest.type).toBe("pack");
+      expect(manifest.name).toBe("my-pack");
     } finally {
       cleanup();
     }
@@ -427,10 +431,11 @@ describe("axm packs install", () => {
         path.join(skillDir, "axm-skill.json"),
         JSON.stringify(
           {
-            name: "@test/skills/dep-skill",
+            namespace: "@test",
+            type: "skill",
+            name: "dep-skill",
             version: "1.0.0",
             agents: ["claude-code"],
-            dependencies: {},
           },
           null,
           2,

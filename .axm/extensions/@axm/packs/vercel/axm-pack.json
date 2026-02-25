@@ -1,7 +1,9 @@
 {
-  "name": "@axm/packs/vercel",
+  "name": "vercel",
   "version": "0.0.1",
   "skills": {},
   "commands": {},
-  "mcp-servers": {}
+  "mcp-servers": {},
+  "namespace": "@axm",
+  "type": "pack"
 }

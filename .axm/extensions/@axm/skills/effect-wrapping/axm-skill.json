@@ -1,5 +1,6 @@
 {
-  "name": "@axm/skills/effect-wrapping",
+  "name": "effect-wrapping",
   "version": "0.1.0",
-  "dependencies": {}
+  "namespace": "@axm",
+  "type": "skill"
 }

@@ -13,6 +13,8 @@ export const PACK_MANIFEST_FILENAME = "axm-pack.json";
  * Raw pack manifest JSON shape (no schema validation on read to allow editing).
  */
 export interface RawPackManifest {
+  namespace: string;
+  type: string;
   name: string;
   version: string;
   skills?: Record<string, string>;
@@ -27,6 +29,8 @@ export interface RawPackManifest {
  * Used for read-then-edit workflows where the full PackManifestSchema is too strict.
  */
 export const RawPackManifestSchema = Schema.Struct({
+  namespace: Schema.String,
+  type: Schema.String,
   name: Schema.String,
   version: Schema.String,
   skills: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
@@ -64,6 +68,7 @@ const VersionSpecifierMapSchema = Schema.Record({
  */
 export const PackManifestSchema = Schema.Struct({
   ...CommonManifestFields,
+  type: Schema.Literal("pack"),
   skills: Schema.optional(VersionSpecifierMapSchema),
   commands: Schema.optional(VersionSpecifierMapSchema),
   "mcp-servers": Schema.optional(VersionSpecifierMapSchema),

@@ -18,7 +18,9 @@ describe("builtin-pack", () => {
   it.effect("resolves builtin pack manifest", () =>
     Effect.gen(function* () {
       const result = yield* resolveBuiltinPack();
-      expect(result.manifest.name).toBe("@axm/packs/cli");
+      expect(result.manifest.namespace).toBe("@axm");
+      expect(result.manifest.type).toBe("pack");
+      expect(result.manifest.name).toBe("cli");
       expect(result.manifest.skills).toBeDefined();
       expect(Object.keys(result.manifest.skills!)).toHaveLength(4);
       expect(result.manifest.skills!["@axm/skills/axm-manage-skills"]).toBeDefined();

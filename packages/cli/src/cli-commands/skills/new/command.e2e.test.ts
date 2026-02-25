@@ -57,7 +57,9 @@ describe("axm skills new", () => {
       );
       expect(fs.existsSync(manifestPath)).toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      expect(manifest.name).toBe("@test/skills/my-skill");
+      expect(manifest.namespace).toBe("@test");
+      expect(manifest.type).toBe("skill");
+      expect(manifest.name).toBe("my-skill");
       expect(manifest.version).toBe("0.0.1");
 
       // Verify SKILL.md
@@ -116,7 +118,9 @@ describe("axm skills new", () => {
       );
       expect(fs.existsSync(manifestPath)).toBe(true);
       const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      expect(manifest.name).toBe("@custom/skills/my-skill");
+      expect(manifest.namespace).toBe("@custom");
+      expect(manifest.type).toBe("skill");
+      expect(manifest.name).toBe("my-skill");
     } finally {
       temp.cleanup();
     }

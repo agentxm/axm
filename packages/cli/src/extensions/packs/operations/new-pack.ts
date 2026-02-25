@@ -101,7 +101,9 @@ export const newPack: OperationHandler<
 
     // 4. Write manifest
     const manifest: PackManifest = {
-      name: fqn,
+      namespace,
+      type: "pack",
+      name,
       version: "0.0.1",
       skills: {},
       commands: {},

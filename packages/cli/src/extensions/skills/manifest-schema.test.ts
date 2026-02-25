@@ -7,19 +7,25 @@ describe("SkillManifestSchema", () => {
 
   it("accepts valid minimal manifest", () => {
     const input = {
-      name: "@wayne/skills/grappling-hook",
+      namespace: "@wayne",
+      type: "skill",
+      name: "grappling-hook",
       version: "1.0.0",
       agents: ["claude-code"],
     };
     const result = decode(input);
-    expect(result.name).toBe("@wayne/skills/grappling-hook");
+    expect(result.namespace).toBe("@wayne");
+    expect(result.type).toBe("skill");
+    expect(result.name).toBe("grappling-hook");
     expect(result.version).toBe("1.0.0");
     expect(result.agents).toEqual(["claude-code"]);
   });
 
   it("accepts valid full manifest with all optional fields", () => {
     const input = {
-      name: "@wayne/skills/grappling-hook",
+      namespace: "@wayne",
+      type: "skill",
+      name: "grappling-hook",
       version: "1.0.0",
       description: "A grappling hook skill",
       keywords: ["utility", "mobility"],
@@ -35,35 +41,45 @@ describe("SkillManifestSchema", () => {
         },
       ],
       agents: ["claude-code", "cursor"],
-      dependencies: { "@wayne/skills/batarang": "1.0.0" },
     };
     const result = decode(input);
-    expect(result.name).toBe("@wayne/skills/grappling-hook");
+    expect(result.name).toBe("grappling-hook");
     expect(result.description).toBe("A grappling hook skill");
     expect(result.keywords).toEqual(["utility", "mobility"]);
     expect(result.authors?.[0]?.name).toBe("Bruce Wayne");
     expect(result.agents).toEqual(["claude-code", "cursor"]);
-    expect(result.dependencies).toEqual({ "@wayne/skills/batarang": "1.0.0" });
   });
 
   it("rejects manifest missing name", () => {
-    const input = { version: "1.0.0", agents: ["claude-code"] };
+    const input = { namespace: "@wayne", type: "skill", version: "1.0.0", agents: ["claude-code"] };
     expect(() => decode(input)).toThrow();
   });
 
   it("rejects manifest with invalid name format", () => {
-    const input = { name: "grappling-hook", version: "1.0.0", agents: ["claude-code"] };
+    const input = {
+      namespace: "wayne",
+      type: "skill",
+      name: "grappling-hook",
+      version: "1.0.0",
+      agents: ["claude-code"],
+    };
     expect(() => decode(input)).toThrow();
   });
 
   it("accepts manifest without agents field", () => {
-    const input = { name: "@wayne/skills/grappling-hook", version: "1.0.0" };
+    const input = { namespace: "@wayne", type: "skill", name: "grappling-hook", version: "1.0.0" };
     const result = decode(input);
     expect(result.agents).toBeUndefined();
   });
 
   it("rejects manifest with empty agents array", () => {
-    const input = { name: "@wayne/skills/grappling-hook", version: "1.0.0", agents: [] };
+    const input = {
+      namespace: "@wayne",
+      type: "skill",
+      name: "grappling-hook",
+      version: "1.0.0",
+      agents: [],
+    };
     // Empty array is structurally valid for Schema.Array(Schema.String)
     const result = decode(input);
     expect(result.agents).toEqual([]);
@@ -71,7 +87,9 @@ describe("SkillManifestSchema", () => {
 
   it("accepts manifest with agents as string identifiers", () => {
     const input = {
-      name: "@wayne/skills/grappling-hook",
+      namespace: "@wayne",
+      type: "skill",
+      name: "grappling-hook",
       version: "1.0.0",
       agents: ["claude-code", "cursor", "windsurf"],
     };
@@ -80,31 +98,13 @@ describe("SkillManifestSchema", () => {
   });
 
   it("rejects manifest with non-string agents", () => {
-    const input = { name: "@wayne/skills/grappling-hook", version: "1.0.0", agents: [123] };
+    const input = {
+      namespace: "@wayne",
+      type: "skill",
+      name: "grappling-hook",
+      version: "1.0.0",
+      agents: [123],
+    };
     expect(() => decode(input)).toThrow();
-  });
-
-  it("accepts manifest without optional dependencies", () => {
-    const input = {
-      name: "@wayne/skills/grappling-hook",
-      version: "1.0.0",
-      agents: ["claude-code"],
-    };
-    const result = decode(input);
-    expect(result.dependencies).toBeUndefined();
-  });
-
-  it("accepts manifest with dependencies record", () => {
-    const input = {
-      name: "@wayne/skills/grappling-hook",
-      version: "1.0.0",
-      agents: ["claude-code"],
-      dependencies: { "@wayne/skills/batarang": "1.0.0", "@wayne/skills/cape": "2.0.0" },
-    };
-    const result = decode(input);
-    expect(result.dependencies).toEqual({
-      "@wayne/skills/batarang": "1.0.0",
-      "@wayne/skills/cape": "2.0.0",
-    });
   });
 });

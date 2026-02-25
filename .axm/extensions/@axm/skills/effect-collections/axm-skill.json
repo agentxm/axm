@@ -1,5 +1,6 @@
 {
-  "name": "@axm/skills/effect-collections",
+  "name": "effect-collections",
   "version": "0.1.0",
-  "dependencies": {}
+  "namespace": "@axm",
+  "type": "skill"
 }

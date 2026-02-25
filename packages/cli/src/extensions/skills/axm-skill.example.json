@@ -1,5 +1,7 @@
 {
-  "name": "@acme/skills/code-review",
+  "namespace": "@acme",
+  "type": "skill",
+  "name": "code-review",
   "version": "1.0.0",
   "description": "Automated code review skill for pull requests",
   "keywords": ["code-review", "pr", "automation"],

@@ -10,6 +10,7 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { renderCliError, type RenderCliErrorOptions } from "../cli-error/index.js";
 import { Log } from "../tui/index.js";
 import type { JobStep, Plan } from "./plan.js";
 
@@ -17,14 +18,24 @@ import type { JobStep, Plan } from "./plan.js";
 // Implementation
 // -----------------------------------------------------------------------------
 
+const defaultVerbosity: RenderCliErrorOptions = {
+  verbose: false,
+  debug: false,
+};
+
+export interface DisplayPlanOptions {
+  readonly verbosity?: RenderCliErrorOptions;
+}
+
 /**
  * Display a plan summary via the Log service.
  *
  * Uses `step.label` for human-readable output — never inspects `step.operation`.
  */
-export const displayPlan = <Op>(plan: Plan<Op>) =>
+export const displayPlan = <Op>(plan: Plan<Op>, options: DisplayPlanOptions = {}) =>
   Effect.gen(function* () {
     const log = yield* Log;
+    const verbosity = options.verbosity ?? defaultVerbosity;
 
     const allSteps = Array.flatMap(plan.jobs, (job) => [...job.steps]);
 
@@ -39,22 +50,33 @@ export const displayPlan = <Op>(plan: Plan<Op>) =>
 
     // Render each step
     for (const step of allSteps) {
-      yield* renderStep(step, log);
+      yield* renderStep(step, log, verbosity);
     }
 
     // Summary
     yield* renderSummary(allSteps, isApplied, log);
   });
 
-const renderStep = <Op>(step: JobStep<Op>, log: Log["Type"]) => {
+const renderStep = <Op>(step: JobStep<Op>, log: Log["Type"], verbosity: RenderCliErrorOptions) => {
   if (step._tag === "JobStepResult") {
     switch (step.result.result) {
       case "success":
         return log.success(`  \u2713 ${step.label}`);
       case "no-op":
         return log.warn(`  - ${step.label} (${step.result.message})`);
-      case "error":
-        return log.error(`  \u2717 ${step.label} (${step.result.message})`);
+      case "error": {
+        const renderedLines = renderCliError(step.result.error, verbosity).split("\n");
+        const [firstLine, ...rest] = renderedLines;
+        const first = firstLine ?? step.result.message;
+        const headline = first.startsWith("\u2717 ") ? first.slice(2) : first;
+
+        return Effect.gen(function* () {
+          yield* log.error(`  \u2717 ${step.label} (${headline})`);
+          for (const line of rest) {
+            yield* log.error(`    ${line.trimStart()}`);
+          }
+        });
+      }
     }
   }
 

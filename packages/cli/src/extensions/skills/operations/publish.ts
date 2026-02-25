@@ -144,14 +144,24 @@ export const publishSkill: OperationHandler<
       ),
     );
 
-    if (Option.isNone(registrySource) || registrySource.value.type !== "registry") {
+    if (Option.isNone(registrySource)) {
       return yield* makeCliError({
         code: "PUBLISH_SKILL_REGISTRY_NOT_FOUND",
         what: `Registry source "${op.args.registryName}" not found or not a registry source`,
       });
     }
 
-    const client = yield* createRegistryClient(registrySource.value.location.href);
+    const source = registrySource.value;
+    if (source.type !== "registry") {
+      return yield* makeCliError({
+        code: "PUBLISH_SKILL_REGISTRY_NOT_FOUND",
+        what: `Registry source "${op.args.registryName}" not found or not a registry source`,
+      });
+    }
+
+    const registryUrl = source.location.href;
+
+    const client = yield* createRegistryClient(registryUrl);
 
     // Build version entry metadata
     const versionEntry: VersionEntry = {
@@ -175,8 +185,14 @@ export const publishSkill: OperationHandler<
         Effect.mapError((e) =>
           makeCliError({
             code: "PUBLISH_SKILL_PUBLISH_FAILED",
-            what: "Failed to publish to registry",
-            details: [e.what],
+            what: `Failed to publish to registry "${op.args.registryName}"`,
+            details: [
+              `Registry source: ${op.args.registryName}`,
+              `Registry URL: ${registryUrl}`,
+              `Extension: ${op.args.name}@${manifest.version}`,
+              `Registry error: ${e.what} (${e.code})`,
+              ...e.details,
+            ],
             cause: e,
           }),
         ),

@@ -488,6 +488,45 @@ describe("displayPlan", () => {
     }).pipe(Effect.provide(logLayer));
   });
 
+  it.effect("shows cause lines for step errors in debug mode", () => {
+    const [logLayer, mockLog] = makeLogTestLayer();
+
+    return Effect.gen(function* () {
+      yield* displayPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  _tag: "JobStepResult" as const,
+                  operation: { name: "publish" },
+                  result: {
+                    result: "error" as const,
+                    message: "failed to publish",
+                    error: makeCliError({
+                      code: "PUBLISH_FAILED",
+                      what: "Failed to publish",
+                      details: ["Registry URL: https://registry.example.com"],
+                      cause: new Error("connection refused"),
+                    }),
+                  },
+                  label: "publish",
+                },
+              ],
+            },
+          ],
+        }),
+        { verbosity: { verbose: true, debug: true } },
+      );
+
+      expect(mockLog.logs.error.some((m) => m.includes("Cause: connection refused"))).toBe(true);
+      expect(
+        mockLog.logs.error.some((m) => m.includes("Registry URL: https://registry.example.com")),
+      ).toBe(true);
+    }).pipe(Effect.provide(logLayer));
+  });
+
   it.effect("shows past tense summary for applied plan", () => {
     const [logLayer, mockLog] = makeLogTestLayer();
 

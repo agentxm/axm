@@ -13,6 +13,7 @@ import type * as HttpClient from "@effect/platform/HttpClient";
 import * as HttpClientError from "@effect/platform/HttpClientError";
 import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 
 import { type CliError, makeCliError } from "../cli-error/index.js";
 import type { PublishExtensionArgs, RegistryClient } from "./client.js";
@@ -28,10 +29,7 @@ import type { PublishExtensionArgs, RegistryClient } from "./client.js";
  * When the problem detail is null/undefined (non-JSON response), falls back
  * to a generic `REGISTRY_PUBLISH_FAILED` error.
  */
-export const mapProblemDetailToCliError = (
-  status: number,
-  problem: unknown,
-): CliError => {
+export const mapProblemDetailToCliError = (status: number, problem: unknown): CliError => {
   const detail = getStringField(problem, "detail");
   const requestId = getStringField(problem, "requestId");
   const code = getStringField(problem, "code");
@@ -180,6 +178,29 @@ const buildDetails = (
   return result;
 };
 
+const withRequestContext = (
+  error: CliError,
+  request: string,
+  status: number | undefined,
+): CliError => {
+  const howToFix = Option.match(error.howToFix, {
+    onNone: () => Option.none<string>(),
+    onSome: (value) => Option.some(value),
+  });
+
+  return makeCliError({
+    code: error.code,
+    what: error.what,
+    details: [
+      `Request: ${request}`,
+      ...(status === undefined ? [] : [`HTTP status: ${String(status)}`]),
+      ...error.details,
+    ],
+    ...(Option.isSome(howToFix) && { howToFix: howToFix.value }),
+    cause: error.cause,
+  });
+};
+
 // -----------------------------------------------------------------------------
 // Remote Registry Client
 // -----------------------------------------------------------------------------
@@ -208,6 +229,7 @@ const publishExtension = (
 ) =>
   Effect.gen(function* () {
     const url = buildPublishUrl(baseUrl, args);
+    const requestSummary = `PUT ${url}`;
 
     // Build multipart FormData
     const formData = new FormData();
@@ -219,9 +241,7 @@ const publishExtension = (
     formData.append("integrity", args.metadata.integrity);
 
     // Build request
-    const request = HttpClientRequest.put(url).pipe(
-      HttpClientRequest.bodyFormData(formData),
-    );
+    const request = HttpClientRequest.put(url).pipe(HttpClientRequest.bodyFormData(formData));
 
     // Execute request
     const response = yield* httpClient.execute(request).pipe(
@@ -231,7 +251,7 @@ const publishExtension = (
               makeCliError({
                 code: "REGISTRY_PUBLISH_NETWORK_ERROR",
                 what: "Failed to connect to the remote registry",
-                details: [error.message],
+                details: [`Request: ${requestSummary}`, error.message],
                 cause: error,
               }),
             )
@@ -239,6 +259,7 @@ const publishExtension = (
               makeCliError({
                 code: "REGISTRY_PUBLISH_NETWORK_ERROR",
                 what: "Failed to connect to the remote registry",
+                details: [`Request: ${requestSummary}`],
                 cause: error,
               }),
             ),
@@ -251,9 +272,7 @@ const publishExtension = (
     }
 
     // Handle error: read body and try to parse as problem detail
-    const bodyText = yield* response.text.pipe(
-      Effect.catchAll(() => Effect.succeed("")),
-    );
+    const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
 
     const problem = yield* Effect.try({
       try: () => JSON.parse(bodyText) as unknown,
@@ -266,12 +285,18 @@ const publishExtension = (
         makeCliError({
           code: "REGISTRY_PUBLISH_FAILED",
           what: `Publish failed with status ${String(response.status)}`,
-          details: bodyText.length > 0 ? [bodyText] : [],
+          details: [`Request: ${requestSummary}`, ...(bodyText.length > 0 ? [bodyText] : [])],
         }),
       );
     }
 
-    return yield* Effect.fail(mapProblemDetailToCliError(response.status, problem));
+    return yield* Effect.fail(
+      withRequestContext(
+        mapProblemDetailToCliError(response.status, problem),
+        requestSummary,
+        response.status,
+      ),
+    );
   });
 
 /**

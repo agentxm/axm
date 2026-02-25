@@ -149,6 +149,10 @@ export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const lockfilePath = path.join(axmDir, LOCKFILE_NAME);
+    const tempPath = path.join(
+      axmDir,
+      `${LOCKFILE_NAME}.tmp.${Date.now().toString(36)}.${Math.random().toString(36).slice(2, 8)}`,
+    );
 
     // Ensure directory exists
     yield* fs.makeDirectory(axmDir, { recursive: true }).pipe(
@@ -183,12 +187,23 @@ export const writeLockfile = (axmDir: string, lockfile: Lockfile) =>
         }),
     });
 
-    // Write file
-    yield* fs.writeFileString(lockfilePath, yamlContent).pipe(
+    // Write temp file first
+    yield* fs.writeFileString(tempPath, yamlContent).pipe(
       Effect.mapError((error) =>
         makeCliError({
           code: "LOCKFILE_WRITE_FAILED",
-          what: `Failed to write lockfile at ${lockfilePath}`,
+          what: `Failed to write lockfile temp file at ${tempPath}`,
+          cause: error,
+        }),
+      ),
+    );
+
+    // Atomic replace
+    yield* fs.rename(tempPath, lockfilePath).pipe(
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "LOCKFILE_WRITE_FAILED",
+          what: `Failed to atomically replace lockfile at ${lockfilePath}`,
           cause: error,
         }),
       ),

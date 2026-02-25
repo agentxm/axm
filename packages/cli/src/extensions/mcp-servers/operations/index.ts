@@ -6,3 +6,9 @@ export { installMcpServer } from "./install.js";
 
 export type { UninstallMcpServerOperationArgs, UninstallMcpServerOperation } from "./uninstall.js";
 export { uninstallMcpServer } from "./uninstall.js";
+export {
+  installMcpServerOperationMetadata,
+  mcpServerOperationMetadataRegistry,
+  publishMcpServerOperationMetadata,
+  uninstallMcpServerOperationMetadata,
+} from "./metadata.js";

@@ -11,6 +11,7 @@
 
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { makeCliError, type CliError } from "../cli-error/index.js";
 import type {
   JobStep,
@@ -22,6 +23,7 @@ import type {
   Plan,
   PlannedJobStep,
 } from "./plan.js";
+import { getOperationMetadata } from "./operation-registry.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -112,11 +114,32 @@ const runHandler = <
   handlers: T,
   operation: Op,
 ): Effect.Effect<OperationResult, CliError, ExecutionContext<T>> => {
-  const handler = handlers[operation.name as Op["name"]] as unknown as OperationHandler<
-    Op,
-    ExecutionContext<T>
-  >;
-  return handler(operation);
+  const metadata = getOperationMetadata(operation.name);
+  const handler = handlers[operation.name as Op["name"]] as unknown as
+    | OperationHandler<Op, ExecutionContext<T>>
+    | undefined;
+
+  if (Option.isNone(metadata) && handler === undefined) {
+    return Effect.fail(
+      makeCliError({
+        code: "PLAN_STEP_HANDLER_MISSING",
+        what: `No handler registered for operation: ${operation.name}`,
+      }),
+    );
+  }
+
+  if (handler === undefined) {
+    return Effect.fail(
+      makeCliError({
+        code: "PLAN_STEP_HANDLER_MISSING",
+        what: `No handler provided for operation: ${operation.name}`,
+      }),
+    );
+  }
+
+  const typedHandler = handler as unknown as OperationHandler<Op, ExecutionContext<T>>;
+
+  return typedHandler(operation);
 };
 
 const isPlannedStep = <Op extends Operation<string, unknown>>(
@@ -132,6 +155,22 @@ const applyOrKeepStep = <
 ): Effect.Effect<JobStepResult<Op>, never, ExecutionContext<T>> =>
   isPlannedStep(step) ? applyStep(step, handlers) : Effect.succeed(step);
 
+const blockStep = <Op extends Operation<string, unknown>>(step: JobStep<Op>): JobStepResult<Op> => {
+  if (step._tag === "JobStepResult") {
+    return step;
+  }
+
+  return {
+    _tag: "JobStepResult",
+    operation: step.operation,
+    label: step.label,
+    result: {
+      result: "no-op",
+      message: "blocked by earlier reconciliation failure",
+    },
+  };
+};
+
 /**
  * Apply a plan by iterating jobs and dispatching steps to the executor registry.
  *
@@ -146,20 +185,31 @@ export const applyPlan = <
   plan: Plan<Op>,
   handlers: T,
 ): Effect.Effect<Plan<Op>, never, ExecutionContext<T>> =>
-  Effect.map(
-    Effect.forEach(
+  Effect.gen(function* () {
+    let blocked = false;
+    const jobResults = yield* Effect.forEach(
       plan.jobs,
       (job) =>
-        Effect.forEach(job.steps, (step) => applyOrKeepStep(step, handlers), {
-          concurrency: job.concurrency,
-        }),
+        blocked
+          ? Effect.succeed(job.steps.map((step) => blockStep(step)))
+          : Effect.forEach(job.steps, (step) => applyOrKeepStep(step, handlers), {
+              concurrency: job.concurrency,
+            }).pipe(
+              Effect.tap((steps) => {
+                if (steps.some((step) => step.result.result === "error")) {
+                  blocked = true;
+                }
+                return Effect.void;
+              }),
+            ),
       { concurrency: 1 },
-    ),
-    (jobResults) => ({
+    );
+
+    return {
       ...plan,
       jobs: Array.map(jobResults, (steps, i) => ({
         ...plan.jobs[i]!,
         steps,
       })),
-    }),
-  ).pipe(Effect.withSpan("Workspace.applyPlan"));
+    };
+  }).pipe(Effect.withSpan("Workspace.applyPlan"));

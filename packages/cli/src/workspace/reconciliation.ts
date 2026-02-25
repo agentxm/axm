@@ -1,0 +1,343 @@
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as Path from "@effect/platform/Path";
+import * as Array from "effect/Array";
+import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { makeCliError, type CliError } from "../cli-error/index.js";
+import type { Lockfile } from "../lockfile/index.js";
+import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
+import { commandReconciliationAdapter } from "../extensions/commands/reconciliation-adapter.js";
+import { mcpServerReconciliationAdapter } from "../extensions/mcp-servers/reconciliation-adapter.js";
+import { packReconciliationAdapter } from "../extensions/packs/reconciliation-adapter.js";
+import { skillReconciliationAdapter } from "../extensions/skills/reconciliation-adapter.js";
+import type {
+  DeclarationResolution,
+  ReconciliationAdapter,
+  ReconciliationContext,
+  ReconciliationDeclaration,
+  ReconcileExtensionType,
+} from "./reconciliation-types.js";
+import type { Operation, OperationResult, Plan, PlannedJobStep } from "./plan.js";
+
+export type ReadRecoverLockfileOperation = Operation<
+  "read-recover-lockfile",
+  { readonly reason: "missing" | "invalid"; readonly origin: "augmentPlan" }
+>;
+
+export type ReconcileMaterializeLockfileOperation = Operation<
+  "reconcile-materialize-lockfile",
+  { readonly reason: "missing" | "invalid"; readonly origin: "augmentPlan" }
+>;
+
+export type ReconciliationOperation =
+  | ReadRecoverLockfileOperation
+  | ReconcileMaterializeLockfileOperation;
+
+export const isInjectedReconciliationOperation = (operation: Operation<string, unknown>): boolean =>
+  (operation.name === "read-recover-lockfile" ||
+    operation.name === "reconcile-materialize-lockfile") &&
+  typeof operation.args === "object" &&
+  operation.args !== null &&
+  "origin" in operation.args &&
+  operation.args.origin === "augmentPlan";
+
+const adapters: ReadonlyArray<ReconciliationAdapter> = [
+  skillReconciliationAdapter,
+  commandReconciliationAdapter,
+  mcpServerReconciliationAdapter,
+  packReconciliationAdapter,
+];
+
+const reconcileTypeOrder: Readonly<Record<ReconcileExtensionType, number>> = {
+  skills: 0,
+  commands: 1,
+  packs: 2,
+  "mcp-servers": 3,
+};
+
+const dedupeDeclarationKey = (declaration: ReconciliationDeclaration): string =>
+  `${declaration.extensionType}:${declaration.namespace}:${declaration.name}:${declaration.declarationSourceOrConstraint}`;
+
+const dedupeConflictKey = (declaration: ReconciliationDeclaration): string =>
+  `${declaration.extensionType}:${declaration.namespace}:${declaration.name}`;
+
+export interface ReconciliationSnapshot {
+  readonly lockfile: Lockfile;
+  readonly unresolved: ReadonlyArray<{
+    readonly declaration: ReconciliationDeclaration;
+    readonly reason: "missing" | "invalid" | "declaration-mismatch";
+  }>;
+  readonly warnings: ReadonlyArray<string>;
+}
+
+const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lockfile => {
+  const skills: Record<string, unknown> = {};
+  const commands: Record<string, unknown> = {};
+  const mcpServers: Record<string, unknown> = {};
+  const packs: Record<string, unknown> = {};
+
+  for (const result of results) {
+    if (result._tag !== "Compatible") {
+      continue;
+    }
+
+    switch (result.reconstructed.extensionType) {
+      case "skills":
+        skills[result.reconstructed.name] = result.reconstructed.entry;
+        break;
+      case "commands":
+        commands[result.reconstructed.name] = result.reconstructed.entry;
+        break;
+      case "mcp-servers":
+        mcpServers[result.reconstructed.name] = result.reconstructed.entry;
+        break;
+      case "packs":
+        packs[result.reconstructed.name] = result.reconstructed.entry;
+        break;
+    }
+  }
+
+  return {
+    lockfileVersion: 1,
+    skills: skills as Lockfile["skills"],
+    commands: commands as Lockfile["commands"],
+    mcpServers: mcpServers as Lockfile["mcpServers"],
+    packs: packs as Lockfile["packs"],
+  } satisfies Lockfile;
+};
+
+export const dedupeDeclarations = (
+  declarations: ReadonlyArray<ReconciliationDeclaration>,
+): {
+  readonly declarations: ReadonlyArray<ReconciliationDeclaration>;
+  readonly warnings: ReadonlyArray<string>;
+} => {
+  const byExactKey = new Map<string, ReconciliationDeclaration>();
+  const byConflictKey = new Map<string, ReconciliationDeclaration>();
+  const warnings: string[] = [];
+
+  const ordered = [...declarations].sort((a, b) => {
+    const byType = reconcileTypeOrder[a.extensionType] - reconcileTypeOrder[b.extensionType];
+    if (byType !== 0) {
+      return byType;
+    }
+    const byName = a.name.localeCompare(b.name);
+    if (byName !== 0) {
+      return byName;
+    }
+    if (a.order !== b.order) {
+      return a.order - b.order;
+    }
+    return a.declarationSourceOrConstraint.localeCompare(b.declarationSourceOrConstraint);
+  });
+
+  for (const declaration of ordered) {
+    const key = dedupeDeclarationKey(declaration);
+    if (byExactKey.has(key)) {
+      continue;
+    }
+
+    const conflictKey = dedupeConflictKey(declaration);
+    const existingConflict = byConflictKey.get(conflictKey);
+    if (existingConflict !== undefined) {
+      warnings.push(
+        `LOCKFILE_RECONCILE_CONFLICT: ${conflictKey} (${existingConflict.declarationSourceOrConstraint} wins over ${declaration.declarationSourceOrConstraint})`,
+      );
+      continue;
+    }
+
+    byExactKey.set(key, declaration);
+    byConflictKey.set(conflictKey, declaration);
+  }
+
+  return {
+    declarations: [...byExactKey.values()],
+    warnings,
+  };
+};
+
+export const buildReconciliationSnapshot = (
+  context: ReconciliationContext,
+): Effect.Effect<ReconciliationSnapshot, CliError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+
+    const scanResults = yield* Effect.forEach(
+      adapters,
+      (adapter) => adapter.scanDeclarations(context, { fs, path }),
+      { concurrency: "unbounded" },
+    );
+
+    const scannedDeclarations = Array.flatten(scanResults.map((scan) => [...scan.declarations]));
+    const scanWarnings = Array.flatten(scanResults.map((scan) => [...scan.warnings]));
+
+    const deduped = dedupeDeclarations(scannedDeclarations);
+
+    const checked = yield* Effect.forEach(
+      deduped.declarations,
+      (declaration) => {
+        const adapter = adapters.find(
+          (candidate) => candidate.extensionType === declaration.extensionType,
+        );
+        if (adapter === undefined) {
+          return Effect.fail(
+            makeCliError({
+              code: "LOCKFILE_RECONCILE_ADAPTER_MISSING",
+              what: `No reconciliation adapter for ${declaration.extensionType}`,
+            }),
+          );
+        }
+        return adapter.checkDiskCompatibility(declaration, context, { fs, path });
+      },
+      { concurrency: "unbounded" },
+    );
+
+    return {
+      lockfile: mergeReconstructed(checked),
+      unresolved: checked
+        .filter(
+          (result): result is Extract<DeclarationResolution, { _tag: "Unresolved" }> =>
+            result._tag === "Unresolved",
+        )
+        .map((result) => ({ declaration: result.declaration, reason: result.reason })),
+      warnings: [...scanWarnings, ...deduped.warnings],
+    };
+  });
+
+export const makeReadRecoverStep = (
+  reason: "missing" | "invalid",
+): PlannedJobStep<ReconciliationOperation> => ({
+  _tag: "PlannedJobStep",
+  operation: {
+    name: "read-recover-lockfile",
+    args: { reason, origin: "augmentPlan" },
+  },
+  readiness: { status: "ready", message: Option.none() },
+  label: `[auto] read-recover lockfile (${reason})`,
+});
+
+export const makeReconcileMaterializeStep = (
+  reason: "missing" | "invalid",
+): PlannedJobStep<ReconciliationOperation> => ({
+  _tag: "PlannedJobStep",
+  operation: {
+    name: "reconcile-materialize-lockfile",
+    args: { reason, origin: "augmentPlan" },
+  },
+  readiness: { status: "ready", message: Option.none() },
+  label: `[auto] reconcile-materialize lockfile (${reason})`,
+});
+
+export const prependReconciliationJob = <Op extends Operation<string, unknown>>(
+  plan: Plan<Op>,
+  operations: ReadonlyArray<ReconciliationOperation>,
+): Plan<Op> => {
+  const reconciliationJob = {
+    concurrency: 1 as const,
+    steps: operations.map((operation) => {
+      if (operation.name === "read-recover-lockfile") {
+        return makeReadRecoverStep(operation.args.reason) as unknown as PlannedJobStep<Op>;
+      }
+      return makeReconcileMaterializeStep(operation.args.reason) as unknown as PlannedJobStep<Op>;
+    }),
+  };
+
+  return {
+    ...plan,
+    jobs: [reconciliationJob, ...plan.jobs],
+  };
+};
+
+const formatUnresolved = (snapshot: ReconciliationSnapshot): ReadonlyArray<string> =>
+  snapshot.unresolved.map(
+    ({ declaration, reason }) =>
+      `${declaration.extensionType}:${declaration.namespace}/${declaration.name} (${reason})`,
+  );
+
+export const runReadRecoverOperation = (
+  context: ReconciliationContext,
+): Effect.Effect<OperationResult, CliError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const snapshot = yield* buildReconciliationSnapshot(context);
+    const unresolvedCount = snapshot.unresolved.length;
+    const reconstructedCount =
+      Object.keys(snapshot.lockfile.skills).length +
+      Object.keys(snapshot.lockfile.commands ?? {}).length +
+      Object.keys(snapshot.lockfile.mcpServers ?? {}).length +
+      Object.keys(snapshot.lockfile.packs ?? {}).length;
+
+    const suffix = unresolvedCount > 0 ? `, ${unresolvedCount} unresolved` : "";
+    return {
+      result: "success",
+      message: `Recovered ${reconstructedCount} declaration(s)${suffix}`,
+    } satisfies OperationResult;
+  });
+
+const backupInvalidLockfile = (
+  lockfilePath: string,
+): Effect.Effect<void, CliError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+
+    const timestamp = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const stamp = `${timestamp.getFullYear()}${pad(timestamp.getMonth() + 1)}${pad(timestamp.getDate())}${pad(timestamp.getHours())}${pad(timestamp.getMinutes())}${pad(timestamp.getSeconds())}`;
+    const backupPath = path.join(path.dirname(lockfilePath), `${LOCKFILE_NAME}.bak.${stamp}`);
+
+    yield* fs.rename(lockfilePath, backupPath).pipe(
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "LOCKFILE_BACKUP_FAILED",
+          what: `Failed to back up invalid lockfile to ${backupPath}`,
+          cause: error,
+        }),
+      ),
+    );
+  });
+
+export const runReconcileMaterializeOperation = (
+  context: ReconciliationContext,
+  lockfileDir: string,
+  lockfileState: "missing" | "invalid",
+): Effect.Effect<OperationResult, CliError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+
+    const snapshot = yield* buildReconciliationSnapshot(context);
+    if (snapshot.unresolved.length > 0) {
+      return {
+        result: "error",
+        message: "Reconciliation requires unresolved source resolution",
+        error: makeCliError({
+          code: "LOCKFILE_RECONCILE_SOURCE_UNREACHABLE",
+          what: "Required declaration sources are unreachable during reconciliation",
+          details: formatUnresolved(snapshot),
+        }),
+      } satisfies OperationResult;
+    }
+
+    const lockfilePath = path.join(lockfileDir, LOCKFILE_NAME);
+    if (lockfileState === "invalid") {
+      const exists = yield* fs.exists(lockfilePath).pipe(
+        Effect.mapError((error) =>
+          makeCliError({
+            code: "LOCKFILE_BACKUP_FAILED",
+            what: `Failed to check invalid lockfile at ${lockfilePath}`,
+            cause: error,
+          }),
+        ),
+      );
+      if (exists) {
+        yield* backupInvalidLockfile(lockfilePath);
+      }
+    }
+
+    yield* writeLockfile(lockfileDir, snapshot.lockfile);
+    return {
+      result: "success",
+      message: "Reconciled and materialized lockfile",
+    } satisfies OperationResult;
+  });

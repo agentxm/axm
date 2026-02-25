@@ -40,7 +40,18 @@ export const buildSkillInstallPlan = ({
   Effect.gen(function* () {
     const workspace = yield* Workspace;
     const sources = yield* SourceHostProviders;
-    const lockedSkills = yield* workspace.getLockedSkills();
+    const lockedSkills = yield* workspace.getLockedSkills().pipe(
+      Effect.catchAll((error) => {
+        if (
+          error.code === "LOCKFILE_PARSE_FAILED" ||
+          error.code === "LOCKFILE_RESOLVED_VERSION_INVALID"
+        ) {
+          return Effect.succeed({});
+        }
+
+        return Effect.fail(error);
+      }),
+    );
 
     const ops = selectedSkills.map(
       (ref) =>

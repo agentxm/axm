@@ -602,13 +602,218 @@ describe("createRemoteRegistryClient", () => {
       }),
     );
 
-    it.effect("getExtensionsByScope list mode reports not implemented", () =>
+    it.effect("getExtensionsByScope list mode discovers from namespace endpoint", () =>
       Effect.gen(function* () {
-        const httpClient = makeMockHttpClient(() => new Response("", { status: 200 }));
+        const requestedUrls: Array<string> = [];
+        const httpClient = makeMockHttpClient((request) => {
+          requestedUrls.push(`${request.method} ${request.url}`);
+
+          if (request.url.endsWith("/v1/extensions/@acme")) {
+            return new Response(
+              JSON.stringify({
+                extensions: [
+                  { namespace: "@acme", type: "skill", name: "alpha" },
+                  { namespace: "@acme", type: "pack", name: "beta" },
+                ],
+              }),
+              { status: 200 },
+            );
+          }
+
+          if (request.url.endsWith("/v1/extensions/@acme/skills/alpha")) {
+            return new Response(
+              JSON.stringify({
+                namespace: "@acme",
+                type: "skill",
+                name: "alpha",
+                versions: [
+                  {
+                    version: "1.2.3",
+                    published: "2026-01-01T00:00:00Z",
+                    integrity: "sha512-alpha",
+                  },
+                ],
+              }),
+              { status: 200 },
+            );
+          }
+
+          if (request.url.endsWith("/v1/extensions/@acme/packs/beta")) {
+            return new Response(
+              JSON.stringify({
+                namespace: "@acme",
+                type: "pack",
+                name: "beta",
+                versions: [
+                  {
+                    version: "2.0.0",
+                    published: "2026-01-01T00:00:00Z",
+                    integrity: "sha512-beta",
+                  },
+                ],
+              }),
+              { status: 200 },
+            );
+          }
+
+          return new Response("", { status: 404 });
+        });
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client.getExtensionsByScope({
+          namespace: "@acme",
+          names: [],
+          types: [],
+          limit: Option.none(),
+          offset: 0,
+        });
+
+        expect(result.total).toBe(2);
+        expect(result.extensions).toHaveLength(2);
+        expect(result.extensions[0]?.name).toBe("alpha");
+        expect(result.extensions[1]?.name).toBe("beta");
+        expect(requestedUrls).toContain("GET https://registry.example.com/v1/extensions/@acme");
+      }),
+    );
+
+    it.effect("getExtensionsByScope list mode supports type filter endpoints", () =>
+      Effect.gen(function* () {
+        const requestedUrls: Array<string> = [];
+        const httpClient = makeMockHttpClient((request) => {
+          requestedUrls.push(`${request.method} ${request.url}`);
+
+          if (request.url.endsWith("/v1/extensions/@acme/skills")) {
+            return new Response(
+              JSON.stringify({
+                extensions: [{ namespace: "@acme", type: "skill", name: "alpha" }],
+              }),
+              { status: 200 },
+            );
+          }
+
+          if (request.url.endsWith("/v1/extensions/@acme/packs")) {
+            return new Response(
+              JSON.stringify({
+                extensions: [{ namespace: "@acme", type: "pack", name: "beta" }],
+              }),
+              { status: 200 },
+            );
+          }
+
+          if (request.url.endsWith("/v1/extensions/@acme/skills/alpha")) {
+            return new Response(
+              JSON.stringify({
+                namespace: "@acme",
+                type: "skill",
+                name: "alpha",
+                versions: [
+                  {
+                    version: "1.0.0",
+                    published: "2026-01-01T00:00:00Z",
+                    integrity: "sha512-alpha",
+                  },
+                ],
+              }),
+              { status: 200 },
+            );
+          }
+
+          if (request.url.endsWith("/v1/extensions/@acme/packs/beta")) {
+            return new Response(
+              JSON.stringify({
+                namespace: "@acme",
+                type: "pack",
+                name: "beta",
+                versions: [
+                  {
+                    version: "2.0.0",
+                    published: "2026-01-01T00:00:00Z",
+                    integrity: "sha512-beta",
+                  },
+                ],
+              }),
+              { status: 200 },
+            );
+          }
+
+          return new Response("", { status: 404 });
+        });
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client.getExtensionsByScope({
+          namespace: "@acme",
+          names: [],
+          types: ["skill", "pack"],
+          limit: Option.none(),
+          offset: 0,
+        });
+
+        expect(result.total).toBe(2);
+        expect(requestedUrls).toContain(
+          "GET https://registry.example.com/v1/extensions/@acme/skills",
+        );
+        expect(requestedUrls).toContain(
+          "GET https://registry.example.com/v1/extensions/@acme/packs",
+        );
+      }),
+    );
+
+    it.effect("getExtensionsByScope list mode applies offset and limit", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient((request) => {
+          if (request.url.endsWith("/v1/extensions/@acme")) {
+            return new Response(
+              JSON.stringify({
+                extensions: [
+                  { namespace: "@acme", type: "skill", name: "a" },
+                  { namespace: "@acme", type: "skill", name: "b" },
+                  { namespace: "@acme", type: "skill", name: "c" },
+                ],
+              }),
+              { status: 200 },
+            );
+          }
+
+          const name = request.url.split("/").at(-1);
+          return new Response(
+            JSON.stringify({
+              namespace: "@acme",
+              type: "skill",
+              name,
+              versions: [{ version: "1.0.0", published: "2026-01-01T00:00:00Z", integrity: "x" }],
+            }),
+            { status: 200 },
+          );
+        });
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client.getExtensionsByScope({
+          namespace: "@acme",
+          names: [],
+          types: [],
+          limit: Option.some(1),
+          offset: 1,
+        });
+
+        expect(result.total).toBe(3);
+        expect(result.extensions).toHaveLength(1);
+        expect(result.extensions[0]?.name).toBe("b");
+      }),
+    );
+
+    it.effect("getExtensionsByScope list mode fails on schema mismatch", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient((request) => {
+          if (request.url.endsWith("/v1/extensions/@acme")) {
+            return new Response(JSON.stringify({ nope: true }), { status: 200 });
+          }
+          return new Response("", { status: 404 });
+        });
+
         const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client
           .getExtensionsByScope({
-            namespace: "@test",
+            namespace: "@acme",
             names: [],
             types: [],
             limit: Option.none(),
@@ -617,17 +822,162 @@ describe("createRemoteRegistryClient", () => {
           .pipe(Effect.either);
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_LIST_NOT_IMPLEMENTED");
-          expect(result.left.what).toContain("getExtensionsByScope");
+          expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE");
         }
       }),
     );
 
-    const httpClient = makeMockHttpClient(() => new Response("", { status: 200 }));
-    const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-
-    it.effect("getExtensionPackage reports package fetch not implemented", () =>
+    it.effect("getExtensionPackage fetches explicit version archive", () =>
       Effect.gen(function* () {
+        const httpClient = makeMockHttpClient((request) => {
+          if (request.url.endsWith("/v1/extensions/@test/skills/my-skill")) {
+            return new Response(
+              JSON.stringify({
+                namespace: "@test",
+                type: "skill",
+                name: "my-skill",
+                versions: [
+                  {
+                    version: "1.0.0",
+                    published: "2026-01-01T00:00:00Z",
+                    integrity: "sha512-a",
+                  },
+                ],
+              }),
+              { status: 200 },
+            );
+          }
+          if (request.url.endsWith("/v1/extensions/@test/skills/my-skill/1.0.0/archive")) {
+            return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
+          }
+          return new Response("", { status: 404 });
+        });
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client.getExtensionPackage({
+          namespace: "@test",
+          type: "skill",
+          name: "my-skill",
+          version: Option.some("1.0.0"),
+        });
+        expect(Array.from(result.archive)).toEqual([1, 2, 3]);
+      }),
+    );
+
+    it.effect("getExtensionPackage falls back to latest when version is None", () =>
+      Effect.gen(function* () {
+        const requestedUrls: Array<string> = [];
+        const httpClient = makeMockHttpClient((request) => {
+          requestedUrls.push(request.url);
+          if (request.url.endsWith("/v1/extensions/@test/skills/my-skill")) {
+            return new Response(
+              JSON.stringify({
+                namespace: "@test",
+                type: "skill",
+                name: "my-skill",
+                versions: [
+                  {
+                    version: "2.0.0",
+                    published: "2026-01-01T00:00:00Z",
+                    integrity: "sha512-latest",
+                  },
+                  {
+                    version: "1.0.0",
+                    published: "2025-01-01T00:00:00Z",
+                    integrity: "sha512-old",
+                  },
+                ],
+              }),
+              { status: 200 },
+            );
+          }
+          if (request.url.endsWith("/v1/extensions/@test/skills/my-skill/2.0.0/archive")) {
+            return new Response(new Uint8Array([9, 9]), { status: 200 });
+          }
+          return new Response("", { status: 404 });
+        });
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client.getExtensionPackage({
+          namespace: "@test",
+          type: "skill",
+          name: "my-skill",
+          version: Option.none(),
+        });
+
+        expect(Array.from(result.archive)).toEqual([9, 9]);
+        expect(requestedUrls).toContain(
+          "https://registry.example.com/v1/extensions/@test/skills/my-skill/2.0.0/archive",
+        );
+      }),
+    );
+
+    it.effect("getExtensionPackage fails when explicit version is missing", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient((request) => {
+          if (request.url.endsWith("/v1/extensions/@test/skills/my-skill")) {
+            return new Response(
+              JSON.stringify({
+                namespace: "@test",
+                type: "skill",
+                name: "my-skill",
+                versions: [
+                  {
+                    version: "1.0.0",
+                    published: "2026-01-01T00:00:00Z",
+                    integrity: "sha512-a",
+                  },
+                ],
+              }),
+              { status: 200 },
+            );
+          }
+          return new Response("", { status: 404 });
+        });
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client
+          .getExtensionPackage({
+            namespace: "@test",
+            type: "skill",
+            name: "my-skill",
+            version: Option.some("9.9.9"),
+          })
+          .pipe(Effect.either);
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left.code).toBe("REGISTRY_REMOTE_VERSION_NOT_FOUND");
+        }
+      }),
+    );
+
+    it.effect("getExtensionPackage fails when archive endpoint returns 404", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient((request) => {
+          if (request.url.endsWith("/v1/extensions/@test/skills/my-skill")) {
+            return new Response(
+              JSON.stringify({
+                namespace: "@test",
+                type: "skill",
+                name: "my-skill",
+                versions: [
+                  {
+                    version: "1.0.0",
+                    published: "2026-01-01T00:00:00Z",
+                    integrity: "sha512-a",
+                  },
+                ],
+              }),
+              { status: 200 },
+            );
+          }
+          if (request.url.endsWith("/v1/extensions/@test/skills/my-skill/1.0.0/archive")) {
+            return new Response("", { status: 404 });
+          }
+          return new Response("", { status: 404 });
+        });
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client
           .getExtensionPackage({
             namespace: "@test",
@@ -638,23 +988,101 @@ describe("createRemoteRegistryClient", () => {
           .pipe(Effect.either);
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_PACKAGE_FETCH_NOT_IMPLEMENTED");
+          expect(result.left.code).toBe("REGISTRY_REMOTE_PACKAGE_NOT_FOUND");
         }
       }),
     );
 
-    it.effect("namespaceExists reports namespace checks not implemented", () =>
+    it.effect("getExtensionPackage fails on invalid index JSON", () =>
       Effect.gen(function* () {
+        const httpClient = makeMockHttpClient((request) => {
+          if (request.url.endsWith("/v1/extensions/@test/skills/my-skill")) {
+            return new Response("{not-json", { status: 200 });
+          }
+          return new Response("", { status: 404 });
+        });
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client
+          .getExtensionPackage({
+            namespace: "@test",
+            type: "skill",
+            name: "my-skill",
+            version: Option.some("1.0.0"),
+          })
+          .pipe(Effect.either);
+        expect(result._tag).toBe("Left");
+        if (result._tag === "Left") {
+          expect(result.left.code).toBe("REGISTRY_REMOTE_INVALID_RESPONSE");
+        }
+      }),
+    );
+
+    it.effect("namespaceExists returns true for 200 with entries", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient((request) => {
+          if (request.url.endsWith("/v1/extensions/@test")) {
+            return new Response(
+              JSON.stringify({
+                extensions: [{ namespace: "@test", type: "skill", name: "my-skill" }],
+              }),
+              { status: 200 },
+            );
+          }
+          return new Response("", { status: 404 });
+        });
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client.namespaceExists("@test");
+        expect(result).toEqual({ exists: true });
+      }),
+    );
+
+    it.effect("namespaceExists returns false for 200 with empty list", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient((request) => {
+          if (request.url.endsWith("/v1/extensions/@test")) {
+            return new Response(JSON.stringify({ extensions: [] }), { status: 200 });
+          }
+          return new Response("", { status: 404 });
+        });
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client.namespaceExists("@test");
+        expect(result).toEqual({ exists: false });
+      }),
+    );
+
+    it.effect("namespaceExists returns false for 404", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient(() => new Response("", { status: 404 }));
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client.namespaceExists("@missing");
+        expect(result).toEqual({ exists: false });
+      }),
+    );
+
+    it.effect("namespaceExists maps network errors", () =>
+      Effect.gen(function* () {
+        const httpClient = HttpClient.make((request) =>
+          Effect.fail(
+            new HttpClientError.RequestError({
+              request,
+              reason: "Transport",
+              cause: new Error("Connection refused"),
+            }),
+          ),
+        );
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client.namespaceExists("@test").pipe(Effect.either);
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_NAMESPACE_CHECK_NOT_IMPLEMENTED");
+          expect(result.left.code).toBe("REGISTRY_REMOTE_NAMESPACE_CHECK_NETWORK_ERROR");
         }
       }),
     );
 
     it.effect("extensionExists returns true for 200", () =>
       Effect.gen(function* () {
+        const httpClient = makeMockHttpClient(() => new Response("", { status: 200 }));
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client.extensionExists({
           namespace: "@test",
           type: "skill",

@@ -32,6 +32,7 @@ import type { UninstallSkillOperation } from "../../../extensions/skills/operati
 import { buildUpdatePlan } from "./plan.js";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
 import { uninstallSkill } from "../../../extensions/skills/operations/uninstall.js";
+import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 import {
   detectHoldbackWarnings,
   type PackConstraint,
@@ -314,10 +315,12 @@ export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHa
   );
 
   // Step 10: Resolve plan
-  yield* ws.resolvePlan(plan, {
-    "install-skill": installSkill,
-    "uninstall-skill": uninstallSkill,
-  });
+  yield* ws.resolvePlan(
+    bridgeLegacyPlan(plan, {
+      "install-skill": installSkill,
+      "uninstall-skill": uninstallSkill,
+    }),
+  );
 
   yield* log.success("Done");
 });

@@ -21,7 +21,7 @@ describe("axm skills install from local registry (via fork)", () => {
     const temp = createTempDir();
     const registryDir = createTempDir("axm-registry-");
     try {
-      // Initialize workspace
+      // Initialize workspace with claude-code agent
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
 
       // Set up registry source and namespace in settings
@@ -35,16 +35,7 @@ describe("axm skills install from local registry (via fork)", () => {
 
       // Install a skill from local source first
       const installResult = await runCli(
-        [
-          "skills",
-          "install",
-          SKILLS_REPO_FIXTURE,
-          "--skill",
-          "my-skill",
-          "--yes",
-          "--agent",
-          "claude-code",
-        ],
+        ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"],
         { cwd: temp.path },
       );
       expect(installResult.exitCode).toBe(0);
@@ -108,7 +99,7 @@ describe("axm skills install from local registry (via fork)", () => {
     const registryDir = createTempDir("axm-registry-");
     try {
       // Initialize workspace
-      await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["init", "--yes"], { cwd: temp.path });
 
       // Set up registry source
       const settingsPath = path.join(temp.path, ".axm", "settings.json");
@@ -120,19 +111,9 @@ describe("axm skills install from local registry (via fork)", () => {
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       // Install and fork
-      await runCli(
-        [
-          "skills",
-          "install",
-          SKILLS_REPO_FIXTURE,
-          "--skill",
-          "my-skill",
-          "--yes",
-          "--agent",
-          "claude-code",
-        ],
-        { cwd: temp.path },
-      );
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
 
       const forkResult = await runCli(["skills", "fork", "my-skill", "--yes"], { cwd: temp.path });
       expect(forkResult.exitCode).toBe(0);
@@ -179,7 +160,7 @@ describe("axm skills install from local registry (via fork)", () => {
     const temp = createTempDir();
     const registryDir = createTempDir("axm-registry-");
     try {
-      // Initialize workspace
+      // Initialize workspace with claude-code agent
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
 
       // Set up registry source and namespace in settings
@@ -192,19 +173,9 @@ describe("axm skills install from local registry (via fork)", () => {
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       // Install a skill from local source, then fork to publish to registry
-      await runCli(
-        [
-          "skills",
-          "install",
-          SKILLS_REPO_FIXTURE,
-          "--skill",
-          "my-skill",
-          "--yes",
-          "--agent",
-          "claude-code",
-        ],
-        { cwd: temp.path },
-      );
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
       const forkResult = await runCli(["skills", "fork", "my-skill", "--yes"], { cwd: temp.path });
       expect(forkResult.exitCode).toBe(0);
 
@@ -227,7 +198,7 @@ describe("axm skills install from local registry (via fork)", () => {
 
       // Fresh install from registry using @namespace/name syntax
       const registryInstallResult = await runCli(
-        ["skills", "install", "@test/skills/my-skill", "--yes", "--agent", "claude-code"],
+        ["skills", "install", "@test/skills/my-skill", "--yes"],
         { cwd: temp.path },
       );
       expect(registryInstallResult.exitCode).toBe(0);
@@ -272,19 +243,9 @@ describe("axm skills install from local registry (via fork)", () => {
       settings.namespace = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
-      await runCli(
-        [
-          "skills",
-          "install",
-          SKILLS_REPO_FIXTURE,
-          "--skill",
-          "my-skill",
-          "--yes",
-          "--agent",
-          "claude-code",
-        ],
-        { cwd: temp.path },
-      );
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
 
       await runCli(["skills", "fork", "my-skill", "--yes"], { cwd: temp.path });
 

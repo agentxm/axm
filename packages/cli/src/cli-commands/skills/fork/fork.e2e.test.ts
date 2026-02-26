@@ -29,7 +29,7 @@ describe("axm skills fork", () => {
       const registryDir = createTempDir("axm-registry-");
       try {
         // Initialize workspace
-        await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+        await runCli(["init", "--yes"], { cwd: temp.path });
 
         // Set up registry source and namespace in settings
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
@@ -42,16 +42,7 @@ describe("axm skills fork", () => {
 
         // Install a skill from local source
         const installResult = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"],
           { cwd: temp.path },
         );
         expect(installResult.exitCode).toBe(0);
@@ -131,7 +122,7 @@ describe("axm skills fork", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+        await runCli(["init", "--yes"], { cwd: temp.path });
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -143,7 +134,7 @@ describe("axm skills fork", () => {
 
         // Install all skills from fixture
         const installResult = await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes", "--agent", "claude-code"],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"],
           { cwd: temp.path },
         );
         expect(installResult.exitCode).toBe(0);
@@ -241,16 +232,7 @@ describe("axm skills fork", () => {
         createSkillMd(path.join(temp.path, ".claude", "skills", "gamma-disk"), "gamma-disk");
 
         const installResult = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"],
           { cwd: temp.path },
         );
         expect(installResult.exitCode).toBe(0);
@@ -274,7 +256,7 @@ describe("axm skills fork", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+        await runCli(["init", "--yes"], { cwd: temp.path });
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));

@@ -8,7 +8,7 @@
  */
 
 import * as Option from "effect/Option";
-import type { Plan } from "../../workspace/plan.js";
+import type { LegacyPlan } from "../../workspace/plan-bridge.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -31,7 +31,7 @@ export interface BuildSingleStepPlanArgs<TOperation> {
 
 export const buildSingleStepPlan = <TOperation>(
   args: BuildSingleStepPlanArgs<TOperation>,
-): Plan<TOperation> => ({
+): LegacyPlan<TOperation> => ({
   name: args.name,
   description: Option.some(args.description),
   jobs: [

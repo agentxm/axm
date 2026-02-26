@@ -46,6 +46,7 @@ const BaseCommonFields = {
   installedAt: DateFromString,
   updatedAt: DateFromString,
   gitTreeHash: Schema.optional(Schema.String),
+  retainedByPack: Schema.optional(Schema.Boolean),
 };
 
 /**

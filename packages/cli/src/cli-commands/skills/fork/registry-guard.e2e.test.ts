@@ -19,22 +19,12 @@ describe("registry guard", () => {
       const temp = createTempDir();
       try {
         // Initialize workspace without registry source
-        await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+        await runCli(["init", "--yes"], { cwd: temp.path });
 
         // Install a skill first (so fork has something to work with)
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         // Attempt to fork with --non-interactive (no registry configured)
         const forkResult = await runCli(
@@ -56,7 +46,7 @@ describe("registry guard", () => {
       const temp = createTempDir();
       try {
         // Initialize workspace without registry source
-        await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+        await runCli(["init", "--yes"], { cwd: temp.path });
 
         // Create an extension so publish has something to find
         const extensionDir = path.join(
@@ -113,7 +103,7 @@ describe("registry guard", () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+        await runCli(["init", "--yes"], { cwd: temp.path });
 
         // Configure registry source
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
@@ -125,19 +115,9 @@ describe("registry guard", () => {
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
         // Install a skill
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         // Fork should succeed with registry configured
         const forkResult = await runCli(["skills", "fork", "my-skill", "--yes"], {

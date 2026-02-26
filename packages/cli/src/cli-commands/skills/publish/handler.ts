@@ -21,7 +21,7 @@ import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { PublishSkillOperation } from "../../../extensions/skills/operations/publish.js";
 import { publishSkill } from "../../../extensions/skills/operations/publish.js";
-import type { PlannedJobStep } from "../../../workspace/plan.js";
+import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
 import { MANIFEST_FILENAME } from "../../../extensions/skills/manifest-schema.js";
 import { parseFqn } from "../../../extensions/fqn.js";
@@ -198,7 +198,7 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
   });
 
   // Step 6: Build multi-step plan
-  const steps: PlannedJobStep<PublishSkillOperation>[] = extensionNames.map((extName) => ({
+  const steps: LegacyPlannedStep<PublishSkillOperation>[] = extensionNames.map((extName) => ({
     _tag: "PlannedJobStep" as const,
     operation: {
       name: "publish-skill",
@@ -219,14 +219,16 @@ export const handlePublish = Effect.fn("Publish.handle")(function* (args: Publis
     jobs: [{ steps, concurrency: 1 as const }],
   };
 
-  const resolvedPlan = yield* ws.resolvePlan(plan, {
-    "publish-skill": publishSkill,
-  });
+  const resolvedPlan = yield* ws.resolvePlan(
+    bridgeLegacyPlan(plan, {
+      "publish-skill": publishSkill,
+    }),
+  );
 
   const failedStepDetails = resolvedPlan.jobs
     .flatMap((job) => job.steps)
     .flatMap((step) =>
-      step._tag === "JobStepResult" && step.result.result === "error"
+      step.result.result === "error"
         ? [`${step.label}: ${step.result.error.what} (${step.result.error.code})`]
         : [],
     );

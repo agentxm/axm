@@ -15,7 +15,7 @@ describe("axm skills update", () => {
     it("exits 0 with no-skills message when nothing is installed", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
@@ -36,15 +36,14 @@ describe("axm skills update", () => {
       const temp = createTempDir();
       try {
         // Initialize workspace
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
         // Install all skills
-        await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes", "--agent", "claude-code"],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+          cwd: temp.path,
+        });
 
         // Record lockfile state before update
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
@@ -90,14 +89,13 @@ describe("axm skills update", () => {
       const temp = createTempDir();
       try {
         // Initialize and install
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
-        await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes", "--agent", "claude-code"],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+          cwd: temp.path,
+        });
 
         // Record lockfile state before preview
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
@@ -134,14 +132,13 @@ describe("axm skills update", () => {
       const temp = createTempDir();
       try {
         // Initialize and install
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
-        await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes", "--agent", "claude-code"],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+          cwd: temp.path,
+        });
 
         // Disable my-skill
         await runCli(["skills", "disable", "my-skill", "--yes"], {
@@ -182,14 +179,13 @@ describe("axm skills update", () => {
       const temp = createTempDir();
       try {
         // Initialize and install both skills
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
-        await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes", "--agent", "claude-code"],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+          cwd: temp.path,
+        });
 
         // Record lockfile state before update
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");

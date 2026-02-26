@@ -159,19 +159,9 @@ describe("axm packs add/remove", () => {
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       // Install a skill from fixture, then fork to make it registry-sourced
-      await runCli(
-        [
-          "skills",
-          "install",
-          SKILLS_REPO_FIXTURE,
-          "--skill",
-          "my-skill",
-          "--yes",
-          "--agent",
-          "claude-code",
-        ],
-        { cwd: temp.path },
-      );
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
       const forkResult = await runCli(["skills", "fork", "my-skill", "--yes"], {
         cwd: temp.path,
       });
@@ -389,8 +379,9 @@ describe("axm packs install", () => {
     }
   });
 
-  it("reports already installed without --force", async () => {
-    const { temp, registryDir, settingsPath, cleanup } = setupWorkspaceWithRegistry();
+  it("re-installs idempotently when pack already exists", async () => {
+    const { temp, registryDir, settingsPath, readSettings, readLock, cleanup } =
+      setupWorkspaceWithRegistry();
     try {
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
@@ -399,14 +390,19 @@ describe("axm packs install", () => {
       await runCli(["packs", "new", "already-pack", "--yes"], { cwd: temp.path });
       await runCli(["packs", "publish", "already-pack", "--yes"], { cwd: temp.path });
 
-      // Pack is already registered from `packs new`, so install should say already installed
+      // Pack is already registered from `packs new`; install performs idempotent upsert
       const installResult = await runCli(
         ["packs", "install", "@test/packs/already-pack", "--yes"],
         { cwd: temp.path },
       );
 
       expect(installResult.exitCode).toBe(0);
-      expect(installResult.stdout).toMatch(/already installed|[Nn]othing to install/);
+
+      // Verify pack still in settings and lockfile after re-install
+      const settings = readSettings();
+      expect(settings.packs?.["already-pack"]).toBeDefined();
+      const lock = readLock();
+      expect(lock.packs?.["already-pack"]).toBeDefined();
     } finally {
       cleanup();
     }
@@ -462,7 +458,7 @@ describe("axm packs install", () => {
         "axm-pack.json",
       );
       const packManifest = JSON.parse(fs.readFileSync(packManifestPath, "utf-8"));
-      packManifest.skills = { "@test/skills/dep-skill": "^1.0.0" };
+      packManifest.skills = { "@test/skills/dep-skill": "1.0.0" };
       fs.writeFileSync(packManifestPath, JSON.stringify(packManifest, null, 2));
 
       // Publish the pack (with the skill dependency)
@@ -585,19 +581,9 @@ describe("axm packs uninstall", () => {
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       // Install a skill, fork it, create a pack with it, publish the pack
-      await runCli(
-        [
-          "skills",
-          "install",
-          SKILLS_REPO_FIXTURE,
-          "--skill",
-          "my-skill",
-          "--yes",
-          "--agent",
-          "claude-code",
-        ],
-        { cwd: temp.path },
-      );
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
       await runCli(["skills", "fork", "my-skill", "--yes"], { cwd: temp.path });
 
       await runCli(["packs", "new", "removable-pack", "--yes"], { cwd: temp.path });
@@ -669,19 +655,9 @@ describe("axm packs unpack", () => {
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       // Install a skill, fork it (makes it registry-sourced)
-      await runCli(
-        [
-          "skills",
-          "install",
-          SKILLS_REPO_FIXTURE,
-          "--skill",
-          "my-skill",
-          "--yes",
-          "--agent",
-          "claude-code",
-        ],
-        { cwd: temp.path },
-      );
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
       await runCli(["skills", "fork", "my-skill", "--yes"], { cwd: temp.path });
 
       // Create a pack with the skill, then publish and install
@@ -741,19 +717,9 @@ describe("transitive skill disable via pack", () => {
       configureRegistrySource(settingsPath, `file://${registryDir.path}`);
 
       // Install skill, fork it, create pack with it, publish
-      await runCli(
-        [
-          "skills",
-          "install",
-          SKILLS_REPO_FIXTURE,
-          "--skill",
-          "my-skill",
-          "--yes",
-          "--agent",
-          "claude-code",
-        ],
-        { cwd: temp.path },
-      );
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
       await runCli(["skills", "fork", "my-skill", "--yes"], { cwd: temp.path });
 
       await runCli(["packs", "new", "disable-pack", "--yes"], { cwd: temp.path });

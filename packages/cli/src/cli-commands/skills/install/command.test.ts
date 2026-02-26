@@ -101,18 +101,21 @@ describe("skills install command options", () => {
     }
   });
 
-  it("defines --agent option as string array with empty default", () => {
+  it("does not define --agent option (removed)", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
     if (typeof installCommand.builder === "function") {
       installCommand.builder(mockYargs);
-      expect(capturedOptions["agent"]).toEqual(
-        expect.objectContaining({
-          type: "string",
-          array: true,
-          default: [],
-        }),
-      );
+      expect(capturedOptions["agent"]).toBeUndefined();
+    }
+  });
+
+  it("does not define --list option (removed)", () => {
+    const { mockYargs, capturedOptions } = createCapturingMock();
+
+    if (typeof installCommand.builder === "function") {
+      installCommand.builder(mockYargs);
+      expect(capturedOptions["list"]).toBeUndefined();
     }
   });
 
@@ -146,21 +149,6 @@ describe("skills install command options", () => {
     }
   });
 
-  it("defines --list option with boolean type, alias, and default false", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-
-    if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs);
-      expect(capturedOptions["list"]).toEqual(
-        expect.objectContaining({
-          type: "boolean",
-          alias: "l",
-          default: false,
-        }),
-      );
-    }
-  });
-
   it("defines --all option with boolean type and default false", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
@@ -175,6 +163,21 @@ describe("skills install command options", () => {
     }
   });
 
+  it("defines --force option with boolean type and default false", () => {
+    const { mockYargs, capturedOptions } = createCapturingMock();
+
+    if (typeof installCommand.builder === "function") {
+      installCommand.builder(mockYargs);
+      expect(capturedOptions["force"]).toEqual(
+        expect.objectContaining({
+          type: "boolean",
+          alias: "f",
+          default: false,
+        }),
+      );
+    }
+  });
+
   it("includes description for --scope option", () => {
     const { mockYargs, capturedOptions } = createCapturingMock();
 
@@ -182,16 +185,6 @@ describe("skills install command options", () => {
       installCommand.builder(mockYargs);
       expect(capturedOptions["scope"]?.describe).toBeDefined();
       expect(capturedOptions["scope"]?.describe).toContain("Configuration scope");
-    }
-  });
-
-  it("includes description for --agent option", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-
-    if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs);
-      expect(capturedOptions["agent"]?.describe).toBeDefined();
-      expect(capturedOptions["agent"]?.describe).toContain("agent");
     }
   });
 
@@ -212,16 +205,6 @@ describe("skills install command options", () => {
       installCommand.builder(mockYargs);
       expect(capturedOptions["yes"]?.describe).toBeDefined();
       expect(capturedOptions["yes"]?.describe).toContain("prompts");
-    }
-  });
-
-  it("includes description for --list option", () => {
-    const { mockYargs, capturedOptions } = createCapturingMock();
-
-    if (typeof installCommand.builder === "function") {
-      installCommand.builder(mockYargs);
-      expect(capturedOptions["list"]?.describe).toBeDefined();
-      expect(capturedOptions["list"]?.describe).toContain("List");
     }
   });
 
@@ -328,9 +311,7 @@ describe("skills install command parser", () => {
 
     expect(argv["scope"]).toBe("project");
     expect(argv["yes"]).toBe(false);
-    expect(argv["list"]).toBe(false);
     expect(argv["all"]).toBe(false);
-    expect(argv["agent"]).toEqual([]);
     expect(argv["skill"]).toEqual([]);
   });
 
@@ -352,41 +333,22 @@ describe("skills install command parser", () => {
     expect(argv["yes"]).toBe(true);
   });
 
-  it("parses --list flag", async () => {
-    const argv = await createParser().parse(["install", "owner/repo", "--list"]);
-
-    expect(argv["list"]).toBe(true);
-  });
-
-  it("parses -l alias for --list", async () => {
-    const argv = await createParser().parse(["install", "owner/repo", "-l"]);
-
-    expect(argv["list"]).toBe(true);
-  });
-
   it("parses --all flag", async () => {
     const argv = await createParser().parse(["install", "owner/repo", "--all"]);
 
     expect(argv["all"]).toBe(true);
   });
 
-  it("parses single --agent value", async () => {
-    const argv = await createParser().parse(["install", "owner/repo", "--agent", "claude-code"]);
+  it("parses --force flag", async () => {
+    const argv = await createParser().parse(["install", "owner/repo", "--force"]);
 
-    expect(argv["agent"]).toEqual(["claude-code"]);
+    expect(argv["force"]).toBe(true);
   });
 
-  it("parses multiple --agent values", async () => {
-    const argv = await createParser().parse([
-      "install",
-      "owner/repo",
-      "--agent",
-      "claude-code",
-      "--agent",
-      "cursor",
-    ]);
+  it("parses -f alias for --force", async () => {
+    const argv = await createParser().parse(["install", "owner/repo", "-f"]);
 
-    expect(argv["agent"]).toEqual(["claude-code", "cursor"]);
+    expect(argv["force"]).toBe(true);
   });
 
   it("parses single --skill value", async () => {
@@ -415,9 +377,6 @@ describe("skills install command parser", () => {
       "--scope",
       "user",
       "-y",
-      "-l",
-      "--agent",
-      "claude-code",
       "--skill",
       "pr-review",
     ]);
@@ -425,8 +384,6 @@ describe("skills install command parser", () => {
     expect(argv["source"]).toBe("owner/repo");
     expect(argv["scope"]).toBe("user");
     expect(argv["yes"]).toBe(true);
-    expect(argv["list"]).toBe(true);
-    expect(argv["agent"]).toEqual(["claude-code"]);
     expect(argv["skill"]).toEqual(["pr-review"]);
   });
 });

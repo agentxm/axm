@@ -1,0 +1,292 @@
+/**
+ * Tests for runInstallCommandWorkflow phase ordering.
+ *
+ * Verifies the canonical sequence: parse -> resolveSource -> discover ->
+ * finalizeIntent -> buildPlan -> resolvePlan.
+ */
+
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import { makeCliError } from "../../cli-error/index.js";
+import { makeConfirmTestLayer, makeLogTestLayer } from "../../tui/index.js";
+import type { ExecutedPlan, Plan } from "../../workspace/plan.js";
+import { type WorkspaceContextService, Workspace } from "../../workspace/service.js";
+import {
+  type InstallExtensionCommandWorkflowActions,
+  runInstallCommandWorkflow,
+} from "./workflow.js";
+
+// -----------------------------------------------------------------------------
+// Test types
+// -----------------------------------------------------------------------------
+
+type TestArgs = { readonly name: string };
+type TestParsed = { readonly parsedName: string };
+type TestReq = { readonly source: string };
+type TestRef = { readonly refName: string };
+type TestIntent = { readonly intentName: string };
+
+// -----------------------------------------------------------------------------
+// Helpers
+// -----------------------------------------------------------------------------
+
+const emptyExecutedPlan: ExecutedPlan = {
+  name: "test",
+  description: Option.none(),
+  jobs: [],
+};
+
+const makeMockWorkspace = (onResolvePlan?: (plan: Plan) => void): WorkspaceContextService =>
+  ({
+    global: false,
+    path: "/tmp/test/.axm",
+    baseDir: "/tmp/test",
+    nonInteractive: true,
+    preview: false,
+    resolvePlan: (plan: Plan) => {
+      onResolvePlan?.(plan);
+      return Effect.succeed(emptyExecutedPlan);
+    },
+  }) as unknown as WorkspaceContextService;
+
+const makeTestLayer = (onResolvePlan?: (plan: Plan) => void) => {
+  const [logLayer] = makeLogTestLayer();
+  const [confirmLayer] = makeConfirmTestLayer({ type: "return", value: true });
+  return Layer.mergeAll(logLayer, confirmLayer, Workspace.layer(makeMockWorkspace(onResolvePlan)));
+};
+
+// -----------------------------------------------------------------------------
+// Task 5.1: Phase ordering tests
+// -----------------------------------------------------------------------------
+
+describe("runInstallCommandWorkflow", () => {
+  it.effect(
+    "executes phases in canonical order: parse -> resolveSource -> discover -> finalizeIntent -> buildPlan -> resolvePlan",
+    () =>
+      Effect.gen(function* () {
+        const callOrder: string[] = [];
+        const testPlan: Plan = {
+          name: "test-install",
+          description: Option.none(),
+          jobs: [],
+        };
+
+        const actions: InstallExtensionCommandWorkflowActions<
+          TestArgs,
+          TestParsed,
+          TestReq,
+          TestRef,
+          TestIntent
+        > = {
+          parseArgs: (args) =>
+            Effect.sync(() => {
+              callOrder.push("parseArgs");
+              return { parsedName: args.name };
+            }),
+          resolveSourceRequests: (parsed) =>
+            Effect.sync(() => {
+              callOrder.push("resolveSourceRequests");
+              return [{ source: parsed.parsedName }];
+            }),
+          discoverRefs: (reqs) =>
+            Effect.sync(() => {
+              callOrder.push("discoverRefs");
+              return reqs.map((r) => ({ refName: r.source }));
+            }),
+          finalizeIntent: (parsed, refs) =>
+            Effect.sync(() => {
+              callOrder.push("finalizeIntent");
+              return { intentName: `${parsed.parsedName}-${refs.length}` };
+            }),
+          buildPlan: (_intent) =>
+            Effect.sync(() => {
+              callOrder.push("buildPlan");
+              return testPlan;
+            }),
+        };
+
+        yield* runInstallCommandWorkflow({ name: "test-skill" }, actions);
+
+        expect(callOrder).toEqual([
+          "parseArgs",
+          "resolveSourceRequests",
+          "discoverRefs",
+          "finalizeIntent",
+          "buildPlan",
+        ]);
+      }).pipe(Effect.provide(makeTestLayer())),
+  );
+
+  it.effect("passes the built plan to resolvePlan", () => {
+    let capturedPlan: Plan | undefined;
+    const testPlan: Plan = {
+      name: "captured-plan",
+      description: Option.some("test description"),
+      jobs: [],
+    };
+
+    const actions: InstallExtensionCommandWorkflowActions<
+      TestArgs,
+      TestParsed,
+      TestReq,
+      TestRef,
+      TestIntent
+    > = {
+      parseArgs: () => Effect.succeed({ parsedName: "x" }),
+      resolveSourceRequests: () => Effect.succeed([{ source: "x" }]),
+      discoverRefs: () => Effect.succeed([{ refName: "x" }]),
+      finalizeIntent: () => Effect.succeed({ intentName: "x" }),
+      buildPlan: () => Effect.succeed(testPlan),
+    };
+
+    return Effect.gen(function* () {
+      yield* runInstallCommandWorkflow({ name: "test" }, actions);
+      expect(capturedPlan).toBe(testPlan);
+    }).pipe(
+      Effect.provide(
+        makeTestLayer((plan) => {
+          capturedPlan = plan;
+        }),
+      ),
+    );
+  });
+
+  it.effect("threads data between phases correctly", () =>
+    Effect.gen(function* () {
+      let capturedParsed: TestParsed | undefined;
+      let capturedReqs: ReadonlyArray<TestReq> | undefined;
+      let capturedRefs: ReadonlyArray<TestRef> | undefined;
+      let capturedParsedInFinalize: TestParsed | undefined;
+      let capturedIntent: TestIntent | undefined;
+
+      const actions: InstallExtensionCommandWorkflowActions<
+        TestArgs,
+        TestParsed,
+        TestReq,
+        TestRef,
+        TestIntent
+      > = {
+        parseArgs: (args) => {
+          const parsed = { parsedName: args.name };
+          return Effect.succeed(parsed);
+        },
+        resolveSourceRequests: (parsed) => {
+          capturedParsed = parsed;
+          const reqs = [{ source: parsed.parsedName }];
+          return Effect.succeed(reqs);
+        },
+        discoverRefs: (reqs) => {
+          capturedReqs = reqs;
+          const refs = reqs.map((r) => ({ refName: r.source }));
+          return Effect.succeed(refs);
+        },
+        finalizeIntent: (parsed, refs) => {
+          capturedParsedInFinalize = parsed;
+          capturedRefs = refs;
+          const intent = { intentName: `${parsed.parsedName}-${refs.length}` };
+          return Effect.succeed(intent);
+        },
+        buildPlan: (intent) => {
+          capturedIntent = intent;
+          return Effect.succeed({
+            name: "test",
+            description: Option.none(),
+            jobs: [],
+          });
+        },
+      };
+
+      yield* runInstallCommandWorkflow({ name: "my-skill" }, actions);
+
+      expect(capturedParsed).toEqual({ parsedName: "my-skill" });
+      expect(capturedReqs).toEqual([{ source: "my-skill" }]);
+      expect(capturedRefs).toEqual([{ refName: "my-skill" }]);
+      expect(capturedParsedInFinalize).toEqual({ parsedName: "my-skill" });
+      expect(capturedIntent).toEqual({ intentName: "my-skill-1" });
+    }).pipe(Effect.provide(makeTestLayer())),
+  );
+
+  it.effect("propagates parseArgs failure", () =>
+    Effect.gen(function* () {
+      const actions: InstallExtensionCommandWorkflowActions<
+        TestArgs,
+        TestParsed,
+        TestReq,
+        TestRef,
+        TestIntent
+      > = {
+        parseArgs: () => Effect.fail(makeCliError({ code: "PARSE_FAILED", what: "bad args" })),
+        resolveSourceRequests: () => Effect.succeed([]),
+        discoverRefs: () => Effect.succeed([]),
+        finalizeIntent: () => Effect.succeed({ intentName: "x" }),
+        buildPlan: () => Effect.succeed({ name: "t", description: Option.none(), jobs: [] }),
+      };
+
+      const exit = yield* runInstallCommandWorkflow({ name: "test" }, actions).pipe(Effect.exit);
+      expect(exit._tag).toBe("Failure");
+    }).pipe(Effect.provide(makeTestLayer())),
+  );
+
+  it.effect("propagates buildPlan failure", () =>
+    Effect.gen(function* () {
+      const actions: InstallExtensionCommandWorkflowActions<
+        TestArgs,
+        TestParsed,
+        TestReq,
+        TestRef,
+        TestIntent
+      > = {
+        parseArgs: () => Effect.succeed({ parsedName: "x" }),
+        resolveSourceRequests: () => Effect.succeed([{ source: "x" }]),
+        discoverRefs: () => Effect.succeed([{ refName: "x" }]),
+        finalizeIntent: () => Effect.succeed({ intentName: "x" }),
+        buildPlan: () => Effect.fail(makeCliError({ code: "PLAN_FAILED", what: "plan error" })),
+      };
+
+      const exit = yield* runInstallCommandWorkflow({ name: "test" }, actions).pipe(Effect.exit);
+      expect(exit._tag).toBe("Failure");
+    }).pipe(Effect.provide(makeTestLayer())),
+  );
+
+  it.effect("does not call later phases when an earlier phase fails", () =>
+    Effect.gen(function* () {
+      const callOrder: string[] = [];
+
+      const actions: InstallExtensionCommandWorkflowActions<
+        TestArgs,
+        TestParsed,
+        TestReq,
+        TestRef,
+        TestIntent
+      > = {
+        parseArgs: () => Effect.succeed({ parsedName: "x" }),
+        resolveSourceRequests: () => {
+          callOrder.push("resolveSourceRequests");
+          return Effect.fail(makeCliError({ code: "SOURCE_FAILED", what: "source error" }));
+        },
+        discoverRefs: () => {
+          callOrder.push("discoverRefs");
+          return Effect.succeed([]);
+        },
+        finalizeIntent: () => {
+          callOrder.push("finalizeIntent");
+          return Effect.succeed({ intentName: "x" });
+        },
+        buildPlan: () => {
+          callOrder.push("buildPlan");
+          return Effect.succeed({
+            name: "t",
+            description: Option.none(),
+            jobs: [],
+          });
+        },
+      };
+
+      yield* runInstallCommandWorkflow({ name: "test" }, actions).pipe(Effect.exit);
+
+      expect(callOrder).toEqual(["resolveSourceRequests"]);
+    }).pipe(Effect.provide(makeTestLayer())),
+  );
+});

@@ -5,13 +5,16 @@
  */
 
 import type { CommandModule } from "yargs";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
 import { handleUninstall } from "./handler.js";
+import { UninstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
+import { SkillManagerLive } from "../../../extensions/skills/manager.js";
 
 export interface UninstallCommandArgs {
   skill: string;
-  agent: ReadonlyArray<string>;
   yes: boolean;
   preview: boolean;
   "non-interactive": boolean | undefined;
@@ -28,12 +31,6 @@ export const uninstallCommand: CommandModule<{}, UninstallCommandArgs> = {
         describe: "Name of the skill to uninstall",
         demandOption: true,
       })
-      .option("agent", {
-        type: "string",
-        array: true,
-        describe: "Uninstall only from specified agent(s)",
-        default: [],
-      })
       .option("yes", {
         alias: "y",
         type: "boolean",
@@ -49,20 +46,16 @@ export const uninstallCommand: CommandModule<{}, UninstallCommandArgs> = {
         type: "boolean",
         describe: "Disable all interactive prompts",
       })
-      .example("$0 skills uninstall my-skill", "Uninstall a skill from all agents")
-      .example(
-        "$0 skills uninstall my-skill --agent claude",
-        "Uninstall from a specific agent only",
-      )
+      .example("$0 skills uninstall my-skill", "Uninstall a skill")
       .example("$0 skills uninstall my-skill --preview", "Preview what would be uninstalled")
       .example("$0 skills uninstall my-skill --yes", "Uninstall without confirmation prompt"),
   handler: async (argv) => {
+    const actionsLayer = Layer.provide(UninstallSkillCommandWorkflowActionsLive, SkillManagerLive);
     await run(
       handleUninstall({
         skill: argv.skill,
-        agent: argv.agent,
         yes: argv.yes,
-      }),
+      }).pipe(Effect.provide(actionsLayer)),
       {
         workspace: {
           global: false,

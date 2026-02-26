@@ -14,25 +14,15 @@ describe("axm skills rename", () => {
   it("renames a skill: updates settings, lockfile, and filesystem", async () => {
     const temp = createTempDir();
     try {
-      // Initialize workspace
+      // Initialize workspace with claude-code agent to verify .claude/ symlinks
       await runCli(["init", "--yes", "--agent", "claude-code"], {
         cwd: temp.path,
       });
 
       // Install a skill
-      await runCli(
-        [
-          "skills",
-          "install",
-          SKILLS_REPO_FIXTURE,
-          "--skill",
-          "my-skill",
-          "--yes",
-          "--agent",
-          "claude-code",
-        ],
-        { cwd: temp.path },
-      );
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
 
       // Verify original skill exists
       const oldCanonical = path.join(
@@ -92,7 +82,7 @@ describe("axm skills rename", () => {
   it("errors when old name is not found", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes", "--agent", "claude-code"], {
+      await runCli(["init", "--yes"], {
         cwd: temp.path,
       });
 
@@ -110,15 +100,14 @@ describe("axm skills rename", () => {
   it("errors when new name conflicts with existing skill", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes", "--agent", "claude-code"], {
+      await runCli(["init", "--yes"], {
         cwd: temp.path,
       });
 
       // Install both skills
-      await runCli(
-        ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes", "--agent", "claude-code"],
-        { cwd: temp.path },
-      );
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+        cwd: temp.path,
+      });
 
       // Try to rename my-skill to another-skill (conflict)
       const result = await runCli(["skills", "rename", "my-skill", "another-skill", "--yes"], {

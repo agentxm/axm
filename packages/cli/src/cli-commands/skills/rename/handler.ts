@@ -11,8 +11,9 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { RenameSkillOperation } from "../../../extensions/skills/operations/rename.js";
-import { buildSingleStepPlan } from "../plan-helpers.js";
 import { renameSkill } from "../../../extensions/skills/operations/rename.js";
+import { buildSingleStepPlan } from "../plan-helpers.js";
+import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -73,7 +74,7 @@ export const handleRename = Effect.fn("Rename.handle")(function* (args: RenameHa
     label: `${args.oldName} -> ${args.newName}`,
   });
 
-  yield* ws.resolvePlan(plan, { "rename-skill": renameSkill });
+  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "rename-skill": renameSkill }));
 
   yield* log.success("Done");
 });

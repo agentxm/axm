@@ -75,17 +75,16 @@ import * as Layer from "effect/Layer";
 import { Confirm, Log, Multiselect } from "../tui/index.js";
 import { PromptCancelled } from "../tui/index.js";
 import { resolveDiagnosticVerbosity } from "../runtime/error-handling.js";
-import type { Operation, OperationMapFromUnion, Plan, PlannedJobStep } from "./plan.js";
+import type { ExecutedPlan, JobStepResult, Plan, PlannedJobStep } from "./plan.js";
+import type { OperationResult } from "./plan.js";
 import { displayPlan } from "./display-plan.js";
-import { applyPlan, type ExecutionContext, type Handlers } from "./apply-plan.js";
-import { augmentPlan, type LockfileState } from "./augment-plan.js";
+import { applyPlan } from "./apply-plan.js";
+/** Lockfile health state used for reconciliation decisions. */
+export type LockfileState = "ok" | "missing" | "invalid";
+import { runReadRecoverOperation, runReconcileMaterializeOperation } from "./reconciliation.js";
+import type { ReconciliationContext } from "./reconciliation-types.js";
 import { classifyExtensions, type ClassifiedExtension, type PackagingKind } from "./classifier.js";
 import { discoverSkillsInDir } from "../cli-commands/skills/install/discover-skills.js";
-import {
-  runReadRecoverOperation,
-  runReconcileMaterializeOperation,
-  type ReconciliationOperation,
-} from "./reconciliation.js";
 
 /**
  * Arguments for `setSkill` — bundles the skill name (map key) with the lock entry.
@@ -246,6 +245,74 @@ const BUILT_IN_SOURCES: ReadonlyArray<SourceHostConfig> = [
 ];
 
 /**
+ * Augment a plan with lockfile reconciliation steps when the lockfile is
+ * missing or invalid. Returns the plan unchanged when lockfile is ok.
+ */
+const augmentPlanWithReconciliation = (
+  plan: Plan,
+  getLockfileState: () => Effect.Effect<LockfileState, CliError>,
+  log: Log["Type"],
+  baseDir: string,
+  workspaceDir: string,
+  readSettingsSafe: (dir: string) => Effect.Effect<Settings, CliError>,
+  fsLayer: Layer.Layer<FileSystem.FileSystem | Path.Path>,
+): Effect.Effect<Plan, CliError> =>
+  Effect.gen(function* () {
+    const lockfileState = yield* getLockfileState();
+
+    if (lockfileState === "ok") {
+      return plan;
+    }
+
+    if (lockfileState === "invalid") {
+      yield* log.warn("LOCKFILE_INVALID_RECONCILE");
+    }
+
+    const reason = lockfileState as "missing" | "invalid";
+    const settings = yield* readSettingsSafe(workspaceDir);
+    const reconciliationContext: ReconciliationContext = {
+      baseDir,
+      now: new Date(),
+      defaultNamespace: settings.namespace ?? DEFAULT_NAMESPACE,
+      agents: settings.agents ?? [],
+      settings,
+    };
+
+    const toJobStepResult = (result: OperationResult): JobStepResult =>
+      result.result === "error"
+        ? { result: "error", message: result.message, error: result.error }
+        : { result: "success", message: result.message };
+
+    const readRecoverStep: PlannedJobStep = {
+      readiness: "ready",
+      label: `Recover lockfile (${reason})`,
+      run: runReadRecoverOperation(reconciliationContext).pipe(
+        Effect.map(toJobStepResult),
+        Effect.provide(fsLayer),
+      ),
+    };
+
+    const materializeStep: PlannedJobStep = {
+      readiness: "ready",
+      label: `Reconcile lockfile (${reason})`,
+      run: runReconcileMaterializeOperation(reconciliationContext, workspaceDir, reason, {
+        allowMissingDeclarations: true,
+      }).pipe(Effect.map(toJobStepResult), Effect.provide(fsLayer)),
+    };
+
+    return {
+      ...plan,
+      jobs: [
+        {
+          concurrency: 1 as const,
+          steps: [readRecoverStep, materializeStep],
+        },
+        ...plan.jobs,
+      ],
+    };
+  });
+
+/**
  * Effect service tag for workspace context.
  *
  * @experimental This API is unstable and may change without notice.
@@ -284,6 +351,8 @@ export interface WorkspaceContextOptions {
   readonly preview: boolean;
   /** Explicit agent IDs to use (overrides detection and prompting) */
   readonly agents: Option.Option<readonly string[]>;
+  /** Auto-accept warn-readiness steps without prompting (default: false) */
+  readonly force?: boolean;
 }
 
 /**
@@ -1041,125 +1110,97 @@ const make = (options: WorkspaceContextOptions) =>
       baseDir,
       nonInteractive: resolvedNonInteractive,
       preview: options.preview,
-      resolvePlan: <
-        Op extends Operation<string, unknown>,
-        T extends Handlers<OperationMapFromUnion<Op>>,
-      >(
-        plan: Plan<Op>,
-        handlers: T,
-      ) =>
+      resolvePlan: (plan: Plan) =>
         Effect.gen(function* () {
           const log = yield* Log;
           const confirm = yield* Confirm;
           const verbosity = resolveDiagnosticVerbosity();
-          const augmentation = yield* augmentPlan(plan, {
+
+          // Lockfile reconciliation: detect missing/invalid lockfile and prepend recovery steps
+          const augmentedPlan = yield* augmentPlanWithReconciliation(
+            plan,
             getLockfileState,
-          });
-          const augmentedPlan = augmentation.plan;
-          if (augmentation.diagnostics.warnings.length > 0) {
-            yield* Effect.forEach(
-              augmentation.diagnostics.warnings,
-              (warning) => log.warn(warning),
-              { discard: true },
-            );
-          }
-          const emptyPlan = { ...augmentedPlan, jobs: [] } satisfies Plan<Op>;
-
-          const reconciliationContext = yield* Effect.gen(function* () {
-            const settings = yield* readSettingsSafe(workspaceDir);
-            return {
-              baseDir,
-              now: new Date(),
-              defaultNamespace: settings.namespace ?? DEFAULT_NAMESPACE,
-              agents: settings.agents ?? [],
-              settings,
-            };
-          });
-
-          const originalPlanSteps = Array.flatMap(plan.jobs, (job) => [...job.steps]);
-          const isInstallPlanOnly =
-            originalPlanSteps.length > 0 &&
-            originalPlanSteps.every((step) => step.operation.name.startsWith("install-"));
-
-          const internalReconciliationHandlers = {
-            "read-recover-lockfile": (
-              _op: Extract<ReconciliationOperation, { name: "read-recover-lockfile" }>,
-            ) => runReadRecoverOperation(reconciliationContext),
-            "reconcile-materialize-lockfile": (
-              op: Extract<ReconciliationOperation, { name: "reconcile-materialize-lockfile" }>,
-            ) =>
-              runReconcileMaterializeOperation(
-                reconciliationContext,
-                workspaceDir,
-                op.args.reason,
-                {
-                  allowMissingDeclarations: isInstallPlanOnly,
-                },
-              ),
-          } as const;
-
-          const mergedHandlers = {
-            ...handlers,
-            ...internalReconciliationHandlers,
-          } as unknown as T;
+            log,
+            baseDir,
+            workspaceDir,
+            readSettingsSafe,
+            fsLayer,
+          );
 
           // Scan readiness across all planned steps
           const allSteps = Array.flatMap(augmentedPlan.jobs, (job) => [...job.steps]);
-          const plannedSteps = allSteps.filter(
-            (s): s is PlannedJobStep<Op> => s._tag === "PlannedJobStep",
-          );
-          const hasErrors = plannedSteps.some((s) => s.readiness.status === "error");
+          const hasErrors = allSteps.some((s) => s.readiness === "error");
+          const hasWarns = allSteps.some((s) => s.readiness === "warn");
 
           // Aggregate error messages for the CliError detail
-          const errorMessages = plannedSteps
-            .filter((s) => s.readiness.status === "error")
-            .map((s) => `${s.label}: ${s.readiness.message}`);
+          const errorMessages = allSteps
+            .filter((s) => s.readiness === "error")
+            .map((s) => `${s.label}: ${s.errorMessage}`);
+
+          // Block entire plan when any step has error readiness
+          if (hasErrors) {
+            yield* displayPlan(augmentedPlan, { verbosity });
+            return yield* makeCliError({
+              code: "PLAN_BLOCKED_BY_ERRORS",
+              what: "Plan has errors that prevent execution",
+              details: errorMessages,
+            });
+          }
+
+          // Warn prompting: prompt unless --force
+          if (hasWarns && !(options.force ?? false)) {
+            yield* displayPlan(augmentedPlan, { verbosity });
+
+            if (resolvedNonInteractive) {
+              return yield* makeCliError({
+                code: "PLAN_CONFIRMATION_REQUIRED",
+                what: "Plan has warnings that require confirmation",
+                howToFix: "Re-run with --force to auto-accept warnings, or run interactively",
+              });
+            }
+
+            const warnMessages = allSteps
+              .filter((s) => s.readiness === "warn")
+              .map((s) => `${s.label}: ${s.warnMessage}`);
+            const confirmed = yield* confirm.prompt({
+              message: `Plan has warnings:\n${warnMessages.join("\n")}\nProceed?`,
+            });
+            if (!confirmed) {
+              return yield* new PromptCancelled({
+                message: "User declined plan with warnings",
+              });
+            }
+          }
 
           if (options.preview) {
             yield* log.info("Previewing changes...");
             yield* displayPlan(augmentedPlan, { verbosity });
 
-            if (hasErrors) {
-              return yield* makeCliError({
-                code: "PLAN_HAS_ERRORS",
-                what: "Plan has errors that prevent execution",
-                details: errorMessages,
-              });
-            }
-
+            // In non-interactive mode without --yes, preview is display-only (dry-run)
             if (resolvedNonInteractive && !options.yes) {
-              return yield* makeCliError({
-                code: "PLAN_CONFIRMATION_REQUIRED",
-                what: "Cannot apply previewed plan in non-interactive mode without --yes",
-                howToFix: "Re-run with --yes, or run interactively to confirm apply",
-              });
+              return {
+                name: augmentedPlan.name,
+                description: augmentedPlan.description,
+                jobs: [],
+              } satisfies ExecutedPlan;
             }
 
             if (!options.yes) {
               const confirmed = yield* confirm.prompt({ message: "Apply changes?" });
               if (!confirmed) {
                 yield* log.success("Cancelled.");
-                return emptyPlan;
+                return {
+                  name: augmentedPlan.name,
+                  description: augmentedPlan.description,
+                  jobs: [],
+                } satisfies ExecutedPlan;
               }
             }
-
-            const applied = yield* applyPlan(augmentedPlan, mergedHandlers);
-            yield* displayPlan(applied, { verbosity });
-            return applied;
-          } else {
-            if (hasErrors) {
-              yield* displayPlan(augmentedPlan, { verbosity });
-              return yield* makeCliError({
-                code: "PLAN_HAS_ERRORS",
-                what: "Plan has errors that prevent execution",
-                details: errorMessages,
-              });
-            }
-
-            const applied = yield* applyPlan(augmentedPlan, mergedHandlers);
-            yield* displayPlan(applied, { verbosity });
-            return applied;
           }
+
+          const executed = yield* applyPlan(augmentedPlan);
+          yield* displayPlan(executed, { verbosity });
+          return executed;
         }),
 
       getLockfileState,
@@ -2292,6 +2333,189 @@ const make = (options: WorkspaceContextOptions) =>
             }
           }),
         ),
+
+      // -----------------------------------------------------------------------
+      // Granular removal methods (settings-only or lockfile-only)
+      // -----------------------------------------------------------------------
+
+      removeSkillLock: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            if (!(name in currentLockfile.skills)) return;
+            const { [name]: _, ...remainingSkills } = currentLockfile.skills;
+            void _;
+            const updatedLockfile = { ...currentLockfile, skills: remainingSkills };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      removeCommandSettings: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentCommands: NonSkillExtensionsMap = currentSettings.commands ?? {};
+            if (!(name in currentCommands)) return;
+            const { [name]: _, ...remainingCommands } = currentCommands;
+            void _;
+            const updatedSettings = { ...currentSettings, commands: remainingCommands };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      removeCommandLock: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedCommands = currentLockfile.commands ?? {};
+            if (!(name in currentLockedCommands)) return;
+            const { [name]: _, ...remainingCommands } = currentLockedCommands;
+            void _;
+            const updatedLockfile = { ...currentLockfile, commands: remainingCommands };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      removeMcpServerSettings: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentMcpServers: NonSkillExtensionsMap = currentSettings.mcpServers ?? {};
+            if (!(name in currentMcpServers)) return;
+            const { [name]: _, ...remainingMcpServers } = currentMcpServers;
+            void _;
+            const updatedSettings = { ...currentSettings, mcpServers: remainingMcpServers };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      removeMcpServerLock: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedMcpServers = currentLockfile.mcpServers ?? {};
+            if (!(name in currentLockedMcpServers)) return;
+            const { [name]: _, ...remainingMcpServers } = currentLockedMcpServers;
+            void _;
+            const updatedLockfile = { ...currentLockfile, mcpServers: remainingMcpServers };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      removePackSettings: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentSettings = yield* readSettingsSafe(workspaceDir);
+            const currentPacks: PacksMap = currentSettings.packs ?? {};
+            if (!(name in currentPacks)) return;
+            const { [name]: _, ...remainingPacks } = currentPacks;
+            void _;
+            const updatedSettings = { ...currentSettings, packs: remainingPacks };
+            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      removePackLock: (name: string) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+            const currentLockedPacks = currentLockfile.packs ?? {};
+            if (!(name in currentLockedPacks)) return;
+            const { [name]: _, ...remainingPacks } = currentLockedPacks;
+            void _;
+            const updatedLockfile = { ...currentLockfile, packs: remainingPacks };
+            yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+          }),
+        ),
+
+      // -----------------------------------------------------------------------
+      // Pack dependency queries
+      // -----------------------------------------------------------------------
+
+      isExtensionRequiredByInstalledPack: (
+        target: import("../workflows/install-operation/workflow.js").ExtensionTarget,
+      ) =>
+        Effect.gen(function* () {
+          // Packs don't depend on other packs in this model
+          if (target.type === "pack") return false;
+
+          const lockfile = yield* readLockfileSafe(workspaceDir);
+          const packs = lockfile.packs ?? {};
+
+          for (const packEntry of Object.values(packs)) {
+            const resolvedMap =
+              target.type === "skill"
+                ? packEntry.resolvedSkills
+                : target.type === "command"
+                  ? packEntry.resolvedCommands
+                  : packEntry.resolvedMcpServers;
+
+            // Check if any FQN key in the resolved map ends with the target name
+            for (const fqn of Object.keys(resolvedMap)) {
+              const parts = fqn.split("/");
+              const resolvedName = parts[parts.length - 1];
+              if (resolvedName === target.name) return true;
+            }
+          }
+
+          return false;
+        }),
+
+      markDependencyRetainedInLockfile: (
+        target: import("../workflows/install-operation/workflow.js").ExtensionTarget,
+      ) =>
+        withMutex(
+          Effect.gen(function* () {
+            const currentLockfile = yield* readLockfileSafe(workspaceDir);
+
+            switch (target.type) {
+              case "skill": {
+                if (!(target.name in currentLockfile.skills)) return;
+                const entry = currentLockfile.skills[target.name]!;
+                const updatedLockfile = {
+                  ...currentLockfile,
+                  skills: {
+                    ...currentLockfile.skills,
+                    [target.name]: { ...entry, retainedByPack: true },
+                  },
+                };
+                yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+                break;
+              }
+              case "command": {
+                const commands = currentLockfile.commands ?? {};
+                if (!(target.name in commands)) return;
+                const entry = commands[target.name]!;
+                const updatedLockfile = {
+                  ...currentLockfile,
+                  commands: {
+                    ...commands,
+                    [target.name]: { ...entry, retainedByPack: true },
+                  },
+                };
+                yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+                break;
+              }
+              case "mcp-server": {
+                const mcpServers = currentLockfile.mcpServers ?? {};
+                if (!(target.name in mcpServers)) return;
+                const entry = mcpServers[target.name]!;
+                const updatedLockfile = {
+                  ...currentLockfile,
+                  mcpServers: {
+                    ...mcpServers,
+                    [target.name]: { ...entry, retainedByPack: true },
+                  },
+                };
+                yield* writeLockfile(workspaceDir, updatedLockfile).pipe(Effect.provide(fsLayer));
+                break;
+              }
+              case "pack":
+                // No retention marking for packs — packs are not dependencies of other packs
+                break;
+            }
+          }),
+        ),
     };
   });
 
@@ -2335,14 +2559,10 @@ export interface WorkspaceContextService {
   readonly preview: boolean;
   /** Probe lockfile state for policy decisions: ok | missing | invalid. */
   readonly getLockfileState: () => Effect.Effect<LockfileState, CliError>;
-  /** Display, confirm, and apply a plan based on preview/yes/nonInteractive flags. */
-  readonly resolvePlan: <
-    Op extends Operation<string, unknown>,
-    T extends Handlers<OperationMapFromUnion<Op>>,
-  >(
-    plan: Plan<Op>,
-    handlers: T,
-  ) => Effect.Effect<Plan<Op>, PromptCancelled | CliError, Log | Confirm | ExecutionContext<T>>;
+  /** Display, confirm, and apply a plan based on preview/yes/nonInteractive/force flags. */
+  readonly resolvePlan: (
+    plan: Plan,
+  ) => Effect.Effect<ExecutedPlan, PromptCancelled | CliError, Log | Confirm>;
   /** Merged sources from project, user-scope, and built-in defaults. Cached per workspace lifetime. */
   readonly getConfiguredSources: () => Effect.Effect<ReadonlyArray<SourceHostConfig>, CliError>;
   /** Lookup a source by name from the merged sources list. */
@@ -2559,4 +2779,28 @@ export interface WorkspaceContextService {
   readonly setMcpServerLock: (args: SetMcpServerArgs) => Effect.Effect<void, CliError>;
   /** Remove an MCP server from both settings and lockfile. No-op if absent. Serialized by semaphore. */
   readonly removeMcpServer: (name: string) => Effect.Effect<void, CliError>;
+  // --- Granular removal methods (settings-only or lockfile-only) ---
+  /** Remove a skill from lockfile only (keep settings entry). Serialized by semaphore. */
+  readonly removeSkillLock: (name: string) => Effect.Effect<void, CliError>;
+  /** Remove a command from settings only (keep lockfile entry). Serialized by semaphore. */
+  readonly removeCommandSettings: (name: string) => Effect.Effect<void, CliError>;
+  /** Remove a command from lockfile only (keep settings entry). Serialized by semaphore. */
+  readonly removeCommandLock: (name: string) => Effect.Effect<void, CliError>;
+  /** Remove an MCP server from settings only (keep lockfile entry). Serialized by semaphore. */
+  readonly removeMcpServerSettings: (name: string) => Effect.Effect<void, CliError>;
+  /** Remove an MCP server from lockfile only (keep settings entry). Serialized by semaphore. */
+  readonly removeMcpServerLock: (name: string) => Effect.Effect<void, CliError>;
+  /** Remove a pack from settings only (keep lockfile entry). Serialized by semaphore. */
+  readonly removePackSettings: (name: string) => Effect.Effect<void, CliError>;
+  /** Remove a pack from lockfile only (keep settings entry). Serialized by semaphore. */
+  readonly removePackLock: (name: string) => Effect.Effect<void, CliError>;
+  // --- Pack dependency queries ---
+  /** Check if an extension target is referenced by any installed pack's dependency maps. */
+  readonly isExtensionRequiredByInstalledPack: (
+    target: import("../workflows/install-operation/workflow.js").ExtensionTarget,
+  ) => Effect.Effect<boolean, CliError>;
+  /** Update lockfile entry for a target to indicate it is retained as a pack dependency. No-op if not found. Serialized by semaphore. */
+  readonly markDependencyRetainedInLockfile: (
+    target: import("../workflows/install-operation/workflow.js").ExtensionTarget,
+  ) => Effect.Effect<void, CliError>;
 }

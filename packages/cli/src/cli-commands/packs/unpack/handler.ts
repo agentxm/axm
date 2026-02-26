@@ -21,6 +21,7 @@ import { installSkill } from "../../../extensions/skills/operations/install.js";
 import { installCommand } from "../../../extensions/commands/operations/install.js";
 import { installMcpServer } from "../../../extensions/mcp-servers/operations/install.js";
 import { uninstallPack } from "../../../extensions/packs/operations/uninstall.js";
+import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 import {
   buildRegistrySkillRef,
   buildRegistryCommandRef,
@@ -159,12 +160,14 @@ export const handleUnpack = Effect.fn("UnpackPack.handle")(function* (args: Unpa
     description: Option.some(`Unpack ${args.name} into direct settings entries`),
   });
 
-  yield* ws.resolvePlan(plan, {
-    "install-skill": installSkill,
-    "install-command": installCommand,
-    "install-mcp-server": installMcpServer,
-    "uninstall-pack": uninstallPack,
-  });
+  yield* ws.resolvePlan(
+    bridgeLegacyPlan(plan, {
+      "install-skill": installSkill,
+      "install-command": installCommand,
+      "install-mcp-server": installMcpServer,
+      "uninstall-pack": uninstallPack,
+    }),
+  );
 
   yield* log.success("Done");
 });

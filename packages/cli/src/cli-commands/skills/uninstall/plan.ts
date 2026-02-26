@@ -1,15 +1,21 @@
 /**
  * Uninstall-specific plan builder.
  *
- * Diffs UninstallSkillOperations against lockfile state to produce a Plan.
- * Installed skills become expected-success steps; missing skills become expected-no-op steps.
+ * Diffs uninstall operations against installed state to produce a Plan with
+ * inline run closures. Installed skills become ready steps; missing skills
+ * become no-op success steps. Pack-referenced skills become error steps.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as Path from "@effect/platform/Path";
+import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Record as EffectRecord } from "effect";
-import type { Plan } from "../../../workspace/plan.js";
+import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
+import { Workspace } from "../../../workspace/index.js";
+import { uninstallSkill } from "../../../extensions/skills/operations/uninstall.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
 
 /** Keyed by skill name. Presence = installed. */
@@ -19,50 +25,71 @@ export type InstalledSkills = EffectRecord.ReadonlyRecord<
 >;
 
 /**
- * Build a plan by comparing operations against the lockfile.
- *
- * Pure function — no Effect needed.
+ * Build a plan by comparing operations against installed state.
+ * Captures workspace services for run closures.
  */
 export const buildSkillUninstallPlan = (
   ops: ReadonlyArray<UninstallSkillOperation>,
   installed: InstalledSkills,
   name: string,
   description: Option.Option<string>,
-): Plan<UninstallSkillOperation> => ({
-  name,
-  description,
-  jobs: [
-    {
-      concurrency: 1,
-      steps: ops.map((op) => {
-        const entry = installed[op.args.skillName];
-        if (entry === undefined) {
-          return {
-            _tag: "PlannedJobStep",
-            operation: op,
-            readiness: { status: "skip", message: "not installed" },
-            label: op.args.skillName,
-          };
-        }
-        if (entry.referencingPacks.length > 0) {
-          const packs = entry.referencingPacks.join(", ");
-          return {
-            _tag: "PlannedJobStep",
-            operation: op,
-            readiness: {
-              status: "error",
-              message: `required by pack ${packs}. Use 'axm skills disable <skill>' instead`,
-            },
-            label: op.args.skillName,
-          };
-        }
+) =>
+  Effect.gen(function* () {
+    const workspace = yield* Workspace;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+
+    const steps: PlannedJobStep[] = ops.map((op) => {
+      const entry = installed[op.args.skillName];
+
+      if (entry === undefined) {
         return {
-          _tag: "PlannedJobStep",
-          operation: op,
-          readiness: { status: "ready", message: Option.none() },
+          readiness: "ready",
           label: op.args.skillName,
-        };
-      }),
-    },
-  ],
-});
+          run: Effect.succeed<JobStepResult>({
+            result: "success",
+            message: `${op.args.skillName} not installed`,
+          }),
+        } satisfies PlannedJobStep;
+      }
+
+      if (entry.referencingPacks.length > 0) {
+        const packs = entry.referencingPacks.join(", ");
+        return {
+          readiness: "error",
+          errorMessage: `required by pack ${packs}. Use 'axm skills disable <skill>' instead`,
+          label: op.args.skillName,
+        } satisfies PlannedJobStep;
+      }
+
+      // Capture services in run closure
+      const runEffect = uninstallSkill(op).pipe(
+        Effect.map(
+          (result): JobStepResult =>
+            result.result === "error"
+              ? { result: "error", message: result.message, error: result.error }
+              : { result: "success", message: result.message },
+        ),
+        Effect.provideService(Workspace, workspace),
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      );
+
+      return {
+        readiness: "ready",
+        label: op.args.skillName,
+        run: runEffect,
+      } satisfies PlannedJobStep;
+    });
+
+    return {
+      name,
+      description,
+      jobs: [
+        {
+          concurrency: 1 as const,
+          steps,
+        },
+      ],
+    } satisfies Plan;
+  });

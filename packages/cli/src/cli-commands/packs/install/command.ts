@@ -5,9 +5,16 @@
  */
 
 import type { CommandModule } from "yargs";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
 import { handleInstallPack } from "./handler.js";
+import { InstallPackCommandWorkflowActionsLive } from "./command-actions.js";
+import { PackManagerLive } from "../../../extensions/packs/manager.js";
+import { SkillManagerLive } from "../../../extensions/skills/manager.js";
+import { CommandManagerLive } from "../../../extensions/commands/manager.js";
+import { McpServerManagerLive } from "../../../extensions/mcp-servers/manager.js";
 import {
   CONFIGURATION_SCOPES,
   DEFAULT_CONFIGURATION_SCOPE,
@@ -87,23 +94,32 @@ export const installPackCommand: CommandModule<{}, InstallPackCommandArgs> = {
   handler: async (argv) => {
     const scope = resolveConfigurationScope(argv.scope, argv.global);
     const global = toGlobalWorkspaceFlag(scope);
-    await run(
-      handleInstallPack({
-        source: argv.source,
+
+    const managersLayer = Layer.mergeAll(
+      PackManagerLive,
+      SkillManagerLive,
+      CommandManagerLive,
+      McpServerManagerLive,
+    );
+
+    const program = handleInstallPack({
+      source: argv.source,
+      global,
+      yes: argv.yes,
+      force: argv.force,
+      nonInteractive: Option.fromNullable(argv["non-interactive"]),
+    }).pipe(
+      Effect.provide(Layer.provideMerge(InstallPackCommandWorkflowActionsLive, managersLayer)),
+    );
+
+    await run(program, {
+      workspace: {
         global,
         yes: argv.yes,
-        force: argv.force,
         nonInteractive: Option.fromNullable(argv["non-interactive"]),
-      }),
-      {
-        workspace: {
-          global,
-          yes: argv.yes,
-          nonInteractive: Option.fromNullable(argv["non-interactive"]),
-          preview: argv.preview,
-          agents: Option.none(),
-        },
+        preview: argv.preview,
+        agents: Option.none(),
       },
-    );
+    });
   },
 };

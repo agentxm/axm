@@ -22,9 +22,12 @@ import {
   makeMultiselectTestLayer,
   makeSelectTestLayer,
   makeSpinnerTestLayer,
+  makeTextInputTestLayer,
 } from "../../../tui/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
+import { SkillManagerLive } from "../../../extensions/skills/manager.js";
+import { InstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
 import { handleInstall, type InstallHandlerArgs } from "./handler.js";
 import { CliError } from "../../../cli-error/index.js";
 
@@ -86,10 +89,8 @@ const defaultArgs = (
 ): InstallHandlerArgs => ({
   source,
   global: false,
-  agents: [],
   skills: [],
   yes: true,
-  list: false,
   all: false,
   force: false,
   nonInteractive: Option.some(true),
@@ -124,6 +125,7 @@ describe("skills install handler — error propagation", () => {
       type: "return",
       indices: [],
     });
+    const [textInputLayer] = makeTextInputTestLayer();
     const BaseLayer = Layer.mergeAll(
       NodeContext.layer,
       logLayer,
@@ -131,6 +133,7 @@ describe("skills install handler — error propagation", () => {
       confirmLayer,
       selectLayer,
       multiselectLayer,
+      textInputLayer,
     );
     const wsOptions: WorkspaceContextOptions = {
       global: false,
@@ -142,7 +145,12 @@ describe("skills install handler — error propagation", () => {
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
+    const SMLayer = Layer.provide(SkillManagerLive, Layer.mergeAll(BaseLayer, WsLayer, SPLayer));
+    const ActionsLayer = Layer.provide(
+      InstallSkillCommandWorkflowActionsLive,
+      Layer.mergeAll(BaseLayer, WsLayer, SPLayer, SMLayer),
+    );
+    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer, ActionsLayer);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
@@ -211,7 +219,7 @@ describe("skills install handler — error propagation", () => {
         ],
       });
 
-      return provide(handleInstall(defaultArgs("effect-basics", { list: true })));
+      return provide(handleInstall(defaultArgs("effect-basics", { all: true })));
     },
   );
 

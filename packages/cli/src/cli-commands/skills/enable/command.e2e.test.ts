@@ -14,25 +14,15 @@ describe("axm skills enable", () => {
   it("enables a disabled skill: re-creates symlinks and updates settings", async () => {
     const temp = createTempDir();
     try {
-      // Initialize workspace
+      // Initialize workspace with claude-code agent to verify .claude/ symlinks
       await runCli(["init", "--yes", "--agent", "claude-code"], {
         cwd: temp.path,
       });
 
       // Install a skill
-      await runCli(
-        [
-          "skills",
-          "install",
-          SKILLS_REPO_FIXTURE,
-          "--skill",
-          "my-skill",
-          "--yes",
-          "--agent",
-          "claude-code",
-        ],
-        { cwd: temp.path },
-      );
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
 
       // Disable the skill first
       await runCli(["skills", "disable", "my-skill", "--yes"], {
@@ -94,23 +84,13 @@ describe("axm skills enable", () => {
   it("shows already enabled message for already enabled skill", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes", "--agent", "claude-code"], {
+      await runCli(["init", "--yes"], {
         cwd: temp.path,
       });
 
-      await runCli(
-        [
-          "skills",
-          "install",
-          SKILLS_REPO_FIXTURE,
-          "--skill",
-          "my-skill",
-          "--yes",
-          "--agent",
-          "claude-code",
-        ],
-        { cwd: temp.path },
-      );
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
 
       // Enable without disabling first — should indicate already enabled
       const result = await runCli(["skills", "enable", "my-skill", "--yes"], {
@@ -127,7 +107,7 @@ describe("axm skills enable", () => {
   it("errors when skill is not found", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes", "--agent", "claude-code"], {
+      await runCli(["init", "--yes"], {
         cwd: temp.path,
       });
 

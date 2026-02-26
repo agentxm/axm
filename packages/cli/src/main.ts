@@ -4,7 +4,9 @@ import * as Effect from "effect/Effect";
 import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 
+import { commandsCommand } from "./cli-commands/commands/command.js";
 import { initCommand } from "./cli-commands/init/command.js";
+import { mcpServersCommand } from "./cli-commands/mcp-servers/command.js";
 import { packsCommand } from "./cli-commands/packs/command.js";
 import { skillsCommand } from "./cli-commands/skills/command.js";
 
@@ -47,9 +49,13 @@ export const program = Effect.promise(() =>
     .command(initCommand)
     .command(skillsCommand)
     .command(packsCommand)
+    .command(commandsCommand)
+    .command(mcpServersCommand)
     .example("$0 init", "Initialize axm in current project")
     .example("$0 skills install owner/repo", "Install skills from a GitHub repository")
     .example("$0 packs install owner/repo", "Install an extension pack")
+    .example("$0 commands install @acme/commands/my-cmd", "Install a command from registry")
+    .example("$0 mcp-servers install @acme/mcp-servers/my-server", "Install an MCP server")
     .demandCommand(1)
     .fail((msg, _err, yargs) => {
       if (msg?.includes("Not enough non-option arguments")) {

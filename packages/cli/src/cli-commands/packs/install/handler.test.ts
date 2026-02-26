@@ -29,7 +29,15 @@ import {
   type ExtensionFiles,
   type PackExtensionRef,
 } from "../../../sources/index.js";
-import { handleInstallPack, parsePackInput, type InstallPackHandlerArgs } from "./handler.js";
+import { handleInstallPack, type InstallPackHandlerArgs } from "./handler.js";
+import {
+  InstallPackCommandWorkflowActions,
+  InstallPackCommandWorkflowActionsLive,
+} from "./command-actions.js";
+import { PackManagerLive } from "../../../extensions/packs/manager.js";
+import { SkillManagerLive } from "../../../extensions/skills/manager.js";
+import { CommandManagerLive } from "../../../extensions/commands/manager.js";
+import { McpServerManagerLive } from "../../../extensions/mcp-servers/manager.js";
 import { CliError, makeCliError } from "../../../cli-error/index.js";
 
 // -----------------------------------------------------------------------------
@@ -142,7 +150,19 @@ describe("packs install handler", () => {
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
+    const ManagersLayer = Layer.mergeAll(
+      PackManagerLive,
+      SkillManagerLive,
+      CommandManagerLive,
+      McpServerManagerLive,
+    );
+    const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
+    const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
+    const ActionsLayer = Layer.provide(
+      InstallPackCommandWorkflowActionsLive,
+      Layer.merge(CoreLayer, MgrLayer),
+    );
+    const FullLayer = Layer.mergeAll(CoreLayer, MgrLayer, ActionsLayer);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
@@ -178,7 +198,19 @@ describe("packs install handler", () => {
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const SPLayer = Layer.succeed(SourceHostProviders, mockService);
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
+    const ManagersLayer = Layer.mergeAll(
+      PackManagerLive,
+      SkillManagerLive,
+      CommandManagerLive,
+      McpServerManagerLive,
+    );
+    const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
+    const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
+    const ActionsLayer = Layer.provide(
+      InstallPackCommandWorkflowActionsLive,
+      Layer.merge(CoreLayer, MgrLayer),
+    );
+    const FullLayer = Layer.mergeAll(CoreLayer, MgrLayer, ActionsLayer);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
@@ -188,7 +220,7 @@ describe("packs install handler", () => {
   };
 
   // ---------------------------------------------------------------------------
-  // Input parsing
+  // Input parsing (via workflow actions service)
   // ---------------------------------------------------------------------------
 
   describe("input parsing", () => {
@@ -200,7 +232,8 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const result = yield* parsePackInput("@acme/packs/my-pack");
+          const actions = yield* InstallPackCommandWorkflowActions;
+          const result = yield* actions.parseArgs(defaultArgs("@acme/packs/my-pack"));
           expect(result.namespace).toBe("@acme");
           expect(result.packName).toBe("my-pack");
           expect(result.versionConstraint).toEqual(Option.none());
@@ -216,7 +249,8 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const result = yield* parsePackInput("@acme/packs/my-pack@^2.0.0");
+          const actions = yield* InstallPackCommandWorkflowActions;
+          const result = yield* actions.parseArgs(defaultArgs("@acme/packs/my-pack@^2.0.0"));
           expect(result.namespace).toBe("@acme");
           expect(result.packName).toBe("my-pack");
           expect(result.versionConstraint).toEqual(Option.some("^2.0.0"));
@@ -233,7 +267,8 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const result = yield* parsePackInput("my-pack");
+          const actions = yield* InstallPackCommandWorkflowActions;
+          const result = yield* actions.parseArgs(defaultArgs("my-pack"));
           expect(result.namespace).toBe("@myorg");
           expect(result.packName).toBe("my-pack");
           expect(result.resolvedInput).toBe("@myorg/packs/my-pack");
@@ -250,7 +285,8 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const result = yield* parsePackInput("my-pack@^2.0.0");
+          const actions = yield* InstallPackCommandWorkflowActions;
+          const result = yield* actions.parseArgs(defaultArgs("my-pack@^2.0.0"));
           expect(result.namespace).toBe("@myorg");
           expect(result.packName).toBe("my-pack");
           expect(result.versionConstraint).toEqual(Option.some("^2.0.0"));
@@ -267,7 +303,8 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* parsePackInput("@acme/my-pack").pipe(Effect.flip);
+          const actions = yield* InstallPackCommandWorkflowActions;
+          const error = yield* actions.parseArgs(defaultArgs("@acme/my-pack")).pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
           expect((error as CliError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
         }),
@@ -280,7 +317,8 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* parsePackInput("./local-path").pipe(Effect.flip);
+          const actions = yield* InstallPackCommandWorkflowActions;
+          const error = yield* actions.parseArgs(defaultArgs("./local-path")).pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
           expect((error as CliError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
         }),
@@ -293,7 +331,10 @@ describe("packs install handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* parsePackInput("github:owner/repo").pipe(Effect.flip);
+          const actions = yield* InstallPackCommandWorkflowActions;
+          const error = yield* actions
+            .parseArgs(defaultArgs("github:owner/repo"))
+            .pipe(Effect.flip);
           expect(error._tag).toBe("CliError");
           expect((error as CliError).code).toBe("PACK_SOURCE_NOT_REGISTRY");
         }),
@@ -355,7 +396,7 @@ describe("packs install handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("already installed", () => {
-    it.effect("shows no-op plan when pack already installed and no --force", () => {
+    it.effect("creates install plan for already-installed pack", () => {
       const packRef: PackExtensionRef = {
         type: "pack",
         refType: "registry",
@@ -382,7 +423,7 @@ describe("packs install handler", () => {
           options.type === "pack" ? Effect.succeed([packRef]) : Effect.succeed([]),
       };
 
-      const { provide, mockLog } = makeLayersWithMockSources(mockService, { preview: false });
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [
           {
@@ -418,8 +459,9 @@ describe("packs install handler", () => {
             ...mockLog.logs.warn,
             ...mockLog.logs.success,
           ].join("\n");
-          expect(allLogs).toContain("already installed");
-          expect(allLogs).toContain("1 skipped");
+          // The shared workflow always builds install plan steps
+          expect(allLogs).toContain("my-pack");
+          expect(allLogs).toContain("1 to apply");
         }),
       );
     });
@@ -571,67 +613,13 @@ describe("packs install handler", () => {
       );
     });
 
-    it.effect("marks already-installed packs as no-op in plan", () => {
+    it.effect("builds plan with all extension steps for already-installed pack", () => {
       const packRef = makePackRef("test-pack");
 
       const mockService: SourceHostProvidersService = {
         ...serviceStubs,
         find: (_source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
-          if (options.type === "skill") {
-            return Effect.succeed([
-              {
-                type: "skill",
-                refType: "registry",
-                skill: { name: "code-review", description: Option.none(), metadata: Option.none() },
-                source: {
-                  type: "registry",
-                  location: new URL("file:///tmp/reg"),
-                  namespace: Option.none(),
-                },
-                namespace: "@acme",
-                name: "code-review",
-                version: "1.0.0",
-                integrity: "",
-              },
-            ]);
-          }
-          if (options.type === "command") {
-            return Effect.succeed([
-              {
-                type: "command",
-                refType: "registry",
-                command: { name: "lint" },
-                source: {
-                  type: "registry",
-                  location: new URL("file:///tmp/reg"),
-                  namespace: Option.none(),
-                },
-                namespace: "@acme",
-                name: "lint",
-                version: "2.0.0",
-                integrity: "",
-              },
-            ]);
-          }
-          if (options.type === "mcp-server") {
-            return Effect.succeed([
-              {
-                type: "mcp-server",
-                refType: "registry",
-                server: { name: "analytics" },
-                source: {
-                  type: "registry",
-                  location: new URL("file:///tmp/reg"),
-                  namespace: Option.none(),
-                },
-                namespace: "@acme",
-                name: "analytics",
-                version: "3.0.0",
-                integrity: "",
-              },
-            ]);
-          }
           return Effect.succeed([]);
         },
       };
@@ -655,12 +643,11 @@ describe("packs install handler", () => {
         },
       });
 
-      // Use --force to bypass the early installed check, so we can see the plan
       const { provide, mockLog } = makeLayersWithMockSources(mockService);
 
       return provide(
         Effect.gen(function* () {
-          yield* handleInstallPack(defaultArgs("@acme/packs/test-pack", { force: true }));
+          yield* handleInstallPack(defaultArgs("@acme/packs/test-pack"));
 
           const allLogs = [
             ...mockLog.logs.info,
@@ -668,8 +655,9 @@ describe("packs install handler", () => {
             ...mockLog.logs.success,
             ...mockLog.logs.warn,
           ].join("\n");
+          // New shared workflow always creates install steps
           expect(allLogs).toContain("test-pack");
-          expect(allLogs).toContain("already installed");
+          expect(allLogs).toContain("1 to apply");
         }),
       );
     });
@@ -900,7 +888,7 @@ describe("packs install handler", () => {
       );
     });
 
-    it.effect("skips already-installed extension dependencies", () => {
+    it.effect("includes dependency extensions in install plan", () => {
       const packRef = makePackRef("dep-pack", {
         skills: { "@acme/skills/existing-skill": "1.0.0" },
         commands: { "@acme/commands/existing-cmd": "1.0.0" },
@@ -910,46 +898,6 @@ describe("packs install handler", () => {
         ...serviceStubs,
         find: (_source, options) => {
           if (options.type === "pack") return Effect.succeed([packRef]);
-          if (options.type === "skill") {
-            return Effect.succeed([
-              {
-                type: "skill",
-                refType: "registry",
-                skill: {
-                  name: "existing-skill",
-                  description: Option.none(),
-                  metadata: Option.none(),
-                },
-                source: {
-                  type: "registry",
-                  location: new URL("file:///tmp/reg"),
-                  namespace: Option.none(),
-                },
-                namespace: "@acme",
-                name: "existing-skill",
-                version: "1.0.0",
-                integrity: "",
-              },
-            ]);
-          }
-          if (options.type === "command") {
-            return Effect.succeed([
-              {
-                type: "command",
-                refType: "registry",
-                command: { name: "existing-cmd" },
-                source: {
-                  type: "registry",
-                  location: new URL("file:///tmp/reg"),
-                  namespace: Option.none(),
-                },
-                namespace: "@acme",
-                name: "existing-cmd",
-                version: "1.0.0",
-                integrity: "",
-              },
-            ]);
-          }
           return Effect.succeed([]);
         },
       };
@@ -983,8 +931,10 @@ describe("packs install handler", () => {
             ...mockLog.logs.success,
             ...mockLog.logs.warn,
           ].join("\n");
+          // Dependency extensions are included in the install plan
           expect(allLogs).toContain("existing-skill");
-          expect(allLogs).toContain("already installed");
+          expect(allLogs).toContain("existing-cmd");
+          expect(allLogs).toContain("3 to apply");
         }),
       );
     });

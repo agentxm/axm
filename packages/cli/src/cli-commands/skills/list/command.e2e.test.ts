@@ -12,7 +12,7 @@ describe("axm skills list", () => {
     it("lists builtin skills after init", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
@@ -33,15 +33,14 @@ describe("axm skills list", () => {
     it("lists installed skills", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
         // Install skills first
-        await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes", "--agent", "claude-code"],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+          cwd: temp.path,
+        });
 
         const result = await runCli(["skills", "list"], {
           cwd: temp.path,
@@ -56,53 +55,32 @@ describe("axm skills list", () => {
     });
   });
 
-  describe("--agent filter", () => {
-    it("filters skills by agent", async () => {
+  describe("after partial uninstall", () => {
+    it("lists only remaining skills after uninstall", async () => {
       const temp = createTempDir();
       try {
-        // Initialize with two agents
-        await runCli(["init", "--yes", "--agent", "claude-code", "--agent", "cursor"], {
+        await runCli(["init", "--yes", "--agent", "claude-code"], {
           cwd: temp.path,
         });
 
-        // Install both skills to both agents
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--all",
-            "--yes",
-            "--agent",
-            "claude-code",
-            "--agent",
-            "cursor",
-          ],
-          { cwd: temp.path },
-        );
-
-        // Uninstall my-skill from cursor to create asymmetry
-        await runCli(["skills", "uninstall", "my-skill", "--yes", "--agent", "cursor"], {
+        // Install both skills
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
           cwd: temp.path,
         });
 
-        // List with --agent cursor should show only another-skill
-        const result = await runCli(["skills", "list", "--agent", "cursor"], {
+        // Uninstall my-skill (workspace-scoped, removes from all agents)
+        await runCli(["skills", "uninstall", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
+
+        // List should show only another-skill
+        const result = await runCli(["skills", "list"], {
           cwd: temp.path,
         });
 
         expect(result.exitCode).toBe(0);
         expect(result.stdout).toContain("another-skill");
         expect(result.stdout).not.toContain("my-skill");
-
-        // List with --agent claude-code should show both skills
-        const result2 = await runCli(["skills", "list", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        expect(result2.exitCode).toBe(0);
-        expect(result2.stdout).toContain("my-skill");
-        expect(result2.stdout).toContain("another-skill");
       } finally {
         temp.cleanup();
       }
@@ -113,7 +91,7 @@ describe("axm skills list", () => {
     it("works with ls alias", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 

@@ -12,8 +12,9 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { EnableSkillOperation } from "../../../extensions/skills/operations/enable.js";
-import { buildSingleStepPlan } from "../plan-helpers.js";
 import { enableSkill } from "../../../extensions/skills/operations/enable.js";
+import { buildSingleStepPlan } from "../plan-helpers.js";
+import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -70,7 +71,7 @@ export const handleEnable = Effect.fn("Enable.handle")(function* (args: EnableHa
     label: args.name,
   });
 
-  yield* ws.resolvePlan(plan, { "enable-skill": enableSkill });
+  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "enable-skill": enableSkill }));
 
   yield* log.success("Done");
 });

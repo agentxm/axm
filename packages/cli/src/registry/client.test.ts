@@ -744,47 +744,89 @@ describe("LocalRegistryClient.extensionExists", () => {
 // -----------------------------------------------------------------------------
 
 describe("RemoteRegistryClient", () => {
-  /** A stub HttpClient that returns 200 for any request. */
   const stubHttpClient = HttpClient.make((request) =>
-    Effect.sync(() => HttpClientResponse.fromWeb(request, new Response("", { status: 200 }))),
+    Effect.sync(() => {
+      if (request.url.endsWith("/v1/extensions/@test")) {
+        return HttpClientResponse.fromWeb(
+          request,
+          new Response(
+            JSON.stringify({
+              extensions: [{ namespace: "@test", type: "skill", name: "my-skill" }],
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+
+      if (request.url.endsWith("/v1/extensions/@test/skills")) {
+        return HttpClientResponse.fromWeb(
+          request,
+          new Response(
+            JSON.stringify({
+              extensions: [{ namespace: "@test", type: "skill", name: "my-skill" }],
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+
+      if (request.url.endsWith("/v1/extensions/@test/skills/my-skill")) {
+        return HttpClientResponse.fromWeb(
+          request,
+          new Response(
+            JSON.stringify({
+              namespace: "@test",
+              type: "skill",
+              name: "my-skill",
+              versions: [
+                {
+                  version: "1.0.0",
+                  published: "2025-01-01T00:00:00Z",
+                  integrity: "sha512-AAAA==",
+                },
+              ],
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+
+      if (request.url.endsWith("/v1/extensions/@test/skills/my-skill/1.0.0/archive")) {
+        return HttpClientResponse.fromWeb(
+          request,
+          new Response(new Uint8Array([0x50, 0x4b]), { status: 200 }),
+        );
+      }
+
+      return HttpClientResponse.fromWeb(request, new Response("", { status: 200 }));
+    }),
   );
   const client = createRemoteRegistryClient("https://registry.example.com", stubHttpClient);
 
-  it.effect("getExtensions fails with discovery list-mode not-implemented code", () =>
+  it.effect("getExtensions supports list mode discovery", () =>
     Effect.gen(function* () {
-      const result = yield* client.getExtensionsByScope(defaultSearchOptions).pipe(Effect.either);
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_LIST_NOT_IMPLEMENTED");
-        expect(result.left.what).toContain("getExtensionsByScope");
-      }
+      const result = yield* client.getExtensionsByScope(defaultSearchOptions);
+      expect(result.total).toBe(1);
+      expect(result.extensions[0]?.name).toBe("my-skill");
     }).pipe(Effect.provide(NodeContext.layer)),
   );
 
-  it.effect("namespaceExists fails with namespace-check-not-implemented code", () =>
+  it.effect("namespaceExists succeeds via remote list semantics", () =>
     Effect.gen(function* () {
-      const result = yield* client.namespaceExists("@test").pipe(Effect.either);
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_NAMESPACE_CHECK_NOT_IMPLEMENTED");
-      }
+      const result = yield* client.namespaceExists("@test");
+      expect(result).toEqual({ exists: true });
     }).pipe(Effect.provide(NodeContext.layer)),
   );
 
-  it.effect("getExtensionPackage fails with package-fetch-not-implemented code", () =>
+  it.effect("getExtensionPackage succeeds via index + archive", () =>
     Effect.gen(function* () {
-      const result = yield* client
-        .getExtensionPackage({
-          namespace: "@test",
-          type: "skill",
-          name: "my-skill",
-          version: Option.some("1.0.0"),
-        })
-        .pipe(Effect.either);
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_PACKAGE_FETCH_NOT_IMPLEMENTED");
-      }
+      const result = yield* client.getExtensionPackage({
+        namespace: "@test",
+        type: "skill",
+        name: "my-skill",
+        version: Option.some("1.0.0"),
+      });
+      expect(Array.from(result.archive)).toEqual([0x50, 0x4b]);
     }).pipe(Effect.provide(NodeContext.layer)),
   );
 
@@ -882,22 +924,18 @@ describe("createRegistryClient", () => {
   it.effect("creates a remote client for an https:// URL", () =>
     Effect.gen(function* () {
       const client = yield* createRegistryClient("https://registry.example.com");
-      const result = yield* client.getExtensionsByScope(defaultSearchOptions).pipe(Effect.either);
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_LIST_NOT_IMPLEMENTED");
-      }
+      expect(typeof client.getExtensionsByScope).toBe("function");
+      expect(typeof client.namespaceExists).toBe("function");
+      expect(typeof client.getExtensionPackage).toBe("function");
     }).pipe(Effect.provide(NodeContext.layer)),
   );
 
   it.effect("creates a remote client for an http:// URL", () =>
     Effect.gen(function* () {
       const client = yield* createRegistryClient("http://registry.example.com");
-      const result = yield* client.getExtensionsByScope(defaultSearchOptions).pipe(Effect.either);
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_LIST_NOT_IMPLEMENTED");
-      }
+      expect(typeof client.getExtensionsByScope).toBe("function");
+      expect(typeof client.namespaceExists).toBe("function");
+      expect(typeof client.getExtensionPackage).toBe("function");
     }).pipe(Effect.provide(NodeContext.layer)),
   );
 });

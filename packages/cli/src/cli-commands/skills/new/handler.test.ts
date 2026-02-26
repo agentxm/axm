@@ -339,7 +339,10 @@ describe("skills-new.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleSkillsNew(defaultArgs("my-skill", { yes: false }));
+          const error = yield* handleSkillsNew(defaultArgs("my-skill", { yes: false })).pipe(
+            Effect.flip,
+          );
+          expect((error as CliError).code).toBe("PLAN_CONFIRMATION_REQUIRED");
 
           // Manifest should NOT be created
           const manifestPath = path.join(

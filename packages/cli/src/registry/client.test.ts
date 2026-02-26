@@ -750,12 +750,12 @@ describe("RemoteRegistryClient", () => {
   );
   const client = createRemoteRegistryClient("https://registry.example.com", stubHttpClient);
 
-  it.effect("getExtensions fails with discovery-not-implemented code", () =>
+  it.effect("getExtensions fails with discovery list-mode not-implemented code", () =>
     Effect.gen(function* () {
       const result = yield* client.getExtensionsByScope(defaultSearchOptions).pipe(Effect.either);
       expect(result._tag).toBe("Left");
       if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_NOT_IMPLEMENTED");
+        expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_LIST_NOT_IMPLEMENTED");
         expect(result.left.what).toContain("getExtensionsByScope");
       }
     }).pipe(Effect.provide(NodeContext.layer)),
@@ -814,15 +814,14 @@ describe("RemoteRegistryClient", () => {
     }).pipe(Effect.provide(NodeContext.layer)),
   );
 
-  it.effect("extensionExists fails with extension-check-not-implemented code", () =>
+  it.effect("extensionExists succeeds for remote client", () =>
     Effect.gen(function* () {
-      const result = yield* client
-        .extensionExists({ namespace: "@test", type: "skill", name: "my-skill" })
-        .pipe(Effect.either);
-      expect(result._tag).toBe("Left");
-      if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_EXTENSION_CHECK_NOT_IMPLEMENTED");
-      }
+      const result = yield* client.extensionExists({
+        namespace: "@test",
+        type: "skill",
+        name: "my-skill",
+      });
+      expect(result).toEqual({ exists: true });
     }).pipe(Effect.provide(NodeContext.layer)),
   );
 });
@@ -886,7 +885,7 @@ describe("createRegistryClient", () => {
       const result = yield* client.getExtensionsByScope(defaultSearchOptions).pipe(Effect.either);
       expect(result._tag).toBe("Left");
       if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_NOT_IMPLEMENTED");
+        expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_LIST_NOT_IMPLEMENTED");
       }
     }).pipe(Effect.provide(NodeContext.layer)),
   );
@@ -897,7 +896,7 @@ describe("createRegistryClient", () => {
       const result = yield* client.getExtensionsByScope(defaultSearchOptions).pipe(Effect.either);
       expect(result._tag).toBe("Left");
       if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_NOT_IMPLEMENTED");
+        expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_LIST_NOT_IMPLEMENTED");
       }
     }).pipe(Effect.provide(NodeContext.layer)),
   );

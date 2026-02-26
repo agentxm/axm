@@ -204,4 +204,38 @@ describe("reconciliation", () => {
       }),
     ),
   );
+
+  it.effect("allows missing declarations when configured for install flows", () =>
+    withContext(
+      Effect.gen(function* () {
+        const axmDir = path.join(tempDir, ".axm");
+        fs.mkdirSync(axmDir, { recursive: true });
+
+        const settings: Settings = {
+          skills: {
+            tool: "@acme/skills/tool@^1",
+          },
+        };
+
+        const result = yield* runReconcileMaterializeOperation(
+          {
+            baseDir: tempDir,
+            now: new Date("2026-02-25T10:00:00.000Z"),
+            defaultNamespace: "@community",
+            agents: ["claude-code"],
+            settings,
+          },
+          axmDir,
+          "missing",
+          { allowMissingDeclarations: true },
+        );
+
+        expect(result.result).toBe("success");
+        expect(result.message).toContain("deferred to install");
+
+        const lockfilePath = path.join(axmDir, "axm-lock.yaml");
+        expect(fs.existsSync(lockfilePath)).toBe(true);
+      }),
+    ),
+  );
 });

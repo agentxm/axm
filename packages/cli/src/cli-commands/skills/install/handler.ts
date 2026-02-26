@@ -102,9 +102,14 @@ const summarizeDiscoverError = (error: unknown): string => {
   return String(error);
 };
 
+const isRemoteReadNotImplemented = (error: unknown): boolean =>
+  isCliError(error) &&
+  (error.code === "REGISTRY_REMOTE_NOT_SUPPORTED" ||
+    (error.code.startsWith("REGISTRY_REMOTE_") && error.code.endsWith("_NOT_IMPLEMENTED")));
+
 const discoverHowToFix = (source: Source, error: unknown): string => {
   if (source.type === "registry") {
-    if (isCliError(error) && error.code === "REGISTRY_REMOTE_NOT_SUPPORTED") {
+    if (isRemoteReadNotImplemented(error)) {
       return "Remote registry discovery is not yet supported for HTTP(S) sources. Use a file:// registry source, or install from github:owner/repo.";
     }
     return "Verify the configured registry is reachable and contains the requested namespace/skill.";

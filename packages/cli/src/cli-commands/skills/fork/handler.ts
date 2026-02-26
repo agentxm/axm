@@ -96,9 +96,14 @@ const summarizeError = (error: unknown): string => {
   return String(error);
 };
 
+const isRemoteReadNotImplemented = (error: unknown): boolean =>
+  isCliError(error) &&
+  (error.code === "REGISTRY_REMOTE_NOT_SUPPORTED" ||
+    (error.code.startsWith("REGISTRY_REMOTE_") && error.code.endsWith("_NOT_IMPLEMENTED")));
+
 const discoverHowToFix = (source: Source, error: unknown): string => {
   if (source.type === "registry") {
-    if (isCliError(error) && error.code === "REGISTRY_REMOTE_NOT_SUPPORTED") {
+    if (isRemoteReadNotImplemented(error)) {
       return "Remote registry discovery is not yet supported for HTTP(S) sources. Use a file:// registry source, or fork from a local/git source.";
     }
     return "Verify the configured registry is reachable and contains the requested namespace/skill.";
@@ -110,7 +115,9 @@ const discoverHowToFix = (source: Source, error: unknown): string => {
 };
 
 const noSkillsFoundHowToFix = (sourceInput: string): string =>
-  sourceInput.includes("@") || sourceInput.startsWith("http://") || sourceInput.startsWith("https://")
+  sourceInput.includes("@") ||
+  sourceInput.startsWith("http://") ||
+  sourceInput.startsWith("https://")
     ? "Verify the namespace and skill name, or use --list with skills install to inspect available skills."
     : "Verify the source path contains directories with SKILL.md files.";
 
@@ -184,7 +191,9 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
       const reason = summarizeError(error);
       const firstResolved = resolvedSources[0];
       const sourceLabel = firstResolved ? sources.origin(firstResolved) : args.source;
-      const howToFix = firstResolved ? discoverHowToFix(firstResolved, error) : noSkillsFoundHowToFix(args.source);
+      const howToFix = firstResolved
+        ? discoverHowToFix(firstResolved, error)
+        : noSkillsFoundHowToFix(args.source);
       return makeCliError({
         code: "DISCOVER_FAILED",
         what: "Failed to discover skills from source",

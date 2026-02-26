@@ -288,10 +288,10 @@ describe("WorkspaceContextService", () => {
       };
     };
 
-    it.effect("default mode (preview=false) displays plan and applies", () =>
+    it.effect("default mode (preview=false) applies without apply confirmation", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
-        const { effect } = runResolvePlan(
+        const { effect, confirmMock } = runResolvePlan(
           {
             global: false,
             yes: false,
@@ -305,6 +305,7 @@ describe("WorkspaceContextService", () => {
 
         // displayPlan logs plan name as info
         expect(mockLog.logs.info).toContain("Test Plan");
+        expect(confirmMock.calls).toEqual([]);
         // applyPlan returns plan with JobStepResult steps
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
@@ -315,7 +316,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("preview interactive is strict dry-run", () =>
+    it.effect("preview prompts then applies when confirmed", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
         const { effect } = runResolvePlan(
@@ -335,14 +336,14 @@ describe("WorkspaceContextService", () => {
         expect(mockLog.logs.info).toContainEqual("Previewing changes...");
         // displayPlan logs plan name
         expect(mockLog.logs.info).toContain("Test Plan");
-        // Preview should return planned steps only
+        // Confirmed preview applies changes
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
-        expect(steps[0]).toMatchObject({ _tag: "PlannedJobStep" });
+        expect(steps[0]).toMatchObject({ _tag: "JobStepResult" });
       }),
     );
 
-    it.effect("preview mode does not require confirmation", () =>
+    it.effect("preview mode requires apply confirmation", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
         const { effect, confirmMock } = runResolvePlan(
@@ -360,14 +361,13 @@ describe("WorkspaceContextService", () => {
 
         // Should show preview message
         expect(mockLog.logs.info).toContainEqual("Previewing changes...");
-        // No confirmation prompt in preview mode
-        expect(confirmMock.calls).toEqual([]);
-        // Should keep the plan unchanged
-        expect(applied.jobs).toHaveLength(1);
+        expect(confirmMock.calls).toEqual([{ message: "Apply changes?" }]);
+        // Rejected confirmation cancels apply
+        expect(applied.jobs).toHaveLength(0);
       }),
     );
 
-    it.effect("preview with --yes does not apply", () =>
+    it.effect("preview with --yes applies without prompt", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
         const { effect } = runResolvePlan(
@@ -384,14 +384,14 @@ describe("WorkspaceContextService", () => {
 
         // Should show preview message
         expect(mockLog.logs.info).toContainEqual("Previewing changes...");
-        // Should not apply and should return planned steps
+        // --yes skips apply confirmation in preview mode
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
-        expect(steps[0]).toMatchObject({ _tag: "PlannedJobStep" });
+        expect(steps[0]).toMatchObject({ _tag: "JobStepResult" });
       }),
     );
 
-    it.effect("preview with nonInteractive remains dry-run", () =>
+    it.effect("preview with nonInteractive requires --yes", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
         const { effect } = runResolvePlan(
@@ -404,13 +404,10 @@ describe("WorkspaceContextService", () => {
           },
           mockLog,
         );
-        const applied = yield* effect;
+        const result = yield* effect.pipe(Effect.flip);
 
-        // Should show preview message
         expect(mockLog.logs.info).toContainEqual("Previewing changes...");
-        // Should not warn or apply
-        expect(mockLog.logs.warn).toEqual([]);
-        expect(applied.jobs).toHaveLength(1);
+        expect((result as CliError).code).toBe("PLAN_CONFIRMATION_REQUIRED");
       }),
     );
 
@@ -474,7 +471,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("warn readiness in preview does not prompt", () =>
+    it.effect("warn readiness in preview still prompts apply", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
         const warnPlan = makePlanWithReadiness({
@@ -495,15 +492,15 @@ describe("WorkspaceContextService", () => {
         );
         const applied = yield* effect;
 
-        // Preview does not confirm or apply
-        expect(confirmMock.calls).toEqual([]);
+        // Preview always confirms apply when --yes is not set
+        expect(confirmMock.calls).toEqual([{ message: "Apply changes?" }]);
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
-        expect(steps[0]).toMatchObject({ _tag: "PlannedJobStep" });
+        expect(steps[0]).toMatchObject({ _tag: "JobStepResult" });
       }),
     );
 
-    it.effect("warn readiness forces confirmation in default mode", () =>
+    it.effect("warn readiness in default mode does not prompt apply confirmation", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
         const warnPlan = makePlanWithReadiness({
@@ -524,8 +521,7 @@ describe("WorkspaceContextService", () => {
         );
         const applied = yield* effect;
 
-        // Should prompt with warning message
-        expect(confirmMock.calls.some((c) => c.message.includes("warnings"))).toBe(true);
+        expect(confirmMock.calls).toEqual([]);
         // Plan should have been displayed before confirmation
         expect(mockLog.logs.info).toContain("Test Plan");
         // Should apply since user confirmed
@@ -534,7 +530,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("warn + yes in preview still does not apply", () =>
+    it.effect("warn + yes in preview applies", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
         const warnPlan = makePlanWithReadiness({
@@ -555,15 +551,15 @@ describe("WorkspaceContextService", () => {
         );
         const applied = yield* effect;
 
-        // --yes has no effect on preview dry-run behavior
+        // --yes skips apply confirmation and applies
         expect(confirmMock.calls).toEqual([]);
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
-        expect(steps[0]).toMatchObject({ _tag: "PlannedJobStep" });
+        expect(steps[0]).toMatchObject({ _tag: "JobStepResult" });
       }),
     );
 
-    it.effect("warn + nonInteractive in preview does not fail", () =>
+    it.effect("warn + nonInteractive in preview fails without --yes", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
         const warnPlan = makePlanWithReadiness({
@@ -582,12 +578,12 @@ describe("WorkspaceContextService", () => {
           true,
           warnPlan,
         );
-        const result = yield* effect;
-        expect(result.jobs).toHaveLength(1);
+        const result = yield* effect.pipe(Effect.flip);
+        expect((result as CliError).code).toBe("PLAN_CONFIRMATION_REQUIRED");
       }),
     );
 
-    it.effect("warn + yes + nonInteractive in preview does not fail", () =>
+    it.effect("warn + yes + nonInteractive in preview applies", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
         const warnPlan = makePlanWithReadiness({
@@ -607,7 +603,8 @@ describe("WorkspaceContextService", () => {
           warnPlan,
         );
         const result = yield* effect;
-        expect(result.jobs).toHaveLength(1);
+        const steps = result.jobs.flatMap((j) => j.steps);
+        expect(steps[0]).toMatchObject({ _tag: "JobStepResult" });
       }),
     );
 
@@ -633,7 +630,7 @@ describe("WorkspaceContextService", () => {
         expect(mockLog.logs.warn).toContain("LOCKFILE_INVALID_IGNORED");
         expect(previewed.jobs).toHaveLength(1);
         expect(previewed.jobs[0]?.steps[0]).toMatchObject({
-          _tag: "PlannedJobStep",
+          _tag: "JobStepResult",
           operation: { name: "test-op" },
         });
       }),
@@ -1509,6 +1506,33 @@ describe("WorkspaceContextService", () => {
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.skills).toHaveProperty("test-gen");
         expect(Object.keys(lockfile.skills)).toHaveLength(1);
+      }),
+    );
+
+    it.effect("removes lockfile-only skill when not in settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+        });
+        writeLockfileTo(projectDir, {
+          implicit: {
+            type: "local",
+            path: "/tmp/implicit",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeSkill("implicit");
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.skills).toBeUndefined();
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.skills).not.toHaveProperty("implicit");
       }),
     );
   });
@@ -3673,6 +3697,32 @@ describe("WorkspaceContextService", () => {
         expect(Object.keys(lockfile.commands!)).toHaveLength(1);
       }),
     );
+
+    it.effect("removes lockfile-only command when not in settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+        });
+        writeLockfileTo(projectDir, {}, undefined, {
+          implicit: {
+            type: "local",
+            path: "/tmp/implicit-cmd",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeCommand("implicit");
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.commands).toBeUndefined();
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.commands).not.toHaveProperty("implicit");
+      }),
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -3938,6 +3988,32 @@ describe("WorkspaceContextService", () => {
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.mcpServers).toHaveProperty("other-server");
         expect(Object.keys(lockfile.mcpServers!)).toHaveLength(1);
+      }),
+    );
+
+    it.effect("removes lockfile-only mcp server when not in settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+        });
+        writeLockfileTo(projectDir, {}, undefined, undefined, {
+          implicit: {
+            type: "local",
+            path: "/tmp/implicit-mcp",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeMcpServer("implicit");
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.mcpServers).toBeUndefined();
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.mcpServers).not.toHaveProperty("implicit");
       }),
     );
   });

@@ -250,7 +250,7 @@ describe("buildUninstallPlan", () => {
     expect(skillSteps[0]!.label).toBe("@acme/skills/orphaned");
   });
 
-  it("excludes directly-installed skills (simple name match)", () => {
+  it("marks directly-installed skills as preserved skip steps", () => {
     const lockfile = lockfileWithPacks([
       "my-pack",
       makePackLockEntry("my-pack", {
@@ -265,8 +265,19 @@ describe("buildUninstallPlan", () => {
     );
 
     const skillSteps = plan.jobs[0]!.steps.filter((s) => s.operation.name === "uninstall-skill");
-    expect(skillSteps).toHaveLength(1);
-    expect(skillSteps[0]!.label).toBe("@acme/skills/orphaned");
+    expect(skillSteps).toHaveLength(2);
+    const orphanedStep = skillSteps.find((s) => s.label === "@acme/skills/orphaned");
+    const preservedStep = skillSteps.find((s) => s.label === "@acme/skills/code-review");
+    expect(orphanedStep).toBeDefined();
+    expect(preservedStep).toBeDefined();
+    expect(planned(orphanedStep!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
+    });
+    expect(planned(preservedStep!).readiness).toEqual({
+      status: "skip",
+      message: "preserved (directly configured in settings)",
+    });
   });
 
   it("handles glob batch: skill shared between TWO removed packs is removable", () => {
@@ -459,7 +470,7 @@ describe("buildUninstallPlan", () => {
     expect(commandSteps[0]!.label).toBe("@acme/commands/orphaned");
   });
 
-  it("excludes directly-configured commands", () => {
+  it("marks directly-configured commands as preserved skip steps", () => {
     const lockfile = lockfileWithPacks([
       "my-pack",
       makePackLockEntry("my-pack", {
@@ -476,8 +487,19 @@ describe("buildUninstallPlan", () => {
     const commandSteps = plan.jobs[0]!.steps.filter(
       (s) => s.operation.name === "uninstall-command",
     );
-    expect(commandSteps).toHaveLength(1);
-    expect(commandSteps[0]!.label).toBe("@acme/commands/orphaned");
+    expect(commandSteps).toHaveLength(2);
+    const orphanedStep = commandSteps.find((s) => s.label === "@acme/commands/orphaned");
+    const preservedStep = commandSteps.find((s) => s.label === "@acme/commands/direct-cmd");
+    expect(orphanedStep).toBeDefined();
+    expect(preservedStep).toBeDefined();
+    expect(planned(orphanedStep!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
+    });
+    expect(planned(preservedStep!).readiness).toEqual({
+      status: "skip",
+      message: "preserved (directly configured in settings)",
+    });
   });
 
   it("glob: command shared between two removed packs produces one step", () => {
@@ -577,7 +599,7 @@ describe("buildUninstallPlan", () => {
     expect(mcpSteps[0]!.label).toBe("@acme/mcp-servers/orphaned");
   });
 
-  it("excludes directly-configured MCP servers", () => {
+  it("marks directly-configured MCP servers as preserved skip steps", () => {
     const lockfile = lockfileWithPacks([
       "my-pack",
       makePackLockEntry("my-pack", {
@@ -596,8 +618,19 @@ describe("buildUninstallPlan", () => {
     );
 
     const mcpSteps = plan.jobs[0]!.steps.filter((s) => s.operation.name === "uninstall-mcp-server");
-    expect(mcpSteps).toHaveLength(1);
-    expect(mcpSteps[0]!.label).toBe("@acme/mcp-servers/orphaned");
+    expect(mcpSteps).toHaveLength(2);
+    const orphanedStep = mcpSteps.find((s) => s.label === "@acme/mcp-servers/orphaned");
+    const preservedStep = mcpSteps.find((s) => s.label === "@acme/mcp-servers/direct-srv");
+    expect(orphanedStep).toBeDefined();
+    expect(preservedStep).toBeDefined();
+    expect(planned(orphanedStep!).readiness).toEqual({
+      status: "ready",
+      message: Option.none(),
+    });
+    expect(planned(preservedStep!).readiness).toEqual({
+      status: "skip",
+      message: "preserved (directly configured in settings)",
+    });
   });
 
   it("glob: MCP server shared between two removed packs produces one step", () => {

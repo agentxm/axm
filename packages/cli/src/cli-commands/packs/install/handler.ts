@@ -34,7 +34,76 @@ import type {
   RegistrySkillRef,
   RegistryCommandRef,
   RegistryMcpServerRef,
+  RegistrySource,
 } from "../../../sources/types.js";
+
+const isCliError = (
+  error: unknown,
+): error is {
+  readonly _tag: "CliError";
+  readonly code: string;
+  readonly what: string;
+} =>
+  typeof error === "object" &&
+  error !== null &&
+  "_tag" in error &&
+  error._tag === "CliError" &&
+  "code" in error &&
+  typeof error.code === "string" &&
+  "what" in error &&
+  typeof error.what === "string";
+
+const summarizeLookupError = (error: unknown): string => {
+  if (isCliError(error)) {
+    return `${error.what} (${error.code})`;
+  }
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message;
+  }
+  return String(error);
+};
+
+const isRemoteReadNotImplemented = (error: unknown): boolean =>
+  isCliError(error) &&
+  (error.code === "REGISTRY_REMOTE_NOT_SUPPORTED" ||
+    (error.code.startsWith("REGISTRY_REMOTE_") && error.code.endsWith("_NOT_IMPLEMENTED")));
+
+interface RegistryLookupProbe {
+  readonly location: string;
+  readonly outcome: "matched" | "not-found" | "error";
+  readonly reason: Option.Option<string>;
+}
+
+const formatRegistryProbe = (probe: RegistryLookupProbe): string => {
+  switch (probe.outcome) {
+    case "matched":
+      return `${probe.location}: matched`;
+    case "not-found":
+      return `${probe.location}: no match`;
+    case "error":
+      return Option.match(probe.reason, {
+        onNone: () => `${probe.location}: error`,
+        onSome: (reason) => `${probe.location}: ${reason}`,
+      });
+  }
+};
+
+const formatRegistrySourceLabel = ({
+  source,
+  registryHosts,
+}: {
+  readonly source: RegistrySource;
+  readonly registryHosts: ReadonlyArray<{
+    readonly name: string;
+    readonly location: URL;
+  }>;
+}): string => {
+  const matched = registryHosts.find((host) => host.location.href === source.location.href);
+  if (matched !== undefined) {
+    return `${matched.name} (${matched.location.href})`;
+  }
+  return source.location.href;
+};
 
 // -----------------------------------------------------------------------------
 // Types
@@ -83,6 +152,7 @@ export const parsePackInput = (input: string) =>
       const ws = yield* Workspace;
       const namespace = yield* ws.getConfiguredNamespace();
       return {
+        inputKind: "name-input" as const,
         namespace,
         packName: parsed.value.pattern.name,
         versionConstraint: Option.none<string>(),
@@ -100,6 +170,7 @@ export const parsePackInput = (input: string) =>
         const ws = yield* Workspace;
         const namespace = yield* ws.getConfiguredNamespace();
         return {
+          inputKind: "name-input-with-version" as const,
           namespace,
           packName: name,
           versionConstraint: Option.some(constraint),
@@ -133,6 +204,7 @@ export const parsePackInput = (input: string) =>
       }
 
       return {
+        inputKind: "registry-pattern-input" as const,
         namespace: pat.namespace,
         packName: pat.name.value,
         versionConstraint: pat.versionConstraint,
@@ -172,22 +244,15 @@ export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
 
   // Step 1: Parse and validate input
   const parseHandle = yield* spinnerSvc.start("Parsing source...");
-  const { namespace, packName, versionConstraint, resolvedInput } = yield* parsePackInput(
-    args.source,
-  ).pipe(Effect.tapError(() => parseHandle.stop("Failed")));
+  const { inputKind, namespace, packName, versionConstraint, resolvedInput } =
+    yield* parsePackInput(args.source);
   yield* parseHandle.stop(`Pack: ${namespace}/packs/${packName}`);
 
-  // Step 2: Check if already installed (unless --force)
-  if (!args.force) {
-    const lockedPack = yield* ws.getLockedPack(packName);
-    if (Option.isSome(lockedPack)) {
-      yield* log.warn(`Pack "${packName}" is already installed. Use --force to overwrite.`);
-      yield* log.success("Nothing to install.");
-      return;
-    }
+  if (inputKind === "name-input" || inputKind === "name-input-with-version") {
+    yield* log.info(`Source resolution: ${args.source.trim()} -> ${resolvedInput}`);
   }
 
-  // Step 3: Resolve source and registry guard
+  // Step 2: Resolve source and registry guard
   const source = yield* resolveSource(resolvedInput).pipe(
     Effect.mapError((error) =>
       makeCliError({
@@ -211,27 +276,138 @@ export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
 
   yield* registryGuard;
 
-  // Step 4: Discover pack from registry
+  const findPackRefs = (lookupSource: RegistrySource) =>
+    Effect.gen(function* () {
+      const probes: RegistryLookupProbe[] = [];
+
+      const findWith = (candidate: RegistrySource) =>
+        sources.find(candidate, {
+          skillNames: [packName],
+          type: "pack",
+          namespace: Option.some(namespace),
+          versionConstraint,
+        });
+
+      const toProbe = (
+        location: URL,
+        result:
+          | Effect.Effect.Success<ReturnType<typeof findWith>>
+          | Effect.Effect.Error<ReturnType<typeof findWith>>,
+        isError: boolean,
+      ): RegistryLookupProbe =>
+        isError
+          ? {
+              location: location.href,
+              outcome: "error",
+              reason: Option.some(
+                summarizeLookupError(result as Effect.Effect.Error<ReturnType<typeof findWith>>),
+              ),
+            }
+          : {
+              location: location.href,
+              outcome:
+                (result as Effect.Effect.Success<ReturnType<typeof findWith>>).length > 0
+                  ? "matched"
+                  : "not-found",
+              reason: Option.none(),
+            };
+
+      const initialResult = yield* findWith(lookupSource).pipe(Effect.either);
+      probes.push(
+        initialResult._tag === "Right"
+          ? toProbe(lookupSource.location, initialResult.right, false)
+          : toProbe(lookupSource.location, initialResult.left, true),
+      );
+      if (initialResult._tag === "Right") {
+        return {
+          refs: initialResult.right,
+          source: lookupSource,
+          probes,
+        } as const;
+      }
+
+      const initialError = initialResult.left;
+      if (!isRemoteReadNotImplemented(initialError)) {
+        return yield* Effect.fail(initialError);
+      }
+
+      const registryHosts = yield* ws.getRegistrySourceHosts();
+      const fallbackSources = registryHosts
+        .filter((host) => host.location.protocol === "file:")
+        .map(
+          (host) =>
+            ({
+              type: "registry" as const,
+              location: host.location,
+              namespace: Option.some(namespace),
+            }) satisfies RegistrySource,
+        );
+
+      const fallbackErrors: string[] = [summarizeLookupError(initialError)];
+
+      for (const fallbackSource of fallbackSources) {
+        if (fallbackSource.location.href === lookupSource.location.href) {
+          continue;
+        }
+
+        const fallbackResult = yield* findWith(fallbackSource).pipe(Effect.either);
+        probes.push(
+          fallbackResult._tag === "Right"
+            ? toProbe(fallbackSource.location, fallbackResult.right, false)
+            : toProbe(fallbackSource.location, fallbackResult.left, true),
+        );
+        if (fallbackResult._tag === "Right") {
+          if (fallbackResult.right.length === 0) {
+            continue;
+          }
+          return {
+            refs: fallbackResult.right,
+            source: fallbackSource,
+            probes,
+          } as const;
+        }
+
+        fallbackErrors.push(summarizeLookupError(fallbackResult.left));
+      }
+
+      return yield* makeCliError({
+        code: "PACK_FETCH_FAILED",
+        what: "Failed to fetch pack from registry",
+        details: [
+          `Pack: ${namespace}/packs/${packName}`,
+          `Lookup errors: ${fallbackErrors.join("; ")}`,
+        ],
+        howToFix:
+          "Remote registry discovery is not yet supported. Configure a file:// registry source or use a local registry source name.",
+        cause: initialError,
+      });
+    });
+
+  // Step 3: Discover pack from registry
   const discoverHandle = yield* spinnerSvc.start("Fetching pack from registry...");
-  const refs = yield* sources
-    .find(source, {
-      skillNames: [packName],
-      type: "pack",
-      namespace: Option.none(),
-      versionConstraint: Option.none(),
-    })
-    .pipe(
-      Effect.mapError((error) =>
-        makeCliError({
-          code: "PACK_FETCH_FAILED",
-          what: `Failed to fetch pack from registry: ${error.message}`,
-          details: [`Pack: ${namespace}/packs/${packName}`],
-          howToFix: "Verify the pack name and registry configuration.",
-          cause: error,
-        }),
-      ),
-      Effect.tapError(() => discoverHandle.stop("Failed")),
+  const discovery = yield* findPackRefs(source).pipe(
+    Effect.mapError((error) =>
+      makeCliError({
+        code: "PACK_FETCH_FAILED",
+        what: "Failed to fetch pack from registry",
+        details: [`Pack: ${namespace}/packs/${packName}`, `Reason: ${summarizeLookupError(error)}`],
+        howToFix: "Verify the pack name and registry configuration.",
+        cause: error,
+      }),
+    ),
+  );
+  const refs = discovery.refs;
+  if (inputKind === "name-input" || inputKind === "name-input-with-version") {
+    yield* log.info(
+      `Host resolution: ${discovery.probes.map((probe) => formatRegistryProbe(probe)).join("; ")}`,
     );
+  }
+  const registryHosts = yield* ws.getRegistrySourceHosts();
+  const resolvedRegistryLabel = formatRegistrySourceLabel({
+    source: discovery.source,
+    registryHosts,
+  });
+  yield* log.info(`Registry source: ${resolvedRegistryLabel}`);
 
   if (refs.length === 0) {
     yield* discoverHandle.stop("Not found");
@@ -251,7 +427,7 @@ export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
   }
   yield* discoverHandle.stop("Found pack");
 
-  // Step 5: Resolve dependency constraints to exact registry refs
+  // Step 4: Resolve dependency constraints to exact registry refs
   const skillOps: ReadonlyArray<InstallSkillOperation> = yield* Effect.forEach(
     Object.entries(packRef.pack.skills),
     ([fqn, versionConstraint]) =>
@@ -393,7 +569,7 @@ export const handleInstallPack = Effect.fn("InstallPack.handle")(function* (
     { concurrency: "unbounded" },
   );
 
-  // Step 6: Build and execute plan
+  // Step 5: Build and execute plan
   const lockedPacks = yield* ws.getLockedPacks();
   const lockedSkills = yield* ws.getLockedSkills();
   const lockedCommands = yield* ws.getLockedCommands();

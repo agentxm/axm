@@ -53,7 +53,11 @@ const toLookupIssue = (location: URL, error: unknown): RegistryLookupIssue => ({
 
 const hasRemoteNotSupportedIssue = (issues: ReadonlyArray<RegistryLookupIssue>): boolean =>
   issues.some(
-    (issue) => Option.isSome(issue.code) && issue.code.value === "REGISTRY_REMOTE_NOT_SUPPORTED",
+    (issue) =>
+      Option.isSome(issue.code) &&
+      (issue.code.value === "REGISTRY_REMOTE_NOT_SUPPORTED" ||
+        (issue.code.value.startsWith("REGISTRY_REMOTE_") &&
+          issue.code.value.endsWith("_NOT_IMPLEMENTED"))),
   );
 
 const registryLookupHowToFix = ({

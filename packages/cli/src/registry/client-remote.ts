@@ -14,9 +14,20 @@ import * as HttpClientError from "@effect/platform/HttpClientError";
 import * as HttpClientRequest from "@effect/platform/HttpClientRequest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 
 import { type CliError, makeCliError } from "../cli-error/index.js";
-import type { PublishExtensionArgs, RegistryClient } from "./client.js";
+import type {
+  ExtensionExistsArgs,
+  ExtensionExistsResponse,
+  GetExtensionsByNamespaceArgs,
+  GetExtensionsByNamespaceResponse,
+  PublishExtensionArgs,
+  RegistryClient,
+  RegistryExtensionManifest,
+} from "./client.js";
+import { toAuthor, type ExtensionType } from "../extensions/common.js";
+import { ExtensionIndexSchema } from "./local-schema.js";
 import { pluralizeType } from "./utils.js";
 
 // -----------------------------------------------------------------------------
@@ -292,6 +303,223 @@ const remoteReadNotImplemented = ({
     }),
   );
 
+const remoteDiscoveryTypes = ["skill", "command", "mcp-server", "pack"] as const;
+
+const toRegistryManifest = (
+  index: typeof ExtensionIndexSchema.Type,
+): Option.Option<RegistryExtensionManifest> => {
+  const latest = index.versions[0];
+  if (latest === undefined) {
+    return Option.none();
+  }
+
+  return Option.some({
+    namespace: index.namespace,
+    type: index.type,
+    name: index.name,
+    description: Option.fromNullable(index.description),
+    repository: Option.fromNullable(index.repository),
+    license: Option.fromNullable(index.license),
+    authors: Option.match(Option.fromNullable(index.authors), {
+      onNone: () => [],
+      onSome: (authors) => authors.map((author) => toAuthor(author)),
+    }),
+    dependencies: latest.dependencies ?? {},
+    version: latest.version,
+    integrity: latest.integrity,
+  });
+};
+
+const buildDiscoveryUrl = ({
+  baseUrl,
+  namespace,
+  type,
+  name,
+}: {
+  readonly baseUrl: string;
+  readonly namespace: string;
+  readonly type: ExtensionType;
+  readonly name: string;
+}): string =>
+  `${normalizeBaseUrl(baseUrl)}/v1/extensions/${namespace}/${pluralizeType(type)}/${name}`;
+
+const getExtensionIndex = ({
+  baseUrl,
+  httpClient,
+  namespace,
+  type,
+  name,
+}: {
+  readonly baseUrl: string;
+  readonly httpClient: HttpClient.HttpClient;
+  readonly namespace: string;
+  readonly type: ExtensionType;
+  readonly name: string;
+}) =>
+  Effect.gen(function* () {
+    const url = buildDiscoveryUrl({ baseUrl, namespace, type, name });
+    const requestSummary = `GET ${url}`;
+
+    const response = yield* httpClient.execute(HttpClientRequest.get(url)).pipe(
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "REGISTRY_REMOTE_DISCOVERY_NETWORK_ERROR",
+          what: "Failed to connect to remote registry discovery endpoint",
+          details: [requestSummary],
+          howToFix: buildNetworkHowToFix(baseUrl),
+          cause: error,
+        }),
+      ),
+    );
+
+    if (response.status === 404) {
+      return Option.none<RegistryExtensionManifest>();
+    }
+
+    if (response.status !== 200) {
+      const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+      return yield* Effect.fail(
+        makeCliError({
+          code: "REGISTRY_REMOTE_DISCOVERY_FAILED",
+          what: `Remote discovery failed with status ${String(response.status)}`,
+          details: [requestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
+        }),
+      );
+    }
+
+    const bodyText = yield* response.text.pipe(
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "REGISTRY_REMOTE_DISCOVERY_FAILED",
+          what: "Failed to read remote discovery response body",
+          details: [requestSummary],
+          cause: error,
+        }),
+      ),
+    );
+
+    const parsed = yield* Effect.try({
+      try: () => JSON.parse(bodyText) as unknown,
+      catch: (error) =>
+        makeCliError({
+          code: "REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE",
+          what: "Remote discovery returned invalid JSON",
+          details: [requestSummary],
+          cause: error,
+        }),
+    });
+
+    const index = yield* Schema.decodeUnknown(ExtensionIndexSchema)(parsed).pipe(
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "REGISTRY_REMOTE_DISCOVERY_INVALID_RESPONSE",
+          what: "Remote discovery response does not match extension index schema",
+          details: [requestSummary],
+          cause: error,
+        }),
+      ),
+    );
+
+    return toRegistryManifest(index);
+  });
+
+const getExtensionsByScope = (
+  baseUrl: string,
+  httpClient: HttpClient.HttpClient,
+  args: GetExtensionsByNamespaceArgs,
+): Effect.Effect<GetExtensionsByNamespaceResponse, CliError> =>
+  Effect.gen(function* () {
+    if (args.names.length === 0) {
+      return yield* remoteReadNotImplemented({
+        code: "REGISTRY_REMOTE_DISCOVERY_LIST_NOT_IMPLEMENTED",
+        what: "remote registry getExtensionsByScope list mode is not implemented yet",
+        operation: "getExtensionsByScope (names=[])",
+      });
+    }
+
+    const requestedTypes: ReadonlyArray<ExtensionType> =
+      args.types.length > 0 ? args.types : remoteDiscoveryTypes;
+
+    const maybeEntries = yield* Effect.forEach(
+      args.names,
+      (name) =>
+        Effect.forEach(
+          requestedTypes,
+          (type) =>
+            getExtensionIndex({
+              baseUrl,
+              httpClient,
+              namespace: args.namespace,
+              type,
+              name,
+            }),
+          { concurrency: "unbounded" },
+        ),
+      { concurrency: "unbounded" },
+    );
+
+    const allExtensions = maybeEntries.flat().flatMap((entry) =>
+      Option.match(entry, {
+        onNone: () => [],
+        onSome: (value) => [value],
+      }),
+    );
+
+    const total = allExtensions.length;
+    const sliced = allExtensions.slice(args.offset);
+    const extensions = Option.match(args.limit, {
+      onNone: () => sliced,
+      onSome: (limit) => sliced.slice(0, limit),
+    });
+
+    return {
+      extensions,
+      total,
+    } satisfies GetExtensionsByNamespaceResponse;
+  });
+
+const buildExtensionExistsUrl = (baseUrl: string, args: ExtensionExistsArgs): string =>
+  `${normalizeBaseUrl(baseUrl)}/v1/extensions/${args.namespace}/${pluralizeType(args.type)}/${args.name}`;
+
+const extensionExists = (
+  baseUrl: string,
+  httpClient: HttpClient.HttpClient,
+  args: ExtensionExistsArgs,
+): Effect.Effect<ExtensionExistsResponse, CliError> =>
+  Effect.gen(function* () {
+    const url = buildExtensionExistsUrl(baseUrl, args);
+    const requestSummary = `HEAD ${url}`;
+
+    const response = yield* httpClient.execute(HttpClientRequest.head(url)).pipe(
+      Effect.mapError((error) =>
+        makeCliError({
+          code: "REGISTRY_REMOTE_EXTENSION_CHECK_NETWORK_ERROR",
+          what: "Failed to connect to remote registry extension check endpoint",
+          details: [requestSummary],
+          howToFix: buildNetworkHowToFix(baseUrl),
+          cause: error,
+        }),
+      ),
+    );
+
+    if (response.status === 200) {
+      return { exists: true } satisfies ExtensionExistsResponse;
+    }
+
+    if (response.status === 404) {
+      return { exists: false } satisfies ExtensionExistsResponse;
+    }
+
+    const bodyText = yield* response.text.pipe(Effect.catchAll(() => Effect.succeed("")));
+    return yield* Effect.fail(
+      makeCliError({
+        code: "REGISTRY_REMOTE_EXTENSION_CHECK_FAILED",
+        what: `Remote extension check failed with status ${String(response.status)}`,
+        details: [requestSummary, ...(bodyText.length > 0 ? [bodyText] : [])],
+      }),
+    );
+  });
+
 /**
  * Build the publish URL for an extension version.
  */
@@ -448,12 +676,7 @@ export const createRemoteRegistryClient = (
   baseUrl: string,
   httpClient: HttpClient.HttpClient,
 ): RegistryClient => ({
-  getExtensionsByScope: () =>
-    remoteReadNotImplemented({
-      code: "REGISTRY_REMOTE_DISCOVERY_NOT_IMPLEMENTED",
-      what: "remote registry getExtensionsByScope is not implemented yet",
-      operation: "getExtensionsByScope",
-    }),
+  getExtensionsByScope: (args) => getExtensionsByScope(baseUrl, httpClient, args),
   namespaceExists: () =>
     remoteReadNotImplemented({
       code: "REGISTRY_REMOTE_NAMESPACE_CHECK_NOT_IMPLEMENTED",
@@ -467,10 +690,5 @@ export const createRemoteRegistryClient = (
       operation: "getExtensionPackage",
     }),
   publishExtension: (args) => publishExtension(baseUrl, httpClient, args),
-  extensionExists: () =>
-    remoteReadNotImplemented({
-      code: "REGISTRY_REMOTE_EXTENSION_CHECK_NOT_IMPLEMENTED",
-      what: "remote registry extensionExists is not implemented yet",
-      operation: "extensionExists",
-    }),
+  extensionExists: (args) => extensionExists(baseUrl, httpClient, args),
 });

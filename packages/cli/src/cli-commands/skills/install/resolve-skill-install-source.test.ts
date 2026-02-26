@@ -192,7 +192,7 @@ describe("resolveSkillInstallSource", () => {
       expect(probes).toHaveLength(2);
       expect(probes[0]).toMatchObject({
         location: "http://localhost:4300/",
-        outcome: "error",
+        outcome: "not-found",
       });
       expect(probes[1]).toMatchObject({
         location: new URL(`file://${registryB}`).href,

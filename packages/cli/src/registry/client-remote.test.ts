@@ -558,15 +558,54 @@ describe("createRemoteRegistryClient", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Read-side methods remain unsupported
+  // Read-side methods
   // ---------------------------------------------------------------------------
 
-  describe("unsupported read operations", () => {
-    const httpClient = makeMockHttpClient(() => new Response("", { status: 200 }));
-    const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
-
-    it.effect("getExtensionsByScope reports discovery not implemented", () =>
+  describe("read operations", () => {
+    it.effect("getExtensionsByScope resolves named extension indexes", () =>
       Effect.gen(function* () {
+        const httpClient = makeMockHttpClient((request) => {
+          if (request.url.endsWith("/v1/extensions/@axm/packs/effect")) {
+            return new Response(
+              JSON.stringify({
+                namespace: "@axm",
+                type: "pack",
+                name: "effect",
+                versions: [
+                  {
+                    version: "0.0.1",
+                    published: "2026-01-01T00:00:00Z",
+                    integrity: "sha512-abc",
+                  },
+                ],
+              }),
+              { status: 200 },
+            );
+          }
+          return new Response("", { status: 404 });
+        });
+
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
+        const result = yield* client.getExtensionsByScope({
+          namespace: "@axm",
+          names: ["effect"],
+          types: ["pack"],
+          limit: Option.none(),
+          offset: 0,
+        });
+
+        expect(result.total).toBe(1);
+        expect(result.extensions).toHaveLength(1);
+        expect(result.extensions[0]?.namespace).toBe("@axm");
+        expect(result.extensions[0]?.type).toBe("pack");
+        expect(result.extensions[0]?.name).toBe("effect");
+      }),
+    );
+
+    it.effect("getExtensionsByScope list mode reports not implemented", () =>
+      Effect.gen(function* () {
+        const httpClient = makeMockHttpClient(() => new Response("", { status: 200 }));
+        const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
         const result = yield* client
           .getExtensionsByScope({
             namespace: "@test",
@@ -578,11 +617,14 @@ describe("createRemoteRegistryClient", () => {
           .pipe(Effect.either);
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_NOT_IMPLEMENTED");
+          expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_LIST_NOT_IMPLEMENTED");
           expect(result.left.what).toContain("getExtensionsByScope");
         }
       }),
     );
+
+    const httpClient = makeMockHttpClient(() => new Response("", { status: 200 }));
+    const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
 
     it.effect("getExtensionPackage reports package fetch not implemented", () =>
       Effect.gen(function* () {
@@ -611,15 +653,29 @@ describe("createRemoteRegistryClient", () => {
       }),
     );
 
-    it.effect("extensionExists reports extension checks not implemented", () =>
+    it.effect("extensionExists returns true for 200", () =>
       Effect.gen(function* () {
-        const result = yield* client
-          .extensionExists({ namespace: "@test", type: "skill", name: "my-skill" })
-          .pipe(Effect.either);
-        expect(result._tag).toBe("Left");
-        if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_EXTENSION_CHECK_NOT_IMPLEMENTED");
-        }
+        const result = yield* client.extensionExists({
+          namespace: "@test",
+          type: "skill",
+          name: "my-skill",
+        });
+        expect(result).toEqual({ exists: true });
+      }),
+    );
+
+    it.effect("extensionExists returns false for 404", () =>
+      Effect.gen(function* () {
+        const notFoundClient = createRemoteRegistryClient(
+          "https://registry.example.com",
+          makeMockHttpClient(() => new Response("", { status: 404 })),
+        );
+        const result = yield* notFoundClient.extensionExists({
+          namespace: "@test",
+          type: "skill",
+          name: "missing-skill",
+        });
+        expect(result).toEqual({ exists: false });
       }),
     );
   });

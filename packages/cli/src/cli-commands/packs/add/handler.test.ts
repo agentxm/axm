@@ -209,10 +209,7 @@ describe("packs-add.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handlePacksAdd(
-            defaultArgs("frontend-tools", "code-review", { yes: false }),
-          ).pipe(Effect.flip);
-          expect((error as CliError).code).toBe("PLAN_CONFIRMATION_REQUIRED");
+          yield* handlePacksAdd(defaultArgs("frontend-tools", "code-review", { yes: false }));
 
           // Manifest should NOT have the new extension
           const manifestPath = path.join(

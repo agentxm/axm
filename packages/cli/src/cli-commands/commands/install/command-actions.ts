@@ -1,0 +1,279 @@
+/**
+ * Command install workflow actions service.
+ *
+ * Implements InstallExtensionCommandWorkflowActions for commands.
+ * Commands are registry-only, similar to packs.
+ * The live layer captures all required services at construction time
+ * so action methods satisfy the `R = never` contract.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
+import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import { makeCliError, type CliError } from "../../../cli-error/index.js";
+import {
+  parseInputPattern,
+  resolveSource,
+  registryGuard,
+  SourceHostProviders,
+} from "../../../sources/index.js";
+import type { CommandExtensionRef, RegistrySource } from "../../../sources/types.js";
+import { Workspace } from "../../../workspace/service.js";
+import { CommandManager } from "../../../extensions/commands/manager.js";
+import type { Plan } from "../../../workspace/plan.js";
+import { buildInstallOperation } from "../../../workflows/install-operation/index.js";
+import type { InstallExtensionCommandWorkflowActions } from "../../../workflows/install-command/index.js";
+import type { InstallCommandCommandIntent } from "./intent.js";
+
+// -----------------------------------------------------------------------------
+// Handler Args
+// -----------------------------------------------------------------------------
+
+export interface InstallCommandHandlerArgs {
+  readonly source: string;
+  readonly global: boolean;
+  readonly yes: boolean;
+  readonly force: boolean;
+  readonly nonInteractive: Option.Option<boolean>;
+}
+
+// -----------------------------------------------------------------------------
+// Parsed Args
+// -----------------------------------------------------------------------------
+
+export interface ParsedCommandInstallArgs {
+  readonly namespace: string;
+  readonly commandName: string;
+  readonly versionConstraint: Option.Option<string>;
+  readonly resolvedInput: string;
+  readonly force: boolean;
+}
+
+// -----------------------------------------------------------------------------
+// Source Request
+// -----------------------------------------------------------------------------
+
+export interface CommandInstallSourceRequest {
+  readonly source: RegistrySource;
+  readonly namespace: string;
+  readonly commandName: string;
+  readonly versionConstraint: Option.Option<string>;
+}
+
+// -----------------------------------------------------------------------------
+// Service Tag
+// -----------------------------------------------------------------------------
+
+export class InstallCommandCommandWorkflowActions extends Context.Tag(
+  "InstallCommandCommandWorkflowActions",
+)<
+  InstallCommandCommandWorkflowActions,
+  InstallExtensionCommandWorkflowActions<
+    InstallCommandHandlerArgs,
+    ParsedCommandInstallArgs,
+    CommandInstallSourceRequest,
+    CommandExtensionRef,
+    InstallCommandCommandIntent
+  >
+>() {}
+
+// -----------------------------------------------------------------------------
+// Live Layer
+// -----------------------------------------------------------------------------
+
+/**
+ * Constructs the actions by resolving all services at layer-build time.
+ * Each action method closes over the captured services so `R = never`.
+ */
+export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
+  InstallCommandCommandWorkflowActions,
+  Effect.gen(function* () {
+    const sources = yield* SourceHostProviders;
+    const ws = yield* Workspace;
+    const commandMgr = yield* CommandManager;
+
+    // Build a service layer to provide to inner effects that still require
+    // services via the Effect context (e.g. registryGuard, resolveSource).
+    const envLayer = Layer.mergeAll(
+      Layer.succeed(SourceHostProviders, sources),
+      Layer.succeed(Workspace, ws),
+    );
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bridging service requirements to R=never
+    const provide = <A>(effect: Effect.Effect<A, any, any>): Effect.Effect<A, CliError, never> =>
+      Effect.provide(effect, envLayer) as Effect.Effect<A, CliError, never>;
+
+    const parseArgs = (
+      args: InstallCommandHandlerArgs,
+    ): Effect.Effect<ParsedCommandInstallArgs, CliError> =>
+      Effect.gen(function* () {
+        const trimmed = args.source.trim();
+        const parsed = parseInputPattern(trimmed);
+
+        // Handle @namespace/commands/name[@version]
+        if (Option.isSome(parsed) && parsed.value.pattern.pattern === "registry-pattern-input") {
+          const pat = parsed.value.pattern;
+          if (Option.isSome(pat.type) && pat.type.value !== "commands") {
+            return yield* makeCliError({
+              code: "COMMAND_SOURCE_INVALID_FORMAT",
+              what: "Command source must include /commands/ segment",
+              details: [`Provided: ${trimmed}`],
+              howToFix: "Use @namespace/commands/command-name format.",
+            });
+          }
+          if (Option.isNone(pat.name)) {
+            return yield* makeCliError({
+              code: "COMMAND_SOURCE_MISSING_NAME",
+              what: "Command source must include a command name",
+              details: [`Provided: ${trimmed}`],
+              howToFix: "Use @namespace/commands/command-name format.",
+            });
+          }
+          return {
+            namespace: pat.namespace,
+            commandName: pat.name.value,
+            versionConstraint: pat.versionConstraint,
+            resolvedInput: trimmed,
+            force: args.force,
+          };
+        }
+
+        // Handle bare name (e.g., "my-cmd")
+        if (Option.isSome(parsed) && parsed.value.pattern.pattern === "name-input") {
+          const namespace = yield* ws.getConfiguredNamespace();
+          return {
+            namespace,
+            commandName: parsed.value.pattern.name,
+            versionConstraint: Option.none<string>(),
+            resolvedInput: `${namespace}/commands/${parsed.value.pattern.name}`,
+            force: args.force,
+          };
+        }
+
+        return yield* makeCliError({
+          code: "COMMAND_SOURCE_NOT_REGISTRY",
+          what: "Commands can only be installed from a registry",
+          details: [`Provided: ${trimmed}`],
+          howToFix: "Use @namespace/commands/command-name or just command-name.",
+        });
+      });
+
+    const resolveSourceRequests = (
+      parsed: ParsedCommandInstallArgs,
+    ): Effect.Effect<ReadonlyArray<CommandInstallSourceRequest>, CliError> =>
+      provide(
+        Effect.gen(function* () {
+          const source = yield* resolveSource(parsed.resolvedInput).pipe(
+            Effect.mapError((error) =>
+              makeCliError({
+                code: "INVALID_SOURCE",
+                what: `Invalid source: ${error.message}`,
+                details: [`Provided: ${parsed.resolvedInput}`],
+                howToFix: "Use @namespace/commands/command-name or just command-name.",
+                cause: error,
+              }),
+            ),
+          );
+
+          if (source.type !== "registry") {
+            return yield* makeCliError({
+              code: "COMMAND_SOURCE_NOT_REGISTRY",
+              what: "Commands can only be installed from a registry",
+              details: [`Provided source type: ${source.type}`],
+              howToFix: "Use a registry source: @namespace/commands/command-name",
+            });
+          }
+
+          yield* registryGuard;
+
+          return [
+            {
+              source,
+              namespace: parsed.namespace,
+              commandName: parsed.commandName,
+              versionConstraint: parsed.versionConstraint,
+            },
+          ];
+        }),
+      );
+
+    const discoverRefs = (
+      reqs: ReadonlyArray<CommandInstallSourceRequest>,
+    ): Effect.Effect<ReadonlyArray<CommandExtensionRef>, CliError> =>
+      provide(
+        Effect.gen(function* () {
+          const allRefs = yield* Effect.forEach(
+            reqs,
+            (req) =>
+              sources
+                .find(req.source, {
+                  skillNames: [req.commandName],
+                  type: "command",
+                  namespace: Option.some(req.namespace),
+                  versionConstraint: req.versionConstraint,
+                })
+                .pipe(
+                  Effect.mapError((error) =>
+                    makeCliError({
+                      code: "COMMAND_FETCH_FAILED",
+                      what: "Failed to fetch command from registry",
+                      details: [`Command: ${req.namespace}/commands/${req.commandName}`],
+                      howToFix: "Verify the command name and registry configuration.",
+                      cause: error,
+                    }),
+                  ),
+                ),
+            { concurrency: "unbounded" },
+          );
+          return allRefs.flat().filter((ref): ref is CommandExtensionRef => ref.type === "command");
+        }),
+      );
+
+    const finalizeIntent = (
+      parsed: ParsedCommandInstallArgs,
+      refs: ReadonlyArray<CommandExtensionRef>,
+    ): Effect.Effect<InstallCommandCommandIntent, CliError> =>
+      Effect.gen(function* () {
+        if (refs.length === 0) {
+          return yield* makeCliError({
+            code: "COMMAND_NOT_FOUND",
+            what: `Command "${parsed.commandName}" not found in registry`,
+            howToFix: "Verify the command name and check available commands.",
+          });
+        }
+        return {
+          ref: refs[0]!,
+          versionConstraint: parsed.versionConstraint,
+          force: parsed.force,
+        };
+      });
+
+    const buildPlan = (intent: InstallCommandCommandIntent): Effect.Effect<Plan, CliError> =>
+      Effect.succeed({
+        name: "Install command",
+        description: Option.some(`Install command ${intent.ref.command.name}`),
+        jobs: [
+          {
+            concurrency: 1 as const,
+            steps: [
+              buildInstallOperation(commandMgr, {
+                ref: intent.ref,
+                versionConstraint: intent.versionConstraint,
+              }),
+            ],
+          },
+        ],
+      } satisfies Plan);
+
+    return {
+      parseArgs,
+      resolveSourceRequests,
+      discoverRefs,
+      finalizeIntent,
+      buildPlan,
+    };
+  }),
+);

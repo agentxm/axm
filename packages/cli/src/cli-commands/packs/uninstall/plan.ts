@@ -1,21 +1,31 @@
 /**
  * Pack-specific uninstall plan builder.
  *
- * Diffs UninstallPackOperations against lockfile state to produce a Plan.
- * Installed packs become expected-success steps; missing packs become expected-no-op steps.
- * Removable skills (orphaned by the uninstall) become uninstall-skill steps.
+ * Diffs UninstallPackOperations against lockfile state to produce a Plan with
+ * inline run closures. Installed packs become ready steps; missing packs become
+ * no-op success steps. Removable skills/commands/mcp-servers (orphaned by the
+ * uninstall) become ready uninstall steps.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as Path from "@effect/platform/Path";
+import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { Lockfile, PackLockEntry } from "../../../lockfile/schema.js";
-import { makeStep } from "../../../workspace/plan.js";
-import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
+import type { Plan, PlannedJobStep, JobStepResult } from "../../../workspace/plan.js";
 import type { UninstallCommandOperation } from "../../../extensions/commands/operations/uninstall.js";
 import type { UninstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/uninstall.js";
 import type { UninstallPackOperation } from "../../../extensions/packs/operations/uninstall.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
+import { uninstallPack } from "../../../extensions/packs/operations/uninstall.js";
+import { uninstallSkill } from "../../../extensions/skills/operations/uninstall.js";
+import { uninstallCommand } from "../../../extensions/commands/operations/uninstall.js";
+import { uninstallMcpServer } from "../../../extensions/mcp-servers/operations/uninstall.js";
+import { Workspace } from "../../../workspace/index.js";
+import { Log } from "../../../tui/index.js";
+import type { OperationResult } from "../../../workspace/plan.js";
 
 /**
  * Union of operation types produced by the pack uninstall plan builder.
@@ -100,143 +110,154 @@ export interface BuildUninstallPlanArgs {
 }
 
 /**
- * Build an uninstall plan by comparing pack operations against the lockfile.
- * Computes removable skills, commands, and MCP servers inline and emits
- * uninstall steps for each orphaned extension.
- *
- * Pure function — no Effect needed.
+ * Build an uninstall plan with inline run closures.
+ * Captures all service dependencies during plan construction.
  */
-export const buildUninstallPlan = (args: BuildUninstallPlanArgs): Plan<PackUninstallOp> => {
-  const {
-    ops,
-    lockfile,
-    configuredSkills,
-    name,
-    description,
-    configuredCommands,
-    configuredMcpServers,
-  } = args;
-  const lockedPacks = lockfile.packs ?? {};
-  const removingNames = new Set(ops.map((op) => op.args.packName));
+export const buildUninstallPlan = (args: BuildUninstallPlanArgs) =>
+  Effect.gen(function* () {
+    const {
+      ops,
+      lockfile,
+      configuredSkills,
+      name,
+      description,
+      configuredCommands,
+      configuredMcpServers,
+    } = args;
 
-  // Build pack steps
-  const packSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> = ops.map((op) => {
-    const installed = Object.hasOwn(lockedPacks, op.args.packName);
-    return makeStep<PackUninstallOp>(op, op.args.packName, installed, "not installed");
-  });
+    // Capture services for run closures
+    const workspace = yield* Workspace;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const log = yield* Log;
 
-  // Compute orphaned extensions
-  const skillDisposition = computeOrphanedFqns(
-    lockedPacks,
-    removingNames,
-    configuredSkills,
-    (entry) => entry.resolvedSkills,
-  );
-  const commandDisposition = computeOrphanedFqns(
-    lockedPacks,
-    removingNames,
-    configuredCommands,
-    (entry) => entry.resolvedCommands,
-  );
-  const mcpServerDisposition = computeOrphanedFqns(
-    lockedPacks,
-    removingNames,
-    configuredMcpServers,
-    (entry) => entry.resolvedMcpServers,
-  );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const provideServices = <A, E>(effect: Effect.Effect<A, E, any>) =>
+      effect.pipe(
+        Effect.provideService(Workspace, workspace),
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+        Effect.provideService(Log, log),
+      ) as Effect.Effect<A, E, never>;
 
-  const removableSkillFqns = skillDisposition.removable;
-  const removableCommandFqns = commandDisposition.removable;
-  const removableMcpServerFqns = mcpServerDisposition.removable;
+    const toJobStepResult = (result: OperationResult): JobStepResult =>
+      result.result === "error"
+        ? { result: "error", message: result.message, error: result.error }
+        : { result: "success", message: result.message };
 
-  const skillSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> = removableSkillFqns.map(
-    (fqn) => {
+    const lockedPacks = lockfile.packs ?? {};
+    const removingNames = new Set(ops.map((op) => op.args.packName));
+
+    // Build pack steps
+    const packSteps: PlannedJobStep[] = ops.map((op): PlannedJobStep => {
+      const installed = Object.hasOwn(lockedPacks, op.args.packName);
+      if (!installed) {
+        return {
+          readiness: "ready",
+          label: op.args.packName,
+          run: Effect.succeed<JobStepResult>({
+            result: "success",
+            message: `${op.args.packName} not installed`,
+          }),
+        };
+      }
+      return {
+        readiness: "ready",
+        label: op.args.packName,
+        run: provideServices(uninstallPack(op)).pipe(Effect.map(toJobStepResult)),
+      };
+    });
+
+    // Compute orphaned extensions
+    const skillDisposition = computeOrphanedFqns(
+      lockedPacks,
+      removingNames,
+      configuredSkills,
+      (entry) => entry.resolvedSkills,
+    );
+    const commandDisposition = computeOrphanedFqns(
+      lockedPacks,
+      removingNames,
+      configuredCommands,
+      (entry) => entry.resolvedCommands,
+    );
+    const mcpServerDisposition = computeOrphanedFqns(
+      lockedPacks,
+      removingNames,
+      configuredMcpServers,
+      (entry) => entry.resolvedMcpServers,
+    );
+
+    const skillSteps: PlannedJobStep[] = skillDisposition.removable.map((fqn): PlannedJobStep => {
       const op: UninstallSkillOperation = {
         name: "uninstall-skill",
         args: { skillName: simpleNameFromFqn(fqn), agents: [] },
       };
-      return makeStep<PackUninstallOp>(op, fqn, true, "");
-    },
-  );
-
-  const commandSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> = removableCommandFqns.map(
-    (fqn) => {
-      const op: UninstallCommandOperation = {
-        name: "uninstall-command",
-        args: { commandName: simpleNameFromFqn(fqn) },
+      return {
+        readiness: "ready",
+        label: fqn,
+        run: provideServices(uninstallSkill(op)).pipe(Effect.map(toJobStepResult)),
       };
-      return makeStep<PackUninstallOp>(op, fqn, true, "");
-    },
-  );
-
-  const mcpServerSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> = removableMcpServerFqns.map(
-    (fqn) => {
-      const op: UninstallMcpServerOperation = {
-        name: "uninstall-mcp-server",
-        args: { serverName: simpleNameFromFqn(fqn) },
-      };
-      return makeStep<PackUninstallOp>(op, fqn, true, "");
-    },
-  );
-
-  const preservedSkillSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> =
-    skillDisposition.preservedConfigured.map((fqn) => {
-      const op: UninstallSkillOperation = {
-        name: "uninstall-skill",
-        args: { skillName: simpleNameFromFqn(fqn), agents: [] },
-      };
-      return makeStep<PackUninstallOp>(
-        op,
-        fqn,
-        false,
-        "preserved (directly configured in settings)",
-      );
     });
 
-  const preservedCommandSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> =
-    commandDisposition.preservedConfigured.map((fqn) => {
-      const op: UninstallCommandOperation = {
-        name: "uninstall-command",
-        args: { commandName: simpleNameFromFqn(fqn) },
-      };
-      return makeStep<PackUninstallOp>(
-        op,
-        fqn,
-        false,
-        "preserved (directly configured in settings)",
-      );
-    });
-
-  const preservedMcpServerSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> =
-    mcpServerDisposition.preservedConfigured.map((fqn) => {
-      const op: UninstallMcpServerOperation = {
-        name: "uninstall-mcp-server",
-        args: { serverName: simpleNameFromFqn(fqn) },
-      };
-      return makeStep<PackUninstallOp>(
-        op,
-        fqn,
-        false,
-        "preserved (directly configured in settings)",
-      );
-    });
-
-  return {
-    name,
-    description,
-    jobs: [
-      {
-        concurrency: 1,
-        steps: [
-          ...packSteps,
-          ...skillSteps,
-          ...commandSteps,
-          ...mcpServerSteps,
-          ...preservedSkillSteps,
-          ...preservedCommandSteps,
-          ...preservedMcpServerSteps,
-        ],
+    const commandSteps: PlannedJobStep[] = commandDisposition.removable.map(
+      (fqn): PlannedJobStep => {
+        const op: UninstallCommandOperation = {
+          name: "uninstall-command",
+          args: { commandName: simpleNameFromFqn(fqn) },
+        };
+        return {
+          readiness: "ready",
+          label: fqn,
+          run: provideServices(uninstallCommand(op)).pipe(Effect.map(toJobStepResult)),
+        };
       },
-    ],
-  };
-};
+    );
+
+    const mcpServerSteps: PlannedJobStep[] = mcpServerDisposition.removable.map(
+      (fqn): PlannedJobStep => {
+        const op: UninstallMcpServerOperation = {
+          name: "uninstall-mcp-server",
+          args: { serverName: simpleNameFromFqn(fqn) },
+        };
+        return {
+          readiness: "ready",
+          label: fqn,
+          run: provideServices(uninstallMcpServer(op)).pipe(Effect.map(toJobStepResult)),
+        };
+      },
+    );
+
+    // Preserved configured extensions (no-op steps)
+    const preservedSteps: PlannedJobStep[] = [
+      ...skillDisposition.preservedConfigured,
+      ...commandDisposition.preservedConfigured,
+      ...mcpServerDisposition.preservedConfigured,
+    ].map(
+      (fqn): PlannedJobStep => ({
+        readiness: "ready",
+        label: fqn,
+        run: Effect.succeed<JobStepResult>({
+          result: "success",
+          message: `preserved (directly configured in settings)`,
+        }),
+      }),
+    );
+
+    return {
+      name,
+      description,
+      jobs: [
+        {
+          concurrency: 1 as const,
+          steps: [
+            ...packSteps,
+            ...skillSteps,
+            ...commandSteps,
+            ...mcpServerSteps,
+            ...preservedSteps,
+          ],
+        },
+      ],
+    } satisfies Plan;
+  });

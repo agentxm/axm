@@ -11,70 +11,19 @@ import YAML from "yaml";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 
 describe("axm skills install", () => {
-  describe("with local source --list", () => {
-    it("lists available skills without installing", async () => {
-      const temp = createTempDir();
-      try {
-        // Initialize first
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        // List skills from fixture - must specify agent to avoid interactive prompt
-        const result = await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--list", "--agent", "claude-code"],
-          { cwd: temp.path },
-        );
-
-        expect(result.exitCode).toBe(0);
-        // Should list the skills found in the fixture
-        expect(result.stdout).toContain("my-skill");
-        expect(result.stdout).toContain("another-skill");
-        expect(result.stdout).toMatch(/2 skill\(s\) available/);
-
-        // Should NOT have created any skill files since we only listed
-        const skillsDir = path.join(temp.path, ".axm", "skills");
-        expect(fs.existsSync(skillsDir)).toBe(false);
-      } finally {
-        temp.cleanup();
-      }
-    });
-
-    it("shows descriptions for skills with descriptions", async () => {
-      const temp = createTempDir();
-      try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
-          cwd: temp.path,
-        });
-
-        const result = await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--list", "--agent", "claude-code"],
-          { cwd: temp.path },
-        );
-
-        expect(result.exitCode).toBe(0);
-        // Skills are listed
-        expect(result.stdout).toContain("skill(s) available");
-      } finally {
-        temp.cleanup();
-      }
-    });
-  });
-
   describe("with local source --all --yes", () => {
     it("installs all skills and creates .axm structure", async () => {
       const temp = createTempDir();
       try {
-        // Initialize first
+        // Initialize first with claude-code agent to ensure .claude/ symlinks
         await runCli(["init", "--yes", "--agent", "claude-code"], {
           cwd: temp.path,
         });
 
         // Install all skills
-        const result = await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes", "--agent", "claude-code"],
-          { cwd: temp.path },
-        );
+        const result = await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+          cwd: temp.path,
+        });
 
         expect(result.exitCode).toBe(0);
         // displayPlan shows applied results with checkmark
@@ -119,14 +68,13 @@ describe("axm skills install", () => {
     it("includes folderHash in lockfile entries", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
-        await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes", "--agent", "claude-code"],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+          cwd: temp.path,
+        });
 
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
@@ -156,20 +104,12 @@ describe("axm skills install", () => {
     it("shows error and exits non-zero for non-existent path", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
         const result = await runCli(
-          [
-            "skills",
-            "install",
-            "/nonexistent/path/to/skills",
-            "--all",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
+          ["skills", "install", "/nonexistent/path/to/skills", "--all", "--yes"],
           { cwd: temp.path },
         );
 
@@ -184,14 +124,13 @@ describe("axm skills install", () => {
       const temp = createTempDir();
       const emptyDir = createTempDir("empty-skills-");
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
-        const result = await runCli(
-          ["skills", "install", emptyDir.path, "--all", "--yes", "--agent", "claude-code"],
-          { cwd: temp.path },
-        );
+        const result = await runCli(["skills", "install", emptyDir.path, "--all", "--yes"], {
+          cwd: temp.path,
+        });
 
         // Should exit with error when no skills found
         expect(result.exitCode).not.toBe(0);
@@ -211,19 +150,9 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         // Expected structure:
         // .axm/
@@ -275,19 +204,9 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -303,23 +222,13 @@ describe("axm skills install", () => {
     it("axm-lock.yaml contains lock entry for installed skill with new schema", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
@@ -353,10 +262,9 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes", "--agent", "claude-code"],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+          cwd: temp.path,
+        });
 
         for (const skillName of ["my-skill", "another-skill"]) {
           // claude-code skillsDir is ".claude/skills"
@@ -388,37 +296,18 @@ describe("axm skills install", () => {
     it("repairs already installed local skill (local sources always update)", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
         // First install
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         // Second install of same local skill triggers repair (no stable identifier)
         const result = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"],
           { cwd: temp.path },
         );
 
@@ -433,38 +322,18 @@ describe("axm skills install", () => {
     it("overwrites existing skill with --force", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
         // First install
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         // Second install with --force should succeed
         const result = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-            "--force",
-          ],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes", "--force"],
           { cwd: temp.path },
         );
 
@@ -483,14 +352,15 @@ describe("axm skills install", () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain("skills install");
-      expect(result.stdout).toContain("--list");
       expect(result.stdout).toContain("--all");
       expect(result.stdout).toContain("--yes");
       expect(result.stdout).toContain("--skill");
-      expect(result.stdout).toContain("--agent");
       expect(result.stdout).toContain("--scope");
       expect(result.stdout).toContain("--force");
       expect(result.stdout).toContain("--preview");
+      // Verify removed flags are not in help output
+      expect(result.stdout).not.toContain("--list");
+      expect(result.stdout).not.toContain("--agent");
     });
   });
 
@@ -498,21 +368,12 @@ describe("axm skills install", () => {
     it("shows installation plan without making changes", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
         const result = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--all",
-            "--preview",
-            "--non-interactive",
-            "--agent",
-            "claude-code",
-          ],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--preview", "--non-interactive"],
           { cwd: temp.path },
         );
 
@@ -536,21 +397,12 @@ describe("axm skills install", () => {
     it("shows summary with counts", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
         const result = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--all",
-            "--preview",
-            "--non-interactive",
-            "--agent",
-            "claude-code",
-          ],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--preview", "--non-interactive"],
           { cwd: temp.path },
         );
 
@@ -565,24 +417,14 @@ describe("axm skills install", () => {
     it("shows repair when skill exists with different content (hash mismatch)", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
         // First install a skill
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         // Modify the installed skill to simulate local changes (creates hash mismatch)
         const skillMdPath = path.join(
@@ -608,8 +450,6 @@ describe("axm skills install", () => {
             "--preview",
             "--non-interactive",
             "--force",
-            "--agent",
-            "claude-code",
           ],
           { cwd: temp.path },
         );
@@ -625,29 +465,19 @@ describe("axm skills install", () => {
       }
     });
 
-    it("shows already up to date when no changes needed", async () => {
+    it("reinstalling same skill shows install plan (idempotent)", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
         // Install a skill
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
-        // Run preview for the same skill (without force - should skip)
+        // Run preview for the same skill - install operations are idempotent
         const result = await runCli(
           [
             "skills",
@@ -657,15 +487,13 @@ describe("axm skills install", () => {
             "my-skill",
             "--preview",
             "--non-interactive",
-            "--agent",
-            "claude-code",
           ],
           { cwd: temp.path },
         );
 
         expect(result.exitCode).toBe(0);
-        // Should indicate no changes
-        expect(result.stdout).toMatch(/already up to date|already installed|no changes/i);
+        // Install plan is always generated (idempotent operation)
+        expect(result.stdout).toContain("my-skill");
       } finally {
         temp.cleanup();
       }
@@ -683,23 +511,13 @@ describe("axm skills install", () => {
     it.skip("creates lockfile with skills at root level (not under extensions)", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
         expect(fs.existsSync(lockPath)).toBe(true);
@@ -720,23 +538,13 @@ describe("axm skills install", () => {
     it.skip("creates lockfile entry with source object containing _tag discriminator", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
@@ -757,23 +565,13 @@ describe("axm skills install", () => {
     it.skip("creates lockfile entry with gitTreeHash (not folderHash)", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
@@ -792,23 +590,13 @@ describe("axm skills install", () => {
     it.skip("creates lockfile entry with agents array", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
@@ -829,23 +617,13 @@ describe("axm skills install", () => {
     it.skip("creates lockfile entry with installedAt and updatedAt timestamps", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
@@ -866,14 +644,13 @@ describe("axm skills install", () => {
     it.skip("creates lockfile with complete structure for multiple skills", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
-        await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes", "--agent", "claude-code"],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+          cwd: temp.path,
+        });
 
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
@@ -914,23 +691,13 @@ describe("axm skills install", () => {
     it.skip("creates settings with skills at root level", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -946,23 +713,13 @@ describe("axm skills install", () => {
     it.skip("creates settings with SkillSettingsEntry object for Local source", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -983,14 +740,13 @@ describe("axm skills install", () => {
     it.skip("creates settings with multiple skills in correct format", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
-        await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes", "--agent", "claude-code"],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"], {
+          cwd: temp.path,
+        });
 
         const settingsPath = path.join(temp.path, ".axm", "settings.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -1029,20 +785,12 @@ describe("axm skills install", () => {
     it.skip("preview displays plan with new action labels", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
         const result = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--all",
-            "--preview",
-            "--agent",
-            "claude-code",
-          ],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--preview"],
           { cwd: temp.path },
         );
 
@@ -1062,21 +810,12 @@ describe("axm skills install", () => {
     it.skip("preview shows agents in plan output", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
         const result = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--preview",
-            "--agent",
-            "claude-code",
-          ],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--preview"],
           { cwd: temp.path },
         );
 
@@ -1094,24 +833,14 @@ describe("axm skills install", () => {
     it.skip("--force reinstalls skill with updated lockfile entry", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
         // First install
-        await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
-          { cwd: temp.path },
-        );
+        await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+          cwd: temp.path,
+        });
 
         // Get original lockfile timestamp
         const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
@@ -1123,17 +852,7 @@ describe("axm skills install", () => {
 
         // Force reinstall
         const result = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--skill",
-            "my-skill",
-            "--yes",
-            "--force",
-            "--agent",
-            "claude-code",
-          ],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes", "--force"],
           { cwd: temp.path },
         );
 

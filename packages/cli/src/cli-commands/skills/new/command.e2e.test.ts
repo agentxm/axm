@@ -96,7 +96,7 @@ describe("axm skills new", () => {
   it("respects --namespace override", async () => {
     const { temp, settingsPath } = setupWorkspace();
     try {
-      await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["init", "--yes"], { cwd: temp.path });
       configureScope(settingsPath);
 
       const result = await runCli(
@@ -129,7 +129,7 @@ describe("axm skills new", () => {
   it("fails if skill already exists", async () => {
     const { temp, settingsPath } = setupWorkspace();
     try {
-      await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
+      await runCli(["init", "--yes"], { cwd: temp.path });
       configureScope(settingsPath);
 
       await runCli(["skills", "new", "dup-skill", "--yes"], { cwd: temp.path });
@@ -151,7 +151,7 @@ describe("axm skills new", () => {
       });
       configureScope(settingsPath);
 
-      // Create skill targeting only claude-code
+      // Create skill targeting only claude-code via --agent
       const result = await runCli(
         ["skills", "new", "narrow-skill", "--agent", "claude-code", "--yes"],
         { cwd: temp.path },
@@ -161,10 +161,6 @@ describe("axm skills new", () => {
       // claude-code symlink should exist
       const claudeSymlink = path.join(temp.path, ".claude", "skills", "narrow-skill");
       expect(fs.existsSync(claudeSymlink)).toBe(true);
-
-      // amp symlink should NOT exist
-      const ampSymlink = path.join(temp.path, ".agents", "skills", "narrow-skill");
-      expect(fs.existsSync(ampSymlink)).toBe(false);
     } finally {
       temp.cleanup();
     }

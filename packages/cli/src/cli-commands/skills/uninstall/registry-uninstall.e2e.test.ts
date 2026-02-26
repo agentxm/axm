@@ -18,7 +18,7 @@ describe("axm skills uninstall (registry-sourced)", () => {
     const temp = createTempDir();
     const registryDir = createTempDir("axm-registry-");
     try {
-      // Initialize workspace
+      // Initialize workspace with claude-code agent
       await runCli(["init", "--yes", "--agent", "claude-code"], { cwd: temp.path });
 
       // Set up registry source and namespace
@@ -31,19 +31,9 @@ describe("axm skills uninstall (registry-sourced)", () => {
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       // Install from local source
-      await runCli(
-        [
-          "skills",
-          "install",
-          SKILLS_REPO_FIXTURE,
-          "--skill",
-          "my-skill",
-          "--yes",
-          "--agent",
-          "claude-code",
-        ],
-        { cwd: temp.path },
-      );
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
 
       // Fork to registry (creates registry-sourced lockfile entry)
       const forkResult = await runCli(["skills", "fork", "my-skill", "--yes"], { cwd: temp.path });
@@ -91,12 +81,12 @@ describe("axm skills uninstall (registry-sourced)", () => {
     }
   });
 
-  it("uninstalls a registry-sourced skill with --agent and retains when other agents exist", async () => {
+  it("uninstalls a registry-sourced skill from all agents", async () => {
     const temp = createTempDir();
     const registryDir = createTempDir("axm-registry-");
     try {
-      // Initialize workspace with multiple agents
-      await runCli(["init", "--yes", "--agent", "claude-code", "--agent", "cursor"], {
+      // Initialize workspace
+      await runCli(["init", "--yes", "--agent", "claude-code"], {
         cwd: temp.path,
       });
 
@@ -108,34 +98,26 @@ describe("axm skills uninstall (registry-sourced)", () => {
       settings.namespace = "@test";
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
-      // Install from local source for both agents
-      await runCli(
-        [
-          "skills",
-          "install",
-          SKILLS_REPO_FIXTURE,
-          "--skill",
-          "my-skill",
-          "--yes",
-          "--agent",
-          "claude-code",
-          "--agent",
-          "cursor",
-        ],
-        { cwd: temp.path },
-      );
+      // Install skill
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
 
       // Fork to registry
       await runCli(["skills", "fork", "my-skill", "--yes"], { cwd: temp.path });
 
-      // Uninstall from claude-code only
-      const uninstallResult = await runCli(
-        ["skills", "uninstall", "my-skill", "--yes", "--agent", "claude-code"],
-        { cwd: temp.path },
-      );
+      // Verify the skill is installed as registry-sourced
+      const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
+      let lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
+      expect(lock.skills["my-skill"].type).toBe("registry");
+
+      // Uninstall removes from all agents (--agent flag was removed)
+      const uninstallResult = await runCli(["skills", "uninstall", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
       expect(uninstallResult.exitCode).toBe(0);
 
-      // Extension should still exist (cursor still uses it)
+      // Extension should be fully removed
       const extensionDir = path.join(
         temp.path,
         ".axm",
@@ -144,22 +126,15 @@ describe("axm skills uninstall (registry-sourced)", () => {
         "skills",
         "my-skill",
       );
-      expect(fs.existsSync(extensionDir)).toBe(true);
+      expect(fs.existsSync(extensionDir)).toBe(false);
 
-      // Lockfile should still have the entry with remaining agent
-      const lockPath = path.join(temp.path, ".axm", "axm-lock.yaml");
-      const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-      expect(lock.skills["my-skill"]).toBeDefined();
-      expect(lock.skills["my-skill"].agents).not.toContain("claude-code");
-      expect(lock.skills["my-skill"].agents).toContain("cursor");
+      // Lockfile entry should be removed
+      lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
+      expect(lock.skills?.["my-skill"]).toBeUndefined();
 
-      // claude-code symlink should be removed
+      // Agent symlink should be removed
       const claudeSkillDir = path.join(temp.path, ".claude", "skills", "my-skill");
       expect(fs.existsSync(claudeSkillDir)).toBe(false);
-
-      // cursor symlink should remain
-      const cursorSkillDir = path.join(temp.path, ".cursor", "skills", "my-skill");
-      expect(fs.existsSync(cursorSkillDir)).toBe(true);
     } finally {
       temp.cleanup();
       registryDir.cleanup();

@@ -367,6 +367,7 @@ export type PackExtensionRefBase<
   TRefType extends RefType,
   TSource extends Source,
 > = ExtensionRefBase<"pack", TRefType, TSource> & {
+  readonly namespace: string;
   readonly pack: {
     readonly name: string;
     readonly skills: Readonly<Record<string, string>>;

@@ -1,471 +1,321 @@
 /**
  * Unit tests for applyPlan.
  *
- * Tests the executor registry pattern: dispatches steps with ready/warn
- * readiness to handlers keyed by name, promotes skip/error steps without
- * dispatch, catches CliError.
+ * Tests the readiness model: ready steps execute their run closures,
+ * error steps are promoted to error results without execution.
+ * Also tests inter-job blocking and intra-job continuation.
  */
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { type CliError, makeCliError } from "../cli-error/index.js";
+import { makeCliError } from "../cli-error/index.js";
 import { applyPlan } from "./apply-plan.js";
-import type { OperationResult, Readiness } from "./plan.js";
-import type { Operation, Plan, PlannedJobStep } from "./plan.js";
+import type { Plan, PlannedJobStep } from "./plan.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-type TestOp = Operation<"test-op", { label: string }>;
+const makeReadyStep = (label: string, message?: string): PlannedJobStep => ({
+  readiness: "ready",
+  label,
+  run: Effect.succeed({ result: "success", message: message ?? `Done ${label}` }),
+});
 
-const makeOp = (label: string): TestOp => ({ name: "test-op", args: { label } });
+const makeWarnStep = (label: string, warnMessage: string): PlannedJobStep => ({
+  readiness: "warn",
+  warnMessage,
+  label,
+  run: Effect.succeed({ result: "success", message: `Done ${label}` }),
+});
 
-const makePlan = (overrides: Partial<Plan<TestOp>> = {}): Plan<TestOp> => ({
+const makeErrorStep = (label: string, errorMessage: string): PlannedJobStep => ({
+  readiness: "error",
+  errorMessage,
+  label,
+});
+
+const makeFailingReadyStep = (label: string): PlannedJobStep => ({
+  readiness: "ready",
+  label,
+  run: Effect.fail(
+    makeCliError({
+      code: "TEST_OP_FAILED",
+      what: `Failed ${label}`,
+    }),
+  ),
+});
+
+const makePlan = (overrides: Partial<Plan> = {}): Plan => ({
   name: "Test plan",
   description: Option.none(),
   jobs: [],
   ...overrides,
 });
 
-const successHandler = (op: TestOp): Effect.Effect<OperationResult> =>
-  Effect.succeed({ result: "success", message: `Installed ${op.args.label}` });
-
-const errorHandler = (op: TestOp): Effect.Effect<OperationResult, CliError> =>
-  Effect.fail(
-    makeCliError({
-      code: "TEST_OP_FAILED",
-      what: `Failed to install ${op.args.label}`,
-    }),
-  );
-
-const noopResultHandler = (op: TestOp): Effect.Effect<OperationResult> =>
-  Effect.succeed({ result: "no-op", message: `Already installed ${op.args.label}` });
-
-const readyReadiness: Readiness = { status: "ready", message: Option.none() };
-
-const makeStep = (
-  label: string,
-  readiness: Readiness = readyReadiness,
-): PlannedJobStep<TestOp> => ({
-  _tag: "PlannedJobStep",
-  operation: makeOp(label),
-  readiness,
-  label,
-});
-
 // -----------------------------------------------------------------------------
-// Tests
+// Task 1.1: Plan type readiness model tests
 // -----------------------------------------------------------------------------
 
 describe("applyPlan", () => {
-  it.effect("dispatches steps with ready readiness to handler by name", () =>
+  it.effect("executes ready steps via their run closures", () =>
     Effect.gen(function* () {
-      const applied = yield* applyPlan(
+      const executed = yield* applyPlan(
         makePlan({
           jobs: [
             {
               concurrency: "unbounded",
-              steps: [makeStep("commit"), makeStep("review-pr")],
+              steps: [makeReadyStep("commit"), makeReadyStep("review-pr")],
             },
           ],
         }),
-        { "test-op": successHandler },
       );
 
-      const steps = applied.jobs.flatMap((j) => j.steps);
+      const steps = executed.jobs.flatMap((j) => j.steps);
       expect(steps).toHaveLength(2);
       expect(steps[0]).toMatchObject({
-        _tag: "JobStepResult",
-        result: { result: "success", message: "Installed commit" },
+        label: "commit",
+        result: { result: "success", message: "Done commit" },
       });
       expect(steps[1]).toMatchObject({
-        _tag: "JobStepResult",
-        result: { result: "success", message: "Installed review-pr" },
+        label: "review-pr",
+        result: { result: "success", message: "Done review-pr" },
       });
     }),
   );
 
-  it.effect("promotes steps with skip readiness as no-op without dispatch", () =>
+  it.effect("promotes error steps to error results without execution", () =>
     Effect.gen(function* () {
-      const applied = yield* applyPlan(
-        makePlan({
-          jobs: [
-            {
-              concurrency: "unbounded",
-              steps: [
-                makeStep("commit"),
-                makeStep("review-pr", { status: "skip", message: "already installed" }),
-              ],
-            },
-          ],
-        }),
-        { "test-op": successHandler },
-      );
-
-      const steps = applied.jobs.flatMap((j) => j.steps);
-      expect(steps).toHaveLength(2);
-      expect(steps[0]).toMatchObject({
-        _tag: "JobStepResult",
-        result: { result: "success", message: "Installed commit" },
-      });
-      expect(steps[1]).toMatchObject({
-        _tag: "JobStepResult",
-        result: { result: "no-op", message: "already installed" },
-      });
-    }),
-  );
-
-  it.effect("returns no-op results when all steps have skip readiness", () =>
-    Effect.gen(function* () {
-      const applied = yield* applyPlan(
-        makePlan({
-          jobs: [
-            {
-              concurrency: "unbounded",
-              steps: [
-                makeStep("commit", { status: "skip", message: "already installed" }),
-                makeStep("review-pr", { status: "skip", message: "already installed" }),
-              ],
-            },
-          ],
-        }),
-        { "test-op": successHandler },
-      );
-
-      const steps = applied.jobs.flatMap((j) => j.steps);
-      expect(steps).toHaveLength(2);
-      expect(
-        steps.every(
-          (s) => s._tag === "JobStepResult" && "result" in s && s.result.result === "no-op",
-        ),
-      ).toBe(true);
-    }),
-  );
-
-  it.effect("promotes steps with error readiness as error without dispatch", () =>
-    Effect.gen(function* () {
-      const applied = yield* applyPlan(
+      const executed = yield* applyPlan(
         makePlan({
           jobs: [
             {
               concurrency: 1,
-              steps: [
-                makeStep("blocked", {
-                  status: "error",
-                  message: "depends on pack @org/pack",
-                }),
-              ],
+              steps: [makeErrorStep("blocked", "depends on pack @org/pack")],
             },
           ],
         }),
-        { "test-op": successHandler },
       );
 
-      const steps = applied.jobs.flatMap((j) => j.steps);
+      const steps = executed.jobs.flatMap((j) => j.steps);
       expect(steps).toHaveLength(1);
       expect(steps[0]).toMatchObject({
-        _tag: "JobStepResult",
+        label: "blocked",
         result: { result: "error", message: "depends on pack @org/pack" },
       });
     }),
   );
 
-  it.effect("dispatches steps with warn readiness to handler", () =>
+  it.effect("catches CliError from run closure and converts to error result", () =>
     Effect.gen(function* () {
-      const applied = yield* applyPlan(
+      const executed = yield* applyPlan(
         makePlan({
           jobs: [
             {
               concurrency: 1,
-              steps: [makeStep("cautious", { status: "warn", message: "may conflict" })],
+              steps: [makeFailingReadyStep("bad")],
             },
           ],
         }),
-        { "test-op": successHandler },
       );
 
-      const steps = applied.jobs.flatMap((j) => j.steps);
+      const steps = executed.jobs.flatMap((j) => j.steps);
       expect(steps).toHaveLength(1);
       expect(steps[0]).toMatchObject({
-        _tag: "JobStepResult",
-        result: { result: "success", message: "Installed cautious" },
+        label: "bad",
+        result: { result: "error" },
       });
+      const result = steps[0]!.result;
+      expect(result.result).toBe("error");
+      if (result.result === "error") {
+        expect(result.error.code).toBe("TEST_OP_FAILED");
+      }
+    }),
+  );
+
+  it.effect("executes warn steps via their run closures (applyPlan does not gate warns)", () =>
+    Effect.gen(function* () {
+      const executed = yield* applyPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: 1,
+              steps: [makeWarnStep("cautious", "may conflict")],
+            },
+          ],
+        }),
+      );
+
+      const steps = executed.jobs.flatMap((j) => j.steps);
+      expect(steps).toHaveLength(1);
+      expect(steps[0]).toMatchObject({
+        label: "cautious",
+        result: { result: "success", message: "Done cautious" },
+      });
+    }),
+  );
+
+  it.effect("returns empty executed plan for empty plan", () =>
+    Effect.gen(function* () {
+      const executed = yield* applyPlan(makePlan({ jobs: [] }));
+      expect(executed.jobs).toEqual([]);
     }),
   );
 
   it.effect("respects job concurrency setting", () =>
     Effect.gen(function* () {
       const order: string[] = [];
-      const trackingHandler = (op: TestOp): Effect.Effect<OperationResult> =>
-        Effect.sync(() => {
-          order.push(op.args.label);
-          return { result: "success" as const, message: `Installed ${op.name}` };
-        });
+      const trackingStep = (label: string): PlannedJobStep => ({
+        readiness: "ready",
+        label,
+        run: Effect.sync(() => {
+          order.push(label);
+          return { result: "success" as const, message: `Done ${label}` };
+        }),
+      });
 
       yield* applyPlan(
         makePlan({
           jobs: [
             {
               concurrency: 1,
-              steps: [makeStep("first"), makeStep("second")],
+              steps: [trackingStep("first"), trackingStep("second")],
             },
           ],
         }),
-        { "test-op": trackingHandler },
       );
 
       expect(order).toEqual(["first", "second"]);
     }),
   );
 
-  it.effect("processes multiple jobs", () =>
+  // ---------------------------------------------------------------------------
+  // Task 1.2: Inter-job blocking and intra-job continuation
+  // ---------------------------------------------------------------------------
+
+  it.effect("blocks subsequent jobs when a step in earlier job fails at runtime", () =>
     Effect.gen(function* () {
-      const applied = yield* applyPlan(
+      const executed = yield* applyPlan(
+        makePlan({
+          jobs: [
+            {
+              concurrency: 1,
+              steps: [makeReadyStep("step-a"), makeFailingReadyStep("step-b")],
+            },
+            {
+              concurrency: 1,
+              steps: [makeReadyStep("step-c")],
+            },
+          ],
+        }),
+      );
+
+      // Job 1: step-a succeeds, step-b fails
+      const job1Steps = executed.jobs[0]!.steps;
+      expect(job1Steps[0]).toMatchObject({
+        label: "step-a",
+        result: { result: "success" },
+      });
+      expect(job1Steps[1]).toMatchObject({
+        label: "step-b",
+        result: { result: "error" },
+      });
+
+      // Job 2: step-c is blocked (promoted to error without execution)
+      const job2Steps = executed.jobs[1]!.steps;
+      expect(job2Steps[0]).toMatchObject({
+        label: "step-c",
+        result: { result: "error" },
+      });
+    }),
+  );
+
+  it.effect("continues executing sibling steps in same job after failure (intra-job)", () =>
+    Effect.gen(function* () {
+      const executed = yield* applyPlan(
         makePlan({
           jobs: [
             {
               concurrency: "unbounded",
-              steps: [makeStep("commit")],
-            },
-            {
-              concurrency: 1,
-              steps: [makeStep("review-pr")],
+              steps: [makeFailingReadyStep("step-a"), makeReadyStep("step-b")],
             },
           ],
         }),
-        { "test-op": successHandler },
       );
 
-      const steps = applied.jobs.flatMap((j) => j.steps);
-      expect(steps).toHaveLength(2);
+      const steps = executed.jobs[0]!.steps;
+      // step-a fails but step-b still runs
       expect(steps[0]).toMatchObject({
-        _tag: "JobStepResult",
-        result: { result: "success", message: "Installed commit" },
+        label: "step-a",
+        result: { result: "error" },
       });
       expect(steps[1]).toMatchObject({
-        _tag: "JobStepResult",
-        result: { result: "success", message: "Installed review-pr" },
+        label: "step-b",
+        result: { result: "success" },
       });
     }),
   );
 
-  it.effect("blocks later jobs after earlier reconciliation error", () =>
+  it.effect("blocks job N+2 when job N fails even if job N+1 would succeed", () =>
     Effect.gen(function* () {
-      type MixedOp =
-        | Operation<"read-recover-lockfile", { label: string }>
-        | Operation<"install-command", { label: string }>;
-      const called: string[] = [];
-
-      const failingRecover = (_op: Extract<MixedOp, { name: "read-recover-lockfile" }>) =>
-        Effect.fail(makeCliError({ code: "RECONCILE_FAILED", what: "source unreachable" }));
-      const installCommand = (op: Extract<MixedOp, { name: "install-command" }>) =>
-        Effect.sync(() => {
-          called.push(op.args.label);
-          return { result: "success" as const, message: `Installed ${op.args.label}` };
-        });
-
-      const plan: Plan<MixedOp> = {
-        name: "gating",
-        description: Option.none(),
-        jobs: [
-          {
-            concurrency: 1,
-            steps: [
-              {
-                _tag: "PlannedJobStep",
-                operation: { name: "read-recover-lockfile", args: { label: "recover" } },
-                readiness: { status: "ready", message: Option.none() },
-                label: "recover",
-              },
-            ],
-          },
-          {
-            concurrency: 1,
-            steps: [
-              {
-                _tag: "PlannedJobStep",
-                operation: { name: "install-command", args: { label: "cmd" } },
-                readiness: { status: "ready", message: Option.none() },
-                label: "cmd",
-              },
-            ],
-          },
-        ],
-      };
-
-      const applied = yield* applyPlan(plan, {
-        "read-recover-lockfile": failingRecover as unknown as (
-          op: MixedOp,
-        ) => Effect.Effect<OperationResult, CliError>,
-        "install-command": installCommand as unknown as (
-          op: MixedOp,
-        ) => Effect.Effect<OperationResult, CliError>,
-      });
-
-      expect(called).toEqual([]);
-      expect(applied.jobs[1]?.steps[0]).toMatchObject({
-        _tag: "JobStepResult",
-        result: {
-          result: "no-op",
-          message: "blocked by earlier reconciliation failure",
-        },
-      });
-    }),
-  );
-
-  it.effect("catches CliError and converts to error result", () =>
-    Effect.gen(function* () {
-      const applied = yield* applyPlan(
+      const executed = yield* applyPlan(
         makePlan({
           jobs: [
             {
               concurrency: 1,
-              steps: [makeStep("bad")],
+              steps: [makeFailingReadyStep("fail-step")],
             },
-          ],
-        }),
-        { "test-op": errorHandler },
-      );
-
-      const steps = applied.jobs.flatMap((j) => j.steps);
-      expect(steps).toHaveLength(1);
-      expect(steps[0]).toMatchObject({
-        _tag: "JobStepResult",
-        result: { result: "error", message: "Failed to install bad (TEST_OP_FAILED)" },
-      });
-    }),
-  );
-
-  it.effect("includes CliError details in error result message", () =>
-    Effect.gen(function* () {
-      const errorWithDetailsHandler = (_op: TestOp): Effect.Effect<OperationResult, CliError> =>
-        Effect.fail(
-          makeCliError({
-            code: "TEST_OP_FAILED",
-            what: "Failed to install detail-skill",
-            details: ["Directory is not writable", "Path: /tmp/skills"],
-          }),
-        );
-
-      const applied = yield* applyPlan(
-        makePlan({
-          jobs: [
             {
               concurrency: 1,
-              steps: [makeStep("detail-skill")],
+              steps: [makeReadyStep("blocked-1")],
             },
-          ],
-        }),
-        { "test-op": errorWithDetailsHandler },
-      );
-
-      const steps = applied.jobs.flatMap((j) => j.steps);
-      expect(steps).toHaveLength(1);
-      expect(steps[0]).toMatchObject({
-        _tag: "JobStepResult",
-        result: {
-          result: "error",
-          message:
-            "Failed to install detail-skill (TEST_OP_FAILED) | Directory is not writable | Path: /tmp/skills",
-        },
-      });
-    }),
-  );
-
-  it.effect("handler can return no-op result directly", () =>
-    Effect.gen(function* () {
-      const applied = yield* applyPlan(
-        makePlan({
-          jobs: [
             {
               concurrency: 1,
-              steps: [makeStep("skip")],
+              steps: [makeReadyStep("blocked-2")],
             },
           ],
         }),
-        { "test-op": noopResultHandler },
       );
 
-      const steps = applied.jobs.flatMap((j) => j.steps);
-      expect(steps).toHaveLength(1);
-      expect(steps[0]).toMatchObject({
-        _tag: "JobStepResult",
-        result: { result: "no-op", message: "Already installed skip" },
+      expect(executed.jobs[0]!.steps[0]).toMatchObject({
+        result: { result: "error" },
+      });
+      expect(executed.jobs[1]!.steps[0]).toMatchObject({
+        label: "blocked-1",
+        result: { result: "error" },
+      });
+      expect(executed.jobs[2]!.steps[0]).toMatchObject({
+        label: "blocked-2",
+        result: { result: "error" },
       });
     }),
   );
 
-  it.effect("returns empty plan for empty plan", () =>
+  it.effect("preserves plan structure in executed plan", () =>
     Effect.gen(function* () {
-      const applied = yield* applyPlan(makePlan({ jobs: [] }), { "test-op": successHandler });
-
-      expect(applied.jobs).toEqual([]);
-    }),
-  );
-
-  it.effect("returns error when registered operation has no provided handler", () =>
-    Effect.gen(function* () {
-      type RegisteredOp = Operation<"install-skill", Record<string, never>>;
-      const plan: Plan<RegisteredOp> = {
-        name: "Missing handler plan",
-        description: Option.none(),
-        jobs: [
-          {
-            concurrency: 1,
-            steps: [
-              {
-                _tag: "PlannedJobStep",
-                operation: { name: "install-skill", args: {} },
-                readiness: { status: "ready", message: Option.none() },
-                label: "install",
-              },
-            ],
-          },
-        ],
-      };
-
-      const applied = yield* applyPlan(
-        plan,
-        {} as unknown as {
-          "install-skill": (op: RegisteredOp) => Effect.Effect<OperationResult, CliError>;
-        },
+      const executed = yield* applyPlan(
+        makePlan({
+          name: "My plan",
+          description: Option.some("Description"),
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [makeReadyStep("a")],
+            },
+            {
+              concurrency: 1,
+              steps: [makeReadyStep("b"), makeReadyStep("c")],
+            },
+          ],
+        }),
       );
 
-      const steps = applied.jobs.flatMap((j) => j.steps);
-      expect(steps).toHaveLength(1);
-      expect(steps[0]).toMatchObject({
-        _tag: "JobStepResult",
-        result: {
-          result: "error",
-          message: "No handler provided for operation: install-skill (PLAN_STEP_HANDLER_MISSING)",
-        },
-      });
+      expect(executed.name).toBe("My plan");
+      expect(executed.description).toEqual(Option.some("Description"));
+      expect(executed.jobs).toHaveLength(2);
+      expect(executed.jobs[0]!.steps).toHaveLength(1);
+      expect(executed.jobs[1]!.steps).toHaveLength(2);
     }),
   );
-});
-
-describe("CliError in applyPlan", () => {
-  it("constructs with code, what, and cause", () => {
-    const error = makeCliError({
-      code: "INSTALL_OPERATION_FAILED",
-      what: "Path traversal detected",
-    });
-
-    expect(error._tag).toBe("CliError");
-    expect(error.code).toBe("INSTALL_OPERATION_FAILED");
-    expect(error.what).toBe("Path traversal detected");
-  });
-
-  it("preserves original cause", () => {
-    const originalError = new Error("EACCES");
-    const error = makeCliError({
-      code: "INSTALL_OPERATION_FAILED",
-      what: "Copy failed",
-      cause: originalError,
-    });
-
-    expect(error.cause).toBe(originalError);
-  });
 });

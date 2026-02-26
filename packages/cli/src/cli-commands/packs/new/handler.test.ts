@@ -159,10 +159,7 @@ describe("packs-new.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handlePacksNew(defaultArgs("frontend-tools", { yes: false })).pipe(
-            Effect.flip,
-          );
-          expect((error as CliError).code).toBe("PLAN_CONFIRMATION_REQUIRED");
+          yield* handlePacksNew(defaultArgs("frontend-tools", { yes: false }));
 
           // Manifest should NOT be created
           const manifestPath = path.join(

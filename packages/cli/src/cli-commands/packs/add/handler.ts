@@ -26,6 +26,7 @@ import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
+import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -208,7 +209,7 @@ export const handlePacksAdd = Effect.fn("PacksAdd.handle")(function* (args: Pack
     label: args.pack,
   });
 
-  yield* ws.resolvePlan(plan, { "add-to-pack": addToPack });
+  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "add-to-pack": addToPack }));
 
   yield* log.success("Done");
 });

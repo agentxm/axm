@@ -5,46 +5,39 @@
  * @packageDocumentation
  */
 
-// Plan types and helpers
+// Plan types (new readiness-based model)
 export type {
+  CompletedJobStep,
+  ErrorJobStep,
+  ExecutedJob,
+  ExecutedPlan,
   Job,
-  JobStep,
   JobStepResult,
-  Operation,
-  OperationMap,
-  OperationMapFromUnion,
-  OperationResult,
-  OperationUnion,
   Plan,
   PlannedJobStep,
-  Readiness,
+  ReadyJobStep,
+  WarnJobStep,
 } from "./plan.js";
-export { makeStep } from "./plan.js";
+
+// Legacy plan types (used by non-migrated operation handlers)
+export type { Operation, OperationResult, Readiness } from "./plan.js";
+
+// Plan bridge (legacy compatibility for non-migrated handlers)
+export {
+  bridgeLegacyPlan,
+  makeLegacyStep,
+  type LegacyPlan,
+  type LegacyPlannedStep,
+} from "./plan-bridge.js";
 
 // Plan display
 export { displayPlan } from "./display-plan.js";
 
 // Plan apply
-export {
-  applyPlan,
-  type ExecutionContext,
-  type Handlers,
-  type OperationHandler,
-} from "./apply-plan.js";
+export { applyPlan, type OperationHandler } from "./apply-plan.js";
 
-// Operation metadata + registry
-export {
-  defineOperationMetadata,
-  lockfilePolicyPrecedence,
-  type LockfilePolicy,
-  type OperationMetadata,
-} from "./operation-metadata.js";
-export {
-  getOperationMetadata,
-  hasOperationMetadata,
-  operationMetadataRegistry,
-  type RegisteredOperationName,
-} from "./operation-registry.js";
+// Lockfile state (used by reconciliation)
+export type { LockfileState } from "./service.js";
 
 // Path utilities
 export { getAxmDir, getGlobalDir, getProjectDir } from "./paths.js";

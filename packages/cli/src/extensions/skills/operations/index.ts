@@ -16,14 +16,3 @@ export type { RenameSkillOperation } from "./rename.js";
 export { renameSkill } from "./rename.js";
 export type { NewSkillOperationArgs, NewSkillOperation } from "./new-skill.js";
 export { newSkill } from "./new-skill.js";
-export {
-  copySkillOperationMetadata,
-  disableSkillOperationMetadata,
-  enableSkillOperationMetadata,
-  installSkillOperationMetadata,
-  newSkillOperationMetadata,
-  publishSkillOperationMetadata,
-  renameSkillOperationMetadata,
-  skillOperationMetadataRegistry,
-  uninstallSkillOperationMetadata,
-} from "./metadata.js";

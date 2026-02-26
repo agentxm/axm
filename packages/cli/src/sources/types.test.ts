@@ -525,15 +525,17 @@ describe("PackExtensionRef", () => {
     }
   });
 
-  it("BuiltinPackRef has pack name only", () => {
+  it("BuiltinPackRef has pack name and namespace", () => {
     const ref: PackExtensionRef = {
       type: "pack",
       refType: "builtin",
+      namespace: "@axm",
       pack: { name: "default", skills: {}, commands: {}, mcpServers: {} },
       source: { type: "builtin" },
     };
     expect(ref.source.type).toBe("builtin");
     expect((ref as BuiltinPackRef).pack.name).toBe("default");
+    expect(ref.namespace).toBe("@axm");
   });
 });
 
@@ -571,6 +573,7 @@ describe("ExtensionRef", () => {
     const ref: ExtensionRef = {
       type: "pack",
       refType: "builtin",
+      namespace: "@axm",
       pack: { name: "p", skills: {}, commands: {}, mcpServers: {} },
       source: { type: "builtin" },
     };

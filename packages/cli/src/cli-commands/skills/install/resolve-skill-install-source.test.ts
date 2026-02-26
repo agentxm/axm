@@ -66,6 +66,15 @@ const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceConte
   setMcpServer: () => Effect.void,
   setMcpServerLock: () => Effect.void,
   removeMcpServer: () => Effect.void,
+  removeSkillLock: () => Effect.void,
+  removeCommandSettings: () => Effect.void,
+  removeCommandLock: () => Effect.void,
+  removeMcpServerSettings: () => Effect.void,
+  removeMcpServerLock: () => Effect.void,
+  removePackSettings: () => Effect.void,
+  removePackLock: () => Effect.void,
+  isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
+  markDependencyRetainedInLockfile: () => Effect.void,
   getConfiguredCommands: () => Effect.succeed({}),
   getConfiguredMcpServers: () => Effect.succeed({}),
 });
@@ -192,7 +201,7 @@ describe("resolveSkillInstallSource", () => {
       expect(probes).toHaveLength(2);
       expect(probes[0]).toMatchObject({
         location: "http://localhost:4300/",
-        outcome: "not-found",
+        outcome: "error",
       });
       expect(probes[1]).toMatchObject({
         location: new URL(`file://${registryB}`).href,

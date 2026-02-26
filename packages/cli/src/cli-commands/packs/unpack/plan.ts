@@ -15,8 +15,11 @@
  */
 
 import * as Option from "effect/Option";
-import { makeStep } from "../../../workspace/plan.js";
-import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
+import {
+  makeLegacyStep,
+  type LegacyPlan,
+  type LegacyPlannedStep,
+} from "../../../workspace/plan-bridge.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { InstallCommandOperation } from "../../../extensions/commands/operations/install.js";
 import type { InstallMcpServerOperation } from "../../../extensions/mcp-servers/operations/install.js";
@@ -63,7 +66,7 @@ export interface BuildUnpackPlanArgs {
  *
  * Pure function — no Effect needed.
  */
-export const buildUnpackPlan = (args: BuildUnpackPlanArgs): Plan<PackUnpackOp> => {
+export const buildUnpackPlan = (args: BuildUnpackPlanArgs): LegacyPlan<PackUnpackOp> => {
   const {
     skillOps,
     commandOps,
@@ -76,11 +79,11 @@ export const buildUnpackPlan = (args: BuildUnpackPlanArgs): Plan<PackUnpackOp> =
     description,
   } = args;
 
-  const steps: ReadonlyArray<PlannedJobStep<PackUnpackOp>> = [
+  const steps: ReadonlyArray<LegacyPlannedStep<PackUnpackOp>> = [
     // Install ops first
     ...skillOps.map((op) => {
       const alreadyConfigured = configuredSkillNames.includes(op.args.ref.skill.name);
-      return makeStep<PackUnpackOp>(
+      return makeLegacyStep<PackUnpackOp>(
         op,
         op.args.ref.skill.name,
         !alreadyConfigured,
@@ -89,7 +92,7 @@ export const buildUnpackPlan = (args: BuildUnpackPlanArgs): Plan<PackUnpackOp> =
     }),
     ...commandOps.map((op) => {
       const alreadyConfigured = configuredCommandNames.includes(op.args.ref.command.name);
-      return makeStep<PackUnpackOp>(
+      return makeLegacyStep<PackUnpackOp>(
         op,
         op.args.ref.command.name,
         !alreadyConfigured,
@@ -98,7 +101,7 @@ export const buildUnpackPlan = (args: BuildUnpackPlanArgs): Plan<PackUnpackOp> =
     }),
     ...mcpServerOps.map((op) => {
       const alreadyConfigured = configuredMcpServerNames.includes(op.args.ref.server.name);
-      return makeStep<PackUnpackOp>(
+      return makeLegacyStep<PackUnpackOp>(
         op,
         op.args.ref.server.name,
         !alreadyConfigured,
@@ -106,7 +109,7 @@ export const buildUnpackPlan = (args: BuildUnpackPlanArgs): Plan<PackUnpackOp> =
       );
     }),
     // Uninstall-pack last
-    makeStep<PackUnpackOp>(uninstallPackOp, uninstallPackOp.args.packName, true, ""),
+    makeLegacyStep<PackUnpackOp>(uninstallPackOp, uninstallPackOp.args.packName, true, ""),
   ];
 
   return {

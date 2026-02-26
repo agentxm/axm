@@ -104,6 +104,15 @@ const makeWorkspaceMock = (
           }),
     getConfiguredCommands: () => Effect.succeed({}),
     getConfiguredMcpServers: () => Effect.succeed({}),
+    removeSkillLock: () => Effect.void,
+    removeCommandSettings: () => Effect.void,
+    removeCommandLock: () => Effect.void,
+    removeMcpServerSettings: () => Effect.void,
+    removeMcpServerLock: () => Effect.void,
+    removePackSettings: () => Effect.void,
+    removePackLock: () => Effect.void,
+    isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
+    markDependencyRetainedInLockfile: () => Effect.void,
   };
 };
 

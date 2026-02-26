@@ -26,8 +26,9 @@ import YAML from "yaml";
 import { CliError } from "../cli-error/index.js";
 import type { SourceHostConfig } from "../settings/index.js";
 import type { CommandLockEntry, McpServerLockEntry, SkillLockEntry } from "../lockfile/index.js";
-import type { OperationResult, Readiness } from "./plan.js";
-import type { Operation, Plan, PlannedJobStep } from "./plan.js";
+import type { OperationResult, Readiness, Operation } from "./plan.js";
+import type { LegacyPlan, LegacyPlannedStep } from "./plan-bridge.js";
+import { bridgeLegacyPlan } from "./plan-bridge.js";
 import {
   Workspace,
   layer as workspaceLayer,
@@ -218,13 +219,13 @@ describe("WorkspaceContextService", () => {
 
   describe("resolvePlan", () => {
     type TestOp = Operation<"test-op", Record<string, never>>;
-    const testStep: PlannedJobStep<TestOp> = {
+    const testStep: LegacyPlannedStep<TestOp> = {
       _tag: "PlannedJobStep",
       operation: { name: "test-op", args: {} },
       readiness: { status: "ready", message: Option.none() },
       label: "test action",
     };
-    const testPlan: Plan<TestOp> = {
+    const testPlan: LegacyPlan<TestOp> = {
       name: "Test Plan",
       description: Option.none(),
       jobs: [
@@ -235,7 +236,7 @@ describe("WorkspaceContextService", () => {
       ],
     };
 
-    const makePlanWithReadiness = (readiness: Readiness): Plan<TestOp> => ({
+    const makePlanWithReadiness = (readiness: Readiness): LegacyPlan<TestOp> => ({
       name: "Test Plan",
       description: Option.none(),
       jobs: [
@@ -262,7 +263,7 @@ describe("WorkspaceContextService", () => {
       options: WorkspaceContextOptions,
       mockLog: MockLogService,
       confirmValue = true,
-      plan: Plan<TestOp> = testPlan,
+      plan: LegacyPlan<TestOp> = testPlan,
     ) => {
       const logLayer = Layer.succeed(Log, mockLog);
       const [confirmLayer, confirmMock] = makeConfirmTestLayer({
@@ -282,7 +283,7 @@ describe("WorkspaceContextService", () => {
       return {
         effect: Effect.gen(function* () {
           const ws = yield* Workspace;
-          return yield* ws.resolvePlan(plan, testHandlers);
+          return yield* ws.resolvePlan(bridgeLegacyPlan(plan, testHandlers));
         }).pipe(Effect.provide(Layer.merge(base, wsLayer))),
         confirmMock,
       };
@@ -310,7 +311,6 @@ describe("WorkspaceContextService", () => {
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
         expect(steps[0]).toMatchObject({
-          _tag: "JobStepResult",
           result: { result: "success", message: "Installed test action" },
         });
       }),
@@ -339,7 +339,7 @@ describe("WorkspaceContextService", () => {
         // Confirmed preview applies changes
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
-        expect(steps[0]).toMatchObject({ _tag: "JobStepResult" });
+        expect(steps[0]).toHaveProperty("result");
       }),
     );
 
@@ -387,11 +387,11 @@ describe("WorkspaceContextService", () => {
         // --yes skips apply confirmation in preview mode
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
-        expect(steps[0]).toMatchObject({ _tag: "JobStepResult" });
+        expect(steps[0]).toHaveProperty("result");
       }),
     );
 
-    it.effect("preview with nonInteractive requires --yes", () =>
+    it.effect("preview with nonInteractive is a dry-run (returns empty plan)", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
         const { effect } = runResolvePlan(
@@ -404,10 +404,10 @@ describe("WorkspaceContextService", () => {
           },
           mockLog,
         );
-        const result = yield* effect.pipe(Effect.flip);
+        const result = yield* effect;
 
         expect(mockLog.logs.info).toContainEqual("Previewing changes...");
-        expect((result as CliError).code).toBe("PLAN_CONFIRMATION_REQUIRED");
+        expect(result.jobs).toEqual([]);
       }),
     );
 
@@ -437,7 +437,7 @@ describe("WorkspaceContextService", () => {
         const result = yield* effect.pipe(Effect.flip);
 
         expect(result).toBeInstanceOf(CliError);
-        expect((result as CliError).code).toBe("PLAN_HAS_ERRORS");
+        expect((result as CliError).code).toBe("PLAN_BLOCKED_BY_ERRORS");
         // Plan should have been displayed
         expect(mockLog.logs.info).toContain("Test Plan");
       }),
@@ -465,13 +465,13 @@ describe("WorkspaceContextService", () => {
         const result = yield* effect.pipe(Effect.flip);
 
         expect(result).toBeInstanceOf(CliError);
-        expect((result as CliError).code).toBe("PLAN_HAS_ERRORS");
+        expect((result as CliError).code).toBe("PLAN_BLOCKED_BY_ERRORS");
         // Plan should have been displayed even in default mode
         expect(mockLog.logs.info).toContain("Test Plan");
       }),
     );
 
-    it.effect("warn readiness in preview still prompts apply", () =>
+    it.effect("warn readiness in preview prompts warn confirmation then apply", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
         const warnPlan = makePlanWithReadiness({
@@ -492,15 +492,16 @@ describe("WorkspaceContextService", () => {
         );
         const applied = yield* effect;
 
-        // Preview always confirms apply when --yes is not set
-        expect(confirmMock.calls).toEqual([{ message: "Apply changes?" }]);
+        // Warn prompt + Apply prompt
+        expect(confirmMock.calls).toHaveLength(2);
+        expect(confirmMock.calls[1]).toEqual({ message: "Apply changes?" });
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
-        expect(steps[0]).toMatchObject({ _tag: "JobStepResult" });
+        expect(steps[0]).toHaveProperty("result");
       }),
     );
 
-    it.effect("warn readiness in default mode does not prompt apply confirmation", () =>
+    it.effect("warn readiness in default mode prompts warn confirmation", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
         const warnPlan = makePlanWithReadiness({
@@ -521,7 +522,8 @@ describe("WorkspaceContextService", () => {
         );
         const applied = yield* effect;
 
-        expect(confirmMock.calls).toEqual([]);
+        // Warn prompt only (no apply prompt in default mode)
+        expect(confirmMock.calls).toHaveLength(1);
         // Plan should have been displayed before confirmation
         expect(mockLog.logs.info).toContain("Test Plan");
         // Should apply since user confirmed
@@ -530,7 +532,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("warn + yes in preview applies", () =>
+    it.effect("warn + force in preview skips warn prompt and apply prompt", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
         const warnPlan = makePlanWithReadiness({
@@ -543,6 +545,7 @@ describe("WorkspaceContextService", () => {
             yes: true,
             nonInteractive: Option.some(false),
             preview: true,
+            force: true,
             agents: Option.none(),
           },
           mockLog,
@@ -551,15 +554,15 @@ describe("WorkspaceContextService", () => {
         );
         const applied = yield* effect;
 
-        // --yes skips apply confirmation and applies
+        // --force skips warn prompt, --yes skips apply prompt
         expect(confirmMock.calls).toEqual([]);
         const steps = applied.jobs.flatMap((j) => j.steps);
         expect(steps).toHaveLength(1);
-        expect(steps[0]).toMatchObject({ _tag: "JobStepResult" });
+        expect(steps[0]).toHaveProperty("result");
       }),
     );
 
-    it.effect("warn + nonInteractive in preview fails without --yes", () =>
+    it.effect("warn + nonInteractive in preview fails without --force", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
         const warnPlan = makePlanWithReadiness({
@@ -583,7 +586,7 @@ describe("WorkspaceContextService", () => {
       }),
     );
 
-    it.effect("warn + yes + nonInteractive in preview applies", () =>
+    it.effect("warn + force + nonInteractive in preview applies", () =>
       Effect.gen(function* () {
         const [, mockLog] = makeLogTestLayer();
         const warnPlan = makePlanWithReadiness({
@@ -596,6 +599,7 @@ describe("WorkspaceContextService", () => {
             yes: true,
             nonInteractive: Option.some(true),
             preview: true,
+            force: true,
             agents: Option.none(),
           },
           mockLog,
@@ -604,37 +608,12 @@ describe("WorkspaceContextService", () => {
         );
         const result = yield* effect;
         const steps = result.jobs.flatMap((j) => j.steps);
-        expect(steps[0]).toMatchObject({ _tag: "JobStepResult" });
+        expect(steps[0]).toHaveProperty("result");
       }),
     );
 
-    it.effect("warns with LOCKFILE_INVALID_IGNORED for ignore_if_missing operations", () =>
-      Effect.gen(function* () {
-        fs.writeFileSync(path.join(projectDir, ".axm", "axm-lock.yaml"), "lockfileVersion: [");
-
-        const [, mockLog] = makeLogTestLayer();
-        const { effect } = runResolvePlan(
-          {
-            global: false,
-            yes: false,
-            nonInteractive: Option.some(false),
-            preview: true,
-            agents: Option.none(),
-          },
-          mockLog,
-          true,
-        );
-
-        const previewed = yield* effect;
-
-        expect(mockLog.logs.warn).toContain("LOCKFILE_INVALID_IGNORED");
-        expect(previewed.jobs).toHaveLength(1);
-        expect(previewed.jobs[0]?.steps[0]).toMatchObject({
-          _tag: "JobStepResult",
-          operation: { name: "test-op" },
-        });
-      }),
-    );
+    // Note: Lockfile augmentation (LOCKFILE_INVALID_IGNORED) is now handled
+    // by individual handlers before calling resolvePlan, not by resolvePlan itself.
   });
 
   /** Default options for tests that don't care about prompting/preview. */
@@ -4014,6 +3993,637 @@ describe("WorkspaceContextService", () => {
 
         const lockfile = readLockfileFromDisk(projectDir);
         expect(lockfile.mcpServers).not.toHaveProperty("implicit");
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Granular removal methods (Phase 3)
+  // ---------------------------------------------------------------------------
+
+  describe("removeSkillLock", () => {
+    it.effect("removes skill from lockfile only, not settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          skills: { "code-review": "github:acme/code-review" },
+        });
+        writeLockfileTo(projectDir, {
+          "code-review": {
+            type: "github",
+            owner: "acme",
+            repo: "code-review",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeSkillLock("code-review");
+
+        // Settings should still have the skill
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.skills).toHaveProperty("code-review");
+
+        // Lockfile should NOT have the skill
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.skills).not.toHaveProperty("code-review");
+      }),
+    );
+
+    it.effect("no-op when skill not in lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeSkillLock("nonexistent");
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(Object.keys(lockfile.skills)).toHaveLength(0);
+      }),
+    );
+  });
+
+  describe("removeCommandSettings", () => {
+    it.effect("removes command from settings only, not lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          commands: { "my-command": "github:acme/my-command" },
+        });
+        writeLockfileTo(projectDir, {}, undefined, {
+          "my-command": {
+            type: "github",
+            owner: "acme",
+            repo: "my-command",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeCommandSettings("my-command");
+
+        // Settings should NOT have the command
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.commands).not.toHaveProperty("my-command");
+
+        // Lockfile should still have the command
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.commands).toHaveProperty("my-command");
+      }),
+    );
+
+    it.effect("no-op when command not in settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeCommandSettings("nonexistent");
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.commands).toBeUndefined();
+      }),
+    );
+  });
+
+  describe("removeCommandLock", () => {
+    it.effect("removes command from lockfile only, not settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          commands: { "my-command": "github:acme/my-command" },
+        });
+        writeLockfileTo(projectDir, {}, undefined, {
+          "my-command": {
+            type: "github",
+            owner: "acme",
+            repo: "my-command",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeCommandLock("my-command");
+
+        // Settings should still have the command
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.commands).toHaveProperty("my-command");
+
+        // Lockfile should NOT have the command
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.commands).not.toHaveProperty("my-command");
+      }),
+    );
+
+    it.effect("no-op when command not in lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeCommandLock("nonexistent");
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.commands).toBeUndefined();
+      }),
+    );
+  });
+
+  describe("removeMcpServerSettings", () => {
+    it.effect("removes mcp server from settings only, not lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          mcpServers: { "my-mcp": "github:acme/my-mcp" },
+        });
+        writeLockfileTo(projectDir, {}, undefined, undefined, {
+          "my-mcp": {
+            type: "github",
+            owner: "acme",
+            repo: "my-mcp",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeMcpServerSettings("my-mcp");
+
+        // Settings should NOT have the mcp server
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.mcpServers).not.toHaveProperty("my-mcp");
+
+        // Lockfile should still have the mcp server
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.mcpServers).toHaveProperty("my-mcp");
+      }),
+    );
+
+    it.effect("no-op when mcp server not in settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeMcpServerSettings("nonexistent");
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.mcpServers).toBeUndefined();
+      }),
+    );
+  });
+
+  describe("removeMcpServerLock", () => {
+    it.effect("removes mcp server from lockfile only, not settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          mcpServers: { "my-mcp": "github:acme/my-mcp" },
+        });
+        writeLockfileTo(projectDir, {}, undefined, undefined, {
+          "my-mcp": {
+            type: "github",
+            owner: "acme",
+            repo: "my-mcp",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeMcpServerLock("my-mcp");
+
+        // Settings should still have the mcp server
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.mcpServers).toHaveProperty("my-mcp");
+
+        // Lockfile should NOT have the mcp server
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.mcpServers).not.toHaveProperty("my-mcp");
+      }),
+    );
+
+    it.effect("no-op when mcp server not in lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removeMcpServerLock("nonexistent");
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.mcpServers).toBeUndefined();
+      }),
+    );
+  });
+
+  describe("removePackSettings", () => {
+    it.effect("removes pack from settings only, not lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "starter-pack": {
+              type: "registry",
+              namespace: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removePackSettings("starter-pack");
+
+        // Settings should NOT have the pack
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.packs).not.toHaveProperty("starter-pack");
+
+        // Lockfile should still have the pack
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.packs).toHaveProperty("starter-pack");
+      }),
+    );
+
+    it.effect("no-op when pack not in settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removePackSettings("nonexistent");
+
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.packs).toBeUndefined();
+      }),
+    );
+  });
+
+  describe("removePackLock", () => {
+    it.effect("removes pack from lockfile only, not settings", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "starter-pack": {
+              type: "registry",
+              namespace: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removePackLock("starter-pack");
+
+        // Settings should still have the pack
+        const settingsPath = path.join(projectDir, ".axm", "settings.json");
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings.packs).toHaveProperty("starter-pack");
+
+        // Lockfile should NOT have the pack
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.packs).not.toHaveProperty("starter-pack");
+      }),
+    );
+
+    it.effect("no-op when pack not in lockfile", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.removePackLock("nonexistent");
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.packs).toBeUndefined();
+      }),
+    );
+  });
+
+  // ---------------------------------------------------------------------------
+  // Pack dependency queries (Phase 3)
+  // ---------------------------------------------------------------------------
+
+  describe("isExtensionRequiredByInstalledPack", () => {
+    it.effect("returns true when skill is referenced by an installed pack", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
+        });
+        writeLockfileTo(
+          projectDir,
+          {
+            "code-review": {
+              type: "github",
+              owner: "acme",
+              repo: "code-review",
+              agents: ["claude-code"],
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+            },
+          },
+          {
+            "starter-pack": {
+              type: "registry",
+              namespace: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: { "@acme/skills/code-review": "1.0.0" },
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.isExtensionRequiredByInstalledPack({
+          type: "skill",
+          name: "code-review",
+        });
+
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("returns true when command is referenced by an installed pack", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "starter-pack": {
+              type: "registry",
+              namespace: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: { "@acme/commands/my-cmd": "1.0.0" },
+              resolvedMcpServers: {},
+            },
+          },
+          {
+            "my-cmd": {
+              type: "github",
+              owner: "acme",
+              repo: "my-cmd",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.isExtensionRequiredByInstalledPack({
+          type: "command",
+          name: "my-cmd",
+        });
+
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("returns true when mcp-server is referenced by an installed pack", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "starter-pack": {
+              type: "registry",
+              namespace: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: {},
+              resolvedMcpServers: { "@acme/mcp-servers/my-mcp": "1.0.0" },
+            },
+          },
+          undefined,
+          {
+            "my-mcp": {
+              type: "github",
+              owner: "acme",
+              repo: "my-mcp",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.isExtensionRequiredByInstalledPack({
+          type: "mcp-server",
+          name: "my-mcp",
+        });
+
+        expect(result).toBe(true);
+      }),
+    );
+
+    it.effect("returns false when extension is not referenced by any pack", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, {
+          agents: ["claude-code"],
+          packs: { "starter-pack": "@acme/packs/starter-pack" },
+        });
+        writeLockfileTo(
+          projectDir,
+          {},
+          {
+            "starter-pack": {
+              type: "registry",
+              namespace: "@acme",
+              name: "starter-pack",
+              resolvedVersion: "1.0.0",
+              integrity: "sha512-AAAA==",
+              sourceName: "default",
+              installedAt: "2025-01-01T00:00:00.000Z",
+              updatedAt: "2025-01-01T00:00:00.000Z",
+              resolvedSkills: {},
+              resolvedCommands: {},
+              resolvedMcpServers: {},
+            },
+          },
+        );
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.isExtensionRequiredByInstalledPack({
+          type: "skill",
+          name: "orphan-skill",
+        });
+
+        expect(result).toBe(false);
+      }),
+    );
+
+    it.effect("returns false when no packs are installed", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.isExtensionRequiredByInstalledPack({
+          type: "skill",
+          name: "some-skill",
+        });
+
+        expect(result).toBe(false);
+      }),
+    );
+
+    it.effect("returns false for pack target type (packs don't depend on packs)", () =>
+      Effect.gen(function* () {
+        writeSettingsTo(projectDir, { agents: ["claude-code"] });
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        const result = yield* ws.isExtensionRequiredByInstalledPack({
+          type: "pack",
+          name: "some-pack",
+          namespace: "@acme",
+        });
+
+        expect(result).toBe(false);
+      }),
+    );
+  });
+
+  describe("markDependencyRetainedInLockfile", () => {
+    it.effect("marks skill as retained in lockfile by setting retainedByPack flag", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {
+          "code-review": {
+            type: "github",
+            owner: "acme",
+            repo: "code-review",
+            agents: ["claude-code"],
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.markDependencyRetainedInLockfile({ type: "skill", name: "code-review" });
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        const entry = lockfile.skills["code-review"] as Record<string, unknown>;
+        expect(entry["retainedByPack"]).toBe(true);
+      }),
+    );
+
+    it.effect("marks command as retained in lockfile", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {}, undefined, {
+          "my-cmd": {
+            type: "github",
+            owner: "acme",
+            repo: "my-cmd",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.markDependencyRetainedInLockfile({ type: "command", name: "my-cmd" });
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        const entry = lockfile.commands!["my-cmd"] as Record<string, unknown>;
+        expect(entry["retainedByPack"]).toBe(true);
+      }),
+    );
+
+    it.effect("marks mcp-server as retained in lockfile", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {}, undefined, undefined, {
+          "my-mcp": {
+            type: "github",
+            owner: "acme",
+            repo: "my-mcp",
+            installedAt: "2025-01-01T00:00:00.000Z",
+            updatedAt: "2025-01-01T00:00:00.000Z",
+          },
+        });
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.markDependencyRetainedInLockfile({ type: "mcp-server", name: "my-mcp" });
+
+        const lockfile = readLockfileFromDisk(projectDir);
+        const entry = lockfile.mcpServers!["my-mcp"] as Record<string, unknown>;
+        expect(entry["retainedByPack"]).toBe(true);
+      }),
+    );
+
+    it.effect("no-op when target not found in lockfile", () =>
+      Effect.gen(function* () {
+        writeLockfileTo(projectDir, {});
+
+        const ws = yield* getService(defaultOptions);
+        yield* ws.markDependencyRetainedInLockfile({ type: "skill", name: "nonexistent" });
+
+        // Should not throw, just no-op
+        const lockfile = readLockfileFromDisk(projectDir);
+        expect(lockfile.skills).toEqual({});
       }),
     );
   });

@@ -2,7 +2,6 @@ import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { makeCliError, type CliError } from "../cli-error/index.js";
 import type { Lockfile } from "../lockfile/index.js";
 import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
@@ -17,29 +16,7 @@ import type {
   ReconciliationDeclaration,
   ReconcileExtensionType,
 } from "./reconciliation-types.js";
-import type { Operation, OperationResult, Plan, PlannedJobStep } from "./plan.js";
-
-export type ReadRecoverLockfileOperation = Operation<
-  "read-recover-lockfile",
-  { readonly reason: "missing" | "invalid"; readonly origin: "augmentPlan" }
->;
-
-export type ReconcileMaterializeLockfileOperation = Operation<
-  "reconcile-materialize-lockfile",
-  { readonly reason: "missing" | "invalid"; readonly origin: "augmentPlan" }
->;
-
-export type ReconciliationOperation =
-  | ReadRecoverLockfileOperation
-  | ReconcileMaterializeLockfileOperation;
-
-export const isInjectedReconciliationOperation = (operation: Operation<string, unknown>): boolean =>
-  (operation.name === "read-recover-lockfile" ||
-    operation.name === "reconcile-materialize-lockfile") &&
-  typeof operation.args === "object" &&
-  operation.args !== null &&
-  "origin" in operation.args &&
-  operation.args.origin === "augmentPlan";
+import type { OperationResult } from "./plan.js";
 
 const adapters: ReadonlyArray<ReconciliationAdapter> = [
   skillReconciliationAdapter,
@@ -204,50 +181,6 @@ export const buildReconciliationSnapshot = (
       warnings: [...scanWarnings, ...deduped.warnings],
     };
   });
-
-export const makeReadRecoverStep = (
-  reason: "missing" | "invalid",
-): PlannedJobStep<ReconciliationOperation> => ({
-  _tag: "PlannedJobStep",
-  operation: {
-    name: "read-recover-lockfile",
-    args: { reason, origin: "augmentPlan" },
-  },
-  readiness: { status: "ready", message: Option.none() },
-  label: `[auto] read-recover lockfile (${reason})`,
-});
-
-export const makeReconcileMaterializeStep = (
-  reason: "missing" | "invalid",
-): PlannedJobStep<ReconciliationOperation> => ({
-  _tag: "PlannedJobStep",
-  operation: {
-    name: "reconcile-materialize-lockfile",
-    args: { reason, origin: "augmentPlan" },
-  },
-  readiness: { status: "ready", message: Option.none() },
-  label: `[auto] reconcile-materialize lockfile (${reason})`,
-});
-
-export const prependReconciliationJob = <Op extends Operation<string, unknown>>(
-  plan: Plan<Op>,
-  operations: ReadonlyArray<ReconciliationOperation>,
-): Plan<Op> => {
-  const reconciliationJob = {
-    concurrency: 1 as const,
-    steps: operations.map((operation) => {
-      if (operation.name === "read-recover-lockfile") {
-        return makeReadRecoverStep(operation.args.reason) as unknown as PlannedJobStep<Op>;
-      }
-      return makeReconcileMaterializeStep(operation.args.reason) as unknown as PlannedJobStep<Op>;
-    }),
-  };
-
-  return {
-    ...plan,
-    jobs: [reconciliationJob, ...plan.jobs],
-  };
-};
 
 const formatUnresolved = (snapshot: ReconciliationSnapshot): ReadonlyArray<string> =>
   snapshot.unresolved.map(

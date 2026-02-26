@@ -6,9 +6,3 @@ export { installCommand } from "./install.js";
 
 export type { UninstallCommandOperationArgs, UninstallCommandOperation } from "./uninstall.js";
 export { uninstallCommand } from "./uninstall.js";
-export {
-  commandOperationMetadataRegistry,
-  installCommandOperationMetadata,
-  publishCommandOperationMetadata,
-  uninstallCommandOperationMetadata,
-} from "./metadata.js";

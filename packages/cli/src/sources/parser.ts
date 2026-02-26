@@ -22,10 +22,10 @@ const LOCAL_PATH_PATTERN = /^(?:\.\.?\/|\/|~\/|~\\|[A-Za-z]:[\\/])/;
 /** A simple name with no `/`, `@`, or URL scheme. */
 type NameInput = { readonly pattern: "name-input"; readonly name: string };
 
-/** A namespaced registry source: `@namespace/(skills|mcp-servers|packs)/name`. */
+/** A namespaced registry source: `@namespace/(skills|commands|mcp-servers|packs)/name`. */
 type RegistryPatternInput = {
   readonly pattern: "registry-pattern-input";
-  readonly type: Option.Option<"skills" | "mcp-servers" | "packs">;
+  readonly type: Option.Option<"skills" | "commands" | "mcp-servers" | "packs">;
   readonly namespace: string;
   readonly name: Option.Option<string>;
   readonly versionConstraint: Option.Option<string>;
@@ -177,7 +177,12 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
 
       if (segments.length === 2) {
         const second = segments[1]!;
-        if (second === "skills" || second === "mcp-servers" || second === "packs") {
+        if (
+          second === "skills" ||
+          second === "commands" ||
+          second === "mcp-servers" ||
+          second === "packs"
+        ) {
           return Option.some(
             wrap({
               pattern: "registry-pattern-input",
@@ -193,7 +198,12 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
       if (segments.length === 3) {
         const second = segments[1]!;
         const third = segments[2]!;
-        if (second === "skills" || second === "mcp-servers" || second === "packs") {
+        if (
+          second === "skills" ||
+          second === "commands" ||
+          second === "mcp-servers" ||
+          second === "packs"
+        ) {
           const parsedName = parseNameAndConstraint(third);
           if (Option.isSome(parsedName)) {
             return Option.some(

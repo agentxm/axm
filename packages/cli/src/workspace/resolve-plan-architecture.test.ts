@@ -8,25 +8,15 @@ const readCliFile = (relativePath: string): string =>
   fs.readFileSync(path.join(cliRoot, relativePath), "utf8");
 
 describe("resolvePlan architecture guardrails", () => {
-  it("operation metadata registry depends on metadata modules only", () => {
-    const registry = readCliFile("workspace/operation-registry.ts");
-
-    expect(registry).toContain("operations/metadata.js");
-    expect(registry).not.toContain("operations/install.js");
-    expect(registry).not.toContain("operations/uninstall.js");
-    expect(registry).not.toContain("workspace/service.js");
-  });
-
-  it("install command handlers stay thin and resolve through workspace", () => {
+  it("install command handlers delegate to shared workflows", () => {
     const skillInstallHandler = readCliFile("cli-commands/skills/install/handler.ts");
     const packInstallHandler = readCliFile("cli-commands/packs/install/handler.ts");
 
-    expect(skillInstallHandler).toContain("buildSkillInstallPlan");
-    expect(skillInstallHandler).toContain("ws.resolvePlan(");
+    // Both delegate to shared install command workflow
+    expect(skillInstallHandler).toContain("runInstallCommandWorkflow");
     expect(skillInstallHandler).not.toContain("applyPlan(");
 
-    expect(packInstallHandler).toContain("buildInstallPlan");
-    expect(packInstallHandler).toContain("ws.resolvePlan(");
+    expect(packInstallHandler).toContain("runInstallCommandWorkflow");
     expect(packInstallHandler).not.toContain("applyPlan(");
   });
 });

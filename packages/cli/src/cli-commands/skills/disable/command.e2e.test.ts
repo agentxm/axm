@@ -14,25 +14,15 @@ describe("axm skills disable", () => {
   it("disables a skill: removes symlinks, preserves canonical files and settings with enabled: false, retains lockfile", async () => {
     const temp = createTempDir();
     try {
-      // Initialize workspace
+      // Initialize workspace with claude-code agent to verify .claude/ symlinks
       await runCli(["init", "--yes", "--agent", "claude-code"], {
         cwd: temp.path,
       });
 
       // Install a skill
-      await runCli(
-        [
-          "skills",
-          "install",
-          SKILLS_REPO_FIXTURE,
-          "--skill",
-          "my-skill",
-          "--yes",
-          "--agent",
-          "claude-code",
-        ],
-        { cwd: temp.path },
-      );
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
 
       // Verify skill is installed
       const canonicalSkillDir = path.join(
@@ -83,23 +73,13 @@ describe("axm skills disable", () => {
   it("shows already disabled message for already disabled skill", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes", "--agent", "claude-code"], {
+      await runCli(["init", "--yes"], {
         cwd: temp.path,
       });
 
-      await runCli(
-        [
-          "skills",
-          "install",
-          SKILLS_REPO_FIXTURE,
-          "--skill",
-          "my-skill",
-          "--yes",
-          "--agent",
-          "claude-code",
-        ],
-        { cwd: temp.path },
-      );
+      await runCli(["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--yes"], {
+        cwd: temp.path,
+      });
 
       // Disable once
       await runCli(["skills", "disable", "my-skill", "--yes"], {
@@ -121,7 +101,7 @@ describe("axm skills disable", () => {
   it("errors when skill is not found", async () => {
     const temp = createTempDir();
     try {
-      await runCli(["init", "--yes", "--agent", "claude-code"], {
+      await runCli(["init", "--yes"], {
         cwd: temp.path,
       });
 

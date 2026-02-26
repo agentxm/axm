@@ -11,11 +11,11 @@ import type { Lockfile, SkillLockEntry } from "../../../lockfile/schema.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
 import type { SkillExtensionRef } from "../../../sources/types.js";
-import type { PlannedJobStep } from "../../../workspace/plan.js";
+import type { LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
 import { buildUpdatePlan } from "./plan.js";
 
-// Assertion needed: plan builders only produce PlannedJobStep
-const planned = <T>(step: { readonly _tag: string }) => step as PlannedJobStep<T>;
+// Assertion needed: plan builders only produce LegacyPlannedStep
+const planned = <T>(step: { readonly _tag: string }) => step as LegacyPlannedStep<T>;
 
 // -----------------------------------------------------------------------------
 // Helpers

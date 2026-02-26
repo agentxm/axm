@@ -1,0 +1,55 @@
+/**
+ * Shared uninstall command workflow orchestration.
+ *
+ * Defines the `UninstallExtensionCommandWorkflowActions` interface and
+ * `runUninstallCommandWorkflow` function shared by all uninstall command handlers.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
+import * as Effect from "effect/Effect";
+import type { CliError } from "../../cli-error/index.js";
+import type { Plan } from "../../workspace/plan.js";
+import { Workspace } from "../../workspace/service.js";
+
+// -----------------------------------------------------------------------------
+// Uninstall Command Workflow Actions Interface
+// -----------------------------------------------------------------------------
+
+/**
+ * Type-specific actions for uninstall command workflows.
+ *
+ * Each extension type provides its own implementation of these actions.
+ * The generic type parameters allow full type safety per extension type.
+ *
+ * @typeParam Args - Raw command arguments (from yargs)
+ * @typeParam Parsed - Parsed/validated arguments
+ * @typeParam Intent - Command-specific uninstall intent
+ */
+export interface UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent> {
+  readonly parseArgs: (args: Args) => Effect.Effect<Parsed, CliError>;
+  readonly finalizeIntent: (parsed: Parsed) => Effect.Effect<Intent, CliError>;
+  readonly buildUninstallPlan: (intent: Intent) => Effect.Effect<Plan, CliError>;
+}
+
+// -----------------------------------------------------------------------------
+// Uninstall Command Workflow
+// -----------------------------------------------------------------------------
+
+/**
+ * Run the canonical uninstall command workflow.
+ *
+ * Executes phases in order: parse -> finalizeIntent -> buildUninstallPlan ->
+ * resolvePlan.
+ */
+export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
+  args: Args,
+  actions: UninstallExtensionCommandWorkflowActions<Args, Parsed, Intent>,
+) =>
+  Effect.gen(function* () {
+    const parsed = yield* actions.parseArgs(args);
+    const intent = yield* actions.finalizeIntent(parsed);
+    const plan = yield* actions.buildUninstallPlan(intent);
+    const ws = yield* Workspace;
+    yield* ws.resolvePlan(plan);
+  });

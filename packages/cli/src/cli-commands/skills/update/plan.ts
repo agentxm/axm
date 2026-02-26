@@ -10,7 +10,7 @@
 
 import * as Option from "effect/Option";
 import type { Lockfile, SkillLockEntry } from "../../../lockfile/schema.js";
-import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
+import type { LegacyPlan, LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
 import type { InstallSkillOperation } from "../../../extensions/skills/operations/install.js";
 import type { UninstallSkillOperation } from "../../../extensions/skills/operations/uninstall.js";
 
@@ -66,7 +66,7 @@ const hasChanged = (op: InstallSkillOperation, entry: SkillLockEntry): boolean =
 const buildInstallStep = (
   op: InstallSkillOperation,
   lockfile: Lockfile,
-): PlannedJobStep<UpdateOperation> => {
+): LegacyPlannedStep<UpdateOperation> => {
   const entry = lockfile.skills[op.args.ref.skill.name];
   const needsUpdate = !entry || op.args.force || hasChanged(op, entry);
 
@@ -80,7 +80,7 @@ const buildInstallStep = (
   };
 };
 
-const buildUninstallStep = (op: UninstallSkillOperation): PlannedJobStep<UpdateOperation> => ({
+const buildUninstallStep = (op: UninstallSkillOperation): LegacyPlannedStep<UpdateOperation> => ({
   _tag: "PlannedJobStep",
   operation: op,
   readiness: { status: "ready", message: Option.none() },
@@ -104,7 +104,7 @@ export const buildUpdatePlan = (
   lockfile: Lockfile,
   name: string,
   description: Option.Option<string>,
-): Plan<UpdateOperation> => ({
+): LegacyPlan<UpdateOperation> => ({
   name,
   description,
   jobs: [

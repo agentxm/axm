@@ -4,11 +4,12 @@
 
 import { describe, expect, it } from "vitest";
 import * as Option from "effect/Option";
-import type { Operation, PlannedJobStep } from "../../workspace/plan.js";
+import type { Operation } from "../../workspace/plan.js";
+import type { LegacyPlannedStep } from "../../workspace/plan-bridge.js";
 import { buildSingleStepPlan } from "./plan-helpers.js";
 
-// Assertion needed: plan builders only produce PlannedJobStep
-const planned = <T>(step: { readonly _tag: string }) => step as PlannedJobStep<T>;
+// Assertion needed: plan builders only produce LegacyPlannedStep
+const planned = <T>(step: { readonly _tag: string }) => step as LegacyPlannedStep<T>;
 
 // -----------------------------------------------------------------------------
 // Helpers

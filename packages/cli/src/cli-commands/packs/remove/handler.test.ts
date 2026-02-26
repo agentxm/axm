@@ -188,10 +188,9 @@ describe("packs-remove.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handlePacksRemove(
+          yield* handlePacksRemove(
             defaultArgs("frontend-tools", "@acme/skills/code-review", { yes: false }),
-          ).pipe(Effect.flip);
-          expect((error as CliError).code).toBe("PLAN_CONFIRMATION_REQUIRED");
+          );
 
           // Manifest should still have the extension (not removed)
           const manifestPath = path.join(

@@ -13,6 +13,7 @@ import { newSkill } from "../../../extensions/skills/operations/new-skill.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../plan-helpers.js";
+import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -113,7 +114,7 @@ export const handleSkillsNew = Effect.fn("SkillsNew.handle")(function* (
     label: fqn,
   });
 
-  yield* ws.resolvePlan(plan, { "new-skill": newSkill });
+  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "new-skill": newSkill }));
 
   yield* log.success(`Created skill ${fqn}`);
 });

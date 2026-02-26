@@ -24,6 +24,11 @@ import {
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { handleUninstallPack, type UninstallPackHandlerArgs } from "./handler.js";
+import { UninstallPackCommandWorkflowActionsLive } from "./command-actions.js";
+import { PackManagerLive } from "../../../extensions/packs/manager.js";
+import { SkillManagerLive } from "../../../extensions/skills/manager.js";
+import { CommandManagerLive } from "../../../extensions/commands/manager.js";
+import { McpServerManagerLive } from "../../../extensions/mcp-servers/manager.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -141,7 +146,19 @@ describe("packs uninstall handler", () => {
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
     const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
+    const ManagersLayer = Layer.mergeAll(
+      PackManagerLive,
+      SkillManagerLive,
+      CommandManagerLive,
+      McpServerManagerLive,
+    );
+    const CoreLayer = Layer.mergeAll(BaseLayer, WsLayer, SPLayer);
+    const MgrLayer = Layer.provide(ManagersLayer, CoreLayer);
+    const ActionsLayer = Layer.provide(
+      UninstallPackCommandWorkflowActionsLive,
+      Layer.merge(CoreLayer, MgrLayer),
+    );
+    const FullLayer = Layer.mergeAll(CoreLayer, MgrLayer, ActionsLayer);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
     const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
@@ -168,7 +185,8 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("my-pack"));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          // Should show completed step for the pack
+          expect(mockLog.logs.success.some((m) => m.includes("my-pack"))).toBe(true);
 
           // Check lockfile no longer has the pack
           const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
@@ -186,8 +204,8 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("nonexistent-pack"));
 
-          // Plan marks as no-op
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          // Plan still executes step (no-op since nothing to remove)
+          expect(mockLog.logs.success.some((m) => m.includes("nonexistent-pack"))).toBe(true);
         }),
       );
     });
@@ -213,7 +231,9 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("my-pack"));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          // Should show completed steps for pack and orphaned skill
+          expect(mockLog.logs.success.some((m) => m.includes("my-pack"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("skill-a"))).toBe(true);
         }),
       );
     });
@@ -239,9 +259,10 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("pack-a"));
 
-          // shared-skill should NOT be reported as orphaned
-          expect(mockLog.logs.info.some((m) => m.includes("orphaned"))).toBe(false);
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          // shared-skill is retained by pack-b, should not appear as a step
+          expect(mockLog.logs.success.some((m) => m.includes("shared-skill"))).toBe(false);
+          // pack-a itself should be uninstalled
+          expect(mockLog.logs.success.some((m) => m.includes("pack-a"))).toBe(true);
         }),
       );
     });
@@ -262,15 +283,10 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("my-pack"));
 
-          // promoted-skill is a direct entry, should be reported as preserved
-          expect(
-            mockLog.logs.warn.some(
-              (m) =>
-                m.includes("promoted-skill") &&
-                m.includes("preserved (directly configured in settings)"),
-            ),
-          ).toBe(true);
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          // promoted-skill is directly configured, so excluded from orphan targets
+          expect(mockLog.logs.success.some((m) => m.includes("promoted-skill"))).toBe(false);
+          // pack itself should be uninstalled
+          expect(mockLog.logs.success.some((m) => m.includes("my-pack"))).toBe(true);
         }),
       );
     });
@@ -300,7 +316,9 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("acme-*"));
 
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          // Should show completed steps for matched packs
+          expect(mockLog.logs.success.some((m) => m.includes("acme-tools"))).toBe(true);
+          expect(mockLog.logs.success.some((m) => m.includes("acme-utils"))).toBe(true);
 
           // Check lockfile - acme-tools and acme-utils should be removed, other-pack preserved
           const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");

@@ -32,7 +32,7 @@ import { copySkill } from "../../../extensions/skills/operations/copy.js";
 import { installSkill } from "../../../extensions/skills/operations/install.js";
 import { publishSkill } from "../../../extensions/skills/operations/publish.js";
 import { expandGlobs } from "../../../skills/index.js";
-import type { PlannedJobStep } from "../../../workspace/plan.js";
+import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
 import type { SkillExtensionRef, RegistrySkillRef } from "../../../sources/index.js";
 
 // -----------------------------------------------------------------------------
@@ -252,7 +252,7 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
   const registryName = registrySource.name;
 
   // Step 6: Build plan — fork + publish + install per skill (3 sequential ops)
-  const steps: ReadonlyArray<PlannedJobStep<ForkOp>> = Array.flatMap(filtered, (ref) => {
+  const steps: ReadonlyArray<LegacyPlannedStep<ForkOp>> = Array.flatMap(filtered, (ref) => {
     const targetName = `${namespace}/skills/${ref.skill.name}`;
     const extensionRef = ref;
     // After fork + publish, the skill lives in the registry extensions dir.
@@ -323,11 +323,13 @@ export const handleFork = Effect.fn("Fork.handle")(function* (args: ForkHandlerA
     jobs: [{ steps, concurrency: 1 as const }],
   };
 
-  yield* ws.resolvePlan(plan, {
-    "copy-skill": copySkill,
-    "publish-skill": publishSkill,
-    "install-skill": installSkill,
-  });
+  yield* ws.resolvePlan(
+    bridgeLegacyPlan(plan, {
+      "copy-skill": copySkill,
+      "publish-skill": publishSkill,
+      "install-skill": installSkill,
+    }),
+  );
 
   yield* log.success("Done");
 });

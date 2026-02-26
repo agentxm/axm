@@ -1,34 +1,30 @@
 /**
- * Generic plan types for workspace operations.
+ * Plan types for workspace operations.
  *
- * Parameterized over the operation type so they can be reused across
- * extension types (skills, commands, mcp-servers, rules) and operation
- * types (install, uninstall).
+ * Uses a readiness-based model where each step carries its own `run` closure
+ * (for ready/warn steps) or an error message (for error steps). Plans and jobs
+ * are non-generic; operation-specific details are captured in step closures.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
 
-import * as Option from "effect/Option";
+import type * as Effect from "effect/Effect";
+import type * as Option from "effect/Option";
 import type { CliError } from "../cli-error/index.js";
 
 // -----------------------------------------------------------------------------
-// Types
+// Legacy types (used by non-migrated operation handlers)
+// These will be removed in a future phase.
 // -----------------------------------------------------------------------------
 
+/** @deprecated Use inline types instead. Will be removed in a future phase. */
 export interface Operation<TName extends string, TArgs> {
   readonly name: TName;
   readonly args: TArgs;
 }
 
-export type OperationMap = Record<string, Operation<string, unknown>>;
-
-export type OperationMapFromUnion<Op extends Operation<string, unknown>> = {
-  [K in Op["name"]]: Extract<Op, { name: K }>;
-};
-
-export type OperationUnion<Ops extends OperationMap> = Ops[keyof Ops];
-
+/** @deprecated Use JobStepResult instead. Will be removed in a future phase. */
 export type OperationResult =
   | {
       readonly result: "no-op" | "success";
@@ -40,56 +36,88 @@ export type OperationResult =
       readonly error: CliError;
     };
 
+/** @deprecated Use Readiness string literals instead. Will be removed in a future phase. */
 export type Readiness =
   | { readonly status: "ready"; readonly message: Option.Option<string> }
   | { readonly status: "skip"; readonly message: string }
   | { readonly status: "warn"; readonly message: string }
   | { readonly status: "error"; readonly message: string };
 
-export interface PlannedJobStep<TOperation> {
-  readonly _tag: "PlannedJobStep";
-  readonly operation: TOperation;
-  readonly readiness: Readiness;
+// -----------------------------------------------------------------------------
+// Step result types
+// -----------------------------------------------------------------------------
+
+export type JobStepResult =
+  | {
+      readonly result: "success";
+      readonly message: string;
+    }
+  | {
+      readonly result: "error";
+      readonly message: string;
+      readonly error: CliError;
+    };
+
+// -----------------------------------------------------------------------------
+// Planned step types (readiness-based discriminated union)
+// -----------------------------------------------------------------------------
+
+export interface ReadyJobStep {
+  readonly readiness: "ready";
+  readonly label: string;
+  readonly run: Effect.Effect<JobStepResult, CliError, never>;
+}
+
+export interface WarnJobStep {
+  readonly readiness: "warn";
+  readonly warnMessage: string;
+  readonly label: string;
+  readonly run: Effect.Effect<JobStepResult, CliError, never>;
+}
+
+export interface ErrorJobStep {
+  readonly readiness: "error";
+  readonly errorMessage: string;
   readonly label: string;
 }
 
-export interface JobStepResult<TOperation> {
-  readonly _tag: "JobStepResult";
-  readonly operation: TOperation;
-  readonly result: OperationResult;
+export type PlannedJobStep = ReadyJobStep | WarnJobStep | ErrorJobStep;
+
+// -----------------------------------------------------------------------------
+// Completed step type (after execution)
+// -----------------------------------------------------------------------------
+
+export interface CompletedJobStep {
   readonly label: string;
+  readonly result: JobStepResult;
 }
 
-export type JobStep<TOperation> = PlannedJobStep<TOperation> | JobStepResult<TOperation>;
+// -----------------------------------------------------------------------------
+// Job and Plan types (non-generic)
+// -----------------------------------------------------------------------------
 
-export interface Job<TOperation> {
-  readonly steps: ReadonlyArray<JobStep<TOperation>>;
+export interface Job {
+  readonly steps: ReadonlyArray<PlannedJobStep>;
   readonly concurrency: "unbounded" | 1;
 }
 
-export interface Plan<TOperation> {
+export interface Plan {
   readonly name: string;
   readonly description: Option.Option<string>;
-  readonly jobs: ReadonlyArray<Job<TOperation>>;
+  readonly jobs: ReadonlyArray<Job>;
 }
 
 // -----------------------------------------------------------------------------
-// Helpers
+// Executed plan types (after apply)
 // -----------------------------------------------------------------------------
 
-/**
- * Construct a PlannedJobStep — ready when `isReady` is true, skip otherwise.
- */
-export const makeStep = <TOperation>(
-  operation: TOperation,
-  label: string,
-  isReady: boolean,
-  skipMessage: string,
-): PlannedJobStep<TOperation> => ({
-  _tag: "PlannedJobStep",
-  operation,
-  readiness: isReady
-    ? { status: "ready", message: Option.none() }
-    : { status: "skip", message: skipMessage },
-  label,
-});
+export interface ExecutedJob {
+  readonly steps: ReadonlyArray<CompletedJobStep>;
+  readonly concurrency: "unbounded" | 1;
+}
+
+export interface ExecutedPlan {
+  readonly name: string;
+  readonly description: Option.Option<string>;
+  readonly jobs: ReadonlyArray<ExecutedJob>;
+}

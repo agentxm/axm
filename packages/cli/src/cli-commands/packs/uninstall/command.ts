@@ -5,9 +5,16 @@
  */
 
 import type { CommandModule } from "yargs";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
 import { handleUninstallPack } from "./handler.js";
+import { UninstallPackCommandWorkflowActionsLive } from "./command-actions.js";
+import { PackManagerLive } from "../../../extensions/packs/manager.js";
+import { SkillManagerLive } from "../../../extensions/skills/manager.js";
+import { CommandManagerLive } from "../../../extensions/commands/manager.js";
+import { McpServerManagerLive } from "../../../extensions/mcp-servers/manager.js";
 
 export interface UninstallPackCommandArgs {
   name: string;
@@ -47,20 +54,28 @@ export const uninstallPackCommand: CommandModule<{}, UninstallPackCommandArgs> =
       .example("$0 packs uninstall my-pack --yes", "Uninstall without confirmation prompt")
       .example("$0 packs uninstall acme-*", "Uninstall all packs matching a pattern"),
   handler: async (argv) => {
-    await run(
-      handleUninstallPack({
-        name: argv.name,
-        yes: argv.yes,
-      }),
-      {
-        workspace: {
-          global: false,
-          yes: argv.yes,
-          nonInteractive: Option.fromNullable(argv["non-interactive"]),
-          preview: argv.preview,
-          agents: Option.none(),
-        },
-      },
+    const managersLayer = Layer.mergeAll(
+      PackManagerLive,
+      SkillManagerLive,
+      CommandManagerLive,
+      McpServerManagerLive,
     );
+
+    const program = handleUninstallPack({
+      name: argv.name,
+      yes: argv.yes,
+    }).pipe(
+      Effect.provide(Layer.provideMerge(UninstallPackCommandWorkflowActionsLive, managersLayer)),
+    );
+
+    await run(program, {
+      workspace: {
+        global: false,
+        yes: argv.yes,
+        nonInteractive: Option.fromNullable(argv["non-interactive"]),
+        preview: argv.preview,
+        agents: Option.none(),
+      },
+    });
   },
 };

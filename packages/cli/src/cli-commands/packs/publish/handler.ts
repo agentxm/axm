@@ -21,7 +21,7 @@ import * as Schema from "effect/Schema";
 import { makeCliError, type CliError } from "../../../cli-error/index.js";
 import { Log, Spinner } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
-import type { Job, PlannedJobStep } from "../../../workspace/plan.js";
+import { bridgeLegacyPlan, type LegacyPlannedStep } from "../../../workspace/plan-bridge.js";
 import { formatFqn, parseFqn, parseFqnOrThrow, type Fqn } from "../../../extensions/index.js";
 import {
   publishPack,
@@ -177,7 +177,7 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
   });
 
   // Step 5: Discover local dependencies (when --include-dependencies)
-  const dependencySteps: PlannedJobStep<PackPublishOp>[] = [];
+  const dependencySteps: LegacyPlannedStep<PackPublishOp>[] = [];
 
   if (args.includeDependencies) {
     const manifestContent = yield* fs.readFileString(manifestPath).pipe(
@@ -244,7 +244,7 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
   }
 
   // Step 6: Build plan
-  const packStep: PlannedJobStep<PackPublishOp> = {
+  const packStep: LegacyPlannedStep<PackPublishOp> = {
     _tag: "PlannedJobStep",
     operation: {
       name: "publish-pack",
@@ -257,7 +257,10 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
     label: `Publish ${packName}`,
   };
 
-  const jobs: Job<PackPublishOp>[] =
+  const jobs: Array<{
+    readonly steps: ReadonlyArray<LegacyPlannedStep<PackPublishOp>>;
+    readonly concurrency: "unbounded" | 1;
+  }> =
     dependencySteps.length > 0
       ? [
           { steps: dependencySteps, concurrency: "unbounded" as const },
@@ -271,12 +274,14 @@ export const handlePublishPack = Effect.fn("PublishPack.handle")(function* (
     jobs,
   };
 
-  yield* ws.resolvePlan(plan, {
-    "publish-pack": publishPack,
-    "publish-skill": publishSkill,
-    "publish-command": publishCommand,
-    "publish-mcp-server": publishMcpServer,
-  });
+  yield* ws.resolvePlan(
+    bridgeLegacyPlan(plan, {
+      "publish-pack": publishPack,
+      "publish-skill": publishSkill,
+      "publish-command": publishCommand,
+      "publish-mcp-server": publishMcpServer,
+    }),
+  );
 
   yield* log.success("Done");
 });
@@ -290,7 +295,7 @@ const makeDependencyStep = (
   parsed: Fqn,
   depFqn: string,
   registryName: string,
-): Effect.Effect<PlannedJobStep<PackPublishOp>, CliError> => {
+): Effect.Effect<LegacyPlannedStep<PackPublishOp>, CliError> => {
   const base = {
     _tag: "PlannedJobStep" as const,
     readiness: { status: "ready" as const, message: Option.none() },

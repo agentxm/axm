@@ -25,6 +25,7 @@ import { expandGlobs, isGlobPattern } from "../../../skills/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
+import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -171,7 +172,7 @@ export const handlePacksRemove = Effect.fn("PacksRemove.handle")(function* (
     label: args.pack,
   });
 
-  yield* ws.resolvePlan(plan, { "remove-from-pack": removeFromPack });
+  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "remove-from-pack": removeFromPack }));
 
   yield* log.success("Done");
 });

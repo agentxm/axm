@@ -8,7 +8,6 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeContext from "@effect/platform-node/NodeContext";
-import type { FileSystem, Path } from "@effect/platform";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -16,20 +15,15 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import {
-  type Confirm,
-  type Log,
-  type Multiselect,
-  type Select,
   makeConfirmTestLayer,
   makeLogTestLayer,
   makeMultiselectTestLayer,
   makeSelectTestLayer,
 } from "../../../tui/index.js";
-import {
-  Workspace,
-  layer as workspaceLayer,
-  type WorkspaceContextOptions,
-} from "../../../workspace/index.js";
+import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
+import { SourceHostProvidersLive } from "../../../sources/index.js";
+import { SkillManagerLive } from "../../../extensions/skills/manager.js";
+import { UninstallSkillCommandWorkflowActionsLive } from "./command-actions.js";
 import { handleUninstall, type UninstallHandlerArgs } from "./handler.js";
 
 // -----------------------------------------------------------------------------
@@ -125,7 +119,6 @@ const defaultArgs = (
   overrides: Partial<UninstallHandlerArgs> = {},
 ): UninstallHandlerArgs => ({
   skill,
-  agent: [],
   yes: true,
   ...overrides,
 });
@@ -170,15 +163,17 @@ describe("uninstall.handler", () => {
       ...wsOverrides,
     };
     const WsLayer = Layer.provide(workspaceLayer(wsOptions), BaseLayer);
-    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
+    const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
+    const SMLayer = Layer.provide(SkillManagerLive, Layer.mergeAll(BaseLayer, WsLayer, SPLayer));
+    const ActionsLayer = Layer.provide(
+      UninstallSkillCommandWorkflowActionsLive,
+      Layer.mergeAll(BaseLayer, WsLayer, SMLayer),
+    );
+    const FullLayer = Layer.mergeAll(BaseLayer, WsLayer, ActionsLayer);
 
-    const provide = <A, E>(
-      effect: Effect.Effect<
-        A,
-        E,
-        FileSystem.FileSystem | Path.Path | Log | Confirm | Select | Multiselect | Workspace
-      >,
-    ) => effect.pipe(Effect.provide(FullLayer));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
+    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
+      effect.pipe(Effect.provide(FullLayer));
 
     return { provide, mockLog };
   };
@@ -215,8 +210,8 @@ describe("uninstall.handler", () => {
           const lockfile = YAML.parse(lockContent);
           expect(lockfile.skills["my-skill"]).toBeUndefined();
 
-          // Should show Done
-          expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
+          // Should show completed step
+          expect(mockLog.logs.success.some((m) => m.includes("my-skill"))).toBe(true);
         }),
       );
     });
@@ -295,7 +290,7 @@ describe("uninstall.handler", () => {
           yield* handleUninstall(defaultArgs("nonexistent"));
 
           // Should show the no-op result
-          const allLogs = [...mockLog.logs.warn, ...mockLog.logs.info, ...mockLog.logs.message];
+          const allLogs = [...mockLog.logs.success, ...mockLog.logs.info, ...mockLog.logs.message];
           expect(allLogs.some((m) => m.includes("not installed"))).toBe(true);
         }),
       );
@@ -306,8 +301,8 @@ describe("uninstall.handler", () => {
   // Partial uninstall via --agent
   // ---------------------------------------------------------------------------
 
-  describe("partial uninstall via --agent", () => {
-    it.effect("uninstalls from specific agents only", () => {
+  describe("uninstall from all agents", () => {
+    it.effect("uninstalls from all configured agents", () => {
       const { provide } = makeLayers();
       initWorkspace(
         path.join(tempDir, ".axm"),
@@ -320,27 +315,25 @@ describe("uninstall.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleUninstall(defaultArgs("my-skill", { agent: ["claude-code"] }));
+          yield* handleUninstall(defaultArgs("my-skill"));
 
           // claude-code symlink should be removed
           expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "my-skill"))).toBe(false);
 
-          // cursor symlink should remain
-          expect(fs.existsSync(path.join(tempDir, ".cursor", "skills", "my-skill"))).toBe(true);
+          // cursor symlink should also be removed (--agent not supported in new workflow)
+          expect(fs.existsSync(path.join(tempDir, ".cursor", "skills", "my-skill"))).toBe(false);
 
-          // Canonical should still exist
+          // Canonical should be removed
           expect(
             fs.existsSync(
               path.join(tempDir, ".axm", "extensions", "external", "skills", "my-skill"),
             ),
-          ).toBe(true);
+          ).toBe(false);
 
-          // Lockfile should have updated agents
+          // Lockfile should not have the skill
           const lockContent = fs.readFileSync(path.join(tempDir, ".axm", "axm-lock.yaml"), "utf-8");
           const lockfile = YAML.parse(lockContent);
-          expect(lockfile.skills["my-skill"]).toBeDefined();
-          expect(lockfile.skills["my-skill"].agents).not.toContain("claude-code");
-          expect(lockfile.skills["my-skill"].agents).toContain("cursor");
+          expect(lockfile.skills["my-skill"]).toBeUndefined();
         }),
       );
     });
@@ -350,8 +343,8 @@ describe("uninstall.handler", () => {
   // Pack dependency guard
   // ---------------------------------------------------------------------------
 
-  describe("pack dependency guard", () => {
-    it.effect("blocks uninstall of pack-referenced skill with error", () => {
+  describe("pack dependency retention", () => {
+    it.effect("retains pack-referenced skill on disk but removes settings", () => {
       const { provide, mockLog } = makeLayers();
       const skillName = "my-skill";
       const fqn = "@my-ns/skills/my-skill";
@@ -366,17 +359,26 @@ describe("uninstall.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          // Plan has errors → resolvePlan will fail with PLAN_HAS_ERRORS
-          const result = yield* handleUninstall(defaultArgs(skillName)).pipe(Effect.either);
+          yield* handleUninstall(defaultArgs(skillName));
 
-          // The plan should have failed due to error readiness
-          expect(result._tag).toBe("Left");
-
-          // Error readiness renders via log.error — check error logs for pack reference
+          // Canonical directory should still exist (retained because pack requires it)
           expect(
-            mockLog.logs.error.some(
-              (m) => m.includes("my-pack") && m.includes("axm skills disable"),
+            fs.existsSync(
+              path.join(tempDir, ".axm", "extensions", "external", "skills", skillName),
             ),
+          ).toBe(true);
+
+          // Settings should not have the skill
+          const settingsContent = fs.readFileSync(
+            path.join(tempDir, ".axm", "settings.json"),
+            "utf-8",
+          );
+          const settings = JSON.parse(settingsContent);
+          expect(settings.skills?.[skillName]).toBeUndefined();
+
+          // Success log should mention retained
+          expect(
+            mockLog.logs.success.some((m) => m.includes("retained") || m.includes("required")),
           ).toBe(true);
         }),
       );

@@ -21,22 +21,13 @@ describe("axm skills install --preview integration", () => {
       const temp = createTempDir();
       try {
         // Initialize first
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
         // Run preview without --yes (non-interactive mode prevents confirmation)
         const previewResult = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--preview",
-            "--all",
-            "--non-interactive",
-            "--agent",
-            "claude-code",
-          ],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--preview", "--all", "--non-interactive"],
           { cwd: temp.path },
         );
 
@@ -48,7 +39,7 @@ describe("axm skills install --preview integration", () => {
 
         // Real install
         const installResult = await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes", "--agent", "claude-code"],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--all", "--yes"],
           { cwd: temp.path },
         );
 
@@ -68,36 +59,18 @@ describe("axm skills install --preview integration", () => {
     it("running preview multiple times produces consistent results", async () => {
       const temp = createTempDir();
       try {
-        await runCli(["init", "--yes", "--agent", "claude-code"], {
+        await runCli(["init", "--yes"], {
           cwd: temp.path,
         });
 
         // Run preview twice (without --json)
         const result1 = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--preview",
-            "--all",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--preview", "--all", "--yes"],
           { cwd: temp.path },
         );
 
         const result2 = await runCli(
-          [
-            "skills",
-            "install",
-            SKILLS_REPO_FIXTURE,
-            "--preview",
-            "--all",
-            "--yes",
-            "--agent",
-            "claude-code",
-          ],
+          ["skills", "install", SKILLS_REPO_FIXTURE, "--preview", "--all", "--yes"],
           { cwd: temp.path },
         );
 

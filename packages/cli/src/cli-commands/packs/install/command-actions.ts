@@ -1,0 +1,550 @@
+/**
+ * Pack install command workflow actions.
+ *
+ * Implements `InstallExtensionCommandWorkflowActions` for the pack install
+ * command. The live layer captures all required services at construction time
+ * so action methods satisfy the `R = never` contract.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+
+import * as Context from "effect/Context";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import { makeCliError, type CliError } from "../../../cli-error/index.js";
+import {
+  parseInputPattern,
+  resolveSource,
+  registryGuard,
+  SourceHostProviders,
+} from "../../../sources/index.js";
+import type { PackExtensionRef, RegistrySource, ExtensionRef } from "../../../sources/types.js";
+import { Workspace } from "../../../workspace/index.js";
+import { Log, Spinner } from "../../../tui/index.js";
+import { PackManager } from "../../../extensions/packs/manager.js";
+import { SkillManager } from "../../../extensions/skills/manager.js";
+import { CommandManager } from "../../../extensions/commands/manager.js";
+import { McpServerManager } from "../../../extensions/mcp-servers/manager.js";
+import { expandPackInstallRefs } from "../../../extensions/packs/expansion.js";
+import {
+  buildInstallOperation,
+  targetFromRef,
+  toLabel,
+} from "../../../workflows/install-operation/workflow.js";
+import type { InstallExtensionCommandWorkflowActions } from "../../../workflows/install-command/workflow.js";
+import type { Plan, PlannedJobStep } from "../../../workspace/plan.js";
+import type {
+  SkillExtensionRef,
+  CommandExtensionRef,
+  McpServerExtensionRef,
+} from "../../../sources/types.js";
+import type { InstallPackCommandIntent } from "./intent.js";
+
+// -----------------------------------------------------------------------------
+// Types
+// -----------------------------------------------------------------------------
+
+/** Raw handler args from yargs. */
+export interface InstallPackHandlerArgs {
+  readonly source: string;
+  readonly global: boolean;
+  readonly yes: boolean;
+  readonly force: boolean;
+  readonly nonInteractive: Option.Option<boolean>;
+}
+
+/** Parsed and validated pack install args. */
+export interface ParsedPackInstallArgs {
+  readonly namespace: string;
+  readonly packName: string;
+  readonly versionConstraint: Option.Option<string>;
+  readonly resolvedInput: string;
+  readonly inputKind: "name-input" | "name-input-with-version" | "registry-pattern-input";
+}
+
+/** Source request for pack registry lookup. */
+export interface PackSourceRequest {
+  readonly source: RegistrySource;
+  readonly namespace: string;
+  readonly packName: string;
+  readonly versionConstraint: Option.Option<string>;
+}
+
+// -----------------------------------------------------------------------------
+// Helpers (pure, no service dependencies)
+// -----------------------------------------------------------------------------
+
+const isCliError = (
+  error: unknown,
+): error is {
+  readonly _tag: "CliError";
+  readonly code: string;
+  readonly what: string;
+} =>
+  typeof error === "object" &&
+  error !== null &&
+  "_tag" in error &&
+  error._tag === "CliError" &&
+  "code" in error &&
+  typeof error.code === "string" &&
+  "what" in error &&
+  typeof error.what === "string";
+
+const summarizeLookupError = (error: unknown): string => {
+  if (isCliError(error)) {
+    return `${error.what} (${error.code})`;
+  }
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message;
+  }
+  return String(error);
+};
+
+const isRemoteReadNotImplemented = (error: unknown): boolean =>
+  isCliError(error) &&
+  (error.code === "REGISTRY_REMOTE_NOT_SUPPORTED" ||
+    (error.code.startsWith("REGISTRY_REMOTE_") && error.code.endsWith("_NOT_IMPLEMENTED")));
+
+interface RegistryLookupProbe {
+  readonly location: string;
+  readonly outcome: "matched" | "not-found" | "error";
+  readonly reason: Option.Option<string>;
+}
+
+const formatRegistryProbe = (probe: RegistryLookupProbe): string => {
+  switch (probe.outcome) {
+    case "matched":
+      return `${probe.location}: matched`;
+    case "not-found":
+      return `${probe.location}: no match`;
+    case "error":
+      return Option.match(probe.reason, {
+        onNone: () => `${probe.location}: error`,
+        onSome: (reason) => `${probe.location}: ${reason}`,
+      });
+  }
+};
+
+const formatRegistrySourceLabel = ({
+  source,
+  registryHosts,
+}: {
+  readonly source: RegistrySource;
+  readonly registryHosts: ReadonlyArray<{
+    readonly name: string;
+    readonly location: URL;
+  }>;
+}): string => {
+  const matched = registryHosts.find((host) => host.location.href === source.location.href);
+  if (matched !== undefined) {
+    return `${matched.name} (${matched.location.href})`;
+  }
+  return source.location.href;
+};
+
+// -----------------------------------------------------------------------------
+// Service Tag
+// -----------------------------------------------------------------------------
+
+export class InstallPackCommandWorkflowActions extends Context.Tag(
+  "InstallPackCommandWorkflowActions",
+)<
+  InstallPackCommandWorkflowActions,
+  InstallExtensionCommandWorkflowActions<
+    InstallPackHandlerArgs,
+    ParsedPackInstallArgs,
+    PackSourceRequest,
+    PackExtensionRef,
+    InstallPackCommandIntent
+  >
+>() {}
+
+// -----------------------------------------------------------------------------
+// Live Layer
+// -----------------------------------------------------------------------------
+
+/**
+ * Constructs the actions by resolving all services at layer-build time.
+ * Each action method closes over the captured services so `R = never`.
+ */
+export const InstallPackCommandWorkflowActionsLive = Layer.effect(
+  InstallPackCommandWorkflowActions,
+  Effect.gen(function* () {
+    const sources = yield* SourceHostProviders;
+    const ws = yield* Workspace;
+    const log = yield* Log;
+    const spinnerSvc = yield* Spinner;
+    const packMgr = yield* PackManager;
+    const skillMgr = yield* SkillManager;
+    const commandMgr = yield* CommandManager;
+    const mcpServerMgr = yield* McpServerManager;
+
+    // Build a service layer to provide to inner effects that still require
+    // services via the Effect context (e.g. registryGuard, resolveSource).
+    const envLayer = Layer.mergeAll(
+      Layer.succeed(SourceHostProviders, sources),
+      Layer.succeed(Workspace, ws),
+      Layer.succeed(Log, log),
+      Layer.succeed(Spinner, spinnerSvc),
+    );
+
+    // Assertion needed: strips service requirements (R) from inner effects.
+    // PromptCancelled from registryGuard propagates at runtime but is erased here;
+    // the top-level `run()` function handles it as a clean exit.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bridging service requirements to R=never
+    const provide = <A>(effect: Effect.Effect<A, any, any>): Effect.Effect<A, CliError, never> =>
+      Effect.provide(effect, envLayer) as Effect.Effect<A, CliError, never>;
+
+    const parseArgs = (args: InstallPackHandlerArgs) =>
+      provide(
+        Effect.gen(function* () {
+          const trimmed = args.source.trim();
+          const parsed = parseInputPattern(trimmed);
+
+          // Handle bare name (e.g., "my-pack")
+          if (Option.isSome(parsed) && parsed.value.pattern.pattern === "name-input") {
+            const namespace = yield* ws.getConfiguredNamespace();
+            yield* log.info(
+              `Source resolution: ${trimmed} -> ${namespace}/packs/${parsed.value.pattern.name}`,
+            );
+            return {
+              inputKind: "name-input" as const,
+              namespace,
+              packName: parsed.value.pattern.name,
+              versionConstraint: Option.none<string>(),
+              resolvedInput: `${namespace}/packs/${parsed.value.pattern.name}`,
+            };
+          }
+
+          // Handle bare name with version constraint (e.g., "my-pack@^2.0.0")
+          if (Option.isNone(parsed) && !trimmed.startsWith("@") && trimmed.includes("@")) {
+            const atIndex = trimmed.indexOf("@");
+            const name = trimmed.slice(0, atIndex);
+            const constraint = trimmed.slice(atIndex + 1);
+            if (name && constraint && /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(name)) {
+              const namespace = yield* ws.getConfiguredNamespace();
+              yield* log.info(
+                `Source resolution: ${trimmed} -> ${namespace}/packs/${name}@${constraint}`,
+              );
+              return {
+                inputKind: "name-input-with-version" as const,
+                namespace,
+                packName: name,
+                versionConstraint: Option.some(constraint),
+                resolvedInput: `${namespace}/packs/${name}@${constraint}`,
+              };
+            }
+          }
+
+          // Handle @namespace/packs/pack-name[@constraint]
+          if (Option.isSome(parsed) && parsed.value.pattern.pattern === "registry-pattern-input") {
+            const pat = parsed.value.pattern;
+
+            if (Option.isNone(pat.type) || pat.type.value !== "packs") {
+              return yield* makeCliError({
+                code: "PACK_SOURCE_INVALID_FORMAT",
+                what: "Pack source must include /packs/ segment",
+                details: [`Provided: ${trimmed}`],
+                howToFix:
+                  "Use @namespace/packs/pack-name format. The /packs/ segment distinguishes packs from skills.",
+              });
+            }
+
+            if (Option.isNone(pat.name)) {
+              return yield* makeCliError({
+                code: "PACK_SOURCE_MISSING_NAME",
+                what: "Pack source must include a pack name",
+                details: [`Provided: ${trimmed}`],
+                howToFix: "Use @namespace/packs/pack-name format.",
+              });
+            }
+
+            return {
+              inputKind: "registry-pattern-input" as const,
+              namespace: pat.namespace,
+              packName: pat.name.value,
+              versionConstraint: pat.versionConstraint,
+              resolvedInput: trimmed,
+            };
+          }
+
+          // Reject everything else
+          return yield* makeCliError({
+            code: "PACK_SOURCE_NOT_REGISTRY",
+            what: "Packs can only be installed from a registry",
+            details: [`Provided: ${trimmed}`],
+            howToFix:
+              "Use @namespace/packs/pack-name or just pack-name (resolved to default namespace).",
+          });
+        }),
+      );
+
+    const resolveSourceRequests = (parsed: ParsedPackInstallArgs) =>
+      provide(
+        Effect.gen(function* () {
+          const parseHandle = yield* spinnerSvc.start("Parsing source...");
+          yield* parseHandle.stop(`Pack: ${parsed.namespace}/packs/${parsed.packName}`);
+
+          const source = yield* resolveSource(parsed.resolvedInput).pipe(
+            Effect.mapError((error) =>
+              makeCliError({
+                code: "INVALID_SOURCE",
+                what: `Invalid source: ${error.message}`,
+                details: [`Provided: ${parsed.resolvedInput}`],
+                howToFix: "Use @namespace/packs/pack-name or just pack-name.",
+                cause: error,
+              }),
+            ),
+          );
+
+          if (source.type !== "registry") {
+            return yield* makeCliError({
+              code: "PACK_SOURCE_NOT_REGISTRY",
+              what: "Packs can only be installed from a registry",
+              details: [`Provided source type: ${source.type}`],
+              howToFix: "Use a registry source: @namespace/packs/pack-name",
+            });
+          }
+
+          yield* registryGuard;
+
+          return [
+            {
+              source,
+              namespace: parsed.namespace,
+              packName: parsed.packName,
+              versionConstraint: parsed.versionConstraint,
+            },
+          ];
+        }),
+      );
+
+    const discoverRefs = (reqs: ReadonlyArray<PackSourceRequest>) =>
+      provide(
+        Effect.gen(function* () {
+          // Pack install is single-source, take first request
+          const req = reqs[0];
+          if (!req) {
+            return yield* makeCliError({
+              code: "PACK_NO_SOURCE_REQUEST",
+              what: "No source request provided",
+            });
+          }
+
+          const discoverHandle = yield* spinnerSvc.start("Fetching pack from registry...");
+
+          const findWith = (candidate: RegistrySource) =>
+            sources.find(candidate, {
+              skillNames: [req.packName],
+              type: "pack",
+              namespace: Option.some(req.namespace),
+              versionConstraint: req.versionConstraint,
+            });
+
+          const probes: RegistryLookupProbe[] = [];
+
+          const initialResult = yield* findWith(req.source).pipe(Effect.either);
+          probes.push(
+            initialResult._tag === "Right"
+              ? {
+                  location: req.source.location.href,
+                  outcome: initialResult.right.length > 0 ? "matched" : "not-found",
+                  reason: Option.none(),
+                }
+              : {
+                  location: req.source.location.href,
+                  outcome: "error",
+                  reason: Option.some(summarizeLookupError(initialResult.left)),
+                },
+          );
+
+          let resolvedRefs: ReadonlyArray<PackExtensionRef> | undefined;
+          let resolvedSource: RegistrySource = req.source;
+
+          if (initialResult._tag === "Right" && initialResult.right.length > 0) {
+            resolvedRefs = initialResult.right.filter(
+              (ref): ref is PackExtensionRef => ref.type === "pack",
+            );
+          } else if (
+            initialResult._tag === "Left" &&
+            isRemoteReadNotImplemented(initialResult.left)
+          ) {
+            // Fallback to file:// registries
+            const registryHosts = yield* ws.getRegistrySourceHosts();
+            const fallbackSources = registryHosts
+              .filter((host) => host.location.protocol === "file:")
+              .map(
+                (host) =>
+                  ({
+                    type: "registry" as const,
+                    location: host.location,
+                    namespace: Option.some(req.namespace),
+                  }) satisfies RegistrySource,
+              );
+
+            for (const fallbackSource of fallbackSources) {
+              if (fallbackSource.location.href === req.source.location.href) continue;
+
+              const fallbackResult = yield* findWith(fallbackSource).pipe(Effect.either);
+              probes.push(
+                fallbackResult._tag === "Right"
+                  ? {
+                      location: fallbackSource.location.href,
+                      outcome: fallbackResult.right.length > 0 ? "matched" : "not-found",
+                      reason: Option.none(),
+                    }
+                  : {
+                      location: fallbackSource.location.href,
+                      outcome: "error",
+                      reason: Option.some(summarizeLookupError(fallbackResult.left)),
+                    },
+              );
+
+              if (fallbackResult._tag === "Right" && fallbackResult.right.length > 0) {
+                resolvedRefs = fallbackResult.right.filter(
+                  (ref): ref is PackExtensionRef => ref.type === "pack",
+                );
+                resolvedSource = fallbackSource;
+                break;
+              }
+            }
+
+            if (!resolvedRefs) {
+              yield* discoverHandle.stop("Not found");
+              return yield* makeCliError({
+                code: "PACK_FETCH_FAILED",
+                what: "Failed to fetch pack from registry",
+                details: [
+                  `Pack: ${req.namespace}/packs/${req.packName}`,
+                  `Lookup probes: ${probes.map(formatRegistryProbe).join("; ")}`,
+                ],
+                howToFix:
+                  "Remote registry discovery is not yet supported. Configure a file:// registry source or use a local registry source name.",
+              });
+            }
+          } else if (initialResult._tag === "Left") {
+            yield* discoverHandle.stop("Error");
+            return yield* makeCliError({
+              code: "PACK_FETCH_FAILED",
+              what: "Failed to fetch pack from registry",
+              details: [
+                `Pack: ${req.namespace}/packs/${req.packName}`,
+                `Reason: ${summarizeLookupError(initialResult.left)}`,
+              ],
+              howToFix: "Verify the pack name and registry configuration.",
+              cause: initialResult.left,
+            });
+          }
+
+          // Log resolution probes for bare-name inputs
+          if (req.packName && probes.length > 0) {
+            yield* log.info(`Host resolution: ${probes.map(formatRegistryProbe).join("; ")}`);
+          }
+
+          const registryHosts = yield* ws.getRegistrySourceHosts();
+          yield* log.info(
+            `Registry source: ${formatRegistrySourceLabel({ source: resolvedSource, registryHosts })}`,
+          );
+
+          if (!resolvedRefs || resolvedRefs.length === 0) {
+            yield* discoverHandle.stop("Not found");
+            return yield* makeCliError({
+              code: "PACK_NOT_FOUND",
+              what: `Pack "${req.packName}" not found in registry`,
+              howToFix: "Verify the pack name and check available packs.",
+            });
+          }
+
+          yield* discoverHandle.stop("Found pack");
+          return resolvedRefs;
+        }),
+      );
+
+    const finalizeIntent = (parsed: ParsedPackInstallArgs, refs: ReadonlyArray<PackExtensionRef>) =>
+      Effect.gen(function* () {
+        const packRef = refs[0];
+        if (!packRef) {
+          return yield* makeCliError({
+            code: "PACK_NOT_FOUND",
+            what: "No pack reference found",
+          });
+        }
+
+        if (packRef.type !== "pack") {
+          return yield* makeCliError({
+            code: "PACK_FETCH_FAILED",
+            what: "Registry did not return a valid pack reference",
+          });
+        }
+
+        return {
+          packToInstall: packRef,
+          versionConstraint: parsed.versionConstraint,
+        };
+      });
+
+    const buildPlan = (intent: InstallPackCommandIntent) =>
+      Effect.gen(function* () {
+        const refs = yield* expandPackInstallRefs({
+          pack: intent.packToInstall,
+          supportedDependencyTypes: ["skill", "command", "mcp-server"],
+        });
+
+        const steps = refs.map((ref: ExtensionRef): PlannedJobStep => {
+          const target = targetFromRef(ref);
+
+          if (ref.type === "pack") {
+            return buildInstallOperation<PackExtensionRef>(packMgr, {
+              ref,
+              versionConstraint: intent.versionConstraint,
+            });
+          }
+
+          if (ref.type === "skill") {
+            return buildInstallOperation<SkillExtensionRef>(skillMgr, {
+              ref,
+              versionConstraint: Option.none(),
+              skipSettings: true,
+            });
+          }
+
+          if (ref.type === "command") {
+            return buildInstallOperation<CommandExtensionRef>(commandMgr, {
+              ref,
+              versionConstraint: Option.none(),
+              skipSettings: true,
+            });
+          }
+
+          if (ref.type === "mcp-server") {
+            return buildInstallOperation<McpServerExtensionRef>(mcpServerMgr, {
+              ref,
+              versionConstraint: Option.none(),
+              skipSettings: true,
+            });
+          }
+
+          return {
+            label: toLabel(target),
+            readiness: "error",
+            errorMessage: `Unsupported dependency type: ${(ref as ExtensionRef).type}`,
+          };
+        });
+
+        return {
+          name: "Install pack",
+          description: Option.none(),
+          jobs: [{ concurrency: 1 as const, steps }],
+        } satisfies Plan;
+      });
+
+    return {
+      parseArgs,
+      resolveSourceRequests,
+      discoverRefs,
+      finalizeIntent,
+      buildPlan,
+    };
+  }),
+);

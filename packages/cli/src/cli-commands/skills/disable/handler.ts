@@ -13,8 +13,9 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import type { DisableSkillOperation } from "../../../extensions/skills/operations/disable.js";
-import { buildSingleStepPlan } from "../plan-helpers.js";
 import { disableSkill } from "../../../extensions/skills/operations/disable.js";
+import { buildSingleStepPlan } from "../plan-helpers.js";
+import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -71,7 +72,7 @@ export const handleDisable = Effect.fn("Disable.handle")(function* (args: Disabl
     label: args.name,
   });
 
-  yield* ws.resolvePlan(plan, { "disable-skill": disableSkill });
+  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "disable-skill": disableSkill }));
 
   yield* log.success("Done");
 });

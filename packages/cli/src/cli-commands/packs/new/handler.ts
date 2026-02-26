@@ -18,6 +18,7 @@ import { computePackPaths } from "../../../extensions/packs/paths.js";
 import { Log } from "../../../tui/index.js";
 import { Workspace } from "../../../workspace/index.js";
 import { buildSingleStepPlan } from "../../skills/plan-helpers.js";
+import { bridgeLegacyPlan } from "../../../workspace/plan-bridge.js";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -102,7 +103,7 @@ export const handlePacksNew = Effect.fn("PacksNew.handle")(function* (args: Pack
     label: fqn,
   });
 
-  yield* ws.resolvePlan(plan, { "new-pack": newPack });
+  yield* ws.resolvePlan(bridgeLegacyPlan(plan, { "new-pack": newPack }));
 
   yield* log.success(`Created pack ${fqn}`);
 });

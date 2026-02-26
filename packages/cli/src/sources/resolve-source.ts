@@ -382,7 +382,7 @@ export const routeNameInput = (
 /** Route RegistryPatternInput: find matching registry config and intersect with params. */
 export const routeRegistryInput = (
   pattern: {
-    readonly type: Option.Option<"skills" | "mcp-servers" | "packs">;
+    readonly type: Option.Option<"skills" | "commands" | "mcp-servers" | "packs">;
     readonly namespace: string;
     readonly name: Option.Option<string>;
   },

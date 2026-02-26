@@ -609,27 +609,32 @@ describe("fork.handler", () => {
       );
     });
 
-    it.effect("returns DISCOVER_FAILED with a concrete reason when local source discovery fails", () => {
-      const { provide } = makeLayers();
-      const registryRoot = path.join(tempDir, "registry");
+    it.effect(
+      "returns DISCOVER_FAILED with a concrete reason when local source discovery fails",
+      () => {
+        const { provide } = makeLayers();
+        const registryRoot = path.join(tempDir, "registry");
 
-      initWorkspace(path.join(tempDir, ".axm"), registryRoot);
+        initWorkspace(path.join(tempDir, ".axm"), registryRoot);
 
-      return provide(
-        Effect.gen(function* () {
-          const result = yield* handleFork(defaultArgs("/path/does/not/exist")).pipe(
-            Effect.catchTag("CliError", (e) => Effect.succeed({ code: e.code, details: e.details })),
-          );
-          expect(result).toBeDefined();
-          expect((result as { code: string }).code).toBe("DISCOVER_FAILED");
-          const reason = (result as { details: ReadonlyArray<string> }).details.find((d) =>
-            d.startsWith("Reason:"),
-          );
-          expect(reason).toBeDefined();
-          expect(reason).not.toBe("Reason:");
-        }),
-      );
-    });
+        return provide(
+          Effect.gen(function* () {
+            const result = yield* handleFork(defaultArgs("/path/does/not/exist")).pipe(
+              Effect.catchTag("CliError", (e) =>
+                Effect.succeed({ code: e.code, details: e.details }),
+              ),
+            );
+            expect(result).toBeDefined();
+            expect((result as { code: string }).code).toBe("DISCOVER_FAILED");
+            const reason = (result as { details: ReadonlyArray<string> }).details.find((d) =>
+              d.startsWith("Reason:"),
+            );
+            expect(reason).toBeDefined();
+            expect(reason).not.toBe("Reason:");
+          }),
+        );
+      },
+    );
   });
 
   describe("namespace resolution", () => {

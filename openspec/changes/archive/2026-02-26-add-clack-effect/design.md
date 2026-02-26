@@ -9,12 +9,14 @@ The `clack-effect` module will live alongside `tui/` — no existing code change
 ## Goals / Non-Goals
 
 **Goals:**
+
 - Wrap the full `@clack/prompts` API as Effect services
 - Follow established patterns from `tui/` (Context.Tag services, live layers, test layers)
 - Map Clack's cancel symbol to the existing `PromptCancelled` error
 - Make every service independently providable and testable
 
 **Non-Goals:**
+
 - Migrating any existing handler from `tui/` to `clack-effect`
 - Removing or modifying the `tui/` module
 - Wrapping `@clack/core` internals — only the `@clack/prompts` public API
@@ -26,14 +28,14 @@ The `clack-effect` module will live alongside `tui/` — no existing code change
 
 The `tui/` module has one service per prompt type (Confirm, Select, etc.). For `clack-effect`, group related functions into fewer services to reduce boilerplate while keeping services independently testable:
 
-| Service | Wraps | Error type |
-|---|---|---|
-| `ClackPrompt` | `text`, `password`, `confirm`, `select`, `multiselect`, `groupMultiselect`, `selectKey`, `autocomplete`, `autocompleteMultiselect`, `path` | `CliError \| PromptCancelled` |
-| `ClackLog` | `log.*` methods, `intro`, `outro`, `cancel` (session framing), `note`, `box` | _(none)_ |
-| `ClackSpinner` | `spinner` (raw handle + scoped `withSpinner`) | _(none — handle methods are sync)_ |
-| `ClackProgress` | `progress` (extends spinner with `advance` + scoped `withProgress`) | _(none — handle methods are sync)_ |
-| `ClackTaskLog` | `taskLog` (live subprocess-style output with groups) | _(none — handle methods are sync)_ |
-| `ClackStream` | `stream.*` methods | `CliError \| E` |
+| Service         | Wraps                                                                                                                                      | Error type                         |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
+| `ClackPrompt`   | `text`, `password`, `confirm`, `select`, `multiselect`, `groupMultiselect`, `selectKey`, `autocomplete`, `autocompleteMultiselect`, `path` | `CliError \| PromptCancelled`      |
+| `ClackLog`      | `log.*` methods, `intro`, `outro`, `cancel` (session framing), `note`, `box`                                                               | _(none)_                           |
+| `ClackSpinner`  | `spinner` (raw handle + scoped `withSpinner`)                                                                                              | _(none — handle methods are sync)_ |
+| `ClackProgress` | `progress` (extends spinner with `advance` + scoped `withProgress`)                                                                        | _(none — handle methods are sync)_ |
+| `ClackTaskLog`  | `taskLog` (live subprocess-style output with groups)                                                                                       | _(none — handle methods are sync)_ |
+| `ClackStream`   | `stream.*` methods                                                                                                                         | `CliError \| E`                    |
 
 Note on `ClackLog.cancel`: This is a session-framing message (like `intro`/`outro`) — it displays a styled cancellation message. It is not an action. Distinct from `ClackSpinnerHandle.cancel` which stops a spinner with cancel styling.
 
@@ -51,14 +53,15 @@ Clack prompts return `T | symbol`. The wrapper uses `isCancel()` to detect cance
 const wrapPrompt = <T>(thunk: () => Promise<T | symbol>) =>
   Effect.tryPromise({
     try: () => thunk(),
-    catch: (error) => makeCliError({ code: "PROMPT_RENDER_FAILED", what: "Prompt failed", cause: error }),
+    catch: (error) =>
+      makeCliError({ code: "PROMPT_RENDER_FAILED", what: "Prompt failed", cause: error }),
   }).pipe(
     Effect.flatMap((result) =>
       isCancel(result)
         ? Effect.fail(new PromptCancelled({ message: "Operation cancelled." }))
-        : Effect.succeed(result as T)
-    )
-  )
+        : Effect.succeed(result as T),
+    ),
+  );
 ```
 
 `wrapPrompt` accepts a thunk (not a `Promise`) so the prompt doesn't start executing before Effect has control. It lives as a private function in `prompt/service.ts`.
@@ -144,28 +147,35 @@ Instead, provide `runTasks` as a plain function (not a service) that takes `Clac
 
 ```typescript
 interface ClackTask<E, R> {
-  readonly title: string
-  readonly task: (message: (msg: string) => Effect.Effect<void>) => Effect.Effect<string | void, E, R>
-  readonly enabled?: boolean
+  readonly title: string;
+  readonly task: (
+    message: (msg: string) => Effect.Effect<void>,
+  ) => Effect.Effect<string | void, E, R>;
+  readonly enabled?: boolean;
 }
 
 // Plain function, not a service — ClackSpinner is required in R
 const runTasks = <E, R>(
-  tasks: ReadonlyArray<ClackTask<E, R>>
+  tasks: ReadonlyArray<ClackTask<E, R>>,
 ): Effect.Effect<void, E, ClackSpinner | R> =>
   Effect.gen(function* () {
-    const s = yield* ClackSpinner
+    const s = yield* ClackSpinner;
     yield* Effect.forEach(
       tasks.filter((t) => t.enabled !== false),
-      (task) => s.withSpinner(task.title, (handle) =>
-        Effect.map(task.task((msg) => handle.message(msg)), (result) => result ?? task.title)
-      ),
+      (task) =>
+        s.withSpinner(task.title, (handle) =>
+          Effect.map(
+            task.task((msg) => handle.message(msg)),
+            (result) => result ?? task.title,
+          ),
+        ),
       { concurrency: 1 },
-    )
-  })
+    );
+  });
 ```
 
 Callers get `ClackSpinner` for free via `ClackLive`. Key differences from wrapping Clack's `tasks()`:
+
 - **Typed errors** — each task's errors flow through the Effect channel
 - **Interruption** — the task sequence can be interrupted mid-run
 - **Effect-native task bodies** — tasks return `Effect` instead of `Promise`, composing naturally with services
@@ -207,11 +217,11 @@ Non-generic prompts (text, password, confirm):
 
 ```typescript
 interface ClackTextConfig {
-  readonly message: string
-  readonly placeholder?: string
-  readonly defaultValue?: string
-  readonly initialValue?: string
-  readonly validate?: (value: string | undefined) => string | Error | undefined
+  readonly message: string;
+  readonly placeholder?: string;
+  readonly defaultValue?: string;
+  readonly initialValue?: string;
+  readonly validate?: (value: string | undefined) => string | Error | undefined;
 }
 ```
 
@@ -236,7 +246,7 @@ Follow the established `tui/` test layer pattern. Each service gets a `makeXxxTe
 
 ```typescript
 interface MockClackPromptService extends ClackPromptService {
-  readonly calls: { method: string; config: unknown }[]
+  readonly calls: { method: string; config: unknown }[];
 }
 ```
 
@@ -322,16 +332,18 @@ if (isCancel(name)) {
 **After — Effect:**
 
 ```typescript
-const p = yield* ClackPrompt;
+const p = yield * ClackPrompt;
 
-const name = yield* p.text({
-  message: "What is your name?",
-  placeholder: "John Doe",
-  validate: (value) => {
-    if (!value || value.length < 2) return "Name must be at least 2 characters";
-    return undefined;
-  },
-});
+const name =
+  yield *
+  p.text({
+    message: "What is your name?",
+    placeholder: "John Doe",
+    validate: (value) => {
+      if (!value || value.length < 2) return "Name must be at least 2 characters";
+      return undefined;
+    },
+  });
 // Cancellation automatically becomes PromptCancelled in the error channel
 ```
 
@@ -355,9 +367,9 @@ if (isCancel(secret)) {
 **After — Effect:**
 
 ```typescript
-const p = yield* ClackPrompt;
+const p = yield * ClackPrompt;
 
-const secret = yield* p.password({ message: "Enter your token:", mask: "*" });
+const secret = yield * p.password({ message: "Enter your token:", mask: "*" });
 ```
 
 ### Confirm
@@ -383,13 +395,13 @@ if (!shouldProceed) {
 **After — Effect:**
 
 ```typescript
-const p = yield* ClackPrompt;
-const l = yield* ClackLog;
+const p = yield * ClackPrompt;
+const l = yield * ClackLog;
 
-const shouldProceed = yield* p.confirm({ message: "Do you want to continue?" });
+const shouldProceed = yield * p.confirm({ message: "Do you want to continue?" });
 
 if (!shouldProceed) {
-  yield* l.info("Aborted.");
+  yield * l.info("Aborted.");
 }
 ```
 
@@ -417,16 +429,18 @@ if (isCancel(framework)) {
 **After — Effect:**
 
 ```typescript
-const p = yield* ClackPrompt;
+const p = yield * ClackPrompt;
 
-const framework = yield* p.select({
-  message: "Pick a framework",
-  options: [
-    { value: "next", label: "Next.js", hint: "React framework" },
-    { value: "astro", label: "Astro", hint: "Content-focused" },
-    { value: "svelte", label: "SvelteKit", hint: "Compile-time framework" },
-  ],
-});
+const framework =
+  yield *
+  p.select({
+    message: "Pick a framework",
+    options: [
+      { value: "next", label: "Next.js", hint: "React framework" },
+      { value: "astro", label: "Astro", hint: "Content-focused" },
+      { value: "svelte", label: "SvelteKit", hint: "Compile-time framework" },
+    ],
+  });
 // framework is typed as string — no symbol to check
 ```
 
@@ -455,17 +469,19 @@ if (isCancel(features)) {
 **After — Effect:**
 
 ```typescript
-const p = yield* ClackPrompt;
+const p = yield * ClackPrompt;
 
-const features = yield* p.multiselect({
-  message: "Select features",
-  options: [
-    { value: "eslint", label: "ESLint" },
-    { value: "prettier", label: "Prettier" },
-    { value: "vitest", label: "Vitest" },
-  ],
-  required: true,
-});
+const features =
+  yield *
+  p.multiselect({
+    message: "Select features",
+    options: [
+      { value: "eslint", label: "ESLint" },
+      { value: "prettier", label: "Prettier" },
+      { value: "vitest", label: "Vitest" },
+    ],
+    required: true,
+  });
 // features is typed as string[] — cancellation is in the error channel
 ```
 
@@ -498,21 +514,23 @@ if (isCancel(tools)) {
 **After — Effect:**
 
 ```typescript
-const p = yield* ClackPrompt;
+const p = yield * ClackPrompt;
 
-const tools = yield* p.groupMultiselect({
-  message: "Define your project",
-  options: {
-    Testing: [
-      { value: "vitest", hint: "Vite-native testing" },
-      { value: "playwright", hint: "End-to-end testing" },
-    ],
-    "Code quality": [
-      { value: "prettier", hint: "Code formatter" },
-      { value: "eslint", hint: "Linter" },
-    ],
-  },
-});
+const tools =
+  yield *
+  p.groupMultiselect({
+    message: "Define your project",
+    options: {
+      Testing: [
+        { value: "vitest", hint: "Vite-native testing" },
+        { value: "playwright", hint: "End-to-end testing" },
+      ],
+      "Code quality": [
+        { value: "prettier", hint: "Code formatter" },
+        { value: "eslint", hint: "Linter" },
+      ],
+    },
+  });
 ```
 
 ### Autocomplete
@@ -540,17 +558,19 @@ if (isCancel(framework)) {
 **After — Effect:**
 
 ```typescript
-const p = yield* ClackPrompt;
+const p = yield * ClackPrompt;
 
-const framework = yield* p.autocomplete({
-  message: "Search for a framework",
-  options: [
-    { value: "next", label: "Next.js" },
-    { value: "astro", label: "Astro" },
-    { value: "svelte", label: "SvelteKit" },
-  ],
-  placeholder: "Type to search...",
-});
+const framework =
+  yield *
+  p.autocomplete({
+    message: "Search for a framework",
+    options: [
+      { value: "next", label: "Next.js" },
+      { value: "astro", label: "Astro" },
+      { value: "svelte", label: "SvelteKit" },
+    ],
+    placeholder: "Type to search...",
+  });
 ```
 
 ### Path
@@ -573,9 +593,9 @@ if (isCancel(selectedPath)) {
 **After — Effect:**
 
 ```typescript
-const p = yield* ClackPrompt;
+const p = yield * ClackPrompt;
 
-const selectedPath = yield* p.path({ message: "Select a file:", root: process.cwd() });
+const selectedPath = yield * p.path({ message: "Select a file:", root: process.cwd() });
 ```
 
 ### Spinner (raw handle)
@@ -598,10 +618,10 @@ spin.stop(`Source: ${source.origin} (${source.type})`);
 ```typescript
 import { ClackSpinner } from "@/clack-effect";
 
-const s = yield* ClackSpinner;
-const handle = yield* s.start("Parsing source...");
-const source = yield* resolveSource(input);
-yield* handle.stop(`Source: ${source.origin} (${source.type})`);
+const s = yield * ClackSpinner;
+const handle = yield * s.start("Parsing source...");
+const source = yield * resolveSource(input);
+yield * handle.stop(`Source: ${source.origin} (${source.type})`);
 ```
 
 ### Spinner (scoped `withSpinner`)
@@ -626,15 +646,18 @@ spin.stop("Installation complete");
 ```typescript
 import { ClackSpinner } from "@/clack-effect";
 
-const s = yield* ClackSpinner;
-yield* s.withSpinner("Installing dependencies", (handle) =>
-  Effect.gen(function* () {
-    yield* handle.message("Linking packages");
-    yield* linkPackages();
-    // spinner auto-stops on success or error — no leaked spinners
-  }),
-  "Installation complete",
-);
+const s = yield * ClackSpinner;
+yield *
+  s.withSpinner(
+    "Installing dependencies",
+    (handle) =>
+      Effect.gen(function* () {
+        yield* handle.message("Linking packages");
+        yield* linkPackages();
+        // spinner auto-stops on success or error — no leaked spinners
+      }),
+    "Installation complete",
+  );
 ```
 
 ### Progress (raw handle)
@@ -654,12 +677,12 @@ prog.stop("All files processed");
 **After — Effect (raw handle):**
 
 ```typescript
-const p = yield* ClackProgress;
+const p = yield * ClackProgress;
 
-const handle = yield* p.start({ style: "heavy", max: 100, size: 40 }, "Processing files");
-yield* handle.advance(10);
-yield* handle.advance(25, "Processing images...");
-yield* handle.stop("All files processed");
+const handle = yield * p.start({ style: "heavy", max: 100, size: 40 }, "Processing files");
+yield * handle.advance(10);
+yield * handle.advance(25, "Processing images...");
+yield * handle.stop("All files processed");
 ```
 
 ### Progress (scoped `withProgress`)
@@ -667,19 +690,20 @@ yield* handle.stop("All files processed");
 **After — Effect (scoped):**
 
 ```typescript
-const p = yield* ClackProgress;
+const p = yield * ClackProgress;
 
-yield* p.withProgress(
-  { style: "heavy", max: 100, size: 40 },
-  "Processing files",
-  (handle) =>
-    Effect.gen(function* () {
-      yield* handle.advance(10);
-      yield* handle.advance(25, "Processing images...");
-      // progress bar auto-stops on success or error
-    }),
-  "All files processed",
-);
+yield *
+  p.withProgress(
+    { style: "heavy", max: 100, size: 40 },
+    "Processing files",
+    (handle) =>
+      Effect.gen(function* () {
+        yield* handle.advance(10);
+        yield* handle.advance(25, "Processing images...");
+        // progress bar auto-stops on success or error
+      }),
+    "All files processed",
+  );
 ```
 
 ### Tasks
@@ -708,24 +732,25 @@ Instead of wrapping Clack's `tasks()` (which swallows errors and blocks interrup
 ```typescript
 import { runTasks } from "@/clack-effect";
 
-yield* runTasks([
-  {
-    title: "Downloading package",
-    task: (message) =>
-      Effect.gen(function* () {
-        yield* downloadPackage();
-        return "Download completed";
-      }),
-  },
-  {
-    title: "Linking",
-    task: (message) =>
-      Effect.gen(function* () {
-        yield* linkPackages();
-        return "Package linked";
-      }),
-  },
-]);
+yield *
+  runTasks([
+    {
+      title: "Downloading package",
+      task: (message) =>
+        Effect.gen(function* () {
+          yield* downloadPackage();
+          return "Download completed";
+        }),
+    },
+    {
+      title: "Linking",
+      task: (message) =>
+        Effect.gen(function* () {
+          yield* linkPackages();
+          return "Package linked";
+        }),
+    },
+  ]);
 // Errors are typed, interruption works, spinners auto-cleanup
 ```
 
@@ -749,13 +774,13 @@ log.message("Entering directory");
 ```typescript
 import { ClackLog } from "@/clack-effect";
 
-const l = yield* ClackLog;
-yield* l.info("No files to update");
-yield* l.warn("Directory is empty, skipping");
-yield* l.error("Permission denied on file src/secret.js");
-yield* l.success("Installation complete");
-yield* l.step("Check files");
-yield* l.message("Entering directory");
+const l = yield * ClackLog;
+yield * l.info("No files to update");
+yield * l.warn("Directory is empty, skipping");
+yield * l.error("Permission denied on file src/secret.js");
+yield * l.success("Installation complete");
+yield * l.step("Check files");
+yield * l.message("Entering directory");
 ```
 
 ### Intro / Outro / Cancel
@@ -778,13 +803,13 @@ cancel("Installation cancelled");
 ```typescript
 import { ClackLog } from "@/clack-effect";
 
-const l = yield* ClackLog;
-yield* l.intro("Welcome to my-cli");
+const l = yield * ClackLog;
+yield * l.intro("Welcome to my-cli");
 // ... prompts ...
-yield* l.outro("All done!");
+yield * l.outro("All done!");
 
 // Or on cancellation:
-yield* l.cancel("Installation cancelled");
+yield * l.cancel("Installation cancelled");
 ```
 
 ### Note / Box
@@ -803,9 +828,9 @@ box("Content of the box", "Box Title", { contentAlign: "center", rounded: true }
 ```typescript
 import { ClackLog } from "@/clack-effect";
 
-const l = yield* ClackLog;
-yield* l.note("You can edit the file src/index.jsx", "Next steps.");
-yield* l.box("Content of the box", "Box Title", { contentAlign: "center", rounded: true });
+const l = yield * ClackLog;
+yield * l.note("You can edit the file src/index.jsx", "Next steps.");
+yield * l.box("Content of the box", "Box Title", { contentAlign: "center", rounded: true });
 ```
 
 ### Stream
@@ -831,19 +856,19 @@ await stream.step(["Job1...", " done\n", "Job2...", " done"]);
 import { Stream, pipe } from "effect";
 import { ClackStream } from "@/clack-effect";
 
-const s = yield* ClackStream;
+const s = yield * ClackStream;
 
 // Simple literals
-yield* s.info(Stream.make("Processing...", " done\n"));
+yield * s.info(Stream.make("Processing...", " done\n"));
 
-yield* s.step(Stream.make("Job1...", " done\n", "Job2...", " done"));
+yield * s.step(Stream.make("Job1...", " done\n", "Job2...", " done"));
 
 // Effectful pipeline — errors propagate through the Effect channel
 const lines = pipe(
   Stream.fromIterable(files),
   Stream.mapEffect((file) => readAndFormat(file)),
 );
-yield* s.step(lines);
+yield * s.step(lines);
 ```
 
 ### TaskLog
@@ -868,15 +893,15 @@ log.success("Build complete");
 ```typescript
 import { ClackTaskLog } from "@/clack-effect";
 
-const tl = yield* ClackTaskLog;
-const handle = yield* tl.start({ title: "Building project" });
+const tl = yield * ClackTaskLog;
+const handle = yield * tl.start({ title: "Building project" });
 
-const tsGroup = yield* handle.group("Compiling TypeScript");
-yield* tsGroup.message("Processing src/index.ts...");
-yield* tsGroup.message("Processing src/utils.ts...");
-yield* tsGroup.success("TypeScript compiled");
+const tsGroup = yield * handle.group("Compiling TypeScript");
+yield * tsGroup.message("Processing src/index.ts...");
+yield * tsGroup.message("Processing src/utils.ts...");
+yield * tsGroup.success("TypeScript compiled");
 
-yield* handle.success("Build complete");
+yield * handle.success("Build complete");
 ```
 
 ### Group (Prompt Sequencing) — use `Effect.gen` instead
@@ -911,16 +936,18 @@ const account = await group(
 ```typescript
 import { ClackPrompt } from "@/clack-effect";
 
-const p = yield* ClackPrompt;
+const p = yield * ClackPrompt;
 
-const email = yield* p.text({ message: "What is your email?" });
+const email = yield * p.text({ message: "What is your email?" });
 
-const username = yield* p.text({
-  message: "What is your username?",
-  placeholder: email.replace(/@.+$/, "").toLowerCase(),
-});
+const username =
+  yield *
+  p.text({
+    message: "What is your username?",
+    placeholder: email.replace(/@.+$/, "").toLowerCase(),
+  });
 
-const pw = yield* p.password({ message: "Define your password" });
+const pw = yield * p.password({ message: "Define your password" });
 // If any prompt is cancelled, PromptCancelled propagates automatically
 // No onCancel needed — Effect.gen propagates errors naturally
 ```

@@ -1076,6 +1076,11 @@ const make = (options: WorkspaceContextOptions) =>
             };
           });
 
+          const originalPlanSteps = Array.flatMap(plan.jobs, (job) => [...job.steps]);
+          const isInstallPlanOnly =
+            originalPlanSteps.length > 0 &&
+            originalPlanSteps.every((step) => step.operation.name.startsWith("install-"));
+
           const internalReconciliationHandlers = {
             "read-recover-lockfile": (
               _op: Extract<ReconciliationOperation, { name: "read-recover-lockfile" }>,
@@ -1083,7 +1088,14 @@ const make = (options: WorkspaceContextOptions) =>
             "reconcile-materialize-lockfile": (
               op: Extract<ReconciliationOperation, { name: "reconcile-materialize-lockfile" }>,
             ) =>
-              runReconcileMaterializeOperation(reconciliationContext, workspaceDir, op.args.reason),
+              runReconcileMaterializeOperation(
+                reconciliationContext,
+                workspaceDir,
+                op.args.reason,
+                {
+                  allowMissingDeclarations: isInstallPlanOnly,
+                },
+              ),
           } as const;
 
           const mergedHandlers = {
@@ -1097,7 +1109,6 @@ const make = (options: WorkspaceContextOptions) =>
             (s): s is PlannedJobStep<Op> => s._tag === "PlannedJobStep",
           );
           const hasErrors = plannedSteps.some((s) => s.readiness.status === "error");
-          const hasWarnings = plannedSteps.some((s) => s.readiness.status === "warn");
 
           // Aggregate error messages for the CliError detail
           const errorMessages = plannedSteps
@@ -1116,7 +1127,25 @@ const make = (options: WorkspaceContextOptions) =>
               });
             }
 
-            return augmentedPlan;
+            if (resolvedNonInteractive && !options.yes) {
+              return yield* makeCliError({
+                code: "PLAN_CONFIRMATION_REQUIRED",
+                what: "Cannot apply previewed plan in non-interactive mode without --yes",
+                howToFix: "Re-run with --yes, or run interactively to confirm apply",
+              });
+            }
+
+            if (!options.yes) {
+              const confirmed = yield* confirm.prompt({ message: "Apply changes?" });
+              if (!confirmed) {
+                yield* log.success("Cancelled.");
+                return emptyPlan;
+              }
+            }
+
+            const applied = yield* applyPlan(augmentedPlan, mergedHandlers);
+            yield* displayPlan(applied, { verbosity });
+            return applied;
           } else {
             if (hasErrors) {
               yield* displayPlan(augmentedPlan, { verbosity });
@@ -1125,40 +1154,6 @@ const make = (options: WorkspaceContextOptions) =>
                 what: "Plan has errors that prevent execution",
                 details: errorMessages,
               });
-            }
-
-            yield* displayPlan(augmentedPlan, { verbosity });
-
-            if (hasWarnings) {
-              if (resolvedNonInteractive) {
-                return yield* makeCliError({
-                  code: "PLAN_HAS_WARNINGS",
-                  what: "Plan has warnings and cannot prompt in non-interactive mode",
-                });
-              }
-              if (!options.yes) {
-                const confirmed = yield* confirm.prompt({
-                  message: "Plan has warnings. Continue anyway?",
-                });
-                if (!confirmed) {
-                  yield* log.success("Cancelled.");
-                  return emptyPlan;
-                }
-              }
-            } else if (!options.yes) {
-              if (resolvedNonInteractive) {
-                return yield* makeCliError({
-                  code: "PLAN_CONFIRMATION_REQUIRED",
-                  what: "Cannot apply plan in non-interactive mode without --yes",
-                  howToFix: "Re-run with --yes, or run interactively to confirm",
-                });
-              }
-
-              const confirmed = yield* confirm.prompt({ message: "Apply changes?" });
-              if (!confirmed) {
-                yield* log.success("Cancelled.");
-                return emptyPlan;
-              }
             }
 
             const applied = yield* applyPlan(augmentedPlan, mergedHandlers);
@@ -1387,16 +1382,19 @@ const make = (options: WorkspaceContextOptions) =>
             // Update settings
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentSkills: SkillsMap = currentSettings.skills ?? {};
-            if (!(name in currentSkills)) return; // no-op
+            const hasSettingsEntry = name in currentSkills;
 
-            const { [name]: _, ...remainingSkills } = currentSkills;
-            void _;
-            const updatedSettings = { ...currentSettings, skills: remainingSkills };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            if (hasSettingsEntry) {
+              const { [name]: _, ...remainingSkills } = currentSkills;
+              void _;
+              const updatedSettings = { ...currentSettings, skills: remainingSkills };
+              yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            }
 
             // Update lockfile
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
-            if (name in currentLockfile.skills) {
+            const hasLockfileEntry = name in currentLockfile.skills;
+            if (hasLockfileEntry) {
               const { [name]: __, ...remainingLockSkills } = currentLockfile.skills;
               void __;
               const updatedLockfile = { ...currentLockfile, skills: remainingLockSkills };
@@ -2173,12 +2171,14 @@ const make = (options: WorkspaceContextOptions) =>
             // Update settings
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentCommands: NonSkillExtensionsMap = currentSettings.commands ?? {};
-            if (!(name in currentCommands)) return; // no-op
+            const hasSettingsEntry = name in currentCommands;
 
-            const { [name]: _, ...remainingCommands } = currentCommands;
-            void _;
-            const updatedSettings = { ...currentSettings, commands: remainingCommands };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            if (hasSettingsEntry) {
+              const { [name]: _, ...remainingCommands } = currentCommands;
+              void _;
+              const updatedSettings = { ...currentSettings, commands: remainingCommands };
+              yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            }
 
             // Update lockfile
             const currentLockfile = yield* readLockfileSafe(workspaceDir);
@@ -2266,15 +2266,17 @@ const make = (options: WorkspaceContextOptions) =>
             // Update settings (uses "mcpServers" key)
             const currentSettings = yield* readSettingsSafe(workspaceDir);
             const currentMcpServers: NonSkillExtensionsMap = currentSettings.mcpServers ?? {};
-            if (!(name in currentMcpServers)) return; // no-op
+            const hasSettingsEntry = name in currentMcpServers;
 
-            const { [name]: _, ...remainingMcpServers } = currentMcpServers;
-            void _;
-            const updatedSettings = {
-              ...currentSettings,
-              mcpServers: remainingMcpServers,
-            };
-            yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            if (hasSettingsEntry) {
+              const { [name]: _, ...remainingMcpServers } = currentMcpServers;
+              void _;
+              const updatedSettings = {
+                ...currentSettings,
+                mcpServers: remainingMcpServers,
+              };
+              yield* writeSettings(workspaceDir, updatedSettings).pipe(Effect.provide(fsLayer));
+            }
 
             // Update lockfile (uses "mcpServers" key)
             const currentLockfile = yield* readLockfileSafe(workspaceDir);

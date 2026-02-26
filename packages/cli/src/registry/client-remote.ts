@@ -275,11 +275,20 @@ const withRequestContext = (
 // Remote Registry Client
 // -----------------------------------------------------------------------------
 
-const remoteNotSupported = () =>
+const remoteReadNotImplemented = ({
+  code,
+  what,
+  operation,
+}: {
+  readonly code: string;
+  readonly what: string;
+  readonly operation: string;
+}) =>
   Effect.fail(
     makeCliError({
-      code: "REGISTRY_REMOTE_NOT_SUPPORTED",
-      what: "remote registry not yet supported",
+      code,
+      what,
+      howToFix: `Implement remote registry read operation: ${operation}`,
     }),
   );
 
@@ -439,9 +448,29 @@ export const createRemoteRegistryClient = (
   baseUrl: string,
   httpClient: HttpClient.HttpClient,
 ): RegistryClient => ({
-  getExtensionsByScope: () => remoteNotSupported(),
-  namespaceExists: () => remoteNotSupported(),
-  getExtensionPackage: () => remoteNotSupported(),
+  getExtensionsByScope: () =>
+    remoteReadNotImplemented({
+      code: "REGISTRY_REMOTE_DISCOVERY_NOT_IMPLEMENTED",
+      what: "remote registry getExtensionsByScope is not implemented yet",
+      operation: "getExtensionsByScope",
+    }),
+  namespaceExists: () =>
+    remoteReadNotImplemented({
+      code: "REGISTRY_REMOTE_NAMESPACE_CHECK_NOT_IMPLEMENTED",
+      what: "remote registry namespaceExists is not implemented yet",
+      operation: "namespaceExists",
+    }),
+  getExtensionPackage: () =>
+    remoteReadNotImplemented({
+      code: "REGISTRY_REMOTE_PACKAGE_FETCH_NOT_IMPLEMENTED",
+      what: "remote registry getExtensionPackage is not implemented yet",
+      operation: "getExtensionPackage",
+    }),
   publishExtension: (args) => publishExtension(baseUrl, httpClient, args),
-  extensionExists: () => remoteNotSupported(),
+  extensionExists: () =>
+    remoteReadNotImplemented({
+      code: "REGISTRY_REMOTE_EXTENSION_CHECK_NOT_IMPLEMENTED",
+      what: "remote registry extensionExists is not implemented yet",
+      operation: "extensionExists",
+    }),
 });

@@ -301,13 +301,20 @@ export const runReconcileMaterializeOperation = (
   context: ReconciliationContext,
   lockfileDir: string,
   lockfileState: "missing" | "invalid",
+  options?: {
+    readonly allowMissingDeclarations?: boolean;
+  },
 ): Effect.Effect<OperationResult, CliError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
     const snapshot = yield* buildReconciliationSnapshot(context);
-    if (snapshot.unresolved.length > 0) {
+    const allowMissingDeclarations = options?.allowMissingDeclarations ?? false;
+    const hasUnresolved = snapshot.unresolved.length > 0;
+    const hasNonMissingUnresolved = snapshot.unresolved.some((entry) => entry.reason !== "missing");
+
+    if (hasUnresolved && (!allowMissingDeclarations || hasNonMissingUnresolved)) {
       return {
         result: "error",
         message: "Reconciliation requires unresolved source resolution",
@@ -336,6 +343,14 @@ export const runReconcileMaterializeOperation = (
     }
 
     yield* writeLockfile(lockfileDir, snapshot.lockfile);
+
+    if (hasUnresolved) {
+      return {
+        result: "success",
+        message: `Reconciled lockfile with ${snapshot.unresolved.length} missing declaration(s) deferred to install`,
+      } satisfies OperationResult;
+    }
+
     return {
       result: "success",
       message: "Reconciled and materialized lockfile",

@@ -565,7 +565,7 @@ describe("createRemoteRegistryClient", () => {
     const httpClient = makeMockHttpClient(() => new Response("", { status: 200 }));
     const client = createRemoteRegistryClient("https://registry.example.com", httpClient);
 
-    it.effect("getExtensionsByScope fails with remote not supported", () =>
+    it.effect("getExtensionsByScope reports discovery not implemented", () =>
       Effect.gen(function* () {
         const result = yield* client
           .getExtensionsByScope({
@@ -578,13 +578,13 @@ describe("createRemoteRegistryClient", () => {
           .pipe(Effect.either);
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
-          expect(result.left.what).toContain("remote registry not yet supported");
+          expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_NOT_IMPLEMENTED");
+          expect(result.left.what).toContain("getExtensionsByScope");
         }
       }),
     );
 
-    it.effect("getExtensionPackage fails with remote not supported", () =>
+    it.effect("getExtensionPackage reports package fetch not implemented", () =>
       Effect.gen(function* () {
         const result = yield* client
           .getExtensionPackage({
@@ -596,29 +596,29 @@ describe("createRemoteRegistryClient", () => {
           .pipe(Effect.either);
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
+          expect(result.left.code).toBe("REGISTRY_REMOTE_PACKAGE_FETCH_NOT_IMPLEMENTED");
         }
       }),
     );
 
-    it.effect("namespaceExists fails with remote not supported", () =>
+    it.effect("namespaceExists reports namespace checks not implemented", () =>
       Effect.gen(function* () {
         const result = yield* client.namespaceExists("@test").pipe(Effect.either);
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
+          expect(result.left.code).toBe("REGISTRY_REMOTE_NAMESPACE_CHECK_NOT_IMPLEMENTED");
         }
       }),
     );
 
-    it.effect("extensionExists fails with remote not supported", () =>
+    it.effect("extensionExists reports extension checks not implemented", () =>
       Effect.gen(function* () {
         const result = yield* client
           .extensionExists({ namespace: "@test", type: "skill", name: "my-skill" })
           .pipe(Effect.either);
         expect(result._tag).toBe("Left");
         if (result._tag === "Left") {
-          expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
+          expect(result.left.code).toBe("REGISTRY_REMOTE_EXTENSION_CHECK_NOT_IMPLEMENTED");
         }
       }),
     );

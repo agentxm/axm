@@ -262,8 +262,14 @@ describe("packs uninstall handler", () => {
         Effect.gen(function* () {
           yield* handleUninstallPack(defaultArgs("my-pack"));
 
-          // promoted-skill is a direct entry, should NOT be orphaned
-          expect(mockLog.logs.info.some((m) => m.includes("promoted-skill"))).toBe(false);
+          // promoted-skill is a direct entry, should be reported as preserved
+          expect(
+            mockLog.logs.warn.some(
+              (m) =>
+                m.includes("promoted-skill") &&
+                m.includes("preserved (directly configured in settings)"),
+            ),
+          ).toBe(true);
           expect(mockLog.logs.success.some((m) => m.includes("Done"))).toBe(true);
         }),
       );

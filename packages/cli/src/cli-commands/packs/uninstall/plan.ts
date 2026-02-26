@@ -44,7 +44,10 @@ const computeOrphanedFqns = (
   removingNames: ReadonlySet<string>,
   configured: ReadonlyArray<string>,
   getResolvedFqns: (entry: PackLockEntry) => Record<string, string>,
-): ReadonlyArray<string> => {
+): {
+  readonly removable: ReadonlyArray<string>;
+  readonly preservedConfigured: ReadonlyArray<string>;
+} => {
   const candidates = new Set<string>();
   const remaining = new Set<string>();
   for (const [packName, entry] of Object.entries(lockedPacks)) {
@@ -59,9 +62,21 @@ const computeOrphanedFqns = (
     }
   }
   const configuredSet = new Set(configured);
-  return [...candidates].filter(
-    (fqn) => !remaining.has(fqn) && !configuredSet.has(simpleNameFromFqn(fqn)),
-  );
+  const removable: string[] = [];
+  const preservedConfigured: string[] = [];
+
+  for (const fqn of candidates) {
+    if (remaining.has(fqn)) {
+      continue;
+    }
+    if (configuredSet.has(simpleNameFromFqn(fqn))) {
+      preservedConfigured.push(fqn);
+      continue;
+    }
+    removable.push(fqn);
+  }
+
+  return { removable, preservedConfigured };
 };
 
 /**
@@ -111,24 +126,28 @@ export const buildUninstallPlan = (args: BuildUninstallPlanArgs): Plan<PackUnins
   });
 
   // Compute orphaned extensions
-  const removableSkillFqns = computeOrphanedFqns(
+  const skillDisposition = computeOrphanedFqns(
     lockedPacks,
     removingNames,
     configuredSkills,
     (entry) => entry.resolvedSkills,
   );
-  const removableCommandFqns = computeOrphanedFqns(
+  const commandDisposition = computeOrphanedFqns(
     lockedPacks,
     removingNames,
     configuredCommands,
     (entry) => entry.resolvedCommands,
   );
-  const removableMcpServerFqns = computeOrphanedFqns(
+  const mcpServerDisposition = computeOrphanedFqns(
     lockedPacks,
     removingNames,
     configuredMcpServers,
     (entry) => entry.resolvedMcpServers,
   );
+
+  const removableSkillFqns = skillDisposition.removable;
+  const removableCommandFqns = commandDisposition.removable;
+  const removableMcpServerFqns = mcpServerDisposition.removable;
 
   const skillSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> = removableSkillFqns.map(
     (fqn) => {
@@ -160,13 +179,63 @@ export const buildUninstallPlan = (args: BuildUninstallPlanArgs): Plan<PackUnins
     },
   );
 
+  const preservedSkillSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> =
+    skillDisposition.preservedConfigured.map((fqn) => {
+      const op: UninstallSkillOperation = {
+        name: "uninstall-skill",
+        args: { skillName: simpleNameFromFqn(fqn), agents: [] },
+      };
+      return makeStep<PackUninstallOp>(
+        op,
+        fqn,
+        false,
+        "preserved (directly configured in settings)",
+      );
+    });
+
+  const preservedCommandSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> =
+    commandDisposition.preservedConfigured.map((fqn) => {
+      const op: UninstallCommandOperation = {
+        name: "uninstall-command",
+        args: { commandName: simpleNameFromFqn(fqn) },
+      };
+      return makeStep<PackUninstallOp>(
+        op,
+        fqn,
+        false,
+        "preserved (directly configured in settings)",
+      );
+    });
+
+  const preservedMcpServerSteps: ReadonlyArray<PlannedJobStep<PackUninstallOp>> =
+    mcpServerDisposition.preservedConfigured.map((fqn) => {
+      const op: UninstallMcpServerOperation = {
+        name: "uninstall-mcp-server",
+        args: { serverName: simpleNameFromFqn(fqn) },
+      };
+      return makeStep<PackUninstallOp>(
+        op,
+        fqn,
+        false,
+        "preserved (directly configured in settings)",
+      );
+    });
+
   return {
     name,
     description,
     jobs: [
       {
         concurrency: 1,
-        steps: [...packSteps, ...skillSteps, ...commandSteps, ...mcpServerSteps],
+        steps: [
+          ...packSteps,
+          ...skillSteps,
+          ...commandSteps,
+          ...mcpServerSteps,
+          ...preservedSkillSteps,
+          ...preservedCommandSteps,
+          ...preservedMcpServerSteps,
+        ],
       },
     ],
   };

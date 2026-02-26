@@ -750,28 +750,28 @@ describe("RemoteRegistryClient", () => {
   );
   const client = createRemoteRegistryClient("https://registry.example.com", stubHttpClient);
 
-  it.effect("getExtensions fails with remote not supported", () =>
+  it.effect("getExtensions fails with discovery-not-implemented code", () =>
     Effect.gen(function* () {
       const result = yield* client.getExtensionsByScope(defaultSearchOptions).pipe(Effect.either);
       expect(result._tag).toBe("Left");
       if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
-        expect(result.left.what).toContain("remote registry not yet supported");
+        expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_NOT_IMPLEMENTED");
+        expect(result.left.what).toContain("getExtensionsByScope");
       }
     }).pipe(Effect.provide(NodeContext.layer)),
   );
 
-  it.effect("namespaceExists fails with remote not supported", () =>
+  it.effect("namespaceExists fails with namespace-check-not-implemented code", () =>
     Effect.gen(function* () {
       const result = yield* client.namespaceExists("@test").pipe(Effect.either);
       expect(result._tag).toBe("Left");
       if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
+        expect(result.left.code).toBe("REGISTRY_REMOTE_NAMESPACE_CHECK_NOT_IMPLEMENTED");
       }
     }).pipe(Effect.provide(NodeContext.layer)),
   );
 
-  it.effect("getExtensionPackage fails with remote not supported", () =>
+  it.effect("getExtensionPackage fails with package-fetch-not-implemented code", () =>
     Effect.gen(function* () {
       const result = yield* client
         .getExtensionPackage({
@@ -783,7 +783,7 @@ describe("RemoteRegistryClient", () => {
         .pipe(Effect.either);
       expect(result._tag).toBe("Left");
       if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
+        expect(result.left.code).toBe("REGISTRY_REMOTE_PACKAGE_FETCH_NOT_IMPLEMENTED");
       }
     }).pipe(Effect.provide(NodeContext.layer)),
   );
@@ -814,14 +814,14 @@ describe("RemoteRegistryClient", () => {
     }).pipe(Effect.provide(NodeContext.layer)),
   );
 
-  it.effect("extensionExists fails with remote not supported", () =>
+  it.effect("extensionExists fails with extension-check-not-implemented code", () =>
     Effect.gen(function* () {
       const result = yield* client
         .extensionExists({ namespace: "@test", type: "skill", name: "my-skill" })
         .pipe(Effect.either);
       expect(result._tag).toBe("Left");
       if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
+        expect(result.left.code).toBe("REGISTRY_REMOTE_EXTENSION_CHECK_NOT_IMPLEMENTED");
       }
     }).pipe(Effect.provide(NodeContext.layer)),
   );
@@ -886,7 +886,7 @@ describe("createRegistryClient", () => {
       const result = yield* client.getExtensionsByScope(defaultSearchOptions).pipe(Effect.either);
       expect(result._tag).toBe("Left");
       if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
+        expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_NOT_IMPLEMENTED");
       }
     }).pipe(Effect.provide(NodeContext.layer)),
   );
@@ -897,7 +897,7 @@ describe("createRegistryClient", () => {
       const result = yield* client.getExtensionsByScope(defaultSearchOptions).pipe(Effect.either);
       expect(result._tag).toBe("Left");
       if (result._tag === "Left") {
-        expect(result.left.code).toBe("REGISTRY_REMOTE_NOT_SUPPORTED");
+        expect(result.left.code).toBe("REGISTRY_REMOTE_DISCOVERY_NOT_IMPLEMENTED");
       }
     }).pipe(Effect.provide(NodeContext.layer)),
   );

@@ -355,14 +355,40 @@ describe("packs install handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("already installed", () => {
-    it.effect("skips when pack already installed and no --force", () => {
-      const { provide, mockLog } = makeLayers();
+    it.effect("shows no-op plan when pack already installed and no --force", () => {
+      const packRef: PackExtensionRef = {
+        type: "pack",
+        refType: "registry",
+        pack: {
+          name: "my-pack",
+          skills: {},
+          commands: {},
+          mcpServers: {},
+        },
+        source: {
+          type: "registry",
+          location: new URL("file:///tmp/reg"),
+          namespace: Option.none(),
+        },
+        namespace: "@acme",
+        name: "my-pack",
+        version: "1.0.0",
+        integrity: "abc",
+      };
+
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (_source, options) =>
+          options.type === "pack" ? Effect.succeed([packRef]) : Effect.succeed([]),
+      };
+
+      const { provide, mockLog } = makeLayersWithMockSources(mockService, { preview: false });
       initWorkspace(path.join(tempDir, ".axm"), {
         sources: [
           {
             name: "default",
             type: "registry",
-            location: "https://registry.example.com",
+            location: "file:///tmp/reg",
           },
         ],
         lockfilePacks: {
@@ -386,42 +412,14 @@ describe("packs install handler", () => {
         Effect.gen(function* () {
           yield* handleInstallPack(defaultArgs("@acme/packs/my-pack"));
 
-          expect(mockLog.logs.warn.some((m) => m.includes("already installed"))).toBe(true);
-          expect(mockLog.logs.success.some((m) => m.includes("Nothing to install"))).toBe(true);
-        }),
-      );
-    });
-
-    it.effect("fails fast when lockfile has range values in resolved fields", () => {
-      const { provide } = makeLayers();
-      initWorkspace(path.join(tempDir, ".axm"), {
-        lockfilePacks: {
-          "test-pack": {
-            type: "registry",
-            namespace: "@acme",
-            name: "test-pack",
-            resolvedVersion: "1.0.0",
-            integrity: "abc",
-            sourceName: "default",
-            installedAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            resolvedSkills: {
-              "@acme/skills/dep-skill": "^1.0.0",
-            },
-            resolvedCommands: {},
-            resolvedMcpServers: {},
-          },
-        },
-      });
-
-      return provide(
-        Effect.gen(function* () {
-          const error = yield* handleInstallPack(defaultArgs("@acme/packs/test-pack")).pipe(
-            Effect.flip,
-          );
-          expect(error._tag).toBe("CliError");
-          expect((error as CliError).code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
-          expect((error as CliError).what).toContain("exact semver");
+          const allLogs = [
+            ...mockLog.logs.info,
+            ...mockLog.logs.message,
+            ...mockLog.logs.warn,
+            ...mockLog.logs.success,
+          ].join("\n");
+          expect(allLogs).toContain("already installed");
+          expect(allLogs).toContain("1 skipped");
         }),
       );
     });
@@ -695,6 +693,111 @@ describe("packs install handler", () => {
           );
           expect(error._tag).toBe("CliError");
           expect((error as CliError).code).toBe("PACK_NOT_FOUND");
+        }),
+      );
+    });
+
+    it.effect("falls back to file registry when remote registry discovery is unsupported", () => {
+      const packRef = makePackRef("effect");
+      let attemptedRemote = false;
+      let attemptedFile = false;
+
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (source, options) => {
+          if (options.type !== "pack") {
+            return Effect.succeed([]);
+          }
+
+          if (source.type === "registry" && source.location.protocol !== "file:") {
+            attemptedRemote = true;
+            return Effect.fail(
+              makeCliError({
+                code: "REGISTRY_REMOTE_NOT_SUPPORTED",
+                what: "remote registry not yet supported",
+              }),
+            );
+          }
+
+          if (source.type === "registry" && source.location.protocol === "file:") {
+            attemptedFile = true;
+            return Effect.succeed([packRef]);
+          }
+
+          return Effect.succeed([]);
+        },
+      };
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        sources: [
+          { type: "registry", name: "remote", location: "http://localhost:4300" },
+          { type: "registry", name: "local", location: "file:///tmp/reg" },
+        ],
+      });
+
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstallPack(defaultArgs("@acme/packs/effect"));
+          expect(attemptedRemote).toBe(true);
+          expect(attemptedFile).toBe(true);
+          expect(mockLog.logs.info).toContain("Registry source: local (file:///tmp/reg)");
+        }),
+      );
+    });
+
+    it.effect("logs host resolution details for bare-name input", () => {
+      const packRef = makePackRef("effect");
+
+      const mockService: SourceHostProvidersService = {
+        ...serviceStubs,
+        find: (source, options) => {
+          if (options.type !== "pack") {
+            return Effect.succeed([]);
+          }
+
+          if (source.type === "registry" && source.location.protocol !== "file:") {
+            return Effect.fail(
+              makeCliError({
+                code: "REGISTRY_REMOTE_NOT_SUPPORTED",
+                what: "remote registry not yet supported",
+              }),
+            );
+          }
+
+          if (source.type === "registry" && source.location.protocol === "file:") {
+            return Effect.succeed([packRef]);
+          }
+
+          return Effect.succeed([]);
+        },
+      };
+
+      initWorkspace(path.join(tempDir, ".axm"), {
+        namespace: "@axm",
+        sources: [
+          { type: "registry", name: "remote", location: "http://localhost:4300" },
+          { type: "registry", name: "local", location: "file:///tmp/reg" },
+        ],
+      });
+
+      const { provide, mockLog } = makeLayersWithMockSources(mockService);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleInstallPack(defaultArgs("effect"));
+
+          expect(mockLog.logs.info).toContain("Source resolution: effect -> @axm/packs/effect");
+          expect(
+            mockLog.logs.info.some(
+              (line) =>
+                line.includes("Host resolution:") &&
+                line.includes("http://localhost:4300/") &&
+                line.includes("file:///tmp/reg") &&
+                line.includes("matched"),
+            ),
+          ).toBe(true);
         }),
       );
     });

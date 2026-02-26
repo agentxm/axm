@@ -16,5 +16,211 @@ skills:
       - gemini-cli
       - github-copilot
       - opencode
-    installedAt: 2026-02-25T21:00:48.008Z
-    updatedAt: 2026-02-25T21:00:48.010Z
+    installedAt: 2026-02-26T00:26:50.018Z
+    updatedAt: 2026-02-26T00:26:50.019Z
+  effect-testing:
+    type: registry
+    namespace: "@axm"
+    name: effect-testing
+    resolvedVersion: 0.1.0
+    integrity: sha512-LflY6DVMMaR5R6hA4YXQM+LL+1yBLAsKCgYiA3bTmblMXMiQ3Ay9tx4igLLAkiwQ8s9NWsa3dwQ9a5hd1Ic2Fg==
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-26T00:41:57.657Z
+    updatedAt: 2026-02-26T00:41:57.658Z
+  effect-wrapping:
+    type: registry
+    namespace: "@axm"
+    name: effect-wrapping
+    resolvedVersion: 0.1.0
+    integrity: sha512-CqBy9dmp88jeX04Ozmvn6dMSxBhYEfddpCrV9Ayr0eHOQxbR0dtV4EjOQmBSgKeZdWNdjd4GTo6DHDUMFfbj9g==
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-26T00:41:57.671Z
+    updatedAt: 2026-02-26T00:41:57.673Z
+  effect-schema:
+    type: registry
+    namespace: "@axm"
+    name: effect-schema
+    resolvedVersion: 0.1.0
+    integrity: sha512-K1KV/YywK5DDxAIywxiNZjX/BGg4TmyIy5uQuJhp+pX9bIBRDBZSk6Bzre2rrerIBNxEwqIOoGRKvyKaPBUCQQ==
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-26T00:41:57.686Z
+    updatedAt: 2026-02-26T00:41:57.687Z
+  effect-service:
+    type: registry
+    namespace: "@axm"
+    name: effect-service
+    resolvedVersion: 0.1.0
+    integrity: sha512-qlxyxxYEATcEQqJnFPpxAcANaxVHNve8Fvc+PuiLfocq6224VUJd+MK9UfRoLR6Zi/12AO+hQR5MV+fyG3GAeA==
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-26T00:41:57.698Z
+    updatedAt: 2026-02-26T00:41:57.699Z
+  effect-collections:
+    type: registry
+    namespace: "@axm"
+    name: effect-collections
+    resolvedVersion: 0.1.0
+    integrity: sha512-L5M1Sx0c7b2LKw+VhJgxNQzlnXmmJOWDSG2HuA3oPlPHYwtK3kY1vzdMYzJ3vUHa3qvRSkZ9KC0s7xRxl78eAg==
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-26T00:41:57.713Z
+    updatedAt: 2026-02-26T00:41:57.714Z
+  effect-iteration:
+    type: registry
+    namespace: "@axm"
+    name: effect-iteration
+    resolvedVersion: 0.1.0
+    integrity: sha512-OTTWgR4j0pxFi33F6d7ax6pEOyDdBA7XDOhHPN82PGsz99zVza0f3nuVZ8cyOA1rI8qV3g49xaehYD4DH4NdfQ==
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-26T00:41:57.726Z
+    updatedAt: 2026-02-26T00:41:57.727Z
+  effect-option:
+    type: registry
+    namespace: "@axm"
+    name: effect-option
+    resolvedVersion: 0.1.0
+    integrity: sha512-sAXv1qv3RPvIzqmXK0f/UT8zN9kUOrdWxw9i9V13KLhmH+XZ5kdVzW3ZbGgXFUSLolqGiBVeb264bJosyvbDAw==
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-26T00:41:57.738Z
+    updatedAt: 2026-02-26T00:41:57.740Z
+  effect-filesystem:
+    type: registry
+    namespace: "@axm"
+    name: effect-filesystem
+    resolvedVersion: 0.1.0
+    integrity: sha512-qhx5+hVSwvRM68GBM7MIlYJLTrosBdi9KkmQecg6p+IazKZm6TPVjP4d3dc9iQYXlq/27RALO1kNX73DRqlf+A==
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-26T00:41:57.754Z
+    updatedAt: 2026-02-26T00:41:57.756Z
+  effect-concurrency:
+    type: registry
+    namespace: "@axm"
+    name: effect-concurrency
+    resolvedVersion: 0.1.0
+    integrity: sha512-L11hzC/bVVJAdHtUtUEhwlT3MIC9s1rNTWdAACSAn4GNgRvq33Q37pawR9Kg5+yoOD0E1s/zHnMld/H0UT385w==
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-26T00:41:57.769Z
+    updatedAt: 2026-02-26T00:41:57.771Z
+  effect-stream:
+    type: registry
+    namespace: "@axm"
+    name: effect-stream
+    resolvedVersion: 0.1.0
+    integrity: sha512-NBWxUjDQUm3DwTgptWkYwdyOmAw/JK4ZocOVTvxDkJ8LBJJnX5HUCExZG0hbRwX5exRcAidgOd3Jeajr/W/shg==
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-26T00:41:57.784Z
+    updatedAt: 2026-02-26T00:41:57.786Z
+commands: {}
+mcpServers: {}
+packs:
+  effect:
+    type: registry
+    namespace: "@axm"
+    name: effect
+    resolvedVersion: 0.0.1
+    integrity: sha512-hzLOcG7SubPJqyL9Y0F8pV2g0MC/8K3wYhXgKzvSn7miYyYJ8mbHYMJneyMiOGd6ahxMQZOlgcmeYO38y6tsWQ==
+    sourceName: default
+    installedAt: 2026-02-26T00:41:57.637Z
+    updatedAt: 2026-02-26T00:41:57.639Z
+    resolvedSkills:
+      "@axm/skills/effect-testing": 0.1.0
+      "@axm/skills/effect-wrapping": 0.1.0
+      "@axm/skills/effect-schema": 0.1.0
+      "@axm/skills/effect-service": 0.1.0
+      "@axm/skills/effect-collections": 0.1.0
+      "@axm/skills/effect-iteration": 0.1.0
+      "@axm/skills/effect-basics": 0.1.0
+      "@axm/skills/effect-option": 0.1.0
+      "@axm/skills/effect-filesystem": 0.1.0
+      "@axm/skills/effect-concurrency": 0.1.0
+      "@axm/skills/effect-stream": 0.1.0
+    resolvedCommands: {}
+    resolvedMcpServers: {}

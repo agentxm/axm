@@ -16,6 +16,8 @@ Command handlers also repeat orchestration phases:
 
 This repeated logic causes behavioral drift and bug classes where one extension type updates lockfile/settings differently than another.
 
+This design does not change the existing `ExtensionRef` shape from `sources/types.ts`; all workflow logic derives operation targets from current `ExtensionRef` fields (`type`, `refType`, source-specific name fields).
+
 The ontology model already gives stable concepts for this refactor:
 
 - `ExtensionType` (`skill`, `pack`)
@@ -29,7 +31,7 @@ The ontology model already gives stable concepts for this refactor:
 **Goals**
 
 - Centralize install/uninstall state update semantics for settings + lockfile.
-- Keep command handlers and plan/job orchestration intact.
+- Keep command handlers thin and preserve plan/job orchestration semantics.
 - Isolate type-specific behavior in per-type hooks.
 - Support pack cross-type orchestration without hard-coding dependency side effects in pack handlers.
 - Preserve deterministic preview/apply behavior and idempotency.
@@ -37,25 +39,35 @@ The ontology model already gives stable concepts for this refactor:
 **Non-Goals**
 
 - Reworking publish/update/fork flows.
-- Replacing plan/job runtime architecture.
+- Replacing plan/job semantics or user-visible preview/apply behavior.
 - Introducing inheritance-heavy domain class hierarchy as the core abstraction.
+
+## CLI Behavior Notes
+
+- `skills install --list` is removed in this migration; discovery-only inspection should use `--preview`.
+- `skills install --agent` and `skills uninstall --agent` are removed in this migration; operations are workspace-scoped. Skill materialization creates agent symlinks for all agents returned by `ws.getConfiguredAgents()` (the workspace's configured agent list from settings).
+- Install diagnostics remain visible (source resolution, registry probe outcomes, selected host), but are rendered via command-workflow diagnostics hooks.
+- Pack migration in this change stays focused on skill dependencies; command/mcp-server dependency installation remains deferred.
+- Existing `command` / `mcp-server` pack behavior stays on legacy paths until those types are explicitly migrated.
 
 ## Architecture
 
-### 1) Shared Lifecycle Kernel (common)
+### 1) Shared Lifecycle Core (common)
 
-Add shared install/uninstall kernel in workspace domain with three stages:
+The lifecycle core is not a separate kernel file; it is the evolved `resolvePlan`/`applyPlan` pipeline plus the shared operation workflows (`buildInstallOperation`, `buildUninstallOperation`).
+
+Three-stage flow (composed by command-family workflows):
 
 1. `finalizeIntent` (workflow-provided)
-2. operation-level planning from finalized intent (workflow-provided)
-3. operation execution via shared `runOperation` abstraction
+2. operation-level planning from finalized intent (workflow-provided, produces `PlannedJobStep` steps with `run` closures)
+3. `resolvePlan` → preview/confirm → `applyPlan` (executes `run` effects directly)
 
-Kernel responsibilities:
+`resolvePlan`/`applyPlan` responsibilities:
 
-- load workspace snapshot
-- build canonical operation list
-- run existing resolve/preview/apply pipeline
-- execute operations with deterministic ordering
+- display plan for preview/confirmation
+- execute `run` effects for ready steps in job order
+- promote error steps to error results without execution
+- return plan with `JobStepResult` per step
 
 ### 1b) Command-Family Workflows (SRP)
 
@@ -68,6 +80,8 @@ Examples:
 
 Each family workflow may use different phases while reusing common primitives (`parse`, `resolveSource`, `discover`, `finalizeIntent`, `resolvePlan`).
 
+Install-family workflows should also support command-level diagnostics rendering (for source resolution and registry host probing) without coupling diagnostics to operation hooks.
+
 Rationale:
 
 - Preserve SRP at command-family level.
@@ -76,17 +90,28 @@ Rationale:
 
 Critical rule:
 
-- Operation hooks MUST NOT directly mutate settings or lockfile.
-- Settings/lockfile writes happen only inside shared operation execution abstractions.
-- Lifecycle kernel is the sole owner of `SettingsDocument` and `LockfileDocument` writes for migrated flows.
+- Operation hooks expose type-specific settings/lockfile mutation methods.
+- Shared operation workflows call hook mutation methods in canonical order.
+- `resolvePlan` / `applyPlan` execute per-step `run` effects for ready job steps directly (no handler registry maps).
+- `resolvePlan` must block apply when any planned step has `readiness === "error"`.
+
+### 1c) `resolvePlan` / `applyPlan` Evolution
+
+The existing `resolvePlan(plan, handlerMap)` signature evolves to `resolvePlan(plan)` (no handler map). Steps carry their own `run` effect closures; `applyPlan` executes them directly instead of dispatching through a name-keyed handler registry.
+
+Changes:
+
+- `PlannedJobStep` gains a `run` closure (for ready steps) and loses its `operation` payload.
+- `applyPlan` iterates steps: for each ready step, invokes `step.run()`; for each error step, promotes to an error result.
+- The existing `Operation`, `OperationMap`, and `defineOperationMetadata` registries are removed.
+- Plan augmentation (`augmentPlan`) is removed in this change. Lockfile recovery behavior is out of scope and can be reintroduced as a pre-plan check if needed later.
 
 ### 2) Operation Hook Contract (type-specific lifecycle)
 
 Introduce per-`ExtensionType` lifecycle hooks:
 
-- derive install/uninstall intents from already discovered refs/targets
-- type-specific dependency/preservation expansion
-- materialization hooks only
+- materialization methods
+- type-specific settings/lockfile mutation methods
 
 Command-family workflows own parse/resolve/discover phases. Lifecycle hooks do not parse CLI input and do not perform source-host discovery.
 
@@ -118,41 +143,55 @@ Command-family workflows compose these primitives directly (no single cross-fami
 
 ### 3) Intent Model
 
-Use immutable intents:
+Use command-specific immutable intents (owned by each command folder), not one shared global intent type.
 
-- `InstallIntent`: refs to install + preserve set
-- `UninstallIntent`: identities to uninstall + preserve set
+Examples:
 
-Pack hooks expand dependencies into cross-type intents.
+- `cli-commands/skills/install/intent.ts` -> `InstallSkillCommandIntent`
+- `cli-commands/skills/uninstall/intent.ts` -> `UninstallSkillCommandIntent`
+- `cli-commands/packs/install/intent.ts` -> `InstallPackCommandIntent`
+- `cli-commands/packs/uninstall/intent.ts` -> `UninstallPackCommandIntent`
+
+Pack install intent identifies the selected pack; dependency expansion happens in `buildPlan` for supported types.
+
+Dependency-preservation policy for uninstall is evaluated inside `runUninstallOperation`. Plan builders emit uninstall operations directly; operation execution decides whether to remove from disk or keep materialized when still required by an installed pack.
+
+Uninstall targets must be derived with lockfile-backed context during `finalizeIntent` / `buildUninstallPlan` (including namespace when available) so dependency checks are deterministic.
+
+### 3b) Term Glossary
+
+- `ExtensionRef`: discovery output from sources (`type`, `refType`, source-backed fields).
+- `*CommandIntent`: command-local decision payload after selection/filtering.
+- `ExtensionTarget`: normalized execution target used by uninstall/runtime policy checks.
+- Install operations are `ExtensionRef`-driven.
+- Uninstall operations are lockfile-backed `ExtensionTarget`-driven.
+- `PlannedJobStep`: existing plan type, evolved to `ReadyJobStep | ErrorJobStep` (no `operation` payload on steps). The existing `skip` and `warn` readiness states are removed; operations are assumed idempotent (re-running an already-applied operation is a safe no-op).
 
 ### 4) Operation Execution Model
 
 Canonical execution unit is the user-meaningful operation (`install-skill`, `uninstall-pack`, etc.).
 
-- Planning unit: `PlannedOperation`
-- Execution unit: `runOperation` (single executor)
+- Planning unit: `PlannedJobStep`
+- Execution unit: operation `run` effects (`runInstallOperation` / `runUninstallOperation`)
 - Internal implementation detail: operation workflow steps (for example materialize, lockfile update, settings update)
 
 `SettingsDocument` and `LockfileDocument` ownership:
 
-- Operation workflows (shared install/uninstall operation abstractions) are the only place that writes settings/lockfile.
-- Extension-specific handlers provide materialization behavior only.
+- Operation workflows (shared install/uninstall operation abstractions) are the only place that decides sequencing and dependency-retention policy.
+- Extension hooks provide type-specific materialization and settings/lockfile mutation methods invoked by those workflows.
 
 ### 4b) Output Model (operation-oriented rendering)
 
 Default CLI output renders operation outcomes directly.
 
-- Default render unit: operation outcome (`operationId` + user-facing label)
-- Debug/verbose render unit: internal operation workflow step trace
+- Default render unit: operation outcome (`label` + result)
+- Debug/verbose render unit: optional operation-level diagnostic logs
 
-Aggregation rules:
+Render rules:
 
-1. Group execution results by `operationId`.
-2. Collapse grouped results into one operation outcome using precedence:
-   - `error` > `applied` > `skipped` > `no-op`
-3. Choose display message/reason from highest-precedence internal step result.
-4. Compute summary counts (`applied`, `skipped`, `failed`) from collapsed operation outcomes.
-5. Compute `by type` from operation outcomes via each operation's target `ExtensionIdentity.type`.
+1. Preserve plan step order for operation outcome rendering.
+2. Render readiness errors as non-runnable plan steps.
+3. Render one `JobStepResult` per ready planned job step `run` effect.
 
 This keeps CLI output aligned with user-meaningful operations while allowing finer-grained debug traces.
 
@@ -160,7 +199,7 @@ This keeps CLI output aligned with user-meaningful operations while allowing fin
 
 In this change, `mcp-server` and `command` lifecycle integration is intentionally no-op.
 
-- The lifecycle kernel keeps extension points for future target-scoped behavior.
+- The shared operation workflows and `ExtensionHooks` type keep extension points for future target-scoped behavior.
 - No `mcp-server` or `command` operation execution behavior changes are introduced.
 
 ### 6) Skill Native vs Non-Native
@@ -176,23 +215,27 @@ Branching is inside hook/profile strategy, not in shared kernel.
 
 Pack install/uninstall does not directly call other handlers.
 
-- Pack hooks emit cross-type refs/identities in intent.
-- Shared executor applies operation-provided hooks for materialization and state updates.
+- Pack plan builders expand cross-type execution targets.
+- Shared executor applies extension hooks for materialization and state updates.
 
 This keeps pack orchestration composable while preserving shared operation execution rules.
 
 ## Pseudocode
 
-### A) Command-family workflows + shared primitives
+### `packages/cli/src/workflows/install-command/workflow.ts`
 
 ```ts
-// command-workflows/install.ts (shared across install command handlers)
 export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
   args: Args,
   hooks: {
     parseArgs: (args: Args) => Effect.Effect<Parsed, CliError>;
     resolveSourceRequests: (parsed: Parsed) => Effect.Effect<ReadonlyArray<Req>, CliError>;
     discoverRefs: (reqs: ReadonlyArray<Req>) => Effect.Effect<ReadonlyArray<Ref>, CliError>;
+    emitDiagnostics: (args: {
+      readonly parsed: Parsed;
+      readonly sourceRequests: ReadonlyArray<Req>;
+      readonly refs: ReadonlyArray<Ref>;
+    }) => Effect.Effect<void, never>;
     finalizeIntent: (parsed: Parsed, refs: ReadonlyArray<Ref>) => Effect.Effect<Intent, CliError>;
     buildPlan: (intent: Intent) => Effect.Effect<Plan, CliError>;
   },
@@ -201,13 +244,17 @@ export const runInstallCommandWorkflow = <Args, Parsed, Req, Ref, Intent>(
     const parsed = yield* hooks.parseArgs(args);
     const sourceRequests = yield* hooks.resolveSourceRequests(parsed);
     const refs = yield* hooks.discoverRefs(sourceRequests);
+    yield* hooks.emitDiagnostics({ parsed, sourceRequests, refs });
     const intent = yield* hooks.finalizeIntent(parsed, refs);
     const plan = yield* hooks.buildPlan(intent);
     const ws = yield* Workspace;
     yield* ws.resolvePlan(plan);
   });
+```
 
-// command-workflows/uninstall.ts (shared across uninstall command handlers)
+### `packages/cli/src/workflows/uninstall-command/workflow.ts`
+
+```ts
 export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
   args: Args,
   hooks: {
@@ -223,203 +270,205 @@ export const runUninstallCommandWorkflow = <Args, Parsed, Intent>(
     const ws = yield* Workspace;
     yield* ws.resolvePlan(plan);
   });
-
-// skills/install/handler.ts
-export const handleSkillsInstall = (args: SkillsInstallHandlerArgs) =>
-  runInstallCommandWorkflow(args, {
-    parseArgs: parseSkillInstallArgs,
-    resolveSourceRequests: resolveSkillInstallSources,
-    discoverRefs: discoverSkillRefs,
-    finalizeIntent: buildSkillInstallIntent,
-    buildPlan: (intent) =>
-      Effect.succeed({
-        name: "Install skill(s)",
-        jobs: [
-          {
-            concurrency: "unbounded",
-            steps: intent.refsToInstall.map((skillRef) =>
-              buildInstallOperation("install-skill", skillHooks, {
-                ref: skillRef,
-                preserveConfigured: intent.preserveConfigured,
-              }),
-            ),
-          },
-        ],
-      }),
-  });
-
-// skills/uninstall/handler.ts
-export const handleSkillsUninstall = (args: SkillsUninstallHandlerArgs) =>
-  runUninstallCommandWorkflow(args, {
-    parseArgs: parseSkillUninstallArgs,
-    finalizeIntent: buildSkillUninstallIntent,
-    buildUninstallPlan: buildSkillUninstallPlan,
-  });
-
-// packs/install/handler.ts
-export const handlePacksInstall = (args: PacksInstallHandlerArgs) =>
-  runInstallCommandWorkflow(args, {
-    parseArgs: parsePackInstallArgs,
-    resolveSourceRequests: resolvePackInstallSources,
-    discoverRefs: discoverPackRefs,
-    finalizeIntent: buildPackInstallIntent,
-    buildPlan: buildPackInstallPlan,
-  });
-
-// packs/uninstall/handler.ts
-export const handlePacksUninstall = (args: PacksUninstallHandlerArgs) =>
-  runUninstallCommandWorkflow(args, {
-    parseArgs: parsePackUninstallArgs,
-    finalizeIntent: buildPackUninstallIntent,
-    buildUninstallPlan: buildPackUninstallPlan,
-  });
 ```
 
-### B) Shared lifecycle kernel + operation handlers
+### `packages/cli/src/workflows/install-operation/workflow.ts`
 
 ```ts
-// lifecycle-kernel.ts
-type InstallIntent = {
-  readonly refsToInstall: ReadonlyArray<ExtensionRef>;
-  readonly preserveConfigured: ReadonlyArray<ExtensionIdentity>;
+// Evolution of existing PlannedJobStep (not a new parallel type).
+// The previous `skip` and `warn` readiness states are removed; operations
+// are idempotent so re-running an already-applied operation is a safe no-op.
+type ReadyJobStep = {
+  readonly label: string;
+  readonly readiness: "ready";
+  readonly run: () => Effect.Effect<JobStepResult, CliError, Workspace>;
 };
 
-type UninstallIntent = {
-  readonly identitiesToUninstall: ReadonlyArray<ExtensionIdentity>;
-  readonly preserveConfigured: ReadonlyArray<ExtensionIdentity>;
+type ErrorJobStep = {
+  readonly label: string;
+  readonly readiness: "error";
+  readonly message: string;
 };
 
-type PlannedOperation = {
-  readonly operationId: string;
-  readonly operationName: "install-skill" | "uninstall-skill" | "install-pack" | "uninstall-pack";
-  readonly displayLabel: string;
-  readonly identity: ExtensionIdentity;
-  readonly intent: InstallIntent | UninstallIntent;
-  readonly readiness: Readiness;
-  readonly hooks: ExtensionHooks<ExtensionRef>;
-  readonly run: () => Effect.Effect<OperationResult, CliError, Workspace>;
+type PlannedJobStep = ReadyJobStep | ErrorJobStep;
+
+// Replaces the existing OperationResult. Single result type for all step outcomes.
+type JobStepResult = {
+  readonly result: "success" | "no-op" | "error";
+  readonly message: string;
+};
+
+// Per-extension-type target types (discriminated union).
+type SkillExtensionTarget = {
+  readonly type: "skill";
+  readonly name: string;
+  readonly namespace: Option.Option<string>;
+};
+
+type PackExtensionTarget = {
+  readonly type: "pack";
+  readonly name: string;
+  readonly namespace: Option.Option<string>;
+};
+
+type CommandExtensionTarget = {
+  readonly type: "command";
+  readonly name: string;
+  readonly namespace: Option.Option<string>;
+};
+
+type McpServerExtensionTarget = {
+  readonly type: "mcp-server";
+  readonly name: string;
+  readonly namespace: Option.Option<string>;
+};
+
+type ExtensionTarget =
+  | SkillExtensionTarget
+  | PackExtensionTarget
+  | CommandExtensionTarget
+  | McpServerExtensionTarget;
+
+type ExtensionTargetFor<TRef extends ExtensionRef> = Extract<
+  ExtensionTarget,
+  { readonly type: TRef["type"] }
+>;
+
+const targetFromRef = (ref: ExtensionRef): ExtensionTarget => {
+  const namespace = ref.refType === "registry" ? Option.some(ref.namespace) : Option.none<string>();
+
+  switch (ref.type) {
+    case "skill":
+      return { type: "skill", name: ref.skill.name, namespace };
+    case "pack":
+      return { type: "pack", name: ref.pack.name, namespace };
+    case "command":
+      return { type: "command", name: ref.command.name, namespace };
+    case "mcp-server":
+      return { type: "mcp-server", name: ref.server.name, namespace };
+  }
 };
 
 type InstallOperationArgs<TRef extends ExtensionRef> = {
   readonly ref: TRef;
-  readonly preserveConfigured: ReadonlyArray<ExtensionIdentity>;
-};
-
-type UninstallOperationArgs<TRef extends ExtensionRef> = {
-  readonly identity: TRef["identity"];
-  readonly preserveConfigured: ReadonlyArray<ExtensionIdentity>;
 };
 
 type ExtensionHooks<TRef extends ExtensionRef> = {
-  readonly extensionType: TRef["identity"]["type"];
-  readonly materializeInstall: (args: {
-    readonly ref: TRef;
-    readonly target: OperationTarget;
-  }) => Effect.Effect<void, CliError>;
+  readonly extensionType: TRef["type"];
+  readonly materializeInstall: (args: { readonly ref: TRef }) => Effect.Effect<void, CliError>;
   readonly materializeUninstall: (args: {
-    readonly identity: TRef["identity"];
-    readonly target: OperationTarget;
+    readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<void, CliError>;
+  readonly upsertSettingsEntry: (args: {
+    readonly ref: TRef;
+  }) => Effect.Effect<void, CliError, Workspace>;
+  readonly removeSettingsEntry: (args: {
+    readonly target: ExtensionTargetFor<TRef>;
+  }) => Effect.Effect<void, CliError, Workspace>;
+  readonly upsertLockfileEntry: (args: {
+    readonly ref: TRef;
+  }) => Effect.Effect<void, CliError, Workspace>;
+  readonly removeLockfileEntry: (args: {
+    readonly target: ExtensionTargetFor<TRef>;
+  }) => Effect.Effect<void, CliError, Workspace>;
 };
 
-const buildInstallOperation = <TRef extends ExtensionRef>(
-  operationName: "install-skill" | "install-pack",
+// Hook mutation methods are thin wrappers that delegate to existing
+// WorkspaceContextService methods (e.g. ws.setSkill, ws.removeSkill),
+// preserving semaphore serialization. See skill hooks pseudocode below.
+
+export const buildInstallOperation = <TRef extends ExtensionRef>(
   extensionHooks: ExtensionHooks<TRef>,
   args: InstallOperationArgs<TRef>,
-) => {
+): ReadyJobStep => {
   const ref = args.ref;
-  const identity = ref.identity;
+  const target = targetFromRef(ref);
+
   return {
-    operationId: `${identity.namespace}/${identity.type}/${identity.name}`,
-    operationName,
-    displayLabel: identity.name,
-    identity,
-    intent: {
-      refsToInstall: [ref],
-      preserveConfigured: args.preserveConfigured,
-    } satisfies InstallIntent,
-    readiness: { status: "ready", message: Option.none() },
-    hooks: extensionHooks,
+    label: target.name,
+    readiness: "ready",
     run: () => runInstallOperation(extensionHooks, args),
-  } satisfies PlannedOperation;
+  };
 };
 
-const buildUninstallOperation = <TRef extends ExtensionRef>(
-  operationName: "uninstall-skill" | "uninstall-pack",
-  extensionHooks: ExtensionHooks<TRef>,
-  args: UninstallOperationArgs<TRef>,
-) => {
-  const identity = args.identity;
-  return {
-    operationId: `${identity.namespace}/${identity.type}/${identity.name}`,
-    operationName,
-    displayLabel: identity.name,
-    identity,
-    intent: {
-      identitiesToUninstall: [identity],
-      preserveConfigured: args.preserveConfigured,
-    } satisfies UninstallIntent,
-    readiness: { status: "ready", message: Option.none() },
-    hooks: extensionHooks,
-    run: () => runUninstallOperation(extensionHooks, args),
-  } satisfies PlannedOperation;
-};
-
-// Install plan construction is command-specific via the required buildPlan hook
-// passed to runInstallCommandWorkflow.
-
-// shared operation execution abstraction (install)
 const runInstallOperation = <TRef extends ExtensionRef>(
   hooks: ExtensionHooks<TRef>,
   args: InstallOperationArgs<TRef>,
 ) =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
-    const snapshot = yield* ws.readSnapshot();
-    yield* materializeInstall({ ref: args.ref, hooks });
-    yield* upsertLockfile({ ref: args.ref, snapshot });
-    yield* upsertSettings({ ref: args.ref, preserveConfigured: args.preserveConfigured, snapshot });
-    return {
-      result: "success",
-      message: "Applied install operation",
-    } satisfies OperationResult;
+    yield* hooks.materializeInstall({ ref: args.ref });
+    yield* hooks.upsertLockfileEntry({ ref: args.ref });
+    yield* hooks.upsertSettingsEntry({ ref: args.ref });
+    return { result: "success", message: "Applied install operation" } satisfies JobStepResult;
   });
+```
 
-// shared operation execution abstraction (uninstall)
+**Failure semantics:** If a step's `run` effect fails (returns a `CliError`), the step is marked as errored in the plan results. Remaining steps in the same job continue executing (no early abort). Partial state (e.g. materialized on disk but not locked) is acceptable; idempotent re-runs and lockfile reconciliation handle recovery.
+
+### `packages/cli/src/workflows/uninstall-operation/workflow.ts`
+
+```ts
+type UninstallOperationArgs<TRef extends ExtensionRef> = {
+  readonly target: ExtensionTargetFor<TRef>;
+};
+
+export const buildUninstallOperation = <TRef extends ExtensionRef>(
+  extensionHooks: ExtensionHooks<TRef>,
+  args: UninstallOperationArgs<TRef>,
+): ReadyJobStep => {
+  const target = args.target;
+
+  return {
+    label: target.name,
+    readiness: "ready",
+    run: () => runUninstallOperation(extensionHooks, args),
+  };
+};
+
 const runUninstallOperation = <TRef extends ExtensionRef>(
   hooks: ExtensionHooks<TRef>,
   args: UninstallOperationArgs<TRef>,
 ) =>
   Effect.gen(function* () {
     const ws = yield* Workspace;
-    const snapshot = yield* ws.readSnapshot();
-    yield* materializeUninstall({ identity: args.identity, hooks });
-    yield* removeLockfile({ identity: args.identity, snapshot });
-    yield* removeSettings({
-      identity: args.identity,
-      preserveConfigured: args.preserveConfigured,
-      snapshot,
-    });
-    return {
-      result: "success",
-      message: "Applied uninstall operation",
-    } satisfies OperationResult;
+    const stillRequiredByPack = yield* ws.isExtensionRequiredByInstalledPack(args.target);
+
+    if (stillRequiredByPack) {
+      yield* ws.removeExplicitConfigIntent(args.target);
+      yield* ws.markDependencyRetainedInLockfile(args.target);
+      return {
+        result: "no-op",
+        message: "Kept on disk because dependency is still required by an installed pack",
+      } satisfies JobStepResult;
+    }
+
+    yield* hooks.materializeUninstall({ target: args.target });
+    yield* hooks.removeLockfileEntry({ target: args.target });
+    yield* hooks.removeSettingsEntry({ target: args.target });
+    return { result: "success", message: "Applied uninstall operation" } satisfies JobStepResult;
   });
 ```
 
-### B.1) Full `skill` install path pseudocode (end-to-end)
+### `packages/cli/src/cli-commands/skills/install/`
 
 ```ts
-// cli-commands/skills/install/handler.ts
+// handler.ts
 export const handleSkillsInstall = (args: SkillsInstallHandlerArgs) =>
   runInstallCommandWorkflow(args, {
     parseArgs: parseSkillInstallArgs,
     resolveSourceRequests: resolveSkillInstallSources,
     discoverRefs: discoverSkillRefs,
+    emitDiagnostics: emitSkillInstallDiagnostics,
     finalizeIntent: finalizeSkillInstallIntent,
+    buildPlan: buildSkillInstallPlan,
   });
 
-// cli-commands/skills/install/finalize-intent.ts
+// intent.ts
+export type InstallSkillCommandIntent = {
+  readonly skillsToInstall: ReadonlyArray<SkillExtensionRef>;
+};
+
+// finalize-intent.ts
 export const finalizeSkillInstallIntent = (
   parsed: ParsedSkillInstallArgs,
   discoveredRefs: ReadonlyArray<SkillExtensionRef>,
@@ -431,145 +480,235 @@ export const finalizeSkillInstallIntent = (
       all: parsed.all,
       yes: parsed.yes,
     });
-
     return {
-      refsToInstall: selected.map((selectedRef) => selectedRef.ref),
-      preserveConfigured: [],
-    } satisfies InstallIntent;
+      skillsToInstall: selected.map((x) => x.ref),
+    } satisfies InstallSkillCommandIntent;
   });
 
-// extensions/skills/hooks.ts
-export const skillHooks: ExtensionHooks<SkillExtensionRef> = {
-  extensionType: "skill",
-  materializeInstall: ({ ref, target }) => installSkillMaterialization({ ref, target }),
-  materializeUninstall: ({ identity, target }) =>
-    uninstallSkillMaterialization({ identity, target }),
-};
-
-// extensions/skills/operations/install.ts
-// NOTE: operation handler no longer mutates settings/lockfile.
-export const installSkillMaterialization: SkillMaterializeInstallHandler = ({ ref, target }) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const ws = yield* Workspace;
-
-    const sanitizedName = sanitizeName(ref.skill.name);
-
-    if (ref.refType === "registry") {
-      yield* materializeRegistrySkill(ref, sanitizedName);
-    } else if (ref.refType === "local") {
-      yield* materializeLocalSkill(ref, sanitizedName);
-    } else if (ref.refType === "git-hosted") {
-      yield* materializeGitHostedSkill(ref, sanitizedName);
-    } else {
-      yield* materializeBuiltinSkill(ref, sanitizedName);
-    }
-
-    // Agent-target materialization still belongs here (filesystem/symlink side effect).
-    yield* ensureSkillLinkedForTarget({
-      target,
-      skillName: ref.skill.name,
-    });
-
-    return {
-      result: "success",
-      message: `Materialized ${ref.skill.name}`,
-    } satisfies OperationResult;
-  });
-
-// No operation-family executors; a single runOperation executes plan-validated operation effects.
+// build-plan.ts
+export const buildSkillInstallPlan = (intent: InstallSkillCommandIntent) =>
+  Effect.succeed({
+    name: "Install skill(s)",
+    jobs: [
+      {
+        concurrency: 1,
+        steps: intent.skillsToInstall.map((ref) =>
+          buildInstallOperation(skillHooks, {
+            ref,
+          }),
+        ),
+      },
+    ],
+  } satisfies Plan);
 ```
 
-### B.2) `buildPackInstallPlan` pseudocode
+### `packages/cli/src/cli-commands/packs/install/`
 
 ```ts
-// cli-commands/packs/install/build-plan.ts
+// intent.ts
+export type InstallPackCommandIntent = {
+  readonly packToInstall: PackExtensionRef;
+};
+
+// handler.ts
+export const handlePacksInstall = (args: PacksInstallHandlerArgs) =>
+  runInstallCommandWorkflow(args, {
+    parseArgs: parsePackInstallArgs,
+    resolveSourceRequests: resolvePackInstallSources,
+    discoverRefs: discoverPackRefs,
+    emitDiagnostics: emitPackInstallDiagnostics,
+    finalizeIntent: buildPackInstallIntent,
+    buildPlan: buildPackInstallPlan,
+  });
+
+// build-plan.ts
 export const buildPackInstallPlan = (
-  intent: InstallIntent,
-): Effect.Effect<Plan, CliError, Workspace> =>
+  intent: InstallPackCommandIntent,
+): Effect.Effect<Plan, CliError> =>
   Effect.gen(function* () {
-    const ws = yield* Workspace;
-    const snapshot = yield* ws.readSnapshot();
+    const refs: ReadonlyArray<ExtensionRef> = yield* expandPackInstallRefs({
+      pack: intent.packToInstall,
+      supportedDependencyTypes: ["skill"],
+    });
 
-    const operations = intent.refsToInstall.map((ref) => {
-      const isPack = ref.identity.type === "pack";
-
-      if (!isPack && ref.identity.type !== "skill") {
+    const steps = refs.map((ref): PlannedJobStep => {
+      if (ref.type !== "pack" && ref.type !== "skill") {
+        const target = targetFromRef(ref);
         return {
-          operationId: `${ref.identity.namespace}/${ref.identity.type}/${ref.identity.name}`,
-          operationName: "install-pack",
-          displayLabel: `${ref.identity.namespace}/${ref.identity.type}/${ref.identity.name}`,
-          identity: ref.identity,
-          intent: {
-            refsToInstall: [ref],
-            preserveConfigured: intent.preserveConfigured,
-          } satisfies InstallIntent,
-          readiness: {
-            status: "error",
-            message: `unsupported pack dependency type: ${ref.identity.type}`,
-          },
-          hooks: packHooks,
-          run: () =>
-            Effect.fail(
-              makeCliError({
-                code: "PACK_INSTALL_UNSUPPORTED_DEPENDENCY_TYPE",
-                what: `Unsupported dependency type: ${ref.identity.type}`,
-              }),
-            ),
-        } satisfies PlannedOperation;
+          label: target.name,
+          readiness: "error",
+          message: `Unsupported dependency type: ${ref.type}`,
+        };
       }
 
-      const operationName = isPack ? "install-pack" : "install-skill";
-      const hooks = isPack ? packHooks : skillHooks;
+      if (ref.type === "pack") {
+        return buildInstallOperation<PackExtensionRef>(packHooks, { ref });
+      }
 
-      const operation = buildInstallOperation(operationName, hooks, {
-        ref,
-        preserveConfigured: intent.preserveConfigured,
-      });
-
-      const readiness =
-        operationName === "install-pack"
-          ? analyzeInstallPackReadiness(snapshot, operation.intent as InstallIntent)
-          : analyzeInstallSkillReadiness(snapshot, operation.intent as InstallIntent);
-
-      return {
-        ...operation,
-        readiness,
-      } satisfies PlannedOperation;
+      return buildInstallOperation<SkillExtensionRef>(skillHooks, { ref });
     });
 
     return {
       name: "Install pack",
+      jobs: [{ concurrency: 1, steps }],
+    } satisfies Plan;
+  });
+```
+
+### `packages/cli/src/cli-commands/skills/uninstall/`
+
+```ts
+// intent.ts
+export type UninstallSkillCommandIntent = {
+  readonly skillsToUninstall: ReadonlyArray<{ readonly skillName: string }>;
+};
+
+// build-uninstall-plan.ts
+export const buildSkillUninstallPlan = (intent: UninstallSkillCommandIntent) =>
+  Effect.gen(function* () {
+    const targets = yield* resolveSkillUninstallTargetsFromLockfile(intent.skillsToUninstall);
+
+    return {
+      name: "Uninstall skill(s)",
       jobs: [
         {
           concurrency: 1,
-          steps: operations,
+          steps: targets.map((target) =>
+            buildUninstallOperation(skillHooks, {
+              target,
+            }),
+          ),
         },
       ],
     } satisfies Plan;
   });
 ```
 
-### C) Hook examples showing what varies
+### `packages/cli/src/cli-commands/packs/uninstall/`
 
 ```ts
-// skill hooks (native vs non-native materialization)
-// Reuse `skillHooks` from `extensions/skills/hooks.ts`.
-
-// mcp-server hooks (no-op placeholder in this change)
-const mcpServerOperationHooksPlaceholder = {
-  extensionType: "mcp-server",
-  status: "no-op",
+// intent.ts
+export type UninstallPackCommandIntent = {
+  readonly packToUninstall: PackExtensionTarget;
 };
 
-// pack hooks (materialization + preserve-configured behavior)
-const packHooks: ExtensionHooks<PackExtensionRef> = {
+// build-uninstall-plan.ts
+export const buildPackUninstallPlan = (
+  intent: UninstallPackCommandIntent,
+): Effect.Effect<Plan, CliError> =>
+  Effect.gen(function* () {
+    const targets = yield* expandPackUninstallTargets({
+      pack: intent.packToUninstall,
+      supportedDependencyTypes: ["skill"],
+    });
+
+    return {
+      name: "Uninstall pack",
+      jobs: [
+        {
+          concurrency: 1,
+          steps: targets.map((target): PlannedJobStep => {
+            if (target.type === "pack") {
+              return buildUninstallOperation<PackExtensionRef>(packHooks, { target });
+            }
+
+            return buildUninstallOperation<SkillExtensionRef>(skillHooks, { target });
+          }),
+        },
+      ],
+    } satisfies Plan;
+  });
+```
+
+### `packages/cli/src/extensions/skills/hooks.ts`
+
+```ts
+export const skillHooks: ExtensionHooks<SkillExtensionRef> = {
+  extensionType: "skill",
+
+  // Materialization: dispatch by PackagingKind, create agent symlinks for
+  // all workspace-configured agents.
+  materializeInstall: ({ ref }) =>
+    Effect.gen(function* () {
+      const ws = yield* Workspace;
+      const agents = yield* ws.getConfiguredAgents();
+      const sanitizedName = sanitizeName(ref.skill.name);
+
+      // Per-PackagingKind: resolve source, copy to canonical location
+      const materialized = yield* materializeSkill(ref, sanitizedName);
+
+      // Symlink to each configured agent's skills dir
+      yield* Effect.forEach(
+        agents,
+        (agentId) =>
+          installForAgent({
+            agentId,
+            canonicalSkillSrcPath: materialized.skillSrcPath,
+            sanitizedName,
+          }),
+        { concurrency: "unbounded" },
+      );
+    }),
+
+  materializeUninstall: ({ target }) => uninstallSkillMaterialization(target.name),
+
+  // Settings/lockfile hooks delegate to existing WorkspaceContextService methods,
+  // preserving semaphore serialization.
+  upsertSettingsEntry: ({ ref }) =>
+    Effect.gen(function* () {
+      const ws = yield* Workspace;
+      const agents = yield* ws.getConfiguredAgents();
+      const lockEntry = sourceToLockEntry({
+        ref,
+        agents,
+        now: new Date(),
+        sourceName: Option.none(),
+      });
+      yield* ws.setSkill({
+        name: ref.skill.name,
+        lockEntry,
+        versionConstraint: extractVersionConstraint(ref),
+      });
+    }),
+
+  removeSettingsEntry: ({ target }) =>
+    Effect.gen(function* () {
+      const ws = yield* Workspace;
+      yield* ws.removeSkill(target.name);
+    }),
+
+  upsertLockfileEntry: ({ ref }) =>
+    Effect.gen(function* () {
+      const ws = yield* Workspace;
+      const agents = yield* ws.getConfiguredAgents();
+      const lockEntry = sourceToLockEntry({
+        ref,
+        agents,
+        now: new Date(),
+        sourceName: Option.none(),
+      });
+      yield* ws.setSkillLock({ name: ref.skill.name, lockEntry, versionConstraint: Option.none() });
+    }),
+
+  removeLockfileEntry: ({ target }) =>
+    Effect.gen(function* () {
+      const ws = yield* Workspace;
+      yield* ws.removeSkill(target.name);
+    }),
+};
+```
+
+### `packages/cli/src/extensions/packs/hooks.ts`
+
+```ts
+export const packHooks: ExtensionHooks<PackExtensionRef> = {
   extensionType: "pack",
-  materializeInstall: (ref, target) =>
-    ref.identity.type === "pack" ? installPack(ref, target) : Effect.void,
-  materializeUninstall: (identity, target) =>
-    identity.type === "pack" ? uninstallPack(identity, target) : Effect.void,
+  materializeInstall: ({ ref }) => installPack(ref),
+  materializeUninstall: ({ target }) => uninstallPack(target.name),
+  upsertSettingsEntry: ({ ref }) => upsertPackSettings(ref),
+  removeSettingsEntry: ({ target }) => removePackSettings(target.name),
+  upsertLockfileEntry: ({ ref }) => upsertPackLockfile(ref),
+  removeLockfileEntry: ({ target }) => removePackLockfile(target.name),
 };
 ```
 
@@ -585,8 +724,8 @@ const packHooks: ExtensionHooks<PackExtensionRef> = {
 
 | Area                         | Path                                                             | Status            | Impact                                                                                                                          |
 | ---------------------------- | ---------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Install workflow             | `packages/cli/src/cli-commands/workflows/install.ts`             | new               | Shared install command orchestration (`parse -> resolveSource -> discover -> finalizeIntent -> buildPlan hook -> resolvePlan`). |
-| Uninstall workflow           | `packages/cli/src/cli-commands/workflows/uninstall.ts`           | new               | Shared uninstall-family orchestration (`parse -> intent -> plan -> resolvePlan`).                                               |
+| Install command workflow     | `packages/cli/src/workflows/install-command/workflow.ts`         | new               | Shared install command orchestration (`parse -> resolveSource -> discover -> finalizeIntent -> buildPlan hook -> resolvePlan`). |
+| Uninstall command workflow   | `packages/cli/src/workflows/uninstall-command/workflow.ts`       | new               | Shared uninstall command orchestration (`parse -> intent -> plan -> resolvePlan`).                                              |
 | Skill install handler        | `packages/cli/src/cli-commands/skills/install/handler.ts`        | existing          | Reduced to command-specific wiring into `runInstallCommandWorkflow` hooks.                                                      |
 | Skill uninstall handler      | `packages/cli/src/cli-commands/skills/uninstall/handler.ts`      | existing          | Reduced to command-specific wiring into `runUninstallCommandWorkflow` hooks.                                                    |
 | Pack install handler         | `packages/cli/src/cli-commands/packs/install/handler.ts`         | existing          | Largest simplification target; source resolution/discovery/intent/plan glue moves to `runInstallCommandWorkflow`.               |
@@ -594,28 +733,29 @@ const packHooks: ExtensionHooks<PackExtensionRef> = {
 | MCP-server install handler   | `packages/cli/src/cli-commands/mcp-servers/install/handler.ts`   | no-op placeholder | Explicitly out of implementation scope; retained as future integration point only.                                              |
 | MCP-server uninstall handler | `packages/cli/src/cli-commands/mcp-servers/uninstall/handler.ts` | no-op placeholder | Explicitly out of implementation scope; retained as future integration point only.                                              |
 
-### Operation handlers / lifecycle hooks
+### Operation run effects / lifecycle hooks
 
-| Area                    | Path                                                              | Status               | Impact                                                                                        |
-| ----------------------- | ----------------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------- |
-| Lifecycle kernel        | `packages/cli/src/workspace/lifecycle-kernel.ts`                  | new                  | Shared operation executor; canonical `SettingsDocument`/`LockfileDocument` updates.           |
-| Extension hook types    | `packages/cli/src/workspace/operation-hooks.ts`                   | new                  | Defines shared `ExtensionHooks<TRef>` type consumed by extension features.                    |
-| Skill install op        | `packages/cli/src/extensions/skills/operations/install.ts`        | existing             | Keeps materialization responsibilities; lock/settings writes removed to kernel.               |
-| Skill uninstall op      | `packages/cli/src/extensions/skills/operations/uninstall.ts`      | existing             | Keeps materialization responsibilities; lock/settings writes removed to kernel.               |
-| MCP-server install op   | `packages/cli/src/extensions/mcp-servers/operations/install.ts`   | no-op in this change | Existing operation remains unchanged; not migrated to lifecycle kernel yet.                   |
-| MCP-server uninstall op | `packages/cli/src/extensions/mcp-servers/operations/uninstall.ts` | no-op in this change | Existing operation remains unchanged; not migrated to lifecycle kernel yet.                   |
-| Pack install op         | `packages/cli/src/extensions/packs/operations/install.ts`         | existing             | Becomes pack materialization + pack intent expansion only; no direct cross-type state writes. |
-| Pack uninstall op       | `packages/cli/src/extensions/packs/operations/uninstall.ts`       | existing             | Becomes pack cleanup + preserve semantics input only; no direct cross-type state writes.      |
-| Skill hooks             | `packages/cli/src/extensions/skills/hooks.ts`                     | new                  | Encapsulates `PackagingKind` materialization behavior and skill execution hooks.              |
-| MCP-server hooks        | `packages/cli/src/extensions/mcp-servers/hooks.ts`                | no-op placeholder    | Not implemented in this change; reserved for future `mcp-server` support.                     |
-| Pack hooks              | `packages/cli/src/extensions/packs/hooks.ts`                      | new                  | Encapsulates pack materialization behavior and preserve-configured rules for supported types. |
+| Area                         | Path                                                              | Status               | Impact                                                                                                                   |
+| ---------------------------- | ----------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Install operation workflow   | `packages/cli/src/workflows/install-operation/workflow.ts`        | new                  | Defines `buildInstallOperation` and `runInstallOperation` for install operation execution.                               |
+| Uninstall operation workflow | `packages/cli/src/workflows/uninstall-operation/workflow.ts`      | new                  | Defines `buildUninstallOperation` and `runUninstallOperation` for uninstall operation execution.                         |
+| Extension hook types         | `packages/cli/src/workflows/install-operation/hooks.ts`           | new                  | Defines shared `ExtensionHooks<TRef>` type consumed by extension features.                                               |
+| Skill install op             | `packages/cli/src/extensions/skills/operations/install.ts`        | existing             | Called by `skillHooks.materializeInstall`; command/workflow orchestration concerns moved out of operation `run` effects. |
+| Skill uninstall op           | `packages/cli/src/extensions/skills/operations/uninstall.ts`      | existing             | Called by `skillHooks.materializeUninstall`; dependency-retain decision stays in uninstall workflow.                     |
+| MCP-server install op        | `packages/cli/src/extensions/mcp-servers/operations/install.ts`   | no-op in this change | Existing operation remains unchanged; not migrated to shared operation workflows yet.                                    |
+| MCP-server uninstall op      | `packages/cli/src/extensions/mcp-servers/operations/uninstall.ts` | no-op in this change | Existing operation remains unchanged; not migrated to shared operation workflows yet.                                    |
+| Pack install op              | `packages/cli/src/extensions/packs/operations/install.ts`         | existing             | Becomes pack materialization + pack intent expansion only; no direct cross-type state writes.                            |
+| Pack uninstall op            | `packages/cli/src/extensions/packs/operations/uninstall.ts`       | existing             | Becomes pack cleanup only; dependency-preservation policy is enforced in uninstall operation workflow.                   |
+| Skill hooks                  | `packages/cli/src/extensions/skills/hooks.ts`                     | new                  | Encapsulates `PackagingKind` materialization plus skill settings/lockfile mutation methods.                              |
+| MCP-server hooks             | `packages/cli/src/extensions/mcp-servers/hooks.ts`                | no-op placeholder    | Not implemented in this change; reserved for future `mcp-server` support.                                                |
+| Pack hooks                   | `packages/cli/src/extensions/packs/hooks.ts`                      | new                  | Encapsulates pack materialization plus pack settings/lockfile mutation methods for supported types.                      |
 
 ## Simplification Analysis
 
 This change intentionally shifts complexity from command handlers and per-extension operations into two stable seams:
 
 - command-family workflows (install, uninstall)
-- shared lifecycle kernel (canonical operation execution)
+- shared operation workflows (canonical install/uninstall operation execution via `resolvePlan`/`applyPlan`)
 
 Expected simplification outcomes:
 
@@ -625,12 +765,12 @@ Expected simplification outcomes:
    - Pack-specific complexity moves to one focused pack hook + intent layer.
 
 2. **Single source of truth for workspace-state updates**
-   - `SettingsDocument` / `LockfileDocument` add/remove logic is no longer repeated in migrated `skill`/`pack` operation handlers.
+   - `SettingsDocument` / `LockfileDocument` add/remove logic is no longer repeated in migrated `skill`/`pack` operation `run` effects.
    - This eliminates the prior bug class where one `ExtensionType` path forgot a lockfile/settings update.
 
 3. **Reduced cognitive load per file**
    - Handler files should read as orchestration declarations.
-   - Operation files should read as materialization implementations.
+   - Extension operation files should stay materialization-focused; shared operation workflows own sequencing/policy.
    - Intent expansion (especially packs) is isolated and testable independently.
 
 4. **SRP-aligned reuse**
@@ -639,22 +779,23 @@ Expected simplification outcomes:
 
 5. **Execution simplicity at operation layer**
    - Operation execution treats operation args as trusted, plan-validated intent.
-   - No duplicate validation paths exist in operation handlers.
+   - No duplicate validation paths exist across operation `run` effects.
    - Operation execution focuses purely on snapshot -> internal steps -> operation result.
 
 ## Migration Plan
 
-1. Add lifecycle kernel interfaces and shared operation execution abstraction.
-2. Add shared command primitives (parse/source/discovery/intent/plan helpers).
-3. Implement `runInstallCommandWorkflow` and migrate `skill`/`pack` install handlers.
-4. Implement `runUninstallCommandWorkflow` and migrate `skill`/`pack` uninstall handlers.
-5. Keep lifecycle kernel integration unchanged while moving handler orchestration.
-6. Remove duplicated lockfile/settings writes and duplicated source/discovery orchestration from handlers.
+1. Evolve `PlannedJobStep` to `ReadyJobStep | ErrorJobStep` with `run` closures. Simplify `resolvePlan`/`applyPlan` to execute `run` effects directly (remove handler-map dispatch, `Operation`/`OperationMap`, `defineOperationMetadata`, and `augmentPlan`).
+2. Add shared operation workflows (`buildInstallOperation`, `buildUninstallOperation`) and `ExtensionHooks` type.
+3. Add shared command primitives (parse/source/discovery/intent/plan helpers).
+4. Implement `runInstallCommandWorkflow` and migrate `skill`/`pack` install handlers.
+5. Implement `runUninstallCommandWorkflow` and migrate `skill`/`pack` uninstall handlers.
+6. Keep legacy `pack` command/mcp dependency execution paths until those extension types are migrated.
+7. Remove duplicated lockfile/settings writes and duplicated source/discovery orchestration from command handlers and operation `run` effects.
 
 ## Risks / Trade-offs
 
-- **Hook boundary leaks**: keep lock/settings writes private to kernel and enforce via tests.
-- **Pack complexity**: cross-type expansion can produce duplicates; dedupe by identity tuple.
+- **Hook boundary leaks**: keep sequencing/policy in shared operation workflows while hooks stay primitive/type-specific; enforce via tests.
+- **Pack complexity**: cross-type expansion can produce repeated targets; rely on idempotent operation semantics in this change (no dedupe layer added).
 - **Behavior drift during migration**: use contract tests to enforce parity across extension types.
 - **Future no-op confusion**: keep `mcp-server`/`command` integration explicitly labeled as no-op until supported.
 
@@ -663,9 +804,10 @@ Expected simplification outcomes:
 - Shared contract tests (all operation hook sets):
   - install writes lockfile parity
   - uninstall removes lockfile parity
-  - preserve configured entries on uninstall
-  - idempotent rerun produces skip semantics
-  - preview does not apply
+  - preserve dependency-required installations on uninstall (validated in operation execution)
+  - idempotent rerun produces no-op / safe re-application
+  - preview does not apply and does not invoke any operation `run` effect
+  - repeated expanded targets remain safe via idempotent operation semantics
 - Type-specific tests:
   - skill native vs non-native branches
   - pack cross-type dependency expansion/preservation (supported types only)
@@ -675,3 +817,4 @@ Expected simplification outcomes:
   - `runInstallCommandWorkflow` phase order across `skill`/`pack` install handlers
   - `runUninstallCommandWorkflow` phase order across `skill`/`pack` uninstall handlers
   - host probe diagnostics are consistent across supported install workflows
+  - migration-scoped CLI changes are covered and documented (`skills --list` removal, skills `--agent` removal)

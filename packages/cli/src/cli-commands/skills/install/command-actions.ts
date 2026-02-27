@@ -26,6 +26,7 @@ import {
 import type { InputParseResult } from "../../../sources/parser.js";
 import { Log, Spinner, Multiselect, TextInput } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/index.js";
+import { isUserScope, type WorkspaceScope } from "../../../workspace/scope.js";
 import { SkillManager } from "../../../extensions/skills/manager.js";
 import { buildInstallOperation } from "../../../workflows/install-operation/workflow.js";
 import type { InstallExtensionCommandWorkflowActions } from "../../../workflows/install-command/workflow.js";
@@ -52,7 +53,7 @@ export interface ParsedSkillInstallArgs {
   readonly requestedNamespace: Option.Option<string>;
   readonly all: boolean;
   readonly yes: boolean;
-  readonly global: boolean;
+  readonly scope: WorkspaceScope;
 }
 
 /**
@@ -218,7 +219,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
     const parseArgs = (args: SkillsInstallHandlerArgs) =>
       provide(
         Effect.gen(function* () {
-          const scopeLabel = args.global ? "user" : "project";
+          const scopeLabel = isUserScope(args.scope) ? "user" : "project";
           yield* log.info(`axm skills install (${scopeLabel})`);
 
           const parsed = yield* spinnerSvc.withSpinner(
@@ -291,7 +292,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             requestedNamespace,
             all: args.all,
             yes: args.yes,
-            global: args.global,
+            scope: args.scope,
           } satisfies ParsedSkillInstallArgs;
         }),
       );

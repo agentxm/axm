@@ -23,6 +23,7 @@ import { makeCliError } from "../../../cli-error/index.js";
 import { expandGlobs } from "../../../skills/index.js";
 import { Log, Spinner } from "../../../clack-effect/index.js";
 import { Workspace } from "../../../workspace/index.js";
+import { isUserScope, type WorkspaceScope } from "../../../workspace/scope.js";
 import { PackManifestSchema } from "../../../extensions/packs/manifest-schema.js";
 import { parseVersionConstraint } from "../../../version-constraints/index.js";
 import { REGISTRY_EXTENSIONS_DIR } from "../../../extensions/constants.js";
@@ -50,7 +51,7 @@ export interface UpdateHandlerArgs {
   /** Optional source to filter skills by */
   readonly source: Option.Option<string>;
   /** Use user-scope workspace */
-  readonly global: boolean;
+  readonly scope: WorkspaceScope;
   /** Target agent(s) */
   readonly agents: readonly string[];
   /** Specific skill(s) to update (by name/glob) */
@@ -87,7 +88,7 @@ export interface UpdateHandlerArgs {
  * @experimental This API is unstable and may change without notice.
  */
 export const handleUpdate = Effect.fn("Update.handle")(function* (args: UpdateHandlerArgs) {
-  const scopeLabel = args.global ? "user" : "project";
+  const scopeLabel = isUserScope(args.scope) ? "user" : "project";
 
   const ws = yield* Workspace;
   const sources = yield* SourceHostProviders;

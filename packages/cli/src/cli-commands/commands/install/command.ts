@@ -13,16 +13,15 @@ import { handleInstallCommand } from "./handler.js";
 import { InstallCommandCommandWorkflowActionsLive } from "./command-actions.js";
 import { CommandManagerLive } from "../../../extensions/commands/manager.js";
 import {
-  CONFIGURATION_SCOPES,
-  DEFAULT_CONFIGURATION_SCOPE,
-  type ConfigurationScope,
-  resolveConfigurationScope,
-  toGlobalWorkspaceFlag,
-} from "../../../workspace/config-scope.js";
+  WORKSPACE_SCOPES,
+  DEFAULT_WORKSPACE_SCOPE,
+  type WorkspaceScope,
+  resolveWorkspaceScope,
+} from "../../../workspace/scope.js";
 
 interface InstallCommandCommandArgs {
   source: string;
-  scope: ConfigurationScope;
+  scope: WorkspaceScope;
   global?: boolean;
   yes: boolean;
   force: boolean;
@@ -43,9 +42,9 @@ export const installCommandCommand: CommandModule<{}, InstallCommandCommandArgs>
       })
       .option("scope", {
         type: "string",
-        choices: CONFIGURATION_SCOPES,
+        choices: WORKSPACE_SCOPES,
         describe: "Configuration scope: project (default) or user",
-        default: DEFAULT_CONFIGURATION_SCOPE,
+        default: DEFAULT_WORKSPACE_SCOPE,
       })
       .option("global", {
         type: "boolean",
@@ -77,8 +76,7 @@ export const installCommandCommand: CommandModule<{}, InstallCommandCommandArgs>
       .example("$0 commands install @acme/commands/my-cmd", "Install a command from registry")
       .example("$0 commands install my-cmd", "Install using default namespace"),
   handler: async (argv) => {
-    const scope = resolveConfigurationScope(argv.scope, argv.global);
-    const global = toGlobalWorkspaceFlag(scope);
+    const scope = resolveWorkspaceScope(argv.scope, argv.global);
 
     const actionsLayer = Layer.provide(
       InstallCommandCommandWorkflowActionsLive,
@@ -87,7 +85,7 @@ export const installCommandCommand: CommandModule<{}, InstallCommandCommandArgs>
 
     const program = handleInstallCommand({
       source: argv.source,
-      global,
+      scope,
       yes: argv.yes,
       force: argv.force,
       nonInteractive: Option.fromNullable(argv["non-interactive"]),
@@ -95,7 +93,7 @@ export const installCommandCommand: CommandModule<{}, InstallCommandCommandArgs>
 
     await run(program, {
       workspace: {
-        global,
+        scope,
         yes: argv.yes,
         nonInteractive: Option.fromNullable(argv["non-interactive"]),
         preview: argv.preview,

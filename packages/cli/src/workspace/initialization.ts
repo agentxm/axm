@@ -1,7 +1,7 @@
 /**
  * Workspace initialization logic.
  *
- * Handles initial setup of project and global workspaces: agent detection,
+ * Handles initial setup of project and user-scope workspaces: agent detection,
  * interactive agent selection, settings/lockfile creation, and builtin pack
  * materialization.
  *

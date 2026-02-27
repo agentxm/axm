@@ -11,6 +11,7 @@
 import * as os from "node:os";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
+import type { WorkspaceScope } from "./scope.js";
 
 // -----------------------------------------------------------------------------
 // Public API
@@ -27,14 +28,14 @@ import * as Effect from "effect/Effect";
  *
  * @example
  * ```typescript
- * import { getGlobalDir } from "./workspace/paths";
+ * import { getUserScopeDir } from "./workspace/paths";
  *
- * const userScopeDir = yield* getGlobalDir();
+ * const userScopeDir = yield* getUserScopeDir();
  * // => "/Users/username/.axm" (macOS/Linux)
  * // => "C:\\Users\\username\\.axm" (Windows)
  * ```
  */
-export const getGlobalDir = (): Effect.Effect<string, never, Path.Path> =>
+export const getUserScopeDir = (): Effect.Effect<string, never, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const home = yield* Effect.sync(() => os.homedir());
@@ -68,10 +69,10 @@ export const getProjectDir = (): Effect.Effect<string, never, Path.Path> =>
 /**
  * Returns the axm directory path based on configuration scope.
  *
- * - When `global` is true, returns the user-scope directory (~/.axm)
- * - When `global` is false, returns the project directory (./.axm)
+ * - When `scope` is `"user"`, returns the user-scope directory (~/.axm)
+ * - When `scope` is `"project"`, returns the project directory (./.axm)
  *
- * @param global - Whether to use user scope (true) or project scope (false)
+ * @param scope - Workspace scope (`"project"` or `"user"`)
  * @returns Effect yielding absolute path to the appropriate axm directory
  *
  * @experimental This API is unstable and may change without notice.
@@ -81,13 +82,13 @@ export const getProjectDir = (): Effect.Effect<string, never, Path.Path> =>
  * import { getAxmDir } from "./workspace/paths";
  *
  * // Project-level directory
- * const projectDir = yield* getAxmDir(false);
+ * const projectDir = yield* getAxmDir("project");
  * // => "/path/to/project/.axm"
  *
  * // User-scope directory
- * const userScopeDir = yield* getAxmDir(true);
+ * const userScopeDir = yield* getAxmDir("user");
  * // => "/Users/username/.axm"
  * ```
  */
-export const getAxmDir = (global: boolean): Effect.Effect<string, never, Path.Path> =>
-  global ? getGlobalDir() : getProjectDir();
+export const getAxmDir = (scope: WorkspaceScope): Effect.Effect<string, never, Path.Path> =>
+  scope === "user" ? getUserScopeDir() : getProjectDir();

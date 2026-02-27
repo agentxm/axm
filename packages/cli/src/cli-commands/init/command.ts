@@ -3,15 +3,14 @@ import * as Option from "effect/Option";
 import { run } from "../../runtime/index.js";
 import { handleInit } from "./handler.js";
 import {
-  CONFIGURATION_SCOPES,
-  DEFAULT_CONFIGURATION_SCOPE,
-  type ConfigurationScope,
-  resolveConfigurationScope,
-  toGlobalWorkspaceFlag,
-} from "../../workspace/config-scope.js";
+  WORKSPACE_SCOPES,
+  DEFAULT_WORKSPACE_SCOPE,
+  type WorkspaceScope,
+  resolveWorkspaceScope,
+} from "../../workspace/scope.js";
 
 interface InitArgs {
-  scope: ConfigurationScope;
+  scope: WorkspaceScope;
   global?: boolean;
   agent: ReadonlyArray<string>;
   yes: boolean;
@@ -26,9 +25,9 @@ export const initCommand: CommandModule<{}, InitArgs> = {
     yargs
       .option("scope", {
         type: "string",
-        choices: CONFIGURATION_SCOPES,
+        choices: WORKSPACE_SCOPES,
         describe: "Configuration scope: project (default) or user",
-        default: DEFAULT_CONFIGURATION_SCOPE,
+        default: DEFAULT_WORKSPACE_SCOPE,
       })
       .option("global", {
         type: "boolean",
@@ -58,10 +57,10 @@ export const initCommand: CommandModule<{}, InitArgs> = {
       .example("$0 init --scope user", "Initialize in ~/.axm/ for user-scope configuration")
       .example("$0 init --agent claude-code --agent cursor", "Initialize with specific agents"),
   handler: async (argv) => {
-    const scope = resolveConfigurationScope(argv.scope, argv.global);
+    const scope = resolveWorkspaceScope(argv.scope, argv.global);
     await run(handleInit(), {
       workspace: {
-        global: toGlobalWorkspaceFlag(scope),
+        scope,
         yes: argv.yes,
         nonInteractive: Option.fromNullable(argv["non-interactive"]),
         preview: false,

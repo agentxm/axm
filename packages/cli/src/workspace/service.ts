@@ -67,6 +67,7 @@ import {
 import { lockEntryToSourceParams, parseInputPattern, printSourceParams } from "../sources/index.js";
 import * as Record from "effect/Record";
 import { getAxmDir } from "./paths.js";
+import { isUserScope, type WorkspaceScope } from "./scope.js";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -293,7 +294,7 @@ export type WorkspaceContextError = CliError | PromptCancelled;
  */
 export interface WorkspaceContextOptions {
   /** Whether to use user-scope workspace (~/.axm) or project workspace (.axm) */
-  readonly global: boolean;
+  readonly scope: WorkspaceScope;
   /** Auto-accept detected agents without prompting */
   readonly yes: boolean;
   /** Disable all prompts; Option.none() falls back to CI detection */
@@ -324,11 +325,11 @@ export interface WorkspaceContextOptions {
  */
 const make = (options: WorkspaceContextOptions) =>
   Effect.gen(function* () {
-    const globalDir = yield* getAxmDir(true);
-    const localDir = yield* getAxmDir(false);
-    const workspaceDir = options.global ? globalDir : localDir;
+    const globalDir = yield* getAxmDir("user");
+    const localDir = yield* getAxmDir("project");
+    const workspaceDir = isUserScope(options.scope) ? globalDir : localDir;
 
-    if (options.global) {
+    if (isUserScope(options.scope)) {
       yield* ensureGlobalWorkspaceInitialized(globalDir);
     } else {
       yield* ensureProjectWorkspaceInitialized(localDir, options);
@@ -602,7 +603,7 @@ const make = (options: WorkspaceContextOptions) =>
       });
 
     return {
-      global: options.global,
+      scope: options.scope,
       path: workspaceDir,
       baseDir,
       nonInteractive: resolvedNonInteractive,
@@ -1615,7 +1616,7 @@ export const layer = (options: WorkspaceContextOptions) => Layer.effect(Workspac
  */
 export interface WorkspaceContextService {
   /** Whether this is a user-scope workspace (~/.axm) or project workspace (.axm) */
-  readonly global: boolean;
+  readonly scope: WorkspaceScope;
   /** Path to the .axm directory */
   readonly path: string;
   /** Project root directory (parent of .axm) */

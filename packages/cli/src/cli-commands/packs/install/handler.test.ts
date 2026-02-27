@@ -85,7 +85,7 @@ const defaultArgs = (
   overrides: Partial<InstallPackHandlerArgs> = {},
 ): InstallPackHandlerArgs => ({
   source,
-  global: false,
+  scope: "project",
   yes: true,
   force: false,
   nonInteractive: Option.some(true),
@@ -139,7 +139,7 @@ describe("packs install handler", () => {
       multiselectLayer,
     );
     const wsOptions: WorkspaceContextOptions = {
-      global: false,
+      scope: "project",
       yes: true,
       nonInteractive: Option.some(true),
       preview: false,
@@ -187,7 +187,7 @@ describe("packs install handler", () => {
       multiselectLayer,
     );
     const wsOptions: WorkspaceContextOptions = {
-      global: false,
+      scope: "project",
       yes: true,
       nonInteractive: Option.some(true),
       preview: true,

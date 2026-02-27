@@ -108,7 +108,7 @@ describe("init.handler", () => {
   };
 
   const defaultWsOptions: WorkspaceContextOptions = {
-    global: false,
+    scope: "project",
     yes: true,
     nonInteractive: Option.some(false),
     preview: false,
@@ -247,7 +247,7 @@ describe("init.handler", () => {
         Effect.provide(
           (() => {
             const WsLayer = Layer.provide(
-              workspaceLayer({ ...defaultWsOptions, global: true }),
+              workspaceLayer({ ...defaultWsOptions, scope: "user" }),
               TestLayer,
             );
             return Layer.mergeAll(TestLayer, WsLayer);
@@ -301,7 +301,7 @@ describe("init.handler", () => {
         Effect.provide(
           (() => {
             const WsLayer = Layer.provide(
-              workspaceLayer({ ...defaultWsOptions, global: true }),
+              workspaceLayer({ ...defaultWsOptions, scope: "user" }),
               TestLayer,
             );
             return Layer.mergeAll(TestLayer, WsLayer);
@@ -320,7 +320,7 @@ describe("init.handler", () => {
       Effect.gen(function* () {
         const WsLayer = Layer.provide(
           workspaceLayer({
-            global: false,
+            scope: "project",
             yes: false,
             nonInteractive: Option.some(true),
             preview: false,
@@ -340,7 +340,7 @@ describe("init.handler", () => {
 
     it.effect("succeeds when --yes is provided with --non-interactive", () =>
       withLayers({
-        global: false,
+        scope: "project",
         yes: true,
         nonInteractive: Option.some(true),
         preview: false,
@@ -370,7 +370,7 @@ describe("init.handler", () => {
         multiselectBehavior?: import("../../clack-effect/index.js").MultiselectBehavior;
       },
       wsOptions: Omit<WorkspaceContextOptions, "yes" | "nonInteractive" | "preview"> = {
-        global: false,
+        scope: "project",
         agents: Option.none(),
       },
     ) => {

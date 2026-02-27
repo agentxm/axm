@@ -55,7 +55,7 @@ export const unpackCommand: CommandModule<{}, UnpackCommandArgs> = {
       }),
       {
         workspace: {
-          global: false,
+          scope: "project",
           yes: argv.yes,
           nonInteractive: Option.fromNullable(argv["non-interactive"]),
           preview: argv.preview,

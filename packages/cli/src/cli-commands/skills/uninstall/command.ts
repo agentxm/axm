@@ -58,7 +58,7 @@ export const uninstallCommand: CommandModule<{}, UninstallCommandArgs> = {
       }).pipe(Effect.provide(actionsLayer)),
       {
         workspace: {
-          global: false,
+          scope: "project",
           yes: argv.yes,
           nonInteractive: Option.fromNullable(argv["non-interactive"]),
           preview: argv.preview,

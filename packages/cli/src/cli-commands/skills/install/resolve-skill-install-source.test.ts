@@ -16,7 +16,7 @@ import { resolveSkillInstallSource, resolveSkillUrl } from "./resolve-skill-inst
 
 const makeWorkspace = (sources: ReadonlyArray<SourceHostConfig>): WorkspaceContextService => ({
   ...taxonomyStubs,
-  global: false,
+  scope: "project",
   path: "/tmp/test-workspace",
   baseDir: "/tmp",
   nonInteractive: true,

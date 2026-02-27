@@ -39,7 +39,7 @@ const emptyExecutedPlan: ExecutedPlan = {
 
 const makeMockWorkspace = (onResolvePlan?: (plan: Plan) => void): WorkspaceContextService =>
   ({
-    global: false,
+    scope: "project",
     path: "/tmp/test/.axm",
     baseDir: "/tmp/test",
     nonInteractive: true,

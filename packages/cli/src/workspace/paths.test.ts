@@ -1,7 +1,7 @@
 /**
  * Unit tests for path utilities module.
  *
- * Tests the axm directory resolution functions for global and project namespaces.
+ * Tests the axm directory resolution functions for user and project scopes.
  */
 
 import * as os from "node:os";
@@ -9,28 +9,28 @@ import * as path from "node:path";
 import * as NodeContext from "@effect/platform-node/NodeContext";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { getAxmDir, getGlobalDir, getProjectDir } from "./paths.js";
+import { getAxmDir, getProjectDir, getUserScopeDir } from "./paths.js";
 
 describe("paths", () => {
-  describe("getGlobalDir", () => {
+  describe("getUserScopeDir", () => {
     it.effect("returns path to ~/.axm", () =>
       Effect.gen(function* () {
-        const result = yield* getGlobalDir();
+        const result = yield* getUserScopeDir();
         expect(result).toBe(path.join(os.homedir(), ".axm"));
       }).pipe(Effect.provide(NodeContext.layer)),
     );
 
     it.effect("returns an absolute path", () =>
       Effect.gen(function* () {
-        const result = yield* getGlobalDir();
+        const result = yield* getUserScopeDir();
         expect(path.isAbsolute(result)).toBe(true);
       }).pipe(Effect.provide(NodeContext.layer)),
     );
 
     it.effect("returns the same value on repeated calls", () =>
       Effect.gen(function* () {
-        const result1 = yield* getGlobalDir();
-        const result2 = yield* getGlobalDir();
+        const result1 = yield* getUserScopeDir();
+        const result2 = yield* getUserScopeDir();
         expect(result1).toBe(result2);
       }).pipe(Effect.provide(NodeContext.layer)),
     );
@@ -61,38 +61,38 @@ describe("paths", () => {
   });
 
   describe("getAxmDir", () => {
-    it.effect("returns global dir when global is true", () =>
+    it.effect("returns user-scope dir when scope is user", () =>
       Effect.gen(function* () {
-        const result = yield* getAxmDir(true);
-        const expected = yield* getGlobalDir();
+        const result = yield* getAxmDir("user");
+        const expected = yield* getUserScopeDir();
         expect(result).toBe(expected);
       }).pipe(Effect.provide(NodeContext.layer)),
     );
 
-    it.effect("returns project dir when global is false", () =>
+    it.effect("returns project dir when scope is project", () =>
       Effect.gen(function* () {
-        const result = yield* getAxmDir(false);
+        const result = yield* getAxmDir("project");
         const expected = yield* getProjectDir();
         expect(result).toBe(expected);
       }).pipe(Effect.provide(NodeContext.layer)),
     );
 
-    it.effect("returns an absolute path regardless of namespace", () =>
+    it.effect("returns an absolute path regardless of scope", () =>
       Effect.gen(function* () {
-        const globalResult = yield* getAxmDir(true);
-        const projectResult = yield* getAxmDir(false);
-        expect(path.isAbsolute(globalResult)).toBe(true);
+        const userResult = yield* getAxmDir("user");
+        const projectResult = yield* getAxmDir("project");
+        expect(path.isAbsolute(userResult)).toBe(true);
         expect(path.isAbsolute(projectResult)).toBe(true);
       }).pipe(Effect.provide(NodeContext.layer)),
     );
 
-    it.effect("returns different paths for global and project namespaces", () =>
+    it.effect("returns different paths for user and project scopes", () =>
       Effect.gen(function* () {
-        const globalResult = yield* getAxmDir(true);
-        const projectResult = yield* getAxmDir(false);
-        expect(typeof globalResult).toBe("string");
+        const userResult = yield* getAxmDir("user");
+        const projectResult = yield* getAxmDir("project");
+        expect(typeof userResult).toBe("string");
         expect(typeof projectResult).toBe("string");
-        expect(globalResult.endsWith(".axm")).toBe(true);
+        expect(userResult.endsWith(".axm")).toBe(true);
         expect(projectResult.endsWith(".axm")).toBe(true);
       }).pipe(Effect.provide(NodeContext.layer)),
     );

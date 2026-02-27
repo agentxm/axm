@@ -60,7 +60,7 @@ export const uninstallMcpServerCommand: CommandModule<{}, UninstallMcpServerComm
 
     await run(program, {
       workspace: {
-        global: false,
+        scope: "project",
         yes: argv.yes,
         nonInteractive: Option.fromNullable(argv["non-interactive"]),
         preview: argv.preview,

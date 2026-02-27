@@ -10,7 +10,7 @@ import type { AgentDescriptor } from "../types.js";
 /**
  * Replit agent descriptor.
  *
- * Note: Replit does not support global installation.
+ * Note: Replit does not support user-scope installation.
  *
  * @experimental This API is unstable and may change without notice.
  */

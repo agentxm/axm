@@ -39,6 +39,7 @@ import type {
   CommandExtensionRef,
   McpServerExtensionRef,
 } from "../../../sources/types.js";
+import type { WorkspaceScope } from "../../../workspace/scope.js";
 import type { InstallPackCommandIntent } from "./intent.js";
 
 // -----------------------------------------------------------------------------
@@ -48,7 +49,7 @@ import type { InstallPackCommandIntent } from "./intent.js";
 /** Raw handler args from yargs. */
 export interface InstallPackHandlerArgs {
   readonly source: string;
-  readonly global: boolean;
+  readonly scope: WorkspaceScope;
   readonly yes: boolean;
   readonly force: boolean;
   readonly nonInteractive: Option.Option<boolean>;

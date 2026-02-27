@@ -9,16 +9,15 @@ import * as Option from "effect/Option";
 import { run } from "../../../runtime/index.js";
 import { handleEnable } from "./handler.js";
 import {
-  CONFIGURATION_SCOPES,
-  DEFAULT_CONFIGURATION_SCOPE,
-  type ConfigurationScope,
-  resolveConfigurationScope,
-  toGlobalWorkspaceFlag,
-} from "../../../workspace/config-scope.js";
+  WORKSPACE_SCOPES,
+  DEFAULT_WORKSPACE_SCOPE,
+  type WorkspaceScope,
+  resolveWorkspaceScope,
+} from "../../../workspace/scope.js";
 
 export interface EnableCommandArgs {
   name: string;
-  scope: ConfigurationScope;
+  scope: WorkspaceScope;
   global?: boolean;
   yes: boolean;
   preview: boolean;
@@ -38,9 +37,9 @@ export const enableCommand: CommandModule<{}, EnableCommandArgs> = {
       })
       .option("scope", {
         type: "string",
-        choices: CONFIGURATION_SCOPES,
+        choices: WORKSPACE_SCOPES,
         describe: "Configuration scope: project (default) or user",
-        default: DEFAULT_CONFIGURATION_SCOPE,
+        default: DEFAULT_WORKSPACE_SCOPE,
       })
       .option("global", {
         type: "boolean",
@@ -66,7 +65,7 @@ export const enableCommand: CommandModule<{}, EnableCommandArgs> = {
       .example("$0 skills enable my-skill", "Enable a previously disabled skill")
       .example("$0 skills enable my-skill --preview", "Preview what would be enabled"),
   handler: async (argv) => {
-    const scope = resolveConfigurationScope(argv.scope, argv.global);
+    const scope = resolveWorkspaceScope(argv.scope, argv.global);
     await run(
       handleEnable({
         name: argv.name,
@@ -74,7 +73,7 @@ export const enableCommand: CommandModule<{}, EnableCommandArgs> = {
       }),
       {
         workspace: {
-          global: toGlobalWorkspaceFlag(scope),
+          scope,
           yes: argv.yes,
           nonInteractive: Option.fromNullable(argv["non-interactive"]),
           preview: argv.preview,

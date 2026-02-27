@@ -23,7 +23,7 @@ const makeWorkspaceMock = (
   overrides: Partial<WorkspaceContextService> = {},
 ): WorkspaceContextService => ({
   ...taxonomyStubs,
-  global: false,
+  scope: "project",
   path: "/mock/.axm",
   baseDir: "/mock",
   nonInteractive: true,

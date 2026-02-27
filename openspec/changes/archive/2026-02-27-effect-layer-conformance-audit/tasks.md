@@ -91,29 +91,29 @@ Depends on: Phase 2 (service type exports changed).
 
 For each factory: create a new `*Test.ts` file with a named `*Test` constant using `Layer.effect` + `Ref`-based state. Expose an inspection API (e.g., `_calls: Ref.get(ref)`) on the service for test assertions. Delete the old `test.ts` file. Update the barrel `index.ts` in the same directory to export from `*Test.ts` instead of `test.ts`.
 
-- [ ] 3.1 Rewrite `clack-effect/log/test.ts` → `clack-effect/log/ClackLogTest.ts` (export `ClackLogTest`)
-- [ ] 3.2 Rewrite `clack-effect/spinner/test.ts` → `clack-effect/spinner/ClackSpinnerTest.ts` (export `ClackSpinnerTest`)
-- [ ] 3.3 Rewrite `clack-effect/prompt/test.ts` → `clack-effect/prompt/ClackPromptTest.ts` (export `ClackPromptTest`, plus `ConfirmTest`, `SelectTest`, `MultiselectTest`)
-- [ ] 3.4 Rewrite `clack-effect/progress/test.ts` → `clack-effect/progress/ClackProgressTest.ts` (export `ClackProgressTest`)
-- [ ] 3.5 Rewrite `clack-effect/stream/test.ts` → `clack-effect/stream/ClackStreamTest.ts` (export `ClackStreamTest`)
-- [ ] 3.6 Rewrite `clack-effect/task-log/test.ts` → `clack-effect/task-log/ClackTaskLogTest.ts` (export `ClackTaskLogTest`)
+- [x] 3.1 Rewrite `clack-effect/log/test.ts` → `clack-effect/log/ClackLogTest.ts` (export `ClackLogTest`)
+- [x] 3.2 Rewrite `clack-effect/spinner/test.ts` → `clack-effect/spinner/ClackSpinnerTest.ts` (export `ClackSpinnerTest`)
+- [x] 3.3 Rewrite `clack-effect/prompt/test.ts` → `clack-effect/prompt/ClackPromptTest.ts` (export `ClackPromptTest`, plus `ConfirmTest`, `SelectTest`, `MultiselectTest`)
+- [x] 3.4 Rewrite `clack-effect/progress/test.ts` → `clack-effect/progress/ClackProgressTest.ts` (export `ClackProgressTest`)
+- [x] 3.5 Rewrite `clack-effect/stream/test.ts` → `clack-effect/stream/ClackStreamTest.ts` (export `ClackStreamTest`)
+- [x] 3.6 Rewrite `clack-effect/task-log/test.ts` → `clack-effect/task-log/ClackTaskLogTest.ts` (export `ClackTaskLogTest`)
 
 ### Update test consumers
 
-- [ ] 3.7 Update all ~46 test files that consume test layer factories. For each file:
+- [x] 3.7 Update all ~46 test files that consume test layer factories. For each file:
   - Replace `const [layer, mock] = make*TestLayer()` with the named `*Test` layer constant
   - Replace mock property assertions (e.g., `mock.logs.info`) with `yield* service._calls` inside Effect context
   - Update import paths from `test.ts` barrel to `*Test.ts` barrel
 
 ### Barrel cleanup
 
-- [ ] 3.8 Update barrel exports in `clack-effect/*/index.ts` — remove old `make*TestLayer` exports, add new `*Test` exports
-- [ ] 3.9 Update `clack-effect/index.ts` barrel — remove old `make*TestLayer` re-exports, add new `*Test` re-exports
+- [x] 3.8 Update barrel exports in `clack-effect/*/index.ts` — remove old `make*TestLayer` exports, add new `*Test` exports
+- [x] 3.9 Update `clack-effect/index.ts` barrel — remove old `make*TestLayer` re-exports, add new `*Test` re-exports
 
 ### Verification
 
-- [ ] 3.10 Run `pnpm typecheck` — fix any errors
-- [ ] 3.11 Run `pnpm lint` — fix any errors
-- [ ] 3.12 Run `pnpm test` — fix any failures
-- [ ] 3.13 Run `pnpm test:e2e` — fix any failures
-- [ ] 3.14 Kill any vitest worker processes
+- [x] 3.10 Run `pnpm typecheck` — fix any errors
+- [x] 3.11 Run `pnpm lint` — fix any errors
+- [x] 3.12 Run `pnpm test` — fix any failures
+- [x] 3.13 Run `pnpm test:e2e` — fix any failures
+- [x] 3.14 Kill any vitest worker processes

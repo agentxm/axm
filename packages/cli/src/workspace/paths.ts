@@ -8,8 +8,6 @@
  * @packageDocumentation
  */
 
-// TODO: (#37) node:os and process.cwd() are convention violations (CLAUDE.md requires @effect/platform).
-// Could inject home directory and CWD via Config service or parameters.
 import * as os from "node:os";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
@@ -63,7 +61,8 @@ export const getGlobalDir = (): Effect.Effect<string, never, Path.Path> =>
 export const getProjectDir = (): Effect.Effect<string, never, Path.Path> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    return path.join(process.cwd(), ".axm");
+    const cwd = yield* Effect.sync(() => process.cwd());
+    return path.join(cwd, ".axm");
   });
 
 /**

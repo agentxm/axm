@@ -6,6 +6,7 @@
 
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
+import { AGENT_IDS } from "../agents/index.js";
 
 /**
  * Author information for a manifest.
@@ -122,51 +123,12 @@ export type ExtensionType = typeof ExtensionTypeSchema.Type;
 /**
  * Agent identifier enumeration for supported coding agents.
  *
- * Must be kept in sync with AgentId in agents/types.ts.
+ * Derived from `AGENT_IDS` in agents/types.ts — compile-time enforced,
+ * no manual sync required.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const AgentIdSchema = Schema.Union(
-  Schema.Literal("adal"),
-  Schema.Literal("amp"),
-  Schema.Literal("antigravity"),
-  Schema.Literal("augment"),
-  Schema.Literal("claude-code"),
-  Schema.Literal("cline"),
-  Schema.Literal("codebuddy"),
-  Schema.Literal("codex"),
-  Schema.Literal("command-code"),
-  Schema.Literal("continue"),
-  Schema.Literal("crush"),
-  Schema.Literal("cursor"),
-  Schema.Literal("droid"),
-  Schema.Literal("gemini-cli"),
-  Schema.Literal("github-copilot"),
-  Schema.Literal("goose"),
-  Schema.Literal("iflow-cli"),
-  Schema.Literal("junie"),
-  Schema.Literal("kilo"),
-  Schema.Literal("kimi-cli"),
-  Schema.Literal("kiro-cli"),
-  Schema.Literal("kode"),
-  Schema.Literal("mcpjam"),
-  Schema.Literal("mistral-vibe"),
-  Schema.Literal("mux"),
-  Schema.Literal("neovate"),
-  Schema.Literal("openclaw"),
-  Schema.Literal("opencode"),
-  Schema.Literal("openhands"),
-  Schema.Literal("pi"),
-  Schema.Literal("pochi"),
-  Schema.Literal("qoder"),
-  Schema.Literal("qwen-code"),
-  Schema.Literal("replit"),
-  Schema.Literal("roo"),
-  Schema.Literal("trae"),
-  Schema.Literal("trae-cn"),
-  Schema.Literal("windsurf"),
-  Schema.Literal("zencoder"),
-);
+export const AgentIdSchema = Schema.Literal(...AGENT_IDS);
 
 /**
  * Inferred type for AgentId schema.

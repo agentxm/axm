@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import {
   BuiltinPackLockEntrySchema,
-  BuiltinSkillLockEntrySchema,
+  DateFromString,
   ExactSemverVersionSchema,
   LockfileSchema,
   PackLockEntrySchema,
@@ -12,6 +12,33 @@ import {
 } from "./schema.js";
 
 describe("lockfile schema", () => {
+  describe("DateFromString", () => {
+    it("accepts valid ISO 8601 date string", () => {
+      const result = Schema.decodeUnknownSync(DateFromString)("2025-01-15T10:30:00Z");
+      expect(result).toBeInstanceOf(Date);
+      expect(result.toISOString()).toBe("2025-01-15T10:30:00.000Z");
+    });
+
+    it("rejects invalid date string", () => {
+      expect(() => Schema.decodeUnknownSync(DateFromString)("garbage")).toThrow();
+    });
+
+    it("rejects empty string", () => {
+      expect(() => Schema.decodeUnknownSync(DateFromString)("")).toThrow();
+    });
+
+    it("rejects string that produces Invalid Date", () => {
+      expect(() => Schema.decodeUnknownSync(DateFromString)("not-a-date")).toThrow();
+    });
+
+    it("round-trips valid date string", () => {
+      const input = "2025-01-15T10:30:00.000Z";
+      const decoded = Schema.decodeUnknownSync(DateFromString)(input);
+      const encoded = Schema.encodeSync(DateFromString)(decoded);
+      expect(encoded).toBe(input);
+    });
+  });
+
   describe("ExactSemverVersion", () => {
     it("accepts exact semver versions", () => {
       expect(Schema.decodeUnknownSync(ExactSemverVersionSchema)("1.2.3")).toBe("1.2.3");
@@ -608,7 +635,7 @@ describe("lockfile schema", () => {
         updatedAt: "2025-01-15T10:30:00Z",
       };
 
-      const result = Schema.decodeUnknownSync(BuiltinSkillLockEntrySchema)(input);
+      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
 
       expect(result.type).toBe("builtin");
       expect(result.agents).toEqual(["claude-code"]);
@@ -626,24 +653,11 @@ describe("lockfile schema", () => {
         sourceName: "default",
       };
 
-      const result = Schema.decodeUnknownSync(BuiltinSkillLockEntrySchema)(input);
+      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
 
       expect(result.type).toBe("builtin");
       expect("integrity" in result).toBe(false);
       expect("sourceName" in result).toBe(false);
-    });
-
-    it("is accepted by SkillLockEntrySchema union", () => {
-      const input = {
-        type: "builtin",
-        agents: ["claude-code"],
-        installedAt: "2025-01-15T10:30:00Z",
-        updatedAt: "2025-01-15T10:30:00Z",
-      };
-
-      const result = Schema.decodeUnknownSync(SkillLockEntrySchema)(input);
-
-      expect(result.type).toBe("builtin");
     });
   });
 

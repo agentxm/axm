@@ -1,5 +1,5 @@
-import * as nodePath from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
+import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../cli-error/index.js";
@@ -26,6 +26,7 @@ export type SymlinkResult = "created" | "replaced" | "no-op" | "skipped";
 export const createSymlink = (opts: { readonly target: string; readonly link: string }) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
+    const p = yield* Path.Path;
 
     // Resolve both paths through parent symlinks for accurate comparison
     const resolvedTarget = yield* resolveParentSymlinks(opts.target).pipe(
@@ -48,11 +49,11 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
     }
 
     // Compute relative path from resolved parent dirs
-    const resolvedLinkParent = nodePath.dirname(resolvedLink);
-    const relTarget = nodePath.relative(resolvedLinkParent, resolvedTarget);
+    const resolvedLinkParent = p.dirname(resolvedLink);
+    const relTarget = p.relative(resolvedLinkParent, resolvedTarget);
 
     // Check what currently exists at the link path
-    const existingResult = yield* inspectExisting(fs, opts.link, resolvedTarget);
+    const existingResult = yield* inspectExisting(fs, p, opts.link, resolvedTarget);
     if (existingResult === "no-op") return "no-op" as const;
 
     // If something exists that needs replacing, remove it
@@ -69,7 +70,7 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
     }
 
     // Create parent directories
-    const linkParent = nodePath.dirname(opts.link);
+    const linkParent = p.dirname(opts.link);
     yield* fs.makeDirectory(linkParent, { recursive: true }).pipe(
       Effect.mapError((e) =>
         makeCliError({
@@ -101,15 +102,20 @@ export const createSymlink = (opts: { readonly target: string; readonly link: st
  * follows symlinks — there is no lstat equivalent). Falls back to stat
  * for non-symlink entries.
  */
-const inspectExisting = (fs: FileSystem.FileSystem, linkPath: string, resolvedAbsTarget: string) =>
+const inspectExisting = (
+  fs: FileSystem.FileSystem,
+  p: Path.Path,
+  linkPath: string,
+  resolvedAbsTarget: string,
+) =>
   Effect.gen(function* () {
     // Try readLink first — succeeds only if linkPath is a symlink
     const linkTarget = yield* fs.readLink(linkPath).pipe(Effect.option);
 
     if (Option.isSome(linkTarget)) {
       // It's a symlink — check if it points to the correct target
-      const linkParent = nodePath.dirname(linkPath);
-      const currentAbsTarget = nodePath.resolve(linkParent, linkTarget.value);
+      const linkParent = p.dirname(linkPath);
+      const currentAbsTarget = p.resolve(linkParent, linkTarget.value);
 
       // Resolve through realpath for cases where parent dirs are symlinks
       const resolvedCurrentTarget = yield* fs

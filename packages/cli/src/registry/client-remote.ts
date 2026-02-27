@@ -169,32 +169,30 @@ export const mapProblemDetailToCliError = (status: number, problem: unknown): Cl
 // Internal Helpers
 // -----------------------------------------------------------------------------
 
-// TODO: (#44) getStringField/getNumberField/getArrayField use `as Record<string, unknown>` after
-// type guards. Could use Schema.decodeUnknown for problem detail parsing for consistency.
-// Low priority since type guards are functionally safe.
-const getStringField = (obj: unknown, field: string): string | undefined => {
+/**
+ * Safely extract a field from an unknown object, returning undefined when the
+ * object is not a plain record or the field is absent / has the wrong type.
+ */
+const getField = <T>(obj: unknown, field: string, guard: (v: unknown) => v is T): T | undefined => {
   if (obj !== null && obj !== undefined && typeof obj === "object" && field in obj) {
     const value = (obj as Record<string, unknown>)[field];
-    return typeof value === "string" ? value : undefined;
+    return guard(value) ? value : undefined;
   }
   return undefined;
 };
 
-const getNumberField = (obj: unknown, field: string): number | undefined => {
-  if (obj !== null && obj !== undefined && typeof obj === "object" && field in obj) {
-    const value = (obj as Record<string, unknown>)[field];
-    return typeof value === "number" ? value : undefined;
-  }
-  return undefined;
-};
+const isString = (v: unknown): v is string => typeof v === "string";
+const isNumber = (v: unknown): v is number => typeof v === "number";
+const isArray = (v: unknown): v is ReadonlyArray<unknown> => Array.isArray(v);
 
-const getArrayField = (obj: unknown, field: string): ReadonlyArray<unknown> | undefined => {
-  if (obj !== null && obj !== undefined && typeof obj === "object" && field in obj) {
-    const value = (obj as Record<string, unknown>)[field];
-    return Array.isArray(value) ? value : undefined;
-  }
-  return undefined;
-};
+const getStringField = (obj: unknown, field: string): string | undefined =>
+  getField(obj, field, isString);
+
+const getNumberField = (obj: unknown, field: string): number | undefined =>
+  getField(obj, field, isNumber);
+
+const getArrayField = (obj: unknown, field: string): ReadonlyArray<unknown> | undefined =>
+  getField(obj, field, isArray);
 
 const formatIssuePath = (path: unknown): string | undefined => {
   if (!Array.isArray(path)) {

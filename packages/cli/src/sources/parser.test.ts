@@ -127,7 +127,11 @@ describe("parseInputPattern", () => {
       });
     });
 
-    it("returns None for slash pattern with more than two segments", () => {
+    it("returns None for slash pattern with three segments (unsupported)", () => {
+      expectNone("owner/repo/path");
+    });
+
+    it("returns None for slash pattern with more than three segments", () => {
       expectNone("owner/repo/sub/path");
     });
 

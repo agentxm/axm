@@ -19,7 +19,7 @@ import {
   makeClackLogTestLayer,
   makeClackPromptTestLayer,
   type MockClackLogService,
-  type MockClackPromptService
+  type MockClackPromptService,
 } from "../clack-effect/index.js";
 import YAML from "yaml";
 import { CliError } from "../cli-error/index.js";

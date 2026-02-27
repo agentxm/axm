@@ -17,13 +17,11 @@ export const runTasks = <E, R>(
     yield* Effect.forEach(
       tasks.filter((t) => t.enabled !== false),
       (task) =>
-        s.withSpinner(
-          task.title,
-          (handle) =>
-            Effect.map(
-              task.task((msg) => handle.message(msg)),
-              (result) => result ?? task.title,
-            ),
+        s.withSpinner(task.title, (handle) =>
+          Effect.map(
+            task.task((msg) => handle.message(msg)),
+            (result) => result ?? task.title,
+          ),
         ),
       { concurrency: 1 },
     );

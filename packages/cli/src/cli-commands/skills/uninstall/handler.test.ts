@@ -14,10 +14,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import {
-  makeClackPromptTestLayer,
-  makeClackLogTestLayer
-} from "../../../clack-effect/index.js";
+import { makeClackPromptTestLayer, makeClackLogTestLayer } from "../../../clack-effect/index.js";
 import { layer as workspaceLayer, type WorkspaceContextOptions } from "../../../workspace/index.js";
 import { SourceHostProvidersLive } from "../../../sources/index.js";
 import { SkillManagerLive } from "../../../extensions/skills/manager.js";

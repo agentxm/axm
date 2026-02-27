@@ -21,7 +21,7 @@ import {
   type Multiselect,
   type Select,
   makeClackPromptTestLayer,
-  makeClackLogTestLayer
+  makeClackLogTestLayer,
 } from "../../../clack-effect/index.js";
 import {
   Workspace,

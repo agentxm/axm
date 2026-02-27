@@ -87,7 +87,7 @@ describe("init command options", () => {
     }
   });
 
-  it("defines --non-interactive option with boolean type and default false", () => {
+  it("defines --non-interactive option with boolean type and no default", () => {
     const { mockYargs, capturedOptions } = createOptionCapturingMock();
 
     if (typeof initCommand.builder === "function") {
@@ -95,9 +95,9 @@ describe("init command options", () => {
       expect(capturedOptions["non-interactive"]).toEqual(
         expect.objectContaining({
           type: "boolean",
-          default: false,
         }),
       );
+      expect((capturedOptions["non-interactive"] as Options).default).toBeUndefined();
     }
   });
 
@@ -193,7 +193,7 @@ describe("init command parser", () => {
     expect(argv["scope"]).toBe("project");
     expect(argv["yes"]).toBe(false);
     expect(argv["agent"]).toEqual([]);
-    expect(argv["non-interactive"]).toBe(false);
+    expect(argv["non-interactive"]).toBeUndefined();
   });
 
   it("parses --scope user", async () => {

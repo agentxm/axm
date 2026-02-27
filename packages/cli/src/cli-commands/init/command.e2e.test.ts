@@ -140,14 +140,20 @@ describe("axm init", () => {
   });
 
   describe("--non-interactive flag", () => {
-    it("fails when prompting is needed without --yes", async () => {
+    it("auto-selects detected agents without prompting", async () => {
       const temp = createTempDir();
       try {
         const result = await runCli(["init", "--non-interactive"], { cwd: temp.path });
 
-        // Should fail since prompting would be needed (exit 1 = CliError)
-        expect(result.exitCode).toBe(1);
-        expect(result.stderr).toContain("non-interactive");
+        // Should succeed — non-interactive auto-selects all detected agents
+        expect(result.exitCode).toBe(0);
+
+        // Should create settings.json with agents
+        const settingsPath = path.join(temp.path, ".axm", "settings.json");
+        expect(fs.existsSync(settingsPath)).toBe(true);
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        expect(settings).toHaveProperty("agents");
+        expect(Array.isArray(settings.agents)).toBe(true);
       } finally {
         temp.cleanup();
       }

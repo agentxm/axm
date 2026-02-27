@@ -61,7 +61,7 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
       .option("force", {
         alias: "f",
         type: "boolean",
-        describe: "Auto-accept plan warnings without prompting",
+        describe: "Override constraints that would cause failure",
         default: false,
       })
       .option("preview", {

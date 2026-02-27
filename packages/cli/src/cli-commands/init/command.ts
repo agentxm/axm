@@ -13,7 +13,7 @@ interface InitArgs {
   scope: WorkspaceScope;
   agent: ReadonlyArray<string>;
   yes: boolean;
-  "non-interactive"?: boolean;
+  "non-interactive": boolean | undefined;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- yargs convention
@@ -43,10 +43,9 @@ export const initCommand: CommandModule<{}, InitArgs> = {
       .option("non-interactive", {
         type: "boolean",
         describe: "Disable all interactive prompts",
-        default: false,
       })
       .example("$0 init", "Detect installed agents and create .axm/settings.json")
-      .example("$0 init --yes", "Initialize with all detected agents (non-interactive)")
+      .example("$0 init --non-interactive", "Initialize with all detected agents (no prompts)")
       .example("$0 init --scope user", "Initialize in ~/.axm/ for user-scope configuration")
       .example("$0 init --agent claude-code --agent cursor", "Initialize with specific agents"),
   handler: async (argv) => {

@@ -58,7 +58,7 @@ export const installPackCommand: CommandModule<{}, InstallPackCommandArgs> = {
       .option("force", {
         alias: "f",
         type: "boolean",
-        describe: "Overwrite existing pack",
+        describe: "Override constraints that would cause failure",
         default: false,
       })
       .option("preview", {
@@ -110,6 +110,7 @@ export const installPackCommand: CommandModule<{}, InstallPackCommandArgs> = {
         nonInteractive: Option.fromNullable(argv["non-interactive"]),
         preview: argv.preview,
         agents: Option.none(),
+        force: argv.force,
       },
     });
   },

@@ -37,6 +37,7 @@ import {
   resolveSkillInstallSource,
   type RegistryLookupProbe,
 } from "./resolve-skill-install-source.js";
+import { isInteractive } from "../../../utils/tty.js";
 import { determineSkillsToInstall } from "./select-skills.js";
 
 // -----------------------------------------------------------------------------
@@ -53,6 +54,7 @@ export interface ParsedSkillInstallArgs {
   readonly requestedNamespace: Option.Option<string>;
   readonly all: boolean;
   readonly yes: boolean;
+  readonly nonInteractive: boolean;
   readonly scope: WorkspaceScope;
 }
 
@@ -285,6 +287,12 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             yield* registryGuard;
           }
 
+          // Resolve nonInteractive: explicit flag, CI env, or non-TTY stdin
+          const resolvedNonInteractive = Option.getOrElse(
+            args.nonInteractive,
+            () => process.env["CI"] === "true" || !isInteractive(),
+          );
+
           return {
             source,
             versionConstraint,
@@ -292,6 +300,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
             requestedNamespace,
             all: args.all,
             yes: args.yes,
+            nonInteractive: resolvedNonInteractive,
             scope: args.scope,
           } satisfies ParsedSkillInstallArgs;
         }),
@@ -373,6 +382,7 @@ export const InstallSkillCommandWorkflowActionsLive = Layer.effect(
               requestedSkills: parsed.requestedSkills,
               all: parsed.all,
               yes: parsed.yes,
+              nonInteractive: parsed.nonInteractive,
             },
           );
 

@@ -23,6 +23,7 @@ interface SelectSkillsArgs {
   readonly requestedSkills: readonly string[];
   readonly all: boolean;
   readonly yes: boolean;
+  readonly nonInteractive: boolean;
 }
 
 // -----------------------------------------------------------------------------
@@ -34,7 +35,7 @@ interface SelectSkillsArgs {
  *
  * Selection logic:
  * 1. `--skill` specified -> validate ALL exist, return matches
- * 2. `--all` / `--yes` -> return all (no prompt)
+ * 2. `--all` / `--non-interactive` -> return all (no prompt)
  * 3. Single skill -> auto-select (no prompt)
  * 4. Multiple skills -> `confirmSkillsToInstall` (multiselect prompt)
  */
@@ -64,8 +65,8 @@ export const determineSkillsToInstall = (
       return Array.filter(skills, (s) => matched.includes(s.skill.name));
     }
 
-    // 2. --all / --yes -> return all
-    if (args.all || args.yes) {
+    // 2. --all / --non-interactive -> return all
+    if (args.all || args.nonInteractive) {
       if (args.all) yield* log.info(`Installing all ${skills.length} skill(s)`);
       return skills;
     }

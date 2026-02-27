@@ -33,9 +33,14 @@ import type { WorkspaceContextOptions } from "./service.js";
  *
  * @param localDir - Path to local .axm directory
  * @param options - Workspace context options
+ * @param resolvedNonInteractive - Pre-resolved non-interactive flag (accounts for TTY/CI)
  * @returns Effect yielding selected agent IDs
  */
-export const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextOptions) =>
+export const initializeProjectWorkspace = (
+  localDir: string,
+  options: WorkspaceContextOptions,
+  resolvedNonInteractive: boolean,
+) =>
   Effect.gen(function* () {
     // Select agents based on options
     let selectedAgents: ReadonlyArray<AgentDescriptor>;
@@ -55,18 +60,9 @@ export const initializeProjectWorkspace = (localDir: string, options: WorkspaceC
         ),
       );
 
-      if (options.yes) {
-        // Auto-select all detected agents
+      if (resolvedNonInteractive) {
+        // Non-interactive mode: auto-select all detected agents
         selectedAgents = detectedAgents;
-      } else if (Option.getOrElse(options.nonInteractive, () => process.env["CI"] === "true")) {
-        // Non-interactive mode but would need selection - fail with error
-        return yield* Effect.fail(
-          makeCliError({
-            code: "WORKSPACE_INITIALIZATION_FAILED",
-            what: "Cannot initialize workspace in non-interactive mode",
-            howToFix: "Use --yes to auto-select detected agents, or run interactively",
-          }),
-        );
       } else {
         // Interactive mode — single multiselect with detected agents pre-selected
         const prompt = yield* ClackPrompt;
@@ -160,6 +156,7 @@ export const ensureGlobalWorkspaceInitialized = (globalDir: string) =>
 export const ensureProjectWorkspaceInitialized = (
   localDir: string,
   options: WorkspaceContextOptions,
+  resolvedNonInteractive: boolean,
 ) =>
   Effect.gen(function* () {
     const localSettingsResult = yield* readSettings(localDir).pipe(
@@ -173,7 +170,7 @@ export const ensureProjectWorkspaceInitialized = (
 
     if (!localSettingsResult.found) {
       // Initialize project workspace and return the settings it wrote
-      return yield* initializeProjectWorkspace(localDir, options);
+      return yield* initializeProjectWorkspace(localDir, options, resolvedNonInteractive);
     }
 
     return localSettingsResult.settings;

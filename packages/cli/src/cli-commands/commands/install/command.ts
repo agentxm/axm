@@ -54,7 +54,7 @@ export const installCommandCommand: CommandModule<{}, InstallCommandCommandArgs>
       .option("force", {
         alias: "f",
         type: "boolean",
-        describe: "Force reinstall",
+        describe: "Override constraints that would cause failure",
         default: false,
       })
       .option("preview", {
@@ -91,6 +91,7 @@ export const installCommandCommand: CommandModule<{}, InstallCommandCommandArgs>
         nonInteractive: Option.fromNullable(argv["non-interactive"]),
         preview: argv.preview,
         agents: Option.none(),
+        force: argv.force,
       },
     });
   },

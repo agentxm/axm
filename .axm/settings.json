@@ -23,7 +23,8 @@
     "opencode"
   ],
   "skills": {
-    "effect-basics": "@axm/skills/effect-basics"
+    "effect-basics": "@axm/skills/effect-basics",
+    "code-review": "@axm/skills/code-review"
   },
   "packs": {
     "effect": "@axm/packs/effect"

@@ -198,6 +198,24 @@ skills:
       - opencode
     installedAt: 2026-02-26T00:41:57.784Z
     updatedAt: 2026-02-26T00:41:57.786Z
+  code-review:
+    type: registry
+    namespace: "@axm"
+    name: code-review
+    resolvedVersion: 0.1.0
+    integrity: ""
+    sourceName: default
+    agents:
+      - amp
+      - antigravity
+      - claude-code
+      - codex
+      - cursor
+      - gemini-cli
+      - github-copilot
+      - opencode
+    installedAt: 2026-02-26T23:25:55.513Z
+    updatedAt: 2026-02-26T23:25:55.516Z
 commands: {}
 mcpServers: {}
 packs:

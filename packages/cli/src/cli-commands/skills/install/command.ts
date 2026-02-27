@@ -16,7 +16,6 @@ import {
 interface InstallCommandArgs {
   source: string;
   scope: WorkspaceScope;
-  global?: boolean;
   skill: ReadonlyArray<string>;
   yes: boolean;
   all: boolean;
@@ -41,12 +40,6 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
         choices: WORKSPACE_SCOPES,
         describe: "Configuration scope: project (default) or user",
         default: DEFAULT_WORKSPACE_SCOPE,
-      })
-      .option("global", {
-        type: "boolean",
-        hidden: true,
-        describe: "Deprecated alias for --scope user",
-        default: false,
       })
       .option("skill", {
         type: "string",
@@ -91,7 +84,7 @@ export const installCommand: CommandModule<{}, InstallCommandArgs> = {
       .example("$0 skills install owner/repo --all --yes", "Install all without prompts")
       .example("$0 skills install owner/repo --skill pr-review", "Target specific skill"),
   handler: async (argv) => {
-    const scope = resolveWorkspaceScope(argv.scope, argv.global);
+    const scope = resolveWorkspaceScope(argv.scope);
     const actionsLayer = Layer.provide(InstallSkillCommandWorkflowActionsLive, SkillManagerLive);
     await run(
       handleInstall({

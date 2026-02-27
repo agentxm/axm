@@ -17,7 +17,6 @@ import {
 
 export interface ListCommandArgs {
   scope: WorkspaceScope;
-  global?: boolean;
   agent: ReadonlyArray<string>;
 }
 
@@ -34,12 +33,6 @@ export const listCommand: CommandModule<{}, ListCommandArgs> = {
         describe: "Configuration scope: project (default) or user",
         default: DEFAULT_WORKSPACE_SCOPE,
       })
-      .option("global", {
-        type: "boolean",
-        hidden: true,
-        describe: "Deprecated alias for --scope user",
-        default: false,
-      })
       .option("agent", {
         type: "string",
         array: true,
@@ -50,7 +43,7 @@ export const listCommand: CommandModule<{}, ListCommandArgs> = {
       .example("$0 skills list --scope user", "List user-scope installed skills")
       .example("$0 skills list --agent claude-code", "List skills for a specific agent"),
   handler: async (argv) => {
-    const scope = resolveWorkspaceScope(argv.scope, argv.global);
+    const scope = resolveWorkspaceScope(argv.scope);
     await run(
       handleList({
         agents: argv.agent,

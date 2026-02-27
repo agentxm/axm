@@ -25,7 +25,6 @@ import {
 interface InstallPackCommandArgs {
   source: string;
   scope: WorkspaceScope;
-  global?: boolean;
   yes: boolean;
   force: boolean;
   preview: boolean;
@@ -49,12 +48,6 @@ export const installPackCommand: CommandModule<{}, InstallPackCommandArgs> = {
         choices: WORKSPACE_SCOPES,
         describe: "Configuration scope: project (default) or user",
         default: DEFAULT_WORKSPACE_SCOPE,
-      })
-      .option("global", {
-        type: "boolean",
-        hidden: true,
-        describe: "Deprecated alias for --scope user",
-        default: false,
       })
       .option("yes", {
         alias: "y",
@@ -91,7 +84,7 @@ export const installPackCommand: CommandModule<{}, InstallPackCommandArgs> = {
         "See what would be installed",
       ),
   handler: async (argv) => {
-    const scope = resolveWorkspaceScope(argv.scope, argv.global);
+    const scope = resolveWorkspaceScope(argv.scope);
 
     const managersLayer = Layer.mergeAll(
       PackManagerLive,

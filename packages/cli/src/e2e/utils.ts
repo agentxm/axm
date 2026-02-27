@@ -58,6 +58,12 @@ async function run(
     reject: false,
   });
 
+  if (result.exitCode === undefined) {
+    console.warn(
+      `[e2e] Process exited without an exit code (args: ${args.join(" ")}). Defaulting to 1.`,
+    );
+  }
+
   return {
     exitCode: result.exitCode ?? 1,
     stdout: result.stdout as string,

@@ -55,6 +55,7 @@ export const bridgeLegacyPlan = <
   legacyPlan: LegacyPlan<Op>,
   handlers: T,
 ): Plan => ({
+  _tag: "Plan",
   name: legacyPlan.name,
   description: legacyPlan.description,
   jobs: legacyPlan.jobs.map((job) => ({

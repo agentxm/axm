@@ -9,6 +9,7 @@
 
 import * as Effect from "effect/Effect";
 import type { CliError } from "../../cli-error/index.js";
+import type { PromptCancelled } from "../../prompt-cancelled.js";
 import type { Plan } from "../../workspace/plan.js";
 import { Workspace } from "../../workspace/service.js";
 
@@ -30,7 +31,9 @@ import { Workspace } from "../../workspace/service.js";
  */
 export interface InstallExtensionCommandWorkflowActions<Args, Parsed, Req, Ref, Intent> {
   readonly parseArgs: (args: Args) => Effect.Effect<Parsed, CliError>;
-  readonly resolveSourceRequests: (parsed: Parsed) => Effect.Effect<ReadonlyArray<Req>, CliError>;
+  readonly resolveSourceRequests: (
+    parsed: Parsed,
+  ) => Effect.Effect<ReadonlyArray<Req>, CliError | PromptCancelled>;
   readonly discoverRefs: (reqs: ReadonlyArray<Req>) => Effect.Effect<ReadonlyArray<Ref>, CliError>;
   readonly finalizeIntent: (
     parsed: Parsed,

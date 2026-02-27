@@ -13,7 +13,11 @@ import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { CommandManifestSchema, type CommandManifest } from "../manifest-schema.js";
+import {
+  COMMAND_MANIFEST_FILENAME,
+  CommandManifestSchema,
+  type CommandManifest,
+} from "../manifest-schema.js";
 import type { VersionEntry } from "../../../registry/index.js";
 import { createRegistryClient } from "../../../registry/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
@@ -45,12 +49,6 @@ export type PublishCommandOperationArgs = {
  * @experimental This API is unstable and may change without notice.
  */
 export type PublishCommandOperation = Operation<"publish-command", PublishCommandOperationArgs>;
-
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
-
-const COMMAND_MANIFEST_FILENAME = "axm-command.json";
 
 // -----------------------------------------------------------------------------
 // Public API

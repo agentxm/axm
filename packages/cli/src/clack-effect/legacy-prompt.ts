@@ -186,25 +186,16 @@ export const LegacyPromptLive: Layer.Layer<
   Confirm | Select | Multiselect | TextInput | PasswordInput,
   never,
   ClackPrompt
-> = Layer.mergeAll(
-  Layer.effect(
-    Confirm,
-    Effect.map(ClackPrompt, (prompt) => makeLegacyPromptServices(prompt).confirm),
-  ),
-  Layer.effect(
-    Select,
-    Effect.map(ClackPrompt, (prompt) => makeLegacyPromptServices(prompt).select),
-  ),
-  Layer.effect(
-    Multiselect,
-    Effect.map(ClackPrompt, (prompt) => makeLegacyPromptServices(prompt).multiselect),
-  ),
-  Layer.effect(
-    TextInput,
-    Effect.map(ClackPrompt, (prompt) => makeLegacyPromptServices(prompt).textInput),
-  ),
-  Layer.effect(
-    PasswordInput,
-    Effect.map(ClackPrompt, (prompt) => makeLegacyPromptServices(prompt).passwordInput),
-  ),
+> = Layer.effectContext(
+  Effect.map(ClackPrompt, (prompt) => {
+    const { confirm, select, multiselect, textInput, passwordInput } =
+      makeLegacyPromptServices(prompt);
+    return Context.empty().pipe(
+      Context.add(Confirm, confirm),
+      Context.add(Select, select),
+      Context.add(Multiselect, multiselect),
+      Context.add(TextInput, textInput),
+      Context.add(PasswordInput, passwordInput),
+    );
+  }),
 );

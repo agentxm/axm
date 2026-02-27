@@ -15,10 +15,10 @@ function getOutput(result: { stdout: string; stderr: string }): string {
 
 describe("axm-dev (root command)", () => {
   describe("without arguments", () => {
-    it("exits with code 0", async () => {
+    it("exits with code 1 (demandCommand requires a subcommand)", async () => {
       const result = await runDevCli([]);
 
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode).toBe(1);
     });
 
     it("displays available commands", async () => {

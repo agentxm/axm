@@ -16,7 +16,10 @@ import { makeCliError, type CliError } from "../../../cli-error/index.js";
 import { Workspace } from "../../../workspace/service.js";
 import { McpServerManager } from "../../../extensions/mcp-servers/manager.js";
 import type { Plan } from "../../../workspace/plan.js";
-import type { McpServerExtensionTarget } from "../../../workflows/install-operation/index.js";
+import type {
+  ExtensionTarget,
+  McpServerExtensionTarget,
+} from "../../../workflows/install-operation/index.js";
 import { buildUninstallOperation } from "../../../workflows/uninstall-operation/index.js";
 import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/index.js";
 import type { UninstallMcpServerCommandIntent } from "./intent.js";
@@ -98,12 +101,10 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
       intent: UninstallMcpServerCommandIntent,
     ): Effect.Effect<Plan, CliError> => {
       const retentionPolicy = {
-        isRequiredByInstalledPack: (args: {
-          readonly target: { readonly type: string; readonly name: string };
-        }) => ws.isExtensionRequiredByInstalledPack(args.target as never),
-        markDependencyRetainedInLockfile: (args: {
-          readonly target: { readonly type: string; readonly name: string };
-        }) => ws.markDependencyRetainedInLockfile(args.target as never),
+        isRequiredByInstalledPack: (args: { readonly target: ExtensionTarget }) =>
+          ws.isExtensionRequiredByInstalledPack(args.target),
+        markDependencyRetainedInLockfile: (args: { readonly target: ExtensionTarget }) =>
+          ws.markDependencyRetainedInLockfile(args.target),
       };
 
       const steps = intent.targets.map((target) =>
@@ -111,6 +112,7 @@ export const UninstallMcpServerCommandWorkflowActionsLive = Layer.effect(
       );
 
       return Effect.succeed({
+        _tag: "Plan",
         name: "Uninstall MCP server",
         description: Option.some(
           `Uninstall MCP server ${intent.targets.map((t) => t.name).join(", ")}`,

@@ -39,7 +39,8 @@ const makeWorkspaceMock = (
     baseDir: path.dirname(axmDir),
     nonInteractive: true,
     preview: false,
-    resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
+    resolvePlan: () =>
+      Effect.succeed({ _tag: "ExecutedPlan", name: "mock", description: Option.none(), jobs: [] }),
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),

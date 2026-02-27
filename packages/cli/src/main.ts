@@ -62,7 +62,7 @@ export const program = Effect.promise(() =>
         yargs.showHelp();
         process.exit(1);
       }
-      console.error(msg ?? _err);
+      console.error(msg ?? (_err instanceof Error ? _err.message : String(_err)));
       process.exit(1);
     })
     .parseAsync(),

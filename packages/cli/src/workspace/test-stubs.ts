@@ -6,7 +6,9 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import type {
+  WorkspaceContextService,
   ConfiguredSkill,
   ImplicitSkill,
   UnmanagedSkill,
@@ -80,3 +82,81 @@ export const taxonomyStubs = {
   getUnmanagedExternalPacks: empty<UnmanagedExtensionRef>,
   getIgnoredPackPatterns: emptyArr,
 } as const;
+
+/**
+ * Base workspace mock with no-op defaults for all methods.
+ * Tests should only override the methods they exercise.
+ *
+ * @example
+ * ```ts
+ * const ws = makeBaseWorkspaceMock("/tmp/axm", {
+ *   setSkill: vi.fn(() => Effect.void),
+ * });
+ * ```
+ */
+export const makeBaseWorkspaceMock = (
+  axmDir = "/tmp/axm",
+  overrides?: Partial<WorkspaceContextService>,
+): WorkspaceContextService => {
+  const baseDir = axmDir.replace(/\/\.axm$/, "") || "/tmp";
+  const base: Record<string, unknown> = {
+    ...taxonomyStubs,
+    global: false,
+    path: axmDir,
+    baseDir,
+    nonInteractive: true,
+    preview: false,
+    resolvePlan: () =>
+      Effect.succeed({ _tag: "ExecutedPlan", name: "mock", description: Option.none(), jobs: [] }),
+    getConfiguredSources: () => Effect.succeed([]),
+    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
+    getRegistrySourceHosts: () => Effect.succeed([]),
+    getConfiguredNamespace: () => Effect.succeed("@community"),
+    getDefaultNamespace: () => Effect.succeed(Option.none()),
+    addConfiguredSource: () => Effect.void,
+    getConfiguredSkills: () => Effect.succeed({}),
+    getInstalledSkills: () => Effect.succeed({}),
+    getConfiguredAgents: () => Effect.succeed(["claude-code"]),
+    getLockedSkills: () => Effect.succeed({}),
+    getLockedSkill: () => Effect.succeed(Option.none()),
+    getSkillDir: () =>
+      Effect.succeed({
+        canonicalPath: `${axmDir}/extensions/external/skills/test`,
+        skillSrcPath: `${axmDir}/extensions/external/skills/test`,
+      }),
+    setSkill: () => Effect.void,
+    setSkillLock: () => Effect.void,
+    removeSkill: () => Effect.void,
+    removeSkillFromSettings: () => Effect.void,
+    updateSkillEntry: () => Effect.void,
+    setSkillEntry: () => Effect.void,
+    renameSkill: () => Effect.void,
+    updateLockEntryAgents: () => Effect.void,
+    addConfiguredAgent: () => Effect.void,
+    getLockedPacks: () => Effect.succeed({}),
+    getLockedPack: () => Effect.succeed(Option.none()),
+    setPack: () => Effect.void,
+    removePack: () => Effect.void,
+    getPackDir: () => Effect.succeed({ canonicalPath: `${axmDir}/extensions/@test/packs/test` }),
+    getLockedCommands: () => Effect.succeed({}),
+    getLockedCommand: () => Effect.succeed(Option.none()),
+    setCommand: () => Effect.void,
+    setCommandLock: () => Effect.void,
+    removeCommand: () => Effect.void,
+    getLockedMcpServers: () => Effect.succeed({}),
+    getLockedMcpServer: () => Effect.succeed(Option.none()),
+    setMcpServer: () => Effect.void,
+    setMcpServerLock: () => Effect.void,
+    removeMcpServer: () => Effect.void,
+    removeSkillLock: () => Effect.void,
+    removeCommandSettings: () => Effect.void,
+    removeCommandLock: () => Effect.void,
+    removeMcpServerSettings: () => Effect.void,
+    removeMcpServerLock: () => Effect.void,
+    removePackSettings: () => Effect.void,
+    removePackLock: () => Effect.void,
+    isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
+    markDependencyRetainedInLockfile: () => Effect.void,
+  };
+  return { ...base, ...overrides } as unknown as WorkspaceContextService;
+};

@@ -8,6 +8,8 @@
  * @packageDocumentation
  */
 
+// TODO: (#21) node:path is a convention violation (CLAUDE.md requires @effect/platform Path).
+// Could use Path service already available via FileSystem dependency chain.
 import * as path from "node:path";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Effect from "effect/Effect";
@@ -79,7 +81,7 @@ export const detectAgent = (
  */
 export const detectAgents = (
   projectDir: string,
-): Effect.Effect<AgentDescriptor[], CliError, FileSystem.FileSystem> =>
+): Effect.Effect<ReadonlyArray<AgentDescriptor>, CliError, FileSystem.FileSystem> =>
   Effect.filter(getAllAgents(), (agent) => detectAgent(agent, projectDir), {
     concurrency: "unbounded",
   });

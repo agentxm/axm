@@ -8,7 +8,9 @@
  * @packageDocumentation
  */
 
-import { execSync } from "node:child_process";
+// TODO: (#24, #43) node:child_process is a convention violation (CLAUDE.md requires @effect/platform).
+// Replace execFileSync/execSync with Effect.async + child_process.exec or a JS zip library.
+import { execFileSync, execSync } from "node:child_process";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
@@ -73,14 +75,25 @@ export const extensionDir = (
  * Extract a zip archive to a target directory.
  * Uses the `unzip` CLI command for simplicity.
  *
- * TODO: Replace `unzip` CLI with a JS zip library for Windows portability.
- * Note: archivePath and targetDir are internally generated (not user-controlled),
- * so shell injection risk is mitigated.
+ * TODO: Replace `unzip` CLI with a JS zip library (e.g., fflate, yauzl) for
+ * Windows portability. The `unzip` binary is not available on Windows.
  */
 export const extractZip = (archive: Uint8Array, targetDir: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+
+    // Verify unzip binary is available
+    yield* Effect.try({
+      try: () => execSync("which unzip", { stdio: "pipe" }),
+      catch: () =>
+        makeCliError({
+          code: "UNZIP_NOT_FOUND",
+          what: "The `unzip` command is not available on this system",
+          howToFix:
+            "Install `unzip` via your package manager (e.g., `apt install unzip`, `brew install unzip`). Windows is not yet supported for registry installs.",
+        }),
+    });
 
     // Write archive to a temp file
     const archivePath = path.join(targetDir, "__archive__.zip");
@@ -94,10 +107,10 @@ export const extractZip = (archive: Uint8Array, targetDir: string) =>
       ),
     );
 
-    // Extract using unzip command
+    // Extract using unzip command (execFileSync avoids shell injection)
     yield* Effect.try({
       try: () =>
-        execSync(`unzip -o -q "${archivePath}" -d "${targetDir}"`, {
+        execFileSync("unzip", ["-o", "-q", archivePath, "-d", targetDir], {
           stdio: "pipe",
         }),
       catch: (e) =>

@@ -17,6 +17,7 @@ import type { Plan, ExecutedPlan } from "./plan.js";
 // -----------------------------------------------------------------------------
 
 const makePlan = (overrides: Partial<Plan> = {}): Plan => ({
+  _tag: "Plan",
   name: "Install skill(s)",
   description: Option.none(),
   jobs: [],
@@ -24,6 +25,7 @@ const makePlan = (overrides: Partial<Plan> = {}): Plan => ({
 });
 
 const makeExecutedPlan = (overrides: Partial<ExecutedPlan> = {}): ExecutedPlan => ({
+  _tag: "ExecutedPlan",
   name: "Install skill(s)",
   description: Option.none(),
   jobs: [],
@@ -459,6 +461,36 @@ describe("displayPlan", () => {
       const summary = messagesByMethod(mockLog, "message").find((m) => m.includes("applied"));
       expect(summary).toBeDefined();
       expect(summary).not.toContain("failed");
+    }).pipe(Effect.provide(logLayer));
+  });
+
+  it.effect("uses _tag discriminant to distinguish Plan from ExecutedPlan", () => {
+    const [logLayer, mockLog] = makeClackLogTestLayer();
+
+    return Effect.gen(function* () {
+      // An ExecutedPlan with _tag should render completed steps (checkmarks)
+      yield* displayPlan(
+        makeExecutedPlan({
+          jobs: [
+            {
+              concurrency: "unbounded",
+              steps: [
+                {
+                  label: "my-step",
+                  result: { result: "success", message: "done" },
+                },
+              ],
+            },
+          ],
+        }),
+      );
+
+      // Should use executed-plan rendering (checkmarks) not planned-plan rendering (+)
+      expect(
+        messagesByMethod(mockLog, "success").some(
+          (m) => m.includes("\u2713") && m.includes("my-step"),
+        ),
+      ).toBe(true);
     }).pipe(Effect.provide(logLayer));
   });
 });

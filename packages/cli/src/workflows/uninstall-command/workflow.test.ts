@@ -31,6 +31,7 @@ type TestIntent = { readonly targets: ReadonlyArray<string> };
 // -----------------------------------------------------------------------------
 
 const emptyExecutedPlan: ExecutedPlan = {
+  _tag: "ExecutedPlan",
   name: "test",
   description: Option.none(),
   jobs: [],
@@ -71,6 +72,7 @@ describe("runUninstallCommandWorkflow", () => {
       Effect.gen(function* () {
         const callOrder: string[] = [];
         const testPlan: Plan = {
+          _tag: "Plan",
           name: "test-uninstall",
           description: Option.none(),
           jobs: [],
@@ -104,6 +106,7 @@ describe("runUninstallCommandWorkflow", () => {
   it.effect("passes the built plan to resolvePlan", () => {
     let capturedPlan: Plan | undefined;
     const testPlan: Plan = {
+      _tag: "Plan",
       name: "captured-uninstall-plan",
       description: Option.some("uninstall description"),
       jobs: [],
@@ -145,6 +148,7 @@ describe("runUninstallCommandWorkflow", () => {
         buildUninstallPlan: (intent) => {
           capturedIntent = intent;
           return Effect.succeed({
+            _tag: "Plan" as const,
             name: "test",
             description: Option.none(),
             jobs: [],
@@ -165,7 +169,12 @@ describe("runUninstallCommandWorkflow", () => {
         parseArgs: () => Effect.fail(makeCliError({ code: "PARSE_FAILED", what: "bad args" })),
         finalizeIntent: () => Effect.succeed({ targets: [] }),
         buildUninstallPlan: () =>
-          Effect.succeed({ name: "t", description: Option.none(), jobs: [] }),
+          Effect.succeed({
+            _tag: "Plan" as const,
+            name: "t",
+            description: Option.none(),
+            jobs: [],
+          }),
       };
 
       const exit = yield* runUninstallCommandWorkflow({ names: [] }, actions).pipe(Effect.exit);
@@ -200,6 +209,7 @@ describe("runUninstallCommandWorkflow", () => {
         buildUninstallPlan: () => {
           callOrder.push("buildUninstallPlan");
           return Effect.succeed({
+            _tag: "Plan" as const,
             name: "t",
             description: Option.none(),
             jobs: [],

@@ -6,7 +6,6 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as crypto from "node:crypto";
 import * as FileSystem from "@effect/platform/FileSystem";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";
@@ -21,6 +20,7 @@ import {
   type RawPackManifest,
 } from "../manifest-schema.js";
 import { computePackPaths } from "../paths.js";
+import { hashContent } from "./hash-content.js";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -46,12 +46,6 @@ export interface RemoveFromPackOperationArgs {
  * @experimental This API is unstable and may change without notice.
  */
 export type RemoveFromPackOperation = Operation<"remove-from-pack", RemoveFromPackOperationArgs>;
-
-// -----------------------------------------------------------------------------
-// Helpers
-// -----------------------------------------------------------------------------
-
-const hashContent = (content: string) => crypto.createHash("sha256").update(content).digest("hex");
 
 // -----------------------------------------------------------------------------
 // Public API

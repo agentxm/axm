@@ -3,7 +3,13 @@ import * as Path from "@effect/platform/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import { makeCliError, type CliError } from "../cli-error/index.js";
-import type { Lockfile } from "../lockfile/index.js";
+import type {
+  CommandLockEntry,
+  Lockfile,
+  McpServerLockEntry,
+  PackLockEntry,
+  SkillLockEntry,
+} from "../lockfile/index.js";
 import { LOCKFILE_NAME, writeLockfile } from "../lockfile/index.js";
 import { commandReconciliationAdapter } from "../extensions/commands/reconciliation-adapter.js";
 import { mcpServerReconciliationAdapter } from "../extensions/mcp-servers/reconciliation-adapter.js";
@@ -48,10 +54,10 @@ export interface ReconciliationSnapshot {
 }
 
 const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lockfile => {
-  const skills: Record<string, unknown> = {};
-  const commands: Record<string, unknown> = {};
-  const mcpServers: Record<string, unknown> = {};
-  const packs: Record<string, unknown> = {};
+  const skills: Record<string, SkillLockEntry> = {};
+  const commands: Record<string, CommandLockEntry> = {};
+  const mcpServers: Record<string, McpServerLockEntry> = {};
+  const packs: Record<string, PackLockEntry> = {};
 
   for (const result of results) {
     if (result._tag !== "Compatible") {
@@ -60,26 +66,26 @@ const mergeReconstructed = (results: ReadonlyArray<DeclarationResolution>): Lock
 
     switch (result.reconstructed.extensionType) {
       case "skills":
-        skills[result.reconstructed.name] = result.reconstructed.entry;
+        skills[result.reconstructed.name] = result.reconstructed.entry as SkillLockEntry;
         break;
       case "commands":
-        commands[result.reconstructed.name] = result.reconstructed.entry;
+        commands[result.reconstructed.name] = result.reconstructed.entry as CommandLockEntry;
         break;
       case "mcp-servers":
-        mcpServers[result.reconstructed.name] = result.reconstructed.entry;
+        mcpServers[result.reconstructed.name] = result.reconstructed.entry as McpServerLockEntry;
         break;
       case "packs":
-        packs[result.reconstructed.name] = result.reconstructed.entry;
+        packs[result.reconstructed.name] = result.reconstructed.entry as PackLockEntry;
         break;
     }
   }
 
   return {
     lockfileVersion: 1,
-    skills: skills as Lockfile["skills"],
-    commands: commands as Lockfile["commands"],
-    mcpServers: mcpServers as Lockfile["mcpServers"],
-    packs: packs as Lockfile["packs"],
+    skills,
+    commands,
+    mcpServers,
+    packs,
   } satisfies Lockfile;
 };
 

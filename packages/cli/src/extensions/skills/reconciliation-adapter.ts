@@ -114,15 +114,9 @@ export const skillReconciliationAdapter: ReconciliationAdapter = {
       }
 
       const manifestPath = env.path.join(canonicalPath, MANIFEST_FILENAME);
-      const manifestRaw = yield* env.fs.readFileString(manifestPath).pipe(
-        Effect.mapError(() =>
-          makeCliError({
-            code: "LOCKFILE_RECONCILE_MANIFEST_INVALID",
-            what: `Invalid skill manifest at ${manifestPath}`,
-          }),
-        ),
-        Effect.catchAll(() => Effect.succeed("")),
-      );
+      const manifestRaw = yield* env.fs
+        .readFileString(manifestPath)
+        .pipe(Effect.catchAll(() => Effect.succeed("")));
 
       if (manifestRaw.length === 0) {
         return {

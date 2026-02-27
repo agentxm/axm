@@ -5,5 +5,7 @@
  * @packageDocumentation
  */
 
+import { fileURLToPath as nodeFileUrlToPath } from "node:url";
+
 /** Convert a `file://` URL to a local filesystem path. */
-export const fileUrlToPath = (fileUrl: string): string => fileUrl.replace("file://", "");
+export const fileUrlToPath = (fileUrl: string): string => nodeFileUrlToPath(fileUrl);

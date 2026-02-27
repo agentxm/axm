@@ -13,6 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Log } from "../../../clack-effect/index.js";
 import { computeIntegrity } from "../../../utils/integrity.js";
+import { isPathSafe } from "../../../utils/path-safety.js";
 import { makeCliError } from "../../../cli-error/index.js";
 import { validateExactResolvedVersion } from "../../../lockfile/index.js";
 import { createRegistryClient, extractZip } from "../../../registry/index.js";
@@ -80,6 +81,13 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
       "mcp-servers",
       ref.name,
     );
+
+    if (!isPathSafe(ws.baseDir, canonicalPath)) {
+      return yield* makeCliError({
+        code: "INSTALL_MCP_SERVER_PATH_TRAVERSAL",
+        what: `Path traversal detected: ${canonicalPath}`,
+      });
+    }
 
     // Empty integrity with existing canonical → skip fetch (synthetic refs from fork/publish)
     const canonicalExists = yield* fs.exists(canonicalPath).pipe(
@@ -156,7 +164,7 @@ const installFromRegistry = (ref: RegistryMcpServerRef) =>
             (entry) => {
               const src = path.join(tmpDir, entry);
               const dest = path.join(canonicalPath, entry);
-              return fs.copy(src, dest).pipe(Effect.ignore);
+              return fs.copy(src, dest).pipe(Effect.ignoreLogged);
             },
             { concurrency: "unbounded" },
           );

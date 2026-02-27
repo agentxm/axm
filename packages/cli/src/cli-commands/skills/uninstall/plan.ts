@@ -83,6 +83,7 @@ export const buildSkillUninstallPlan = (
     });
 
     return {
+      _tag: "Plan",
       name,
       description,
       jobs: [

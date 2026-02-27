@@ -236,6 +236,10 @@ export type SkillsLockMap = typeof SkillsLockMapSchema.Type;
 
 // =============================================================================
 // Command Lock Entry (union of all source types, no agents)
+// TODO: (#42) CommandLockEntrySchema and McpServerLockEntrySchema duplicate the
+// same 8 source-type struct variants as SkillLockEntrySchema (minus the `agents`
+// field). Extract a shared base schema factory parameterized by extra fields to
+// reduce duplication. Deferred due to Schema.Union construction complexity.
 // =============================================================================
 
 /**

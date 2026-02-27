@@ -107,7 +107,9 @@ export const createGitHostingSourceHostProvider = <
             const skillPath = fileUrlToPath(d.location);
             const relativeDir = path.relative(tempDir, skillPath);
             const gitTreeSha = yield* getTreeSha(tempDir, relativeDir);
-            // Assertion needed: TS can't prove S narrows source to a specific ExtensionRef variant
+            // Assertion needed: TS can't prove generic S narrows to a concrete ExtensionRef source variant.
+            // The `source` parameter is typed as S (a git hosting source), but ExtensionRef requires
+            // a specific source type. satisfies won't work here due to the generic type parameter.
             return {
               type: "skill" as const,
               refType: "git-hosted" as const,

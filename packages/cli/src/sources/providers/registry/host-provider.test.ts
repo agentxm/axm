@@ -26,6 +26,7 @@ import type {
   VersionEntry,
 } from "../../../registry/index.js";
 import type {
+  RegistryCommandRef,
   RegistryMcpServerRef,
   RegistryPackRef,
   RegistrySkillRef,
@@ -262,6 +263,50 @@ describe("LocalRegistrySourceHostProvider.find", () => {
         expect(serverRef.namespace).toBe("@test");
         expect(serverRef.name).toBe("my-server");
         expect(serverRef.version).toBe("2.0.0");
+      }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
+    );
+  });
+
+  it("maps command entries to CommandExtensionRef", () => {
+    const registry = makeTestRegistry();
+    const entries: ReadonlyArray<RegistryExtensionManifest> = [
+      {
+        namespace: "@test",
+        type: "command",
+        name: "my-command",
+        description: Option.none(),
+        repository: Option.none(),
+        license: Option.none(),
+        authors: [],
+        dependencies: {},
+        version: "1.5.0",
+        integrity: "sha512-cmd",
+      },
+    ];
+
+    const client = createMockClient({
+      getExtensionsByScope: () => Effect.succeed(toResult(entries)),
+    });
+
+    const provider = createLocalRegistrySourceHostProvider(client);
+
+    return runEffect(
+      Effect.gen(function* () {
+        const refs = yield* provider.find(registry.source, {
+          ...defaultFindOptions,
+          type: "command",
+        });
+
+        expect(refs).toHaveLength(1);
+        const ref = refs[0]!;
+        expect(ref.type).toBe("command");
+        expect(ref.refType).toBe("registry");
+        // Assertion needed: TS can't narrow to RegistryCommandRef
+        const cmdRef = ref as RegistryCommandRef;
+        expect(cmdRef.command.name).toBe("my-command");
+        expect(cmdRef.namespace).toBe("@test");
+        expect(cmdRef.name).toBe("my-command");
+        expect(cmdRef.version).toBe("1.5.0");
       }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
     );
   });

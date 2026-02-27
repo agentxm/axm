@@ -107,13 +107,9 @@ export const packReconciliationAdapter: ReconciliationAdapter = {
           continue;
         }
 
-        const parsedJson = yield* Effect.sync(() => {
-          try {
-            return JSON.parse(manifestRaw) as unknown;
-          } catch {
-            return null;
-          }
-        });
+        const parsedJson = yield* Effect.try(() => JSON.parse(manifestRaw) as unknown).pipe(
+          Effect.catchAll(() => Effect.succeed<null>(null)),
+        );
         if (parsedJson === null) {
           warnings.push(`PACK_MANIFEST_PARSE_FAILED: ${manifestPath}`);
           continue;

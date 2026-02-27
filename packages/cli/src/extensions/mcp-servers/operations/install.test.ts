@@ -50,7 +50,8 @@ const makeWorkspaceMock = (
     baseDir: path.dirname(axmDir),
     nonInteractive: true,
     preview: false,
-    resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
+    resolvePlan: () =>
+      Effect.succeed({ _tag: "ExecutedPlan", name: "mock", description: Option.none(), jobs: [] }),
     getConfiguredSources: () => Effect.succeed([]),
     getConfiguredSourceByName: () => Effect.succeed(Option.none()),
     getRegistrySourceHosts: () => Effect.succeed([]),
@@ -463,6 +464,29 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("error");
         expect(result.message).toContain("Integrity mismatch");
+      }),
+    );
+  });
+
+  describe("path safety", () => {
+    it.effect("fails when namespace contains path traversal", () =>
+      Effect.gen(function* () {
+        const { axmDir } = setupBase();
+
+        const ref = makeRegistryRef({
+          namespace: "../../../etc",
+          integrity: "",
+        });
+
+        const result = yield* installMcpServer(makeOp({ ref })).pipe(
+          Effect.provide(withServices(axmDir)),
+          Effect.catchAll((e) => Effect.succeed({ result: "error" as const, error: e })),
+        );
+
+        expect(result.result).toBe("error");
+        if (result.result === "error") {
+          expect(result.error.code).toBe("INSTALL_MCP_SERVER_PATH_TRAVERSAL");
+        }
       }),
     );
   });

@@ -8,6 +8,13 @@ import * as Schema from "effect/Schema";
 import { CommonManifestFields } from "../common.js";
 
 /**
+ * Filename for command manifest files.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const COMMAND_MANIFEST_FILENAME = "axm-command.json";
+
+/**
  * Schema for command manifest files (axm-command.json).
  *
  * Commands provide executable CLI functionality that can be

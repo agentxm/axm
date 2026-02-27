@@ -4,6 +4,10 @@
  * Implements ExtensionManager<CommandExtensionRef>. Delegates to existing
  * command materialization functions and workspace service methods.
  *
+ * TODO: (#53) commands/ and mcp-servers/ modules are near line-for-line identical
+ * (~10 source files + tests each). Consider extracting a generic registry-only
+ * extension handler parameterized by extension type to reduce duplication.
+ *
  * @experimental This API is unstable and may change without notice.
  */
 
@@ -14,6 +18,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../cli-error/index.js";
+import { isPathSafe } from "../../utils/path-safety.js";
 import type { CommandExtensionRef, RegistryCommandRef } from "../../sources/types.js";
 import type { CommandLockEntry } from "../../lockfile/schema.js";
 import type {
@@ -90,6 +95,13 @@ export const CommandManagerLive = Layer.effect(
             registryRef.name,
           );
 
+          if (!isPathSafe(baseDir, canonicalPath)) {
+            return yield* makeCliError({
+              code: "INSTALL_COMMAND_PATH_TRAVERSAL",
+              what: `Path traversal detected: ${canonicalPath}`,
+            });
+          }
+
           const canonicalExists = yield* fs.exists(canonicalPath).pipe(
             Effect.mapError((e) =>
               makeCliError({
@@ -161,7 +173,7 @@ export const CommandManagerLive = Layer.effect(
                   (entry) => {
                     const src = path.join(tmpDir, entry);
                     const dest = path.join(canonicalPath, entry);
-                    return fs.copy(src, dest).pipe(Effect.ignore);
+                    return fs.copy(src, dest).pipe(Effect.ignoreLogged);
                   },
                   { concurrency: "unbounded" },
                 );

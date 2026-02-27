@@ -8,6 +8,12 @@
  * settings or lockfile I/O in production; the per-service semaphores in
  * `settings/service.ts` and `lockfile/service.ts` have been removed.
  *
+ * TODO: (#55) This file is ~2800 lines with many concerns: source metadata,
+ * classifier integration, settings/lockfile I/O, agent detection, builtin pack
+ * materialization, plan augmentation. Consider splitting into focused modules
+ * (e.g., workspace/source-metadata.ts, workspace/builtin-packs.ts) and
+ * composing in service.ts.
+ *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
  */
@@ -478,7 +484,7 @@ const materializeBuiltinPack = (workspaceDir: string, agentIds: ReadonlyArray<st
 const initializeProjectWorkspace = (localDir: string, options: WorkspaceContextOptions) =>
   Effect.gen(function* () {
     // Select agents based on options
-    let selectedAgents: AgentDescriptor[];
+    let selectedAgents: ReadonlyArray<AgentDescriptor>;
 
     // If explicit agents are provided, use those (no detection needed)
     if (Option.isSome(options.agents) && options.agents.value.length > 0) {
@@ -1182,6 +1188,7 @@ const make = (options: WorkspaceContextOptions) =>
             // In non-interactive mode without --yes, preview is display-only (dry-run)
             if (resolvedNonInteractive && !options.yes) {
               return {
+                _tag: "ExecutedPlan",
                 name: augmentedPlan.name,
                 description: augmentedPlan.description,
                 jobs: [],
@@ -1193,6 +1200,7 @@ const make = (options: WorkspaceContextOptions) =>
               if (!confirmed) {
                 yield* log.success("Cancelled.");
                 return {
+                  _tag: "ExecutedPlan",
                   name: augmentedPlan.name,
                   description: augmentedPlan.description,
                   jobs: [],

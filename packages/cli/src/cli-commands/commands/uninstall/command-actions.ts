@@ -16,7 +16,10 @@ import { makeCliError, type CliError } from "../../../cli-error/index.js";
 import { Workspace } from "../../../workspace/service.js";
 import { CommandManager } from "../../../extensions/commands/manager.js";
 import type { Plan } from "../../../workspace/plan.js";
-import type { CommandExtensionTarget } from "../../../workflows/install-operation/index.js";
+import type {
+  CommandExtensionTarget,
+  ExtensionTarget,
+} from "../../../workflows/install-operation/index.js";
 import { buildUninstallOperation } from "../../../workflows/uninstall-operation/index.js";
 import type { UninstallExtensionCommandWorkflowActions } from "../../../workflows/uninstall-command/index.js";
 import type { UninstallCommandCommandIntent } from "./intent.js";
@@ -98,12 +101,10 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
       intent: UninstallCommandCommandIntent,
     ): Effect.Effect<Plan, CliError> => {
       const retentionPolicy = {
-        isRequiredByInstalledPack: (args: {
-          readonly target: { readonly type: string; readonly name: string };
-        }) => ws.isExtensionRequiredByInstalledPack(args.target as never),
-        markDependencyRetainedInLockfile: (args: {
-          readonly target: { readonly type: string; readonly name: string };
-        }) => ws.markDependencyRetainedInLockfile(args.target as never),
+        isRequiredByInstalledPack: (args: { readonly target: ExtensionTarget }) =>
+          ws.isExtensionRequiredByInstalledPack(args.target),
+        markDependencyRetainedInLockfile: (args: { readonly target: ExtensionTarget }) =>
+          ws.markDependencyRetainedInLockfile(args.target),
       };
 
       const steps = intent.targets.map((target) =>
@@ -111,6 +112,7 @@ export const UninstallCommandCommandWorkflowActionsLive = Layer.effect(
       );
 
       return Effect.succeed({
+        _tag: "Plan",
         name: "Uninstall command",
         description: Option.some(
           `Uninstall command ${intent.targets.map((t) => t.name).join(", ")}`,

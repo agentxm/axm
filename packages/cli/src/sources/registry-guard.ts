@@ -5,6 +5,8 @@
  * @packageDocumentation
  */
 
+// TODO: (#36) node:os is a convention violation (CLAUDE.md requires @effect/platform).
+// Could pass home directory as parameter or use a Config service.
 import { homedir } from "node:os";
 import * as Path from "@effect/platform/Path";
 import * as Effect from "effect/Effect";

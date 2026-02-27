@@ -11,7 +11,11 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { makeCliError } from "../../../cli-error/index.js";
-import type { SkillLockEntry } from "../../../lockfile/schema.js";
+import type {
+  SkillLockEntry,
+  CommandLockEntry,
+  McpServerLockEntry,
+} from "../../../lockfile/schema.js";
 import type { OperationHandler } from "../../../workspace/apply-plan.js";
 import type { Operation, OperationResult } from "../../../workspace/plan.js";
 import { Workspace } from "../../../workspace/index.js";
@@ -72,8 +76,10 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
       });
     }
 
-    // Read current configured skills to preserve existing direct entries
+    // Read current configured extensions to preserve existing direct entries
     const currentSkills = yield* ws.getConfiguredSkills();
+    const currentCommands = yield* ws.getConfiguredCommands();
+    const currentMcpServers = yield* ws.getConfiguredMcpServers();
 
     // Add resolved skills as direct entries (only if not already present)
     // Use the short name from the FQN as the settings key since SkillsMapSchema
@@ -103,12 +109,63 @@ export const unpackPack: OperationHandler<UnpackPackOperation, Workspace> = (op)
       { concurrency: 1 },
     );
 
+    // Add resolved commands as direct entries
+    yield* Effect.forEach(
+      Object.entries(entry.resolvedCommands),
+      ([commandFqn, version]) =>
+        Effect.gen(function* () {
+          const parsed = yield* parseFqn(commandFqn);
+          if (parsed.name in currentCommands) return;
+          yield* ws.setCommand({
+            name: parsed.name,
+            lockEntry: {
+              type: "registry",
+              namespace: parsed.namespace,
+              name: parsed.name,
+              resolvedVersion: version,
+              integrity: "",
+              sourceName: entry.sourceName,
+              installedAt: new Date(),
+              updatedAt: new Date(),
+            } satisfies CommandLockEntry,
+          });
+        }),
+      { concurrency: 1 },
+    );
+
+    // Add resolved MCP servers as direct entries
+    yield* Effect.forEach(
+      Object.entries(entry.resolvedMcpServers),
+      ([mcpServerFqn, version]) =>
+        Effect.gen(function* () {
+          const parsed = yield* parseFqn(mcpServerFqn);
+          if (parsed.name in currentMcpServers) return;
+          yield* ws.setMcpServer({
+            name: parsed.name,
+            lockEntry: {
+              type: "registry",
+              namespace: parsed.namespace,
+              name: parsed.name,
+              resolvedVersion: version,
+              integrity: "",
+              sourceName: entry.sourceName,
+              installedAt: new Date(),
+              updatedAt: new Date(),
+            } satisfies McpServerLockEntry,
+          });
+        }),
+      { concurrency: 1 },
+    );
+
     // Remove the pack entry from settings and lockfile
     yield* ws.removePack(op.args.name);
 
     const skillCount = Object.keys(entry.resolvedSkills).length;
+    const commandCount = Object.keys(entry.resolvedCommands).length;
+    const mcpServerCount = Object.keys(entry.resolvedMcpServers).length;
+    const totalCount = skillCount + commandCount + mcpServerCount;
     return {
       result: "success",
-      message: `Unpacked ${op.args.name}: ${skillCount} skill(s) promoted to direct entries`,
+      message: `Unpacked ${op.args.name}: ${totalCount} extension(s) promoted to direct entries`,
     } satisfies OperationResult;
   });

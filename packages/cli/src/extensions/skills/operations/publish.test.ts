@@ -27,7 +27,8 @@ const withServices = (axmDir: string, registryRoot: string) => {
     baseDir: path.dirname(axmDir),
     nonInteractive: true,
     preview: false,
-    resolvePlan: () => Effect.succeed({ name: "mock", description: Option.none(), jobs: [] }),
+    resolvePlan: () =>
+      Effect.succeed({ _tag: "ExecutedPlan", name: "mock", description: Option.none(), jobs: [] }),
     getConfiguredSources: () => Effect.succeed([registrySource]),
     getConfiguredSourceByName: (name: string) =>
       Effect.succeed(name === "local" ? Option.some(registrySource) : Option.none()),

@@ -102,6 +102,8 @@ describe("installPack operation handler", () => {
   let tempDir: string;
   let originalCwd: string;
 
+  // process.chdir is needed because workspace layer resolves .axm via process.cwd().
+  // WorkspaceContextOptions has no `cwd` parameter. See finding #49.
   beforeEach(() => {
     originalCwd = process.cwd();
     tempDir = fs.mkdtempSync(nodePath.join(os.tmpdir(), "install-pack-op-test-"));
@@ -109,8 +111,11 @@ describe("installPack operation handler", () => {
   });
 
   afterEach(() => {
-    process.chdir(originalCwd);
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    try {
+      process.chdir(originalCwd);
+    } finally {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   const makeLayers = (mockService: SourceHostProvidersService) => {
@@ -168,7 +173,7 @@ describe("installPack operation handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        const result = yield* installPack(op).pipe(Effect.scoped);
+        const result = yield* installPack(op);
         expect(result.result).toBe("success");
 
         // Verify fetch was called with the ref
@@ -202,7 +207,7 @@ describe("installPack operation handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        const result = yield* installPack(op).pipe(Effect.scoped);
+        const result = yield* installPack(op);
         expect(result.result).toBe("success");
 
         // Verify lockfile was updated
@@ -248,7 +253,7 @@ describe("installPack operation handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        const result = yield* installPack(op).pipe(Effect.scoped);
+        const result = yield* installPack(op);
         expect(result.result).toBe("success");
 
         const axmDir = nodePath.join(tempDir, ".axm");
@@ -294,7 +299,7 @@ describe("installPack operation handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        const result = yield* installPack(op).pipe(Effect.scoped);
+        const result = yield* installPack(op);
         expect(result.result).toBe("error");
         if (result.result === "error") {
           expect(result.error.code).toBe("LOCKFILE_RESOLVED_VERSION_INVALID");
@@ -323,7 +328,7 @@ describe("installPack operation handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        const result = yield* installPack(op).pipe(Effect.scoped);
+        const result = yield* installPack(op);
         expect(result.result).toBe("error");
         expect(result.message).toContain("Failed to install pack");
       }),

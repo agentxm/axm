@@ -23,12 +23,20 @@ export * from "./legacy-prompt.js";
 export { runTasks, type ClackTask } from "./tasks.js";
 
 // Legacy aliases for migration compatibility
+
+/** @deprecated Use {@link ClackLog} instead. */
 export const Log = ClackLog;
+/** @deprecated Use {@link ClackLog} instead. */
 export type Log = ClackLog;
+/** @deprecated Use {@link ClackLogService} instead. */
 export type LogService = ClackLogService;
+/** @deprecated Use {@link ClackSpinner} instead. */
 export const Spinner = ClackSpinner;
+/** @deprecated Use {@link ClackSpinner} instead. */
 export type Spinner = ClackSpinner;
+/** @deprecated Use {@link ClackSpinnerService} instead. */
 export type SpinnerService = ClackSpinnerService;
+/** @deprecated Use {@link ClackPromptBehavior} instead. */
 export type PromptBehavior = ClackPromptBehavior;
 
 // Merged convenience layer

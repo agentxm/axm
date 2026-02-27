@@ -6,14 +6,24 @@
  * The live layer captures all required services at construction time
  * so action methods satisfy the `R = never` contract.
  *
+ * TODO: (#54) This file shares nearly identical structure with
+ * skills/install/command-actions.ts, mcp-servers/install/command-actions.ts,
+ * and skills/uninstall/command-actions.ts (layer construction, provide helper,
+ * parseArgs, plan building). Consider a generic factory parameterized by
+ * extension type.
+ *
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as FileSystem from "@effect/platform/FileSystem";
+import * as Path from "@effect/platform/Path";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { ClackPrompt } from "../../../clack-effect/index.js";
 import { makeCliError, type CliError } from "../../../cli-error/index.js";
+import type { PromptCancelled } from "../../../prompt-cancelled.js";
 import {
   parseInputPattern,
   resolveSource,
@@ -94,17 +104,27 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
     const sources = yield* SourceHostProviders;
     const ws = yield* Workspace;
     const commandMgr = yield* CommandManager;
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const prompt = yield* ClackPrompt;
 
     // Build a service layer to provide to inner effects that still require
     // services via the Effect context (e.g. registryGuard, resolveSource).
     const envLayer = Layer.mergeAll(
       Layer.succeed(SourceHostProviders, sources),
       Layer.succeed(Workspace, ws),
+      Layer.succeed(FileSystem.FileSystem, fs),
+      Layer.succeed(Path.Path, path),
+      Layer.succeed(ClackPrompt, prompt),
     );
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bridging service requirements to R=never
-    const provide = <A>(effect: Effect.Effect<A, any, any>): Effect.Effect<A, CliError, never> =>
-      Effect.provide(effect, envLayer) as Effect.Effect<A, CliError, never>;
+    const provide = <A, E>(
+      effect: Effect.Effect<
+        A,
+        E,
+        SourceHostProviders | Workspace | FileSystem.FileSystem | Path.Path | ClackPrompt
+      >,
+    ): Effect.Effect<A, E, never> => Effect.provide(effect, envLayer);
 
     const parseArgs = (
       args: InstallCommandHandlerArgs,
@@ -163,7 +183,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
 
     const resolveSourceRequests = (
       parsed: ParsedCommandInstallArgs,
-    ): Effect.Effect<ReadonlyArray<CommandInstallSourceRequest>, CliError> =>
+    ): Effect.Effect<ReadonlyArray<CommandInstallSourceRequest>, CliError | PromptCancelled> =>
       provide(
         Effect.gen(function* () {
           const source = yield* resolveSource(parsed.resolvedInput).pipe(
@@ -203,7 +223,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
     const discoverRefs = (
       reqs: ReadonlyArray<CommandInstallSourceRequest>,
     ): Effect.Effect<ReadonlyArray<CommandExtensionRef>, CliError> =>
-      provide(
+      Effect.scoped(
         Effect.gen(function* () {
           const allRefs = yield* Effect.forEach(
             reqs,
@@ -253,6 +273,7 @@ export const InstallCommandCommandWorkflowActionsLive = Layer.effect(
 
     const buildPlan = (intent: InstallCommandCommandIntent): Effect.Effect<Plan, CliError> =>
       Effect.succeed({
+        _tag: "Plan",
         name: "Install command",
         description: Option.some(`Install command ${intent.ref.command.name}`),
         jobs: [
